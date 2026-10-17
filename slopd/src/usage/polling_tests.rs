@@ -86,7 +86,7 @@ async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles
             },
         );
     }
-    // Keep the normal cadence above the Anthropic floor even with implicit rows.
+    // Keep the normal cadence above the Anthropic floor.
     config.daemon.usage_poll_secs = 600;
     let mut pollers = UsagePollers::new();
     pollers.providers[0].poller.interval = Some(600);
@@ -205,4 +205,105 @@ fn credential_renewal_shortens_only_an_established_failure_delay() {
         "successful polling keeps its cadence after renewal"
     );
     std::fs::remove_dir_all(fixture).unwrap();
+}
+
+#[tokio::test]
+async fn missing_credentials_hide_rows_and_restored_credentials_recover_them() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let path = root.join("claude.json");
+    let mut config = crate::config::Daemon {
+        claude_credentials: path.to_str().unwrap().into(),
+        ..Default::default()
+    };
+    config.usage_items.insert(
+        CLAUDE_SESSION.into(),
+        crate::config::UsageItem {
+            poll: true,
+            interval_secs: None,
+        },
+    );
+    fn fetch_ok(
+        _: super::super::providers::ProviderCredentials,
+    ) -> Result<super::super::providers::ProviderResponse, super::super::providers::PollErr> {
+        Ok(super::super::providers::ProviderResponse {
+            body: serde_json::json!({"five_hour":{"utilization":37}}),
+            plan: None,
+        })
+    }
+    fn fetch_offline(
+        _: super::super::providers::ProviderCredentials,
+    ) -> Result<super::super::providers::ProviderResponse, super::super::providers::PollErr> {
+        Err(super::super::providers::PollErr::new("offline"))
+    }
+    let mut provider = Provider {
+        source: "anthropic",
+        poller: Poller::new("Anthropic", Instant::now()),
+        read: read_anthropic,
+        fetch: fetch_ok,
+        parse: parse_anthropic,
+    };
+    async fn poll(provider: &mut Provider, config: &crate::config::Daemon) -> Snapshot {
+        provider.poller.due = Instant::now();
+        poll_one(provider, config, Instant::now(), 300).await;
+        merge([("anthropic", &provider.poller.snap)], config)
+    }
+    let missing = poll(&mut provider, &config).await;
+    assert!(missing.sources.is_empty());
+    assert!(!missing.rows.iter().any(|row| row.provider == "anthropic"));
+    assert!(
+        missing
+            .catalog
+            .iter()
+            .any(|row| row.provider == "anthropic")
+    );
+
+    let credentials = r#"{"claudeAiOauth":{"accessToken":"token"}}"#;
+    std::fs::write(&path, credentials).unwrap();
+    let good = poll(&mut provider, &config).await;
+    assert!(good.ok);
+    assert_eq!(good.windows.len(), 1);
+    assert!(
+        good.rows
+            .iter()
+            .any(|row| row.key == CLAUDE_SESSION && row.poll)
+    );
+
+    std::fs::remove_file(&path).unwrap();
+    let removed = poll(&mut provider, &config).await;
+    assert!(removed.windows.is_empty());
+    assert!(!removed.rows.iter().any(|row| row.provider == "anthropic"));
+    assert_eq!(provider.poller.snap.windows, good.windows);
+
+    std::fs::write(&path, credentials).unwrap();
+    provider.fetch = fetch_offline;
+    let stale = poll(&mut provider, &config).await;
+    assert_eq!(stale.windows, good.windows);
+    assert_eq!(stale.failed_sources, ["anthropic"]);
+    assert!(
+        stale
+            .rows
+            .iter()
+            .any(|row| row.key == CLAUDE_SESSION && row.stale)
+    );
+
+    provider.fetch = fetch_ok;
+    let recovered = poll(&mut provider, &config).await;
+    assert!(recovered.ok);
+    assert!(recovered.failed_sources.is_empty());
+}
+
+#[tokio::test]
+async fn default_configuration_does_not_poll_any_provider() {
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let mut pollers = UsagePollers::new();
+    for provider in &mut pollers.providers {
+        provider.read = |_| panic!("disabled polling must not read credentials");
+    }
+    assert_eq!(pollers.poll_once(&manager).await, LOOK);
+    let published = manager.usage().await;
+    assert!(published.sources.is_empty());
+    assert!(published.windows.is_empty());
+    assert!(published.rows.iter().all(|row| !row.poll));
 }

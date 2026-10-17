@@ -15,8 +15,7 @@ namespace SlopWorld
 
         const float ClockIconSize = 18f;
 
-        // Twice the daemon's default poll and then some: one missed poll is nothing, a
-        // minute of silence is the socket being down.
+        // Fallback age warning when provider-local status is unavailable.
         const float StaleAfter = 150f;
 
         static PeriodicWork ClockSample;

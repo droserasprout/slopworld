@@ -8,59 +8,28 @@ use super::{
 
 pub fn catalog() -> Vec<CatalogEntry> {
     [
-        (
-            CLAUDE_SESSION,
-            "Claude session",
-            "anthropic",
-            Unit::Pct,
-            0,
-            true,
-        ),
-        (
-            CLAUDE_WEEK,
-            "Claude weekly",
-            "anthropic",
-            Unit::Pct,
-            1,
-            true,
-        ),
-        (
-            OPENAI_SESSION,
-            "OpenAI session",
-            "openai",
-            Unit::Pct,
-            2,
-            true,
-        ),
-        (OPENAI_WEEK, "OpenAI weekly", "openai", Unit::Pct, 3, true),
+        (CLAUDE_SESSION, "Claude session", "anthropic", Unit::Pct, 0),
+        (CLAUDE_WEEK, "Claude weekly", "anthropic", Unit::Pct, 1),
+        (OPENAI_SESSION, "OpenAI session", "openai", Unit::Pct, 2),
+        (OPENAI_WEEK, "OpenAI weekly", "openai", Unit::Pct, 3),
         (
             OPENROUTER_BALANCE,
             "OpenRouter balance",
             "openrouter",
             Unit::Usd,
             4,
-            false,
         ),
-        (
-            CLAUDE_SPEND,
-            "Claude balance",
-            "anthropic",
-            Unit::Pct,
-            5,
-            true,
-        ),
+        (CLAUDE_SPEND, "Claude balance", "anthropic", Unit::Pct, 5),
     ]
     .into_iter()
-    .map(
-        |(key, label, provider, unit, rank, default_poll)| CatalogEntry {
-            key: key.into(),
-            label: label.into(),
-            provider: provider.into(),
-            unit,
-            rank,
-            default_poll,
-        },
-    )
+    .map(|(key, label, provider, unit, rank)| CatalogEntry {
+        key: key.into(),
+        label: label.into(),
+        provider: provider.into(),
+        unit,
+        rank,
+        default_poll: false,
+    })
     .collect()
 }
 
@@ -76,20 +45,6 @@ pub(super) fn source_for_key(key: &str) -> Option<&'static str> {
     }
 }
 
-fn default_source_enabled(source: &str) -> bool {
-    matches!(source, "anthropic" | "openai")
-}
-
-fn catalog_entry(key: &str) -> Option<CatalogEntry> {
-    catalog().into_iter().find(|entry| entry.key == key)
-}
-
-fn default_poll(key: &str, source: &str) -> bool {
-    catalog_entry(key)
-        .map(|entry| entry.default_poll)
-        .unwrap_or_else(|| default_source_enabled(source))
-}
-
 pub(super) fn item_enabled(d: &crate::config::Daemon, source: &str, key: &str) -> bool {
     if source_for_key(key) != Some(source) {
         return false;
@@ -97,22 +52,14 @@ pub(super) fn item_enabled(d: &crate::config::Daemon, source: &str, key: &str) -
     d.usage_items
         .get(key)
         .map(|item| item.poll)
-        .unwrap_or_else(|| default_poll(key, source))
+        .unwrap_or(false)
 }
 
-/// Once a table exists for a provider, turning every row off also turns the provider off. This
-/// avoids keeping credentials and network polling alive for a table that visibly has no rows.
+/// Providers poll only when at least one of their rows is explicitly enabled.
 pub(super) fn provider_enabled(d: &crate::config::Daemon, source: &str) -> bool {
-    let rows: Vec<_> = d
-        .usage_items
+    d.usage_items
         .iter()
-        .filter(|(key, _)| source_for_key(key) == Some(source))
-        .collect();
-    if rows.is_empty() {
-        default_source_enabled(source)
-    } else {
-        rows.iter().any(|(_, item)| item.poll)
-    }
+        .any(|(key, item)| source_for_key(key) == Some(source) && item.poll)
 }
 
 pub(super) fn resolved_catalog(windows: &[Window]) -> Vec<CatalogEntry> {
@@ -129,7 +76,7 @@ pub(super) fn resolved_catalog(windows: &[Window]) -> Vec<CatalogEntry> {
             provider: provider.into(),
             unit: window.unit,
             rank,
-            default_poll: true,
+            default_poll: false,
         });
     }
     entries.sort_by_key(|entry| entry.rank);
@@ -139,13 +86,7 @@ pub(super) fn resolved_catalog(windows: &[Window]) -> Vec<CatalogEntry> {
 pub(super) fn resolve_rows(snapshot: &Snapshot, d: &crate::config::Daemon) -> Vec<UsageRow> {
     let mut rows = Vec::new();
     for entry in &snapshot.catalog {
-        // A partial usage table disables the provider as a whole. Do not leave the other
-        // catalog entries looking pollable when their implicit defaults outlive that switch.
-        let poll = provider_enabled(d, &entry.provider)
-            && d.usage_items
-                .get(&entry.key)
-                .map(|item| item.poll)
-                .unwrap_or(entry.default_poll);
+        let poll = item_enabled(d, &entry.provider, &entry.key);
         let window = snapshot
             .windows
             .iter()

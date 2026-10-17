@@ -14,9 +14,16 @@ timestamps after failure. Cadence changes do not erase failure backoff. Claude's
 credential-file modification can shorten its failure delay; Codex credentials are
 not watched that way. Unknown upstream shapes are errors rather than invented values.
 
-Rows resolve between network polls. An explicit provider row table disables that
-provider when all configured rows are off. Enabled sources without data get
-placeholders; after a valid partial table, omitted windows are inapplicable rather
+Missing credential files, absent tokens, and empty keys hide that provider's readout,
+including retained values, until a later poll reads credentials. Malformed files,
+expired logins, and request failures keep the existing stale-data behavior. The
+catalog remains available in settings regardless of credential availability.
+
+Polling defaults to off for every row, including discovered windows. The global
+interval defaults to 120 seconds before provider minimums. A provider runs only
+while at least one of its rows is explicitly enabled. Rows resolve between network
+polls. Enabled sources without data get placeholders; after a valid partial table,
+omitted windows are inapplicable rather
 than missing-data placeholders. One request can provide several windows; polling
 uses the fastest effective enabled interval within provider cache/rate limits.
 

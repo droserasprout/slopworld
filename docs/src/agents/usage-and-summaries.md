@@ -24,12 +24,14 @@ agents, though the Pi preset forwards `OPENROUTER_API_KEY` when set.
 
 Open **Settings > Integrations > Usage** to choose which quota windows and balances
 to poll. Each row has a poll toggle and an optional interval; leave the interval
-blank to use the global value. You can also change the row's name and icon.
+blank to use the global value, which defaults to 120 seconds. Provider minimum
+intervals still apply. Polling starts disabled for every row. You can also change
+the row's name and icon.
 
 | Provider | Available usage | Default |
 | --- | --- | --- |
-| Anthropic | Session and weekly windows, Claude balance | Enabled |
-| OpenAI / Codex | Account windows; free plans may expose only weekly usage | Enabled |
+| Anthropic | Session and weekly windows, Claude balance | Disabled |
+| OpenAI / Codex | Account windows; free plans may expose only weekly usage | Disabled |
 | OpenRouter | Balance | Disabled; enable `openrouter_balance` |
 
 ## Prompt summaries

@@ -93,3 +93,25 @@ fn root_edits_reject_inline_sections_even_when_empty_and_malformed_settings() {
     assert!(document::replace(&old, "[daemon]\ntoken = false").is_err());
     assert!(document::patch(&old, "", toml::Value::Boolean(false)).is_err());
 }
+
+#[test]
+fn usage_defaults_are_opt_in_with_a_two_minute_interval() {
+    let defaults = crate::config::Daemon::default();
+    assert_eq!(defaults.usage_poll_secs, 120);
+    assert!(defaults.usage_items.is_empty());
+    let omitted: crate::config::Daemon = serde_json::from_value(serde_json::json!({
+        "bind": "127.0.0.1:7717",
+        "usage_items": {"claude_session": {"interval_secs": 600}}
+    }))
+    .unwrap();
+    assert_eq!(omitted.usage_poll_secs, 120);
+    assert!(!omitted.usage_items["claude_session"].poll);
+    let explicit: crate::config::Daemon = serde_json::from_value(serde_json::json!({
+        "bind": "127.0.0.1:7717",
+        "usage_poll_secs": 60,
+        "usage_items": {"claude_session": {"poll": true}}
+    }))
+    .unwrap();
+    assert_eq!(explicit.usage_poll_secs, 60);
+    assert!(explicit.usage_items["claude_session"].poll);
+}

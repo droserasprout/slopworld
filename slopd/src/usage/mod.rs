@@ -88,6 +88,9 @@ pub struct UsageRow {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Snapshot {
+    /// Internal provider state. Publication omits sources lacking configured credentials.
+    #[serde(skip)]
+    pub credentials_missing: bool,
     /// If false, `windows` retains the last successful poll results.
     /// This preserves previous values during network failures.
     pub ok: bool,
@@ -99,9 +102,8 @@ pub struct Snapshot {
     pub fetched_ms: u64,
     /// Last successful poll per provider, preserved when its values survive a failed poll.
     pub source_fetched_ms: HashMap<String, u64>,
-    /// Enabled providers, including those without responses.
-    /// The mod keeps a row for each expected resource.
-    /// Unavailable sources keep their icons without values so the display layout remains stable.
+    /// Enabled providers with credentials, including those without responses.
+    /// Failed requests keep placeholder icons; missing credentials hide the provider.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sources: Vec<String>,
     /// Enabled sources whose last poll failed.
@@ -139,6 +141,7 @@ impl Snapshot {
 impl Default for Snapshot {
     fn default() -> Self {
         Self {
+            credentials_missing: false,
             ok: false,
             error: None,
             plan: String::new(),

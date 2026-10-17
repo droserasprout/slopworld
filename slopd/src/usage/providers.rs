@@ -4,6 +4,7 @@ use crate::clock::unix_ms;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
+use anyhow::Context;
 use serde_json::Value;
 use ureq::{RequestBuilder, typestate::WithoutBody};
 
@@ -60,6 +61,25 @@ pub(super) enum ProviderCredentials {
     OpenAi(OpenAiCreds),
 }
 
+/// Missing credentials suppress the readout; malformed files and expired logins remain errors.
+#[derive(Debug)]
+struct MissingCredentials(String);
+
+impl std::fmt::Display for MissingCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for MissingCredentials {}
+
+pub(super) fn credentials_missing(error: &anyhow::Error) -> bool {
+    error.downcast_ref::<MissingCredentials>().is_some()
+        || error
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+}
+
 /// Retry a failed JSON parse once after 50 ms.
 /// Sandboxed Claude cannot rename a file over the shared credential bind mount.
 /// It can instead truncate and rewrite the host inode, which temporarily leaves invalid JSON.
@@ -83,15 +103,15 @@ fn read_anthropic_creds_with_retry(
 }
 
 pub(super) fn read_anthropic_creds_once(path: &PathBuf) -> anyhow::Result<AnthropicCreds> {
-    let text =
-        std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+    let text = std::fs::read_to_string(path).with_context(|| path.display().to_string())?;
     let v: Value = serde_json::from_str(&text)?;
     let o = v.get("claudeAiOauth").unwrap_or(&Value::Null);
 
     let token = o
         .get("accessToken")
         .and_then(Value::as_str)
-        .ok_or_else(|| anyhow::anyhow!("no OAuth token in {}", path.display()))?
+        .filter(|token| !token.trim().is_empty())
+        .ok_or_else(|| MissingCredentials(format!("no OAuth token in {}", path.display())))?
         .to_string();
 
     if let Some(why) = expiry_error(
@@ -114,15 +134,16 @@ pub(super) fn read_anthropic_creds_once(path: &PathBuf) -> anyhow::Result<Anthro
 }
 
 pub(super) fn read_openai_creds(path: &PathBuf) -> anyhow::Result<OpenAiCreds> {
-    let text =
-        std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+    let text = std::fs::read_to_string(path).with_context(|| path.display().to_string())?;
     let v: Value = serde_json::from_str(&text)?;
     let token = v
         .get("tokens")
         .and_then(|tokens| tokens.get("access_token"))
         .and_then(Value::as_str)
-        .filter(|v| !v.is_empty())
-        .ok_or_else(|| anyhow::anyhow!("no ChatGPT access token in {}", path.display()))?
+        .filter(|v| !v.trim().is_empty())
+        .ok_or_else(|| {
+            MissingCredentials(format!("no ChatGPT access token in {}", path.display()))
+        })?
         .to_string();
     let account_id = v
         .get("tokens")
@@ -260,18 +281,18 @@ pub(super) fn read_openrouter_key(file: &str) -> anyhow::Result<String> {
     if file.trim().is_empty() {
         let key = env::var(OPENROUTER_KEY_ENV).unwrap_or_default();
         if key.trim().is_empty() {
-            anyhow::bail!(
+            return Err(MissingCredentials(format!(
                 "${OPENROUTER_KEY_ENV} is missing from slopd's environment. Export it or specify a key file."
-            );
+            )).into());
         }
         return Ok(key.trim().to_string());
     }
 
     let path = crate::config::expand(file);
-    let text = std::fs::read_to_string(&path).map_err(|e| anyhow::anyhow!("{path}: {e}"))?;
+    let text = std::fs::read_to_string(&path).with_context(|| path.clone())?;
     let key = text.trim();
     if key.is_empty() {
-        anyhow::bail!("{path} holds no key");
+        return Err(MissingCredentials(format!("{path} holds no key")).into());
     }
     Ok(key.to_string())
 }

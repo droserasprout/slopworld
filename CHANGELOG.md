@@ -17,9 +17,14 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
-- Terminal: Hide built-in breadcrumbs when Grandma's visiting.
 - Jukebox: Fixed stream idle timeout regression after ureq upgrade.
 - Sandbox: Fixed missing bind paths in rust-cache preset.
+- Terminal: Hide built-in breadcrumbs when Grandma's visiting.
+- UI: Hide usage indicators in statusbar if API keys are not set.
+
+### Changed
+
+- Settings: Set default Usage polling interval to 120s and disable by default.
 
 ## [0.0.4] - 2026-10-15
 

@@ -388,3 +388,49 @@ fn retry_after_parses_seconds_and_http_dates() {
     assert_eq!(parse_retry_after("not a retry delay", now), None);
     assert_eq!(parse_retry_after("999999", now), Some(6 * 3600));
 }
+
+#[test]
+fn missing_credentials_are_distinct_from_invalid_or_expired_credentials() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let path = root.join("credentials");
+    let config = crate::config::Daemon {
+        claude_credentials: path.to_str().unwrap().into(),
+        openai_credentials: path.to_str().unwrap().into(),
+        openrouter_key_file: path.to_str().unwrap().into(),
+        ..Default::default()
+    };
+    for read in [read_anthropic as ReadProvider, read_openai, read_openrouter] {
+        let error = read(&config).err().unwrap();
+        assert!(credentials_missing(&error));
+    }
+    for value in [
+        json!({}),
+        json!({"claudeAiOauth":{"accessToken":"  "},"tokens":{"access_token":"  "}}),
+    ] {
+        std::fs::write(&path, value.to_string()).unwrap();
+        for read in [read_anthropic as ReadProvider, read_openai] {
+            assert!(credentials_missing(&read(&config).err().unwrap()));
+        }
+    }
+    std::fs::write(&path, " \n").unwrap();
+    assert!(credentials_missing(
+        &read_openrouter(&config).err().unwrap()
+    ));
+    crate::test_support::set_env(OPENROUTER_KEY_ENV, "");
+    assert!(credentials_missing(&read_openrouter_key("").unwrap_err()));
+
+    std::fs::write(&path, "not json").unwrap();
+    for read in [read_anthropic as ReadProvider, read_openai] {
+        assert!(!credentials_missing(&read(&config).err().unwrap()));
+    }
+    std::fs::write(
+        &path,
+        json!({"claudeAiOauth":{"accessToken":"token","expiresAt":1}}).to_string(),
+    )
+    .unwrap();
+    assert!(!credentials_missing(
+        &read_anthropic(&config).err().unwrap()
+    ));
+}

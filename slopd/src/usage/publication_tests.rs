@@ -48,7 +48,7 @@ fn sources_merge_into_one_list() {
     );
     let m = merge(
         [("anthropic", &a), ("openrouter", &c), ("openai", &o)],
-        &crate::config::Daemon::default(),
+        &enabled_daemon(),
     );
     assert!(m.ok);
     assert_eq!(m.windows.len(), a.windows.len() + 2);
@@ -69,7 +69,7 @@ fn one_source_down_keeps_the_others_rows() {
             ("openrouter", &c),
             ("openai", &Snapshot::default()),
         ],
-        &crate::config::Daemon::default(),
+        &enabled_daemon(),
     );
     assert!(!m.ok);
     assert_eq!(m.windows.len(), a.windows.len());
@@ -83,7 +83,7 @@ fn one_source_down_keeps_the_others_rows() {
             ("openrouter", &Snapshot::default()),
             ("openai", &Snapshot::default()),
         ],
-        &crate::config::Daemon::default(),
+        &enabled_daemon(),
     );
     assert!(only.ok);
     assert_eq!(only.windows, a.windows);
@@ -97,10 +97,10 @@ fn empty_snapshots_publish_enabled_placeholders_and_disabled_editable_rows() {
         ("openrouter", &empty),
         ("openai", &empty),
     ];
-    let mut config = crate::config::Daemon::default();
+    let mut config = enabled_daemon();
     let pending = merge(parts, &config);
     assert!(!pending.ok);
-    assert_eq!(pending.sources, ["anthropic", "openai"]);
+    assert_eq!(pending.sources, ["anthropic", "openrouter", "openai"]);
     assert!(
         pending
             .rows
@@ -159,7 +159,7 @@ fn merged_usage_preserves_each_providers_last_good_timestamp() {
     };
     let merged = merge(
         [("anthropic", &failed), ("openai", &fresh)],
-        &crate::config::Daemon::default(),
+        &enabled_daemon(),
     );
     assert_eq!(merged.source_fetched_ms["anthropic"], 42);
     assert_eq!(merged.source_fetched_ms["openai"], 99);
@@ -173,7 +173,7 @@ fn valid_openai_response_omits_non_applicable_session_row() {
             )
             .unwrap(),
         );
-    let merged = merge([("openai", &openai)], &crate::config::Daemon::default());
+    let merged = merge([("openai", &openai)], &enabled_daemon());
 
     assert!(
         merged
@@ -182,4 +182,44 @@ fn valid_openai_response_omits_non_applicable_session_row() {
             .any(|row| row.key == OPENAI_WEEK && row.window.is_some())
     );
     assert!(!merged.rows.iter().any(|row| row.key == OPENAI_SESSION));
+}
+
+#[test]
+fn missing_credentials_hide_only_the_affected_provider_and_keep_its_catalog() {
+    let healthy = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
+    let missing = Snapshot {
+        credentials_missing: true,
+        ..Snapshot::failed(&Snapshot::default(), "missing credentials")
+    };
+    let merged = merge(
+        [("anthropic", &healthy), ("openai", &missing)],
+        &enabled_daemon(),
+    );
+    assert!(merged.ok);
+    assert_eq!(merged.windows, healthy.windows);
+    assert_eq!(merged.sources, ["anthropic"]);
+    assert!(merged.failed_sources.is_empty());
+    assert!(merged.error.is_none());
+    assert!(!merged.rows.iter().any(|row| row.provider == "openai"));
+    assert!(
+        merged
+            .rows
+            .iter()
+            .any(|row| row.provider == "anthropic" && row.poll)
+    );
+    assert!(merged.catalog.iter().any(|row| row.provider == "openai"));
+}
+
+fn enabled_daemon() -> crate::config::Daemon {
+    let mut config = crate::config::Daemon::default();
+    for entry in crate::usage::catalog() {
+        config.usage_items.insert(
+            entry.key,
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: None,
+            },
+        );
+    }
+    config
 }

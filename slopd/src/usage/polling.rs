@@ -2,8 +2,8 @@
 use super::Snapshot;
 use super::parsing::{parse_anthropic, parse_openai_response, parse_openrouter};
 use super::providers::{
-    FetchProvider, ParseProvider, ReadProvider, fetch_anthropic, fetch_openai, fetch_openrouter,
-    read_anthropic, read_openai, read_openrouter,
+    FetchProvider, ParseProvider, ReadProvider, credentials_missing, fetch_anthropic, fetch_openai,
+    fetch_openrouter, read_anthropic, read_openai, read_openrouter,
 };
 use super::publication::{merge, report_poll};
 use super::rows::provider_enabled;
@@ -81,7 +81,9 @@ async fn poll_one(provider: &mut Provider, d: &crate::config::Daemon, now: Insta
         return;
     }
 
-    let prev = provider.poller.snap.clone();
+    let mut prev = provider.poller.snap.clone();
+    // A restored credential makes retained values visible even if the request then fails.
+    prev.credentials_missing = false;
     let config = d.clone();
     let read = provider.read;
     let fetch = provider.fetch;
@@ -89,7 +91,11 @@ async fn poll_one(provider: &mut Provider, d: &crate::config::Daemon, now: Insta
     let (next, asked) = settle_join(
         &provider.poller.snap,
         tokio::task::spawn_blocking(move || match read(&config) {
-            Err(e) => (Snapshot::failed(&prev, e), None),
+            Err(e) => {
+                let mut next = Snapshot::failed(&prev, format!("{e:#}"));
+                next.credentials_missing = credentials_missing(&e);
+                (next, None)
+            }
             Ok(creds) => match fetch(creds) {
                 Err(e) => {
                     let asked = e.retry_after;

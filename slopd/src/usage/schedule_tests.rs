@@ -93,7 +93,14 @@ fn polling_failure_backoff_recovers_and_disabling_resets_schedules() {
 
 #[test]
 fn row_schedule_retains_values_until_due_and_expires_missing_windows() {
-    let daemon = crate::config::Daemon::default();
+    let mut daemon = crate::config::Daemon::default();
+    daemon.usage_items.insert(
+        CLAUDE_SESSION.into(),
+        crate::config::UsageItem {
+            poll: true,
+            interval_secs: None,
+        },
+    );
     let mut poller = Poller::new("Anthropic", Instant::now());
     let now = Instant::now();
     let interval = Duration::from_secs(item_interval(&daemon, "anthropic", CLAUDE_SESSION));
@@ -168,7 +175,7 @@ fn shorter_intervals_refresh_immediately_and_disabled_rows_clear_schedules() {
 }
 
 #[test]
-fn implicit_enabled_windows_participate_in_provider_cadence() {
+fn only_explicitly_enabled_windows_participate_in_provider_cadence() {
     let mut daemon = crate::config::Daemon {
         usage_poll_secs: 300,
         ..Default::default()
@@ -181,10 +188,18 @@ fn implicit_enabled_windows_participate_in_provider_cadence() {
         },
     );
     let mut poller = Poller::new("Anthropic", Instant::now());
-    assert_eq!(provider_interval(&daemon, "anthropic", &poller), 300);
+    assert_eq!(provider_interval(&daemon, "anthropic", &poller), 900);
     poller.snap = parse(
         &serde_json::json!({"five_hour":{"utilization":10},"seven_day":{"utilization":20}}),
         "max".into(),
+    );
+    assert_eq!(provider_interval(&daemon, "anthropic", &poller), 900);
+    daemon.usage_items.insert(
+        CLAUDE_WEEK.into(),
+        crate::config::UsageItem {
+            poll: true,
+            interval_secs: None,
+        },
     );
     assert_eq!(provider_interval(&daemon, "anthropic", &poller), 300);
     daemon.usage_items.insert(

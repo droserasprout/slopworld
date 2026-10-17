@@ -1,13 +1,12 @@
 //! Daemon services, launch defaults, and host application settings.
 
-use super::yes;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Default HTTP listener address.
 pub const DEFAULT_BIND: &str = "127.0.0.1:7717";
 /// Global usage polling interval before provider minimums.
-pub const DEFAULT_USAGE_POLL_SECS: u64 = 60;
+pub const DEFAULT_USAGE_POLL_SECS: u64 = 120;
 /// Claude credential file, expanded when read.
 pub const DEFAULT_CLAUDE_CREDENTIALS: &str = "~/.claude/.credentials.json";
 /// Codex credential file, expanded when read.
@@ -32,7 +31,7 @@ pub struct Daemon {
     #[serde(default = "default_usage_poll")]
     pub usage_poll_secs: u64,
     /// Usage settings for each window. An explicit `interval_secs` overrides only the global interval.
-    /// Source defaults apply until the source has configured rows.
+    /// Polling is disabled until individual rows are explicitly enabled.
     #[serde(default)]
     pub usage_items: BTreeMap<String, UsageItem>,
     /// Credential path; reread for each request to pick up token rotation.
@@ -100,7 +99,7 @@ impl Default for InstructionsCfg {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UsageItem {
     /// Whether this individual usage window should be fetched and displayed.
-    #[serde(default = "yes")]
+    #[serde(default)]
     pub poll: bool,
     /// None inherits the global interval; provider minimums still apply.
     #[serde(default, skip_serializing_if = "Option::is_none")]
