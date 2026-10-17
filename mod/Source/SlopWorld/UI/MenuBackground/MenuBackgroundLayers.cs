@@ -14,18 +14,20 @@ namespace SlopWorld
             internal readonly Vector2 Offset;
             internal readonly float Opacity;
 
-            internal Layer(Texture2D texture, Vector2 offset)
+            internal Layer(Texture2D texture, Vector2 offset, float opacity)
             {
                 Texture = texture;
                 Offset = offset;
-                Opacity = 0.5f;
+                Opacity = opacity;
             }
         }
 
+        // An opaque previous frame plus a half-alpha current frame gives both equal weight
+        // without letting the underlying background dim the pair.
         internal static Layer Get(Texture2D current, int index) =>
             index == 0
-                ? new Layer(MenuBackground.Previous ?? current, -LayerOffset)
-                : new Layer(current, LayerOffset);
+                ? new Layer(MenuBackground.Previous ?? current, -LayerOffset, 1f)
+                : new Layer(current, LayerOffset, 0.5f);
 
         internal static void DrawLayers(Rect rect, Texture texture) =>
             DrawLayers(rect, texture, ScaleMode.StretchToFill, true);

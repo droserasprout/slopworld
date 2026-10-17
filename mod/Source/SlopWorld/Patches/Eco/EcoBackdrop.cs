@@ -92,9 +92,8 @@ namespace SlopWorld
             if (!FitBackdrop(map, tex))
                 return;
 
-            // Two half-alpha layers leave a quarter of the camera contents visible. Establish
-            // opaque black first so revealing the backdrop cannot expose stale contents, while
-            // retaining the original layer weights, dimming, and offset JPEG block grids.
+            // Establish opaque black beneath the shifted layers so their exposed edges cannot
+            // reveal stale camera contents.
             if (_backdropBase == null)
                 _backdropBase = new Material(ShaderDatabase.Transparent)
                 {
