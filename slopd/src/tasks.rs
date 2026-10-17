@@ -52,6 +52,9 @@ pub struct Task {
     pub body: String,
     pub status: Status,
     pub note: Option<String>,
+    /// Accepted updates in commit order, including status-only changes.
+    #[serde(default)]
+    pub history: Vec<TaskUpdate>,
     /// Optional OpenRouter summary for the compact sidebar.
     /// The task body remains the source of truth.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -66,6 +69,18 @@ pub struct Task {
 }
 
 impl Task {
+    fn record_update(&mut self, sender: String, status: Status, note: Option<String>) {
+        self.status = status;
+        self.note = note.clone();
+        self.updated_ms = crate::clock::unix_ms();
+        self.history.push(TaskUpdate {
+            sender,
+            status,
+            note,
+            timestamp_ms: self.updated_ms,
+        });
+    }
+
     fn visible_to(&self, identity: &str) -> bool {
         Self::owns(&self.from_id, identity) || self.recipient_is(identity)
     }
@@ -77,6 +92,14 @@ impl Task {
     fn owns(recorded: &str, identity: &str) -> bool {
         !recorded.is_empty() && recorded == identity
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskUpdate {
+    pub sender: String,
+    pub status: Status,
+    pub note: Option<String>,
+    pub timestamp_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

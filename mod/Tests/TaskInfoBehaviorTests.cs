@@ -98,6 +98,61 @@ namespace SlopWorld.Tests
             Assert.That(absent.WorkerParent, Is.Empty);
         }
 
+        public static void TaskHistoryPreservesOrderStatusOnlyUpdatesAndRepeatedMessages()
+        {
+            var wire = new Wire.Task
+            {
+                Body = "original",
+                Note = "latest",
+                Status = "done",
+            };
+            wire.History.Add(
+                new Wire.TaskUpdate
+                {
+                    Sender = "agent",
+                    Status = "accepted",
+                    TimestampMs = 10,
+                }
+            );
+            wire.History.Add(
+                new Wire.TaskUpdate
+                {
+                    Sender = "agent",
+                    Status = "working",
+                    Note = "first",
+                    TimestampMs = 20,
+                }
+            );
+            wire.History.Add(
+                new Wire.TaskUpdate
+                {
+                    Sender = "agent",
+                    Status = "working",
+                    Note = "first",
+                    TimestampMs = 20,
+                }
+            );
+            wire.History.Add(
+                new Wire.TaskUpdate
+                {
+                    Sender = "agent",
+                    Status = "done",
+                    Note = "latest",
+                    TimestampMs = 30,
+                }
+            );
+            var task = TaskInfo.FromWire(wire);
+            Assert.That(task.History.Count, Is.EqualTo(4));
+            Assert.That(task.History[0].Note, Is.Null);
+            Assert.That(task.History[0].Status, Is.EqualTo(DelegatedTaskStatus.Accepted));
+            Assert.That(task.History[1].Note, Is.EqualTo("first"));
+            Assert.That(task.History[2].Note, Is.EqualTo("first"));
+            Assert.That(task.History[3].Note, Is.EqualTo("latest"));
+            Assert.That(task.History[3].Sender, Is.EqualTo("agent"));
+            Assert.That(task.History[3].TimestampMs, Is.EqualTo(30));
+            Assert.That(TaskInfo.FromWire(new Wire.Task()).History, Is.Empty);
+        }
+
         public static void DirectionAndCounterpartDistinguishHostAndAgentMail()
         {
             var incoming = new TaskInfo { From = "agent", To = TaskInfo.Host };

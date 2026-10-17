@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using Verse;
-using TextRange = SlopWorld.TextElementLayout.Range;
 
 namespace SlopWorld
 {
@@ -23,8 +22,7 @@ namespace SlopWorld
         readonly MouseClickSequence _selectionClicks = new MouseClickSequence();
         List<TaskTextSelection.Line> _selectionLines => _selection.Lines;
         readonly List<SenderHit> _senderHits = new List<SenderHit>();
-        readonly List<TextRange> _bodyRanges = new List<TextRange>();
-        readonly List<TextRange> _noteRanges = new List<TextRange>();
+        readonly List<MessageLayout> _messages = new List<MessageLayout>();
         readonly Dictionary<string, float> _smallElementWidths = new Dictionary<string, float>();
         TaskInfo _layoutTask;
         float _layoutWidth = -1f;
@@ -32,8 +30,17 @@ namespace SlopWorld
         int _layoutFontSize = -1;
         string _layoutFontName = "";
         int _layoutRevision = int.MinValue;
-        float _bodyHeight;
-        float _noteHeight;
+        float _contentHeight;
+
+        sealed class MessageLayout
+        {
+            public string Sender;
+            public long Timestamp;
+            public string Status;
+            public float Y;
+            public float Height;
+        }
+
         float _metricsScale = -1f;
         int _metricsFontSize = -1;
         string _metricsFontName = "";
@@ -102,7 +109,11 @@ namespace SlopWorld
             var current = SessionHub.Instance.Tasks.FirstOrDefault(task => task.Id == _taskId);
             if (!ReferenceEquals(current, _task))
             {
-                if (current?.Body != _task?.Body || current?.Note != _task?.Note)
+                if (
+                    current?.Body != _task?.Body
+                    || current?.Note != _task?.Note
+                    || current?.History.Count != _task?.History.Count
+                )
                     ClearSelection();
                 _task = current;
             }
@@ -125,12 +136,8 @@ namespace SlopWorld
             float bottom = rect.yMax - UiTheme.BtnH - UiTheme.GapS;
             var outer = new Rect(rect.x, top, rect.width, Mathf.Max(0f, bottom - top));
             float width = Mathf.Max(1f, outer.width - UiTheme.ScrollbarW);
-            string bodyText = _task?.Body ?? "";
-            string noteText = _task?.Note ?? "";
-            EnsureLayout(width, bodyText, noteText);
-            float bodyH = _bodyHeight;
-            float noteH = _noteHeight;
-            float contentH = UiTheme.TinyRowH + UiTheme.GapS + bodyH + noteH + UiTheme.GapS;
+            EnsureLayout(width);
+            float contentH = _contentHeight;
 
             using (WidgetState.Save())
             using (_scroll.Scope(outer, new Rect(0f, 0f, width, Mathf.Max(outer.height, contentH))))
@@ -152,18 +159,13 @@ namespace SlopWorld
                 GUI.color = Color.white;
                 y += UiTheme.TinyRowH + UiTheme.GapS;
 
-                DrawMessage(new Rect(0f, y, width, bodyH), _task.From, _task.CreatedMs);
-                y += bodyH;
-                if (!string.IsNullOrEmpty(_task.Note))
-                {
-                    y += UiTheme.GapM;
+                foreach (var message in _messages)
                     DrawMessage(
-                        new Rect(0f, y, width, noteH - UiTheme.GapM),
-                        _task.To,
-                        _task.UpdatedMs,
-                        true
+                        new Rect(0f, message.Y, width, message.Height),
+                        message.Sender,
+                        message.Timestamp,
+                        message.Status
                     );
-                }
                 DrawSelectableText(outer.height);
             }
 
@@ -208,7 +210,7 @@ namespace SlopWorld
             );
         }
 
-        void DrawMessage(Rect r, string sender, long timestamp, bool note = false)
+        void DrawMessage(Rect r, string sender, long timestamp, string status = null)
         {
             var card = new Rect(
                 r.x + AvatarOverlap,
@@ -237,7 +239,7 @@ namespace SlopWorld
                 Text.Font = GameFont.Tiny;
                 Text.WordWrap = true;
                 Text.Anchor = TextAnchor.UpperLeft;
-                string prefix = note ? "Latest note from " : "Message from ";
+                string prefix = status == null ? "Message from " : status + "  ·  Message from ";
                 string label = SenderLabel(sender);
                 string suffix = "  ·  " + Timestamp(timestamp);
                 float prefixW = UiTheme.Wide(prefix);

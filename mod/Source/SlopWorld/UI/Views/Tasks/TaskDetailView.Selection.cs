@@ -122,13 +122,22 @@ namespace SlopWorld
                 "Message from " + SenderLabel(_task.From) + "  ·  " + Timestamp(_task.CreatedMs),
                 _task.Body ?? "",
             };
-            if (!string.IsNullOrEmpty(_task.Note))
+            foreach (var update in _task.History)
             {
                 messages.Add(
-                    "Latest note from "
-                        + SenderLabel(_task.To)
+                    TaskInfo.StatusText(update.Status)
+                        + "  ·  Message from "
+                        + SenderLabel(update.Sender)
                         + "  ·  "
-                        + Timestamp(_task.UpdatedMs)
+                        + Timestamp(update.TimestampMs)
+                );
+                if (!string.IsNullOrEmpty(update.Note))
+                    messages.Add(update.Note);
+            }
+            if (_task.History.Count == 0 && !string.IsNullOrEmpty(_task.Note))
+            {
+                messages.Add(
+                    "Message from " + SenderLabel(_task.To) + "  ·  " + Timestamp(_task.UpdatedMs)
                 );
                 messages.Add(_task.Note);
             }

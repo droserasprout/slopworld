@@ -337,6 +337,14 @@ message Task {
   uint64 created_ms = 8;
   uint64 updated_ms = 9;
   optional WorkerTask worker = 10;
+  repeated TaskUpdate history = 11;
+}
+
+message TaskUpdate {
+  string sender = 1;
+  string status = 2;
+  optional string note = 3;
+  uint64 timestamp_ms = 4;
 }
 
 message WorkerTask {

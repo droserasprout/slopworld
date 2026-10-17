@@ -208,6 +208,105 @@ async fn mailbox_visibility_and_global_operations_respect_principal() {
 }
 
 #[tokio::test]
+async fn renamed_recipient_updates_use_current_label_without_changing_authority() {
+    let m = crate::session::test_manager(crate::config::Config {
+        projects: vec![crate::config::ProjectCfg {
+            id: crate::storage_id::draft_identity(),
+            name: "repo".into(),
+            dir: std::env::temp_dir().to_string_lossy().into_owned(),
+            ..Default::default()
+        }],
+        sessions: ["alice", "bob", "carol"]
+            .into_iter()
+            .map(|name| crate::config::SessionCfg {
+                name: name.into(),
+                state_id: mailbox_identity(name),
+                project: "repo".into(),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    });
+    let task = mailbox_task(&m, "alice", "bob", "work").await.unwrap();
+    let canceled = mailbox_task(&m, "alice", "bob", "cancel").await.unwrap();
+    update_task(
+        State(m.clone()),
+        Extension(scoped("bob")),
+        HeaderMap::new(),
+        Path(task.id.clone()),
+        Proto(wire::UpdateTaskReq {
+            status: Some("accepted".into()),
+            note: None,
+        }),
+    )
+    .await
+    .unwrap();
+    // Rename the original recipient and reuse its old label for another identity.
+    for (old, new) in [("bob", "renamed"), ("carol", "bob")] {
+        let mut session = m.config().await.session(old).unwrap().clone();
+        session.name = new.into();
+        m.update(old, session).await.unwrap();
+    }
+    let update = || {
+        Proto(wire::UpdateTaskReq {
+            status: Some("working".into()),
+            note: Some("reviewing".into()),
+        })
+    };
+    update_task(
+        State(m.clone()),
+        Extension(scoped("bob")),
+        HeaderMap::new(),
+        Path(task.id.clone()),
+        update(),
+    )
+    .await
+    .unwrap_err();
+    let Proto(reply) = update_task(
+        State(m.clone()),
+        Extension(scoped("renamed")),
+        HeaderMap::new(),
+        Path(task.id.clone()),
+        update(),
+    )
+    .await
+    .unwrap();
+    let history = reply.task.unwrap().history;
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[0].sender, "bob");
+    assert_eq!(history[1].sender, "renamed");
+
+    let Proto(reply) = cancel_tasks(
+        State(m.clone()),
+        Extension(scoped("renamed")),
+        HeaderMap::new(),
+        Proto(wire::RemoveTasksReq {
+            ids: vec![canceled.id.clone()],
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reply.tasks[0].history[0].sender, "renamed");
+    let reloaded = crate::tasks::Tasks::load(&m.cfg_path).unwrap();
+    assert_eq!(
+        reloaded
+            .get(&mailbox_identity("bob"), &task.id)
+            .unwrap()
+            .history[1]
+            .sender,
+        "renamed"
+    );
+    assert_eq!(
+        reloaded
+            .get(&mailbox_identity("bob"), &canceled.id)
+            .unwrap()
+            .history[0]
+            .sender,
+        "renamed"
+    );
+}
+
+#[tokio::test]
 async fn recipient_updates_and_removal_preserve_task_lifecycle() {
     let m = mailbox_manager();
     let task = mailbox_task(&m, "alice", "bob", "work").await.unwrap();
@@ -254,6 +353,11 @@ async fn recipient_updates_and_removal_preserve_task_lifecycle() {
     let updated = reply.task.unwrap();
     assert_eq!(updated.status, "done");
     assert_eq!(updated.note.as_deref(), Some("verified"));
+    assert_eq!(updated.history.len(), 1);
+    assert_eq!(updated.history[0].sender, "bob");
+    assert_eq!(updated.history[0].status, "done");
+    assert_eq!(updated.history[0].note.as_deref(), Some("verified"));
+    assert_eq!(updated.history[0].timestamp_ms, updated.updated_ms);
     assert_eq!(
         remove_task(
             State(m.clone()),

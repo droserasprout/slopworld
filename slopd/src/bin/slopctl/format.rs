@@ -48,7 +48,22 @@ pub(crate) fn print_task(t: &Value) {
         when
     );
     print_task_text(t["body"].as_str().unwrap_or(""));
-    if let Some(note) = t["note"].as_str() {
+    if let Some(history) = t["history"]
+        .as_array()
+        .filter(|history| !history.is_empty())
+    {
+        for update in history {
+            println!(
+                "  {} [{}] at {}",
+                update["sender"].as_str().unwrap_or("?"),
+                update["status"].as_str().unwrap_or("?"),
+                update["timestamp_ms"].as_u64().unwrap_or(0)
+            );
+            if let Some(note) = update["note"].as_str() {
+                print_task_text(note);
+            }
+        }
+    } else if let Some(note) = t["note"].as_str() {
         print_task_text(note);
     }
     if let Some(worker) = t.get("worker") {

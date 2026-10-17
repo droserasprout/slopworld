@@ -69,12 +69,13 @@ impl TaskStore {
     pub(crate) async fn update_task_async(
         &self,
         who: &str,
+        sender: &str,
         id: &str,
         status: Status,
         note: Option<String>,
     ) -> Result<Task> {
-        let (who, id) = (who.to_owned(), id.to_owned());
-        self.run(move |tasks| tasks.update(&who, &id, status, note))
+        let (who, sender, id) = (who.to_owned(), sender.to_owned(), id.to_owned());
+        self.run(move |tasks| tasks.update(&who, &sender, &id, status, note))
             .await
     }
     pub(crate) async fn remove_task_async(&self, who: &str, id: &str, force: bool) -> Result<Task> {
@@ -84,11 +85,12 @@ impl TaskStore {
     pub(crate) async fn cancel_tasks_async(
         &self,
         who: &str,
+        sender: &str,
         ids: &[String],
         force: bool,
     ) -> Result<crate::tasks::BatchResult> {
-        let (who, ids) = (who.to_owned(), ids.to_vec());
-        self.run(move |tasks| tasks.cancel_many(&who, &ids, force))
+        let (who, sender, ids) = (who.to_owned(), sender.to_owned(), ids.to_vec());
+        self.run(move |tasks| tasks.cancel_many(&who, &sender, &ids, force))
             .await
     }
     pub(crate) async fn remove_tasks_async(

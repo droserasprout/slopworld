@@ -35,7 +35,7 @@ fn human_and_json_output_preserve_task_and_status_details() {
         assert!(stdout.contains(concat!(
                 "BEGIN OUTPUT\n",
                 "t1  alice -> bob  [pending]  2d ago, moved 1h ago\n",
-                "  do work\n  next line\n  \n  progress\n  more\n  worker child under alice (durable)\n",
+                "  do work\n  next line\n  \n  bob [accepted] at 100\n  bob [working] at 200\n  first\n  bob [working] at 300\n  progress\n  more\n  worker child under alice (durable)\n",
                 "?  ? -> ?  [?]  0s ago\n  \n  worker ? under ? (one-shot)\n",
                 "?  ? -> ?  [?]  0s ago\n  \nworker   named\n",
                 "?  ? -> ?  [?]  0s ago\n  \nworker   fallback\n",
@@ -65,6 +65,9 @@ fn human_and_json_output_preserve_task_and_status_details() {
         &json!({"tasks": [
             {"id":"t1", "from":"alice", "to":"bob", "status":"pending", "body":"do work\nnext line\n",
              "created_ms": now - 2 * 86_400_000, "updated_ms":now - 3_600_000, "note":"progress\nmore",
+             "history":[{"sender":"bob", "status":"accepted", "timestamp_ms":100},
+                        {"sender":"bob", "status":"working", "timestamp_ms":200, "note":"first"},
+                        {"sender":"bob", "status":"working", "timestamp_ms":300, "note":"progress\nmore"}],
              "worker":{"session":"child", "parent":"alice", "durable":true}},
             {"created_ms":u64::MAX, "worker":{}}
         ]}),

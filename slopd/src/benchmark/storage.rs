@@ -48,6 +48,7 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
                 body: "x".repeat(1024),
                 status: Status::Working,
                 note: None,
+                history: Vec::new(),
                 summary: None,
                 created_ms: 1,
                 updated_ms: 1,
@@ -72,6 +73,7 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
         measure(&format!("task record update {count} records"), |sample| {
             tasks
                 .update(
+                    "worker",
                     "worker",
                     "0000000000000000",
                     Status::Working,

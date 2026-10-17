@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using Verse;
 using TextRange = SlopWorld.TextElementLayout.Range;
@@ -7,7 +8,7 @@ namespace SlopWorld
 {
     public sealed partial class TaskDetailView
     {
-        void EnsureLayout(float width, string body, string note)
+        void EnsureLayout(float width)
         {
             string fontName = Settings.UIFontName ?? "";
             int layoutRevision = WorkspaceLayout.Revision;
@@ -33,30 +34,66 @@ namespace SlopWorld
             int anchor = _selection.AnchorOffset,
                 focus = _selection.FocusOffset;
 
-            _bodyRanges.Clear();
-            _bodyRanges.AddRange(WrappedRanges(body, TextWidth(width)));
-            _bodyHeight = MessageCardHeight(_bodyRanges.Count);
-
-            _noteRanges.Clear();
-            _noteHeight = 0f;
-            if (note.Length > 0)
-            {
-                _noteRanges.AddRange(WrappedRanges(note, TextWidth(width)));
-                _noteHeight = UiTheme.GapM + MessageCardHeight(_noteRanges.Count);
-            }
-
+            _messages.Clear();
             _selectionLines.Clear();
-            float bodyY = UiTheme.TinyRowH + UiTheme.GapS;
-            float textY =
-                bodyY + UiTheme.FieldPadY + UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
-            CollectSelectableText(body, MessageTextX, textY, _bodyRanges, 0);
-            if (note.Length > 0)
+            var text = new StringBuilder();
+            float y = UiTheme.TinyRowH + UiTheme.GapS;
+            AddMessage(width, _task.Body ?? "", _task.From, _task.CreatedMs, null, text, ref y);
+            foreach (var update in _task.History)
+                AddMessage(
+                    width,
+                    update.Note ?? "",
+                    update.Sender,
+                    update.TimestampMs,
+                    TaskInfo.StatusText(update.Status),
+                    text,
+                    ref y
+                );
+            if (_task.History.Count == 0 && !string.IsNullOrEmpty(_task.Note))
+                AddMessage(
+                    width,
+                    _task.Note,
+                    _task.To,
+                    _task.UpdatedMs,
+                    TaskInfo.StatusText(_task.Status),
+                    text,
+                    ref y
+                );
+            _contentHeight = y + UiTheme.GapS;
+            _selection.Rebuilt(text.ToString(), anchor, focus);
+        }
+
+        void AddMessage(
+            float width,
+            string body,
+            string sender,
+            long timestamp,
+            string status,
+            StringBuilder text,
+            ref float y
+        )
+        {
+            if (_messages.Count > 0)
             {
-                float noteY = bodyY + _bodyHeight + UiTheme.GapM;
-                textY = noteY + UiTheme.FieldPadY + UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
-                CollectSelectableText(note, MessageTextX, textY, _noteRanges, body.Length + 2);
+                y += UiTheme.GapM;
+                text.Append("\n\n");
             }
-            _selection.Rebuilt(body + (note.Length == 0 ? "" : "\n\n" + note), anchor, focus);
+            var ranges = WrappedRanges(body, TextWidth(width));
+            float height = MessageCardHeight(ranges.Count);
+            _messages.Add(
+                new MessageLayout
+                {
+                    Sender = sender,
+                    Timestamp = timestamp,
+                    Status = status,
+                    Y = y,
+                    Height = height,
+                }
+            );
+            float textY = y + UiTheme.FieldPadY + UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
+            CollectSelectableText(body, MessageTextX, textY, ranges, text.Length);
+            text.Append(body);
+            y += height;
         }
 
         static float TextWidth(float width)

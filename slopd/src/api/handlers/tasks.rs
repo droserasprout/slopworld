@@ -72,27 +72,26 @@ impl Drop for NewWorktree {
 
 /// Persistence identities stay private; the wire contract exposes participant labels.
 fn task_view(task: crate::tasks::Task) -> wire::Task {
-    use crate::shared::protocol::enums::task_status;
-    use crate::tasks::Status;
-
     wire::Task {
         id: task.id,
         from: task.from,
         to: task.to,
         body: task.body,
-        status: match task.status {
-            Status::Queued => task_status::QUEUED,
-            Status::Accepted => task_status::ACCEPTED,
-            Status::Working => task_status::WORKING,
-            Status::Done => task_status::DONE,
-            Status::Failed => task_status::FAILED,
-            Status::Canceled => task_status::CANCELED,
-        }
-        .into(),
+        status: task_status_view(task.status).into(),
         note: task.note,
         summary: task.summary,
         created_ms: task.created_ms,
         updated_ms: task.updated_ms,
+        history: task
+            .history
+            .into_iter()
+            .map(|update| wire::TaskUpdate {
+                sender: update.sender,
+                status: task_status_view(update.status).into(),
+                note: update.note,
+                timestamp_ms: update.timestamp_ms,
+            })
+            .collect(),
         worker: task.worker.map(|worker| wire::WorkerTask {
             session: worker.session,
             parent: worker.parent,
@@ -101,12 +100,34 @@ fn task_view(task: crate::tasks::Task) -> wire::Task {
     }
 }
 
+fn task_status_view(status: crate::tasks::Status) -> &'static str {
+    use crate::shared::protocol::enums::task_status;
+    use crate::tasks::Status;
+    match status {
+        Status::Queued => task_status::QUEUED,
+        Status::Accepted => task_status::ACCEPTED,
+        Status::Working => task_status::WORKING,
+        Status::Done => task_status::DONE,
+        Status::Failed => task_status::FAILED,
+        Status::Canceled => task_status::CANCELED,
+    }
+}
+
 /// The request must hold the session boundary through identity resolution and store access.
 async fn task_identity(m: &Mgr, cap: &Cap, headers: &HeaderMap) -> Result<String, ApiError> {
+    task_participant(m, cap, headers)
+        .await
+        .map(|participant| participant.identity)
+}
+
+async fn task_participant(
+    m: &Mgr,
+    cap: &Cap,
+    headers: &HeaderMap,
+) -> Result<crate::tasks::Participant, ApiError> {
     let name = task_principal(cap, headers)?;
     m.task_participant(&name)
         .await
-        .map(|participant| participant.identity)
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))
 }
 
@@ -390,10 +411,10 @@ pub(crate) async fn update_task(
     Proto(q): Proto<wire::UpdateTaskReq>,
 ) -> ApiResult<wire::TaskResult> {
     let q: UpdateTaskReq = domain(q)?;
-    let who = task_identity(&m, &cap, &headers).await?;
+    let who = task_participant(&m, &cap, &headers).await?;
     let task = m
         .tasks
-        .update_task_async(&who, &id, q.status, q.note)
+        .update_task_async(&who.identity, &who.name, &id, q.status, q.note)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(wire::TaskResult {
@@ -429,10 +450,10 @@ pub(crate) async fn cancel_tasks(
     Proto(q): Proto<wire::RemoveTasksReq>,
 ) -> ApiResult<wire::TaskBatchResult> {
     let q: RemoveTasksReq = domain(q)?;
-    let who = task_identity(&m, &cap, &headers).await?;
+    let who = task_participant(&m, &cap, &headers).await?;
     let tasks = m
         .tasks
-        .cancel_tasks_async(&who, &q.ids, cap.may_create())
+        .cancel_tasks_async(&who.identity, &who.name, &q.ids, cap.may_create())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(batch_view(tasks, false)))

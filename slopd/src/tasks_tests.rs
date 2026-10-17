@@ -23,7 +23,8 @@ fn visibility_updates_and_persistence() {
         .create("alice".into(), "bob".into(), "check".into())
         .unwrap();
     assert!(s.visible("eve").is_empty());
-    s.update("alice", &t.id, Status::Done, None).unwrap_err();
+    s.update("alice", "alice", &t.id, Status::Done, None)
+        .unwrap_err();
     assert_eq!(s.get("alice", &t.id).unwrap().status, Status::Queued);
     assert_eq!(
         Tasks::load(&dir.join("config.toml"))
@@ -33,7 +34,7 @@ fn visibility_updates_and_persistence() {
             .status,
         Status::Queued
     );
-    s.update("bob", &t.id, Status::Done, Some("ok".into()))
+    s.update("bob", "bob", &t.id, Status::Done, Some("ok".into()))
         .unwrap();
     assert_eq!(
         Tasks::load(&dir.join("config.toml"))
@@ -87,18 +88,19 @@ fn removing_and_pruning_finished_work() {
     let over = s
         .create("alice".into(), "bob".into(), "over".into())
         .unwrap();
-    s.update("bob", &over.id, Status::Done, None).unwrap();
+    s.update("bob", "bob", &over.id, Status::Done, None)
+        .unwrap();
 
     let accepted = s
         .create("alice".into(), "bob".into(), "accepted".into())
         .unwrap();
-    s.update("bob", &accepted.id, Status::Accepted, None)
+    s.update("bob", "bob", &accepted.id, Status::Accepted, None)
         .unwrap();
     let canceled = s
-        .cancel_many("bob", std::slice::from_ref(&accepted.id), false)
+        .cancel_many("bob", "bob", std::slice::from_ref(&accepted.id), false)
         .unwrap();
     assert_eq!(canceled.tasks[0].status, Status::Canceled);
-    s.update("bob", &accepted.id, Status::Done, None)
+    s.update("bob", "bob", &accepted.id, Status::Done, None)
         .unwrap_err();
     s.remove("alice", &accepted.id, false).unwrap();
 
@@ -113,8 +115,10 @@ fn removing_and_pruning_finished_work() {
     let second = s
         .create("alice".into(), "bob".into(), "second batch item".into())
         .unwrap();
-    s.update("bob", &first.id, Status::Done, None).unwrap();
-    s.update("bob", &second.id, Status::Failed, None).unwrap();
+    s.update("bob", "bob", &first.id, Status::Done, None)
+        .unwrap();
+    s.update("bob", "bob", &second.id, Status::Failed, None)
+        .unwrap();
     assert_eq!(
         s.remove_many(
             "alice",
@@ -130,7 +134,8 @@ fn removing_and_pruning_finished_work() {
     let other = s
         .create("carol".into(), "dave".into(), "theirs".into())
         .unwrap();
-    s.update("dave", &other.id, Status::Failed, None).unwrap();
+    s.update("dave", "dave", &other.id, Status::Failed, None)
+        .unwrap();
     assert_eq!(s.prune("alice", false).unwrap().committed.len(), 0); // not alice's to see
     assert_eq!(s.prune("carol", false).unwrap().committed.len(), 1);
 
@@ -138,7 +143,8 @@ fn removing_and_pruning_finished_work() {
     let mine = s
         .create("alice".into(), "bob".into(), "mine".into())
         .unwrap();
-    s.update("bob", &mine.id, Status::Done, None).unwrap();
+    s.update("bob", "bob", &mine.id, Status::Done, None)
+        .unwrap();
     assert_eq!(s.prune("nobody", true).unwrap().committed.len(), 1); // `all` ignores who is asking
     assert!(Tasks::load(&config).unwrap().visible("alice").is_empty());
     drop(fs::remove_dir_all(dir));
@@ -239,13 +245,18 @@ fn task_authority_survives_rename_but_not_name_reuse() {
     assert_eq!(tasks.visible("second-id")[0].id, next.id);
     assert!(tasks.get("second-id", &task.id).is_none());
     tasks
-        .update("second-id", &task.id, Status::Done, None)
+        .update("second-id", "second-id", &task.id, Status::Done, None)
         .unwrap_err();
     tasks
-        .cancel_many("second-id", std::slice::from_ref(&task.id), false)
+        .cancel_many(
+            "second-id",
+            "second-id",
+            std::slice::from_ref(&task.id),
+            false,
+        )
         .unwrap_err();
     tasks
-        .update("first-id", &task.id, Status::Done, None)
+        .update("first-id", "first-id", &task.id, Status::Done, None)
         .unwrap();
     tasks.remove("second-id", &task.id, false).unwrap_err();
     tasks
@@ -304,7 +315,13 @@ fn identity_namespace_retains_task_participants_after_terminal_transition() {
         )
         .unwrap();
     tasks
-        .update("2222222222222222", &task.id, Status::Done, None)
+        .update(
+            "2222222222222222",
+            "2222222222222222",
+            &task.id,
+            Status::Done,
+            None,
+        )
         .unwrap();
     let ids = tasks.participant_identities();
     assert!(ids.contains("1111111111111111"));

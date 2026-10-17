@@ -67,6 +67,11 @@ uncanceled task. The root token can cancel queued or accepted tasks through the
 task board or API; `slopctl task` has no cancel subcommand. Participants can remove
 terminal tasks; root can also remove unfinished tasks. Only root can send as `host`.
 
+Task details and `slopctl task show ID` retain the original assignment and every
+subsequent update in order, with sender, status, and time. Progress reports remain
+available after completion and daemon restarts. Removing or pruning a task also
+removes its history.
+
 For batch cancellation and removal failure behavior, see
 [Task batch operations](../reference/api.md#task-batch-operations).
 

@@ -25,7 +25,7 @@ async fn task_owner_preserves_visibility_authority_and_durable_mutations() {
             .is_none()
     );
     m.tasks
-        .update_task_async("sender", &task.id, Status::Accepted, None)
+        .update_task_async("sender", "sender", &task.id, Status::Accepted, None)
         .await
         .unwrap_err();
     assert_task(&m, &task.id, Status::Queued, None).await;
@@ -38,6 +38,7 @@ async fn task_owner_preserves_visibility_authority_and_durable_mutations() {
         .tasks
         .update_task_async(
             "recipient",
+            "recipient",
             &task.id,
             Status::Accepted,
             Some("Reviewing".into()),
@@ -48,13 +49,18 @@ async fn task_owner_preserves_visibility_authority_and_durable_mutations() {
     assert_eq!(accepted.note.as_deref(), Some("Reviewing"));
     assert_task(&m, &task.id, Status::Accepted, Some("Reviewing")).await;
     m.tasks
-        .cancel_tasks_async("sender", std::slice::from_ref(&task.id), false)
+        .cancel_tasks_async("sender", "sender", std::slice::from_ref(&task.id), false)
         .await
         .unwrap_err();
     assert_task(&m, &task.id, Status::Accepted, Some("Reviewing")).await;
     let canceled = m
         .tasks
-        .cancel_tasks_async("recipient", std::slice::from_ref(&task.id), false)
+        .cancel_tasks_async(
+            "recipient",
+            "recipient",
+            std::slice::from_ref(&task.id),
+            false,
+        )
         .await
         .unwrap();
     assert_eq!(canceled.tasks[0].status, Status::Canceled);
@@ -96,11 +102,11 @@ async fn bulk_removal_prevalidates_authority_and_pruning_respects_visibility() {
         .await
         .unwrap();
     m.tasks
-        .update_task_async("agent", &a.id, Status::Done, None)
+        .update_task_async("agent", "agent", &a.id, Status::Done, None)
         .await
         .unwrap();
     m.tasks
-        .update_task_async("worker", &b.id, Status::Failed, None)
+        .update_task_async("worker", "worker", &b.id, Status::Failed, None)
         .await
         .unwrap();
     m.tasks

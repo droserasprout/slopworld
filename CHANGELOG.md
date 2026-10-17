@@ -20,6 +20,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Sandbox: Retain numeric UID/GID in Bubblewrap to allow passwd-based home lookups.
 - Search: Apply search options immediately when toggled.
 - Search: Keep results independent of Files visibility settings.
+- Tasks: Preserve and display the full history of progress reports and status updates.
 - UI: Don't add nested foldable in sidebar trees when only the main checkout is selected.
 - UI: Small fixes in scrollbar widget and Sidebar layout.
 

@@ -153,6 +153,7 @@ impl Tasks {
                 body,
                 status: Status::Queued,
                 note: None,
+                history: Vec::new(),
                 summary: None,
                 created_ms: now,
                 updated_ms: now,
@@ -246,6 +247,7 @@ impl Tasks {
     pub(crate) fn update(
         &mut self,
         who: &str,
+        sender: &str,
         id: &str,
         status: Status,
         note: Option<String>,
@@ -261,9 +263,7 @@ impl Tasks {
         );
         let mut task = entry.task.clone();
         let order = entry.order;
-        task.status = status;
-        task.note = note;
-        task.updated_ms = unix_ms();
+        task.record_update(sender.into(), status, note);
         self.persist(task, order)
     }
     pub(crate) fn stamp(&self, task: &Task) -> Option<TaskStamp> {
@@ -329,9 +329,7 @@ impl Tasks {
         if task.status.is_terminal() {
             return Ok(Some(task));
         }
-        task.status = Status::Failed;
-        task.note = Some(note);
-        task.updated_ms = unix_ms();
+        task.record_update("slopd".into(), Status::Failed, Some(note));
         self.persist(task, order).map(Some)
     }
     pub(crate) fn remove(&mut self, who: &str, id: &str, force: bool) -> Result<Task> {
@@ -351,10 +349,11 @@ impl Tasks {
     pub(crate) fn cancel_many(
         &mut self,
         who: &str,
+        sender: &str,
         ids: &[String],
         force: bool,
     ) -> Result<BatchResult> {
-        self.batch(who, ids, force, true)
+        self.batch(who, ids, force, Some(sender))
     }
     pub(crate) fn remove_many(
         &mut self,
@@ -362,7 +361,7 @@ impl Tasks {
         ids: &[String],
         force: bool,
     ) -> Result<BatchResult> {
-        self.batch(who, ids, force, false)
+        self.batch(who, ids, force, None)
     }
     pub(crate) fn prune(&mut self, who: &str, all: bool) -> Result<BatchResult> {
         let ids = self
@@ -374,15 +373,16 @@ impl Tasks {
             })
             .cloned()
             .collect::<Vec<_>>();
-        self.batch(who, &ids, all, false)
+        self.batch(who, &ids, all, None)
     }
     fn batch(
         &mut self,
         who: &str,
         ids: &[String],
         force: bool,
-        cancel: bool,
+        cancel_sender: Option<&str>,
     ) -> Result<BatchResult> {
+        let cancel = cancel_sender.is_some();
         let mut selected = ids
             .iter()
             .filter(|id| !id.trim().is_empty())
@@ -431,11 +431,13 @@ impl Tasks {
                 result.tasks.push(entry.task.clone());
                 continue;
             }
-            let change = if cancel {
+            let change = if let Some(sender) = cancel_sender {
                 let mut task = entry.task.clone();
                 let order = entry.order;
-                task.status = Status::Canceled;
-                task.updated_ms = unix_ms();
+                let sender = if force { HOST.into() } else { sender.into() };
+                let latest_note = task.note.clone();
+                task.record_update(sender, Status::Canceled, None);
+                task.note = latest_note;
                 self.persist(task, order).map(|task| {
                     result.tasks.push(task);
                 })

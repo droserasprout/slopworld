@@ -5,6 +5,14 @@ ID/order indexes and participant authority. Persistence belongs to the selected 
 adapter. Manager task operations and HTTP handlers resolve caller identities.
 Sandboxes use the API rather than editing storage.
 Each task has one shared record; reads do not consume it.
+The body records the original request; `history` retains every accepted update in
+commit order, including status-only changes, cancellation, and worker-exit failure.
+Each entry records its sender label, status, optional note, and timestamp. The
+sender label comes from the caller resolved at update time; authorization still uses
+the stable participant identity. Earlier entries retain their recorded labels. The latest
+`note` remains a snapshot for consumers; task details, copy, and CLI output show the
+chain. Records without history seed only their surviving latest update on load.
+Removing or pruning a task removes its history with the record.
 
 Participants persist stable session state IDs separately from display names. Rename
 retains mailbox authority; replacement under the same name does not. Records require

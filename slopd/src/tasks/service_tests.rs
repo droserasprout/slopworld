@@ -42,11 +42,17 @@ fn full_record_updates_preserve_siblings_extensions_and_explicit_order() {
     fs::write(f.path(&first.id), text).unwrap();
     f.tasks = Tasks::load_records(&f.root).unwrap();
     f.tasks
-        .update("agent", &first.id, Status::Working, Some("progress".into()))
+        .update(
+            "agent",
+            "agent",
+            &first.id,
+            Status::Working,
+            Some("progress".into()),
+        )
         .unwrap();
     f.tasks.set_summary(&first.id, "summary").unwrap();
     f.tasks
-        .update("agent", &first.id, Status::Done, None)
+        .update("agent", "agent", &first.id, Status::Done, None)
         .unwrap();
     let raw: toml::Value = toml::from_str(&fs::read_to_string(f.path(&first.id)).unwrap()).unwrap();
     assert_eq!(raw["future"].as_str(), Some("retained"));
@@ -80,15 +86,17 @@ fn batches_prevalidate_then_report_exact_partial_commits_and_safe_retry() {
     let b = f.create("b");
     let c = f.create("c");
     let ids = vec![c.id.clone(), a.id.clone(), b.id.clone(), a.id.clone()];
-    f.tasks.cancel_many("stranger", &ids, false).unwrap_err();
+    f.tasks
+        .cancel_many("stranger", "stranger", &ids, false)
+        .unwrap_err();
     let fault = crate::paths::fail_writes(&f.path(&b.id));
-    let result = f.tasks.cancel_many("agent", &ids, false).unwrap();
+    let result = f.tasks.cancel_many("agent", "agent", &ids, false).unwrap();
     assert_eq!(result.committed, std::slice::from_ref(&a.id));
     assert_eq!(result.failed[0].id, b.id);
     assert_eq!(result.unattempted, std::slice::from_ref(&c.id));
     assert_eq!(f.tasks.get("agent", &b.id).unwrap().status, Status::Queued);
     drop(fault);
-    let retry = f.tasks.cancel_many("agent", &ids, false).unwrap();
+    let retry = f.tasks.cancel_many("agent", "agent", &ids, false).unwrap();
     assert_eq!(retry.unchanged, std::slice::from_ref(&a.id));
     assert_eq!(retry.committed, [b.id.clone(), c.id.clone()]);
     // A removal failure on the middle record leaves the last one unattempted.
@@ -169,16 +177,18 @@ fn canceled_retry_cannot_bypass_authority_or_status_prevalidation() {
     let a = f.create("a");
     let b = f.create("b");
     f.tasks
-        .update("agent", &b.id, Status::Working, None)
+        .update("agent", "agent", &b.id, Status::Working, None)
         .unwrap();
     f.tasks
-        .cancel_many("host", &[a.id.clone(), b.id.clone()], true)
+        .cancel_many("host", "host", &[a.id.clone(), b.id.clone()], true)
         .unwrap_err();
     assert_eq!(f.tasks.get("agent", &a.id).unwrap().status, Status::Queued);
     f.tasks
-        .cancel_many("agent", std::slice::from_ref(&a.id), false)
+        .cancel_many("agent", "agent", std::slice::from_ref(&a.id), false)
         .unwrap();
-    f.tasks.cancel_many("stranger", &[a.id], false).unwrap_err();
+    f.tasks
+        .cancel_many("stranger", "stranger", &[a.id], false)
+        .unwrap_err();
 }
 
 #[test]
@@ -230,6 +240,7 @@ fn benchmark_ten_thousand_records_and_one_hundred_targeted_deletions() {
         f.tasks
             .update(
                 &rows[index].to_id,
+                &rows[index].to,
                 id,
                 Status::Working,
                 Some(format!("progress {index}")),
@@ -288,6 +299,7 @@ fn failed_record_update_keeps_accepted_task_and_allows_retry() {
     f.tasks
         .update(
             &task.to_id,
+            &task.to,
             &task.id,
             Status::Working,
             Some("progress".into()),
@@ -296,12 +308,14 @@ fn failed_record_update_keeps_accepted_task_and_allows_retry() {
     let accepted = f.tasks.get(&task.from_id, &task.id).unwrap();
     assert_eq!(accepted.status, task.status);
     assert_eq!(accepted.note, task.note);
+    assert_eq!(accepted.history, task.history);
     assert_eq!(accepted.updated_ms, task.updated_ms);
     fs::remove_dir(&path).unwrap();
     fs::write(&path, bytes).unwrap();
     f.tasks
         .update(
             &task.to_id,
+            &task.to,
             &task.id,
             Status::Working,
             Some("progress".into()),
@@ -313,4 +327,147 @@ fn failed_record_update_keeps_accepted_task_and_allows_retry() {
         .unwrap();
     assert_eq!(restored.status, Status::Working);
     assert_eq!(restored.note.as_deref(), Some("progress"));
+    assert_eq!(restored.history.len(), 1);
+}
+
+#[test]
+fn update_chain_survives_restart_status_only_updates_and_repeated_progress() {
+    let mut f = Fixture::new();
+    let task = f.create("original request");
+    for (status, note) in [
+        (Status::Accepted, None),
+        (Status::Working, Some("first")),
+        (Status::Working, Some("second")),
+        (Status::Working, Some("second")),
+        (Status::Done, None),
+    ] {
+        let updated = f
+            .tasks
+            .update("agent", "agent", &task.id, status, note.map(str::to_owned))
+            .unwrap();
+        let last = updated.history.last().unwrap();
+        assert_eq!(last.sender, "agent");
+        assert_eq!(last.status, status);
+        assert_eq!(last.note.as_deref(), note);
+        assert_eq!(last.timestamp_ms, updated.updated_ms);
+        f.tasks = Tasks::load_records(&f.root).unwrap();
+        assert_eq!(
+            f.tasks.get("agent", &task.id).unwrap().history,
+            updated.history
+        );
+    }
+    let task = f.tasks.get("agent", &task.id).unwrap();
+    assert_eq!(task.body, "original request");
+    assert_eq!(task.note, None);
+    assert_eq!(task.history.len(), 5);
+    assert_eq!(task.history[1].note.as_deref(), Some("first"));
+    assert_eq!(task.history[2].note.as_deref(), Some("second"));
+    let before = task.history.clone();
+    f.tasks
+        .update(
+            "stranger",
+            "stranger",
+            &task.id,
+            Status::Failed,
+            Some("forbidden".into()),
+        )
+        .unwrap_err();
+    assert_eq!(f.tasks.get("agent", &task.id).unwrap().history, before);
+}
+
+#[test]
+fn old_records_preserve_the_surviving_note_once_before_new_updates() {
+    let mut f = Fixture::new();
+    let task = f.create("old task");
+    let path = f.path(&task.id);
+    let mut raw: toml::Value = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    raw.as_table_mut().unwrap().remove("history");
+    raw["status"] = toml::Value::String("working".into());
+    raw.as_table_mut()
+        .unwrap()
+        .insert("note".into(), toml::Value::String("surviving note".into()));
+    fs::write(&path, toml::to_string(&raw).unwrap()).unwrap();
+    f.tasks = Tasks::load_records(&f.root).unwrap();
+    let old = f.tasks.get("agent", &task.id).unwrap();
+    assert_eq!(old.history.len(), 1);
+    assert_eq!(old.history[0].note, old.note);
+    assert_eq!(old.history[0].timestamp_ms, old.updated_ms);
+    f.tasks
+        .update(
+            "agent",
+            "agent",
+            &task.id,
+            Status::Done,
+            Some("finished".into()),
+        )
+        .unwrap();
+    let restored = Tasks::load_records(&f.root)
+        .unwrap()
+        .get("agent", &task.id)
+        .unwrap();
+    assert_eq!(restored.history.len(), 2);
+    assert_eq!(restored.history[0].note.as_deref(), Some("surviving note"));
+    assert_eq!(restored.history[1].note.as_deref(), Some("finished"));
+}
+
+#[test]
+fn cancel_and_worker_failure_append_once_without_repeating_the_latest_note() {
+    let mut f = Fixture::new();
+    let task = f.create("cancel me");
+    f.tasks
+        .update(
+            "agent",
+            "agent",
+            &task.id,
+            Status::Accepted,
+            Some("accepted".into()),
+        )
+        .unwrap();
+    for _ in 0..2 {
+        f.tasks
+            .cancel_many("host", "host", std::slice::from_ref(&task.id), true)
+            .unwrap();
+    }
+    let canceled = Tasks::load_records(&f.root)
+        .unwrap()
+        .get("host", &task.id)
+        .unwrap();
+    assert_eq!(canceled.history.len(), 2);
+    assert_eq!(canceled.history[1].sender, HOST);
+    assert_eq!(canceled.history[1].status, Status::Canceled);
+    assert_eq!(canceled.history[1].note, None);
+    assert_eq!(canceled.note.as_deref(), Some("accepted"));
+    let worker = f
+        .tasks
+        .create_worker(
+            "host".into(),
+            "worker".into(),
+            "work".into(),
+            "host".into(),
+            false,
+        )
+        .unwrap();
+    f.tasks
+        .update(
+            "worker",
+            "worker",
+            &worker.id,
+            Status::Working,
+            Some("started".into()),
+        )
+        .unwrap();
+    for _ in 0..2 {
+        f.tasks
+            .fail_worker(&worker.id, "worker", "exited".into())
+            .unwrap();
+    }
+    let failed = Tasks::load_records(&f.root)
+        .unwrap()
+        .get("host", &worker.id)
+        .unwrap();
+    assert_eq!(failed.history.len(), 2);
+    assert_eq!(failed.history[0].note.as_deref(), Some("started"));
+    assert_eq!(failed.history[1].sender, "slopd");
+    assert_eq!(failed.history[1].status, Status::Failed);
+    assert_eq!(failed.history[1].note.as_deref(), Some("exited"));
 }

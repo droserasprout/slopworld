@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace SlopWorld
@@ -32,6 +33,7 @@ namespace SlopWorld
         public string Body = "";
         public DelegatedTaskStatus Status;
         public string Note;
+        public readonly List<TaskUpdateInfo> History = new List<TaskUpdateInfo>();
         public string GeneratedSummary;
         public long CreatedMs;
         public long UpdatedMs;
@@ -66,6 +68,16 @@ namespace SlopWorld
                 UpdatedMs = (long)v.UpdatedMs,
             };
             task.Status = ParseStatus(v.Status);
+            foreach (var update in v.History)
+                task.History.Add(
+                    new TaskUpdateInfo
+                    {
+                        Sender = update.Sender,
+                        Status = ParseStatus(update.Status),
+                        Note = update.HasNote ? update.Note : null,
+                        TimestampMs = (long)update.TimestampMs,
+                    }
+                );
             var worker = v.Worker;
             if (worker != null)
             {
@@ -194,5 +206,13 @@ namespace SlopWorld
                 return seconds / 3600 + "h";
             return seconds / 86400 + "d";
         }
+    }
+
+    public sealed class TaskUpdateInfo
+    {
+        public string Sender;
+        public DelegatedTaskStatus Status;
+        public string Note;
+        public long TimestampMs;
     }
 }
