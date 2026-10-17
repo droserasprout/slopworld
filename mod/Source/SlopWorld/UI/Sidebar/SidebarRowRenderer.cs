@@ -243,7 +243,7 @@ namespace SlopWorld
                 UiText.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
                 TooltipHandler.TipRegion(
                     indicator,
-                    "a autostart · r resume on start · h host-mode networking · t persistent /tmp"
+                    "[a]utostart\n[r]esume on start\n[h]ost networking\n[t]mp persistent"
                 );
                 line2.width = Mathf.Max(0f, line2.width - indicatorW - UiTheme.GapXS);
             }

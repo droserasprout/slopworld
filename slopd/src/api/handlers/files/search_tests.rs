@@ -184,6 +184,28 @@ async fn search_reports_relative_paths_byte_columns_and_real_truncation() {
 }
 
 #[tokio::test]
+async fn search_default_and_maximum_limits_preserve_exact_truncation() {
+    let fixture = crate::api::handlers::tests::fixture("search-result-limit");
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    for (lines, requested_limit, truncated) in [
+        (SEARCH_LIMIT, None, false),
+        (SEARCH_LIMIT + 1, None, true),
+        (SEARCH_LIMIT + 1, Some(usize::MAX), true),
+    ] {
+        std::fs::write(fixture.join("matches.txt"), "needle\n".repeat(lines)).unwrap();
+        let mut request = search_request(&fixture, "needle", SEARCH_LIMIT);
+        request.limit = requested_limit;
+        let result = search(State(manager.clone()), Query(request))
+            .await
+            .unwrap()
+            .0;
+        assert_eq!(result.matches.len(), SEARCH_LIMIT);
+        assert_eq!(result.truncated, truncated);
+        assert_eq!(result.matches.last().unwrap().line, SEARCH_LIMIT as u64);
+    }
+}
+
+#[tokio::test]
 async fn search_distinguishes_invalid_requests_from_no_matches() {
     let fixture = crate::api::handlers::tests::fixture("search");
     let manager = crate::session::test_manager(crate::config::Config::default());

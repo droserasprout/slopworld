@@ -5,7 +5,9 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using Group = SlopWorld.SearchStore.Group;
+using LayoutRow = SlopWorld.SearchResultTree.Row;
 using Match = SlopWorld.SearchStore.Match;
+using RowKind = SlopWorld.SearchResultTree.RowKind;
 
 namespace SlopWorld
 {
@@ -17,6 +19,7 @@ namespace SlopWorld
         static float RowH => UiTheme.TinyRowH;
         static float Pad => UiTheme.GapS;
         static float CellX => UiTheme.GapS;
+        const float ResultIndent = 11f;
         static readonly string[] OptionLabels =
         {
             "case",
@@ -51,25 +54,10 @@ namespace SlopWorld
         {
             public Rect Rect;
             public Match Match;
+            public string FoldKey;
         }
 
-        enum RowKind
-        {
-            ProjectHeading,
-            Heading,
-            File,
-            Match,
-            Note,
-        }
-
-        struct LayoutRow
-        {
-            public RowKind Kind;
-            public Group Group;
-            public Match Match;
-            public string Text;
-            public Color Color;
-        }
+        static readonly SearchResultTree ResultTree = new SearchResultTree();
 
         static readonly SearchStore Store = new SearchStore(
             SidebarScopes.Enabled,
@@ -386,6 +374,15 @@ namespace SlopWorld
 
         static void DirtyLayout() => _layoutDirty = true;
 
+        public static bool AllFolded => ResultTree.AllFolded(Groups);
+
+        public static void SetAllFolded(bool folded)
+        {
+            ResultTree.SetAllFolded(Groups, folded);
+            DirtyLayout();
+            Hits.Clear();
+        }
+
         static void DrawResults(Rect body)
         {
             EnsureLayout();
@@ -417,48 +414,55 @@ namespace SlopWorld
         {
             switch (row.Kind)
             {
-                case RowKind.ProjectHeading:
-                    Note(width, ref y, row.Text, UiTheme.Lead);
-                    break;
                 case RowKind.Heading:
-                    Heading(width, ref y, row.Group);
-                    break;
                 case RowKind.File:
-                    FileHeading(width, ref y, row.Text);
+                    Heading(width, ref y, row);
                     break;
                 case RowKind.Match:
                     Result(width, ref y, row.Match);
                     break;
                 case RowKind.Note:
-                    Note(width, ref y, row.Text, row.Color);
+                    Note(width, ref y, row.Text, UiTheme.Faint);
+                    break;
+                case RowKind.Error:
+                    Note(width, ref y, row.Text, UiTheme.Bad);
                     break;
             }
         }
 
-        static void Heading(float width, ref float y, Group group)
+        static void Heading(float width, ref float y, LayoutRow row)
         {
             var r = new Rect(0f, y, width, RowH);
-            GUI.color = UiTheme.Lead;
+            RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
+            bool collapsed = ResultTree.IsCollapsed(row.FoldKey);
+            GUI.color = UiTheme.Faint;
+            var arrow = new Rect(
+                CellX + row.Depth * ResultIndent,
+                y + (RowH - UiTheme.DisclosureW) / 2f,
+                UiTheme.DisclosureW,
+                UiTheme.DisclosureW
+            );
+            GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);
+            GUI.color = row.Kind == RowKind.File ? UiTheme.Name : UiTheme.Faint;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
-            UiText.RowLabel(
-                new Rect(CellX, y, width - CellX * 2f, RowH),
-                $"    {group.Worktree}  {group.Matches.Count}"
-            );
+            float left = arrow.xMax + UiTheme.GapXS;
+            UiText.RowLabel(new Rect(left, y, Mathf.Max(0f, width - left - Pad), RowH), row.Text);
             GUI.color = Color.white;
-            y += RowH;
-        }
-
-        static void FileHeading(float width, ref float y, string path)
-        {
-            GUI.color = UiTheme.Name;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            UiText.RowLabel(
-                new Rect(CellX + UiTheme.GapS, y, width - CellX * 2f - UiTheme.GapS, RowH),
-                path
+            if (row.Kind == RowKind.Heading)
+                Slab.Hairline(new Rect(CellX, r.yMax - 1f, width - CellX * 2f, 1f), UiTheme.Edge);
+            TooltipHandler.TipRegion(
+                r,
+                row.Text + (collapsed ? "\n\nClick to unfold." : "\n\nClick to fold.")
             );
-            GUI.color = Color.white;
+            Hits.Add(
+                new Hit
+                {
+                    Rect = r,
+                    FoldKey = row.FoldKey,
+                    Match = row.MenuMatch,
+                }
+            );
             y += RowH;
         }
 
@@ -482,13 +486,13 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = UiTheme.Name;
-            UiText.RowLabel(new Rect(CellX + UiTheme.GapM, y, prefixW, RowH), prefix);
+            UiText.RowLabel(new Rect(CellX + ResultIndent * 3f, y, prefixW, RowH), prefix);
             GUI.color = over ? UiTheme.Lead : UiTheme.Dim;
             UiText.RowLabel(
                 new Rect(
-                    CellX + UiTheme.GapM + prefixW,
+                    CellX + ResultIndent * 3f + prefixW,
                     y,
-                    Mathf.Max(0f, rx - CellX - UiTheme.GapM - prefixW),
+                    Mathf.Max(0f, rx - CellX - ResultIndent * 3f - prefixW),
                     RowH
                 ),
                 match.Text.Trim()
@@ -530,9 +534,21 @@ namespace SlopWorld
                 if (!ColonistBarStrip.MouseOver(scr))
                     continue;
 
-                if (e.button == 1)
+                if (e.button == 1 && hit.Match != null)
                 {
                     Menu(hit.Match);
+                    e.Use();
+                    return;
+                }
+
+                if (hit.FoldKey != null)
+                {
+                    if (e.button == 0)
+                    {
+                        ResultTree.Toggle(hit.FoldKey);
+                        DirtyLayout();
+                        Hits.Clear();
+                    }
                     e.Use();
                     return;
                 }
@@ -612,6 +628,8 @@ namespace SlopWorld
             foreach (var match in group.Matches)
                 if (match.Project == project && match.Path == path && match.Line == line)
                 {
+                    ResultTree.Reveal(Groups, match);
+                    DirtyLayout();
                     _selected = match;
                     Open(match, false);
                     return true;

@@ -25,6 +25,7 @@
     <Compile Include="../Source/SlopWorld/UI/Cursor/CursorAnimation.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitStore.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Search/SearchStore.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Search/SearchResultTree.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/BinaryDiscovery.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/HostBinaryProbe.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/WorktreeInventory.cs" />

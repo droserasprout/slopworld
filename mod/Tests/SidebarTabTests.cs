@@ -49,7 +49,7 @@ namespace SlopWorld.Tests
             var registry = NewRegistry();
             AssertEx.True(registry.For(SidebarTab.Agents).CanFold, "agents fold");
             AssertEx.True(registry.For(SidebarTab.Files).CanFold, "files fold");
-            AssertEx.False(registry.For(SidebarTab.Search).CanFold, "search does not fold");
+            AssertEx.True(registry.For(SidebarTab.Search).CanFold, "search folds results");
             AssertEx.True(
                 registry.For(SidebarTab.Files).CanToggleDotfiles,
                 "files filter visibility"
@@ -58,7 +58,7 @@ namespace SlopWorld.Tests
                 registry.For(SidebarTab.Search).CanToggleDotfiles,
                 "search does not share Files visibility controls"
             );
-            AssertEx.False(registry.For(SidebarTab.Search).HasActions, "search has no row actions");
+            AssertEx.True(registry.For(SidebarTab.Search).HasActions, "search has fold actions");
             AssertEx.False(
                 registry.For(SidebarTab.Git).CanToggleDotfiles,
                 "git has no visibility toggle"

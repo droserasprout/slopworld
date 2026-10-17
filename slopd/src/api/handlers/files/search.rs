@@ -11,7 +11,8 @@ use axum::{
 use serde_json::Value;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
-pub(crate) const SEARCH_LIMIT: usize = 200;
+/// Default and maximum matching lines returned per checkout.
+pub(crate) const SEARCH_LIMIT: usize = 1_000;
 /// Bound memory used for one ripgrep JSON event, including escaped match text.
 pub(crate) const SEARCH_RECORD_LIMIT: usize = 64 * 1024;
 // `rg --max-columns` limits text output, but JSON matches contain complete lines.

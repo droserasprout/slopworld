@@ -242,6 +242,8 @@ namespace SlopWorld.Tests
                 );
             var group = f.Store.Groups[4];
             Assert.That(group.Project, Is.EqualTo("5"));
+            Assert.That(group.ProjectKey, Is.EqualTo(BrowseScope.Identity("5", "")));
+            Assert.That(group.ScopeKey, Is.EqualTo(originalKey));
             Assert.That(group.Worktree, Is.EqualTo("Main checkout"));
             Assert.That(group.Matches[0].Project, Is.EqualTo(originalKey));
             Assert.That(group.Matches[0].Root, Is.EqualTo("/5"));

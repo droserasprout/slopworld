@@ -1,7 +1,7 @@
 # Search ownership
 
 `SearchView` owns draft controls, selection, geometry, and reader actions.
-Search leaves the shared sidebar action row empty and does not use Files visibility settings.
+Search uses the shared sidebar action row for fold/unfold-all and does not use Files visibility settings.
 It includes dotfiles; its own `gitignd`, include, and exclude options control filtering.
 Its underlined option labels toggle draft flags, all initially off. Selected
 `gitignd` enables the submission's `IncludeIgnored` flag. `inc` and `exc` reveal
@@ -21,6 +21,8 @@ an injected daemon transport. It consumes snapshots of the
 enabled ready checkouts by copying their descriptors, so delayed replies retain
 the submitted identity and root even if the catalog changes. Replies for a replaced query or
 scope cannot update current results.
+The daemon returns at most 1,000 matching lines per checkout and marks incomplete
+results as truncated. Search draws only visible rows while retaining the result set.
 
 Checkout filter changes rerun the last submitted query and options without replacing draft
 controls. They release an unpinned Search preview but preserve pinned Search readers.
@@ -32,6 +34,14 @@ keep identical relative paths distinct. Scope and history identity belong to
 [sidebar navigation](mod-sidebar-navigation.md), daemon execution to the
 [daemon file API](daemon-files.md), and user workflow to the
 [Files and search guide](../docs/src/workspace/files-and-search.md).
+
+`SearchResultTree` owns the visible project, checkout, file, and match hierarchy.
+Each heading folds independently using captured project/checkout IDs and relative
+file paths. Fold state survives query replacement and scope refreshes; settled
+results prune missing keys. Folding preserves the Search reader. Revealing a search
+location opens its ancestors. Fold state is separate from Files and Git.
+File headings use the match context menu, targeting the file's first match even
+while folded. Project and checkout headings share the other trees' grey styling.
 
 Search reattaches its reader on entry and before appearance-restart discovery;
 appearance restarts preserve Search intent.

@@ -158,8 +158,8 @@ namespace SlopWorld
                         "search",
                         "search",
                         "Search: find text in any project.",
-                        hasActions: false,
-                        canFold: false,
+                        hasActions: true,
+                        canFold: true,
                         canToggleDotfiles: false,
                         handlers: handlers
                     );

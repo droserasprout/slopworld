@@ -45,7 +45,13 @@ namespace SlopWorld
             {
                 // Keep delayed result metadata tied to the path submitted to the daemon.
                 var p = scope.Copy();
-                var group = new Group { Project = p.Project, Worktree = p.Label };
+                var group = new Group
+                {
+                    Project = p.Project,
+                    ProjectKey = p.ProjectKey,
+                    ScopeKey = p.Key,
+                    Worktree = p.Label,
+                };
                 Groups.Add(group);
                 string url =
                     WireProtocol.Routes.Search
@@ -112,6 +118,8 @@ namespace SlopWorld
         internal sealed class Group
         {
             public string Project;
+            public string ProjectKey;
+            public string ScopeKey;
             public string Worktree;
             public string Error;
             public bool Truncated;
