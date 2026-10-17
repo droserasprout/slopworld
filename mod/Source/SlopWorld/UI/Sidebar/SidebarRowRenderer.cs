@@ -145,7 +145,7 @@ namespace SlopWorld
             if (context.Length == 0)
             {
                 GUI.color = titleColor;
-                UiText.RowLabel(r, title, TextAnchor.MiddleLeft, italic);
+                UiText.FadedRowLabel(r, title, TextAnchor.MiddleLeft, italic);
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.Font = oldFont;
                 return;
@@ -156,9 +156,9 @@ namespace SlopWorld
             var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - UiTheme.GapS - r.x), r.height);
 
             GUI.color = titleColor;
-            UiText.RowLabel(strong, title, TextAnchor.MiddleLeft, italic);
+            UiText.FadedRowLabel(strong, title, TextAnchor.MiddleLeft, italic);
             GUI.color = UiTheme.Dim;
-            UiText.RowLabel(quiet, context, TextAnchor.MiddleRight);
+            UiText.FadedRowLabel(quiet, context, TextAnchor.MiddleRight);
             if (UiTheme.Wide(context) > quiet.width)
                 TooltipHandler.TipRegion(quiet, context);
             if (UiTheme.Wide(title) > strong.width)
@@ -214,14 +214,14 @@ namespace SlopWorld
             {
                 var time = new Rect(timeX, line.y, ageW, line.height);
                 GUI.color = tint;
-                UiText.RowLabel(time, ago, TextAnchor.MiddleRight);
+                UiText.FadedRowLabel(time, ago, TextAnchor.MiddleRight);
 
                 TooltipHandler.TipRegion(time, presentation.StateTip);
             }
 
             Text.Font = GameFont.Small;
             GUI.color = tint;
-            UiText.RowLabel(
+            UiText.FadedRowLabel(
                 name,
                 (session ?? "?")
                     + (string.IsNullOrEmpty(info?.WorktreeName) ? "" : " · " + info.WorktreeName)
@@ -240,7 +240,7 @@ namespace SlopWorld
                     line2.height
                 );
                 GUI.color = UiTheme.Faint;
-                UiText.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
+                UiText.FadedRowLabel(indicator, indicators, TextAnchor.MiddleRight);
                 TooltipHandler.TipRegion(
                     indicator,
                     "[a]utostart\n[r]esume on start\n[h]ost networking\n[t]mp persistent"
@@ -256,7 +256,7 @@ namespace SlopWorld
                 if (title.Length > 0)
                 {
                     GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(line2, title);
+                    UiText.FadedRowLabel(line2, title);
                     if (UiTheme.Wide(title) > line2.width)
                         TooltipHandler.TipRegion(line2, title);
                 }

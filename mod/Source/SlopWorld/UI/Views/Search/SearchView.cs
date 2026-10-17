@@ -284,7 +284,7 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 GUI.color = UiTheme.Dim;
-                UiText.RowLabel(
+                UiText.FadedRowLabel(
                     new Rect(field.xMax + UiTheme.GapS, r.y, labelW - UiTheme.GapS, r.height),
                     label,
                     TextAnchor.MiddleRight
@@ -455,7 +455,10 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             float left = arrow.xMax + UiTheme.GapXS;
-            UiText.RowLabel(new Rect(left, y, Mathf.Max(0f, width - left - Pad), RowH), row.Text);
+            UiText.FadedRowLabel(
+                new Rect(left, y, Mathf.Max(0f, width - left - Pad), RowH),
+                row.Text
+            );
             GUI.color = Color.white;
             if (row.Kind == RowKind.Heading)
                 Slab.Hairline(new Rect(CellX, r.yMax - 1f, width - CellX * 2f, 1f), UiTheme.Edge);
@@ -495,9 +498,9 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = UiTheme.Name;
-            UiText.RowLabel(new Rect(CellX + ResultIndent * 3f, y, prefixW, RowH), prefix);
+            UiText.FadedRowLabel(new Rect(CellX + ResultIndent * 3f, y, prefixW, RowH), prefix);
             GUI.color = over ? UiTheme.Lead : UiTheme.Dim;
-            UiText.RowLabel(
+            UiText.FadedRowLabel(
                 new Rect(
                     CellX + ResultIndent * 3f + prefixW,
                     y,
@@ -521,7 +524,7 @@ namespace SlopWorld
             GUI.color = color;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
-            UiText.RowLabel(new Rect(CellX, y, width - CellX * 2f, RowH), text);
+            UiText.FadedRowLabel(new Rect(CellX, y, width - CellX * 2f, RowH), text);
             GUI.color = Color.white;
             y += RowH;
         }

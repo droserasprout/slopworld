@@ -22,9 +22,6 @@ namespace SlopWorld
         static readonly List<Line> Lines = new List<Line>();
         static readonly List<TaskInfo> VisibleTasks = new List<TaskInfo>();
         static readonly HashSet<string> SelectedIds = new HashSet<string>();
-        static readonly Dictionary<TaskInfo, string> FittedSummaries =
-            new Dictionary<TaskInfo, string>();
-        static float _summaryWidth = -1f;
         static Rect _body;
         static List<TaskInfo> _taskSnapshot;
         static bool _filtersDirty = true;
@@ -140,7 +137,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Tiny;
             GUI.color = UiTheme.Faint;
-            UiText.RowLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
+            UiText.FadedRowLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Slab.Hairline(
@@ -167,7 +164,7 @@ namespace SlopWorld
             float ageW = UiTheme.Wide(ageText);
             var age = new Rect(r.xMax - CellX - ageW, r.y, ageW, NameH);
             GUI.color = UiTheme.Dim;
-            UiText.RowLabel(age, ageText, TextAnchor.MiddleRight);
+            UiText.FadedRowLabel(age, ageText, TextAnchor.MiddleRight);
 
             string direction = task.Direction;
             string statusText = TaskInfo.StatusText(task.Status);
@@ -175,11 +172,11 @@ namespace SlopWorld
             float right = age.x - UiTheme.GapS;
             var state = new Rect(Mathf.Max(left, right - statusW), r.y, statusW, NameH);
             GUI.color = status;
-            UiText.RowLabel(state, statusText, TextAnchor.MiddleRight);
+            UiText.FadedRowLabel(state, statusText, TextAnchor.MiddleRight);
 
             float directionW = Mathf.Max(0f, state.x - UiTheme.GapS - left);
             GUI.color = UiTheme.Lead;
-            UiText.RowLabel(new Rect(left, r.y, directionW, NameH), direction);
+            UiText.FadedRowLabel(new Rect(left, r.y, directionW, NameH), direction);
 
             GUI.color = UiTheme.Dim;
             var summary = new Rect(
@@ -188,53 +185,17 @@ namespace SlopWorld
                 Mathf.Max(0f, r.width - left - CellX),
                 NoteH
             );
-            UiText.RowLabel(summary, FittedSummary(task, summary.width));
+            UiText.FadedRowLabel(summary, task.Summary);
 
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
-        }
-
-        static string FittedSummary(TaskInfo task, float width)
-        {
-            // Width changes only when the sidebar or its scrollbar changes. Cache the fitted
-            // result so GenText.Truncate's linear character-removal loop sees an already fitting
-            // string during every subsequent IMGUI pass.
-            if (Mathf.Abs(width - _summaryWidth) > 0.5f)
-            {
-                _summaryWidth = width;
-                FittedSummaries.Clear();
-            }
-            if (FittedSummaries.TryGetValue(task, out var fitted))
-                return fitted;
-
-            string text = task.Summary;
-            if (UiTheme.Wide(text) <= width)
-                fitted = text;
-            else
-            {
-                const string ellipsis = "...";
-                int low = 0;
-                int high = text.Length;
-                while (low < high)
-                {
-                    int mid = (low + high + 1) / 2;
-                    string probe = text.Substring(0, mid).TrimEnd() + ellipsis;
-                    if (UiTheme.Wide(probe) <= width)
-                        low = mid;
-                    else
-                        high = mid - 1;
-                }
-                fitted = text.Substring(0, low).TrimEnd() + ellipsis;
-            }
-            FittedSummaries[task] = fitted;
-            return fitted;
         }
 
         static void Empty(Rect body, string text)
         {
             Text.Font = GameFont.Tiny;
             GUI.color = UiTheme.Faint;
-            UiText.RowLabel(
+            UiText.FadedRowLabel(
                 new Rect(body.x + CellX, body.y + Pad, body.width - CellX * 2f, RowH * 2f),
                 text
             );

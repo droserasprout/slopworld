@@ -1,6 +1,10 @@
 # Sidebar integration
 
 `UI/Sidebar/` owns grouped layout, rendering, and navigation.
+Overflowing sidebar labels, including Tasks, Search, Library, and shared content
+trees, use `UiText.FadedRowLabel` to fade the right edge into the row background,
+including hover and selection fills. Each view retains its own label rectangles
+and space for metadata and actions.
 `Patches/AgentSidebar/` owns Harmony label/portrait integration; colonist-bar dispatch
 stays in `Patches/ColonistBar/`. Navigation and scope catalogs belong to
 [sidebar navigation](mod-sidebar-navigation.md).

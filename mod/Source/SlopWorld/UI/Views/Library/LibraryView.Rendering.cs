@@ -207,7 +207,7 @@ namespace SlopWorld
                 {
                     if (y + RowH > textBottom)
                         break;
-                    UiText.RowLabel(
+                    UiText.FadedRowLabel(
                         new Rect(r.x, y, r.width, RowH),
                         details.IsItem ? line : OneLine(line)
                     );
@@ -291,7 +291,7 @@ namespace SlopWorld
                 float lx = arrow.xMax + UiTheme.GapXS;
                 string tail = "  " + count;
                 var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
-                UiText.RowLabel(labelRect, label + tail);
+                UiText.FadedRowLabel(labelRect, label + tail);
             }
 
             Slab.Hairline(
@@ -320,7 +320,7 @@ namespace SlopWorld
                     row.Icon
                 );
                 GUI.color = UiTheme.Lead;
-                UiText.RowLabel(
+                UiText.FadedRowLabel(
                     new Rect(
                         CellX + ArrowW + Pad,
                         r.y,

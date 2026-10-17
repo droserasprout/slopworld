@@ -395,7 +395,7 @@ namespace SlopWorld
                     right = extras.DrawGroupTail(row, group, right);
                 float left = arrow.xMax + UiTheme.GapXS;
                 var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
-                UiText.RowLabel(label, group.Label);
+                UiText.FadedRowLabel(label, group.Label);
 
                 Slab.Hairline(new Rect(CellX, row.yMax - 1f, width - CellX * 2f, 1f), UiTheme.Edge);
 
@@ -453,7 +453,10 @@ namespace SlopWorld
 
                 Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = _source.RowLabelColor(node);
-                UiText.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
+                UiText.FadedRowLabel(
+                    new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH),
+                    node.Name
+                );
 
                 string tooltip = actions == null ? null : actions.RowTooltip(node);
                 if (

@@ -329,7 +329,7 @@ namespace SlopWorld
             float nameW = Mathf.Max(0f, row.Text.width - (ageW > 0f ? ageW + UiTheme.GapXS : 0f));
             var name = new Rect(row.Text.x, row.Text.y, nameW, row.Text.height);
             GUI.color = tint;
-            UiText.RowLabel(
+            UiText.FadedRowLabel(
                 name,
                 (info?.Name ?? row.Session)
                     + (string.IsNullOrEmpty(info?.WorktreeName) ? "" : " · " + info.WorktreeName)
@@ -337,7 +337,7 @@ namespace SlopWorld
             if (ageW > 0f)
             {
                 var time = new Rect(row.Text.xMax - ageW, row.Text.y, ageW, row.Text.height);
-                UiText.RowLabel(time, ago, TextAnchor.MiddleRight);
+                UiText.FadedRowLabel(time, ago, TextAnchor.MiddleRight);
                 string stateName = SidebarRowRenderer.StateName(state);
                 TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
             }

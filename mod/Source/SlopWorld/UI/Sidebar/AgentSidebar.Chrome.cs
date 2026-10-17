@@ -189,14 +189,14 @@ namespace SlopWorld
                 float countW = UiTheme.Wide(count);
                 var countRect = new Rect(r.xMax - CellX - countW, r.y, countW, HeadH);
                 GUI.color = UiTheme.Faint;
-                UiText.RowLabel(countRect, count, TextAnchor.MiddleRight);
+                UiText.FadedRowLabel(countRect, count, TextAnchor.MiddleRight);
 
                 var p = SessionHub.Instance.Project(head.Label);
 
                 Text.Font = GameFont.Small;
                 GUI.color = UiTheme.Faint;
                 var label = new Rect(lx, r.y, Mathf.Max(0f, countRect.x - Pad - lx), HeadH);
-                UiText.RowLabel(label, head.Label);
+                UiText.FadedRowLabel(label, head.Label);
 
                 Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f), UiTheme.Edge);
 

@@ -153,6 +153,100 @@ namespace SlopWorld
             );
         }
 
+        // Fade glyph opacity rather than painting a background-colored cover: sidebar rows
+        // can sit over hover, selection, or animated backgrounds. Keep full sprite spans too.
+        public static void FadedRowLabel(
+            Rect r,
+            string text,
+            TextAnchor anchor = TextAnchor.MiddleLeft,
+            bool italic = false
+        )
+        {
+            if (Event.current.type != EventType.Repaint || r.width <= 0f || r.height <= 0f)
+                return;
+            using (WidgetState.Save())
+            {
+                Verse.Text.WordWrap = false;
+                if (!italic && Wide(text) <= r.width)
+                {
+                    RowLabel(r, text, anchor);
+                    return;
+                }
+                var source = Verse.Text.CurFontStyle;
+                if (source == null)
+                {
+                    RowLabel(r, text, anchor, italic);
+                    return;
+                }
+                var style = new GUIStyle(source)
+                {
+                    fontStyle = italic ? Italic(source.fontStyle) : source.fontStyle,
+                    alignment = TextAnchor.UpperLeft,
+                    wordWrap = false,
+                    clipping = TextClipping.Clip,
+                };
+                float lineH = LineHOf(Verse.Text.Font);
+                var layout = InlineTextLayout.Proportional(
+                    text,
+                    TextSpriteCatalog.Shared,
+                    lineH,
+                    plain => style.CalcSize(new GUIContent(plain)).x
+                );
+                if (layout.Width <= r.width)
+                {
+                    RowLabel(r, text, anchor, italic);
+                    return;
+                }
+
+                var line = SnappedLine(r, anchor);
+                float fadeW = Mathf.Min(24f, line.width);
+                float solidW = line.width - fadeW;
+                Color color = GUI.color;
+                DrawLabelSlice(line, 0f, solidW, layout, lineH, style);
+                // Screen-pixel strips keep the fade smooth at fractional UI scales without
+                // baking theme colors into a texture or allocating render targets per row.
+                float pixel = Slab.LineW;
+                for (float x = solidW; x < line.width; x += pixel)
+                {
+                    float width = Mathf.Min(pixel, line.width - x);
+                    GUI.color = new Color(
+                        color.r,
+                        color.g,
+                        color.b,
+                        color.a * Mathf.Clamp01((line.width - x - width) / fadeW)
+                    );
+                    DrawLabelSlice(line, x, width, layout, lineH, style);
+                }
+            }
+        }
+
+        static void DrawLabelSlice(
+            Rect line,
+            float x,
+            float width,
+            InlineTextLayout layout,
+            float lineH,
+            GUIStyle style
+        )
+        {
+            if (width <= 0f)
+                return;
+            GUI.BeginGroup(new Rect(line.x + x, line.y, width, line.height));
+            try
+            {
+                SharedTextRenderer.Draw(
+                    layout,
+                    new Rect(-x, 0f, line.width, line.height),
+                    lineH,
+                    style
+                );
+            }
+            finally
+            {
+                GUI.EndGroup();
+            }
+        }
+
         static void DrawRowLabel(Rect r, string text, TextAnchor anchor, Action<Rect, string> draw)
         {
             using (WidgetState.Save())
