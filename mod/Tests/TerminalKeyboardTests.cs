@@ -5,6 +5,36 @@ namespace SlopWorld.Tests
 {
     static class TerminalKeyboardTests
     {
+        public static void FileNavigationRequiresUnshiftedAltKeyDown()
+        {
+            foreach (var key in new[] { KeyCode.A, KeyCode.S, KeyCode.Z, KeyCode.X })
+            foreach (bool alt in new[] { false, true })
+            foreach (bool control in new[] { false, true })
+            foreach (bool shift in new[] { false, true })
+            foreach (var type in new[] { EventType.KeyDown, EventType.Repaint, EventType.Used })
+            {
+                var e = new Event
+                {
+                    keyCode = key,
+                    alt = alt,
+                    control = control,
+                    shift = shift,
+                    type = type,
+                };
+                bool expected =
+                    alt
+                    && !control
+                    && !shift
+                    && type == EventType.KeyDown
+                    && (key == KeyCode.A || key == KeyCode.S);
+                Assert.That(
+                    TerminalInputController.TryFileWalkDirection(e, out int direction),
+                    Is.EqualTo(expected)
+                );
+                Assert.That(direction, Is.EqualTo(expected ? (key == KeyCode.A ? -1 : 1) : 0));
+            }
+        }
+
         public static void PreservesTabModifiersAndStripsOnlyShiftFromFunctionKeys()
         {
             foreach (bool altScreen in new[] { false, true })

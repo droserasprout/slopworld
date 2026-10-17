@@ -13,6 +13,20 @@ namespace SlopWorld
             LocalRevision++;
         }
 
+        // Navigate the prepared reader inventory, including native headers. A selection
+        // outside this inventory starts at the requested end; navigation wraps at either end.
+        public static string Adjacent(List<SessionInfo> rows, string current, int direction)
+        {
+            if (rows.Count == 0)
+                return null;
+            int index = rows.FindIndex(row => row.Name == current);
+            int next =
+                index < 0
+                    ? (direction > 0 ? 0 : rows.Count - 1)
+                    : (index + direction + rows.Count) % rows.Count;
+            return rows[next].Name;
+        }
+
         long _sessionsRevision = -1;
         long _localRevision = -1;
         int _projectsRevision = -1;

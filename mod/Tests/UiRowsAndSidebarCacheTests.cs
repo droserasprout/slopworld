@@ -6,6 +6,56 @@ namespace SlopWorld.Tests
 {
     static class UiRowsAndSidebarCacheTests
     {
+        public static void ReaderNavigationWrapsAndStartsAtRequestedEnd()
+        {
+            var rows = new List<SessionInfo>();
+            AssertEx.Equal<string>(
+                null,
+                RoutedSessionRows.Adjacent(rows, null, 1),
+                "empty reader inventory"
+            );
+            rows.Add(new SessionInfo { Name = "editor" });
+            AssertEx.Equal(
+                "editor",
+                RoutedSessionRows.Adjacent(rows, "editor", -1),
+                "single reader wraps to itself"
+            );
+            rows.Add(new SessionInfo { Name = "view-native-1" });
+            rows.Add(new SessionInfo { Name = "diff" });
+            AssertEx.Equal(
+                "editor",
+                RoutedSessionRows.Adjacent(rows, "agent", 1),
+                "agent starts at first reader"
+            );
+            AssertEx.Equal(
+                "diff",
+                RoutedSessionRows.Adjacent(rows, "shell", -1),
+                "shell starts at last reader"
+            );
+            AssertEx.Equal(
+                "view-native-1",
+                RoutedSessionRows.Adjacent(rows, "editor", 1),
+                "native header participates"
+            );
+            AssertEx.Equal(
+                "editor",
+                RoutedSessionRows.Adjacent(rows, "view-native-1", -1),
+                "native header retains current position"
+            );
+            AssertEx.Equal("editor", RoutedSessionRows.Adjacent(rows, "diff", 1), "forward wraps");
+            AssertEx.Equal(
+                "diff",
+                RoutedSessionRows.Adjacent(rows, "editor", -1),
+                "backward wraps"
+            );
+            rows.RemoveAt(1);
+            AssertEx.Equal(
+                "editor",
+                RoutedSessionRows.Adjacent(rows, "view-native-1", 1),
+                "closed current reader starts at requested end"
+            );
+        }
+
         public static void RoutedReaderOrderSurvivesDiffHandleReplacement()
         {
             var rows = new List<SessionInfo>();

@@ -68,6 +68,8 @@ namespace SlopWorld
         public static bool OpenViewerHeader(string session) =>
             Browser.Viewer.OpenViewerHeader(session);
 
+        internal static string CurrentViewerHeader => Browser.Viewer.CurrentViewerHeader;
+
         public static bool IsNativeViewerHeader(string session) =>
             Browser.Viewer.IsNativeViewerHeader(session);
 

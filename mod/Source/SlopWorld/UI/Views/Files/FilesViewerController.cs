@@ -163,6 +163,17 @@ namespace SlopWorld
             return _nativeViewers.ReopenSession(session);
         }
 
+        internal string CurrentViewerHeader
+        {
+            get
+            {
+                foreach (var tab in _nativeViewers.All)
+                    if (ReferenceEquals(tab.View, TerminalWindow.Showing))
+                        return tab.Header;
+                return null;
+            }
+        }
+
         public bool IsNativeViewerHeader(string session)
         {
             return _nativeViewers.ContainsSession(session);

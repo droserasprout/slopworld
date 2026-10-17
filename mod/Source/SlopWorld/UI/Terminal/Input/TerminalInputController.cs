@@ -331,6 +331,13 @@ namespace SlopWorld
         // Handle local session changes while the daemon is offline. Chrome and pane handlers call this after their own key checks.
         internal bool TryHandleSessionNavigation(Event e)
         {
+            if (TryFileWalkDirection(e, out var fileDirection))
+            {
+                AgentSidebar.WalkReader(fileDirection);
+                e.Use();
+                return true;
+            }
+
             int slot = TerminalHotkeys.SlotKey(e);
             if (slot >= 0 && e.alt)
             {

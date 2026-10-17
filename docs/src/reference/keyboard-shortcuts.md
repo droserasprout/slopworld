@@ -29,6 +29,7 @@ settings; built-in controls cannot be rebound.
 | ? | Open help from the map, or leave the open help view. |
 | Ctrl+current sidebar key | Focus that sidebar view's last target. |
 | Alt+Z / Alt+X | Previous/next session in the terminal window. |
+| Alt+A / Alt+S | Show the Files sidebar tab and focus the previous/next open file view, editor, search reader or diff, in sidebar reader order. Wraps at either end and skips agents and shells. |
 | Alt+1..9, Alt+0 | Select an agent on the map or switch panes in the terminal window; 0 is tenth. Number row and keypad work. |
 
 ## Agent (map, with agent selected)

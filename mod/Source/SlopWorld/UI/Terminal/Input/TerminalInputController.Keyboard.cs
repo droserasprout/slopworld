@@ -5,6 +5,18 @@ namespace SlopWorld
     // Terminal key encoding. Workspace shortcuts are consumed before this stage.
     sealed partial class TerminalInputController
     {
+        internal static bool TryFileWalkDirection(Event e, out int dir)
+        {
+            dir = 0;
+            if (e.type != EventType.KeyDown || !e.alt || e.shift || e.control)
+                return false;
+            if (e.keyCode == KeyCode.A)
+                dir = -1;
+            else if (e.keyCode == KeyCode.S)
+                dir = 1;
+            return dir != 0;
+        }
+
         internal static string MapKey(Event e, bool altScreen)
         {
             // Use tmux modifier names. Shifted navigation belongs to alternate-screen apps;

@@ -413,6 +413,18 @@ namespace SlopWorld
 
         static readonly RoutedSessionRows RoutedCache = new RoutedSessionRows();
 
+        public static void WalkReader(int direction)
+        {
+            PrepareRouted();
+            string current = FilesView.CurrentViewerHeader ?? TerminalWindow.CurrentName;
+            string target = RoutedSessionRows.Adjacent(Layout.Routed, current, direction);
+            if (target == null)
+                return;
+            ShowWithoutHistory(SidebarTab.Files);
+            SessionSelectable.Current = target;
+            OpenRouted(target);
+        }
+
         static void PrepareRouted()
         {
             FileReaders.Restore();

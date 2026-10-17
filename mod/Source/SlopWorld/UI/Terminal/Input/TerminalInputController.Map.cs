@@ -9,6 +9,12 @@ namespace SlopWorld
         {
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
                 return false;
+            if (TryFileWalkDirection(e, out var fileDirection))
+            {
+                e.Use();
+                AgentSidebar.WalkReader(fileDirection);
+                return true;
+            }
             if (!TryTabWalkDirection(e, out var direction))
                 return false;
             e.Use();

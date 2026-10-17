@@ -19,6 +19,10 @@ Repeated editor launches for the same path and checkout reuse the live host edit
 the daemon serializes that decision so concurrent requests share one session.
 Routed sidebar rows sort by display label and source metadata rather than opaque
 session handles, preserving order when a diff process is replaced.
+Alt+A/Alt+S selects the Files sidebar tab and walks this same scoped reader inventory,
+including native previews, without depending on sidebar visibility, tree folds, or
+row geometry. Native content identity comes from the shown view rather than its
+retained backing terminal.
 Native reader headers carry the same intent, path and checkout metadata as pagers.
 Routed rows display filenames beside muted checkout context; main checkouts show
 only the project. Italics identify replaceable previews, while pinned readers use

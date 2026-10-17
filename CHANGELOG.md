@@ -12,6 +12,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
+- Keyboard: Added Alt+A/Alt+S shortcuts to focus previous/next open file.
 - UI: Added folding for project/checkout/file results on Search sidebar tab.
 - UI: Mark main checkouts with a root icon on sidebar tabs.
 
