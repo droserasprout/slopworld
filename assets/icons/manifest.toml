@@ -127,10 +127,10 @@ glyph = "cod-text_size"
 code = "eb69"
 note = "the appearance row's Aa"
 
-[trophy]
-glyph = "cod-star_full"
-code = "eb59"
-note = "the About row. Codicons has no trophy, and a star is the same joke at 20px"
+[heart]
+glyph = "cod-heart"
+code = "eb05"
+note = "outline heart for the About row"
 
 [rimworld]
 glyph = "cod-game"

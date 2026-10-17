@@ -86,7 +86,7 @@ namespace SlopWorld
 
         public static Texture2D Type => Get("type");
 
-        public static Texture2D Trophy => Get("trophy");
+        public static Texture2D Heart => Get("heart");
 
         public static Texture2D RimWorld => Get("rimworld");
 

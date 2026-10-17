@@ -236,7 +236,7 @@ namespace SlopWorld
                 PageId.About,
                 "SlopWorld_About",
                 "About",
-                () => Icons.Trophy,
+                () => Icons.Heart,
                 () => new AboutPage()
             ),
         };
