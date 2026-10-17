@@ -10,71 +10,62 @@ namespace SlopWorld
 {
     public static partial class GitView
     {
-        // The state line and then the tree, or the state line alone where there is no tree to
-        // draw. One row either way, which is what Measure counts.
-        static float Body(float width, float y, Repo repo)
+        static string BodyNote(Repo repo)
         {
             if (repo.Loading && repo.Tree == null)
-                return ViewChrome.Note(width, y, 0, "Loading Git status", UiTheme.Faint);
+                return "Loading Git status";
             if (repo.Error != null)
-                return ViewChrome.Note(width, y, 0, repo.Error, UiTheme.Bad);
+                return repo.Error;
             if (!repo.Asked)
-                return ViewChrome.Note(width, y, 0, "not read yet", UiTheme.Faint);
-            if (!repo.IsRepo)
-                return ViewChrome.Note(width, y, 0, "not a git repository", UiTheme.Faint);
-
-            y = State(width, y, repo);
-            return y;
+                return "not read yet";
+            return repo.IsRepo ? null : "not a git repository";
         }
 
-        // The branch, and the selected paths' counts beside it: a column this narrow has room
-        // for a figure each rather than a sentence.
-        static float State(float width, float y, Repo repo)
+        static float Body(float width, float y, Repo repo)
         {
-            var r = new Rect(0f, y, width, UiTheme.TinyRowH);
-            float x = UiTheme.GapS;
-
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
-
-            // From the right, so the branch takes whatever is left rather than pushing the
-            // figures off the edge - a branch name is the long half of this line.
-            float rx = width - UiTheme.GapS;
-            if (repo.Changed == 0)
-            {
-                rx = Tail(rx, y, "clean", UiTheme.Faint);
-            }
-            else
-            {
-                if (repo.Deleted > 0)
-                    rx = Tail(rx, y, "-" + repo.Deleted, UiTheme.Bad);
-                if (repo.Added > 0)
-                    rx = Tail(rx, y, "+" + repo.Added, UiTheme.Yes);
-                rx = Tail(rx, y, repo.Changed + (repo.Truncated ? "+" : ""), UiTheme.Dim);
-            }
-
-            GUI.color = UiTheme.Dim;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - UiTheme.GapXS), UiTheme.TinyRowH);
-            UiText.RowLabel(branch, repo.Branch ?? "");
-
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-
-            TooltipHandler.TipRegion(
-                r,
-                repo.Changed == 0 ? $"{repo.Root}\n\nNothing changed."
-                    : repo.Truncated
-                        ? $"{repo.Root}\n\nAt least {repo.Changed} changes.\n\n"
-                            + "The tree shows the first 2,000 changes."
-                    : !repo.CountsComplete
-                        ? $"{repo.Root}\n\n{repo.Changed} changed. Line counts unavailable."
-                    : $"{repo.Root}\n\n{repo.Changed} changed, "
-                        + $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)"
-            );
-            return y + UiTheme.TinyRowH;
+            string note = BodyNote(repo);
+            return note == null
+                ? y
+                : ViewChrome.Note(
+                    width,
+                    y,
+                    0,
+                    note,
+                    repo.Error != null ? UiTheme.Bad : UiTheme.Faint
+                );
         }
+
+        internal static string CheckoutBranch(string scopeKey, string fallback) =>
+            Known(scopeKey)?.Branch ?? fallback;
+
+        // Files and Git paint the same checkout shortstat in their shared heading.
+        internal static float CheckoutTail(Rect row, string scopeKey, float right)
+        {
+            var repo = Known(scopeKey);
+            if (repo == null)
+                return right;
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Tiny;
+                if (repo.Changed == 0)
+                    return Tail(right, row.y, "clean", UiTheme.Faint);
+                if (repo.Deleted > 0)
+                    right = Tail(right, row.y, "-" + repo.Deleted, UiTheme.Bad);
+                if (repo.Added > 0)
+                    right = Tail(right, row.y, "+" + repo.Added, UiTheme.Yes);
+                return Tail(right, row.y, repo.Changed + (repo.Truncated ? "+" : ""), UiTheme.Dim);
+            }
+        }
+
+        static string CheckoutTooltip(Repo repo) =>
+            repo.Changed == 0 ? $"{repo.Root}\n\nNothing changed."
+            : repo.Truncated
+                ? $"{repo.Root}\n\nAt least {repo.Changed} changes.\n\n"
+                    + "The tree shows the first 2,000 changes."
+            : !repo.CountsComplete
+                ? $"{repo.Root}\n\n{repo.Changed} changed. Line counts unavailable."
+            : $"{repo.Root}\n\n{repo.Changed} changed, "
+                + $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)";
 
         // One figure laid out from the right, and the x the next one ends at. The anchor does
         // the measuring, so nothing here has to know how wide a number is.

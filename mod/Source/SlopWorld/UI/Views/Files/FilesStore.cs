@@ -15,9 +15,11 @@ namespace SlopWorld
         int _focusVersion;
         float _nextAutoRefresh;
         const float AutoRefreshSeconds = 2f;
+        readonly Func<BrowseScope, string> _branch;
 
-        public FilesStore()
+        public FilesStore(Func<BrowseScope, string> branch = null)
         {
+            _branch = branch ?? (scope => scope.Branch);
             Controller = new ContentTreeController(BuildGroups);
         }
 
@@ -88,31 +90,19 @@ namespace SlopWorld
                     ),
                 };
 
-            var groups = new List<ContentTreeGroup>();
-            foreach (var project in SidebarScopes.EnabledScopes().GroupBy(s => s.ProjectKey))
-            {
-                var first = project.First();
-                groups.Add(new ContentTreeGroup(first.ProjectKey, first.Project, "", null, null));
-                foreach (var scope in project)
-                    groups.Add(
-                        new ContentTreeGroup(
-                            scope.Key,
-                            ScopeLabel(scope),
-                            scope.Path,
-                            scope.Key,
-                            Root(scope.Key)
-                        )
-                        {
-                            ParentKey = scope.ProjectKey,
-                        }
-                    );
-            }
+            var groups = ContentTreeGroup.Checkouts(
+                SidebarScopes.EnabledScopes(),
+                scope => new ContentTreeGroup(
+                    scope.Key,
+                    ContentTreeGroup.CheckoutLabel(scope, _branch(scope)),
+                    scope.Path,
+                    scope.Key,
+                    Root(scope.Key)
+                )
+            );
             Controller.SyncGroups(SidebarScopes.GroupKeys);
             return groups;
         }
-
-        static string ScopeLabel(BrowseScope scope) =>
-            scope.Label + (string.IsNullOrEmpty(scope.Branch) ? "" : "  · " + scope.Branch);
 
         // Everything listed will be replaced by a fresh answer about visibility. Keep the old
         // node skeleton while that answer is in flight so the reader's expanded branches survive
@@ -162,9 +152,7 @@ namespace SlopWorld
                     RefreshLoaded(Root(project));
         }
 
-        bool ScopeUnfolded(string key) =>
-            !Controller.IsGroupCollapsed(key)
-            && !Controller.IsGroupCollapsed(SidebarScopes.Find(key)?.ProjectKey);
+        bool ScopeUnfolded(string key) => Controller.IsScopeUnfolded(key);
 
         public void RefreshLoaded(FileNode node, bool descend = true)
         {

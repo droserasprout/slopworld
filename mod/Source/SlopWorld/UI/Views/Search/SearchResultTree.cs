@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace SlopWorld
@@ -24,6 +25,7 @@ namespace SlopWorld
             internal string Text;
             internal string FoldKey;
             internal int Depth;
+            internal bool MainCheckout;
             internal SearchStore.Match Match;
             internal SearchStore.Match MenuMatch;
         }
@@ -112,9 +114,13 @@ namespace SlopWorld
                         new Row
                         {
                             Kind = RowKind.Heading,
-                            Text = $"{group.Worktree}  {group.Matches.Count}",
+                            Text =
+                                BrowseScope.WorktreeOf(group.ScopeKey) == "main"
+                                    ? group.Matches.Count.ToString(CultureInfo.InvariantCulture)
+                                    : $"{group.Worktree}  {group.Matches.Count}",
                             FoldKey = group.ScopeKey,
                             Depth = 1,
+                            MainCheckout = BrowseScope.WorktreeOf(group.ScopeKey) == "main",
                         }
                     );
                     if (IsCollapsed(group.ScopeKey))

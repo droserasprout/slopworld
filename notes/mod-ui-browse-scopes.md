@@ -23,6 +23,14 @@ relative paths within daemon-assigned project/worktree identities; names must no
 substitute for missing IDs. Project and checkout folds are independent. Return
 detached snapshots so callers cannot mutate retained identity.
 
+`ContentTreeGroup.Checkouts` shares Files/Git heading policy. A project's lone
+selected main checkout uses the project fold and retains its scope key for actions
+and refreshes. Multiple selected checkouts, or a lone non-main checkout, retain
+separate checkout folds; hidden checkout folds must not suppress a merged root.
+Checkout headings carry branch and cached Git shortstat; project headings omit shortstat.
+Git retains the root branch or detached commit after a middle dot even when the root
+shares its project heading.
+
 `SessionStore` owns request-boundary translation; [navigation](mod-sidebar-navigation.md)
 owns semantic history; [sidebar integration](mod-sidebar.md) owns row visibility
 and hit testing. See `SidebarProjectStateTests` for filter persistence and inclusion.

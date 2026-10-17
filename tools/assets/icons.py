@@ -24,6 +24,7 @@ Use --report to inspect the output sizes.
 The tool renders above the output size and then applies a box filter.
 This process preserves thin strokes that direct 64-pixel rendering can remove.
 
+The root checkout slot uses the bundled ginger emoji's silhouette instead of a Codicon.
 The output is an alpha mask with white RGB channels.
 The caller uses GUI.color to apply the required color.
 """
@@ -50,6 +51,27 @@ DEFAULT_FONT = ROOT / 'assets' / 'fonts' / 'nerd-symbols' / 'SymbolsNerdFont-Reg
 # Render each glyph at this size before fitting and downsampling it.
 # This size lets the tool reduce every manifest glyph instead of enlarging it.
 EM = 256
+
+
+def bake_root(size: int, margin: int) -> None:
+    """Bake ginger as a tintable monochrome checkout icon from the bundled emoji font."""
+    from tools.assets.emoji_font import DEFAULT_FONT as emoji_font
+
+    # Noto Color Emoji's bitmap strike is 109 pixels tall.
+    font = ImageFont.truetype(str(emoji_font), 109)
+    image = Image.new('RGBA', (EM, EM))
+    ImageDraw.Draw(image).text((0, 0), '\U0001fada', font=font, embedded_color=True)
+    bounds = image.getbbox()
+    if bounds is None:
+        raise RuntimeError('bundled emoji font has no ginger glyph')
+    image = image.crop(bounds)
+    image.thumbnail((size - 2 * margin, size - 2 * margin), Image.Resampling.LANCZOS)
+    # Discard all artwork colors and shading; GUI.color supplies the solid fill.
+    glyph = Image.new('RGBA', image.size, 'white')
+    glyph.putalpha(image.getchannel('A'))
+    output = Image.new('RGBA', (size, size))
+    output.paste(glyph, ((size - glyph.width) // 2, (size - glyph.height) // 2))
+    output.save(OUT / 'root.png', optimize=True)
 
 
 def ink(font: ImageFont.FreeTypeFont, code: int) -> NDArray[np.uint8] | None:
@@ -128,7 +150,8 @@ def main() -> int:
         for slot, (w, h, cover) in sorted(report.items(), key=lambda kv: -kv[1][2]):
             print(f'  {slot:<10} {w:>2}x{h:<2}  {cover * 100:5.1f}%  {table[slot]["glyph"]}')
 
-    print(f'{len(drawn)}/{len(table)} icons at {args.size}px -> {os.path.relpath(OUT, ROOT)}')
+    bake_root(args.size, args.margin)
+    print(f'{len(drawn)}/{len(table)} icons and root emoji at {args.size}px -> {os.path.relpath(OUT, ROOT)}')
     return 0 if len(drawn) == len(table) else 1
 
 

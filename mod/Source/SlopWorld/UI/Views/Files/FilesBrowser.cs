@@ -16,7 +16,7 @@ namespace SlopWorld
 
         public FilesBrowser()
         {
-            Store = new FilesStore();
+            Store = new FilesStore(scope => GitView.CheckoutBranch(scope.Key, scope.Branch));
             _tree = new ContentTreeView(new TreeSource(this), Store.Controller);
             Viewer = new FilesViewerController(_tree.SelectKey, _tree.ClearSelection);
             Actions = new FilesActions(Store, Viewer);
@@ -52,6 +52,7 @@ namespace SlopWorld
         sealed class TreeSource
             : ContentTreeSource,
                 IContentTreeLoader,
+                IContentTreeGroupTail,
                 IContentTreeRowActions,
                 IContentTreeSelection
         {
@@ -78,6 +79,7 @@ namespace SlopWorld
                     ^ (int)SessionHub.Instance.SessionsVersion
                     ^ SessionHub.Instance.ProjectsRevision
                     ^ SidebarScopes.Revision
+                    ^ GitView.TreeRevision
                 );
 
             public override string EmptyReason => SidebarScopes.EmptyReason();
@@ -93,6 +95,9 @@ namespace SlopWorld
             }
 
             public override string GroupTooltip(ContentTreeGroup group) => group.Path;
+
+            public float DrawGroupTail(Rect row, ContentTreeGroup group, float right) =>
+                group.ParentKey == null ? right : GitView.CheckoutTail(row, group.ScopeKey, right);
 
             public void EnsureLoaded(IContentTreeNode node)
             {

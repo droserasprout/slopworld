@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -48,9 +47,7 @@ namespace SlopWorld
             };
         }
 
-        static bool ScopeUnfolded(string key) =>
-            !TreeController.IsGroupCollapsed(key)
-            && !TreeController.IsGroupCollapsed(SidebarScopes.Find(key)?.ProjectKey);
+        static bool ScopeUnfolded(string key) => TreeController.IsScopeUnfolded(key);
 
         static PagerTabs Viewers => FileReaders.Tabs;
 
@@ -87,22 +84,21 @@ namespace SlopWorld
 
         static IList<ContentTreeGroup> BuildGroups()
         {
-            var groups = new List<ContentTreeGroup>();
-            foreach (var project in SidebarScopes.EnabledScopes().GroupBy(s => s.ProjectKey))
-            {
-                var first = project.First();
-                groups.Add(new ContentTreeGroup(first.ProjectKey, first.Project, "", null, null));
-                foreach (var scope in project)
+            var groups = ContentTreeGroup.Checkouts(
+                SidebarScopes.EnabledScopes(),
+                scope =>
                 {
                     var repo = Get(scope.Key);
-                    groups.Add(
-                        new ContentTreeGroup(scope.Key, scope.Label, scope.Path, repo, repo.Tree)
-                        {
-                            ParentKey = scope.ProjectKey,
-                        }
+                    return new ContentTreeGroup(
+                        scope.Key,
+                        ContentTreeGroup.CheckoutLabel(scope, repo.Branch ?? scope.Branch),
+                        scope.Path,
+                        repo,
+                        repo.Tree
                     );
-                }
-            }
+                },
+                showRootBranch: true
+            );
             TreeController.SyncGroups(SidebarScopes.GroupKeys);
             return groups;
         }
@@ -159,38 +155,18 @@ namespace SlopWorld
                             Fetch(scope.Key);
             }
 
-            public override string GroupTooltip(ContentTreeGroup group) => group.Path;
+            public override string GroupTooltip(ContentTreeGroup group) =>
+                group.Value is Repo repo && repo.IsRepo && repo.Error == null
+                    ? CheckoutTooltip(repo)
+                    : group.Path;
 
             public float DrawGroupTail(Rect row, ContentTreeGroup group, float right)
             {
-                var repo = (Repo)group.Value;
-                if (
-                    repo != null
-                    && TreeController.IsGroupCollapsed(group)
-                    && repo.IsRepo
-                    && repo.Changed > 0
-                )
-                {
-                    GUI.color = UiTheme.Dim;
-                    var count = new Rect(
-                        row.width * 0.5f,
-                        row.y,
-                        right - row.width * 0.5f,
-                        row.height
-                    );
-                    UiText.RowLabel(
-                        count,
-                        repo.Changed.ToString(CultureInfo.CurrentCulture),
-                        TextAnchor.MiddleRight
-                    );
-                    GUI.color = UiTheme.Faint;
-                    return count.x - 4f;
-                }
-                return right;
+                return group.ParentKey == null ? right : CheckoutTail(row, group.ScopeKey, right);
             }
 
             public float GroupBodyHeight(ContentTreeGroup group) =>
-                group.Value == null ? 0f : UiTheme.TinyRowH;
+                group.Value is Repo repo && BodyNote(repo) != null ? UiTheme.TinyRowH : 0f;
 
             public float DrawGroupBody(float width, float y, ContentTreeGroup group) =>
                 Body(width, y, (Repo)group.Value);
@@ -211,10 +187,10 @@ namespace SlopWorld
                 switch (action)
                 {
                     case GroupAct.Diff:
-                        DiffAll(group.Key);
+                        DiffAll(group.ScopeKey);
                         break;
                     case GroupAct.Refresh:
-                        Fetch(group.Key);
+                        Fetch(group.ScopeKey);
                         break;
                 }
             }
@@ -254,7 +230,7 @@ namespace SlopWorld
                 GitView.Act((Node)node, ((Node)node).Owner, action);
 
             public override List<FloatMenuOption> GroupMenu(ContentTreeGroup group) =>
-                group.Value == null ? null : HeadMenu(group.Key, (Repo)group.Value);
+                group.Value == null ? null : HeadMenu(group.ScopeKey, (Repo)group.Value);
 
             public override List<FloatMenuOption> RowMenu(IContentTreeNode node) =>
                 GitView.RowMenu((Node)node, ((Node)node).Owner);

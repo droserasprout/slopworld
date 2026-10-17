@@ -12,18 +12,21 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
-- Search: Added folding for project/checkout/file results.
+- UI: Added folding for project/checkout/file results on Search sidebar tab.
+- UI: Mark main checkouts with a root icon on sidebar tabs.
 
 ### Fixed
 
 - Search: Apply search options immediately when toggled.
 - Search: Keep results independent of Files visibility settings.
-- UI: Small Sidebar layout fixes.
+- UI: Don't add nested foldable in sidebar trees when only the main checkout is selected.
+- UI: Small fixes in scrollbar widget and Sidebar layout.
 
 ### Changed
 
 - Search: Increase the result limit from 200 to 1,000 matching lines per checkout.
 - UI: Fade wide sidebar labels to bg color instead of truncating with ellipsis.
+- UI: Show checkout branches and Git change summaries in shared tree headings.
 
 ## [0.0.5] - 2026-10-17
 

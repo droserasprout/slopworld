@@ -28,3 +28,8 @@ diffs, and unstaging removes from the index only.
 
 Partial/capped results cannot be shown as complete totals. Missing optional counts
 do not invalidate an otherwise successful status view.
+
+Files and Git use the shared checkout heading policy from [browse scopes](mod-ui-browse-scopes.md).
+Git paints shortstat in checkout headings; separate body rows carry only loading,
+unavailable, or non-repository messages. Files consumes the same cached branch and
+shortstat without owning Git refreshes.

@@ -102,6 +102,8 @@ namespace SlopWorld
 
         public static Texture2D Add => Get("add");
 
+        public static Texture2D Root => Get("root");
+
         // ------------------------------------------------------------------ the loader
 
         static Texture2D Get(string slot)

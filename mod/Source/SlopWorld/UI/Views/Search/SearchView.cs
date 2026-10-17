@@ -455,6 +455,13 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             float left = arrow.xMax + UiTheme.GapXS;
+            if (row.MainCheckout)
+            {
+                // Match visible text ink rather than the padded line box.
+                float side = Mathf.Ceil(UiTheme.LineHOf(GameFont.Tiny) * 0.5f);
+                GUI.DrawTexture(new Rect(left, y + (RowH - side) / 2f, side, side), Icons.Root);
+                left += side + UiTheme.GapXS;
+            }
             UiText.FadedRowLabel(
                 new Rect(left, y, Mathf.Max(0f, width - left - Pad), RowH),
                 row.Text
@@ -464,7 +471,9 @@ namespace SlopWorld
                 Slab.Hairline(new Rect(CellX, r.yMax - 1f, width - CellX * 2f, 1f), UiTheme.Edge);
             TooltipHandler.TipRegion(
                 r,
-                row.Text + (collapsed ? "\n\nClick to unfold." : "\n\nClick to fold.")
+                (row.MainCheckout ? "Main checkout  " : "")
+                    + row.Text
+                    + (collapsed ? "\n\nClick to unfold." : "\n\nClick to fold.")
             );
             Hits.Add(
                 new Hit

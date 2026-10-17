@@ -38,6 +38,15 @@ namespace SlopWorld
 
         public bool IsGroupCollapsed(string key) => _state.IsCollapsed(key);
 
+        public bool IsScopeUnfolded(string scopeKey)
+        {
+            foreach (var group in Groups())
+                if (group.ScopeKey == scopeKey)
+                    return !_state.IsCollapsed(group.Key)
+                        && (group.ParentKey == null || !_state.IsCollapsed(group.ParentKey));
+            return false;
+        }
+
         public void SetGroupCollapsed(string key, bool collapsed) =>
             _state.SetCollapsed(key, collapsed);
 

@@ -10,9 +10,13 @@ namespace SlopWorld
         void EnsureLoaded(IContentTreeNode node);
     }
 
-    public interface IContentTreeGroupExtras
+    public interface IContentTreeGroupTail
     {
         float DrawGroupTail(Rect row, ContentTreeGroup group, float right);
+    }
+
+    public interface IContentTreeGroupExtras : IContentTreeGroupTail
+    {
         GroupAct GroupActions(ContentTreeGroup group);
         void GroupAction(ContentTreeGroup group, GroupAct action);
         float GroupBodyHeight(ContentTreeGroup group);
@@ -252,7 +256,7 @@ namespace SlopWorld
                     BuildRows(
                         group.Root,
                         ref y,
-                        group.ParentKey == null ? 0 : 1 - group.Root.Depth
+                        (group.ParentKey == null ? 0 : 1) - group.Root.Depth
                     );
             }
 
@@ -391,9 +395,21 @@ namespace SlopWorld
                 if (acts != GroupAct.None)
                     right =
                         GroupActions.Draw(row, right - _scrollbarHitInset, acts) - UiTheme.GapXS;
-                else if (extras != null)
-                    right = extras.DrawGroupTail(row, group, right);
+                else if (_source is IContentTreeGroupTail tail)
+                    right = tail.DrawGroupTail(row, group, right);
                 float left = arrow.xMax + UiTheme.GapXS;
+                if (group.MainCheckout)
+                {
+                    // A tintable ginger root replaces the main-checkout text.
+                    GUI.color = UiTheme.Faint;
+                    // Match visible text ink rather than the padded line box.
+                    float side = Mathf.Ceil(UiTheme.LineHOf(GameFont.Tiny) * 0.5f);
+                    GUI.DrawTexture(
+                        new Rect(left, row.y + (RowH - side) / 2f, side, side),
+                        Icons.Root
+                    );
+                    left += side + UiTheme.GapXS;
+                }
                 var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
                 UiText.FadedRowLabel(label, group.Label);
 
