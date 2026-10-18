@@ -38,7 +38,12 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
             [[ "$GITHUB_REF" == refs/heads/main ]] || exit 1
             version="$(python3 -m tools.version.metadata "$RELEASE_TAG")"
-            git merge-base --is-ancestor "refs/tags/$RELEASE_TAG" HEAD
+            # The reusable builder builds GITHUB_SHA, not this job's checkout.
+            release_sha="$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
+            if [[ "$release_sha" != "$GITHUB_SHA" ]]; then
+              echo "Release tag $RELEASE_TAG must match the workflow commit $GITHUB_SHA." >&2
+              exit 1
+            fi
           else
             [[ "$GITHUB_REF" == refs/tags/* ]] || exit 1
             version="$(python3 -m tools.version.metadata "$GITHUB_REF_NAME")"

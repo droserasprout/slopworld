@@ -26,8 +26,9 @@ from tools.version.metadata import TAG_GLOB
         ('refs/heads/other', 'workflow_dispatch', 'v0.0.5', None),
     ],
 )
+@pytest.mark.parametrize('main_ahead', [False, True])
 def test_image_tags_and_embedded_version_agree(
-    tmp_path: Path, ref: str, event: str, release_tag: str, expected: str | None
+    tmp_path: Path, ref: str, event: str, release_tag: str, expected: str | None, main_ahead: bool
 ) -> None:
     workflow = yaml.safe_load((ROOT / '.github/workflows/image.yml').read_text())
     prepare = workflow['jobs']['prepare']
@@ -51,6 +52,25 @@ def test_image_tags_and_embedded_version_agree(
         cwd=tmp_path,
     )
     run(['git', 'tag', 'v0.0.5'], cwd=tmp_path)
+    if main_ahead:
+        run(
+            [
+                'git',
+                '-c',
+                'user.name=Test',
+                '-c',
+                'user.email=test@example.com',
+                'commit',
+                '--quiet',
+                '--allow-empty',
+                '-m',
+                'after release',
+            ],
+            cwd=tmp_path,
+        )
+        if event == 'workflow_dispatch':
+            expected = None
+    commit = run(['git', 'rev-parse', 'HEAD'], cwd=tmp_path, capture_output=True, text=True).stdout.strip()
     environment = os.environ | {
         'PYTHONPATH': str(ROOT),
         'OWNER': 'TestOwner',
@@ -58,7 +78,7 @@ def test_image_tags_and_embedded_version_agree(
         'GITHUB_EVENT_NAME': event,
         'RELEASE_TAG': release_tag,
         'GITHUB_REF_NAME': ref.rsplit('/', 1)[-1],
-        'GITHUB_SHA': 'a' * 40,
+        'GITHUB_SHA': commit,
         'GITHUB_OUTPUT': str(output),
     }
     result = run(['bash', '-euc', script], cwd=tmp_path, env=environment, check=False)

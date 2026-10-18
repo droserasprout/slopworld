@@ -34,6 +34,9 @@ files must not invalidate builds. `tools/release/gates.py` rechecks checkout
 identity and cleanliness after every validation stage. Publication belongs to
 `tools/release/publish.py`; existing tags must match the built commit and existing
 releases must not be overwritten.
+Manual sidecar image publication requires the selected release tag to resolve to
+the workflow commit: the reusable image builder builds that commit, independently
+of the preparation job's checkout.
 
 ## Dependency maintenance
 
