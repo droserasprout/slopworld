@@ -70,9 +70,9 @@ namespace SlopWorld
                     Ghost = true,
                     Line = new Rect(rowX, rowY, width, GhostH),
                     Text = new Rect(
-                        rowX + CellX + ArrowW + UiTheme.GapXS,
+                        rowX + CellX,
                         rowY + 1f,
-                        width - CellX - ArrowW - UiTheme.GapXS - Pad,
+                        Mathf.Max(0f, width - CellX - Pad),
                         NameH
                     ),
                     Face = Rect.zero,
@@ -117,10 +117,7 @@ namespace SlopWorld
             );
             RowChrome.Hover(highlight, current, true, RowHoverPolicy.OverlayAware);
 
-            var text = row.Text;
-            text.x += UiTheme.GapXS;
-            text.width = Mathf.Max(0f, text.width - 2f * UiTheme.GapXS);
-            text = DrawActionMark(text, RoutedAction(info), true);
+            var text = DrawActionMark(row.Text, RoutedAction(info), true);
 
             Text.Font = GameFont.Small;
             bool preview = FileReaders.IsSession(row.Session);
