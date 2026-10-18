@@ -111,7 +111,14 @@ namespace SlopWorld
         {
             RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
 
-            var text = DrawActionMark(row.Text, RoutedAction(info), true);
+            bool native = FilesView.IsNativeViewerHeader(row.Session);
+            bool markdown = native && FileTypes.IsMarkdown(info?.ReaderPath);
+            bool image = native && FileTypes.IsImage(info?.ReaderPath);
+            var icon =
+                markdown ? Icons.MarkdownPreview
+                : image ? Icons.ImagePreview
+                : null;
+            var text = DrawActionMark(row.Text, RoutedAction(info), true, icon);
 
             Text.Font = GameFont.Small;
             bool preview = FileReaders.IsSession(row.Session);
@@ -125,12 +132,22 @@ namespace SlopWorld
                 preview && !locked
             );
             if (preview)
+            {
+                string kind =
+                    markdown ? "Markdown preview"
+                    : image ? "Image preview"
+                    : "Preview";
                 TooltipHandler.TipRegion(
                     row.Line,
-                    locked
-                        ? "Pinned preview tab. Click to show it. Middle-click to close."
-                        : "Preview tab. Double-click its header to keep it open. Middle-click to close."
+                    kind
+                        + ". "
+                        + (
+                            locked
+                                ? "Pinned tab. Click to show it. Middle-click to close."
+                                : "Double-click its header to keep it open. Middle-click to close."
+                        )
                 );
+            }
             GUI.color = Color.white;
         }
 
@@ -261,7 +278,12 @@ namespace SlopWorld
             Click(row, info);
         }
 
-        static Rect DrawActionMark(Rect text, RowAct action, bool routed = false)
+        static Rect DrawActionMark(
+            Rect text,
+            RowAct action,
+            bool routed = false,
+            Texture2D icon = null
+        )
         {
             if (action == RowAct.None)
                 return text;
@@ -276,7 +298,7 @@ namespace SlopWorld
                     : UiTheme.Dim;
                 GUI.DrawTexture(
                     new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
-                    RowActions.Tex(action)
+                    icon ?? RowActions.Tex(action)
                 );
                 GUI.color = was;
             }

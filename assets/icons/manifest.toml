@@ -107,6 +107,16 @@ glyph = "cod-eye"
 code = "ea70"
 note = "a row's view action"
 
+[markdown_preview]
+glyph = "cod-file_text"
+code = "ec5e"
+note = "page with text for rendered Markdown readers in Open files"
+
+[image_preview]
+glyph = "cod-file_media"
+code = "eaea"
+note = "landscape for native image readers in Open files"
+
 [refresh]
 glyph = "cod-refresh"
 code = "eb37"

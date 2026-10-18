@@ -27,6 +27,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - UI: Pressing Search now preserves the open file’s terminal pane.
 - UI: Tabs and navigation now respond on mouse press instead of release.
 - UI: Unified dropdown selectors' styling and behavior.
+- UI: Use distinct icons for markdown and image preview tabs.
 
 ### Changed
 

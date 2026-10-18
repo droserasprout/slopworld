@@ -36,6 +36,8 @@ Native reader headers carry the same intent, path and checkout metadata as pager
 Routed rows display filenames beside muted checkout context; main checkouts show
 only the project. Italics identify replaceable previews, while pinned readers use
 upright text.
+In Open files, rendered Markdown readers use a page-with-text mark and native image
+readers use a landscape; source pagers and native plain-text previews retain the view eye.
 
 Source-file probes reconcile readers independently of tree filters/folds. Failed
 probes preserve readers, and stale replies cannot replace another reader. Refresh

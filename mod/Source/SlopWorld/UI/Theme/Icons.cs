@@ -69,6 +69,10 @@ namespace SlopWorld
 
         public static Texture2D View => Get("eye");
 
+        public static Texture2D MarkdownPreview => Get("markdown_preview");
+
+        public static Texture2D ImagePreview => Get("image_preview");
+
         // Shared funnel for project, status, and file visibility filters.
         public static Texture2D Filter => Get("filter");
 
