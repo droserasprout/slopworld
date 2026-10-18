@@ -177,11 +177,10 @@ namespace SlopWorld
                 Preview();
         }
 
-        public override void Draw(Rect rect)
+        protected override void BeforeDraw()
         {
             if (_command != SelectedCommand)
                 Reload();
-            base.Draw(rect);
         }
 
         protected override void DrawFields(Listing_Standard l)

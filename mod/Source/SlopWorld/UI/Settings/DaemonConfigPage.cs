@@ -82,11 +82,19 @@ namespace SlopWorld
             );
         }
 
-        public virtual void Draw(Rect rect)
+        public void Draw(Rect rect)
         {
-            using (WidgetState.Save())
-                DrawCore(rect);
+            _configState.DuringDraw(() =>
+            {
+                using (WidgetState.Save())
+                {
+                    BeforeDraw();
+                    DrawCore(rect);
+                }
+            });
         }
+
+        protected virtual void BeforeDraw() { }
 
         void DrawCore(Rect rect)
         {

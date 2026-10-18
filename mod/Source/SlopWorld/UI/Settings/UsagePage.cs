@@ -83,11 +83,10 @@ namespace SlopWorld
         Dictionary<string, UsageCatalogInfo> _catalogByKey =
             new Dictionary<string, UsageCatalogInfo>();
 
-        public override void Draw(Rect rect)
+        protected override void BeforeDraw()
         {
             if (_cfg != null)
                 RefreshCatalog();
-            base.Draw(rect);
         }
 
         void RefreshCatalog()

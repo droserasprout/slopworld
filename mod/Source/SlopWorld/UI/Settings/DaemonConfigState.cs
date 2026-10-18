@@ -13,6 +13,9 @@ namespace SlopWorld
             new Dictionary<string, DaemonConfigDraft>();
 
         readonly string _pageId;
+        readonly DaemonConfigEndpoint _endpoint = new DaemonConfigEndpoint(() =>
+            DaemonClient.BaseUrl
+        );
         string _key;
         DaemonConfigDraft _draft;
 
@@ -21,9 +24,9 @@ namespace SlopWorld
             _pageId = pageId ?? "daemon-config";
         }
 
-        string Endpoint => DaemonClient.BaseUrl ?? "";
+        string Key => _pageId + "\n" + _endpoint.Current;
 
-        string Key => _pageId + "\n" + Endpoint;
+        internal void DuringDraw(Action draw) => _endpoint.DuringDraw(draw);
 
         DaemonConfigDraft Draft
         {
@@ -181,6 +184,6 @@ namespace SlopWorld
         }
 
         bool IsCurrent(string key, DaemonConfigDraft draft, int operation) =>
-            _key == key && Key == key && draft.IsCurrent(operation);
+            _key == key && _pageId + "\n" + _endpoint.Fresh == key && draft.IsCurrent(operation);
     }
 }

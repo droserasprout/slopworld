@@ -12,6 +12,9 @@ merges unedited fields and reports conflicts; Discard takes the latest remote va
 Stale callbacks cannot overwrite newer outcomes. Drafts are scoped by page and
 endpoint; saving one page must not reload another. Endpoint changes clear config
 paths. Raw editing waits for a successful load, and failed reload preserves text.
+`DaemonConfigEndpoint` resolves the endpoint once per synchronous page draw, including
+page preparation. Repeated draft reads reuse that snapshot; the next draw resolves
+again. Request transport and stale-callback checks still resolve the live endpoint.
 Effective previews are daemon-resolved. Connection lifetime belongs to
 [the client](mod-client.md); replacement and workspace-record protection belong to
 [configuration stores](daemon-config-stores.md).

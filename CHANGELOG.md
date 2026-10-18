@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## [Unreleased]
+
+### Fixed
+
+- UI: Fixed slow sidebar resizing with Settings open.
+
 ## [0.0.6] - 2026-10-18
 
 ### Added
