@@ -46,6 +46,26 @@ namespace SlopWorld
         public static bool HandleFunctionKey(Event e) =>
             TerminalInputController.HandleFunctionKey(e);
 
+        internal static bool HandleSessionNavigation(Event e)
+        {
+            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            return window != null && window.TryHandleSessionNavigation(e);
+        }
+
+        bool TryHandleSessionNavigation(Event e)
+        {
+            if (
+                e == null
+                || e.type != EventType.KeyDown
+                || ModOptions.KeyboardCaptureActive
+                || (Find.WindowStack != null && !Find.WindowStack.GetsInput(this))
+                || !_terminal.HandleSessionNavigation(e)
+            )
+                return false;
+            SearchView.ReleaseFocus();
+            return true;
+        }
+
         internal static bool TryTabWalkDirection(Event e, out int dir) =>
             TerminalInputController.TryTabWalkDirection(e, out dir);
 
@@ -83,6 +103,11 @@ namespace SlopWorld
 
                     bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
                     _panels.SetFocus(input);
+                    // Unity restores window keyboard events inside this callback. Dispatch
+                    // navigation before DrawTopBar draws the sidebar's native Search fields.
+                    // A transition may replace this window or its content, so stop this pass.
+                    if (TryHandleSessionNavigation(Event.current))
+                        return;
                     Rect body = DrawTopBar(rect, input);
                     DrawBody(body, input);
                     Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();

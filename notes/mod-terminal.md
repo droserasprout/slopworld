@@ -13,6 +13,12 @@ Harmony only dispatches it. Pane clicks, split creation, and session switching s
 focus. Visible terminal panes bypass field focus scopes. Auto-resume pending consumes
 terminal keys while preserving workspace controls. Shortcut/modifier behavior belongs
 to [keyboard shortcuts](../docs/src/reference/keyboard-shortcuts.md).
+TerminalWindow dispatches navigation both before WindowStack consumes outer keyboard
+events and inside its window callback before drawing sidebar fields. Focused native
+fields receive keys inside GUI.Window; clearing their focus changes the delivery path.
+Both paths use the same handler and only accept unconsumed KeyDown events. Handled
+window navigation releases Search focus and stops that draw pass. Modal windows and
+binding capture retain input.
 Shift bypasses workspace Alt navigation; terminal encoding forwards the unshifted
 Alt letter or digit, including keypad digits. Map selection also ignores these
 Shift+Alt combinations.

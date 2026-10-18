@@ -22,7 +22,14 @@ namespace SlopWorld
                 return;
 
             if (TerminalWindow.HandleFunctionKey(e))
+            {
                 e.Use();
+                return;
+            }
+
+            // Unfocused-window keys reach this hook; focused text controls receive
+            // their events inside GUI.Window instead. Both paths share one handler.
+            TerminalWindow.HandleSessionNavigation(e);
         }
     }
 }

@@ -65,6 +65,8 @@ namespace SlopWorld
 
         internal void HandleChrome(Event e) => _input.HandleChrome(e);
 
+        internal bool HandleSessionNavigation(Event e) => _input.TryHandleSessionNavigation(e);
+
         internal void Leave() => _host.Leave();
 
         internal void Close() => _host.ClosePanel(this);
