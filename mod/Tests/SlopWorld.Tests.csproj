@@ -169,6 +169,7 @@
     <Compile Include="../Source/SlopWorld/UI/Workspace/WorkspacePanel.cs" Link="Source/UI/Workspace/WorkspacePanel.cs" />
     <Compile Include="../Source/SlopWorld/UI/Workspace/WorkspaceSplit.cs" Link="Source/UI/Workspace/WorkspaceSplit.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/FieldFocusOrder.cs" Link="Source/UI/Text/FieldFocusOrder.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalSelectionState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalPanelGeometry.cs" Link="Source/UI/Terminal/Rendering/TerminalPanelGeometry.cs" />
     <Compile Include="../Source/SlopWorld/Settings/FramePolicy.cs" Link="Source/Settings/FramePolicy.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" Link="Source/Client/SessionHub/HubEventBatch.cs" />

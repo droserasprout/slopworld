@@ -12,6 +12,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
+- Terminal: Fixed selection drift in scrollback when new output arrives..
 - UI: Fixed dropdown spacing, hover highlights, and closing on second click.
 - UI: Fixed slow sidebar resizing with Settings open.
 - UI: Tabs and navigation now respond on mouse press instead of release.

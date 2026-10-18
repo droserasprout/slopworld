@@ -5,50 +5,27 @@ namespace SlopWorld
     sealed partial class TerminalPanel
     {
         // Selection gestures remain ordered by TerminalSelectionInput. This coordinator owns the
-        // coordinate-space bookkeeping that gestures should not have to understand: live-frame
-        // shifts, displayed-history offsets, cell translation, and clipboard text extraction.
+        // panel-specific cell translation and clipboard text extraction. Selection state owns
+        // the row coordinates and their translation as live and displayed frames advance.
         sealed class TerminalSelectionCoordinator
         {
             readonly TerminalPanel _panel;
 
-            public int Offset { get; private set; }
-            public ulong? LastLiveSeq { get; private set; }
+            public ulong? LastLiveSeq => _panel._state.Selection.LastLiveSeq;
 
             public TerminalSelectionCoordinator(TerminalPanel window)
             {
                 _panel = window;
             }
 
-            public void NoteLiveFrame(ulong liveSeq, int liveShift)
-            {
-                if (
-                    LastLiveSeq.HasValue
-                    && Offset == 0
-                    && (
-                        _panel._state.Selection.HasSelection
-                        || _panel._state.Selection.Dragging
-                        || _panel._state.Selection.WordDragging
-                    )
-                )
-                    MoveRows(-liveShift);
-                LastLiveSeq = liveSeq;
-            }
+            public void NoteLiveFrame(ulong liveSeq, int liveShift) =>
+                _panel._state.Selection.NoteLiveFrame(liveSeq, liveShift);
 
-            public void SyncOffset(int offset)
-            {
-                if (offset == Offset)
-                    return;
-                MoveRows(offset - Offset);
-                Offset = offset;
-            }
+            public void SyncOffset(int offset) => _panel._state.Selection.SyncOffset(offset);
 
-            public void ResetForNewRun()
-            {
-                Offset = 0;
-                LastLiveSeq = null;
-            }
+            public void ResetForNewRun() => _panel._state.Selection.ResetCoordinates();
 
-            public void ResetLiveSequence() => LastLiveSeq = null;
+            public void ResetLiveSequence() => _panel._state.Selection.ResetLiveSequence();
 
             public Vector2Int CellAt(Rect body, Vector2 mouse)
             {
@@ -73,26 +50,6 @@ namespace SlopWorld
                     _panel._state.Selection.B.x,
                     _panel._state.Selection.B.y
                 );
-            }
-
-            void MoveRows(int delta)
-            {
-                if (delta == 0)
-                    return;
-                var a = _panel._state.Selection.A;
-                var b = _panel._state.Selection.B;
-                var wordStart = _panel._state.Selection.WordStart;
-                var wordEnd = _panel._state.Selection.WordEnd;
-                a.y += delta;
-                b.y += delta;
-                wordStart.y += delta;
-                wordEnd.y += delta;
-                _panel._state.Selection.A = a;
-                _panel._state.Selection.B = b;
-                _panel._state.Selection.WordStart = wordStart;
-                _panel._state.Selection.WordEnd = wordEnd;
-                if (_panel._state.Selection.LineDragging)
-                    _panel._state.Selection.LineStart += delta;
             }
         }
     }
