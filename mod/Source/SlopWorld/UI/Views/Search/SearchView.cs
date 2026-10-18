@@ -365,7 +365,7 @@ namespace SlopWorld
 
         static void RunSearch(SearchSubmission submitted)
         {
-            ReleaseViewer();
+            // Result replacement does not dismiss the file the user is reading.
             if (submitted.Query.Length > 0)
                 _selected = null;
             Scroll.JumpTo(Vector2.zero);

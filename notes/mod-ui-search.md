@@ -25,7 +25,8 @@ The daemon returns at most 1,000 matching lines per checkout and marks incomplet
 results as truncated. Search draws only visible rows while retaining the result set.
 
 Checkout filter changes rerun the last submitted query and options without replacing draft
-controls. They release an unpinned Search preview but preserve pinned Search readers.
+controls. Search submissions, option changes, and checkout filter changes preserve the
+open Search reader, including an unpinned preview.
 Search owns a separate pager; Files and Git share [FileReaders](mod-file-readers.md).
 Closing the Search tab releases field focus and preserves its reader.
 
