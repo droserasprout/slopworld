@@ -13,6 +13,8 @@ Harmony only dispatches it. Pane clicks, split creation, and session switching s
 focus. Visible terminal panes bypass field focus scopes. Auto-resume pending consumes
 terminal keys while preserving workspace controls. Shortcut/modifier behavior belongs
 to [keyboard shortcuts](../docs/src/reference/keyboard-shortcuts.md).
+Alt+Z/X skips routed file panes in both map and pane navigation; Alt+A/S owns their
+walk. The open-beside menu retains eligible file panes.
 TerminalWindow dispatches navigation both before WindowStack consumes outer keyboard
 events and inside its window callback before drawing sidebar fields. Focused native
 fields receive keys inside GUI.Window; clearing their focus changes the delivery path.

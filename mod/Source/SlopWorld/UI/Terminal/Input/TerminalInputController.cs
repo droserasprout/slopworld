@@ -569,6 +569,9 @@ namespace SlopWorld
         static string SelectAdjacentSession(int dir)
         {
             var order = TabOrder();
+            // File panes have their own Alt+A/S walk. Keep them in TabOrder for
+            // the open-beside menu, but skip them in both map and pane Alt+Z/X.
+            order.RemoveAll(name => AgentSidebar.IsRouted(SessionHub.Instance.Get(name)));
             if (order.Count == 0)
                 return null;
 

@@ -3,6 +3,8 @@
 Tables show defaults. Change rebindable assignments in RimWorld's keyboard
 settings; built-in controls cannot be rebound.
 
+Press **?** in game to show current shortcuts.
+
 ## Interface
 
 | Default | Action | Rebindable |
@@ -28,9 +30,9 @@ settings; built-in controls cannot be rebound.
 | --- | --- |
 | ? | Open help from the map, or leave the open help view. |
 | Ctrl+current sidebar key | Focus that sidebar view's last target. |
-| Alt+Z / Alt+X | Previous/next session in the terminal window. |
-| Alt+A / Alt+S | Show the Files sidebar tab and focus the previous/next open file view, editor, search reader or diff, in sidebar reader order. Wraps at either end and skips agents and shells. |
-| Alt+1..9, Alt+0 | Select an agent on the map or switch panes in the terminal window; 0 is tenth. Number row and keypad work. |
+| Alt+Z / Alt+X | Previous/next agent or shell session. |
+| Alt+A / Alt+S | Previous/next open file (view, editor, search reader or diff). |
+| Alt+1..9, Alt+0 | Select an agent on the map or switch panes in the terminal window; 0 is tenth. |
 
 ## Agent (map, with agent selected)
 
@@ -53,26 +55,10 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Shift+Escape | Close the focused pane; closing the last pane closes the terminal window. |
 | Shift+Enter | Send a newline-without-submit sequence to compatible applications. |
 | Ctrl+C | Copy selected text. Without a selection, send SIGINT. |
-| Ctrl+V | Paste from clipboard. Codex panes attach local image file links and forward image clipboard data to Codex. |
+| Ctrl+V | Paste from clipboard. |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
 | Shift+F1..F12 | Forward F1..F12 to the application without Shift. Ctrl and Alt are preserved. |
-| Shift+Alt+A/S/Z/X, Shift+Alt+0..9 | Forward the corresponding Alt+letter or Alt+digit to the application without Shift, bypassing workspace navigation. Number row and keypad work. |
-
-In native Linux Codex panes, copying a single local link such as
-`file:///home/me/Pictures/example.png` and pasting it into the editable composer
-attaches a private copy of the image. Percent-encoded spaces and Unicode paths are
-supported. PNG, JPEG, GIF and WebP files must be at most 20 MiB, with dimensions
-no greater than 8192 pixels and bounded decode memory. Other text and non-image file
-links paste normally; host shell panes always paste text. Other agent templates
-keep their existing text paste behavior.
-
-Restart agents launched before host image import support to enable the private image
-mount. Failed imports deliver no path or URI; the daemon log records the reason.
-Imported images stay in agent private state until reset/delete; storage is limited to
-128 files and 256 MiB per agent. Pasting again creates another copy. The Linux sidecar
-cannot import desktop-host file links: clipboard paste there remains text from the
-native game buffer. Image-path attachment behavior is verified for Codex 0.162.0's
-editable composer.
+| Shift+Alt+A/S/Z/X, Shift+Alt+0..9 | Forward the corresponding Alt combo to the application without Shift, bypassing navigation. |
 
 ## Terminal mouse controls
 
@@ -101,18 +87,3 @@ application requests mouse reporting, the mod forwards wheel input as mouse even
 | 3 | Rejuvenate | yes |
 | 4 | Teleport | yes |
 | 5 | Cat whistle | yes |
-
-## Help and command palette
-
-Open help with **Keyboard shortcuts** in the computer core menu or palette.
-
-Ctrl+backquote (by default) opens a filtered command list. Type to filter.
-Use the arrow keys and Enter to navigate. Commands and their availability depend on the current context. Recently used commands appear first when
-unfiltered.
-
-Notable commands:
-
-- **View: Toggle Sidebar** — hide or show the left panel.
-- **Screensaver** — hide the interface and show only the background animation until
-  you press any key. Open panels return when you leave the screensaver.
-- **Agent: Shell** — open a shell inside an eligible selected agent's sandbox.
