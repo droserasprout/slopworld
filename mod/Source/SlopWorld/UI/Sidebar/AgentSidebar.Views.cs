@@ -371,6 +371,31 @@ namespace SlopWorld
 
         static readonly RoutedSessionRows RoutedCache = new RoutedSessionRows();
 
+        static bool _hadOpenFiles;
+
+        static bool IsOpenFileSession(SessionInfo info) =>
+            IsRouted(info)
+            && ((RoutedAction(info) & RowAct.Diff) == 0 || FileReaders.Tabs.IsSession(info.Name));
+
+        static void UpdateOpenFilesVisibility()
+        {
+            var hub = SessionHub.Instance;
+            // A disconnected snapshot must not turn a temporary absence into a saved preference.
+            if (!hub.Online)
+                return;
+            FileReaders.Restore();
+            bool hasFiles = FilesView.HasNativeReaders || hub.Sessions.Any(IsOpenFileSession);
+            // Preview replacement may retire the last process before its successor arrives.
+            if (
+                !hasFiles
+                && (FileReaders.Tabs.Find(tab => tab.Opening) != null || SearchView.ReaderOpening)
+            )
+                return;
+            if (_hadOpenFiles && !hasFiles)
+                SetOpenFilesVisible(false);
+            _hadOpenFiles = hasFiles;
+        }
+
         public static void WalkReader(int direction)
         {
             RevealOpenFiles();
@@ -394,13 +419,7 @@ namespace SlopWorld
                 Projects.Revision + SidebarScopes.Revision,
                 SessionHub.Instance.Config.EffectivePager,
                 SessionHub.Instance.Config.Editor,
-                info =>
-                    IsRouted(info)
-                    && SidebarScopes.SessionChosen(info)
-                    && (
-                        (RoutedAction(info) & RowAct.Diff) == 0
-                        || FileReaders.Tabs.IsSession(info.Name)
-                    ),
+                info => IsOpenFileSession(info) && SidebarScopes.SessionChosen(info),
                 FilesView.AddRoutedPreviews,
                 GhostH
             );

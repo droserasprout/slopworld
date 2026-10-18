@@ -25,6 +25,7 @@ namespace SlopWorld
 
         static void DrawOpenFiles()
         {
+            UpdateOpenFilesVisibility();
             var split = CurrentSplit;
             Layout.ViewRows.Clear();
             HandleFilesDivider(PaneBody, split);

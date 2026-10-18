@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SlopWorld
@@ -180,6 +181,8 @@ namespace SlopWorld
         {
             return _nativeViewers.ContainsSession(session);
         }
+
+        internal bool HasNativeReaders => _nativeViewers.All.Any();
 
         void ViewSourceFile(string project, string path, string label)
         {

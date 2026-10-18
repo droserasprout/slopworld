@@ -70,6 +70,8 @@ namespace SlopWorld
 
         internal static string CurrentViewerHeader => Browser.Viewer.CurrentViewerHeader;
 
+        internal static bool HasNativeReaders => Browser.Viewer.HasNativeReaders;
+
         public static bool IsNativeViewerHeader(string session) =>
             Browser.Viewer.IsNativeViewerHeader(session);
 

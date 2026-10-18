@@ -70,6 +70,8 @@ namespace SlopWorld
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static float ScrollbarHitInset;
         static readonly Pager Viewer = new Pager();
+
+        internal static bool ReaderOpening => Viewer.Opening;
         internal static Pager ActivePager
         {
             get

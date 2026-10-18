@@ -51,6 +51,9 @@ All as a mode that includes future catalog entries until an individual toggle.
 The shared open-files pane sits between the navigation row and the selected tab's
 action row. Its profile visibility toggle is independent of tab selection and reader
 membership; hiding it preserves readers, scroll position, and splitter fraction.
+Closing the last reader hides the pane automatically. This follows the unfiltered
+reader inventory, including native previews; changing filters does not hide it.
+The toggle can still show an empty pane, and pending preview replacement keeps it open.
 The pane and selected tab have independent scroll owners. Sidebar split geometry
 is frozen per frame so vanilla portrait placement, hit testing, and both draw passes
 agree while visibility or the splitter changes. These internal pane changes do not
