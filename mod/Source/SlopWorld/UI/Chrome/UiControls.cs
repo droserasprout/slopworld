@@ -22,13 +22,36 @@ namespace SlopWorld
         // reorder hit testing around their hover/selection pass.
         public static bool RowButton(Rect r, bool on = true) => on && Widgets.ButtonInvisible(r);
 
-        public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
+        // Navigation consumes the press before switching content or opening a menu.
+        public static bool NavigationPress(Rect r, bool on = true)
         {
-            using (WidgetState.Save())
-                return ButtonCore(r, label, kind, on);
+            var e = Event.current;
+            if (
+                !on
+                || !GUI.enabled
+                || e == null
+                || e.type != EventType.MouseDown
+                || e.button != 0
+                || !Mouse.IsOver(r)
+            )
+                return false;
+            e.Use();
+            return true;
         }
 
-        static bool ButtonCore(Rect r, string label, Btn kind, bool on)
+        public static bool Button(
+            Rect r,
+            string label,
+            Btn kind = Btn.Default,
+            bool on = true,
+            bool onPress = false
+        )
+        {
+            using (WidgetState.Save())
+                return ButtonCore(r, label, kind, on, onPress);
+        }
+
+        static bool ButtonCore(Rect r, string label, Btn kind, bool on, bool onPress)
         {
             bool over = on && Mouse.IsOver(r);
             bool held = over && Input.GetMouseButton(0);
@@ -71,7 +94,7 @@ namespace SlopWorld
                 RowLabel(r, label, TextAnchor.MiddleCenter);
             }
 
-            if (!RowButton(r, on))
+            if (!(onPress ? NavigationPress(r, on) : RowButton(r, on)))
                 return false;
             SoundDefOf.Click.PlayOneShotOnCamera();
             return true;

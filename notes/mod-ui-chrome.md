@@ -8,6 +8,9 @@ owners supply status, availability, empty messages, and actions.
 Measurement, drawing, and hit testing must share stable geometry and control IDs
 across IMGUI passes. Measurement must not invoke controls, setters, or mutate form
 data. Cache layout by content and text metrics; hover must not change bounds.
+Tab rails and navigation rows activate on left mouse press through `NavigationPress`,
+which consumes the event before content changes. Ordinary action buttons, menu
+choices, and copy actions retain release activation.
 Shared chrome owns spacing and metrics. Chrome colors resolve on read, so textures
 that bake them must invalidate when the theme changes.
 `ActionStrip` shares full-row-height targets between drawing, tooltips, and click

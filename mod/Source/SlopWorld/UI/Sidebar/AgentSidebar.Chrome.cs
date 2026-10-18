@@ -151,7 +151,14 @@ namespace SlopWorld
         // again where it was. Therefore, several can be set without hunting the button back down
         // between them.
 
-        static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
+        static void Tab(
+            Rect r,
+            Texture2D icon,
+            bool on,
+            string tip,
+            System.Action go,
+            bool onPress = true
+        )
         {
             var hit = TabHitRect(r);
             TooltipHandler.TipRegion(hit, tip);
@@ -160,8 +167,10 @@ namespace SlopWorld
                     hit,
                     r.ContractedBy(UiTheme.IconInset),
                     icon,
-                    on ? UiTheme.Lead : UiTheme.Off
-                ) && ColonistBarStrip.Interactive
+                    on ? UiTheme.Lead : UiTheme.Off,
+                    on: ColonistBarStrip.Interactive,
+                    onPress: onPress
+                )
             )
                 go();
 

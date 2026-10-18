@@ -296,7 +296,7 @@ namespace SlopWorld
                 Text.Font = GameFont.Small;
 
                 CategoryRow(row, instance.selectedCategory == optionCategory);
-                if (Widgets.ButtonInvisible(row))
+                if (UiButtons.NavigationPress(row))
                 {
                     var target = Target(tab);
                     Select(instance, target != null ? target.Def : optionCategory);

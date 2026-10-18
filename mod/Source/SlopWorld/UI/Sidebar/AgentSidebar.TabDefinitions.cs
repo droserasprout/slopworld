@@ -242,7 +242,8 @@ namespace SlopWorld
                 Icons.Refresh,
                 false,
                 "Refresh Git status for every working tree.",
-                GitView.Refresh
+                GitView.Refresh,
+                onPress: false
             );
         }
 
@@ -253,7 +254,14 @@ namespace SlopWorld
             var r = ActionRect(context);
             DrawFoldAction(ref r);
             DrawLibraryProjectFilterAction(ref r);
-            Tab(r, Icons.Refresh, false, "Refresh the Library data.", RefreshLibrary);
+            Tab(
+                r,
+                Icons.Refresh,
+                false,
+                "Refresh the Library data.",
+                RefreshLibrary,
+                onPress: false
+            );
         }
 
         static void DrawLibraryProjectFilterAction(ref Rect r)
@@ -279,7 +287,8 @@ namespace SlopWorld
                 Icons.Refresh,
                 false,
                 "Refresh the task list.",
-                () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail)
+                () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
+                onPress: false
             );
             r.x -= TabIcon + TabGap;
             Tab(

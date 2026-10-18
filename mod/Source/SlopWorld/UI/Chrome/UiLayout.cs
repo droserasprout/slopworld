@@ -76,14 +76,22 @@ namespace SlopWorld
             Rect iconRect,
             Texture2D icon,
             Color tint,
-            bool on = true
+            bool on = true,
+            bool onPress = false
         )
         {
             using (WidgetState.Save())
-                return IconButtonCore(hitRect, iconRect, icon, tint, on);
+                return IconButtonCore(hitRect, iconRect, icon, tint, on, onPress);
         }
 
-        static bool IconButtonCore(Rect r, Rect iconRect, Texture2D icon, Color tint, bool on)
+        static bool IconButtonCore(
+            Rect r,
+            Rect iconRect,
+            Texture2D icon,
+            Color tint,
+            bool on,
+            bool onPress
+        )
         {
             bool over = on && Mouse.IsOver(r);
             bool held = over && Input.GetMouseButton(0);
@@ -101,7 +109,7 @@ namespace SlopWorld
                 }
             }
 
-            if (!RowButton(r, on))
+            if (!(onPress ? NavigationPress(r, on) : RowButton(r, on)))
                 return false;
 
             SoundDefOf.Click.PlayOneShotOnCamera();
@@ -381,7 +389,8 @@ namespace SlopWorld
                     new Rect(r.x, y, r.width, BtnH),
                     label,
                     EqualityComparer<T>.Default.Equals(active, tab) ? Btn.Primary : Btn.Ghost,
-                    enabled
+                    enabled,
+                    onPress: true
                 )
             )
             {

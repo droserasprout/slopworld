@@ -173,7 +173,7 @@ namespace SlopWorld
         {
             if (row.Session == null || !ColonistBarStrip.Interactive)
                 return;
-            if (!Widgets.ButtonInvisible(row.Text, false))
+            if (!UiButtons.NavigationPress(row.Text))
                 return;
 
             SessionSelectable.Current = row.Session;

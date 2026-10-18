@@ -19,6 +19,9 @@ and ordinary item identity even when names match, resolving against the current
 catalog without waiting for refresh. Missing/stale targets can select the tab while
 leaving no selected row.
 
+Sidebar tabs, session text rows, fold controls, and filter openers activate on press;
+refresh actions activate on release.
+
 Tab changes close menus and view-local input state while preserving readers.
 Reselection refreshes without repeating close/enter transitions. Lifetime belongs
 to [file readers](mod-file-readers.md) and [Search](mod-ui-search.md).

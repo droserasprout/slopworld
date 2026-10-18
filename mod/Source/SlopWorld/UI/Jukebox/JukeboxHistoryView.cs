@@ -254,7 +254,7 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(r, DetailText(e) + "\n\nClick to inspect and copy.");
 
             // Clicking a row opens its detail. Clicking the open one closes it again.
-            if (UiButtons.RowButton(r))
+            if (UiButtons.NavigationPress(r))
             {
                 _selected = selected ? null : e;
                 _detailScroll.JumpTo(Vector2.zero);
