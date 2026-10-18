@@ -91,7 +91,7 @@ namespace SlopWorld
                         e.mousePosition.y,
                         new UiLayoutRect(body.x, body.y, body.width, body.height),
                         GhostH,
-                        UiTheme.TinyRowH,
+                        TabRowH + UiTheme.TinyRowH,
                         FilesDividerH
                     )
                 );
@@ -136,14 +136,14 @@ namespace SlopWorld
         static void SetFilesFraction(float fraction)
         {
             float available =
-                Body.height <= FilesDividerH
-                    ? Body.height
-                    : Mathf.Max(0f, Body.height - FilesDividerH);
+                PaneBody.height <= FilesDividerH
+                    ? PaneBody.height
+                    : Mathf.Max(0f, PaneBody.height - FilesDividerH);
             float normalized = SidebarFilesSplitGeometry.ClampFraction(
                 fraction,
                 available,
                 GhostH,
-                UiTheme.TinyRowH
+                TabRowH + UiTheme.TinyRowH
             );
             float before = Settings.S.sidebarFilesOpenFraction;
             Settings.S.sidebarFilesOpenFraction = normalized;
@@ -345,6 +345,24 @@ namespace SlopWorld
         static bool Wanted()
         {
             return ColonistBarStrip.BarShown && !Cutscene.Playing && !Settings.SidebarHidden;
+        }
+
+        public static void ToggleOpenFiles() =>
+            SetOpenFilesVisible(!Settings.SidebarOpenFilesVisible);
+
+        // Explicit reader actions reveal at request time. Delayed replies and background
+        // refreshes must not undo a later manual hide or change sidebar navigation.
+        internal static void RevealOpenFiles() => SetOpenFilesVisible(true);
+
+        static void SetOpenFilesVisible(bool visible)
+        {
+            if (Settings.SidebarOpenFilesVisible == visible)
+                return;
+            EndFilesDivider();
+            Settings.S.sidebarOpenFilesVisible = visible;
+            Settings.S.Write();
+            // CurrentSplit picks this up next frame. Workspace bounds do not change,
+            // so a full layout refresh would only force an unrelated terminal redraw.
         }
 
         public static void ToggleSidebar()

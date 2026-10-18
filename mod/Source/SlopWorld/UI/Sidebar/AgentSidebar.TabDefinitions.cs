@@ -116,50 +116,21 @@ namespace SlopWorld
             }
         }
 
-        static void DrawFilesView() => DrawReaderView(SidebarTab.Files);
+        static void DrawFilesView() => FilesView.Draw(Body, !Interaction.FilesDividerDragging);
 
-        static void DrawGitView() => DrawReaderView(SidebarTab.Git);
-
-        static void DrawReaderView(SidebarTab tab)
-        {
-            var body = Body;
-            PrepareRouted();
-            var split = FilesSplit(body);
-            HandleFilesDivider(body, split);
-            split = FilesSplit(body);
-            DrawRouted(ToRect(split.Upper), Interaction.FilesRoutedScroll);
-            if (tab == SidebarTab.Files)
-                FilesView.Draw(ToRect(split.Lower), !Interaction.FilesDividerDragging);
-            else
-                GitView.Draw(ToRect(split.Lower), !Interaction.FilesDividerDragging);
-            DrawFilesDivider(split, body);
-        }
-
-        static SidebarFilesSplitGeometry FilesSplit(Rect body) =>
-            SidebarFilesSplitGeometry.Arrange(
-                new UiLayoutRect(body.x, body.y, body.width, body.height),
-                Layout.Routed.Count > 0,
-                Settings.SidebarFilesOpenFraction,
-                GhostH,
-                UiTheme.TinyRowH,
-                FilesDividerH
-            );
+        static void DrawGitView() => GitView.Draw(Body, !Interaction.FilesDividerDragging);
 
         static Rect ToRect(UiLayoutRect rect) => new Rect(rect.X, rect.Y, rect.Width, rect.Height);
 
         static void ClickFilesView()
         {
-            if (Interaction.FilesDividerInput || Interaction.FilesDividerDragging)
-                return;
-            if (!ClickRouted())
+            if (!Interaction.FilesDividerInput && !Interaction.FilesDividerDragging)
                 FilesView.Clicks();
         }
 
         static void ClickGitView()
         {
-            if (Interaction.FilesDividerInput || Interaction.FilesDividerDragging)
-                return;
-            if (!ClickRouted())
+            if (!Interaction.FilesDividerInput && !Interaction.FilesDividerDragging)
                 GitView.Clicks();
         }
 

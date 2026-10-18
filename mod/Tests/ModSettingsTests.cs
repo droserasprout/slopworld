@@ -37,6 +37,7 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(true, settings.statusbarUsage, "usage visibility defaults on");
                 AssertEx.Equal(DateFormat.YearFirst, settings.dateFormat, "date format default");
                 AssertEx.Equal(210f, settings.sidebarWidth, "width default");
+                AssertEx.True(settings.sidebarOpenFilesVisible, "open files visible by default");
                 AssertEx.Equal(
                     0.25f,
                     settings.sidebarFilesOpenFraction,
@@ -62,7 +63,7 @@ namespace SlopWorld.Tests
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
                 AssertEx.Equal(
-                    49,
+                    50,
                     Toml.ParseFlat(saved).Count,
                     "persisted key count excludes runtime state"
                 );

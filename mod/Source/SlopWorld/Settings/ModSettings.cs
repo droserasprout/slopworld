@@ -38,7 +38,9 @@ namespace SlopWorld
         public bool sidebarHidden;
         public float sidebarWidth = 210f;
 
-        // The Files tab's open-file pane as a normalized share of the space above its tree.
+        public bool sidebarOpenFilesVisible = true;
+
+        // The shared open-file pane's normalized share above the selected tab's actions/body.
         public float sidebarFilesOpenFraction = 0.25f;
 
         // Navigation placement and density are workspace preferences. Unknown values are
@@ -175,6 +177,12 @@ namespace SlopWorld
             Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
             Field("sidebarHidden", (ModSettings s) => ref s.sidebarHidden, Bool, String),
             Field("sidebarWidth", (ModSettings s) => ref s.sidebarWidth, Float, Number),
+            Field(
+                "sidebarOpenFilesVisible",
+                (ModSettings s) => ref s.sidebarOpenFilesVisible,
+                Bool,
+                String
+            ),
             Field(
                 "sidebarFilesOpenFraction",
                 (ModSettings s) => ref s.sidebarFilesOpenFraction,

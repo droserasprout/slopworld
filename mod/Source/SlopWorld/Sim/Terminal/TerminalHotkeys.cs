@@ -100,8 +100,6 @@ namespace SlopWorld
             {
                 SessionSelectable.Current = session;
                 TerminalWindow.Open(session);
-                // Show the selected session's portrait in the Agents sidebar.
-                AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
             }
         }
 

@@ -48,9 +48,13 @@ All checks every child; toggles can leave an empty selection. Selected agents ma
 either task participant, excluding the host identity. `FilterSelection` retains
 All as a mode that includes future catalog entries until an individual toggle.
 
-Files/Git routed headers and tree viewports share clipping, upper scroll position,
-and a saved splitter fraction. Their draggable split has independent scroll owners
-and a stable tree boundary as reader headers change. Shared lifetime belongs to
+The shared open-files pane sits between the navigation row and the selected tab's
+action row. Its profile visibility toggle is independent of tab selection and reader
+membership; hiding it preserves readers, scroll position, and splitter fraction.
+The pane and selected tab have independent scroll owners. Sidebar split geometry
+is frozen per frame so vanilla portrait placement, hit testing, and both draw passes
+agree while visibility or the splitter changes. These internal pane changes do not
+refresh workspace bounds or terminal dimensions. Shared lifetime belongs to
 [file readers](mod-file-readers.md).
 
 Project and checkout filtering belongs to [browse scopes](mod-ui-browse-scopes.md).

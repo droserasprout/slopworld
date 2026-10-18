@@ -122,6 +122,13 @@
     <defaultKeyCodeA>F12</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <KeyBindingDef>
+    <defName>SlopToggleOpenFiles</defName>
+    <label>Show/hide open files</label>
+    <category>SlopInterface</category>
+    <defaultKeyCodeA>F9</defaultKeyCodeA>
+  </KeyBindingDef>
+
   <!-- F11 toggles the window-manager fullscreen state. -->
   <KeyBindingDef>
     <defName>SlopToggleFullscreen</defName>

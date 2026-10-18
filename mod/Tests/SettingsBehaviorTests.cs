@@ -258,6 +258,11 @@ namespace SlopWorld.Tests
                         () => Settings.SidebarHidden
                     ),
                     (
+                        "sidebarOpenFilesVisible",
+                        v => settings.sidebarOpenFilesVisible = v,
+                        () => Settings.SidebarOpenFilesVisible
+                    ),
+                    (
                         "sidebarShowHidden",
                         v => settings.sidebarShowHidden = v,
                         () => Settings.SidebarShowHidden

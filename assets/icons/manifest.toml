@@ -63,6 +63,12 @@ note = "An actual robot. RobotFace_south is a colored pawn faceplate. A flat tin
 glyph = "cod-folder"
 code = "ea83"
 
+[open_files]
+glyph = "cod-files"
+code = "eaf0"
+scale = 0.8
+note = "stacked documents distinguish the open-file pane toggle from the Files folder tab"
+
 [search]
 glyph = "cod-search"
 code = "ea6d"

@@ -671,6 +671,7 @@ namespace SlopWorld
 
         static void Open(Match match, bool remember)
         {
+            AgentSidebar.RevealOpenFiles();
             string path = match.Root.TrimEnd('/') + "/" + match.Path;
             if (remember)
                 AgentSidebar.RememberSearch(match.Project, match.Path, match.Line);

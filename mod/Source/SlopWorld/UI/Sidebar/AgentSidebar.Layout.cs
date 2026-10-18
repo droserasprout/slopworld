@@ -23,8 +23,38 @@ namespace SlopWorld
         static Rect AddHitBar =>
             new Rect(AddBar.x, AddBar.y, Mathf.Max(0f, Width - GripW), AddBar.height);
 
-        public static Rect Body =>
-            new Rect(Panel.x, TabH, Width, Mathf.Max(0f, UI.screenHeight - TabH - AddH));
+        static Rect PaneBody =>
+            new Rect(Panel.x, TabRowH, Width, Mathf.Max(0f, UI.screenHeight - TabRowH - AddH));
+
+        static int _splitFrame = -1;
+        static SidebarFilesSplitGeometry _split;
+
+        // Placement, vanilla portrait hit tests, and both draw passes must share one
+        // geometry per frame. A toggle or divider drag takes effect on the next frame.
+        static SidebarFilesSplitGeometry CurrentSplit
+        {
+            get
+            {
+                if (_splitFrame != Time.frameCount)
+                {
+                    var body = PaneBody;
+                    _split = SidebarFilesSplitGeometry.Arrange(
+                        new UiLayoutRect(body.x, body.y, body.width, body.height),
+                        Settings.SidebarOpenFilesVisible,
+                        Settings.SidebarFilesOpenFraction,
+                        GhostH,
+                        TabRowH + UiTheme.TinyRowH,
+                        FilesDividerH
+                    );
+                    _splitFrame = Time.frameCount;
+                }
+                return _split;
+            }
+        }
+
+        static Rect ActionRow => ToRect(CurrentSplit.LowerHeader(TabRowH));
+
+        public static Rect Body => ToRect(CurrentSplit.LowerBody(TabRowH));
 
         public static bool FaceBox(Pawn pawn, out Rect box)
         {

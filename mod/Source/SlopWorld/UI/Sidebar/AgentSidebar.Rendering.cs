@@ -23,6 +23,32 @@ namespace SlopWorld
             Absorb();
         }
 
+        static void DrawOpenFiles()
+        {
+            var split = CurrentSplit;
+            Layout.ViewRows.Clear();
+            HandleFilesDivider(PaneBody, split);
+            if (!split.HasUpper)
+                return;
+
+            PrepareRouted();
+            var upper = ToRect(split.Upper);
+            if (Layout.Routed.Count == 0)
+            {
+                using (WidgetState.Save())
+                {
+                    Text.Font = GameFont.Small;
+                    GUI.color = UiTheme.Faint;
+                    UiText.FadedRowLabel(upper.ContractedBy(Pad), "No open files.");
+                }
+            }
+            else
+                DrawRouted(upper, Interaction.FilesRoutedScroll);
+            DrawFilesDivider(split, PaneBody);
+            if (!Interaction.FilesDividerInput && !Interaction.FilesDividerDragging)
+                ClickRouted();
+        }
+
         static void DrawAgentTab()
         {
             Tabs();
@@ -79,6 +105,7 @@ namespace SlopWorld
             var panel = Panel;
             Slab.Fill(panel, UiTheme.Panel);
 
+            DrawOpenFiles();
             CurrentDefinition.Draw();
             if (CurrentTab == SidebarTab.Agents)
                 return;

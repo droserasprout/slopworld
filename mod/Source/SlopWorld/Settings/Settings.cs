@@ -12,6 +12,7 @@ namespace SlopWorld
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
         public static bool SidebarHidden => S.sidebarHidden;
         public static float SidebarWidth => S.sidebarWidth;
+        public static bool SidebarOpenFilesVisible => S.sidebarOpenFilesVisible;
         public static float SidebarFilesOpenFraction =>
             ModSettings.NormalizeSidebarFilesOpenFraction(S.sidebarFilesOpenFraction);
         public static string SidebarSide => NavigationSide.Normalize(S.sidebarSide);

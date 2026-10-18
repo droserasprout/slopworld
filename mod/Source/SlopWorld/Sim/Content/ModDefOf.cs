@@ -42,6 +42,9 @@ namespace SlopWorld
         /// Opens and closes the terminal from anywhere, agent selected or not.
         public static KeyBindingDef SlopQuickTerminal;
 
+        /// F9: show or hide open files independently of the selected sidebar tab.
+        public static KeyBindingDef SlopToggleOpenFiles;
+
         /// Toggles the window-manager fullscreen state.
         public static KeyBindingDef SlopToggleFullscreen;
 

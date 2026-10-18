@@ -278,16 +278,69 @@ namespace SlopWorld.Tests
             );
 
             split = SidebarFilesSplitGeometry.Arrange(body, false, 0.75f, 40f, 100f, 1f);
-            AssertEx.False(split.HasUpper, "no open files hides the upper pane");
+            AssertEx.False(split.HasUpper, "visibility toggle hides the upper pane");
             AssertEx.Equal(
                 body.Height,
                 split.Lower.Height,
-                "tree gets the full body without files"
+                "selected tab gets the full body while hidden"
             );
             AssertEx.Equal(0.75f, split.Fraction, "saved fraction survives hidden upper pane");
 
             float picked = SidebarFilesSplitGeometry.FractionAt(220f, body, 40f, 100f, 1f);
             AssertEx.Equal(0.5f, picked, "pointer maps to normalized divider position");
+        }
+
+        public static void SidebarActionsFollowOpenFilesAndStayAboveTabBody()
+        {
+            var body = new UiLayoutRect(10f, 30f, 200f, 400f);
+            foreach (bool visible in new[] { true, false })
+            {
+                foreach (float fraction in new[] { 0f, .25f, 1f })
+                {
+                    var split = SidebarFilesSplitGeometry.Arrange(
+                        body,
+                        visible,
+                        fraction,
+                        40f,
+                        60f,
+                        1f
+                    );
+                    var actions = split.LowerHeader(30f);
+                    var content = split.LowerBody(30f);
+                    AssertEx.Equal(
+                        visible ? split.Divider.YMax : body.Y,
+                        actions.Y,
+                        "actions follow open files only when visible"
+                    );
+                    AssertEx.Equal(30f, actions.Height, "actions reserve one row");
+                    AssertEx.Equal(actions.YMax, content.Y, "tab content follows its actions");
+                    AssertEx.Equal(body.YMax, content.YMax, "content ends at sidebar bottom");
+                    AssertEx.True(content.Height >= 30f, "split preserves space for tab content");
+                }
+            }
+            var tiny = SidebarFilesSplitGeometry.Arrange(
+                new UiLayoutRect(0f, 30f, 200f, 3f),
+                true,
+                1f,
+                40f,
+                60f,
+                1f
+            );
+            AssertEx.Equal(
+                tiny.Lower.Height,
+                tiny.LowerHeader(30f).Height,
+                "actions compress inside tiny lower pane"
+            );
+            AssertEx.Equal(
+                0f,
+                tiny.LowerBody(30f).Height,
+                "tiny content never has negative height"
+            );
+            AssertEx.Equal(
+                tiny.Lower.YMax,
+                tiny.LowerBody(30f).YMax,
+                "tiny content stays inside sidebar"
+            );
         }
 
         static void Uniform()

@@ -424,6 +424,7 @@ namespace SlopWorld
 
         public static void DiffAll(string project)
         {
+            AgentSidebar.RevealOpenFiles();
             project = SidebarScopes.Key(project);
             CancelPendingDiff();
             int request = _diffRequest;
@@ -571,6 +572,7 @@ namespace SlopWorld
 
         static void OpenDiff(string project, string abs, string label, bool directory)
         {
+            AgentSidebar.RevealOpenFiles();
             project = SidebarScopes.Key(project);
             CancelPendingDiff();
             int request = _diffRequest;

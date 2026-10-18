@@ -24,6 +24,10 @@ does not load remote images or images embedded as data URLs.
 
 ## Preview tabs
 
+Press **F9** or click the stacked-documents button before the Project filter to
+show or hide **Open files** across sidebar tabs. Drag its divider to resize it.
+Hiding the pane keeps your files open; opening a file reveals it again.
+
 Opening a file uses a replaceable preview. Double-click its sidebar header to
 pin it before opening another file; middle-click the header to close it.
 Files and Git share readers, while Search has its own. Source readers refresh

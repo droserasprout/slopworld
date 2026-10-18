@@ -10,6 +10,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
+### Added
+
+- UI: Added an Open files toggle to the sidebar (button before Project filter or F9 shortcut).
+
 ### Fixed
 
 - Keyboard: Fixed Alt navigation shortcuts consumed by the focused Search field.
@@ -21,6 +25,11 @@ Expect any imaginable incompatibilities until 0.1.0.
 - UI: Pressing Search now preserves the open file’s terminal pane.
 - UI: Tabs and navigation now respond on mouse press instead of release.
 - UI: Unified dropdown selectors' styling and behavior.
+
+### Changed
+
+- Keyboard: Preserve active sidebar tab when pressing F12 or Alt+A/Alt+S.
+- UI: Show Open files across all sidebar tabs, with tab actions below the pane.
 
 ## [0.0.6] - 2026-10-18
 

@@ -205,6 +205,12 @@ namespace SlopWorld
                 return true;
             if (SidebarFunction(ModDefOf.SlopSidebarLibrary, SidebarTab.Library, e))
                 return true;
+            if (Bound(ModDefOf.SlopToggleOpenFiles, e))
+            {
+                UiMenu.CloseAll();
+                AgentSidebar.ToggleOpenFiles();
+                return true;
+            }
             if (Bound(ModDefOf.SlopQuickTerminal, e))
             {
                 // Use the same toggle as TerminalHotkeys. Settings views share this window, so F12 must reveal the terminal.

@@ -10,6 +10,7 @@ Press **?** in game to show current shortcuts.
 | Default | Action | Rebindable |
 | --- | --- | --- |
 | Ctrl+backquote | Command palette | yes (key only, Ctrl is fixed) |
+| F9 | Show/hide open files | yes |
 | F11 | Toggle window-manager fullscreen | yes |
 | F12 | Open/close terminal | yes |
 

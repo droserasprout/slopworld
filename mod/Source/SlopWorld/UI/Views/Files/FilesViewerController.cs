@@ -39,6 +39,7 @@ namespace SlopWorld
                 ReleaseNativePreview();
                 return;
             }
+            AgentSidebar.RevealOpenFiles();
             if (FileTypes.IsMarkdown(node.Name) || FileTypes.IsImage(node.Name))
             {
                 if (_nativeViewers.Reopen(node.Project, node.Path))
@@ -75,6 +76,7 @@ namespace SlopWorld
             GitView.CancelPendingDiff();
             if (!ReaderScopeAvailable(project))
                 return;
+            AgentSidebar.RevealOpenFiles();
             label = ReaderLabel(project, label);
             _select(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project))
@@ -183,6 +185,7 @@ namespace SlopWorld
         {
             if (!ReaderScopeAvailable(project))
                 return;
+            AgentSidebar.RevealOpenFiles();
             GitView.CancelPendingDiff();
             _select(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project))
@@ -198,6 +201,7 @@ namespace SlopWorld
                 project = SidebarScopes.Key(project);
             if (!ReaderScopeAvailable(project))
                 return;
+            AgentSidebar.RevealOpenFiles();
             GitView.CancelPendingDiff();
             if (!string.IsNullOrEmpty(project))
                 AgentSidebar.RememberFile(project, path);

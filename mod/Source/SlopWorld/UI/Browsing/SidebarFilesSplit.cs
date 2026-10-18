@@ -2,7 +2,8 @@ using System;
 
 namespace SlopWorld
 {
-    // Pure vertical split geometry for the Files tab. The pane floors are allowed to
+    // Pure vertical split geometry for the shared open-files pane and selected sidebar tab.
+    // The pane floors are allowed to
     // compress together on a tiny viewport, but the result never extends beyond the body.
     public readonly struct SidebarFilesSplitGeometry
     {
@@ -25,6 +26,26 @@ namespace SlopWorld
             Lower = lower;
             HasUpper = hasUpper;
             Fraction = fraction;
+        }
+
+        // The selected tab's controls belong to the lower pane, above its scrolling body.
+        public UiLayoutRect LowerHeader(float height) =>
+            new UiLayoutRect(
+                Lower.X,
+                Lower.Y,
+                Lower.Width,
+                Math.Min(Lower.Height, SafeNonNegative(height))
+            );
+
+        public UiLayoutRect LowerBody(float headerHeight)
+        {
+            var header = LowerHeader(headerHeight);
+            return new UiLayoutRect(
+                Lower.X,
+                header.YMax,
+                Lower.Width,
+                Lower.Height - header.Height
+            );
         }
 
         public static SidebarFilesSplitGeometry Arrange(

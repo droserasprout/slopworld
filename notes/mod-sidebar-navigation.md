@@ -4,8 +4,9 @@
 registration/tests. `SidebarTabRegistry` owns read-only definitions and lookup;
 `AgentSidebar` supplies game-bound handlers. Persist IDs, not enum positions or rows.
 Unknown saved tabs fall back to Agents.
-Shared chrome reserves both the tabs/filter row and the action row for every tab,
-even when the tab has no actions, so the body starts at a stable height.
+Shared chrome reserves the tabs/filter row above the optional open-files pane and
+the selected tab's action row below it. Every tab reserves the action row, even when
+it has no actions, so switching tabs keeps the body at a stable height.
 Tab and action targets fill their row height and half the gap to adjacent icons;
 glyph and selection-marker bounds stay fixed. Tooltips share the click targets,
 menus anchor below the row, and targets exclude the resize grip.

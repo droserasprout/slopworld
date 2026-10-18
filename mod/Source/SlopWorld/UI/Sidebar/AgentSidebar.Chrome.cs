@@ -58,35 +58,57 @@ namespace SlopWorld
 
         static void Tabs()
         {
-            var strip = new Rect(Panel.x, 0f, Width, TabH);
+            var strip = new Rect(Panel.x, 0f, Width, TabRowH);
+            var actions = ActionRow;
+            if (CurrentSplit.HasUpper)
+                Slab.Hairline(
+                    new Rect(Panel.x + CellX, strip.yMax - 1f, Width - CellX * 2f, 1f),
+                    UiTheme.Edge
+                );
             Slab.Hairline(
-                new Rect(Panel.x + CellX, TabH - 1f, Width - CellX * 2f, 1f),
+                new Rect(Panel.x + CellX, actions.yMax - 1f, Width - CellX * 2f, 1f),
                 UiTheme.Edge
             );
 
-            float y = (TabRowH - TabIcon) / 2f;
+            float icon = NavigationIcon;
+            float y = (TabRowH - icon) / 2f;
 
             float x = Panel.x + CellX;
             foreach (var definition in TabRegistry.Definitions)
             {
                 var tab = definition.Tab;
                 Tab(
-                    new Rect(x, y, TabIcon, TabIcon),
+                    new Rect(x, y, icon, icon),
                     IconFor(definition),
                     CurrentTab == tab,
                     definition.Tooltip,
                     () => Show(tab)
                 );
-                x += TabIcon + TabGap;
+                x += icon + TabGap;
             }
 
+            var filter = FilterRect;
+            Tab(
+                new Rect(filter.x - icon - TabGap, y, icon, icon),
+                Icons.OpenFiles,
+                Settings.SidebarOpenFilesVisible,
+                $"Open files ({ShortcutLabels.Binding(ModDefOf.SlopToggleOpenFiles)})",
+                ToggleOpenFiles
+            );
             FilterButton();
 
             if (HasActions)
-                Actions(new Rect(FilterRect.x, TabRowH + y, TabIcon, TabIcon));
+                Actions(
+                    new Rect(
+                        Panel.x + Width - CellX - TabIcon,
+                        actions.y + (TabRowH - TabIcon) / 2f,
+                        TabIcon,
+                        TabIcon
+                    )
+                );
 
             if (
-                ColonistBarStrip.MouseOver(strip)
+                (ColonistBarStrip.MouseOver(strip) || ColonistBarStrip.MouseOver(actions))
                 && Event.current.rawType == EventType.MouseDown
                 && ColonistBarStrip.Interactive
                 && Event.current.mousePosition.x < Panel.x + Width - GripW
@@ -129,10 +151,22 @@ namespace SlopWorld
             SetAllFolds(!AllFolded());
         }
 
-        // This rect puts the menu below the filter button for pointer and keyboard actions.
-        // Its fixed position also keeps a menu in place when each selection opens it again.
+        // Keep all navigation and both global controls distinct even at minimum width.
+        static float NavigationIcon =>
+            Mathf.Min(
+                TabIcon,
+                (Width - 2f * CellX - (SidebarTabCatalog.Order.Count + 1) * TabGap)
+                    / (SidebarTabCatalog.Order.Count + 2)
+            );
+
+        // Keep project menus anchored below the navigation row across repeated selections.
         static Rect FilterRect =>
-            new Rect(Panel.x + Width - CellX - TabIcon, (TabRowH - TabIcon) / 2f, TabIcon, TabIcon);
+            new Rect(
+                Panel.x + Width - CellX - NavigationIcon,
+                (TabRowH - NavigationIcon) / 2f,
+                NavigationIcon,
+                NavigationIcon
+            );
 
         static Rect _projectFilterAnchor;
 
@@ -187,10 +221,7 @@ namespace SlopWorld
             // The selected tab is marked by the same blue signal used for the current row,
             // at the foot of whichever of the strip's rows the button sits in.
             if (on)
-                Slab.Fill(
-                    new Rect(r.x, (r.y < TabRowH ? TabRowH : TabH) - 2f, r.width, 2f),
-                    UiTheme.Accent
-                );
+                Slab.Fill(new Rect(r.x, hit.yMax - 2f, r.width, 2f), UiTheme.Accent);
         }
 
         static Rect TabHitRect(Rect icon)
@@ -201,7 +232,7 @@ namespace SlopWorld
             float right = Mathf.Min(Panel.x + Width - GripW, icon.xMax + TabGap / 2f);
             return new Rect(
                 left,
-                icon.y < TabRowH ? 0f : TabRowH,
+                icon.y < TabRowH ? 0f : ActionRow.y,
                 Mathf.Max(0f, right - left),
                 TabRowH
             );
