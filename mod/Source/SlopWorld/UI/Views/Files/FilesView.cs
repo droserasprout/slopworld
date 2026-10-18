@@ -83,6 +83,9 @@ namespace SlopWorld
 
         internal static void ReleaseNativePreview() => Browser.Viewer.ReleaseNativePreview();
 
+        internal static System.Action PrepareNativeReplacement() =>
+            Browser.Viewer.PrepareNativeReplacement();
+
         public static bool IsViewerSession(string session) =>
             Browser.Viewer.IsViewerSession(session);
 

@@ -17,6 +17,9 @@ namespace SlopWorld
 
         public static string ProjectName(string key) => Find(key)?.Project ?? key;
 
+        public static ProjectInfo Project(string key) =>
+            SessionHub.Instance.Projects.Find(project => project.Name == ProjectName(key));
+
         public static bool Enabled(string key) => Find(key) != null && !TestDisabled.Contains(key);
 
         public static List<BrowseScope> EnabledScopes() =>

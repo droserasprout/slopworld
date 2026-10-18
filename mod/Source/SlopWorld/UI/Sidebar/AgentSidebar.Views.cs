@@ -364,7 +364,12 @@ namespace SlopWorld
         // routed row. A stopped agent likewise has a row for restart actions, not a usable pane.
         internal static bool IsOpenBesideCandidate(SessionInfo info)
         {
-            if (info == null || !info.Alive || !SidebarScopes.SessionChosen(info))
+            if (
+                info == null
+                || !info.Alive
+                || !Pager.SessionVisibility.Includes(info)
+                || !SidebarScopes.SessionChosen(info)
+            )
                 return false;
             return RoutedAction(info) != RowAct.Diff || FileReaders.IsSession(info.Name);
         }
@@ -374,7 +379,8 @@ namespace SlopWorld
         static bool _hadOpenFiles;
 
         static bool IsOpenFileSession(SessionInfo info) =>
-            IsRouted(info)
+            Pager.SessionVisibility.Includes(info)
+            && IsRouted(info)
             && ((RoutedAction(info) & RowAct.Diff) == 0 || FileReaders.Tabs.IsSession(info.Name));
 
         static void UpdateOpenFilesVisibility()

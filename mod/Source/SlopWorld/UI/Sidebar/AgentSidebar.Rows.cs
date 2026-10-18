@@ -58,6 +58,7 @@ namespace SlopWorld
                     out first,
                     out end
                 );
+            string current = FilesView.CurrentViewerHeader ?? TerminalWindow.CurrentName;
             for (int i = first; i < end; i++)
             {
                 var info = Layout.Routed[i];
@@ -77,7 +78,7 @@ namespace SlopWorld
                     ),
                     Face = Rect.zero,
                 };
-                DrawRoutedRow(row, info);
+                DrawRoutedRow(row, info, row.Session == current);
                 // Drawing happens in the scroll-local group, while clicks happen after it has
                 // ended. Clip screen-space hit rectangles to the viewport so partial rows
                 // cannot intercept clicks in the tree or chrome outside the upper pane.
@@ -106,9 +107,8 @@ namespace SlopWorld
             }
         }
 
-        static void DrawRoutedRow(Row row, SessionInfo info)
+        static void DrawRoutedRow(Row row, SessionInfo info, bool current)
         {
-            bool current = row.Session == TerminalWindow.CurrentName;
             var highlight = new Rect(
                 row.Line.x + UiTheme.GapXS,
                 row.Line.y,

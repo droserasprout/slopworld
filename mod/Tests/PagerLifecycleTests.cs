@@ -40,6 +40,7 @@ namespace SlopWorld
         public readonly List<(string Session, bool Pinned)> Pins = new List<(string, bool)>();
         public int Starts => Requests.Count;
         public int Stops;
+        public bool DeferStops;
         public bool Host => Requests[Requests.Count - 1].Options.Host;
         public bool Temp => Requests[Requests.Count - 1].Options.Temp;
         public string Project => Requests[Requests.Count - 1].Project;
@@ -89,7 +90,7 @@ namespace SlopWorld
         public void Stop(string name)
         {
             Stops++;
-            if (SessionHub.Instance.Sessions.TryGetValue(name, out var info))
+            if (!DeferStops && SessionHub.Instance.Sessions.TryGetValue(name, out var info))
                 info.Alive = false;
         }
 
@@ -103,6 +104,7 @@ namespace SlopWorld
         public static void Open(string name)
         {
             Current = name;
+            Showing = null;
         }
 
         public static void ReplaceReader(string oldName, string newName)
@@ -796,7 +798,7 @@ namespace SlopWorld.Tests
         {
             SessionHub.Instance = new SessionHub();
             int nativeReleases = 0;
-            var tabs = new PagerTabs(() => nativeReleases++);
+            var tabs = new PagerTabs(() => () => nativeReleases++);
             var store = SessionHub.Instance.SessionStore;
             tabs.ForPreview().ViewFile("p", "/one", "view-one");
             store.Complete(store.Requests[0], "file");
@@ -805,7 +807,7 @@ namespace SlopWorld.Tests
             store.Complete(store.Requests[1], "diff");
             AssertEx.True(tabs.Reopen("p", "/one"), "source remains independently addressable");
             AssertEx.True(tabs.Reopen("p", "diff:one"), "diff has a separate identity");
-            AssertEx.Equal(2, nativeReleases, "reopening does not replace a native preview");
+            AssertEx.Equal(4, nativeReleases, "native cleanup follows each successful show");
             tabs.ForPreview().ViewFile("p", "/two", "view-two");
             store.Complete(store.Requests[2], "two");
             AssertEx.False(tabs.IsSession("diff"), "file replaces the unpinned diff");

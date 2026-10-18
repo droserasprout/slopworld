@@ -4,6 +4,13 @@ namespace SlopWorld
     // sidebar tab changes preserve them and explicit dismissal releases them.
     public class Pager : IPreviewTab
     {
+        readonly System.Func<System.Action> _prepareShow;
+
+        public Pager(System.Func<System.Action> prepareShow = null) => _prepareShow = prepareShow;
+
+        internal static ReaderSessionVisibility SessionVisibility =>
+            ReaderSessionVisibility.For(SessionHub.Instance);
+
         string _sessionValue;
         string _session
         {
@@ -12,7 +19,9 @@ namespace SlopWorld
             {
                 if (_sessionValue == value)
                     return;
+                SessionVisibility.Retire(_sessionValue);
                 _sessionValue = value;
+                SessionVisibility.Claim(value);
                 RoutedSessionRows.Invalidate();
             }
         }
@@ -193,7 +202,7 @@ namespace SlopWorld
                 // The pane is all a reopen promises. Sending a less command here would need another
                 // quoting language for paths with spaces or apostrophes. It would also flash the
                 // file again before the caller can read it.
-                TerminalWindow.Open(_session);
+                Show();
                 return;
             }
 
@@ -218,7 +227,8 @@ namespace SlopWorld
             _readerCommand = cmd;
             _sourceLabel = label;
             _readerLine = 0;
-            SessionHub.Instance.SessionStore.Run(
+            var shown = _prepareShow?.Invoke();
+            RunReader(
                 project,
                 cmd,
                 label,
@@ -235,7 +245,7 @@ namespace SlopWorld
                     _opening = false;
                     _project = project;
                     _filePath = filePath;
-                    TerminalWindow.Open(session);
+                    Show(shown);
                     StopIf(oldSession);
                 },
                 msg =>
@@ -333,7 +343,8 @@ namespace SlopWorld
             if (intent == "diff")
                 command = DiffCommand(command);
 
-            SessionHub.Instance.SessionStore.Run(
+            var shown = _prepareShow?.Invoke();
+            RunReader(
                 project,
                 command,
                 label,
@@ -351,7 +362,7 @@ namespace SlopWorld
                     _filePath = string.IsNullOrEmpty(sourcePath) ? null : sourcePath;
                     // Don't set _project — this is a one-off command, not the persistent
                     // pager, so the next ViewFile will create its own session.
-                    TerminalWindow.Open(session);
+                    Show(shown);
                     StopIf(oldSession);
                 },
                 msg =>
@@ -404,7 +415,7 @@ namespace SlopWorld
             int operation = ++_operation;
             string oldSession = _session;
             _refreshing = true;
-            SessionHub.Instance.SessionStore.Run(
+            RunReader(
                 _openProject,
                 _sourceCommand,
                 _sourceLabel,
@@ -474,7 +485,7 @@ namespace SlopWorld
             int operation = ++_operation;
             string oldSession = _session;
             _refreshing = true;
-            SessionHub.Instance.SessionStore.Run(
+            RunReader(
                 _openProject,
                 command,
                 _sourceLabel,
@@ -518,14 +529,68 @@ namespace SlopWorld
             );
         }
 
+        // Session snapshots can precede the run callback. Keep the incoming identity
+        // private until the callback commits it, including superseded requests that
+        // still need to stop a late process. Settlement always invalidates row caches.
+        void RunReader(
+            string project,
+            string command,
+            string label,
+            System.Action<string> started,
+            System.Action<string> failed,
+            SessionRunOptions options
+        )
+        {
+            var visibility = SessionVisibility;
+            var launch = visibility.Begin(options.Reader.Scope, options.Reader.Key, options.Intent);
+            SessionHub.Instance.SessionStore.Run(
+                project,
+                command,
+                label,
+                session =>
+                {
+                    try
+                    {
+                        started(session);
+                    }
+                    finally
+                    {
+                        visibility.End(launch);
+                    }
+                },
+                error =>
+                {
+                    try
+                    {
+                        failed(error);
+                    }
+                    finally
+                    {
+                        visibility.End(launch);
+                    }
+                },
+                options: options
+            );
+        }
+
         // Bring the open one back, for a reader who clicked the row that is already showing.
         // False where there is nothing to bring back, which is the caller's cue to open one.
         public bool Reopen()
         {
             if (!Alive)
                 return false;
-            TerminalWindow.Open(_session);
+            Show();
             return true;
+        }
+
+        void Show() => Show(_prepareShow?.Invoke());
+
+        void Show(System.Action shown)
+        {
+            TerminalWindow.Open(_session);
+            // Retire a native preview only after the terminal replaces its content.
+            // Releasing it earlier removes its row and can expose the backing pane.
+            shown?.Invoke();
         }
 
         // Stopping the owned session closes its process. The pane reacts to session removal.
@@ -575,6 +640,7 @@ namespace SlopWorld
         {
             if (session == null)
                 return;
+            SessionVisibility.Retire(session);
             // A superseded run is exactly the case where the latest session snapshot may not
             // contain the returned name. Let the daemon answer an already-gone session. Do not
             // turn a missing local row into an orphaned tmux process.

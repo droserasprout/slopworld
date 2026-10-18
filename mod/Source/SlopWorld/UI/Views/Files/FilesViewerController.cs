@@ -44,8 +44,10 @@ namespace SlopWorld
             if (FileTypes.IsMarkdown(node.Name) || FileTypes.IsImage(node.Name))
             {
                 if (_nativeViewers.Reopen(node.Project, node.Path))
+                {
+                    Viewers.ReleasePreview();
                     return;
-                Viewers.ReleasePreview();
+                }
                 OpenNative(node.Project, node.Path, node.Name);
                 return;
             }
@@ -57,11 +59,8 @@ namespace SlopWorld
         // source action below keeps raw Markdown available without changing the default preview.
         public void View(FileNode node) => ViewFile(node.Project, node.Path, "view-" + node.Name);
 
-        public void ViewSource(FileNode node)
-        {
-            ReleaseNativePreview();
+        public void ViewSource(FileNode node) =>
             ViewSourceFile(node.Project, node.Path, "view-" + node.Name);
-        }
 
         // Files and Git share source readers. Opening one preserves the active sidebar tab.
         public void ViewFile(
@@ -86,20 +85,20 @@ namespace SlopWorld
             if (FileTypes.UseNativePreview(name, line, previewRoot))
             {
                 if (previewRoot == null && _nativeViewers.Reopen(project, path))
+                {
+                    Viewers.ReleasePreview();
                     return;
-                Viewers.ReleasePreview();
+                }
                 OpenNative(project, path, name, previewRoot);
                 return;
             }
             if (line > 0)
             {
-                ReleaseNativePreview();
                 if (Viewers.ReuseFile(project, path))
                     return;
                 Viewers.ForPreview().ViewFileAt(project, path, line, label);
                 return;
             }
-            ReleaseNativePreview();
             if (Viewers.ReuseFile(project, path))
                 return;
             Viewers.ForPreview().ViewFile(project, path, label);
@@ -150,6 +149,9 @@ namespace SlopWorld
             tab.View = view;
             tab.Header = "view-native-" + (++_nativeHeader);
             TerminalWindow.OpenContent(tab.View);
+            // Publish the native replacement before retiring the pager. This also
+            // cancels an in-flight pager when the user switches back to native content.
+            Viewers.ReleasePreview();
         }
 
         // Native previews have no daemon session to appear in the routed list.
@@ -163,7 +165,10 @@ namespace SlopWorld
 
         public bool OpenViewerHeader(string session)
         {
-            return _nativeViewers.ReopenSession(session);
+            if (!_nativeViewers.ReopenSession(session))
+                return false;
+            Viewers.ReleasePreview();
+            return true;
         }
 
         internal string CurrentViewerHeader
@@ -321,6 +326,8 @@ namespace SlopWorld
         {
             _nativeViewers.ReleasePreview();
         }
+
+        internal Action PrepareNativeReplacement() => _nativeViewers.Preview.PrepareReplacement();
 
         public bool IsViewerSession(string session)
         {

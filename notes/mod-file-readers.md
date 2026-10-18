@@ -9,8 +9,10 @@ reader actions.
 There is one replaceable preview and independently pinned readers. Reopening a path,
 including a line target, reuses its reader; concurrent opens share the pending request.
 Tab/focus changes preserve readers. Explicit dismissal or validated removal can close
-a pinned reader. Native preview acquisition and pager preview acquisition release the
-other unpinned preview. Source and diff identity remain distinct.
+a pinned reader. Switching between native and pager previews retains the old row until
+the replacement is shown, then releases the other unpinned preview. Failed pager
+launches retain the native preview; returning to native content cancels a pending
+unpinned pager. Source and diff identity remain distinct.
 Markdown preview replacement retains the visible document until the new text is
 read and parsed. Rapid replacements transfer that retained document; completion,
 failure, or dismissal releases it. Retained content does not accept link/selection
@@ -19,6 +21,10 @@ Repeated editor launches for the same path and checkout reuse the live host edit
 the daemon serializes that decision so concurrent requests share one session.
 Routed sidebar rows sort by display label and source metadata rather than opaque
 session handles, preserving order when a diff process is replaced.
+`ReaderSessionVisibility` gates session-backed rows and restoration during pager
+handoffs. Incoming processes stay hidden until claimed by their reader; retiring
+processes stay hidden until the daemon snapshot removes them. Replacement therefore
+publishes one row even when session pushes precede launch callbacks or stops finish late.
 Explicit file, editor, diff, and Search reader opens reveal the open-files pane
 without changing the selected sidebar tab. Reveal happens at request time; delayed
 completion, reader restoration, and background refresh leave visibility alone.

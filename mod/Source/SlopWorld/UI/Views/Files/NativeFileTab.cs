@@ -77,6 +77,19 @@ namespace SlopWorld
 
         public void Invalidate() => Release();
 
+        // A delayed pager may retire only the native preview it replaced. A later
+        // native selection or pin owns a different lifetime and must survive.
+        internal System.Action PrepareReplacement()
+        {
+            var view = View;
+            string header = Header;
+            return () =>
+            {
+                if (!Locked && ReferenceEquals(View, view) && Header == header)
+                    Release();
+            };
+        }
+
         public void CloseIf(string session) { }
 
         public bool CloseTab(string session)

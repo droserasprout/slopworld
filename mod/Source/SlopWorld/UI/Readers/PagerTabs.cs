@@ -55,12 +55,10 @@ namespace SlopWorld
         where T : class, IPreviewTab
     {
         protected readonly System.Func<T> _create;
-        readonly System.Action _beforePreview;
 
-        public PreviewTabs(System.Func<T> create, System.Action beforePreview = null)
+        public PreviewTabs(System.Func<T> create)
         {
             _create = create;
-            _beforePreview = beforePreview;
         }
 
         protected T _preview;
@@ -79,7 +77,6 @@ namespace SlopWorld
 
         public T ForPreview()
         {
-            _beforePreview?.Invoke();
             RetireDead();
             if (_preview == null)
                 _preview = _create();
@@ -269,6 +266,8 @@ namespace SlopWorld
 
         public void AttachRestored(SessionInfo info)
         {
+            if (!Pager.SessionVisibility.Includes(info))
+                return;
             RetireDead();
             if (ContainsSession(info.Name))
                 return;
@@ -295,7 +294,7 @@ namespace SlopWorld
             pager.Open(project, command, label, key, "", "diff");
         }
 
-        public PagerTabs(System.Action beforePreview = null)
-            : base(() => new Pager(), beforePreview) { }
+        public PagerTabs(System.Func<System.Action> prepareShow = null)
+            : base(() => new Pager(prepareShow)) { }
     }
 }

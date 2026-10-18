@@ -131,7 +131,9 @@
     <Compile Include="../Source/SlopWorld/UI/Settings/CodeAppearanceDraft.cs" Link="Source/CodeAppearanceDraft.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/CodeHighlight.cs" Link="Source/CodeHighlight.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/Pager.cs" Link="Source/Pager.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Readers/ReaderSessionVisibility.cs" Link="Source/ReaderSessionVisibility.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/PagerTabs.cs" Link="Source/PagerTabs.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Files/NativeFileTab.cs" Link="Source/NativeFileTab.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/MouseClickSequence.cs" Link="Source/MouseClickSequence.cs" />
     <Compile Include="../Source/SlopWorld/UI/Scrolling/Platform/LatestSample.cs" Link="Source/LatestSample.cs" />
     <Compile Include="../Source/SlopWorld/UI/Scrolling/Platform/X11ScrollSampler.cs" Link="Source/X11ScrollSampler.cs" />
