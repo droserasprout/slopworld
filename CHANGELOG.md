@@ -12,6 +12,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
+- UI: Fixed dropdown spacing and hover highlights.
 - UI: Fixed slow sidebar resizing with Settings open.
 
 ## [0.0.6] - 2026-10-18

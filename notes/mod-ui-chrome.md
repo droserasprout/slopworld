@@ -31,6 +31,8 @@ width. The opened menu uses that final width. `UiMenu` owns menu chains;
 Menu levels need separate instances because vanilla same-type replacement can
 remove a standing menu. Submenu openers need a non-null action because vanilla
 treats null actions as disabled.
+Menu highlights span the full row beneath the scrollbar. Row input and content
+reserve only its mouse target; that target also supplies the trailing padding.
 
 `TooltipLayout` shares frozen line breaks and a no-wrap style between sizing and
 drawing: native wrapping can change with the GUI transform even at integer scales.

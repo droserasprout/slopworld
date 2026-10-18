@@ -366,17 +366,18 @@ namespace SlopWorld
             Slab.Box(rect, UiTheme.PopoverBg, UiTheme.Edge);
 
             bool scrolls = ContentH > rect.height;
-            var view = new Rect(
-                0f,
-                0f,
-                inner.width - (scrolls ? UiTheme.ScrollbarW : 0f),
-                ContentH - PadY * 2f
-            );
+            var view = new Rect(0f, 0f, inner.width, ContentH - PadY * 2f);
 
             // Check the pointer position once for the list before the scroll view opens its group.
-            // The rows fill the viewport exactly, so calculate the row from the pointer position.
-            // Use the result to highlight the row and open its list.
-            int hot = Hot(new Rect(inner.x, inner.y, view.width, inner.height));
+            // Paint the full row, but leave the scrollbar's mouse target out of row input.
+            int hot = Hot(
+                new Rect(
+                    inner.x,
+                    inner.y,
+                    inner.width - (scrolls ? UiTheme.ScrollHitW : 0f),
+                    inner.height
+                )
+            );
 
             using (WidgetState.Save())
             using (_scroll.Scope(inner, view))
@@ -393,7 +394,8 @@ namespace SlopWorld
                             new Rect(0f, _rows.Top(i), view.width, _rows.RowHeight(i)),
                             _options[i],
                             i,
-                            hot == i
+                            hot == i,
+                            scrolls
                         )
                     )
                         break;
@@ -466,7 +468,7 @@ namespace SlopWorld
         }
 
         // True if this row took the press.
-        bool Row(Rect r, FloatMenuOption o, int i, bool hot)
+        bool Row(Rect r, FloatMenuOption o, int i, bool hot, bool scrolls)
         {
             if (o is SeparatorOption)
             {
@@ -490,6 +492,12 @@ namespace SlopWorld
                 RowHoverPolicy.Local,
                 RowSelectionStyle.Hover
             );
+
+            // The scrollbar draws over the full-width highlight. Its hit target already
+            // supplies trailing space, so do not add the normal right padding as well.
+            if (scrolls)
+                r.width -= UiTheme.ScrollHitW;
+            float padRight = scrolls ? 0f : PadX;
             if (o.tooltip.HasValue)
                 TooltipHandler.TipRegion(r, o.tooltip.Value);
 
@@ -505,7 +513,7 @@ namespace SlopWorld
             if (nest)
             {
                 var mark = new Rect(
-                    r.xMax - PadX - ArrowW,
+                    r.xMax - padRight - ArrowW,
                     r.y + (r.height - ArrowW) / 2f,
                     ArrowW,
                     ArrowW
@@ -523,7 +531,7 @@ namespace SlopWorld
             var label = new Rect(
                 r.x + PadX + (right ? 0f : extra),
                 r.y,
-                r.width - PadX * 2f - extra - (nest ? ArrowW + UiTheme.GapXS : 0f),
+                r.width - PadX - padRight - extra - (nest ? ArrowW + UiTheme.GapXS : 0f),
                 r.height
             );
             using (WidgetState.Save())
@@ -547,7 +555,7 @@ namespace SlopWorld
                 _selected = i;
                 if (
                     sub.Toggle != null
-                    && Event.current.mousePosition.x < r.xMax - PadX - ArrowW - UiTheme.GapXS
+                    && Event.current.mousePosition.x < r.xMax - padRight - ArrowW - UiTheme.GapXS
                 )
                     ActivateOption(new FloatMenuOption(o.Label, sub.Toggle));
                 else
