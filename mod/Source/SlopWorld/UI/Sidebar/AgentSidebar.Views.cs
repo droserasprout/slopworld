@@ -404,12 +404,12 @@ namespace SlopWorld
 
         public static void WalkReader(int direction)
         {
-            RevealOpenFiles();
             PrepareRouted();
             string current = FilesView.CurrentViewerHeader ?? TerminalWindow.CurrentName;
             string target = RoutedSessionRows.Adjacent(Layout.Routed, current, direction);
             if (target == null)
                 return;
+            RevealOpenFiles();
             SessionSelectable.Current = target;
             OpenRouted(target);
         }
