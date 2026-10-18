@@ -114,6 +114,7 @@
     </Reference>
     <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollWheelRouter.cs" Link="Source/ScrollWheelRouter.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/MenuRowGeometry.cs" Link="Source/MenuRowGeometry.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/SelectorClickGuard.cs" Link="Source/SelectorClickGuard.cs" />
     <Compile Include="../Source/SlopWorld/UI/Scrolling/WheelEventQueue.cs" Link="Source/WheelEventQueue.cs" />
     <!-- Use the shipped parser and deterministic text metrics. -->
     <Compile Include="../Source/SlopWorld/UI/Workspace/ContentView.cs" />

@@ -28,6 +28,10 @@ Retire capture with the field lifetime.
 Selector width must fit its text, arrow, and divider within the available form
 width. The opened menu uses that final width. `UiMenu` owns menu chains;
 `Patch_UiMenuWindowStack` closes them before a clicked non-menu window is raised.
+Selectors open on the left mouse press and consume it before adding the menu.
+Selector dismissal retains its source anchor so the same press cannot reopen it. Selectors observe physical mouse presses to retire an unclaimed
+dismissal; repeated GUI passes in the same frame must preserve it. Other selectors
+remain usable.
 Menu levels need separate instances because vanilla same-type replacement can
 remove a standing menu. Submenu openers need a non-null action because vanilla
 treats null actions as disabled.

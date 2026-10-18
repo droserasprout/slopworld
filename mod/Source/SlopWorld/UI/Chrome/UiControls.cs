@@ -373,6 +373,7 @@ namespace SlopWorld
                 Mathf.Max(Wide(value) + ButtonPadX * 2f, ButtonMinW) + chevron + GapS;
             float boxW = Mathf.Min(r.width, Mathf.Max(forcedWidth, valueWidth));
             box = new Rect(r.x, r.y + labelH + GapXS, boxW, CompactH);
+            UiMenu.ObserveSelectorInput();
             bool shownOpen = open || UiMenu.IsSelectorOpenAt(MenuAt(box));
 
             using (WidgetState.Save())
@@ -418,7 +419,20 @@ namespace SlopWorld
                     value
                 );
             }
-            if (!RowButton(box, on))
+            var e = Event.current;
+            if (
+                !on
+                || !GUI.enabled
+                || e == null
+                || e.type != EventType.MouseDown
+                || e.button != 0
+                || !Mouse.IsOver(box)
+            )
+                return false;
+            // Consume the press before opening so the new menu cannot dismiss itself.
+            // A source press that already dismissed its menu must not reopen it.
+            e.Use();
+            if (UiMenu.TryBlockSelectorClickAt(MenuAt(box)))
                 return false;
             SoundDefOf.Click.PlayOneShotOnCamera();
             return true;

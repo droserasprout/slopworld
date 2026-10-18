@@ -46,6 +46,7 @@ namespace SlopWorld
         // falling through and opening it again.
         readonly bool _selector;
         readonly float _selectorWidth;
+        static readonly SelectorClickGuard SelectorClicks = new SelectorClickGuard();
 
         UiMenu _parent;
         UiMenu _child;
@@ -159,6 +160,16 @@ namespace SlopWorld
 
             return false;
         }
+
+        // Physical input survives consumed GUI packets. Observe it from the selector
+        // itself rather than relying on window-stack dispatch reaching every press.
+        public static void ObserveSelectorInput()
+        {
+            if (Input.GetMouseButtonDown(0))
+                SelectorClicks.BeginPress(Time.frameCount);
+        }
+
+        public static bool TryBlockSelectorClickAt(Vector2 at) => SelectorClicks.TryBlock(at);
 
         // FloatMenuOption replaces empty labels with "(missing label)". Use a distinct row type.
         public static FloatMenuOption Separator() => new SeparatorOption();
@@ -639,6 +650,16 @@ namespace SlopWorld
         // with it, and the parent is told so its row stops reading as open.
         public override void PostClose()
         {
+            var e = Event.current;
+            if (
+                _selector
+                && _at.HasValue
+                && e != null
+                && e.button == 0
+                && (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseUp)
+            )
+                SelectorClicks.Dismiss(_at.Value, Time.frameCount);
+
             base.PostClose();
 
             var p = _parent;
