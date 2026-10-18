@@ -196,20 +196,16 @@ namespace SlopWorld
             )
                 return;
 
-            float x = r.xMax - Pad;
+            float x = r.xMax;
             _doors = new DoorLayout();
-            _doors.HasConfig = TrySlot(r, ref x, UiTheme.GapS, out _doors.Config);
-            // The settings cog is this interface's door. What is left of the line is the
-            // colony's.
-            float gap = UiTheme.GapM;
+            _doors.HasConfig = TrySlot(r, ref x, out _doors.Config);
 
-            if (showCore && CoreTip.On(map) && TrySlot(r, ref x, gap, out _doors.Core))
+            if (showCore && CoreTip.On(map) && TrySlot(r, ref x, out _doors.Core))
             {
                 _doors.HasCore = true;
-                gap = UiTheme.GapS;
             }
 
-            if (showJukebox && Jukebox.On(map) && TrySlot(r, ref x, gap, out _doors.Jukebox))
+            if (showJukebox && Jukebox.On(map) && TrySlot(r, ref x, out _doors.Jukebox))
             {
                 _doors.JukeboxTip = Jukebox.IconTip();
                 _doors.HasJukebox = true;
@@ -225,18 +221,22 @@ namespace SlopWorld
         }
 
         // Omit doors that cannot fit; drawing and hit testing share these bounded slots.
-        static bool TrySlot(Rect bar, ref float right, float gap, out Rect slot)
+        static bool TrySlot(Rect bar, ref float right, out Rect slot)
         {
             slot = default;
-            float x = right - gap - IconW;
+            float x = right - bar.height;
             if (x < bar.x || bar.height < IconW)
                 return false;
-            slot = new Rect(x, bar.y + (bar.height - IconW) / 2f, IconW, IconW);
+            slot = new Rect(x, bar.y, bar.height, bar.height);
             right = x;
             return true;
         }
 
-        // Off-grey until the pointer is on it, the way the strip's own icons were.
+        // Full-height targets keep the shared glyph size centered inside their hover face.
+        static Rect DoorIconRect(Rect slot) =>
+            new Rect(slot.center.x - IconW / 2f, slot.center.y - IconW / 2f, IconW, IconW);
+
+        // Keep map-layer hit testing while sharing the standard icon button styling.
         static void Door(Rect r, Texture2D icon, string tip, System.Action go, bool live)
         {
             TooltipHandler.TipRegion(r, tip);
@@ -247,10 +247,9 @@ namespace SlopWorld
             var was = GUI.color;
             if (repaint)
             {
-                if (over)
-                    Slab.Fill(r, UiTheme.Hover);
-                GUI.color = over ? Color.white : UiTheme.Off;
-                GUI.DrawTexture(r, icon);
+                UiLayout.IconButtonBackground(r, over, over && Input.GetMouseButton(0));
+                GUI.color = over ? UiTheme.Lead : UiTheme.Off;
+                GUI.DrawTexture(DoorIconRect(r), icon);
                 GUI.color = was;
             }
 
@@ -276,9 +275,8 @@ namespace SlopWorld
             if (repaint)
             {
                 GUI.color = Color.white;
-                if (over)
-                    Slab.Fill(r, UiTheme.Hover);
-                Widgets.ThingIcon(r, def);
+                UiLayout.IconButtonBackground(r, over, over && Input.GetMouseButton(0));
+                Widgets.ThingIcon(DoorIconRect(r), def);
                 GUI.color = was;
             }
 

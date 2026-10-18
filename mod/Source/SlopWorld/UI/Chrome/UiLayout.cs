@@ -97,8 +97,7 @@ namespace SlopWorld
             bool held = over && Input.GetMouseButton(0);
             bool repaint = Event.current != null && Event.current.type == EventType.Repaint;
 
-            if (repaint && over)
-                Slab.Fill(r, held ? BtnDown : BtnHover);
+            IconButtonBackground(r, over, held);
 
             if (repaint)
             {
@@ -118,6 +117,13 @@ namespace SlopWorld
 
         public static bool IconButton(Rect r, Texture2D icon, bool on = true) =>
             IconButton(r, icon, Name, on);
+
+        // Custom icon renderers share the button face while retaining their own hit testing.
+        public static void IconButtonBackground(Rect r, bool over, bool held)
+        {
+            if (over)
+                Slab.Fill(r, held ? BtnDown : BtnHover);
+        }
 
         public static void SectionHeading(Listing_Standard l, string text)
         {
