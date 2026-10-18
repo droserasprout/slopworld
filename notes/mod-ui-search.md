@@ -43,6 +43,12 @@ results prune missing keys. Folding preserves the Search reader. Revealing a sea
 location opens its ancestors. Fold state is separate from Files and Git.
 File headings use the match context menu, targeting the file's first match even
 while folded. Project and checkout headings share the other trees' grey styling.
+A project's lone selected main checkout shares its project heading and fold, with
+the ginger prefix and match count. Other selections retain separate checkout
+headings, even when only main has matches. A hidden checkout fold does not suppress
+the merged heading's contents.
+Match counts align to the right edge of checkout and file headings, including
+merged project headings; labels fade before the reserved count space.
 
 Search reattaches its reader on entry and before appearance-restart discovery;
 appearance restarts preserve Search intent.

@@ -34,6 +34,79 @@ namespace SlopWorld.Tests
             return group;
         }
 
+        public static void LoneMainMergesWithProjectAndIgnoresHiddenCheckoutFold()
+        {
+            var tree = new SearchResultTree();
+            var main = Group("p");
+            var branch = Group("p", "branch");
+            tree.Build(new[] { main, branch }, false, "needle");
+            tree.Toggle(main.ScopeKey);
+
+            var rows = tree.Build(new[] { main }, false, "needle");
+            var heading = rows.Single(r => r.Kind == SearchResultTree.RowKind.Heading);
+            Assert.That(heading.FoldKey, Is.EqualTo(main.ProjectKey));
+            Assert.That(heading.Text, Is.EqualTo("Shared display name"));
+            Assert.That(heading.MatchCount, Is.EqualTo(2));
+            var file = rows.Single(r => r.Kind == SearchResultTree.RowKind.File);
+            Assert.That(file.Text, Is.EqualTo("src/a.cs"));
+            Assert.That(file.MatchCount, Is.EqualTo(2));
+            Assert.That(heading.MainCheckout, Is.True);
+            Assert.That(heading.Depth, Is.EqualTo(0));
+            Assert.That(
+                rows.Single(r => r.Kind == SearchResultTree.RowKind.File).Depth,
+                Is.EqualTo(1)
+            );
+            Assert.That(rows.Count(r => r.Match != null), Is.EqualTo(2));
+            Assert.That(rows.Where(r => r.Match != null).All(r => r.Depth == 2), Is.True);
+
+            tree.Toggle(heading.FoldKey);
+            Assert.That(tree.Build(new[] { main }, false, "needle").Count, Is.EqualTo(1));
+            tree.Reveal(new[] { main }, main.Matches[0]);
+            Assert.That(
+                tree.Build(new[] { main }, false, "needle").Count(r => r.Match != null),
+                Is.EqualTo(2)
+            );
+        }
+
+        public static void SelectedCheckoutsWithoutMatchesStillPreventMerging()
+        {
+            var tree = new SearchResultTree();
+            var main = Group("p");
+            var branch = Group("p", "branch");
+            branch.Matches.Clear();
+            foreach (bool loading in new[] { true, false })
+            {
+                var rows = tree.Build(new[] { main, branch }, loading, "needle");
+                var project = rows.Single(r => r.FoldKey == main.ProjectKey);
+                Assert.That(project.MainCheckout, Is.False);
+                Assert.That(project.MatchCount, Is.Null);
+                var checkout = rows.Single(r => r.FoldKey == main.ScopeKey);
+                Assert.That(checkout.Text, Is.Empty);
+                Assert.That(checkout.MatchCount, Is.EqualTo(2));
+                Assert.That(checkout.MainCheckout, Is.True);
+                Assert.That(checkout.Depth, Is.EqualTo(1));
+                Assert.That(
+                    rows.Single(r => r.Kind == SearchResultTree.RowKind.File).Depth,
+                    Is.EqualTo(2)
+                );
+                Assert.That(rows.Where(r => r.Match != null).All(r => r.Depth == 3), Is.True);
+            }
+        }
+
+        public static void LoneNonMainRetainsSeparateCheckoutHeading()
+        {
+            var tree = new SearchResultTree();
+            var branch = Group("p", "branch");
+            var rows = tree.Build(new[] { branch }, false, "needle");
+            Assert.That(rows.Count(r => r.Kind == SearchResultTree.RowKind.Heading), Is.EqualTo(2));
+            var checkout = rows.Single(r => r.FoldKey == branch.ScopeKey);
+            Assert.That(checkout.MainCheckout, Is.False);
+            Assert.That(checkout.Text, Is.EqualTo("branch"));
+            Assert.That(checkout.MatchCount, Is.EqualTo(2));
+            tree.Toggle(branch.ScopeKey);
+            Assert.That(tree.Build(new[] { branch }, false, "needle").Count, Is.EqualTo(2));
+        }
+
         public static void ProjectCheckoutAndFileFoldsKeepIdenticalPathsIndependent()
         {
             var tree = new SearchResultTree();
@@ -66,7 +139,7 @@ namespace SlopWorld.Tests
             Assert.That(rows.Count(r => r.Kind == SearchResultTree.RowKind.File), Is.EqualTo(2));
             tree.Toggle(main.ProjectKey);
             rows = tree.Build(groups, false, "needle");
-            Assert.That(rows.Count(r => r.Kind == SearchResultTree.RowKind.Heading), Is.EqualTo(3));
+            Assert.That(rows.Count(r => r.Kind == SearchResultTree.RowKind.Heading), Is.EqualTo(2));
             Assert.That(rows.Count(r => r.Match != null), Is.EqualTo(2));
         }
 
@@ -141,8 +214,8 @@ namespace SlopWorld.Tests
             );
             Assert.That(rows.Any(r => r.Text == "More matches are not listed."), Is.True);
             Assert.That(rows.Last().Text, Is.EqualTo("Searching"));
-            tree.Toggle(failed.ScopeKey);
-            tree.Toggle(capped.ScopeKey);
+            tree.Toggle(failed.ProjectKey);
+            tree.Toggle(capped.ProjectKey);
             rows = tree.Build(groups, false, "needle");
             Assert.That(
                 rows.Any(r =>

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 
 namespace SlopWorld
@@ -23,6 +22,7 @@ namespace SlopWorld
         {
             internal RowKind Kind;
             internal string Text;
+            internal int? MatchCount;
             internal string FoldKey;
             internal int Depth;
             internal bool MainCheckout;
@@ -92,38 +92,45 @@ namespace SlopWorld
                     }
                 );
 
-            foreach (
-                var project in groups
-                    .Where(g => loading || HasResults(g))
-                    .GroupBy(g => g.ProjectKey)
-            )
+            foreach (var project in groups.GroupBy(g => g.ProjectKey))
             {
+                if (!loading && !project.Any(HasResults))
+                    continue;
+                var first = project.First();
+                // Use every submitted checkout, including those without matches, so
+                // result arrival cannot change the selected scope's heading policy.
+                bool merged =
+                    project.Count() == 1 && BrowseScope.WorktreeOf(first.ScopeKey) == "main";
                 rows.Add(
                     new Row
                     {
                         Kind = RowKind.Heading,
-                        Text = project.First().Project,
+                        Text = first.Project,
+                        MatchCount = merged ? first.Matches.Count : (int?)null,
                         FoldKey = project.Key,
+                        MainCheckout = merged,
                     }
                 );
                 if (IsCollapsed(project.Key))
                     continue;
-                foreach (var group in project)
+                foreach (var group in project.Where(g => loading || HasResults(g)))
                 {
-                    rows.Add(
-                        new Row
-                        {
-                            Kind = RowKind.Heading,
-                            Text =
-                                BrowseScope.WorktreeOf(group.ScopeKey) == "main"
-                                    ? group.Matches.Count.ToString(CultureInfo.InvariantCulture)
-                                    : $"{group.Worktree}  {group.Matches.Count}",
-                            FoldKey = group.ScopeKey,
-                            Depth = 1,
-                            MainCheckout = BrowseScope.WorktreeOf(group.ScopeKey) == "main",
-                        }
-                    );
-                    if (IsCollapsed(group.ScopeKey))
+                    if (!merged)
+                        rows.Add(
+                            new Row
+                            {
+                                Kind = RowKind.Heading,
+                                Text =
+                                    BrowseScope.WorktreeOf(group.ScopeKey) == "main"
+                                        ? ""
+                                        : group.Worktree,
+                                MatchCount = group.Matches.Count,
+                                FoldKey = group.ScopeKey,
+                                Depth = 1,
+                                MainCheckout = BrowseScope.WorktreeOf(group.ScopeKey) == "main",
+                            }
+                        );
+                    if (!merged && IsCollapsed(group.ScopeKey))
                         continue;
                     if (group.Error != null)
                         rows.Add(new Row { Kind = RowKind.Error, Text = group.Error });
@@ -135,15 +142,23 @@ namespace SlopWorld
                                 new Row
                                 {
                                     Kind = RowKind.File,
-                                    Text = $"{file.Key}  {file.Count()}",
+                                    Text = file.Key,
+                                    MatchCount = file.Count(),
                                     FoldKey = key,
-                                    Depth = 2,
+                                    Depth = merged ? 1 : 2,
                                     MenuMatch = file.First(),
                                 }
                             );
                             if (!IsCollapsed(key))
                                 foreach (var match in file)
-                                    rows.Add(new Row { Kind = RowKind.Match, Match = match });
+                                    rows.Add(
+                                        new Row
+                                        {
+                                            Kind = RowKind.Match,
+                                            Match = match,
+                                            Depth = merged ? 2 : 3,
+                                        }
+                                    );
                         }
                     if (group.Truncated)
                         rows.Add(

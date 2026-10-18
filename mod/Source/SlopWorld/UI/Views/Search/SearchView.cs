@@ -426,7 +426,7 @@ namespace SlopWorld
                     Heading(width, ref y, row);
                     break;
                 case RowKind.Match:
-                    Result(width, ref y, row.Match);
+                    Result(width, ref y, row.Match, row.Depth);
                     break;
                 case RowKind.Note:
                     Note(width, ref y, row.Text, UiTheme.Faint);
@@ -462,8 +462,18 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(left, y + (RowH - side) / 2f, side, side), Icons.Root);
                 left += side + UiTheme.GapXS;
             }
+            float labelRight = r.width - Pad;
+            if (row.MatchCount.HasValue)
+            {
+                string count = row.MatchCount.Value.ToString(CultureInfo.InvariantCulture);
+                float countWidth = UiTheme.Wide(count);
+                Text.Anchor = TextAnchor.MiddleRight;
+                Widgets.Label(new Rect(labelRight - countWidth, y, countWidth, RowH), count);
+                Text.Anchor = TextAnchor.MiddleLeft;
+                labelRight -= countWidth + UiTheme.GapXS;
+            }
             UiText.FadedRowLabel(
-                new Rect(left, y, Mathf.Max(0f, width - left - Pad), RowH),
+                new Rect(left, y, Mathf.Max(0f, labelRight - left), RowH),
                 row.Text
             );
             GUI.color = Color.white;
@@ -473,6 +483,7 @@ namespace SlopWorld
                 r,
                 (row.MainCheckout ? "Main checkout  " : "")
                     + row.Text
+                    + (row.MatchCount.HasValue ? $"\n{row.MatchCount.Value} matching lines" : "")
                     + (collapsed ? "\n\nClick to unfold." : "\n\nClick to fold.")
             );
             Hits.Add(
@@ -486,7 +497,7 @@ namespace SlopWorld
             y += RowH;
         }
 
-        static void Result(float width, ref float y, Match match)
+        static void Result(float width, ref float y, Match match, int depth)
         {
             var r = new Rect(0f, y, width, RowH);
             bool over = RowChrome.Hover(
@@ -507,13 +518,13 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = UiTheme.Name;
-            UiText.FadedRowLabel(new Rect(CellX + ResultIndent * 3f, y, prefixW, RowH), prefix);
+            UiText.FadedRowLabel(new Rect(CellX + ResultIndent * depth, y, prefixW, RowH), prefix);
             GUI.color = over ? UiTheme.Lead : UiTheme.Dim;
             UiText.FadedRowLabel(
                 new Rect(
-                    CellX + ResultIndent * 3f + prefixW,
+                    CellX + ResultIndent * depth + prefixW,
                     y,
-                    Mathf.Max(0f, rx - CellX - ResultIndent * 3f - prefixW),
+                    Mathf.Max(0f, rx - CellX - ResultIndent * depth - prefixW),
                     RowH
                 ),
                 match.Text.Trim()
