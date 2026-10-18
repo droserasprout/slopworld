@@ -102,7 +102,7 @@ namespace SlopWorld
         static void FiltersChanged()
         {
             _filtersDirty = true;
-            OpenFilterMenu();
+            OpenFilterMenuAt(_filterAnchor);
         }
 
         static void ClearFilters()
@@ -111,8 +111,16 @@ namespace SlopWorld
             FiltersChanged();
         }
 
-        public static void OpenFilterMenu()
+        static Rect? _filterAnchor;
+
+        // Keyboard commands open at the pointer; button and repeated choices retain their anchor.
+        public static void OpenFilterMenu() => OpenFilterMenuAt(null);
+
+        public static void OpenFilterMenu(Rect screenAnchor) => OpenFilterMenuAt(screenAnchor);
+
+        static void OpenFilterMenuAt(Rect? screenAnchor)
         {
+            _filterAnchor = screenAnchor;
             var options = new List<FloatMenuOption>
             {
                 UiLayout.MenuToggle("All tasks", !Filtering, ClearFilters),
@@ -120,7 +128,11 @@ namespace SlopWorld
                 new UiSubmenu("Direction", DirectionOptions),
                 new UiSubmenu("Agent", AgentOptions),
             };
-            TerminalWindow.OpenOverPane(new UiMenu(options));
+            TerminalWindow.OpenOverPane(
+                screenAnchor.HasValue
+                    ? UiSelector.Menu(options, screenAnchor.Value, matchWidth: false)
+                    : new UiMenu(options)
+            );
         }
     }
 }

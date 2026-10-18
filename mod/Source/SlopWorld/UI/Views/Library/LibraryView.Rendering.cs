@@ -176,19 +176,21 @@ namespace SlopWorld
                 );
             TooltipHandler.TipRegion(field, "Search library names and content");
             var filter = new Rect(field.x, field.yMax + Pad, field.width, UiTheme.FieldH);
-            if (UiButtons.Button(filter, _kind.Length == 0 ? "All types ▾" : _kind + " ▾"))
+            var options = new List<FloatMenuOption>
             {
-                var options = new List<FloatMenuOption>
-                {
-                    new FloatMenuOption("All types", () => SetKind("")),
-                };
-                foreach (var kind in Category.Order)
-                {
-                    string value = kind;
-                    options.Add(new FloatMenuOption(value, () => SetKind(value)));
-                }
-                TerminalWindow.OpenOverPane(new UiMenu(options));
+                new FloatMenuOption("All types", () => SetKind("")),
+            };
+            foreach (var kind in Category.Order)
+            {
+                string value = kind;
+                options.Add(new FloatMenuOption(value, () => SetKind(value)));
             }
+            UiSelector.DrawInline(
+                filter,
+                _kind.Length == 0 ? "All types" : _kind,
+                options,
+                TerminalWindow.OpenOverPane
+            );
         }
 
         static void DrawDetails(Rect r, RowDetails details)

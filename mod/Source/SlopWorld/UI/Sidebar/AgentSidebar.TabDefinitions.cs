@@ -193,7 +193,7 @@ namespace SlopWorld
         static void DrawAgentVisibilityAction(SidebarTabActionContext context)
         {
             var r = ActionRect(context);
-            _agentVisibilityRect = TabHitRect(r);
+            _agentVisibilityRect = UiSelector.ScreenBox(TabHitRect(r));
             Tab(
                 r,
                 Icons.Filter,
@@ -201,7 +201,8 @@ namespace SlopWorld
                 StatusFiltering
                     ? $"Showing {StatusFilterLabel} agents. Click to change the status filter."
                     : "All agents shown. Click to choose agent statuses.",
-                OpenAgentVisibilityMenu
+                OpenAgentVisibilityMenu,
+                filter: true
             );
         }
 
@@ -221,7 +222,7 @@ namespace SlopWorld
         static void DrawVisibilityAction(Rect r)
         {
             bool active = !Settings.SidebarShowHidden || !Settings.SidebarShowGitignored;
-            _visibilityRect = TabHitRect(r);
+            _visibilityRect = UiSelector.ScreenBox(TabHitRect(r));
             Tab(
                 r,
                 Icons.Filter,
@@ -229,7 +230,8 @@ namespace SlopWorld
                 active
                     ? "Dotfiles or Git-ignored files are hidden. Click to change the filters."
                     : "All files shown. Click to choose which files to show.",
-                OpenVisibilityMenu
+                OpenVisibilityMenu,
+                filter: true
             );
         }
 
@@ -266,7 +268,7 @@ namespace SlopWorld
 
         static void DrawLibraryProjectFilterAction(ref Rect r)
         {
-            var anchor = TabHitRect(r);
+            var anchor = UiSelector.ScreenBox(TabHitRect(r));
             Tab(
                 r,
                 Icons.Filter,
@@ -274,7 +276,8 @@ namespace SlopWorld
                 LibraryView.ProjectFiltering
                     ? $"Showing {LibraryView.ProjectFilterLabel} in Library. Click to change the project filter."
                     : "Library shows every project. Click to filter the list.",
-                () => LibraryView.OpenProjectFilterMenu(anchor)
+                () => LibraryView.OpenProjectFilterMenu(anchor),
+                filter: true
             );
             r.x -= TabIcon + TabGap;
         }
@@ -291,6 +294,7 @@ namespace SlopWorld
                 onPress: false
             );
             r.x -= TabIcon + TabGap;
+            var anchor = UiSelector.ScreenBox(TabHitRect(r));
             Tab(
                 r,
                 Icons.Filter,
@@ -298,7 +302,8 @@ namespace SlopWorld
                 TasksView.Filtering
                     ? "Task filters are active. Click to change the filters."
                     : "Showing all tasks. Click to filter by status, direction, or agent.",
-                TasksView.OpenFilterMenu
+                () => TasksView.OpenFilterMenu(anchor),
+                filter: true
             );
         }
 

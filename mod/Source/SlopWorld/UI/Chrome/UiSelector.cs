@@ -25,6 +25,40 @@ namespace SlopWorld
     // width and screen anchor, including custom and disabled options.
     public static class UiSelector
     {
+        // Anchors are in screen coordinates so menus can be reopened outside the source GUI group.
+        // Filters keep their natural menu width; single-value fields match the source box.
+        public static UiMenu Menu(
+            List<FloatMenuOption> options,
+            Rect screenBox,
+            bool matchWidth = true
+        ) =>
+            new UiMenu(
+                options,
+                new Vector2(screenBox.x, screenBox.yMax),
+                selector: true,
+                selectorWidth: matchWidth ? screenBox.width : 0f
+            );
+
+        public static Rect ScreenBox(Rect box) =>
+            new Rect(UiControls.MenuAt(box) - new Vector2(0f, box.height), box.size);
+
+        public static bool DrawInline(
+            Rect box,
+            string value,
+            List<FloatMenuOption> options,
+            Action<UiMenu> openMenu = null
+        )
+        {
+            if (!UiControls.SelectInline(box, value))
+                return false;
+            var menu = Menu(options, ScreenBox(box));
+            if (openMenu != null)
+                openMenu(menu);
+            else
+                Find.WindowStack.Add(menu);
+            return true;
+        }
+
         public static bool Draw(
             Rect rect,
             string caption,
@@ -51,12 +85,7 @@ namespace SlopWorld
             if (!pressed)
                 return false;
 
-            var popup = new UiMenu(
-                options,
-                UiControls.MenuAt(box),
-                selector: true,
-                selectorWidth: box.width
-            );
+            var popup = Menu(options, ScreenBox(box));
             if (openMenu != null)
                 openMenu(popup);
             else
@@ -98,12 +127,7 @@ namespace SlopWorld
                     return item;
                 })
                 .ToList();
-            var popup = new UiMenu(
-                menu,
-                UiControls.MenuAt(box),
-                selector: true,
-                selectorWidth: box.width
-            );
+            var popup = Menu(menu, ScreenBox(box));
             if (openMenu != null)
                 openMenu(popup);
             else

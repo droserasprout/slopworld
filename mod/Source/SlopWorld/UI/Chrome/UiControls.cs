@@ -385,7 +385,8 @@ namespace SlopWorld
             string tip,
             bool on,
             bool open,
-            float forcedWidth
+            float forcedWidth,
+            bool inline = false
         )
         {
             float labelH = LineH;
@@ -395,15 +396,16 @@ namespace SlopWorld
             float valueWidth =
                 Mathf.Max(Wide(value) + ButtonPadX * 2f, ButtonMinW) + chevron + GapS;
             float boxW = Mathf.Min(r.width, Mathf.Max(forcedWidth, valueWidth));
-            box = new Rect(r.x, r.y + labelH + GapXS, boxW, CompactH);
+            box = inline ? r : new Rect(r.x, r.y + labelH + GapXS, boxW, CompactH);
             UiMenu.ObserveSelectorInput();
             bool shownOpen = open || UiMenu.IsSelectorOpenAt(MenuAt(box));
 
-            using (WidgetState.Save())
-            {
-                GUI.color = on ? Name : Fade(Name, 0.5f);
-                RowLabel(label, caption);
-            }
+            if (!inline)
+                using (WidgetState.Save())
+                {
+                    GUI.color = on ? Name : Fade(Name, 0.5f);
+                    RowLabel(label, caption);
+                }
             bool over = on && Mouse.IsOver(box);
             bool held = over && Input.GetMouseButton(0);
             if (!string.IsNullOrEmpty(tip))
@@ -529,6 +531,13 @@ namespace SlopWorld
             bool open = false,
             Action<UiMenu> openMenu = null
         ) => UiSelector.Draw(l, caption, value, choices, out box, tip, on, open, openMenu);
+
+        // Inline selectors keep their caller-owned table or toolbar geometry.
+        public static bool SelectInline(Rect box, string value, string tip = null, bool on = true)
+        {
+            using (WidgetState.Save())
+                return SelectCore(box, null, value, out _, tip, on, false, 0f, inline: true);
+        }
 
         public static Vector2 MenuAt(Rect r) => UI.GUIToScreenPoint(new Vector2(r.x, r.yMax));
 

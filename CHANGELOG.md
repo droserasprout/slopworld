@@ -16,6 +16,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - UI: Fixed dropdown spacing, hover highlights, and closing on second click.
 - UI: Fixed slow sidebar resizing with Settings open.
 - UI: Tabs and navigation now respond on mouse press instead of release.
+- UI: Unified dropdown selectors' styling and behavior.
 
 ## [0.0.6] - 2026-10-18
 

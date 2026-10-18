@@ -71,66 +71,52 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
-            if (
-                UiLayout.Button(
-                    l,
-                    "TemperatureMode".Translate()
-                        + ": "
-                        + TemperatureUnit.Label(
-                            Settings.TemperatureUnit,
-                            Prefs.TemperatureMode.ToStringHuman()
-                        )
-                )
-            )
-            {
-                var choices = Enum.GetValues(typeof(TemperatureDisplayMode))
-                    .Cast<TemperatureDisplayMode>()
-                    .Select(mode => new FloatMenuOption(
-                        mode.ToStringHuman(),
-                        () => SetTemperatureUnit(mode)
-                    ))
-                    .ToList();
-                if (Prefs.TemperatureMode == TemperatureDisplayMode.Fahrenheit)
-                    choices.Add(
-                        new FloatMenuOption(TemperatureUnit.MemeLabel, SetMemeTemperatureUnit)
-                    );
-                Find.WindowStack.Add(new UiMenu(choices));
-            }
+            var temperatureChoices = Enum.GetValues(typeof(TemperatureDisplayMode))
+                .Cast<TemperatureDisplayMode>()
+                .Select(mode => new FloatMenuOption(
+                    mode.ToStringHuman(),
+                    () => SetTemperatureUnit(mode)
+                ))
+                .ToList();
+            if (Prefs.TemperatureMode == TemperatureDisplayMode.Fahrenheit)
+                temperatureChoices.Add(
+                    new FloatMenuOption(TemperatureUnit.MemeLabel, SetMemeTemperatureUnit)
+                );
+            UiControls.Select(
+                l,
+                "TemperatureMode".Translate(),
+                TemperatureUnit.Label(
+                    Settings.TemperatureUnit,
+                    Prefs.TemperatureMode.ToStringHuman()
+                ),
+                temperatureChoices,
+                out _
+            );
 
-            if (UiLayout.Button(l, "Date format: " + DateFormat.Label(s.dateFormat)))
-            {
-                var choices = new[]
-                {
-                    DateFormat.YearFirst,
-                    DateFormat.DayFirst,
-                    DateFormat.MonthFirst,
-                }
-                    .Select(format => new FloatMenuOption(
+            UiControls.Select(
+                l,
+                "Date format",
+                DateFormat.Label(s.dateFormat),
+                new[] { DateFormat.YearFirst, DateFormat.DayFirst, DateFormat.MonthFirst }.Select(
+                    format => new FloatMenuOption(
                         DateFormat.Label(format),
                         () => SetDateFormat(format)
-                    ))
-                    .ToList();
-                Find.WindowStack.Add(new UiMenu(choices));
-            }
-
-            if (UiLayout.Button(l, "Time format: " + TimeFormat.Label(s.timeFormat)))
-            {
-                Find.WindowStack.Add(
-                    new UiMenu(
-                        new[]
-                        {
-                            new FloatMenuOption(
-                                "24-hour",
-                                () => SetTimeFormat(TimeFormat.TwentyFourHour)
-                            ),
-                            new FloatMenuOption(
-                                "12-hour",
-                                () => SetTimeFormat(TimeFormat.TwelveHour)
-                            ),
-                        }.ToList()
                     )
-                );
-            }
+                ),
+                out _
+            );
+
+            UiControls.Select(
+                l,
+                "Time format",
+                TimeFormat.Label(s.timeFormat),
+                new[]
+                {
+                    new FloatMenuOption("24-hour", () => SetTimeFormat(TimeFormat.TwentyFourHour)),
+                    new FloatMenuOption("12-hour", () => SetTimeFormat(TimeFormat.TwelveHour)),
+                },
+                out _
+            );
         }
 
         static void DrawConnectionSummary(Listing_Standard l)

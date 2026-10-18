@@ -219,7 +219,7 @@ namespace SlopWorld
                     () => ToggleProjectFilter(AgentSidebar.NoProject, anchor)
                 )
             );
-            TerminalWindow.OpenOverPane(new UiMenu(options, new Vector2(anchor.x, anchor.yMax)));
+            TerminalWindow.OpenOverPane(UiSelector.Menu(options, anchor, matchWidth: false));
         }
 
         static void ToggleProjectFilter(string key, Rect anchor)

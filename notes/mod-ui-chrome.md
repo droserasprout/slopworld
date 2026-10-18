@@ -28,6 +28,11 @@ mouse capture: the adapter restores its capture and invokes the grip after the
 text control on every enabled IMGUI pass to keep control allocation stable.
 Retire capture with the field lifetime.
 
+Single-value choices use `UiSelector`: labelled controls in forms and `DrawInline`
+for caller-owned table or toolbar rectangles. Both share the arrow, anchored menu,
+and dismissal guard. Action menus keep ordinary buttons or contextual invocation.
+Multi-select filters keep icon buttons and checkmarked options; their menus use
+screen-space anchors and the same dismissal guard, retaining natural menu width.
 Selector width must fit its text, arrow, and divider within the available form
 width. The opened menu uses that final width. `UiMenu` owns menu chains;
 `Patch_UiMenuWindowStack` closes them before a clicked non-menu window is raised.

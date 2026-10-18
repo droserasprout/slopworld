@@ -40,7 +40,7 @@ namespace SlopWorld
                 ),
             };
             TerminalWindow.OpenOverPane(
-                new UiMenu(opts, new Vector2(_agentVisibilityRect.x, _agentVisibilityRect.yMax))
+                UiSelector.Menu(opts, _agentVisibilityRect, matchWidth: false)
             );
         }
 
@@ -79,9 +79,7 @@ namespace SlopWorld
                     }
                 ),
             };
-            TerminalWindow.OpenOverPane(
-                new UiMenu(opts, new Vector2(_visibilityRect.x, _visibilityRect.yMax))
-            );
+            TerminalWindow.OpenOverPane(UiSelector.Menu(opts, _visibilityRect, matchWidth: false));
         }
 
         static void Menus()
@@ -441,7 +439,7 @@ namespace SlopWorld
                 );
 
             public ProjectFilterMenu(List<FloatMenuOption> rows, Vector2 at)
-                : base(rows, at)
+                : base(rows, at, selector: true)
             {
                 _revision = SidebarScopes.MenuRevision;
             }
@@ -473,12 +471,18 @@ namespace SlopWorld
 
         public static void OpenFilterMenu() =>
             TerminalWindow.OpenOverPane(
-                new ProjectFilterMenu(FilterOptions(), new Vector2(FilterRect.x, TabRowH))
+                new ProjectFilterMenu(
+                    FilterOptions(),
+                    new Vector2(_projectFilterAnchor.x, _projectFilterAnchor.yMax)
+                )
             );
 
         static void OpenWorktreeFilterMenu(string project)
         {
-            var menu = new ProjectFilterMenu(FilterOptions(), new Vector2(FilterRect.x, TabRowH));
+            var menu = new ProjectFilterMenu(
+                FilterOptions(),
+                new Vector2(_projectFilterAnchor.x, _projectFilterAnchor.yMax)
+            );
             TerminalWindow.OpenOverPane(menu);
             menu.RestoreProject(project);
         }

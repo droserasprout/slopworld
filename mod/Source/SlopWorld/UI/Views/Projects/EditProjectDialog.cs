@@ -200,7 +200,7 @@ namespace SlopWorld
                 Find.WindowStack.Add(new UiMenu(options));
             }
             y += UiTheme.RowH + UiTheme.GapS;
-            float modeW = 100f,
+            float modeW = UiLayout.BtnW("Read-write", 100f) + UiTheme.LineH * 0.55f + UiTheme.GapS,
                 removeW = 32f,
                 gap = UiTheme.GapS;
             float width = rect.width - UiTheme.ListInset * 2f - UiTheme.ScrollbarW;
@@ -252,25 +252,18 @@ namespace SlopWorld
                             mount.To
                         );
                     }
-                    if (
-                        UiButtons.Button(
-                            new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
-                            MountPresentation.ModeLabel(mount.Mode),
-                            UiTheme.Btn.Ghost
-                        )
-                    )
+                    var modes = new List<FloatMenuOption>
                     {
-                        var modes = new List<FloatMenuOption>
-                        {
-                            new FloatMenuOption("Read-only", () => mount.Mode = MountMode.Ro),
-                            new FloatMenuOption("Read-write", () => mount.Mode = MountMode.Rw),
-                        };
-                        if (!isProject)
-                            modes.Add(
-                                new FloatMenuOption("Cache", () => mount.Mode = MountMode.Cache)
-                            );
-                        Find.WindowStack.Add(new UiMenu(modes));
-                    }
+                        new FloatMenuOption("Read-only", () => mount.Mode = MountMode.Ro),
+                        new FloatMenuOption("Read-write", () => mount.Mode = MountMode.Rw),
+                    };
+                    if (!isProject)
+                        modes.Add(new FloatMenuOption("Cache", () => mount.Mode = MountMode.Cache));
+                    UiSelector.DrawInline(
+                        new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
+                        MountPresentation.ModeLabel(mount.Mode),
+                        modes
+                    );
                     if (
                         !isProject
                         && UiButtons.Button(

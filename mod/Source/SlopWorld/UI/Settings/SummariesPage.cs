@@ -48,9 +48,13 @@ namespace SlopWorld
             {
                 foreach (var target in Targets)
                 {
-                    UiLayout.Note(l, target.Label);
-                    if (UiLayout.Button(l, "Summarize: " + PolicyLabel(target.GetPolicy(_cfg))))
-                        OpenPolicyMenu(target);
+                    UiControls.Select(
+                        l,
+                        target.Label,
+                        PolicyLabel(target.GetPolicy(_cfg)),
+                        PolicyOptions(target),
+                        out _
+                    );
                 }
             }
             else
@@ -145,8 +149,11 @@ namespace SlopWorld
         {
             UiText.RowLabel(cells[0], target.Label);
             var button = cells[1].ContractedBy(UiTheme.GapXS, UiTheme.GapXS);
-            if (UiButtons.Button(button, PolicyLabel(target.GetPolicy(_cfg))))
-                OpenPolicyMenu(target);
+            UiSelector.DrawInline(
+                button,
+                PolicyLabel(target.GetPolicy(_cfg)),
+                PolicyOptions(target)
+            );
         }
 
         public static string PolicyLabel(string policy)
@@ -162,7 +169,7 @@ namespace SlopWorld
             }
         }
 
-        void OpenPolicyMenu(
+        List<FloatMenuOption> PolicyOptions(
             (
                 string Label,
                 Func<DaemonConfig, string> GetPolicy,
@@ -178,7 +185,7 @@ namespace SlopWorld
             };
             if (target.AllowsAlways)
                 options.Add(new FloatMenuOption("Always", () => SetPolicy(target, "always")));
-            Find.WindowStack.Add(new UiMenu(options));
+            return options;
         }
 
         void SetPolicy(

@@ -39,32 +39,29 @@ namespace SlopWorld
                 mode == FramePolicy.Limit
                     ? "Disables VSync. Lower limits save power. Higher limits improve responsiveness."
                     : "VSync follows the display refresh rate for smooth presentation.";
-            if (UiLayout.Button(l, "Frame pacing: " + framePacingLabel, tip: framePacingTip))
+            var options = new List<FloatMenuOption>
             {
-                var options = new List<FloatMenuOption>
-                {
-                    new FloatMenuOption(
-                        "VSync",
-                        () =>
-                        {
-                            S.displayMode = FramePolicy.Sync;
-                            S.MarkDirty();
-                        }
-                    ),
-                };
-                options.AddRange(
-                    FramePolicy.Presets.Select(preset => new FloatMenuOption(
-                        preset + " FPS",
-                        () =>
-                        {
-                            S.displayMode = FramePolicy.Limit;
-                            S.foregroundFps = preset;
-                            S.MarkDirty();
-                        }
-                    ))
-                );
-                Find.WindowStack.Add(new UiMenu(options));
-            }
+                new FloatMenuOption(
+                    "VSync",
+                    () =>
+                    {
+                        S.displayMode = FramePolicy.Sync;
+                        S.MarkDirty();
+                    }
+                ),
+            };
+            options.AddRange(
+                FramePolicy.Presets.Select(preset => new FloatMenuOption(
+                    preset + " FPS",
+                    () =>
+                    {
+                        S.displayMode = FramePolicy.Limit;
+                        S.foregroundFps = preset;
+                        S.MarkDirty();
+                    }
+                ))
+            );
+            UiControls.Select(l, "Frame pacing", framePacingLabel, options, out _, framePacingTip);
 
             UiLayout.SectionHeading(l, "Scrolling");
             bool smooth = UiControls.Checkbox(

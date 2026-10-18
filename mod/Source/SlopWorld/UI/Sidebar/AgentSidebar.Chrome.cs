@@ -134,8 +134,11 @@ namespace SlopWorld
         static Rect FilterRect =>
             new Rect(Panel.x + Width - CellX - TabIcon, (TabRowH - TabIcon) / 2f, TabIcon, TabIcon);
 
+        static Rect _projectFilterAnchor;
+
         static void FilterButton()
         {
+            _projectFilterAnchor = UiSelector.ScreenBox(TabHitRect(FilterRect));
             Tab(
                 FilterRect,
                 Icons.Filter,
@@ -143,7 +146,8 @@ namespace SlopWorld
                 Filtering
                     ? $"Showing {FilterLabel}. Click to tick another, or all of them."
                     : "Every project. Click to show only some of them.",
-                OpenFilterMenu
+                OpenFilterMenu,
+                filter: true
             );
         }
 
@@ -157,10 +161,13 @@ namespace SlopWorld
             bool on,
             string tip,
             System.Action go,
-            bool onPress = true
+            bool onPress = true,
+            bool filter = false
         )
         {
             var hit = TabHitRect(r);
+            if (filter)
+                UiMenu.ObserveSelectorInput();
             TooltipHandler.TipRegion(hit, tip);
             if (
                 UiLayout.IconButton(
@@ -172,7 +179,10 @@ namespace SlopWorld
                     onPress: onPress
                 )
             )
-                go();
+            {
+                if (!filter || !UiMenu.TryBlockSelectorClickAt(UiControls.MenuAt(hit)))
+                    go();
+            }
 
             // The selected tab is marked by the same blue signal used for the current row,
             // at the foot of whichever of the strip's rows the button sits in.
