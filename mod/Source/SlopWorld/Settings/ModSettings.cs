@@ -126,9 +126,8 @@ namespace SlopWorld
         // Whether compact Agents rows show their startup and effective network flags.
         public bool statusbarAgentIndicators = true;
 
-        // Whether the daemon is told to go quiet on the way out. Off by default because slopd
-        // outlives the game and should carry the jukebox through a game restart.
-        public bool radioStopOnExit;
+        // Whether the daemon is told to go quiet on the way out.
+        public bool radioStopOnExit = true;
 
         // Grandma's visiting hides gore and harmful tips.
         // It also disables destructive and Easter egg effects.
