@@ -160,6 +160,12 @@ Go to "Settings > Workers" to configure the templates available to agents.
 
 This is a precaution to prevent agents from escalating privileges with less sandboxed workers spawned from templates.
 
+### How to send F-key or Alt combo to the terminal process bypassing SlopWorld shortcuts?
+
+Use Shift as modifier.
+
+e.g, to send F1 press Shift+F1. To send Alt+A press Alt+Shift+A. Sending actual Shift+F1 and Alt+Shift+A is not possible yet.
+
 ## Fun
 
 ### SlopWorld has an internet radio feature, but I don't see any stations in the Jukebox
