@@ -109,13 +109,7 @@ namespace SlopWorld
 
         static void DrawRoutedRow(Row row, SessionInfo info, bool current)
         {
-            var highlight = new Rect(
-                row.Line.x + UiTheme.GapXS,
-                row.Line.y,
-                Mathf.Max(0f, row.Line.width - 2f * UiTheme.GapXS),
-                row.Line.height
-            );
-            RowChrome.Hover(highlight, current, true, RowHoverPolicy.OverlayAware);
+            RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
 
             var text = DrawActionMark(row.Text, RoutedAction(info), true);
 
