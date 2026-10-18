@@ -237,8 +237,8 @@ namespace SlopWorld
                     {
                         new ShortcutRow("Alt+Z", "Previous session"),
                         new ShortcutRow("Alt+X", "Next session"),
-                        new ShortcutRow("Alt+A", "Previous open file view, editor or diff"),
-                        new ShortcutRow("Alt+S", "Next open file view, editor or diff"),
+                        new ShortcutRow("Alt+A", "Previous open file"),
+                        new ShortcutRow("Alt+S", "Next open file"),
                         new ShortcutRow(
                             "Ctrl+sidebar key",
                             "Focus that view’s last target using its current binding"
