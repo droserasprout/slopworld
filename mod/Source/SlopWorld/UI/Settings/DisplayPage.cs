@@ -76,6 +76,19 @@ namespace SlopWorld
                 S.smoothScrolling = smooth;
                 S.MarkDirty();
             }
+
+            UiLayout.SectionHeading(l, "Just for fun");
+            bool crt = UiControls.Checkbox(
+                l,
+                "CRT overlay",
+                S.crtOverlay,
+                "Subtle scanlines and vignette across the whole window. Applies immediately."
+            );
+            if (crt != S.crtOverlay)
+            {
+                S.crtOverlay = crt;
+                S.MarkDirty();
+            }
         }
 
         static List<FloatMenuOption> FrameOptions()

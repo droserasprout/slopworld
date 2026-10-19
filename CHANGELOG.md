@@ -10,6 +10,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
+### Added
+
+- Settings: Added "CRT overlay" toggle on Display tab to apply post-processsing effects.
+
 ### Fixed
 
 - Files: Fixed file actions misinterpreting placeholder text in filenames.

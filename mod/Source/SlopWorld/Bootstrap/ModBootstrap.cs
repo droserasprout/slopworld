@@ -51,6 +51,7 @@ namespace SlopWorld
             QuitInterceptor.Register();
             Log.Message("[SlopWorld] Patched. Daemon at " + DaemonClient.BaseUrl);
             UiFont.Apply();
+            CrtOverlay.Install();
             TerminalLatencyFrame.Install();
         }
 

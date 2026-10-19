@@ -33,6 +33,7 @@ namespace SlopWorld.Tests
                 CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
                 var settings = ProfileSettings.Load();
                 AssertEx.Equal(true, settings.smoothScrolling, "smooth scrolling default");
+                AssertEx.Equal(true, settings.crtOverlay, "CRT overlay defaults on");
                 AssertEx.Equal(true, settings.autoConnect, "missing file default");
                 AssertEx.Equal(true, settings.statusbarUsage, "usage visibility defaults on");
                 AssertEx.Equal(DateFormat.YearFirst, settings.dateFormat, "date format default");
@@ -63,7 +64,7 @@ namespace SlopWorld.Tests
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
                 AssertEx.Equal(
-                    51,
+                    52,
                     Toml.ParseFlat(saved).Count,
                     "persisted key count excludes runtime state"
                 );

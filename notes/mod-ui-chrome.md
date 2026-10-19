@@ -1,5 +1,16 @@
 # Shared UI chrome
 
+`UI/Display/CrtOverlay` owns the window-wide scanline and vignette overlay. Its
+separate GUI behaviour draws above Root's windows and tooltips in physical pixels,
+independently of terminal caches. Scanline thickness and spacing follow the game's
+UI scale, with fractional coverage at line edges; the strip rebuilds when scale
+or screen height changes. It creates no input controls. The
+profile's `crtOverlay` toggle applies live; disabling it releases its textures.
+Vignette dithering is baked at screen resolution. During resize it is hidden, then
+rebuilt after dimensions remain stable for 200 ms to avoid repeated full-screen
+CPU bakes and uploads. Enabling the overlay builds it immediately. Filtering
+or scaling its noise would reintroduce bands or turn the noise into visible patches.
+
 `UI/Chrome/` owns shared controls and layout helpers. `UI/Theme/` owns styling and
 icon catalogs; `UI/Workspace/` owns workspace host chrome. Start with `UiText`,
 `UiButtons`, `UiControls`, `UiLayout`, and `Slab` when adding a control. Feature

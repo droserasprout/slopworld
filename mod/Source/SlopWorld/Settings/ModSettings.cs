@@ -146,6 +146,7 @@ namespace SlopWorld
         public string displayMode = FramePolicy.Auto;
         public int foregroundFps = 60;
         public bool vsync;
+        public bool crtOverlay = true;
         public bool smoothScrolling = true;
 
         // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
@@ -185,6 +186,7 @@ namespace SlopWorld
         {
             Field("autoConnect", (ModSettings s) => ref s.autoConnect, Bool, String),
             Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
+            Field("crtOverlay", (ModSettings s) => ref s.crtOverlay, Bool, String),
             Field("sidebarHidden", (ModSettings s) => ref s.sidebarHidden, Bool, String),
             Field("sidebarWidth", (ModSettings s) => ref s.sidebarWidth, Float, Number),
             Field(
