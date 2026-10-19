@@ -16,8 +16,10 @@ The existing Protobuf runtime DLLs remain checked in. AngleSharp adds code-page
 encoding support and raises the shared System.Memory/Unsafe dependencies; update
 the checked-in transitive DLLs together with the runtime lock.
 
-RimWorld and Unity assemblies come from the game installation and must never be copied
-into the mod. `just deps-harmony` downloads the latest RimWorld Harmony release,
+RimWorld and Unity references come from the game installation by default, or the
+main mod project's pinned RimRef package for `just mod-build rimref`. Neither
+source may be copied into the mod. RimRef is a compile-only dependency and is not
+part of this runtime package graph. `just deps-harmony` downloads the latest RimWorld Harmony release,
 verifies its published SHA-256 digest, and atomically installs only `0Harmony.dll`.
 Pass a destination directory as an argument to install elsewhere.
 The corresponding licenses live in `licenses/runtime/` and are staged into

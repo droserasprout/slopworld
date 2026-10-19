@@ -306,6 +306,15 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertIn('Release', mod['args'])
         self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
 
+    def test_rimref_ci_build_ignores_local_game_path(self) -> None:
+        self.run_recipe('MANAGED=/missing/game', 'BUILD=debug', 'VERSION=1.2.3', 'mod-check-build-rimref')
+        (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
+        self.assertIn('-p:UseRimRef=true', mod['args'])
+        self.assertFalse(any(arg.startswith('-p:RimWorldManaged=') for arg in mod['args']))
+        self.assertIn('Release', mod['args'])
+        self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
+        self.assertIn('-p:RestoreLockedMode=true', mod['args'])
+
     def test_csharp_formatting_stops_after_a_folder_fails(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'dotnet'
         for operation in ('format', 'lint'):

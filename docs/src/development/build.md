@@ -21,7 +21,7 @@ If your distribution does not supply protoc 36.1, download the matching binary
 archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)
 and put its `bin` directory on `PATH`.
 
-You also need RimWorld **1.6**. Set `RIMWORLD` to the directory containing
+To install and run the mod, you also need RimWorld **1.6**. Set `RIMWORLD` to the directory containing
 `RimWorldLinux`; the mod build reads the game's assemblies from
 `RimWorldLinux_Data/Managed/`.
 
@@ -54,7 +54,8 @@ To compile without installing, choose a target:
 | --- | --- |
 | `just build` | Daemon, CLI, launcher, and mod |
 | `just daemon-build` | Daemon, CLI, and launcher |
-| `just mod-build` | C# mod; requires game assemblies |
+| `just mod-build` | C# mod against installed game assemblies |
+| `just mod-build rimref` | C# mod against pinned RimRef stubs; no game installation needed |
 | `just sidecar-build` | Host-side container launcher; requires neither the game nor protoc |
 
 Builds use Debug mode by default. Use `just BUILD=release build` for Release.
@@ -81,7 +82,13 @@ sidecar, mod, and Python tools:
 
 To check C# compilation against the game assemblies, run `just mod-check-build`.
 It builds Release with warnings treated as errors and is also part of release packaging.
-Game-free C# tests and formatting do not require those assemblies.
+For a game-free compilation check, run `just mod-check-build-rimref`. It uses
+[Krafs.Rimworld.Ref](https://github.com/krafs/RimRef) **1.6.4850**, pinned in the
+mod project and NuGet lock. `just ci-mod` includes this Release build alongside
+formatting and game-free coverage. GitHub Actions uploads `SlopWorld.dll` as the
+`mod-assembly` artifact; runtime dependencies and mod assets are not included.
+Reference assemblies are never copied into the mod output. Compilation does not
+validate Harmony patches or other game runtime behavior.
 
 For documentation changes, run `just docs-build`. See
 [Contributing](contributing.md#documentation) for book validation and preview commands.

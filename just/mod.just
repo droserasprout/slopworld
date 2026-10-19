@@ -1,4 +1,4 @@
-# Build against the selected game's assemblies
+# Build against game assemblies, or pass managed='rimref' for pinned stubs
 [group('mod')]
 mod-build $managed='' $configuration='' $warnings='true': mod-check-themes mod-restore
     #!/usr/bin/env bash
@@ -7,9 +7,14 @@ mod-build $managed='' $configuration='' $warnings='true': mod-check-themes mod-r
     if [ -z "$version" ]; then version=$(uv run --locked python -m tools.version.mod_version); fi
     managed="${managed:-$MANAGED}"
     configuration="${configuration:-$BUILD}"
-    if [[ "$managed" != /* ]]; then managed="$PWD/$managed"; fi
+    if [ "$managed" = rimref ]; then
+        references=(-p:UseRimRef=true)
+    else
+        if [[ "$managed" != /* ]]; then managed="$PWD/$managed"; fi
+        references=(-p:UseRimRef=false "-p:RimWorldManaged=$managed")
+    fi
     if [ "$configuration" = release ]; then configuration=Release; else configuration=Debug; fi
-    dotnet build "mod/Source/SlopWorld/SlopWorld.csproj" --configuration "$configuration" -p:RimWorldManaged="$managed" -p:InformationalVersion="$version" -p:TreatWarningsAsErrors="$warnings" -p:RestoreLockedMode=true
+    dotnet build "mod/Source/SlopWorld/SlopWorld.csproj" --configuration "$configuration" "${references[@]}" -p:InformationalVersion="$version" -p:TreatWarningsAsErrors="$warnings" -p:RestoreLockedMode=true
 
 # Restore locked Unity Mono runtime packages
 [group('mod')]
@@ -40,6 +45,10 @@ mod-lint: mod-restore-tools
 # Validate a Release build with warnings as errors (requires game assemblies)
 [group('mod')]
 mod-check-build: (mod-build '' 'release' 'true')
+
+# Validate a game-free Release build with pinned RimRef references
+[group('mod')]
+mod-check-build-rimref: (mod-build 'rimref' 'release' 'true')
 
 # Run game-free C# tests
 [positional-arguments]

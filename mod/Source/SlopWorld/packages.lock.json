@@ -2,6 +2,12 @@
   "version": 1,
   "dependencies": {
     ".NETFramework,Version=v4.7.2": {
+      "Krafs.Rimworld.Ref": {
+        "type": "Direct",
+        "requested": "[1.6.4850, 1.6.4850]",
+        "resolved": "1.6.4850",
+        "contentHash": "QcKiaIW76BsywnW32EegthVFtQIKT8x2TCj5vQV2kuGJdu1+T2/kZzV/xfdyCZMvezMKM103auJAhBDdQB2xSw=="
+      },
       "Microsoft.NETFramework.ReferenceAssemblies": {
         "type": "Direct",
         "requested": "[1.0.3, )",

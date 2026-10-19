@@ -160,11 +160,12 @@ jobs:
           dotnet-version: '8.0.x'
           cache: true
           cache-dependency-path: |
+            mod/Source/SlopWorld/packages.lock.json
             mod/Dependencies/packages.lock.json
             mod/Tests/packages.lock.json
             .config/dotnet-tools.json
 
-      - name: Check C# and collect coverage
+      - name: Build C# with RimRef and collect coverage
         run: just ci-mod
 
       - name: Report coverage
@@ -178,4 +179,11 @@ jobs:
         with:
           name: coverage-mod
           path: coverage/csharp.cobertura.xml
+          if-no-files-found: error
+
+      - name: Upload compiled mod
+        uses: actions/upload-artifact@v6
+        with:
+          name: mod-assembly
+          path: mod/Assemblies/SlopWorld.dll
           if-no-files-found: error

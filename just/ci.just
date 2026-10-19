@@ -12,6 +12,6 @@ ci-rust: daemon-lint daemon-coverage sidecar-lint sidecar-test
 [group('CI')]
 ci-tools: generate-check-protocol tools-lint test-tools
 
-# Check C# formatting and collect game-free coverage
+# Check C# formatting, compile with RimRef, and collect game-free coverage
 [group('CI')]
-ci-mod: mod-lint mod-coverage
+ci-mod: mod-lint mod-check-build-rimref mod-coverage

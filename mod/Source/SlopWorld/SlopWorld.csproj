@@ -24,6 +24,17 @@
     <RimWorldManaged>$(HOME)/GOG Games/RimWorld/game/RimWorldLinux_Data/Managed</RimWorldManaged>
   </PropertyGroup>
 
+  <!-- Keep one lock graph for local and CI builds. Select only the references
+       below; never import or copy RimRef's other assemblies into the mod. -->
+  <ItemGroup>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="[1.6.4850]"
+                      GeneratePathProperty="true" ExcludeAssets="all" PrivateAssets="all" />
+  </ItemGroup>
+  <PropertyGroup>
+    <GameReferencePath>$(RimWorldManaged)</GameReferencePath>
+    <GameReferencePath Condition="'$(UseRimRef)' == 'true'">$(PkgKrafs_Rimworld_Ref)/ref/net472</GameReferencePath>
+  </PropertyGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="../../../shared/magic-8-ball.txt" LogicalName="SlopWorld.Magic8Ball" />
   </ItemGroup>
@@ -54,28 +65,28 @@
       <Private>false</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(RimWorldManaged)/Assembly-CSharp.dll</HintPath>
+      <HintPath>$(GameReferencePath)/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(GameReferencePath)/UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>$(GameReferencePath)/UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.TextRenderingModule.dll</HintPath>
+      <HintPath>$(GameReferencePath)/UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>$(GameReferencePath)/UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <!-- EncodeToPNG/LoadImage, which is how the baked backgrounds reach the cache. -->
     <Reference Include="UnityEngine.ImageConversionModule">
-      <HintPath>$(RimWorldManaged)/UnityEngine.ImageConversionModule.dll</HintPath>
+      <HintPath>$(GameReferencePath)/UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="System" />
@@ -105,7 +116,7 @@
     </Reference>
   </ItemGroup>
   <Target Name="CheckRimWorldReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(RimWorldManaged)/Assembly-CSharp.dll')"
-           Text="Missing RimWorld assemblies under $(RimWorldManaged); set RIMWORLD or MANAGED when using just, or RimWorldManaged when using dotnet build." />
+    <Error Condition="!Exists('$(GameReferencePath)/Assembly-CSharp.dll')"
+           Text="Missing RimWorld references under $(GameReferencePath); set RIMWORLD or MANAGED when using just, or use just mod-build rimref for the pinned reference package." />
   </Target>
 </Project>

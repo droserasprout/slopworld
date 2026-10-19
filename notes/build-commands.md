@@ -91,7 +91,11 @@ compilation flags before cache setup. Let `cargo-llvm-cov` select matching LLVM
 tools while preserving explicit `LLVM_COV` and `LLVM_PROFDATA` overrides.
 
 The mod project owns game references and compiler settings. Game references keep
-`Private=false` to avoid shipping game DLLs. Debug and Release overwrite the same
+`Private=false` to avoid shipping game DLLs. The mod project's pinned RimRef package
+uses `ExcludeAssets=all` and `PrivateAssets=all`; `UseRimRef=true` selects only the
+explicit game references from its generated package path. Both build modes share
+one NuGet lock. `just mod-build rimref` selects this mode, and `ci-mod` checks its
+Release build. Installed-game builds remain the default. Debug and Release overwrite the same
 assembly path, so that path cannot establish build mode. See
 [C# tests](test-csharp.md) for game-free source linking.
 
