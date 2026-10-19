@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -14,8 +15,16 @@ namespace SlopWorld
     {
         // Source content is hashed once per immutable content-pack texture. Names and sizes
         // can collide across expansions or mods; instance IDs do not survive a restart.
-        internal static string Key(Texture2D src, MenuBackgroundPreset preset) =>
-            $"{MenuBackgroundSource.Identity(src)}-{src.width}x{src.height}-{preset.Name}{preset.Total}-{Tuning}-v{MenuBackgroundTuning.Version}";
+        internal static string Key(Texture2D src, MenuBackgroundPreset preset)
+        {
+            string identity =
+                $"{MenuBackgroundSource.Identity(src)}-{src.width}x{src.height}-{preset.Name}{preset.Total}-{Tuning}-v{MenuBackgroundTuning.Version}";
+            using (var hash = SHA256.Create())
+                return BitConverter
+                    .ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(identity)))
+                    .Replace("-", "")
+                    .ToLowerInvariant();
+        }
 
         // Every number the pixels depend on, hashed in. Under Version alone, a tuning change
         // that forgot to bump it rendered the old numbers - indistinguishable from a constant
@@ -29,6 +38,7 @@ namespace SlopWorld
                 float f in new[]
                 {
                     BreatheLow,
+                    BreatheMid,
                     BreatheHigh,
                     OnsetSecs,
                     FireFrom,

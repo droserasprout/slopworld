@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## [Unreleased]
+
+### Fixed
+
+- UI: Tuned loading screen animation.
+
 ## [0.0.7] - 2026-10-19
 
 ### Added

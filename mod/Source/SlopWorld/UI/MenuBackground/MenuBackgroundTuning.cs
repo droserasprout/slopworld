@@ -11,9 +11,9 @@ namespace SlopWorld
         internal const int MaxSide = 1024;
 
         // The ramp stays between clean and fully dark.
-        internal const float BreatheLow = 0.7f;
+        internal const float BreatheLow = 0.79f;
+        internal const float BreatheMid = 0.83f;
         internal const float BreatheHigh = 0.9f;
-        internal static float BreatheMid => (BreatheLow + BreatheHigh) * 0.5f;
 
         internal const float OnsetSecs = 2f;
 
@@ -50,20 +50,20 @@ namespace SlopWorld
         internal const float FuelDecay = 0.98f;
 
         // Stretch the fBm mid-band into a distinct flame body and gap.
-        internal const float NoiseLow = 0.38f;
+        internal const float NoiseLow = 0.3f;
         internal const float NoiseHigh = 0.62f;
-        internal const float FireGain = 1.15f;
+        internal const float FireGain = 0.8f;
 
         // Noise is drawn at 1/N resolution and sampled bilinearly.
         internal const int NoiseDiv = 4;
-        internal const float NoiseFreq = 0.035f;
+        internal const float NoiseFreq = 0.04f;
         internal const int Octaves = 4;
 
         // Phase separation keeps consecutive fire frames from reading as a pan.
         internal const float StagePhase = 37.7f;
 
         internal static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
-        internal static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
+        internal static readonly Color Flame = new Color(1f, 0.76f, 0.20f, 1f);
 
         // Reproducible 256x256 float value-noise LUT. Cheaper to sample than Unity Perlin.
         internal const int LutSide = 256;

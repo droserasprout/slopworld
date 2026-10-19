@@ -8,6 +8,8 @@ lookup for `UI/HeroArt/BGPlanet`.
 Source textures remain provider-owned and are assumed immutable for their lifetime.
 Bake owns generated frame/cache cleanup; effect partials own pixel math. Build a
 replacement before releasing the resident set, and keep the old set on failure.
+Cache directory names are SHA-256 hashes of the source, dimensions, preset, tuning,
+and bake version.
 [Eco](mod-eco.md) consumes frames rather than owning another baker.
 
 Every installed replacement begins a transition from source art. Grandma mode uses
