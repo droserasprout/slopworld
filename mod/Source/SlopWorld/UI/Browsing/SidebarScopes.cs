@@ -87,6 +87,18 @@ namespace SlopWorld
         public static BrowseScopeSelection Selection(string project) =>
             Project(project) is ProjectInfo p ? Catalog.Selection(p.Id) : BrowseScopeSelection.None;
 
+        public static void ToggleAll(string project)
+        {
+            Update();
+            var p = Project(project);
+            if (p == null)
+                return;
+            if (Sidebar.Passes(project) && Catalog.AllChosen(p.Id))
+                Catalog.DeselectAll(p.Id, SaveChoices);
+            else
+                SelectAll(project);
+        }
+
         public static void SelectAll(string project)
         {
             Update();

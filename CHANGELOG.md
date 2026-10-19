@@ -13,6 +13,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Fixed
 
 - UI: Tuned loading screen animation.
+- UI: Fixed unchecking All projects and All worktrees in the project filter.
 
 ## [0.0.7] - 2026-10-19
 

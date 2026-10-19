@@ -116,6 +116,21 @@ namespace SlopWorld.Tests
                 }
             );
 
+        public static void AllProjectsTogglesOffAndOn() =>
+            WithState(
+                (state, path) =>
+                {
+                    state.ToggleFilter("");
+                    Assert.That(state.Passes("one"), Is.False);
+                    Assert.That(state.Passes(""), Is.False);
+                    Assert.That(new SidebarProjectState().FilterLabel, Is.EqualTo("No projects"));
+                    state.ToggleFilter("");
+                    Assert.That(state.Passes("one"), Is.True);
+                    Assert.That(state.Passes(""), Is.True);
+                    Assert.That(ProfileSettings.Load().sidebarFilter, Is.Empty);
+                }
+            );
+
         public static void AddedProjectsJoinAnExplicitFilterWithoutNarrowingAllProjects() =>
             WithState(
                 (state, path) =>

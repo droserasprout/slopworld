@@ -383,7 +383,7 @@ namespace SlopWorld.Tests
             var existing = Scope("existing");
             var added = Scope("added");
             var choices = new BrowseScopeChoices("");
-            choices.Toggle(main);
+            choices.Toggle(main, new[] { Scope(), Scope("one"), Scope("two") });
             choices.Select(existing);
             choices.Select(added);
             choices.Select(added);
@@ -467,7 +467,7 @@ namespace SlopWorld.Tests
             Assert.That(f.Catalog.Enabled(Scope("added").Key), Is.True);
         }
 
-        public static void AllWorktreesIncludesFutureCheckoutsAndNarrowsToOneChoice()
+        public static void AllWorktreesIncludesFutureCheckoutsAndChildTogglePreservesOtherChoices()
         {
             var main = Scope();
             var one = Scope("one");
@@ -480,7 +480,7 @@ namespace SlopWorld.Tests
                 Path = "/other",
             };
             var choices = new BrowseScopeChoices("");
-            choices.Toggle(main);
+            choices.Toggle(main, new[] { Scope(), Scope("one"), Scope("two") });
             choices.Select(one);
             choices.Select(other);
             choices.SelectAll("p-id");
@@ -502,22 +502,32 @@ namespace SlopWorld.Tests
                 Is.EqualTo(all),
                 "repeated All and creation inclusion preserve All mode"
             );
-            choices.Toggle(Scope("unavailable", "error"));
+            choices.Toggle(
+                Scope("unavailable", "error"),
+                new[] { Scope(), Scope("one"), Scope("two") }
+            );
             Assert.That(choices.Save(), Is.EqualTo(all));
 
-            choices.Toggle(one);
+            choices.Toggle(one, new[] { Scope(), Scope("one"), Scope("two") });
             choices = new BrowseScopeChoices(choices.Save());
             Assert.That(choices.AllChosen("p-id"), Is.False);
+            Assert.That(choices.Chosen(main), Is.True);
+            Assert.That(choices.Chosen(one), Is.False);
+            Assert.That(choices.Chosen(two), Is.True);
+            Assert.That(choices.Chosen(Scope("future")), Is.False);
+            Assert.That(choices.Chosen(other), Is.True);
+            choices.Toggle(one, new[] { Scope(), Scope("one"), Scope("two") });
+            Assert.That(choices.Chosen(one), Is.True, "unchecked children toggle back on");
+            choices.SelectAll("p-id");
+            choices.Toggle(main, new[] { Scope(), Scope("one"), Scope("two") });
             Assert.That(choices.Chosen(main), Is.False);
             Assert.That(choices.Chosen(one), Is.True);
+            choices.DeselectAll("p-id");
+            choices = new BrowseScopeChoices(choices.Save());
+            Assert.That(choices.Chosen(main), Is.False);
+            Assert.That(choices.Chosen(one), Is.False);
             Assert.That(choices.Chosen(two), Is.False);
             Assert.That(choices.Chosen(other), Is.True);
-            choices.Toggle(one);
-            Assert.That(choices.Chosen(one), Is.False, "explicit selections still toggle off");
-            choices.SelectAll("p-id");
-            choices.Toggle(main);
-            Assert.That(choices.Chosen(main), Is.True);
-            Assert.That(choices.Chosen(one), Is.False, "Main can also narrow All to one checkout");
         }
 
         public static void ProjectCheckboxSummarizesCheckoutChoicesAndProjectVisibility()
@@ -553,7 +563,10 @@ namespace SlopWorld.Tests
             f.Toggle(f.Catalog.Find(Scope("one").Key));
             Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.Some));
             f.Toggle(f.Catalog.Find(Scope("one").Key));
+            Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.All));
+            f.Catalog.DeselectAll("p-id", saved => f.Saved = saved);
             Assert.That(f.Catalog.Selection("p-id"), Is.EqualTo(BrowseScopeSelection.None));
+            Assert.That(new BrowseScopeChoices(f.Saved).Chosen(Scope()), Is.False);
         }
 
         public static void RenameReadinessFailureAndRemoval()

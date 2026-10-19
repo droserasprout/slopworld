@@ -76,17 +76,16 @@ namespace SlopWorld
             return hasOverride ? !enabledByDefault : enabledByDefault;
         }
 
-        public void Toggle(BrowseScope scope)
+        public void Toggle(BrowseScope scope, IEnumerable<BrowseScope> scopes)
         {
             if (!scope.Ready)
                 return;
             if (AllChosen(scope.ProjectId))
             {
-                ClearProject(scope.ProjectId);
-                // Like All projects, choosing one item narrows All to that item.
-                _exceptions.Add(BrowseScope.Identity(scope.ProjectId, "main"));
-                Select(scope);
-                return;
+                DeselectAll(scope.ProjectId);
+                // Leave All mode with the current catalog selected before toggling the child.
+                foreach (var child in scopes.Where(s => s.ProjectId == scope.ProjectId))
+                    Select(child);
             }
             if (!_exceptions.Remove(scope.Key))
                 _exceptions.Add(scope.Key);
@@ -99,6 +98,12 @@ namespace SlopWorld
         {
             ClearProject(projectId);
             _exceptions.Add(BrowseScope.Identity(projectId, ""));
+        }
+
+        public void DeselectAll(string projectId)
+        {
+            ClearProject(projectId);
+            _exceptions.Add(BrowseScope.Identity(projectId, "main"));
         }
 
         void ClearProject(string projectId)

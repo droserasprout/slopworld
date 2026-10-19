@@ -263,8 +263,8 @@ namespace SlopWorld
             get { return Projects.FilterLabel; }
         }
 
-        // A blank key clears the filter outright: "all projects" is no filter at all rather than
-        // every name ticked. Therefore, a project made later is in it too.
+        // A blank key toggles All between unrestricted visibility (including future projects)
+        // and an explicit empty selection.
         public static void ToggleFilter(string key)
         {
             if (key.Length == 0)

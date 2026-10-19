@@ -552,7 +552,7 @@ namespace SlopWorld
                     Passes(project) && SidebarScopes.AllChosen(project),
                     () =>
                     {
-                        SidebarScopes.SelectAll(project);
+                        SidebarScopes.ToggleAll(project);
                         OpenWorktreeFilterMenu(project);
                     }
                 ),
@@ -582,11 +582,7 @@ namespace SlopWorld
                                 bool hidden = !Passes(project);
                                 if (hidden)
                                     ToggleFilter(project);
-                                if (
-                                    !hidden
-                                    || SidebarScopes.AllChosen(project)
-                                    || !SidebarScopes.Chosen(child)
-                                )
+                                if (!hidden || !SidebarScopes.Chosen(child))
                                     SidebarScopes.Toggle(child);
                                 OpenWorktreeFilterMenu(project);
                             }

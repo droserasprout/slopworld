@@ -85,9 +85,10 @@ namespace SlopWorld
         {
             if (key.Length == 0)
             {
-                if (!Filtering)
-                    return;
+                bool all = !Filtering;
                 Filter.Clear();
+                if (all)
+                    Filter.Add(NoProjects);
             }
             else if (!Filter.Remove(key))
                 Filter.Add(key);

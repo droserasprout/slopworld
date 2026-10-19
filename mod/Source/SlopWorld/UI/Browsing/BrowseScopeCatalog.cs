@@ -149,7 +149,15 @@ namespace SlopWorld
             scope = Find(scope.Key);
             if (scope == null || !scope.Ready)
                 return _saved;
-            _choices.Toggle(scope);
+            _choices.Toggle(scope, All(scope.ProjectId));
+            return SaveChoices(persist);
+        }
+
+        public string DeselectAll(string projectId, Action<string> persist = null)
+        {
+            if (!_catalogs.ContainsKey(projectId))
+                return _saved;
+            _choices.DeselectAll(projectId);
             return SaveChoices(persist);
         }
 

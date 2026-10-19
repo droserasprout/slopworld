@@ -7,11 +7,12 @@ persists choices. Project-name filtering and checkout selection are independent.
 
 An empty project filter means All; unknown saved keys match nothing. Hiding a
 project from All materializes the remaining names and loose group. `[no projects]`
-represents an explicit empty selection; choosing All clears it. Successful project
+represents an explicit empty selection; toggling All switches between all and none. Successful project
 creation joins an explicit filter without narrowing All.
 
-Main is selected by default. All worktrees includes future checkouts; selecting
-one checkout from All narrows the selection. Persist the mode under the stable
+Main is selected by default. All worktrees includes future checkouts; unchecking
+one checkout from All keeps the other current checkouts selected. Toggling All off
+clears every checkout. Persist the mode under the stable
 project scope key. Hidden projects retain checkout choices. Enabling a project
 with no selected checkouts selects All worktrees. Creating or adding a worktree,
 including through the worker dialog, selects its returned identity and includes
