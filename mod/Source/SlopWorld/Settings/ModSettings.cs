@@ -143,8 +143,9 @@ namespace SlopWorld
         // Pauses simulation and map drawing while terminals keep running. See Eco.
         public bool ecoMode;
 
-        public string displayMode = FramePolicy.Sync;
+        public string displayMode = FramePolicy.Auto;
         public int foregroundFps = 60;
+        public bool vsync;
         public bool smoothScrolling = true;
 
         // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
@@ -153,7 +154,16 @@ namespace SlopWorld
         public static ModSettings FromToml(string text)
         {
             var settings = new ModSettings();
-            settings.Apply(Toml.ParseFlatScalars(text));
+            var values = Toml.ParseFlatScalars(text);
+            settings.Apply(values);
+            // Profiles missing the independent VSync toggle start with responsive defaults,
+            // including those that previously chose VSync or a manual FPS limit.
+            if (!values.ContainsKey("vsync"))
+            {
+                settings.displayMode = FramePolicy.Auto;
+                settings.vsync = false;
+                settings.MarkDirty();
+            }
             settings.Normalize();
             return settings;
         }
@@ -254,6 +264,7 @@ namespace SlopWorld
             Field("grandmaMode", (ModSettings s) => ref s.grandmaMode, Bool, String),
             Field("temperatureUnit", (ModSettings s) => ref s.temperatureUnit, Text, String),
             Field("ecoMode", (ModSettings s) => ref s.ecoMode, Bool, String),
+            Field("vsync", (ModSettings s) => ref s.vsync, Bool, String),
             Field("displayMode", (ModSettings s) => ref s.displayMode, Text, String),
             Field("smoothScrolling", (ModSettings s) => ref s.smoothScrolling, Bool, String),
             Field("foregroundFps", (ModSettings s) => ref s.foregroundFps, Int, Number),

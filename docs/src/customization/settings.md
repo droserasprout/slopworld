@@ -8,7 +8,7 @@ palette. Settings opens as tabs over the terminal pane.
 | Category | Controls and guides |
 | --- | --- |
 | General | Game and daemon controls, date and time formats |
-| Display | Fullscreen, frame pacing, smooth scrolling |
+| Display | Fullscreen, frame limits, VSync, smooth scrolling |
 | Appearance | Interface styling, workspace layout, terminal appearance, code readers |
 | Integrations | [Credentials and usage polling](../agents/usage-and-summaries.md) |
 | Agents | [Prompt summaries](../agents/usage-and-summaries.md#prompt-summaries) and [workers](#workers) |
@@ -38,15 +38,18 @@ reload while the daemon runs.
 
 ## Display
 
-Open **Settings > Display** for fullscreen, frame pacing, and scrolling.
+Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
 
 | Control | Effect |
 | --- | --- |
 | Fullscreen | Toggle window-manager fullscreen. |
-| Frame pacing | Choose VSync or a 15, 30, 60, 120, 144, or 240 FPS limit. An FPS limit disables VSync. |
+| Frame limiter | Auto (default) follows the display refresh rate. Manual limits are 15, 30, 60, 120, 144, and 240 FPS. |
+| VSync (not recommended) | Off by default. Synchronizes presentation with the display, adds scrolling latency, and disables the FPS selector. Turning it off restores the selected limit. |
 | Smooth scrolling | Use precise touchpad movement where supported; disable it for wheel steps. Enabled by default. |
 
 Unfocused windows use 15 FPS and restore foreground pacing on focus.
+Auto uses the nearest integer refresh rate and falls back to 60 FPS if unavailable.
+Profiles without the VSync toggle migrate to Auto FPS with VSync off.
 These preferences apply live and are saved with the profile.
 [Eco mode](../workspace/gameplay.md#eco-mode) controls colony simulation separately.
 

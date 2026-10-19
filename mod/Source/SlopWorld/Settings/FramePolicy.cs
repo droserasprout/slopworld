@@ -2,15 +2,23 @@ using System;
 
 namespace SlopWorld
 {
-    // Apply Unity's VSync and target-FPS values together. Unfocused windows always use 15 FPS.
+    // Select native presentation and target FPS. Unfocused windows always use 15 FPS.
     public sealed class FramePolicy
     {
-        public const string Sync = "sync",
+        public const string Auto = "auto",
             Limit = "limit";
         public static readonly int[] Presets = { 15, 30, 60, 120, 144, 240 };
 
-        // Unknown settings use the VSync policy.
-        public static string Normalize(string mode) => mode == Limit ? Limit : Sync;
+        // Missing or unknown settings use the monitor-matched FPS limit.
+        public static string Normalize(string mode) => mode == Limit ? Limit : Auto;
+
+        public static int AutoFps(double refreshRate) =>
+            double.IsNaN(refreshRate)
+            || double.IsInfinity(refreshRate)
+            || refreshRate < 1
+            || refreshRate > int.MaxValue
+                ? 60
+                : (int)Math.Round(refreshRate, MidpointRounding.AwayFromZero);
 
         public static int NearestPreset(int fps)
         {
@@ -28,14 +36,25 @@ namespace SlopWorld
             return closest;
         }
 
-        public bool Follow(bool focused, string mode, int fps, ref int target, ref int sync)
+        public bool Follow(
+            bool focused,
+            string mode,
+            int fps,
+            bool vsync,
+            ref int target,
+            ref int sync,
+            double refreshRate = 60
+        )
         {
             mode = Normalize(mode);
             int nextTarget =
                 !focused ? 15
-                : mode == Sync ? -1
+                : vsync ? -1
+                : mode == Auto ? AutoFps(refreshRate)
                 : NearestPreset(fps);
-            int nextSync = focused && mode == Sync ? 1 : 0;
+            // The FPS limit controls the background frame rate. Keep presentation mode tied to the
+            // VSync toggle so focus changes do not recreate the Vulkan swapchain.
+            int nextSync = vsync ? 1 : 0;
             bool changed = target != nextTarget || sync != nextSync;
             target = nextTarget;
             sync = nextSync;

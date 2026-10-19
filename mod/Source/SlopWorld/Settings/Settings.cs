@@ -54,6 +54,7 @@ namespace SlopWorld
         public static string TemperatureUnit =>
             SlopWorld.TemperatureUnit.Normalize(S.temperatureUnit);
         public static bool EcoMode => S.ecoMode;
+        public static bool VSync => S.vsync;
         public static string DisplayMode => FramePolicy.Normalize(S.displayMode);
         public static bool SmoothScrolling => S.smoothScrolling;
         public static int ForegroundFps => FramePolicy.NearestPreset(S.foregroundFps);

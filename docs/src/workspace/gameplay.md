@@ -44,7 +44,7 @@ Agent output and project edits continue independently of colony saves. See
 
 <a id="display"></a>
 
-Frame pacing is a separate control under **Settings > Display**. See
+The frame limiter and VSync are separate controls under **Settings > Display**. See
 [Display](../customization/settings.md#display) for frame limits and VSync.
 
 ## Saves

@@ -24,7 +24,12 @@ Feature owners are [terminal recall](mod-terminal.md), [Eco](mod-eco.md),
 and [terminal rendering](mod-terminal-rendering.md) for appearance caches and emoji.
 
 `FramePolicy` owns foreground vSync/FPS pacing and the unfocused 15 FPS cap; Eco
-is not a second foreground pacing owner. Temperature-triggered camera/UI sound
+is not a second foreground pacing owner. Auto FPS (the default) follows the monitor
+refresh rate, falling back to 60 FPS. VSync is an independent toggle, off by default;
+while enabled it overrides the FPS selector without replacing its choice. Profiles
+missing the `vsync` key migrate to Auto FPS with VSync off and queue a write.
+`BackgroundFrames` samples Unity's display refresh rate and applies both settings.
+Focus changes adjust only target FPS, retaining the selected presentation mode. Temperature-triggered camera/UI sound
 overrides belong to `Patches/Options/TemperatureSounds.cs`; map-scoped sounds retain
 their original definitions.
 

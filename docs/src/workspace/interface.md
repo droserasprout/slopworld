@@ -46,6 +46,6 @@ buttons appear when enabled and their map objects exist.
 
 ## Settings
 
-Open **Settings > Display** for fullscreen, frame pacing, and smooth scrolling;
+Open **Settings > Display** for fullscreen, the frame limiter, VSync, and smooth scrolling;
 see [Settings](../customization/settings.md). [Eco mode](gameplay.md#eco-mode) pauses the
 game simulation while agents continue running.

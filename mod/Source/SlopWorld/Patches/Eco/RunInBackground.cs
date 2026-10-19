@@ -28,6 +28,24 @@ namespace SlopWorld
     public static class BackgroundFrames
     {
         static readonly FramePolicy Policy = new FramePolicy();
+        static float _nextRefreshSample;
+        static int _autoFps = 60;
+
+        // Share one detected value with the selector and catch monitor moves without
+        // querying the display on every GUI event or every rendered frame.
+        public static int AutoFps
+        {
+            get
+            {
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                if (now >= _nextRefreshSample)
+                {
+                    _nextRefreshSample = now + 1f;
+                    _autoFps = FramePolicy.AutoFps(Screen.currentResolution.refreshRateRatio.value);
+                }
+                return _autoFps;
+            }
+        }
 
         // Root.Update calls this in menus and during play. Update settings only when the effective values change.
         public static void Follow()
@@ -39,8 +57,10 @@ namespace SlopWorld
                     Application.isFocused,
                     Settings.DisplayMode,
                     Settings.ForegroundFps,
+                    Settings.VSync,
                     ref target,
-                    ref sync
+                    ref sync,
+                    !Settings.VSync && Settings.DisplayMode == FramePolicy.Auto ? AutoFps : 60
                 )
             )
                 return;

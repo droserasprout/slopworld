@@ -35,6 +35,8 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Changed
 
 - Keyboard: Preserve active sidebar tab when pressing F12 or Alt+A/Alt+S.
+- Settings: Separate VSync from the frame limiter and disable it by default.
+- Settings: Default the frame limiter to Auto, matching the display refresh rate.
 - UI: Show Open files across all sidebar tabs, with tab actions below the pane.
 
 ## [0.0.6] - 2026-10-18
