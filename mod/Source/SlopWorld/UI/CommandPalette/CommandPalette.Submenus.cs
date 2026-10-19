@@ -109,7 +109,7 @@ namespace SlopWorld
                 {
                     Label = "All projects",
                     Value = "",
-                    Checked = !AgentSidebar.Filtering,
+                    Checked = !Sidebar.Filtering,
                 },
             };
 
@@ -121,16 +121,16 @@ namespace SlopWorld
                     {
                         Label = $"{p.Name}  -  {p.Dir}",
                         Value = p.Name,
-                        Checked = AgentSidebar.Ticked(p.Name),
+                        Checked = Sidebar.Ticked(p.Name),
                     }
                 );
 
             list.Add(
                 new SubOption
                 {
-                    Label = $"{AgentSidebar.NoProject}  -  whatever belongs to no project",
-                    Value = AgentSidebar.NoProject,
-                    Checked = AgentSidebar.Ticked(AgentSidebar.NoProject),
+                    Label = $"{Sidebar.NoProject}  -  whatever belongs to no project",
+                    Value = Sidebar.NoProject,
+                    Checked = Sidebar.Ticked(Sidebar.NoProject),
                 }
             );
             return list;
@@ -313,25 +313,25 @@ namespace SlopWorld
                 {
                     Label = "All",
                     Value = "all",
-                    Checked = !AgentSidebar.StatusFiltering,
+                    Checked = !Sidebar.StatusFiltering,
                 },
                 new SubOption
                 {
                     Label = "Active",
                     Value = "active",
-                    Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Active) != 0,
+                    Checked = (Sidebar.StatusFilter & AgentStatusFilter.Active) != 0,
                 },
                 new SubOption
                 {
                     Label = "Idle",
                     Value = "idle",
-                    Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Idle) != 0,
+                    Checked = (Sidebar.StatusFilter & AgentStatusFilter.Idle) != 0,
                 },
                 new SubOption
                 {
                     Label = "Down",
                     Value = "down",
-                    Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Down) != 0,
+                    Checked = (Sidebar.StatusFilter & AgentStatusFilter.Down) != 0,
                 },
             };
 
@@ -339,7 +339,7 @@ namespace SlopWorld
         {
             if (string.Equals(value, "all", StringComparison.Ordinal))
             {
-                AgentSidebar.SetStatusFilter(AgentStatusFilter.All);
+                Sidebar.SetStatusFilter(AgentStatusFilter.All);
                 return;
             }
 
@@ -359,9 +359,7 @@ namespace SlopWorld
                     return;
             }
 
-            AgentSidebar.SetStatusFilter(
-                AgentStatusSelection.Toggle(AgentSidebar.StatusFilter, status)
-            );
+            Sidebar.SetStatusFilter(AgentStatusSelection.Toggle(Sidebar.StatusFilter, status));
         }
 
         static List<SubOption> JukeboxSub()

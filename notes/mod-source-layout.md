@@ -16,7 +16,7 @@ The main directory groupings are:
   the game profile adapter and static projection; `UI/Settings/` owns pages and `IOptionPage`.
 - `Sim/` is split into `Colony/`, `Content/`, `Jukebox/`, `Lifecycle/`,
   `Plague/`, `Terminal/`, `Worksite/` and `Incidents/`.
-- `Patches/` is grouped by `AgentSidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Colony/`, `Eco/`,
+- `Patches/` is grouped by `Sidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Colony/`, `Eco/`,
   `LoadingScreen/`, `MainMenu/`, `Options/`, `Plague/` and `Worksite/`.
   Harmony integration stays in `Patches/`; simulation components stay in `Sim/`.
   `Sim/Worksite/` owns construction lifecycles; `Patches/Worksite/` owns frame
@@ -27,7 +27,7 @@ The main directory groupings are:
   (`CursorAnimation`), and texture construction/cache lifetime (`CursorTextures`). Vanilla
   cursor hooks stay in `Patches/Chrome/`.
 - `UI/Workspace/` owns panel contracts, placement and host chrome; `Sidebar/` owns
-  sidebar layout, rendering and navigation. Sidebar Harmony hooks stay in `Patches/AgentSidebar/`.
+  sidebar layout, rendering and navigation. Sidebar Harmony hooks stay in `Patches/Sidebar/`.
 - `UI/Browsing/` owns shared scope catalogs and content trees; `Readers/` owns reader
   sessions and tabs. Feature body views and their editors live under `Views/`.
 - `UI/Forms/` owns reusable editor fields and previews; `Async/` owns request guards

@@ -12,7 +12,7 @@ namespace SlopWorld
     {
         // ------------------------------------------------------------------ clicks
         //
-        // Called from AgentSidebar's back pass where Menus is in the agents view and
+        // Called from Sidebar's back pass where Menus is in the agents view and
         // Clicks is in the files/git views.
 
         public static void Clicks()
@@ -27,7 +27,7 @@ namespace SlopWorld
                 return;
 
             // The "+" is the column's, at the foot of the panel below this body, and
-            // AgentSidebar answers it before this is ever asked.
+            // Sidebar answers it before this is ever asked.
             foreach (var line in Lines)
             {
                 // Screen() zeroes a line clipped out of the scroll view, and Rect.zero is
@@ -125,7 +125,7 @@ namespace SlopWorld
 
         static void Run(LibraryItemInfo item)
         {
-            AgentSidebar.RememberLibrary(item?.Name);
+            Sidebar.RememberLibrary(item?.Name);
             LibraryActions.Run(item);
         }
 

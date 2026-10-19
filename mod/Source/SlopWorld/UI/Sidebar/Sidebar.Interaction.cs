@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // Cross-pass input, scrolling, resizing, click routing, and cleanup.
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         const float FilesDividerH = 1f;
         const float FilesDividerHitPad = 5f;

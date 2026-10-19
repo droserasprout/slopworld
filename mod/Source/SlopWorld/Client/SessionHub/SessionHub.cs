@@ -110,7 +110,7 @@ namespace SlopWorld
         public void Update()
         {
             _transport.Update();
-            _tasks.Update(AgentSidebar.TasksVisible);
+            _tasks.Update(Sidebar.TasksVisible);
             PerfTraceReport.Report();
         }
 

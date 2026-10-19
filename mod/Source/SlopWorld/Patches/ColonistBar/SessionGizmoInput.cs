@@ -63,7 +63,7 @@ namespace SlopWorld
                 var content = WorkspaceLayout.Current.Content;
                 var firstRow = new Rect(
                     content.x,
-                    AgentSidebar.AddBar.y - ActionRowHeight,
+                    Sidebar.AddBar.y - ActionRowHeight,
                     content.width,
                     ActionRowHeight + AbsorbBottom
                 );

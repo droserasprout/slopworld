@@ -7,7 +7,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Redirect colonist-bar layout to AgentSidebar. Over a terminal, draw from the window after
+    // Redirect colonist-bar layout to Sidebar. Over a terminal, draw from the window after
     // its opaque fill. Suppress the map-layer copy to avoid drawing a buried duplicate.
     public static class ColonistBarStrip
     {
@@ -85,7 +85,7 @@ namespace SlopWorld
         // Whether the column's add strip has the foot of the panel, which is the same
         // question as whether the panel is on screen at all. The layout is told so it can
         // keep the room off the rows. The button itself is drawn and answered by
-        // AgentSidebar, in every view rather than only this one.
+        // Sidebar, in every view rather than only this one.
         public static bool ShowAdd => BarShown && !Cutscene.Playing;
 
         // From TerminalWindow.DoWindowContents, after the background fill.
@@ -140,7 +140,7 @@ namespace SlopWorld
                 _savedScale = scale;
             }
 
-            float s = AgentSidebar.Place(entries, locs, count);
+            float s = Sidebar.Place(entries, locs, count);
 
             if (count > 0)
             {
@@ -175,14 +175,14 @@ namespace SlopWorld
 
         public static bool BeginHitTest()
         {
-            if (_hitTranslated || !_applied || AgentSidebar.AgentScrollOpen)
+            if (_hitTranslated || !_applied || Sidebar.AgentScrollOpen)
                 return false;
             var bar = Find.ColonistBar;
             if (bar == null)
                 return false;
             if (!(DrawLocsField.GetValue(bar) is List<Vector2> locs))
                 return false;
-            _hitOffset = AgentSidebar.AgentContentOffset;
+            _hitOffset = Sidebar.AgentContentOffset;
             for (int i = 0; i < locs.Count; i++)
                 locs[i] += _hitOffset;
             _hitTranslated = true;
@@ -222,17 +222,17 @@ namespace SlopWorld
         {
             __state = PerfTrace.Start();
             ColonistBarStrip.Apply();
-            AgentSidebar.DrawBack();
+            Sidebar.DrawBack();
         }
 
-        static void Postfix() => AgentSidebar.DrawFront();
+        static void Postfix() => Sidebar.DrawFront();
 
         // A postfix does not run when the original throws. The flag the front pass clears is what
         // stops every pawn label on the map being declined. So the finalizer clears it too, the
         // same reason the layout is put back from here.
         static void Finalizer(long __state)
         {
-            AgentSidebar.EndDraw();
+            Sidebar.EndDraw();
             ColonistBarStrip.Restore();
             PerfTrace.End("colonist-bar", __state, 1);
         }

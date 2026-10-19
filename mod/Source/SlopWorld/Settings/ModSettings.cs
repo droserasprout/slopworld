@@ -61,7 +61,7 @@ namespace SlopWorld
         public string sidebarAgentStatus = "all";
 
         // Store one project name per line. Leave the field blank to show all projects.
-        // AgentSidebar defines `[none]` semantics.
+        // Sidebar defines `[none]` semantics.
         public string sidebarFilter = "";
         public string sidebarWorktrees = "";
 

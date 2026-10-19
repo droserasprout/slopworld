@@ -46,7 +46,7 @@ namespace SlopWorld
             _tree.ClearSelection();
             Store.FocusDirectory(path, label);
             _tree.JumpTo(Vector2.zero);
-            AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
+            Sidebar.ShowWithoutHistory(SidebarTab.Files);
         }
 
         sealed class TreeSource
@@ -201,8 +201,8 @@ namespace SlopWorld
             {
                 if (!SidebarScopes.Chosen(targetScope))
                     SidebarScopes.Toggle(targetScope);
-                if (!AgentSidebar.Passes(info.Name))
-                    AgentSidebar.ToggleFilter(info.Name);
+                if (!Sidebar.Passes(info.Name))
+                    Sidebar.ToggleFilter(info.Name);
             }
             if (!SidebarScopes.Enabled(project))
                 return false;
@@ -216,15 +216,15 @@ namespace SlopWorld
             Store.ClearFocus();
             Viewer.ReleaseViewer();
             if (remember)
-                AgentSidebar.RememberFile(project, path);
+                Sidebar.RememberFile(project, path);
             // A focused reveal needs the project heading open in the shared group state.
             Store.Controller.SetGroupCollapsed(project, false);
             var scope = SidebarScopes.Find(project);
             if (scope != null)
                 Store.Controller.SetGroupCollapsed(scope.ProjectKey, false);
-            if (AgentSidebar.Filtering && !AgentSidebar.Ticked(info.Name))
-                AgentSidebar.ToggleFilter(info.Name);
-            AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
+            if (Sidebar.Filtering && !Sidebar.Ticked(info.Name))
+                Sidebar.ToggleFilter(info.Name);
+            Sidebar.ShowWithoutHistory(SidebarTab.Files);
 
             Store.RevealPath(project, parts);
             return true;

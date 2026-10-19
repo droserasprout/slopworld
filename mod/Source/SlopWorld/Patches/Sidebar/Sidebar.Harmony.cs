@@ -12,7 +12,7 @@ namespace SlopWorld
         {
             previousWrap = Text.WordWrap;
             Text.WordWrap = false;
-            return !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+            return !Sidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
         }
     }
 

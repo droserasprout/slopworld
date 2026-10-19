@@ -56,7 +56,7 @@ namespace SlopWorld
                     continue;
 
                 _selectionClicks.Reset();
-                AgentSidebar.FocusAgent(hit.Sender);
+                Sidebar.FocusAgent(hit.Sender);
                 e.Use();
                 return true;
             }

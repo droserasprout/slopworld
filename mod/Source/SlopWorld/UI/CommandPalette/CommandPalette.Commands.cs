@@ -255,7 +255,7 @@ namespace SlopWorld
                 "search.open",
                 "Search: Find in Files",
                 "View",
-                _ => AgentSidebar.ShowSearch()
+                _ => Sidebar.ShowSearch()
             ),
             new CommandDef("search.run", "Search: Run Search", "Search", _ => SearchView.Search()),
             new CommandDef("git.refresh", "Git: Refresh", "Refresh", _ => GitView.Refresh()),
@@ -287,76 +287,61 @@ namespace SlopWorld
                 "view.refresh-sidebar",
                 "View: Refresh Sidebar",
                 "View",
-                _ => AgentSidebar.RefreshCurrentView()
+                _ => Sidebar.RefreshCurrentView()
             ),
             new CommandDef(
                 "view.back",
                 "View: Back",
                 "View",
-                _ => AgentSidebar.ViewBack(),
-                enabled: () => AgentSidebar.CanViewBack
+                _ => Sidebar.ViewBack(),
+                enabled: () => Sidebar.CanViewBack
             ),
             new CommandDef(
                 "view.forward",
                 "View: Forward",
                 "View",
-                _ => AgentSidebar.ViewForward(),
-                enabled: () => AgentSidebar.CanViewForward
+                _ => Sidebar.ViewForward(),
+                enabled: () => Sidebar.CanViewForward
             ),
-            new CommandDef(
-                "focus.agents",
-                "Focus: Agents",
-                "Focus",
-                _ => AgentSidebar.ShowAgents()
-            ),
-            new CommandDef("focus.files", "Focus: Files", "Focus", _ => AgentSidebar.ShowFiles()),
-            new CommandDef(
-                "focus.search",
-                "Focus: Search",
-                "Focus",
-                _ => AgentSidebar.ShowSearch()
-            ),
-            new CommandDef("focus.git", "Focus: Git", "Focus", _ => AgentSidebar.ShowGit()),
-            new CommandDef(
-                "focus.library",
-                "Focus: Library",
-                "Focus",
-                _ => AgentSidebar.ShowLibrary()
-            ),
-            new CommandDef("focus.tasks", "Focus: Tasks", "Focus", _ => AgentSidebar.ShowTasks()),
+            new CommandDef("focus.agents", "Focus: Agents", "Focus", _ => Sidebar.ShowAgents()),
+            new CommandDef("focus.files", "Focus: Files", "Focus", _ => Sidebar.ShowFiles()),
+            new CommandDef("focus.search", "Focus: Search", "Focus", _ => Sidebar.ShowSearch()),
+            new CommandDef("focus.git", "Focus: Git", "Focus", _ => Sidebar.ShowGit()),
+            new CommandDef("focus.library", "Focus: Library", "Focus", _ => Sidebar.ShowLibrary()),
+            new CommandDef("focus.tasks", "Focus: Tasks", "Focus", _ => Sidebar.ShowTasks()),
             new CommandDef(
                 "view.fold-all",
                 "View: Fold All",
                 "View",
-                _ => AgentSidebar.SetAllFolds(true),
-                enabled: () => AgentSidebar.CanFoldCurrent && !AgentSidebar.CurrentViewAllFolded
+                _ => Sidebar.SetAllFolds(true),
+                enabled: () => Sidebar.CanFoldCurrent && !Sidebar.CurrentViewAllFolded
             ),
             new CommandDef(
                 "view.unfold-all",
                 "View: Unfold All",
                 "View",
-                _ => AgentSidebar.SetAllFolds(false),
-                enabled: () => AgentSidebar.CanFoldCurrent && AgentSidebar.CurrentViewAllFolded
+                _ => Sidebar.SetAllFolds(false),
+                enabled: () => Sidebar.CanFoldCurrent && Sidebar.CurrentViewAllFolded
             ),
             new CommandDef(
                 "view.dotfiles",
                 "View: Toggle Dotfiles",
                 "View",
-                _ => AgentSidebar.ToggleDotfiles(),
-                enabled: () => AgentSidebar.CanToggleDotfiles
+                _ => Sidebar.ToggleDotfiles(),
+                enabled: () => Sidebar.CanToggleDotfiles
             ),
             new CommandDef(
                 "view.gitignored",
                 "View: Toggle Gitignored",
                 "View",
-                _ => AgentSidebar.ToggleGitignored(),
-                enabled: () => AgentSidebar.CanToggleDotfiles
+                _ => Sidebar.ToggleGitignored(),
+                enabled: () => Sidebar.CanToggleDotfiles
             ),
             new CommandDef(
                 "view.toggle-sidebar",
                 "View: Toggle Sidebar",
                 "View",
-                _ => AgentSidebar.ToggleSidebar()
+                _ => Sidebar.ToggleSidebar()
             ),
             new CommandDef(
                 "view.screensaver",
@@ -513,7 +498,7 @@ namespace SlopWorld
                 v =>
                 {
                     if (v != null)
-                        AgentSidebar.ToggleFilter(v);
+                        Sidebar.ToggleFilter(v);
                 },
                 subAction: () => FilterSub()
             ),

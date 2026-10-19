@@ -8,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // Context menus and menu-backed filtering controls.
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         static Rect _visibilityRect;
         static Rect _agentVisibilityRect;

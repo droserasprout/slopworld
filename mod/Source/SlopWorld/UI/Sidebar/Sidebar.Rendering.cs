@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // Sidebar drawing orchestration across the colonist-bar back and front passes.
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         public static bool Drawing { get; private set; }
 

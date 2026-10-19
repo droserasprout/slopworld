@@ -137,7 +137,7 @@ namespace SlopWorld
         // The column groups portraits by project.
         public static List<string> InBarOrder()
         {
-            return AgentSidebar.Sessions();
+            return Sidebar.Sessions();
         }
 
         // Match the tick reconcile's cadence even while Eco holds the simulation paused.
@@ -242,7 +242,7 @@ namespace SlopWorld
             // Down the pawn without removing it so a restarted process can restore it.
             foreach (var s in sessions)
             {
-                // Workers have child rows in AgentSidebar. Do not create colony pawns for them.
+                // Workers have child rows in Sidebar. Do not create colony pawns for them.
                 if (s.Ephemeral || s.Worker)
                     continue;
                 if (_pawns.ContainsKey(s.Name))

@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // Colonist-bar bucketing and row geometry for agents, ghosts, and workers.
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         static void Bucket(List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
         {

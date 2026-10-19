@@ -418,7 +418,7 @@ namespace SlopWorld
 
         public static void DiffAll(string project)
         {
-            AgentSidebar.RevealOpenFiles();
+            Sidebar.RevealOpenFiles();
             project = SidebarScopes.Key(project);
             CancelPendingDiff();
             int request = _diffRequest;
@@ -566,7 +566,7 @@ namespace SlopWorld
 
         static void OpenDiff(string project, string abs, string label, bool directory)
         {
-            AgentSidebar.RevealOpenFiles();
+            Sidebar.RevealOpenFiles();
             project = SidebarScopes.Key(project);
             CancelPendingDiff();
             int request = _diffRequest;
@@ -601,7 +601,7 @@ namespace SlopWorld
                     ClearSelection();
                 else
                     Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
-                AgentSidebar.RememberGit(project, rel);
+                Sidebar.RememberGit(project, rel);
                 Viewers.OpenFresh(
                     project,
                     DiffCmd(repo, rel, status),

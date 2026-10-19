@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         static readonly SidebarTabRegistry TabRegistry = BuildTabRegistry();
 

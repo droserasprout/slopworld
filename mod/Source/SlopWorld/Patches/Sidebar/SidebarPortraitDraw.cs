@@ -9,7 +9,7 @@ namespace SlopWorld
     // Replace vanilla's body-and-mood portrait with a square head portrait using the
     // sidebar's shared geometry. Patch_SidebarPawnLabel suppresses the vanilla label.
     // Compact portraits intentionally omit selection brackets and all vanilla status overlays.
-    // AgentSidebar owns daemon status; pawn simulation classification remains vanilla.
+    // Sidebar owns daemon status; pawn simulation classification remains vanilla.
     [HarmonyPatch(
         typeof(ColonistBarColonistDrawer),
         nameof(ColonistBarColonistDrawer.DrawColonist)
@@ -115,13 +115,13 @@ namespace SlopWorld
 
         static bool Prefix(Rect rect, Pawn colonist, Map pawnMap, bool highlight, bool reordering)
         {
-            if (!AgentSidebar.Drawing)
+            if (!Sidebar.Drawing)
                 return true;
             if (colonist == null)
                 return true;
 
             Rect face;
-            if (!AgentSidebar.FaceBox(colonist, out face))
+            if (!Sidebar.FaceBox(colonist, out face))
                 return true;
             if (Event.current == null || Event.current.type != EventType.Repaint)
                 return false;

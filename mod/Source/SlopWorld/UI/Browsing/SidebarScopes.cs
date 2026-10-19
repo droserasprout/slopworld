@@ -9,7 +9,7 @@ namespace SlopWorld
     static partial class SidebarScopes
     {
         static readonly BrowseScopeCatalog Catalog = new BrowseScopeCatalog(
-            AgentSidebar.Passes,
+            Sidebar.Passes,
             () => Time.realtimeSinceStartup,
             Load
         );
@@ -94,7 +94,7 @@ namespace SlopWorld
             if (p == null)
                 return;
             Catalog.SelectAll(p.Id, SaveChoices);
-            AgentSidebar.IncludeProject(p.Name);
+            Sidebar.IncludeProject(p.Name);
         }
 
         public static bool HasWorktrees(string project)
@@ -157,7 +157,7 @@ namespace SlopWorld
             if (p == null || string.IsNullOrEmpty(worktree))
                 return;
             Catalog.Select(p.Id, worktree, SaveChoices);
-            AgentSidebar.IncludeProject(p.Name);
+            Sidebar.IncludeProject(p.Name);
             Invalidate();
         }
 

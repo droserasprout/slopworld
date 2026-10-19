@@ -52,7 +52,7 @@ namespace SlopWorld
             public void Remove(CommandInfo command) => RemovePreset("app_presets", command);
 
             public void RememberLibrary(string name, bool template) =>
-                AgentSidebar.RememberLibrary(name, template);
+                Sidebar.RememberLibrary(name, template);
         }
     }
 }

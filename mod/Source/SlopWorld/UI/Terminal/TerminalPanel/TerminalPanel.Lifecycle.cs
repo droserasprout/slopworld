@@ -31,7 +31,7 @@ namespace SlopWorld
             if (_state.Name == null)
                 return;
             SessionHub.Instance.Unsubscribe(_state.Name);
-            AgentSidebar.TerminalClosed(_state.Name);
+            Sidebar.TerminalClosed(_state.Name);
         }
 
         internal void BindSession(string name)

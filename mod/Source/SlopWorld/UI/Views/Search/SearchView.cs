@@ -665,7 +665,7 @@ namespace SlopWorld
 
         static Rect ResultsBody()
         {
-            var body = AgentSidebar.Body;
+            var body = Sidebar.Body;
             float toolsBottom = body.y + Pad + ToolsH(body.width - CellX * 2f);
             return new Rect(
                 body.x,
@@ -697,10 +697,10 @@ namespace SlopWorld
 
         static void Open(Match match, bool remember)
         {
-            AgentSidebar.RevealOpenFiles();
+            Sidebar.RevealOpenFiles();
             string path = match.Root.TrimEnd('/') + "/" + match.Path;
             if (remember)
-                AgentSidebar.RememberSearch(match.Project, match.Path, match.Line);
+                Sidebar.RememberSearch(match.Project, match.Path, match.Line);
             var viewer = Viewers.Find(tab => tab.Owns(match.Project, path));
             if (viewer != null && !viewer.Opening && viewer.Reopen())
             {

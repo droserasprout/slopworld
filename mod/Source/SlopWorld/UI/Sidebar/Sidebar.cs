@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         public const float MinWidth = 150f;
         public const float MaxWidth = 460f;

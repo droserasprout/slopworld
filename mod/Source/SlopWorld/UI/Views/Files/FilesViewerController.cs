@@ -40,7 +40,7 @@ namespace SlopWorld
                 ReleaseNativePreview();
                 return;
             }
-            AgentSidebar.RevealOpenFiles();
+            Sidebar.RevealOpenFiles();
             if (FileTypes.IsMarkdown(node.Name) || FileTypes.IsImage(node.Name))
             {
                 if (_nativeViewers.Reopen(node.Project, node.Path))
@@ -76,11 +76,11 @@ namespace SlopWorld
             GitView.CancelPendingDiff();
             if (!ReaderScopeAvailable(project))
                 return;
-            AgentSidebar.RevealOpenFiles();
+            Sidebar.RevealOpenFiles();
             label = ReaderLabel(project, label);
             _select(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project))
-                AgentSidebar.RememberFile(project, path);
+                Sidebar.RememberFile(project, path);
             string name = System.IO.Path.GetFileName(path);
             if (FileTypes.UseNativePreview(name, line, previewRoot))
             {
@@ -169,7 +169,7 @@ namespace SlopWorld
         public void AddRoutedPreviews(List<SessionInfo> result)
         {
             foreach (var tab in _nativeViewers.All)
-                if (AgentSidebar.Passes(tab.HeaderInfo().Project))
+                if (Sidebar.Passes(tab.HeaderInfo().Project))
                     result.Add(tab.HeaderInfo());
         }
 
@@ -208,7 +208,7 @@ namespace SlopWorld
         {
             if (!ReaderScopeAvailable(project))
                 return;
-            AgentSidebar.RevealOpenFiles();
+            Sidebar.RevealOpenFiles();
             GitView.CancelPendingDiff();
             // Linked Markdown sources keep their captured read boundary, including when
             // explicitly switching from rendered content to source.
@@ -225,7 +225,7 @@ namespace SlopWorld
             }
             _select(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project))
-                AgentSidebar.RememberFile(project, path);
+                Sidebar.RememberFile(project, path);
             if (Viewers.ReuseFile(project, path))
                 return;
             Viewers.ForPreview().ViewFile(project, path, ReaderLabel(project, label));
@@ -237,10 +237,10 @@ namespace SlopWorld
                 project = SidebarScopes.Key(project);
             if (!ReaderScopeAvailable(project))
                 return;
-            AgentSidebar.RevealOpenFiles();
+            Sidebar.RevealOpenFiles();
             GitView.CancelPendingDiff();
             if (!string.IsNullOrEmpty(project))
-                AgentSidebar.RememberFile(project, path);
+                Sidebar.RememberFile(project, path);
             if (string.IsNullOrEmpty(project))
             {
                 SessionHub.Instance.SessionStore.Run(

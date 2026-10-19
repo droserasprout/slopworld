@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // Panel geometry, placement sizing, and grouped row layout.
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         public static Rect Panel => WorkspaceLayout.Current.Navigation;
 

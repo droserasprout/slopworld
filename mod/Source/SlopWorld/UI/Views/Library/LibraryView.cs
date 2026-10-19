@@ -7,7 +7,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Draw type-grouped library rows from AgentSidebar's back pass. The shared AddBar owns
+    // Draw type-grouped library rows from Sidebar's back pass. The shared AddBar owns
     // creation and keeps the view usable over a terminal.
     public static partial class LibraryView
     {
@@ -183,7 +183,7 @@ namespace SlopWorld
 
         public static bool PassesProject(string project)
         {
-            string key = string.IsNullOrEmpty(project) ? AgentSidebar.NoProject : project;
+            string key = string.IsNullOrEmpty(project) ? Sidebar.NoProject : project;
             return ProjectFilter.Passes(key);
         }
 
@@ -214,9 +214,9 @@ namespace SlopWorld
             }
             options.Add(
                 UiLayout.MenuToggle(
-                    AgentSidebar.NoProject,
-                    PassesProject(AgentSidebar.NoProject),
-                    () => ToggleProjectFilter(AgentSidebar.NoProject, anchor)
+                    Sidebar.NoProject,
+                    PassesProject(Sidebar.NoProject),
+                    () => ToggleProjectFilter(Sidebar.NoProject, anchor)
                 )
             );
             TerminalWindow.OpenOverPane(UiSelector.Menu(options, anchor, matchWidth: false));
@@ -231,7 +231,7 @@ namespace SlopWorld
                     key,
                     SessionHub
                         .Instance.Projects.Select(project => project.Name)
-                        .Concat(new[] { AgentSidebar.NoProject })
+                        .Concat(new[] { Sidebar.NoProject })
                 );
             ProjectFilterChanged();
             OpenProjectFilterMenu(anchor);

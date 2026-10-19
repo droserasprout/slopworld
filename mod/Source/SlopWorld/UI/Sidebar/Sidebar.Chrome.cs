@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // Fixed sidebar chrome: tabs, add strip, actions, headings, and overflow shadow.
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         // Fade the scrolling body into the shadow above the fixed add strip.
         static void DrawAgentShadow()

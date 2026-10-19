@@ -5,7 +5,7 @@ using Verse;
 namespace SlopWorld
 {
     // Rendering for a row is fed by the sidebar's layout and session snapshots. It does not
-    // own selection, clicks, or geometry. Those remain with AgentSidebar.
+    // own selection, clicks, or geometry. Those remain with Sidebar.
     static class SidebarRowRenderer
     {
         static readonly string[] ViewPrefixes = { "view-", "search-", "link-" };

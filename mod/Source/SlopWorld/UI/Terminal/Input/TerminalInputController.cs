@@ -208,7 +208,7 @@ namespace SlopWorld
             if (Bound(ModDefOf.SlopToggleOpenFiles, e))
             {
                 UiMenu.CloseAll();
-                AgentSidebar.ToggleOpenFiles();
+                Sidebar.ToggleOpenFiles();
                 return true;
             }
             if (Bound(ModDefOf.SlopQuickTerminal, e))
@@ -235,9 +235,9 @@ namespace SlopWorld
             UiMenu.CloseAll();
             // Bare F1-F6 selects a tab. Ctrl+F1-F6 returns to its last target. Shift bypasses these tab shortcuts.
             if (e.control && !e.alt && !e.command)
-                AgentSidebar.FocusLast(tab);
+                Sidebar.FocusLast(tab);
             else
-                AgentSidebar.ShowTab(tab);
+                Sidebar.ShowTab(tab);
             return true;
         }
 
@@ -343,7 +343,7 @@ namespace SlopWorld
         {
             if (TryFileWalkDirection(e, out var fileDirection))
             {
-                AgentSidebar.WalkReader(fileDirection);
+                Sidebar.WalkReader(fileDirection);
                 e.Use();
                 return true;
             }
@@ -543,8 +543,8 @@ namespace SlopWorld
                 return;
 
             // Show the Agents tab when Alt+number selects an agent. This releases the content view being left.
-            AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
-            AgentSidebar.RememberAgent(name);
+            Sidebar.ShowWithoutHistory(SidebarTab.Agents);
+            Sidebar.RememberAgent(name);
 
             _panel.SwitchTo(name);
         }
@@ -556,7 +556,7 @@ namespace SlopWorld
             string target = SelectAdjacentSession(dir);
             if (target == null)
                 return;
-            AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
+            Sidebar.ShowWithoutHistory(SidebarTab.Agents);
 
             var info = SessionHub.Instance.Get(target);
             if (info == null)
@@ -577,7 +577,7 @@ namespace SlopWorld
             var order = TabOrder();
             // File panes have their own Alt+A/S walk. Keep them in TabOrder for
             // the open-beside menu, but skip them in both map and pane Alt+Z/X.
-            order.RemoveAll(name => AgentSidebar.IsRouted(SessionHub.Instance.Get(name)));
+            order.RemoveAll(name => Sidebar.IsRouted(SessionHub.Instance.Get(name)));
             if (order.Count == 0)
                 return null;
 
@@ -604,7 +604,7 @@ namespace SlopWorld
         // Apply project and checkout filters to appended sessions. Alt+number uses AgentColony.InBarOrder.
         internal static List<string> TabOrder()
         {
-            var order = AgentSidebar.WalkOrder();
+            var order = Sidebar.WalkOrder();
             var seen = new HashSet<string>(order);
             foreach (var info in SessionHub.Instance.Sessions)
             {
@@ -628,7 +628,7 @@ namespace SlopWorld
             foreach (string session in TabOrder())
             {
                 var info = SessionHub.Instance.Get(session);
-                if (!AgentSidebar.IsOpenBesideCandidate(info))
+                if (!Sidebar.IsOpenBesideCandidate(info))
                     continue;
                 order.Add(session);
             }

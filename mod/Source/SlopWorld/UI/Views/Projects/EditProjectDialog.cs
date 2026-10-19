@@ -322,7 +322,7 @@ namespace SlopWorld
                 ok: () =>
                 {
                     if (_identity.IsNew)
-                        AgentSidebar.IncludeProject(submittedName);
+                        Sidebar.IncludeProject(submittedName);
                     Close();
                 },
                 fail: error =>

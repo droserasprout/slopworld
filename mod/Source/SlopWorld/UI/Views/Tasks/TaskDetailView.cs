@@ -62,7 +62,7 @@ namespace SlopWorld
         {
             if (task == null)
                 return;
-            AgentSidebar.RememberTask(task.Id);
+            Sidebar.RememberTask(task.Id);
             Open(task, false);
         }
 
@@ -82,7 +82,7 @@ namespace SlopWorld
             if (task == null)
                 return;
             if (remember)
-                AgentSidebar.RememberTask(task.Id);
+                Sidebar.RememberTask(task.Id);
             TerminalWindow.OpenContent(new TaskDetailView(task));
         }
 

@@ -109,7 +109,7 @@ namespace SlopWorld
     {
         static void Prefix()
         {
-            AgentSidebar.ApplyPendingLayoutChange();
+            Sidebar.ApplyPendingLayoutChange();
             var current = Event.current;
             if (current == null)
                 return;

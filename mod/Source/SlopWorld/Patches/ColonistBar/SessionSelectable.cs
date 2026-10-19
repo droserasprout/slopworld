@@ -22,7 +22,7 @@ namespace SlopWorld
                 if (Syncing && _current == value)
                     return;
                 _current = value;
-                AgentSidebar.RememberAgent(value);
+                Sidebar.RememberAgent(value);
 
                 // Clear map selection when another session becomes current.
                 // Retain it during map synchronization or when it already matches the session.

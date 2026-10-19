@@ -2,7 +2,7 @@
 
 `SidebarTabCatalog` owns order, stable persisted IDs, and capabilities shared with
 registration/tests. `SidebarTabRegistry` owns read-only definitions and lookup;
-`AgentSidebar` supplies game-bound handlers. Persist IDs, not enum positions or rows.
+`Sidebar` supplies game-bound handlers. Persist IDs, not enum positions or rows.
 Unknown saved tabs fall back to Agents.
 Shared chrome reserves the tabs/filter row above the optional open-files pane and
 the selected tab's action row below it. Every tab reserves the action row, even when

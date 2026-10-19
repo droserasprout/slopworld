@@ -139,7 +139,7 @@ namespace SlopWorld
                 var view = geometry.View;
                 _scrollbarHitInset = geometry.ScrollbarHitInset;
 
-                // AgentSidebar.DrawBack skips Layout events, so use GUI rather than GUILayout.
+                // Sidebar.DrawBack skips Layout events, so use GUI rather than GUILayout.
                 using (_scroll.Scope(list, view))
                 {
                     float y = Pad;

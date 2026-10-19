@@ -88,7 +88,7 @@ namespace SlopWorld
     }
 
     // Stable navigation order, persisted IDs and capabilities are shared by registration and tests.
-    // AgentSidebar supplies game-bound handlers; the registry owns lookup and activation.
+    // Sidebar supplies game-bound handlers; the registry owns lookup and activation.
     public static class SidebarTabCatalog
     {
         public static readonly IReadOnlyList<SidebarTab> Order = Array.AsReadOnly(

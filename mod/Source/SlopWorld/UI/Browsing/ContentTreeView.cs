@@ -173,7 +173,7 @@ namespace SlopWorld
                     _revealTop = -1f;
                 }
 
-                // GUI rather than GUILayout: AgentSidebar calls this during its non-Layout back
+                // GUI rather than GUILayout: Sidebar calls this during its non-Layout back
                 // pass. The finally is important because a missed End would move every later
                 // window into the tree's scroll group.
                 using (_scroll.Scope(body, view))

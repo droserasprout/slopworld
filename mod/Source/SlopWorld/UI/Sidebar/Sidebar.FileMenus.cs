@@ -2,7 +2,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         // Routed native headers and daemon readers share file actions. Session controls
         // stay separate: closing a reader is disposable; stopping an editor ends live work.

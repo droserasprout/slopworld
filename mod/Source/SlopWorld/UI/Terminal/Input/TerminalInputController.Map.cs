@@ -12,7 +12,7 @@ namespace SlopWorld
             if (TryFileWalkDirection(e, out var fileDirection))
             {
                 e.Use();
-                AgentSidebar.WalkReader(fileDirection);
+                Sidebar.WalkReader(fileDirection);
                 return true;
             }
             if (!TryTabWalkDirection(e, out var direction))

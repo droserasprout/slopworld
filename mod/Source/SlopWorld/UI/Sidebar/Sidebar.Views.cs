@@ -8,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // View selection, project/status filtering, and view-owned refreshes.
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         static readonly SidebarViewHistory ViewHistory = new SidebarViewHistory();
         static bool _restoringView;

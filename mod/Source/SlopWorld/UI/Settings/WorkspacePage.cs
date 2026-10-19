@@ -69,7 +69,7 @@ namespace SlopWorld
             {
                 S.sidebarHidden = !visible;
                 S.MarkDirty();
-                AgentSidebar.LayoutChanged();
+                Sidebar.LayoutChanged();
             }
 
             UiControls.CheckboxSetting(
@@ -149,7 +149,7 @@ namespace SlopWorld
         static void SetWorkspaceLayout(ref string field, string value)
         {
             if (UiControls.SetSetting(S, ref field, value))
-                AgentSidebar.LayoutChanged();
+                Sidebar.LayoutChanged();
         }
     }
 }

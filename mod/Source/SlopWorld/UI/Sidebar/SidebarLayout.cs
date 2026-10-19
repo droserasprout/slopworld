@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public static partial class AgentSidebar
+    public static partial class Sidebar
     {
         // Geometry is rebuilt by Place for each colonist-bar frame. SmoothScroll and the
         // grip gesture remain here because their targets span the bar's back/front GUI passes.
