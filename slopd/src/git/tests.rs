@@ -105,6 +105,7 @@ async fn a_pure_rename_keeps_zero_line_counts() {
     assert_eq!(answer.changes.len(), 1);
     let change = &answer.changes[0];
     assert_eq!(change.path, "new.txt");
+    assert_eq!(change.source.as_deref(), Some("old.txt"));
     assert_eq!(change.status, "R ");
     assert_eq!(change.added, Some(0));
     assert_eq!(change.deleted, Some(0));

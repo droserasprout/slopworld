@@ -12,6 +12,9 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
+- Git: Fixed special characters in filenames affecting unrelated files when (un)staging or viewing diffs.
+- Git: Fixed unstaging renamed files leaving the original path's deletion staged.
+- Search: Preserve leading and trailing spaces, including whitespace-only queries.
 - UI: Tuned loading screen animation.
 - UI: Fixed unchecking All projects and All worktrees in the project filter.
 

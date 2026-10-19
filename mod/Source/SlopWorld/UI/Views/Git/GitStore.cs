@@ -72,6 +72,7 @@ namespace SlopWorld
             public string Name;
             public string Rel; // relative to the repository root, which is what git takes back
             public string Project;
+            public string Source;
             public bool IsDir;
             public List<Node> Kids;
             public Repo Owner;
@@ -114,6 +115,7 @@ namespace SlopWorld
             public Node Tree;
 
             // Porcelain status by relative path, for Files lookups without a tree walk per row.
+            public readonly Dictionary<string, string> Sources = new Dictionary<string, string>();
             public Dictionary<string, string> Changes = new Dictionary<string, string>();
         }
 
@@ -195,6 +197,7 @@ namespace SlopWorld
                     if (!sameTree)
                     {
                         repo.Changes.Clear();
+                        repo.Sources.Clear();
                         repo.Added = repo.Deleted = 0;
                         repo.CountsComplete = false;
                         repo.Tree = Fold(repo, j.Files);
@@ -227,6 +230,7 @@ namespace SlopWorld
             repo.Changed = repo.Added = repo.Deleted = 0;
             repo.CountsComplete = repo.Truncated = false;
             repo.Changes.Clear();
+            repo.Sources.Clear();
         }
 
         void GetGit(
@@ -283,7 +287,12 @@ namespace SlopWorld
                 if (string.IsNullOrEmpty(file.Path))
                     continue;
                 paths++;
-                if (!repo.Changes.TryGetValue(file.Path, out var status) || status != file.Status)
+                if (
+                    !repo.Changes.TryGetValue(file.Path, out var status)
+                    || status != file.Status
+                    || !repo.Sources.TryGetValue(file.Path, out var source)
+                    || source != file.Source
+                )
                     return false;
             }
             return paths == repo.Changes.Count;
@@ -324,7 +333,12 @@ namespace SlopWorld
                     foreach (var f in j.Files)
                     {
                         string path = f.Path;
-                        if (!repo.Changes.TryGetValue(path, out var status) || status != f.Status)
+                        if (
+                            !repo.Changes.TryGetValue(path, out var status)
+                            || status != f.Status
+                            || !repo.Sources.TryGetValue(path, out var source)
+                            || source != f.Source
+                        )
                             return;
                         files[path] = f;
                     }
@@ -365,6 +379,23 @@ namespace SlopWorld
             return true;
         }
 
+        internal static string[] UnstagePaths(Node node)
+        {
+            var paths = new HashSet<string> { node.Rel };
+            AddRenameSources(node, paths);
+            return paths.ToArray();
+        }
+
+        static void AddRenameSources(Node node, HashSet<string> paths)
+        {
+            // Copies leave their source intact; only renames stage its removal.
+            if (node.Status.Staged == 'R' && !string.IsNullOrEmpty(node.Source))
+                paths.Add(node.Source);
+            if (node.Kids != null)
+                foreach (var child in node.Kids)
+                    AddRenameSources(child, paths);
+        }
+
         // Requires sorted paths so each directory's entries are contiguous.
         // Truncated responses still produce a valid partial tree.
         static Node Fold(Repo repo, IEnumerable<Wire.GitFile> files)
@@ -385,6 +416,7 @@ namespace SlopWorld
                 if (string.IsNullOrEmpty(rel))
                     continue;
                 repo.Changes[rel] = f.Status;
+                repo.Sources[rel] = f.Source;
 
                 var parts = rel.Split('/');
                 var at = root;
@@ -419,6 +451,7 @@ namespace SlopWorld
                         IsDir = false,
                         Depth = at.Depth + 1,
                         Status = new GitStatus(f.Status),
+                        Source = f.Source,
                         // Null where git counted nothing (binary or a capped response). Kept apart
                         // from zero, which is a real count and a different row.
                         Added = !f.HasAdded ? -1 : (int)f.Added,

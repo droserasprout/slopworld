@@ -733,6 +733,8 @@ message SearchResult {
 }
 
 message GitFile {
+  // Original path for a rename or copy; absent for ordinary changes.
+  optional string source = 5;
   string path = 1;
   string status = 2;
   optional uint64 added = 3;

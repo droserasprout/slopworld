@@ -21,7 +21,7 @@ namespace SlopWorld
             string exclude = ""
         )
         {
-            Query = (query ?? "").Trim();
+            Query = query ?? "";
             Include = (include ?? "").Trim();
             Exclude = (exclude ?? "").Trim();
             Regex = regex;

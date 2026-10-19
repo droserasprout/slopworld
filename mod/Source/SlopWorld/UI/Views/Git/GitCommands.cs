@@ -1,9 +1,20 @@
+using System.Collections.Generic;
+using System.Linq;
+
 namespace SlopWorld
 {
     // Commands resolve HEAD when executed, so the first commit between refresh and click
     // cannot leave the view using an obsolete unborn-repository decision.
     internal static class GitCommands
     {
+        // Shell quoting protects argv; literal pathspecs separately protect Git matching.
+        static string Paths(IEnumerable<string> paths) =>
+            " -- "
+            + string.Join(" ", paths.Select(path => PagerCommands.Quote(":(literal)" + path)));
+
+        public static string Stage(string root, string relative) =>
+            "git -C " + PagerCommands.Quote(root) + " add" + Paths(new[] { relative });
+
         public static string Diff(string root, string relative, bool untracked)
         {
             string git = "git -C " + PagerCommands.Quote(root);
@@ -16,7 +27,7 @@ namespace SlopWorld
                 return pager
                     + " diff --color=always --no-index -- /dev/null "
                     + PagerCommands.Quote(relative);
-            string paths = relative == null ? "" : " -- " + PagerCommands.Quote(relative);
+            string paths = relative == null ? "" : Paths(new[] { relative });
             // A shell alias runs at the repository root and inherits Git's -c options.
             // Keep the outer command a git invocation so PagerCommands can replace delta
             // appearance overrides on both initial launch and recovered reader sessions.
@@ -34,10 +45,10 @@ namespace SlopWorld
                 + paths;
         }
 
-        public static string Unstage(string root, string relative)
+        public static string Unstage(string root, params string[] relative)
         {
             string git = "git -C " + PagerCommands.Quote(root);
-            string paths = " -- " + PagerCommands.Quote(relative);
+            string paths = Paths(relative);
             // With no commit all index entries are additions. Remove only index entries;
             // -f also permits unstaging a file edited again after it was added.
             string script =

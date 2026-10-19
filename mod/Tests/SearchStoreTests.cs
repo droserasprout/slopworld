@@ -48,6 +48,25 @@ namespace SlopWorld.Tests
         static SearchSubmission Query(string query) =>
             new SearchSubmission(query, false, false, false, false);
 
+        public static void QueryWhitespaceReachesTransportForLiteralAndRegexSearches()
+        {
+            foreach (bool regex in new[] { false, true })
+            foreach (string query in new[] { " foo", "foo ", "   " })
+            {
+                var f = new Fixture();
+                f.Store.Search(
+                    new SearchSubmission(query, regex, false, false, false),
+                    new[] { Scope("p") },
+                    false
+                );
+                Assert.That(f.Requests.Count, Is.EqualTo(1));
+                Assert.That(
+                    f.Requests[0].Url,
+                    Does.Contain("&q=" + Uri.EscapeDataString(query) + "&regex=")
+                );
+            }
+        }
+
         public static void PathGlobsAreEncodedAndRetainedAcrossScopeChanges()
         {
             var f = new Fixture();
@@ -98,7 +117,7 @@ namespace SlopWorld.Tests
             f.Store.Search(submitted, new[] { Scope("p"), Scope("q") }, true);
             Assert.That(
                 f.Requests[0].Url,
-                Does.Contain("q=a%20%26%20b&regex=1&case=1&word=1&gitignore=0&hidden=1")
+                Does.Contain("q=%20a%20%26%20b%20&regex=1&case=1&word=1&gitignore=0&hidden=1")
             );
             f.Requests[0]
                 .Ok(

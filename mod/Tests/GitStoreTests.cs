@@ -55,6 +55,32 @@ namespace SlopWorld.Tests
                 },
             };
 
+        public static void RenameSourcesSurviveSnapshotsAndDirectorySelection()
+        {
+            var f = new Fixture();
+            f.Store.Fetch("p");
+            var first = Status("R ");
+            first.Files[0].Source = "old/file";
+            f.Requests[0].Ok(first);
+            var tree = f.Store.Get("p").Tree;
+            Assert.That(
+                GitStore.UnstagePaths(tree.Kids[0]),
+                Is.EquivalentTo(new[] { "a/b", "old/file" })
+            );
+            Assert.That(
+                GitStore.UnstagePaths(tree.Kids[0].Kids[0]),
+                Is.EquivalentTo(new[] { "a/b/file", "old/file" })
+            );
+            f.Store.Fetch("p");
+            var next = Status("R ");
+            next.Files[0].Source = "different/file";
+            f.Requests[f.Requests.Count - 1].Ok(next);
+            Assert.That(
+                GitStore.UnstagePaths(f.Store.Get("p").Tree.Kids[0]),
+                Is.EquivalentTo(new[] { "a/b", "different/file" })
+            );
+        }
+
         public static void UnchangedStatusRetainsTreeAndCounts()
         {
             var f = new Fixture();

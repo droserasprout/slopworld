@@ -274,7 +274,7 @@ namespace SlopWorld
                     || includeIgnored != _includeIgnored
                     || includedPaths != _includePaths
                     || excludedPaths != _excludePaths
-                ) && !string.IsNullOrWhiteSpace(_query)
+                ) && !string.IsNullOrEmpty(_query)
             )
                 Search();
 

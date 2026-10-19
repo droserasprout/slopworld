@@ -13,6 +13,8 @@ use tokio::process::Command;
 
 /// One changed path.
 pub struct Change {
+    /// Original path for rename/copy actions in the client.
+    pub source: Option<String>,
     /// Relative to the repository root, which is what the tree is drawn from and what
     /// `git diff` takes back.
     pub path: String,
@@ -163,6 +165,7 @@ pub async fn status_with_counts(
             .copied()
             .unwrap_or((None, None));
         changes.push(Change {
+            source: row.source,
             path: row.path,
             status: row.status,
             added,

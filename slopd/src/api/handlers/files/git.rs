@@ -47,6 +47,7 @@ pub(crate) async fn git_status(
             .changes
             .into_iter()
             .map(|c| wire::GitFile {
+                source: c.source,
                 path: c.path,
                 status: c.status,
                 added: c.added.map(u64::from),

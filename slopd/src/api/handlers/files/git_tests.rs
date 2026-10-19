@@ -85,3 +85,42 @@ async fn status_wire_distinguishes_uncounted_binary_and_zero_line_counts() {
         assert_eq!(reply.deleted, Some(0));
     }
 }
+
+#[tokio::test]
+async fn rename_source_survives_status_wire_with_and_without_counts() {
+    let fixture = crate::api::handlers::tests::fixture("git-wire-rename");
+    git(&fixture, &["init", "--initial-branch=main"]);
+    std::fs::write(fixture.join("old.txt"), "original\n").unwrap();
+    git(&fixture, &["add", "."]);
+    git(
+        &fixture,
+        &[
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-m",
+            "initial",
+        ],
+    );
+    git(&fixture, &["mv", "old.txt", "new.txt"]);
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    for counts in [false, true] {
+        let Proto(reply) = git_status(
+            State(manager.clone()),
+            Query(GitReq {
+                path: fixture.to_str().unwrap().into(),
+                counts: Some(counts),
+            }),
+        )
+        .await
+        .unwrap();
+        let reply = wire::GitResult::decode(reply.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(reply.files.len(), 1);
+        assert_eq!(reply.files[0].path, "new.txt");
+        assert_eq!(reply.files[0].source.as_deref(), Some("old.txt"));
+    }
+}

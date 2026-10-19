@@ -112,6 +112,75 @@ namespace SlopWorld.Tests
             );
         }
 
+        [TestCase("sha1")]
+        [TestCase("sha256")]
+        public void LiteralPathsKeepOtherFilesOutOfActions(string format)
+        {
+            WithRepository(
+                format,
+                root =>
+                {
+                    const string name = ":(glob)*.txt";
+                    File.WriteAllText(Path.Combine(root, name), "selected\n");
+                    File.WriteAllText(Path.Combine(root, "other.txt"), "unrelated\n");
+                    Run(GitCommands.Stage(root, name));
+                    Assert.That(Git(root, "ls-files").Trim(), Is.EqualTo(name));
+                    Assert.That(
+                        Run(GitCommands.Diff(root, name, false)),
+                        Does.Not.Contain("unrelated")
+                    );
+                    Git(root, "add --all");
+                    Run(GitCommands.Unstage(root, name));
+                    Assert.That(Git(root, "ls-files").Trim(), Is.EqualTo("other.txt"));
+                    Git(root, "add --all");
+                    Git(
+                        root,
+                        "-c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm initial"
+                    );
+                    File.AppendAllText(Path.Combine(root, name), "selected edit\n");
+                    File.AppendAllText(Path.Combine(root, "other.txt"), "unrelated edit\n");
+                    Run(GitCommands.Stage(root, name));
+                    Assert.That(Git(root, "diff --cached --name-only").Trim(), Is.EqualTo(name));
+                    Assert.That(
+                        Run(GitCommands.Diff(root, name, false)),
+                        Does.Not.Contain("unrelated edit")
+                    );
+                    Git(root, "add --all");
+                    Run(GitCommands.Unstage(root, name));
+                    Assert.That(
+                        Git(root, "diff --cached --name-only").Trim(),
+                        Is.EqualTo("other.txt")
+                    );
+                }
+            );
+        }
+
+        [Test]
+        public void UnstageRenameRestoresBothIndexPathsWithoutMovingWorkingFile()
+        {
+            WithRepository(
+                "sha1",
+                root =>
+                {
+                    File.WriteAllText(Path.Combine(root, "old.txt"), "original\n");
+                    Git(root, "add --all");
+                    Git(
+                        root,
+                        "-c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm initial"
+                    );
+                    Directory.CreateDirectory(Path.Combine(root, "target"));
+                    Git(root, "mv old.txt target/new.txt");
+                    Run(GitCommands.Unstage(root, "target/new.txt", "old.txt"));
+                    Assert.That(Git(root, "diff --cached --name-only"), Is.Empty);
+                    Assert.That(File.Exists(Path.Combine(root, "old.txt")), Is.False);
+                    Assert.That(
+                        File.ReadAllText(Path.Combine(root, "target/new.txt")),
+                        Is.EqualTo("original\n")
+                    );
+                }
+            );
+        }
+
         static void WithRepository(string format, Action<string> body)
         {
             string root = Path.Combine(
