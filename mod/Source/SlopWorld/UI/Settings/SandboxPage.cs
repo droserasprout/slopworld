@@ -50,6 +50,8 @@ namespace SlopWorld
                 _ =>
                 {
                     // Catalog completion publishes the winning revision before rebinding selection.
+                    _presetDrafts.Clear();
+                    _commandDrafts.Clear();
                     RebindSelection();
                     ApplyPendingSelection();
                     ApplyDeferredCreation();
@@ -60,10 +62,12 @@ namespace SlopWorld
         void RebindSelection()
         {
             if (_preset != null && !_newEntry)
-                _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);
+                _preset = PresetDraft(
+                    SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name)
+                );
             if (_command != null && !_newEntry)
-                _command = SessionHub.Instance.Commands.FirstOrDefault(c =>
-                    c.Name == _command.Name
+                _command = CommandDraft(
+                    SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _command.Name)
                 );
         }
 
@@ -71,15 +75,17 @@ namespace SlopWorld
         {
             if (_pendingPreset != null)
             {
-                _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _pendingPreset);
+                _preset = PresetDraft(
+                    SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _pendingPreset)
+                );
                 _pendingPreset = null;
                 _command = null;
                 _newEntry = false;
             }
             if (_pendingCommand != null)
             {
-                _command = SessionHub.Instance.Commands.FirstOrDefault(c =>
-                    c.Name == _pendingCommand
+                _command = CommandDraft(
+                    SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _pendingCommand)
                 );
                 _pendingCommand = null;
                 _preset = null;
@@ -107,7 +113,7 @@ namespace SlopWorld
             }
 
             _pendingPreset = null;
-            _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == name);
+            _preset = PresetDraft(SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == name));
             _command = null;
             _newEntry = false;
         }
@@ -124,7 +130,9 @@ namespace SlopWorld
             }
 
             _pendingCommand = null;
-            _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == name);
+            _command = CommandDraft(
+                SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == name)
+            );
             _preset = null;
             _newEntry = false;
         }

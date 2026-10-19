@@ -452,8 +452,75 @@ namespace SlopWorld.Tests
                     EditorTrace.Draws.Where(d => d.Name != "scroll").Select(d => d.Name),
                     "commands retain daemon catalog order within groups"
                 );
-                AssertEx.Equal(commands[2], page.TestSelectedCommand, "clicked command selected");
+                AssertEx.Equal(
+                    commands[2].Name,
+                    page.TestSelectedCommand.Name,
+                    "clicked command selected"
+                );
                 AssertEx.False(page.TestNewEntry, "selection exits new command mode");
+            });
+
+        public static void CatalogSelectionsKeepIndependentDrafts() =>
+            Run(() =>
+            {
+                var preset = new PresetInfo { Name = "sample", Source = "user" };
+                preset.Setenv["ORIGINAL"] = "saved";
+                SessionHub.Instance.Presets.Add(preset);
+                var command = new CommandInfo
+                {
+                    Name = "app",
+                    Source = "user",
+                    Cmd = "saved",
+                };
+                command.Sandbox.Add("sample");
+                SessionHub.Instance.Commands.Add(command);
+                var page = new SandboxPage();
+                EditorTrace.PickRow = "sample";
+                page.TestPresetList(300);
+                var draft = page.TestSelectedPreset;
+                draft.Description = "unsaved";
+                draft.Setenv["ORIGINAL"] = "edited";
+                AssertEx.Equal("", preset.Description, "catalog description stays authoritative");
+                AssertEx.Equal(
+                    "saved",
+                    preset.Setenv["ORIGINAL"],
+                    "nested environment is isolated"
+                );
+                page.TestPresetList(300);
+                AssertEx.Equal(draft, page.TestSelectedPreset, "reselection retains the draft");
+                EditorTrace.PickRow = "app";
+                page.TestCommandList(300);
+                var appDraft = page.TestSelectedCommand;
+                appDraft.Cmd = "unsaved";
+                appDraft.Sandbox.Clear();
+                AssertEx.Equal("saved", command.Cmd, "catalog command stays authoritative");
+                AssertEx.Equal(1, command.Sandbox.Count, "nested dependencies are isolated");
+                page.TestCommandList(300);
+                AssertEx.Equal(appDraft, page.TestSelectedCommand, "app reselection retains draft");
+            });
+
+        public static void EnvironmentEditsPreserveLiteralValues() =>
+            Run(() =>
+            {
+                var preset = new PresetInfo { Source = "user" };
+                preset.Setenv["PADDED"] = " value ";
+                var page = new SandboxPage();
+                EditorTrace.Edits["preset.setenv"] =
+                    "PADDED= value \r\nSPACES=   \r\nEMPTY=\r\nEQUALS=a=b \r\n  =ignored\r\nNEW=added\r\n";
+                page.TestPreset(preset, 300, true);
+                AssertEx.Equal(
+                    " value ",
+                    preset.Setenv["PADDED"],
+                    "unrelated edit preserves padding"
+                );
+                AssertEx.Equal("   ", preset.Setenv["SPACES"], "whitespace-only values survive");
+                AssertEx.Equal("", preset.Setenv["EMPTY"], "empty value survives");
+                AssertEx.Equal(
+                    "a=b ",
+                    preset.Setenv["EQUALS"],
+                    "only first equals separates value"
+                );
+                AssertEx.Equal(5, preset.Setenv.Count, "blank variable names are ignored");
             });
 
         public static void PresetFieldsNormalizeEditsAndSwitchEnvironmentOwner() =>

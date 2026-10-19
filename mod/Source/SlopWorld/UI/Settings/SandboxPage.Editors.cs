@@ -9,6 +9,31 @@ namespace SlopWorld
     // Preset and command editors used by the sandbox settings page.
     public partial class SandboxPage
     {
+        // Drafts survive selection changes but never mutate the shared daemon catalog.
+        // An explicit successful reload replaces them with authoritative definitions.
+        readonly Dictionary<string, PresetInfo> _presetDrafts =
+            new Dictionary<string, PresetInfo>();
+        readonly Dictionary<string, CommandInfo> _commandDrafts =
+            new Dictionary<string, CommandInfo>();
+
+        PresetInfo PresetDraft(PresetInfo source)
+        {
+            if (source == null)
+                return null;
+            if (!_presetDrafts.TryGetValue(source.Name, out var draft))
+                _presetDrafts[source.Name] = draft = source.Copy();
+            return draft;
+        }
+
+        CommandInfo CommandDraft(CommandInfo source)
+        {
+            if (source == null)
+                return null;
+            if (!_commandDrafts.TryGetValue(source.Name, out var draft))
+                _commandDrafts[source.Name] = draft = source.Copy();
+            return draft;
+        }
+
         void DrawPresetList(Rect r)
         {
             var all = SessionHub.Instance.Presets;
@@ -42,7 +67,7 @@ namespace SlopWorld
                     p => p.Name + (p.Source == "override" ? "  (override)" : ""),
                     p =>
                     {
-                        _preset = p;
+                        _preset = PresetDraft(p);
                         _newEntry = false;
                     },
                     userTree.Depth
@@ -55,7 +80,7 @@ namespace SlopWorld
                     p => p.Name,
                     p =>
                     {
-                        _preset = p;
+                        _preset = PresetDraft(p);
                         _newEntry = false;
                     },
                     systemTree.Depth
@@ -85,8 +110,8 @@ namespace SlopWorld
                 var cell = new Rect(inset, y, view.width - inset, UiTheme.RowH);
                 string name = label(item);
                 bool selected =
-                    (item is PresetInfo p && p == _preset)
-                    || (item is CommandInfo c && c == _command);
+                    (item is PresetInfo p && p.Name == _preset?.Name)
+                    || (item is CommandInfo c && c.Name == _command?.Name);
                 RowChrome.Hover(cell, selected, true, RowHoverPolicy.OverlayAware);
                 var warning =
                     item is PresetInfo warningPreset
@@ -155,7 +180,7 @@ namespace SlopWorld
                     c => c.Name,
                     c =>
                     {
-                        _command = c;
+                        _command = CommandDraft(c);
                         _newEntry = false;
                     }
                 );
@@ -167,7 +192,7 @@ namespace SlopWorld
                     c => c.Name + (c.Source == "override" ? "  (override)" : ""),
                     c =>
                     {
-                        _command = c;
+                        _command = CommandDraft(c);
                         _newEntry = false;
                     }
                 );
@@ -378,11 +403,18 @@ namespace SlopWorld
         void ParseSetenv(PresetInfo p)
         {
             p.Setenv.Clear();
-            foreach (var line in DaemonConfig.Split(_setenvText))
+            foreach (var rawLine in (_setenvText ?? "").Split('\n'))
             {
+                // Remove the CRLF delimiter, preserving whitespace in the value.
+                string line = rawLine.EndsWith("\r", StringComparison.Ordinal)
+                    ? rawLine.Substring(0, rawLine.Length - 1)
+                    : rawLine;
                 int at = line.IndexOf('=');
-                if (at > 0)
-                    p.Setenv[line.Substring(0, at).Trim()] = line.Substring(at + 1);
+                if (at <= 0)
+                    continue;
+                string name = line.Substring(0, at).Trim();
+                if (name.Length > 0)
+                    p.Setenv[name] = line.Substring(at + 1);
             }
         }
 

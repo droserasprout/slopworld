@@ -25,6 +25,9 @@ Reader replacement preserves pins and pane bindings and retains old readers on
 failure; [file readers](mod-file-readers.md) owns that lifetime. `PagerCommands`
 owns command construction. See `CodeAppearanceDraftTests` and `PagerCommandsTests`.
 
+Sandbox and app editors keep independent drafts across selection changes; successful
+explicit reloads replace those drafts. Unsaved edits never mutate the shared catalog.
+Environment assignments preserve whitespace after `=` (excluding CRLF delimiters).
 Sandbox editors retain raw text, including trailing blank lines, for typing and
 measurement; normalized daemon lists are projections. Replacing a definition
 replaces its drafts, while renaming a new definition preserves drafts and geometry.

@@ -33,6 +33,8 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Search: Fixed blank result previews for lines containing non-UTF-8 text.
 - Search: Fixed personal ripgrep settings affecting matching files.
 - Search: Preserve leading and trailing spaces, including whitespace-only queries.
+- Settings: Fixed unsaved sandbox and app preset edits affecting the shared catalog.
+- Settings: Preserve trailing spaces in sandbox environment variable values.
 - Tasks: Keep available recipients up to date while the delegation dialog is open.
 - Terminal: Fixed opening a terminal path link on correct line number when the file is already open.
 - Terminal: Fixed terminal path links failing in directories with more than 500 entries.
