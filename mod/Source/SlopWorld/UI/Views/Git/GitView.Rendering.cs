@@ -38,7 +38,7 @@ namespace SlopWorld
         internal static string CheckoutBranch(string scopeKey, string fallback) =>
             Known(scopeKey)?.Branch ?? fallback;
 
-        // Files and Git paint the same checkout shortstat in their shared heading.
+        // Git paints cached checkout shortstat in its heading; Files omits this tail.
         internal static float CheckoutTail(Rect row, string scopeKey, float right)
         {
             var repo = Known(scopeKey);

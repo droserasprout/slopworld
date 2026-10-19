@@ -21,6 +21,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Files: Fixed file actions misinterpreting placeholder text in filenames.
 - Files: Fixed ignored entries hiding visible files in directories with more than 500 entries.
 - Files: Fixed handling filenames with trailing spaces and environment variable references.
+- Files: Hide git shortstat from foldable groups.
 - Files/Git/Search: Reject non-UTF-8 filenames to prevent opening or modifying the wrong file.
 - Git: Fixed diffs showing renamed files as additions when the original path is outside the selected directory.
 - Git: Fixed handling special characters in filenames.
