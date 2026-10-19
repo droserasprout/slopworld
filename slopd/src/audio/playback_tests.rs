@@ -71,3 +71,78 @@ fn backend_failure_is_latched_but_recoverable_underruns_do_not_retire_output() {
     record_output_error(&failed, &cpal::StreamError::BufferUnderrun);
     assert!(failed.load(Ordering::Acquire));
 }
+
+#[test]
+fn unavailable_preferred_devices_fall_back_in_order() {
+    let mut attempted = Vec::new();
+    let (id, ()) = open_first_available(
+        [("pipewire".into(), 1), ("pulse".into(), 2)],
+        || Some(("default".into(), 3)),
+        |device| {
+            attempted.push(device);
+            if device < 3 {
+                anyhow::bail!("server unavailable");
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(id, "default");
+    assert_eq!(attempted, [1, 2, 3]);
+}
+
+#[test]
+fn successful_preferred_device_does_not_probe_default() {
+    let mut attempted = Vec::new();
+    let (id, ()) = open_first_available(
+        [("pipewire".into(), 1), ("pulse".into(), 2)],
+        || panic!("default must not be queried after success"),
+        |device| {
+            attempted.push(device);
+            if device == 1 {
+                anyhow::bail!("pipewire unavailable");
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(id, "pulse");
+    assert_eq!(attempted, [1, 2]);
+}
+
+#[test]
+fn failed_devices_report_each_error_without_retrying_default_alias() {
+    let mut attempted = Vec::new();
+    let error = open_first_available(
+        [("pipewire".into(), 1), ("pulse".into(), 2)],
+        || Some(("pulse".into(), 2)),
+        |device| -> Result<()> {
+            attempted.push(device);
+            anyhow::bail!("failure {device}")
+        },
+    )
+    .unwrap_err();
+    assert_eq!(attempted, [1, 2]);
+    let message = error.to_string();
+    assert!(message.contains("pipewire"));
+    assert!(message.contains("failure 1"));
+    assert!(message.contains("pulse"));
+    assert!(message.contains("failure 2"));
+}
+
+#[test]
+fn null_and_absent_default_devices_are_rejected() {
+    for default in [None, Some(("null".into(), ()))] {
+        let result = open_first_available(
+            std::iter::empty::<(String, ())>(),
+            || default,
+            |()| -> Result<()> { panic!("null must never be opened") },
+        );
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("no usable output device")
+        );
+    }
+}

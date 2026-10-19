@@ -305,3 +305,11 @@ fn weekly_windows_require_exact_key_or_nonempty_model_suffix() {
         "claude_week_new_model"
     );
 }
+
+#[test]
+fn rfc3339_requires_a_zone_and_rejects_pre_epoch_instants() {
+    assert_eq!(epoch_from_rfc3339("2026-07-26T00:00:00"), None);
+    assert_eq!(epoch_from_rfc3339("1969-12-31T23:59:59.999Z"), None);
+    assert_eq!(epoch_from_rfc3339("1970-01-01T01:00:00+01:00"), Some(0));
+    assert_eq!(epoch_from_rfc3339("1970-01-01T00:00:00.999Z"), Some(0));
+}

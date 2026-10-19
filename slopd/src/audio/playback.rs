@@ -47,7 +47,7 @@ pub(crate) struct RodioOutputFactory;
 impl OutputFactory for RodioOutputFactory {
     fn open(&self) -> Result<Box<dyn AudioOutput>> {
         let failed = Arc::new(AtomicBool::new(false));
-        let (sink, player) = open_device_with_health(failed.clone())?;
+        let (sink, player) = open_device_with_health(&failed)?;
         Ok(Box::new(RodioOutput {
             _sink: sink,
             player,
@@ -93,11 +93,11 @@ pub(crate) fn pcm_id(device: &cpal::Device) -> String {
 /// Reject `null` because it discards audio.
 #[cfg(test)]
 pub(crate) fn open_device() -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
-    open_device_with_health(Arc::new(AtomicBool::new(false)))
+    open_device_with_health(&Arc::new(AtomicBool::new(false)))
 }
 
 fn open_device_with_health(
-    failed: Arc<AtomicBool>,
+    failed: &Arc<AtomicBool>,
 ) -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
     let host = cpal::default_host();
 
@@ -106,43 +106,61 @@ fn open_device_with_health(
         .map(|ds| ds.map(|d| (pcm_id(&d), d)).collect())
         .unwrap_or_default();
 
-    let mut chosen = None;
-    for want in SERVER_PCMS {
-        if let Some((id, device)) = named.iter().find(|(id, _)| id == want) {
-            chosen = Some((id.clone(), device.clone()));
-            break;
-        }
-    }
-
-    // If no named server PCM is available, try the default ALSA device.
-    // Still reject the null device.
-    let (id, device) = match chosen {
-        Some(found) => found,
-        None => {
-            let device = host
-                .default_output_device()
-                .ok_or_else(|| anyhow!("no output device at all"))?;
-            let id = pcm_id(&device);
-            if id == NULL_PCM {
-                return Err(anyhow!("the only output device is ALSA's null sink"));
-            }
-            (id, device)
-        }
-    };
-
-    let sink = rodio::DeviceSinkBuilder::from_device(device)
-        .and_then(|b| {
-            b.with_error_callback(move |error| {
-                record_output_error(&failed, &error);
-            })
-            .open_stream()
-        })
-        .map_err(|e| anyhow!("{e}"))
-        .with_context(|| format!("opening output device {id:?}"))?;
+    let preferred = SERVER_PCMS
+        .into_iter()
+        .filter_map(|want| named.iter().find(|(id, _)| id == want).cloned());
+    let (id, sink) = open_first_available(
+        preferred,
+        || {
+            host.default_output_device()
+                .map(|device| (pcm_id(&device), device))
+        },
+        |device| {
+            let failed = failed.clone();
+            rodio::DeviceSinkBuilder::from_device(device)
+                .and_then(|b| {
+                    b.with_error_callback(move |error| {
+                        record_output_error(&failed, &error);
+                    })
+                    .open_stream()
+                })
+                .map_err(anyhow::Error::from)
+        },
+    )?;
 
     tracing::info!("audio: output device {id:?}");
     let player = rodio::Player::connect_new(sink.mixer());
     Ok((sink, player))
+}
+
+/// Enumeration only identifies candidates; a device is usable only after its stream opens.
+/// Try the default last, excluding null and already attempted PCM IDs.
+fn open_first_available<D, O>(
+    preferred: impl IntoIterator<Item = (String, D)>,
+    default: impl FnOnce() -> Option<(String, D)>,
+    mut open: impl FnMut(D) -> Result<O>,
+) -> Result<(String, O)> {
+    let mut attempted = Vec::new();
+    let mut failures = Vec::new();
+    for (id, device) in preferred
+        .into_iter()
+        .chain(std::iter::once_with(default).flatten())
+    {
+        if id == NULL_PCM || attempted.contains(&id) {
+            continue;
+        }
+        attempted.push(id.clone());
+        match open(device) {
+            Ok(output) => return Ok((id, output)),
+            Err(error) => failures.push(format!("{id:?}: {error:#}")),
+        }
+    }
+    if failures.is_empty() {
+        return Err(anyhow!(
+            "no usable output device (excluding ALSA's null sink)"
+        ));
+    }
+    Err(anyhow!("opening output devices: {}", failures.join("; ")))
 }
 
 /// CPAL recovers ordinary xruns itself. POLLERR can instead spin without invoking the

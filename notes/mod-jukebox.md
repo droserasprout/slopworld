@@ -11,6 +11,8 @@ root-only API edits. Playback and catalog owners are mapped in
 [daemon sources](daemon-files.md), storage in [configuration stores](daemon-config-stores.md),
 and transport in [the client](mod-client.md).
 
+The daemon tries the preferred ALSA PCMs in order, then the default device, until
+a stream opens. Null sinks and already attempted PCM IDs are excluded.
 The daemon audio worker owns output-device recovery. Backend failures retire the device
 and restart the current source after bounded backoff; stop and source replacement
 cancel delayed recovery. Reopening restarts local files and reconnects stations.

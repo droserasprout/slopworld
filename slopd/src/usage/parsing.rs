@@ -293,103 +293,10 @@ fn resets_in(w: &Value) -> Option<u64> {
     None
 }
 
-/// `2026-07-26T09:59:59.621619+00:00` -> epoch seconds. All three forms this endpoint uses:
-/// fractional seconds (dropped), a trailing `Z`, and a numeric offset, which is applied
-/// rather than assumed zero.
+/// Normalize provider timestamps to whole Unix seconds; reject pre-epoch instants.
 fn epoch_from_rfc3339(s: &str) -> Option<u64> {
-    let b = s.as_bytes();
-    if b.len() < 19
-        || b.get(4) != Some(&b'-')
-        || b.get(7) != Some(&b'-')
-        || b.get(10) != Some(&b'T')
-        || b.get(13) != Some(&b':')
-        || b.get(16) != Some(&b':')
-    {
-        return None;
-    }
-    let n = |a: usize, z: usize| ascii_number(b, a, z);
-    let (y, mo, d) = (n(0, 4)?, n(5, 7)?, n(8, 10)?);
-    let (h, mi, sec) = (n(11, 13)?, n(14, 16)?, n(17, 19)?);
-    if !(1..=12).contains(&mo)
-        || d < 1
-        || d > days_in_month(y, mo)
-        || !(0..=23).contains(&h)
-        || !(0..=59).contains(&mi)
-        || !(0..=60).contains(&sec)
-    {
-        return None;
-    }
-
-    // Days since the epoch, by the civil-from-days algorithm.
-    let y = if mo <= 2 { y - 1 } else { y };
-    let era = if y >= 0 { y } else { y - 399 } / 400;
-    let yoe = y - era * 400;
-    let mp = (mo + 9) % 12;
-    let doy = (153 * mp + 2) / 5 + d - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146_097 + doe - 719_468;
-
-    u64::try_from(days * 86_400 + h * 3_600 + mi * 60 + sec - offset_secs(s)?).ok()
-}
-
-fn ascii_number(bytes: &[u8], start: usize, end: usize) -> Option<i64> {
-    let digits = bytes.get(start..end)?;
-    if digits.is_empty() {
-        return None;
-    }
-    digits.iter().try_fold(0_i64, |value, digit| {
-        if !digit.is_ascii_digit() {
-            return None;
-        }
-        value.checked_mul(10)?.checked_add(i64::from(digit - b'0'))
-    })
-}
-
-fn days_in_month(year: i64, month: i64) -> i64 {
-    match month {
-        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
-        2 => 28,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
-    }
-}
-
-/// Return zero for `Z` or an absent time zone.
-/// Return None for an invalid zone to reject the timestamp instead of using an incorrect reset hour.
-fn offset_secs(s: &str) -> Option<i64> {
-    let bytes = s.as_bytes();
-    let mut start = 19;
-    if bytes.get(start) == Some(&b'.') {
-        start += 1;
-        let fraction_start = start;
-        while bytes.get(start).is_some_and(u8::is_ascii_digit) {
-            start += 1;
-        }
-        if start == fraction_start {
-            return None;
-        }
-    }
-
-    let zone = bytes.get(start..)?;
-    if zone.is_empty() || zone == b"Z" || zone == b"z" {
-        return Some(0);
-    }
-
-    let sign = match zone.first()? {
-        b'+' => 1,
-        b'-' => -1,
-        _ => return None,
-    };
-    let rest = zone.get(1..)?;
-    if rest.len() != 5 || rest.get(2) != Some(&b':') {
-        return None;
-    }
-    let h = ascii_number(rest, 0, 2)?;
-    let m = ascii_number(rest, 3, 5)?;
-    if h > 23 || m > 59 {
-        return None;
-    }
-    Some(sign * (h * 3_600 + m * 60))
+    let at = time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339).ok()?;
+    u64::try_from(at.unix_timestamp()).ok()
 }
 
 // The wire contract uses f32 for observational usage figures, not accounting arithmetic.

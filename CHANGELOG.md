@@ -22,6 +22,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Git: Fixed handling special characters in filenames.
 - Git: Fixed unstaging renamed files leaving the original path's deletion staged.
 - Git: Fixed diffs showing renamed files as additions when the original path is outside the selected directory.
+- Jukebox: Fixed playback failing when the preferred audio device is unavailable.
 - Library: Prevent duplicate saves and edits while saving.
 - Library: Fixed command placeholders becoming part of the entered command.
 - Search: Fixed blank result previews for lines containing non-UTF-8 text.
