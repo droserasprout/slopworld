@@ -87,14 +87,11 @@ namespace SlopWorld
             try
             {
                 method.Invoke(_rimWorldOptions, new object[] { listing });
-                float used = listing.CurHeight;
-                listing.End();
-                return y + used + HeadingGap;
+                return y + listing.CurHeight + HeadingGap;
             }
-            catch
+            finally
             {
                 listing.End();
-                throw;
             }
         }
 

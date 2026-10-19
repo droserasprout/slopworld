@@ -225,34 +225,16 @@ namespace SlopWorld
             );
         }
 
-        static void RemovePreset(string kind, PresetInfo preset)
-        {
-            string message =
-                preset.Source == "override"
-                    ? "Reset this user override and return to the system preset?"
-                    : "Remove this user preset?";
-            WorkspaceWindow.OpenOverPane(
-                ConfirmDialog.Create(
-                    message,
-                    () =>
-                        SessionHub.Instance.Catalog.RemovePreset(
-                            kind,
-                            preset.Name,
-                            () =>
-                            {
-                                ClearActionSelection();
-                            },
-                            UiLayout.Fail
-                        ),
-                    destructive: true
-                )
-            );
-        }
+        static void RemovePreset(string kind, PresetInfo preset) =>
+            RemovePreset(kind, preset.Name, preset.Source);
 
-        static void RemovePreset(string kind, CommandInfo command)
+        static void RemovePreset(string kind, CommandInfo command) =>
+            RemovePreset(kind, command.Name, command.Source);
+
+        static void RemovePreset(string kind, string name, string source)
         {
             string message =
-                command.Source == "override"
+                source == "override"
                     ? "Reset this user override and return to the system preset?"
                     : "Remove this user preset?";
             WorkspaceWindow.OpenOverPane(
@@ -261,11 +243,8 @@ namespace SlopWorld
                     () =>
                         SessionHub.Instance.Catalog.RemovePreset(
                             kind,
-                            command.Name,
-                            () =>
-                            {
-                                ClearActionSelection();
-                            },
+                            name,
+                            ClearActionSelection,
                             UiLayout.Fail
                         ),
                     destructive: true

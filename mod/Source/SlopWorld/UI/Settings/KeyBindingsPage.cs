@@ -10,7 +10,17 @@ namespace SlopWorld
     // It replaces vanilla's all-bindings Modify dialog, which would expose stripped keys.
     public class KeyBindingsPage : IOptionPage
     {
-        public void Load() { }
+        List<IGrouping<KeyBindingCategoryDef, KeyBindingDef>> _categories;
+
+        // Definitions and their default-key ordering stay fixed for this page's lifetime.
+        public void Load() =>
+            _categories = DefDatabase<KeyBindingDef>
+                .AllDefs.Where(b => b.category != null && StripKeys.Kept(b))
+                .OrderBy(b => b.defaultKeyCodeA)
+                .ThenBy(b => b.defName)
+                .GroupBy(b => b.category)
+                .OrderBy(group => group.Key.defName)
+                .ToList();
 
         // A row holds a button, so it is a button's height. The category band is a tiny line.
         // Both off the font: written down, they crop their own labels on any face taller than
@@ -42,22 +52,11 @@ namespace SlopWorld
         {
             var inner = SettingsPageLayout.BodyWithoutFooter(rect);
 
-            // Build the content model once per frame.
-            var cats = DefDatabase<KeyBindingCategoryDef>.AllDefs.OrderBy(c => c.defName).ToList();
-
-            var bindingsMap = DefDatabase<KeyBindingDef>
-                .AllDefs.Where(b => b.category != null && StripKeys.Kept(b))
-                .GroupBy(b => b.category)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.OrderBy(b => b.defaultKeyCodeA).ThenBy(b => b.defName).ToList()
-                );
-
             // Measure total content height.
             float contentWidth = UiScrollBody
                 .Measure(inner, 0f, UiScrollbarReservation.Always)
                 .ContentWidth;
-            float totalH = MeasureCategories(cats, bindingsMap, contentWidth);
+            float totalH = MeasureCategories(contentWidth);
             // Room for the Restore Defaults button at the foot.
             totalH += UiTheme.BtnH + UiTheme.GapS + UiTheme.GapS;
 
@@ -67,15 +66,11 @@ namespace SlopWorld
             {
                 float y = 0f;
 
-                foreach (var cat in cats)
+                foreach (var group in _categories)
                 {
-                    List<KeyBindingDef> list;
-                    if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0)
-                        continue;
                     y += DrawCategory(
                         new Rect(0f, y, geometry.View.width, geometry.View.height - y),
-                        cat,
-                        list
+                        group
                     );
                 }
 
@@ -89,31 +84,24 @@ namespace SlopWorld
                 CaptureKey();
         }
 
-        float MeasureCategories(
-            List<KeyBindingCategoryDef> cats,
-            Dictionary<KeyBindingCategoryDef, List<KeyBindingDef>> bindingsMap,
-            float width
-        )
+        float MeasureCategories(float width)
         {
             float height = 0f;
-            foreach (var cat in cats)
+            foreach (var group in _categories)
             {
-                List<KeyBindingDef> list;
-                if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0)
-                    continue;
                 height += CatH;
-                if (!_folded.Contains(cat))
-                    height += list.Count * BindingHeight(BindingWidth(width)) + Gap;
+                if (!_folded.Contains(group.Key))
+                    height += group.Count() * BindingHeight(BindingWidth(width)) + Gap;
             }
             return height;
         }
 
-        float DrawCategory(Rect rect, KeyBindingCategoryDef cat, List<KeyBindingDef> list)
+        float DrawCategory(Rect rect, IGrouping<KeyBindingCategoryDef, KeyBindingDef> group)
         {
             using (WidgetState.Save())
             {
                 float y = rect.y;
-                bool folded = _folded.Contains(cat);
+                bool folded = _folded.Contains(group.Key);
 
                 var headRect = new Rect(rect.x, y, rect.width, CatH);
                 bool overHead = Mouse.IsOver(headRect);
@@ -133,11 +121,11 @@ namespace SlopWorld
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 float lx = arrowRect.xMax + Gap;
-                string tail = folded ? $"  {list.Count}" : "";
+                string tail = folded ? $"  {group.Count()}" : "";
                 GUI.color = UiTheme.Dim;
                 UiText.RowLabel(
                     new Rect(lx, headRect.y, rect.width - lx - Gap, CatH),
-                    cat.label + tail
+                    group.Key.label + tail
                 );
 
                 // Heading click: fold/unfold.
@@ -147,8 +135,8 @@ namespace SlopWorld
                     && Event.current.button == 0
                 )
                 {
-                    if (!_folded.Remove(cat))
-                        _folded.Add(cat);
+                    if (!_folded.Remove(group.Key))
+                        _folded.Add(group.Key);
                     Event.current.Use();
                 }
 
@@ -156,7 +144,7 @@ namespace SlopWorld
                 if (folded)
                     return y - rect.y;
 
-                foreach (var binding in list)
+                foreach (var binding in group)
                 {
                     float rowWidth = BindingWidth(rect.width);
                     float rowHeight = BindingHeight(rowWidth);

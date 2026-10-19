@@ -23,36 +23,11 @@ namespace SlopWorld
         void DrawFields(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Volume");
-            Prefs.VolumeMaster = UiControls.Slider(
-                l,
-                "MasterVolume".Translate(),
-                Prefs.VolumeMaster,
-                "MasterVolumeTooltip".Translate()
-            );
-            Prefs.VolumeGame = UiControls.Slider(
-                l,
-                "GameVolume".Translate(),
-                Prefs.VolumeGame,
-                "GameVolumeTooltip".Translate()
-            );
-            Prefs.VolumeMusic = UiControls.Slider(
-                l,
-                "MusicVolume".Translate(),
-                Prefs.VolumeMusic,
-                "MusicVolumeTooltip".Translate()
-            );
-            Prefs.VolumeAmbient = UiControls.Slider(
-                l,
-                "AmbientVolume".Translate(),
-                Prefs.VolumeAmbient,
-                "AmbientVolumeTooltip".Translate()
-            );
-            Prefs.VolumeUI = UiControls.Slider(
-                l,
-                "UIVolume".Translate(),
-                Prefs.VolumeUI,
-                "UIVolumeTooltip".Translate()
-            );
+            Prefs.VolumeMaster = VolumeSlider(l, "MasterVolume", Prefs.VolumeMaster);
+            Prefs.VolumeGame = VolumeSlider(l, "GameVolume", Prefs.VolumeGame);
+            Prefs.VolumeMusic = VolumeSlider(l, "MusicVolume", Prefs.VolumeMusic);
+            Prefs.VolumeAmbient = VolumeSlider(l, "AmbientVolume", Prefs.VolumeAmbient);
+            Prefs.VolumeUI = VolumeSlider(l, "UIVolume", Prefs.VolumeUI);
 
             l.Gap(UiTheme.GapL);
             DrawSources(l);
@@ -123,6 +98,14 @@ namespace SlopWorld
             if (stop != Radio.StopOnExit)
                 Radio.ToggleStopOnExit();
         }
+
+        static float VolumeSlider(Listing_Standard listing, string translationKey, float value) =>
+            UiControls.Slider(
+                listing,
+                translationKey.Translate(),
+                value,
+                (translationKey + "Tooltip").Translate()
+            );
 
         static void DrawSources(Listing_Standard l)
         {

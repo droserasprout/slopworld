@@ -44,11 +44,7 @@ namespace SlopWorld
             // the old page's load callback is intentionally not replayed into this instance.
             UiLayout.SectionHeading(l, "Usage");
             l.Label("Global polling interval (seconds)");
-            string pollSecs = _configState.DraftText(
-                "usage.poll",
-                "daemon.usage_poll_secs",
-                _cfg.UsagePollSecs.ToString(CultureInfo.InvariantCulture)
-            );
+            string pollSecs = PollText;
             pollSecs = UiControls.Field(
                 l,
                 "usage.poll",
@@ -132,6 +128,13 @@ namespace SlopWorld
             return item;
         }
 
+        string PollText =>
+            _configState.DraftText(
+                "usage.poll",
+                "daemon.usage_poll_secs",
+                _cfg.UsagePollSecs.ToString(CultureInfo.InvariantCulture)
+            );
+
         string DraftInterval(string key, int interval)
         {
             return _configState.DraftText(
@@ -177,28 +180,15 @@ namespace SlopWorld
             return Entry(key)?.DefaultPoll ?? false;
         }
 
-        List<string> TableKeys()
-        {
-            var keys = new List<string>();
-            foreach (var entry in _catalog)
-                if (!keys.Contains(entry.Key))
-                    keys.Add(entry.Key);
-            foreach (var pair in _cfg.UsageItems)
-                if (!keys.Contains(pair.Key))
-                    keys.Add(pair.Key);
-            foreach (var w in SessionHub.Instance.Usage.Windows)
-                if (!keys.Contains(w.Key))
-                    keys.Add(w.Key);
-
-            keys.Sort(
-                (a, b) =>
-                {
-                    int rank = UsageRank(a).CompareTo(UsageRank(b));
-                    return rank != 0 ? rank : System.StringComparer.Ordinal.Compare(a, b);
-                }
-            );
-            return keys;
-        }
+        List<string> TableKeys() =>
+            _catalog
+                .Select(entry => entry.Key)
+                .Concat(_cfg.UsageItems.Keys)
+                .Concat(SessionHub.Instance.Usage.Windows.Select(window => window.Key))
+                .Distinct()
+                .OrderBy(UsageRank)
+                .ThenBy(key => key, System.StringComparer.Ordinal)
+                .ToList();
 
         int UsageRank(string key) => Entry(key)?.Rank ?? int.MaxValue;
 
@@ -265,23 +255,7 @@ namespace SlopWorld
                         Mathf.Max(0f, interval.width - fieldPad * 2f),
                         UiTheme.FieldH
                     );
-                    string intervalText = DraftInterval(key, item.IntervalSecs);
-                    intervalText = UiText.Field(
-                        field,
-                        "usage.item." + key,
-                        intervalText,
-                        defaultValue: ""
-                    );
-                    SetDraftInterval(key, intervalText);
-                    UiLayout.ValidationLabel(
-                        new Rect(
-                            interval.x + fieldPad,
-                            field.yMax + UiTheme.GapXS,
-                            Mathf.Max(0f, interval.width - fieldPad * 2f),
-                            UiTheme.LineH
-                        ),
-                        PollError(intervalText, true)
-                    );
+                    DrawIntervalField(field, key, item.IntervalSecs);
                 }
             );
         }
@@ -314,22 +288,26 @@ namespace SlopWorld
                     Mathf.Max(0f, rect.width - iconW - pollW),
                     UiTheme.FieldH
                 );
-                string intervalText = DraftInterval(key, item.IntervalSecs);
-                intervalText = UiText.Field(
-                    field,
-                    "usage.item." + key,
-                    intervalText,
-                    defaultValue: ""
-                );
-                SetDraftInterval(key, intervalText);
+                DrawIntervalField(field, key, item.IntervalSecs);
                 TooltipHandler.TipRegion(field, "Polling interval in seconds.");
-                UiLayout.ValidationLabel(
-                    new Rect(field.x, field.yMax + UiTheme.GapXS, field.width, UiTheme.LineH),
-                    PollError(intervalText, true)
-                );
                 y += UiTheme.FieldH + UiTheme.GapS + UiTheme.LineH + UiTheme.GapXS;
             }
             return y - rect.y;
+        }
+
+        void DrawIntervalField(Rect field, string key, int interval)
+        {
+            string text = UiText.Field(
+                field,
+                "usage.item." + key,
+                DraftInterval(key, interval),
+                defaultValue: ""
+            );
+            SetDraftInterval(key, text);
+            UiLayout.ValidationLabel(
+                new Rect(field.x, field.yMax + UiTheme.GapXS, field.width, UiTheme.LineH),
+                PollError(text, true)
+            );
         }
 
         void DrawIconButton(Rect area, string key)
@@ -553,28 +531,13 @@ namespace SlopWorld
             {
                 if (!_loaded || _cfg == null)
                     return null;
-                string error = PollError(
-                    _configState.DraftText(
-                        "usage.poll",
-                        "daemon.usage_poll_secs",
-                        _cfg.UsagePollSecs.ToString(CultureInfo.InvariantCulture)
-                    ),
-                    false
-                );
+                string error = PollError(PollText, false);
                 if (!string.IsNullOrEmpty(error))
                     return error;
                 foreach (string fieldKey in _configState.DraftFieldKeys("usage.item."))
                 {
                     string key = fieldKey.Substring("usage.item.".Length);
-                    error = PollError(
-                        _configState.DraftText(
-                            fieldKey,
-                            "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs",
-                            "",
-                            true
-                        ),
-                        true
-                    );
+                    error = PollError(DraftInterval(key, 0), true);
                     if (!string.IsNullOrEmpty(error))
                         return error;
                 }
@@ -585,11 +548,7 @@ namespace SlopWorld
         protected override bool PrepareSave(out string error)
         {
             _configState.ClearQueuedNormalizations();
-            string pollText = _configState.DraftText(
-                "usage.poll",
-                "daemon.usage_poll_secs",
-                _cfg.UsagePollSecs.ToString(CultureInfo.InvariantCulture)
-            );
+            string pollText = PollText;
             if (!DaemonConfigValidation.WholeSeconds(pollText, false, out int seconds, out error))
                 return false;
             _cfg.UsagePollSecs = seconds;
@@ -603,14 +562,7 @@ namespace SlopWorld
             foreach (string fieldKey in _configState.DraftFieldKeys("usage.item."))
             {
                 string key = fieldKey.Substring("usage.item.".Length);
-                string text = (
-                    _configState.DraftText(
-                        fieldKey,
-                        "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs",
-                        "",
-                        true
-                    ) ?? ""
-                ).Trim();
+                string text = (DraftInterval(key, 0) ?? "").Trim();
                 if (text.Length == 0)
                 {
                     if (_cfg.UsageItems.TryGetValue(key, out var configured) && configured != null)

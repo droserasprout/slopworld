@@ -91,14 +91,7 @@ namespace SlopWorld
         {
             if (task == null || !task.Terminal)
                 return;
-            WorkspaceWindow.OpenOverPane(
-                ConfirmDialog.Create(
-                    $"Remove task '{task.Id}'? "
-                        + "The daemon will remove it from both participants' task lists.",
-                    () => SessionHub.Instance.TaskStore.Remove(task.Id, null, UiLayout.Fail),
-                    destructive: true
-                )
-            );
+            RemoveTasks(new List<TaskInfo> { task });
         }
 
         public static void CancelTask(TaskInfo task, Action<TaskInfo> updated = null)

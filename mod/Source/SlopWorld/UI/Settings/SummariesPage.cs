@@ -11,31 +11,37 @@ namespace SlopWorld
     public class SummariesPage : DaemonConfigPage
     {
         readonly UiAreaResize _promptResize = new UiAreaResize(150f);
-        static readonly (
-            string Label,
-            Func<DaemonConfig, string> GetPolicy,
-            Action<DaemonConfig, string> SetPolicy,
-            bool AllowsAlways
-        )[] Targets =
+
+        sealed class PolicyTarget
         {
-            (
-                "Codex sessions",
-                config => config.AgentTitles,
-                (config, policy) => config.AgentTitles = policy,
-                true
-            ),
-            (
-                "Pi sessions",
-                config => config.PiTitles,
-                (config, policy) => config.PiTitles = policy,
-                true
-            ),
-            (
-                "Tasks in sidebar",
-                config => config.TaskSummaries,
-                (config, policy) => config.TaskSummaries = policy,
-                false
-            ),
+            public string Label;
+            public Func<DaemonConfig, string> GetPolicy;
+            public Action<DaemonConfig, string> SetPolicy;
+            public bool AllowsAlways;
+        }
+
+        static readonly PolicyTarget[] Targets =
+        {
+            new PolicyTarget
+            {
+                Label = "Codex sessions",
+                GetPolicy = config => config.AgentTitles,
+                SetPolicy = (config, policy) => config.AgentTitles = policy,
+                AllowsAlways = true,
+            },
+            new PolicyTarget
+            {
+                Label = "Pi sessions",
+                GetPolicy = config => config.PiTitles,
+                SetPolicy = (config, policy) => config.PiTitles = policy,
+                AllowsAlways = true,
+            },
+            new PolicyTarget
+            {
+                Label = "Tasks in sidebar",
+                GetPolicy = config => config.TaskSummaries,
+                SetPolicy = (config, policy) => config.TaskSummaries = policy,
+            },
         };
 
         static readonly string[] AgentPolicies = { "Never", "Once", "Always" };
@@ -75,11 +81,7 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             l.Label("Minimum prompt length");
-            string minPromptChars = _configState.DraftText(
-                "summaries.minimum",
-                "daemon.title_min_chars",
-                _cfg.TitleMinChars.ToString(CultureInfo.InvariantCulture)
-            );
+            string minPromptChars = MinimumText;
             minPromptChars = UiControls.Field(
                 l,
                 "usage.summary.minimum",
@@ -140,16 +142,7 @@ namespace SlopWorld
             };
         }
 
-        void DrawPolicyRow(
-            (
-                string Label,
-                Func<DaemonConfig, string> GetPolicy,
-                Action<DaemonConfig, string> SetPolicy,
-                bool AllowsAlways
-            ) target,
-            Rect row,
-            Rect[] cells
-        )
+        void DrawPolicyRow(PolicyTarget target, Rect row, Rect[] cells)
         {
             UiText.RowLabel(cells[0], target.Label);
             var button = cells[1].ContractedBy(UiTheme.GapXS, UiTheme.GapXS);
@@ -173,57 +166,32 @@ namespace SlopWorld
             }
         }
 
-        List<FloatMenuOption> PolicyOptions(
-            (
-                string Label,
-                Func<DaemonConfig, string> GetPolicy,
-                Action<DaemonConfig, string> SetPolicy,
-                bool AllowsAlways
-            ) target
-        )
+        List<FloatMenuOption> PolicyOptions(PolicyTarget target)
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Never", () => SetPolicy(target, "never")),
-                new FloatMenuOption("Once", () => SetPolicy(target, "once")),
+                new FloatMenuOption("Never", () => target.SetPolicy(_cfg, "never")),
+                new FloatMenuOption("Once", () => target.SetPolicy(_cfg, "once")),
             };
             if (target.AllowsAlways)
-                options.Add(new FloatMenuOption("Always", () => SetPolicy(target, "always")));
+                options.Add(new FloatMenuOption("Always", () => target.SetPolicy(_cfg, "always")));
             return options;
         }
 
-        void SetPolicy(
-            (
-                string Label,
-                Func<DaemonConfig, string> GetPolicy,
-                Action<DaemonConfig, string> SetPolicy,
-                bool AllowsAlways
-            ) target,
-            string policy
-        )
-        {
-            target.SetPolicy(_cfg, policy);
-        }
-
-        protected override string ValidationError =>
-            !_loaded || _cfg == null
-                ? null
-                : MinimumError(
-                    _configState.DraftText(
-                        "summaries.minimum",
-                        "daemon.title_min_chars",
-                        _cfg.TitleMinChars.ToString(CultureInfo.InvariantCulture)
-                    )
-                );
-
-        protected override bool PrepareSave(out string error)
-        {
-            _configState.ClearQueuedNormalizations();
-            string minPromptChars = _configState.DraftText(
+        string MinimumText =>
+            _configState.DraftText(
                 "summaries.minimum",
                 "daemon.title_min_chars",
                 _cfg.TitleMinChars.ToString(CultureInfo.InvariantCulture)
             );
+
+        protected override string ValidationError =>
+            !_loaded || _cfg == null ? null : MinimumError(MinimumText);
+
+        protected override bool PrepareSave(out string error)
+        {
+            _configState.ClearQueuedNormalizations();
+            string minPromptChars = MinimumText;
             if (!DaemonConfigValidation.TitleMinimum(minPromptChars, out int minimum, out error))
                 return false;
             _cfg.TitleMinChars = minimum;
