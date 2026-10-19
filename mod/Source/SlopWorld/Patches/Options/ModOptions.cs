@@ -435,6 +435,15 @@ namespace SlopWorld
 
         // Page navigation.
 
+        public static void OpenAgentStorage(string name)
+        {
+            var tab = TabFor(PageId.Storage);
+            if (tab == null)
+                return;
+            OpenCategory(tab.Def);
+            tab.PageOf<StoragePage>()?.SelectAgent(name);
+        }
+
         public static void OpenNewSandboxPreset()
         {
             var tab = TabFor(PageId.Sandbox);

@@ -38,7 +38,9 @@ replaces its drafts, while renaming a new definition preserves drafts and geomet
 Host lookup uses the game's environment; `/api/whereis` uses the daemon's.
 `StorageLoadState` publishes shallow inventory before recursive sizes and rejects
 callbacks after refresh or disposal. Failed scans preserve paths and navigation;
-unknown sizes are not zero. The daemon's `sizes=false` request also skips trash
+unknown sizes are not zero. Storage row selection survives inventory replacement by
+kind and key; Explore opens the selected row's path in Files. Agent storage navigation
+opens Settings, selects the active agent entry after inventory arrives, and reveals it. The daemon's `sizes=false` request also skips trash
 purging. The manager purges before measured scans; sandbox inventory never deletes.
 See `BinaryDiscoveryTests` and `StorageLoadStateTests`.
 

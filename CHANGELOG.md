@@ -46,6 +46,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Usage: Fixed polling countdown intervals.
 - Workers: Prevent older base revision previews from overwriting newer results.
 
+### Changed
+
+- Settings: Select and highlight Storage rows on click, add "Explore" button.
+
 ## [0.0.7] - 2026-10-19
 
 ### Added

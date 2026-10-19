@@ -91,7 +91,7 @@ namespace SlopWorld
                 "agent.storage",
                 "Agent: Open Storage",
                 AgentsSubAll,
-                s => StoragePage.FocusAgent(s.Name)
+                s => ModOptions.OpenAgentStorage(s.Name)
             ),
             CommandDef.ForAgent(
                 "agent.delete",

@@ -346,7 +346,7 @@ namespace SlopWorld
             "I've shitted in bathrooms you wouldn't even piss in. (",
             "The Jung's personality test classifies you as: Catastrophic Failure (1x38B) (",
             "It's now safe to turn off your computer.",
-            "System halted."
+            "System halted.",
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip). Rolled

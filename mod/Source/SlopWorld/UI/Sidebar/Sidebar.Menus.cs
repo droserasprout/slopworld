@@ -237,7 +237,7 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Shell", () => SessionActions.AgentShell(info)));
 
             if (info != null && !info.Ephemeral && !info.Host)
-                opts.Add(new FloatMenuOption("Storage", () => StoragePage.FocusAgent(name)));
+                opts.Add(new FloatMenuOption("Storage", () => ModOptions.OpenAgentStorage(name)));
 
             if (info != null && info.Host)
                 opts.Add(

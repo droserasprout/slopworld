@@ -39,6 +39,9 @@ namespace SlopWorld
         readonly StorageLoadState<List<Entry>> _load = new StorageLoadState<List<Entry>>();
         static readonly List<Entry> EmptyEntries = new List<Entry>();
         bool _disposed;
+        string _selectedKind;
+        string _selectedKey;
+        string _pendingAgent;
 
         List<Entry> _entries => _load.Value ?? EmptyEntries;
         string _actionError;
@@ -114,6 +117,22 @@ namespace SlopWorld
                 captionH + UiTheme.GapS + _entries.Count * rowH + UiTheme.GapXS,
                 UiScrollbarReservation.Always
             );
+            if (_pendingAgent != null)
+            {
+                int index = _entries.FindIndex(e =>
+                    e.Kind == "active" && e.Session == _pendingAgent
+                );
+                if (index >= 0)
+                {
+                    Select(_entries[index]);
+                    _scroll.Reveal(captionH + UiTheme.GapS + index * rowH, rowH, list.height);
+                }
+                else if (!_loading)
+                {
+                    _error = $"private storage for '{_pendingAgent}' is unavailable";
+                    _pendingAgent = null;
+                }
+            }
             using (_scroll.Scope(list, geometry.View))
             {
                 UiText.PlainStatusLabel(
@@ -160,28 +179,44 @@ namespace SlopWorld
             }
         }
 
-        static bool StackActions(float width) => width < UiLayout.BtnW("Restore", 78f) * 2f + 180f;
+        static bool StackActions(float width) =>
+            width < UiLayout.BtnW("Explore", 78f) * 3f + UiTheme.GapXS * 2f + 180f;
 
         static float StorageRowHeight(float width) =>
             UiListRow.TwoLineH + (StackActions(width) ? UiTheme.RowBtnH + UiTheme.GapS : 0f);
 
         void DrawRow(Rect r, Entry e)
         {
-            bool over = RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
+            bool over = RowChrome.Hover(
+                r,
+                e.Kind == _selectedKind && e.Key == _selectedKey,
+                true,
+                RowHoverPolicy.OverlayAware
+            );
             if (over)
-                TooltipHandler.TipRegion(r, "Open in the Files sidebar.\n" + e.Path);
+                TooltipHandler.TipRegion(r, e.Path);
 
             bool stacked = StackActions(r.width);
+            int actionCount =
+                e.Cache ? 1
+                : e.Kind == "trash" && e.Session != null ? 3
+                : 2;
             float actionW = Mathf.Min(
-                UiLayout.BtnW("Restore", 78f),
-                Mathf.Max(0f, (r.width - UiTheme.GapS * 2f - UiTheme.GapXS) / 2f)
+                UiLayout.BtnW("Explore", 78f),
+                Mathf.Max(
+                    0f,
+                    (r.width - UiTheme.GapS * 2f - UiTheme.GapXS * (actionCount - 1)) / actionCount
+                )
             );
             float right = UiListRow.Right(r);
             float labelW = Mathf.Max(
                 0f,
                 stacked
                     ? r.width - UiTheme.GapS * 2f
-                    : r.width - actionW * 2f - UiTheme.GapXS - UiTheme.GapM
+                    : r.width
+                        - actionW * actionCount
+                        - UiTheme.GapXS * (actionCount - 1)
+                        - UiTheme.GapM
             );
             float actionY = stacked
                 ? r.yMax - UiTheme.RowBtnH
@@ -196,7 +231,7 @@ namespace SlopWorld
             // Leave the action buttons out of the selection hit target. The whole label side
             // is one row, so an entry does not require a tiny click on its name.
             if (UiButtons.RowButton(new Rect(r.x, r.y, labelW, textRect.height)))
-                Focus(e);
+                Select(e);
 
             float line1 = UiListRow.LineY(textRect, 0);
             float line2 = UiListRow.LineY(r, 1);
@@ -218,6 +253,19 @@ namespace SlopWorld
                 $"{note}  -  {Size(e)}  -  {When(e.Modified)}"
             );
             GUI.color = Color.white;
+
+            if (
+                UiButtons.Button(
+                    new Rect(
+                        right - actionW * actionCount - UiTheme.GapXS * (actionCount - 1),
+                        actionY,
+                        actionW,
+                        UiTheme.RowBtnH
+                    ),
+                    "Explore"
+                )
+            )
+                Focus(e);
 
             if (e.Cache)
                 return;
@@ -270,24 +318,19 @@ namespace SlopWorld
             FilesView.FocusDirectory(e.Path, e.Project ?? e.Session ?? e.Key);
         }
 
-        public static void FocusAgent(string name)
+        void Select(Entry entry)
         {
-            DaemonClient.Get<Wire.StoredStates>(
-                WireProtocol.Routes.State + "?sizes=false",
-                j =>
-                {
-                    var entry = j
-                        .Entries.Select(Entry.FromWire)
-                        .FirstOrDefault(e => e.Kind == "active" && e.Session == name);
-                    if (entry == null)
-                    {
-                        UiLayout.Fail($"private storage for '{name}' is unavailable");
-                        return;
-                    }
-                    Focus(entry);
-                },
-                UiLayout.Fail
-            );
+            _selectedKind = entry.Kind;
+            _selectedKey = entry.Key;
+            _pendingAgent = null;
+        }
+
+        public void SelectAgent(string name)
+        {
+            _selectedKind = null;
+            _selectedKey = null;
+            _pendingAgent = name;
+            Load();
         }
 
         void ConfirmReset(Entry e)
