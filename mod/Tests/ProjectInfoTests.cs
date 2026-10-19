@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
                 MissingTemporaryMetadata
             );
             yield return ("ignores stale temporary previews", IgnoresStaleTemporaryPreviews);
+            yield return ("manual retry recovers exhausted temporary preview", ManualPreviewRetry);
             yield return (
                 "coalesces and bounds temporary preview retries",
                 CoalescesPreviewRequests
@@ -208,6 +209,37 @@ namespace SlopWorld.Tests
                     "new request succeeds"
                 );
             }
+        }
+
+        static void ManualPreviewRetry()
+        {
+            var state = new TempProjectPreviewState();
+            var now = new DateTime(2026, 1, 1);
+            int failed = 0;
+            for (int attempt = 0; attempt < TempProjectPreviewState.MaxAttempts; attempt++)
+            {
+                now = now.AddSeconds(10);
+                failed = state.Begin("scratch", now);
+                state.Fail(failed, true, "scratch", "offline", now);
+            }
+            AssertEx.False(state.ShouldRequest("scratch", now), "automatic retries exhausted");
+            state.Cancel();
+            int retry = state.Begin("scratch", now);
+            AssertEx.True(retry > failed, "manual retry starts immediately with fresh identity");
+            AssertEx.Equal(1, state.Attempts, "manual retry restores retry budget");
+            AssertEx.False(state.Accept(failed, true, "scratch", "/stale"), "old success ignored");
+            AssertEx.False(
+                state.Fail(failed, true, "scratch", "late failure", now),
+                "old failure ignored"
+            );
+            AssertEx.True(state.Pending, "manual retry remains in flight");
+            AssertEx.True(state.Accept(retry, true, "scratch", "/tmp/scratch"), "retry succeeds");
+            AssertEx.Equal("/tmp/scratch", state.Dir, "recovered path is available to save");
+            AssertEx.Equal<string>(null, state.Error, "failure is cleared");
+            AssertEx.False(
+                state.ShouldRequest("scratch", now.AddHours(1)),
+                "success stops retries"
+            );
         }
 
         static void CoalescesPreviewRequests()

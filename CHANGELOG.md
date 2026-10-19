@@ -15,8 +15,11 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Git: Fixed special characters in filenames affecting unrelated files when (un)staging or viewing diffs.
 - Git: Fixed unstaging renamed files leaving the original path's deletion staged.
 - Search: Preserve leading and trailing spaces, including whitespace-only queries.
-- UI: Tuned loading screen animation.
+- UI: Allow retrying failed temporary project path previews.
 - UI: Fixed unchecking All projects and All worktrees in the project filter.
+- UI: Fixed saving temporary projects opened from the Worktrees tab.
+- UI: Preserve directory picker navigation after a failed directory read.
+- UI: Tuned loading screen animation.
 
 ## [0.0.7] - 2026-10-19
 

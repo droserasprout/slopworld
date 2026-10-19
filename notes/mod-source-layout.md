@@ -38,6 +38,8 @@ The main directory groupings are:
   and queues. `Agents/` owns agent editors, while `Dialogs/` keeps generic dialogs.
   `DialogSubmitState` owns single-field async submit admission and settlement;
   callers own fields, validation, and requests, while `TextDialog` owns drawing.
+  `BrowseDialogState` owns committed directory listings and request identity;
+  `BrowseDialog` owns input, daemon requests, and drawing.
   `UI/Sessions/` owns shared session actions; project actions stay in `Views/Projects/`
   and host-terminal actions in `Terminal/`.
 - `UI/Terminal/` groups input, rendering, history and links by responsibility.

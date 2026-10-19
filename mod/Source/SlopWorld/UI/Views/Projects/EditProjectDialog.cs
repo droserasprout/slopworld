@@ -56,10 +56,6 @@ namespace SlopWorld
                     SessionHub.Instance.Projects.Select(p => p.Name),
                     "project"
                 );
-                // Temporary project storage uses the project name as its directory.
-                // The copy therefore gets a new directory name.
-                if (_p.Temp)
-                    RequestTempPreview();
             }
             resizeable = true;
             AcceptOnEnter(Save);
@@ -72,6 +68,11 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
+            // Preview admission and retries must run regardless of the selected tab.
+            if (_p.Temp)
+                RequestTempPreview();
+            else
+                _tempPreview.Cancel();
             UiLayout.Title(TitleRect(rect), _identity.Title("project"));
 
             var layout = TabbedFormLayout.Arrange(
@@ -150,14 +151,19 @@ namespace SlopWorld
             {
                 // Stated rather than hidden: the path is the daemon's to coin and this is what
                 // it will coin. Browse goes with it - there is nothing to find yet.
-                RequestTempPreview();
                 UiControls.Field(l, "project.dir", _tempPreview.Status, false);
                 if (!string.IsNullOrEmpty(_tempPreview.Error))
+                {
                     UiLayout.Note(l, _tempPreview.Status);
+                    if (UiLayout.Button(l, "Retry preview"))
+                    {
+                        _tempPreview.Cancel();
+                        RequestTempPreview();
+                    }
+                }
             }
             else
             {
-                _tempPreview.Cancel();
                 _p.Dir = UiControls.Field(l, "project.dir", _p.Dir);
                 if (UiLayout.Button(l, "Choose directory"))
                     WorkspaceWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));

@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -10,14 +9,8 @@ namespace SlopWorld
     public class BrowseDialog : UiWindow
     {
         readonly System.Action<string> _pick;
-        string _path;
-        string _parent;
-        string[] _dirs = Array.Empty<string>();
-        string _error;
-        bool _pending;
-        bool _truncated;
+        readonly BrowseDialogState _state = new BrowseDialogState();
         string _filter = "";
-        readonly OperationGate _operations = new OperationGate();
         readonly SmoothScroll _scroll = new SmoothScroll();
 
         // One row and the clearance under it, so the list has a pitch rather than two figures
@@ -40,51 +33,27 @@ namespace SlopWorld
         {
             if (!keepFilter)
                 _filter = "";
-            _truncated = false;
-            long generation = _operations.Begin();
-            _pending = true;
-            _error = null;
-            _path = null;
-            _parent = null;
-            _dirs = Array.Empty<string>();
+            long generation = _state.Begin();
 
             DaemonClient.Get<Wire.BrowseResult>(
                 $"{WireProtocol.Routes.Browse}?path={System.Uri.EscapeDataString(path)}&filter={System.Uri.EscapeDataString(_filter)}",
                 j =>
                 {
-                    if (!_operations.IsCurrent(generation))
-                        return;
-
-                    string resolved = j == null ? null : j.Path;
-                    if (resolved == null)
-                    {
-                        _pending = false;
-                        _error = "The daemon returned no directory path.";
-                        return;
-                    }
-
-                    _path = resolved;
-                    _parent = !j.HasParent ? null : j.Parent;
-                    _dirs = j.Dirs.ToArray();
-                    _truncated = j.Truncated;
-                    _pending = false;
+                    _state.Accept(generation, j);
                 },
                 msg =>
                 {
-                    if (!_operations.IsCurrent(generation))
-                        return;
-                    _pending = false;
-                    _error = msg;
-                    UiLayout.Fail(msg);
+                    if (_state.Fail(generation, msg))
+                        UiLayout.Fail(msg);
                 }
             );
         }
 
         void UseCurrent()
         {
-            if (_pending || _path == null)
+            if (_state.Pending || _state.Path == null)
                 return;
-            _pick?.Invoke(_path);
+            _pick?.Invoke(_state.Path);
             Close();
         }
 
@@ -92,7 +61,8 @@ namespace SlopWorld
         {
             UiLayout.PageCaption(
                 TitleRect(rect),
-                _path ?? (_pending ? "Loading" : _error ?? "no directory selected")
+                _state.Path
+                    ?? (_state.Pending ? "Loading" : _state.Error ?? "no directory selected")
             );
 
             float top = rect.y + UiTheme.RowH + UiTheme.GapXS;
@@ -106,17 +76,20 @@ namespace SlopWorld
                 UiButtons.Button(
                     new Rect(rect.xMax - buttonWidth, top, buttonWidth, UiTheme.FieldH),
                     "Filter",
-                    on: !_pending && _path != null
+                    on: !_state.Pending && _state.Path != null
                 )
             )
-                Load(_path, keepFilter: true);
+                Load(_state.Path, keepFilter: true);
             top += UiTheme.FieldH + UiTheme.GapS;
             UiText.PlainStatusLabel(
                 new Rect(rect.x, top, rect.width, UiTheme.RowH * 2f),
-                _truncated
-                    ? "More directories exist. Filter by name to find omitted entries."
-                    : "Filter by directory name (case-sensitive). Clear it to show all names.",
-                UiTheme.Dim
+                _state.Error
+                    ?? (
+                        _state.Truncated
+                            ? "More directories exist. Filter by name to find omitted entries."
+                            : "Filter by directory name (case-sensitive). Clear it to show all names."
+                    ),
+                _state.Error == null ? UiTheme.Dim : UiTheme.Bad
             );
             top += UiTheme.RowH * 2f + UiTheme.GapS;
             var list = new Rect(
@@ -125,13 +98,15 @@ namespace SlopWorld
                 rect.width,
                 rect.yMax - UiTheme.BtnH - UiTheme.GapS - top
             );
-            int count = _pending ? 0 : _dirs.Length + (_parent != null ? 1 : 0);
+            int count = _state.Pending
+                ? 0
+                : _state.Directories.Length + (_state.Parent != null ? 1 : 0);
             var view = new Rect(0f, 0f, list.width - UiTheme.ScrollbarW, count * Pitch);
 
             using (_scroll.Scope(list, view))
             {
                 float y = 0f;
-                if (!_pending && _parent != null)
+                if (!_state.Pending && _state.Parent != null)
                 {
                     // Ghost the whole way down: forty directories in forty raised slabs is a wall
                     // of buttons, and what this is is a list that answers to a click.
@@ -142,12 +117,12 @@ namespace SlopWorld
                             UiTheme.Btn.Ghost
                         )
                     )
-                        Load(_parent);
+                        Load(_state.Parent);
                     y += Pitch;
                 }
 
-                if (!_pending)
-                    foreach (var d in _dirs)
+                if (!_state.Pending)
+                    foreach (var d in _state.Directories)
                     {
                         if (
                             UiButtons.Button(
@@ -157,8 +132,8 @@ namespace SlopWorld
                             )
                         )
                         {
-                            Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
-                            break; // _dirs is about to be replaced under us
+                            Load(System.IO.Path.Combine(_state.Path ?? "", d).Replace('\\', '/'));
+                            break; // _state.Directories is about to be replaced under us
                         }
                         y += Pitch;
                     }
@@ -169,7 +144,7 @@ namespace SlopWorld
                     UiLayout.FooterBar(rect),
                     "Use this directory",
                     UiTheme.Btn.Primary,
-                    !_pending && _path != null
+                    !_state.Pending && _state.Path != null
                 )
             )
                 UseCurrent();
@@ -177,8 +152,7 @@ namespace SlopWorld
 
         public override void PostClose()
         {
-            _operations.Invalidate();
-            _pending = false;
+            _state.Close();
             base.PostClose();
         }
     }

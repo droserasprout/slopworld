@@ -7,7 +7,9 @@ homes and variables can differ.
 
 Temporary project root metadata belongs to daemon configuration, not `ProjectInfo`.
 The daemon resolves temporary paths. Preview requests share unchanged-name work,
-while disabling temporary mode invalidates pending replies. Project summary text
+while disabling temporary mode invalidates pending replies. Preview requests and
+automatic retries run on every editor tab; General provides an explicit retry
+after failure. Project summary text
 is shared by sidebar/Library rows and project pickers, not the project editor.
 Daemon lifecycle belongs to [projects](daemon-projects.md), and user controls to
 [Configuring agents](../docs/src/agents/configuring-agents.md).
