@@ -2,16 +2,15 @@
 
 use super::USAGE;
 
+// Encode everything except RFC3986 unreserved characters in a single path/query component.
+const COMPONENT: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'~');
+
 pub(super) fn encode_component(value: &str) -> String {
-    let mut encoded = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
-            encoded.push(byte as char);
-        } else {
-            encoded.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    encoded
+    percent_encoding::utf8_percent_encode(value, COMPONENT).to_string()
 }
 
 pub(super) fn arg<'a>(args: &'a [String], at: usize, missing: &str) -> Result<&'a str, String> {
@@ -64,3 +63,7 @@ pub(super) fn option_value(
     }
     Ok(value.to_string())
 }
+
+#[cfg(test)]
+#[path = "common_tests.rs"]
+mod tests;

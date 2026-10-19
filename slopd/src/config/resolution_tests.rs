@@ -237,7 +237,7 @@ fn arguments_extend_captured_default_and_explicit_commands() {
         ..Default::default()
     };
     assert_eq!(
-        crate::sandbox::shell_split(&cfg.command_of(&session)),
+        crate::sandbox::shell_split(&cfg.command_of(&session)).unwrap(),
         ["agent", "--safe", "--model", "two words", "--label", ""]
     );
     session.cmd = Some("custom --flag".into());

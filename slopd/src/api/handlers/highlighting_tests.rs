@@ -45,7 +45,7 @@ fn themes_are_request_local_and_preserve_command_arguments() {
     ] {
         assert_eq!(
             themed_command(command, kind, "").unwrap().argv,
-            crate::sandbox::shell_split(command)
+            crate::sandbox::shell_split(command).unwrap()
         );
         let themed = themed_command(command, kind, theme).unwrap();
         let argv = themed.argv;
@@ -179,7 +179,7 @@ async fn highlighter_preserves_text_and_removes_its_temporary_input() {
     ] {
         // Emit the input path as well as its contents so cleanup is observable.
         let output = highlight_text(
-            HighlightCommand::parse("sh -c 'echo \"$1\"; cat \"$1\"' sh %s"),
+            HighlightCommand::parse("sh -c 'echo \"$1\"; cat \"$1\"' sh %s").unwrap(),
             language,
             "café\n\u{1b}[31mtext\n",
         )
@@ -195,7 +195,7 @@ async fn highlighter_preserves_text_and_removes_its_temporary_input() {
 #[tokio::test]
 async fn highlighter_reports_failure_and_cleans_up_input() {
     let error = highlight_text(
-        HighlightCommand::parse("sh -c 'echo \"$1\" >&2; exit 7' sh %s"),
+        HighlightCommand::parse("sh -c 'echo \"$1\" >&2; exit 7' sh %s").unwrap(),
         "rust",
         "input",
     )
@@ -208,7 +208,7 @@ async fn highlighter_reports_failure_and_cleans_up_input() {
     assert!(Path::new(path).is_absolute());
     assert!(!Path::new(path).exists());
     assert_eq!(
-        highlight_text(HighlightCommand::parse("  "), "rs", "input")
+        highlight_text(HighlightCommand::parse("  ").unwrap(), "rs", "input")
             .await
             .unwrap_err()
             .to_string(),
@@ -239,6 +239,7 @@ async fn highlighter_rejects_invalid_output_missing_program_and_timeout() {
         assert_eq!(
             run_highlighter_argv(
                 &HighlightCommand::parse(command)
+                    .unwrap()
                     .with_file(&input)
                     .unwrap()
                     .argv
@@ -263,7 +264,7 @@ async fn cancelled_highlight_removes_its_temporary_file() {
     // argument instead of passing it to sleep as an invalid duration.
     tasks.spawn(async move {
         highlight_text(
-            HighlightCommand::parse("sh -c 'exec sleep 30'"),
+            HighlightCommand::parse("sh -c 'exec sleep 30'").unwrap(),
             "txt",
             &task_marker,
         )
@@ -301,6 +302,7 @@ fn highlighter_command_appends_or_expands_the_file() {
     let path = Path::new("/tmp/slopworld/highlight/code file.rs");
     assert_eq!(
         HighlightCommand::parse("highlight --out-format=xterm256")
+            .unwrap()
             .with_file(path)
             .unwrap()
             .argv,
@@ -312,10 +314,22 @@ fn highlighter_command_appends_or_expands_the_file() {
     );
     assert_eq!(
         HighlightCommand::parse("tool --file=%s")
+            .unwrap()
             .with_file(path)
             .unwrap()
             .argv,
         ["tool", "--file=/tmp/slopworld/highlight/code file.rs"]
     );
-    assert!(HighlightCommand::parse("   ").with_file(path).is_err());
+    assert!(
+        HighlightCommand::parse("   ")
+            .unwrap()
+            .with_file(path)
+            .is_err()
+    );
+}
+
+#[test]
+fn highlighter_rejects_incomplete_command_quoting() {
+    assert!(HighlightCommand::parse("bat 'unfinished").is_err());
+    assert!(themed_command("bat 'unfinished", "bat", "").is_err());
 }

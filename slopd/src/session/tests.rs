@@ -19,7 +19,7 @@ fn file_action_paths_normalize_the_absolute_placeholder() {
         "du -sh '/tmp/repo/file name'"
     );
     assert_eq!(
-        crate::sandbox::shell_split(&hold_action_command("du -sh '/tmp/repo/file name'")),
+        crate::sandbox::shell_split(&hold_action_command("du -sh '/tmp/repo/file name'")).unwrap(),
         vec![
             "bash",
             "-lc",

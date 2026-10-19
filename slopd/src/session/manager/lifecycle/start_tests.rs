@@ -348,3 +348,29 @@ async fn start_rejects_retained_incompatible_identities_before_launch() {
         assert!(!manager.tmux.exists("agent").await);
     }
 }
+
+#[tokio::test]
+async fn malformed_commands_reject_before_tmux_creation_and_revoke_worker_credentials() {
+    for host in [false, true] {
+        let manager = manager_for_start();
+        let mut session = manager.config().await.sessions[0].clone();
+        session.cmd = Some("printf 'unfinished".into());
+        session.worker = !host;
+        session.parent = "parent".into();
+        session.task_id = "task".into();
+        if host {
+            let mut row = Live::new(session, TitleCapture::default());
+            row.host = true;
+            manager.cfg.write().await.sessions.clear();
+            manager.live.write().await.insert("agent".into(), row);
+        } else {
+            manager.cfg.write().await.sessions[0] = session;
+        }
+        assert_eq!(manager.auth.grants.read().await.count(), 0);
+        let error = manager.prepare_start("agent").await.err().unwrap();
+        assert!(error.to_string().contains("invalid command"), "{error:#}");
+        assert_eq!(manager.auth.grants.read().await.count(), 0);
+        assert!(!manager.tmux.exists("agent").await);
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
+}

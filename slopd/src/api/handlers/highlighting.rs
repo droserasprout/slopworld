@@ -35,10 +35,10 @@ struct HighlightCommand {
 }
 
 impl HighlightCommand {
-    fn parse(command: &str) -> Self {
-        Self {
-            argv: crate::sandbox::shell_split(command),
-        }
+    fn parse(command: &str) -> Result<Self> {
+        Ok(Self {
+            argv: crate::sandbox::shell_split(command)?,
+        })
     }
 
     fn with_file(mut self, path: &std::path::Path) -> Result<Self> {
@@ -63,7 +63,7 @@ impl HighlightCommand {
 }
 
 fn themed_command(command: &str, requested_engine: &str, theme: &str) -> Result<HighlightCommand> {
-    let mut command = HighlightCommand::parse(&crate::config::resolve_highlighter(command));
+    let mut command = HighlightCommand::parse(&crate::config::resolve_highlighter(command))?;
     if theme.is_empty() {
         return Ok(command);
     }
@@ -115,7 +115,8 @@ pub(crate) async fn highlight_themes(
         .command
         .unwrap_or(m.config().await.settings.commands.highlighter);
     let command = crate::config::resolve_highlighter(&command);
-    let argv = crate::sandbox::shell_split(&command);
+    let argv = crate::sandbox::shell_split(&command)
+        .map_err(|error| err(StatusCode::BAD_REQUEST, error.to_string()))?;
     let kind = engine(&argv);
     if kind.is_empty() {
         return Ok(Proto(wire::HighlightThemes::default()));

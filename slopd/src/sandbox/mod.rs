@@ -65,7 +65,11 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     let network = cfg.network_of(s, p);
     let dns = cfg.dns_of(s, p);
     let agent_shell = agent_shell_path(cfg)?;
-    let agent_argv = shell_split(&cfg.command_of(s));
+    let agent_argv = shell_split(&cfg.command_of(s))?;
+    anyhow::ensure!(
+        agent_argv.first().is_some_and(|arg| !arg.is_empty()),
+        "agent command has no executable"
+    );
     let dir = expand(&p.dir);
     let table = s.preset_table();
     let presets = presets_for(cfg, s, p, &table)?;
@@ -214,7 +218,7 @@ pub(crate) fn agent_shell_path(cfg: &Config) -> Result<String> {
     } else {
         configured
     };
-    let executable = shell_split(command)
+    let executable = shell_split(command)?
         .into_iter()
         .find(|arg| !arg.is_empty())
         .ok_or_else(|| anyhow::anyhow!("agent shell {configured:?} has no executable"))?;

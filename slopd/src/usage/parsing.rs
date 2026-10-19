@@ -283,7 +283,7 @@ fn resets_in(w: &Value) -> Option<u64> {
         if let Some(at) = w[k].as_u64() {
             return Some(at.saturating_sub(unix_ms() / 1000));
         }
-        // RFC3339, parsed by hand rather than pulling in chrono for one field.
+        // RFC3339 with an explicit timezone.
         if let Some(s) = w[k].as_str()
             && let Some(at) = epoch_from_rfc3339(s)
         {

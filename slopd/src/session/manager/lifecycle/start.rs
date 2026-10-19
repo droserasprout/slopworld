@@ -114,8 +114,15 @@ impl Manager {
             session.worker_token = Some(token);
         }
 
-        let launch = match build_start_plan(&cfg, &session, &project, host) {
-            Ok(launch) => launch,
+        let planned = build_start_plan(&cfg, &session, &project, host).and_then(|launch| {
+            let argv = match &launch {
+                Some(plan) => plan.lower(),
+                None => crate::sandbox::host_argv(&cfg, &session, &project)?,
+            };
+            Ok((launch, argv))
+        });
+        let (launch, argv) = match planned {
+            Ok(planned) => planned,
             Err(error) => {
                 if session.worker {
                     self.invalidate_session(&session.name).await;
@@ -123,11 +130,6 @@ impl Manager {
                 return Err(error);
             }
         };
-
-        let argv = launch
-            .as_ref()
-            .map(LaunchPlan::lower)
-            .unwrap_or_else(|| crate::sandbox::host_argv(&cfg, &session, &project));
 
         Ok(StartPlan {
             session,

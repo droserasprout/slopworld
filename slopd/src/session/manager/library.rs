@@ -260,7 +260,7 @@ impl Manager {
     async fn execute_file_action(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<String> {
         // File actions execute on the host as user operations.
         // Project scope validates their paths without restricting execution to the project sandbox.
-        let argv = crate::sandbox::host_argv(cfg, s, p);
+        let argv = crate::sandbox::host_argv(cfg, s, p)?;
         let output = Self::run_file_action_command(&argv, &expand(&p.dir)).await?;
         Self::format_file_action_result(
             &output.stdout,

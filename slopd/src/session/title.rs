@@ -172,6 +172,7 @@ fn title_agent(cfg: &Config, session: &SessionCfg) -> Option<TitleAgent> {
     let command = cfg.command_name(session);
     let executable = if command.is_empty() {
         crate::sandbox::shell_split(&cfg.command_of(session))
+            .ok()?
             .into_iter()
             .next()?
     } else {

@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use anyhow::{Context, Result};
+
 use crate::config::{Config, ProjectCfg, SessionCfg};
 
 use super::{PANE_TERM, pane_less_utfchardef};
@@ -9,7 +11,7 @@ use super::{PANE_TERM, pane_less_utfchardef};
 /// Build the unsandboxed Terminal (host) command. Inherit the slopd environment.
 /// Use the same tmux working directory as sandboxed sessions.
 /// Library errands must explicitly select host execution. Ordinary agents remain sandboxed.
-pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
+pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
     let mut a: Vec<String> = vec![
         "env".into(),
         format!("TERM={PANE_TERM}"),
@@ -18,8 +20,13 @@ pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         format!("SLOPWORLD_SESSION={}", s.name),
         format!("SLOPWORLD_PROJECT={}", p.name),
     ];
-    a.extend(shell_split(&host_command(cfg, s, host_shell().as_deref())));
-    a
+    let command = shell_split(&host_command(cfg, s, host_shell().as_deref()))?;
+    anyhow::ensure!(
+        command.first().is_some_and(|arg| !arg.is_empty()),
+        "host command has no executable"
+    );
+    a.extend(command);
+    Ok(a)
 }
 
 /// Read SHELL from the slopd environment to select the host user's shell.
@@ -90,57 +97,10 @@ pub(super) fn session_name_for(project: &str, shell: Option<&str>) -> String {
     }
 }
 
-/// Preserve argv boundaries without expansion. Inside double quotes, backslash
-/// escapes only `$`, backtick, quote, backslash and newline, as in a POSIX shell.
-/// Incomplete quotes are accepted; a trailing backslash stays literal.
-pub fn shell_split(s: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut cur = String::new();
-    let mut quote: Option<char> = None;
-    let mut any = false;
-    let mut escaped = false;
-
-    for c in s.chars() {
-        if escaped {
-            if quote == Some('"') && !matches!(c, '$' | '`' | '"' | '\\' | '\n') {
-                cur.push('\\');
-            }
-            if c != '\n' {
-                cur.push(c);
-            }
-            any = true;
-            escaped = false;
-            continue;
-        }
-
-        match quote {
-            Some('\'') if c == '\'' => quote = None,
-            Some('"') if c == '"' => quote = None,
-            Some('"') if c == '\\' => escaped = true,
-            None if c == '\\' => {
-                escaped = true;
-                any = true;
-            }
-            None if c == '\'' || c == '"' => {
-                quote = Some(c);
-                any = true;
-            }
-            None if c.is_whitespace() => {
-                if !cur.is_empty() || any {
-                    out.push(std::mem::take(&mut cur));
-                    any = false;
-                }
-            }
-            _ => cur.push(c),
-        }
-    }
-    if escaped {
-        cur.push('\\');
-    }
-    if !cur.is_empty() || any {
-        out.push(cur);
-    }
-    out
+/// Split POSIX shell words without expansion. Reject incomplete quoting or escapes.
+/// Keep errors independent of command text, which can contain credentials.
+pub fn shell_split(s: &str) -> Result<Vec<String>> {
+    shlex::split(s).context("invalid command: unterminated quote or trailing escape")
 }
 
 #[cfg(test)]

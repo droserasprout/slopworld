@@ -35,6 +35,10 @@ removal can delete private siblings before failing on a shared credential; resta
 does not reseed an existing copy. Repair or reset is required. User-facing guidance
 belongs to the [security model](../docs/src/sandbox/security.md).
 
+Command strings use POSIX shell word parsing without expansion. Unfinished quotes
+and trailing escapes reject launch; comments and ASCII shell whitespace follow
+`shlex` semantics. Quote literal arguments containing comment markers or whitespace.
+
 Network/DNS and optional resource limits apply at launch. Requested limits cover the
 process tree and must be enforced or fail launch. Agent launches have no general
 seccomp policy or disk quota; host Git inspection is a separate

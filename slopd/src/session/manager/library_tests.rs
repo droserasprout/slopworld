@@ -156,7 +156,7 @@ fn host_file_actions_do_not_need_a_project() {
         session.cmd.as_deref(),
         Some("du -sh '/tmp/private state/file'")
     );
-    let argv = crate::sandbox::host_argv(&cfg, &session, &project);
+    let argv = crate::sandbox::host_argv(&cfg, &session, &project).unwrap();
     assert!(!argv.iter().any(|part| part == "bwrap"));
 }
 
