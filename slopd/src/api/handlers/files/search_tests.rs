@@ -2,6 +2,32 @@ use super::*;
 use serde_json::json;
 use std::path::Path;
 
+#[tokio::test]
+async fn daemon_ripgrep_config_cannot_hide_requested_matches() {
+    let fixture = crate::api::handlers::tests::fixture("search-rg-config");
+    std::fs::write(fixture.join("keep.txt"), "needle\n").unwrap();
+    let config = fixture.join("rg.conf");
+    std::fs::write(&config, "--glob=!*.txt\n").unwrap();
+    let request = search_request(&fixture, "needle", 100);
+    // Set the child's environment only; parallel tests must not share process-global changes.
+    let output = build_rg_command(&fixture, &request)
+        .env("RIPGREP_CONFIG_PATH", &config)
+        .output()
+        .await
+        .unwrap();
+    assert!(output.status.success());
+    let mut included = true;
+    let matches: Vec<_> = output
+        .stdout
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+        .filter_map(|line| decode_event(line, None, &mut included).unwrap())
+        .collect();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0].path, "keep.txt");
+    assert_eq!(matches[0].text, "needle");
+}
+
 fn search_request(path: &Path, query: &str, limit: usize) -> SearchReq {
     serde_json::from_value(json!({
         "path": path, "q": query, "limit": limit,

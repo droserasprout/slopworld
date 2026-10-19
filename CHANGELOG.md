@@ -18,14 +18,15 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 - Files: Fixed ignored entries hiding visible files in directories with more than 500 entries.
 - Files: Fixed file actions misinterpreting placeholder text in filenames.
-- Files/Search: Reject non-UTF-8 filenames to prevent opening or modifying the wrong file.
-- Git: Fixed special characters in filenames affecting unrelated files when (un)staging or viewing diffs.
+- Files/Git/Search: Reject non-UTF-8 filenames to prevent opening or modifying the wrong file.
+- Git: Fixed handling special characters in filenames.
 - Git: Fixed unstaging renamed files leaving the original path's deletion staged.
 - Git: Fixed diffs showing renamed files as additions when the original path is outside the selected directory.
 - Library: Prevent duplicate saves and edits while saving.
 - Library: Fixed command placeholders becoming part of the entered command.
 - Search: Fixed blank result previews for lines containing non-UTF-8 text.
 - Search: Preserve leading and trailing spaces, including whitespace-only queries.
+- Search: Fixed personal ripgrep settings affecting matching files.
 - Tasks: Keep available recipients up to date while the delegation dialog is open.
 - Terminal: Fixed opening a terminal path link on correct line number when the file is already open.
 - Terminal: Fixed terminal path links failing in directories with more than 500 entries.

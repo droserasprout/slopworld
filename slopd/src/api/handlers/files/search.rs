@@ -56,6 +56,8 @@ pub(crate) fn search_preview(text: &str, column: usize) -> String {
 pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::process::Command {
     let mut cmd = tokio::process::Command::new("rg");
     cmd.current_dir(path)
+        // UI request fields own search policy, independently of the daemon's environment.
+        .arg("--no-config")
         .arg("--json")
         .arg("--line-number")
         .arg("--color=never")

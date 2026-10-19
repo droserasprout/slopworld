@@ -8,7 +8,7 @@ use std::process::Stdio;
 mod exec;
 
 use futures::stream::{self, StreamExt};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 /// One changed path.
@@ -137,7 +137,6 @@ pub async fn status_with_counts(
     // It can omit ignored trees, including build output and nested checkouts.
     // Expand ordinary untracked directories in one batch below.
     // Keep nested repositories as boundary rows.
-    // own working tree is never inspected as part of the parent.
     let (rows_result, branch) = tokio::join!(status_rows(&root), branch(&root));
     let (rows, truncated) = rows_result?;
     crate::perf::count("git-status-rows", rows.len() as u64);
@@ -230,6 +229,8 @@ async fn status_rows_command(
 ) -> std::io::Result<(Vec<StatusRow>, bool)> {
     let mut command = inspection_command(root);
     command
+        // Status expansion supplies directory identities, not pathspec expressions.
+        .arg("--literal-pathspecs")
         // Persist directory-mtime caches without enabling repository fsmonitor commands.
         .args(["-c", "core.untrackedCache=true"])
         .args(["status", "--porcelain=v1"])
@@ -252,16 +253,38 @@ async fn status_rows_command(
         .stdout
         .take()
         .ok_or_else(|| std::io::Error::other("capturing git status output"))?;
-    let mut stdout = BufReader::new(stdout);
     let stderr = child
         .stderr
         .take()
         .ok_or_else(|| std::io::Error::other("capturing git status errors"))?;
-    let stderr_task = tokio::spawn(async move {
-        let mut error = String::new();
-        drop(BufReader::new(stderr).read_to_string(&mut error).await);
-        error
-    });
+    // Keep both readers in this future: cancellation drops them and kills the child.
+    // Parse failures and the row cap must terminate and reap before returning.
+    let collect = async {
+        let rows = read_status_rows(&mut BufReader::new(stdout)).await;
+        if !rows.as_ref().is_ok_and(|(_, truncated)| !truncated) {
+            drop(child.kill().await);
+        }
+        let status = child.wait().await;
+        rows.map(|rows| (rows, status))
+    };
+    let (result, errors) = tokio::join!(collect, crate::process::read_bounded(stderr, 16 * 1024));
+    let ((rows, truncated), status) = result?;
+    if !truncated && !status?.success() {
+        let (bytes, _) = errors?;
+        let error = String::from_utf8_lossy(&bytes);
+        let error = error.trim();
+        return Err(std::io::Error::other(if error.is_empty() {
+            "git status failed".to_string()
+        } else {
+            error.to_string()
+        }));
+    }
+    Ok((rows, truncated))
+}
+
+async fn read_status_rows<R: AsyncBufRead + Unpin>(
+    stdout: &mut R,
+) -> std::io::Result<(Vec<StatusRow>, bool)> {
     let mut fields = Vec::new();
     let mut rows = Vec::with_capacity(LIMIT);
 
@@ -273,8 +296,8 @@ async fn status_rows_command(
         if fields.last() == Some(&0) {
             fields.pop();
         }
-        let record = String::from_utf8_lossy(&fields);
-        let Some(((path, status), renamed)) = parse_porcelain_record(&record) else {
+        let record = git_text(&fields)?;
+        let Some(((path, status), renamed)) = parse_porcelain_record(record) else {
             continue;
         };
         let source = if renamed {
@@ -287,7 +310,7 @@ async fn status_rows_command(
                 if fields.last() == Some(&0) {
                     fields.pop();
                 }
-                Some(String::from_utf8_lossy(&fields).into_owned())
+                Some(git_text(&fields)?.to_owned())
             }
         } else {
             None
@@ -298,25 +321,22 @@ async fn status_rows_command(
             source,
         });
         if rows.len() > LIMIT {
-            drop(child.kill().await);
-            drop(child.wait().await);
-            drop(stderr_task.await);
             rows.truncate(LIMIT);
             return Ok((rows, true));
         }
     }
 
-    let status = child.wait().await?;
-    let error = stderr_task.await.unwrap_or_default();
-    if !status.success() {
-        let error = error.trim();
-        return Err(std::io::Error::other(if error.is_empty() {
-            "git status failed".to_string()
-        } else {
-            error.to_string()
-        }));
-    }
     Ok((rows, false))
+}
+
+/// Paths on the wire must preserve identity; replacement characters can name another file.
+fn git_text(bytes: &[u8]) -> std::io::Result<&str> {
+    std::str::from_utf8(bytes).map_err(|error| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Git encountered a path that is not valid UTF-8. Rename it using a terminal. ({error})"),
+        )
+    })
 }
 
 /// The repository root, or `None` outside a repository. Other Git failures are errors.
@@ -332,9 +352,8 @@ async fn toplevel(dir: &Path) -> std::io::Result<Option<PathBuf>> {
         }
         return Err(std::io::Error::other(error.trim().to_string()));
     }
-    let path = String::from_utf8_lossy(&out.stdout);
-    let path = path.strip_suffix('\n').unwrap_or(&path);
-    let path = path.strip_suffix('\r').unwrap_or(path);
+    let path = git_text(&out.stdout)?;
+    let path = path.strip_suffix('\n').unwrap_or(path);
     Ok((!path.is_empty()).then(|| PathBuf::from(path)))
 }
 
@@ -515,7 +534,7 @@ async fn no_index_numstat(root: &Path, path: &str) -> Option<(Option<u32>, Optio
         .ok()?;
 
     if out.status.success() || out.status.code() == Some(1) {
-        return parse_numstat(&String::from_utf8_lossy(&out.stdout))
+        return parse_numstat(git_text(&out.stdout).ok()?)
             .into_iter()
             .next()
             .map(|(_, count)| count);
@@ -537,7 +556,7 @@ async fn run(root: &Path, args: &[&str]) -> std::io::Result<String> {
             String::from_utf8_lossy(&out.stderr).trim().to_string(),
         ));
     }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    Ok(git_text(&out.stdout)?.to_owned())
 }
 
 /// Run a diff against only the paths the status stream returned. Without the pathspec, a
@@ -548,7 +567,9 @@ where
     I: IntoIterator<Item = &'a str>,
 {
     let mut command = inspection_command(root);
-    command.args(args).arg("--");
+    // Diff inputs come from status rows. Keep pathspec policy local: check-ignore
+    // rejects literal pathspec magic, so the shared inspection command cannot set it.
+    command.arg("--literal-pathspecs").args(args).arg("--");
     for path in paths {
         command.arg(path);
     }
@@ -558,7 +579,7 @@ where
             String::from_utf8_lossy(&out.stderr).trim().to_string(),
         ));
     }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    Ok(git_text(&out.stdout)?.to_owned())
 }
 
 /// Parse one status field and say whether it consumes the following source-path field.
@@ -606,3 +627,6 @@ fn parse_numstat(out: &str) -> HashMap<String, (Option<u32>, Option<u32>)> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod path_tests;
