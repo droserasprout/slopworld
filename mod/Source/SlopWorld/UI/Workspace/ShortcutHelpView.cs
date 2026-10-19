@@ -9,7 +9,7 @@ namespace SlopWorld
     // A workspace reference for both live key bindings and shortcuts that deliberately do not
     // go through KeyBindingDef. It shares WorkspaceWindow's fullscreen chrome with Settings and
     // terminal views. The map-only `?` shortcut still never competes with an agent pane.
-    public sealed class ShortcutHelpWindow : ContentView
+    public sealed class ShortcutHelpView : ContentView
     {
         sealed class ShortcutRow
         {
@@ -53,7 +53,7 @@ namespace SlopWorld
         {
             if (!CanOpen)
                 return;
-            WorkspaceWindow.ToggleContent(() => new ShortcutHelpWindow());
+            WorkspaceWindow.ToggleContent(() => new ShortcutHelpView());
         }
 
         // GameComponentOnGUI sees the map event before WindowStack and before a focused
@@ -83,7 +83,7 @@ namespace SlopWorld
                 e == null
                 || !IsKeyDown(e)
                 || !IsHelpKey(e)
-                || WorkspaceWindow.ShowingAs<ShortcutHelpWindow>() == null
+                || WorkspaceWindow.ShowingAs<ShortcutHelpView>() == null
             )
                 return false;
 

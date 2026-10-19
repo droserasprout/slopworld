@@ -19,11 +19,11 @@ namespace SlopWorld
             // Otherwise, handle Alt+number for map selection.
             if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
             {
-                if (ShortcutHelpWindow.HandleContentKey(Event.current))
+                if (ShortcutHelpView.HandleContentKey(Event.current))
                     return;
                 return;
             }
-            if (ShortcutHelpWindow.HandleMapKey(Event.current))
+            if (ShortcutHelpView.HandleMapKey(Event.current))
                 return;
 
             if (

@@ -135,7 +135,7 @@ namespace SlopWorld
 
         public void HandleChrome(Event e)
         {
-            if (ShortcutHelpWindow.HandleContentKey(e))
+            if (ShortcutHelpView.HandleContentKey(e))
                 return;
             if (e.type != EventType.KeyDown)
                 return;

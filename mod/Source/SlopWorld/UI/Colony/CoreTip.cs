@@ -251,7 +251,7 @@ namespace SlopWorld
             {
                 new FloatMenuOption("Hint", HintAction),
                 new FloatMenuOption("Advice", AdviceAction),
-                new FloatMenuOption("Keyboard shortcuts", ShortcutHelpWindow.Toggle),
+                new FloatMenuOption("Keyboard shortcuts", ShortcutHelpView.Toggle),
             };
             // Gentle and Eco modes hide this option.
             if (!Settings.GrandmaMode && !Settings.EcoMode)

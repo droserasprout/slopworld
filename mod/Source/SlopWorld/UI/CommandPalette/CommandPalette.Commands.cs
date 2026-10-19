@@ -521,8 +521,8 @@ namespace SlopWorld
                 "help.shortcuts",
                 "Help: Keyboard Shortcuts",
                 "Help",
-                _ => ShortcutHelpWindow.Toggle(),
-                enabled: () => ShortcutHelpWindow.CanOpen
+                _ => ShortcutHelpView.Toggle(),
+                enabled: () => ShortcutHelpView.CanOpen
             ),
             new CommandDef("jukebox.mute", "Jukebox: Mute", "Jukebox", _ => Radio.ToggleMute()),
             new CommandDef("jukebox.random", "Jukebox: Random", "Jukebox", _ => Radio.PickRandom()),
