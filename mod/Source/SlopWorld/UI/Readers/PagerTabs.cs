@@ -132,6 +132,17 @@ namespace SlopWorld
             return false;
         }
 
+        // Explicit dismissal must find the owner even while its old process is stopping.
+        public T FindSession(string session)
+        {
+            if (session == null)
+                return null;
+            RetireDead();
+            return _preview.Session == session
+                ? _preview
+                : _locked.Find(tab => tab.Session == session);
+        }
+
         public bool ContainsSession(string session)
         {
             RetireDead();

@@ -38,6 +38,9 @@ namespace SlopWorld
             ),
         };
 
+        static readonly string[] AgentPolicies = { "Never", "Once", "Always" };
+        static readonly string[] TaskPolicies = { "Never", "Once" };
+
         protected override string SavedMessage => "title settings saved.";
 
         protected override void DrawFields(Listing_Standard l)
@@ -48,11 +51,12 @@ namespace SlopWorld
             {
                 foreach (var target in Targets)
                 {
-                    UiControls.Select(
+                    UiSelector.Draw(
                         l,
                         target.Label,
                         PolicyLabel(target.GetPolicy(_cfg)),
-                        PolicyOptions(target),
+                        target.AllowsAlways ? AgentPolicies : TaskPolicies,
+                        () => PolicyOptions(target),
                         out _
                     );
                 }
@@ -152,7 +156,7 @@ namespace SlopWorld
             UiSelector.DrawInline(
                 button,
                 PolicyLabel(target.GetPolicy(_cfg)),
-                PolicyOptions(target)
+                () => PolicyOptions(target)
             );
         }
 

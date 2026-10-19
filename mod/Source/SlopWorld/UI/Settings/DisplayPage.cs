@@ -10,6 +10,9 @@ namespace SlopWorld
     public sealed class DisplayPage : IOptionPage
     {
         readonly SettingsForm _form = new SettingsForm();
+        static readonly string[] FrameLabels = new[] { "VSync" }
+            .Concat(FramePolicy.Presets.Select(preset => preset + " FPS"))
+            .ToArray();
         static ModSettings S => ModEntry.Instance.settings;
 
         public void Load() { }
@@ -39,6 +42,33 @@ namespace SlopWorld
                 mode == FramePolicy.Limit
                     ? "Disables VSync. Lower limits save power. Higher limits improve responsiveness."
                     : "VSync follows the display refresh rate for smooth presentation.";
+            UiSelector.Draw(
+                l,
+                "Frame pacing",
+                framePacingLabel,
+                FrameLabels,
+                FrameOptions,
+                out _,
+                framePacingTip
+            );
+
+            UiLayout.SectionHeading(l, "Scrolling");
+            bool smooth = UiControls.Checkbox(
+                l,
+                "Smooth scrolling",
+                S.smoothScrolling,
+                "Use precise touchpad scrolling in terminals, panels, and Markdown. "
+                    + "Turn off to use wheel steps. Applies immediately."
+            );
+            if (smooth != S.smoothScrolling)
+            {
+                S.smoothScrolling = smooth;
+                S.MarkDirty();
+            }
+        }
+
+        static List<FloatMenuOption> FrameOptions()
+        {
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption(
@@ -61,21 +91,7 @@ namespace SlopWorld
                     }
                 ))
             );
-            UiControls.Select(l, "Frame pacing", framePacingLabel, options, out _, framePacingTip);
-
-            UiLayout.SectionHeading(l, "Scrolling");
-            bool smooth = UiControls.Checkbox(
-                l,
-                "Smooth scrolling",
-                S.smoothScrolling,
-                "Use precise touchpad scrolling in terminals, panels, and Markdown. "
-                    + "Turn off to use wheel steps. Applies immediately."
-            );
-            if (smooth != S.smoothScrolling)
-            {
-                S.smoothScrolling = smooth;
-                S.MarkDirty();
-            }
+            return options;
         }
     }
 }

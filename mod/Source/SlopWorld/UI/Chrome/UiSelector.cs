@@ -45,17 +45,45 @@ namespace SlopWorld
         public static bool DrawInline(
             Rect box,
             string value,
-            List<FloatMenuOption> options,
+            Func<List<FloatMenuOption>> options,
             Action<UiMenu> openMenu = null
         )
         {
             if (!UiControls.SelectInline(box, value))
                 return false;
-            var menu = Menu(options, ScreenBox(box));
+            var menu = Menu(options(), ScreenBox(box));
             if (openMenu != null)
                 openMenu(menu);
             else
                 Find.WindowStack.Add(menu);
+            return true;
+        }
+
+        // Stable label catalogs let forms measure without constructing menu actions.
+        // Width is still resolved with current text metrics and bounded by the form.
+        public static bool Draw(
+            Listing_Standard listing,
+            string caption,
+            string value,
+            IEnumerable<string> labels,
+            Func<List<FloatMenuOption>> options,
+            out Rect box,
+            string tip = null
+        )
+        {
+            var rect = listing.GetRect(UiTheme.LineH + UiTheme.GapXS + UiTheme.CompactH);
+            bool pressed = UiControls.Select(
+                rect,
+                caption,
+                value,
+                out box,
+                tip,
+                forcedWidth: UiMenu.WidthFor(new[] { value }.Concat(labels))
+            );
+            listing.Gap(UiTheme.GapS);
+            if (!pressed)
+                return false;
+            Find.WindowStack.Add(Menu(options(), ScreenBox(box)));
             return true;
         }
 

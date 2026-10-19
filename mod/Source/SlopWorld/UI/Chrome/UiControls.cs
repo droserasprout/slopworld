@@ -444,19 +444,10 @@ namespace SlopWorld
                     value
                 );
             }
-            var e = Event.current;
-            if (
-                !on
-                || !GUI.enabled
-                || e == null
-                || e.type != EventType.MouseDown
-                || e.button != 0
-                || !Mouse.IsOver(box)
-            )
+            // Navigation consumes the press before a new menu can see it. A source
+            // press that dismissed its menu must not reopen it on this GUI pass.
+            if (!NavigationPress(box, on))
                 return false;
-            // Consume the press before opening so the new menu cannot dismiss itself.
-            // A source press that already dismissed its menu must not reopen it.
-            e.Use();
             if (UiMenu.TryBlockSelectorClickAt(MenuAt(box)))
                 return false;
             SoundDefOf.Click.PlayOneShotOnCamera();

@@ -111,18 +111,18 @@ namespace SlopWorld
         {
             RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
 
-            bool native = FilesView.IsNativeViewerHeader(row.Session);
-            bool markdown = native && FileTypes.IsMarkdown(info?.ReaderPath);
-            bool image = native && FileTypes.IsImage(info?.ReaderPath);
+            var reader = FileReaders.Describe(info);
+            bool markdown = reader.Presentation == ReaderPresentation.Markdown;
+            bool image = reader.Presentation == ReaderPresentation.Image;
             var icon =
                 markdown ? Icons.MarkdownPreview
                 : image ? Icons.ImagePreview
                 : null;
-            var text = DrawActionMark(row.Text, RoutedAction(info), true, icon);
+            var text = DrawActionMark(row.Text, reader.Action, true, icon);
 
             Text.Font = GameFont.Small;
-            bool preview = FileReaders.IsSession(row.Session);
-            bool locked = FileReaders.IsLocked(row.Session);
+            bool preview = reader.IsPreview;
+            bool locked = reader.Pinned;
             SidebarRowRenderer.DrawGhostLabel(
                 text,
                 info,

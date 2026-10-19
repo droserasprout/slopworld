@@ -36,7 +36,10 @@ screen-space anchors and the same dismissal guard, retaining natural menu width.
 Selector width must fit its text, arrow, and divider within the available form
 width. The opened menu uses that final width. `UiMenu` owns menu chains;
 `Patch_UiMenuWindowStack` closes them before a clicked non-menu window is raised.
-Selectors open on the left mouse press and consume it before adding the menu.
+Selectors use `NavigationPress` to consume the left mouse press before adding the menu.
+Inline selectors build menu options only when opened. Forms with stable choice labels
+can retain their label catalog for measurement and supply a separate menu factory;
+measurement still uses current text metrics and the available form width.
 Selector dismissal retains its source anchor so the same press cannot reopen it. Selectors observe physical mouse presses to retire an unclaimed
 dismissal; repeated GUI passes in the same frame must preserve it. Other selectors
 remain usable.

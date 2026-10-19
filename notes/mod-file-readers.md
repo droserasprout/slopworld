@@ -5,6 +5,10 @@ owns native-reader handoffs. Search owns its separate pager. Host reader session
 are disposable rather than saved host-shell tabs. Their names are opaque handles;
 intent and source metadata enable restoration. Configured commands can also identify
 reader actions.
+`FileReaders` resolves the owning tab across Files/Git, native previews, and Search.
+`ReaderDismissal` closes that owner before applying the fallback for unowned disposable
+sessions. Editor processes retain their confirmed Stop action. Closing an owner cancels
+pending replacements as well as stopping its current process.
 
 There is one replaceable preview and independently pinned readers. Reopening a path,
 including a line target, reuses its reader; concurrent opens share the pending request.
@@ -25,6 +29,9 @@ session handles, preserving order when a diff process is replaced.
 handoffs. Incoming processes stay hidden until claimed by their reader; retiring
 processes stay hidden until the daemon snapshot removes them. Replacement therefore
 publishes one row even when session pushes precede launch callbacks or stops finish late.
+`Pager` keeps committed session/source state separate from its pending replacement.
+Open, refresh, and appearance replacement share commit and cancellation; explicit opens
+focus content, while background replacements only rebind panes still showing the old reader.
 Explicit file, editor, diff, and Search reader opens reveal the open-files pane
 without changing the selected sidebar tab. Reveal happens at request time; delayed
 completion, reader restoration, and background refresh leave visibility alone.
@@ -37,7 +44,9 @@ Routed rows display filenames beside muted checkout context; main checkouts show
 only the project. Italics identify replaceable previews, while pinned readers use
 upright text.
 In Open files, rendered Markdown readers use a page-with-text mark and native image
-readers use a landscape; source pagers and native plain-text previews retain the view eye.
+readers use a landscape; source pagers and native plain-text previews retain the view eye. `ReaderRow` supplies
+source targets, presentation, and pin/close capabilities to drawing and menus. Native
+presentation comes from the content creation decision, never the filename alone.
 
 Source-file probes reconcile readers independently of tree filters/folds. Failed
 probes preserve readers, and stale replies cannot replace another reader. Refresh

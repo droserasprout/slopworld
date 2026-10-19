@@ -1,99 +1,72 @@
 namespace SlopWorld
 {
-    // A reader owns one ephemeral pager session. Files and Git share preview/pinned slots.
-    // sidebar tab changes preserve them and explicit dismissal releases them.
+    // Owns one committed reader and at most one pending replacement. PagerTabs owns
+    // preview/pin slots; ReaderSessionVisibility owns the sidebar publication barrier.
     public class Pager : IPreviewTab
     {
         readonly System.Func<System.Action> _prepareShow;
+        ReaderSession _active;
+        ReaderReplacement _pending;
+        int _operation;
+        bool _locked;
 
         public Pager(System.Func<System.Action> prepareShow = null) => _prepareShow = prepareShow;
 
         internal static ReaderSessionVisibility SessionVisibility =>
             ReaderSessionVisibility.For(SessionHub.Instance);
 
-        string _sessionValue;
-        string _session
-        {
-            get => _sessionValue;
-            set
-            {
-                if (_sessionValue == value)
-                    return;
-                SessionVisibility.Retire(_sessionValue);
-                _sessionValue = value;
-                SessionVisibility.Claim(value);
-                RoutedSessionRows.Invalidate();
-            }
-        }
-        string _project; // which project the persistent session serves
-        string _filePath; // the file named by the persistent viewer
-        string _openProject; // project for the current one-off command
-        string _key; // path identity for a one-off command, when it has one
-        int _operation;
-        bool _locked;
-        bool _opening;
-        string _pendingCommand;
-        string _sourceCommand,
-            _sourceLabel,
-            _fileStamp;
-        long _readerLine;
-        string _readerIntent = "view",
-            _readerCommand;
-        bool _refreshing;
         internal int Operation => _operation;
-        internal bool Opening => _opening;
+        internal bool Opening => _pending?.Kind == ReaderReplacementKind.Open;
+        ReaderSource RequestedSource => Opening ? _pending.Source : _active?.Source;
 
-        // Who is showing, or null. Read rather than acted on - the two views use it to tell
-        // "click the row that is already open" from "click a different one".
-        public string Session => _session;
-        public string FilePath => _pendingCommand == null ? _key : _filePath;
+        public string Session => _active?.Session;
 
-        // A single-click preview is replaceable until its routed header is double-clicked.
-        // Locked previews deliberately remain ephemeral daemon sessions. "locked" is a UI
-        // lifetime choice, not a request to persist a generated session in config.toml.
+        // Pending source identity permits deletion to cancel a first open. ReaderProbe
+        // also captures Operation, so a reply for the old source cannot cancel a replacement.
+        public string FilePath => RequestedSource?.Path;
         public bool Locked => _locked;
+        public bool Alive => Session != null && SessionHub.Instance.Get(Session)?.Alive == true;
 
-        // Rebind a live daemon reader after a game restart without launching or focusing it.
         public void AttachRestored(SessionInfo info)
         {
             if (info == null || !info.Alive || string.IsNullOrEmpty(info.Intent))
                 return;
-            _session = info.Name;
-            _openProject = string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope;
-            _key = info.ReaderKey;
+            ++_operation;
+            _pending = null;
             _locked = info.ReaderPinned;
-            _opening = false;
-            _project = info.Intent == "view" ? _openProject : null;
-            _filePath = info.ReaderPath;
-            _pendingCommand = info.Intent == "diff" ? "restored-diff" : null;
-            _sourceCommand =
+            string sourceCommand =
                 (info.Intent == "view" || info.Intent == "search")
                 && !string.IsNullOrEmpty(info.ReaderPath)
                     ? PagerCommand(info.ReaderPath, info.ReaderLine)
                     : null;
-            _sourceLabel = info.Label;
-            _readerLine = info.ReaderLine;
-            _readerIntent = info.Intent;
-            _readerCommand = info.Cmd;
-        }
-
-        public bool Alive
-        {
-            get
-            {
-                var info = _session == null ? null : SessionHub.Instance.Get(_session);
-                return info != null && info.Alive;
-            }
+            Publish(
+                new ReaderSession(
+                    info.Name,
+                    new ReaderSource(
+                        string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope,
+                        info.ReaderKey,
+                        info.ReaderPath,
+                        info.Label,
+                        info.Cmd,
+                        sourceCommand,
+                        info.Intent,
+                        info.ReaderLine,
+                        info.Intent == "view"
+                    ),
+                    null
+                )
+            );
         }
 
         public bool Owns(string project, string key) =>
-            (_opening || Alive) && _openProject == project && _key == key;
+            (Opening || Alive) && RequestedSource?.Matches(project, key) == true;
 
         public bool OwnsSource(string project, string path) =>
-            _sourceCommand != null && Owns(project, path);
+            RequestedSource?.SourceCommand != null && Owns(project, path);
 
-        public bool Pending(string project, string key) =>
-            _opening && _openProject == project && _key == key;
+        public bool Pending(string project, string key) => Opening && Owns(project, key);
+
+        public bool Matches(string project, string key) => !Opening && Alive && Owns(project, key);
 
         public void Invalidate()
         {
@@ -101,18 +74,12 @@ namespace SlopWorld
             Release();
         }
 
-        public bool Matches(string project, string key)
-        {
-            return !_opening && Alive && _openProject == project && _key == key;
-        }
-
         public bool LockPreview(string project, string key)
         {
-            if (_openProject != project || _key != key)
+            if (RequestedSource?.Matches(project, key) != true)
                 return false;
             _locked = true;
-            if (_session != null)
-                SessionHub.Instance.SessionStore.SetReaderPinned(_session, true);
+            PublishPin();
             return true;
         }
 
@@ -121,8 +88,14 @@ namespace SlopWorld
             if (!Alive)
                 return false;
             _locked = true;
-            SessionHub.Instance.SessionStore.SetReaderPinned(_session, true);
+            PublishPin();
             return true;
+        }
+
+        void PublishPin()
+        {
+            if (_locked && Session != null)
+                SessionHub.Instance.SessionStore.SetReaderPinned(Session, true);
         }
 
         // Git feeds its diff to the pager on stdin, so it needs the configured command
@@ -180,119 +153,53 @@ namespace SlopWorld
         public static string EditorCommand(string file, long line = 0) =>
             PagerCommands.EditorCommand(SessionHub.Instance.Config.Editor, file, line);
 
-        // Open a file in the persistent pager. Reuses the existing tmux session only when it
-        // is still alive and already showing this file. A different file gets a fresh session
-        // so the sidebar's one-line title follows the file instead of keeping the old name.
+        // Reuse is deliberately narrower than a command reader: ordinary file opens
+        // promise focus, whereas explicit line/command opens can request a fresh process.
         public void ViewFile(string project, string filePath, string label)
         {
-            if (_opening && _pendingCommand == null && _openProject == project && _key == filePath)
+            if (Opening && _pending.Source.ReuseFile && Pending(project, filePath))
                 return;
-            bool host = string.IsNullOrEmpty(project);
-            if (!host && BrowseScope.ProjectOf(project, SessionHub.Instance.Projects) == null)
-            {
-                Release();
-                UiLayout.Fail("This reader's project is no longer available.");
+            if (!ValidateProject(project, allowHost: true))
                 return;
-            }
-
-            // Reuse the existing session if it is alive, on the same project, and already
-            // showing this file.
-            if (_session != null && _project == project && _filePath == filePath && Alive)
+            if (
+                !Opening
+                && Alive
+                && _active.Source.ReuseFile
+                && _active.Source.Matches(project, filePath)
+            )
             {
-                // The pane is all a reopen promises. Sending a less command here would need another
-                // quoting language for paths with spaces or apostrophes. It would also flash the
-                // file again before the caller can read it.
                 Show();
                 return;
             }
-
-            // First time, or project changed, or session died: create a new one.
-            _fileStamp = null;
-            _refreshing = false;
-            int operation = ++_operation;
-            string oldSession = _session;
-            // Keep the old session as the visible one until the replacement is ready. Git's sidebar
-            // uses this identity for its routed row. Therefore, clearing it here makes the old row
-            // disappear before the new one arrives and causes a layout jump.
-            _project = null;
-            _filePath = null;
-            _openProject = project;
-            _key = filePath;
-            _pendingCommand = null;
-            _opening = true;
-
-            string cmd = PagerCommand(filePath);
-            _sourceCommand = cmd;
-            _readerIntent = "view";
-            _readerCommand = cmd;
-            _sourceLabel = label;
-            _readerLine = 0;
-            var shown = _prepareShow?.Invoke();
-            RunReader(
-                project,
-                cmd,
-                label,
-                session =>
-                {
-                    if (operation != _operation)
-                    {
-                        StopIf(session);
-                        return;
-                    }
-                    _session = session;
-                    if (_locked)
-                        SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
-                    _opening = false;
-                    _project = project;
-                    _filePath = filePath;
-                    Show(shown);
-                    StopIf(oldSession);
-                },
-                msg =>
-                {
-                    if (operation != _operation)
-                        return;
-                    _session = null;
-                    _opening = false;
-                    _project = null;
-                    _filePath = null;
-                    StopIf(oldSession);
-                    UiLayout.Fail(msg);
-                },
-                options: new SessionRunOptions
-                {
-                    Host = true,
-                    Path = filePath,
-                    Intent = "view",
-                    Reader = new ReaderLaunchOptions
-                    {
-                        Path = filePath,
-                        Key = filePath,
-                        Scope = project,
-                        Pinned = _locked,
-                    },
-                }
+            string command = PagerCommand(filePath);
+            BeginReplacement(
+                new ReaderSource(
+                    project,
+                    filePath,
+                    filePath,
+                    label,
+                    command,
+                    command,
+                    "view",
+                    0,
+                    true
+                ),
+                command,
+                ReaderReplacementKind.Open
             );
         }
 
-        // Start a fresh pager at the requested line. Less's `:e` cannot open at a line atomically.
         public void ViewFileAt(
             string project,
             string filePath,
             long line,
             string label,
             string intent = "view"
-        )
-        {
-            Open(project, PagerCommand(filePath, line), label, filePath, filePath, intent, line);
-        }
+        ) => Open(project, PagerCommand(filePath, line), label, filePath, filePath, intent, line);
 
-        // Run the pager on the host in the project directory. Replacement closes its tmux session.
         public void Open(string project, string command, string label) =>
             Open(project, command, label, null);
 
-        // Open a one-off command and retain a caller-supplied identity so a click on a pinned
-        // routed header can focus that exact diff instead of creating a second tab.
         public void Open(
             string project,
             string command,
@@ -303,230 +210,168 @@ namespace SlopWorld
             long line = 0
         )
         {
-            if (_opening && _openProject == project && _key == key && _pendingCommand == command)
+            if (Opening && Pending(project, key) && _pending.Source.Command == command)
                 return;
-            // The project may have been renamed or deleted since the listing that put the row
-            // on screen. The daemon would refuse either way, but the reason is clearer here.
-            if (BrowseScope.ProjectOf(project, SessionHub.Instance.Projects) == null)
-            {
-                Release();
-                UiLayout.Fail("This reader's project is no longer available.");
+            if (!ValidateProject(project, allowHost: false))
                 return;
-            }
-
-            // Start the new session *before* killing the old one so the terminal pane always
-            // has something to show — no blink of the game map between the two.
-            _fileStamp = null;
-            _refreshing = false;
-            int operation = ++_operation;
-            string oldSession = _session;
-            // Keep the old session as the visible one until the replacement is ready. See the
-            // matching handoff in ViewFile above.
-            _project = null;
-            _filePath = null;
-            _openProject = project;
-            _key = key;
-            _opening = true;
-            _pendingCommand = command;
-            // Only file pagers are refreshed. Diff commands and editors own their own behavior.
-            _sourceCommand =
+            string sourceCommand =
                 !string.IsNullOrEmpty(sourcePath)
                 && key == sourcePath
                 && IsPagerCommand(command)
                 && !IsEditorCommand(command)
                     ? command
                     : null;
-            _sourceLabel = label;
-            _readerLine = line;
-            _readerIntent = intent;
-            _readerCommand = command;
-            if (intent == "diff")
-                command = DiffCommand(command);
-
-            var shown = _prepareShow?.Invoke();
-            RunReader(
+            var source = new ReaderSource(
                 project,
-                command,
+                key,
+                sourcePath,
                 label,
-                session =>
-                {
-                    if (operation != _operation)
-                    {
-                        StopIf(session);
-                        return;
-                    }
-                    _session = session;
-                    if (_locked)
-                        SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
-                    _opening = false;
-                    _filePath = string.IsNullOrEmpty(sourcePath) ? null : sourcePath;
-                    // Don't set _project — this is a one-off command, not the persistent
-                    // pager, so the next ViewFile will create its own session.
-                    Show(shown);
-                    StopIf(oldSession);
-                },
-                msg =>
-                {
-                    if (operation != _operation)
-                        return;
-                    _session = null;
-                    _opening = false;
-                    _filePath = null;
-                    StopIf(oldSession);
-                    UiLayout.Fail(msg);
-                },
-                options: new SessionRunOptions
-                {
-                    Host = true,
-                    Path = sourcePath,
-                    Intent = intent,
-                    Reader = new ReaderLaunchOptions
-                    {
-                        Path = sourcePath,
-                        Key = key,
-                        Scope = project,
-                        Line = line,
-                        Pinned = _locked,
-                    },
-                }
+                command,
+                sourceCommand,
+                intent,
+                line
+            );
+            BeginReplacement(
+                source,
+                intent == "diff" ? DiffCommand(command) : command,
+                ReaderReplacementKind.Open
             );
         }
 
-        // The first successful probe establishes a baseline.
+        bool ValidateProject(string project, bool allowHost)
+        {
+            if (
+                (allowHost && string.IsNullOrEmpty(project))
+                || BrowseScope.ProjectOf(project, SessionHub.Instance.Projects) != null
+            )
+                return true;
+            Release();
+            UiLayout.Fail("This reader's project is no longer available.");
+            return false;
+        }
+
+        // Failed probes retain the committed stamp, allowing the next probe to retry.
         internal void RefreshIfChanged(string stamp)
         {
             if (
                 string.IsNullOrEmpty(stamp)
-                || _sourceCommand == null
-                || _opening
-                || _refreshing
+                || _pending != null
                 || !Alive
-                || string.IsNullOrEmpty(FilePath)
+                || _active.Source.SourceCommand == null
+                || string.IsNullOrEmpty(_active.Source.Path)
             )
                 return;
-            if (_fileStamp == null)
+            if (_active.Stamp == null)
             {
-                _fileStamp = stamp;
+                _active.Stamp = stamp;
                 return;
             }
-            if (_fileStamp == stamp)
-                return;
-
-            int operation = ++_operation;
-            string oldSession = _session;
-            _refreshing = true;
-            RunReader(
-                _openProject,
-                _sourceCommand,
-                _sourceLabel,
-                session =>
-                {
-                    if (operation != _operation)
-                    {
-                        StopIf(session);
-                        return;
-                    }
-                    _refreshing = false;
-                    _fileStamp = stamp;
-                    _session = session;
-                    if (_locked)
-                        SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
-                    // Rebind only the pane that still shows this reader; never open or focus a window.
-                    TerminalWindow.ReplaceReader(oldSession, session);
-                    StopIf(oldSession);
-                },
-                _ =>
-                {
-                    if (operation != _operation)
-                        return;
-                    // Keep the old reader and stamp so a later probe retries the refresh.
-                    _refreshing = false;
-                },
-                options: new SessionRunOptions
-                {
-                    Host = true,
-                    Path = FilePath,
-                    Intent = _readerIntent,
-                    Reader = new ReaderLaunchOptions
-                    {
-                        Path = FilePath,
-                        Key = _key,
-                        Scope = _openProject,
-                        Line = _readerLine,
-                        Pinned = _locked,
-                    },
-                }
-            );
+            if (_active.Stamp != stamp)
+                BeginReplacement(
+                    _active.Source,
+                    _active.Source.SourceCommand,
+                    ReaderReplacementKind.Refresh,
+                    stamp
+                );
         }
 
         internal bool CanRestartForAppearance =>
             Alive
-            && !_opening
-            && !_refreshing
+            && _pending == null
             && (
-                _readerIntent == "diff"
-                    ? !string.IsNullOrEmpty(_readerCommand)
-                    : _sourceCommand != null && !string.IsNullOrEmpty(_filePath)
+                _active.Source.Intent == "diff"
+                    ? !string.IsNullOrEmpty(_active.Source.Command)
+                    : _active.Source.SourceCommand != null
+                        && !string.IsNullOrEmpty(_active.Source.Path)
             );
 
-        // Replace only this reader's process after confirmation, retaining its tab and pin.
         internal void RestartForAppearance(string expectedSession, int expectedOperation)
         {
             if (
-                _session != expectedSession
+                Session != expectedSession
                 || _operation != expectedOperation
                 || !CanRestartForAppearance
             )
                 return;
+            var source = _active.Source;
             string command =
-                _readerIntent == "diff"
-                    ? DiffCommand(_readerCommand)
-                    : PagerCommand(_filePath, _readerLine);
-            int operation = ++_operation;
-            string oldSession = _session;
-            _refreshing = true;
-            RunReader(
-                _openProject,
-                command,
-                _sourceLabel,
-                session =>
-                {
-                    if (operation != _operation)
-                    {
-                        StopIf(session);
-                        return;
-                    }
-                    _refreshing = false;
-                    _session = session;
-                    if (_readerIntent == "view" || _readerIntent == "search")
-                        _sourceCommand = command;
-                    if (_locked)
-                        SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
-                    TerminalWindow.ReplaceReader(oldSession, session);
-                    StopIf(oldSession);
-                },
-                error =>
-                {
-                    if (operation != _operation)
-                        return;
-                    _refreshing = false;
-                    UiLayout.Fail(error);
-                },
-                options: new SessionRunOptions
-                {
-                    Host = true,
-                    Path = _filePath ?? "",
-                    Intent = _readerIntent,
-                    Reader = new ReaderLaunchOptions
-                    {
-                        Path = _filePath ?? "",
-                        Key = _key,
-                        Scope = _openProject,
-                        Line = _readerLine,
-                        Pinned = _locked,
-                    },
-                }
+                source.Intent == "diff"
+                    ? DiffCommand(source.Command)
+                    : PagerCommand(source.Path, source.Line);
+            if (source.Intent == "view" || source.Intent == "search")
+                source = source.WithSourceCommand(command);
+            BeginReplacement(source, command, ReaderReplacementKind.Appearance, _active.Stamp);
+        }
+
+        // Capture the old owner and display policy before starting asynchronous work.
+        void BeginReplacement(
+            ReaderSource source,
+            string command,
+            ReaderReplacementKind kind,
+            string stamp = null
+        )
+        {
+            ++_operation;
+            var replacement = new ReaderReplacement(
+                source,
+                _active,
+                kind,
+                stamp,
+                kind == ReaderReplacementKind.Open ? _prepareShow?.Invoke() : null
             );
+            _pending = replacement;
+            RunReader(
+                source.Scope,
+                command,
+                source.Label,
+                session => Commit(replacement, session),
+                error => Fail(replacement, error),
+                source.LaunchOptions(_locked)
+            );
+        }
+
+        void Commit(ReaderReplacement replacement, string session)
+        {
+            if (!ReferenceEquals(_pending, replacement))
+            {
+                StopIf(session);
+                return;
+            }
+            _pending = null;
+            Publish(new ReaderSession(session, replacement.Source, replacement.Stamp));
+            PublishPin();
+            if (replacement.Kind == ReaderReplacementKind.Open)
+                Show(replacement.Shown);
+            else
+                TerminalWindow.ReplaceReader(replacement.Previous.Session, session);
+            StopIf(replacement.Previous?.Session);
+        }
+
+        void Fail(ReaderReplacement replacement, string error)
+        {
+            if (!ReferenceEquals(_pending, replacement))
+                return;
+            _pending = null;
+            // Explicit open failure clears its replaceable pager. Background replacement
+            // failures preserve the old reader, its pin and its retry baseline.
+            if (replacement.Kind == ReaderReplacementKind.Open)
+            {
+                Publish(null);
+                StopIf(replacement.Previous?.Session);
+            }
+            if (replacement.Kind != ReaderReplacementKind.Refresh)
+                UiLayout.Fail(error);
+        }
+
+        void Publish(ReaderSession reader)
+        {
+            string previous = Session;
+            _active = reader;
+            if (previous == Session)
+                return;
+            SessionVisibility.Retire(previous);
+            SessionVisibility.Claim(Session);
+            RoutedSessionRows.Invalidate();
         }
 
         // Session snapshots can precede the run callback. Keep the incoming identity
@@ -573,8 +418,6 @@ namespace SlopWorld
             );
         }
 
-        // Bring the open one back, for a reader who clicked the row that is already showing.
-        // False where there is nothing to bring back, which is the caller's cue to open one.
         public bool Reopen()
         {
             if (!Alive)
@@ -587,63 +430,43 @@ namespace SlopWorld
 
         void Show(System.Action shown)
         {
-            TerminalWindow.Open(_session);
-            // Retire a native preview only after the terminal replaces its content.
-            // Releasing it earlier removes its row and can expose the backing pane.
+            TerminalWindow.Open(Session);
+            // Native content retires only after the terminal replaces it.
             shown?.Invoke();
         }
 
-        // Stopping the owned session closes its process. The pane reacts to session removal.
         public void Release()
         {
             if (_locked)
                 return;
             ++_operation;
-            _refreshing = false;
-            _fileStamp = null;
-            _sourceCommand = null;
-            _opening = false;
-            string s = _session;
-            _session = null;
-            _project = null;
-            _filePath = null;
-            _openProject = null;
-            _key = null;
-            if (s == null)
-                return;
-            // The session snapshot can lose this name while a replacement or a reconnect is
-            // settling. This pager owns the session, so stop it by name rather than making
-            // cleanup depend on the snapshot still containing it.
-            SessionHub.Instance.SessionStore.Stop(s);
+            _pending = null;
+            string session = Session;
+            Publish(null);
+            StopIf(session);
         }
 
-        // The terminal's own close, for the session it was showing. The pane is the pager's
-        // only home, so closing it is the same focus change as leaving the view.
         public void CloseIf(string session)
         {
-            if (!_locked && session != null && session == _session)
+            if (!_locked && session != null && session == Session)
                 Release();
         }
 
-        // Explicit tab dismissal also releases pinned previews and cancels pending handoffs.
         public bool CloseTab(string session)
         {
-            if (session == null || session != _session)
+            if (session == null || session != Session)
                 return false;
             _locked = false;
             Release();
             return true;
         }
 
-        // Stop a session if it's still alive, swallowing any error.
         static void StopIf(string session)
         {
             if (session == null)
                 return;
             SessionVisibility.Retire(session);
-            // A superseded run is exactly the case where the latest session snapshot may not
-            // contain the returned name. Let the daemon answer an already-gone session. Do not
-            // turn a missing local row into an orphaned tmux process.
+            // Late launch replies may precede their snapshot. Stop by owned identity.
             SessionHub.Instance.SessionStore.Stop(session);
         }
 

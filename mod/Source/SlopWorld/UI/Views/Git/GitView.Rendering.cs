@@ -317,12 +317,6 @@ namespace SlopWorld
         // the reader opens or closes directories around it.
         public static void Clicks() => Tree.Clicks();
 
-        public static bool IsViewerSession(string session) => Viewers.IsSession(session);
-
-        public static bool IsViewerLocked(string session) => Viewers.IsLocked(session);
-
-        public static bool LockViewer(string session) => Viewers.Lock(session);
-
         static string DiffKey(string rel) => "diff:" + rel;
 
         public static bool LockViewerFile(string project, string rel)
@@ -650,22 +644,6 @@ namespace SlopWorld
         }
 
         public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
-
-        public static bool CloseViewerTab(string session)
-        {
-            if (Viewers.CloseTab(session))
-                return true;
-
-            // PagerTabs is UI-lifetime state. A game restart loses the owner of an ephemeral
-            // diff, but the daemon still owns the routed session and can stop it directly.
-            var info = SessionHub.Instance.Get(session);
-            if (info == null || !info.Ephemeral)
-                return false;
-            if ((SessionRowAction.Of(info) & RowAct.Diff) == 0)
-                return false;
-            SessionHub.Instance.SessionStore.Stop(session);
-            return true;
-        }
 
         static void ClearSelection()
         {

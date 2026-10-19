@@ -252,17 +252,22 @@ namespace SlopWorld
                             mount.To
                         );
                     }
-                    var modes = new List<FloatMenuOption>
-                    {
-                        new FloatMenuOption("Read-only", () => mount.Mode = MountMode.Ro),
-                        new FloatMenuOption("Read-write", () => mount.Mode = MountMode.Rw),
-                    };
-                    if (!isProject)
-                        modes.Add(new FloatMenuOption("Cache", () => mount.Mode = MountMode.Cache));
                     UiSelector.DrawInline(
                         new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
                         MountPresentation.ModeLabel(mount.Mode),
-                        modes
+                        () =>
+                        {
+                            var modes = new List<FloatMenuOption>
+                            {
+                                new FloatMenuOption("Read-only", () => mount.Mode = MountMode.Ro),
+                                new FloatMenuOption("Read-write", () => mount.Mode = MountMode.Rw),
+                            };
+                            if (!isProject)
+                                modes.Add(
+                                    new FloatMenuOption("Cache", () => mount.Mode = MountMode.Cache)
+                                );
+                            return modes;
+                        }
                     );
                     if (
                         !isProject

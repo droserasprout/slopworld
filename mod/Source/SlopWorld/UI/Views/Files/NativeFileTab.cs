@@ -6,6 +6,7 @@ namespace SlopWorld
     // identity and focus operations to the same preview/pinned lifecycle as Pager.
     sealed class NativeFileTab : IPreviewTab
     {
+        internal ReaderPresentation Presentation;
         ContentView _view;
         string _header;
         public string OriginLabel,

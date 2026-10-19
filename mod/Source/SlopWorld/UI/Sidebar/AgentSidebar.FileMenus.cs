@@ -11,18 +11,19 @@ namespace SlopWorld
             var info = Layout.Routed.Find(row => row.Name == session);
             if (info == null)
                 return;
+            var reader = FileReaders.Describe(info);
             // Older command-classified sessions may have no file metadata or reader owner.
             // Keep their session controls rather than offering a Close that cannot dismiss them.
-            if (string.IsNullOrEmpty(info.ReaderPath) && !FileReaders.IsSession(session))
+            if (reader.Target == null && !reader.IsPreview)
             {
                 RowMenu(session);
                 return;
             }
-            var opts = FilesView.ReaderMenu(info);
+            var opts = FilesView.ReaderMenu(reader);
             if (opts.Count != 0)
                 opts.Add(UiMenu.Separator());
 
-            bool editor = (SessionRowAction.Of(info) & RowAct.Edit) != 0;
+            bool editor = (reader.Action & RowAct.Edit) != 0;
             if (editor)
             {
                 opts.Add(new FloatMenuOption("Terminal", () => OpenRouted(session)));
@@ -55,9 +56,10 @@ namespace SlopWorld
             }
             else
             {
-                if (!FileReaders.IsLocked(session) && FileReaders.IsSession(session))
+                if (reader.CanPin)
                     opts.Add(new FloatMenuOption("Keep open", () => FileReaders.Lock(session)));
-                opts.Add(new FloatMenuOption("Close", () => DismissReader(session)));
+                if (reader.CanClose)
+                    opts.Add(new FloatMenuOption("Close", () => DismissReader(session)));
             }
             TerminalWindow.OpenOverPane(new UiMenu(opts));
         }

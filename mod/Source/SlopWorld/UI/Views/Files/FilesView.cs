@@ -86,22 +86,16 @@ namespace SlopWorld
         internal static System.Action PrepareNativeReplacement() =>
             Browser.Viewer.PrepareNativeReplacement();
 
-        public static bool IsViewerSession(string session) =>
-            Browser.Viewer.IsViewerSession(session);
-
-        public static bool IsViewerLocked(string session) => Browser.Viewer.IsViewerLocked(session);
-
-        public static bool LockViewer(string session) => Browser.Viewer.LockViewer(session);
-
         public static bool LockViewerFile(string project, string path) =>
             Browser.Viewer.LockViewerFile(project, path);
 
         public static void CloseViewerIf(string session) => Browser.Viewer.CloseViewerIf(session);
 
-        public static bool CloseViewerTab(string session) => Browser.Viewer.CloseViewerTab(session);
+        internal static IPreviewTab FindReader(string session) =>
+            Browser.Viewer.FindReader(session);
 
-        internal static List<FloatMenuOption> ReaderMenu(SessionInfo info) =>
-            Browser.Actions.ReaderMenu(info);
+        internal static List<FloatMenuOption> ReaderMenu(ReaderRow reader) =>
+            Browser.Actions.ReaderMenu(reader);
 
         public static void AddOpenIn(
             List<FloatMenuOption> opts,

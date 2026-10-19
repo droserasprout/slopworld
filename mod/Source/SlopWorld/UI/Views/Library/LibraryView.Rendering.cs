@@ -176,6 +176,16 @@ namespace SlopWorld
                 );
             TooltipHandler.TipRegion(field, "Search library names and content");
             var filter = new Rect(field.x, field.yMax + Pad, field.width, UiTheme.FieldH);
+            UiSelector.DrawInline(
+                filter,
+                _kind.Length == 0 ? "All types" : _kind,
+                KindOptions,
+                TerminalWindow.OpenOverPane
+            );
+        }
+
+        static List<FloatMenuOption> KindOptions()
+        {
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption("All types", () => SetKind("")),
@@ -185,12 +195,7 @@ namespace SlopWorld
                 string value = kind;
                 options.Add(new FloatMenuOption(value, () => SetKind(value)));
             }
-            UiSelector.DrawInline(
-                filter,
-                _kind.Length == 0 ? "All types" : _kind,
-                options,
-                TerminalWindow.OpenOverPane
-            );
+            return options;
         }
 
         static void DrawDetails(Rect r, RowDetails details)

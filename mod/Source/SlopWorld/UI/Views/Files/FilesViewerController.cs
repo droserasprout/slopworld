@@ -135,15 +135,17 @@ namespace SlopWorld
             bool plainText = false
         )
         {
-            ContentView view = FileTypes.IsImage(name)
-                ? (ContentView)new ImagePreview(path, name, previewRoot)
-                : new MarkdownPreview(
-                    project,
-                    path,
-                    name,
-                    previewRoot,
-                    plainText: plainText || !FileTypes.IsMarkdown(name)
-                );
+            var presentation = ReaderRow.NativeKind(name, plainText);
+            ContentView view =
+                presentation == ReaderPresentation.Image
+                    ? (ContentView)new ImagePreview(path, name, previewRoot)
+                    : new MarkdownPreview(
+                        project,
+                        path,
+                        name,
+                        previewRoot,
+                        plainText: presentation == ReaderPresentation.Source
+                    );
             (view as MarkdownPreview)?.RetainVisibleDocument(
                 TerminalWindow.ShowingAs<MarkdownPreview>()
             );
@@ -153,6 +155,7 @@ namespace SlopWorld
             tab.Project = project ?? "";
             tab.Path = path;
             tab.PreviewRoot = previewRoot;
+            tab.Presentation = presentation;
             tab.View = view;
             tab.Header = "view-native-" + (++_nativeHeader);
             TerminalWindow.OpenContent(tab.View);
@@ -195,9 +198,6 @@ namespace SlopWorld
         }
 
         internal bool HasNativeReaders => _nativeViewers.All.Any();
-
-        internal string PreviewRoot(string session) =>
-            _nativeViewers.All.FirstOrDefault(tab => tab.Session == session)?.PreviewRoot;
 
         internal void ViewSourceFile(
             string project,
@@ -357,27 +357,6 @@ namespace SlopWorld
 
         internal Action PrepareNativeReplacement() => _nativeViewers.Preview.PrepareReplacement();
 
-        public bool IsViewerSession(string session)
-        {
-            if (Viewers.IsSession(session))
-                return true;
-            return _nativeViewers.IsSession(session);
-        }
-
-        public bool IsViewerLocked(string session)
-        {
-            if (Viewers.IsLocked(session))
-                return true;
-            return _nativeViewers.IsLocked(session);
-        }
-
-        public bool LockViewer(string session)
-        {
-            if (Viewers.Lock(session))
-                return true;
-            return _nativeViewers.Lock(session);
-        }
-
         public bool LockViewerFile(string project, string path)
         {
             if (Viewers.LockPreview(project, path))
@@ -387,25 +366,7 @@ namespace SlopWorld
 
         public void CloseViewerIf(string session) => Viewers.CloseIf(session);
 
-        public bool CloseViewerTab(string session)
-        {
-            GitView.CancelPendingDiff();
-            if (Viewers.CloseTab(session))
-                return true;
-            if (_nativeViewers.CloseTab(session))
-                return true;
-
-            // PagerTabs is UI-lifetime state. A game restart leaves the daemon's ephemeral
-            // pager/editor session alive but loses that owner. Therefore, close the restored routed
-            // tab directly through the session store. Durable agents are deliberately excluded.
-            var info = SessionHub.Instance.Get(session);
-            if (info == null || !info.Ephemeral)
-                return false;
-            RowAct action = SessionRowAction.Of(info);
-            if ((action & (RowAct.View | RowAct.Edit)) == 0)
-                return false;
-            SessionHub.Instance.SessionStore.Stop(session);
-            return true;
-        }
+        internal IPreviewTab FindReader(string session) =>
+            (IPreviewTab)Viewers.FindSession(session) ?? _nativeViewers.FindSession(session);
     }
 }

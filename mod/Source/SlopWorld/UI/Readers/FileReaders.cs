@@ -24,27 +24,29 @@ namespace SlopWorld
                     Tabs.AttachRestored(info);
         }
 
-        // Routed headers use one facade while Search keeps its own preview collection.
-        public static bool IsSession(string session) =>
-            FilesView.IsViewerSession(session) || SearchView.IsViewerSession(session);
+        // Search keeps its own preview collection; headers resolve the actual tab owner.
+        internal static IPreviewTab Find(string session) =>
+            FilesView.FindReader(session) ?? SearchView.FindReader(session);
 
-        public static bool IsLocked(string session) =>
-            FilesView.IsViewerLocked(session) || SearchView.IsViewerLocked(session);
+        public static bool IsSession(string session) => Find(session)?.Alive == true;
 
-        public static bool Lock(string session) =>
-            FilesView.LockViewer(session) || SearchView.LockViewer(session);
+        public static bool IsLocked(string session) => Find(session)?.Locked == true;
+
+        public static bool Lock(string session) => Find(session)?.Lock() == true;
+
+        internal static ReaderRow Describe(SessionInfo info) =>
+            new ReaderRow(
+                info,
+                Find(info.Name),
+                SidebarScopes.Project(
+                    string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope
+                )
+            );
 
         public static bool Close(string session)
         {
-            bool closed =
-                FilesView.CloseViewerTab(session)
-                || GitView.CloseViewerTab(session)
-                || SearchView.CloseViewerTab(session);
-            // Editors and restored readers may stop without a Pager owner. Hide their row
-            // immediately rather than waiting for the daemon's removal snapshot.
-            if (closed)
-                Pager.SessionVisibility.Retire(session);
-            return closed;
+            GitView.CancelPendingDiff();
+            return ReaderDismissal.Close(session, Find(session), SessionHub.Instance.Get(session));
         }
     }
 }

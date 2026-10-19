@@ -104,14 +104,9 @@ namespace SlopWorld
 
         // Open-file rows carry reader metadata even when there is no daemon session or
         // directory listing. Reuse the tree menu with that captured checkout and path.
-        public List<FloatMenuOption> ReaderMenu(SessionInfo info)
+        public List<FloatMenuOption> ReaderMenu(ReaderRow reader)
         {
-            var target = ReaderFileTarget.From(
-                info,
-                SidebarScopes.Project(
-                    string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope
-                )
-            );
+            var target = reader.Target;
             if (target == null)
                 return new List<FloatMenuOption>();
             var node = new FileNode
@@ -122,7 +117,7 @@ namespace SlopWorld
                 Root = SidebarScopes.Directory(target.Scope),
                 Depth = 1,
             };
-            var opts = Menu(node, line: target.Line, previewRoot: _viewer.PreviewRoot(info.Name));
+            var opts = Menu(node, line: target.Line, previewRoot: reader.PreviewRoot);
             opts.Insert(
                 0,
                 new FloatMenuOption(

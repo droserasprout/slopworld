@@ -750,16 +750,10 @@ namespace SlopWorld
 
         public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
 
-        public static bool IsViewerSession(string session)
+        internal static IPreviewTab FindReader(string session)
         {
             RestoreReader();
-            return Viewers.IsSession(session);
+            return Viewers.FindSession(session);
         }
-
-        public static bool IsViewerLocked(string session) => Viewers.IsLocked(session);
-
-        public static bool LockViewer(string session) => Viewers.Lock(session);
-
-        public static bool CloseViewerTab(string session) => Viewers.CloseTab(session);
     }
 }
