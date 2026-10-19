@@ -127,7 +127,13 @@ namespace SlopWorld
                 : label + " [" + origin.Project + " / " + origin.Label + "]";
         }
 
-        void OpenNative(string project, string path, string name, string previewRoot = null)
+        void OpenNative(
+            string project,
+            string path,
+            string name,
+            string previewRoot = null,
+            bool plainText = false
+        )
         {
             ContentView view = FileTypes.IsImage(name)
                 ? (ContentView)new ImagePreview(path, name, previewRoot)
@@ -136,7 +142,7 @@ namespace SlopWorld
                     path,
                     name,
                     previewRoot,
-                    plainText: !FileTypes.IsMarkdown(name)
+                    plainText: plainText || !FileTypes.IsMarkdown(name)
                 );
             (view as MarkdownPreview)?.RetainVisibleDocument(
                 TerminalWindow.ShowingAs<MarkdownPreview>()
@@ -146,6 +152,7 @@ namespace SlopWorld
             tab.OriginProject = SidebarScopes.ProjectName(project);
             tab.Project = project ?? "";
             tab.Path = path;
+            tab.PreviewRoot = previewRoot;
             tab.View = view;
             tab.Header = "view-native-" + (++_nativeHeader);
             TerminalWindow.OpenContent(tab.View);
@@ -189,12 +196,33 @@ namespace SlopWorld
 
         internal bool HasNativeReaders => _nativeViewers.All.Any();
 
-        void ViewSourceFile(string project, string path, string label)
+        internal string PreviewRoot(string session) =>
+            _nativeViewers.All.FirstOrDefault(tab => tab.Session == session)?.PreviewRoot;
+
+        internal void ViewSourceFile(
+            string project,
+            string path,
+            string label,
+            string previewRoot = null
+        )
         {
             if (!ReaderScopeAvailable(project))
                 return;
             AgentSidebar.RevealOpenFiles();
             GitView.CancelPendingDiff();
+            // Linked Markdown sources keep their captured read boundary, including when
+            // explicitly switching from rendered content to source.
+            if (previewRoot != null)
+            {
+                OpenNative(
+                    project,
+                    path,
+                    System.IO.Path.GetFileName(path),
+                    previewRoot,
+                    plainText: true
+                );
+                return;
+            }
             _select(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project))
                 AgentSidebar.RememberFile(project, path);

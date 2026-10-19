@@ -174,27 +174,13 @@ namespace SlopWorld
                 {
                     RoutedClicks.Reset();
                     _routedClickSession = null;
-                    // Only view-owned previews are closable here. Editor rows own live work.
-                    if (FileReaders.Close(row.Session))
-                    {
-                        // Rebuild after local retirement, including native headers and current
-                        // scope filters. A middle-click on the last visible row closes its pane.
-                        PrepareRouted();
-                        if (OpenFilesLifetime.ReaderDismissed(Layout.Routed.Count, ReaderOpening))
-                            SetOpenFilesVisible(false);
-                    }
+                    DismissReader(row.Session);
                 }
                 else if (e.button == 1)
                 {
                     RoutedClicks.Reset();
                     _routedClickSession = null;
-                    if (
-                        !(
-                            SnapshotGet(row.Session) == null
-                            && FilesView.IsNativeViewerHeader(row.Session)
-                        )
-                    )
-                        RowMenu(row.Session);
+                    OpenFileMenu(row.Session);
                 }
                 else
                 {

@@ -54,3 +54,8 @@ input to [terminal](mod-terminal.md), and feature dispatch to
 `CodeHighlight` resolves profile-local syntax themes for readers and settings previews.
 An empty bat preference is **Auto (ansi)**: source files, Markdown code, and bat-themed
 diffs use the active terminal palette. Explicit themes remain profile preferences.
+
+Open-file context menus use the reader's captured path and checkout, including native
+headers, and share Files' path actions. Reader dismissal shares middle-click's pane
+lifetime; editor Stop remains a confirmed process action. Linked Markdown source
+switches retain the captured preview root and use native plain text.

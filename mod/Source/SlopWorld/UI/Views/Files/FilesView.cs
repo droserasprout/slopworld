@@ -100,6 +100,9 @@ namespace SlopWorld
 
         public static bool CloseViewerTab(string session) => Browser.Viewer.CloseViewerTab(session);
 
+        internal static List<FloatMenuOption> ReaderMenu(SessionInfo info) =>
+            Browser.Actions.ReaderMenu(info);
+
         public static void AddOpenIn(
             List<FloatMenuOption> opts,
             string path,

@@ -11,7 +11,8 @@ namespace SlopWorld
         public string OriginLabel,
             OriginProject,
             Project,
-            Path;
+            Path,
+            PreviewRoot;
         public ContentView View
         {
             get => _view;
@@ -72,6 +73,7 @@ namespace SlopWorld
             View = null;
             Header = null;
             Path = null;
+            PreviewRoot = null;
             Locked = false;
         }
 
@@ -100,6 +102,7 @@ namespace SlopWorld
             View = null;
             Header = null;
             Path = null;
+            PreviewRoot = null;
             Locked = false;
             if (showing)
                 Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();

@@ -19,6 +19,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Keyboard: Fixed Alt navigation shortcuts consumed by the focused Search field.
 - Keyboard: Skip file panes when cycling sessions with Alt+Z/Alt+X.
 - Terminal: Fixed selection drift in scrollback when new output arrives.
+- UI: Complete context menus for open file tabs.
 - UI: Fixed missing Git shortstat on checkout's foldable heading in sidebar.
 - UI: Fixed active markdown preview tabs not being highlighted in sidebar.
 - UI: Fixed dropdown spacing, hover highlights, and closing on second click.

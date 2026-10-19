@@ -20,7 +20,12 @@ namespace SlopWorld
         }
 
         // Project headings also offer a host terminal.
-        public List<FloatMenuOption> Menu(FileNode node, string project = null)
+        public List<FloatMenuOption> Menu(
+            FileNode node,
+            string project = null,
+            int line = 0,
+            string previewRoot = null
+        )
         {
             var opts = new List<FloatMenuOption>
             {
@@ -40,14 +45,38 @@ namespace SlopWorld
 
             if (!node.IsDir && (FileTypes.IsText(node.Name) || FileTypes.IsImage(node.Name)))
             {
-                opts.Add(new FloatMenuOption("View", () => _viewer.View(node)));
+                opts.Add(
+                    new FloatMenuOption(
+                        "View",
+                        () =>
+                            _viewer.ViewFile(
+                                node.Project,
+                                node.Path,
+                                "view-" + node.Name,
+                                line,
+                                previewRoot
+                            )
+                    )
+                );
                 if (FileTypes.IsMarkdown(node.Name))
-                    opts.Add(new FloatMenuOption("View in pager", () => _viewer.ViewSource(node)));
+                    opts.Add(
+                        new FloatMenuOption(
+                            previewRoot == null ? "View in pager" : "View source",
+                            () =>
+                                _viewer.ViewSourceFile(
+                                    node.Project,
+                                    node.Path,
+                                    "view-" + node.Name,
+                                    previewRoot
+                                )
+                        )
+                    );
                 if (FileTypes.IsText(node.Name))
                     opts.Add(
                         new FloatMenuOption(
                             "Edit",
-                            () => _viewer.EditFile(node.Project, node.Path, "edit-" + node.Name)
+                            () =>
+                                _viewer.EditFile(node.Project, node.Path, "edit-" + node.Name, line)
                         )
                     );
             }
@@ -70,6 +99,44 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Shell here", () => ShellHere(node)));
             }
 
+            return opts;
+        }
+
+        // Open-file rows carry reader metadata even when there is no daemon session or
+        // directory listing. Reuse the tree menu with that captured checkout and path.
+        public List<FloatMenuOption> ReaderMenu(SessionInfo info)
+        {
+            var target = ReaderFileTarget.From(
+                info,
+                SidebarScopes.Project(
+                    string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope
+                )
+            );
+            if (target == null)
+                return new List<FloatMenuOption>();
+            var node = new FileNode
+            {
+                Project = target.Scope,
+                Path = target.Path,
+                Name = System.IO.Path.GetFileName(target.Path),
+                Root = SidebarScopes.Directory(target.Scope),
+                Depth = 1,
+            };
+            var opts = Menu(node, line: target.Line, previewRoot: _viewer.PreviewRoot(info.Name));
+            opts.Insert(
+                0,
+                new FloatMenuOption(
+                    "Focus in Files",
+                    () => FilesView.FocusPath(target.Scope, target.Path)
+                )
+            );
+            if (GitView.Changed(target.Scope, target.Path))
+                opts.Add(
+                    new FloatMenuOption(
+                        "Diff",
+                        () => GitView.OpenDiff(target.Scope, target.Path, "diff-" + node.Name)
+                    )
+                );
             return opts;
         }
 
