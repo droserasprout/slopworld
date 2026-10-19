@@ -27,7 +27,8 @@ detached snapshots so callers cannot mutate retained identity.
 selected main checkout uses the project fold and retains its scope key for actions
 and refreshes. Multiple selected checkouts, or a lone non-main checkout, retain
 separate checkout folds; hidden checkout folds must not suppress a merged root.
-Checkout headings carry branch and cached Git shortstat; project headings omit shortstat.
+Checkout headings carry branch and cached Git shortstat, including a main checkout
+merged into its project row. Standalone project headings omit shortstat.
 Git retains the root branch or detached commit after a middle dot even when the root
 shares its project heading.
 

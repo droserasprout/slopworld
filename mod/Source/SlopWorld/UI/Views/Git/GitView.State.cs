@@ -162,7 +162,7 @@ namespace SlopWorld
 
             public float DrawGroupTail(Rect row, ContentTreeGroup group, float right)
             {
-                return group.ParentKey == null ? right : CheckoutTail(row, group.ScopeKey, right);
+                return group.ScopeKey == null ? right : CheckoutTail(row, group.ScopeKey, right);
             }
 
             public float GroupBodyHeight(ContentTreeGroup group) =>

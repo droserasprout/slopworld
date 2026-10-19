@@ -19,13 +19,14 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Keyboard: Fixed Alt navigation shortcuts consumed by the focused Search field.
 - Keyboard: Skip file panes when cycling sessions with Alt+Z/Alt+X.
 - Terminal: Fixed selection drift in scrollback when new output arrives.
+- UI: Fixed missing Git shortstat on checkout's foldable heading in sidebar.
 - UI: Fixed active markdown preview tabs not being highlighted in sidebar.
 - UI: Fixed dropdown spacing, hover highlights, and closing on second click.
 - UI: Fixed flicker when switching between two files in unpinned tab.
 - UI: Fixed Search preview tabs pinning.
 - UI: Fixed slow sidebar resizing with Settings open.
 - UI: Fixed status bar button highlights and spacing.
-- UI: Pressing Search now preserves the open file’s terminal pane.
+- UI: Pressing Search now preserves the open file's terminal pane.
 - UI: Tabs and navigation now respond on mouse press instead of release.
 - UI: Unified dropdown selectors' styling and behavior.
 - UI: Use distinct icons for markdown and image preview tabs.
@@ -111,7 +112,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - UI: Fixed some agent action buttons remaining clickable but showing no hover highlight or tooltip.
 - UI: Prevent stale project and Library settings from reappearing after edits.
 - Workers: Prevent hangs when creating workers in new worktrees and clean up abandoned worktrees after cancelled launches.
-- Workers: Restore workers’ own launch settings after daemon restarts.
+- Workers: Restore workers' own launch settings after daemon restarts.
 
 ### Changed
 

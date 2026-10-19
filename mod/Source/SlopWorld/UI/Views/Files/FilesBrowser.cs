@@ -97,7 +97,7 @@ namespace SlopWorld
             public override string GroupTooltip(ContentTreeGroup group) => group.Path;
 
             public float DrawGroupTail(Rect row, ContentTreeGroup group, float right) =>
-                group.ParentKey == null ? right : GitView.CheckoutTail(row, group.ScopeKey, right);
+                group.ScopeKey == null ? right : GitView.CheckoutTail(row, group.ScopeKey, right);
 
             public void EnsureLoaded(IContentTreeNode node)
             {
