@@ -217,7 +217,7 @@ namespace SlopWorld
 
         static void Puff(Pawn pawn)
         {
-            if (TerminalWindow.Covering)
+            if (WorkspaceWindow.Covering)
                 return;
 
             var map = pawn.Map;

@@ -44,7 +44,7 @@ namespace SlopWorld
         public static bool Applied => _applied;
 
         public static bool Active =>
-            Ready && Find.WindowStack?.WindowOfType<TerminalWindow>() != null;
+            Ready && Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null;
 
         // True only for the length of the terminal's own call to the bar.
         public static bool Drawing { get; private set; }
@@ -88,7 +88,7 @@ namespace SlopWorld
         // Sidebar, in every view rather than only this one.
         public static bool ShowAdd => BarShown && !Cutscene.Playing;
 
-        // From TerminalWindow.DoWindowContents, after the background fill.
+        // From WorkspaceWindow.DoWindowContents, after the background fill.
         public static void Draw(bool interactive)
         {
             if (!Ready || Drawing || Settings.SidebarHidden)
@@ -301,8 +301,8 @@ namespace SlopWorld
             // The current session follows the bar click.
             SessionSelectable.Current = session;
 
-            if (session != TerminalWindow.CurrentName)
-                TerminalWindow.Open(session);
+            if (session != WorkspaceWindow.CurrentName)
+                WorkspaceWindow.Open(session);
 
             Event.current.Use();
             return false;

@@ -563,11 +563,11 @@ namespace SlopWorld
                 return;
 
             // Keep the current pane open when it already shows the target agent.
-            var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var w = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             if (w != null && target == w.SessionName)
                 return;
 
-            TerminalWindow.Open(target);
+            WorkspaceWindow.Open(target);
         }
 
         // Map and pane navigation share ordering and selection; callers own pawn/camera

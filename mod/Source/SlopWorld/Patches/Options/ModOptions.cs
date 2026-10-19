@@ -329,7 +329,7 @@ namespace SlopWorld
         {
             get
             {
-                var view = TerminalWindow.ShowingAs<OptionsView>();
+                var view = WorkspaceWindow.ShowingAs<OptionsView>();
                 if (view == null || view.Category != CategoryFor(PageId.Keyboard))
                     return false;
                 return TabFor(PageId.Keyboard)?.PageOf<KeyBindingsPage>()?.Listening == true;
@@ -489,7 +489,7 @@ namespace SlopWorld
         // Reopen the last category, or Config on first use.
         // Use a content view so the surrounding interface can still receive input.
         public static void Toggle() =>
-            TerminalWindow.ToggleContent(() =>
+            WorkspaceWindow.ToggleContent(() =>
                 new OptionsView(_lastCategory ?? CategoryFor(PageId.Config))
             );
 
@@ -504,9 +504,9 @@ namespace SlopWorld
             if (target != null)
                 category = target.Def;
 
-            var v = TerminalWindow.ShowingAs<OptionsView>();
+            var v = WorkspaceWindow.ShowingAs<OptionsView>();
             if (v == null)
-                TerminalWindow.OpenContent(new OptionsView(category));
+                WorkspaceWindow.OpenContent(new OptionsView(category));
             else
                 v.Category = category;
         }
@@ -515,10 +515,10 @@ namespace SlopWorld
         public static void OpenAudioTab()
         {
             var category = CategoryFor(PageId.Audio);
-            var v = TerminalWindow.ShowingAs<OptionsView>();
+            var v = WorkspaceWindow.ShowingAs<OptionsView>();
             if (v == null)
             {
-                TerminalWindow.OpenContent(new OptionsView(category));
+                WorkspaceWindow.OpenContent(new OptionsView(category));
                 return;
             }
             if (category != null)

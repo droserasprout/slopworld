@@ -127,7 +127,7 @@ namespace SlopWorld
                                 !_busy && w.Phase == "ready" && w.Attachments.Count == 0
                             )
                         )
-                            TerminalWindow.OpenOverPane(
+                            WorkspaceWindow.OpenOverPane(
                                 new ProjectWorktreeDialog(
                                     _project,
                                     ProjectWorktreeDialog.Mode.Rename,
@@ -164,7 +164,7 @@ namespace SlopWorld
         }
 
         void Open(ProjectWorktreeDialog.Mode mode) =>
-            TerminalWindow.OpenOverPane(new ProjectWorktreeDialog(_project, mode, Refresh));
+            WorkspaceWindow.OpenOverPane(new ProjectWorktreeDialog(_project, mode, Refresh));
 
         void Remove(Wire.Worktree tree)
         {

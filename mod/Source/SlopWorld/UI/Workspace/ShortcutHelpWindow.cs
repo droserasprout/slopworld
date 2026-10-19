@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // A workspace reference for both live key bindings and shortcuts that deliberately do not
-    // go through KeyBindingDef. It shares TerminalWindow's fullscreen chrome with Settings and
+    // go through KeyBindingDef. It shares WorkspaceWindow's fullscreen chrome with Settings and
     // terminal views. The map-only `?` shortcut still never competes with an agent pane.
     public sealed class ShortcutHelpWindow : ContentView
     {
@@ -53,7 +53,7 @@ namespace SlopWorld
         {
             if (!CanOpen)
                 return;
-            TerminalWindow.ToggleContent(() => new ShortcutHelpWindow());
+            WorkspaceWindow.ToggleContent(() => new ShortcutHelpWindow());
         }
 
         // GameComponentOnGUI sees the map event before WindowStack and before a focused
@@ -65,7 +65,7 @@ namespace SlopWorld
                 || e.type != EventType.KeyDown
                 || !CanOpen
                 || !IsHelpKey(e)
-                || Find.WindowStack?.WindowOfType<TerminalWindow>() != null
+                || Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null
             )
                 return false;
 
@@ -74,7 +74,7 @@ namespace SlopWorld
             return true;
         }
 
-        // Once help is hosted by TerminalWindow, the map component sees the next `?` while
+        // Once help is hosted by WorkspaceWindow, the map component sees the next `?` while
         // that host is already present. Preserve the old show/hide shortcut without letting
         // the same key reach a backing agent.
         public static bool HandleContentKey(Event e)
@@ -83,11 +83,11 @@ namespace SlopWorld
                 e == null
                 || !IsKeyDown(e)
                 || !IsHelpKey(e)
-                || TerminalWindow.ShowingAs<ShortcutHelpWindow>() == null
+                || WorkspaceWindow.ShowingAs<ShortcutHelpWindow>() == null
             )
                 return false;
 
-            Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+            Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
             e.Use();
             return true;
         }

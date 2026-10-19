@@ -16,7 +16,7 @@ namespace SlopWorld
                 "agent.new",
                 "Agent: New",
                 "Agent",
-                _ => TerminalWindow.OpenOverPane(new EditSessionDialog(null))
+                _ => WorkspaceWindow.OpenOverPane(new EditSessionDialog(null))
             ),
             CommandDef.ForAgent(
                 "agent.label",
@@ -28,7 +28,7 @@ namespace SlopWorld
                 "agent.delegate-task",
                 "Agent: Delegate task",
                 AgentsSubAll,
-                s => TerminalWindow.OpenOverPane(new DelegateTaskDialog(s.Name))
+                s => WorkspaceWindow.OpenOverPane(new DelegateTaskDialog(s.Name))
             ),
             CommandDef.ForAgent(
                 "agent.new-look",
@@ -50,7 +50,7 @@ namespace SlopWorld
                     if (s.Ephemeral || s.Host)
                         return;
                     var name = s.Name;
-                    TerminalWindow.OpenOverPane(CatalogActions.ResetState(name));
+                    WorkspaceWindow.OpenOverPane(CatalogActions.ResetState(name));
                 }
             ),
             CommandDef.ForAgent(
@@ -84,7 +84,7 @@ namespace SlopWorld
                 s =>
                 {
                     if (!s.Gone)
-                        TerminalWindow.Open(s.Name);
+                        WorkspaceWindow.Open(s.Name);
                 }
             ),
             CommandDef.ForAgent(
@@ -115,7 +115,7 @@ namespace SlopWorld
                 "project.new",
                 "Project: New",
                 "Project",
-                _ => TerminalWindow.OpenOverPane(new EditProjectDialog(null))
+                _ => WorkspaceWindow.OpenOverPane(new EditProjectDialog(null))
             ),
             CommandDef.ForProject(
                 "project.edit",
@@ -145,7 +145,7 @@ namespace SlopWorld
                 "task.new",
                 "Task: New",
                 "Task",
-                _ => TerminalWindow.OpenOverPane(new DelegateTaskDialog(null)),
+                _ => WorkspaceWindow.OpenOverPane(new DelegateTaskDialog(null)),
                 enabled: HasTaskRecipients
             ),
             CommandDef.ForTask("task.open", "Task: Open", TasksSub, t => TaskDetailView.Open(t)),
@@ -216,7 +216,7 @@ namespace SlopWorld
                     if (!s.Host)
                         return;
                     var name = s.Name;
-                    TerminalWindow.OpenOverPane(CatalogActions.RemoveHost(name));
+                    WorkspaceWindow.OpenOverPane(CatalogActions.RemoveHost(name));
                 },
                 group: "Host"
             ),

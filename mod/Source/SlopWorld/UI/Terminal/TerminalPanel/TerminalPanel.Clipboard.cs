@@ -124,13 +124,13 @@ namespace SlopWorld
                     () =>
                     {
                         var sessions = new List<FloatMenuOption>();
-                        foreach (string session in TerminalWindow.OpenBesideOrder())
+                        foreach (string session in WorkspaceWindow.OpenBesideOrder())
                         {
                             if (session == _state.Name)
                                 continue;
                             string picked = session;
                             sessions.Add(
-                                new FloatMenuOption(picked, () => TerminalWindow.OpenSplit(picked))
+                                new FloatMenuOption(picked, () => WorkspaceWindow.OpenSplit(picked))
                             );
                         }
                         return sessions;
@@ -151,7 +151,7 @@ namespace SlopWorld
                     )
                 );
 
-            TerminalWindow.OpenOverPane(new UiMenu(options));
+            WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         static List<string> AllBreadcrumbs() =>

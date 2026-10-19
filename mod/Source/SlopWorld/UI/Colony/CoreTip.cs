@@ -97,7 +97,7 @@ namespace SlopWorld
         public override void MapComponentOnGUI()
         {
             // Cutscenes, Eco's frame-only map, and an opaque terminal have no core to point at.
-            if (Cutscene.Playing || Eco.Resting || TerminalWindow.Covering)
+            if (Cutscene.Playing || Eco.Resting || WorkspaceWindow.Covering)
                 return;
 
             var cell = UI.MouseCell();
@@ -119,14 +119,14 @@ namespace SlopWorld
 
             // Sticky hint: draw the tip bubble near the click position. Drawn from the map layer
             // only when no terminal is up - a pane fills the screen opaque. Therefore, a bubble
-            // asked for over one would land behind it. TerminalWindow draws the same hint from its
+            // asked for over one would land behind it. WorkspaceWindow draws the same hint from its
             // own contents, on top (see DrawHint).
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() == null)
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() == null)
                 DrawHint();
         }
 
         // The sticky tip bubble, wherever it is asked for. Drawn from the map layer over the map
-        // and from TerminalWindow over an open pane. Therefore, a hint from the persona core's menu
+        // and from WorkspaceWindow over an open pane. Therefore, a hint from the persona core's menu
         // is not buried under the terminal that answered it. Returns when there is nothing to show
         // or the hint has dismissed itself.
         public void DrawHint()
@@ -193,7 +193,7 @@ namespace SlopWorld
         }
 
         // The status-bar button resolves the core cell, anchors the hint to that cell and
-        // places the bubble at the pointer. Map drawing covers the map. TerminalWindow
+        // places the bubble at the pointer. Map drawing covers the map. WorkspaceWindow
         // repeats it over an opaque pane.
         public static void OpenMenu()
         {
@@ -263,7 +263,7 @@ namespace SlopWorld
 
             // OpenOverPane rather than a plain Add. The status bar is drawn over a terminal as well
             // as over the map, and a menu opened from it belongs above both.
-            TerminalWindow.OpenOverPane(new UiMenu(options));
+            WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         // Where the core stands, or Invalid with none - which is a hint that dismisses itself

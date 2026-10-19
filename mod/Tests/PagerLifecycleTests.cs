@@ -97,7 +97,7 @@ namespace SlopWorld
         public void SetReaderPinned(string name, bool pinned) => Pins.Add((name, pinned));
     }
 
-    partial class TerminalWindow
+    partial class WorkspaceWindow
     {
         public static string Current;
 
@@ -258,7 +258,7 @@ namespace SlopWorld.Tests
             var pager = WatchedFile();
             var store = SessionHub.Instance.SessionStore;
             pager.Lock();
-            TerminalWindow.Current = "settings-backing-session";
+            WorkspaceWindow.Current = "settings-backing-session";
             SessionHub.Instance.Config.Pager = "less -N";
             pager.RestartForAppearance(pager.Session, pager.Operation);
             AssertEx.True(store.Command.Contains("less -N"), "current pager command is rebuilt");
@@ -280,7 +280,7 @@ namespace SlopWorld.Tests
             AssertEx.True(pager.Locked, "pin retained");
             AssertEx.Equal(
                 "settings-backing-session",
-                TerminalWindow.Current,
+                WorkspaceWindow.Current,
                 "settings focus retained"
             );
             AssertEx.Equal(1, store.Stops, "old process stopped after replacement is ready");
@@ -441,7 +441,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(2, store.Starts, "one refresh at a time");
             AssertEx.Equal("original", pager.Session, "old reader survives until handoff");
             store.Complete(store.Requests[1], "refreshed");
-            AssertEx.Equal("refreshed", TerminalWindow.Current, "visible pane follows replacement");
+            AssertEx.Equal(
+                "refreshed",
+                WorkspaceWindow.Current,
+                "visible pane follows replacement"
+            );
             AssertEx.True(pager.Locked, "pin survives refresh");
             AssertEx.False(SessionHub.Instance.Get("original").Alive, "old process retired");
             stale.Apply(false);
@@ -454,12 +458,12 @@ namespace SlopWorld.Tests
         {
             var pager = WatchedFile();
             new ReaderProbe(pager).Apply(true, "second");
-            TerminalWindow.Open("another-session");
+            WorkspaceWindow.Open("another-session");
             SessionHub.Instance.SessionStore.Complete(
                 SessionHub.Instance.SessionStore.Requests[1],
                 "refreshed"
             );
-            AssertEx.Equal("another-session", TerminalWindow.Current, "focus is unchanged");
+            AssertEx.Equal("another-session", WorkspaceWindow.Current, "focus is unchanged");
             AssertEx.Equal("refreshed", pager.Session, "hidden reader is still updated");
         }
 
@@ -549,7 +553,7 @@ namespace SlopWorld.Tests
             AssertEx.True(tabs.ReuseFile("p", "/file"), "pinned source reopens by path");
             AssertEx.Equal(
                 "file",
-                TerminalWindow.Current,
+                WorkspaceWindow.Current,
                 "existing line-targeted reader receives focus"
             );
             AssertEx.Equal(2, store.Starts, "reopening does not create a duplicate reader");
@@ -598,7 +602,7 @@ namespace SlopWorld.Tests
             AssertEx.True(pager.Owns("p", "/two"), "stale failure preserves pending identity");
             store.Complete(store.Requests[1], "two");
             AssertEx.True(pager.Matches("p", "/two"), "replacement completes normally");
-            AssertEx.Equal("two", TerminalWindow.Current, "replacement has focus");
+            AssertEx.Equal("two", WorkspaceWindow.Current, "replacement has focus");
             AssertEx.Equal(0, store.Stops, "stale failure cannot stop the replacement");
         }
 
@@ -631,7 +635,7 @@ namespace SlopWorld.Tests
         static void ClosePending(bool file)
         {
             SessionHub.Instance = new SessionHub();
-            TerminalWindow.Current = null;
+            WorkspaceWindow.Current = null;
             var pager = new Pager();
             var store = SessionHub.Instance.SessionStore;
             Start(pager, file, "/one");
@@ -654,7 +658,7 @@ namespace SlopWorld.Tests
                 pager.Session,
                 "late completion cannot revive closed reader"
             );
-            AssertEx.Equal("one", TerminalWindow.Current, "late completion cannot take focus");
+            AssertEx.Equal("one", WorkspaceWindow.Current, "late completion cannot take focus");
             AssertEx.Equal(2, store.Stops, "old and late readers are each stopped once");
         }
 
@@ -673,7 +677,7 @@ namespace SlopWorld.Tests
             store.Complete(store.Requests[1], "replacement");
             AssertEx.Equal(2, store.Starts, "same key starts again after process death");
             AssertEx.True(pager.Matches("p", "/one"), "replacement owns the identity");
-            AssertEx.Equal("replacement", TerminalWindow.Current, "replacement takes focus");
+            AssertEx.Equal("replacement", WorkspaceWindow.Current, "replacement takes focus");
             AssertEx.Equal(1, store.Stops, "old session cleanup is requested once");
         }
 
@@ -775,7 +779,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("p", store.Project, "diff project");
             store.Complete(store.Requests[1], "diff");
             AssertEx.True(tabs.Reopen("p", "diff:one"), "completed diff can reopen");
-            AssertEx.Equal("diff", TerminalWindow.Current, "correct reader is active");
+            AssertEx.Equal("diff", WorkspaceWindow.Current, "correct reader is active");
             AssertEx.Equal(1, store.Stops, "source retired after diff handoff");
         }
 
@@ -850,7 +854,7 @@ namespace SlopWorld.Tests
             tabs.ForPreview().ViewFile("p", "/two", "view-two");
             store.Complete(store.Requests[1], "two");
             AssertEx.True(tabs.Reopen("p", "/one"), "find pinned file independently of selection");
-            AssertEx.Equal("one", TerminalWindow.Current, "focus pinned session");
+            AssertEx.Equal("one", WorkspaceWindow.Current, "focus pinned session");
             AssertEx.Equal(2, store.Starts, "no duplicate session");
             AssertEx.Equal(0, store.Stops, "both readers remain alive");
             AssertEx.Equal("/one", tabs.FilePath("one"), "pinned session retains original path");

@@ -21,18 +21,18 @@ namespace SlopWorld
             public void Menu(LibraryItemInfo item) => RowMenu(item);
 
             public void Create(AgentTemplateInfo template) =>
-                TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(template));
+                WorkspaceWindow.OpenOverPane(EditSessionDialog.FromTemplate(template));
 
             public void Edit(AgentTemplateInfo template) =>
-                TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template));
+                WorkspaceWindow.OpenOverPane(EditSessionDialog.EditTemplate(template));
 
             public void Menu(AgentTemplateInfo template) => TemplateMenu(template);
 
             public void Edit(ProjectInfo project) =>
-                TerminalWindow.OpenOverPane(new EditProjectDialog(project));
+                WorkspaceWindow.OpenOverPane(new EditProjectDialog(project));
 
             public void Worktrees(ProjectInfo project) =>
-                TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(project));
+                WorkspaceWindow.OpenOverPane(EditProjectDialog.ForWorktrees(project));
 
             public void Menu(ProjectInfo project) => ProjectMenu(project);
 

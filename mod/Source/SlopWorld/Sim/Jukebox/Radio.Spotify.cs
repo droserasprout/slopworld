@@ -77,7 +77,7 @@ namespace SlopWorld
                 () =>
                 {
                     if (!_quit && revision == _selectionRevision)
-                        TerminalWindow.Open(session);
+                        WorkspaceWindow.Open(session);
                 },
                 errorMessage =>
                 {

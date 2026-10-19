@@ -41,7 +41,7 @@ namespace SlopWorld
             var row = new UiLayout.Bar(bar);
 
             if (row.Left("Add project", UiTheme.Btn.Primary))
-                TerminalWindow.OpenOverPane(new EditProjectDialog(null));
+                WorkspaceWindow.OpenOverPane(new EditProjectDialog(null));
 
             if (row.Right("Reload", UiTheme.Btn.Ghost))
                 SessionHub.Instance.Catalog.RefreshProjects(UiLayout.Fail);
@@ -88,7 +88,7 @@ namespace SlopWorld
             float actW = Mathf.Max(UiLayout.BtnW("Delete", 120f), UiLayout.BtnW("Edit", 120f));
 
             if (UiButtons.Button(new Rect(right - actW, r.y + 1f, actW, UiTheme.RowBtnH), "Edit"))
-                TerminalWindow.OpenOverPane(new EditProjectDialog(p));
+                WorkspaceWindow.OpenOverPane(new EditProjectDialog(p));
 
             if (
                 UiButtons.Button(
@@ -97,7 +97,7 @@ namespace SlopWorld
                     UiTheme.Btn.Danger
                 )
             )
-                TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(p.Name));
+                WorkspaceWindow.OpenOverPane(CatalogActions.RemoveProject(p.Name));
         }
     }
 }

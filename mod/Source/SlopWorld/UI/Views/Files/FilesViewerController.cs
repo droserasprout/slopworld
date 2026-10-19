@@ -147,7 +147,7 @@ namespace SlopWorld
                         plainText: presentation == ReaderPresentation.Source
                     );
             (view as MarkdownPreview)?.RetainVisibleDocument(
-                TerminalWindow.ShowingAs<MarkdownPreview>()
+                WorkspaceWindow.ShowingAs<MarkdownPreview>()
             );
             var tab = _nativeViewers.ForPreview();
             tab.OriginLabel = ReaderLabel(project, "view-" + name);
@@ -158,7 +158,7 @@ namespace SlopWorld
             tab.Presentation = presentation;
             tab.View = view;
             tab.Header = "view-native-" + (++_nativeHeader);
-            TerminalWindow.OpenContent(tab.View);
+            WorkspaceWindow.OpenContent(tab.View);
             // Publish the native replacement before retiring the pager. This also
             // cancels an in-flight pager when the user switches back to native content.
             Viewers.ReleasePreview();
@@ -186,7 +186,7 @@ namespace SlopWorld
             get
             {
                 foreach (var tab in _nativeViewers.All)
-                    if (ReferenceEquals(tab.View, TerminalWindow.Showing))
+                    if (ReferenceEquals(tab.View, WorkspaceWindow.Showing))
                         return tab.Header;
                 return null;
             }
@@ -247,7 +247,7 @@ namespace SlopWorld
                     "",
                     Pager.EditorCommand(path, line),
                     label,
-                    session => TerminalWindow.Open(session),
+                    session => WorkspaceWindow.Open(session),
                     UiLayout.Fail,
                     options: new SessionRunOptions
                     {
@@ -268,7 +268,7 @@ namespace SlopWorld
                 project,
                 Pager.EditorCommand(path, line),
                 label,
-                session => TerminalWindow.Open(session),
+                session => WorkspaceWindow.Open(session),
                 UiLayout.Fail,
                 options: new SessionRunOptions
                 {

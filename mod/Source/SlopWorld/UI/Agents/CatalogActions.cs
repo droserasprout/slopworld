@@ -6,7 +6,7 @@ namespace SlopWorld
     static class CatalogActions
     {
         static void StartFailed(string name, string message) =>
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 AlertDialog.Create(
                     "Session failed to start",
                     $"Could not start '{name}':\n{message}",
@@ -29,7 +29,7 @@ namespace SlopWorld
                     info.Project,
                     "",
                     "",
-                    session => TerminalWindow.Open(session),
+                    session => WorkspaceWindow.Open(session),
                     UiLayout.Fail,
                     options: new SessionRunOptions { Like = info.Name }
                 );
@@ -38,14 +38,14 @@ namespace SlopWorld
         public static void DuplicateAgent(SessionInfo info)
         {
             if (!string.IsNullOrEmpty(info.Project))
-                TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info));
+                WorkspaceWindow.OpenOverPane(EditSessionDialog.Copy(info));
         }
 
         public static void EditProject(ProjectInfo project) =>
-            TerminalWindow.OpenOverPane(new EditProjectDialog(project));
+            WorkspaceWindow.OpenOverPane(new EditProjectDialog(project));
 
         public static void DuplicateProject(ProjectInfo project) =>
-            TerminalWindow.OpenOverPane(EditProjectDialog.Copy(project));
+            WorkspaceWindow.OpenOverPane(EditProjectDialog.Copy(project));
 
         public static void ProjectTerminal(ProjectInfo project) => HostShell(project.Name);
 
@@ -58,7 +58,7 @@ namespace SlopWorld
         ) =>
             SessionHub.Instance.SessionStore.RunHostShell(
                 project,
-                session => TerminalWindow.Open(session),
+                session => WorkspaceWindow.Open(session),
                 fail ?? UiLayout.Fail,
                 worktree
             );

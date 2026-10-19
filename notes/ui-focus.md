@@ -1,12 +1,12 @@
 # UI focus
 
 `WorkspacePanelOwner` owns panel focus. `FieldLifetime` owns editable-field state in
-Settings, shared dialogs, the command palette, Search, Library, and TerminalWindow.
+Settings, shared dialogs, the command palette, Search, Library, and WorkspaceWindow.
 Closing a lifetime makes delayed edits inert and retires selection gestures; it
 need not cancel an outstanding clipboard request.
 
 `FieldFocusScope` owns focus memory in Settings, shared dialogs, and eligible
-TerminalWindow content. When a form regains input, restore its remembered field only
+WorkspaceWindow content. When a form regains input, restore its remembered field only
 if it is still registered and enabled/editable. Disabled and read-only fields do
 not register. An explicit mouse press takes precedence. Scroll owners reveal the
 focused field through nested areas; identity is by field name rather than geometry

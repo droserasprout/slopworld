@@ -9,7 +9,7 @@ namespace SlopWorld
     public static class PaneOverDraw
     {
         // Wanted returns true when patch prefixes must permit normal drawing.
-        internal static bool Hidden => TerminalWindow.Covering || Eco.Resting;
+        internal static bool Hidden => WorkspaceWindow.Covering || Eco.Resting;
 
         static bool Wanted() => !Hidden;
 

@@ -57,7 +57,7 @@ namespace SlopWorld
                     richText = false,
                     wordWrap = false,
                 };
-                // TerminalWindow reuses TerminalFont.Style and mutates its normal text
+                // WorkspaceWindow reuses TerminalFont.Style and mutates its normal text
                 // color for every ANSI run. Do not inherit the last terminal foreground.
                 // MarkdownRenderer applies the scheme color through GUI.color.
                 Code.normal.textColor = Color.white;

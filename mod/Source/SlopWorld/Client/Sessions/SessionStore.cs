@@ -300,7 +300,7 @@ namespace SlopWorld
             request.Project = project ?? "";
             request.Command = command ?? "";
             request.Label = label ?? "";
-            if (TerminalWindow.TryPanelShape(out int cols, out int rows))
+            if (WorkspaceWindow.TryPanelShape(out int cols, out int rows))
             {
                 request.Cols = (uint)cols;
                 request.Rows = (uint)rows;

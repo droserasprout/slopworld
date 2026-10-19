@@ -160,7 +160,7 @@ namespace SlopWorld
                 _tempPreview.Cancel();
                 _p.Dir = UiControls.Field(l, "project.dir", _p.Dir);
                 if (UiLayout.Button(l, "Choose directory"))
-                    TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
+                    WorkspaceWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
         }
 

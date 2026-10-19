@@ -29,7 +29,7 @@ namespace SlopWorld
             AcceptOnEnter(Save);
         }
 
-        public static void OpenNew() => TerminalWindow.OpenOverPane(NewDialog());
+        public static void OpenNew() => WorkspaceWindow.OpenOverPane(NewDialog());
 
         public static void Open(JukeboxPresetInfo source)
         {
@@ -39,7 +39,7 @@ namespace SlopWorld
                 JukeboxPresetStore.Refresh();
                 return;
             }
-            TerminalWindow.OpenOverPane(new AudioSourceDialog(source.Copy(), false, source.Id));
+            WorkspaceWindow.OpenOverPane(new AudioSourceDialog(source.Copy(), false, source.Id));
         }
 
         static AudioSourceDialog NewDialog()

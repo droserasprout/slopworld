@@ -48,7 +48,7 @@ namespace SlopWorld
             }
 
             // Keep a terminal that is already open.
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
             {
                 _done = true;
                 return;
@@ -61,7 +61,7 @@ namespace SlopWorld
             var info = SessionHub.Instance.Get(_last);
             if (info?.Alive == true)
             {
-                TerminalWindow.Open(_last);
+                WorkspaceWindow.Open(_last);
                 _done = true;
                 return;
             }

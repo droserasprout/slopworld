@@ -30,7 +30,7 @@ namespace SlopWorld
         }
     }
 
-    partial class TerminalWindow
+    partial class WorkspaceWindow
     {
         public static bool CanPasteClipboardToAgent => true;
         public static int SelectionPastes;

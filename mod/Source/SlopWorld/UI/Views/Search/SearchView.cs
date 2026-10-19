@@ -648,7 +648,7 @@ namespace SlopWorld
                         )
                 )
             );
-            TerminalWindow.OpenOverPane(new UiMenu(opts));
+            WorkspaceWindow.OpenOverPane(new UiMenu(opts));
         }
 
         static Rect Screen(Rect r)

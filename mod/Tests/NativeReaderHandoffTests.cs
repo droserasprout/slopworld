@@ -18,7 +18,7 @@ namespace SlopWorld.Tests
                     return () =>
                     {
                         AssertEx.False(
-                            ReferenceEquals(view, TerminalWindow.Showing),
+                            ReferenceEquals(view, WorkspaceWindow.Showing),
                             "terminal already shown before native retirement"
                         );
                         retire();
@@ -30,13 +30,13 @@ namespace SlopWorld.Tests
                     tabs.ForPreview().ViewFile("p", "/file", "file");
                 AssertEx.Equal(1, native.All.Count(), "native row stays during launch");
                 AssertEx.True(
-                    ReferenceEquals(view, TerminalWindow.Showing),
+                    ReferenceEquals(view, WorkspaceWindow.Showing),
                     "Markdown stays visible during launch"
                 );
                 SessionHub.Instance.SessionStore.Complete("replacement");
                 AssertEx.Equal(0, native.All.Count(), "native row retires at handoff");
                 AssertEx.Equal(1, tabs.All.Count(), "replacement supplies the single row");
-                AssertEx.Equal("replacement", TerminalWindow.Current, "pager is shown");
+                AssertEx.Equal("replacement", WorkspaceWindow.Current, "pager is shown");
             }
         }
 
@@ -55,7 +55,7 @@ namespace SlopWorld.Tests
             catch (Exception error) when (error.Message == "launch failed") { }
             AssertEx.Equal(1, native.All.Count(), "failure keeps the old row");
             AssertEx.True(
-                ReferenceEquals(view, TerminalWindow.Showing),
+                ReferenceEquals(view, WorkspaceWindow.Showing),
                 "failure keeps Markdown visible"
             );
         }
@@ -75,7 +75,7 @@ namespace SlopWorld.Tests
             SessionHub.Instance.SessionStore.Complete("late-pager");
             AssertEx.Equal(1, native.All.Count(), "late reply does not remove native row");
             AssertEx.True(
-                ReferenceEquals(view, TerminalWindow.Showing),
+                ReferenceEquals(view, WorkspaceWindow.Showing),
                 "late reply does not steal content"
             );
             AssertEx.Equal(0, tabs.All.Count(), "cancelled process is retired");
@@ -105,7 +105,7 @@ namespace SlopWorld.Tests
             ShowMarkdown(native);
             AssertEx.True(tabs.ReuseFile("p", "/file"), "existing pager reused");
             AssertEx.Equal(0, native.All.Count(), "reuse retires replaceable Markdown");
-            AssertEx.Equal("pager", TerminalWindow.Current, "reuse shows existing terminal");
+            AssertEx.Equal("pager", WorkspaceWindow.Current, "reuse shows existing terminal");
         }
 
         static PreviewTabs<NativeFileTab> NativeReaders()
@@ -137,7 +137,7 @@ namespace SlopWorld.Tests
             tab.Path = "/readme.md";
             tab.Header = "native-header";
             tab.View = new MarkdownPreview("# Markdown", "readme.md");
-            TerminalWindow.OpenContent(tab.View);
+            WorkspaceWindow.OpenContent(tab.View);
         }
     }
 }

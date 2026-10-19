@@ -149,7 +149,7 @@ namespace SlopWorld
 
             if (CanPaste && e.keyCode == KeyCode.V)
             {
-                TerminalWindow.PasteClipboardToAgent();
+                WorkspaceWindow.PasteClipboardToAgent();
                 e.Use();
             }
         }
@@ -161,15 +161,15 @@ namespace SlopWorld
                 options,
                 new SelectionCommandAvailability(
                     canCopy: _hasSelection,
-                    canPaste: CanPaste && TerminalWindow.CanPasteClipboardToAgent,
+                    canPaste: CanPaste && WorkspaceWindow.CanPasteClipboardToAgent,
                     canSelectAll: true,
                     canCut: false
                 ),
                 CopySelection,
-                CanPaste ? TerminalWindow.PasteClipboardToAgent : (System.Action)null,
+                CanPaste ? WorkspaceWindow.PasteClipboardToAgent : (System.Action)null,
                 SelectAll
             );
-            TerminalWindow.OpenOverPane(new UiMenu(options));
+            WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         protected virtual int FirstHighlightLine(int selected, float top) => selected;

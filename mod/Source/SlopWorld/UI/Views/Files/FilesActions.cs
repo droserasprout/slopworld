@@ -302,7 +302,7 @@ namespace SlopWorld
                 return;
             }
 
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 new UiMenu(
                     new List<FloatMenuOption>
                     {
@@ -334,14 +334,14 @@ namespace SlopWorld
                 {
                     RefreshAfterFileAction();
                     string output = j.Output;
-                    TerminalWindow.OpenOverPane(
+                    WorkspaceWindow.OpenOverPane(
                         AlertDialog.Create("File action: " + actionName, output, "Close", null)
                     );
                 },
                 msg =>
                 {
                     RefreshAfterFileAction();
-                    TerminalWindow.OpenOverPane(
+                    WorkspaceWindow.OpenOverPane(
                         AlertDialog.Create(
                             "File action failed",
                             msg,
@@ -393,7 +393,7 @@ namespace SlopWorld
                 project,
                 command,
                 "fa-" + name,
-                session => TerminalWindow.Open(session),
+                session => WorkspaceWindow.Open(session),
                 UiLayout.Fail,
                 options: new SessionRunOptions
                 {
@@ -445,7 +445,7 @@ namespace SlopWorld
         void Remove(FileNode node)
         {
             string what = node.IsDir ? "folder and everything inside it" : "file";
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     $"Remove {what} '{node.Name}'?",
                     () =>
@@ -497,7 +497,7 @@ namespace SlopWorld
                 node.Project ?? "",
                 command,
                 "shell-" + node.Name,
-                session => TerminalWindow.Open(session),
+                session => WorkspaceWindow.Open(session),
                 UiLayout.Fail,
                 options: new SessionRunOptions
                 {

@@ -3,7 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public partial class TerminalWindow
+    public partial class WorkspaceWindow
     {
         Color Background =>
             TerminalVisible ? TerminalPanel.SolidTerminalBackground : UiTheme.WindowBg;

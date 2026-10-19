@@ -19,4 +19,4 @@ Saved terminal recall remembers one last selected alive session and yields to an
 existing workspace host, including content-only windows. A durable stopped session
 retains its pane binding behind content. Settings changes visibility/focus without
 closing the backing terminal. `ITerminalPanelHost` supplies content/input availability
-and host actions; TerminalWindow/TerminalSplit assign placement bounds.
+and host actions; WorkspaceWindow/TerminalSplit assign placement bounds.

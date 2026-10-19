@@ -128,7 +128,7 @@ namespace SlopWorld
                 new UiSubmenu("Direction", DirectionOptions),
                 new UiSubmenu("Agent", AgentOptions),
             };
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 screenAnchor.HasValue
                     ? UiSelector.Menu(options, screenAnchor.Value, matchWidth: false)
                     : new UiMenu(options)

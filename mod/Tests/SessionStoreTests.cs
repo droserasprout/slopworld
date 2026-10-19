@@ -74,8 +74,8 @@ namespace SlopWorld.Tests
         public static void DefaultRunUsesPanelSizeAndRejectsMissingReaderProject()
         {
             DaemonClient.Requests.Clear();
-            TerminalWindow.TestCols = 100;
-            TerminalWindow.TestRows = 30;
+            WorkspaceWindow.TestCols = 100;
+            WorkspaceWindow.TestRows = 30;
             try
             {
                 var store = new SessionStore(_ => { });
@@ -98,7 +98,7 @@ namespace SlopWorld.Tests
             }
             finally
             {
-                TerminalWindow.TestCols = TerminalWindow.TestRows = 0;
+                WorkspaceWindow.TestCols = WorkspaceWindow.TestRows = 0;
                 DaemonClient.Requests.Clear();
             }
         }

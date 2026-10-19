@@ -608,7 +608,7 @@ namespace SlopWorld
         void OpenMenu(List<FloatMenuOption> options)
         {
             if (options != null)
-                TerminalWindow.OpenOverPane(new UiMenu(options));
+                WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         Rect ClippedScreen(Rect row)

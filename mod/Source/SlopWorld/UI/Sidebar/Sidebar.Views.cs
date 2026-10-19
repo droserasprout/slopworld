@@ -32,7 +32,7 @@ namespace SlopWorld
                 return;
             ShowWithoutHistory(SidebarTab.Agents);
             RememberAgent(name);
-            TerminalWindow.Open(name);
+            WorkspaceWindow.Open(name);
         }
 
         public static void ShowFiles() => Show(SidebarTab.Files);
@@ -322,7 +322,7 @@ namespace SlopWorld
                     case SidebarViewLocationKind.Agent:
                         if (SessionHub.Instance.Get(location.Primary) == null)
                             return false;
-                        TerminalWindow.Open(location.Primary);
+                        WorkspaceWindow.Open(location.Primary);
                         return true;
                     case SidebarViewLocationKind.File:
                         return FilesView.FocusLocation(location.Primary, location.Secondary);
@@ -402,7 +402,7 @@ namespace SlopWorld
         public static void WalkReader(int direction)
         {
             PrepareRouted();
-            string current = FilesView.CurrentViewerHeader ?? TerminalWindow.CurrentName;
+            string current = FilesView.CurrentViewerHeader ?? WorkspaceWindow.CurrentName;
             string target = RoutedSessionRows.Adjacent(Layout.Routed, current, direction);
             if (target == null)
                 return;

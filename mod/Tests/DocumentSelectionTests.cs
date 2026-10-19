@@ -124,7 +124,7 @@ namespace SlopWorld.Tests
                 );
                 task.OpenMenu();
                 AssertEx.True(
-                    !TerminalWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"),
+                    !WorkspaceWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"),
                     "task menu has no paste"
                 );
                 task.HandleKey(new Event { control = true, keyCode = KeyCode.C });
@@ -158,7 +158,7 @@ namespace SlopWorld.Tests
                 );
                 markdown.OpenMenu();
                 AssertEx.True(
-                    TerminalWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"),
+                    WorkspaceWindow.SelectionMenu.Options.Any(o => o.Label == "Paste"),
                     "Markdown keeps agent paste"
                 );
                 markdown.Clear();
@@ -169,7 +169,7 @@ namespace SlopWorld.Tests
                 GUIUtility.systemCopyBuffer = previous;
                 DaemonClipboard.Reset();
                 DaemonClient.Requests.Clear();
-                TerminalWindow.SelectionMenu = null;
+                WorkspaceWindow.SelectionMenu = null;
                 GUIUtility.hotControl = 0;
             }
         }

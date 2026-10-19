@@ -58,7 +58,7 @@ namespace SlopWorld
                     out first,
                     out end
                 );
-            string current = FilesView.CurrentViewerHeader ?? TerminalWindow.CurrentName;
+            string current = FilesView.CurrentViewerHeader ?? WorkspaceWindow.CurrentName;
             for (int i = first; i < end; i++)
             {
                 var info = Layout.Routed[i];
@@ -230,7 +230,7 @@ namespace SlopWorld
             GitView.CancelPendingDiff();
             if (FilesView.OpenViewerHeader(session))
                 return;
-            TerminalWindow.Open(session);
+            WorkspaceWindow.Open(session);
         }
 
         static void DrawRows()
@@ -306,7 +306,7 @@ namespace SlopWorld
         {
             RowChrome.Hover(
                 row.Line,
-                row.Session == TerminalWindow.CurrentName,
+                row.Session == WorkspaceWindow.CurrentName,
                 true,
                 RowHoverPolicy.OverlayAware
             );

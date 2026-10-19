@@ -7,12 +7,12 @@ namespace SlopWorld
 {
     // Fullscreen workspace host. TerminalPanel owns terminal rendering and input.
     // this window places the active panel and draws shared chrome.
-    public partial class TerminalWindow : Window, ITerminalPanelHost
+    public partial class WorkspaceWindow : Window, ITerminalPanelHost
     {
         static float ContentPad => UiTheme.GapS;
         FieldLifetime _fieldLifetime = new FieldLifetime();
 
-        TerminalWindow(string name)
+        WorkspaceWindow(string name)
         {
             _terminals = new TerminalSplit(
                 this,
@@ -41,14 +41,14 @@ namespace SlopWorld
         public override Vector2 InitialSize => new Vector2(UI.screenWidth, UI.screenHeight);
 
         // These static entry points are used by map-layer patches as well as the window's
-        // input path. Keep the public facade on TerminalWindow while the event policy lives in
+        // input path. Keep the public facade on WorkspaceWindow while the event policy lives in
         // TerminalInputController.
         public static bool HandleFunctionKey(Event e) =>
             TerminalInputController.HandleFunctionKey(e);
 
         internal static bool HandleSessionNavigation(Event e)
         {
-            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             return window != null && window.TryHandleSessionNavigation(e);
         }
 

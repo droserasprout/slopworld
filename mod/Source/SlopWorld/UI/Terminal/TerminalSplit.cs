@@ -120,7 +120,7 @@ namespace SlopWorld
             {
                 var divider = RectOf(Geometry(Bounds).Divider);
                 _dividerControl = GUIUtility.GetControlID(FocusType.Passive);
-                var mouse = TerminalWindow.MouseType(e);
+                var mouse = WorkspaceWindow.MouseType(e);
                 if (
                     Focused
                     && GUIUtility.hotControl == 0

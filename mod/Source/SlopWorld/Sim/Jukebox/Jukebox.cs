@@ -29,7 +29,7 @@ namespace SlopWorld
         public override void MapComponentOnGUI()
         {
             // Skip map input during cutscenes, Eco rest, or terminal coverage.
-            if (Cutscene.Playing || Eco.Resting || TerminalWindow.Covering)
+            if (Cutscene.Playing || Eco.Resting || WorkspaceWindow.Covering)
                 return;
 
             var cell = UI.MouseCell();
@@ -52,7 +52,7 @@ namespace SlopWorld
         // OpenOverPane supports both map and terminal display.
         public static void OpenMenu()
         {
-            TerminalWindow.OpenOverPane(new UiMenu(MenuOptions()));
+            WorkspaceWindow.OpenOverPane(new UiMenu(MenuOptions()));
         }
 
         static List<FloatMenuOption> MenuOptions()

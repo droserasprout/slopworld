@@ -18,7 +18,7 @@ namespace SlopWorld
         }
 
         public static void Open(string session, string initial) =>
-            TerminalWindow.OpenOverPane(new LabelDialog(session, initial));
+            WorkspaceWindow.OpenOverPane(new LabelDialog(session, initial));
 
         // Leave room for the two-line note, the field, a validation row, and the footer.
         // the error row is conditional but must not collide with the footer when shown.

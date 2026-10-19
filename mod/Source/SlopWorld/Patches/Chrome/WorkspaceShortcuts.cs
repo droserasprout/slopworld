@@ -21,7 +21,7 @@ namespace SlopWorld
             if (ModOptions.KeyboardCaptureActive)
                 return;
 
-            if (TerminalWindow.HandleFunctionKey(e))
+            if (WorkspaceWindow.HandleFunctionKey(e))
             {
                 e.Use();
                 return;
@@ -29,7 +29,7 @@ namespace SlopWorld
 
             // Unfocused-window keys reach this hook; focused text controls receive
             // their events inside GUI.Window instead. Both paths share one handler.
-            TerminalWindow.HandleSessionNavigation(e);
+            WorkspaceWindow.HandleSessionNavigation(e);
         }
     }
 }

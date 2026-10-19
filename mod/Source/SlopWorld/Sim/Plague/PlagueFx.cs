@@ -85,7 +85,7 @@ namespace SlopWorld
                 return;
 
             // PaneOverDraw skips map drawing while a terminal pane covers it.
-            if (TerminalWindow.Covering)
+            if (WorkspaceWindow.Covering)
                 return;
 
             var map = t.Map;

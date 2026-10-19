@@ -91,16 +91,16 @@ namespace SlopWorld
         public override string Title => "Preview · " + _name;
 
         public static void Open(string project, string path, string name) =>
-            TerminalWindow.OpenContent(new MarkdownPreview(project, path, name));
+            WorkspaceWindow.OpenContent(new MarkdownPreview(project, path, name));
 
         public static bool IsShowing(string path) =>
-            TerminalWindow.ShowingAs<MarkdownPreview>()?.Path == path;
+            WorkspaceWindow.ShowingAs<MarkdownPreview>()?.Path == path;
 
         public static void CloseIfShowing()
         {
-            if (TerminalWindow.ShowingAs<MarkdownPreview>() == null)
+            if (WorkspaceWindow.ShowingAs<MarkdownPreview>() == null)
                 return;
-            Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+            Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
         }
 
         public override void Opened()

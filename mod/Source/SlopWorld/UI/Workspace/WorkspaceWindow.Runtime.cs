@@ -1,6 +1,6 @@
 namespace SlopWorld
 {
-    public partial class TerminalWindow
+    public partial class WorkspaceWindow
     {
         readonly TerminalSplit _terminals;
         TerminalPanel _terminal => _terminals.Selected;

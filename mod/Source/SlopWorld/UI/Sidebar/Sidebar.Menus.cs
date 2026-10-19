@@ -39,7 +39,7 @@ namespace SlopWorld
                     () => ToggleAgentStatus(AgentStatusFilter.Down)
                 ),
             };
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 UiSelector.Menu(opts, _agentVisibilityRect, matchWidth: false)
             );
         }
@@ -79,7 +79,7 @@ namespace SlopWorld
                     }
                 ),
             };
-            TerminalWindow.OpenOverPane(UiSelector.Menu(opts, _visibilityRect, matchWidth: false));
+            WorkspaceWindow.OpenOverPane(UiSelector.Menu(opts, _visibilityRect, matchWidth: false));
         }
 
         static void Menus()
@@ -122,7 +122,7 @@ namespace SlopWorld
                 {
                     if (info.Alive)
                     {
-                        TerminalWindow.OpenOverPane(
+                        WorkspaceWindow.OpenOverPane(
                             ConfirmDialog.Create(
                                 $"Stop '{row.Session}'? This closes the tmux session. "
                                     + "The current work in that session will end.",
@@ -137,7 +137,7 @@ namespace SlopWorld
                     }
                     else
                     {
-                        TerminalWindow.OpenOverPane(
+                        WorkspaceWindow.OpenOverPane(
                             info.Host
                                 ? CatalogActions.RemoveHost(row.Session)
                                 : CatalogActions.RemoveSession(row.Session)
@@ -175,7 +175,7 @@ namespace SlopWorld
                 )
             );
 
-            var term = new FloatMenuOption("Terminal", () => TerminalWindow.Open(name));
+            var term = new FloatMenuOption("Terminal", () => WorkspaceWindow.Open(name));
             term.Disabled = !alive;
             opts.Add(term);
 
@@ -196,7 +196,7 @@ namespace SlopWorld
                 opts.Add(
                     new FloatMenuOption(
                         "Delegate task",
-                        () => TerminalWindow.OpenOverPane(new DelegateTaskDialog(name))
+                        () => WorkspaceWindow.OpenOverPane(new DelegateTaskDialog(name))
                     )
                 );
 
@@ -204,7 +204,8 @@ namespace SlopWorld
                 opts.Add(
                     new FloatMenuOption(
                         "Spawn worker",
-                        () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(name, info.Project))
+                        () =>
+                            WorkspaceWindow.OpenOverPane(new SpawnWorkerDialog(name, info.Project))
                     )
                 );
 
@@ -212,7 +213,7 @@ namespace SlopWorld
                 opts.Add(
                     new FloatMenuOption(
                         "Edit",
-                        () => TerminalWindow.OpenOverPane(new EditSessionDialog(info))
+                        () => WorkspaceWindow.OpenOverPane(new EditSessionDialog(info))
                     )
                 );
 
@@ -233,7 +234,7 @@ namespace SlopWorld
                         "Remove",
                         () =>
                         {
-                            TerminalWindow.OpenOverPane(CatalogActions.RemoveHost(name));
+                            WorkspaceWindow.OpenOverPane(CatalogActions.RemoveHost(name));
                         }
                     )
                 );
@@ -242,7 +243,7 @@ namespace SlopWorld
                 opts.Add(
                     new FloatMenuOption(
                         "Remove",
-                        () => TerminalWindow.OpenOverPane(CatalogActions.RemoveSession(name))
+                        () => WorkspaceWindow.OpenOverPane(CatalogActions.RemoveSession(name))
                     )
                 );
 
@@ -259,7 +260,7 @@ namespace SlopWorld
                     )
                 );
 
-            TerminalWindow.OpenOverPane(new UiMenu(opts));
+            WorkspaceWindow.OpenOverPane(new UiMenu(opts));
         }
 
         static void HeadMenu(Head head)
@@ -277,7 +278,7 @@ namespace SlopWorld
                 new FloatMenuOption("Terminal (host)", () => CatalogActions.ProjectTerminal(p)),
                 new FloatMenuOption(
                     "Spawn worker",
-                    () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(null, name))
+                    () => WorkspaceWindow.OpenOverPane(new SpawnWorkerDialog(null, name))
                 ),
             };
 
@@ -294,12 +295,12 @@ namespace SlopWorld
             // Cached counts explain known blockers; the daemon rechecks both stores.
             var del = new FloatMenuOption(
                 blockers.Count > 0 ? "Delete (" + string.Join(", ", blockers) + ")" : "Delete",
-                () => TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(name))
+                () => WorkspaceWindow.OpenOverPane(CatalogActions.RemoveProject(name))
             );
             del.Disabled = blockers.Count > 0;
             opts.Add(del);
 
-            TerminalWindow.OpenOverPane(new UiMenu(opts));
+            WorkspaceWindow.OpenOverPane(new UiMenu(opts));
         }
 
         static bool AddClick()
@@ -320,20 +321,20 @@ namespace SlopWorld
             {
                 new FloatMenuOption(
                     "Project",
-                    () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))
+                    () => WorkspaceWindow.OpenOverPane(new EditProjectDialog(null))
                 ),
                 new UiSubmenu("Agent", AgentCreationOptions),
                 new UiSubmenu("Worker", WorkerOptions),
                 new FloatMenuOption(
                     "Task",
-                    () => TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))
+                    () => WorkspaceWindow.OpenOverPane(new DelegateTaskDialog(null))
                 ),
                 new UiSubmenu("Library", LibraryItemOptions),
                 new FloatMenuOption("Sandbox preset", ModOptions.OpenNewSandboxPreset),
                 new FloatMenuOption("Command preset", ModOptions.OpenNewCommand),
                 new UiSubmenu("Host shell", HostShellOptions),
             };
-            TerminalWindow.OpenOverPane(new UiMenu(opts));
+            WorkspaceWindow.OpenOverPane(new UiMenu(opts));
             return true;
         }
 
@@ -351,7 +352,7 @@ namespace SlopWorld
                 options.Add(
                     new FloatMenuOption(
                         template.DisplayLabel,
-                        () => TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(captured))
+                        () => WorkspaceWindow.OpenOverPane(EditSessionDialog.FromTemplate(captured))
                     )
                 );
             }
@@ -360,7 +361,7 @@ namespace SlopWorld
             options.Add(
                 new FloatMenuOption(
                     "Custom",
-                    () => TerminalWindow.OpenOverPane(new EditSessionDialog(null))
+                    () => WorkspaceWindow.OpenOverPane(new EditSessionDialog(null))
                 )
             );
             return options;
@@ -379,7 +380,7 @@ namespace SlopWorld
                 options.Add(
                     new FloatMenuOption(
                         $"{project.Name}  -  {project.Dir}",
-                        () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(null, captured))
+                        () => WorkspaceWindow.OpenOverPane(new SpawnWorkerDialog(null, captured))
                     )
                 );
             }
@@ -394,7 +395,7 @@ namespace SlopWorld
             {
                 new FloatMenuOption(
                     "Agent template",
-                    () => TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate())
+                    () => WorkspaceWindow.OpenOverPane(EditSessionDialog.EditTemplate())
                 ),
             };
             options.AddRange(
@@ -470,7 +471,7 @@ namespace SlopWorld
         }
 
         public static void OpenFilterMenu() =>
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 new ProjectFilterMenu(
                     FilterOptions(),
                     new Vector2(_projectFilterAnchor.x, _projectFilterAnchor.yMax)
@@ -483,7 +484,7 @@ namespace SlopWorld
                 FilterOptions(),
                 new Vector2(_projectFilterAnchor.x, _projectFilterAnchor.yMax)
             );
-            TerminalWindow.OpenOverPane(menu);
+            WorkspaceWindow.OpenOverPane(menu);
             menu.RestoreProject(project);
         }
 

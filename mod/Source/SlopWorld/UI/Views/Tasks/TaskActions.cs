@@ -48,7 +48,7 @@ namespace SlopWorld
             {
                 var terminal = new FloatMenuOption(
                     "Open agent terminal",
-                    () => TerminalWindow.Open(counterpart.Name)
+                    () => WorkspaceWindow.Open(counterpart.Name)
                 );
                 terminal.Disabled = !counterpart.Alive;
                 options.Add(terminal);
@@ -62,7 +62,7 @@ namespace SlopWorld
             }
 
             if (options.Count > 0)
-                TerminalWindow.OpenOverPane(new UiMenu(options));
+                WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         static void AddStatus(
@@ -91,7 +91,7 @@ namespace SlopWorld
         {
             if (task == null || !task.Terminal)
                 return;
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     $"Remove task '{task.Id}'? "
                         + "The daemon will remove it from both participants' task lists.",
@@ -124,7 +124,7 @@ namespace SlopWorld
                     ? $"Cancel task '{tasks[0].Id}'? The daemon will cancel it for both participants."
                     : $"Cancel {tasks.Count} selected tasks? "
                         + "The daemon will cancel them for both participants.";
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     prompt,
                     () =>
@@ -161,7 +161,7 @@ namespace SlopWorld
                         + "The daemon will remove it from both participants' task lists."
                     : $"Remove {tasks.Count} selected tasks? "
                         + "The daemon will remove them from both participants' task lists.";
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     prompt,
                     () =>

@@ -4,9 +4,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    public partial class TerminalWindow
+    public partial class WorkspaceWindow
     {
-        public static TerminalWindow Open(string name)
+        public static WorkspaceWindow Open(string name)
         {
             // The current session follows the pane.
             SessionSelectable.Current = name;
@@ -14,14 +14,14 @@ namespace SlopWorld
             // Re-opening the same session should focus it, not stack a second copy. Asking for a
             // pane always puts the pane back, though, even the one already behind the content. A
             // portrait clicked while the options menu is up is a request to see that agent.
-            var existing = Find.WindowStack.WindowOfType<TerminalWindow>();
+            var existing = Find.WindowStack.WindowOfType<WorkspaceWindow>();
             if (existing != null)
             {
                 existing.SwitchTo(name);
                 return existing;
             }
 
-            var w = new TerminalWindow(name);
+            var w = new WorkspaceWindow(name);
             Find.WindowStack.Add(w);
             TerminalRecall.Remember(name);
             return w;
@@ -35,14 +35,14 @@ namespace SlopWorld
             if (view == null || Find.WindowStack == null)
                 return;
 
-            var existing = Find.WindowStack.WindowOfType<TerminalWindow>();
+            var existing = Find.WindowStack.WindowOfType<WorkspaceWindow>();
             if (existing != null)
             {
                 existing.SetContent(view);
                 return;
             }
 
-            var w = new TerminalWindow(null);
+            var w = new WorkspaceWindow(null);
             Find.WindowStack.Add(w);
             w.SetContent(view);
         }
@@ -53,7 +53,7 @@ namespace SlopWorld
         {
             get
             {
-                var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+                var w = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
                 return w == null || !w.TerminalVisible ? null : w._name;
             }
         }
@@ -61,7 +61,7 @@ namespace SlopWorld
         // Content views hide the active session from CurrentName. However, F12 still needs to know
         // whether leaving the view will reveal a pane or remove a content-only host.
         internal static bool HasBackingPane =>
-            Find.WindowStack?.WindowOfType<TerminalWindow>()?._name != null;
+            Find.WindowStack?.WindowOfType<WorkspaceWindow>()?._name != null;
 
         // A successful rename must not go through Open. That would reset the pane and can briefly
         // bind it to the old name while the sessions snapshot catches up. Keep the existing window,
@@ -75,7 +75,7 @@ namespace SlopWorld
             )
                 return;
 
-            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             var renamed = window?._terminals.Find(oldName);
             bool active = renamed != null && renamed == window._terminal;
             if (renamed != null)
@@ -94,7 +94,7 @@ namespace SlopWorld
         // Background reader refresh keeps split selection, content overlays, and window focus.
         internal static void ReplaceReader(string oldName, string newName)
         {
-            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             var panel = window?._terminals.Find(oldName);
             if (panel != null)
                 panel.BindSession(newName);
@@ -105,7 +105,7 @@ namespace SlopWorld
         // What the chrome is showing, for anything that has to know which it is. Null is the
         // pane, and null window is neither.
         public static IContentView Showing =>
-            Find.WindowStack?.WindowOfType<TerminalWindow>()?._content;
+            Find.WindowStack?.WindowOfType<WorkspaceWindow>()?._content;
 
         // The one of a kind already up, so a door that opens a view can hand the same one back
         // rather than build a second. Pressing `config` twice is a toggle, not a reset.
@@ -120,7 +120,7 @@ namespace SlopWorld
         {
             if (ShowingAs<T>() != null)
             {
-                Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
                 return;
             }
             OpenContent(make());
@@ -152,7 +152,7 @@ namespace SlopWorld
         {
             if (Find.WindowStack == null)
                 return;
-            if (Find.WindowStack.WindowOfType<TerminalWindow>() != null)
+            if (Find.WindowStack.WindowOfType<WorkspaceWindow>() != null)
                 w.layer = WindowLayer.Super;
             Find.WindowStack.Add(w);
         }
@@ -161,11 +161,11 @@ namespace SlopWorld
         // terminal's paste action to the agent behind it. A view opened from the map has no
         // destination, so its Paste menu item is disabled.
         public static bool CanPasteClipboardToAgent =>
-            Find.WindowStack?.WindowOfType<TerminalWindow>()?._name != null;
+            Find.WindowStack?.WindowOfType<WorkspaceWindow>()?._name != null;
 
         public static void PasteClipboardToAgent()
         {
-            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             if (window == null || window._name == null)
                 return;
             window._terminal.JumpToLive();
@@ -178,7 +178,7 @@ namespace SlopWorld
         static bool _covering;
 
         public static bool Covering =>
-            _covering && Find.WindowStack?.WindowOfType<TerminalWindow>() != null;
+            _covering && Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null;
 
         // Rebinds the pane but keeps the window's place in the stack. Whatever was in the body
         // goes: being pointed at an agent is a request to see it. History rows belong to the
@@ -266,7 +266,7 @@ namespace SlopWorld
 
         internal static void OpenSplit(string name)
         {
-            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             if (window == null || window._name == null)
             {
                 Open(name);

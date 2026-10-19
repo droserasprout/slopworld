@@ -65,21 +65,21 @@ namespace SlopWorld
             {
                 new FloatMenuOption(
                     "Create agent",
-                    () => TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(template))
+                    () => WorkspaceWindow.OpenOverPane(EditSessionDialog.FromTemplate(template))
                 ),
                 new FloatMenuOption(
                     "Edit",
-                    () => TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template))
+                    () => WorkspaceWindow.OpenOverPane(EditSessionDialog.EditTemplate(template))
                 ),
                 new FloatMenuOption(
                     "Duplicate",
                     () =>
-                        TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template, true))
+                        WorkspaceWindow.OpenOverPane(EditSessionDialog.EditTemplate(template, true))
                 ),
                 new FloatMenuOption(
                     "Delete",
                     () =>
-                        TerminalWindow.OpenOverPane(
+                        WorkspaceWindow.OpenOverPane(
                             ConfirmDialog.Create(
                                 "Remove template '"
                                     + template.Name
@@ -96,7 +96,7 @@ namespace SlopWorld
                         )
                 ),
             };
-            TerminalWindow.OpenOverPane(new UiMenu(options));
+            WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         static void RowMenu(LibraryItemInfo s)
@@ -118,7 +118,7 @@ namespace SlopWorld
 
             opts.Add(new FloatMenuOption("Delete", () => LibraryActions.Remove(s)));
 
-            TerminalWindow.OpenOverPane(new UiMenu(opts));
+            WorkspaceWindow.OpenOverPane(new UiMenu(opts));
         }
 
         // ------------------------------------------------------------------ actions
@@ -155,7 +155,7 @@ namespace SlopWorld
         {
             var info = SessionHub.Instance.Catalog.Project(project);
             if (info != null)
-                TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(info));
+                WorkspaceWindow.OpenOverPane(EditProjectDialog.ForWorktrees(info));
         }
 
         static void ProjectMenu(ProjectInfo project)
@@ -171,10 +171,10 @@ namespace SlopWorld
                 ),
                 new FloatMenuOption(
                     "Delete",
-                    () => TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(project.Name))
+                    () => WorkspaceWindow.OpenOverPane(CatalogActions.RemoveProject(project.Name))
                 ),
             };
-            TerminalWindow.OpenOverPane(new UiMenu(options));
+            WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         static void WorktreeMenu(WorktreeEntry entry)
@@ -190,14 +190,14 @@ namespace SlopWorld
             };
             if (tree.Id != "main")
                 options.Add(new FloatMenuOption("Remove", () => RemoveWorktree(entry)));
-            TerminalWindow.OpenOverPane(new UiMenu(options));
+            WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         static void RemoveWorktree(WorktreeEntry entry)
         {
             if (entry.Tree.Attachments.Count > 0)
                 return;
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     "Remove worktree '"
                         + entry.Tree.Name
@@ -231,7 +231,7 @@ namespace SlopWorld
                 preset.Source == "override"
                     ? "Reset this user override and return to the system preset?"
                     : "Remove this user preset?";
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     message,
                     () =>
@@ -255,7 +255,7 @@ namespace SlopWorld
                 command.Source == "override"
                     ? "Reset this user override and return to the system preset?"
                     : "Remove this user preset?";
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     message,
                     () =>

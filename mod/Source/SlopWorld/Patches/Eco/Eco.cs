@@ -44,7 +44,7 @@ namespace SlopWorld
         [HarmonyPatch(typeof(MapEdgeClipDrawer), nameof(MapEdgeClipDrawer.DrawClippers))]
         public static class Patch_Clippers
         {
-            static bool Prefix() => !Resting && !TerminalWindow.Covering;
+            static bool Prefix() => !Resting && !WorkspaceWindow.Covering;
         }
 
         // Weather draws through CameraDriver.OnPreCull, outside PaneOverDraw checks.
@@ -52,7 +52,7 @@ namespace SlopWorld
         [HarmonyPatch(typeof(WeatherManager), nameof(WeatherManager.DrawAllWeather))]
         public static class Patch_Weather
         {
-            static bool Prefix() => !Resting && !TerminalWindow.Covering;
+            static bool Prefix() => !Resting && !WorkspaceWindow.Covering;
         }
 
         // Suppress world overlays while retaining UI gizmos.

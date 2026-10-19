@@ -14,13 +14,13 @@ namespace SlopWorld
                 return;
             if (item.Link == LibraryItemLink.Ask && project == null && !temp)
             {
-                TerminalWindow.OpenOverPane(new UiMenu(WhereOptions(item)));
+                WorkspaceWindow.OpenOverPane(new UiMenu(WhereOptions(item)));
                 return;
             }
             bool scratch = temp || item.Link == LibraryItemLink.Temp;
             SessionHub.Instance.SessionStore.RunLibraryItem(
                 item.Name,
-                session => TerminalWindow.Open(session),
+                session => WorkspaceWindow.Open(session),
                 UiLayout.Fail,
                 project ?? (scratch ? null : item.Project),
                 scratch,
@@ -46,15 +46,15 @@ namespace SlopWorld
         }
 
         public static void Edit(LibraryItemInfo item) =>
-            TerminalWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(item));
+            WorkspaceWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(item));
 
         public static void Duplicate(LibraryItemInfo item) =>
-            TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(item));
+            WorkspaceWindow.OpenOverPane(EditLibraryItemDialog.Copy(item));
 
         public static void Remove(LibraryItemInfo item)
         {
             string name = item.Name;
-            TerminalWindow.OpenOverPane(
+            WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     $"Remove library entry '{name}'? Anything it already started keeps running.",
                     () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiLayout.Fail),

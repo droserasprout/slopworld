@@ -374,7 +374,7 @@ namespace SlopWorld
                     if (submittedNewWorktree)
                         SidebarScopes.IncludeWorktree(worker.Project, worker.Worktree);
                     WorktreeChoices[ChoiceKey] = (submittedWorktree, submittedNewWorktree);
-                    TerminalWindow.Open(worker.Session);
+                    WorkspaceWindow.Open(worker.Session);
                     Close();
                 },
                 error =>

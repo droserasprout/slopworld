@@ -343,7 +343,7 @@ namespace SlopWorld
             if (replacement.Kind == ReaderReplacementKind.Open)
                 Show(replacement.Shown);
             else
-                TerminalWindow.ReplaceReader(replacement.Previous.Session, session);
+                WorkspaceWindow.ReplaceReader(replacement.Previous.Session, session);
             StopIf(replacement.Previous?.Session);
         }
 
@@ -430,7 +430,7 @@ namespace SlopWorld
 
         void Show(System.Action shown)
         {
-            TerminalWindow.Open(Session);
+            WorkspaceWindow.Open(Session);
             // Native content retires only after the terminal replaces it.
             shown?.Invoke();
         }

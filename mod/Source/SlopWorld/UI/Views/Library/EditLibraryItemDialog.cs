@@ -159,7 +159,7 @@ namespace SlopWorld
                 LinkLabel(_s.Link),
                 LinkOptions(),
                 out _,
-                openMenu: TerminalWindow.OpenOverPane
+                openMenu: WorkspaceWindow.OpenOverPane
             );
         }
 
@@ -179,7 +179,7 @@ namespace SlopWorld
                     : _s.Project,
                 ProjectOptions(),
                 out _,
-                openMenu: TerminalWindow.OpenOverPane
+                openMenu: WorkspaceWindow.OpenOverPane
             );
         }
 
@@ -221,7 +221,7 @@ namespace SlopWorld
                 FileActionModeLabel(_s.Mode),
                 FileActionModeOptions(),
                 out _,
-                openMenu: TerminalWindow.OpenOverPane
+                openMenu: WorkspaceWindow.OpenOverPane
             );
         }
 
@@ -387,7 +387,7 @@ namespace SlopWorld
             options.Add(
                 new SelectorOption(
                     "Create new project",
-                    () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))
+                    () => WorkspaceWindow.OpenOverPane(new EditProjectDialog(null))
                 )
             );
             return options;

@@ -31,7 +31,7 @@ namespace SlopWorld
         {
             if (Eco.Bare || WorkspaceVisibility.Hidden)
                 return;
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
                 return;
 
             var map = Find.CurrentMap;

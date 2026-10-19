@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     // Workspace arrangement and refresh dispatch. TerminalPanel.Sizing owns resize negotiation.
-    public partial class TerminalWindow
+    public partial class WorkspaceWindow
     {
         // Retain pane geometry while a content view covers the workspace.
         void ArrangeTerminal(Rect body) =>
@@ -12,7 +12,7 @@ namespace SlopWorld
 
         internal static void RefreshPanels()
         {
-            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             if (window != null)
             {
                 window.ArrangeTerminal(WorkspaceLayout.Current.Content);
@@ -31,7 +31,7 @@ namespace SlopWorld
             if (style == null)
                 return false;
             var content = WorkspaceLayout.Current.Content;
-            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             UiLayoutRect bounds;
             if (window != null)
             {

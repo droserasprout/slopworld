@@ -90,7 +90,7 @@ namespace SlopWorld
             FilesView.AddOpenIn(options, absolute, project);
             FilesView.AddFileActions(options, project, absolute, name);
             options.Add(new FloatMenuOption("Copy path", () => CopyText(absolute)));
-            TerminalWindow.OpenOverPane(new UiMenu(options));
+            WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
         static string Leaf(string path)

@@ -72,7 +72,7 @@ namespace SlopWorld
                 return;
             if (Eco.Bare)
                 return;
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
                 return;
 
             var e = Event.current;

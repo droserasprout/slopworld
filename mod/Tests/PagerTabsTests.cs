@@ -98,7 +98,7 @@ namespace SlopWorld.Tests
                 "pinned reader remains addressable by file"
             );
             AssertEx.True(tabs.ReopenSession("one"), "pinned reader reopens by session");
-            AssertEx.Equal("one", TerminalWindow.Current, "reopening focuses requested reader");
+            AssertEx.Equal("one", WorkspaceWindow.Current, "reopening focuses requested reader");
             AssertEx.Equal(2, tabs.All.Count(), "both readers appear once");
             AssertEx.Equal(2, store.Starts, "navigation never starts another process");
             AssertEx.False(

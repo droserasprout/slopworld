@@ -16,7 +16,7 @@ namespace SlopWorld.Tests
             SessionHub.Instance.SessionStore.Refreshed();
             AssertEx.Equal(
                 "player",
-                TerminalWindow.Current,
+                WorkspaceWindow.Current,
                 "ncspot reply still completes pending launch"
             );
         }
@@ -30,13 +30,13 @@ namespace SlopWorld.Tests
                 () => SessionHub.Instance.SessionStore.RefreshFailed("offline"),
                 "refresh failure reaches user"
             );
-            AssertEx.Equal(null, TerminalWindow.Current, "failed refresh opens nothing");
+            AssertEx.Equal(null, WorkspaceWindow.Current, "failed refresh opens nothing");
             Radio.OpenSpotify();
             Radio.ReportSpotifyTest("retry");
             SessionHub.Instance.SessionStore.Refreshed();
             AssertEx.Equal(
                 "retry",
-                TerminalWindow.Current,
+                WorkspaceWindow.Current,
                 "retry completes after refresh failure"
             );
         }
@@ -53,7 +53,7 @@ namespace SlopWorld.Tests
             SessionHub.Instance.SessionStore.Refreshed();
             AssertEx.Equal(
                 null,
-                TerminalWindow.Current,
+                WorkspaceWindow.Current,
                 "capability fallback invalidates pending terminal refresh"
             );
         }
@@ -86,7 +86,7 @@ namespace SlopWorld.Tests
             SessionHub.Instance.SessionStore.Refreshed();
             AssertEx.Equal(
                 "player",
-                TerminalWindow.Current,
+                WorkspaceWindow.Current,
                 "the audio reply identifies the terminal"
             );
         }
@@ -113,7 +113,7 @@ namespace SlopWorld.Tests
             SessionHub.Instance.SessionStore.Refreshed();
             AssertEx.Equal(
                 null,
-                TerminalWindow.Current,
+                WorkspaceWindow.Current,
                 "quit also invalidates an in-flight refresh"
             );
         }
@@ -127,7 +127,7 @@ namespace SlopWorld.Tests
             SessionHub.Instance.SessionStore.Refreshed();
             AssertEx.Equal(
                 null,
-                TerminalWindow.Current,
+                WorkspaceWindow.Current,
                 "a replaced selection cannot reopen its terminal"
             );
         }
@@ -143,7 +143,7 @@ namespace SlopWorld.Tests
             Radio.ReportSpotifyTest("player");
             Radio.QuitSpotifyTest();
             SessionHub.Instance.SessionStore.RefreshFailed("late shutdown error");
-            AssertEx.Equal(null, TerminalWindow.Current, "stale failures open no terminal");
+            AssertEx.Equal(null, WorkspaceWindow.Current, "stale failures open no terminal");
         }
 
         public static void NcspotReportsRequireSpotifySelectionEvenOnFailure()
@@ -193,7 +193,7 @@ namespace SlopWorld.Tests
             Radio.OpenSpotify();
             Radio.ReportSpotifyTest("retry");
             SessionHub.Instance.SessionStore.Refreshed();
-            AssertEx.Equal("retry", TerminalWindow.Current, "failure releases the pending launch");
+            AssertEx.Equal("retry", WorkspaceWindow.Current, "failure releases the pending launch");
         }
     }
 }

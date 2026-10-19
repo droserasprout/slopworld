@@ -20,7 +20,7 @@ namespace SlopWorld
         public static void RememberActionRect(Rect rect)
         {
             // Terminal gizmos use window coordinates. Do not use their rectangles for map input.
-            if (TerminalWindow.Covering)
+            if (WorkspaceWindow.Covering)
                 return;
 
             int frame = Time.frameCount;
@@ -77,7 +77,7 @@ namespace SlopWorld
                 !SessionSelectable.HasCurrent
                 || !WorkspaceVisibility.Shown
                 || WorkspaceVisibility.Hidden
-                || TerminalWindow.Covering
+                || WorkspaceWindow.Covering
             )
                 return false;
 

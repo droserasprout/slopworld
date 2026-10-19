@@ -4,7 +4,7 @@
 Session reconciliation, robot appearance, and agent work rules must not claim it.
 Recovery must not create an agent session.
 
-Dispatch accepts unmodified key-downs only when no TerminalWindow is open and
+Dispatch accepts unmodified key-downs only when no WorkspaceWindow is open and
 `Eco.Bare` is false. Eco rest and cutscenes suppress player input; only Eco rest
 pauses creation/recovery. Bindings and rebind instructions belong to
 [keyboard shortcuts](../docs/src/reference/keyboard-shortcuts.md).

@@ -45,7 +45,7 @@ namespace SlopWorld
         {
             if (!Alive)
                 return false;
-            TerminalWindow.OpenContent(View);
+            WorkspaceWindow.OpenContent(View);
             return true;
         }
 
@@ -70,7 +70,7 @@ namespace SlopWorld
             if (!Alive)
                 return;
             if (Showing)
-                Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
             View = null;
             Header = null;
             Path = null;
@@ -106,7 +106,7 @@ namespace SlopWorld
             PreviewRoot = null;
             Locked = false;
             if (showing)
-                Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
             return true;
         }
 
@@ -129,6 +129,6 @@ namespace SlopWorld
             };
         }
 
-        bool Showing => ReferenceEquals(TerminalWindow.Showing, View);
+        bool Showing => ReferenceEquals(WorkspaceWindow.Showing, View);
     }
 }

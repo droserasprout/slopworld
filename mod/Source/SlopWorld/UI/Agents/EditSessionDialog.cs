@@ -319,7 +319,7 @@ namespace SlopWorld
                 if (!_identity.IsNew && from != to)
                 {
                     AgentColony.Current?.Rename(from, to);
-                    TerminalWindow.RenameActive(from, to);
+                    WorkspaceWindow.RenameActive(from, to);
                 }
                 Close();
             };

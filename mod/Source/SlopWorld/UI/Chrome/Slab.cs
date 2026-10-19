@@ -72,7 +72,7 @@ namespace SlopWorld
         static bool Paint(Color c) => Event.current.type == EventType.Repaint && c.a > 0f;
 
         // Snap both edges of each axis in screen space. Nested GUI groups make arithmetic
-        // inversion through ScreenToGUIPoint unreliable. TerminalWindow uses the same transform.
+        // inversion through ScreenToGUIPoint unreliable. WorkspaceWindow uses the same transform.
         static Rect Snap(Rect r)
         {
             var p0 = GUIUtility.GUIToScreenPoint(Vector2.zero);

@@ -24,7 +24,7 @@ namespace Verse
 
 namespace SlopWorld
 {
-    partial class TerminalWindow
+    partial class WorkspaceWindow
     {
         public static IContentView Showing;
 

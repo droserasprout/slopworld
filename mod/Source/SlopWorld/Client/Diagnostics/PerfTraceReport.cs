@@ -43,7 +43,7 @@ namespace SlopWorld
             text.Append(" context eco=")
                 .Append(Eco.Resting ? 1 : 0)
                 .Append(" terminal=")
-                .Append(TerminalWindow.Covering ? 1 : 0)
+                .Append(WorkspaceWindow.Covering ? 1 : 0)
                 .Append(" sessions=")
                 .Append(SessionHub.Instance.Sessions.Count)
                 .Append(" width=")

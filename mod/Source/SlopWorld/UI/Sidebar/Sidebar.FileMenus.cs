@@ -32,7 +32,7 @@ namespace SlopWorld
                         new FloatMenuOption(
                             "Stop editor",
                             () =>
-                                TerminalWindow.OpenOverPane(
+                                WorkspaceWindow.OpenOverPane(
                                     ConfirmDialog.Create(
                                         "Stop editor for '"
                                             + (
@@ -61,7 +61,7 @@ namespace SlopWorld
                 if (reader.CanClose)
                     opts.Add(new FloatMenuOption("Close", () => DismissReader(session)));
             }
-            TerminalWindow.OpenOverPane(new UiMenu(opts));
+            WorkspaceWindow.OpenOverPane(new UiMenu(opts));
         }
 
         static void DismissReader(string session)

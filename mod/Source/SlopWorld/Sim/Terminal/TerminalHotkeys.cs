@@ -17,7 +17,7 @@ namespace SlopWorld
 
             // Components run before the window stack. If a terminal window exists, let it handle number keys.
             // Otherwise, handle Alt+number for map selection.
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
             {
                 if (ShortcutHelpWindow.HandleContentKey(Event.current))
                     return;
@@ -76,14 +76,14 @@ namespace SlopWorld
 
         internal static void Toggle()
         {
-            var open = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            var open = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             if (open != null)
             {
                 // Content views use the terminal window. F12 returns to its terminal pane if one exists.
                 // Otherwise, leave the view and try to open a live session.
-                if (TerminalWindow.Showing != null)
+                if (WorkspaceWindow.Showing != null)
                 {
-                    bool hasPane = TerminalWindow.HasBackingPane;
+                    bool hasPane = WorkspaceWindow.HasBackingPane;
                     open.Leave();
                     if (hasPane)
                         return;
@@ -99,7 +99,7 @@ namespace SlopWorld
             if (session != null)
             {
                 SessionSelectable.Current = session;
-                TerminalWindow.Open(session);
+                WorkspaceWindow.Open(session);
             }
         }
 

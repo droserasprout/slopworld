@@ -7,7 +7,7 @@ namespace SlopWorld
     {
         internal static bool HandleMapSessionNavigation(Event e)
         {
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
                 return false;
             if (TryFileWalkDirection(e, out var fileDirection))
             {

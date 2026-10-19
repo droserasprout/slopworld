@@ -114,7 +114,7 @@ namespace SlopWorld
                 icon = Icons.Terminal,
                 defaultIconColor = AgentPresentation.AgentStateColor(state),
                 hotKey = ModDefOf.SlopOpenTerminal,
-                action = () => TerminalWindow.Open(Session),
+                action = () => WorkspaceWindow.Open(Session),
             };
         }
 
@@ -166,7 +166,7 @@ namespace SlopWorld
                 {
                     var current = SessionHub.Instance.Get(Session);
                     if (current != null)
-                        TerminalWindow.OpenOverPane(new EditSessionDialog(current));
+                        WorkspaceWindow.OpenOverPane(new EditSessionDialog(current));
                     else
                         Messages.Message(
                             $"SlopWorld: no session '{Session}' to edit.",
@@ -201,7 +201,7 @@ namespace SlopWorld
                 icon = Icons.Add,
                 defaultIconColor = UiTheme.Accent,
                 hotKey = ModDefOf.SlopDuplicateSession,
-                action = () => TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info)),
+                action = () => WorkspaceWindow.OpenOverPane(EditSessionDialog.Copy(info)),
             };
         }
 

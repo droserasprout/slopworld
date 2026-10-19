@@ -117,7 +117,7 @@ namespace SlopWorld
             if (
                 stack == null
                 || (
-                    TerminalWindow.ShowingAs<OptionsView>() == null
+                    WorkspaceWindow.ShowingAs<OptionsView>() == null
                     && stack.WindowOfType<Dialog_Options>() == null
                     && stack.WindowOfType<UiMenu>() == null
                 )

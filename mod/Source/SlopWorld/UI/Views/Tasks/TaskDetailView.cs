@@ -7,7 +7,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Full task reader shown as a TerminalWindow content view.
+    // Full task reader shown as a WorkspaceWindow content view.
     public sealed partial class TaskDetailView : ContentView
     {
         const float AvatarSize = 38f;
@@ -83,7 +83,7 @@ namespace SlopWorld
                 return;
             if (remember)
                 Sidebar.RememberTask(task.Id);
-            TerminalWindow.OpenContent(new TaskDetailView(task));
+            WorkspaceWindow.OpenContent(new TaskDetailView(task));
         }
 
         public override string Title => "Task " + (_taskId ?? "");
@@ -128,7 +128,7 @@ namespace SlopWorld
                 );
                 var close = new UiLayout.Bar(UiLayout.FooterBar(rect));
                 if (close.Right("Close", UiTheme.Btn.Ghost))
-                    Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                    Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
                 return;
             }
 
@@ -195,7 +195,7 @@ namespace SlopWorld
                 TaskActions.RemoveTask(_task);
 
             if (foot.Right("Close", UiTheme.Btn.Ghost))
-                Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
         }
 
         static float MessageCardHeight(int lineCount)

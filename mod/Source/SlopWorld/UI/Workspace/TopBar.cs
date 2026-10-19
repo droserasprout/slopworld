@@ -59,7 +59,7 @@ namespace SlopWorld
         // From the map component above, which sits behind every window.
         public static void DrawOnMap()
         {
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
                 return;
             Draw(true);
         }
@@ -304,7 +304,7 @@ namespace SlopWorld
                 return;
 
             // Content views replace the session status while visible.
-            var view = TerminalWindow.Showing;
+            var view = WorkspaceWindow.Showing;
             if (view != null)
             {
                 GUI.color = UiTheme.Lead;
@@ -317,7 +317,7 @@ namespace SlopWorld
                 return;
             }
 
-            string session = TerminalWindow.CurrentName ?? InspectPaneAgent.SelectedSession();
+            string session = WorkspaceWindow.CurrentName ?? InspectPaneAgent.SelectedSession();
             var hub = SessionHub.Instance;
 
             if (session == null)

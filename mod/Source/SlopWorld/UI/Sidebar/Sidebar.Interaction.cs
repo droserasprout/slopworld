@@ -187,8 +187,8 @@ namespace SlopWorld
                 return;
             }
 
-            if (row.Session != TerminalWindow.CurrentName)
-                TerminalWindow.Open(row.Session);
+            if (row.Session != WorkspaceWindow.CurrentName)
+                WorkspaceWindow.Open(row.Session);
         }
 
         // Called by the Harmony finalizer when vanilla prevents the normal front pass.
@@ -296,7 +296,7 @@ namespace SlopWorld
 
         static void RefreshPanels()
         {
-            TerminalWindow.RefreshPanels();
+            WorkspaceWindow.RefreshPanels();
         }
 
         // Appearance changes invalidate workspace geometry but must leave content-view

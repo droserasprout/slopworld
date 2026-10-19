@@ -180,7 +180,7 @@ namespace SlopWorld
                 filter,
                 _kind.Length == 0 ? "All types" : _kind,
                 KindOptions,
-                TerminalWindow.OpenOverPane
+                WorkspaceWindow.OpenOverPane
             );
         }
 

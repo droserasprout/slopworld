@@ -30,7 +30,7 @@ namespace SlopWorld
                 PaletteLabel = paletteLabel;
             }
 
-            internal void Open() => TerminalWindow.OpenOverPane(EditLibraryItemDialog.New(_kind));
+            internal void Open() => WorkspaceWindow.OpenOverPane(EditLibraryItemDialog.New(_kind));
         }
     }
 }

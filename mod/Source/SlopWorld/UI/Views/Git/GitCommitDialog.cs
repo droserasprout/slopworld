@@ -15,7 +15,7 @@ namespace SlopWorld
         }
 
         public static void Open(string project) =>
-            TerminalWindow.OpenOverPane(new GitCommitDialog(project));
+            WorkspaceWindow.OpenOverPane(new GitCommitDialog(project));
 
         public override Vector2 InitialSize => new Vector2(500f, 220f);
 

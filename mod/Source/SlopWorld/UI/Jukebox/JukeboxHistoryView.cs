@@ -40,7 +40,7 @@ namespace SlopWorld
 
         public static void Open()
         {
-            TerminalWindow.ToggleContent(() => new JukeboxHistoryView());
+            WorkspaceWindow.ToggleContent(() => new JukeboxHistoryView());
         }
 
         public override void Opened() => Reload();

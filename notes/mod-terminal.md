@@ -1,6 +1,6 @@
 # Terminal ownership and input
 
-`TerminalWindow` hosts workspace controls; `TerminalSplit` holds one or two distinct
+`WorkspaceWindow` hosts workspace controls; `TerminalSplit` holds one or two distinct
 panels. `TerminalPanel` owns terminal state, rendering, history, caches, subscriptions,
 and input. Source directories are mapped in [mod sources](mod-source-layout.md),
 content lifetime in [workspace panels](mod-workspace-panels.md), and geometry in
@@ -16,7 +16,7 @@ to [keyboard shortcuts](../docs/src/reference/keyboard-shortcuts.md).
 F12 toggles the terminal while preserving the selected sidebar tab.
 Alt+Z/X skips routed file panes in both map and pane navigation; Alt+A/S owns their
 walk. The open-beside menu retains eligible file panes.
-TerminalWindow dispatches navigation both before WindowStack consumes outer keyboard
+WorkspaceWindow dispatches navigation both before WindowStack consumes outer keyboard
 events and inside its window callback before drawing sidebar fields. Focused native
 fields receive keys inside GUI.Window; clearing their focus changes the delivery path.
 Both paths use the same handler and only accept unconsumed KeyDown events. Handled

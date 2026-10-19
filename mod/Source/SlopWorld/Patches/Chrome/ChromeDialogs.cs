@@ -12,9 +12,9 @@ namespace SlopWorld
         {
             if (window == null || window.layer != WindowLayer.Dialog)
                 return;
-            if (window is TerminalWindow)
+            if (window is WorkspaceWindow)
                 return;
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() == null)
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() == null)
                 return;
 
             window.layer = WindowLayer.Super;

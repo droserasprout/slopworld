@@ -46,7 +46,7 @@ namespace SlopWorld
             _selectionRevision = 0;
             Playback.Invalidate();
             SessionHub.Instance = new SessionHub();
-            TerminalWindow.Current = null;
+            WorkspaceWindow.Current = null;
         }
 
         internal static bool CatalogReadyTest => _catalogReady;
