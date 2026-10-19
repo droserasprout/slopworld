@@ -255,6 +255,9 @@ namespace SlopWorld
         public const float PickerIcon = 30f;
         public const float ListInset = 4f;
         public const float DisclosureW = 11f;
+
+        // Main-checkout marks follow text ink size across headings and workspace chrome.
+        public static float RootIconW => Mathf.Ceil(LineHOf(GameFont.Tiny) * 0.425f);
         public const float ScrollbarW = 18f;
         public const float ScrollTrackW = 3f;
         public const float ScrollTrackXInset = 5f;

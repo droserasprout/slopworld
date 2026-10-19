@@ -135,6 +135,7 @@
     <Compile Include="../Source/SlopWorld/UI/Readers/ReaderDismissal.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/ReaderReplacement.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/ReaderRow.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Workspace/PanelStatus.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/Pager.cs" Link="Source/Pager.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/ReaderSessionVisibility.cs" Link="Source/ReaderSessionVisibility.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/OpenFilesVisibility.cs" />

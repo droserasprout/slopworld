@@ -181,16 +181,23 @@ namespace SlopWorld
             return true;
         }
 
-        internal string CurrentViewerHeader
+        NativeFileTab CurrentViewerTab
         {
             get
             {
+                var showing = WorkspaceWindow.Showing;
+                if (showing == null)
+                    return null;
                 foreach (var tab in _nativeViewers.All)
-                    if (ReferenceEquals(tab.View, WorkspaceWindow.Showing))
-                        return tab.Header;
+                    if (ReferenceEquals(tab.View, showing))
+                        return tab;
                 return null;
             }
         }
+
+        internal string CurrentViewerHeader => CurrentViewerTab?.Header;
+
+        internal SessionInfo CurrentViewerInfo => CurrentViewerTab?.HeaderInfo();
 
         public bool IsNativeViewerHeader(string session)
         {

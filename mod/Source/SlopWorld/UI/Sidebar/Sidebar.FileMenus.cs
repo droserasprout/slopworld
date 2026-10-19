@@ -9,8 +9,14 @@ namespace SlopWorld
         static void OpenFileMenu(string session)
         {
             var info = Layout.Routed.Find(row => row.Name == session);
+            OpenFileMenu(info);
+        }
+
+        static void OpenFileMenu(SessionInfo info)
+        {
             if (info == null)
                 return;
+            string session = info.Name;
             var reader = FileReaders.Describe(info);
             // Older command-classified sessions may have no file metadata or reader owner.
             // Keep their session controls rather than offering a Close that cannot dismiss them.

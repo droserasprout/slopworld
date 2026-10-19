@@ -8,6 +8,20 @@ owners supply status, availability, empty messages, and actions.
 Measurement, drawing, and hit testing must share stable geometry and control IDs
 across IMGUI passes. Measurement must not invoke controls, setters, or mutate form
 data. Cache layout by content and text metrics; hover must not change bounds.
+
+The workspace top bar keeps agents' names and runtime summaries, beside the Agents
+sidebar header icon tinted by agent state. Readers use source
+filenames or explicit diff targets. Viewers, editors, and native previews show
+checkout · relative path as secondary context; main uses the sidebar's ginger-root
+silhouette, sized consistently with checkout headings by `UiTheme.RootIconW`.
+The top bar omits this mark and its separator when main is the project’s only
+checkout enabled by the workspace filter; the relative path and tooltip remain. Reader icons share size, tint, and presentation with Open Files through
+`ReaderRowChrome`. Project, full path, and daemon session identity stay in the tooltip.
+Top-bar right-clicks reuse the corresponding sidebar reader or session menu,
+including when the sidebar item is hidden or filtered. `PanelStatus` owns this presentation policy;
+native previews supply their retained tab metadata through the file-reader owner.
+Native preview identities are local handles, so their tooltips omit daemon session identity.
+
 Tab rails and navigation rows activate on left mouse press through `NavigationPress`,
 which consumes the event before content changes. Ordinary action buttons, menu
 choices, and copy actions retain release activation.

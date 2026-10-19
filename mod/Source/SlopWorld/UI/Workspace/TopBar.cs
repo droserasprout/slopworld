@@ -137,6 +137,7 @@ namespace SlopWorld
                 : showResources ? resources
                 : right;
             Status(
+                interactive,
                 new Rect(r.x + Pad, r.y, Mathf.Max(0f, statusRight - r.x - Pad), r.height),
                 centeredSummary,
                 summaryRight
@@ -298,7 +299,7 @@ namespace SlopWorld
         }
 
         // Show the pane's session, or the selected inspect-pane agent when no pane is open.
-        static void Status(Rect r, bool centered, float summaryRight)
+        static void Status(bool interactive, Rect r, bool centered, float summaryRight)
         {
             if (r.width <= 40f)
                 return;
@@ -307,6 +308,19 @@ namespace SlopWorld
             var view = WorkspaceWindow.Showing;
             if (view != null)
             {
+                var native = FilesView.CurrentViewerInfo;
+                if (native != null)
+                {
+                    ContentStatus(
+                        r,
+                        native,
+                        centered,
+                        summaryRight,
+                        interactive,
+                        hasDaemonSession: false
+                    );
+                    return;
+                }
                 GUI.color = UiTheme.Lead;
                 UiText.RowLabel(
                     r,
@@ -335,6 +349,9 @@ namespace SlopWorld
             }
 
             var info = hub.Get(session);
+            if (info != null && ContentStatus(r, info, centered, summaryRight, interactive))
+                return;
+            StatusMenu(r, centered, summaryRight, interactive, info);
             var state = info?.State ?? AgentState.Down;
             string tail = Tail(session, state);
 
@@ -344,17 +361,15 @@ namespace SlopWorld
                 return;
             }
 
-            // Scale the status marker inset with the row height.
-            float inset = Mathf.Round(r.height * 0.27f);
-            var chip = new Rect(r.x, r.y + inset, UiTheme.StatusMarker, r.height - inset * 2f);
-            Slab.Fill(chip, AgentPresentation.AgentStateColor(state));
-
+            float iconW = ReaderRowChrome.IconW;
+            var mark = new Rect(r.x, r.y + (r.height - iconW) / 2f, iconW, iconW);
             GUI.color = AgentPresentation.AgentStateColor(state);
+            GUI.DrawTexture(mark, Icons.Agents);
             float w = Mathf.Min(
                 UiTheme.Wide(session) + UiTheme.GapXS,
-                Mathf.Max(0f, r.width - UiTheme.StatusMarker - UiTheme.GapS * 2f)
+                Mathf.Max(0f, r.width - iconW - UiTheme.GapXS - UiTheme.GapS)
             );
-            var name = new Rect(chip.xMax + UiTheme.GapS, r.y, w, r.height);
+            var name = new Rect(mark.xMax + UiTheme.GapXS, r.y, w, r.height);
             UiText.RowLabel(name, session);
 
             var rest = new Rect(
@@ -377,8 +392,42 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        // Center only the dim summary. The colored marker and terminal name remain the
-        // status anchor at the left edge of the bar.
+        struct CenteredStatusLayout
+        {
+            internal Rect Icon,
+                Title,
+                Summary;
+        }
+
+        // Geometry is shared; agent and reader callers own their colors and summary drawing.
+        static CenteredStatusLayout CenteredLayout(
+            Rect r,
+            string title,
+            float summaryWidth,
+            float summaryRight
+        )
+        {
+            float iconW = ReaderRowChrome.IconW;
+            float titleW = Mathf.Min(
+                UiTheme.Wide(title) + UiTheme.GapXS,
+                Mathf.Max(0f, r.width - iconW - UiTheme.GapXS - UiTheme.GapS)
+            );
+            float summaryLeft = r.x + iconW + UiTheme.GapXS + titleW + UiTheme.GapS;
+            float width = Mathf.Min(summaryWidth, Mathf.Max(0f, summaryRight - summaryLeft));
+            float center = Mathf.Clamp(
+                UI.screenWidth / 2f,
+                summaryLeft + width / 2f,
+                summaryRight - width / 2f
+            );
+            return new CenteredStatusLayout
+            {
+                Icon = new Rect(r.x, r.y + (r.height - iconW) / 2f, iconW, iconW),
+                Title = new Rect(r.x + iconW + UiTheme.GapXS, r.y, titleW, r.height),
+                Summary = new Rect(center - width / 2f, r.y, width, r.height),
+            };
+        }
+
+        // Center only the summary; the agent icon and name stay anchored at the left.
         static void CenteredSummary(
             Rect r,
             string session,
@@ -387,48 +436,177 @@ namespace SlopWorld
             float summaryRight
         )
         {
-            float markerW = UiTheme.StatusMarker;
-            float nameW = UiTheme.Wide(session) + UiTheme.GapXS;
             Text.Font = GameFont.Tiny;
-            float tailW = UiTheme.Wide(tail);
+            float summaryWidth = UiTheme.Wide(tail);
             Text.Font = GameFont.Small;
-
-            float gaps = UiTheme.GapS * 2f;
-            float nameDrawW = Mathf.Min(nameW, Mathf.Max(0f, r.width - markerW - gaps));
-            float x = r.x;
-
-            float inset = Mathf.Round(r.height * 0.27f);
-            Slab.Fill(
-                new Rect(x, r.y + inset, markerW, r.height - inset * 2f),
-                AgentPresentation.AgentStateColor(state)
-            );
-
+            var layout = CenteredLayout(r, session, summaryWidth, summaryRight);
             GUI.color = AgentPresentation.AgentStateColor(state);
-            UiText.RowLabel(
-                new Rect(x + markerW + UiTheme.GapS, r.y, nameDrawW, r.height),
-                session
-            );
-
-            float summaryLeft = x + markerW + UiTheme.GapS + nameDrawW + UiTheme.GapS;
-            float available = Mathf.Max(0f, summaryRight - summaryLeft);
-            float tailDrawW = Mathf.Min(tailW, available);
-            if (tailDrawW > 0f)
+            GUI.DrawTexture(layout.Icon, Icons.Agents);
+            UiText.RowLabel(layout.Title, session);
+            if (layout.Summary.width > 0f)
             {
                 Text.Font = GameFont.Tiny;
                 GUI.color = UiTheme.Dim;
-                float center = Mathf.Clamp(
-                    UI.screenWidth / 2f,
-                    summaryLeft + tailDrawW / 2f,
-                    summaryRight - tailDrawW / 2f
-                );
-                UiText.RowLabel(
-                    new Rect(center - tailDrawW / 2f, r.y, tailDrawW, r.height),
-                    tail,
-                    TextAnchor.MiddleCenter
-                );
+                UiText.RowLabel(layout.Summary, tail, TextAnchor.MiddleCenter);
                 Text.Font = GameFont.Small;
             }
             GUI.color = Color.white;
+        }
+
+        static void CenteredContent(
+            Rect r,
+            PanelStatus status,
+            float summaryRight,
+            Texture2D icon,
+            Color tint
+        )
+        {
+            Text.Font = GameFont.Tiny;
+            float summaryWidth = UiTheme.Wide(status.Context) + RootWidth(status.ShowMainCheckout);
+            Text.Font = GameFont.Small;
+            var layout = CenteredLayout(r, status.Title, summaryWidth, summaryRight);
+            GUI.color = tint;
+            GUI.DrawTexture(layout.Icon, icon);
+            GUI.color = UiTheme.Lead;
+            UiText.RowLabel(layout.Title, status.Title);
+            Text.Font = GameFont.Tiny;
+            GUI.color = UiTheme.Dim;
+            ContentContext(layout.Summary, status.Context, status.ShowMainCheckout);
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+        }
+
+        // Content labels use captured source metadata, including native readers that have no
+        // daemon session. Agents retain their state-colored icon and runtime summary above.
+        static bool ContentStatus(
+            Rect r,
+            SessionInfo info,
+            bool centered,
+            float summaryRight,
+            bool interactive,
+            bool hasDaemonSession = true
+        )
+        {
+            var action = SessionRowAction.Of(info);
+            if (action == RowAct.None && !info.Host && !info.Ephemeral)
+                return false;
+            var project = SidebarScopes.Project(
+                string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope
+            );
+            var scope = SidebarScopes.Find(PanelStatus.ScopeKey(info, project));
+            var status = PanelStatus.From(
+                info,
+                action,
+                project,
+                scope,
+                hasDaemonSession,
+                soleMainCheckout: SoleMainCheckout(project)
+            );
+            if (status == null)
+                return false;
+            var reader = FileReaders.Describe(info);
+            Texture2D icon = ReaderRowChrome.Icon(reader) ?? Icons.Terminal;
+            Color tint =
+                status.Kind == PanelStatusKind.Terminal
+                    ? UiTheme.Off
+                    : ReaderRowChrome.Tint(action);
+            var hit = StatusMenu(r, centered, summaryRight, interactive, info);
+            TooltipHandler.TipRegion(hit, status.Tooltip);
+            if (centered)
+            {
+                CenteredContent(r, status, summaryRight, icon, tint);
+                return true;
+            }
+            float iconW = ReaderRowChrome.IconW;
+            GUI.color = tint;
+            GUI.DrawTexture(new Rect(r.x, r.y + (r.height - iconW) / 2f, iconW, iconW), icon);
+            GUI.color = UiTheme.Lead;
+            float left = r.x + iconW + UiTheme.GapXS;
+            // Reserve context room when available, while keeping the content name dominant.
+            float available = Mathf.Max(0f, r.xMax - left);
+            float titleW = Mathf.Min(
+                UiTheme.Wide(status.Title) + UiTheme.GapXS,
+                Mathf.Max(0f, available - RootWidth(status.ShowMainCheckout) - UiTheme.GapS)
+                    * (string.IsNullOrEmpty(status.Context) ? 1f : 0.6f)
+            );
+            UiText.RowLabel(new Rect(left, r.y, titleW, r.height), status.Title);
+            Text.Font = GameFont.Tiny;
+            GUI.color = UiTheme.Dim;
+            left += titleW + UiTheme.GapS;
+            ContentContext(
+                new Rect(left, r.y, Mathf.Max(0f, r.xMax - left), r.height),
+                status.Context,
+                status.ShowMainCheckout
+            );
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+            return true;
+        }
+
+        // Match the workspace filter's selected scopes, independently for each project.
+        static bool SoleMainCheckout(ProjectInfo project)
+        {
+            if (project == null)
+                return false;
+            bool main = false;
+            foreach (var scope in SidebarScopes.EnabledScopes())
+            {
+                if (scope.ProjectId != project.Id)
+                    continue;
+                if (scope.Worktree != "main")
+                    return false;
+                main = true;
+            }
+            return main;
+        }
+
+        static Rect StatusMenu(
+            Rect r,
+            bool centered,
+            float summaryRight,
+            bool interactive,
+            SessionInfo info
+        )
+        {
+            var hit = new Rect(
+                r.x,
+                r.y,
+                Mathf.Max(0f, (centered ? summaryRight : r.xMax) - r.x),
+                r.height
+            );
+            var e = Event.current;
+            if (
+                interactive
+                && info != null
+                && e.type == EventType.MouseDown
+                && e.button == 1
+                && hit.Contains(e.mousePosition)
+            )
+            {
+                e.Use();
+                Sidebar.OpenItemMenu(info);
+            }
+            return hit;
+        }
+
+        static float RootWidth(bool main) => main ? UiTheme.RootIconW + UiTheme.GapXS : 0f;
+
+        static void ContentContext(Rect r, string text, bool main)
+        {
+            float rootW = RootWidth(main);
+            if (r.width < rootW || r.width <= 0f)
+                return;
+            if (main)
+            {
+                float side = rootW - UiTheme.GapXS;
+                GUI.DrawTexture(
+                    new Rect(r.x, r.y + (r.height - side) / 2f, side, side),
+                    Icons.Root
+                );
+                r.x += rootW;
+                r.width -= rootW;
+            }
+            UiText.RowLabel(r, text);
         }
 
         // Prefer slopd's task title, falling back to the pane's OSC title.

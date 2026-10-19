@@ -155,6 +155,17 @@ namespace SlopWorld
             }
         }
 
+        // Workspace chrome uses the same menus even when sidebar rows are hidden or filtered.
+        internal static void OpenItemMenu(SessionInfo info)
+        {
+            if (info == null)
+                return;
+            if (IsRouted(info))
+                OpenFileMenu(info);
+            else
+                RowMenu(info.Name, AgentColony.Current?.PawnOf(info.Name));
+        }
+
         static void RowMenu(string name, Pawn pawn = null)
         {
             var hub = SessionHub.Instance;

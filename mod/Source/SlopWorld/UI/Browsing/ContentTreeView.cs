@@ -403,7 +403,7 @@ namespace SlopWorld
                     // A tintable ginger root replaces the main-checkout text.
                     GUI.color = UiTheme.Faint;
                     // Match visible text ink rather than the padded line box.
-                    float side = Mathf.Ceil(UiTheme.LineHOf(GameFont.Tiny) * 0.5f);
+                    float side = UiTheme.RootIconW;
                     GUI.DrawTexture(
                         new Rect(left, row.y + (RowH - side) / 2f, side, side),
                         Icons.Root

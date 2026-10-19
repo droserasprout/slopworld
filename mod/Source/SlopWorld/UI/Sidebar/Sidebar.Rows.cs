@@ -114,11 +114,7 @@ namespace SlopWorld
             var reader = FileReaders.Describe(info);
             bool markdown = reader.Presentation == ReaderPresentation.Markdown;
             bool image = reader.Presentation == ReaderPresentation.Image;
-            var icon =
-                markdown ? Icons.MarkdownPreview
-                : image ? Icons.ImagePreview
-                : null;
-            var text = DrawActionMark(row.Text, reader.Action, true, icon);
+            var text = DrawActionMark(row.Text, reader.Action, true, ReaderRowChrome.Icon(reader));
 
             Text.Font = GameFont.Small;
             bool preview = reader.IsPreview;
@@ -280,15 +276,11 @@ namespace SlopWorld
         {
             if (action == RowAct.None)
                 return text;
-            float d = Mathf.Min(routed ? RowActions.IconW : GhostMarkW, text.height);
+            float d = Mathf.Min(routed ? ReaderRowChrome.IconW : GhostMarkW, text.height);
             if (Event.current.type == EventType.Repaint)
             {
                 var was = GUI.color;
-                GUI.color =
-                    !routed ? UiTheme.Off
-                    : action == RowAct.Edit ? UiTheme.Warn
-                    : action == RowAct.Diff ? UiTheme.Info
-                    : UiTheme.Dim;
+                GUI.color = !routed ? UiTheme.Off : ReaderRowChrome.Tint(action);
                 GUI.DrawTexture(
                     new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
                     icon ?? RowActions.Tex(action)
