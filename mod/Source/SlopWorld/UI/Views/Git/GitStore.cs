@@ -379,6 +379,31 @@ namespace SlopWorld
             return true;
         }
 
+        // A selected rename needs both sides, including sources outside a selected directory.
+        internal static string[] DiffPaths(Repo repo, string relative)
+        {
+            // Null keeps the repository-wide diff unrestricted in GitCommands.
+            if (relative == null)
+                return null;
+            var paths = new HashSet<string> { relative };
+            foreach (var change in repo.Changes)
+            {
+                if (
+                    change.Key != relative
+                    && !change.Key.StartsWith(relative.TrimEnd('/') + "/", StringComparison.Ordinal)
+                )
+                    continue;
+                var status = new GitStatus(change.Value);
+                if (
+                    (status.Staged == 'R' || status.Worktree == 'R')
+                    && repo.Sources.TryGetValue(change.Key, out var source)
+                    && !string.IsNullOrEmpty(source)
+                )
+                    paths.Add(source);
+            }
+            return paths.ToArray();
+        }
+
         internal static string[] UnstagePaths(Node node)
         {
             var paths = new HashSet<string> { node.Rel };

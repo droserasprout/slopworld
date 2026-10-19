@@ -27,7 +27,13 @@ namespace SlopWorld
                 return pager
                     + " diff --color=always --no-index -- /dev/null "
                     + PagerCommands.Quote(relative);
-            string paths = relative == null ? "" : Paths(new[] { relative });
+            return Diff(root, relative == null ? null : new[] { relative });
+        }
+
+        public static string Diff(string root, IEnumerable<string> relative)
+        {
+            string git = "git -C " + PagerCommands.Quote(root);
+            string paths = relative == null ? "" : Paths(relative);
             // A shell alias runs at the repository root and inherits Git's -c options.
             // Keep the outer command a git invocation so PagerCommands can replace delta
             // appearance overrides on both initial launch and recovered reader sessions.

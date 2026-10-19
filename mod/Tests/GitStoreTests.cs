@@ -81,6 +81,36 @@ namespace SlopWorld.Tests
             );
         }
 
+        public static void DiffAllKeepsAnUnrestrictedPathSelection()
+        {
+            var repo = new GitStore.Repo();
+            Assert.That(GitStore.DiffPaths(repo, null), Is.Null);
+            repo.Changes["dir/renamed"] = "R ";
+            repo.Sources["dir/renamed"] = "outside/original";
+            Assert.That(GitStore.DiffPaths(repo, null), Is.Null);
+        }
+
+        public static void DiffSelectionIncludesOnlySelectedRenameSources()
+        {
+            var repo = new GitStore.Repo();
+            repo.Changes["dir/renamed"] = "R ";
+            repo.Sources["dir/renamed"] = "outside/original";
+            repo.Changes["dir/worktree-rename"] = " R";
+            repo.Sources["dir/worktree-rename"] = "outside/worktree-original";
+            repo.Changes["dir/copied"] = "C ";
+            repo.Sources["dir/copied"] = "outside/copy-source";
+            repo.Changes["directory/unrelated"] = "R ";
+            repo.Sources["directory/unrelated"] = "outside/unrelated";
+            Assert.That(
+                GitStore.DiffPaths(repo, "dir"),
+                Is.EquivalentTo(new[] { "dir", "outside/original", "outside/worktree-original" })
+            );
+            Assert.That(
+                GitStore.DiffPaths(repo, "dir/renamed"),
+                Is.EquivalentTo(new[] { "dir/renamed", "outside/original" })
+            );
+        }
+
         public static void UnchangedStatusRetainsTreeAndCounts()
         {
             var f = new Fixture();

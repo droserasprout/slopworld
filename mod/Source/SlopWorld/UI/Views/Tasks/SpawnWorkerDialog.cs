@@ -27,9 +27,7 @@ namespace SlopWorld
         bool _newWorktree = true;
         string _baseRevision = "";
         string _worktreeName = "";
-        string _baseCommit = "";
-        string _previewKey = "";
-        string _previewError;
+        readonly WorkerBasePreviewState _basePreview = new WorkerBasePreviewState();
 
         public SpawnWorkerDialog(string caller, string project)
         {
@@ -180,7 +178,7 @@ namespace SlopWorld
 
             bool ready =
                 !_sending
-                && (!_newWorktree || !string.IsNullOrEmpty(_baseCommit))
+                && (!_newWorktree || !string.IsNullOrEmpty(_basePreview.Commit))
                 && !string.IsNullOrEmpty(_caller)
                 && !string.IsNullOrEmpty(_project)
                 && !string.IsNullOrEmpty(_template)
@@ -267,8 +265,7 @@ namespace SlopWorld
                     "The new worktree uses committed files. Uncommitted changes stay in the caller's checkout."
                 );
                 y += UiTheme.LineH + UiTheme.GapS;
-                string previewKey = _caller + "\n" + _baseRevision;
-                if (previewKey != _previewKey)
+                if (!_basePreview.Matches(_caller, _baseRevision))
                     ResolveBase();
                 if (
                     UiButtons.Button(
@@ -280,11 +277,11 @@ namespace SlopWorld
                     ResolveBase();
                 UiText.RowLabel(
                     new Rect(rect.x + 140f, y, rect.width - 140f, UiTheme.BtnH),
-                    _previewError
+                    _basePreview.Error
                         ?? (
-                            string.IsNullOrEmpty(_baseCommit)
+                            string.IsNullOrEmpty(_basePreview.Commit)
                                 ? "Resolve the base revision before you start the worker."
-                                : _baseCommit
+                                : _basePreview.Commit
                         )
                 );
                 y += UiTheme.BtnH + UiTheme.GapS;
@@ -327,25 +324,20 @@ namespace SlopWorld
 
         void ResolveBase()
         {
-            string key = _caller + "\n" + _baseRevision;
-            _previewKey = key;
-            _baseCommit = "";
-            _previewError = null;
+            long request = _basePreview.Begin(_caller, _baseRevision);
             DaemonClient.Post<Wire.WorktreeBase>(
                 WireProtocol.Routes.WorktreePreview,
                 new Wire.CreateWorktreeReq { Project = _project, Base = _baseRevision },
-                reply =>
-                {
-                    if (_caller + "\n" + _baseRevision == key)
-                        _baseCommit = reply.Commit;
-                },
-                error =>
-                {
-                    if (_caller + "\n" + _baseRevision == key)
-                        _previewError = error;
-                },
+                reply => _basePreview.Accept(request, _caller, _baseRevision, reply.Commit),
+                error => _basePreview.Fail(request, _caller, _baseRevision, error),
                 _caller
             );
+        }
+
+        public override void PostClose()
+        {
+            _basePreview.Reset();
+            base.PostClose();
         }
 
         void Send()
@@ -386,7 +378,7 @@ namespace SlopWorld
                 {
                     Worktree = submittedWorktree,
                     NewWorktree = submittedNewWorktree,
-                    BaseRevision = _baseCommit,
+                    BaseRevision = _basePreview.Commit,
                     WorktreeName = _worktreeName,
                 }
             );

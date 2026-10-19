@@ -155,6 +155,42 @@ namespace SlopWorld.Tests
             );
         }
 
+        [TestCase("destination/new.txt")]
+        [TestCase("destination")]
+        [TestCase(null)]
+        public void RenameDiffIncludesSourceOutsideSelectedPath(string selection)
+        {
+            WithRepository(
+                "sha1",
+                root =>
+                {
+                    File.WriteAllText(Path.Combine(root, "old.txt"), "original\n");
+                    File.WriteAllText(Path.Combine(root, "other.txt"), "before\n");
+                    Git(root, "add --all");
+                    Git(
+                        root,
+                        "-c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm initial"
+                    );
+                    Directory.CreateDirectory(Path.Combine(root, "destination"));
+                    Git(root, "mv old.txt destination/new.txt");
+                    File.WriteAllText(Path.Combine(root, "other.txt"), "unrelated edit\n");
+                    var repo = new GitStore.Repo { Root = root };
+                    repo.Changes["destination/new.txt"] = "R ";
+                    repo.Sources["destination/new.txt"] = "old.txt";
+                    string diff = Run(GitCommands.Diff(root, GitStore.DiffPaths(repo, selection)));
+                    Assert.That(diff, Does.Contain("rename from old.txt"));
+                    Assert.That(diff, Does.Contain("rename to destination/new.txt"));
+                    Assert.That(diff, Does.Not.Contain("new file mode"));
+                    Assert.That(
+                        diff,
+                        selection == null
+                            ? Does.Contain("unrelated edit")
+                            : Does.Not.Contain("unrelated edit")
+                    );
+                }
+            );
+        }
+
         [Test]
         public void UnstageRenameRestoresBothIndexPathsWithoutMovingWorkingFile()
         {

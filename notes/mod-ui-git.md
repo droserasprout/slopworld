@@ -28,7 +28,8 @@ Commands resolve HEAD when executed. Unborn repositories use an empty tree for
 diffs, and unstaging removes from the index only. `GitCommands` owns literal
 pathspec construction for selected paths. Status rows retain rename sources through
 the wire and tree cache; unstaging a row or directory includes both sides of each
-rename, including sources outside that directory. Copy sources are not unstaged.
+rename, including sources outside that directory. Copy sources are not unstaged. File and directory diffs likewise include both
+sides of selected renames so Git can recognize moves across directory boundaries.
 
 Partial/capped results cannot be shown as complete totals. Missing optional counts
 do not invalidate an otherwise successful status view.

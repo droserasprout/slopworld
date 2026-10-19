@@ -80,3 +80,8 @@ through SessionHub. It adds the returned task and starts task/session refreshes;
 only session refresh is awaited before notifying the dialog to open the terminal.
 The hub supplies a detached worker result with its session name and refreshed
 project/worktree identity so the dialog does not resolve it from mutable session state.
+
+`WorkerBasePreviewState` owns worker revision-preview generations and settlement;
+the dialog owns fields and transport. Repeated resolutions of the same revision
+still supersede earlier requests, and closing the dialog retires pending replies.
+Delegation recipient choices use the live session catalog while the dialog is open.

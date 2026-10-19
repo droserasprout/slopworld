@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -9,7 +8,6 @@ namespace SlopWorld
     // Dialog for sending a durable task to an agent.
     public sealed class DelegateTaskDialog : UiWindow
     {
-        readonly List<SessionInfo> _agents;
         string _to;
         string _body = "";
         string _error;
@@ -19,10 +17,6 @@ namespace SlopWorld
         {
             resizeable = true;
             _to = recipient ?? "";
-            _agents = SessionHub
-                .Instance.Sessions.Where(s => Eligible(s))
-                .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
         }
 
         public override Vector2 InitialSize => new Vector2(560f, 360f);
@@ -43,7 +37,9 @@ namespace SlopWorld
                 rect.width,
                 UiTheme.LineH + UiTheme.GapXS + UiTheme.CompactH
             );
-            var options = _agents
+            var options = SessionHub
+                .Instance.Sessions.Where(Eligible)
+                .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(agent => new SelectorOption(
                     AgentLabel(agent),
                     () =>
@@ -104,8 +100,8 @@ namespace SlopWorld
 
         string AgentLabel(string name)
         {
-            var agent = _agents.FirstOrDefault(s => s.Name == name);
-            return AgentLabel(agent) ?? (string.IsNullOrEmpty(name) ? "Select an agent" : name);
+            var agent = SessionHub.Instance.Get(name);
+            return Eligible(agent) ? AgentLabel(agent) : "Select an agent";
         }
 
         static string AgentLabel(SessionInfo agent)

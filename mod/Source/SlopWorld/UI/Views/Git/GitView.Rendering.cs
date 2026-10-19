@@ -504,7 +504,9 @@ namespace SlopWorld
         }
 
         static string DiffCmd(Repo repo, string rel, string status) =>
-            GitCommands.Diff(repo.Root, rel, new GitStatus(status).Untracked);
+            new GitStatus(status).Untracked
+                ? GitCommands.Diff(repo.Root, rel, true)
+                : GitCommands.Diff(repo.Root, GitStore.DiffPaths(repo, rel));
 
         // ------------------------------------------------------------------ lifecycle
 
