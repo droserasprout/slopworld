@@ -28,6 +28,10 @@ polls. Enabled sources without data get placeholders; after a valid partial tabl
 omitted windows are inapplicable rather
 than missing-data placeholders. One request can provide several windows; polling
 uses the fastest effective enabled interval within provider cache/rate limits.
+Upstream availability is retained separately from filtered display values so enabling
+a returned row can shorten cadence without erasing failure backoff. Retained rows
+keep absolute reset deadlines; their wire countdowns are rebased to each new
+provider timestamp.
 
 Client ages and discovered-row editing belong to [mod usage](mod-usage.md).
 Setup belongs to [Usage polling](../docs/src/agents/usage-and-summaries.md#usage-polling),

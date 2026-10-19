@@ -3,7 +3,7 @@ use super::Snapshot;
 use super::providers::RATE_LIMIT_FLOOR_SECS;
 use super::rows::{item_enabled, provider_enabled, resolved_catalog, source_for_key};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     time::{Duration, Instant},
 };
 
@@ -46,6 +46,10 @@ pub(super) struct Poller {
     /// Provider responses contain several windows, so each returned window keeps its own
     /// schedule even though the request itself is shared.
     pub(super) item_due: HashMap<String, Instant>,
+    /// Last successful upstream availability, before disabled rows are filtered out.
+    available: Option<HashSet<String>>,
+    /// Absolute reset deadlines for retained rows, avoiding rounding drift between polls.
+    reset_deadlines: HashMap<String, u64>,
 }
 
 impl Poller {
@@ -57,6 +61,8 @@ impl Poller {
             due: now,
             interval: None,
             item_due: HashMap::new(),
+            available: None,
+            reset_deadlines: HashMap::new(),
         }
     }
 
@@ -67,6 +73,8 @@ impl Poller {
         self.due = now;
         self.interval = None;
         self.item_due.clear();
+        self.available = None;
+        self.reset_deadlines.clear();
         let cleared = Snapshot {
             catalog: self.snap.catalog.clone(),
             ..Default::default()
@@ -152,25 +160,17 @@ fn item_interval(d: &crate::config::Daemon, source: &str, key: &str) -> u64 {
 /// After a provider responds, exclude absent rows when selecting the shortest interval.
 /// For example, an optional Claude model window can be null.
 fn provider_interval(d: &crate::config::Daemon, source: &str, poller: &Poller) -> u64 {
-    let entries = resolved_catalog(&poller.snap.windows);
-    entries
+    d.usage_items
         .iter()
-        .filter(|entry| {
-            entry.provider == source
-                && item_enabled(d, source, &entry.key)
-                && (poller.snap.fetched_ms == 0
-                    || poller.snap.windows.iter().any(|w| w.key == entry.key))
+        .filter(|(key, item)| {
+            source_for_key(key) == Some(source)
+                && item.poll
+                && poller
+                    .available
+                    .as_ref()
+                    .is_none_or(|keys| keys.contains(*key))
         })
-        .map(|entry| item_interval(d, source, &entry.key))
-        // Configured dynamic rows may not have been discovered yet.
-        .chain(
-            d.usage_items
-                .iter()
-                .filter(|(key, item)| {
-                    source_for_key(key) == Some(source) && item.poll && poller.snap.fetched_ms == 0
-                })
-                .map(|(key, _)| item_interval(d, source, key)),
-        )
+        .map(|(key, _)| item_interval(d, source, key))
         .min()
         .unwrap_or(d.usage_poll_secs.max(minimum_poll_secs(source)))
 }
@@ -186,6 +186,14 @@ pub(super) fn filter_snapshot(
         return snapshot;
     }
 
+    poller.available = Some(
+        snapshot
+            .windows
+            .iter()
+            .map(|window| window.key.clone())
+            .collect(),
+    );
+
     // Discovery precedes polling policy: disabled optional windows must remain
     // selectable in Settings without publishing their values in the readout.
     snapshot.catalog = resolved_catalog(&snapshot.windows);
@@ -199,7 +207,15 @@ pub(super) fn filter_snapshot(
         .item_due
         .retain(|key, _| item_enabled(d, source, key));
 
-    let previous = poller.snap.windows.clone();
+    let mut previous = poller.snap.windows.clone();
+    // Retained values use the new provider timestamp, but keep their original
+    // reset deadline. Derive seconds from that deadline instead of repeatedly
+    // subtracting rounded poll intervals.
+    for window in &mut previous {
+        if let Some(deadline) = poller.reset_deadlines.get(&window.key) {
+            window.resets_in = Some(deadline.saturating_sub(snapshot.fetched_ms) / 1000);
+        }
+    }
     let mut seen = Vec::new();
     let mut windows = Vec::new();
     for window in snapshot.windows.drain(..) {
@@ -214,6 +230,16 @@ pub(super) fn filter_snapshot(
         }
         if *due <= now {
             *due = now + Duration::from_secs(interval);
+            if let Some(seconds) = window.resets_in {
+                poller.reset_deadlines.insert(
+                    window.key.clone(),
+                    snapshot
+                        .fetched_ms
+                        .saturating_add(seconds.saturating_mul(1000)),
+                );
+            } else {
+                poller.reset_deadlines.remove(&window.key);
+            }
             windows.push(window.clone());
         } else if let Some(old) = previous.iter().find(|old| old.key == window.key) {
             windows.push(old.clone());
@@ -231,6 +257,9 @@ pub(super) fn filter_snapshot(
             windows.push(old);
         }
     }
+    poller
+        .reset_deadlines
+        .retain(|key, _| windows.iter().any(|window| &window.key == key));
     snapshot.windows = windows;
     snapshot
 }

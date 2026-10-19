@@ -36,10 +36,11 @@ fn absent_anthropic_rows_do_not_set_the_provider_interval() {
         RATE_LIMIT_FLOOR_SECS
     );
 
-    poller.snap = parse(
+    let response = parse(
         &serde_json::from_str(r#"{"five_hour":{"utilization":50}}"#).unwrap(),
         "max".into(),
     );
+    poller.snap = filter_snapshot(&mut poller, response, &daemon, "anthropic", Instant::now());
     // The optional Opus window was absent, so it cannot make the shared request poll faster.
     assert_eq!(provider_interval(&daemon, "anthropic", &poller), 600);
 }
@@ -189,10 +190,11 @@ fn only_explicitly_enabled_windows_participate_in_provider_cadence() {
     );
     let mut poller = Poller::new("Anthropic", Instant::now());
     assert_eq!(provider_interval(&daemon, "anthropic", &poller), 900);
-    poller.snap = parse(
+    let response = parse(
         &serde_json::json!({"five_hour":{"utilization":10},"seven_day":{"utilization":20}}),
         "max".into(),
     );
+    poller.snap = filter_snapshot(&mut poller, response, &daemon, "anthropic", Instant::now());
     assert_eq!(provider_interval(&daemon, "anthropic", &poller), 900);
     daemon.usage_items.insert(
         CLAUDE_WEEK.into(),
@@ -210,4 +212,96 @@ fn only_explicitly_enabled_windows_participate_in_provider_cadence() {
         },
     );
     assert_eq!(provider_interval(&daemon, "anthropic", &poller), 900);
+}
+
+#[test]
+fn retained_countdowns_keep_deadlines_across_refresh_failure_and_missing_rows() {
+    let mut daemon = crate::config::Daemon::default();
+    for (key, interval) in [(CLAUDE_SESSION, 300), (CLAUDE_WEEK, 3600)] {
+        daemon.usage_items.insert(
+            key.into(),
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: Some(interval),
+            },
+        );
+    }
+    let now = Instant::now();
+    let mut poller = Poller::new("Anthropic", now);
+    let mut initial = session_snapshot(10);
+    initial.fetched_ms = 1_000_000;
+    let mut weekly = initial.windows[0].clone();
+    weekly.key = CLAUDE_WEEK.into();
+    weekly.resets_in = Some(1000);
+    initial.windows.push(weekly.clone());
+    poller.snap = filter_snapshot(&mut poller, initial.clone(), &daemon, "anthropic", now);
+    for (elapsed_ms, include_week, expected) in [
+        (300_500, true, 699),
+        (601_000, false, 399),
+        (1_001_000, false, 0),
+    ] {
+        let mut response = initial.clone();
+        response.fetched_ms += elapsed_ms;
+        response
+            .windows
+            .iter_mut()
+            .find(|w| w.key == CLAUDE_WEEK)
+            .unwrap()
+            .pct = 90.0;
+        if !include_week {
+            response.windows.retain(|w| w.key != CLAUDE_WEEK);
+        }
+        let next = filter_snapshot(
+            &mut poller,
+            response,
+            &daemon,
+            "anthropic",
+            now + Duration::from_millis(elapsed_ms),
+        );
+        let retained = next.windows.iter().find(|w| w.key == CLAUDE_WEEK).unwrap();
+        assert_eq!(retained.resets_in, Some(expected));
+        assert_eq!(retained.pct, weekly.pct);
+        poller.snap = next;
+        let failed = Snapshot::failed(&poller.snap, "offline");
+        assert_eq!(
+            filter_snapshot(&mut poller, failed.clone(), &daemon, "anthropic", now),
+            failed
+        );
+    }
+}
+
+#[test]
+fn enabling_a_returned_faster_row_refreshes_without_erasing_failure_backoff() {
+    for fails in [0, 1] {
+        let now = Instant::now();
+        let mut daemon = crate::config::Daemon::default();
+        daemon.usage_items.insert(
+            CLAUDE_WEEK.into(),
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: Some(3600),
+            },
+        );
+        let mut poller = Poller::new("Anthropic", now);
+        assert_eq!(poller.prepare(&daemon, "anthropic", now), Some(3600));
+        let response = parse(
+            &serde_json::json!({"five_hour":{"utilization":10},"seven_day":{"utilization":20}}),
+            "max".into(),
+        );
+        let next = filter_snapshot(&mut poller, response, &daemon, "anthropic", now);
+        poller.settle(next, None, 3600, now);
+        assert!(poller.snap.windows.iter().all(|w| w.key != CLAUDE_SESSION));
+        let original_due = poller.due;
+        poller.fails = fails;
+        daemon.usage_items.insert(
+            CLAUDE_SESSION.into(),
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: Some(300),
+            },
+        );
+        let later = now + Duration::from_secs(30);
+        assert_eq!(poller.prepare(&daemon, "anthropic", later), Some(300));
+        assert_eq!(poller.due, if fails == 0 { later } else { original_due });
+    }
 }

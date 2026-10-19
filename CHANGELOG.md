@@ -41,6 +41,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - UI: Fixed saving temporary projects opened from the Worktrees tab.
 - UI: Preserve directory picker navigation after a failed directory read.
 - UI: Tuned loading screen animation.
+- Usage: Fixed polling countdown intervals.
 - Workers: Prevent older base revision previews from overwriting newer results.
 
 ## [0.0.7] - 2026-10-19

@@ -1,4 +1,4 @@
-//! Worktree command parsing and execution share one owned argument record.
+//! Worktree command parsing and execution use action-specific owned arguments.
 
 use super::super::format::print_json;
 use super::super::http::{Endpoint, request};
@@ -47,24 +47,41 @@ pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {
     if project.is_empty() || (action == "rename" && name.is_empty()) {
         return Err(WORKTREE_USAGE.into());
     }
-    Ok(Command::Worktree(WorktreeArgs {
-        action,
-        project,
-        name,
-        base,
-        path,
-        id,
-    }))
+    let args = match action.as_str() {
+        "list" => WorktreeArgs::List { project },
+        "create" => WorktreeArgs::Create {
+            project,
+            name,
+            base,
+            path,
+        },
+        "rename" => WorktreeArgs::Rename { project, id, name },
+        "remove" => WorktreeArgs::Remove { project, id },
+        _ => return Err(WORKTREE_USAGE.into()),
+    };
+    Ok(Command::Worktree(args))
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct WorktreeArgs {
-    pub(crate) action: String,
-    pub(crate) project: String,
-    pub(crate) name: String,
-    pub(crate) base: String,
-    pub(crate) path: String,
-    pub(crate) id: String,
+pub(crate) enum WorktreeArgs {
+    List {
+        project: String,
+    },
+    Create {
+        project: String,
+        name: String,
+        base: String,
+        path: String,
+    },
+    Rename {
+        project: String,
+        id: String,
+        name: String,
+    },
+    Remove {
+        project: String,
+        id: String,
+    },
 }
 
 pub(super) fn run(
@@ -73,41 +90,36 @@ pub(super) fn run(
     json_output: bool,
     args: WorktreeArgs,
 ) -> Result<(), String> {
-    let WorktreeArgs {
-        action,
-        project,
-        name,
-        base,
-        path,
-        id,
-    } = args;
-    let url = if action == "remove" || action == "rename" {
-        format!(
-            "{}/{}?project={}",
-            routes::WORKTREES,
-            encode_component(&id),
-            encode_component(&project)
-        )
-    } else {
-        format!(
-            "{}?project={}",
-            routes::WORKTREES,
-            encode_component(&project)
-        )
+    let removed = matches!(&args, WorktreeArgs::Remove { .. });
+    let (project, id) = match &args {
+        WorktreeArgs::List { project } | WorktreeArgs::Create { project, .. } => (project, None),
+        WorktreeArgs::Rename { project, id, .. } | WorktreeArgs::Remove { project, id } => {
+            (project, Some(id))
+        }
     };
-    let (method, body) = match action.as_str() {
-        "create" => (
+    let resource = match id {
+        Some(id) => format!("{}/{}", routes::WORKTREES, encode_component(id)),
+        None => routes::WORKTREES.to_string(),
+    };
+    let url = format!("{resource}?project={}", encode_component(project));
+    let (method, body) = match args {
+        WorktreeArgs::List { .. } => ("GET", None),
+        WorktreeArgs::Create {
+            project,
+            name,
+            base,
+            path,
+        } => (
             "POST",
             Some(json!({"project":project,"name":name,"base":base,"path":path})),
         ),
-        "remove" => ("DELETE", None),
-        "rename" => ("PUT", Some(json!({"name":name}))),
-        _ => ("GET", None),
+        WorktreeArgs::Remove { .. } => ("DELETE", None),
+        WorktreeArgs::Rename { name, .. } => ("PUT", Some(json!({"name":name}))),
     };
     let value = request(endpoint, session, method, &url, body)?;
     if json_output {
         print_json(&value);
-    } else if action == "remove" {
+    } else if removed {
         println!("Worktree removed. Branches retained.");
     } else {
         let rows: Vec<&Value> = value
