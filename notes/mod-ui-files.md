@@ -30,7 +30,9 @@ and pinned-reader lifetime to [readers](mod-file-readers.md), diff dispatch to
 Files consumes Git’s shared status cache for Diff availability.
 
 Bounded filesystem results remain partial: clients must expose truncation rather
-than imply that a capped listing includes every path.
+than imply that a capped listing includes every path. Terminal path menus use
+`TerminalPathProbe` to check an omitted path directly before offering actions.
+File-action substitution interprets only the original template, never inserted paths.
 
 Markdown links retain their captured root and use bounded scoped native text/image
 readers, including non-Markdown text. They do not reuse unscoped readers or launch

@@ -386,6 +386,26 @@ namespace SlopWorld
             return TextEntryController.Draw(inner, text, false, focused, name);
         }
 
+        // Placeholder text is decoration, never the editable value or clipboard content.
+        public static string FieldWithPlaceholder(
+            Rect rect,
+            string name,
+            string value,
+            string placeholder,
+            bool on = true
+        )
+        {
+            value = Field(rect, name, value ?? "", on);
+            if (string.IsNullOrEmpty(value) && GUI.GetNameOfFocusedControl() != name)
+                PlainStatusLabel(
+                    rect.ContractedBy(FieldPadX, FieldPadY),
+                    placeholder,
+                    UiTheme.Faint,
+                    anchor: TextAnchor.MiddleLeft
+                );
+            return value;
+        }
+
         // A native text field is used deliberately: its TextEditor supplies familiar drag,
         // Ctrl+C and right-click selection behavior. The value is restored after each draw,
         // so callers can expose a copyable value without making it editable state.

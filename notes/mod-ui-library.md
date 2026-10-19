@@ -18,6 +18,10 @@ The daemon supplies all checkout rows, including Main and its readiness state.
 `WorktreeRequests` shares root-only transport with the sidebar catalog, but their
 filters and selections have separate lifetimes.
 
+Library editors share `DialogSubmitState` for save admission and retries; fields remain
+disabled while saving. Command placeholders use `UiText.FieldWithPlaceholder` and
+never enter the editable value.
+
 Daemon items belong to [library](daemon-library.md), template forms to
 [mod templates](mod-agent-templates.md), and semantic history to
 [navigation](mod-sidebar-navigation.md). User interactions belong to the

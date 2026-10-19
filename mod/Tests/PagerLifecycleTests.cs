@@ -209,6 +209,10 @@ namespace SlopWorld.Tests
                 RefreshSuperseded
             );
             yield return ("diffs and editor commands do not auto refresh", RefreshExclusions);
+            yield return (
+                "new line targets replace pending and pinned readers",
+                NavigateFileAtLine
+            );
             yield return ("file-at-line previews refresh with the same command", RefreshAtLine);
             yield return (
                 "line-targeted source opens reuse pending and pinned readers",
@@ -536,6 +540,30 @@ namespace SlopWorld.Tests
             new ReaderProbe(pager).Apply(true, "second");
             AssertEx.Equal(2, store.Starts, "line-targeted file refreshes");
             AssertEx.Equal(command, store.Command, "original line and command retained");
+        }
+
+        static void NavigateFileAtLine()
+        {
+            SessionHub.Instance = new SessionHub();
+            var tabs = new PagerTabs();
+            var store = SessionHub.Instance.SessionStore;
+            tabs.ViewFileAt("p", "/file", 12, "file");
+            var first = store.Requests[0];
+            tabs.ViewFileAt("p", "/file", 80, "file");
+            var latest = store.Requests[1];
+            tabs.ViewFileAt("p", "/file", 80, "file");
+            AssertEx.Equal(2, store.Starts, "identical pending line joins the request");
+            store.Complete(latest, "latest");
+            store.Complete(first, "obsolete");
+            AssertEx.Equal("latest", WorkspaceWindow.Current, "late old line cannot take focus");
+            tabs.Lock("latest");
+            tabs.ForPreview().ViewFile("p", "/other", "other");
+            store.Complete(store.Requests[2], "other");
+            tabs.ViewFileAt("p", "/file", 130, "file");
+            AssertEx.Equal(130u, store.Requests[3].Options.Reader.Line, "new line reaches launch");
+            store.Complete(store.Requests[3], "moved");
+            AssertEx.True(tabs.IsLocked("moved"), "navigation retains pin");
+            AssertEx.Equal("moved", WorkspaceWindow.Current, "new line receives focus");
         }
 
         static void ReuseFileAtLine()

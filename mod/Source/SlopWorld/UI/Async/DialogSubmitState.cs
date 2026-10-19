@@ -2,8 +2,8 @@ using System;
 
 namespace SlopWorld
 {
-    // Single-field dialogs share submit admission and error settlement. Callers own field
-    // values, validation, endpoint requests, and drawing through TextDialog.
+    // Dialogs share submit admission and error settlement. Callers own field
+    // values, validation, endpoint requests, and drawing.
     // Submit and its callbacks run on the UI/main thread; closing does not cancel the request.
     internal sealed class DialogSubmitState
     {

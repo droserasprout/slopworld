@@ -12,11 +12,16 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
+- Files: Fixed file actions misinterpreting placeholder text in filenames.
 - Git: Fixed special characters in filenames affecting unrelated files when (un)staging or viewing diffs.
 - Git: Fixed unstaging renamed files leaving the original path's deletion staged.
 - Git: Fixed diffs showing renamed files as additions when the original path is outside the selected directory.
+- Library: Prevent duplicate saves and edits while saving.
+- Library: Fixed command placeholders becoming part of the entered command.
 - Search: Preserve leading and trailing spaces, including whitespace-only queries.
 - Tasks: Keep available recipients up to date while the delegation dialog is open.
+- Terminal: Fixed opening a terminal path link on correct line number when the file is already open.
+- Terminal: Fixed terminal path links failing in directories with more than 500 entries.
 - UI: Allow retrying failed temporary project path previews.
 - UI: Fixed unchecking All projects and All worktrees in the project filter.
 - UI: Fixed saving temporary projects opened from the Worktrees tab.

@@ -32,20 +32,20 @@ namespace SlopWorld
         public static string FileActionCommand(string template, string path, string relativePath)
         {
             string command = (template ?? "").Trim();
-            string absolute = Quote(path);
-            string relative = Quote(relativePath ?? ".");
             bool substituted = false;
-            if (command.Contains("{{ absolute_path }}"))
-            {
-                command = command.Replace("{{ absolute_path }}", absolute);
-                substituted = true;
-            }
-            if (command.Contains("{{ relative_path }}"))
-            {
-                command = command.Replace("{{ relative_path }}", relative);
-                substituted = true;
-            }
-            return substituted ? command : command + " " + absolute;
+            // Match only the template: inserted paths may themselves contain placeholder text.
+            string result = Regex.Replace(
+                command,
+                @"\{\{ (absolute_path|relative_path) \}\}",
+                match =>
+                {
+                    substituted = true;
+                    return Quote(
+                        match.Groups[1].Value == "absolute_path" ? path : relativePath ?? "."
+                    );
+                }
+            );
+            return substituted ? result : command + " " + Quote(path);
         }
 
         static string App(string value, string fallback) =>

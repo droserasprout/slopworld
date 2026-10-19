@@ -275,6 +275,14 @@ namespace SlopWorld
             return pager != null && (pager.Pending(project, path) || pager.Reopen());
         }
 
+        // A line target is navigation, not just focus. Replace inside the owning tab so
+        // pins survive, and a newer line supersedes any pending launch for this source.
+        public void ViewFileAt(string project, string path, long line, string label)
+        {
+            var pager = Find(tab => tab != null && tab.OwnsSource(project, path)) ?? ForPreview();
+            pager.ViewFileAt(project, path, line, label);
+        }
+
         public void AttachRestored(SessionInfo info)
         {
             if (!Pager.SessionVisibility.Includes(info))

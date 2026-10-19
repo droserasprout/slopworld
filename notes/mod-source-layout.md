@@ -36,7 +36,7 @@ The main directory groupings are:
   sessions and tabs. Feature body views and their editors live under `Views/`.
 - `UI/Forms/` owns reusable editor fields and previews; `Async/` owns request guards
   and queues. `Agents/` owns agent editors, while `Dialogs/` keeps generic dialogs.
-  `DialogSubmitState` owns single-field async submit admission and settlement;
+  `DialogSubmitState` owns dialog async submit admission and settlement;
   callers own fields, validation, and requests, while `TextDialog` owns drawing.
   `BrowseDialogState` owns committed directory listings and request identity;
   `BrowseDialog` owns input, daemon requests, and drawing.

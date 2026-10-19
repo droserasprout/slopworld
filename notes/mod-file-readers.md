@@ -11,7 +11,9 @@ sessions. Editor processes retain their confirmed Stop action. Closing an owner 
 pending replacements as well as stopping its current process.
 
 There is one replaceable preview and independently pinned readers. Reopening a path,
-including a line target, reuses its reader; concurrent opens share the pending request.
+including a line target, reuses its tab. Explicit Files line targets replace the process
+inside that tab, preserving its pin; newer targets supersede pending launches and
+identical pending targets share the request.
 Tab/focus changes preserve readers. Explicit dismissal or validated removal can close
 a pinned reader. Switching between native and pager previews retains the old row until
 the replacement is shown, then releases the other unpinned preview. Failed pager

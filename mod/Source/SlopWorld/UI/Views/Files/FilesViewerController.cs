@@ -94,9 +94,7 @@ namespace SlopWorld
             }
             if (line > 0)
             {
-                if (Viewers.ReuseFile(project, path))
-                    return;
-                Viewers.ForPreview().ViewFileAt(project, path, line, label);
+                Viewers.ViewFileAt(project, path, line, label);
                 return;
             }
             if (Viewers.ReuseFile(project, path))

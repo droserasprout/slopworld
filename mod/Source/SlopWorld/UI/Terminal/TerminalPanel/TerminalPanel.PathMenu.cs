@@ -62,7 +62,14 @@ namespace SlopWorld
                     }
                     if (directory || file)
                         ShowPathMenu(project, absolute, line, file);
-                }
+                    else if (listing.Truncated)
+                        TerminalPathProbe.Resolve(
+                            absolute,
+                            isFile => ShowPathMenu(project, absolute, line, isFile),
+                            UiLayout.Fail
+                        );
+                },
+                UiLayout.Fail
             );
         }
 

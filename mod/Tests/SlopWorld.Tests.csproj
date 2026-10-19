@@ -16,6 +16,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Links/TerminalPathProbe.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Async/DialogSubmitState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Tasks/WorkerBasePreviewState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Dialogs/BrowseDialogState.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonHttpTransport.cs" />

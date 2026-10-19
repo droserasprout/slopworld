@@ -12,6 +12,7 @@ namespace SlopWorld
     // project pickers and persistence.
     public abstract class EditLibraryItemDialog : UiWindow
     {
+        readonly DialogSubmitState _submit = new DialogSubmitState();
         protected readonly EditIdentity _identity;
         protected readonly LibraryItemInfo _s;
         protected readonly LibraryItemKind Kind;
@@ -123,6 +124,7 @@ namespace SlopWorld
 
             float head = UiTheme.HeaderH + UiTheme.GapS;
             bool enabled = GUI.enabled;
+            GUI.enabled = enabled && !_submit.Pending;
             float used = DrawFields(
                 new Rect(rect.x, rect.y + head, rect.width, rect.height - head)
             );
@@ -148,7 +150,7 @@ namespace SlopWorld
         void DrawName(Listing_Standard l)
         {
             l.Label("Name (also what the temporary colonist is called)");
-            _s.Name = UiControls.Field(l, "library.name", _s.Name);
+            _s.Name = UiControls.Field(l, "library.name", _s.Name, on: !_submit.Pending);
         }
 
         protected void DrawRunLocation(Listing_Standard l)
@@ -242,21 +244,17 @@ namespace SlopWorld
             l.Gap(UiTheme.GapS);
             l.Label(label);
             var box = UiControls.FieldRect(l);
-            if (!string.IsNullOrEmpty((_s.Command ?? "").Trim()))
-            {
-                _s.Command = UiText.Field(box, "library.command", _s.Command);
-                return;
-            }
-
             string shownPlaceholder =
                 templatePlaceholder && !string.IsNullOrEmpty(_s.AgentTemplate)
                     ? "From agent template"
                     : placeholder;
-            GUI.color = UiTheme.Faint;
-            string shown = UiText.Field(box, "library.command", shownPlaceholder);
-            GUI.color = Color.white;
-            if (shown != shownPlaceholder)
-                _s.Command = shown;
+            _s.Command = UiText.FieldWithPlaceholder(
+                box,
+                "library.command",
+                _s.Command,
+                shownPlaceholder,
+                on: !_submit.Pending
+            );
         }
 
         protected void DrawTextEditor(Rect rect, float y)
@@ -272,7 +270,7 @@ namespace SlopWorld
                     rect.width,
                     rect.yMax - UiTheme.BtnH - UiTheme.GapS - y
                 );
-                _s.Text = UiText.Area(area, "library.text", _s.Text ?? "");
+                _s.Text = UiText.Area(area, "library.text", _s.Text ?? "", on: !_submit.Pending);
             }
             else
             {
@@ -285,7 +283,13 @@ namespace SlopWorld
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost))
                 Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary))
+            if (
+                foot.Right(
+                    _submit.Pending ? "Saving…" : "Save",
+                    UiTheme.Btn.Primary,
+                    !_submit.Pending
+                )
+            )
                 Save();
         }
 
@@ -395,6 +399,8 @@ namespace SlopWorld
 
         void Save()
         {
+            if (_submit.Pending)
+                return;
             if (string.IsNullOrEmpty((_s.Name ?? "").Trim()))
             {
                 Messages.Message(
@@ -448,13 +454,25 @@ namespace SlopWorld
                 return;
             }
 
-            SessionHub.Instance.Catalog.SaveLibraryItem(
-                _s,
-                _identity.IsNew,
-                _identity.OriginalName,
-                ok: () => Close(),
-                fail: msg =>
-                    Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false)
+            _submit.Submit(
+                null,
+                (ok, fail) =>
+                    SessionHub.Instance.Catalog.SaveLibraryItem(
+                        _s,
+                        _identity.IsNew,
+                        _identity.OriginalName,
+                        ok,
+                        msg =>
+                        {
+                            fail(msg);
+                            Messages.Message(
+                                $"SlopWorld: {msg}",
+                                MessageTypeDefOf.RejectInput,
+                                false
+                            );
+                        }
+                    ),
+                () => Close()
             );
         }
     }

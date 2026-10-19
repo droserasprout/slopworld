@@ -7,6 +7,10 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return (
+                "file action paths are never reinterpreted as placeholders",
+                LiteralFileActionPaths
+            );
             yield return ("quotes argv the way a shell would", QuotesArgv);
             yield return ("quoted executables and option boundaries", QuotedCommands);
             yield return ("templates file and line into commands", TemplatesFileAndLine);
@@ -17,6 +21,26 @@ namespace SlopWorld.Tests
             yield return ("profile code themes preserve pager command boundaries", CodeThemes);
             yield return ("diff pager overrides replace safely", DiffPager);
             yield return ("line numbers belong to source views", LineNumbers);
+        }
+
+        static void LiteralFileActionPaths()
+        {
+            string path = "/repo/{{ relative_path }}'s.txt";
+            string relative = "{{ absolute_path }}'s.txt";
+            AssertEx.Equal(
+                "ls -- " + PagerCommands.Quote(path) + " " + PagerCommands.Quote(relative),
+                PagerCommands.FileActionCommand(
+                    "ls -- {{ absolute_path }} {{ relative_path }}",
+                    path,
+                    relative
+                ),
+                "both inserted values stay literal, including quotes and placeholder text"
+            );
+            AssertEx.Equal(
+                "ls -- " + PagerCommands.Quote(path),
+                PagerCommands.FileActionCommand("ls --", path, relative),
+                "implicit path stays literal"
+            );
         }
 
         static void QuotedCommands()
