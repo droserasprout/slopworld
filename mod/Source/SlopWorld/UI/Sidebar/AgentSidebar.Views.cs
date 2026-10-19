@@ -376,7 +376,10 @@ namespace SlopWorld
 
         static readonly RoutedSessionRows RoutedCache = new RoutedSessionRows();
 
-        static bool _hadOpenFiles;
+        static readonly OpenFilesVisibility OpenFilesLifetime = new OpenFilesVisibility();
+
+        static bool ReaderOpening =>
+            FileReaders.Tabs.Find(tab => tab.Opening) != null || SearchView.ReaderOpening;
 
         static bool IsOpenFileSession(SessionInfo info) =>
             Pager.SessionVisibility.Includes(info)
@@ -392,14 +395,8 @@ namespace SlopWorld
             FileReaders.Restore();
             bool hasFiles = FilesView.HasNativeReaders || hub.Sessions.Any(IsOpenFileSession);
             // Preview replacement may retire the last process before its successor arrives.
-            if (
-                !hasFiles
-                && (FileReaders.Tabs.Find(tab => tab.Opening) != null || SearchView.ReaderOpening)
-            )
-                return;
-            if (_hadOpenFiles && !hasFiles)
+            if (OpenFilesLifetime.ShouldHide(hasFiles, ReaderOpening))
                 SetOpenFilesVisible(false);
-            _hadOpenFiles = hasFiles;
         }
 
         public static void WalkReader(int direction)

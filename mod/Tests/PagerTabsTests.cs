@@ -4,6 +4,47 @@ namespace SlopWorld.Tests
 {
     static class PagerTabsTests
     {
+        public static void SearchPinDuringStartupSurvivesOtherResultsAndRestoration()
+        {
+            SessionHub.Instance = new SessionHub();
+            var store = SessionHub.Instance.SessionStore;
+            var tabs = new PagerTabs();
+            tabs.ForPreview().ViewFileAt("p", "/one", 12, "search-one", "search");
+            AssertEx.Equal("search", store.Intent, "Search keeps its reader intent");
+            AssertEx.True(tabs.LockPreview("p", "/one"), "result pins pending Search reader");
+            store.Complete("search-one");
+            AssertEx.True(tabs.IsLocked("search-one"), "completed Search reader retains pin");
+            AssertEx.True(store.Pins.Contains(("search-one", true)), "pin reaches daemon");
+
+            tabs.ForPreview().ViewFileAt("p", "/two", 24, "search-two", "search");
+            store.Complete("search-two");
+            AssertEx.True(tabs.IsSession("search-one"), "another result preserves pinned reader");
+            AssertEx.False(tabs.IsLocked("search-two"), "next result is a replaceable preview");
+            AssertEx.True(tabs.Lock("search-two"), "routed Search header pins reader");
+            tabs.ReleasePreview();
+            AssertEx.Equal(2, tabs.All.Count(), "both pinned Search readers survive release");
+            AssertEx.Equal(0, store.Stops, "opening another result never stops pinned reader");
+
+            var restored = new PagerTabs();
+            foreach (string name in new[] { "search-one", "search-two" })
+            {
+                var info = SessionHub.Instance.Get(name);
+                info.Intent = "search";
+                info.ReaderPinned = true;
+                info.ReaderPath = name == "search-one" ? "/one" : "/two";
+                info.ReaderKey = info.ReaderPath;
+                info.ReaderScope = "p";
+                restored.AttachRestored(info);
+                restored.AttachRestored(info);
+            }
+            AssertEx.Equal(2, restored.All.Count(), "restoration retains each Search reader once");
+            AssertEx.True(restored.CloseTab("search-one"), "Search header dismisses pinned reader");
+            AssertEx.True(
+                restored.IsSession("search-two"),
+                "dismissal preserves other Search reader"
+            );
+        }
+
         public static void ReaderHandoffsInvalidateRoutingWithoutSessionRevision()
         {
             SessionHub.Instance = new SessionHub();

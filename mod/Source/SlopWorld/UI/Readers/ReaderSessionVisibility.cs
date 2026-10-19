@@ -60,7 +60,9 @@ namespace SlopWorld
 
         internal bool Includes(SessionInfo info)
         {
-            if (info == null || _retiring.Contains(info.Name))
+            // Stopped sessions can remain in the snapshot with reader intent/commands.
+            // They must not keep routed rows or the Open files pane alive.
+            if (info == null || !info.Alive || _retiring.Contains(info.Name))
                 return false;
             // A newer request can claim its session while an older matching launch
             // still awaits its callback. Its committed row must remain visible.

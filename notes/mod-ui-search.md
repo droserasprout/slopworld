@@ -27,7 +27,10 @@ results as truncated. Search draws only visible rows while retaining the result 
 Checkout filter changes rerun the last submitted query and options without replacing draft
 controls. Search submissions, option changes, and checkout filter changes preserve the
 open Search reader, including an unpinned preview.
-Search owns a separate pager; Files and Git share [FileReaders](mod-file-readers.md).
+Search owns a separate preview/pinned pager collection; Files and Git share
+[FileReaders](mod-file-readers.md). Search previews use the same italic routed headers
+and double-click pinning as Files/Git. Double-clicking a result also pins its reader,
+including while its pager is starting. Pinned readers survive opening another result.
 Closing the Search tab releases field focus and preserves its reader.
 
 Results retain their captured root for reader actions. Project and checkout groups

@@ -24,13 +24,27 @@ namespace SlopWorld
                     Tabs.AttachRestored(info);
         }
 
-        public static bool IsSession(string session) => FilesView.IsViewerSession(session);
+        // Routed headers use one facade while Search keeps its own preview collection.
+        public static bool IsSession(string session) =>
+            FilesView.IsViewerSession(session) || SearchView.IsViewerSession(session);
 
-        public static bool IsLocked(string session) => FilesView.IsViewerLocked(session);
+        public static bool IsLocked(string session) =>
+            FilesView.IsViewerLocked(session) || SearchView.IsViewerLocked(session);
 
-        public static bool Lock(string session) => FilesView.LockViewer(session);
+        public static bool Lock(string session) =>
+            FilesView.LockViewer(session) || SearchView.LockViewer(session);
 
-        public static bool Close(string session) =>
-            FilesView.CloseViewerTab(session) || GitView.CloseViewerTab(session);
+        public static bool Close(string session)
+        {
+            bool closed =
+                FilesView.CloseViewerTab(session)
+                || GitView.CloseViewerTab(session)
+                || SearchView.CloseViewerTab(session);
+            // Editors and restored readers may stop without a Pager owner. Hide their row
+            // immediately rather than waiting for the daemon's removal snapshot.
+            if (closed)
+                Pager.SessionVisibility.Retire(session);
+            return closed;
+        }
     }
 }

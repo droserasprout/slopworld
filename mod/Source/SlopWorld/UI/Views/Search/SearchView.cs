@@ -69,15 +69,17 @@ namespace SlopWorld
         static readonly List<LayoutRow> Layout = new List<LayoutRow>();
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static float ScrollbarHitInset;
-        static readonly Pager Viewer = new Pager();
+        static readonly PagerTabs Viewers = new PagerTabs();
+        static readonly MouseClickSequence ResultClicks = new MouseClickSequence();
+        static long _restoredVersion = -1;
 
-        internal static bool ReaderOpening => Viewer.Opening;
-        internal static Pager ActivePager
+        internal static bool ReaderOpening => Viewers.Find(tab => tab.Opening) != null;
+        internal static IEnumerable<Pager> Readers
         {
             get
             {
                 RestoreReader();
-                return Viewer;
+                return Viewers.All;
             }
         }
         static FieldLifetime _fieldLifetime = new FieldLifetime();
@@ -104,7 +106,6 @@ namespace SlopWorld
         static string _include = "";
         static string _exclude = "";
         static Match _selected;
-        static Match _showing;
         static bool _focus;
         static bool _layoutDirty = true;
         static float _contentHeight;
@@ -112,10 +113,13 @@ namespace SlopWorld
 
         static void RestoreReader()
         {
-            if (!Viewer.Opening && (Viewer.Session == null || !Viewer.Alive))
-                foreach (var info in SessionHub.Instance.Sessions)
-                    if (info != null && info.Alive && info.Intent == "search")
-                        Viewer.AttachRestored(info);
+            var hub = SessionHub.Instance;
+            if (_restoredVersion == hub.SessionsVersion)
+                return;
+            _restoredVersion = hub.SessionsVersion;
+            foreach (var info in hub.Sessions)
+                if (info != null && info.Alive && info.Intent == "search")
+                    Viewers.AttachRestored(info);
         }
 
         public static void Entered()
@@ -561,7 +565,10 @@ namespace SlopWorld
             // Partially visible rows retain their full geometry for action placement.
             // Only the portion inside the scroll viewport may receive clicks.
             if (!ResultsBody().Contains(e.mousePosition))
+            {
+                ResultClicks.Reset();
                 return;
+            }
             foreach (var hit in Hits)
             {
                 var scr = Screen(hit.Rect);
@@ -570,6 +577,7 @@ namespace SlopWorld
 
                 if (e.button == 1 && hit.Match != null)
                 {
+                    ResultClicks.Reset();
                     Menu(hit.Match);
                     e.Use();
                     return;
@@ -577,6 +585,7 @@ namespace SlopWorld
 
                 if (hit.FoldKey != null)
                 {
+                    ResultClicks.Reset();
                     if (e.button == 0)
                     {
                         ResultTree.Toggle(hit.FoldKey);
@@ -589,15 +598,30 @@ namespace SlopWorld
 
                 var act = RowActions.Hit(scr, scr.xMax - Pad, RowAct.View | RowAct.Edit);
                 if (act != RowAct.None)
+                {
+                    ResultClicks.Reset();
                     Act(hit.Match, act);
+                }
                 else
                 {
+                    if (!ReferenceEquals(_selected, hit.Match))
+                        ResultClicks.Reset();
+                    int clickCount = ResultClicks.Observe(e, Time.realtimeSinceStartup);
                     _selected = hit.Match;
                     Open(hit.Match);
+                    if (clickCount >= 2)
+                    {
+                        Viewers.LockPreview(
+                            hit.Match.Project,
+                            hit.Match.Root.TrimEnd('/') + "/" + hit.Match.Path
+                        );
+                        ResultClicks.Reset();
+                    }
                 }
                 e.Use();
                 return;
             }
+            ResultClicks.Reset();
         }
 
         static void Menu(Match match)
@@ -677,17 +701,17 @@ namespace SlopWorld
             string path = match.Root.TrimEnd('/') + "/" + match.Path;
             if (remember)
                 AgentSidebar.RememberSearch(match.Project, match.Path, match.Line);
-            if (ReferenceEquals(match, _showing) && Viewer.Reopen())
+            var viewer = Viewers.Find(tab => tab.Owns(match.Project, path));
+            if (viewer != null && !viewer.Opening && viewer.Reopen())
             {
                 SessionHub.Instance.Terminal.SendKeys(
-                    Viewer.Session,
+                    viewer.Session,
                     new[] { match.Line.ToString(CultureInfo.InvariantCulture) + "g" },
                     true
                 );
                 return;
             }
-            _showing = match;
-            Viewer.ViewFileAt(
+            (viewer ?? Viewers.ForPreview()).ViewFileAt(
                 match.Project,
                 path,
                 match.Line,
@@ -721,10 +745,21 @@ namespace SlopWorld
 
         public static void ReleaseViewer()
         {
-            _showing = null;
-            Viewer.Release();
+            Viewers.ReleasePreview();
         }
 
-        public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
+        public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
+
+        public static bool IsViewerSession(string session)
+        {
+            RestoreReader();
+            return Viewers.IsSession(session);
+        }
+
+        public static bool IsViewerLocked(string session) => Viewers.IsLocked(session);
+
+        public static bool LockViewer(string session) => Viewers.Lock(session);
+
+        public static bool CloseViewerTab(string session) => Viewers.CloseTab(session);
     }
 }

@@ -53,7 +53,12 @@ action row. Its profile visibility toggle is independent of tab selection and re
 membership; hiding it preserves readers, scroll position, and splitter fraction.
 Closing the last reader hides the pane automatically. This follows the unfiltered
 reader inventory, including native previews; changing filters does not hide it.
+Explicitly dismissing the last visible row also hides the pane, even when other
+readers remain outside the current filters. Dismissed session rows retire locally
+before the daemon confirms their removal.
 The toggle can still show an empty pane, and pending preview replacement keeps it open.
+Stopped session metadata does not count as an open reader. Pending opens count toward
+the pane's lifetime, so cancelling or failing the last open also hides the empty pane.
 Alt+A/S reveal the pane only when a reader matches the current visibility filters.
 The pane and selected tab have independent scroll owners. Sidebar split geometry
 is frozen per frame so vanilla portrait placement, hit testing, and both draw passes

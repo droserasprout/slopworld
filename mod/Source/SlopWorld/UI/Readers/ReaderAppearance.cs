@@ -8,8 +8,8 @@ namespace SlopWorld
         public static void OfferRestart()
         {
             FileReaders.Restore();
-            var readers = new[] { SearchView.ActivePager }
-                .Concat(FileReaders.Tabs.All)
+            var readers = SearchView
+                .Readers.Concat(FileReaders.Tabs.All)
                 .Where(p => p.CanRestartForAppearance)
                 .GroupBy(p => p.Session)
                 .Select(group => group.First())
