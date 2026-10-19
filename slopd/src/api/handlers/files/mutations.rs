@@ -7,7 +7,7 @@ use anyhow::{Context, bail};
 use axum::http::StatusCode;
 
 pub(crate) fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
-    let path = crate::config::expand(path);
+    // Browser paths identify literal entries, not configuration expressions.
     if path.trim().is_empty() {
         bail!("A path is required.");
     }

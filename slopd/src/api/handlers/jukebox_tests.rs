@@ -9,6 +9,7 @@ use axum::{
     http::Request,
 };
 use prost::Message;
+use serde_json::json;
 use tower::ServiceExt;
 
 async fn request(
@@ -46,6 +47,60 @@ async fn request(
 }
 
 type EventReceiver = tokio::sync::broadcast::Receiver<std::sync::Arc<crate::session::EventMessage>>;
+
+#[tokio::test]
+async fn mutations_report_reload_failure_and_recover_after_definition_repair() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    crate::test_support::set_env("SLOPD_CONFIG_ROOT", &root);
+    let manager = crate::session::test_manager_with_socket(
+        crate::config::Config::default(),
+        format!("jukebox-{}", uuid::Uuid::new_v4()),
+    );
+    let app = crate::api::router(manager.clone()).layer(Extension(Cap::Root));
+    let mut events = manager.events.subscribe();
+    let mut station = radio_station();
+    create_and_read_preset(&app, &mut events, &station, &root).await;
+    assert!(!manager.reload_jukebox_if_changed().await.unwrap());
+
+    let broken = root.join("jukebox/broken.toml");
+    let path = "/api/jukebox/presets/radio";
+    for method in ["PUT", "DELETE"] {
+        std::fs::write(&broken, "[invalid").unwrap();
+        station.metadata.as_mut().unwrap().name = "Updated Radio".into();
+        let (status, bytes) = request(&app, method, path, Some(&station)).await;
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        let error = wire::Error::decode(bytes.as_slice()).unwrap().error;
+        assert!(error.contains("saved to disk"), "{error}");
+        assert!(error.contains("broken.toml"), "{error}");
+        assert_no_preset_event(&mut events);
+        assert_eq!(crate::jukebox::catalog().stations.len(), 1);
+        if method == "PUT" {
+            assert_eq!(crate::jukebox::catalog().stations[0].metadata.name, "Radio");
+            assert!(
+                std::fs::read_to_string(root.join("jukebox/radio.toml"))
+                    .unwrap()
+                    .contains("Updated Radio")
+            );
+        } else {
+            assert!(!root.join("jukebox/radio.toml").exists());
+        }
+        manager.reload_jukebox_if_changed().await.unwrap_err();
+        std::fs::remove_file(&broken).unwrap();
+        assert!(manager.reload_jukebox_if_changed().await.unwrap());
+        assert_preset_event(&mut events);
+        assert!(!manager.reload_jukebox_if_changed().await.unwrap());
+        if method == "PUT" {
+            assert_eq!(
+                crate::jukebox::catalog().stations[0].metadata.name,
+                "Updated Radio"
+            );
+        } else {
+            assert!(crate::jukebox::catalog().stations.is_empty());
+        }
+    }
+}
 
 #[tokio::test]
 async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {

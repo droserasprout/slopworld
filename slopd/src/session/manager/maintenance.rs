@@ -41,8 +41,10 @@ impl Manager {
         if claim_due(&self.config_state.presets_checked, now, PRESETS_CHECK_MS) {
             self.reload_presets_if_changed().await;
         }
-        if claim_due(&self.config_state.jukebox_checked, now, JUKEBOX_CHECK_MS) {
-            self.reload_jukebox_if_changed().await;
+        if claim_due(&self.config_state.jukebox_checked, now, JUKEBOX_CHECK_MS)
+            && let Err(error) = self.reload_jukebox_if_changed().await
+        {
+            tracing::warn!("jukebox definitions are not reloadable: {error:#}");
         }
     }
 
@@ -115,7 +117,7 @@ impl Manager {
         true
     }
 
-    pub async fn reload_jukebox_if_changed(self: &Arc<Self>) -> bool {
+    pub async fn reload_jukebox_if_changed(self: &Arc<Self>) -> anyhow::Result<bool> {
         let reloaded = {
             let mut seen = self
                 .config_state
@@ -123,21 +125,22 @@ impl Manager {
                 .lock()
                 .unwrap_or_else(|error| error.into_inner());
             let disk = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
-            if *seen == disk || !crate::jukebox::reload() {
+            if *seen == disk {
                 false
             } else {
+                crate::jukebox::reload()?;
                 *seen = disk;
                 true
             }
         };
         if !reloaded {
-            return false;
+            return Ok(false);
         }
         tracing::info!("jukebox definitions changed on disk, reloading");
         self.emit(Event::Jukebox {
             jukebox: crate::jukebox::catalog(),
         });
         self.signals.maintenance_wake.notify_waiters();
-        true
+        Ok(true)
     }
 }

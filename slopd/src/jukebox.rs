@@ -352,16 +352,10 @@ pub fn catalog() -> Catalog {
         .clone()
 }
 
-pub fn reload() -> bool {
-    let fresh = match Catalog::try_load_from(&Catalog::dir()) {
-        Ok(catalog) => catalog,
-        Err(e) => {
-            tracing::warn!("jukebox definitions changed on disk but are not reloadable: {e:#}");
-            return false;
-        }
-    };
+pub fn reload() -> Result<()> {
+    let fresh = Catalog::try_load_from(&Catalog::dir())?;
     *cell().write().unwrap_or_else(|error| error.into_inner()) = fresh;
-    true
+    Ok(())
 }
 
 #[cfg(test)]

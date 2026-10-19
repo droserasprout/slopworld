@@ -96,7 +96,7 @@ pub(crate) async fn file_stat(
     if path.trim().is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
-    let path = std::path::PathBuf::from(crate::config::expand(path));
+    let path = std::path::PathBuf::from(path);
     let stat = reader_stat(&path)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -107,12 +107,12 @@ pub(crate) async fn read_file(
     State(_m): State<Mgr>,
     Query(q): Query<ReadReq>,
 ) -> ApiResult<wire::TextResult> {
-    let path = q.path.trim();
-    if path.is_empty() {
+    let path = &q.path;
+    if path.trim().is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
 
-    let path = std::path::PathBuf::from(crate::config::expand(path));
+    let path = std::path::PathBuf::from(path);
     let bytes = read_file_bounded(&path, READ_LIMIT, "file", q.root.as_deref())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -128,12 +128,12 @@ pub(crate) async fn read_image(
     State(_m): State<Mgr>,
     Query(q): Query<ReadReq>,
 ) -> ApiResult<wire::ImageResult> {
-    let path = q.path.trim();
-    if path.is_empty() {
+    let path = &q.path;
+    if path.trim().is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
 
-    let path = std::path::PathBuf::from(crate::config::expand(path));
+    let path = std::path::PathBuf::from(path);
     let bytes = read_file_bounded(&path, IMAGE_LIMIT, "image", q.root.as_deref())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -151,7 +151,7 @@ async fn read_file_bounded(
     root: Option<&str>,
 ) -> Result<Vec<u8>> {
     let file = if let Some(root) = root {
-        let root = PathBuf::from(crate::config::expand(root));
+        let root = PathBuf::from(root);
         let path = path.to_owned();
         tokio::fs::File::from_std(
             tokio::task::spawn_blocking(move || super::super::preview_scope::open(&root, &path))

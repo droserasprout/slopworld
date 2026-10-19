@@ -36,3 +36,8 @@ own its identity rules. User setup and operational limits belong to the
 
 Station IDs use ASCII letters, numbers, underscores, and hyphens, beginning with
 a letter or number. Loading and editing enforce the same rule.
+
+Catalog reload failures retain the last valid live snapshot and remain eligible
+for maintenance retry. Station mutation errors distinguish a saved disk change
+from failed live activation; repairing invalid definitions allows the saved change
+to become active on the next reload.

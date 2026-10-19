@@ -20,11 +20,13 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Commands: Reject commands with unfinished quotes or trailing escapes.
 - Files: Fixed file actions misinterpreting placeholder text in filenames.
 - Files: Fixed ignored entries hiding visible files in directories with more than 500 entries.
+- Files: Fixed handling filenames with trailing spaces and environment variable references.
 - Files/Git/Search: Reject non-UTF-8 filenames to prevent opening or modifying the wrong file.
 - Git: Fixed diffs showing renamed files as additions when the original path is outside the selected directory.
 - Git: Fixed handling special characters in filenames.
 - Git: Fixed unstaging renamed files leaving the original path's deletion staged.
 - Jukebox: Fixed playback failing when the preferred audio device is unavailable.
+- Jukebox: Report when station changes are saved but invalid definitions prevent the live catalog from reloading.
 - Library: Fixed command placeholders becoming part of the entered command.
 - Library: Prevent duplicate saves and edits while saving.
 - Search: Fixed blank result previews for lines containing non-UTF-8 text.

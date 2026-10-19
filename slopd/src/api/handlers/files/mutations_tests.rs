@@ -33,6 +33,31 @@ fn rejected(result: ApiResult<wire::Ack>, message: &str) {
 }
 
 #[tokio::test]
+async fn mutations_preserve_literal_environment_variable_names() {
+    let Some(root) = crate::test_support::isolated_with_env(|command, _| {
+        command.env("SLOPD_FILE_TEST_NAME", "other");
+    }) else {
+        return;
+    };
+    let literal = root.join("$SLOPD_FILE_TEST_NAME");
+    let other = root.join("other");
+    std::fs::create_dir(&literal).unwrap();
+    std::fs::create_dir(&other).unwrap();
+    std::fs::write(other.join("child"), "untouched").unwrap();
+    create_file(request(&literal, "child", "file"))
+        .await
+        .unwrap();
+    assert!(literal.join("child").is_file());
+    rename_file(request(&literal.join("child"), "renamed", ""))
+        .await
+        .unwrap();
+    assert!(literal.join("renamed").is_file());
+    remove_file(request(&literal, "", "")).await.unwrap();
+    assert!(!literal.exists());
+    assert_eq!(std::fs::read(other.join("child")).unwrap(), b"untouched");
+}
+
+#[tokio::test]
 async fn create_rename_and_remove_file_preserve_contents() {
     let fixture = Fixture::new();
     let parent = fixture.0.join("parent with spaces");

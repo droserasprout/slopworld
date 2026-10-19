@@ -40,7 +40,11 @@ impl Manager {
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
 
         // Refresh after main's catalog read; record stamps only on success so failures retry.
-        let jukebox_loaded = crate::jukebox::reload();
+        let jukebox_loaded = crate::jukebox::reload()
+            .inspect_err(|error| {
+                tracing::warn!("jukebox definitions are not reloadable: {error:#}")
+            })
+            .is_ok();
 
         let m = Arc::new(Self {
             #[cfg(test)]

@@ -2,6 +2,8 @@
 
 `api/handlers/files/preview.rs` owns text and image preview requests and reader stamps.
 `api/handlers/preview_scope.rs` owns containment for their optional `root` scope.
+Preview and stat paths, including scope roots, are literal filesystem identities:
+preserve whitespace and do not expand environment variables or home expressions.
 A scoped preview cannot open a file outside its root, including through a symlink
 or a concurrent symlink replacement.
 

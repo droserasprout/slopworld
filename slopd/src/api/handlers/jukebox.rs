@@ -1,11 +1,10 @@
 //! Root-only CRUD for user jukebox station definitions.
 
-use crate::api::protobuf::{Proto, reply};
+use crate::api::protobuf::Proto;
 use crate::shared::wire;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use serde_json::json;
 
 use super::super::{ApiResult, Mgr, err};
 
@@ -14,20 +13,26 @@ pub(crate) async fn jukebox_presets() -> ApiResult<wire::JukeboxCatalog> {
     // This editor endpoint requires root and returns the complete user definition for the form.
     let stations = crate::jukebox::Catalog::user_presets()
         .into_iter()
-        .map(|station| {
-            json!({
-                "id": station.id,
-                "default_rate": station.default_rate,
-                "metadata": station.metadata,
-                "streams": station.streams.into_iter().map(|stream| json!({
-                    "rate": stream.rate,
-                    "key": stream.key,
-                    "url": stream.url,
-                })).collect::<Vec<_>>(),
-            })
+        .map(|station| wire::Station {
+            id: station.id,
+            default_rate: station.default_rate,
+            metadata: Some(wire::StationMetadata {
+                name: station.metadata.name,
+                donate: station.metadata.donate,
+                title_regex: station.metadata.title_regex,
+            }),
+            streams: station
+                .streams
+                .into_iter()
+                .map(|stream| wire::StationStream {
+                    rate: stream.rate,
+                    key: stream.key,
+                    url: stream.url,
+                })
+                .collect(),
         })
         .collect::<Vec<_>>();
-    reply(json!({ "stations": stations }))
+    Ok(Proto(wire::JukeboxCatalog { stations }))
 }
 
 pub(crate) async fn create_jukebox_preset(
@@ -53,12 +58,12 @@ pub(crate) async fn delete_jukebox_preset(
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     deleted.map_err(jukebox_error)?;
-    m.reload_jukebox_if_changed().await;
+    reload_after_mutation(&m).await?;
     Ok(Proto(wire::Ack { ok: true }))
 }
 
 async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiResult<wire::Ack> {
-    let station = station_from_wire(body)?;
+    let station = station_from_wire(body);
     if let Some(original_id) = original_id
         && station.id != original_id
     {
@@ -71,15 +76,22 @@ async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiRe
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
         .map_err(jukebox_error)?;
-    m.reload_jukebox_if_changed().await;
+    reload_after_mutation(&m).await?;
     Ok(Proto(wire::Ack { ok: true }))
 }
 
-fn station_from_wire(
-    body: wire::Station,
-) -> Result<crate::jukebox::Station, super::super::ApiError> {
+async fn reload_after_mutation(m: &Mgr) -> Result<(), super::super::ApiError> {
+    m.reload_jukebox_if_changed().await.map_err(|error| {
+        err(StatusCode::INTERNAL_SERVER_ERROR, format!(
+            "The change was saved to disk, but the live jukebox catalog could not reload. Fix the station definitions to apply it: {error:#}"
+        ))
+    })?;
+    Ok(())
+}
+
+fn station_from_wire(body: wire::Station) -> crate::jukebox::Station {
     let metadata = body.metadata.unwrap_or_default();
-    let station = crate::jukebox::Station {
+    crate::jukebox::Station {
         id: body.id,
         default_rate: body.default_rate,
         metadata: crate::jukebox::Metadata {
@@ -96,8 +108,7 @@ fn station_from_wire(
                 url: stream.url,
             })
             .collect(),
-    };
-    Ok(station)
+    }
 }
 
 fn jukebox_error(error: crate::jukebox::JukeboxError) -> super::super::protobuf::ApiError {
