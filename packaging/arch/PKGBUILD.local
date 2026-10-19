@@ -8,7 +8,7 @@
 # a real Linux install (default ~/GOG Games/RimWorld/game, override in the environment).
 
 pkgname=slopworld
-pkgver=0.0.6
+pkgver=0.0.7
 pkgrel=1
 pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')

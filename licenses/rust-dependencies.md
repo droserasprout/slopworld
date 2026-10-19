@@ -270,7 +270,7 @@ and does not identify which crates are included in a particular binary.
 | unicode-width | 0.2.2 | MIT OR Apache-2.0 |
 | untrusted | 0.9.0 | ISC |
 | ureq | 3.4.2 | MIT OR Apache-2.0 |
-| ureq-proto | 0.6.4 | MIT OR Apache-2.0 |
+| ureq-proto | 0.6.5 | MIT OR Apache-2.0 |
 | url | 2.5.8 | MIT OR Apache-2.0 |
 | utf-8 | 0.7.6 | MIT OR Apache-2.0 |
 | utf8-zero | 0.8.1 | MIT OR Apache-2.0 |
