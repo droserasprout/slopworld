@@ -18,8 +18,7 @@ aborts the whole sweep.
 
 [Colony scenes](mod-colony-scenes.md) own intro/departure phases and save interaction.
 [Worksites](mod-worksite.md) use Working state to control construction; completion
-adds [plague](mod-plague.md) sources. `Sim/Incidents/Gardener` owns the visiting pawn,
-and `Companion` grants capybaras plague immunity.
+adds [plague](mod-plague.md) sources.
 
 Colony reconciliation also runs on wall time while [Eco](mod-eco.md) stops game
 ticks; agent arrivals use their final destination during rest. Periodic autosave

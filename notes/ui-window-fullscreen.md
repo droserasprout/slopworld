@@ -28,7 +28,7 @@ Initial fullscreen follows window resize/maximize and remains the final geometry
 change. Updating only outer bounds can misalign pixels and input coordinates.
 `LinuxWindowRecovery` owns process-lifetime recovery state, watch/retry timing,
 and resize-deadline decisions without game dependencies.
-[LinuxGameWindow](../mod/Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs) samples
+[LinuxGameWindow](../mod/Source/SlopWorld/Platform/Windowing/LinuxGameWindow.cs) samples
 game state and owns Unity/X11 calls and their ordering. Game-free tests cover the
 policy directly; they do not establish native window-manager behavior. User-facing controls belong to
 [Display settings](../docs/src/customization/settings.md#display).

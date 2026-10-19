@@ -6,6 +6,8 @@ Directories describe component responsibilities. They do not create assembly bou
 The main directory groupings are:
 
 - `Bootstrap/` owns startup, profile gating and the RimWorld `Mod` entry point.
+- `Platform/Windowing/` owns native window control and recovery policy. Harmony
+  title hooks stay in `Patches/Chrome/`.
 - `Client/SessionHub/` owns connection coordination and cross-service event handoffs.
   Services and their models live together in `Sessions/`, `Catalog/`, `Tasks/`,
   `Terminal/`, `Usage/` and `Audio/`. HTTP, WebSocket framing and generated bindings
@@ -15,10 +17,11 @@ The main directory groupings are:
 - `Settings/` separates portable preferences/serialization and file persistence from
   the game profile adapter and static projection; `UI/Settings/` owns pages and `IOptionPage`.
 - `Sim/` is split into `Colony/`, `Content/`, `Jukebox/`, `Lifecycle/`,
-  `Plague/`, `Terminal/`, `Worksite/` and `Incidents/`.
+  `Plague/`, `Terminal/` and `Worksite/`.
 - `Patches/` is grouped by `Sidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Colony/`, `Eco/`,
-  `LoadingScreen/`, `MainMenu/`, `Options/`, `Plague/` and `Worksite/`.
+  `Lifecycle/`, `LoadingScreen/`, `MainMenu/`, `Options/`, `Plague/` and `Worksite/`.
   Harmony integration stays in `Patches/`; simulation components stay in `Sim/`.
+  `Patches/Lifecycle/` owns duration and log-clock hooks for `Sim/Lifecycle/`.
   `Sim/Worksite/` owns construction lifecycles; `Patches/Worksite/` owns frame
   behavior and ownership persistence. See [Worksite invariants](mod-worksite.md).
 - `UI/Chrome/` owns shared controls. `Scrolling/` owns scroll geometry and input,
@@ -38,6 +41,7 @@ The main directory groupings are:
   `UI/Sessions/` owns shared session actions; project actions stay in `Views/Projects/`
   and host-terminal actions in `Terminal/`.
 - `UI/Terminal/` groups input, rendering, history and links by responsibility.
+  `Links/` owns link recognition and hit testing over parsed terminal runs.
   The terminal panel entry file lives beside its companion partials.
   Text helpers, usage readouts and utilities stay in `Text/`, `Usage/` and `Utilities/`.
   Terminal path recognition and lexical resolution belong to `Utilities/`.

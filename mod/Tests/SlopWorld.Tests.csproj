@@ -43,8 +43,8 @@
     <Compile Include="../Source/SlopWorld/Bootstrap/ModProfile.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/ProfileRefusal.cs" />
     <Compile Include="../Source/SlopWorld/UI/MenuBackground/BandedNoiseRow.cs" />
-    <Compile Include="../Source/SlopWorld/Patches/Chrome/LinuxGameWindow.cs" />
-    <Compile Include="../Source/SlopWorld/Patches/Chrome/LinuxWindowRecovery.cs" />
+    <Compile Include="../Source/SlopWorld/Platform/Windowing/LinuxGameWindow.cs" />
+    <Compile Include="../Source/SlopWorld/Platform/Windowing/LinuxWindowRecovery.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiAreaResize.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/FieldLifetime.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/SelectionCommands.cs" />
@@ -65,7 +65,7 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Git/GitStatus.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalHistoryRestore.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalInputController.Keyboard.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalLinkService.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Links/TerminalLinkService.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/QuitInterceptor.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/LoadFailureRecovery.cs" />
