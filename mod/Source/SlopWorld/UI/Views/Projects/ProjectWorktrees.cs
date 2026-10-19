@@ -115,7 +115,7 @@ namespace SlopWorld
                             !_busy && w.Phase == "ready"
                         )
                     )
-                        CatalogActions.HostShell(_project, worktree: w.Id, fail: Fail);
+                        HostTerminalActions.HostShell(_project, worktree: w.Id, fail: Fail);
                     if (w.Id != "main")
                     {
                         if (

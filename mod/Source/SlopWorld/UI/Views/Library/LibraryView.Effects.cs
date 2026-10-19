@@ -37,7 +37,7 @@ namespace SlopWorld
             public void Menu(ProjectInfo project) => ProjectMenu(project);
 
             public void Terminal(WorktreeEntry entry) =>
-                CatalogActions.HostShell(entry.Project, worktree: entry.Tree.Id);
+                HostTerminalActions.HostShell(entry.Project, worktree: entry.Tree.Id);
 
             public void Project(WorktreeEntry entry) => OpenProjectWorktrees(entry.Project);
 

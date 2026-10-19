@@ -489,7 +489,7 @@ namespace SlopWorld
             FilesView.AddFileActions(opts, project, repo.Dir, SidebarScopes.Label(project));
 
             opts.Add(
-                new FloatMenuOption("Terminal (host)", () => CatalogActions.HostShell(project))
+                new FloatMenuOption("Terminal (host)", () => HostTerminalActions.HostShell(project))
             );
 
             return opts;

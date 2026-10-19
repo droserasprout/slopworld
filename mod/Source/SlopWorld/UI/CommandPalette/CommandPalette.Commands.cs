@@ -50,14 +50,14 @@ namespace SlopWorld
                     if (s.Ephemeral || s.Host)
                         return;
                     var name = s.Name;
-                    WorkspaceWindow.OpenOverPane(CatalogActions.ResetState(name));
+                    WorkspaceWindow.OpenOverPane(SessionActions.ResetState(name));
                 }
             ),
             CommandDef.ForAgent(
                 "agent.start",
                 "Agent: Start",
                 () => AgentsSub(AgentState.Down),
-                s => CatalogActions.Start(s.Name)
+                s => SessionActions.Start(s.Name)
             ),
             CommandDef.ForAgent(
                 "agent.stop",
@@ -69,7 +69,7 @@ namespace SlopWorld
                 "agent.restart",
                 "Agent: Restart",
                 () => AgentsSub(AgentState.Working, AgentState.Idle),
-                s => CatalogActions.Restart(s.Name)
+                s => SessionActions.Restart(s.Name)
             ),
             CommandDef.ForAgent(
                 "agent.edit",
@@ -97,19 +97,19 @@ namespace SlopWorld
                 "agent.delete",
                 "Agent: Delete",
                 AgentsSubAll,
-                s => Find.WindowStack.Add(CatalogActions.RemoveSession(s.Name))
+                s => Find.WindowStack.Add(SessionActions.RemoveSession(s.Name))
             ),
             CommandDef.ForAgent(
                 "agent.duplicate",
                 "Agent: Duplicate",
                 AgentsSubWithProject,
-                CatalogActions.DuplicateAgent
+                SessionActions.DuplicateAgent
             ),
             CommandDef.ForAgent(
                 "agent.shell",
                 "Agent: Shell",
                 AgentsSubWithProject,
-                CatalogActions.AgentShell
+                SessionActions.AgentShell
             ),
             new CommandDef(
                 "project.new",
@@ -121,25 +121,25 @@ namespace SlopWorld
                 "project.edit",
                 "Project: Edit",
                 ProjectsSub,
-                CatalogActions.EditProject
+                ProjectActions.EditProject
             ),
             CommandDef.ForProject(
                 "project.delete",
                 "Project: Delete",
                 DeletableProjectsSub,
-                p => Find.WindowStack.Add(CatalogActions.RemoveProject(p.Name))
+                p => Find.WindowStack.Add(ProjectActions.RemoveProject(p.Name))
             ),
             CommandDef.ForProject(
                 "project.duplicate",
                 "Project: Duplicate",
                 ProjectsSub,
-                CatalogActions.DuplicateProject
+                ProjectActions.DuplicateProject
             ),
             CommandDef.ForProject(
                 "project.host-terminal",
                 "Project: Open Host Terminal",
                 ProjectsSub,
-                CatalogActions.ProjectTerminal
+                ProjectActions.ProjectTerminal
             ),
             new CommandDef(
                 "task.new",
@@ -216,7 +216,7 @@ namespace SlopWorld
                     if (!s.Host)
                         return;
                     var name = s.Name;
-                    WorkspaceWindow.OpenOverPane(CatalogActions.RemoveHost(name));
+                    WorkspaceWindow.OpenOverPane(HostTerminalActions.RemoveHost(name));
                 },
                 group: "Host"
             ),

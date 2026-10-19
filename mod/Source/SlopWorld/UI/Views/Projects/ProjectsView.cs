@@ -97,7 +97,7 @@ namespace SlopWorld
                     UiTheme.Btn.Danger
                 )
             )
-                WorkspaceWindow.OpenOverPane(CatalogActions.RemoveProject(p.Name));
+                WorkspaceWindow.OpenOverPane(ProjectActions.RemoveProject(p.Name));
         }
     }
 }

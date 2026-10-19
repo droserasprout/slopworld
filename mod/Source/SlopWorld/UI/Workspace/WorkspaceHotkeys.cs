@@ -5,9 +5,9 @@ namespace SlopWorld
 {
     // GameComponentOnGUI handles the map help shortcut and Alt+number shortcuts.
     // Patch_WorkspaceShortcuts dispatches workspace shortcuts before components and widgets run.
-    public class TerminalHotkeys : GameComponent
+    public class WorkspaceHotkeys : GameComponent
     {
-        public TerminalHotkeys(Game game) { }
+        public WorkspaceHotkeys(Game game) { }
 
         public override void GameComponentOnGUI()
         {
@@ -15,7 +15,7 @@ namespace SlopWorld
             if (Cutscene.Playing)
                 return;
 
-            // Components run before the window stack. If a terminal window exists, let it handle number keys.
+            // Components run before the window stack. If a workspace window exists, let it handle number keys.
             // Otherwise, handle Alt+number for map selection.
             if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
             {
@@ -79,7 +79,7 @@ namespace SlopWorld
             var open = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             if (open != null)
             {
-                // Content views use the terminal window. F12 returns to its terminal pane if one exists.
+                // Content views use the workspace window. F12 returns to its terminal pane if one exists.
                 // Otherwise, leave the view and try to open a live session.
                 if (WorkspaceWindow.Showing != null)
                 {

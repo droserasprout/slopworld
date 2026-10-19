@@ -7,9 +7,9 @@ namespace SlopWorld
 {
     public static partial class Sidebar
     {
-        // Geometry is rebuilt by Place for each colonist-bar frame. SmoothScroll and the
-        // grip gesture remain here because their targets span the bar's back/front GUI passes.
-        sealed class SidebarLayout
+        // Row geometry, placement inputs, and scratch collections for the sidebar layout cache.
+        // SidebarInteraction owns scrolling and gestures across the back/front GUI passes.
+        sealed class LayoutState
         {
             public readonly List<Row> Rows = new List<Row>();
             public readonly List<Head> Heads = new List<Head>();

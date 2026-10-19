@@ -27,7 +27,7 @@ The main directory groupings are:
   (`CursorAnimation`), and texture construction/cache lifetime (`CursorTextures`). Vanilla
   cursor hooks stay in `Patches/Chrome/`.
 - `UI/Workspace/` owns panel contracts, placement and host chrome, including
-  `WorkspaceWindow` and its companion partials; `Sidebar/` owns
+  `WorkspaceWindow`, its companion partials, and `WorkspaceHotkeys`; `Sidebar/` owns
   sidebar layout, rendering and navigation. Sidebar Harmony hooks stay in `Patches/Sidebar/`.
 - `UI/Browsing/` owns shared scope catalogs and content trees; `Readers/` owns reader
   sessions and tabs. Feature body views and their editors live under `Views/`.
@@ -35,6 +35,8 @@ The main directory groupings are:
   and queues. `Agents/` owns agent editors, while `Dialogs/` keeps generic dialogs.
   `DialogSubmitState` owns single-field async submit admission and settlement;
   callers own fields, validation, and requests, while `TextDialog` owns drawing.
+  `UI/Sessions/` owns shared session actions; project actions stay in `Views/Projects/`
+  and host-terminal actions in `Terminal/`.
 - `UI/Terminal/` groups input, rendering, history and links by responsibility.
   The terminal panel entry file lives beside its companion partials.
   Text helpers, usage readouts and utilities stay in `Text/`, `Usage/` and `Utilities/`.

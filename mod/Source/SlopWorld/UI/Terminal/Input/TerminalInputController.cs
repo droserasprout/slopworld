@@ -213,9 +213,9 @@ namespace SlopWorld
             }
             if (Bound(ModDefOf.SlopQuickTerminal, e))
             {
-                // Use the same toggle as TerminalHotkeys. Settings views share this window, so F12 must reveal the terminal.
+                // Use the same toggle as WorkspaceHotkeys. Settings views share this window, so F12 must reveal the terminal.
                 UiMenu.CloseAll();
-                TerminalHotkeys.Toggle();
+                WorkspaceHotkeys.Toggle();
                 return true;
             }
             if (Bound(ModDefOf.SlopToggleFullscreen, e))
@@ -348,7 +348,7 @@ namespace SlopWorld
                 return true;
             }
 
-            int slot = TerminalHotkeys.SlotKey(e);
+            int slot = WorkspaceHotkeys.SlotKey(e);
             if (slot >= 0 && e.alt && !e.shift)
             {
                 SwitchToSlot(slot);

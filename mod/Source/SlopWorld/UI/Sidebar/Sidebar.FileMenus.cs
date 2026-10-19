@@ -52,7 +52,7 @@ namespace SlopWorld
                         )
                     );
                 else
-                    opts.Add(new FloatMenuOption("Start", () => CatalogActions.Start(session)));
+                    opts.Add(new FloatMenuOption("Start", () => SessionActions.Start(session)));
             }
             else
             {

@@ -190,7 +190,7 @@ namespace SlopWorld
                 {
                     Label = "~",
                     Value = "",
-                    Select = () => CatalogActions.HostShell(""),
+                    Select = () => HostTerminalActions.HostShell(""),
                 },
             };
 
@@ -202,7 +202,7 @@ namespace SlopWorld
                     {
                         Label = $"{name}  -  {p.Dir}",
                         Value = name,
-                        Select = () => CatalogActions.HostShell(name),
+                        Select = () => HostTerminalActions.HostShell(name),
                     }
                 );
             }

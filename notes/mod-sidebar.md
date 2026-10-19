@@ -1,6 +1,8 @@
 # Sidebar integration
 
-`UI/Sidebar/` owns grouped layout, rendering, and navigation.
+`UI/Sidebar/` owns grouped layout, rendering, and navigation, including shared
+open-files split geometry. `Sidebar.LayoutState` retains row geometry and placement
+cache inputs; `SidebarInteraction` owns scrolling and gestures across draw passes.
 Overflowing sidebar labels, including Tasks, Search, Library, and shared content
 trees, use `UiText.FadedRowLabel` to fade the right edge into the row background,
 including hover and selection fills. Each view retains its own label rectangles

@@ -57,7 +57,7 @@ namespace SlopWorld
         }
 
         // GameComponentOnGUI sees the map event before WindowStack and before a focused
-        // vanilla control. Keep the host guard here too for callers outside TerminalHotkeys.
+        // vanilla control. Keep the host guard here too for callers outside WorkspaceHotkeys.
         public static bool HandleMapKey(Event e)
         {
             if (

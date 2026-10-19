@@ -38,7 +38,10 @@ namespace SlopWorld
 
             if (project != null && SidebarScopes.Project(project) != null)
                 opts.Add(
-                    new FloatMenuOption("Terminal (host)", () => CatalogActions.HostShell(project))
+                    new FloatMenuOption(
+                        "Terminal (host)",
+                        () => HostTerminalActions.HostShell(project)
+                    )
                 );
 
             AddFileActions(opts, node.Project, node.Path, node.Name, rel);

@@ -232,7 +232,7 @@ namespace SlopWorld
                 && !_identity.IsNew
                 && foot.Left("Reset private state", UiTheme.Btn.Danger)
             )
-                Find.WindowStack.Add(CatalogActions.ResetState(_identity.OriginalName));
+                Find.WindowStack.Add(SessionActions.ResetState(_identity.OriginalName));
             if (
                 !EditingTemplate
                 && !_identity.IsNew

@@ -211,7 +211,7 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Projects/ProjectSessionCounts.cs" Link="Source/UI/Views/Projects/ProjectSessionCounts.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/ReaderFileTarget.cs" />
     <Compile Include="../Source/SlopWorld/UI/Readers/RoutedSessionRows.cs" Link="Source/UI/Readers/RoutedSessionRows.cs" />
-    <Compile Include="../Source/SlopWorld/UI/Browsing/SidebarFilesSplit.cs" Link="Source/UI/Browsing/SidebarFilesSplit.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarFilesSplitGeometry.cs" Link="Source/UI/Sidebar/SidebarFilesSplitGeometry.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalRepaint.cs" Link="Source/UI/Terminal/Rendering/TerminalRepaint.cs" />
     <Compile Include="../Source/SlopWorld/UI/Forms/ResourceLimitsForm.cs" Link="Source/UI/Forms/ResourceLimitsForm.cs" />
     <!-- Keep the tests independent of the game-bound mod assembly. -->

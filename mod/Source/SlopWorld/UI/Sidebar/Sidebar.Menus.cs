@@ -139,8 +139,8 @@ namespace SlopWorld
                     {
                         WorkspaceWindow.OpenOverPane(
                             info.Host
-                                ? CatalogActions.RemoveHost(row.Session)
-                                : CatalogActions.RemoveSession(row.Session)
+                                ? HostTerminalActions.RemoveHost(row.Session)
+                                : SessionActions.RemoveSession(row.Session)
                         );
                     }
                     e.Use();
@@ -170,7 +170,7 @@ namespace SlopWorld
                         if (alive)
                             hub.SessionStore.Stop(name, UiLayout.Fail);
                         else
-                            CatalogActions.Start(name);
+                            SessionActions.Start(name);
                     }
                 )
             );
@@ -219,11 +219,11 @@ namespace SlopWorld
 
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
                 opts.Add(
-                    new FloatMenuOption("Duplicate", () => CatalogActions.DuplicateAgent(info))
+                    new FloatMenuOption("Duplicate", () => SessionActions.DuplicateAgent(info))
                 );
 
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
-                opts.Add(new FloatMenuOption("Shell", () => CatalogActions.AgentShell(info)));
+                opts.Add(new FloatMenuOption("Shell", () => SessionActions.AgentShell(info)));
 
             if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Storage", () => StoragePage.FocusAgent(name)));
@@ -234,7 +234,7 @@ namespace SlopWorld
                         "Remove",
                         () =>
                         {
-                            WorkspaceWindow.OpenOverPane(CatalogActions.RemoveHost(name));
+                            WorkspaceWindow.OpenOverPane(HostTerminalActions.RemoveHost(name));
                         }
                     )
                 );
@@ -243,7 +243,7 @@ namespace SlopWorld
                 opts.Add(
                     new FloatMenuOption(
                         "Remove",
-                        () => WorkspaceWindow.OpenOverPane(CatalogActions.RemoveSession(name))
+                        () => WorkspaceWindow.OpenOverPane(SessionActions.RemoveSession(name))
                     )
                 );
 
@@ -273,9 +273,9 @@ namespace SlopWorld
             string name = p.Name;
             var opts = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Edit", () => CatalogActions.EditProject(p)),
-                new FloatMenuOption("Duplicate", () => CatalogActions.DuplicateProject(p)),
-                new FloatMenuOption("Terminal (host)", () => CatalogActions.ProjectTerminal(p)),
+                new FloatMenuOption("Edit", () => ProjectActions.EditProject(p)),
+                new FloatMenuOption("Duplicate", () => ProjectActions.DuplicateProject(p)),
+                new FloatMenuOption("Terminal (host)", () => ProjectActions.ProjectTerminal(p)),
                 new FloatMenuOption(
                     "Spawn worker",
                     () => WorkspaceWindow.OpenOverPane(new SpawnWorkerDialog(null, name))
@@ -295,7 +295,7 @@ namespace SlopWorld
             // Cached counts explain known blockers; the daemon rechecks both stores.
             var del = new FloatMenuOption(
                 blockers.Count > 0 ? "Delete (" + string.Join(", ", blockers) + ")" : "Delete",
-                () => WorkspaceWindow.OpenOverPane(CatalogActions.RemoveProject(name))
+                () => WorkspaceWindow.OpenOverPane(ProjectActions.RemoveProject(name))
             );
             del.Disabled = blockers.Count > 0;
             opts.Add(del);
@@ -411,7 +411,7 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("~", () => CatalogActions.HostShell("")),
+                new FloatMenuOption("~", () => HostTerminalActions.HostShell("")),
             };
             foreach (var p in SessionHub.Instance.Projects)
             {
@@ -419,7 +419,10 @@ namespace SlopWorld
                     continue;
                 string name = p.Name;
                 options.Add(
-                    new FloatMenuOption($"{name}  -  {p.Dir}", () => CatalogActions.HostShell(name))
+                    new FloatMenuOption(
+                        $"{name}  -  {p.Dir}",
+                        () => HostTerminalActions.HostShell(name)
+                    )
                 );
             }
             return options;

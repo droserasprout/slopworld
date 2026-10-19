@@ -1,9 +1,7 @@
-using System;
-
 namespace SlopWorld
 {
-    // Callers retain visibility rules and window placement. Shared actions supply default failure UI.
-    static class CatalogActions
+    // Session lifecycle, duplication, and agent-shell actions with shared failure UI.
+    static class SessionActions
     {
         static void StartFailed(string name, string message) =>
             WorkspaceWindow.OpenOverPane(
@@ -41,28 +39,6 @@ namespace SlopWorld
                 WorkspaceWindow.OpenOverPane(EditSessionDialog.Copy(info));
         }
 
-        public static void EditProject(ProjectInfo project) =>
-            WorkspaceWindow.OpenOverPane(new EditProjectDialog(project));
-
-        public static void DuplicateProject(ProjectInfo project) =>
-            WorkspaceWindow.OpenOverPane(EditProjectDialog.Copy(project));
-
-        public static void ProjectTerminal(ProjectInfo project) => HostShell(project.Name);
-
-        // Pass scope keys through unchanged: SessionStore resolves project/worktree identity.
-        // Worktree controls can supply an explicit ID and keep their local failure presentation.
-        public static void HostShell(
-            string project,
-            string worktree = "",
-            Action<string> fail = null
-        ) =>
-            SessionHub.Instance.SessionStore.RunHostShell(
-                project,
-                session => WorkspaceWindow.Open(session),
-                fail ?? UiLayout.Fail,
-                worktree
-            );
-
         public static Verse.Window ResetState(string name) =>
             ConfirmDialog.Create(
                 $"Reset private state for '{name}'? This stops the agent and gives its tools "
@@ -76,21 +52,6 @@ namespace SlopWorld
                 $"Remove session '{name}'? This kills it, drops it from config.toml, and moves "
                     + "its private state to recoverable trash for 14 days.",
                 () => SessionHub.Instance.SessionStore.Remove(name, UiLayout.Fail),
-                destructive: true
-            );
-
-        public static Verse.Window RemoveHost(string name) =>
-            ConfirmDialog.Create(
-                $"Remove {SessionHub.Instance.Capabilities.TerminalName} '{name}'? This kills its tmux pane and forgets "
-                    + "the saved sidebar tab.",
-                () => SessionHub.Instance.SessionStore.Remove(name, UiLayout.Fail),
-                destructive: true
-            );
-
-        public static Verse.Window RemoveProject(string name) =>
-            ConfirmDialog.Create(
-                $"Remove project '{name}'? This keeps the directory. It removes only the entry in config.toml.",
-                () => SessionHub.Instance.Catalog.RemoveProject(name, UiLayout.Fail),
                 destructive: true
             );
     }

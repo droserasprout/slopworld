@@ -114,7 +114,7 @@
   </KeyBindingDef>
 
   <!-- F12 opens or closes the terminal from anywhere. The base game does not use F12.
-       See TerminalHotkeys.cs. -->
+       See WorkspaceHotkeys.cs. -->
   <KeyBindingDef>
     <defName>SlopQuickTerminal</defName>
     <label>Open/close agent terminal</label>

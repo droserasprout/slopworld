@@ -207,7 +207,7 @@ namespace SlopWorld
                     SessionSelectable.Current = row.Session;
                     var info = SnapshotGet(row.Session);
                     if (info != null && info.Gone && !ColonistBarStrip.Drawing)
-                        CatalogActions.Start(row.Session);
+                        SessionActions.Start(row.Session);
                     else
                         OpenRouted(row.Session);
                 }

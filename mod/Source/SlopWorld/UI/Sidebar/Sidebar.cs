@@ -100,7 +100,7 @@ namespace SlopWorld
             public bool Folded;
         }
 
-        static readonly SidebarLayout Layout = new SidebarLayout();
+        static readonly LayoutState Layout = new LayoutState();
         static readonly SidebarInteraction Interaction = new SidebarInteraction();
         static readonly SidebarProjectState Projects = new SidebarProjectState();
         static readonly Dictionary<string, SessionInfo> FrameSessions = new Dictionary<

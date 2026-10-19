@@ -162,16 +162,16 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Edit", () => CatalogActions.EditProject(project)),
-                new FloatMenuOption("Duplicate", () => CatalogActions.DuplicateProject(project)),
+                new FloatMenuOption("Edit", () => ProjectActions.EditProject(project)),
+                new FloatMenuOption("Duplicate", () => ProjectActions.DuplicateProject(project)),
                 new FloatMenuOption("Manage worktrees", () => OpenProjectWorktrees(project.Name)),
                 new FloatMenuOption(
                     "Terminal (host)",
-                    () => CatalogActions.ProjectTerminal(project)
+                    () => ProjectActions.ProjectTerminal(project)
                 ),
                 new FloatMenuOption(
                     "Delete",
-                    () => WorkspaceWindow.OpenOverPane(CatalogActions.RemoveProject(project.Name))
+                    () => WorkspaceWindow.OpenOverPane(ProjectActions.RemoveProject(project.Name))
                 ),
             };
             WorkspaceWindow.OpenOverPane(new UiMenu(options));
@@ -184,7 +184,7 @@ namespace SlopWorld
             {
                 new FloatMenuOption(
                     "Terminal",
-                    () => CatalogActions.HostShell(entry.Project, worktree: tree.Id)
+                    () => HostTerminalActions.HostShell(entry.Project, worktree: tree.Id)
                 ),
                 new FloatMenuOption("Project", () => OpenProjectWorktrees(entry.Project)),
             };
