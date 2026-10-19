@@ -262,3 +262,74 @@ async fn search_record_reader_stops_at_its_byte_limit() {
         Some(super::SearchRecord::TooLarge)
     ));
 }
+
+#[tokio::test]
+async fn byte_encoded_lines_preserve_matches_and_source_columns() {
+    let fixture = crate::api::handlers::tests::fixture("search-byte-lines");
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    for prefix in [b"caf\xe9 ".to_vec(), vec![0xff; 2000]] {
+        let mut bytes = prefix.clone();
+        bytes.extend_from_slice(b"needle\n");
+        std::fs::write(fixture.join("legacy.txt"), bytes).unwrap();
+        let result = search(
+            State(manager.clone()),
+            Query(search_request(&fixture, "needle", 10)),
+        )
+        .await
+        .unwrap()
+        .0;
+        assert_eq!(result.matches.len(), 1);
+        let matched = &result.matches[0];
+        assert_eq!(matched.path, "legacy.txt");
+        assert_eq!(matched.line, 1);
+        assert_eq!(matched.column, prefix.len() as u64 + 1);
+        assert!(matched.text.contains("needle"));
+        assert!(matched.text.contains('\u{fffd}'));
+        assert!(matched.text.len() <= SEARCH_TEXT_LIMIT + 6);
+        assert!(!result.truncated);
+    }
+}
+
+#[tokio::test]
+async fn unsupported_search_names_return_an_explicit_error() {
+    use std::os::unix::ffi::OsStrExt;
+    let fixture = crate::api::handlers::tests::fixture("search-invalid-name");
+    std::fs::write(
+        fixture.join(std::ffi::OsStr::from_bytes(b"bad\xff.txt")),
+        "needle\n",
+    )
+    .unwrap();
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let (status, Proto(error)) = search(
+        State(manager),
+        Query(search_request(&fixture, "needle", 10)),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(error.error.contains("not valid UTF-8"));
+}
+
+#[test]
+fn malformed_search_events_fail_instead_of_fabricating_matches() {
+    let mut included = true;
+    for record in [
+        json!({"type": "match", "data": {}}),
+        json!({"type": "begin", "data": {"path": {"bytes": "invalid!"}}}),
+        json!({"type": "match", "data": {
+            "path": {"text": "./ok.txt"}, "lines": {"text": "needle"},
+            "line_number": 1, "submatches": []
+        }}),
+    ] {
+        decode_event(&serde_json::to_vec(&record).unwrap(), None, &mut included).unwrap_err();
+    }
+    assert!(
+        decode_event(
+            br#"{"type":"end","data":{"path":{"text":"./ok.txt"}}}"#,
+            None,
+            &mut included
+        )
+        .unwrap()
+        .is_none()
+    );
+}

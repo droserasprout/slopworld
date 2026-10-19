@@ -4,11 +4,13 @@ use crate::api::protobuf::Proto;
 use crate::api::protobuf::path_text;
 use crate::api::types::SearchReq;
 use crate::shared::wire;
+use anyhow::Context;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
 };
-use serde_json::Value;
+use base64::Engine;
+use serde::Deserialize;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
 /// Default and maximum matching lines returned per checkout.
@@ -183,36 +185,99 @@ async fn discard_search_record<R: AsyncBufRead + Unpin>(reader: &mut R) -> std::
     }
 }
 
-fn search_match(record: &Value) -> wire::SearchMatch {
-    let data = record.get("data");
-    let path = data
-        .and_then(|data| data.get("path"))
-        .and_then(|path| path.get("text"))
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .trim_start_matches("./");
-    let text = data
-        .and_then(|data| data.get("lines"))
-        .and_then(|lines| lines.get("text"))
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let column = data
-        .and_then(|data| data.get("submatches"))
-        .and_then(Value::as_array)
-        .and_then(|submatches| submatches.first())
-        .and_then(|submatch| submatch.get("start"))
-        .and_then(Value::as_u64)
-        .and_then(|column| usize::try_from(column).ok())
-        .unwrap_or(0)
-        .saturating_add(1);
-    wire::SearchMatch {
-        path: path.to_owned(),
-        line: data
-            .and_then(|data| data.get("line_number"))
-            .and_then(Value::as_u64)
-            .unwrap_or(0),
-        column: column as u64,
-        text: search_preview(text, column),
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RgText {
+    Text(String),
+    Bytes(String),
+}
+
+impl RgText {
+    fn decode(self) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Text(text) => Ok(text.into_bytes()),
+            Self::Bytes(bytes) => Ok(base64::engine::general_purpose::STANDARD.decode(bytes)?),
+        }
+    }
+
+    fn path(self) -> anyhow::Result<String> {
+        let path = String::from_utf8(self.decode()?).context(
+            "Search encountered a filename that is not valid UTF-8. Rename it using a terminal.",
+        )?;
+        Ok(path.strip_prefix("./").unwrap_or(&path).to_owned())
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum RgEvent {
+    Begin {
+        data: RgBegin,
+    },
+    Match {
+        data: RgMatch,
+    },
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Deserialize)]
+struct RgBegin {
+    path: RgText,
+}
+
+#[derive(Deserialize)]
+struct RgMatch {
+    path: RgText,
+    lines: RgText,
+    line_number: u64,
+    submatches: Vec<RgSubmatch>,
+}
+
+#[derive(Deserialize)]
+struct RgSubmatch {
+    start: usize,
+}
+
+impl RgMatch {
+    fn into_wire(self) -> anyhow::Result<wire::SearchMatch> {
+        let path = self.path.path()?;
+        let bytes = self.lines.decode()?;
+        let start = self
+            .submatches
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("Ripgrep returned a match without a location."))?
+            .start;
+        let prefix = bytes
+            .get(..start)
+            .context("Ripgrep returned an invalid match location.")?;
+        let text = String::from_utf8_lossy(&bytes);
+        // Replacement characters change byte lengths. Center the preview using the
+        // display offset, but keep the original source byte column on the wire.
+        let display_start = String::from_utf8_lossy(prefix).len();
+        Ok(wire::SearchMatch {
+            path,
+            line: self.line_number,
+            column: start.saturating_add(1) as u64,
+            text: search_preview(&text, display_start.saturating_add(1)),
+        })
+    }
+}
+
+/// Decode events strictly: malformed matches must not become empty actionable paths.
+fn decode_event(
+    record: &[u8],
+    include: Option<&globset::GlobSet>,
+    included_file: &mut bool,
+) -> anyhow::Result<Option<wire::SearchMatch>> {
+    match serde_json::from_slice::<RgEvent>(record)? {
+        RgEvent::Begin { data } => {
+            let path = data.path.path()?;
+            *included_file = include.is_none_or(|filter| filter.is_match(path));
+            Ok(None)
+        }
+        RgEvent::Match { data } if *included_file => data.into_wire().map(Some),
+        _ => Ok(None),
     }
 }
 
@@ -283,19 +348,14 @@ pub(crate) async fn search(
                 break;
             }
         };
-        let Ok(v) = serde_json::from_slice::<Value>(&record) else {
-            continue;
+        let matched = match decode_event(&record, include.as_ref(), &mut included_file) {
+            Ok(Some(matched)) => matched,
+            Ok(None) => continue,
+            Err(error) => {
+                stop_search_child(&mut child).await;
+                return Err(err(StatusCode::BAD_REQUEST, error));
+            }
         };
-        let kind = v.get("type").and_then(Value::as_str);
-        if kind == Some("begin") {
-            included_file = include
-                .as_ref()
-                .is_none_or(|filter| filter.is_match(search_match(&v).path));
-        }
-        if kind != Some("match") || !included_file {
-            continue;
-        }
-        let matched = search_match(&v);
         if matches.len() >= limit {
             truncated = true;
             stop_search_child(&mut child).await;

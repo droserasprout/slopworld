@@ -342,6 +342,11 @@ namespace SlopWorld
             "I do not think, therefore I do not am.",
             "You don't have to be pretty to be picture-perfect!",
             "Grandma is very proud of you.",
+            "I was there dude... and it sucked!",
+            "I've shitted in bathrooms you wouldn't even piss in. (",
+            "The Jung's personality test classifies you as: Catastrophic Failure (1x38B) (",
+            "It's now safe to turn off your computer.",
+            "System halted."
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip). Rolled

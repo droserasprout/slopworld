@@ -29,6 +29,11 @@ and pinned-reader lifetime to [readers](mod-file-readers.md), diff dispatch to
 
 Files consumes Git’s shared status cache for Diff availability.
 
+The daemon rejects non-UTF-8 names encountered by browsing or Search rather than
+returning lossy paths that could target another file. Search previews may replace
+invalid content bytes for display, while source columns remain byte offsets.
+Browsing applies Git-ignore hiding before the visible-entry cap.
+
 Bounded filesystem results remain partial: clients must expose truncation rather
 than imply that a capped listing includes every path. Terminal path menus use
 `TerminalPathProbe` to check an omitted path directly before offering actions.

@@ -66,12 +66,12 @@ pub(super) async fn files_are_opt_in() {
     touch(&dir, "Cargo.toml");
     touch(&dir, "README.md");
 
-    let quiet = list_dir(&dir, false, false, 500, "").await.unwrap();
+    let quiet = list_dir(&dir, false, false, 500, "", false).await.unwrap();
     assert_eq!(quiet.dirs, ["empty", "src"]);
     assert!(quiet.empty_dirs.is_empty());
     assert!(quiet.files.is_empty());
 
-    let full = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let full = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     assert_eq!(full.dirs, ["empty", "src"]);
     assert_eq!(full.empty_dirs, ["empty"]);
     assert_eq!(full.files, ["Cargo.toml", "README.md"]);
@@ -129,12 +129,12 @@ pub(super) async fn dotfiles_are_hidden_until_they_are_asked_for() {
     touch(&dir, "main.rs");
     touch(&dir, ".gitignore");
 
-    let shy = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let shy = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     assert_eq!(shy.dirs, ["src"]);
     assert_eq!(shy.empty_dirs, ["src"]);
     assert_eq!(shy.files, ["main.rs"]);
 
-    let all = list_dir(&dir, true, true, 500, "").await.unwrap();
+    let all = list_dir(&dir, true, true, 500, "", false).await.unwrap();
     assert_eq!(all.dirs, [".git", "src"]);
     assert_eq!(all.empty_dirs, [".git", "src"]);
     assert_eq!(all.files, [".gitignore", "main.rs"]);
@@ -155,14 +155,14 @@ pub(super) async fn gitignored_entries_are_classified_before_optional_filtering(
         .unwrap();
     assert!(status.success());
 
-    let mut visible = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let mut visible = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     filter_gitignored(&dir, &mut visible, false).await;
     assert_eq!(visible.gitignored_dirs, ["ignored-dir"]);
     assert_eq!(visible.gitignored_files, ["ignored.log"]);
     assert!(visible.dirs.contains(&"ignored-dir".to_owned()));
     assert!(visible.files.contains(&"ignored.log".to_owned()));
 
-    let mut hidden = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let mut hidden = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     filter_gitignored(&dir, &mut hidden, true).await;
     assert_eq!(hidden.gitignored_dirs, ["ignored-dir"]);
     assert_eq!(hidden.gitignored_files, ["ignored.log"]);
@@ -184,7 +184,7 @@ pub(super) async fn large_gitignore_classification_does_not_deadlock() {
         .unwrap();
     assert!(status.success());
 
-    let mut visible = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let mut visible = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     tokio::time::timeout(
         std::time::Duration::from_secs(5),
         filter_gitignored(&dir, &mut visible, false),
@@ -194,7 +194,7 @@ pub(super) async fn large_gitignore_classification_does_not_deadlock() {
     assert_eq!(visible.files.len(), 500);
     assert_eq!(visible.gitignored_files.len(), 500);
 
-    let mut hidden = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let mut hidden = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     tokio::time::timeout(
         std::time::Duration::from_secs(5),
         filter_gitignored(&dir, &mut hidden, true),
@@ -217,7 +217,7 @@ pub(super) async fn gitignore_no_match_keeps_the_listing() {
         .unwrap();
     assert!(status.success());
 
-    let mut listing = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let mut listing = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     filter_gitignored(&dir, &mut listing, true).await;
     assert_eq!(listing.files, ["visible.txt"]);
     assert!(listing.gitignored_files.is_empty());
@@ -236,7 +236,7 @@ pub(super) async fn a_symlinked_directory_is_a_directory() {
     std::os::unix::fs::symlink(dir.join("file.txt"), dir.join("to-file")).unwrap();
     std::os::unix::fs::symlink(dir.join("nowhere"), dir.join("dangling")).unwrap();
 
-    let out = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let out = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     assert_eq!(out.dirs, ["real", "to-dir"]);
     assert_eq!(out.empty_dirs, ["real", "to-dir"]);
     assert_eq!(out.files, ["file.txt", "to-file"]);
@@ -251,11 +251,11 @@ pub(super) async fn a_long_directory_is_cut_short_and_says_so() {
         touch(&dir, &format!("f{i:02}"));
     }
 
-    let capped = list_dir(&dir, true, false, 5, "").await.unwrap();
+    let capped = list_dir(&dir, true, false, 5, "", false).await.unwrap();
     assert_eq!(capped.dirs.len() + capped.files.len(), 5);
     assert!(capped.truncated);
 
-    let whole = list_dir(&dir, true, false, 500, "").await.unwrap();
+    let whole = list_dir(&dir, true, false, 500, "", false).await.unwrap();
     assert_eq!(whole.files.len(), 20);
     assert!(!whole.truncated);
 }
@@ -267,7 +267,7 @@ pub(super) async fn exactly_the_limit_is_not_truncated() {
         touch(&dir, &format!("f{i:02}"));
     }
 
-    let exact = list_dir(&dir, true, false, 5, "").await.unwrap();
+    let exact = list_dir(&dir, true, false, 5, "", false).await.unwrap();
     assert_eq!(exact.files.len(), 5);
     assert!(!exact.truncated);
 
@@ -276,7 +276,7 @@ pub(super) async fn exactly_the_limit_is_not_truncated() {
         subdir(&dirs, &format!("d{i:02}"));
     }
     touch(&dirs, "ignored-file");
-    let exact_dirs = list_dir(&dirs, false, false, 5, "").await.unwrap();
+    let exact_dirs = list_dir(&dirs, false, false, 5, "", false).await.unwrap();
     assert_eq!(exact_dirs.dirs.len(), 5);
     assert!(!exact_dirs.truncated);
 }
@@ -358,16 +358,20 @@ async fn browse_filter_reaches_children_omitted_by_the_limit() {
     for i in 0..8 {
         subdir(&dir, &format!("child-{i}"));
     }
-    let capped = list_dir(&dir, false, false, 2, "").await.unwrap();
+    let capped = list_dir(&dir, false, false, 2, "", false).await.unwrap();
     assert!(capped.truncated);
     let omitted = (0..8)
         .map(|i| format!("child-{i}"))
         .find(|name| !capped.dirs.contains(name))
         .unwrap();
-    let found = list_dir(&dir, false, false, 2, &omitted).await.unwrap();
+    let found = list_dir(&dir, false, false, 2, &omitted, false)
+        .await
+        .unwrap();
     assert_eq!(found.dirs, [omitted]);
     assert!(!found.truncated);
-    let absent = list_dir(&dir, false, false, 2, "missing").await.unwrap();
+    let absent = list_dir(&dir, false, false, 2, "missing", false)
+        .await
+        .unwrap();
     assert!(absent.dirs.is_empty());
     assert!(!absent.truncated);
 }

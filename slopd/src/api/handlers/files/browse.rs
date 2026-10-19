@@ -17,6 +17,7 @@ pub(crate) fn browse_limit(requested: Option<usize>) -> usize {
     requested.unwrap_or(BROWSE_LIMIT).clamp(1, BROWSE_LIMIT)
 }
 
+#[derive(Default)]
 pub(crate) struct Listing {
     pub(crate) dirs: Vec<String>,
     pub(crate) empty_dirs: Vec<String>,
@@ -26,33 +27,95 @@ pub(crate) struct Listing {
     pub(crate) truncated: bool,
 }
 
+impl Listing {
+    fn len(&self) -> usize {
+        self.dirs.len() + self.files.len()
+    }
+
+    fn append_batch(&mut self, mut batch: Self, limit: usize) {
+        let remaining = limit.saturating_sub(self.len());
+        // Only an additional visible entry proves truncation, even across batches.
+        self.truncated = batch.len() > remaining;
+        batch.dirs.truncate(remaining);
+        batch.files.truncate(remaining - batch.dirs.len());
+        self.empty_dirs.extend(
+            batch
+                .empty_dirs
+                .into_iter()
+                .filter(|name| batch.dirs.contains(name)),
+        );
+        self.gitignored_dirs.extend(
+            batch
+                .gitignored_dirs
+                .into_iter()
+                .filter(|name| batch.dirs.contains(name)),
+        );
+        self.gitignored_files.extend(
+            batch
+                .gitignored_files
+                .into_iter()
+                .filter(|name| batch.files.contains(name)),
+        );
+        self.dirs.extend(batch.dirs);
+        self.files.extend(batch.files);
+    }
+}
+
+/// Scan bounded batches so ignored entries never consume the visible result limit.
 pub(crate) async fn list_dir(
     base: &std::path::Path,
     want_files: bool,
     hidden: bool,
     limit: usize,
     filter: &str,
+    hide_ignored: bool,
 ) -> std::io::Result<Listing> {
-    let mut out = Listing {
-        dirs: Vec::new(),
-        empty_dirs: Vec::new(),
-        gitignored_dirs: Vec::new(),
-        files: Vec::new(),
-        gitignored_files: Vec::new(),
-        truncated: false,
-    };
-
+    let mut out = Listing::default();
     let mut rd = tokio::fs::read_dir(base).await?;
-    while let Some(e) = rd.next_entry().await? {
-        let name = e.file_name().to_string_lossy().into_owned();
+    loop {
+        let batch_limit = if hide_ignored {
+            BROWSE_LIMIT
+        } else {
+            limit.saturating_add(1)
+        };
+        let mut batch = read_batch(&mut rd, want_files, hidden, batch_limit, filter).await?;
+        let exhausted = batch.len() < batch_limit;
+        filter_gitignored(base, &mut batch, hide_ignored).await;
+        out.append_batch(batch, limit);
+        if exhausted || out.truncated {
+            break;
+        }
+    }
+    out.dirs.sort();
+    out.empty_dirs.sort();
+    out.files.sort();
+    out.gitignored_dirs.sort();
+    out.gitignored_files.sort();
+    Ok(out)
+}
+
+async fn read_batch(
+    rd: &mut tokio::fs::ReadDir,
+    want_files: bool,
+    hidden: bool,
+    limit: usize,
+    filter: &str,
+) -> std::io::Result<Listing> {
+    let mut out = Listing::default();
+    while out.len() < limit {
+        let Some(e) = rd.next_entry().await? else {
+            break;
+        };
+        // Wire names are used for mutations, so replacement characters must never
+        // turn an unsupported filename into the identity of a different entry.
+        let name = e.file_name().into_string().map_err(|_name| std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "This directory contains a filename that is not valid UTF-8. Rename it using a terminal.",
+        ))?;
         if (!hidden && name.starts_with('.')) || !name.contains(filter) {
             continue;
         }
-
         let t = e.file_type().await?;
-        // `DirEntry::file_type` identifies symbolic links without following them.
-        // Read target metadata to classify linked directories correctly.
-        // Exclude a link if its target metadata is unavailable.
         let is_dir = if t.is_symlink() {
             match tokio::fs::metadata(e.path()).await {
                 Ok(m) => m.is_dir(),
@@ -61,36 +124,15 @@ pub(crate) async fn list_dir(
         } else {
             t.is_dir()
         };
-
-        if !is_dir && !want_files {
-            // Exclude unrequested files from the count.
-            // A directory with three subdirectories and ten thousand files then returns three rows without truncation.
-            continue;
-        }
-
-        let count = out.dirs.len() + out.files.len();
-        if count >= limit {
-            // This additional matching entry confirms truncation.
-            // Reaching the limit alone does not prove that more entries exist.
-            out.truncated = true;
-            break;
-        }
-
         if is_dir {
-            // The Files tree must distinguish unopened directories from empty directories.
-            // Check only when the request includes files. The project directory selector does not need this metadata.
             if want_files && matches!(directory_is_empty(&e.path(), hidden).await, Ok(true)) {
                 out.empty_dirs.push(name.clone());
             }
             out.dirs.push(name);
-        } else {
+        } else if want_files {
             out.files.push(name);
         }
     }
-
-    out.dirs.sort();
-    out.empty_dirs.sort();
-    out.files.sort();
     Ok(out)
 }
 
@@ -221,11 +263,10 @@ pub(crate) async fn browse(
     };
 
     let limit = browse_limit(q.limit);
-    let mut out = list_dir(&base, q.files, q.hidden, limit, &q.filter)
+    let out = list_dir(&base, q.files, q.hidden, limit, &q.filter, q.gitignore)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
-    filter_gitignored(&base, &mut out, q.gitignore).await;
     crate::perf::count(
         "http-browse-rows",
         (out.dirs.len() + out.files.len()) as u64,
