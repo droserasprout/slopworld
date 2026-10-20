@@ -166,3 +166,17 @@ def test_preflight_blocks_existing_release_or_changed_remote_tag(
         else:
             with pytest.raises(ValueError):
                 ci.preflight(release)
+
+
+@pytest.mark.parametrize('setting', ['RELEASE_REVISION', 'RELEASE_VERSION'])
+def test_preview_rejects_changed_coordinator_identity(monkeypatch: pytest.MonkeyPatch, setting: str) -> None:
+    monkeypatch.delenv('RELEASE_REVISION', raising=False)
+    monkeypatch.delenv('RELEASE_VERSION', raising=False)
+    monkeypatch.setenv(setting, 'different')
+    with (
+        patch.object(gates, 'git', side_effect=['', 'a' * 40]),
+        patch.object(ci, 'package_version', return_value='1.2.3'),
+        patch('tools.version.product.check'),
+        pytest.raises(ValueError, match=setting),
+    ):
+        ci.identity(preview=True)

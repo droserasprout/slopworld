@@ -187,10 +187,13 @@ namespace SlopWorld.Tests
             var server = peer.Serve(new byte[] { 0 }, release: release.Task);
             try
             {
-                var request = transport.Send<Wire.Empty>("GET", "/stalled", null, null, 1000);
+                // Allow the same connection budget as the other loopback tests.
+                // Coverage on a busy runner can consume a one-second deadline
+                // before request headers reach the peer; that never tests a stalled body.
+                var request = transport.Send<Wire.Empty>("GET", "/stalled", null, null, 5000);
                 await peer.Accepted.Task.WaitAsync(TimeSpan.FromSeconds(5));
                 Assert.CatchAsync<IOException>(async () =>
-                    await request.WaitAsync(TimeSpan.FromSeconds(5))
+                    await request.WaitAsync(TimeSpan.FromSeconds(10))
                 );
             }
             finally

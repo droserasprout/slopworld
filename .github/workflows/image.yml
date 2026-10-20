@@ -105,3 +105,4 @@ jobs:
           subject-name: ${{ needs.prepare.outputs.image }}
           subject-digest: ${{ needs.publish.outputs.digest }}
           push-to-registry: true
+          create-storage-record: false
