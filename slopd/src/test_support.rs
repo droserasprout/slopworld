@@ -104,3 +104,39 @@ pub(crate) fn var(key: &str) -> Result<String, std::env::VarError> {
         .into_string()
         .map_err(std::env::VarError::NotUnicode)
 }
+
+/// A private, uniquely named fixture directory that removes itself after the test.
+pub(crate) struct Fixture(PathBuf);
+
+impl std::ops::Deref for Fixture {
+    type Target = std::path::Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        match std::fs::remove_dir_all(&self.0) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) if std::thread::panicking() => {
+                eprintln!(
+                    "could not remove browse fixture {}: {error}",
+                    self.0.display()
+                );
+            }
+            Err(error) => panic!(
+                "could not remove browse fixture {}: {error}",
+                self.0.display()
+            ),
+        }
+    }
+}
+
+pub(crate) fn fixture(tag: &str) -> Fixture {
+    let dir = std::env::temp_dir().join(format!("slopd-browse-{tag}-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&dir).unwrap();
+    Fixture(dir)
+}

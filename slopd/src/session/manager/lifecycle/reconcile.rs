@@ -88,6 +88,7 @@ impl Manager {
                     continue;
                 }
                 row.cfg = s.clone();
+                row.launch = LaunchContext::default();
             } else {
                 live.insert(s.name.clone(), Live::new(s.clone(), title));
             }
@@ -131,6 +132,7 @@ impl Manager {
                 // Catalog edits do not replace the shell or its queued input owner.
                 session.state_id.clone_from(&l.cfg.state_id);
                 l.cfg = session;
+                l.launch = LaunchContext::default();
                 l.persistent_host = true;
                 l.host_path = path;
                 continue;

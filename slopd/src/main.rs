@@ -9,6 +9,7 @@ mod clock;
 mod config;
 mod emu;
 mod endpoint;
+mod files;
 mod git;
 mod grant;
 mod jukebox;

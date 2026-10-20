@@ -94,15 +94,19 @@ impl Manager {
             .await?;
         // Serialized launches reuse a running editor even across concurrent requests
         // or a mod restart. Return its handle so the client focuses the existing pane.
-        if host && !persistent_host && want.intent == "edit" && !want.reader_path.is_empty() {
+        if host
+            && !persistent_host
+            && want.context.intent == "edit"
+            && !want.context.reader.path.is_empty()
+        {
             let live = self.live.read().await;
             if let Some(editor) = live.values().find(|row| {
                 row.host
                     && row.ephemeral
                     && row.state != State::Down
-                    && row.cfg.intent == "edit"
-                    && row.cfg.reader_path == want.reader_path
-                    && row.cfg.reader_scope == want.reader_scope
+                    && row.launch.intent == "edit"
+                    && row.launch.reader.path == want.context.reader.path
+                    && row.launch.reader.scope == want.context.reader.scope
                     && row.cfg.worktree == preparation.selected_worktree
                     && (preparation.fresh || row.cfg.project == preparation.project_name)
             }) {
@@ -172,7 +176,7 @@ impl Manager {
         preparation: &ErrandSessionPreparation,
     ) -> Result<String> {
         let live = self.live.read().await;
-        if !persistent_host && !want.intent.is_empty() {
+        if !persistent_host && !want.context.intent.is_empty() {
             // The session boundary reserves the handle through live-row publication.
             // Retry collisions rather than adding a suffix outside the shared ID syntax.
             return crate::storage_id::allocate(|id| {
@@ -259,20 +263,16 @@ impl Manager {
         // Preserve the original tab label in temporary session metadata.
         // The client can then display the exact filename supplied by Files.
         session.label = super::library::routed_action_label(&request.item.name);
-        if !request.location.intent.is_empty() {
+        let mut context = LaunchContext::default();
+        if !request.location.context.intent.is_empty() {
             // The action is explicit metadata. Keep the display label human-readable.
             let display = ["view-", "search-", "link-", "edit-", "diff-"]
                 .iter()
                 .find_map(|prefix| request.item.name.strip_prefix(prefix))
                 .unwrap_or(&request.item.name);
             session.label = Some(display.to_string());
-            session.reader_label = display.to_string();
-            session.intent = request.location.intent.clone();
-            session.reader_path = request.location.reader_path.clone();
-            session.reader_key = request.location.reader_key.clone();
-            session.reader_scope = request.location.reader_scope.clone();
-            session.reader_pinned = request.location.reader_pinned;
-            session.reader_line = request.location.reader_line;
+            context = request.location.context.clone();
+            context.original_label = display.to_string();
         }
         if let Some(source) = preparation.source_settings {
             session.sandbox = source.sandbox;
@@ -283,6 +283,7 @@ impl Manager {
             session.limits = source.limits;
         }
         let mut state = Live::new(session, TitleCapture::default());
+        state.launch = context;
         // less can retain blank leading rows when SIGWINCH arrives during LESSOPEN.
         // Create the PTY and emulator at the viewer's size before starting the command.
         if let (Some(cols), Some(rows)) = (request.location.cols, request.location.rows) {

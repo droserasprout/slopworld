@@ -189,6 +189,7 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
         ..Default::default()
     };
     let plan = StartPlan {
+        context: LaunchContext::default(),
         session: session.clone(),
         cols: 80,
         rows: 24,
@@ -373,4 +374,67 @@ async fn malformed_commands_reject_before_tmux_creation_and_revoke_worker_creden
         assert!(!manager.tmux.exists("agent").await);
         std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
     }
+}
+
+#[tokio::test]
+async fn start_plan_snapshots_reader_context_and_publishes_recoverable_metadata() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager_with_socket(cfg.clone(), socket.path.clone());
+    let item = LibraryItemCfg {
+        name: "view-file.rs".into(),
+        project: "repo".into(),
+        host: true,
+        kind: LibraryItemKind::Shell,
+        command: Some("cat /tmp/file.rs".into()),
+        ..Default::default()
+    };
+    let want = RunWhere {
+        context: LaunchContext {
+            intent: "view".into(),
+            reader: ReaderContext {
+                path: "/tmp/file.rs".into(),
+                key: "key".into(),
+                scope: "scope".into(),
+                pinned: false,
+                line: 7,
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let name = manager
+        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .await
+        .unwrap();
+    let plan = manager.prepare_start(&name).await.unwrap();
+    assert_eq!(plan.context.reader, want.context.reader);
+    assert_eq!(plan.context.original_label, "file.rs");
+    manager.launch_tmux(&name, &plan).await.unwrap();
+    let metadata = manager.tmux.reader_metadata(&name).await.unwrap();
+    assert_eq!(LaunchContext::from(&metadata), plan.context);
+    manager.set_reader_pinned(&name, true).await.unwrap();
+    manager.set_label(&name, "custom".into()).await.unwrap();
+    let metadata = manager.tmux.reader_metadata(&name).await.unwrap();
+    assert!(metadata.pinned);
+    assert_eq!(metadata.label, "custom");
+    assert_eq!(metadata.original_label, "file.rs");
+    manager.set_label(&name, String::new()).await.unwrap();
+    assert_eq!(
+        manager.tmux.reader_metadata(&name).await.unwrap().label,
+        "file.rs"
+    );
+    assert!(
+        !plan.context.reader.pinned,
+        "the owned start plan changed after preparation"
+    );
+    let saved = Config::load(&manager.cfg_path).await.unwrap();
+    assert!(saved.sessions.is_empty() && saved.host_terminals.is_empty());
 }

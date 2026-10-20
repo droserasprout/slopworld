@@ -105,12 +105,12 @@ async fn reader_plan_preserves_source_identity_geometry_and_template() {
     assert!(!plan.host_action);
     let destination = plan.destination;
     assert_eq!(destination.worktree, "checkout");
-    assert_eq!(destination.intent, "view");
-    assert_eq!(destination.reader_path, "file");
-    assert_eq!(destination.reader_key, "key");
-    assert_eq!(destination.reader_scope, "scope");
-    assert_eq!(destination.reader_line, 17);
-    assert!(destination.reader_pinned);
+    assert_eq!(destination.context.intent, "view");
+    assert_eq!(destination.context.reader.path, "file");
+    assert_eq!(destination.context.reader.key, "key");
+    assert_eq!(destination.context.reader.scope, "scope");
+    assert_eq!(destination.context.reader.line, 17);
+    assert!(destination.context.reader.pinned);
     assert_eq!((destination.cols, destination.rows), (Some(90), Some(30)));
     assert_eq!(destination.random_tips, ["tip"]);
 }

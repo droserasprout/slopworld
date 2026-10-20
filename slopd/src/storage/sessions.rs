@@ -25,10 +25,6 @@ impl Record for SessionCfg {
     }
     fn validate(&self) -> Result<()> {
         validate_identity(&self.state_id, &self.name)?;
-        ensure!(
-            self.intent.is_empty() && self.reader_key.is_empty(),
-            "ephemeral reader cannot be persisted"
-        );
         self.limits.validate()?;
         self.dns.validate(&self.name)?;
         let mut snapshots = HashSet::new();

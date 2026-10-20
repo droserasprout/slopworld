@@ -584,8 +584,14 @@ async fn host_reader_exit_removes_tab_without_explicit_stop() {
         .run_errand(
             item,
             RunWhere {
-                intent: "view".into(),
-                reader_path: "/tmp/sample".into(),
+                context: LaunchContext {
+                    intent: "view".into(),
+                    reader: ReaderContext {
+                        path: "/tmp/sample".into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             true,

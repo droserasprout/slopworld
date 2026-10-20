@@ -18,9 +18,15 @@ fn editor_request() -> (Config, LibraryItemCfg, RunWhere) {
         ..Default::default()
     };
     let want = RunWhere {
-        intent: "edit".into(),
-        reader_path: "/tmp/file.rs".into(),
-        reader_scope: "scope/id/main".into(),
+        context: LaunchContext {
+            intent: "edit".into(),
+            reader: ReaderContext {
+                path: "/tmp/file.rs".into(),
+                scope: "scope/id/main".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         ..Default::default()
     };
     (cfg, item, want)
@@ -35,7 +41,7 @@ async fn editor_reopens_share_running_session_but_not_other_readers_or_stopped_r
         .await
         .unwrap();
     manager.live.write().await.get_mut(&name).unwrap().state = State::Working;
-    want.reader_line = 12;
+    want.context.reader.line = 12;
     let (first, second) = tokio::join!(
         manager.create_errand_session(&cfg, &item, &want, true, false, ""),
         manager.create_errand_session(&cfg, &item, &want, true, false, ""),
@@ -43,17 +49,17 @@ async fn editor_reopens_share_running_session_but_not_other_readers_or_stopped_r
     assert_eq!(first.unwrap(), name);
     assert_eq!(second.unwrap(), name);
     assert_eq!(manager.live.read().await.len(), 1);
-    assert_eq!(manager.live.read().await[&name].cfg.reader_line, 0);
+    assert_eq!(manager.live.read().await[&name].launch.reader.line, 0);
 
     let mut different = want.clone();
-    different.reader_path = "/tmp/other.rs".into();
+    different.context.reader.path = "/tmp/other.rs".into();
     let other = manager
         .create_errand_session(&cfg, &item, &different, true, false, "")
         .await
         .unwrap();
     assert_ne!(other, name);
     different = want.clone();
-    different.reader_scope = "scope/other/main".into();
+    different.context.reader.scope = "scope/other/main".into();
     let other = manager
         .create_errand_session(&cfg, &item, &different, true, false, "")
         .await
@@ -62,7 +68,7 @@ async fn editor_reopens_share_running_session_but_not_other_readers_or_stopped_r
 
     for intent in ["view", "diff"] {
         different = want.clone();
-        different.intent = intent.into();
+        different.context.intent = intent.into();
         let other = manager
             .create_errand_session(&cfg, &item, &different, true, false, "")
             .await
@@ -81,7 +87,7 @@ async fn editor_reopens_share_running_session_but_not_other_readers_or_stopped_r
 async fn unscoped_editor_reopen_does_not_allocate_another_temporary_project() {
     let (cfg, item, mut want) = editor_request();
     want.temp = true;
-    want.reader_scope.clear();
+    want.context.reader.scope.clear();
     let manager = crate::session::test_manager(cfg.clone());
     let name = manager
         .create_errand_session(&cfg, &item, &want, true, false, "")
@@ -116,12 +122,17 @@ async fn reader_intent_keeps_display_and_scope_without_encoding_them_in_name() {
         ..Default::default()
     };
     let want = RunWhere {
-        intent: "view".into(),
-        reader_path: "/tmp/file.rs".into(),
-        reader_key: "/tmp/file.rs".into(),
-        reader_scope: "scope/id/main".into(),
-        reader_pinned: true,
-        reader_line: 8,
+        context: LaunchContext {
+            intent: "view".into(),
+            reader: ReaderContext {
+                path: "/tmp/file.rs".into(),
+                key: "/tmp/file.rs".into(),
+                scope: "scope/id/main".into(),
+                pinned: true,
+                line: 8,
+            },
+            ..Default::default()
+        },
         ..Default::default()
     };
     let name = manager
@@ -136,13 +147,16 @@ async fn reader_intent_keeps_display_and_scope_without_encoding_them_in_name() {
     assert!(crate::storage_id::valid(&second_name));
     assert_ne!(name, second_name);
     let live = manager.live.read().await;
-    let row = &live[&name].cfg;
-    assert_eq!(row.label.as_deref(), Some("file.rs [repo / Main checkout]"));
-    assert_eq!(row.intent, "view");
-    assert_eq!(row.reader_scope, "scope/id/main");
-    assert_eq!(row.reader_path, "/tmp/file.rs");
-    assert!(row.reader_pinned);
-    assert_eq!(row.reader_line, 8);
+    let row = &live[&name];
+    assert_eq!(
+        row.cfg.label.as_deref(),
+        Some("file.rs [repo / Main checkout]")
+    );
+    assert_eq!(row.launch.intent, "view");
+    assert_eq!(row.launch.reader.scope, "scope/id/main");
+    assert_eq!(row.launch.reader.path, "/tmp/file.rs");
+    assert!(row.launch.reader.pinned);
+    assert_eq!(row.launch.reader.line, 8);
 }
 
 #[tokio::test]

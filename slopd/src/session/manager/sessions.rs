@@ -311,8 +311,10 @@ impl Manager {
                 .read()
                 .await
                 .get(name)
-                .filter(|row| !row.cfg.intent.is_empty() && !row.cfg.reader_label.is_empty())
-                .map(|row| row.cfg.reader_label.clone())
+                .filter(|row| {
+                    !row.launch.intent.is_empty() && !row.launch.original_label.is_empty()
+                })
+                .map(|row| row.launch.original_label.clone())
         } else {
             Some(label.clone())
         };
@@ -367,10 +369,10 @@ impl Manager {
                 let row = live
                     .get_mut(name)
                     .ok_or_else(|| anyhow!("no such session: {name}"))?;
-                if row.cfg.intent != "view" && row.cfg.intent != "diff" {
+                if row.launch.intent != "view" && row.launch.intent != "diff" {
                     bail!("session {name} is not a pinnable reader");
                 }
-                row.cfg.reader_pinned = pinned;
+                row.launch.reader.pinned = pinned;
             }
             self.persist_reader_metadata(name).await?;
             self.announce_sessions().await;
@@ -384,20 +386,8 @@ impl Manager {
         let row = live
             .get(name)
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
-        if row.cfg.intent.is_empty() {
+        let Some(value) = row.launch.metadata(&row.cfg) else {
             return Ok(());
-        }
-        let value = crate::tmux::ReaderMetadata {
-            intent: row.cfg.intent.clone(),
-            label: row.cfg.label.clone().unwrap_or_default(),
-            original_label: row.cfg.reader_label.clone(),
-            project: row.cfg.project.clone(),
-            worktree: row.cfg.worktree.clone(),
-            path: row.cfg.reader_path.clone(),
-            key: row.cfg.reader_key.clone(),
-            scope: row.cfg.reader_scope.clone(),
-            pinned: row.cfg.reader_pinned,
-            line: row.cfg.reader_line,
         };
         drop(live);
         self.tmux.set_reader_metadata(name, &value).await

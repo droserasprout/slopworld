@@ -1,6 +1,7 @@
 # File mutation boundary
 
-`api/handlers/files/mutations.rs` owns create, rename, and removal requests from the Files UI.
+`files/mutations.rs` owns create, rename, and removal policy and filesystem effects.
+`api/handlers/files/mutations.rs` decodes Files UI requests and maps results to HTTP.
 Mutation paths reject `.` and `..` segments.
 Browser paths are literal filesystem identities; environment and home expansion
 belong to configuration inputs, not mutation requests.

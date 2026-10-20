@@ -299,16 +299,12 @@ async fn startup_rejects_bad_identity_duplicate_names_orders_and_malformed_recor
 }
 
 #[tokio::test]
-async fn opaque_identity_is_retained_and_readers_are_not_records() {
+async fn opaque_identity_is_retained() {
     let mut f = Fixture::<SessionCfg>::new();
     let id = crate::storage_id::draft_identity();
     f.change(|s| s.push(agent(&id, "worker"))).await.unwrap();
     f.reload().await.unwrap();
     assert_eq!(f.value(&id).id(), id);
-    let mut reader = agent(FIRST, "reader");
-    reader.intent = "reader".into();
-    assert!(f.change(|s| s.push(reader)).await.is_err());
-    assert!(!f.path(FIRST).exists());
 }
 
 #[tokio::test]

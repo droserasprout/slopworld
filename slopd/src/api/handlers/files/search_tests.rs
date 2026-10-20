@@ -1,39 +1,7 @@
 use super::*;
+use crate::files::search::{SEARCH_LIMIT, SEARCH_RECORD_LIMIT, SEARCH_TEXT_LIMIT};
 use serde_json::json;
 use std::path::Path;
-
-#[tokio::test]
-async fn daemon_ripgrep_config_cannot_hide_requested_matches() {
-    let fixture = crate::api::handlers::tests::fixture("search-rg-config");
-    std::fs::write(fixture.join("keep.txt"), "needle\n").unwrap();
-    let config = fixture.join("rg.conf");
-    std::fs::write(&config, "--glob=!*.txt\n").unwrap();
-    let request = search_request(&fixture, "needle", 100);
-    // Set the child's environment only; parallel tests must not share process-global changes.
-    let output = build_rg_command(&fixture, &request)
-        .env("RIPGREP_CONFIG_PATH", &config)
-        .output()
-        .await
-        .unwrap();
-    assert!(output.status.success());
-    let mut included = true;
-    let matches: Vec<_> = output
-        .stdout
-        .split(|byte| *byte == b'\n')
-        .filter(|line| !line.is_empty())
-        .filter_map(|line| decode_event(line, None, &mut included).unwrap())
-        .collect();
-    assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].path, "keep.txt");
-    assert_eq!(matches[0].text, "needle");
-}
-
-fn search_request(path: &Path, query: &str, limit: usize) -> SearchReq {
-    serde_json::from_value(json!({
-        "path": path, "q": query, "limit": limit,
-    }))
-    .unwrap()
-}
 
 #[tokio::test]
 async fn include_filters_preserve_ignore_and_hidden_policy_before_limiting_results() {
@@ -267,29 +235,6 @@ async fn search_distinguishes_invalid_requests_from_no_matches() {
 }
 
 #[tokio::test]
-async fn search_record_reader_stops_at_its_byte_limit() {
-    let mut exact = tokio::io::BufReader::new(&b"1234\n"[..]);
-    assert!(matches!(
-        super::read_search_record(&mut exact, 5).await.unwrap(),
-        Some(super::SearchRecord::Line(record)) if record.as_slice() == b"1234\n"
-    ));
-
-    let mut oversized = tokio::io::BufReader::new(&b"12345\n"[..]);
-    assert!(matches!(
-        super::read_search_record(&mut oversized, 5).await.unwrap(),
-        Some(super::SearchRecord::TooLarge)
-    ));
-
-    let mut unterminated = tokio::io::BufReader::new(&b"12345"[..]);
-    assert!(matches!(
-        super::read_search_record(&mut unterminated, 4)
-            .await
-            .unwrap(),
-        Some(super::SearchRecord::TooLarge)
-    ));
-}
-
-#[tokio::test]
 async fn byte_encoded_lines_preserve_matches_and_source_columns() {
     let fixture = crate::api::handlers::tests::fixture("search-byte-lines");
     let manager = crate::session::test_manager(crate::config::Config::default());
@@ -336,26 +281,9 @@ async fn unsupported_search_names_return_an_explicit_error() {
     assert!(error.error.contains("not valid UTF-8"));
 }
 
-#[test]
-fn malformed_search_events_fail_instead_of_fabricating_matches() {
-    let mut included = true;
-    for record in [
-        json!({"type": "match", "data": {}}),
-        json!({"type": "begin", "data": {"path": {"bytes": "invalid!"}}}),
-        json!({"type": "match", "data": {
-            "path": {"text": "./ok.txt"}, "lines": {"text": "needle"},
-            "line_number": 1, "submatches": []
-        }}),
-    ] {
-        decode_event(&serde_json::to_vec(&record).unwrap(), None, &mut included).unwrap_err();
-    }
-    assert!(
-        decode_event(
-            br#"{"type":"end","data":{"path":{"text":"./ok.txt"}}}"#,
-            None,
-            &mut included
-        )
-        .unwrap()
-        .is_none()
-    );
+fn search_request(path: &Path, query: &str, limit: usize) -> SearchReq {
+    serde_json::from_value(json!({
+        "path": path, "q": query, "limit": limit,
+    }))
+    .unwrap()
 }

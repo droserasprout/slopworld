@@ -1,3 +1,4 @@
+use super::LaunchContext;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -149,6 +150,7 @@ fn literal_and_named_keys_do_not_share_a_command() {
 fn placeholder() -> Live {
     Live {
         cfg: SessionCfg::default(),
+        launch: LaunchContext::default(),
         ephemeral: true,
         host: false,
         persistent_host: false,

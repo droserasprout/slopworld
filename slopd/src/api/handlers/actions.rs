@@ -108,12 +108,17 @@ async fn plan_run(m: &Mgr, q: RunReq) -> Result<RunPlan, crate::api::protobuf::A
     // Pass `temp` as an override to use that same path.
     let want = RunWhere {
         worktree: q.worktree,
-        intent: q.intent,
-        reader_path: q.reader.path,
-        reader_key: q.reader.key,
-        reader_scope: q.reader.scope,
-        reader_line: q.reader.line,
-        reader_pinned: q.reader.pinned,
+        context: crate::session::LaunchContext {
+            intent: q.intent,
+            reader: crate::session::ReaderContext {
+                path: q.reader.path,
+                key: q.reader.key,
+                scope: q.reader.scope,
+                line: q.reader.line,
+                pinned: q.reader.pinned,
+            },
+            ..Default::default()
+        },
         cols: q.cols,
         rows: q.rows,
         project: None,

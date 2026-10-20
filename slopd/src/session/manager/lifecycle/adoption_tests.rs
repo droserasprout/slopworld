@@ -281,3 +281,61 @@ async fn surviving_host_cannot_be_adopted_as_a_configured_agent_at_startup() {
     assert!(!live["reused"].host);
     assert!(live["reused"].capture.emu.is_none());
 }
+
+#[test]
+fn adoption_restores_reader_context_without_putting_it_in_agent_configuration() {
+    use super::*;
+    let metadata = crate::tmux::ReaderMetadata {
+        intent: "view".into(),
+        label: "custom label".into(),
+        original_label: "file.rs".into(),
+        project: "repo".into(),
+        worktree: "checkout".into(),
+        path: "/tmp/file.rs".into(),
+        key: "key".into(),
+        scope: "scope".into(),
+        pinned: true,
+        line: 19,
+    };
+    let decision = AdoptionDecision {
+        probe: AdoptionProbe {
+            name: "reader".into(),
+            worker: None,
+            saved_host: None,
+            host: true,
+            tmux_host: None,
+            activity: None,
+            current_path: None,
+            reader: Some(metadata.clone()),
+        },
+        worker_session: None,
+        host_project: String::new(),
+        host_path: "/tmp".into(),
+        activity: None,
+    };
+    let cfg = Config::default();
+    let row = Manager::new_adopted_live(&cfg, &decision);
+    assert_eq!(row.launch, LaunchContext::from(&metadata));
+    assert_eq!(row.cfg.label.as_deref(), Some("custom label"));
+    assert_eq!(row.cfg.project, "repo");
+    assert_eq!(row.cfg.worktree, "checkout");
+    assert!(row.host && row.ephemeral && !row.persistent_host);
+    assert!(cfg.sessions.is_empty() && cfg.host_terminals.is_empty());
+    let worker_decision = AdoptionDecision {
+        worker_session: Some(SessionCfg::default()),
+        ..decision
+    };
+    let worker = Manager::new_adopted_live(&cfg, &worker_decision);
+    assert_eq!(
+        worker.launch,
+        LaunchContext::default(),
+        "worker recovery must ignore stale reader metadata"
+    );
+
+    assert!(
+        serde_json::to_value(&row.cfg)
+            .unwrap()
+            .get("reader_path")
+            .is_none()
+    );
+}

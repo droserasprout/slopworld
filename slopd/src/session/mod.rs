@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
-use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::{RwLock, broadcast, mpsc};
 use tokio::task::JoinHandle;
@@ -17,6 +16,9 @@ use tokio::task::JoinHandle;
 mod agent_templates;
 mod events;
 mod input;
+mod launch;
+pub use launch::RunWhere;
+pub(crate) use launch::{LaunchContext, ReaderContext};
 mod template;
 mod text;
 mod title;
@@ -80,33 +82,6 @@ crate::wire_enum!(State, {
     State::Idle => crate::shared::protocol::enums::agent_state::IDLE,
 });
 
-/// Launch overrides supplied by the caller.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct RunWhere {
-    #[serde(default)]
-    pub worktree: String,
-    #[serde(default)]
-    pub intent: String,
-    #[serde(default)]
-    pub reader_path: String,
-    #[serde(default)]
-    pub reader_key: String,
-    #[serde(default)]
-    pub reader_scope: String,
-    #[serde(default)]
-    pub reader_pinned: bool,
-    #[serde(default)]
-    pub reader_line: u32,
-    pub cols: Option<u16>,
-    pub rows: Option<u16>,
-    #[serde(default)]
-    pub project: Option<String>,
-    #[serde(default)]
-    pub temp: bool,
-    #[serde(default)]
-    pub random_tips: Vec<String>,
-}
-
 /// Internal notifications for rechecking connected clients’ credentials.
 #[derive(Debug, Clone)]
 pub(crate) enum AuthChange {
@@ -126,6 +101,7 @@ enum Ready {
 struct Live {
     // Configuration and host-shell identity.
     cfg: SessionCfg,
+    launch: LaunchContext,
     ephemeral: bool,
     // Recovered from a private tmux option after daemon restart; never saved in config.
     host: bool,
@@ -187,6 +163,7 @@ impl Live {
     fn new(cfg: SessionCfg, title: TitleCapture) -> Self {
         Self {
             cfg,
+            launch: LaunchContext::default(),
             ephemeral: false,
             host: false,
             persistent_host: false,

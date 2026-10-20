@@ -21,7 +21,7 @@ fn reader_stamp_changes_when_only_the_inode_changes() {
 
 #[tokio::test]
 async fn reader_metadata_distinguishes_missing_files_from_read_errors() {
-    let dir = crate::api::handlers::tests::fixture("reader-metadata");
+    let dir = crate::test_support::fixture("reader-metadata");
     let file = dir.join("hidden.md");
     tokio::fs::write(&file, "hello").await.unwrap();
     assert!(reader_stat(&file).await.unwrap().is_file);
@@ -39,7 +39,7 @@ async fn reader_metadata_distinguishes_missing_files_from_read_errors() {
 
 #[tokio::test]
 async fn reader_stamp_detects_edits_and_atomic_replacement() {
-    let dir = crate::api::handlers::tests::fixture("reader-stamp");
+    let dir = crate::test_support::fixture("reader-stamp");
     let file = dir.join("file.txt");
     tokio::fs::write(&file, "old").await.unwrap();
     let initial = reader_stat(&file).await.unwrap();

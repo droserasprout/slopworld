@@ -6,6 +6,11 @@ complete candidate before changing tmux identity and protect commit/rollback fro
 caller cancellation. Creation, label edits, deletion, and private-state restoration
 also retain their session boundary in owned work through publication or cleanup.
 
+`session/launch.rs` owns launch and reader context separately from `SessionCfg`.
+Live rows retain this context across process restarts; start plans snapshot it before
+I/O. Reader labels, scope, pin state, and position recover through tmux metadata,
+never through saved agent records.
+
 Rename preserves durable session identity. Reconciliation cannot reinterpret a
 retained host or different durable row as a configured agent with the same name;
 retire the incompatible process before installing the new identity. Failed retirement

@@ -228,15 +228,8 @@ impl Manager {
         // Viewer metadata restores its label, source, and pin state.
         if let Some(reader) = &decision.probe.reader {
             session.label = Some(reader.label.clone());
-            session.reader_label = reader.original_label.clone();
             session.project = reader.project.clone();
             session.worktree = reader.worktree.clone();
-            session.intent = reader.intent.clone();
-            session.reader_path = reader.path.clone();
-            session.reader_key = reader.key.clone();
-            session.reader_scope = reader.scope.clone();
-            session.reader_pinned = reader.pinned;
-            session.reader_line = reader.line;
         }
         session
     }
@@ -248,6 +241,11 @@ impl Manager {
             Self::adopted_session_cfg(cfg, decision),
             TitleCapture::default(),
         );
+        if decision.worker_session.is_none()
+            && let Some(reader) = &decision.probe.reader
+        {
+            l.launch = LaunchContext::from(reader);
+        }
         l.ephemeral = decision
             .probe
             .worker
@@ -285,6 +283,7 @@ impl Manager {
         ) {
             // Worker metadata overrides a stale host-catalog identity.
             l.cfg = session;
+            l.launch = LaunchContext::default();
             l.ephemeral = !metadata.durable;
             l.host = false;
             l.persistent_host = false;

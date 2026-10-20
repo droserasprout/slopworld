@@ -3,7 +3,7 @@ use std::os::unix::fs::symlink;
 
 #[test]
 fn scoped_open_accepts_internal_links_and_rejects_escaping_links() {
-    let fixture = super::super::tests::fixture("preview-scope");
+    let fixture = crate::test_support::fixture("preview-scope");
     let root = fixture.join("project");
     std::fs::create_dir(&root).unwrap();
     std::fs::write(root.join("inside"), b"inside").unwrap();
@@ -20,7 +20,7 @@ fn scoped_open_accepts_internal_links_and_rejects_escaping_links() {
 
 #[test]
 fn resolved_walk_rejects_symlink_replacements_after_validation() {
-    let fixture = super::super::tests::fixture("preview-scope-race");
+    let fixture = crate::test_support::fixture("preview-scope-race");
     std::fs::create_dir(fixture.join("dir")).unwrap();
     std::fs::write(fixture.join("dir/file"), b"inside").unwrap();
     let retained_root = File::open(&*fixture).unwrap();

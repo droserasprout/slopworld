@@ -12,6 +12,7 @@ use anyhow::{Context, anyhow};
 /// LaunchPlan describes sandbox execution; this also carries tmux and session setup.
 struct StartPlan {
     session: SessionCfg,
+    context: LaunchContext,
     cols: u16,
     rows: u16,
     host: bool,
@@ -74,7 +75,7 @@ impl Manager {
             }
         }
         // Reuse terminal dimensions and a valid remembered host directory.
-        let (cols, rows, host, host_path) = match self.live.read().await.get(name) {
+        let (cols, rows, host, host_path, context) = match self.live.read().await.get(name) {
             Some(live) => {
                 if cfg.session(name).is_some()
                     && (live.host || live.cfg.state_id != session.state_id)
@@ -83,9 +84,21 @@ impl Manager {
                         "Session {name} has an incompatible live identity; reconcile it before starting."
                     );
                 }
-                (live.cols, live.rows, live.host, live.host_path.clone())
+                (
+                    live.cols,
+                    live.rows,
+                    live.host,
+                    live.host_path.clone(),
+                    live.launch.clone(),
+                )
             }
-            None => (Live::BOOT_COLS, Live::BOOT_ROWS, false, String::new()),
+            None => (
+                Live::BOOT_COLS,
+                Live::BOOT_ROWS,
+                false,
+                String::new(),
+                LaunchContext::default(),
+            ),
         };
         let dir = if host && !host_path.trim().is_empty() {
             let remembered = expand(&host_path);
@@ -133,6 +146,7 @@ impl Manager {
 
         Ok(StartPlan {
             session,
+            context,
             cols,
             rows,
             host,
@@ -195,24 +209,8 @@ impl Manager {
             }
             self.remember_host_path(name, &plan.dir).await;
         }
-        if !plan.session.intent.is_empty() {
-            self.tmux
-                .set_reader_metadata(
-                    name,
-                    &crate::tmux::ReaderMetadata {
-                        intent: plan.session.intent.clone(),
-                        label: plan.session.label.clone().unwrap_or_default(),
-                        original_label: plan.session.reader_label.clone(),
-                        project: plan.session.project.clone(),
-                        worktree: plan.session.worktree.clone(),
-                        path: plan.session.reader_path.clone(),
-                        key: plan.session.reader_key.clone(),
-                        scope: plan.session.reader_scope.clone(),
-                        pinned: plan.session.reader_pinned,
-                        line: plan.session.reader_line,
-                    },
-                )
-                .await?;
+        if let Some(metadata) = plan.context.metadata(&plan.session) {
+            self.tmux.set_reader_metadata(name, &metadata).await?;
         }
         Ok(())
     }

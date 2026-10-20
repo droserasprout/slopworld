@@ -10,7 +10,9 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `main.rs` | Startup/service orchestration and token middleware. |
 | `shared/` | Protocol constants/enums and serialization helpers. |
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` owns explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md) and [file preview boundary](daemon-file-previews.md). |
-| `api/handlers/files/` | Browsing, previews, mutations, Search, and Git status HTTP boundaries have separate owners. `search.rs` runs bounded `rg` output with UTF-8-safe previews; `api/handlers/highlighting.rs` owns highlighter styling, previews, and execution. |
+| `api/handlers/files/`, `api/handlers/highlighting.rs` | File and syntax-preview HTTP decoding, path resolution, error mapping, and wire projection. |
+| `files/` | Transport-independent browsing, mutations, preview containment and reader stamps, bounded ripgrep search, and highlighter execution. `crate::git` retains Git inspection ownership. |
+| `session/launch.rs` | Launch overrides and reader context. Live sessions own UI intent and reader identity separately from saved agent definitions; startup snapshots them and adoption restores them from tmux metadata. |
 | `session/` | Session types, agent-template definitions, input, validation, wire views. `events.rs` owns published events and their shared encoding cache; `protobuf.rs` owns wire conversion. |
 | `session/validation.rs` | Generated-name normalization shared by library and host sessions; each caller chooses its empty-name fallback. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
@@ -25,7 +27,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `process.rs` | Shared bounded child capture, timeout, kill, and reap mechanics. |
 | `emu/`, `tmux/` | Terminal mirror and tmux transport. `tmux/server.rs` owns server startup and readiness; `emu/serialize.rs` owns cell-to-row encoding; `tmux/control.rs` decodes control-mode output before bytes enter the mirror. |
 | `sandbox/`, `presets.rs`, `presets/edit.rs` | Sandbox construction, preset snapshots, and serialized catalog mutations. |
-| `config/` | Machine settings, assembled configuration view, validation and resolution. `settings_document.rs` prepares root-only edits; `storage/` owns workspace records and recovery. |
+| `config/` | Machine settings, assembled configuration view, validation and resolution. `settings_document.rs` prepares root-only edits; `crate::storage` owns workspace records and recovery. |
 | `git/` | Git inspection and restricted command execution; see [Git boundary](daemon-git.md). |
 | `worktrees/` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
 | `tasks.rs`, `tasks/`, `grant.rs` | Mailbox model, indexed policy and persistence adapters; scoped authority. |
