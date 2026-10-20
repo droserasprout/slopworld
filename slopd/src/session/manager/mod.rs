@@ -33,8 +33,6 @@ mod worktrees;
 pub(crate) use worktrees::WorktreeRequest;
 pub(crate) use worktrees::WorktreeState;
 
-pub(crate) use agent_templates::TemplatePersistence;
-pub(crate) use agent_templates::TemplateStore;
 use capture::CachedScroll;
 pub(crate) use catalog_state::CatalogState;
 pub(crate) use host_metadata::HostMetadataPoll;
@@ -56,7 +54,6 @@ pub struct Manager {
     pub(crate) config_authority: Arc<crate::application::ConfigAuthority>,
     pub(super) catalog_state: CatalogState,
     pub(super) configuration: crate::config::transactions::Transactions,
-    pub(super) templates: TemplateStore,
 
     // Live sessions, terminal capture, and activity.
     pub tmux: Tmux,

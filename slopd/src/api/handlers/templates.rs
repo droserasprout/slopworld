@@ -22,7 +22,7 @@ fn template_error(error: anyhow::Error) -> crate::api::protobuf::ApiError {
             | crate::session::AgentTemplateError::Exists(_),
         ) => StatusCode::CONFLICT,
         None if error
-            .downcast_ref::<crate::session::TemplatePersistence>()
+            .downcast_ref::<crate::application::TemplatePersistence>()
             .is_some() =>
         {
             StatusCode::INTERNAL_SERVER_ERROR
@@ -37,7 +37,7 @@ pub(crate) async fn list_templates(
     Extension(_cap): Extension<Cap>,
     Query(query): Query<SpawnableTemplatesQuery>,
 ) -> ApiResult<wire::TemplatesReply> {
-    let templates = m.agent_templates().await;
+    let templates = m.application.templates.list().await;
     if query.project.trim().is_empty() {
         return reply(json!({ "templates": templates }));
     }
@@ -68,7 +68,7 @@ pub(crate) async fn list_spawnable_templates(
         let enabled = m.worker_template_names().await;
         return reply(json!({
             "templates": m
-                .agent_templates()
+                .application.templates.list()
                 .await
                 .into_iter()
                 .filter(|template| enabled.contains(&template.name))
@@ -80,7 +80,7 @@ pub(crate) async fn list_spawnable_templates(
     let enabled = m.worker_template_names().await;
     reply(json!({
         "templates": m
-            .agent_templates()
+            .application.templates.list()
             .await
             .into_iter()
             .filter(|template| enabled.contains(&template.name))
@@ -105,7 +105,9 @@ pub(crate) async fn save_template(
             ));
         }
         let saved = m
-            .create_agent_template_definition(template)
+            .application
+            .templates
+            .create(template)
             .await
             .map_err(template_error)?;
         return reply(json!({ "ok": true, "template": saved }));
@@ -114,7 +116,9 @@ pub(crate) async fn save_template(
     let req: SaveAgentTemplateReq =
         serde_json::from_value(value).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
     let saved = if !req.duplicate.trim().is_empty() {
-        m.duplicate_agent_template(&req.duplicate, req.name, req.description)
+        m.application
+            .templates
+            .duplicate(&req.duplicate, req.name, req.description)
             .await
             .map_err(template_error)?
     } else {
@@ -139,7 +143,9 @@ pub(crate) async fn replace_template(
         ));
     }
     let saved = m
-        .replace_agent_template_definition(&name, template.version, template)
+        .application
+        .templates
+        .replace(&name, template.version, template)
         .await
         .map_err(template_error)?;
     reply(json!({ "ok": true, "template": saved }))
@@ -154,7 +160,9 @@ pub(crate) async fn destroy_template(
     let version = query
         .version
         .ok_or_else(|| err(StatusCode::BAD_REQUEST, "delete requires template version"))?;
-    m.remove_agent_template(&name, version)
+    m.application
+        .templates
+        .remove(&name, version)
         .await
         .map_err(template_error)?;
     Ok(Proto(wire::Ack { ok: true }))

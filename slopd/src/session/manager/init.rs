@@ -1,7 +1,7 @@
 //! Manager construction and startup recovery.
 
 use super::super::*;
-use super::{CatalogState, HostMetadataPoll, Signals, TemplateStore, WorktreeState};
+use super::{CatalogState, HostMetadataPoll, Signals, WorktreeState};
 use crate::config::transactions::{Transactions, records::Records};
 
 impl Manager {
@@ -27,10 +27,6 @@ impl Manager {
 
         // Load persisted stores before constructing shared state.
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
-        let template_path = binding.config.join("agent_templates");
-        let templates = crate::session::AgentTemplateStore::load(&template_path)
-            .await
-            .with_context(|| format!("loading agent template store {}", template_path.display()))?;
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
 
@@ -59,7 +55,6 @@ impl Manager {
             temp: RwLock::new(HashMap::new()),
             library_snapshot: Mutex::new(library_snapshot),
             config_authority,
-            templates: TemplateStore::new(templates),
             configuration: Transactions::new(Records::new(binding, stores), library_revision),
             catalog_state: CatalogState::new(
                 presets_loaded.then_some(presets_mtime).flatten(),

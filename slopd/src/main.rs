@@ -107,7 +107,9 @@ async fn main() -> Result<()> {
     let bind = cfg.daemon.bind.clone();
     let listener = storage::startup::serving_listener(reservations, &bind).await?;
     let tmux = tmux::Tmux::new(tmux::tmux_socket());
-    let services = application::Services::load(&loaded.binding.data, tmux.clone()).await?;
+    let services =
+        application::Services::load(&loaded.binding.data, &loaded.binding.config, tmux.clone())
+            .await?;
     let (config, storage) = loaded.into_parts();
     let config_authority = Arc::new(application::ConfigAuthority::new(
         config,

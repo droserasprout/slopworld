@@ -8,7 +8,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | Area | Responsibility |
 | --- | --- |
 | `main.rs` | Startup/service orchestration and token middleware. |
-| `application/` | Startup-constructed accepted configuration/credential state and shared event/task/music services. Application owns usage and music polling/publication; session adapters supply identity/authorization leases and host lifecycle; API owns event encoding. |
+| `application/` | Startup-constructed accepted configuration/credential state, personal template catalog, and shared event/task/music services. Application owns usage and music polling/publication; session adapters supply identity/authorization leases and host lifecycle; API owns event encoding. |
 | `shared/` | Protocol constants/enums and serialization helpers. |
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` decodes explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md) and [file preview boundary](daemon-file-previews.md). |
 | `api/handlers/files/`, `api/handlers/highlighting.rs` | File and syntax-preview HTTP decoding, path resolution, error mapping, and wire projection. |

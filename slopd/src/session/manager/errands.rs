@@ -309,7 +309,9 @@ impl Manager {
         let want = &request.options;
         let template = match &request.execution {
             ExecutionSource::Template(name) => Some(
-                self.agent_templates()
+                self.application
+                    .templates
+                    .list()
                     .await
                     .into_iter()
                     .find(|t| t.name == *name)

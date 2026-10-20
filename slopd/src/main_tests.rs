@@ -332,7 +332,9 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
     }))
     .unwrap();
     manager
-        .create_agent_template_definition(template)
+        .application
+        .templates
+        .create(template)
         .await
         .unwrap();
     let excluded: crate::session::AgentTemplate = serde_json::from_value(serde_json::json!({
@@ -340,7 +342,9 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
     }))
     .unwrap();
     manager
-        .create_agent_template_definition(excluded)
+        .application
+        .templates
+        .create(excluded)
         .await
         .unwrap();
     let token = manager

@@ -1,6 +1,9 @@
 # Daemon agent templates
 
-`Manager` owns the personal template catalog. `session/agent_templates/mod.rs`
+`application::AgentTemplates` owns the personal template catalog, its storage path,
+mutation gate, and cancellation-safe persistence/publication. Application startup
+loads and injects the service; catalog-only API operations use it directly.
+`Manager` retains session capture and instantiation under session operation guards. `session/agent_templates/mod.rs`
 defines portable fields and snapshot rules; its persistence module owns storage.
 The [configuration store](daemon-config-stores.md) owns the `agent_templates/`
 location. The mod and CLI use daemon APIs, never direct file access.

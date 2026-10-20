@@ -62,7 +62,7 @@ async fn recipe_preview_uses_explicit_agent_defaults() {
         ["private — agent setting"]
     );
     assert!(manager.config().await.sessions.is_empty());
-    assert!(manager.agent_templates().await.is_empty());
+    assert!(manager.application.templates.list().await.is_empty());
 }
 
 fn preview_values<'a>(result: &'a serde_json::Value, label: &str) -> Vec<&'a str> {

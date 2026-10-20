@@ -190,8 +190,9 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
                 "sandbox":["captured"], "sandbox_presets":[{"name":"captured","ro":["/usr"]}]}
         })).unwrap();
     manager
+        .application
         .templates
-        .store
+        .store_for_test()
         .write()
         .await
         .create(template)
@@ -211,7 +212,14 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
         assert!(session.persistent_tmp);
         assert!(!session.autostart && !session.auto_resume);
     }
-    manager.templates.store.write().await.templates.clear();
+    manager
+        .application
+        .templates
+        .store_for_test()
+        .write()
+        .await
+        .templates
+        .clear();
     assert_eq!(
         manager.live.read().await[&name].cfg.limits.memory_mb,
         Some(256)

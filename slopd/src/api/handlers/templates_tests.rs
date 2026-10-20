@@ -17,7 +17,7 @@ async fn template_write_failure_is_a_server_error_without_publishing_a_draft() {
     )
     .await;
     assert_eq!(result.unwrap_err().0, StatusCode::INTERNAL_SERVER_ERROR);
-    assert!(m.agent_templates().await.is_empty());
+    assert!(m.application.templates.list().await.is_empty());
     std::fs::remove_file(path).unwrap();
 }
 
@@ -115,7 +115,7 @@ async fn template_crud_rejects_stale_versions_and_preserves_winner() {
         .0,
         StatusCode::NOT_FOUND
     );
-    assert!(m.agent_templates().await.is_empty());
+    assert!(m.application.templates.list().await.is_empty());
 }
 
 #[tokio::test]
@@ -156,7 +156,7 @@ async fn template_mutations_require_correct_version_shape() {
         .0,
         StatusCode::BAD_REQUEST
     );
-    assert!(m.agent_templates().await.is_empty());
+    assert!(m.application.templates.list().await.is_empty());
 }
 
 #[tokio::test]
@@ -181,7 +181,7 @@ async fn duplicate_is_independent_and_missing_sources_are_rejected() {
     .unwrap();
     assert_eq!(duplicate.name, "copy");
     assert_eq!(duplicate.description, "copied");
-    assert_eq!(m.agent_templates().await.len(), 2);
+    assert_eq!(m.application.templates.list().await.len(), 2);
     destroy_template(
         State(m.clone()),
         Extension(Cap::Root),
@@ -192,7 +192,7 @@ async fn duplicate_is_independent_and_missing_sources_are_rejected() {
     )
     .await
     .unwrap();
-    let templates = m.agent_templates().await;
+    let templates = m.application.templates.list().await;
     assert_eq!(templates.len(), 1);
     assert_eq!(templates[0].name, "original");
     assert_eq!(

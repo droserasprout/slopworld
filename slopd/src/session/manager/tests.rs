@@ -47,7 +47,6 @@ pub(crate) fn test_manager_with_socket(
             config,
             crate::grant::Grants::default(),
         )),
-        templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
         configuration,
@@ -65,6 +64,10 @@ pub(crate) fn test_manager_with_socket(
             ),
             tmux,
             16,
+            crate::application::AgentTemplates::new(
+                AgentTemplateStore::default(),
+                directory.join("agent_templates"),
+            ),
         )),
         session_boundary: Arc::new(tokio::sync::RwLock::new(())),
         terminal_boundaries: Mutex::new(HashMap::new()),

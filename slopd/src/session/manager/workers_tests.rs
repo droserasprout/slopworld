@@ -54,8 +54,13 @@ async fn worker_policy_keeps_template_names_distinct() {
         }],
         ..Default::default()
     });
-    manager.templates.store.write().await.templates =
-        vec![template("review"), template("team-review")];
+    manager
+        .application
+        .templates
+        .store_for_test()
+        .write()
+        .await
+        .templates = vec![template("review"), template("team-review")];
 
     assert_eq!(
         manager
@@ -81,8 +86,9 @@ async fn worker_policy_keeps_template_names_distinct() {
     assert!(error.contains("Worker policy does not allow"), "{error}");
 
     manager
+        .application
         .templates
-        .store
+        .store_for_test()
         .write()
         .await
         .templates
@@ -470,7 +476,13 @@ async fn unusable_worker_templates_fail_before_creating_mailbox_records() {
                 .unwrap(),
             );
         }
-        manager.templates.store.write().await.templates = vec![selected];
+        manager
+            .application
+            .templates
+            .store_for_test()
+            .write()
+            .await
+            .templates = vec![selected];
         let error = manager
             .spawn_worker(
                 crate::tasks::HOST.into(),
@@ -683,7 +695,13 @@ async fn new_checkout_preflight_rejects_invalid_workers_without_allocating() {
     let (manager, root, main) = allocation_fixture();
     let mut selected = template("review");
     selected.defaults.network = Some(NetworkMode::None);
-    manager.templates.store.write().await.templates = vec![selected];
+    manager
+        .application
+        .templates
+        .store_for_test()
+        .write()
+        .await
+        .templates = vec![selected];
     for (body, selected, expected) in [
         (" ", "review", "task text cannot be empty"),
         ("work", "missing", "no such agent template"),
@@ -750,7 +768,13 @@ async fn worker_runtime_fixture() -> (Arc<Manager>, PathBuf) {
     selected.defaults.limits = Limits::default();
     selected.defaults.cmd = Some("/bin/sleep 60".into());
     selected.defaults.persistent_tmp = Some(false);
-    manager.templates.store.write().await.templates = vec![selected];
+    manager
+        .application
+        .templates
+        .store_for_test()
+        .write()
+        .await
+        .templates = vec![selected];
     manager
         .config_authority
         .write()

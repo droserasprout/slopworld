@@ -395,7 +395,9 @@ impl Manager {
             bail!("Worker policy does not allow agent template {requested}.");
         }
         drop(cfg);
-        self.agent_templates()
+        self.application
+            .templates
+            .list()
             .await
             .into_iter()
             .find(|template| template.name == requested)

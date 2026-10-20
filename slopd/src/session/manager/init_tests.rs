@@ -61,9 +61,13 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     // workspace snapshot after startup has already selected its configuration.
     std::fs::write(&kept_path, "broken external edit after load").unwrap();
     let tmux = Tmux::new(socket.clone());
-    let application = crate::application::Services::load(&loaded.binding.data, tmux.clone())
-        .await
-        .unwrap();
+    let application = crate::application::Services::load(
+        &loaded.binding.data,
+        &loaded.binding.config,
+        tmux.clone(),
+    )
+    .await
+    .unwrap();
     let (config, storage) = loaded.into_parts();
     let authority = Arc::new(crate::application::ConfigAuthority::new(
         config,
@@ -76,25 +80,7 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     assert!(Arc::ptr_eq(&manager.config_authority, &authority));
     application.music.recover(&manager).await;
 
-    let live = manager.live.read().await;
-    assert_eq!(live.len(), 2);
-    for session in &cfg.sessions {
-        let row = &live[&session.name];
-        assert_eq!(row.cfg.state_id, session.state_id);
-        assert_eq!(row.state, State::Down);
-        assert!(row.capture.reader.is_none());
-    }
-    drop(live);
-    assert!(authority.resolve_cap(Some(&kept)).await.is_some());
-    assert!(authority.resolve_cap(Some(&stale)).await.is_none());
-    assert_eq!(authority.grant_count().await, 1);
-    // Pruning must survive another daemon restart.
-    assert_eq!(
-        crate::grant::Grants::load_data(&crate::paths::data_root())
-            .unwrap()
-            .count(),
-        1
-    );
+    assert_reconciled_sessions_and_grants(&manager, &cfg, &kept, &stale).await;
 
     manager
         .set_label("kept", "after startup".into())
@@ -138,4 +124,32 @@ fn seed_startup_records(cfg: &Config, path: &Path, data: &Path) {
         )
         .unwrap();
     }
+}
+
+async fn assert_reconciled_sessions_and_grants(
+    manager: &Manager,
+    cfg: &Config,
+    kept: &str,
+    stale: &str,
+) {
+    let authority = &manager.config_authority;
+    let live = manager.live.read().await;
+    assert_eq!(live.len(), 2);
+    for session in &cfg.sessions {
+        let row = &live[&session.name];
+        assert_eq!(row.cfg.state_id, session.state_id);
+        assert_eq!(row.state, State::Down);
+        assert!(row.capture.reader.is_none());
+    }
+    drop(live);
+    assert!(authority.resolve_cap(Some(kept)).await.is_some());
+    assert!(authority.resolve_cap(Some(stale)).await.is_none());
+    assert_eq!(authority.grant_count().await, 1);
+    // Pruning must survive another daemon restart.
+    assert_eq!(
+        crate::grant::Grants::load_data(&crate::paths::data_root())
+            .unwrap()
+            .count(),
+        1
+    );
 }

@@ -30,7 +30,6 @@ mod view;
 mod manager;
 mod prompt;
 mod role;
-pub(crate) use manager::TemplatePersistence;
 pub(crate) use manager::{WorkerCheckout, WorkerRequest, WorktreeRequest};
 use role::{AgentLifetime, SessionRole};
 

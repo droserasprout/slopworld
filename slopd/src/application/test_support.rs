@@ -14,6 +14,10 @@ impl Fixture {
             crate::tasks::io::TaskStore::new(tasks),
             crate::tmux::Tmux::new(root.join("tmux").to_str().unwrap()),
             16,
+            super::AgentTemplates::new(
+                crate::session::AgentTemplateStore::default(),
+                root.join("agent_templates"),
+            ),
         ));
         Self { services, root }
     }
