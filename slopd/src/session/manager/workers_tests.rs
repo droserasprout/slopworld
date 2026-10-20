@@ -1,4 +1,8 @@
 use super::*;
+use crate::application::workers::Workers;
+use crate::application::workers::tests::allocation_fixture;
+use crate::application::worktrees::WorktreeRequest;
+use crate::application::worktrees::Worktrees;
 use crate::config::{Config, Daemon, Limits, ProjectCfg, SessionCfg};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -134,8 +138,17 @@ async fn scoped_worker_callers_cannot_cross_project_contexts() {
         }],
         ..Default::default()
     });
-    assert_eq!(manager.worker_project("caller", "").await.unwrap(), "repo");
-    let error = manager.worker_project("caller", "other").await.unwrap_err();
+    assert_eq!(
+        Workers::new(&manager)
+            .worker_project("caller", "")
+            .await
+            .unwrap(),
+        "repo"
+    );
+    let error = Workers::new(&manager)
+        .worker_project("caller", "other")
+        .await
+        .unwrap_err();
     let error = error.to_string();
     assert!(error.contains("only in project repo"), "{error}");
 }
@@ -187,7 +200,7 @@ async fn invalid_worker_template_is_rejected_before_task_creation() {
         ..Default::default()
     });
 
-    let error = manager
+    let error = Workers::new(&manager)
         .spawn_worker(
             crate::tasks::HOST.into(),
             "repo".into(),
@@ -288,7 +301,7 @@ async fn invalid_worker_callers_and_projects_leave_no_tasks_or_sessions() {
         (crate::tasks::HOST, "missing", "no such worker project"),
         ("orphan", "repo", "no project context"),
     ] {
-        let error = manager
+        let error = Workers::new(&manager)
             .spawn_worker(
                 caller.into(),
                 project.into(),
@@ -379,7 +392,7 @@ async fn unusable_worker_templates_fail_before_creating_mailbox_records() {
             .write()
             .await
             .templates = vec![selected];
-        let error = manager
+        let error = Workers::new(&manager)
             .spawn_worker(
                 crate::tasks::HOST.into(),
                 "repo".into(),
@@ -404,189 +417,6 @@ async fn unusable_worker_templates_fail_before_creating_mailbox_records() {
 }
 
 #[tokio::test]
-async fn allocation_failure_returns_inside_the_worker_request_boundary() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(2),
-        manager.session_request(NewWorktree::allocate(
-            manager.clone(),
-            crate::session::WorktreeRequest {
-                project: "missing".into(),
-                ..Default::default()
-            },
-        )),
-    )
-    .await
-    .expect("allocation must not wait for its own request boundary");
-    let error = result
-        .err()
-        .expect("missing project must reject allocation");
-    assert!(error.to_string().contains("no project missing"));
-}
-
-#[tokio::test]
-async fn cancelled_worker_request_cleans_up_its_unattached_new_worktree() {
-    let project_id = crate::storage_id::draft_identity();
-    let manager = crate::session::test_manager(crate::config::Config {
-        projects: vec![crate::config::ProjectCfg {
-            id: project_id.clone(),
-            name: "repo".into(),
-            dir: std::env::temp_dir().to_string_lossy().into_owned(),
-            ..Default::default()
-        }],
-        ..Default::default()
-    });
-    manager
-        .save_worktrees(&crate::worktrees::Store {
-            worktrees: vec![crate::worktrees::Worktree {
-                id: "1111111111111111".into(),
-                name: "new-tree".into(),
-                path: "/tmp/new-tree".into(),
-                repository: "/tmp/.git".into(),
-                project_id,
-                phase: crate::worktrees::WorktreePhase::Ready,
-                ..Default::default()
-            }],
-        })
-        .await
-        .unwrap();
-    drop(NewWorktree {
-        manager: manager.clone(),
-        project: "repo".into(),
-        id: Some("1111111111111111".into()),
-    });
-    tokio::time::timeout(std::time::Duration::from_secs(2), async {
-        loop {
-            if manager.worktree_records().worktrees.is_empty() {
-                break;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("canceled request left an unattached worktree registered");
-}
-fn allocation_fixture() -> (Arc<Manager>, std::path::PathBuf, std::path::PathBuf) {
-    let root = std::env::temp_dir().join(format!("slopd-regression-{}", uuid::Uuid::new_v4()));
-    std::fs::create_dir_all(&root).unwrap();
-    let main = root.join("repo");
-    std::fs::create_dir(&main).unwrap();
-    for args in [
-        vec!["init", "-q"],
-        vec![
-            "-c",
-            "user.name=Test",
-            "-c",
-            "user.email=test@example.invalid",
-            "commit",
-            "-q",
-            "--allow-empty",
-            "-m",
-            "initial",
-        ],
-    ] {
-        assert!(
-            std::process::Command::new("git")
-                .arg("-C")
-                .arg(&main)
-                .args(args)
-                .status()
-                .unwrap()
-                .success()
-        );
-    }
-    let project = crate::config::ProjectCfg {
-        id: crate::storage_id::draft_identity(),
-        name: "repo".into(),
-        dir: main.to_string_lossy().into(),
-        ..Default::default()
-    };
-    let manager = crate::session::test_manager(crate::config::Config {
-        projects: vec![project],
-        ..Default::default()
-    });
-    (manager, root, main)
-}
-
-#[tokio::test]
-async fn allocation_and_rollback_complete_inside_the_worker_request_boundary() {
-    let (manager, root, _) = allocation_fixture();
-    tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        manager.session_request(async {
-            let (id, mut owned) = NewWorktree::allocate(
-                manager.clone(),
-                crate::session::WorktreeRequest {
-                    project: "repo".into(),
-                    name: "allocated".into(),
-                    ..Default::default()
-                },
-            )
-            .await
-            .unwrap();
-            let worktrees = manager.worktree_records();
-            assert_eq!(worktrees.worktrees.len(), 1);
-            let checkout = &worktrees.worktrees[0];
-            assert_eq!(checkout.id, id);
-            assert!(std::path::Path::new(&checkout.path).is_dir());
-            owned.rollback().await;
-            assert!(manager.worktree_records().worktrees.is_empty());
-            assert!(!std::path::Path::new(&checkout.path).exists());
-        }),
-    )
-    .await
-    .expect("allocation must inherit the worker request boundary");
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[tokio::test]
-async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
-    let (manager, root, main) = allocation_fixture();
-    let checkout =
-        crate::worktrees::project_root(&manager.config().await.projects[0]).join("canceled");
-    let mut events = manager.application.subscribe();
-    manager
-        .session_request(async {
-            let allocation = NewWorktree::allocate(
-                manager.clone(),
-                crate::session::WorktreeRequest {
-                    project: "repo".into(),
-                    name: "canceled".into(),
-                    ..Default::default()
-                },
-            );
-            let mut allocation = Box::pin(allocation);
-            assert!(futures::poll!(allocation.as_mut()).is_pending());
-            // The owned task has inherited this request's boundary. Cancel before yielding
-            // to it so allocation and rollback must finish after the handler disappears.
-            drop(allocation);
-        })
-        .await;
-    tokio::time::timeout(std::time::Duration::from_secs(10), async {
-        // Creation publishes a project snapshot before dropping its abandoned result.
-        loop {
-            if matches!(
-                events.recv().await.unwrap().event(),
-                crate::application::Event::Projects { .. }
-            ) {
-                break;
-            }
-        }
-        while !manager.worktree_records().worktrees.is_empty() {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("abandoned allocation must finish rollback");
-    assert!(!checkout.exists());
-    let listed = crate::worktrees::git(&main, &["worktree", "list", "--porcelain"])
-        .await
-        .unwrap();
-    assert!(!listed.contains(checkout.to_str().unwrap()));
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[tokio::test]
 async fn new_checkout_preflight_rejects_invalid_workers_without_allocating() {
     let (manager, root, main) = allocation_fixture();
     let mut selected = template("review");
@@ -603,7 +433,7 @@ async fn new_checkout_preflight_rejects_invalid_workers_without_allocating() {
         ("work", "missing", "no such agent template"),
         ("work", "review", "disables networking"),
     ] {
-        let error = manager
+        let error = Workers::new(&manager)
             .create_worker(WorkerRequest {
                 caller: crate::tasks::HOST.into(),
                 project: "repo".into(),
@@ -707,7 +537,7 @@ async fn worker_creation_commits_task_session_and_checkout_before_returning() {
     };
     for durable in [false, true] {
         let (manager, root) = worker_runtime_fixture().await;
-        let existing = manager
+        let existing = Worktrees::new(&manager)
             .create_worktree(WorktreeRequest {
                 project: "repo".into(),
                 name: "existing".into(),
@@ -719,7 +549,7 @@ async fn worker_creation_commits_task_session_and_checkout_before_returning() {
             WorkerCheckout::Existing(existing.id.clone()),
             new_worker_checkout(),
         ] {
-            let spawned = manager
+            let spawned = Workers::new(&manager)
                 .create_worker(worker_request(durable, checkout))
                 .await
                 .unwrap();
@@ -789,7 +619,7 @@ async fn worker_start_failure_retains_only_durable_session_and_its_new_checkout(
         *manager.reader_attach_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
         let owner = manager.clone();
         let operation = tokio::spawn(async move {
-            owner
+            Workers::new(&owner)
                 .create_worker(worker_request(durable, new_worker_checkout()))
                 .await
         });
@@ -844,7 +674,7 @@ async fn cancelled_worker_start_finishes_commit_and_preserves_attached_checkout(
     *manager.reader_attach_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
     let owner = manager.clone();
     let operation = tokio::spawn(async move {
-        owner
+        Workers::new(&owner)
             .create_worker(worker_request(true, new_worker_checkout()))
             .await
     });
@@ -889,7 +719,7 @@ async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
     let mut events = manager.application.subscribe();
     let owner = manager.clone();
     let operation = tokio::spawn(async move {
-        owner
+        Workers::new(&owner)
             .create_worker(worker_request(true, new_worker_checkout()))
             .await
     });

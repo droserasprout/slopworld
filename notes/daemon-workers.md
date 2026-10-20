@@ -1,10 +1,13 @@
 # Task-owned workers
 
 `slopd/src/application/workers.rs` owns typed worker requests, project/template
-policy, and allocation-free session preparation. `session/manager/workers.rs` captures
-caller identity and owns guarded checkout allocation and rollback, and task/session
-creation. HTTP decodes caller
-credentials and the existing/new checkout choice before invoking that operation.
+policy, session preparation, checkout allocation and rollback, and task/startup
+coordination. Its `Workers` entry point retains the session request boundary and
+transfers startup to an owned operation. `session/manager/workers.rs` captures caller
+identity, reserves worker names and identities, and registers durable or live sessions.
+The application retains the worker registration guard through task creation, startup,
+and failure cleanup. HTTP decodes caller credentials and the existing/new checkout
+choice before invoking that operation.
 Lifecycle start owns launch credentials; lifecycle stop and capture exit own termination. [Grants](agent-grants.md)
 own authority, and [templates](daemon-agent-templates.md) own portable copied settings.
 

@@ -116,7 +116,7 @@ impl Manager {
         clippy::expect_used,
         reason = "propagate a panic from the owned operation"
     )]
-    pub(super) async fn owned_session_read_operation<F>(self: &Arc<Self>, operation: F) -> F::Output
+    pub(crate) async fn owned_session_read_operation<F>(self: &Arc<Self>, operation: F) -> F::Output
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static,

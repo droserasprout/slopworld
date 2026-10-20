@@ -2,12 +2,14 @@
 
 `worktrees/` owns durable records, checkout validation, bounded Git effects, and
 uncommitted directory guards. `application/worktrees.rs` coordinates creation,
-rename, removal, recovery, and listing projection; `application/projects.rs`
-coordinates project edits and relocation. A validated project replacement carries
-the original identity and proposed record through relocation and reference updates;
-static edit policy is checked before Git effects. Session adapters supply operation guards, live identity references,
-and attachment checks. `worktrees/inspection.rs` owns revision verification and
-checkout observations; project and worktree client views belong to application.
+rename, removal, recovery, and listing projection through its `Worktrees` entry point;
+`application/projects.rs` exposes `Projects` and coordinates edits and relocation.
+These application entry points acquire session operation leases before the workspace
+mutation gate and retain owned work through commit or rollback. A validated project
+replacement carries the original identity and proposed record through relocation and reference updates;
+static edit policy is checked before Git effects. Session adapters implement the
+operation leases, configuration transaction hooks, live identity references, and
+attachment checks. `worktrees/inspection.rs` owns revision verification and checkout observations; project and worktree client views belong to application.
 
 Worktree HTTP requests use host-user authority for root credentials, independent
 of the terminal session header. Scoped credentials retain the grantor's project

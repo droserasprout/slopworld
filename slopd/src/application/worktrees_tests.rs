@@ -1,4 +1,5 @@
 use super::*;
+use crate::application::worktrees::Worktrees;
 const TREE: &str = "1111111111111111";
 const PROJECT: &str = "2222222222222222";
 const SIBLING: &str = "3333333333333333";
@@ -91,7 +92,7 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
     );
     drop(fault);
 
-    manager.recover_worktrees().await.unwrap();
+    Worktrees::new(&manager).recover_worktrees().await.unwrap();
     let recovered = manager.worktree_records();
     assert_eq!(
         recovered.worktrees[1].phase,

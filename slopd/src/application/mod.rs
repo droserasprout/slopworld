@@ -1,6 +1,7 @@
-//! Daemon-wide publication, task storage and playback services, constructed at startup.
+//! Feature operation entry points and daemon-wide services constructed at startup.
 //! Session runtime supplies identity and operation leases; API owns wire encoding.
-//! Session runtime retains live validation, operation guards, and reconciliation.
+//! Feature entry points coordinate operations through runtime leases; live validation,
+//! state, registration, lifecycle and reconciliation remain with session.
 mod agent_templates;
 pub(crate) mod catalogs;
 pub(crate) mod file_actions;

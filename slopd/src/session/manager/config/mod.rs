@@ -3,6 +3,7 @@
 
 mod removal;
 use super::super::*;
+use crate::application::{LibraryMutation, LibraryRuntime};
 pub(super) use crate::config::transactions::ConfigMutation;
 use crate::config::transactions::{ConfigChange, PreparedConfigChange, SettingsEdit};
 
@@ -28,7 +29,7 @@ impl Manager {
     pub async fn config(&self) -> Config {
         self.config_authority.read_config().await.clone()
     }
-    pub(super) async fn update_cfg<T>(
+    pub(crate) async fn update_cfg<T>(
         self: &Arc<Self>,
         mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<T>,
@@ -125,7 +126,10 @@ impl Manager {
             {
                 return false;
             }
-            manager.announce_library().await;
+            manager
+                .application
+                .announce_library(manager.config().await)
+                .await;
             true
         })
         .await
@@ -157,8 +161,24 @@ impl Manager {
     /// Called after releasing the persistence gate. Structured edits let their caller reconcile.
     async fn finish_config_change(self: &Arc<Self>) {
         self.sync_from_config().await;
-        self.announce_projects().await;
-        self.announce_library().await;
+        crate::application::projects::publish(self).await;
+        self.application.announce_library(self.config().await).await;
+    }
+}
+
+impl LibraryRuntime for Arc<Manager> {
+    async fn reload(&self) {
+        self.reload_if_changed().await;
+    }
+    async fn config(&self) -> Config {
+        Manager::config(self).await
+    }
+    async fn commit(&self, mutation: LibraryMutation) -> Result<()> {
+        self.update_cfg(ConfigMutation::Library, |cfg| mutation.apply(cfg))
+            .await
+    }
+    async fn announce_projects(&self) {
+        crate::application::projects::publish(self).await;
     }
 }
 

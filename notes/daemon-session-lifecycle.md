@@ -9,8 +9,8 @@ also retain their session boundary in owned work through publication or cleanup.
 `session/launch.rs` owns transient launch requests and reader context separately from
 `SessionCfg` and saved library entries. Execution source distinguishes host lifetime,
 agent templates and cloned agent settings; destination distinguishes selected and
-temporary projects. `session/manager/launch.rs` adapts explicit requests and executes
-both explicit and saved launches under the session operation guard. Template/source
+temporary projects. `application/launch.rs` coordinates explicit and saved launches
+under the session operation guard; `session/manager/errands.rs` owns live allocation. Template/source
 lookup and worktree resolution remain inside that guard before allocation.
 `session/role.rs` distinguishes durable and temporary agents, saved host shells, and
 unsaved host actions. Stop and process exit retain durable agents and saved shells;

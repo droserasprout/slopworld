@@ -1,6 +1,8 @@
 //! Capability-filtered snapshots, live frame coalescing, and serialized socket writes.
 //! EventMessage owns shared encoding; per-send latency stamps stay local to this socket.
 
+use crate::application::library::Library;
+use crate::application::projects::Projects;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -75,13 +77,13 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool
         return false;
     }
     let ev = EventMessage::new(Event::Projects {
-        projects: m.projects().await,
+        projects: Projects::new(m).projects().await,
     });
     if send(tx, cap, &ev).await.is_err() {
         return false;
     }
     let ev = EventMessage::new(Event::Library {
-        library: m.library().await,
+        library: Library::new(m).library().await,
     });
     if send(tx, cap, &ev).await.is_err() {
         return false;

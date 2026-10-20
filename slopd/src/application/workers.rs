@@ -1,8 +1,12 @@
-//! Worker request policy and preparation, without task, checkout, or session allocation.
-//! Session adapters capture caller facts and retain guards through commit and rollback.
+//! Worker policy and checkout/task/session orchestration, including cancellation rollback.
+//! Session owns caller facts, identity reservation, registration and lifecycle guards.
+use super::worktrees::WorktreeRequest;
 use crate::agent_templates::AgentTemplate;
+use crate::application::worktrees::Worktrees;
 use crate::config::{Config, NetworkMode, SessionCfg};
-use anyhow::{Result, anyhow, bail};
+use crate::session::Manager;
+use anyhow::{Context, Result, anyhow, bail};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct WorkerSpawn {
@@ -181,6 +185,248 @@ pub(crate) fn worker_session_from_template(
     session
 }
 
+/// A newly allocated checkout belongs to the request until worker startup commits it.
+/// On cancellation, a detached cleanup task removes it unless a failed durable session
+/// still references it. Existing checkouts never enter this guard.
+struct NewWorktree {
+    manager: Arc<Manager>,
+    project: String,
+    id: Option<String>,
+}
+
+impl NewWorktree {
+    async fn allocate(
+        manager: Arc<Manager>,
+        request: WorktreeRequest,
+    ) -> anyhow::Result<(String, Self)> {
+        // Inherit the caller's boundary and reload context before spawning.
+        // Keep allocation and its rollback owner together so cancellation drops the guard.
+        manager
+            .clone()
+            .owned_session_operation(Box::pin(async move {
+                let project = request.project.clone();
+                let created = Box::pin(Worktrees::new(&manager).create_worktree(request)).await?;
+                Ok((
+                    created.id.clone(),
+                    Self {
+                        manager,
+                        project,
+                        id: Some(created.id),
+                    },
+                ))
+            }))
+            .await
+    }
+
+    async fn rollback(&mut self) {
+        let Some(id) = self.id.take() else { return };
+        if let Err(error) = Worktrees::new(&self.manager)
+            .remove_worktree(self.project.clone(), id)
+            .await
+        {
+            tracing::warn!("new worker worktree retained after failed startup: {error:#}");
+        }
+    }
+
+    fn keep(&mut self) {
+        self.id = None;
+    }
+}
+
+impl Drop for NewWorktree {
+    fn drop(&mut self) {
+        let Some(id) = self.id.take() else { return };
+        let manager = self.manager.clone();
+        let project = self.project.clone();
+        tokio::spawn(async move {
+            if let Err(error) = Worktrees::new(&manager).remove_worktree(project, id).await {
+                tracing::warn!("new worker worktree retained after cancellation: {error:#}");
+            }
+        });
+    }
+}
+
+/// Worker operations retain the runtime boundary across allocation and owned startup.
+pub(crate) struct Workers<'a> {
+    sessions: &'a Arc<Manager>,
+}
+
+impl<'a> Workers<'a> {
+    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
+        Self { sessions }
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn spawn_worker(
+        &self,
+        caller: String,
+        project: String,
+        template: String,
+        body: String,
+        durable: bool,
+    ) -> Result<WorkerSpawn> {
+        self.create_worker(WorkerRequest {
+            caller,
+            project,
+            template,
+            body,
+            durable,
+            checkout: WorkerCheckout::Existing(String::new()),
+        })
+        .await
+    }
+
+    /// Validate and allocate under one accepted configuration and identity boundary.
+    /// Abandoned allocation rolls back; once startup begins its owned operation finishes
+    /// commit or failure cleanup even if the requesting transport disappears.
+    pub(crate) async fn create_worker(&self, request: WorkerRequest) -> Result<WorkerSpawn> {
+        self.sessions
+            .session_request(self.create_worker_inner(request))
+            .await
+    }
+
+    async fn create_worker_inner(&self, request: WorkerRequest) -> Result<WorkerSpawn> {
+        let cfg = self.sessions.config().await;
+        let caller = request.caller.trim();
+        let context = self.sessions.worker_caller(caller).await;
+        let templates = self.sessions.application.templates.list().await;
+        let PreparedWorker {
+            mut session,
+            caller,
+            body,
+            durable,
+            checkout,
+        } = prepare(&cfg, &context, &templates, request)?;
+        let project = session.project.clone();
+        let p = cfg
+            .project(&project)
+            .context("prepared worker project disappeared")?;
+        let (worktree, mut allocated) = match checkout {
+            WorkerCheckout::Existing(id) => {
+                self.sessions.resolve_worktree(p, &id).await?;
+                (id, None)
+            }
+            WorkerCheckout::New { base, name } => {
+                let base = Worktrees::new(self.sessions)
+                    .worktree_base(&caller, &project, &base)
+                    .await?;
+                let (id, owned) = NewWorktree::allocate(
+                    self.sessions.clone(),
+                    WorktreeRequest {
+                        project,
+                        name,
+                        base,
+                        path: String::new(),
+                    },
+                )
+                .await?;
+                (id, Some(owned))
+            }
+        };
+        session.worktree = worktree;
+        let manager = self.sessions.clone();
+        let result = self
+            .sessions
+            .owned_session_operation(Box::pin(async move {
+                Workers::new(&manager)
+                    .commit_worker(session, caller, body, durable, cfg)
+                    .await
+            }))
+            .await;
+        if let Some(owned) = &mut allocated {
+            if result.is_ok() {
+                owned.keep();
+            } else {
+                owned.rollback().await;
+            }
+        }
+        result
+    }
+
+    /// Persist the task before registering and starting the session. Keep failed durable
+    /// sessions for diagnosis; their checkout reference prevents allocation rollback.
+    async fn commit_worker(
+        &self,
+        mut session: SessionCfg,
+        caller: String,
+        body: String,
+        durable: bool,
+        cfg: Config,
+    ) -> Result<WorkerSpawn> {
+        let sessions = self.sessions;
+        let _spawn = sessions.worker_registration_guard().await;
+        sessions
+            .allocate_worker_identity(&mut session, &caller)
+            .await?;
+        let task = sessions
+            .create_task_owned(
+                sessions.task_participant(&caller).await?,
+                crate::tasks::Participant {
+                    name: session.name.clone(),
+                    identity: session.state_id.clone(),
+                },
+                body,
+                Some(crate::tasks::WorkerTask {
+                    session: session.name.clone(),
+                    parent: caller,
+                    durable,
+                }),
+            )
+            .await?;
+        sessions
+            .application
+            .spawn_task_summary(sessions.config_authority.daemon_settings(), task.clone());
+        session.task_id = task.id.clone();
+
+        if let Err(error) = sessions.register_task_worker(&session, durable).await {
+            sessions
+                .fail_worker_task_checked(
+                    &session.task_id,
+                    &session.state_id,
+                    format!("could not persist worker session: {error:#}"),
+                )
+                .await;
+            return Err(error);
+        }
+
+        if let Err(error) = sessions.start(&session.name).await {
+            sessions
+                .fail_worker_task_checked(
+                    &task.id,
+                    &session.state_id,
+                    format!("worker failed to start: {error:#}"),
+                )
+                .await;
+            if !durable {
+                sessions.forget(&session.name).await;
+            }
+            return Err(error);
+        }
+
+        sessions.announce_sessions().await;
+        sessions
+            .queue_delivery(&session.name, cfg.daemon.instructions.worker_prompt.clone())
+            .await;
+        Ok(WorkerSpawn {
+            task,
+            session: session.name,
+        })
+    }
+
+    pub(crate) async fn worker_project(&self, caller: &str, requested: &str) -> Result<String> {
+        project(
+            &self.sessions.config().await,
+            caller,
+            &self.sessions.worker_caller(caller).await,
+            requested,
+        )
+    }
+
+    pub(crate) async fn worker_template_names(&self) -> std::collections::BTreeSet<String> {
+        self.sessions.config().await.daemon.worker_templates.clone()
+    }
+}
+
 #[cfg(test)]
 #[path = "workers_tests.rs"]
-mod tests;
+pub(crate) mod tests;

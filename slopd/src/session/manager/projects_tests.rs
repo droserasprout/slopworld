@@ -1,3 +1,4 @@
+use crate::application::projects::Projects;
 use crate::config::{Config, ProjectCfg};
 use std::time::Duration;
 
@@ -12,7 +13,7 @@ async fn project_temporary_mode_is_immutable_after_creation() {
         }],
         ..Default::default()
     });
-    let error = manager
+    let error = Projects::new(&manager)
         .update_project(
             "scratch",
             ProjectCfg {
@@ -49,7 +50,7 @@ async fn canceled_project_update_retains_boundary_until_commit() {
         Some((reached.clone(), release.clone()));
     let owner = manager.clone();
     let request = tokio::spawn(async move {
-        owner
+        Projects::new(&owner)
             .update_project(
                 "original",
                 ProjectCfg {

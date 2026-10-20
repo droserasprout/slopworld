@@ -1,5 +1,6 @@
 //! Recover daemon resources before session reconciliation and credential pruning.
 use super::{ConfigAuthority, Services};
+use crate::application::worktrees::Worktrees;
 use crate::{session::Manager, storage::layout::LoadedStorage, tmux::Tmux};
 use anyhow::Result;
 use std::sync::Arc;
@@ -21,7 +22,7 @@ pub(crate) async fn start_sessions(
         Ok(_) => {}
         Err(error) => tracing::warn!("could not purge private-state trash: {error:#}"),
     }
-    if let Err(error) = manager.recover_worktrees().await {
+    if let Err(error) = Worktrees::new(&manager).recover_worktrees().await {
         tracing::error!("Worktree recovery failed. Records remain: {error:#}");
     }
     if let Err(error) = manager.tmux.ensure_server().await {

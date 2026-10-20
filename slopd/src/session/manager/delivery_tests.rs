@@ -1,4 +1,5 @@
 use super::*;
+use crate::application::launch::Launches;
 
 #[test]
 fn auto_resume_types_the_command_and_two_enters_in_order() {
@@ -86,7 +87,7 @@ async fn worker_bootstrap_is_pasted_intact_then_submitted_once() {
 #[tokio::test]
 async fn errand_renders_tips_before_paste_and_submission() {
     let (manager, mut rx) = delivery_fixture().await;
-    manager
+    Launches::new(&manager)
         .queue_errand_delivery(
             "worker",
             &LaunchContent {

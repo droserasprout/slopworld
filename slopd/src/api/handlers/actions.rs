@@ -1,6 +1,8 @@
 //! Explicit terminal launches and file or desktop action HTTP boundaries.
 
 use crate::api::protobuf::{Proto, domain, reply};
+use crate::application::file_actions::FileActions;
+use crate::application::launch::Launches;
 use crate::shared::wire;
 use axum::extract::{Query, State};
 use serde_json::json;
@@ -13,10 +15,10 @@ pub(crate) async fn run(
     Proto(q): Proto<wire::RunReq>,
 ) -> ApiResult<wire::SessionResult> {
     let q: RunReq = domain(q)?;
-    let plan = crate::application::launch::plan_explicit_launch(&m, q.into())
+    let plan = crate::application::launch::plan_explicit_launch(&FileActions::new(&m), q.into())
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
-    let session = m
+    let session = Launches::new(&m)
         .run_launch(plan)
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
@@ -31,7 +33,7 @@ pub(crate) async fn file_action(
     Proto(q): Proto<wire::FileActionReq>,
 ) -> ApiResult<wire::OutputResult> {
     let q: FileActionReq = domain(q)?;
-    let output = m
+    let output = FileActions::new(&m)
         .file_action(&q.project, &q.worktree, &q.path, &q.command, q.host)
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;

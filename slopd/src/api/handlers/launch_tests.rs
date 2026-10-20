@@ -1,4 +1,5 @@
 use super::*;
+use crate::application::file_actions::FileActions;
 use crate::session::{ExecutionSource, HostLifetime, LaunchDestination};
 use serde_json::json;
 fn decode_launch(value: serde_json::Value) -> crate::application::launch::ExplicitLaunch {
@@ -15,7 +16,9 @@ async fn reader_launches_reject_unknown_intents_and_missing_paths() {
         ("search", "needs a path"),
     ] {
         let request = decode_launch(json!({"intent": intent, "temp": true}));
-        let Err(error) = crate::application::launch::plan_explicit_launch(&manager, request).await
+        let Err(error) =
+            crate::application::launch::plan_explicit_launch(&FileActions::new(&manager), request)
+                .await
         else {
             panic!("invalid reader launch accepted");
         };
@@ -36,9 +39,10 @@ async fn host_shell_persistence_requires_a_project_and_no_explicit_command() {
             "kind": "shell", "host": true, "project": project,
             "command": command, "temp": temp
         }));
-        let plan = crate::application::launch::plan_explicit_launch(&manager, request)
-            .await
-            .unwrap();
+        let plan =
+            crate::application::launch::plan_explicit_launch(&FileActions::new(&manager), request)
+                .await
+                .unwrap();
         assert_eq!(
             matches!(
                 plan.execution,
@@ -74,9 +78,10 @@ async fn reader_plan_preserves_source_identity_geometry_and_template() {
         "reader": {"path": "file", "key": "key", "scope": "scope", "line": 17, "pinned": true},
         "cols": 90, "rows": 30, "agent_template": "review", "random_tips": ["tip"]
     }));
-    let plan = crate::application::launch::plan_explicit_launch(&manager, request)
-        .await
-        .unwrap();
+    let plan =
+        crate::application::launch::plan_explicit_launch(&FileActions::new(&manager), request)
+            .await
+            .unwrap();
     assert_eq!(plan.content.name, "reader");
     assert_eq!(plan.content.command.as_deref(), Some("less file"));
     assert_eq!(plan.execution, ExecutionSource::Template("review".into()));
@@ -111,15 +116,19 @@ async fn explicit_launches_reject_ambiguous_authority_before_allocation() {
             .as_object_mut()
             .unwrap()
             .extend(fields.as_object().unwrap().clone());
-        crate::application::launch::plan_explicit_launch(&manager, decode_launch(request))
-            .await
-            .unwrap_err();
+        crate::application::launch::plan_explicit_launch(
+            &FileActions::new(&manager),
+            decode_launch(request),
+        )
+        .await
+        .unwrap_err();
         assert!(manager.views().await.is_empty());
     }
     let request = decode_launch(json!({"kind":"shell", "temp":true, "like":" source "}));
-    let plan = crate::application::launch::plan_explicit_launch(&manager, request)
-        .await
-        .unwrap();
+    let plan =
+        crate::application::launch::plan_explicit_launch(&FileActions::new(&manager), request)
+            .await
+            .unwrap();
     assert_eq!(plan.execution, ExecutionSource::CloneAgent("source".into()));
 }
 
@@ -130,9 +139,10 @@ async fn file_launches_quote_paths_and_keep_disposable_host_lifetime() {
         "kind": "shell", "host": true, "path": "/tmp/a'b", "hold": true,
         "command": "cat {{ absolute_path }}"
     }));
-    let plan = crate::application::launch::plan_explicit_launch(&manager, request)
-        .await
-        .unwrap();
+    let plan =
+        crate::application::launch::plan_explicit_launch(&FileActions::new(&manager), request)
+            .await
+            .unwrap();
     assert_eq!(
         plan.execution,
         ExecutionSource::Host(HostLifetime::Disposable)

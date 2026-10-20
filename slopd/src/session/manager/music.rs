@@ -1,6 +1,7 @@
 //! Adapt music's host-terminal operations to the session lifecycle.
 //! The music service owns playback state, transition locks, recovery, and ncspot IPC.
 use super::Manager;
+use crate::application::launch::Launches;
 use crate::config::LibraryItemKind;
 use crate::session::{
     ExecutionSource, HostLifetime, LaunchContent, LaunchDestination, LaunchOptions, LaunchRequest,
@@ -25,22 +26,23 @@ impl crate::music::HostSessions for Arc<Manager> {
         cols: Option<u16>,
         rows: Option<u16>,
     ) -> Result<String> {
-        self.run_launch(LaunchRequest {
-            content: LaunchContent {
-                name: "Spotify".into(),
-                kind: LibraryItemKind::Shell,
-                command: Some(command),
-                text: String::new(),
-            },
-            execution: ExecutionSource::Host(HostLifetime::Disposable),
-            destination: LaunchDestination::Temporary,
-            options: LaunchOptions {
-                cols,
-                rows,
-                ..Default::default()
-            },
-        })
-        .await
+        Launches::new(self)
+            .run_launch(LaunchRequest {
+                content: LaunchContent {
+                    name: "Spotify".into(),
+                    kind: LibraryItemKind::Shell,
+                    command: Some(command),
+                    text: String::new(),
+                },
+                execution: ExecutionSource::Host(HostLifetime::Disposable),
+                destination: LaunchDestination::Temporary,
+                options: LaunchOptions {
+                    cols,
+                    rows,
+                    ..Default::default()
+                },
+            })
+            .await
     }
 
     async fn stop(&self, name: &str) -> Result<()> {

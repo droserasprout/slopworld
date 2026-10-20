@@ -77,7 +77,7 @@ impl Manager {
         })
     }
 
-    pub(super) async fn queue_delivery(self: &Arc<Self>, name: &str, text: String) {
+    pub(crate) async fn queue_delivery(self: &Arc<Self>, name: &str, text: String) {
         if let Some(target) = self.delivery_target(name).await {
             let manager = self.clone();
             tokio::spawn(async move { manager.deliver(&target, &text).await });

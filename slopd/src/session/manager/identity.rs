@@ -44,7 +44,7 @@ mod tests;
 impl Manager {
     /// Caller holds the worktree mutation guard inside a session boundary. Cache
     /// directories outlive projects and reserve their identities as well.
-    pub(super) async fn allocate_project_identity(&self) -> Result<String> {
+    pub(crate) async fn allocate_project_identity(&self) -> Result<String> {
         self.workspace
             .allocate_project_identity(&self.config().await, &self.worktree_records())
     }

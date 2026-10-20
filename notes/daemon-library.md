@@ -6,16 +6,18 @@ have their own catalog and API.
 
 `config/library.rs` owns definitions and validation; `config/catalog.rs` prepares
 catalog transactions. `application/library.rs` owns mutation policy, discovery,
-snapshots, and publication. Session adapters supply guarded commits and launches;
-`api/handlers/library.rs` owns HTTP. `application/launch.rs` resolves saved-library
-and explicit launch policy into the common request in `session/launch.rs`. Explicit
-request decoding belongs to `api/types.rs`; guarded execution belongs to
-`session/manager/launch.rs`, and live construction to `errands.rs`.
+snapshots, publication, and the library operation entry point. The session configuration
+adapter supplies guarded commits; `api/handlers/library.rs` owns HTTP.
+`application/launch.rs` resolves saved-library and explicit launch policy into the
+common request in `session/launch.rs`. Explicit
+request decoding belongs to `api/types.rs`. Application `Launches` coordinates
+guarded allocation, startup, failure cleanup, and prompt delivery through the session
+runtime. Live construction belongs to `session/manager/errands.rs`.
 `application/errands.rs` owns copied source settings, executable precedence, and
 display-label policy; validation still precedes runtime allocation under session guards.
 `application/library.rs` prepares breadcrumb text from resolved session/project context;
 capture owns paste admission and input ordering. Application launch prepares errand prompts.
-The file-command adapter refreshes configuration before resolving action scope;
+Application `FileActions` refreshes configuration before resolving action scope;
 planning does not allocate a session or change startup/cleanup guard ownership.
 File-action scope coordination belongs to `application/file_actions.rs`.
 

@@ -1,4 +1,6 @@
 use super::*;
+use crate::application::file_actions::FileActions;
+use crate::application::worktrees::Worktrees;
 
 const TREE: &str = "1111111111111111";
 const PROJECT: &str = "2222222222222222";
@@ -202,27 +204,27 @@ async fn assert_action_scope_rules(
     .await
     .unwrap();
     assert_eq!(Path::new(&cfg.projects[0].dir), tree);
-    manager
+    FileActions::new(manager)
         .file_action_command("p", TREE, file, "cat {{ absolute_path }}", true)
         .await
         .unwrap();
-    manager
+    FileActions::new(manager)
         .file_action_command("p", "main", file, "pwd", true)
         .await
         .unwrap_err();
-    manager
+    FileActions::new(manager)
         .file_action_command("p", TREE, &main.join("file").to_string_lossy(), "pwd", true)
         .await
         .unwrap_err();
-    manager
+    FileActions::new(manager)
         .file_action_command("p", "unregistered", file, "pwd", true)
         .await
         .unwrap_err();
-    manager
+    FileActions::new(manager)
         .file_action_command("wrong-project", TREE, file, "pwd", true)
         .await
         .unwrap_err();
-    let output = manager
+    let output = FileActions::new(manager)
         .file_action("p", TREE, file, "pwd", false)
         .await
         .unwrap();
@@ -233,7 +235,7 @@ async fn assert_action_scope_rules(
     let outside = root.join("outside");
     std::fs::create_dir(&outside).unwrap();
     std::os::unix::fs::symlink(&outside, tree.join("escape")).unwrap();
-    manager
+    FileActions::new(manager)
         .file_action_command(
             "p",
             TREE,
@@ -245,14 +247,14 @@ async fn assert_action_scope_rules(
         .unwrap_err();
     store.worktrees[0].phase = crate::worktrees::WorktreePhase::Removing;
     manager.save_worktrees(&store).await.unwrap();
-    manager
+    FileActions::new(manager)
         .file_action_command("p", TREE, file, "pwd", true)
         .await
         .unwrap_err();
     store.worktrees[0].phase = crate::worktrees::WorktreePhase::Ready;
     manager.save_worktrees(&store).await.unwrap();
     assert_eq!(
-        manager
+        FileActions::new(manager)
             .file_action_command("p", TREE, file, "pwd", true)
             .await
             .unwrap(),
@@ -280,7 +282,7 @@ async fn assert_action_scope_rules(
     std::fs::remove_dir_all(tree.join(".git")).unwrap();
     std::fs::write(tree.join(".git"), dotgit).unwrap();
     std::fs::remove_dir_all(tree).unwrap();
-    manager
+    FileActions::new(manager)
         .file_action_command("p", TREE, file, "pwd", true)
         .await
         .unwrap_err();
@@ -320,14 +322,14 @@ async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
         .join(format!("data/worktrees/{TREE}.toml"));
     let before = std::fs::read(&catalog).unwrap();
     let fault = crate::paths::fail_writes(&catalog);
-    manager
+    Worktrees::new(&manager)
         .remove_worktree("repo".into(), TREE.into())
         .await
         .unwrap_err();
     assert_eq!(std::fs::read(&catalog).unwrap(), before);
     drop(fault);
 
-    manager
+    Worktrees::new(&manager)
         .remove_worktree("repo".into(), TREE.into())
         .await
         .unwrap();
@@ -336,7 +338,7 @@ async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
         std::fs::read_to_string(checkout.join("keep")).unwrap(),
         "external data"
     );
-    manager
+    Worktrees::new(&manager)
         .remove_worktree("repo".into(), TREE.into())
         .await
         .unwrap_err();

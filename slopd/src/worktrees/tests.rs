@@ -1,4 +1,6 @@
 use super::*;
+use crate::application::projects::Projects;
+use crate::application::worktrees::Worktrees;
 
 fn repo() -> PathBuf {
     let path = std::env::temp_dir().join(format!("slop-worktree-test-{}", uuid::Uuid::new_v4()));
@@ -89,8 +91,9 @@ struct LifecycleFixture {
 }
 
 async fn lifecycle_fixture() -> LifecycleFixture {
+    use crate::application::worktrees::WorktreeRequest;
     use crate::config::{Config, ProjectCfg};
-    use crate::session::{WorktreeRequest, test_manager};
+    use crate::session::test_manager;
     let root = repo();
     let mut cfg = Config::default();
     cfg.projects.push(ProjectCfg {
@@ -104,7 +107,7 @@ async fn lifecycle_fixture() -> LifecycleFixture {
     });
     let manager = test_manager(cfg);
     std::fs::write(root.join("file"), "caller dirty\n").unwrap();
-    let worktree = Box::pin(manager.create_worktree(WorktreeRequest {
+    let worktree = Box::pin(Worktrees::new(&manager).create_worktree(WorktreeRequest {
         project: "repo".into(),
         name: "parallel".into(),
         ..Default::default()
@@ -120,19 +123,19 @@ async fn lifecycle_fixture() -> LifecycleFixture {
             .unwrap(),
         "repo"
     );
-    manager
+    Worktrees::new(&manager)
         .rename_worktree("repo".into(), worktree.id.clone(), "../escape".into())
         .await
         .unwrap_err();
     let occupied = Path::new(&worktree.path).parent().unwrap().join("occupied");
     std::fs::create_dir(&occupied).unwrap();
-    manager
+    Worktrees::new(&manager)
         .rename_worktree("repo".into(), worktree.id.clone(), "occupied".into())
         .await
         .unwrap_err();
     assert!(Path::new(&worktree.path).exists());
     let old_path = worktree.path.clone();
-    let worktree = manager
+    let worktree = Worktrees::new(&manager)
         .rename_worktree("repo".into(), worktree.id.clone(), "feature name".into())
         .await
         .unwrap();
@@ -164,7 +167,12 @@ async fn lifecycle_fixture() -> LifecycleFixture {
             .is_empty()
     );
     assert!(manager.config().await.sessions.is_empty());
-    assert!(manager.remove_project("repo").await.is_err());
+    assert!(
+        Projects::new(&manager)
+            .remove_project("repo")
+            .await
+            .is_err()
+    );
     LifecycleFixture {
         root,
         manager,
@@ -195,17 +203,20 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
             .unwrap();
     }
     assert_eq!(
-        manager.worktree_list("repo").await.unwrap()[1]
+        Worktrees::new(&manager)
+            .worktree_list("repo")
+            .await
+            .unwrap()[1]
             .attachments
             .len(),
         2
     );
-    manager
+    Worktrees::new(&manager)
         .rename_worktree("repo".into(), w.id.clone(), "blocked".into())
         .await
         .unwrap_err();
     assert!(
-        manager
+        Worktrees::new(&manager)
             .remove_worktree("repo".into(), w.id.clone())
             .await
             .is_err()
@@ -218,7 +229,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     // Failed removal neither commits nor destroys files. Retry uses the actual current branch.
     std::fs::write(Path::new(&w.path).join("untracked"), "keep me").unwrap();
     assert!(
-        manager
+        Worktrees::new(&manager)
             .remove_worktree("repo".into(), w.id.clone())
             .await
             .is_err()
@@ -242,13 +253,19 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     )
     .await
     .unwrap();
-    let rows = manager.worktree_list("repo").await.unwrap();
+    let rows = Worktrees::new(&manager)
+        .worktree_list("repo")
+        .await
+        .unwrap();
     assert_eq!(rows[1].branch, "switched");
     assert_eq!(rows[1].worktree.id, w.id);
     if mismatched_proc_namespace() {
         assert!(Path::new(&w.path).exists());
     } else {
-        manager.remove_worktree("repo".into(), w.id).await.unwrap();
+        Worktrees::new(&manager)
+            .remove_worktree("repo".into(), w.id)
+            .await
+            .unwrap();
         assert!(!Path::new(&w.path).exists());
     }
     assert_eq!(
@@ -264,8 +281,9 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
 
 #[tokio::test]
 async fn ignored_data_detached_head_and_crash_records_are_preserved() {
+    use crate::application::worktrees::WorktreeRequest;
     use crate::config::{Config, ProjectCfg};
-    use crate::session::{WorktreeRequest, test_manager};
+    use crate::session::test_manager;
     let root = repo();
     let mut cfg = Config::default();
     cfg.projects.push(ProjectCfg {
@@ -275,7 +293,7 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
         ..Default::default()
     });
     let manager = test_manager(cfg);
-    let w = Box::pin(manager.create_worktree(WorktreeRequest {
+    let w = Box::pin(Worktrees::new(&manager).create_worktree(WorktreeRequest {
         project: "repo".into(),
         ..Default::default()
     }))
@@ -286,7 +304,7 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     std::fs::write(root.join(".git/info/exclude"), "precious\n").unwrap();
     std::fs::write(path.join("precious"), "not committed").unwrap();
     assert!(
-        manager
+        Worktrees::new(&manager)
             .remove_worktree("repo".into(), w.id.clone())
             .await
             .unwrap_err()
@@ -318,19 +336,26 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
             .success()
     );
     assert!(
-        manager
+        Worktrees::new(&manager)
             .remove_worktree("repo".into(), w.id.clone())
             .await
             .unwrap_err()
             .to_string()
             .contains("retained local branch")
     );
-    assert_eq!(manager.worktree_list("repo").await.unwrap()[1].branch, "");
+    assert_eq!(
+        Worktrees::new(&manager)
+            .worktree_list("repo")
+            .await
+            .unwrap()[1]
+            .branch,
+        ""
+    );
     // Restart recovery reports an interrupted operation without committing, deleting or relaunching.
     let mut store = manager.worktree_records();
     store.worktrees[0].phase = crate::worktrees::WorktreePhase::Removing;
     manager.save_worktrees(&store).await.unwrap();
-    manager.recover_worktrees().await.unwrap();
+    Worktrees::new(&manager).recover_worktrees().await.unwrap();
     let recovered = manager.worktree_records();
     assert_eq!(
         recovered.worktrees[0].phase,
@@ -359,7 +384,7 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
     let renamed = rename_project_worktree(&manager, &root, &named).await;
 
     if !mismatched_proc_namespace() {
-        manager
+        Worktrees::new(&manager)
             .remove_worktree("renamed".into(), renamed.id.clone())
             .await
             .unwrap();
@@ -374,9 +399,9 @@ async fn assert_rejected_managed_worktree_names(
     manager: &std::sync::Arc<crate::session::Manager>,
     root: &Path,
 ) {
-    use crate::session::WorktreeRequest;
+    use crate::application::worktrees::WorktreeRequest;
     for name in ["invalid name", "bad..name", "HEAD", "-option", "@{-1}"] {
-        let invalid = Box::pin(manager.create_worktree(WorktreeRequest {
+        let invalid = Box::pin(Worktrees::new(manager).create_worktree(WorktreeRequest {
             project: "repo".into(),
             name: name.into(),
             ..Default::default()
@@ -396,7 +421,7 @@ async fn assert_rejected_managed_worktree_names(
             .unwrap()
             .success()
     );
-    let collision = Box::pin(manager.create_worktree(WorktreeRequest {
+    let collision = Box::pin(Worktrees::new(manager).create_worktree(WorktreeRequest {
         project: "repo".into(),
         name: "already-exists".into(),
         ..Default::default()
@@ -412,8 +437,8 @@ async fn create_managed_worktrees(
     manager: &std::sync::Arc<crate::session::Manager>,
     root: &Path,
 ) -> (Worktree, Worktree) {
-    use crate::session::WorktreeRequest;
-    let named = Box::pin(manager.create_worktree(WorktreeRequest {
+    use crate::application::worktrees::WorktreeRequest;
+    let named = Box::pin(Worktrees::new(manager).create_worktree(WorktreeRequest {
         project: "repo".into(),
         name: "feature-branch".into(),
         ..Default::default()
@@ -432,7 +457,7 @@ async fn create_managed_worktrees(
         "feature-branch"
     );
 
-    let generated = Box::pin(manager.create_worktree(WorktreeRequest {
+    let generated = Box::pin(Worktrees::new(manager).create_worktree(WorktreeRequest {
         project: "repo".into(),
         ..Default::default()
     }))
@@ -462,14 +487,20 @@ async fn rename_project_worktree(
 ) -> Worktree {
     let mut project = manager.config().await.projects[0].clone();
     project.name = "renamed".into();
-    manager.update_project("repo", project).await.unwrap();
+    Projects::new(manager)
+        .update_project("repo", project)
+        .await
+        .unwrap();
     assert_eq!(
-        manager.worktree_list("renamed").await.unwrap()[1]
+        Worktrees::new(manager)
+            .worktree_list("renamed")
+            .await
+            .unwrap()[1]
             .worktree
             .path,
         named.path
     );
-    let renamed = manager
+    let renamed = Worktrees::new(manager)
         .rename_worktree("renamed".into(), named.id.clone(), "new-name".into())
         .await
         .unwrap();
@@ -497,8 +528,9 @@ fn mismatched_proc_namespace() -> bool {
 
 #[tokio::test]
 async fn external_checkouts_and_interrupted_teardown_have_independent_records() {
+    use crate::application::worktrees::WorktreeRequest;
     use crate::config::{Config, ProjectCfg};
-    use crate::session::{WorktreeRequest, test_manager};
+    use crate::session::test_manager;
     let root = repo();
     let manager = test_manager(Config {
         projects: vec![ProjectCfg {
@@ -509,7 +541,9 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
         }],
         ..Default::default()
     });
-    let w = Box::pin(manager.create_worktree(WorktreeRequest {
+    let worktrees = Worktrees::new(&manager);
+    let projects = Projects::new(&manager);
+    let w = Box::pin(worktrees.create_worktree(WorktreeRequest {
         project: "repo".into(),
         ..Default::default()
     }))
@@ -518,15 +552,15 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     let mut store = manager.worktree_records();
     store.worktrees[0].phase = crate::worktrees::WorktreePhase::Allocating;
     manager.save_worktrees(&store).await.unwrap();
-    manager.recover_worktrees().await.unwrap();
+    worktrees.recover_worktrees().await.unwrap();
     assert_eq!(
         manager.worktree_records().worktrees[0].phase,
         crate::worktrees::WorktreePhase::Ready
     );
     let mut project = manager.config().await.projects[0].clone();
     project.name = "renamed".into();
-    manager.update_project("repo", project).await.unwrap();
-    let renamed_path = manager.worktree_list("renamed").await.unwrap()[1]
+    projects.update_project("repo", project).await.unwrap();
+    let renamed_path = worktrees.worktree_list("renamed").await.unwrap()[1]
         .worktree
         .path
         .clone();
@@ -560,16 +594,16 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
             .unwrap()
             .success()
     );
-    manager
+    worktrees
         .remove_worktree("renamed".into(), w.id)
         .await
         .unwrap();
-    assert_eq!(manager.worktree_list("renamed").await.unwrap().len(), 1);
+    assert_eq!(worktrees.worktree_list("renamed").await.unwrap().len(), 1);
     let external = root.join("external checkout");
     std::fs::create_dir(&external).unwrap();
     let base = git(&root, &["rev-parse", "HEAD"]).await.unwrap();
     allocate(&root, &external, "external", &base).await.unwrap();
-    let w = Box::pin(manager.create_worktree(WorktreeRequest {
+    let w = Box::pin(worktrees.create_worktree(WorktreeRequest {
         project: "renamed".into(),
         path: external.to_string_lossy().into_owned(),
         ..Default::default()
@@ -584,13 +618,13 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
             .unwrap(),
         "external"
     );
-    manager
+    worktrees
         .remove_worktree("renamed".into(), w.id)
         .await
         .unwrap();
     assert!(external.join("file").exists());
     assert!(
-        manager
+        worktrees
             .remove_worktree("renamed".into(), "main".into())
             .await
             .is_err()
@@ -639,8 +673,9 @@ async fn git_mutations_cannot_follow_metadata_symlinks_outside_the_worktree_gran
 
 #[tokio::test]
 async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
+    use crate::application::worktrees::WorktreeRequest;
     use crate::config::{Config, Mount, MountMode, NetworkMode, ProjectCfg, SessionCfg};
-    use crate::session::{WorktreeRequest, test_manager};
+    use crate::session::test_manager;
     let root = repo();
     let cache = root.with_extension("cache");
     let manager = test_manager(Config {
@@ -657,7 +692,7 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
         }],
         ..Default::default()
     });
-    let w = Box::pin(manager.create_worktree(WorktreeRequest {
+    let w = Box::pin(Worktrees::new(&manager).create_worktree(WorktreeRequest {
         project: "repo".into(),
         ..Default::default()
     }))
@@ -706,7 +741,10 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
         .unwrap_err();
     assert!(cache.exists());
     std::fs::write(cache.join("artifact"), "kept").unwrap();
-    match manager.remove_worktree("repo".into(), w.id).await {
+    match Worktrees::new(&manager)
+        .remove_worktree("repo".into(), w.id)
+        .await
+    {
         Ok(()) => assert!(!Path::new(&w.path).exists()),
         Err(error) => {
             // Some CI hosts cannot create Bubblewrap user namespaces.

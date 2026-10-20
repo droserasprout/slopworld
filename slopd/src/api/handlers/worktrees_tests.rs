@@ -1,4 +1,5 @@
 use super::*;
+use crate::application::workers::Workers;
 
 #[tokio::test]
 async fn root_worktree_listing_does_not_require_an_agent_caller() {
@@ -19,7 +20,7 @@ async fn root_worktree_listing_does_not_require_an_agent_caller() {
     manager.sync_from_config().await;
     // Worker ownership must still reject the same host terminal.
     assert!(
-        manager
+        Workers::new(&manager)
             .worker_project("shell", "repo")
             .await
             .unwrap_err()

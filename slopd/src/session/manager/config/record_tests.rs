@@ -1,6 +1,7 @@
 //! Manager integration tests for production record storage.
 
 use super::*;
+use crate::application::library::Library;
 use crate::config::HostTerminalCfg;
 use crate::storage::{target::StorageBinding, workspace::Store};
 use std::path::PathBuf;
@@ -490,7 +491,10 @@ async fn library_reload_retries_recovery_without_accepting_pending_files() {
         project: "repo".into(),
         ..Default::default()
     };
-    f.manager.add_library_item(item.clone()).await.unwrap();
+    Library::new(&f.manager)
+        .add_library_item(item.clone())
+        .await
+        .unwrap();
     let original = std::fs::read_to_string(&path).unwrap();
     let revision = f
         .manager

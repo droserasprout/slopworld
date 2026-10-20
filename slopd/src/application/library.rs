@@ -2,8 +2,54 @@
 //! Session adapters retain configuration transaction and authorization guards.
 use super::{Event, Services};
 use crate::config::{Config, LibraryItemCfg, check_library_item};
+use crate::session::Manager;
 use anyhow::{Result, anyhow, bail};
+use std::sync::Arc;
 use std::sync::Mutex;
+
+pub(crate) struct Library<'a> {
+    sessions: &'a Arc<Manager>,
+}
+
+impl<'a> Library<'a> {
+    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
+        Self { sessions }
+    }
+
+    pub(crate) async fn library(&self) -> Vec<LibraryItemCfg> {
+        self.sessions
+            .application
+            .library(self.sessions.config().await)
+            .await
+    }
+
+    pub(crate) async fn add_library_item(&self, item: LibraryItemCfg) -> Result<()> {
+        self.sessions
+            .application
+            .mutate_library(self.sessions, LibraryMutation::Add(item))
+            .await
+    }
+
+    pub(crate) async fn update_library_item(&self, name: &str, item: LibraryItemCfg) -> Result<()> {
+        self.sessions
+            .application
+            .mutate_library(
+                self.sessions,
+                LibraryMutation::Replace {
+                    name: name.into(),
+                    item,
+                },
+            )
+            .await
+    }
+
+    pub(crate) async fn remove_library_item(&self, name: &str) -> Result<()> {
+        self.sessions
+            .application
+            .mutate_library(self.sessions, LibraryMutation::Remove(name.into()))
+            .await
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct LibraryCatalog {

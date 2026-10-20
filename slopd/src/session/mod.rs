@@ -25,7 +25,6 @@ mod view;
 
 mod manager;
 mod role;
-pub(crate) use manager::{WorkerCheckout, WorkerRequest, WorktreeRequest};
 use role::{AgentLifetime, SessionRole};
 
 use crate::agent_templates::AgentTemplate;
@@ -42,7 +41,6 @@ pub use view::{
 };
 
 use crate::config::check_belongs;
-use crate::config::check_project;
 use crate::config::patch::json_to_toml;
 use crate::emu::strip_sgr;
 pub(crate) use input::Input;
@@ -54,9 +52,7 @@ use validation::{check_name, free_name, free_project_name, slug};
 #[cfg(test)]
 use input::INPUT_BATCH;
 
-use crate::config::{
-    Config, LibraryItemCfg, NetworkMode, ProjectCfg, SessionCfg, TitlePolicy, expand,
-};
+use crate::config::{Config, NetworkMode, ProjectCfg, SessionCfg, TitlePolicy, expand};
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;
 
@@ -177,4 +173,4 @@ impl Live {
 mod tests;
 
 #[cfg(test)]
-use crate::config::{LibraryItemKind, LibraryItemLink};
+use crate::config::{LibraryItemCfg, LibraryItemKind, LibraryItemLink};

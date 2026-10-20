@@ -1,8 +1,73 @@
 //! Resolve file-action checkout scopes and coordinate bounded host execution.
-//! Session adapters refresh configuration; files owns path and command policy.
+//! Application entry points refresh configuration; files owns path and command policy.
 use crate::config::Config;
 use crate::files::actions::{absolute_path, normalize_action_command, project_action_path};
+use crate::session::Manager;
 use anyhow::{Result, anyhow, bail};
+use std::sync::Arc;
+
+pub(crate) struct FileActions<'a> {
+    sessions: &'a Arc<Manager>,
+}
+
+impl<'a> FileActions<'a> {
+    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
+        Self { sessions }
+    }
+
+    pub(crate) async fn file_action(
+        &self,
+        project: &str,
+        worktree: &str,
+        raw_path: &str,
+        command: &str,
+        host: bool,
+    ) -> Result<String> {
+        self.sessions.reload_if_changed().await;
+        file_action(
+            self.sessions.as_ref(),
+            project,
+            worktree,
+            raw_path,
+            command,
+            host,
+        )
+        .await
+    }
+
+    pub(crate) async fn file_action_command(
+        &self,
+        project: &str,
+        worktree: &str,
+        raw_path: &str,
+        command: &str,
+        host: bool,
+    ) -> Result<String> {
+        self.sessions.reload_if_changed().await;
+        file_action_command(
+            self.sessions.as_ref(),
+            project,
+            worktree,
+            raw_path,
+            command,
+            host,
+        )
+        .await
+    }
+}
+
+impl super::launch::Runtime for FileActions<'_> {
+    async fn file_action_command(
+        &self,
+        project: &str,
+        worktree: &str,
+        path: &str,
+        command: &str,
+        host: bool,
+    ) -> Result<String> {
+        FileActions::file_action_command(self, project, worktree, path, command, host).await
+    }
+}
 pub(crate) async fn worktree_for_path(
     runtime: &impl super::worktrees::Catalog,
     project: &str,

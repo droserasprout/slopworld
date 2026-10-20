@@ -1,5 +1,6 @@
 //! Personal agent-template catalog, snapshot, and instantiation boundaries.
 use crate::api::protobuf::{Proto, domain, reply};
+use crate::application::workers::Workers;
 use crate::shared::wire;
 
 use axum::Extension;
@@ -41,7 +42,7 @@ pub(crate) async fn list_templates(
     if query.project.trim().is_empty() {
         return reply(json!({ "templates": templates }));
     }
-    let project = m
+    let project = Workers::new(&m)
         .worker_project(crate::tasks::HOST, &query.project)
         .await
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
@@ -61,11 +62,11 @@ pub(crate) async fn list_spawnable_templates(
     let caller = super::task_principal(&cap, &headers)?;
     let project = query.project.trim();
     if caller != crate::tasks::HOST || !project.is_empty() {
-        let project = m
+        let project = Workers::new(&m)
             .worker_project(&caller, project)
             .await
             .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
-        let enabled = m.worker_template_names().await;
+        let enabled = Workers::new(&m).worker_template_names().await;
         return reply(json!({
             "templates": m
                 .application.templates.list()
@@ -77,7 +78,7 @@ pub(crate) async fn list_spawnable_templates(
         }));
     }
 
-    let enabled = m.worker_template_names().await;
+    let enabled = Workers::new(&m).worker_template_names().await;
     reply(json!({
         "templates": m
             .application.templates.list()

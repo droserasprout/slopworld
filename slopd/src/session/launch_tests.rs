@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::SessionCfg;
+use crate::config::{LibraryItemKind, SessionCfg};
 use serde_json::json;
 
 #[test]
@@ -76,4 +76,19 @@ fn reader_metadata_round_trip_preserves_context_and_uses_current_session_identit
             "runtime field {key} leaked into the definition"
         );
     }
+}
+
+/// Permit only prompt and shell library items as agent errands.
+/// Reject breadcrumb and file-action items.
+#[test]
+fn only_runnable_library_pass_the_errand_guard() {
+    let sc = |kind| LaunchContent {
+        name: "x".into(),
+        kind,
+        ..Default::default()
+    };
+    sc(LibraryItemKind::Prompt).validate().unwrap();
+    sc(LibraryItemKind::Shell).validate().unwrap();
+    assert!(sc(LibraryItemKind::Breadcrumb).validate().is_err());
+    assert!(sc(LibraryItemKind::FileAction).validate().is_err());
 }

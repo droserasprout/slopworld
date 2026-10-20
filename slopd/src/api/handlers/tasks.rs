@@ -1,5 +1,6 @@
 //! HTTP handlers for task mailboxes and worker creation.
 use crate::api::protobuf::{ApiError, Proto, domain};
+use crate::application::workers::Workers;
 use crate::shared::wire;
 
 use axum::Extension;
@@ -187,7 +188,7 @@ pub(crate) async fn spawn_worker(
                 "Choose an existing worktree or request a new one.",
             ));
         }
-        crate::session::WorkerCheckout::New {
+        crate::application::workers::WorkerCheckout::New {
             base: q.base,
             name: q.worktree_name,
         }
@@ -198,10 +199,10 @@ pub(crate) async fn spawn_worker(
                 "Set new_worktree to true to use base or worktree_name.",
             ));
         }
-        crate::session::WorkerCheckout::Existing(q.worktree)
+        crate::application::workers::WorkerCheckout::Existing(q.worktree)
     };
-    let worker = m
-        .create_worker(crate::session::WorkerRequest {
+    let worker = Workers::new(&m)
+        .create_worker(crate::application::workers::WorkerRequest {
             caller: from.clone(),
             project: q.project,
             template: q.template,

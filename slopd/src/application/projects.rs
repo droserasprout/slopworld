@@ -1,11 +1,14 @@
 //! Project catalog policy and checkout relocation coordination.
-//! Session adapters retain operation guards, identity reservation leases, and attachment checks.
-use crate::config::transactions::PreparedConfigChange;
+//! Application operations retain runtime leases through commit and rollback; session
+//! adapters supply identity reservation, attachments and configuration transactions.
+use crate::config::transactions::{ConfigMutation, PreparedConfigChange};
 use crate::config::{Config, ProjectCfg, check_project, expand, validate_mount_paths};
+use crate::session::Manager;
 use crate::worktrees::{Store, Worktree, WorktreePhase, directories::CreatedDirectories};
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 pub(crate) trait ProjectRuntime: crate::worktrees::relocation::Persistence + Sync {
     fn config(&self) -> impl std::future::Future<Output = Config> + Send;
@@ -262,6 +265,93 @@ impl From<crate::config::ProjectCfg> for ProjectView {
             config,
         }
     }
+}
+
+pub(crate) struct Projects<'a> {
+    sessions: &'a Arc<Manager>,
+}
+
+impl<'a> Projects<'a> {
+    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
+        Self { sessions }
+    }
+
+    pub(crate) async fn projects(&self) -> Vec<ProjectView> {
+        list(&*self.sessions.config_authority.read_config().await)
+    }
+
+    pub(crate) async fn add_project(&self, p: ProjectCfg) -> Result<()> {
+        let manager = self.sessions.clone();
+        self.sessions
+            .owned_session_operation(
+                async move { Projects::new(&manager).add_project_inner(p).await },
+            )
+            .await
+    }
+
+    async fn add_project_inner(&self, mut p: ProjectCfg) -> Result<()> {
+        let _worktrees = self.sessions.workspace.worktrees.mutation.lock().await;
+        self.sessions.reload_if_changed().await;
+        settle(&mut p);
+        p.id = self.sessions.allocate_project_identity().await?;
+        check_project(&p)?;
+        self.sessions
+            .update_cfg(ConfigMutation::Projects, |cfg| add(cfg, p))
+            .await?;
+        publish(self.sessions).await;
+        Ok(())
+    }
+
+    pub(crate) async fn update_project(&self, name: &str, mut p: ProjectCfg) -> Result<()> {
+        settle(&mut p);
+        let manager = self.sessions.clone();
+        let name = name.to_string();
+        // The detached owner retains the boundary and rollback plan after caller cancellation.
+        self.sessions
+            .owned_session_operation(Box::pin(async move {
+                manager.reload_if_changed().await;
+                Projects::new(&manager)
+                    .update_project_inner(&name, p)
+                    .await?;
+                publish(&manager).await;
+                manager.announce_sessions().await;
+                Ok(())
+            }))
+            .await
+    }
+
+    async fn update_project_inner(&self, name: &str, p: ProjectCfg) -> Result<()> {
+        let _lock = self.sessions.workspace.worktrees.mutation.lock().await;
+        update(self.sessions, name, p).await
+    }
+
+    pub(crate) async fn remove_project(&self, name: &str) -> Result<()> {
+        let manager = self.sessions.clone();
+        let name = name.to_owned();
+        self.sessions
+            .owned_session_operation(async move {
+                Projects::new(&manager).remove_project_inner(&name).await
+            })
+            .await
+    }
+
+    async fn remove_project_inner(&self, name: &str) -> Result<()> {
+        let _worktrees = self.sessions.workspace.worktrees.mutation.lock().await;
+        self.sessions.reload_if_changed().await;
+        let cfg = self.sessions.config().await;
+        check_removal(&cfg, &self.sessions.worktree_records(), name)?;
+        self.sessions
+            .update_cfg(ConfigMutation::ProjectReferences, |cfg| remove(cfg, name))
+            .await?;
+        publish(self.sessions).await;
+        Ok(())
+    }
+}
+
+/// Publish from accepted configuration, including callers holding runtime transaction guards.
+pub(crate) async fn publish(sessions: &crate::session::Manager) {
+    let projects = list(&*sessions.config_authority.read_config().await);
+    sessions.emit(super::Event::Projects { projects });
 }
 
 #[cfg(test)]

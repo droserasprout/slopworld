@@ -1,6 +1,8 @@
 //! Worktree catalog lifecycle, recovery, and publication.
-//! Session adapters retain cancellation ownership, operation guards, and attachment identity.
+//! Application operations retain runtime leases through cancellation; session adapters
+//! supply guards, configuration transactions and live attachment identity.
 use crate::config::{Config, ProjectCfg, expand};
+use crate::session::Manager;
 use crate::worktrees::checkout::{
     checked_worktree_destination, create_managed_worktree_path, remove_worktree_checkout,
     validate_external_worktree,
@@ -10,6 +12,7 @@ use crate::worktrees::{Store, Worktree, WorktreePhase, git};
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 #[derive(Clone, Default, Deserialize)]
 pub(crate) struct WorktreeRequest {
     pub project: String,
@@ -410,6 +413,95 @@ impl WorktreeRemoval {
                 Err(error)
             }
         }
+    }
+}
+
+pub(crate) struct Worktrees<'a> {
+    sessions: &'a Arc<Manager>,
+}
+
+impl<'a> Worktrees<'a> {
+    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
+        Self { sessions }
+    }
+
+    pub(crate) async fn rename_worktree(
+        &self,
+        project: String,
+        id: String,
+        name: String,
+    ) -> Result<Worktree> {
+        crate::config::project_name_component(&name).context("invalid worktree name")?;
+        let manager = self.sessions.clone();
+        self.sessions
+            .owned_session_operation(Box::pin(async move {
+                let _lock = manager.workspace.worktrees.mutation.lock().await;
+                Coordinator::new(manager.as_ref())
+                    .rename(&project, &id, name)
+                    .await
+            }))
+            .await
+    }
+    pub(crate) async fn worktree_base(
+        &self,
+        caller: &str,
+        project: &str,
+        revision: &str,
+    ) -> Result<String> {
+        let cfg = self.sessions.config().await;
+        let project = cfg
+            .project(project)
+            .ok_or_else(|| anyhow!("unknown project"))?;
+        let selected = if revision.is_empty() && caller != crate::tasks::HOST {
+            self.sessions.caller_worktree(caller).await
+        } else {
+            String::new()
+        };
+        let project = self.sessions.resolve_worktree(project, &selected).await?;
+        crate::worktrees::inspection::resolve_commit(Path::new(&expand(&project.dir)), revision)
+            .await
+    }
+
+    pub(crate) async fn worktree_list(
+        &self,
+        project: &str,
+    ) -> Result<Vec<crate::application::worktrees::WorktreeView>> {
+        Coordinator::new(self.sessions.as_ref()).list(project).await
+    }
+
+    pub(crate) async fn create_worktree(&self, q: WorktreeRequest) -> Result<Worktree> {
+        self.sessions.reload_if_changed().await;
+        let manager = self.sessions.clone();
+        Box::pin(self.sessions.owned_session_read_operation(async move {
+            let _lock = manager.workspace.worktrees.mutation.lock().await;
+            Coordinator::new(manager.as_ref()).create(&q).await
+        }))
+        .await
+    }
+
+    pub(crate) async fn remove_worktree(&self, project: String, id: String) -> Result<()> {
+        let manager = self.sessions.clone();
+        self.sessions
+            .owned_session_operation(Box::pin(async move {
+                Worktrees::new(&manager)
+                    .remove_worktree_inner(&project, &id)
+                    .await
+            }))
+            .await
+    }
+
+    async fn remove_worktree_inner(&self, project: &str, id: &str) -> Result<()> {
+        let _mutation = self.sessions.workspace.worktrees.mutation.lock().await;
+        Coordinator::new(self.sessions.as_ref())
+            .remove(project, id)
+            .await
+    }
+
+    pub(crate) async fn recover_worktrees(&self) -> Result<()> {
+        let _mutation = self.sessions.workspace.worktrees.mutation.lock().await;
+        Coordinator::new(self.sessions.as_ref())
+            .recover_worktrees()
+            .await
     }
 }
 

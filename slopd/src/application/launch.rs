@@ -1,13 +1,70 @@
-//! Resolve explicit and saved-library launch policy before session allocation.
-//! API owns decoding; session owns the resolved request, live context and guarded execution.
+//! Resolve launches and coordinate allocation, startup, cleanup, and prompt delivery.
+//! API owns decoding; session owns live construction, operation guards and terminal input.
 use crate::config::{Config, LibraryItemKind};
+use crate::session::Manager;
 use crate::session::{
     ExecutionSource, HostLifetime, LaunchContent, LaunchContext, LaunchDestination, LaunchOptions,
     LaunchRequest, ReaderContext, RunWhere,
 };
 use anyhow::{Result, anyhow, bail};
+use std::sync::Arc;
 
-/// File-scope preparation refreshes accepted configuration through the session adapter.
+/// Application launch operations borrow the session runtime without owning live state.
+pub(crate) struct Launches<'a> {
+    sessions: &'a Arc<Manager>,
+}
+
+impl<'a> Launches<'a> {
+    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
+        Self { sessions }
+    }
+
+    pub(crate) async fn run_launch(&self, request: LaunchRequest) -> Result<String> {
+        self.sessions.session_operation(self.run(request)).await
+    }
+
+    async fn run(&self, request: LaunchRequest) -> Result<String> {
+        let sessions = self.sessions;
+        sessions.reload_if_changed().await;
+        let cfg = sessions.config().await;
+        request.content.validate()?;
+        let session = sessions.create_errand_session(&cfg, &request).await?;
+        if !sessions.tmux.exists(&session).await
+            && let Err(error) = sessions.start(&session).await
+        {
+            if !request.execution.persistent_host() {
+                sessions.forget(&session).await;
+            }
+            return Err(error);
+        }
+        sessions.announce_sessions().await;
+        self.queue_errand_delivery(&session, &request.content, &request.options)
+            .await;
+        Ok(session)
+    }
+
+    pub(crate) async fn run_library_item(&self, name: &str, want: RunWhere) -> Result<String> {
+        self.sessions.reload_if_changed().await;
+        let cfg = self.sessions.config().await;
+        let request = plan_library_launch(&cfg, name, want)?;
+        drop(cfg);
+        self.run_launch(request).await
+    }
+
+    pub(crate) async fn queue_errand_delivery(
+        &self,
+        session: &str,
+        content: &LaunchContent,
+        options: &LaunchOptions,
+    ) {
+        let text = prepare_prompt(content, options);
+        if !text.trim().is_empty() {
+            self.sessions.queue_delivery(session, text).await;
+        }
+    }
+}
+
+/// File-scope preparation refreshes accepted configuration through application file actions.
 pub(crate) trait Runtime: Sync {
     fn file_action_command(
         &self,

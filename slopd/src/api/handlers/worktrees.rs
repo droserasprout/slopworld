@@ -1,6 +1,8 @@
 //! Worktree HTTP authorization and wire projection; recovery fields stay in durable records.
 use super::{ApiResult, Mgr, err};
 use crate::api::protobuf::{Proto, domain};
+use crate::application::workers::Workers;
+use crate::application::worktrees::Worktrees;
 use crate::grant::Cap;
 use crate::shared::wire;
 use axum::{
@@ -23,11 +25,11 @@ pub(crate) async fn list_worktrees(
     Query(q): Query<WorktreeQuery>,
 ) -> ApiResult<wire::WorktreesReply> {
     let caller = worktree_principal(&cap, &headers)?;
-    let project = m
+    let project = Workers::new(&m)
         .worker_project(&caller, &q.project)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    let views = m
+    let views = Worktrees::new(&m)
         .worktree_list(&project)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -50,7 +52,7 @@ pub(crate) async fn create_worktree(
     headers: HeaderMap,
     Proto(q): Proto<wire::CreateWorktreeReq>,
 ) -> ApiResult<wire::Worktree> {
-    let mut q: crate::session::WorktreeRequest = domain(q)?;
+    let mut q: crate::application::worktrees::WorktreeRequest = domain(q)?;
     if !q.path.is_empty() && !cap.may_create() {
         return Err(err(
             StatusCode::FORBIDDEN,
@@ -58,11 +60,11 @@ pub(crate) async fn create_worktree(
         ));
     }
     let caller = worktree_principal(&cap, &headers)?;
-    q.project = m
+    q.project = Workers::new(&m)
         .worker_project(&caller, &q.project)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    let worktree = Box::pin(m.create_worktree(q))
+    let worktree = Box::pin(Worktrees::new(&m).create_worktree(q))
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(worktree_reply(worktree)))
@@ -73,7 +75,7 @@ pub(crate) async fn remove_worktree(
     Path(id): Path<String>,
     Query(q): Query<WorktreeQuery>,
 ) -> ApiResult {
-    super::ack_result(m.remove_worktree(q.project, id).await)
+    super::ack_result(Worktrees::new(&m).remove_worktree(q.project, id).await)
 }
 
 pub(crate) async fn rename_worktree(
@@ -82,8 +84,8 @@ pub(crate) async fn rename_worktree(
     Query(q): Query<WorktreeQuery>,
     Proto(req): Proto<wire::CreateWorktreeReq>,
 ) -> ApiResult<wire::Worktree> {
-    let req: crate::session::WorktreeRequest = domain(req)?;
-    let worktree = m
+    let req: crate::application::worktrees::WorktreeRequest = domain(req)?;
+    let worktree = Worktrees::new(&m)
         .rename_worktree(q.project, id, req.name)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -97,11 +99,11 @@ pub(crate) async fn preview_worktree(
     Proto(q): Proto<wire::CreateWorktreeReq>,
 ) -> ApiResult<wire::WorktreeBase> {
     let caller = worktree_principal(&cap, &headers)?;
-    let project = m
+    let project = Workers::new(&m)
         .worker_project(&caller, &q.project)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    let commit = m
+    let commit = Worktrees::new(&m)
         .worktree_base(&caller, &project, q.base.as_deref().unwrap_or(""))
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;

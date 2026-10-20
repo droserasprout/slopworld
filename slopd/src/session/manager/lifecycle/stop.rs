@@ -244,7 +244,7 @@ impl Manager {
     }
 
     /// Drop daemon state without issuing a tmux kill.
-    pub(in crate::session::manager) async fn forget(self: &Arc<Self>, name: &str) {
+    pub(crate) async fn forget(self: &Arc<Self>, name: &str) {
         let manager = self.clone();
         let name = name.to_owned();
         self.owned_session_operation(Box::pin(async move { manager.forget_inner(&name).await }))

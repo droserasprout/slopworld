@@ -28,7 +28,7 @@ impl Manager {
     /// Own name allocation, temporary project creation, and host-tab storage.
     /// Capture application-prepared agent settings inside the session boundary.
     /// Callers control launch and input delivery.
-    pub(super) async fn create_errand_session(
+    pub(crate) async fn create_errand_session(
         self: &Arc<Self>,
         cfg: &Config,
         request: &LaunchRequest,

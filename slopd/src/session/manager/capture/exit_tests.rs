@@ -1,4 +1,5 @@
 use super::*;
+use crate::application::launch::Launches;
 use crate::session::SessionRole;
 
 #[tokio::test]
@@ -581,7 +582,7 @@ async fn host_reader_exit_removes_tab_without_explicit_stop() {
         command: Some("/bin/sh -c 'printf ready; read reply'".into()),
         ..Default::default()
     };
-    let name = manager
+    let name = Launches::new(&manager)
         .run_launch(
             crate::application::launch::library_launch(
                 item,

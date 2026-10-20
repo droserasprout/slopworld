@@ -1,6 +1,7 @@
-//! Session manager state and focused implementation modules.
+//! Live session runtime and focused application adapters.
 //! init.rs constructs state; application/startup.rs orders recovery.
-//! boundary.rs owns concurrency and lifecycle/start.rs owns launch.
+//! boundary.rs owns concurrency and lifecycle/start.rs owns process startup.
+//! Application feature entry points coordinate launches, workers, projects and worktrees.
 //! session_state.rs owns classification; views.rs projects live state for clients.
 
 mod agent_templates;
@@ -13,8 +14,6 @@ mod errands;
 mod host_metadata;
 mod identity;
 mod init;
-mod launch;
-mod library;
 mod lifecycle;
 mod maintenance;
 mod music;
@@ -25,9 +24,7 @@ mod signals;
 mod tasks;
 mod views;
 mod workers;
-pub(crate) use workers::{WorkerCheckout, WorkerRequest};
 mod worktrees;
-pub(crate) use worktrees::WorktreeRequest;
 
 use capture::CachedScroll;
 pub(crate) use host_metadata::HostMetadataPoll;

@@ -1,7 +1,9 @@
 //! Real manager/Git integration against the fixture-selected record layout.
 use super::*;
+use crate::application::projects::Projects;
+use crate::application::worktrees::WorktreeRequest;
+use crate::application::worktrees::Worktrees;
 use crate::config::HostTerminalCfg;
-use crate::session::WorktreeRequest;
 use crate::storage::{target::StorageBinding, workspace};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -58,7 +60,7 @@ impl Fixture {
         }
     }
     async fn tree(&self, name: &str) -> crate::worktrees::Worktree {
-        self.manager
+        Worktrees::new(&self.manager)
             .create_worktree(WorktreeRequest {
                 project: "repo".into(),
                 name: name.into(),
@@ -134,8 +136,7 @@ async fn worktree_records_keep_main_derived_siblings_unchanged_and_ignore_extern
         .modified()
         .unwrap();
     let project = std::fs::read(f.project_path()).unwrap();
-    let renamed = f
-        .manager
+    let renamed = Worktrees::new(&f.manager)
         .rename_worktree("repo".into(), first.id.clone(), "renamed".into())
         .await
         .unwrap();
@@ -151,7 +152,10 @@ async fn worktree_records_keep_main_derived_siblings_unchanged_and_ignore_extern
         sibling_stamp
     );
     assert_eq!(std::fs::read(f.project_path()).unwrap(), project);
-    let rows = f.manager.worktree_list("repo").await.unwrap();
+    let rows = Worktrees::new(&f.manager)
+        .worktree_list("repo")
+        .await
+        .unwrap();
     assert_eq!(
         rows.iter()
             .map(|row| row.worktree.id.as_str())
@@ -214,7 +218,7 @@ async fn project_rename_commits_agent_and_host_references_together_and_preserves
     let mut next = f.manager.config().await.projects[0].clone();
     next.name = "renamed".into();
     let fault = crate::paths::fail_writes(&host);
-    f.manager
+    Projects::new(&f.manager)
         .update_project("repo", next.clone())
         .await
         .unwrap_err();
@@ -223,7 +227,10 @@ async fn project_rename_commits_agent_and_host_references_together_and_preserves
     assert_eq!(std::fs::read(f.project_path()).unwrap(), before_project);
     assert_eq!(f.manager.config().await.sessions[0].project, "repo");
     drop(fault);
-    f.manager.update_project("repo", next).await.unwrap();
+    Projects::new(&f.manager)
+        .update_project("repo", next)
+        .await
+        .unwrap();
     let cfg = f.manager.config().await;
     assert_eq!(cfg.sessions[0].project, "renamed");
     assert_eq!(
@@ -232,7 +239,12 @@ async fn project_rename_commits_agent_and_host_references_together_and_preserves
     );
     assert_eq!(cfg.host_terminals[0].project, "renamed");
     assert_eq!(cfg.projects[0].id, "1111111111111111");
-    assert!(f.manager.remove_project("renamed").await.is_err());
+    assert!(
+        Projects::new(&f.manager)
+            .remove_project("renamed")
+            .await
+            .is_err()
+    );
     assert_eq!(
         std::fs::read_to_string(f.manager.cfg_path()).unwrap(),
         "# root stays unchanged\n"
@@ -256,7 +268,7 @@ async fn canceled_project_move_rolls_back_git_and_records_after_final_write_fail
     next.name = "renamed".into();
     let request = tokio::spawn({
         let manager = f.manager.clone();
-        async move { manager.update_project("repo", next).await }
+        async move { Projects::new(&manager).update_project("repo", next).await }
     });
     tokio::time::timeout(Duration::from_secs(10), reached.notified())
         .await
@@ -316,7 +328,7 @@ async fn failed_git_rollback_retains_relocation_intent_instead_of_ready_stale_pa
     next.name = "renamed".into();
     let request = tokio::spawn({
         let manager = f.manager.clone();
-        async move { manager.update_project("repo", next).await }
+        async move { Projects::new(&manager).update_project("repo", next).await }
     });
     tokio::time::timeout(Duration::from_secs(10), reached.notified())
         .await
@@ -341,13 +353,16 @@ async fn failed_git_rollback_retains_relocation_intent_instead_of_ready_stale_pa
         f.root.join("trees/renamed/checkout").to_string_lossy()
     );
     assert!(f.root.join("trees/renamed/checkout").exists());
-    f.manager.recover_worktrees().await.unwrap();
+    Worktrees::new(&f.manager)
+        .recover_worktrees()
+        .await
+        .unwrap();
     assert_eq!(
         f.manager.worktree_records().worktrees[0].phase,
         crate::worktrees::WorktreePhase::Relocating
     );
     assert!(
-        f.manager
+        Worktrees::new(&f.manager)
             .remove_worktree("repo".into(), tree.id)
             .await
             .is_err()
@@ -360,7 +375,10 @@ async fn project_move_commits_ready_paths_only_with_the_new_project() {
     let tree = f.tree("checkout").await;
     let mut next = f.manager.config().await.projects[0].clone();
     next.name = "renamed".into();
-    f.manager.update_project("repo", next).await.unwrap();
+    Projects::new(&f.manager)
+        .update_project("repo", next)
+        .await
+        .unwrap();
     let stored = workspace::Store::<crate::worktrees::Worktree>::load(&f.binding)
         .await
         .unwrap()
@@ -397,7 +415,7 @@ async fn removing_external_record_leaves_checkout_and_siblings_untouched() {
             f.manager.save_worktrees(&store).await.unwrap();
         })
         .await;
-    f.manager
+    Worktrees::new(&f.manager)
         .remove_worktree("repo".into(), tree.id.clone())
         .await
         .unwrap();
@@ -419,7 +437,7 @@ async fn removing_external_record_leaves_checkout_and_siblings_untouched() {
 async fn project_creation_uses_short_ids_and_preserves_siblings_through_retirement() {
     let f = Fixture::new().await;
     let before = std::fs::read(f.project_path()).unwrap();
-    f.manager
+    Projects::new(&f.manager)
         .add_project(ProjectCfg {
             name: "extra".into(),
             dir: f.root.join("repo").to_string_lossy().into_owned(),
@@ -433,7 +451,10 @@ async fn project_creation_uses_short_ids_and_preserves_siblings_through_retireme
     let path = f.binding.config.join("projects").join(format!("{id}.toml"));
     assert!(path.is_file());
     assert_eq!(cfg.projects[0].name, "repo");
-    f.manager.remove_project("extra").await.unwrap();
+    Projects::new(&f.manager)
+        .remove_project("extra")
+        .await
+        .unwrap();
     assert!(!path.exists());
     assert_eq!(std::fs::read(f.project_path()).unwrap(), before);
 }
@@ -443,8 +464,7 @@ async fn record_removal_refuses_dirty_or_attached_checkouts_and_retains_files() 
     let f = Fixture::new().await;
     let tree = f.tree("dirty").await;
     std::fs::write(Path::new(&tree.path).join("untracked"), "keep").unwrap();
-    let error = f
-        .manager
+    let error = Worktrees::new(&f.manager)
         .remove_worktree("repo".into(), tree.id.clone())
         .await
         .unwrap_err();
@@ -469,12 +489,16 @@ async fn record_removal_refuses_dirty_or_attached_checkouts_and_retains_files() 
         .await
         .unwrap();
     let before = std::fs::read(f.tree_path(&tree.id)).unwrap();
-    let error = f
-        .manager
+    let error = Worktrees::new(&f.manager)
         .remove_worktree("repo".into(), tree.id.clone())
         .await
         .unwrap_err();
     assert!(format!("{error:#}").contains("attached"));
     assert_eq!(std::fs::read(f.tree_path(&tree.id)).unwrap(), before);
-    assert!(f.manager.remove_project("repo").await.is_err());
+    assert!(
+        Projects::new(&f.manager)
+            .remove_project("repo")
+            .await
+            .is_err()
+    );
 }
