@@ -17,14 +17,27 @@ enum Response {
     Wire(String),
     Raw(String, Vec<u8>),
     Redirect(String),
+    Truncated,
 }
 
-pub(super) fn serve(status: &str, body: &str) -> (Endpoint, Server) {
+pub(crate) fn serve(status: &str, body: &str) -> (Endpoint, Server) {
     start(status, Response::Wire(body.into()))
 }
 
-pub(super) fn serve_raw(status: &str, content_type: &str, body: &[u8]) -> (Endpoint, Server) {
+pub(crate) fn serve_raw(status: &str, content_type: &str, body: &[u8]) -> (Endpoint, Server) {
     start(status, Response::Raw(content_type.into(), body.to_vec()))
+}
+
+pub(crate) fn serve_truncated() -> (Endpoint, Server) {
+    start("200 OK", Response::Truncated)
+}
+
+pub(crate) fn serve_sequence(responses: Vec<(&str, String)>) -> (Endpoint, Server) {
+    let responses = responses
+        .into_iter()
+        .map(|(status, body)| (status.to_owned(), Response::Wire(body)))
+        .collect();
+    start_sequence(responses)
 }
 
 pub(super) fn serve_redirect(status: &str, location: &str) -> (Endpoint, Server) {
@@ -32,14 +45,24 @@ pub(super) fn serve_redirect(status: &str, location: &str) -> (Endpoint, Server)
 }
 
 fn start(status: &str, response: Response) -> (Endpoint, Server) {
+    start_sequence(vec![(status.to_owned(), response)])
+}
+
+fn start_sequence(responses: Vec<(String, Response)>) -> (Endpoint, Server) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let address = listener.local_addr().unwrap();
     listener.set_nonblocking(true).unwrap();
-    let status = status.to_owned();
     let server = thread::spawn(move || {
-        let socket = accept_request(&listener, DEADLINE)
-            .map_err(|e| format!("HTTP fixture accepting request: {e}"))?;
-        handle(socket, &status, response).map_err(|error| format!("HTTP fixture: {error}"))
+        let mut requests = String::new();
+        for (status, response) in responses {
+            let socket = accept_request(&listener, DEADLINE)
+                .map_err(|e| format!("HTTP fixture accepting request: {e}"))?;
+            requests.push_str(
+                &handle(socket, &status, response)
+                    .map_err(|error| format!("HTTP fixture: {error}"))?,
+            );
+        }
+        Ok(requests)
     });
     (
         Endpoint {
@@ -80,6 +103,11 @@ fn handle(mut socket: TcpStream, status: &str, response: Response) -> Result<Str
         request.push_str(&value.to_string());
     }
     let (content_type, encoded) = match response {
+        Response::Truncated => {
+            write!(socket, "HTTP/1.1 {status}\r\nContent-Type: application/x-protobuf\r\nContent-Length: 10\r\nConnection: close\r\n\r\nx")
+                .map_err(|e| e.to_string())?;
+            return Ok(request);
+        }
         Response::Redirect(location) => {
             write!(socket, "HTTP/1.1 {status}\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
                 .map_err(|e| e.to_string())?;

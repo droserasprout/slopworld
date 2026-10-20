@@ -1,3 +1,4 @@
+//! CLI endpoint credentials, bounded Protobuf transport, and connection status projection.
 use crate::shared::{http_wire, wire};
 use prost::Message;
 use serde::Deserialize;
@@ -180,3 +181,7 @@ pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
     }
     Value::Object(out)
 }
+
+#[cfg(test)]
+#[path = "http_tests.rs"]
+mod tests;

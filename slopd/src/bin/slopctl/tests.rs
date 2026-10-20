@@ -21,7 +21,7 @@ fn words(text: &str) -> Vec<String> {
 }
 
 #[path = "http_fixture.rs"]
-mod http_fixture;
+pub(crate) mod http_fixture;
 use http_fixture::{serve, serve_raw};
 
 #[test]
