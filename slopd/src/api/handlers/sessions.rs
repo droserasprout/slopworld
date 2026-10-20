@@ -1,4 +1,5 @@
 use crate::api::protobuf::{Proto, domain, reply};
+use crate::application::SessionEdits;
 use crate::shared::wire;
 use axum::Extension;
 use axum::extract::{Path, Query, State};
@@ -88,7 +89,7 @@ pub(crate) async fn create(
 ) -> ApiResult<wire::Ack> {
     super::guard_create(&cap)?;
     let s = crate::api::parse_session(domain(value)?)?;
-    super::ack_result(m.sessions.add(s).await)
+    super::ack_result(SessionEdits::new(&m).add(s).await)
 }
 
 pub(crate) async fn update(
@@ -99,7 +100,7 @@ pub(crate) async fn update(
 ) -> ApiResult<wire::Ack> {
     super::guard_root(&cap)?;
     let s = crate::api::parse_session(domain(value)?)?;
-    super::ack_result(m.sessions.update(&name, s).await)
+    super::ack_result(SessionEdits::new(&m).update(&name, s).await)
 }
 
 pub(crate) async fn destroy(
@@ -108,7 +109,7 @@ pub(crate) async fn destroy(
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
     super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ack_result(m.sessions.remove(&name).await)
+    super::ack_result(SessionEdits::new(&m).remove(&name).await)
 }
 
 macro_rules! session_action {
@@ -124,7 +125,16 @@ macro_rules! session_action {
     };
 }
 
-session_action!(start, stop, reset_state, restart);
+session_action!(start, stop, restart);
+
+pub(crate) async fn reset_state(
+    State(m): State<App>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    super::guard(&m, &cap, &name, Level::Rw).await?;
+    super::ack_result(SessionEdits::new(&m).reset_state(&name).await)
+}
 
 #[derive(serde::Deserialize)]
 pub(crate) struct StorageQuery {
@@ -171,7 +181,7 @@ pub(crate) async fn restore_stored_state(
     State(m): State<App>,
     Path(key): Path<String>,
 ) -> ApiResult<wire::SessionResult> {
-    m.sessions
+    SessionEdits::new(&m)
         .restore_stored_state(&key)
         .await
         .map(|session| reply(json!({ "ok": true, "session": session })))
@@ -186,7 +196,7 @@ pub(crate) async fn set_label(
 ) -> ApiResult<wire::Ack> {
     let q: super::super::types::LabelReq = domain(q)?;
     super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ack_result(m.sessions.set_label(&name, q.label).await)
+    super::ack_result(SessionEdits::new(&m).set_label(&name, q.label).await)
 }
 
 pub(crate) async fn set_reader_pinned(

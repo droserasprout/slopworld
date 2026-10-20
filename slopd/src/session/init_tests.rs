@@ -91,6 +91,7 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
 
     manager
         .sessions
+        .edits()
         .set_label("kept", "after startup".into())
         .await
         .unwrap();

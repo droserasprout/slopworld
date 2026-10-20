@@ -3,6 +3,7 @@
 use super::worktrees::WorktreeRequest;
 use crate::agent_templates::AgentTemplate;
 use crate::application::worktrees::Worktrees;
+use crate::config::transactions::ConfigMutation;
 use crate::config::{Config, NetworkMode, SessionCfg};
 use crate::session::SessionRuntime;
 use anyhow::{Context, Result, anyhow, bail};
@@ -408,7 +409,7 @@ impl Workers {
             .spawn_task_summary(self.config_authority.daemon_settings(), task.clone());
         session.task_id = task.id.clone();
 
-        if let Err(error) = sessions.register_task_worker(&session, durable).await {
+        if let Err(error) = self.register_task_worker(&session, durable).await {
             sessions
                 .fail_worker_task_checked(
                     &session.task_id,
@@ -465,3 +466,31 @@ impl Workers {
 #[cfg(test)]
 #[path = "workers_tests.rs"]
 pub(crate) mod tests;
+
+impl Workers {
+    /// Register the task-owned session while the application retains its spawn guard.
+    /// The application records task failure if durable configuration cannot commit.
+    async fn register_task_worker(&self, session: &SessionCfg, durable: bool) -> Result<()> {
+        if durable {
+            self.configuration()
+                .update_cfg(ConfigMutation::Agents, |cfg| {
+                    if cfg.session(&session.name).is_some()
+                        || cfg
+                            .host_terminals
+                            .iter()
+                            .any(|tab| tab.name == session.name)
+                    {
+                        bail!("worker name became unavailable: {}", session.name);
+                    }
+                    cfg.sessions.push(session.clone());
+                    Ok(())
+                })
+                .await?;
+            self.sessions.sync_from_config().await;
+        } else {
+            self.sessions.register_temporary_worker(session).await;
+        }
+
+        Ok(())
+    }
+}

@@ -7,7 +7,7 @@ use std::collections::HashSet;
 impl SessionRuntime {
     /// Called only while creating a session under the exclusive session boundary.
     /// Ordinary edits retain identity and never inventory private state or tasks.
-    pub(super) async fn allocate_agent_identity(&self) -> Result<String> {
+    pub(crate) async fn allocate_agent_identity(&self) -> Result<String> {
         assert!(
             self.session_write_operation_active(),
             "agent identity allocation requires session boundary"

@@ -4,7 +4,8 @@
 policy, session preparation, checkout allocation and rollback, and task/startup
 coordination. Its `Workers` entry point retains the session request boundary and
 transfers startup to an owned operation. `session/workers.rs` captures caller
-identity, reserves worker names and identities, and registers durable or live sessions.
+identity, reserves worker names and identities, and installs temporary live sessions.
+Application commits durable worker records before runtime reconciliation.
 The application retains the worker registration guard through task creation, startup,
 and failure cleanup. HTTP decodes caller credentials and the existing/new checkout
 choice before invoking that operation.

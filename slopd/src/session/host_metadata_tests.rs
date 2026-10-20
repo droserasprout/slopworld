@@ -326,6 +326,7 @@ async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
     let id = manager.config().await.host_terminals[0].id.clone();
     assert!(crate::storage_id::valid(&id));
     manager
+        .edits()
         .set_label("shell", "  My shell  ".into())
         .await
         .unwrap();

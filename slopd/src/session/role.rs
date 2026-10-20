@@ -2,13 +2,13 @@
 //! worker identity remains in SessionCfg and capture/input state is shared by every role.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum AgentLifetime {
+pub(crate) enum AgentLifetime {
     Durable,
     Temporary,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum SessionRole {
+pub(crate) enum SessionRole {
     Agent(AgentLifetime),
     /// Saved host-shell catalog entries survive stop and process exit.
     HostShell,
@@ -17,19 +17,19 @@ pub(super) enum SessionRole {
 }
 
 impl SessionRole {
-    pub(super) fn is_host(self) -> bool {
+    pub(crate) fn is_host(self) -> bool {
         matches!(self, Self::HostShell | Self::HostAction)
     }
 
-    pub(super) fn is_durable_agent(self) -> bool {
+    pub(crate) fn is_durable_agent(self) -> bool {
         self == Self::Agent(AgentLifetime::Durable)
     }
 
-    pub(super) fn is_temporary_agent(self) -> bool {
+    pub(crate) fn is_temporary_agent(self) -> bool {
         self == Self::Agent(AgentLifetime::Temporary)
     }
 
-    pub(super) fn is_disposable(self) -> bool {
+    pub(crate) fn is_disposable(self) -> bool {
         matches!(
             self,
             Self::Agent(AgentLifetime::Temporary) | Self::HostAction

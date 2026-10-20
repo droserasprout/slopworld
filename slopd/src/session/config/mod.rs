@@ -1,5 +1,4 @@
 //! Live configuration reads and invalidation; application coordinates edits and reloads.
-mod removal;
 use super::*;
 pub(super) use crate::config::transactions::ConfigMutation;
 

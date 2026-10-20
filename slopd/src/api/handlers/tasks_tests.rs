@@ -190,7 +190,7 @@ async fn renamed_recipient_updates_use_current_label_without_changing_authority(
     for (old, new) in [("bob", "renamed"), ("carol", "bob")] {
         let mut session = m.sessions.config().await.session(old).unwrap().clone();
         session.name = new.into();
-        m.sessions.update(old, session).await.unwrap();
+        m.sessions.edits().update(old, session).await.unwrap();
     }
     let update = || {
         Proto(wire::UpdateTaskReq {

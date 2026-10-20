@@ -347,7 +347,7 @@ async fn one_shot_registration_is_live_only_and_keeps_worker_identity() {
     let mut worker =
         worker_session_from_template(&template("review"), "child".into(), "repo", "parent");
     worker.task_id = "task-1".into();
-    manager.register_task_worker(&worker, false).await.unwrap();
+    manager.register_temporary_worker(&worker).await;
     assert!(manager.config().await.sessions.is_empty());
     let rows = manager.live.read().await;
     let row = &rows["child"];

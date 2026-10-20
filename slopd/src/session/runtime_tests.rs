@@ -141,3 +141,9 @@ impl SessionRuntime {
             crate::grant::Grants::load(self.cfg_path()).unwrap();
     }
 }
+
+impl SessionRuntime {
+    pub(crate) fn edits(self: &Arc<Self>) -> crate::application::SessionEdits {
+        crate::application::SessionEdits::new(&crate::application::Application::from_runtime(self))
+    }
+}

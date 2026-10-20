@@ -112,7 +112,7 @@ async fn existing_agent_switches_worktrees_inside_session_request() {
             Duration::from_secs(5),
             f.manager
                 .configuration()
-                .session_request(f.manager.update("agent", edited)),
+                .session_request(f.manager.edits().update("agent", edited)),
         )
         .await
         .expect("agent save blocked inside the request boundary")

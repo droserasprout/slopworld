@@ -1,11 +1,12 @@
 //! Capture portable templates and register instantiated sessions.
-//! The catalog owns persistence; the session runtime owns guarded registration.
+//! The catalog owns persistence; SessionEdits coordinates guarded registration.
 use super::{Application, Configuration, Services};
 use crate::{agent_templates::AgentTemplate, config::SessionCfg, session::SessionRuntime};
 use anyhow::{Result, bail};
 use std::sync::Arc;
 pub(crate) struct TemplateOperations {
     sessions: Arc<SessionRuntime>,
+    edits: super::SessionEdits,
     configuration: Configuration,
     services: Arc<Services>,
 }
@@ -13,6 +14,7 @@ impl TemplateOperations {
     pub(crate) fn new(application: &Application) -> Self {
         Self {
             sessions: application.sessions.clone(),
+            edits: super::SessionEdits::new(application),
             configuration: Configuration::new(application),
             services: application.services.clone(),
         }
@@ -81,7 +83,7 @@ impl TemplateOperations {
             .instantiate(template_name, name, project, overrides, start)
             .await?;
         let name = session.name.clone();
-        self.sessions.add_template_session(session).await?;
+        self.edits.add_template_session(session).await?;
         Ok(name)
     }
 }

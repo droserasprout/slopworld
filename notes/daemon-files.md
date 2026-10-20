@@ -10,7 +10,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `main.rs` | Startup/service orchestration and token middleware. |
 | `application/` | Startup-constructed accepted configuration/credential state, personal template and library catalogs, project coordination, and shared event/task/music services. Feature entry points (`Launches`, `Library`, `FileActions`, `Workers`, `Projects`, and `Worktrees`) own user-operation coordination and retain explicit shared dependencies. Application owns catalog maintenance, task summaries and their shared title cache, and usage/music publication; session adapters supply identity/authorization leases and host lifecycle; API owns event encoding. |
 | `application/state.rs` | HTTP/WebSocket application state containing the session runtime, accepted configuration authority, workspace and services. Feature handles clone their required dependencies from it. |
-| `agent_templates/` | Portable template definitions, snapshot/version policy, and generation persistence. Application owns the accepted catalog; `application/template_operations.rs` captures agents and instantiates drafts; session registers them under lifecycle guards. |
+| `agent_templates/` | Portable template definitions, snapshot/version policy, and generation persistence. Application owns the accepted catalog; `application/template_operations.rs` captures agents and instantiates drafts; `application/session_edits.rs` registers them under session lifecycle guards. |
 | `shared/` | Protocol constants/enums and serialization helpers. |
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` decodes explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md) and [file preview boundary](daemon-file-previews.md). |
 | `api/handlers/files/`, `api/handlers/highlighting.rs` | File and syntax-preview HTTP decoding, path resolution, error mapping, and wire projection. |
@@ -20,11 +20,12 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `session/role.rs` | Live agent lifetime and host roles; lifecycle owns retention/cleanup and views projects compatibility flags. |
 | `session/validation.rs` | Session name allocation and normalization. |
 | `prompt/` | Placeholder scanning and values for prompts and breadcrumbs. |
+| `application/session_edits.rs`, `session/sessions.rs` | Application coordinates configured edits, labels, deletion and private-state recovery; session supplies live facts and terminal handoffs. |
 | `session/runtime.rs` | `SessionRuntime` and its guards, configuration synchronization, session lifecycle, capture, task/session integration, workers. |
 | `application/projects.rs`, `session/identity.rs`, `session/worktrees.rs` | Application owns project operations, policy, publication and relocation coordination; session supplies guards, live identity references, and attachments. See [worktree ownership](daemon-worktrees.md). |
-| `application/workers.rs`, `session/workers.rs` | Application owns worker policy, checkout rollback, task creation and startup coordination; session owns caller facts, identity reservation, registration and lifecycle guards. |
+| `application/workers.rs`, `session/workers.rs` | Application owns worker policy, checkout rollback, task creation and startup coordination; application commits durable records; session owns caller facts, identity reservation, temporary registration and lifecycle guards. |
 | `application/workspace_identity.rs` | Workspace identity reservation against records and retained caches; session supplies live references and retains operation guards through publication. |
-| `application/errands.rs`, `application/stored_state.rs` | Errand configuration/display policy and stored-state administration. Session retains allocation, guarded reset/restore, and live reconciliation. |
+| `application/errands.rs`, `application/stored_state.rs` | Errand configuration/display policy and stored-state administration. Session retains allocation and live reconciliation; `application/session_edits.rs` coordinates guarded reset/restore. |
 | `application/launch.rs`, `session/errands.rs` | Application resolves explicit and saved-library launch policy and coordinates execution; session owns guarded live allocation and lifecycle. API owns explicit request decoding; saved library entries and music use the same resolved launch request. |
 | `session/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |
 | `session/delivery.rs` | Run-bound delayed prompt submission, readiness, and auto-resume. Callers compose prompts; capture owns queued input execution. |

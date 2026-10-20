@@ -452,12 +452,20 @@ async fn start_plan_snapshots_reader_context_and_publishes_recoverable_metadata(
     let metadata = manager.tmux.reader_metadata(&name).await.unwrap();
     assert_eq!(LaunchContext::from(&metadata), plan.context);
     manager.set_reader_pinned(&name, true).await.unwrap();
-    manager.set_label(&name, "custom".into()).await.unwrap();
+    manager
+        .edits()
+        .set_label(&name, "custom".into())
+        .await
+        .unwrap();
     let metadata = manager.tmux.reader_metadata(&name).await.unwrap();
     assert!(metadata.pinned);
     assert_eq!(metadata.label, "custom");
     assert_eq!(metadata.original_label, "file.rs");
-    manager.set_label(&name, String::new()).await.unwrap();
+    manager
+        .edits()
+        .set_label(&name, String::new())
+        .await
+        .unwrap();
     assert_eq!(
         manager.tmux.reader_metadata(&name).await.unwrap().label,
         "file.rs"

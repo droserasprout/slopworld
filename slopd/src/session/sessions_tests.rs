@@ -1,6 +1,7 @@
 use super::super::host_metadata::tests::metadata_fixture;
 use super::super::lifecycle::start::prepare_project_dir;
 use super::*;
+const MAX_MANUAL_LABEL_CHARS: usize = 60;
 use crate::session::config::ConfigMutation;
 use crate::session::{AgentLifetime, SessionRole};
 
@@ -24,7 +25,7 @@ async fn removal_save_failure_restores_private_state_before_retry() {
             manager.config().await.sessions[0].state_id
         ));
     let fault = crate::paths::fail_writes(&record);
-    manager.remove("old").await.unwrap_err();
+    manager.edits().remove("old").await.unwrap_err();
     assert_eq!(
         std::fs::read_to_string(state.join("retained")).unwrap(),
         "private state"
@@ -38,7 +39,7 @@ async fn removal_save_failure_restores_private_state_before_retry() {
             .is_some()
     );
     drop(fault);
-    manager.remove("old").await.unwrap();
+    manager.edits().remove("old").await.unwrap();
     assert!(!state.exists());
     assert!(manager.config().await.session("old").is_none());
     assert!(!manager.live.read().await.contains_key("old"));
@@ -221,7 +222,7 @@ async fn invalid_or_conflicting_renames_do_not_touch_tmux_or_config() {
             ..Default::default()
         },
     ] {
-        assert!(manager.update("old", invalid).await.is_err());
+        assert!(manager.edits().update("old", invalid).await.is_err());
         assert!(manager.tmux.exists("old").await);
         assert!(!manager.tmux.exists("renamed").await);
         assert_eq!(manager.config().await.sessions[0].name, "old");
@@ -237,7 +238,11 @@ async fn running_and_down_renames_preserve_private_state() {
     for running in [false, true] {
         let (manager, root, socket) = rename_fixture(running).await;
         let state_id = manager.config().await.sessions[0].state_id.clone();
-        manager.update("old", replacement("renamed")).await.unwrap();
+        manager
+            .edits()
+            .update("old", replacement("renamed"))
+            .await
+            .unwrap();
 
         assert!(!manager.tmux.exists("old").await);
         assert_eq!(manager.tmux.exists("renamed").await, running);
@@ -276,6 +281,7 @@ async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
         }
 
         let error = manager
+            .edits()
             .update("old", replacement("renamed"))
             .await
             .unwrap_err()
@@ -320,7 +326,7 @@ async fn abandoning_update_cannot_skip_commit_or_rollback() {
     let (renamed, release) = manager.tmux.pause_after_rename_for_test();
     let update = tokio::spawn({
         let manager = manager.clone();
-        async move { manager.update("old", replacement("renamed")).await }
+        async move { manager.edits().update("old", replacement("renamed")).await }
     });
     renamed.notified().await;
     update.abort();
@@ -506,6 +512,7 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
         };
         let label = "界".repeat(MAX_MANUAL_LABEL_CHARS);
         manager
+            .edits()
             .set_label(name, format!("  {label}  "))
             .await
             .unwrap();
@@ -519,6 +526,7 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
         }
         assert!(
             manager
+                .edits()
                 .set_label(name, "界".repeat(MAX_MANUAL_LABEL_CHARS + 1))
                 .await
                 .is_err()
@@ -527,7 +535,7 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
             manager.live.read().await[name].cfg.label.as_deref(),
             Some(label.as_str())
         );
-        manager.set_label(name, "  ".into()).await.unwrap();
+        manager.edits().set_label(name, "  ".into()).await.unwrap();
         assert!(manager.live.read().await[name].cfg.label.is_none());
     }
     let saved = Config::load(manager.cfg_path()).await.unwrap();
@@ -535,6 +543,7 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
     assert!(saved.host_terminals[0].label.is_none());
     assert!(
         manager
+            .edits()
             .set_label("missing", "label".into())
             .await
             .unwrap_err()
@@ -559,6 +568,7 @@ async fn ephemeral_labels_stay_runtime_only() {
     live.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("worker".into(), live);
     manager
+        .edits()
         .set_label("worker", "Temporary worker".into())
         .await
         .unwrap();
@@ -574,7 +584,11 @@ async fn ephemeral_labels_stay_runtime_only() {
 #[tokio::test]
 async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
     let manager = metadata_fixture().await;
-    manager.set_label("agent", "Original".into()).await.unwrap();
+    manager
+        .edits()
+        .set_label("agent", "Original".into())
+        .await
+        .unwrap();
     let request = pending_title(&mut manager.live.write().await.get_mut("agent").unwrap().title);
     let record = manager
         .cfg_path()
@@ -586,7 +600,13 @@ async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
             manager.config().await.sessions[0].state_id
         ));
     let _fault = crate::paths::fail_writes(&record);
-    assert!(manager.set_label("agent", "Unsaved".into()).await.is_err());
+    assert!(
+        manager
+            .edits()
+            .set_label("agent", "Unsaved".into())
+            .await
+            .is_err()
+    );
     assert_eq!(
         manager.live.read().await["agent"].cfg.label.as_deref(),
         Some("Original")
@@ -610,6 +630,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         return;
     };
     let (manager, root, socket) = rename_fixture(false).await;
+    let edits = manager.edits();
     let session = manager.config().await.sessions[0].clone();
     let private = crate::sandbox::state_dir(&session).unwrap();
     std::fs::create_dir_all(&private).unwrap();
@@ -625,7 +646,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
             manager.config().await.sessions[0].state_id
         ));
     let fault = crate::paths::fail_writes(&record);
-    assert!(manager.remove("old").await.is_err());
+    assert!(edits.remove("old").await.is_err());
     assert_eq!(std::fs::read(manager.cfg_path()).unwrap(), saved);
     assert_eq!(
         std::fs::read_to_string(private.join("memory")).unwrap(),
@@ -642,7 +663,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     );
     drop(fault);
 
-    manager.remove("old").await.unwrap();
+    edits.remove("old").await.unwrap();
     assert!(!private.exists());
     assert!(manager.config().await.session("old").is_none());
     assert!(!manager.live.read().await.contains_key("old"));
@@ -652,10 +673,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(archived.session.as_deref(), Some("old"));
     let fault = crate::paths::fail_writes(&record);
-    manager
-        .restore_stored_state(&archived.key)
-        .await
-        .unwrap_err();
+    edits.restore_stored_state(&archived.key).await.unwrap_err();
     assert!(!private.exists());
     assert!(manager.config().await.session("old").is_none());
     assert_eq!(
@@ -664,7 +682,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     );
     drop(fault);
     assert_eq!(
-        manager.restore_stored_state(&archived.key).await.unwrap(),
+        edits.restore_stored_state(&archived.key).await.unwrap(),
         "old"
     );
     assert_eq!(
@@ -687,7 +705,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     assert!(manager.live.read().await.contains_key("old"));
 
     // Reset archives private state while retaining the configured agent identity.
-    manager.reset_state("old").await.unwrap();
+    edits.reset_state("old").await.unwrap();
     assert!(!private.exists());
     assert_eq!(
         manager.config().await.session("old").unwrap().state_id,
@@ -698,7 +716,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         .unwrap();
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(
-        manager.restore_stored_state(&archived.key).await.unwrap(),
+        edits.restore_stored_state(&archived.key).await.unwrap(),
         "old"
     );
     assert_eq!(manager.config().await.sessions.len(), 1);
@@ -748,7 +766,7 @@ async fn removing_one_durable_session_does_not_autostart_an_unrelated_host_tab()
         })
         .await
         .unwrap();
-    manager.remove("old").await.unwrap();
+    manager.edits().remove("old").await.unwrap();
     assert!(manager.config().await.session("old").is_none());
     assert!(!manager.live.read().await.contains_key("old"));
     assert!(
@@ -784,7 +802,7 @@ async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_re
         async move {
             manager
                 .configuration()
-                .session_request(manager.update("old", replacement("renamed")))
+                .session_request(manager.edits().update("old", replacement("renamed")))
                 .await
         }
     });
@@ -805,7 +823,7 @@ async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_re
     drop(fault);
     manager
         .configuration()
-        .session_request(manager.update("old", replacement("renamed")))
+        .session_request(manager.edits().update("old", replacement("renamed")))
         .await
         .unwrap();
     assert_eq!(manager.config().await.sessions[0].state_id, id);
@@ -832,7 +850,7 @@ async fn record_retirement_failure_restores_private_state_and_preserves_accepted
     let before = std::fs::read(&path).unwrap();
     std::fs::remove_file(&path).unwrap();
     std::fs::create_dir(&path).unwrap();
-    manager.remove("old").await.unwrap_err();
+    manager.edits().remove("old").await.unwrap_err();
     assert!(manager.config().await.session("old").is_some());
     assert_eq!(
         std::fs::read_to_string(state.join("retained")).unwrap(),
@@ -840,7 +858,7 @@ async fn record_retirement_failure_restores_private_state_and_preserves_accepted
     );
     std::fs::remove_dir(&path).unwrap();
     std::fs::write(&path, before).unwrap();
-    manager.remove("old").await.unwrap();
+    manager.edits().remove("old").await.unwrap();
     assert!(!state.exists());
     assert!(!path.exists());
     assert!(manager.config().await.session("old").is_none());
@@ -902,7 +920,7 @@ async fn host_removal_retires_saved_tabs_and_runtime_actions_without_touching_ag
     manager.live.write().await.insert("action".into(), action);
     let before = manager.config().await.sessions[0].clone();
     for name in ["shell", "action"] {
-        manager.remove(name).await.unwrap();
+        manager.edits().remove(name).await.unwrap();
         assert!(!manager.live.read().await.contains_key(name));
         assert!(
             !manager
@@ -941,6 +959,7 @@ async fn reset_rejects_runtime_only_roles_before_stopping_or_mutating_them() {
         manager.live.write().await.insert("runtime".into(), row);
         assert!(
             manager
+                .edits()
                 .reset_state("runtime")
                 .await
                 .unwrap_err()

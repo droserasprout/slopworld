@@ -52,7 +52,8 @@ pub(crate) use signals::Signals;
 pub use signals::WatchGuard;
 
 mod role;
-use role::{AgentLifetime, SessionRole};
+use role::AgentLifetime;
+pub(crate) use role::SessionRole;
 
 #[cfg(test)]
 use crate::agent_templates::AgentTemplateStore;
@@ -66,13 +67,13 @@ pub use view::{
     SessionWorkerView,
 };
 
-use crate::config::check_belongs;
 use crate::emu::strip_sgr;
 pub(crate) use input::Input;
 use input::merge_input;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
+pub(crate) use validation::check_name;
 pub(crate) use validation::name_slug;
-use validation::{check_name, free_name, free_project_name, slug};
+use validation::{free_name, free_project_name, slug};
 
 #[cfg(test)]
 use input::INPUT_BATCH;

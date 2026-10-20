@@ -1,7 +1,9 @@
 # Session lifecycle boundary
 
 `session/lifecycle/` owns start, stop, adoption, and reconciliation.
-`session/sessions.rs` owns configured session edits. Operations validate a
+`application/session_edits.rs` owns configured session edits and private-state
+recovery. `session/sessions.rs` supplies live facts, label application, reader
+metadata and rename handoffs. Operations validate a
 complete candidate before changing tmux identity and protect commit/rollback from
 caller cancellation. Creation, label edits, deletion, and private-state restoration
 also retain their session boundary in owned work through publication or cleanup.

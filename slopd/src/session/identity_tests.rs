@@ -36,6 +36,7 @@ async fn configured_creation_ignores_client_identity_and_preserves_id_on_label_e
     });
     let supplied = crate::storage_id::draft_identity();
     manager
+        .edits()
         .add(SessionCfg {
             name: "created".into(),
             project: "repo".into(),

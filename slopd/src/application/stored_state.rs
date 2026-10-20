@@ -1,5 +1,5 @@
 //! Stored private-state and cache administration. Sandbox owns filesystem policy;
-//! session retains reset/restore operations that change live identity or configuration.
+//! application session_edits coordinates reset/restore under session lifecycle guards.
 use crate::config::Config;
 use anyhow::{Result, anyhow};
 

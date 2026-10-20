@@ -79,8 +79,9 @@ async fn manager_routes_rename_label_and_directory_updates_without_touching_othe
     let root = tokio::fs::read(f.manager.cfg_path()).await.unwrap();
     let mut edited = f.manager.config().await.session("agent").unwrap().clone();
     edited.name = "renamed".into();
-    f.manager.update("agent", edited).await.unwrap();
+    f.manager.edits().update("agent", edited).await.unwrap();
     f.manager
+        .edits()
         .set_label("renamed", "new label".into())
         .await
         .unwrap();
@@ -116,6 +117,7 @@ async fn configured_creation_and_retirement_use_records_and_keep_reused_names_di
     };
     let f = Fixture::new().await;
     f.manager
+        .edits()
         .add(SessionCfg {
             name: "new-agent".into(),
             project: "repo".into(),
@@ -126,15 +128,18 @@ async fn configured_creation_and_retirement_use_records_and_keep_reused_names_di
         .unwrap();
     let path = f.agent_path("new-agent").await;
     f.manager
-        .remove_configured_session("new-agent")
+        .configuration()
+        .remove_agent_record("new-agent")
         .await
         .unwrap();
     assert!(!path.exists());
     f.manager
-        .remove_configured_session("new-agent")
+        .configuration()
+        .remove_agent_record("new-agent")
         .await
         .unwrap();
     f.manager
+        .edits()
         .add(SessionCfg {
             name: "new-agent".into(),
             project: "repo".into(),
@@ -159,6 +164,7 @@ async fn failed_record_commit_does_not_publish_indexes_or_config_and_retry_succe
     let before = tokio::fs::read(&path).await.unwrap();
     let fault = crate::paths::fail_writes(&path);
     f.manager
+        .edits()
         .set_label("agent", "failed".into())
         .await
         .unwrap_err();
@@ -170,6 +176,7 @@ async fn failed_record_commit_does_not_publish_indexes_or_config_and_retry_succe
     assert_eq!(tokio::fs::read(&path).await.unwrap(), before);
     drop(fault);
     f.manager
+        .edits()
         .set_label("agent", "accepted".into())
         .await
         .unwrap();
@@ -217,7 +224,11 @@ async fn coordinated_agent_edits_rollback_all_selected_files_before_publication(
     assert_eq!(tokio::fs::read(&second).await.unwrap(), before.1);
     assert!(!f.binding.journal().unwrap().exists());
     drop(fault);
-    f.manager.set_label("agent", "retry".into()).await.unwrap();
+    f.manager
+        .edits()
+        .set_label("agent", "retry".into())
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -232,7 +243,8 @@ async fn cancellation_after_disk_commit_still_publishes_config_and_record_indexe
         .lock()
         .unwrap() = Some((committed.clone(), release.clone()));
     let manager = f.manager.clone();
-    let request = tokio::spawn(async move { manager.set_label("agent", "committed".into()).await });
+    let request =
+        tokio::spawn(async move { manager.edits().set_label("agent", "committed".into()).await });
     tokio::time::timeout(Duration::from_secs(5), committed.wait())
         .await
         .unwrap();

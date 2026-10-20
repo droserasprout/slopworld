@@ -196,6 +196,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     // Stopped sessions also count as attachments. Removing either attachment preserves the checkout.
     for name in ["one", "two"] {
         manager
+            .edits()
             .add(SessionCfg {
                 name: name.into(),
                 project: "repo".into(),
@@ -225,9 +226,9 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
             .await
             .is_err()
     );
-    manager.remove("one").await.unwrap();
+    manager.edits().remove("one").await.unwrap();
     assert!(Path::new(&w.path).exists());
-    manager.remove("two").await.unwrap();
+    manager.edits().remove("two").await.unwrap();
     assert!(Path::new(&w.path).exists());
 
     // Failed removal neither commits nor destroys files. Retry uses the actual current branch.

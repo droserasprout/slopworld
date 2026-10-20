@@ -4,7 +4,6 @@ use super::*;
 #[cfg(test)]
 use crate::agent_templates::AgentTemplate;
 use crate::application::workers;
-use crate::config::transactions::ConfigMutation;
 #[cfg(test)]
 use workers::{WorkerCheckout, WorkerRequest, worker_session_from_template};
 
@@ -23,36 +22,11 @@ impl SessionRuntime {
         Ok(())
     }
 
-    /// Register the task-owned session while the application retains its spawn guard.
-    /// The application records task failure if durable configuration cannot commit.
-    pub(crate) async fn register_task_worker(
-        self: &Arc<Self>,
-        session: &SessionCfg,
-        durable: bool,
-    ) -> Result<()> {
-        if durable {
-            self.configuration()
-                .update_cfg(ConfigMutation::Agents, |cfg| {
-                    if cfg.session(&session.name).is_some()
-                        || cfg
-                            .host_terminals
-                            .iter()
-                            .any(|tab| tab.name == session.name)
-                    {
-                        bail!("worker name became unavailable: {}", session.name);
-                    }
-                    cfg.sessions.push(session.clone());
-                    Ok(())
-                })
-                .await?;
-            self.sync_from_config().await;
-        } else {
-            let mut live = Live::new(session.clone(), TitleCapture::default());
-            live.role = SessionRole::Agent(AgentLifetime::Temporary);
-            self.live.write().await.insert(session.name.clone(), live);
-        }
-
-        Ok(())
+    /// Install a temporary worker while application retains the worker spawn guard.
+    pub(crate) async fn register_temporary_worker(&self, session: &SessionCfg) {
+        let mut live = Live::new(session.clone(), TitleCapture::default());
+        live.role = SessionRole::Agent(AgentLifetime::Temporary);
+        self.live.write().await.insert(session.name.clone(), live);
     }
 
     async fn fresh_worker_name(&self, owner: &str) -> String {

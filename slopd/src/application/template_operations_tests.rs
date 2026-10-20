@@ -185,7 +185,7 @@ async fn an_instantiated_template_can_still_be_edited_without_live_dependencies(
             .clone(),
         ..Default::default()
     };
-    manager.update("new-agent", update).await.unwrap();
+    manager.edits().update("new-agent", update).await.unwrap();
     let session = manager.config().await.session("new-agent").unwrap().clone();
     assert!(!session.sandbox_snapshots.is_empty());
     drop(std::fs::remove_dir_all(root));

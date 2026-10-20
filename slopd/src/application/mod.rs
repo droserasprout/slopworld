@@ -110,3 +110,6 @@ pub(crate) use template_operations::TemplateOperations;
 
 mod music_operations;
 pub(crate) use music_operations::MusicOperations;
+
+mod session_edits;
+pub(crate) use session_edits::SessionEdits;

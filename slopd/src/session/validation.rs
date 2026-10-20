@@ -2,7 +2,7 @@
 
 use super::*;
 
-pub(super) fn check_name(name: &str) -> Result<()> {
+pub(crate) fn check_name(name: &str) -> Result<()> {
     if name.is_empty() || name.contains(|c: char| c.is_whitespace() || c == ':' || c == '.') {
         bail!("Enter a session name without whitespace, colon, or period.");
     }

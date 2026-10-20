@@ -223,3 +223,13 @@ impl Configuration {
 #[cfg(test)]
 #[path = "configuration_tests.rs"]
 mod tests;
+
+impl Configuration {
+    pub(crate) async fn remove_agent_record(&self, name: &str) -> Result<()> {
+        self.update_cfg(ConfigMutation::Agents, |cfg| {
+            cfg.sessions.retain(|session| session.name != name);
+            Ok(())
+        })
+        .await
+    }
+}

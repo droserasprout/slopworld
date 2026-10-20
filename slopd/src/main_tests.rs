@@ -540,7 +540,7 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
                 if rename {
                     let mut renamed = old.clone();
                     renamed.name = "renamed".into();
-                    manager.update(subject, renamed).await.unwrap();
+                    manager.edits().update(subject, renamed).await.unwrap();
                     cfg = manager.config().await;
                 } else {
                     cfg.sessions.retain(|s| s.name != subject);
