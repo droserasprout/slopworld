@@ -351,3 +351,119 @@ fn worker_inherits_extra_arguments_from_selected_template() {
         "codex --full-auto --model 'two words'"
     );
 }
+
+#[tokio::test]
+async fn invalid_worker_callers_and_projects_leave_no_tasks_or_sessions() {
+    let manager = crate::session::test_manager(Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        sessions: vec![SessionCfg {
+            name: "orphan".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    for (caller, project, message) in [
+        (" ", "repo", "caller identity"),
+        ("missing", "repo", "no such caller session"),
+        (crate::tasks::HOST, "", "project context"),
+        (crate::tasks::HOST, "missing", "no such worker project"),
+        ("orphan", "repo", "no project context"),
+    ] {
+        let error = manager
+            .spawn_worker(
+                caller.into(),
+                project.into(),
+                "review".into(),
+                "work".into(),
+                false,
+            )
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains(message), "{error:#}");
+        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(manager.live.read().await.is_empty());
+        assert_eq!(manager.config().await.sessions.len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn worker_name_allocation_skips_saved_agents_and_host_tabs() {
+    let manager = crate::session::test_manager(Config {
+        sessions: vec![SessionCfg {
+            name: "caller-worker".into(),
+            ..Default::default()
+        }],
+        host_terminals: vec![crate::config::HostTerminalCfg {
+            name: "caller-worker-2".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    assert_eq!(manager.fresh_worker_name("caller").await, "caller-worker-3");
+}
+
+#[tokio::test]
+async fn one_shot_registration_is_live_only_and_keeps_worker_identity() {
+    let manager = crate::session::test_manager(Config::default());
+    let mut worker =
+        worker_session_from_template(&template("review"), "child".into(), "repo", "parent");
+    worker.task_id = "task-1".into();
+    manager.register_task_worker(&worker, false).await.unwrap();
+    assert!(manager.config().await.sessions.is_empty());
+    let rows = manager.live.read().await;
+    let row = &rows["child"];
+    assert!(row.ephemeral);
+    assert_eq!(row.state, State::Down);
+    assert_eq!(row.cfg.state_id, worker.state_id);
+    assert_eq!(row.cfg.task_id, "task-1");
+    assert_eq!(row.cfg.parent, "parent");
+}
+
+#[tokio::test]
+async fn unusable_worker_templates_fail_before_creating_mailbox_records() {
+    for (network, command, message) in [
+        (NetworkMode::None, "echo ready", "disables networking"),
+        (NetworkMode::Private, " ", "executable command"),
+    ] {
+        let manager = crate::session::test_manager(Config {
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                dir: "/tmp".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let mut selected = template("review");
+        selected.defaults.network = Some(network);
+        selected.defaults.cmd = Some(command.into());
+        // Blank overrides select the default preset. An empty captured command
+        // exercises the unresolved-command rejection without launching a process.
+        if command.trim().is_empty() {
+            selected.defaults.command = Some(
+                serde_json::from_value(serde_json::json!({
+                    "name": "empty", "kind": "agent", "cmd": "", "sandbox": []
+                }))
+                .unwrap(),
+            );
+        }
+        manager.templates.store.write().await.templates = vec![selected];
+        let error = manager
+            .spawn_worker(
+                crate::tasks::HOST.into(),
+                "repo".into(),
+                "review".into(),
+                "work".into(),
+                false,
+            )
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains(message), "{error:#}");
+        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(manager.config().await.sessions.is_empty());
+        assert!(manager.live.read().await.is_empty());
+    }
+}

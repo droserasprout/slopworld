@@ -98,3 +98,29 @@ impl Manager {
         .await
     }
 }
+
+impl Manager {
+    /// Hold queued input at the transport boundary for command authorization tests.
+    pub(crate) async fn terminal_input_fixture(
+        &self,
+        name: &str,
+        run_id: u64,
+    ) -> mpsc::UnboundedReceiver<Input> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let mut live = Live::new(
+            SessionCfg {
+                name: name.into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.run_id = run_id;
+        live.state = State::Working;
+        live.input.sender = Some(tx);
+        let mut emu = SessionEmu::new(80, 24);
+        emu.feed(b"\x1b[?1000h\x1b[?1006h");
+        live.capture.emu = Some(Arc::new(Mutex::new(emu)));
+        self.live.write().await.insert(name.into(), live);
+        rx
+    }
+}

@@ -1052,3 +1052,113 @@ async fn broadcast_lag_closes_socket_for_authoritative_catalog_recovery() {
         .unwrap()
         .unwrap();
 }
+
+#[tokio::test]
+async fn terminal_commands_require_write_scope_and_current_run() {
+    use crate::session::Input;
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let mut input = manager.terminal_input_fixture("target", 7).await;
+    let socket = socket_pair().await;
+    let subs = WsSubs::default();
+    let keys = |run_id| {
+        ClientMsg::Keys(
+            serde_json::from_value(serde_json::json!({
+                "name": "target", "keys": ["hello"], "literal": true, "run_id": run_id
+            }))
+            .unwrap(),
+        )
+    };
+    let paste = |run_id, images| {
+        let request = serde_json::json!({
+            "name": "target", "text": "paste λ", "run_id": run_id, "host_file_images": images
+        });
+        ClientMsg::Paste(serde_json::from_value(request).unwrap())
+    };
+    let revoked = scoped(&["target"], Level::Rw);
+    if let Cap::Scoped(grant) = &revoked {
+        grant
+            .revoked
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
+    for cap in [
+        scoped(&["target"], Level::Ro),
+        scoped(&["other"], Level::Rw),
+        revoked,
+    ] {
+        for command in [keys(Some(7)), paste(Some(7), false)] {
+            assert!(handle_client_msg(command, &manager, &cap, &socket.tx, &subs).await);
+            assert!(input.try_recv().is_err());
+        }
+    }
+    for cap in [Cap::Root, scoped(&["target"], Level::Rw)] {
+        for command in [keys(Some(6)), paste(Some(6), false)] {
+            assert!(handle_client_msg(command, &manager, &cap, &socket.tx, &subs).await);
+            assert!(input.try_recv().is_err(), "stale command was queued");
+        }
+        for run in [Some(7), None] {
+            assert!(handle_client_msg(keys(run), &manager, &cap, &socket.tx, &subs).await);
+            assert!(
+                matches!(input.try_recv().unwrap(), Input::Keys { keys, literal: true } if keys == ["hello"])
+            );
+            assert!(handle_client_msg(paste(run, false), &manager, &cap, &socket.tx, &subs).await);
+            assert!(
+                matches!(input.try_recv().unwrap(), Input::Paste { bytes } if bytes == "paste λ".as_bytes())
+            );
+        }
+    }
+    assert!(
+        handle_client_msg(
+            paste(Some(7), true),
+            &manager,
+            &scoped(&["target"], Level::Rw),
+            &socket.tx,
+            &subs
+        )
+        .await
+    );
+    assert!(
+        input.try_recv().is_err(),
+        "scoped paste imported host files"
+    );
+}
+
+#[tokio::test]
+async fn mouse_and_resize_commands_enforce_scope_before_changing_terminal() {
+    use crate::session::Input;
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let mut input = manager.terminal_input_fixture("target", 7).await;
+    let socket = socket_pair().await;
+    let subs = WsSubs::default();
+    let mouse = |action| {
+        ClientMsg::Mouse(
+            serde_json::from_value(serde_json::json!({
+                "name": "target", "action": action, "col": 3, "row": 2, "count": 2
+            }))
+            .unwrap(),
+        )
+    };
+    let resize = || {
+        ClientMsg::Resize(
+            serde_json::from_value(serde_json::json!({
+                "name": "target", "cols": 90, "rows": 30
+            }))
+            .unwrap(),
+        )
+    };
+    let ro = scoped(&["target"], Level::Ro);
+    assert!(handle_client_msg(mouse("press"), &manager, &ro, &socket.tx, &subs).await);
+    assert!(handle_client_msg(resize(), &manager, &ro, &socket.tx, &subs).await);
+    assert!(input.try_recv().is_err());
+    let view = manager.views().await.pop().unwrap();
+    assert_ne!((view.runtime.cols, view.runtime.rows), (90, 30));
+    let rw = scoped(&["target"], Level::Rw);
+    assert!(handle_client_msg(mouse("invalid"), &manager, &rw, &socket.tx, &subs).await);
+    assert!(input.try_recv().is_err());
+    assert!(handle_client_msg(mouse("press"), &manager, &rw, &socket.tx, &subs).await);
+    assert!(
+        matches!(input.try_recv().unwrap(), Input::Bytes(bytes) if bytes == b"\x1b[<0;4;3M".repeat(2))
+    );
+    assert!(handle_client_msg(resize(), &manager, &rw, &socket.tx, &subs).await);
+    let view = manager.views().await.pop().unwrap();
+    assert_eq!((view.runtime.cols, view.runtime.rows), (90, 30));
+}

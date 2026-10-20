@@ -605,3 +605,50 @@ async fn quiet_resize_publishes_width_and_height_without_new_output() {
         ));
     }
 }
+
+#[tokio::test]
+async fn closed_input_consumer_is_replaced_and_new_input_is_delivered() {
+    let (manager, old_receiver) = queued_manager().await;
+    drop(old_receiver);
+    let (sink, mut delivered) = mpsc::unbounded_channel();
+    *manager.input_sink.lock().unwrap() = Some(sink);
+    manager.queue_paste("target", b"recovered".to_vec()).await;
+    let item = tokio::time::timeout(Duration::from_secs(1), delivered.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(item, Input::Paste { bytes } if bytes == b"recovered"));
+    assert!(
+        !manager.live.read().await["target"]
+            .input
+            .sender
+            .as_ref()
+            .unwrap()
+            .is_closed()
+    );
+}
+
+#[tokio::test]
+async fn teardown_rejects_queued_input_even_when_run_identity_is_unchanged() {
+    let (manager, _) = queued_manager().await;
+    let (sink, mut delivered) = mpsc::unbounded_channel();
+    *manager.input_sink.lock().unwrap() = Some(sink);
+    let (identity, run) = {
+        let mut rows = manager.live.write().await;
+        let row = rows.get_mut("target").unwrap();
+        row.input.sender = None;
+        (row.cfg.state_id.clone(), row.run_id)
+    };
+    assert!(
+        !manager
+            .dispatch_queued_input("target", &identity, run, Input::Bytes(vec![1]))
+            .await
+    );
+    manager.live.write().await.remove("target");
+    assert!(
+        !manager
+            .dispatch_queued_input("target", &identity, run, Input::Bytes(vec![2]))
+            .await
+    );
+    assert!(delivered.try_recv().is_err());
+}

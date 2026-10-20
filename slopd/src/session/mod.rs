@@ -44,7 +44,8 @@ pub use view::{
     SessionWorkerView,
 };
 
-use input::{Input, merge_input};
+pub(crate) use input::Input;
+use input::merge_input;
 use prompt::{PromptVars, render_prompt, render_prompt_with};
 pub use text::strip_sgr;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
