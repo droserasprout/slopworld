@@ -26,13 +26,11 @@ pub(crate) fn test_manager_with_socket(
         directory.join("tmux").to_str().unwrap().to_owned()
     };
     let cfg_path = directory.join("config.toml");
-    let records = super::config::backend::records::Records::fixture(&mut config, &cfg_path)
+    let records = crate::config::transactions::records::Records::fixture(&mut config, &cfg_path)
         .expect("record fixture");
-    let config_state = super::ConfigState::new(
+    let configuration = crate::config::transactions::Transactions::new(
         records,
         crate::config::catalog::revision(&cfg_path).ok(),
-        None,
-        None,
     );
     let (events, _) = broadcast::channel(16);
     let tmux = Tmux::new(socket);
@@ -50,7 +48,8 @@ pub(crate) fn test_manager_with_socket(
         templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
-        config_state,
+        configuration,
+        catalog_state: super::CatalogState::new(None, None),
         host_metadata: HostMetadataPoll::default(),
         signals: super::Signals::new(),
         scroll_cache: Mutex::new(HashMap::new()),

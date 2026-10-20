@@ -1,6 +1,6 @@
+use super::super::ConfigMutation;
 use super::*;
 use crate::config::MountMode;
-use crate::session::manager::config::ConfigMutation;
 
 #[tokio::test]
 async fn cache_configuration_removes_only_owned_links() {
@@ -138,7 +138,7 @@ async fn config_save_failure_rolls_back_added_and_removed_links() {
         }],
         ..Default::default()
     };
-    let manager = crate::session::test_manager(old.clone());
+    let manager = super::super::tests::Fixture::new(old.clone());
     let old = manager.config().await;
     reconcile_store_links(&Store::default(), &Config::default(), &old).unwrap();
     let _fault = crate::paths::fail_writes(

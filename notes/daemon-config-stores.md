@@ -3,7 +3,13 @@
 The daemon owns machine settings and workspace records. `config/settings.rs` owns
 root settings; `config/model.rs` assembles client views. `storage/` owns record
 schemas, accepted indexes, targeted persistence and bound transaction recovery.
-`session/manager/config/` serializes validation, runtime effects and publication.
+`config/transactions/` owns the persistence gate, prepared changes, accepted record
+indexes, cache-link rollback, and library revision acceptance. Its runtime adapter
+in `session/manager/config/` retains session/worktree operation guards, validates
+live constraints, publishes configuration and authentication together, and updates
+endpoint credentials before releasing the persistence gate. Client announcements
+follow the completed transaction. `session/manager/catalog_state.rs` holds independent
+catalog polling deadlines and timestamps.
 `storage/layout.rs` recovers and loads the workspace once, then hands the validated
 configuration, typed record indexes and sampled library revision to the manager.
 The manager requires that backend from construction; it never reloads workspace

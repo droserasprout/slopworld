@@ -2,8 +2,9 @@
 
 use super::super::*;
 use super::{
-    Authorization, ConfigState, HostMetadataPoll, Music, Signals, TemplateStore, WorktreeState,
+    Authorization, CatalogState, HostMetadataPoll, Music, Signals, TemplateStore, WorktreeState,
 };
+use crate::config::transactions::{Transactions, records::Records};
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
@@ -66,9 +67,8 @@ impl Manager {
             library_snapshot: Mutex::new(cfg.library_items_all()),
             cfg: RwLock::new(cfg),
             templates: TemplateStore::new(templates),
-            config_state: ConfigState::new(
-                super::config::backend::records::Records::new(binding, stores),
-                library_revision,
+            configuration: Transactions::new(Records::new(binding, stores), library_revision),
+            catalog_state: CatalogState::new(
                 presets_loaded.then_some(presets_mtime).flatten(),
                 jukebox_loaded.then_some(jukebox_mtime).flatten(),
             ),

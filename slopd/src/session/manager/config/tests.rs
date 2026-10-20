@@ -110,18 +110,6 @@ async fn persisted_root_token_changes_invalidate_existing_auth() {
     );
 }
 
-#[test]
-fn candidate_preparation_restores_a_redacted_root_token() {
-    let mut old = Config::default();
-    old.daemon.token = "real-root-token".into();
-    let mut candidate = old.clone();
-    candidate.daemon.token = crate::config::TOKEN_REDACTED.into();
-
-    let change = prepare_candidate(&old, candidate).expect("valid candidate");
-
-    assert_eq!(change.new.daemon.token, old.daemon.token);
-}
-
 #[tokio::test]
 async fn concurrent_structured_writes_keep_both_changes() {
     let manager = test_manager(Config::default());
@@ -228,7 +216,7 @@ async fn config_sync_upserts_agents_and_only_valid_host_terminals() {
 async fn invalid_library_does_not_consume_its_revision() {
     let manager = test_manager(Config::default());
     let accepted = manager
-        .config_state
+        .configuration
         .library_revision
         .lock()
         .unwrap()
@@ -239,7 +227,7 @@ async fn invalid_library_does_not_consume_its_revision() {
     std::fs::write(&path, "name = [").unwrap();
     assert!(!manager.reload_if_changed().await);
     assert_eq!(
-        *manager.config_state.library_revision.lock().unwrap(),
+        *manager.configuration.library_revision.lock().unwrap(),
         accepted
     );
     std::fs::write(&path, "name = 'retry'\nlink = 'project'\ntext = 'fixed'").unwrap();
@@ -293,7 +281,7 @@ async fn configuration_entry_points_preserve_notification_scope() {
 async fn document_save_does_not_acknowledge_an_external_library_revision() {
     let manager = test_manager(Config::default());
     let accepted = manager
-        .config_state
+        .configuration
         .library_revision
         .lock()
         .unwrap()
@@ -310,7 +298,7 @@ async fn document_save_does_not_acknowledge_an_external_library_revision() {
         .await
         .unwrap();
     assert_eq!(
-        *manager.config_state.library_revision.lock().unwrap(),
+        *manager.configuration.library_revision.lock().unwrap(),
         accepted
     );
     assert!(manager.reload_if_changed().await);
@@ -332,7 +320,7 @@ async fn agent_edit_does_not_read_or_retire_unselected_library_files() {
     let bytes = "unaccepted external edit [";
     tokio::fs::write(&sibling, bytes).await.unwrap();
     let stamp = manager
-        .config_state
+        .configuration
         .library_revision
         .lock()
         .unwrap()
@@ -346,7 +334,7 @@ async fn agent_edit_does_not_read_or_retire_unselected_library_files() {
         .unwrap();
     assert_eq!(tokio::fs::read_to_string(sibling).await.unwrap(), bytes);
     assert_eq!(
-        *manager.config_state.library_revision.lock().unwrap(),
+        *manager.configuration.library_revision.lock().unwrap(),
         stamp
     );
     assert_eq!(
@@ -378,7 +366,7 @@ async fn library_edit_does_not_write_or_accept_an_external_root_revision() {
     );
     assert_eq!(manager.config().await.library[0].name, "new-prompt");
     assert_eq!(
-        *manager.config_state.library_revision.lock().unwrap(),
+        *manager.configuration.library_revision.lock().unwrap(),
         crate::config::catalog::revision(&manager.cfg_path).ok()
     );
     assert_eq!(

@@ -69,7 +69,7 @@ async fn failed_poll_preserves_state_and_allows_a_successful_retry() {
     let manager = metadata_fixture().await;
     let cfg = manager.config().await;
     let record = manager
-        .config_state
+        .configuration
         .records
         .binding
         .data
@@ -343,7 +343,7 @@ async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
 #[tokio::test]
 async fn record_backend_host_metadata_keeps_run_checks_and_targets_one_shell() {
     let manager = metadata_fixture().await;
-    let binding = manager.config_state.records.binding.clone();
+    let binding = manager.configuration.records.binding.clone();
     let cfg = manager.config().await;
     let agent = binding
         .data

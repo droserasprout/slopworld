@@ -48,7 +48,7 @@ impl Fixture {
             ..Default::default()
         });
         manager.replace_workspace_fixture(&cfg).await.unwrap();
-        let binding = manager.config_state.records.binding.clone();
+        let binding = manager.configuration.records.binding.clone();
         std::fs::write(&manager.cfg_path, "# root stays unchanged\n").unwrap();
         Self {
             manager,

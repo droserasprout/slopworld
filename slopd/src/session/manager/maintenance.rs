@@ -35,13 +35,13 @@ fn next_periodic_deadline(last: u64, period: u64, now: u64) -> u64 {
 impl Manager {
     pub(super) async fn reload_if_due(self: &Arc<Self>) {
         let now = unix_ms();
-        if claim_due(&self.config_state.config_checked, now, CFG_CHECK_MS) {
+        if claim_due(&self.catalog_state.config_checked, now, CFG_CHECK_MS) {
             self.reload_if_changed().await;
         }
-        if claim_due(&self.config_state.presets_checked, now, PRESETS_CHECK_MS) {
+        if claim_due(&self.catalog_state.presets_checked, now, PRESETS_CHECK_MS) {
             self.reload_presets_if_changed().await;
         }
-        if claim_due(&self.config_state.jukebox_checked, now, JUKEBOX_CHECK_MS)
+        if claim_due(&self.catalog_state.jukebox_checked, now, JUKEBOX_CHECK_MS)
             && let Err(error) = self.reload_jukebox_if_changed().await
         {
             tracing::warn!("jukebox definitions are not reloadable: {error:#}");
@@ -53,17 +53,17 @@ impl Manager {
     pub(crate) async fn maintenance_delay(&self) -> Duration {
         let now = unix_ms();
         let mut deadline = next_periodic_deadline(
-            self.config_state.config_checked.load(Ordering::Acquire),
+            self.catalog_state.config_checked.load(Ordering::Acquire),
             CFG_CHECK_MS,
             now,
         );
         deadline = deadline.min(next_periodic_deadline(
-            self.config_state.presets_checked.load(Ordering::Acquire),
+            self.catalog_state.presets_checked.load(Ordering::Acquire),
             PRESETS_CHECK_MS,
             now,
         ));
         deadline = deadline.min(next_periodic_deadline(
-            self.config_state.jukebox_checked.load(Ordering::Acquire),
+            self.catalog_state.jukebox_checked.load(Ordering::Acquire),
             JUKEBOX_CHECK_MS,
             now,
         ));
@@ -96,7 +96,7 @@ impl Manager {
     pub async fn reload_presets_if_changed(self: &Arc<Self>) -> bool {
         let reloaded = {
             let mut seen = self
-                .config_state
+                .catalog_state
                 .presets_mtime
                 .lock()
                 .unwrap_or_else(|error| error.into_inner());
@@ -120,7 +120,7 @@ impl Manager {
     pub async fn reload_jukebox_if_changed(self: &Arc<Self>) -> anyhow::Result<bool> {
         let reloaded = {
             let mut seen = self
-                .config_state
+                .catalog_state
                 .jukebox_mtime
                 .lock()
                 .unwrap_or_else(|error| error.into_inner());

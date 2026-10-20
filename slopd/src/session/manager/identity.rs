@@ -33,7 +33,7 @@ impl Manager {
                 .await
                 .context("private-state identity inventory failed")??,
         );
-        let records = self.config_state.records.binding.data.join("agents");
+        let records = self.configuration.records.binding.data.join("agents");
         crate::storage_id::allocate(|id| {
             if occupied.contains(id) {
                 return Ok(true);
@@ -68,7 +68,7 @@ impl Manager {
                 .into_iter()
                 .map(|w| w.project_id),
         );
-        let root = &self.config_state.records.binding.config;
+        let root = &self.configuration.records.binding.config;
         let records = root.join("projects");
         let caches = crate::sandbox::cache::root();
         crate::storage_id::allocate(|id| {
@@ -95,7 +95,7 @@ impl Manager {
                 .values()
                 .map(|live| live.cfg.worktree.clone()),
         );
-        let root = &self.config_state.records.binding.data;
+        let root = &self.configuration.records.binding.data;
         let records = root.join("worktrees");
         crate::storage_id::allocate(|id| {
             Ok(occupied.contains(id) || occupied_path(&records.join(format!("{id}.toml")))?)

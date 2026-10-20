@@ -37,19 +37,18 @@ impl PreparedDisk {
     }
 }
 
-impl Manager {
+impl Transactions {
     pub(super) async fn prepare_config_disk(
         &self,
         mutation: ConfigMutation,
         next: &Config,
     ) -> Result<PreparedDisk> {
-        let records = &self.config_state.records;
+        let records = &self.records;
         if matches!(mutation, ConfigMutation::Library) {
             let revision =
                 crate::config::catalog::revision(&records.binding.config.join("config.toml"))?;
             anyhow::ensure!(
-                self.config_state
-                    .library_revision
+                self.library_revision
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .as_ref()
@@ -70,5 +69,3 @@ impl Manager {
             .map(|plan| PreparedDisk::Records(Box::new(plan)))
     }
 }
-
-pub(in crate::session::manager) mod records;

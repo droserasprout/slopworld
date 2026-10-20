@@ -59,15 +59,15 @@ async fn quiet_session() -> (Arc<Manager>, crate::emu::SessionEmu) {
     }
     // Prevent unrelated polling from suspending retick before it reaches classification.
     manager
-        .config_state
+        .catalog_state
         .config_checked
         .store(u64::MAX, Ordering::Relaxed);
     manager
-        .config_state
+        .catalog_state
         .presets_checked
         .store(u64::MAX, Ordering::Relaxed);
     manager
-        .config_state
+        .catalog_state
         .jukebox_checked
         .store(u64::MAX, Ordering::Relaxed);
     manager

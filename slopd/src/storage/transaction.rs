@@ -1,8 +1,9 @@
 //! Explicit workspace commits and undo recovery across configuration/data filesystems.
 //!
 //! The manager acquires session boundary -> worktree mutation (when needed) ->
-//! configuration persistence gate. It recovers before reading/preparing store state.
-//! The manager retains that gate in an owned operation through disk commit and
+//! configuration persistence gate (owned by config::transactions). Recovery precedes
+//! reading/preparing store state. The transaction retains its gate inside the
+//! manager's owned operation through disk commit and
 //! accepted-memory publication, even after caller cancellation.
 //! Additional lifecycle/checkout guards belong to the manager's owned operation;
 //! this disk owner does not replace that outer cancellation boundary.

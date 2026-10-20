@@ -36,7 +36,7 @@ impl Fixture {
             }],
             ..Default::default()
         });
-        let binding = manager.config_state.records.binding.clone();
+        let binding = manager.configuration.records.binding.clone();
         crate::paths::write_atomic_async(&manager.cfg_path, "# untouched root\n", Some(0o600))
             .await
             .unwrap();
@@ -222,7 +222,7 @@ async fn cancellation_after_disk_commit_still_publishes_config_and_record_indexe
     let f = Fixture::new().await;
     let committed = Arc::new(tokio::sync::Barrier::new(2));
     let release = Arc::new(tokio::sync::Notify::new());
-    *f.manager.config_state.commit_pause.lock().unwrap() =
+    *f.manager.configuration.commit_pause.lock().unwrap() =
         Some((committed.clone(), release.clone()));
     let manager = f.manager.clone();
     let request = tokio::spawn(async move { manager.set_label("agent", "committed".into()).await });
@@ -232,11 +232,11 @@ async fn cancellation_after_disk_commit_still_publishes_config_and_record_indexe
     assert_eq!(f.manager.config().await.sessions[0].label, None);
     request.abort();
     drop(request.await);
-    f.manager.config_state.persist.try_lock().unwrap_err();
+    f.manager.configuration.persist.try_lock().unwrap_err();
     release.notify_one();
     let gate = tokio::time::timeout(
         Duration::from_secs(5),
-        f.manager.config_state.persist.lock(),
+        f.manager.configuration.persist.lock(),
     )
     .await
     .unwrap();
@@ -321,7 +321,7 @@ async fn independent_library_reload_preserves_workspace_and_rejects_invalid_revi
     assert_eq!(f.manager.config().await.library[0].text, "prompt");
     let stamp = f
         .manager
-        .config_state
+        .configuration
         .library_revision
         .lock()
         .unwrap()
@@ -333,7 +333,7 @@ async fn independent_library_reload_preserves_workspace_and_rejects_invalid_revi
         .unwrap();
     assert!(!f.manager.reload_if_changed().await);
     assert_eq!(
-        *f.manager.config_state.library_revision.lock().unwrap(),
+        *f.manager.configuration.library_revision.lock().unwrap(),
         stamp
     );
     assert_eq!(f.manager.config().await.library[0].text, "prompt");
@@ -478,7 +478,7 @@ async fn library_reload_retries_recovery_without_accepting_pending_files() {
     let original = std::fs::read_to_string(&path).unwrap();
     let revision = f
         .manager
-        .config_state
+        .configuration
         .library_revision
         .lock()
         .unwrap()
@@ -502,7 +502,7 @@ async fn library_reload_retries_recovery_without_accepting_pending_files() {
         assert!(!f.manager.reload_if_changed().await);
         assert_eq!(f.manager.config().await.library[0].text, "accepted");
         assert_eq!(
-            *f.manager.config_state.library_revision.lock().unwrap(),
+            *f.manager.configuration.library_revision.lock().unwrap(),
             revision
         );
         assert_eq!(std::fs::read_to_string(&path).unwrap(), pending);
@@ -553,7 +553,7 @@ async fn canceled_library_reload_retains_its_boundary_through_recovery() {
     });
     let journal = f.binding.journal().unwrap();
     std::fs::write(&journal, undo.to_string()).unwrap();
-    let gate = f.manager.config_state.persist.lock().await;
+    let gate = f.manager.configuration.persist.lock().await;
     let reached = Arc::new(tokio::sync::Notify::new());
     let request = tokio::spawn({
         let manager = f.manager.clone();

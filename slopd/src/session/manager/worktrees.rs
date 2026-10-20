@@ -45,13 +45,11 @@ struct PreparedWorktree {
 impl Manager {
     /// Read the accepted index under session/worktree operation guards.
     pub(crate) fn worktree_records(&self) -> Store {
-        self.config_state.records.worktrees()
+        self.configuration.records.worktrees()
     }
 
     pub(crate) async fn save_worktrees(&self, store: &Store) -> Result<()> {
-        let records = &self.config_state.records;
-        let gate = self.config_state.persist.clone().lock_owned().await;
-        records.save_worktrees(store.worktrees.clone(), &gate).await
+        self.configuration.save_worktrees(store).await
     }
 
     pub(crate) async fn rename_worktree(

@@ -183,7 +183,12 @@ impl Manager {
         let result = mutation(&mut store)?;
         store.validate()?;
         let published = self.templates.store.clone();
-        let anchor = self.config_state.records.binding.config.join("config.toml");
+        let anchor = self
+            .configuration
+            .records
+            .binding
+            .config
+            .join("config.toml");
         let path = AgentTemplateStore::path_for(&anchor);
         #[cfg(test)]
         let publish_pause = self.templates.publish_pause.lock().unwrap().take();

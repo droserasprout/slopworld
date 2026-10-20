@@ -1,9 +1,11 @@
 //! Cache-link changes across project configuration and its worktrees.
 
 use crate::config::Mount;
+use crate::config::{Config, ProjectCfg, expand};
 use crate::sandbox::cache::{self, is_relative_cache};
-use crate::session::*;
 use crate::worktrees::Store;
+use anyhow::{Result, bail};
+use std::path::{Path, PathBuf};
 
 /// Filesystem changes owned by a config attempt until its persistence succeeds.
 #[derive(Debug, Default)]

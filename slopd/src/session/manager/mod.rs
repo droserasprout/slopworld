@@ -6,6 +6,7 @@ mod agent_templates;
 mod boundary;
 mod caps;
 mod capture;
+mod catalog_state;
 mod config;
 mod desktop;
 mod directories;
@@ -34,7 +35,7 @@ pub(crate) use agent_templates::TemplatePersistence;
 pub(crate) use agent_templates::TemplateStore;
 pub(crate) use caps::Authorization;
 use capture::CachedScroll;
-pub(crate) use config::ConfigState;
+pub(crate) use catalog_state::CatalogState;
 pub(crate) use host_metadata::HostMetadataPoll;
 pub(crate) use signals::Signals;
 pub use signals::WatchGuard;
@@ -51,9 +52,10 @@ pub struct Manager {
     // Configuration and saved definitions.
     pub cfg_path: PathBuf,
     pub(super) endpoint_path: PathBuf,
-    // Accepted configuration; config/mod.rs serializes persistence and publication.
+    // Accepted configuration and auth publish together; configuration owns transactions.
     pub(super) cfg: RwLock<Config>,
-    pub(super) config_state: ConfigState,
+    pub(super) catalog_state: CatalogState,
+    pub(super) configuration: crate::config::transactions::Transactions,
     pub(super) templates: TemplateStore,
 
     // Live sessions, terminal capture, and activity.

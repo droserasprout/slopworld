@@ -11,6 +11,7 @@ mod persistence;
 mod resolution;
 mod sandbox;
 pub(crate) mod settings;
+pub(crate) mod transactions;
 mod validation;
 
 pub(crate) use commands::resolve_highlighter;

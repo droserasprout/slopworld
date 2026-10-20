@@ -4,7 +4,7 @@
 use super::*;
 
 #[derive(Clone, Copy)]
-pub(in crate::session::manager) enum ConfigMutation {
+pub(crate) enum ConfigMutation {
     Agents,
     HostShells,
     Projects,
