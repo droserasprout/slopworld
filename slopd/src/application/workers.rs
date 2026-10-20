@@ -411,10 +411,9 @@ impl Workers {
 
         if let Err(error) = self.register_task_worker(&session, durable).await {
             sessions
-                .fail_worker_task_checked(
-                    &session.task_id,
-                    &session.state_id,
-                    format!("could not persist worker session: {error:#}"),
+                .record_worker_failure(
+                    &session,
+                    crate::session::WorkerFailureCause::RegistrationFailed(format!("{error:#}")),
                 )
                 .await;
             return Err(error);
@@ -422,10 +421,9 @@ impl Workers {
 
         if let Err(error) = sessions.start(&session.name).await {
             sessions
-                .fail_worker_task_checked(
-                    &task.id,
-                    &session.state_id,
-                    format!("worker failed to start: {error:#}"),
+                .record_worker_failure(
+                    &session,
+                    crate::session::WorkerFailureCause::StartFailed(format!("{error:#}")),
                 )
                 .await;
             if !durable {

@@ -129,20 +129,17 @@ impl SessionRuntime {
 
     async fn fail_timed_out_delivery(&self, target: &DeliveryTarget) {
         self.session_read_operation(async {
-            let task = self
+            let failure = self
                 .live
                 .read()
                 .await
                 .get(&target.name)
-                .filter(|live| target.matches(live) && live.cfg.worker)
-                .map(|live| (live.cfg.task_id.clone(), live.cfg.state_id.clone()));
-            if let Some((task, identity)) = task {
-                self.fail_worker_task_checked(
-                    &task,
-                    &identity,
-                    "startup input withheld: agent readiness timed out",
-                )
-                .await;
+                .filter(|live| target.matches(live))
+                .and_then(|live| {
+                    WorkerFailure::for_session(&live.cfg, WorkerFailureCause::DeliveryTimedOut)
+                });
+            if let Some(failure) = failure {
+                failure.apply(self).await;
             }
         })
         .await;

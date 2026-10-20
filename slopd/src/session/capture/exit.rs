@@ -93,14 +93,13 @@ impl SessionRuntime {
         } else {
             self.save_pane_exit(name, &session, &reason).await
         };
-        if session.worker {
-            self.fail_worker_task_checked(
-                &session.task_id,
-                &session.state_id,
-                format!("worker session {name}: {reason}"),
-            )
-            .await;
-        }
+        self.record_worker_failure(
+            &session,
+            WorkerFailureCause::ProcessExited {
+                reason: Some(reason),
+            },
+        )
+        .await;
         // Keep the dead pane if recording failed; it still holds evidence.
         let terminal = self.terminal_boundary(name).write_owned().await;
         if saved && let Err(error) = self.tmux.kill(name).await {

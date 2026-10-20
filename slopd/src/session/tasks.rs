@@ -1,4 +1,4 @@
-//! Session/task integration: participant identity, worker references and failure consequences.
+//! Session/task integration: participant identity and worker references.
 use super::*;
 #[cfg(test)]
 use crate::tasks::Status;
@@ -30,24 +30,6 @@ impl SessionRuntime {
         self.task_store()
             .create_owned_async(from, to, body, worker, reserved)
             .await
-    }
-
-    pub(crate) async fn fail_worker_task_checked(
-        &self,
-        task_id: &str,
-        identity: &str,
-        note: impl Into<String>,
-    ) {
-        if task_id.is_empty() {
-            return;
-        }
-        if let Err(error) = self
-            .task_store()
-            .fail_worker_async(task_id, identity, note.into())
-            .await
-        {
-            tracing::error!(task = %task_id, "could not persist worker failure: {error:#}");
-        }
     }
 
     /// Call under the session boundary, after transport authorization.

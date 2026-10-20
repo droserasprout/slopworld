@@ -35,7 +35,7 @@ pub(crate) struct CleanupPlan {
     revoke_grants: bool,
 
     // Task outcome and client publication.
-    worker_failure: Option<(String, String, String)>,
+    worker_failure: Option<WorkerFailure>,
     announce_sessions: bool,
 }
 
@@ -135,17 +135,7 @@ impl SessionRuntime {
 
         let session = current.cfg.clone();
         let project = session.project.clone();
-        let worker_failure = session.worker.then(|| {
-            let note = match cause {
-                DetachCause::Stop => format!("The daemon stopped worker session {name}."),
-                DetachCause::ProcessExit { .. } => format!("worker session {name} exited"),
-                DetachCause::ConfigRemoval => format!("The daemon removed worker session {name}."),
-                DetachCause::Forget => {
-                    format!("Worker session {name} exited, or the daemon stopped it.")
-                }
-            };
-            (session.task_id.clone(), session.state_id.clone(), note)
-        });
+        let worker_failure = WorkerFailure::for_detach(&session, cause);
 
         let plan = CleanupPlan {
             name: name.to_string(),
@@ -188,9 +178,8 @@ impl SessionRuntime {
 
         self.clear_activity(&plan.name).await;
         self.clear_latest_title(&plan.name);
-        if let Some((task_id, identity, note)) = plan.worker_failure {
-            self.fail_worker_task_checked(&task_id, &identity, note)
-                .await;
+        if let Some(failure) = plan.worker_failure {
+            failure.apply(self).await;
         }
 
         // Only disposable sandbox state is deleted; durable private state survives.

@@ -151,52 +151,6 @@ async fn bulk_removal_prevalidates_authority_and_pruning_respects_visibility() {
     );
 }
 
-#[tokio::test]
-async fn worker_failure_only_changes_unfinished_worker_tasks() {
-    let m = crate::session::test_manager(Config::default());
-    let ordinary = m
-        .task_store()
-        .create_task("host".into(), "agent".into(), "Ordinary".into())
-        .await
-        .unwrap();
-    let worker = m
-        .task_store()
-        .run(|tasks| {
-            tasks.create_worker(
-                "host".into(),
-                "child".into(),
-                "Delegate".into(),
-                "parent".into(),
-                true,
-            )
-        })
-        .await
-        .unwrap();
-    let metadata = worker.worker.as_ref().unwrap();
-    assert_eq!(metadata.session, "child");
-    assert_eq!(metadata.parent, "parent");
-    assert!(metadata.durable);
-    for id in ["", "  ", "missing", &ordinary.id] {
-        m.fail_worker_task_checked(id, "agent", "Exited").await;
-    }
-    assert_task(&m, &ordinary.id, Status::Queued, None).await;
-    m.fail_worker_task_checked(&worker.id, "replacement", "Stale exit")
-        .await;
-    assert_task(&m, &worker.id, Status::Queued, None).await;
-    m.fail_worker_task_checked(&worker.id, "child", "Exited")
-        .await;
-    assert_task(&m, &ordinary.id, Status::Queued, None).await;
-    m.fail_worker_task_checked(&worker.id, "child", "Must not overwrite terminal result")
-        .await;
-    assert_task(&m, &ordinary.id, Status::Queued, None).await;
-    let saved = crate::tasks::Tasks::load(m.cfg_path())
-        .unwrap()
-        .get("host", &worker.id)
-        .unwrap();
-    assert_eq!(saved.status, Status::Failed);
-    assert_eq!(saved.note.as_deref(), Some("Exited"));
-}
-
 async fn assert_task(manager: &SessionRuntime, id: &str, status: Status, note: Option<&str>) {
     let live = manager
         .task_store()

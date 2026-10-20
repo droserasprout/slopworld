@@ -42,6 +42,8 @@ mod sessions;
 mod signals;
 mod tasks;
 mod views;
+mod worker_failures;
+pub(crate) use worker_failures::{WorkerFailure, WorkerFailureCause};
 mod workers;
 mod worktrees;
 

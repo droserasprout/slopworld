@@ -12,6 +12,13 @@ choice before invoking that operation.
 Lifecycle start owns launch credentials; lifecycle stop and capture exit own termination. [Grants](agent-grants.md)
 own authority, and [templates](daemon-agent-templates.md) own portable copied settings.
 
+`session/worker_failures.rs` owns worker task failure policy and notes for typed
+startup, delivery, and lifecycle causes. Callers validate delayed run/reader identity
+and retain their operation guards; the failure plan captures task identity before
+leaving live state. The task store checks worker identity and preserves terminal
+results, including detailed exit evidence when later detach cleanup repeats failure.
+Lifecycle retains session retention, resource cleanup, and grant revocation.
+
 The selected template supplies configuration and snapshots. The worker receives a
 fresh private identity and scoped grant; the caller supplies task ownership and
 parent identity, never inherited sandbox state. Creation validates project, command,
