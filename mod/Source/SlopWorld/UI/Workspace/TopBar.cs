@@ -176,7 +176,7 @@ namespace SlopWorld
                     _doors.Jukebox,
                     ModDefOf.SlopJukebox,
                     new TipSignal(_doors.JukeboxTip, JukeboxTipId),
-                    Jukebox.OpenMenu,
+                    JukeboxMenu.Open,
                     live
                 );
             return _doors.Right;
@@ -208,7 +208,7 @@ namespace SlopWorld
 
             if (showJukebox && Jukebox.On(map) && TrySlot(r, ref x, out _doors.Jukebox))
             {
-                _doors.JukeboxTip = Jukebox.IconTip();
+                _doors.JukeboxTip = JukeboxMenu.IconTip();
                 _doors.HasJukebox = true;
             }
 

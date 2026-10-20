@@ -2,10 +2,47 @@ namespace SlopWorld.Tests
 {
     static class SpotifyTests
     {
+        public static void ReplacedLaunchCannotDeliverToEitherCaller()
+        {
+            Radio.ResetSpotifyTest();
+            int first = 0,
+                second = 0;
+            Radio.OpenSpotify(_ => first++, _ => first++);
+            Radio.ReportSpotifyTest("first");
+            var staleSuccess = SessionHub.Instance.SessionStore.Refreshed;
+            var staleFailure = SessionHub.Instance.SessionStore.RefreshFailed;
+
+            Radio.OpenSpotify(_ => second++, _ => second++);
+            staleSuccess();
+            staleFailure("old failure");
+            AssertEx.Equal(0, first, "replaced caller receives no delayed result");
+            AssertEx.Equal(0, second, "old result cannot use the new caller's callbacks");
+
+            Radio.ReportSpotifyTest("second");
+            SessionHub.Instance.SessionStore.Refreshed();
+            AssertEx.Equal(1, second, "current caller receives its settled launch");
+        }
+
+        public static void DuplicateLaunchKeepsOriginalCaller()
+        {
+            Radio.ResetSpotifyTest();
+            string opened = null;
+            int duplicate = 0;
+            Radio.OpenSpotify(session => opened = session, _ => { });
+            Radio.OpenSpotify(_ => duplicate++, _ => duplicate++);
+            Radio.ReportSpotifyTest("player");
+            SessionHub.Instance.SessionStore.Refreshed();
+            AssertEx.Equal("player", opened, "pending launch retains its caller");
+            AssertEx.Equal(0, duplicate, "duplicate request cannot replace callbacks");
+        }
+
         public static void NonNcspotReportDoesNotCompletePendingLaunch()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("unrelated", source: "radio");
             AssertEx.Equal(
                 null,
@@ -24,14 +61,20 @@ namespace SlopWorld.Tests
         public static void SessionRefreshFailureIsReportedAndAllowsRetry()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("player");
             AssertEx.Throws<System.Exception>(
                 () => SessionHub.Instance.SessionStore.RefreshFailed("offline"),
                 "refresh failure reaches user"
             );
             AssertEx.Equal(null, WorkspaceWindow.Current, "failed refresh opens nothing");
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("retry");
             SessionHub.Instance.SessionStore.Refreshed();
             AssertEx.Equal(
@@ -44,7 +87,10 @@ namespace SlopWorld.Tests
         public static void MissingCapabilityFallsBackAndRejectsLateTerminalOpen()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("player");
             SessionHub.Instance.Capabilities.Known = true;
             SessionHub.Instance.Capabilities.Ncspot = false;
@@ -66,7 +112,11 @@ namespace SlopWorld.Tests
             SessionHub.Instance.Capabilities.Known = true;
             AssertEx.True(!Radio.SpotifyAvailable, "known missing player disables Spotify");
             AssertEx.Throws<System.Exception>(
-                () => Radio.OpenSpotify(),
+                () =>
+                    Radio.OpenSpotify(
+                        session => WorkspaceWindow.Open(session),
+                        error => UiLayout.Fail(error)
+                    ),
                 "unavailable player cannot launch"
             );
             AssertEx.True(!Radio.Spotify, "rejected launch preserves selection");
@@ -75,7 +125,10 @@ namespace SlopWorld.Tests
         public static void LaunchWaitsForAudioReply()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             AssertEx.True(Radio.SpotifyRequested, "launch is an ordinary pending audio selection");
             AssertEx.Equal(
                 null,
@@ -94,7 +147,10 @@ namespace SlopWorld.Tests
         public static void QuitRejectsLateLaunchReply()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.QuitSpotifyTest();
             Radio.ReportSpotifyTest("player");
             AssertEx.Equal(
@@ -107,7 +163,10 @@ namespace SlopWorld.Tests
         public static void QuitRejectsLateSessionRefresh()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("player");
             Radio.QuitSpotifyTest();
             SessionHub.Instance.SessionStore.Refreshed();
@@ -121,7 +180,10 @@ namespace SlopWorld.Tests
         public static void SourceChangeRejectsLateSessionRefresh()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("player");
             Radio.ReplaceSpotifyTest();
             SessionHub.Instance.SessionStore.Refreshed();
@@ -135,11 +197,17 @@ namespace SlopWorld.Tests
         public static void StaleRefreshFailuresAreIgnored()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("player");
             Radio.ReplaceSpotifyTest();
             SessionHub.Instance.SessionStore.RefreshFailed("late selection error");
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("player");
             Radio.QuitSpotifyTest();
             SessionHub.Instance.SessionStore.RefreshFailed("late shutdown error");
@@ -161,7 +229,10 @@ namespace SlopWorld.Tests
                 Radio.AcceptsReport(null, "station failure"),
                 "unidentified current source error remains accepted"
             );
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             AssertEx.True(
                 Radio.AcceptsReport("ncspot", "current error"),
                 "selected Spotify accepts its failure"
@@ -180,7 +251,10 @@ namespace SlopWorld.Tests
         public static void LaunchFailureAllowsRetry()
         {
             Radio.ResetSpotifyTest();
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             var error = AssertEx.Throws<System.Exception>(
                 () => Radio.ReportSpotifyTest(null, "install ncspot on the daemon host first"),
                 "launch failure reaches the user"
@@ -190,7 +264,10 @@ namespace SlopWorld.Tests
                 error.Message,
                 "failure text"
             );
-            Radio.OpenSpotify();
+            Radio.OpenSpotify(
+                session => WorkspaceWindow.Open(session),
+                error => UiLayout.Fail(error)
+            );
             Radio.ReportSpotifyTest("retry");
             SessionHub.Instance.SessionStore.Refreshed();
             AssertEx.Equal("retry", WorkspaceWindow.Current, "failure releases the pending launch");

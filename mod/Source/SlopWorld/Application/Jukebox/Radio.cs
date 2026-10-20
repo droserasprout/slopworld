@@ -1,8 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.ExceptionServices;
-using HarmonyLib;
-using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -16,13 +13,7 @@ namespace SlopWorld
         // The daemon shuffles OST files. The mod selects the directory as one source.
         static readonly System.Random Dice = new System.Random();
 
-        static string OstPath()
-        {
-            var root = ModEntry.Instance?.Content?.RootDir;
-            return string.IsNullOrEmpty(root)
-                ? null
-                : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "OST");
-        }
+        static string OstPath() => NativeJukebox.OstPath();
 
         static int _selectionRevision;
         public const string OstSourceId = "ost";
@@ -53,63 +44,8 @@ namespace SlopWorld
         static bool SidecarAudio =>
             SessionHub.Instance != null && !SessionHub.Instance.Capabilities.AudioPlayback;
 
-        static RimWorld.MusicManagerPlay NativeMusic()
-        {
-            try
-            {
-                return Find.MusicManagerPlay;
-            }
-            catch
-            {
-                return null;
-            } // Root_Entry has no play music manager.
-        }
-
-        // Use the native music manager for sidecar playback.
-        // The provider lets tests supply track snapshots without the game.
-        internal static Func<NativeTrackSnapshot> NativeTrackProvider = ReadNativeTrack;
-
-        static NativeTrackSnapshot ReadNativeTrack()
-        {
-            try
-            {
-                var music = NativeMusic();
-                var song = music?.CurrentSong;
-                if (music == null || !music.IsPlaying || song == null)
-                    return null;
-
-                return NativeTrackSnapshot.FromOstClipPath(song.clipPath);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        static void SetNativeMusicMuted(bool muted)
-        {
-            var music = NativeMusic();
-            if (music == null)
-                return;
-
-            bool changed = music.disabled != muted;
-            music.disabled = muted;
-            if (muted && (changed || music.IsPlaying))
-                music.Stop();
-        }
-
-        // Start the next SlopWorld song immediately after unmuting.
-        // Clearing disabled alone waits for the native music transition timer.
-        static void ResumeNativeMusic()
-        {
-            var music = NativeMusic();
-            if (music == null)
-                return;
-
-            music.disabled = false;
-            if (Current.ProgramState == ProgramState.Playing)
-                music.StartNewSong();
-        }
+        internal static Func<NativeTrackSnapshot> NativeTrackProvider =
+            NativeJukebox.ReadNativeTrack;
 
         // Read metadata from the current native SongDef during sidecar playback.
         static string NativeNowPlaying()
@@ -313,76 +249,37 @@ namespace SlopWorld
             }
         }
 
-        // Store likes separately from RimWorld profile settings.
-        // Append one TOML table per action so other tools can read the history.
-        public static void Like()
+        // Capture once so confirmation and persistence identify the same track.
+        internal static JukeboxLikeRecord CaptureLike(DateTime now, out string display)
         {
+            display = null;
             if (SidecarAudio)
             {
-                NativeTrackSnapshot native = SampleNativeTrack();
-                NativeLikeRecord record;
-                string nativeError;
-                if (
-                    !JukeboxLikeWriter.TryAppend(
-                        LikesPath(),
-                        native,
-                        DateTime.UtcNow,
-                        out record,
-                        out nativeError
-                    )
-                )
-                {
-                    if (nativeError == "nothing is playing")
-                        UiLayout.Fail(nativeError);
-                    else
-                    {
-                        Log.Error("[SlopWorld] jukebox: could not save liked song: " + nativeError);
-                        UiLayout.Fail("could not save liked song");
-                    }
-                    return;
-                }
-                Messages.Message(
-                    $"Jukebox: liked {record.Display}",
-                    MessageTypeDefOf.TaskCompletion,
-                    false
+                var track = SampleNativeTrack();
+                if (track == null || !track.IsUsable)
+                    return null;
+                display = track.Display;
+                return new JukeboxLikeRecord(
+                    now,
+                    track.Source,
+                    track.Artist,
+                    track.Title,
+                    track.Artist,
+                    track.Title
                 );
-                return;
             }
-
-            string now = NowPlaying;
-            if (string.IsNullOrEmpty(now))
-            {
-                UiLayout.Fail("nothing is playing");
-                return;
-            }
-
-            try
-            {
-                string artist;
-                string title;
-                CurrentParts(out artist, out title);
-                var record = new JukeboxLikeRecord(
-                    DateTime.UtcNow,
-                    SourceLabel(),
-                    artist,
-                    title,
-                    OriginalArtist(),
-                    _rawTitle
-                );
-                if (!JukeboxLikeWriter.TryAppend(LikesPath(), record, out Exception error))
-                    ExceptionDispatchInfo.Capture(error).Throw();
-                Messages.Message($"Jukebox: liked {now}", MessageTypeDefOf.TaskCompletion, false);
-            }
-            catch (Exception e)
-            {
-                Log.Error("[SlopWorld] jukebox: could not save liked song: " + e);
-                UiLayout.Fail("could not save liked song");
-            }
-        }
-
-        public static string LikesPath()
-        {
-            return ApplicationPaths.LikesPath;
+            display = NowPlaying;
+            if (string.IsNullOrEmpty(display))
+                return null;
+            CurrentParts(out var artist, out var title);
+            return new JukeboxLikeRecord(
+                now,
+                SourceLabel(),
+                artist,
+                title,
+                OriginalArtist(),
+                _rawTitle
+            );
         }
 
         static bool HasRecognition() =>
@@ -480,9 +377,9 @@ namespace SlopWorld
             {
                 _muted = !_muted;
                 if (_muted)
-                    SetNativeMusicMuted(true);
+                    NativeJukebox.SetMuted(true);
                 else
-                    ResumeNativeMusic();
+                    NativeJukebox.Resume();
                 Save();
                 return;
             }
@@ -530,32 +427,17 @@ namespace SlopWorld
                 return;
             if (!hub.Capabilities.AudioPlayback)
             {
-                SetNativeMusicMuted(_muted);
+                NativeJukebox.SetMuted(_muted);
                 return;
             }
 
-            // Disable native music before the update delay can let a new colony start an OST track.
-            if (Current.ProgramState == ProgramState.Playing)
-            {
-                try
-                {
-                    var music = Find.MusicManagerPlay;
-                    if (music != null && !music.disabled)
-                    {
-                        music.Stop();
-                        music.disabled = true;
-                    }
-                }
-                catch
-                { /* Root_Play castclass fails on menu */
-                }
-            }
+            NativeJukebox.DisableForDaemon();
 
             UpdatePlayback(Time.realtimeSinceStartupAsDouble, hub, Volume());
         }
 
         // Apply both music and master volume because daemon playback bypasses the game AudioListener.
-        static float Volume() => Mathf.Clamp01(Prefs.VolumeMusic * Prefs.VolumeMaster);
+        static float Volume() => NativeJukebox.Volume;
 
         // Read the daemon playback report. Log failures once per selection.
         // If a radio station fails, notify the player and select OST. OST failures have no fallback.
@@ -603,11 +485,9 @@ namespace SlopWorld
             if (_station == null)
                 return;
 
-            Messages.Message(
-                $"Jukebox: {_station.Name} {RateLabel(_station.Rate)} would not "
-                    + "play. Back to the OST.",
-                MessageTypeDefOf.RejectInput,
-                false
+            Notify(
+                JukeboxNoticeKind.Rejected,
+                $"Jukebox: {_station.Name} {RateLabel(_station.Rate)} would not play. Back to the OST."
             );
             SelectSource(clearFailure: false);
         }
@@ -669,13 +549,5 @@ namespace SlopWorld
             _spotify = Settings.Radio == "ncspot";
             _station = FindSelection(Settings.Radio);
         }
-    }
-
-    // Run before Root.Shutdown closes the socket. Keep playback shutdown separate from saving.
-    // QuitInterceptor also routes the window close action through Root.Shutdown.
-    [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
-    public static class Patch_RadioOnShutdown
-    {
-        static void Prefix() => Radio.Quit();
     }
 }

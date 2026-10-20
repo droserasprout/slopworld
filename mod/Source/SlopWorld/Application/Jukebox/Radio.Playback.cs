@@ -3,13 +3,14 @@ namespace SlopWorld
     public static partial class Radio
     {
         // Resolve the selected source and dispatch cadence decisions through the audio transport.
-        // Native music and metadata effects remain in Radio.cs.
+        // NativeJukebox adapts game music; Radio owns metadata.
         static readonly RadioPlayback Playback = new RadioPlayback();
 
         static void InvalidatePlayback()
         {
             _selectionRevision++;
             _openingSpotify = false;
+            _spotifyOpened = _spotifyFailed = null;
             Playback.Invalidate();
         }
 

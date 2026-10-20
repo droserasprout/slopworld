@@ -21,6 +21,7 @@ namespace SlopWorld
                 return;
             }
 
+            JukeboxActions.Install();
             UiClipboard.Provider = new DaemonUiClipboard();
             RowChrome.OverlayHitTest = ColonistBarStrip.SidebarHover;
 

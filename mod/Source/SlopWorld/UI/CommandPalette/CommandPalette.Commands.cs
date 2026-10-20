@@ -547,7 +547,7 @@ namespace SlopWorld
                 _ => Radio.CancelRecognition(),
                 enabled: () => Radio.Recognizing
             ),
-            new CommandDef("jukebox.like", "Jukebox: Like", "Jukebox", _ => Radio.Like()),
+            new CommandDef("jukebox.like", "Jukebox: Like", "Jukebox", _ => JukeboxActions.Like()),
             new CommandDef(
                 "jukebox.history",
                 "Jukebox: History",

@@ -1,7 +1,5 @@
 using System;
 using System.Threading;
-using RimWorld;
-using Verse;
 
 namespace SlopWorld
 {
@@ -60,7 +58,7 @@ namespace SlopWorld
             Read();
             if (_spotify || !RecognitionTrack.Eligible)
             {
-                UiLayout.Fail("nothing is playing");
+                Notify(JukeboxNoticeKind.Error, "nothing is playing");
                 return;
             }
 
@@ -71,7 +69,7 @@ namespace SlopWorld
             {
                 if (_recognizing)
                 {
-                    UiLayout.Fail("recognition is already running");
+                    Notify(JukeboxNoticeKind.Error, "recognition is already running");
                     return;
                 }
                 _recognizing = true;
@@ -83,7 +81,7 @@ namespace SlopWorld
                 source = RecognitionTrack.Source;
             }
 
-            Messages.Message("Jukebox: Recognizing", MessageTypeDefOf.NeutralEvent, false);
+            Notify(JukeboxNoticeKind.Progress, "Jukebox: Recognizing");
             ThreadPool.QueueUserWorkItem(_ => RunRecognition(version, source, token));
         }
 
@@ -175,10 +173,9 @@ namespace SlopWorld
                 _recognitionError = null;
             _recognizedArtist = result.Artist;
             _recognizedTitle = result.Title;
-            Messages.Message(
-                "Jukebox: recognized " + _recognizedArtist + " - " + _recognizedTitle,
-                MessageTypeDefOf.TaskCompletion,
-                false
+            Notify(
+                JukeboxNoticeKind.Success,
+                "Jukebox: recognized " + _recognizedArtist + " - " + _recognizedTitle
             );
         }
 
@@ -186,7 +183,7 @@ namespace SlopWorld
         {
             lock (RecognitionGate)
                 _recognitionError = message;
-            UiLayout.Fail(message);
+            Notify(JukeboxNoticeKind.Error, message);
         }
     }
 }

@@ -41,10 +41,10 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
-    <Compile Include="../Source/SlopWorld/Sim/Jukebox/RadioPlayback.cs" />
-    <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Playback.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/RadioPlayback.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Playback.cs" />
     <Compile Include="../Source/SlopWorld/Client/Audio/AudioBus.cs" />
-    <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Selection.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Selection.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/ModProfile.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/ProfileRefusal.cs" />
     <Compile Include="../Source/SlopWorld/UI/MenuBackground/BandedNoiseRow.cs" />
@@ -271,10 +271,11 @@
     <Compile Include="../Source/SlopWorld/UI/Jukebox/AudioSourceDraft.cs" Link="Source/UI/Jukebox/AudioSourceDraft.cs" />
     <Compile Include="../Source/SlopWorld/UI/Forms/EditIdentity.cs" Link="Source/UI/Forms/EditIdentity.cs" />
     <Compile Include="../Source/SlopWorld/UI/Forms/TabbedFormLayout.cs" Link="Source/UI/Forms/TabbedFormLayout.cs" />
-    <Compile Include="../Source/SlopWorld/Sim/Jukebox/SongRecognizer.cs" Link="Source/Sim/Jukebox/SongRecognizer.cs" />
-    <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Catalog.cs" />
-    <Compile Include="../Source/SlopWorld/Sim/Jukebox/Radio.Spotify.cs" Link="Source/Sim/Jukebox/Radio.Spotify.cs" />
-    <Compile Include="../Source/SlopWorld/Sim/Jukebox/JukeboxLikes.cs" Link="Source/Sim/Jukebox/JukeboxLikes.cs" />
+    <Compile Include="../Source/SlopWorld/Platform/Processes/SystemProcessRunner.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/SongRecognizer.cs" Link="Source/Application/Jukebox/SongRecognizer.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Catalog.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Spotify.cs" Link="Source/Application/Jukebox/Radio.Spotify.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/JukeboxLikes.cs" Link="Source/Application/Jukebox/JukeboxLikes.cs" />
     <Compile Include="../Source/SlopWorld/UI/Jukebox/JukeboxHistory.cs" Link="Source/UI/Jukebox/JukeboxHistory.cs" />
   </ItemGroup>
 

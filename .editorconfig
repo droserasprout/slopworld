@@ -71,7 +71,7 @@ dotnet_diagnostic.CA1865.severity = none
 # CA2249: Consider using 'string.Contains' instead of 'string.IndexOf'
 dotnet_diagnostic.CA2249.severity = none
 
-[mod/Source/SlopWorld/Sim/Jukebox/SongRecognizer.cs]
+[mod/Source/SlopWorld/Platform/Processes/SystemProcessRunner.cs]
 # net472 ReadToEndAsync has no token overload. The runner registers cancellation
 # to kill the child, which closes its output streams and completes these reads.
 # CA2016: Forward the 'CancellationToken' parameter to methods

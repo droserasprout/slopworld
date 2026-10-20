@@ -39,6 +39,7 @@ namespace SlopWorld
         internal static void ResetSpotifyTest()
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;
+            _spotifyOpened = _spotifyFailed = null;
             _station = null;
             _read = false;
             _stations = Array.Empty<Station>();

@@ -1,12 +1,22 @@
 # Jukebox ownership
 
-`Sim/Jukebox/Radio.Selection.cs` owns explicit source transitions; `Radio.cs` owns
-preferences, metadata, and native music control. `Radio.Playback.cs` resolves
-source plans and dispatches audio transport effects. `RadioPlayback`
-owns send cadence and reconnect deduplication through typed source plans; pending
-selections send immediately, while idle frames do not resolve source paths.
-`Radio.Catalog.cs` consumes the daemon's user-station catalog. `Jukebox.cs` adds the mod-provided OST
-and Spotify choices. The daemon owns station definitions and stream URLs, with
+`Application/Jukebox/` owns playback across menus and colonies. `Radio.Selection.cs`
+owns explicit source transitions; `Radio.cs` owns preferences and track metadata.
+`Radio.Playback.cs` resolves source plans and dispatches audio transport effects.
+`RadioPlayback` owns send cadence and reconnect deduplication through typed source
+plans; pending selections send immediately, while idle frames do not resolve source
+paths. `Radio.Catalog.cs` consumes the daemon's user-station catalog.
+
+`Sim/Jukebox/NativeJukebox.cs` adapts RimWorld music, SongDefs, OST paths and volume.
+The `Jukebox` map component owns map presence and input; `UI/Jukebox/JukeboxMenu.cs`
+owns shared menus, and `JukeboxActions` owns likes and notification presentation.
+Bootstrap connects application notices to that presentation once. Spotify launch
+callbacks belong to their source revision; callers open terminals only after the
+session refresh settles. `Patches/Lifecycle/JukeboxShutdown.cs` routes shutdown to
+playback before the socket closes. `Platform/Processes/` owns child-process execution;
+song capture and recognition policy remain in the application jukebox.
+
+The daemon owns station definitions and stream URLs, with
 root-only API edits. Playback and catalog owners are mapped in
 [daemon sources](daemon-files.md), storage in [configuration stores](daemon-config-stores.md),
 and transport in [the client](mod-client.md).

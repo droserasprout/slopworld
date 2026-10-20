@@ -12,7 +12,7 @@ namespace SlopWorld
         {
             try
             {
-                string path = Radio.LikesPath();
+                string path = ApplicationPaths.LikesPath;
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 if (!File.Exists(path))
                     File.WriteAllText(path, "");

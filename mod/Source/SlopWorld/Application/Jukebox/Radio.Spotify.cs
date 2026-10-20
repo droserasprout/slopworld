@@ -1,10 +1,14 @@
+using System;
+
 namespace SlopWorld
 {
     public static partial class Radio
     {
-        // Spotify selection, capability fallback and terminal opening live here.
+        // Own Spotify selection and reply identity; callers own terminal opening and error presentation.
         // Radio owns source transitions, persistence and the ordered audio connection.
         static bool _openingSpotify;
+        static Action<string> _spotifyOpened,
+            _spotifyFailed;
         public static bool Spotify => _spotify;
         public const string SpotifySourceId = "spotify";
 
@@ -26,30 +30,32 @@ namespace SlopWorld
             SelectSource(clearFailure: false);
         }
 
-        public static void OpenSpotify()
+        public static void OpenSpotify(Action<string> opened, Action<string> failed)
         {
             if (_quit || _openingSpotify)
                 return;
             Read();
             if (!SpotifyAvailable)
             {
-                UiLayout.Fail("ncspot is not available on the daemon host");
+                failed?.Invoke("ncspot is not available on the daemon host");
                 return;
             }
             var hub = SessionHub.Instance;
             if (hub == null || !hub.Online)
             {
-                UiLayout.Fail("daemon is offline");
+                failed?.Invoke("daemon is offline");
                 return;
             }
             if (!hub.Capabilities.AudioPlayback)
             {
-                UiLayout.Fail("ncspot playback requires a native Linux daemon");
+                failed?.Invoke("ncspot playback requires a native Linux daemon");
                 return;
             }
 
             SelectSource(spotify: true);
             _openingSpotify = true;
+            _spotifyOpened = opened;
+            _spotifyFailed = failed;
             // Update sends the selection through the same socket that Quit uses to stop playback.
             // The audio reply identifies the terminal session, so no HTTP launch request is necessary.
         }
@@ -63,26 +69,30 @@ namespace SlopWorld
         {
             if (_quit || !_openingSpotify || source != "ncspot")
                 return;
+            var opened = _spotifyOpened;
+            var failed = _spotifyFailed;
             if (!string.IsNullOrEmpty(error))
             {
                 _openingSpotify = false;
-                UiLayout.Fail(error);
+                _spotifyOpened = _spotifyFailed = null;
+                failed?.Invoke(error);
                 return;
             }
             if (string.IsNullOrEmpty(session))
                 return;
             _openingSpotify = false;
+            _spotifyOpened = _spotifyFailed = null;
             int revision = _selectionRevision;
             SessionHub.Instance.SessionStore.Refresh(
                 () =>
                 {
                     if (!_quit && revision == _selectionRevision)
-                        WorkspaceWindow.Open(session);
+                        opened?.Invoke(session);
                 },
                 errorMessage =>
                 {
                     if (!_quit && revision == _selectionRevision)
-                        UiLayout.Fail(errorMessage);
+                        failed?.Invoke(errorMessage);
                 }
             );
         }

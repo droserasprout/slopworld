@@ -1,12 +1,13 @@
 # Jukebox likes and recognition
 
-`Radio` owns track identity and Like handoffs. Likes preserve original station
+`Radio` owns track identity and captures like records; `JukeboxActions` owns the
+persistence handoff and player notifications. Likes preserve original station
 metadata separately from effective recognized/formatted artist and title.
 Sidecar likes use one native-track snapshot for confirmation and persistence rather
 than daemon metadata or saved radio selection.
 `JukeboxLikeWriter` owns game-free persistence of the complete like record for both
 playback modes; native snapshots require usable artist, title, and source values,
-while `Radio` owns daemon metadata eligibility and player notifications.
+while `Radio` owns daemon metadata eligibility.
 
 Recognition applies to active unmuted daemon playback, excluding Spotify, even when
 raw metadata is absent. One lookup is active at a time, with cancellation/timeout.

@@ -84,7 +84,7 @@ namespace SlopWorld
     }
 
     // Own the shared [[like]] schema and file persistence without game dependencies.
-    // Radio owns daemon metadata eligibility and all player notifications.
+    // Radio owns metadata eligibility; JukeboxActions owns player notifications.
     public static class JukeboxLikeWriter
     {
         public static bool TryAppend(

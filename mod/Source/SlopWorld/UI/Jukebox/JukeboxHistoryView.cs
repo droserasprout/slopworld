@@ -409,7 +409,7 @@ namespace SlopWorld
 
         void Reload()
         {
-            _path = Radio.LikesPath();
+            _path = ApplicationPaths.LikesPath;
             _all.Clear();
             _error = null;
             try

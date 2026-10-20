@@ -50,7 +50,7 @@ namespace SlopWorld
                 Radio.Muted ? "Muted"
                 : picked == null ? "OST"
                 : $"{picked.Name} {Radio.RateLabel(picked.Rate)}";
-            UiControls.Select(l, "Tune", source, Jukebox.StationOptions(), out _);
+            UiControls.Select(l, "Tune", source, JukeboxMenu.StationOptions(), out _);
 
             // Show the station's own line and any Shazam match as two rows, so a recognized
             // track never silently overwrites what the station actually reported.
@@ -76,7 +76,7 @@ namespace SlopWorld
             if (UiLayout.Button(l, "Random"))
                 Radio.PickRandom();
             if (UiLayout.Button(l, "Like current song"))
-                Radio.Like();
+                JukeboxActions.Like();
             if (UiLayout.Button(l, "History"))
                 JukeboxHistoryView.Open();
 

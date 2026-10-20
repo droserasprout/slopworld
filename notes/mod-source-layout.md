@@ -6,6 +6,10 @@ Directories describe component responsibilities. They do not create assembly bou
 The main directory groupings are:
 
 - `Bootstrap/` owns startup, profile gating and the RimWorld `Mod` entry point.
+- `Application/Jukebox/` owns menu-independent playback, source selection, track
+  metadata and recognition. `Sim/Jukebox/` owns map presence and native music adapters;
+  `UI/Jukebox/` owns menus, actions and notification presentation.
+- `Platform/Processes/` owns bounded child-process execution.
 - `Platform/Windowing/` owns native window control and recovery policy. Harmony
   title hooks stay in `Patches/Chrome/`.
 - `Client/SessionHub/` owns connection coordination and cross-service event handoffs.
