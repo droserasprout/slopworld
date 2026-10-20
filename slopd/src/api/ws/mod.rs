@@ -19,8 +19,9 @@ use futures::StreamExt;
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore, broadcast};
 use tokio::task::JoinHandle;
 
+use crate::application::AuthChange;
 use crate::application::{Event, EventMessage};
-use crate::session::{AuthChange, ScreenView, WatchGuard};
+use crate::session::{ScreenView, WatchGuard};
 
 use super::types::{ClientMsg, ScrollReq};
 use super::{Mgr, err, presented_token};
@@ -131,15 +132,19 @@ pub(super) async fn ws_upgrade(
 ) -> impl IntoResponse {
     // Credentials arrive only during upgrade. Reject changes during resolution,
     // then carry the capability and generation into the connection lifetime.
-    let generation_before = m.auth_generation();
-    let Some(cap) = m.resolve_cap(presented_token(&headers).as_deref()).await else {
+    let generation_before = m.config_authority.auth_generation();
+    let Some(cap) = m
+        .config_authority
+        .resolve_cap(presented_token(&headers).as_deref())
+        .await
+    else {
         return err(
             StatusCode::UNAUTHORIZED,
             "The authentication token is missing or invalid.",
         )
         .into_response();
     };
-    let generation = m.auth_generation();
+    let generation = m.config_authority.auth_generation();
     if generation != generation_before {
         return err(
             StatusCode::UNAUTHORIZED,
@@ -166,8 +171,8 @@ pub(super) async fn ws_upgrade(
 async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     let (tx, rx) = socket.split();
     let tx = Arc::new(Mutex::new(tx));
-    let auth_changes = m.auth_changes();
-    if m.auth_generation() != generation {
+    let auth_changes = m.config_authority.auth_changes();
+    if m.config_authority.auth_generation() != generation {
         return;
     }
     // Each subscription owns a guard that keeps its reader rendering at the watched rate.

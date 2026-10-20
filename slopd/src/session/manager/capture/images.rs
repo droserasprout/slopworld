@@ -25,7 +25,13 @@ impl Manager {
         };
         self.ensure_paste_ready(name).await?;
         // The client flag is an intent, never authority or proof of target type.
-        let codex = !host && self.cfg.read().await.command_name(&session) == "codex";
+        let codex = !host
+            && self
+                .config_authority
+                .read_config()
+                .await
+                .command_name(&session)
+                == "codex";
         if !codex {
             return self.paste(name, text).await;
         }

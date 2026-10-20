@@ -46,7 +46,7 @@ pub(crate) async fn mint_grant(
 /// How many grants are live, for the mod's readout. Not the tokens themselves: those are
 /// bearer secrets and leave the daemon once, at the mint.
 pub(crate) async fn list_grants(State(m): State<Mgr>) -> ApiResult<wire::GrantsReply> {
-    reply(json!({ "grants": m.grant_count().await }))
+    reply(json!({ "grants": m.config_authority.grant_count().await }))
 }
 
 /// Drop every grant a session minted, by hand rather than by its exit. The mod's revoke.
@@ -105,7 +105,7 @@ mod tests {
                 .0,
             StatusCode::INTERNAL_SERVER_ERROR
         );
-        assert_eq!(manager.grant_count().await, 0);
+        assert_eq!(manager.config_authority.grant_count().await, 0);
         std::fs::remove_dir(path).unwrap();
     }
 }

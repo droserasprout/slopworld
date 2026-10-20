@@ -13,8 +13,8 @@ impl Manager {
         worker: Option<WorkerTask>,
     ) -> Result<Task> {
         let mut reserved: Vec<_> = self
-            .cfg
-            .read()
+            .config_authority
+            .read_config()
             .await
             .sessions
             .iter()

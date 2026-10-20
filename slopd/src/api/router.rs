@@ -180,7 +180,7 @@ async fn bounded_request(m: Mgr, req: Request, next: Next, shared: bool) -> Resp
             || req
                 .extensions()
                 .get::<super::RootGeneration>()
-                .is_some_and(|generation| generation.0 != m.root_generation())
+                .is_some_and(|generation| generation.0 != m.config_authority.root_generation())
         {
             return err(StatusCode::UNAUTHORIZED, "capability revoked").into_response();
         }

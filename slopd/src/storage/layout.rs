@@ -13,6 +13,32 @@ pub(crate) struct Loaded {
     pub(crate) library_revision: Option<catalog::Revision>,
 }
 
+/// Storage state transferred to the runtime after startup takes the configuration.
+pub(crate) struct LoadedStorage {
+    pub(crate) binding: StorageBinding,
+    pub(crate) stores: Stores,
+    pub(crate) library_revision: Option<catalog::Revision>,
+}
+
+impl Loaded {
+    pub(crate) fn into_parts(self) -> (Config, LoadedStorage) {
+        let Self {
+            config,
+            binding,
+            stores,
+            library_revision,
+        } = self;
+        (
+            config,
+            LoadedStorage {
+                binding,
+                stores,
+                library_revision,
+            },
+        )
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Stores {
     pub(crate) agents: Store<SessionCfg>,

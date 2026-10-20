@@ -968,7 +968,7 @@ async fn panel_switch_and_unsubscribe_overtake_an_unfinished_history_capture() {
         tx: Arc::new(Mutex::new(tx)),
         rx,
         subs: subs.clone(),
-        auth_changes: manager.auth_changes(),
+        auth_changes: manager.config_authority.auth_changes(),
         scrolls,
     };
     let driving = tokio::spawn(async move { intake.run(&manager, &Cap::Root).await });

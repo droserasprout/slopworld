@@ -490,7 +490,7 @@ async fn assert_cache_allocation_recovery(
 ) {
     let cache = root.join("cache");
     std::fs::create_dir(&cache).unwrap();
-    manager.cfg.write().await.projects[0]
+    manager.config_authority.write().await.projects[0]
         .mounts
         .push(crate::config::Mount {
             from: cache.to_string_lossy().into_owned(),
@@ -508,5 +508,7 @@ async fn assert_cache_allocation_recovery(
     std::os::unix::fs::symlink(root, tree.join("cache-link")).unwrap();
     assert!(!manager.completed_allocation(&allocating).await.unwrap());
     std::fs::remove_file(tree.join("cache-link")).unwrap();
-    manager.cfg.write().await.projects[0].mounts.clear();
+    manager.config_authority.write().await.projects[0]
+        .mounts
+        .clear();
 }

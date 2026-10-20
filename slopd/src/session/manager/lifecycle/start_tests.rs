@@ -107,7 +107,7 @@ fn directory_preparation_creates_only_temporary_projects_and_rejects_files() {
 async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
     let manager = manager_for_start();
     {
-        let mut cfg = manager.cfg.write().await;
+        let mut cfg = manager.config_authority.write().await;
         cfg.sessions[0].cmd = None;
         cfg.sessions[0].command = format!("missing-{}", uuid::Uuid::new_v4());
     }
@@ -115,7 +115,7 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
     assert!(error.to_string().contains("has no command"));
     for (parent, task) in [("", "task"), ("parent", " ")] {
         {
-            let mut cfg = manager.cfg.write().await;
+            let mut cfg = manager.config_authority.write().await;
             let session = &mut cfg.sessions[0];
             session.cmd = Some("printf ready".into());
             session.worker = true;
@@ -130,7 +130,7 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
         );
     }
     {
-        let mut cfg = manager.cfg.write().await;
+        let mut cfg = manager.config_authority.write().await;
         cfg.sessions[0].task_id = "task".into();
         cfg.sessions[0].network = NetworkMode::None;
     }
@@ -154,7 +154,7 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
         .to_string_lossy()
         .into_owned();
     let remembered = live.host_path.clone();
-    manager.cfg.write().await.sessions.clear();
+    manager.config_authority.write().await.sessions.clear();
     manager.live.write().await.insert("agent".into(), live);
     let plan = manager.prepare_start("agent").await.unwrap();
     assert!(plan.role.is_host());
@@ -269,7 +269,7 @@ async fn host_start_rejects_duplicate_without_replacing_the_running_pane() {
     row.run_id = 7;
     row.cfg.cmd = Some("/bin/sleep 60".into());
     manager.live.write().await.insert("agent".into(), row);
-    manager.cfg.write().await.sessions.clear();
+    manager.config_authority.write().await.sessions.clear();
 
     let result: Result<()> = async {
         manager.start("agent").await?;
@@ -317,12 +317,22 @@ async fn failed_worker_start_removes_owned_state_and_revokes_credentials() {
         )
         .await
         .unwrap();
-    let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+    let cap = manager
+        .config_authority
+        .resolve_cap(Some(&token))
+        .await
+        .unwrap();
 
     manager.cleanup_failed_start("agent", true).await;
 
     assert!(!cap.is_valid());
-    assert!(manager.resolve_cap(Some(&token)).await.is_none());
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .is_none()
+    );
     assert!(!private.exists());
     assert!(unrelated.exists());
     assert!(!manager.tmux.exists("agent").await);
@@ -367,15 +377,31 @@ async fn malformed_commands_reject_before_tmux_creation_and_revoke_worker_creden
         if host {
             let mut row = Live::new(session, TitleCapture::default());
             row.role = SessionRole::HostAction;
-            manager.cfg.write().await.sessions.clear();
+            manager.config_authority.write().await.sessions.clear();
             manager.live.write().await.insert("agent".into(), row);
         } else {
-            manager.cfg.write().await.sessions[0] = session;
+            manager.config_authority.write().await.sessions[0] = session;
         }
-        assert_eq!(manager.auth.grants.read().await.count(), 0);
+        assert_eq!(
+            manager
+                .config_authority
+                .grants_for_test()
+                .read()
+                .await
+                .count(),
+            0
+        );
         let error = manager.prepare_start("agent").await.err().unwrap();
         assert!(error.to_string().contains("invalid command"), "{error:#}");
-        assert_eq!(manager.auth.grants.read().await.count(), 0);
+        assert_eq!(
+            manager
+                .config_authority
+                .grants_for_test()
+                .read()
+                .await
+                .count(),
+            0
+        );
         assert!(!manager.tmux.exists("agent").await);
         std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
     }

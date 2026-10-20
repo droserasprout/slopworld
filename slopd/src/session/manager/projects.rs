@@ -9,8 +9,8 @@ use anyhow::anyhow;
 
 impl Manager {
     pub async fn projects(&self) -> Vec<ProjectView> {
-        self.cfg
-            .read()
+        self.config_authority
+            .read_config()
             .await
             .projects
             .iter()

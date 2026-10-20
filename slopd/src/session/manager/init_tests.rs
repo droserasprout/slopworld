@@ -25,7 +25,8 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
         });
     }
     let seed = crate::session::test_manager_with_socket(cfg.clone(), socket.clone());
-    *seed.auth.grants.write().await = crate::grant::Grants::load(&seed.cfg_path).unwrap();
+    *seed.config_authority.grants_for_test().write().await =
+        crate::grant::Grants::load(&seed.cfg_path).unwrap();
     for session in &cfg.sessions {
         seed.live.write().await.insert(
             session.name.clone(),
@@ -63,10 +64,16 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     let application = crate::application::Services::load(&loaded.binding.data, tmux.clone())
         .await
         .unwrap();
-    let manager = Manager::new(loaded, application.clone(), tmux)
+    let (config, storage) = loaded.into_parts();
+    let authority = Arc::new(crate::application::ConfigAuthority::new(
+        config,
+        crate::grant::Grants::load_data(&storage.binding.data).unwrap(),
+    ));
+    let manager = Manager::new(storage, application.clone(), tmux, authority.clone())
         .await
         .unwrap();
     assert!(Arc::ptr_eq(&manager.application, &application));
+    assert!(Arc::ptr_eq(&manager.config_authority, &authority));
     application.music.recover(&manager).await;
 
     let live = manager.live.read().await;
@@ -78,9 +85,9 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
         assert!(row.capture.reader.is_none());
     }
     drop(live);
-    assert!(manager.resolve_cap(Some(&kept)).await.is_some());
-    assert!(manager.resolve_cap(Some(&stale)).await.is_none());
-    assert_eq!(manager.grant_count().await, 1);
+    assert!(authority.resolve_cap(Some(&kept)).await.is_some());
+    assert!(authority.resolve_cap(Some(&stale)).await.is_none());
+    assert_eq!(authority.grant_count().await, 1);
     // Pruning must survive another daemon restart.
     assert_eq!(
         crate::grant::Grants::load_data(&crate::paths::data_root())

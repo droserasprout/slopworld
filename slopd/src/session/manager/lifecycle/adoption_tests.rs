@@ -233,15 +233,32 @@ async fn surviving_worker_cannot_replace_a_different_saved_identity() {
         .write()
         .await
         .insert("worker".into(), Live::new(saved, TitleCapture::default()));
-    let token = manager.auth.grants.write().await.mint(crate::grant::Grant {
-        grantor: "worker".into(),
-        sessions: ["worker".into()].into(),
-        level: crate::grant::Level::Rw,
-        revoked: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-    });
-    assert!(manager.resolve_cap(Some(&token)).await.is_some());
+    let token = manager
+        .config_authority
+        .grants_for_test()
+        .write()
+        .await
+        .mint(crate::grant::Grant {
+            grantor: "worker".into(),
+            sessions: ["worker".into()].into(),
+            level: crate::grant::Level::Rw,
+            revoked: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        });
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .is_some()
+    );
     manager.session_operation(manager.adopt_orphans(&cfg)).await;
-    assert!(manager.resolve_cap(Some(&token)).await.is_none());
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .is_none()
+    );
     assert!(!manager.tmux.exists("worker").await);
     let live = manager.live.read().await;
     assert_eq!(live["worker"].cfg.state_id, "2222222222222222");

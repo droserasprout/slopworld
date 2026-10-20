@@ -1,58 +1,8 @@
-//! Authorization state, credential invalidation, and capability checks.
+//! Session identity validation and operation guards for application credentials.
 
 use super::super::*;
 
-/// Grants and the generation and notifications used to invalidate client credentials.
-pub(crate) struct Authorization {
-    pub(super) grants: RwLock<crate::grant::Grants>,
-    generation: AtomicU64,
-    root_generation: AtomicU64,
-    changes: broadcast::Sender<AuthChange>,
-}
-
-impl Authorization {
-    pub(super) fn new(grants: crate::grant::Grants) -> Self {
-        let (changes, _) = broadcast::channel(16);
-        Self {
-            grants: RwLock::new(grants),
-            generation: AtomicU64::new(0),
-            root_generation: AtomicU64::new(0),
-            changes,
-        }
-    }
-}
-
 impl Manager {
-    #[cfg(test)]
-    pub(crate) async fn use_persisted_grants_for_test(&self) {
-        *self.auth.grants.write().await = crate::grant::Grants::load(&self.cfg_path).unwrap();
-    }
-
-    pub(crate) fn root_generation(&self) -> u64 {
-        self.auth.root_generation.load(Ordering::Acquire)
-    }
-
-    pub(crate) fn auth_generation(&self) -> u64 {
-        self.auth.generation.load(Ordering::Acquire)
-    }
-
-    pub(crate) fn auth_changes(&self) -> broadcast::Receiver<AuthChange> {
-        self.auth.changes.subscribe()
-    }
-
-    pub(crate) fn invalidate_auth(&self, change: AuthChange) {
-        if matches!(change, AuthChange::RootTokenChanged) {
-            self.auth.root_generation.fetch_add(1, Ordering::AcqRel);
-        }
-        self.auth.generation.fetch_add(1, Ordering::AcqRel);
-        drop(self.auth.changes.send(change));
-    }
-
-    pub async fn resolve_cap(&self, presented: Option<&str>) -> Option<crate::grant::Cap> {
-        let root = self.cfg.read().await.daemon.token.clone();
-        self.auth.grants.read().await.resolve(presented, &root)
-    }
-
     pub async fn cap_ok(
         &self,
         cap: &crate::grant::Cap,
@@ -125,56 +75,29 @@ impl Manager {
             scope.insert(s);
         }
         drop(live);
-        self.auth.grants.write().await.mint_persisted(
-            crate::grant::Grant {
-                grantor,
-                sessions: scope,
-                level,
-                revoked: Default::default(),
-            },
-            grantor_state_id,
-            session_state_ids,
-        )
-    }
-
-    pub async fn revoke_grants(&self, grantor: &str) -> Result<()> {
-        self.session_operation(self.revoke_grants_inner(grantor))
+        self.config_authority
+            .mint_grant(
+                crate::grant::Grant {
+                    grantor,
+                    sessions: scope,
+                    level,
+                    revoked: Default::default(),
+                },
+                grantor_state_id,
+                session_state_ids,
+            )
             .await
     }
 
-    async fn revoke_grants_inner(&self, grantor: &str) -> Result<()> {
-        let mut grants = self.auth.grants.write().await;
-        let count = grants.count();
-        let result = grants.try_revoke_grantor(grantor);
-        let changed = grants.count() < count;
-        drop(grants);
-        if changed {
-            self.invalidate_auth(crate::session::AuthChange::GrantsRevoked);
-        }
-        result.map(|_| ())
+    pub async fn revoke_grants(&self, grantor: &str) -> Result<()> {
+        self.session_operation(self.config_authority.revoke_grants(grantor))
+            .await
     }
 
     /// Revoke whole grants owned by or targeting a disappearing session.
     pub async fn invalidate_session(&self, name: &str) {
-        self.session_operation(self.invalidate_session_inner(name))
+        self.session_operation(self.config_authority.invalidate_session_grants(name))
             .await
-    }
-
-    async fn invalidate_session_inner(&self, name: &str) {
-        let mut grants = self.auth.grants.write().await;
-        let count = grants.count();
-        if let Err(error) = grants.try_invalidate_session(name) {
-            tracing::error!("persisting grants invalidated with session {name}: {error:#}");
-        }
-        let changed = grants.count() < count;
-        drop(grants);
-        if changed {
-            self.invalidate_auth(crate::session::AuthChange::GrantsRevoked);
-        }
-    }
-
-    pub async fn grant_count(&self) -> usize {
-        self.auth.grants.read().await.count()
     }
 }
 

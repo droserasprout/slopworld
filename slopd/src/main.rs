@@ -44,7 +44,7 @@ mod worktrees;
 
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
 use axum::middleware::{self, Next};
@@ -108,7 +108,17 @@ async fn main() -> Result<()> {
     let listener = storage::startup::serving_listener(reservations, &bind).await?;
     let tmux = tmux::Tmux::new(tmux::tmux_socket());
     let services = application::Services::load(&loaded.binding.data, tmux.clone()).await?;
-    let m = Manager::new(loaded, services.clone(), tmux).await?;
+    let (config, storage) = loaded.into_parts();
+    let config_authority = Arc::new(application::ConfigAuthority::new(
+        config,
+        grant::Grants::load_data(&storage.binding.data).with_context(|| {
+            format!(
+                "loading grant store for {}",
+                storage.binding.settings.display()
+            )
+        })?,
+    ));
+    let m = Manager::new(storage, services.clone(), tmux, config_authority.clone()).await?;
     // Player recovery needs adopted host terminals, before polling or serving requests.
     services.music.recover(&m).await;
 
@@ -131,14 +141,17 @@ async fn main() -> Result<()> {
     };
 
     // Spawn even when disabled so polling can be enabled without a restart.
-    let usage = services.spawn_usage_poll(m.daemon_settings());
+    let usage = services.spawn_usage_poll(config_authority.daemon_settings());
 
     // Monitor the jukebox. The mod selects what to play.
     let audio = services.spawn_music_poll();
 
     // Publish discovery information only after the listener is bound.
     let app = api::router(m.clone())
-        .layer(middleware::from_fn_with_state(m.clone(), auth))
+        .layer(middleware::from_fn_with_state(
+            config_authority.clone(),
+            auth,
+        ))
         .layer(middleware::from_fn(api::protobuf::normalize_errors));
 
     tracing::info!("listening on http://{bind}");
@@ -191,16 +204,16 @@ async fn receive_signal(signal: &mut Option<tokio::signal::unix::Signal>) {
 
 /// Attach the token’s capability for handlers, or reject unauthorized requests.
 async fn auth(
-    State(m): State<Arc<Manager>>,
+    State(config_authority): State<Arc<application::ConfigAuthority>>,
     mut req: Request,
     next: Next,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let root_generation = m.root_generation();
+    let root_generation = config_authority.root_generation();
     let presented = api::presented_token(req.headers());
-    match m.resolve_cap(presented.as_deref()).await {
+    match config_authority.resolve_cap(presented.as_deref()).await {
         Some(cap) => {
             if cap.may_create() {
-                if root_generation != m.root_generation() {
+                if root_generation != config_authority.root_generation() {
                     return Err(StatusCode::UNAUTHORIZED);
                 }
                 req.extensions_mut()

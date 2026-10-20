@@ -1,6 +1,8 @@
 //! Daemon-wide publication, task storage and playback services, constructed at startup.
 //! Session runtime supplies identity and operation leases; API owns wire encoding.
-//! Configuration and lifecycle coordination remain in session::Manager.
+//! Session runtime retains live validation, operation guards, and reconciliation.
+mod config_authority;
+pub(crate) use config_authority::{AuthChange, ConfigAuthority};
 mod events;
 mod music;
 mod usage;

@@ -35,7 +35,6 @@ pub(crate) use worktrees::WorktreeState;
 
 pub(crate) use agent_templates::TemplatePersistence;
 pub(crate) use agent_templates::TemplateStore;
-pub(crate) use caps::Authorization;
 use capture::CachedScroll;
 pub(crate) use catalog_state::CatalogState;
 pub(crate) use host_metadata::HostMetadataPoll;
@@ -54,7 +53,7 @@ pub struct Manager {
     pub cfg_path: PathBuf,
     pub(super) endpoint_path: PathBuf,
     // Accepted configuration and auth publish together; configuration owns transactions.
-    pub(super) cfg: Arc<RwLock<Config>>,
+    pub(crate) config_authority: Arc<crate::application::ConfigAuthority>,
     pub(super) catalog_state: CatalogState,
     pub(super) configuration: crate::config::transactions::Transactions,
     pub(super) templates: TemplateStore,
@@ -74,7 +73,6 @@ pub struct Manager {
     // Client communication and authorization.
     pub(crate) application: Arc<crate::application::Services>,
     pub(super) signals: Signals,
-    pub(super) auth: Authorization,
 
     // Supporting services.
     pub(super) worktrees: WorktreeState,

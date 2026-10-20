@@ -25,12 +25,8 @@ impl crate::config::transactions::Runtime for Manager {
 }
 
 impl Manager {
-    pub(crate) fn daemon_settings(&self) -> crate::config::DaemonSettings {
-        crate::config::DaemonSettings::new(self.cfg.clone())
-    }
-
     pub async fn config(&self) -> Config {
-        self.cfg.read().await.clone()
+        self.config_authority.read_config().await.clone()
     }
     pub(super) async fn update_cfg<T>(
         self: &Arc<Self>,
@@ -129,8 +125,6 @@ impl Manager {
         }
     }
     async fn publish_config(&self, change: ConfigChange) -> String {
-        let endpoint_token = change.new.daemon.token.clone();
-
         let old = self.config().await;
         let next_sessions = change.new.session_index();
         for session in &old.sessions {
@@ -142,13 +136,8 @@ impl Manager {
             }
         }
 
-        // Publish the credential and its revocation epoch under the same config lock.
-        let mut cfg = self.cfg.write().await;
-        *cfg = change.new;
-        if change.root_token_changed {
-            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
-        }
-        drop(cfg);
+        // Keep the owned candidate out of every enclosing transaction future.
+        let endpoint_token = Box::pin(self.config_authority.publish_config(change)).await;
         self.signals.maintenance_wake.notify_waiters();
 
         endpoint_token

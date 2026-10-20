@@ -94,7 +94,13 @@ async fn worker_policy_keeps_template_names_distinct() {
         .to_string();
     assert!(error.contains("no such agent template"), "{error}");
 
-    manager.cfg.write().await.daemon.worker_templates.clear();
+    manager
+        .config_authority
+        .write()
+        .await
+        .daemon
+        .worker_templates
+        .clear();
     assert_eq!(
         manager
             .spawnable_worker_template(crate::tasks::HOST, "repo", "review")
@@ -746,7 +752,7 @@ async fn worker_runtime_fixture() -> (Arc<Manager>, PathBuf) {
     selected.defaults.persistent_tmp = Some(false);
     manager.templates.store.write().await.templates = vec![selected];
     manager
-        .cfg
+        .config_authority
         .write()
         .await
         .daemon

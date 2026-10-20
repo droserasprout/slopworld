@@ -48,7 +48,7 @@ async fn cached_summary_is_persisted_without_changing_task_lifecycle() {
 async fn disabled_and_short_tasks_ignore_even_cached_summaries() {
     let (m, mut task) = fixture().await;
     cache(&m, &task).await;
-    m.cfg.write().await.daemon.task_summaries = TitlePolicy::Never;
+    m.config_authority.write().await.daemon.task_summaries = TitlePolicy::Never;
     m.clone().run_task_summary(task.clone()).await;
     assert!(
         m.task_store()
@@ -59,7 +59,7 @@ async fn disabled_and_short_tasks_ignore_even_cached_summaries() {
             .summary
             .is_none()
     );
-    m.cfg.write().await.daemon.task_summaries = TitlePolicy::Always;
+    m.config_authority.write().await.daemon.task_summaries = TitlePolicy::Always;
     task.body = "猫犬鳥".into();
     cache(&m, &task).await;
     m.clone().run_task_summary(task.clone()).await;
@@ -98,7 +98,7 @@ async fn missing_credentials_leave_task_unchanged() {
         return;
     };
     let (m, task) = fixture().await;
-    m.cfg.write().await.daemon.openrouter_key_file = m
+    m.config_authority.write().await.daemon.openrouter_key_file = m
         .cfg_path
         .with_file_name("missing-key")
         .to_string_lossy()

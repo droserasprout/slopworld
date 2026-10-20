@@ -1,4 +1,5 @@
 use super::*;
+use crate::application::AuthChange;
 use crate::config::HostTerminalCfg;
 use crate::session::test_manager;
 
@@ -31,9 +32,9 @@ async fn settings_cannot_clear_root_authority_or_change_accepted_state_on_failur
         );
         assert_eq!(manager.config().await.daemon.token, token);
         assert_eq!(std::fs::read_to_string(&manager.cfg_path).unwrap(), before);
-        assert_eq!(manager.auth_generation(), 0);
+        assert_eq!(manager.config_authority.auth_generation(), 0);
         assert!(matches!(
-            manager.resolve_cap(Some(&token)).await,
+            manager.config_authority.resolve_cap(Some(&token)).await,
             Some(crate::grant::Cap::Root)
         ));
     }
@@ -61,14 +62,20 @@ async fn removing_and_replacing_sessions_revokes_only_changed_identities() {
             .collect(),
         ..Default::default()
     });
-    manager.cfg.write().await.daemon.token = "root-for-revocation-test".into();
+    manager.config_authority.write().await.daemon.token = "root-for-revocation-test".into();
     let mut caps = Vec::new();
     for name in ["kept", "removed", "replaced"] {
         let token = manager
             .mint_grant(name.into(), vec![name.into()], crate::grant::Level::Rw)
             .await
             .unwrap();
-        caps.push(manager.resolve_cap(Some(&token)).await.unwrap());
+        caps.push(
+            manager
+                .config_authority
+                .resolve_cap(Some(&token))
+                .await
+                .unwrap(),
+        );
     }
     manager
         .update_cfg(ConfigMutation::Agents, |cfg| {
@@ -85,20 +92,20 @@ async fn removing_and_replacing_sessions_revokes_only_changed_identities() {
     assert!(caps[0].is_valid());
     assert!(!caps[1].is_valid());
     assert!(!caps[2].is_valid());
-    assert_eq!(manager.grant_count().await, 1);
+    assert_eq!(manager.config_authority.grant_count().await, 1);
 }
 
 #[tokio::test]
 async fn persisted_root_token_changes_invalidate_existing_auth() {
     let manager = test_manager(Config::default());
-    let mut changes = manager.auth_changes();
+    let mut changes = manager.config_authority.auth_changes();
 
     manager
         .patch_config(serde_json::json!({"daemon": {"token": "rotated-root"}}))
         .await
         .expect("persist token rotation");
 
-    assert_eq!(manager.auth_generation(), 1);
+    assert_eq!(manager.config_authority.auth_generation(), 1);
     assert!(matches!(
         changes.try_recv().expect("auth invalidation"),
         AuthChange::RootTokenChanged
@@ -457,16 +464,40 @@ async fn failed_prepared_commit_keeps_accepted_snapshot_and_allows_retry() {
 #[tokio::test]
 async fn daemon_settings_reader_observes_only_accepted_settings_and_survives_manager_drop() {
     let manager = test_manager(Config::default());
-    let reader = manager.daemon_settings();
+    let reader = manager.config_authority.daemon_settings();
     let before = reader.snapshot().await.usage_poll_secs;
     let next = before + 60;
-    let patch = serde_json::json!({"daemon": {"usage_poll_secs": next}});
+    let mut changes = manager.config_authority.auth_changes();
+    let old_token = reader.snapshot().await.token;
+    let patch = serde_json::json!({"daemon": {"usage_poll_secs": next, "token": "retry-root"}});
     let fault = crate::paths::fail_writes(&manager.cfg_path);
     manager.patch_config(patch.clone()).await.unwrap_err();
     assert_eq!(reader.snapshot().await.usage_poll_secs, before);
+    assert_eq!(reader.snapshot().await.token, old_token);
+    assert_eq!(manager.config_authority.root_generation(), 0);
+    assert!(matches!(
+        changes.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
+    assert!(matches!(
+        manager.config_authority.resolve_cap(Some(&old_token)).await,
+        Some(crate::grant::Cap::Root)
+    ));
     drop(fault);
     manager.patch_config(patch).await.unwrap();
     assert_eq!(reader.snapshot().await.usage_poll_secs, next);
+    assert_eq!(manager.config_authority.root_generation(), 1);
+    assert!(matches!(
+        changes.try_recv().unwrap(),
+        AuthChange::RootTokenChanged
+    ));
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&old_token))
+            .await
+            .is_none()
+    );
     let weak = Arc::downgrade(&manager);
     drop(manager);
     assert!(weak.upgrade().is_none());

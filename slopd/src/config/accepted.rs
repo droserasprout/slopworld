@@ -1,5 +1,5 @@
 //! Read-only daemon settings access to the accepted configuration lock.
-//! The session transaction adapter retains exclusive publication and auth ordering.
+//! application::ConfigAuthority owns publication and auth ordering.
 use super::{Config, Daemon};
 use std::sync::Arc;
 use tokio::sync::RwLock;

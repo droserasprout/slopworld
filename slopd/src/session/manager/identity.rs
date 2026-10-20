@@ -13,8 +13,8 @@ impl Manager {
             "agent identity allocation requires session boundary"
         );
         let mut occupied: HashSet<String> = self
-            .cfg
-            .read()
+            .config_authority
+            .read_config()
             .await
             .sessions
             .iter()

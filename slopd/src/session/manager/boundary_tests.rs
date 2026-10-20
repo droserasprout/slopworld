@@ -48,7 +48,11 @@ async fn shared_request_keeps_scoped_capability_valid_until_it_finishes() {
         .mint_grant("agent".into(), vec!["agent".into()], Level::Rw)
         .await
         .unwrap();
-    let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+    let cap = manager
+        .config_authority
+        .resolve_cap(Some(&token))
+        .await
+        .unwrap();
     let mut replacement = manager.config().await;
     replacement.sessions[0].state_id = crate::storage_id::draft_identity();
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
@@ -97,7 +101,11 @@ async fn replacement_waits_for_authorized_use_and_then_rejects_the_old_capabilit
             .mint_grant("grantor".into(), vec!["target".into()], level)
             .await
             .unwrap();
-        let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+        let cap = manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .unwrap();
         let original = manager.config().await;
         let mut replacement = original.clone();
         replacement.sessions[1].state_id = crate::storage_id::draft_identity();

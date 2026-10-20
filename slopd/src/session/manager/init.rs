@@ -1,23 +1,24 @@
 //! Manager construction and startup recovery.
 
 use super::super::*;
-use super::{Authorization, CatalogState, HostMetadataPoll, Signals, TemplateStore, WorktreeState};
+use super::{CatalogState, HostMetadataPoll, Signals, TemplateStore, WorktreeState};
 use crate::config::transactions::{Transactions, records::Records};
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
     pub(crate) async fn new(
-        loaded: crate::storage::layout::Loaded,
+        storage: crate::storage::layout::LoadedStorage,
         application: Arc<crate::application::Services>,
         tmux: Tmux,
+        config_authority: Arc<crate::application::ConfigAuthority>,
     ) -> Result<Arc<Self>> {
-        let crate::storage::layout::Loaded {
-            config: cfg,
+        let crate::storage::layout::LoadedStorage {
             binding,
             stores,
             library_revision,
-        } = loaded;
+        } = storage;
         let cfg_path = binding.settings.clone();
+        let library_snapshot = config_authority.read_config().await.library_items_all();
 
         // Catalog stamps seed the maintenance reload checks.
         let presets_mtime = crate::presets::Table::stamp();
@@ -25,8 +26,6 @@ impl Manager {
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
 
         // Load persisted stores before constructing shared state.
-        let grants = crate::grant::Grants::load_data(&binding.data)
-            .with_context(|| format!("loading grant store for {}", cfg_path.display()))?;
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let template_path = binding.config.join("agent_templates");
         let templates = crate::session::AgentTemplateStore::load(&template_path)
@@ -58,8 +57,8 @@ impl Manager {
             endpoint_path: crate::endpoint::path(),
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
-            library_snapshot: Mutex::new(cfg.library_items_all()),
-            cfg: Arc::new(RwLock::new(cfg)),
+            library_snapshot: Mutex::new(library_snapshot),
+            config_authority,
             templates: TemplateStore::new(templates),
             configuration: Transactions::new(Records::new(binding, stores), library_revision),
             catalog_state: CatalogState::new(
@@ -72,7 +71,6 @@ impl Manager {
             activity_mutation: tokio::sync::Mutex::new(()),
             activity_cache,
             application,
-            auth: Authorization::new(grants),
             session_boundary: Arc::new(tokio::sync::RwLock::new(())),
             terminal_boundaries: Mutex::new(HashMap::new()),
             terminal_resizes: Mutex::new(HashMap::new()),
@@ -98,11 +96,9 @@ impl Manager {
             (state_ids, host_sessions)
         };
         if let Err(error) = m
-            .auth
-            .grants
-            .write()
+            .config_authority
+            .prune_stale_grants(&state_ids, &host_sessions)
             .await
-            .prune_stale(&state_ids, &host_sessions)
         {
             tracing::error!("could not prune stale persisted grants: {error:#}");
         }

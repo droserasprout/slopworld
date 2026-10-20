@@ -43,7 +43,10 @@ pub(crate) fn test_manager_with_socket(
         cfg_path: cfg_path.clone(),
         endpoint_path: cfg_path.with_extension("endpoint.toml"),
         library_snapshot: Mutex::new(config.library_items_all()),
-        cfg: Arc::new(RwLock::new(config)),
+        config_authority: Arc::new(crate::application::ConfigAuthority::new(
+            config,
+            crate::grant::Grants::default(),
+        )),
         templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
@@ -63,7 +66,6 @@ pub(crate) fn test_manager_with_socket(
             tmux,
             16,
         )),
-        auth: Authorization::new(crate::grant::Grants::default()),
         session_boundary: Arc::new(tokio::sync::RwLock::new(())),
         terminal_boundaries: Mutex::new(HashMap::new()),
         terminal_resizes: Mutex::new(HashMap::new()),
@@ -123,5 +125,12 @@ impl Manager {
         live.capture.emu = Some(Arc::new(Mutex::new(emu)));
         self.live.write().await.insert(name.into(), live);
         rx
+    }
+}
+
+impl Manager {
+    pub(crate) async fn use_persisted_grants_for_test(&self) {
+        *self.config_authority.grants_for_test().write().await =
+            crate::grant::Grants::load(&self.cfg_path).unwrap();
     }
 }

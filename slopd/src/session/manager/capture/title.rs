@@ -24,7 +24,7 @@ impl Manager {
     }
 
     async fn title_request_enabled(&self, name: &str, request: &TitleRequest) -> bool {
-        let cfg = self.cfg.read().await;
+        let cfg = self.config_authority.read_config().await;
         let live = self.live.read().await;
         live.get(name).is_some_and(|l| {
             l.title.accepts(request)
@@ -40,7 +40,7 @@ impl Manager {
         result: Result<Summary>,
     ) -> bool {
         // Hold current settings through validation/commit. No provider or disk I/O here.
-        let cfg = self.cfg.read().await;
+        let cfg = self.config_authority.read_config().await;
         let mut live = self.live.write().await;
         let Some(l) = live.get_mut(name) else {
             return false;
@@ -77,7 +77,7 @@ impl Manager {
         literal: bool,
     ) {
         let action = {
-            let cfg = self.cfg.read().await;
+            let cfg = self.config_authority.read_config().await;
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
             let Some(settings) = TitleSettings::for_session(&cfg, &l.cfg, l.role.is_host()) else {
@@ -115,7 +115,7 @@ impl Manager {
     }
 
     pub(crate) async fn capture_title_paste(&self, name: &str, text: &str) {
-        let cfg = self.cfg.read().await;
+        let cfg = self.config_authority.read_config().await;
         let mut live = self.live.write().await;
         let Some(l) = live.get_mut(name) else { return };
         if TitleSettings::for_session(&cfg, &l.cfg, l.role.is_host()).is_some() {

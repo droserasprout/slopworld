@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
-use tokio::sync::{RwLock, broadcast, mpsc};
+use tokio::sync::{RwLock, mpsc};
 use tokio::task::JoinHandle;
 
 mod agent_templates;
@@ -80,13 +80,6 @@ crate::wire_enum!(State, {
     State::Working => crate::shared::protocol::enums::agent_state::WORKING,
     State::Idle => crate::shared::protocol::enums::agent_state::IDLE,
 });
-
-/// Internal notifications for rechecking connected clients’ credentials.
-#[derive(Debug, Clone)]
-pub(crate) enum AuthChange {
-    GrantsRevoked,
-    RootTokenChanged,
-}
 
 /// Mutable runtime state for one session, owned by Manager.
 struct Live {

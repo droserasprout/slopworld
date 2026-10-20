@@ -191,13 +191,23 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         )
         .await
         .unwrap();
-    let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+    let cap = manager
+        .config_authority
+        .resolve_cap(Some(&token))
+        .await
+        .unwrap();
     let mut events = manager.application.subscribe();
 
     manager.stop("child").await.unwrap();
 
     assert!(!cap.is_valid());
-    assert!(manager.resolve_cap(Some(&token)).await.is_none());
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .is_none()
+    );
     assert!(!manager.live.read().await.contains_key("child"));
     assert!(!manager.temp.read().await.contains_key("scratch"));
     assert!(!private.exists());
@@ -289,7 +299,7 @@ async fn cancelled_stop_keeps_cleanup_and_identity_boundary_until_completion() {
         .write()
         .await
         .insert("temporary-project".into(), ProjectCfg::default());
-    let grants = manager.auth.grants.write().await;
+    let grants = manager.config_authority.grants_for_test().write().await;
     let task = {
         let manager = manager.clone();
         tokio::spawn(async move { manager.stop("temporary").await })

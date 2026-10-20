@@ -116,15 +116,15 @@ async fn disabled_or_short_requests_are_discarded_and_failures_keep_previous_tit
     assert!(!m.live.read().await["agent"].title.accepts(&failed));
     assert_eq!(m.live.read().await["agent"].title.title(), Some("Previous"));
     let short = prepare(&m, "Long enough before changing settings").await;
-    m.cfg.write().await.daemon.title_min_chars = 1000;
+    m.config_authority.write().await.daemon.title_min_chars = 1000;
     assert!(!m.title_request_enabled("agent", &short).await);
     assert!(
         !m.apply_title_result("agent", &short, summary("Too short"))
             .await
     );
-    m.cfg.write().await.daemon.title_min_chars = 5;
+    m.config_authority.write().await.daemon.title_min_chars = 5;
     let disabled = prepare(&m, "Long enough again").await;
-    m.cfg.write().await.daemon.agent_titles = TitlePolicy::Never;
+    m.config_authority.write().await.daemon.agent_titles = TitlePolicy::Never;
     assert!(!m.title_request_enabled("agent", &disabled).await);
     assert!(
         !m.apply_title_result("agent", &disabled, summary("Disabled"))

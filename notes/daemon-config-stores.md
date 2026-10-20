@@ -8,9 +8,18 @@ schemas, accepted indexes, targeted persistence and bound transaction recovery.
 `config/transactions/` owns the persistence gate, prepared changes, accepted record
 indexes, cache-link rollback, and library revision acceptance. Its runtime adapter
 in `session/manager/config/` retains session/worktree operation guards, validates
-live constraints, publishes configuration and authentication together, and updates
-endpoint credentials before releasing the persistence gate. Client announcements
-follow the completed transaction. `config/accepted.rs` gives background services
+live constraints, delegates accepted publication to `application/config_authority.rs`, and
+updates endpoint credentials before releasing the persistence gate. The application
+owner holds the single accepted configuration lock, grants, and credential epochs;
+it publishes root-token changes and invalidation under that lock. Session adapters
+validate grant identities and retain operation guards through credential changes.
+Startup consumes the loaded configuration into accepted state and passes the
+remaining storage state to the manager. The manager derives its initial library
+snapshot from the injected authority. HTTP and WebSocket admission,
+credential generations, notifications, and grant counts use `ConfigAuthority`
+directly. `session/manager/caps.rs` retains session identity checks and guarded
+grant mutations.
+Client announcements follow the completed transaction. `config/accepted.rs` gives background services
 read-only daemon-settings snapshots from that same lock; there is no secondary
 settings cache or independent publication step. `session/manager/catalog_state.rs` holds independent
 catalog polling deadlines and timestamps.

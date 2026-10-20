@@ -355,7 +355,7 @@ async fn session_and_project_targets_resolve_from_config_temp_and_host_state() {
         sessions: vec![configured.clone()],
         ..Default::default()
     };
-    *manager.cfg.write().await = cfg.clone();
+    *manager.config_authority.write().await = cfg.clone();
 
     assert_eq!(manager.session_cfg("agent").await.unwrap().name, "agent");
     let resolved = manager.project_for(&cfg, &configured).await.unwrap();
@@ -447,7 +447,7 @@ async fn retick_moves_a_quiet_working_session_to_idle() {
 #[tokio::test]
 async fn views_keep_host_paths_and_sort_by_session_name() {
     let manager = crate::session::test_manager(Config::default());
-    *manager.cfg.write().await = Config {
+    *manager.config_authority.write().await = Config {
         sessions: vec![SessionCfg {
             name: "agent".into(),
             label: Some("Agent label".into()),

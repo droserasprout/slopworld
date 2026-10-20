@@ -22,7 +22,7 @@ impl Manager {
     }
 
     pub(super) async fn session_cfg(&self, name: &str) -> Option<SessionCfg> {
-        if let Some(s) = self.cfg.read().await.session(name) {
+        if let Some(s) = self.config_authority.read_config().await.session(name) {
             return Some(s.clone());
         }
         self.live.read().await.get(name).map(|l| l.cfg.clone())
@@ -452,8 +452,8 @@ impl Manager {
             self.stop(name).await?;
 
             let saved = self
-                .cfg
-                .read()
+                .config_authority
+                .read_config()
                 .await
                 .host_terminals
                 .iter()
@@ -481,8 +481,8 @@ impl Manager {
         }
         self.stop(name).await?;
         let session = self
-            .cfg
-            .read()
+            .config_authority
+            .read_config()
             .await
             .session(name)
             .cloned()

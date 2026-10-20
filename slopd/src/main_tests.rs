@@ -34,8 +34,9 @@ fn manager() -> Arc<Manager> {
 }
 
 fn app(manager: Arc<Manager>) -> axum::Router {
-    api::router(manager.clone())
-        .layer(middleware::from_fn_with_state(manager, auth))
+    let config_authority = manager.config_authority.clone();
+    api::router(manager)
+        .layer(middleware::from_fn_with_state(config_authority, auth))
         .layer(middleware::from_fn(api::protobuf::normalize_errors))
 }
 

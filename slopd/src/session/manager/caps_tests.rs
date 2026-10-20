@@ -32,17 +32,27 @@ async fn capabilities_resolve_and_grants_stay_scoped() {
     assert!(manager.session_known("grantor").await);
     assert!(!manager.session_known("missing").await);
     assert!(matches!(
-        manager.resolve_cap(Some("root")).await,
+        manager.config_authority.resolve_cap(Some("root")).await,
         Some(Cap::Root)
     ));
-    assert!(manager.resolve_cap(Some("wrong")).await.is_none());
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some("wrong"))
+            .await
+            .is_none()
+    );
 
     let token = manager
         .mint_grant("grantor".into(), vec!["target".into()], Level::Ro)
         .await
         .unwrap();
-    assert_eq!(manager.grant_count().await, 1);
-    let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+    assert_eq!(manager.config_authority.grant_count().await, 1);
+    let cap = manager
+        .config_authority
+        .resolve_cap(Some(&token))
+        .await
+        .unwrap();
     assert!(cap.allows("target", false, Level::Ro));
     assert!(!cap.allows("target", false, Level::Rw));
     assert!(!cap.allows("grantor", false, Level::Ro));
@@ -50,9 +60,15 @@ async fn capabilities_resolve_and_grants_stay_scoped() {
     assert!(!manager.cap_ok(&cap, "target", Level::Rw).await);
 
     manager.revoke_grants("grantor").await.unwrap();
-    assert_eq!(manager.grant_count().await, 0);
+    assert_eq!(manager.config_authority.grant_count().await, 0);
     assert!(!manager.cap_ok(&cap, "target", Level::Ro).await);
-    assert!(manager.resolve_cap(Some(&token)).await.is_none());
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -82,7 +98,11 @@ async fn config_replacement_invalidates_grants_without_a_live_row() {
                 .mint_grant("grantor".into(), vec!["target".into()], level)
                 .await
                 .unwrap();
-            let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+            let cap = manager
+                .config_authority
+                .resolve_cap(Some(&token))
+                .await
+                .unwrap();
             let mut cfg = manager.config().await;
             cfg.sessions
                 .iter_mut()
@@ -105,7 +125,11 @@ async fn durable_stop_preserves_grants_but_ephemeral_removal_invalidates_them() 
                 .mint_grant("grantor".into(), vec!["target".into()], level)
                 .await
                 .unwrap();
-            let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+            let cap = manager
+                .config_authority
+                .resolve_cap(Some(&token))
+                .await
+                .unwrap();
             manager.stop(subject).await.unwrap();
             assert!(manager.cap_ok(&cap, "target", level).await);
             assert!(manager.start(subject).await.is_err()); // No command in this fixture.
@@ -122,26 +146,32 @@ async fn durable_stop_preserves_grants_but_ephemeral_removal_invalidates_them() 
 #[tokio::test]
 async fn only_root_rotation_advances_the_root_credential_generation() {
     let manager = test_manager(config());
-    let generation = manager.root_generation();
+    let generation = manager.config_authority.root_generation();
     manager
         .mint_grant("grantor".into(), vec!["target".into()], Level::Ro)
         .await
         .unwrap();
     manager.revoke_grants("grantor").await.unwrap();
-    assert_eq!(manager.root_generation(), generation);
+    assert_eq!(manager.config_authority.root_generation(), generation);
     manager
         .patch_config(serde_json::json!({"daemon":{"token":"<redacted>"}}))
         .await
         .unwrap();
-    assert_eq!(manager.root_generation(), generation);
+    assert_eq!(manager.config_authority.root_generation(), generation);
     manager
         .patch_config(serde_json::json!({"daemon":{"token":"new-root"}}))
         .await
         .unwrap();
-    assert_ne!(manager.root_generation(), generation);
-    assert!(manager.resolve_cap(Some("root")).await.is_none());
+    assert_ne!(manager.config_authority.root_generation(), generation);
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some("root"))
+            .await
+            .is_none()
+    );
     assert!(matches!(
-        manager.resolve_cap(Some("new-root")).await,
+        manager.config_authority.resolve_cap(Some("new-root")).await,
         Some(Cap::Root)
     ));
 }
