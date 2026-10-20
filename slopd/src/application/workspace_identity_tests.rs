@@ -57,3 +57,47 @@ fn inventory_errors_are_not_available_identities() {
         reservation.allocate().unwrap_err();
     }
 }
+
+#[test]
+fn identity_handles_use_bound_record_roots_and_retry_inventory_failures() {
+    let root = Directory::new();
+    let config = root.0.join("config");
+    let data = root.0.join("data");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::create_dir_all(&data).unwrap();
+    let binding = StorageBinding::new(&config, &data, &config.join("config.toml")).unwrap();
+    let identities = WorkspaceIdentities::new(&binding);
+    let paths = [
+        data.join("agents"),
+        config.join("projects"),
+        data.join("worktrees"),
+    ];
+    for path in &paths {
+        std::os::unix::fs::symlink(path, path).unwrap();
+    }
+    let cfg = Config::default();
+    let worktrees = Store::default();
+    identities
+        .allocate_agent_identity(HashSet::new())
+        .unwrap_err();
+    identities
+        .allocate_project_identity(&cfg, &worktrees)
+        .unwrap_err();
+    identities
+        .allocate_worktree_identity(HashSet::new())
+        .unwrap_err();
+    for path in paths {
+        std::fs::remove_file(path).unwrap();
+    }
+    for id in [
+        identities.allocate_agent_identity(HashSet::new()).unwrap(),
+        identities
+            .allocate_project_identity(&cfg, &worktrees)
+            .unwrap(),
+        identities
+            .allocate_worktree_identity(HashSet::new())
+            .unwrap(),
+    ] {
+        assert!(crate::storage_id::valid(&id));
+    }
+}

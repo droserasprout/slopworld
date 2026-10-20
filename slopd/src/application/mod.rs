@@ -17,6 +17,7 @@ pub(crate) use agent_templates::{AgentTemplates, TemplateCatalog, TemplatePersis
 mod workspace;
 mod workspace_identity;
 pub(crate) use workspace::Workspace;
+pub(crate) use workspace_identity::WorkspaceIdentities;
 mod config_authority;
 pub(crate) use config_authority::{AuthChange, ConfigAuthority};
 pub(crate) mod errands;

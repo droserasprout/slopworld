@@ -17,7 +17,7 @@ pub(crate) async fn start_sessions(
     let workspace = Arc::new(super::Workspace::new(storage, crate::endpoint::path()));
     let host_records = super::HostRecords::new(workspace.clone(), authority.clone());
     let manager = SessionRuntime::new(
-        workspace.clone(),
+        workspace.session_storage(),
         services.session_services(),
         tmux,
         authority.clone(),

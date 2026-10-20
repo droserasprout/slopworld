@@ -57,6 +57,7 @@ pub(crate) fn test_manager_with_socket(
         ),
     ));
     let services = application.session_services();
+    let storage = workspace.session_storage();
     let manager = Arc::new(SessionRuntime {
         frame_commit_pause: Mutex::new(None),
         scroll_capture_pause: Mutex::new(None),
@@ -68,6 +69,8 @@ pub(crate) fn test_manager_with_socket(
             workspace.clone(),
             config_authority.clone(),
         ),
+        identities: storage.identities,
+        worktrees: storage.worktrees,
         workspace,
         config_authority,
         live: RwLock::new(HashMap::new()),
@@ -76,9 +79,7 @@ pub(crate) fn test_manager_with_socket(
         signals: super::Signals::new(),
         scroll_cache: Mutex::new(HashMap::new()),
         activity_mutation: tokio::sync::Mutex::new(()),
-        activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
-            &cfg_path,
-        )),
+        activity_cache: storage.activity_cache,
         tasks: services.tasks,
         events: services.events,
         title_cache: services.title_cache,

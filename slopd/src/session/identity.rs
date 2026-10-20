@@ -33,7 +33,7 @@ impl SessionRuntime {
                 .await
                 .context("private-state identity inventory failed")??,
         );
-        self.workspace.allocate_agent_identity(occupied)
+        self.identities.allocate_agent_identity(occupied)
     }
 }
 
@@ -45,7 +45,7 @@ impl SessionRuntime {
     /// Caller holds the worktree mutation guard inside a session boundary. Cache
     /// directories outlive projects and reserve their identities as well.
     pub(crate) async fn allocate_project_identity(&self) -> Result<String> {
-        self.workspace
+        self.identities
             .allocate_project_identity(&self.config().await, &self.worktree_records())
     }
 
@@ -66,6 +66,6 @@ impl SessionRuntime {
                 .values()
                 .map(|live| live.cfg.worktree.clone()),
         );
-        self.workspace.allocate_worktree_identity(occupied)
+        self.identities.allocate_worktree_identity(occupied)
     }
 }

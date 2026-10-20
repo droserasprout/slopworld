@@ -15,19 +15,24 @@ pub(crate) struct RuntimeServices {
     pub(crate) application: Arc<crate::application::Services>,
 }
 
+/// Construction-only storage handoff; application keeps transaction and endpoint ownership.
+pub(crate) struct RuntimeStorage {
+    pub(crate) identities: crate::application::WorkspaceIdentities,
+    pub(crate) worktrees: crate::config::transactions::records::WorktreeCatalog,
+    pub(crate) activity_cache: crate::activity::ActivityCache,
+    #[cfg(test)]
+    pub(crate) workspace: Arc<crate::application::Workspace>,
+}
+
 impl SessionRuntime {
     /// Borrow application owners and construct an empty session runtime.
     pub(crate) async fn new(
-        workspace: Arc<crate::application::Workspace>,
+        storage: RuntimeStorage,
         services: RuntimeServices,
         tmux: Tmux,
         config_authority: Arc<crate::application::ConfigAuthority>,
         host_records: crate::application::HostRecords,
     ) -> Result<Arc<Self>> {
-        let activity_cache = crate::activity::ActivityCache::load(crate::activity::cache_path(
-            workspace.settings_path(),
-        ));
-
         let m = Arc::new(Self {
             #[cfg(test)]
             frame_commit_pause: Mutex::new(None),
@@ -41,7 +46,10 @@ impl SessionRuntime {
             _test_directory: None,
             host_records,
             tmux,
-            workspace,
+            identities: storage.identities,
+            worktrees: storage.worktrees,
+            #[cfg(test)]
+            workspace: storage.workspace,
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             config_authority,
@@ -49,7 +57,7 @@ impl SessionRuntime {
             signals: Signals::new(),
             scroll_cache: Mutex::new(HashMap::new()),
             activity_mutation: tokio::sync::Mutex::new(()),
-            activity_cache,
+            activity_cache: storage.activity_cache,
             tasks: services.tasks,
             events: services.events,
             title_cache: services.title_cache,

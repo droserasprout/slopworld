@@ -32,7 +32,7 @@ mod errands;
 mod host_metadata;
 mod identity;
 mod init;
-pub(crate) use init::RuntimeServices;
+pub(crate) use init::{RuntimeServices, RuntimeStorage};
 mod lifecycle;
 mod maintenance;
 #[cfg(test)]

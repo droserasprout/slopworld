@@ -17,7 +17,7 @@ impl SessionRuntime {
 
     /// Read the accepted index under session/worktree operation guards.
     pub(crate) fn worktree_records(&self) -> Store {
-        self.workspace.configuration.records.worktrees()
+        self.worktrees.snapshot()
     }
 
     #[cfg(test)]

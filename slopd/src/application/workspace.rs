@@ -5,8 +5,9 @@
 use crate::config::transactions::{Transactions, records::Records};
 use crate::storage::layout::LoadedStorage;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 #[cfg(test)]
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 #[cfg(test)]
 use tokio::sync::Notify;
 
@@ -41,6 +42,19 @@ impl Workspace {
             configuration,
             endpoint_path,
             worktrees: WorktreeState::default(),
+        }
+    }
+
+    /// Startup handoff; runtime receives locations and accepted reads, not transaction access.
+    pub(crate) fn session_storage(self: &Arc<Self>) -> crate::session::RuntimeStorage {
+        crate::session::RuntimeStorage {
+            identities: super::WorkspaceIdentities::new(&self.configuration.records.binding),
+            worktrees: self.configuration.records.worktree_catalog(),
+            activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
+                self.settings_path(),
+            )),
+            #[cfg(test)]
+            workspace: self.clone(),
         }
     }
 

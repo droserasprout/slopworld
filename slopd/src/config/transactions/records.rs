@@ -15,6 +15,15 @@ pub(crate) struct Records {
     stores: Mutex<Stores>,
 }
 
+/// Read-only access to the accepted worktree index; snapshots cannot publish edits.
+pub(crate) struct WorktreeCatalog(Arc<Records>);
+
+impl WorktreeCatalog {
+    pub(crate) fn snapshot(&self) -> crate::worktrees::Store {
+        self.0.worktrees()
+    }
+}
+
 pub(super) struct PreparedRecords {
     owner: Arc<Records>,
     agents: Option<workspace::Prepared<SessionCfg>>,
@@ -24,6 +33,10 @@ pub(super) struct PreparedRecords {
 }
 
 impl Records {
+    pub(crate) fn worktree_catalog(self: &Arc<Self>) -> WorktreeCatalog {
+        WorktreeCatalog(self.clone())
+    }
+
     pub(crate) fn new(binding: StorageBinding, stores: Stores) -> Arc<Self> {
         Arc::new(Self {
             binding,
@@ -184,3 +197,7 @@ impl Records {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "records_tests.rs"]
+mod tests;

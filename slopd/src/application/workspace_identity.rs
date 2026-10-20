@@ -1,17 +1,32 @@
 //! Workspace identity reservation against accepted records and retained filesystem entries.
 //! Callers retain session/worktree mutation guards through publication and supply live references.
-use super::Workspace;
 use crate::config::Config;
+use crate::storage::target::StorageBinding;
 use crate::worktrees::Store;
 use anyhow::{Context, Result};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-impl Workspace {
+/// Identity reservation needs record locations, never configuration mutation access.
+pub(crate) struct WorkspaceIdentities {
+    agents: PathBuf,
+    projects: PathBuf,
+    worktrees: PathBuf,
+}
+
+impl WorkspaceIdentities {
+    pub(super) fn new(binding: &StorageBinding) -> Self {
+        Self {
+            agents: binding.data.join("agents"),
+            projects: binding.config.join("projects"),
+            worktrees: binding.data.join("worktrees"),
+        }
+    }
+
     pub(crate) fn allocate_agent_identity(&self, occupied: HashSet<String>) -> Result<String> {
         Reservation {
             occupied,
-            records: self.configuration.records.binding.data.join("agents"),
+            records: self.agents.clone(),
             retained: None,
         }
         .allocate()
@@ -26,7 +41,7 @@ impl Workspace {
         occupied.extend(worktrees.worktrees.iter().map(|w| w.project_id.clone()));
         Reservation {
             occupied,
-            records: self.configuration.records.binding.config.join("projects"),
+            records: self.projects.clone(),
             retained: Some(crate::sandbox::cache::root()),
         }
         .allocate()
@@ -35,7 +50,7 @@ impl Workspace {
     pub(crate) fn allocate_worktree_identity(&self, occupied: HashSet<String>) -> Result<String> {
         Reservation {
             occupied,
-            records: self.configuration.records.binding.data.join("worktrees"),
+            records: self.worktrees.clone(),
             retained: None,
         }
         .allocate()

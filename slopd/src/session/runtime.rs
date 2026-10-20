@@ -13,7 +13,11 @@ use tokio::sync::RwLock;
 
 /// Live session coordinator with injected application services and workspace storage.
 pub struct SessionRuntime {
-    // Configuration and saved definitions.
+    // Saved identity reservation and accepted checkout reads.
+    pub(super) identities: crate::application::WorkspaceIdentities,
+    pub(super) worktrees: crate::config::transactions::records::WorktreeCatalog,
+    // Fixture composition only; production mutations remain with application owners.
+    #[cfg(test)]
     pub(crate) workspace: Arc<crate::application::Workspace>,
     // Accepted configuration and auth publish together; configuration owns transactions.
     pub(crate) config_authority: Arc<crate::application::ConfigAuthority>,
