@@ -65,7 +65,8 @@ jobs:
       platforms: linux/amd64,linux/arm64
       distribute: true
       cache: true
-      cache-scope: slopcar
+      # Keep signed caches separate from entries written by the previous builder.
+      cache-scope: slopcar-signed-v1
       cache-mode: max
       sign: 'true'
       build-args: |
@@ -94,7 +95,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

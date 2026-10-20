@@ -3,6 +3,7 @@
 staging selects mod assets; RPM discovers ELF dependencies.
 """
 
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -36,7 +37,7 @@ def package(output: Path, revision: str, version: str, architecture: str, binary
     ):
         workspace = Path(temporary)
         stage_payload(workspace / 'SOURCES/payload', revision, version, binary_dir)
-        archive = build_archive(workspace, version_field, architecture, destination.name)
+        archive = build_archive(workspace, version_field, architecture, destination.name, source_date_epoch(revision))
         published = Path(publication) / destination.name
         copy_file(archive, published)
         published.replace(destination)
@@ -51,7 +52,22 @@ def stage_payload(payload: Path, revision: str, version: str, binary_dir: Path |
     shared.normalize_permissions(payload, payload / 'usr/bin')
 
 
-def build_archive(workspace: Path, version: str, architecture: str, expected_name: str) -> Path:
+def source_date_epoch(revision: str) -> str:
+    """Honor explicit reproducible-build input, otherwise use the packaged commit."""
+    epoch = os.environ.get('SOURCE_DATE_EPOCH')
+    if epoch is None:
+        epoch = run(
+            ['git', 'show', '-s', '--format=%ct', '--end-of-options', revision],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    if not re.fullmatch(r'[0-9]+', epoch):
+        raise ValueError('SOURCE_DATE_EPOCH must be a non-negative integer')
+    return epoch
+
+
+def build_archive(workspace: Path, version: str, architecture: str, expected_name: str, epoch: str) -> Path:
     spec = workspace / 'SPECS/slopworld.spec'
     copy_file(ROOT / 'packaging/fedora/slopworld.spec', spec)
     run(
@@ -65,7 +81,8 @@ def build_archive(workspace: Path, version: str, architecture: str, expected_nam
             '--define',
             f'slopworld_version {version}',
             str(spec),
-        ]
+        ],
+        env={**os.environ, 'SOURCE_DATE_EPOCH': epoch},
     )
     archives = list((workspace / 'RPMS').rglob('*.rpm'))
     if len(archives) != 1 or archives[0].name != expected_name:

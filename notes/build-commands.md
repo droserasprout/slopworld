@@ -118,6 +118,8 @@ Native format modules under `tools/release/` own archive construction and versio
 conversion; `container.py` owns container builds and artifact handoff. Build Debian
 binaries on the target distribution because dependency discovery uses its host
 libraries. RPM dependency discovery must exclude private Unity assemblies.
+RPM timestamps use `SOURCE_DATE_EPOCH` when supplied, otherwise the packaged
+commit's timestamp; the RPM spec does not derive it from a separate changelog.
 Containers write fresh temporary output and publish only after successful checks,
 so stale or empty artifacts cannot replace existing packages. The container output
 mount must be traversable by Arch's mapped build UID even when the host runner owns

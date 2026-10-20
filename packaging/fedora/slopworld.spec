@@ -4,6 +4,10 @@
 %global debug_package %{nil}
 # Release binaries are stripped; omit build-id links.
 %global _build_id_links none
+# The packager supplies the source commit timestamp instead of an RPM changelog.
+%global source_date_epoch_from_changelog 0
+%global use_source_date_epoch_as_buildtime 1
+%global clamp_mtime_to_source_date_epoch 1
 
 Name: slopworld
 Version: %{slopworld_version}

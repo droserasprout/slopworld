@@ -8,13 +8,34 @@ from typing import Any
 
 import pytest
 
+from tools import ROOT
 from tools.release import fedora
 from tools.release import staging as release_staging
 from tools.utils import run as execute
 
 
+def test_epoch_uses_packaged_revision(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('SOURCE_DATE_EPOCH', raising=False)
+
+    def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        assert arguments == ['git', 'show', '-s', '--format=%ct', '--end-of-options', 'release-revision']
+        assert kwargs['cwd'] == ROOT
+        return subprocess.CompletedProcess(arguments, 0, '1792454400\n')
+
+    monkeypatch.setattr(fedora, 'run', run)
+    assert fedora.source_date_epoch('release-revision') == '1792454400'
+
+
+@pytest.mark.parametrize('epoch', ['', '-1', 'today', '123\n'])
+def test_invalid_epoch_is_rejected(monkeypatch: pytest.MonkeyPatch, epoch: str) -> None:
+    monkeypatch.setenv('SOURCE_DATE_EPOCH', epoch)
+    with pytest.raises(ValueError, match='SOURCE_DATE_EPOCH'):
+        fedora.source_date_epoch('unused')
+
+
 @pytest.fixture
 def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setenv('SOURCE_DATE_EPOCH', '1792454400')
     root = tmp_path / 'checkout'
     monkeypatch.setattr(fedora, 'ROOT', root)
     monkeypatch.setattr(release_staging, 'ROOT', root)
@@ -54,6 +75,7 @@ def test_system_layout_permissions_and_snapshot_version(
             assert arguments[:3] == ['rpm', '-qp', '--requires']
             return subprocess.CompletedProcess(arguments, 0, 'libc.so.6()(64bit)\n')
         assert arguments[:4] == ['rpmbuild', '-bb', '--target', architecture]
+        assert kwargs['env']['SOURCE_DATE_EPOCH'] == '1792454400'
         workspace = Path(arguments[5].removeprefix('_topdir '))
         assert arguments[7] == 'slopworld_version 0.1.0.20261005.abcdef'
         payload = workspace / 'SOURCES/payload'
@@ -143,6 +165,10 @@ def test_real_rpm_archive_round_trip(package_inputs: Path, tmp_path: Path) -> No
         text=True,
     ).stdout
     assert metadata == f'1.0.0 1 {architecture}'
+    build_time = execute(
+        ['rpm', '-qp', '--queryformat', '%{BUILDTIME}', str(archive)], capture_output=True, text=True
+    ).stdout
+    assert build_time == '1792454400'
     requires = execute(['rpm', '-qp', '--requires', str(archive)], capture_output=True, text=True).stdout
     assert 'libc.so.6' in requires
     assert all(dependency in requires.splitlines() for dependency in ('bubblewrap', 'passt', 'tmux'))
