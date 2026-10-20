@@ -35,7 +35,7 @@ and does not identify which crates are included in a particular binary.
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
 | bytes | 1.12.1 | MIT |
-| cc | 1.8.0 | MIT OR Apache-2.0 |
+| cc | 1.9.0 | MIT OR Apache-2.0 |
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
@@ -69,7 +69,7 @@ and does not identify which crates are included in a particular binary.
 | errno | 0.3.14 | MIT OR Apache-2.0 |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT |
 | fdeflate | 0.3.7 | MIT OR Apache-2.0 |
-| find-msvc-tools | 0.1.14 | MIT OR Apache-2.0 |
+| find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
 | fixedbitset | 0.5.7 | MIT OR Apache-2.0 |
 | flate2 | 1.1.10 | MIT OR Apache-2.0 |
 | foldhash | 0.1.5 | Zlib |
@@ -245,7 +245,7 @@ and does not identify which crates are included in a particular binary.
 | time-core | 0.1.9 | MIT OR Apache-2.0 |
 | time-macros | 0.2.32 | MIT OR Apache-2.0 |
 | tinystr | 0.8.4 | Unicode-3.0 |
-| tokio | 1.53.3 | MIT |
+| tokio | 1.54.0 | MIT |
 | tokio-macros | 2.7.2 | MIT |
 | tokio-tungstenite | 0.24.0 | MIT |
 | toml | 0.8.23 | MIT OR Apache-2.0 |
@@ -287,7 +287,7 @@ and does not identify which crates are included in a particular binary.
 | wasm-bindgen-macro-support | 0.2.129 | MIT OR Apache-2.0 |
 | wasm-bindgen-shared | 0.2.129 | MIT OR Apache-2.0 |
 | web-sys | 0.3.106 | MIT OR Apache-2.0 |
-| webpki-roots | 1.0.9 | CDLA-Permissive-2.0 |
+| webpki-roots | 1.0.10 | CDLA-Permissive-2.0 |
 | weezl | 0.1.12 | MIT OR Apache-2.0 |
 | winapi-util | 0.1.11 | Unlicense OR MIT |
 | windows | 0.62.2 | MIT OR Apache-2.0 |
