@@ -21,6 +21,7 @@ mod paths;
 mod perf;
 mod presets;
 mod process;
+mod prompt;
 mod runtime;
 mod sandbox;
 mod session;

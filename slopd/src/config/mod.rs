@@ -15,6 +15,7 @@ mod sandbox;
 pub(crate) mod settings;
 pub(crate) mod transactions;
 mod validation;
+pub(crate) use validation::check_belongs;
 
 pub(crate) use commands::resolve_highlighter;
 pub use daemon::*;

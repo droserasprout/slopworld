@@ -272,6 +272,40 @@ pub(crate) fn check_project(p: &ProjectCfg) -> Result<()> {
     Ok(())
 }
 
+fn check_presets(names: &[String]) -> Result<()> {
+    let t = crate::presets::table();
+    for name in names {
+        if t.sandbox(name).is_none() {
+            bail!("Sandbox preset {name:?} does not exist.");
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn check_belongs(cfg: &Config, s: &super::SessionCfg) -> Result<()> {
+    if s.project.trim().is_empty() {
+        bail!("Choose a project for session {:?}.", s.name);
+    }
+    let Some(project) = cfg.project(&s.project) else {
+        bail!("Project {:?} does not exist.", s.project);
+    };
+    s.dns.validate(&format!("agent {}", s.name))?;
+    let live_presets: Vec<String> = s
+        .sandbox
+        .iter()
+        .filter(|name| {
+            !s.sandbox_snapshots
+                .iter()
+                .any(|snapshot| snapshot.name == **name)
+        })
+        .cloned()
+        .collect();
+    check_presets(&live_presets)?;
+    s.limits.validate()?;
+    crate::config::validate_mount_paths(project)?;
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "validation_tests.rs"]
 mod tests;

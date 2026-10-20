@@ -1,6 +1,7 @@
 use super::*;
 use crate::config::{Config, Daemon, DnsConfig, Limits, ProjectCfg, SessionCfg};
 use std::collections::BTreeSet;
+use std::path::PathBuf;
 
 fn template(name: &str) -> AgentTemplate {
     serde_json::from_value(serde_json::json!({

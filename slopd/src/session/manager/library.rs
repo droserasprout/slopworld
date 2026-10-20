@@ -68,13 +68,15 @@ impl Manager {
         host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
-        let cfg = self
-            .config_for_action_scope(project, worktree, raw_path)
-            .await?;
-        let (p, s) = crate::files::actions::execution::resolve_file_action(
-            &cfg, project, raw_path, command, host,
-        )?;
-        crate::files::actions::execution::execute_file_action(&cfg, &s, &p).await
+        crate::application::file_actions::file_action(
+            self.as_ref(),
+            project,
+            worktree,
+            raw_path,
+            command,
+            host,
+        )
+        .await
     }
 
     pub async fn file_action_command(
@@ -86,18 +88,15 @@ impl Manager {
         host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
-        let cfg = self
-            .config_for_action_scope(project, worktree, raw_path)
-            .await?;
-        let path = if host && project.trim().is_empty() {
-            absolute_path(raw_path)?
-        } else {
-            let p = cfg
-                .project(project.trim())
-                .ok_or_else(|| anyhow!("Project {project:?} does not exist."))?;
-            project_action_path(p, raw_path)?
-        };
-        Ok(normalize_action_command(&path, command))
+        crate::application::file_actions::file_action_command(
+            self.as_ref(),
+            project,
+            worktree,
+            raw_path,
+            command,
+            host,
+        )
+        .await
     }
 
     pub(super) async fn queue_errand_delivery(

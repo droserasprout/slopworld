@@ -50,7 +50,6 @@ pub(crate) fn test_manager_with_socket(
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
         configuration,
-        catalog_state: super::CatalogState::new(None, None),
         host_metadata: HostMetadataPoll::default(),
         signals: super::Signals::new(),
         scroll_cache: Mutex::new(HashMap::new()),

@@ -1,7 +1,7 @@
 //! Manager construction and startup recovery.
 
 use super::super::*;
-use super::{CatalogState, HostMetadataPoll, Signals, WorktreeState};
+use super::{HostMetadataPoll, Signals, WorktreeState};
 use crate::config::transactions::{Transactions, records::Records};
 
 impl Manager {
@@ -22,24 +22,12 @@ impl Manager {
             .library
             .seed(config_authority.read_config().await.library_items_all());
 
-        // Catalog stamps seed the maintenance reload checks.
-        let presets_mtime = crate::presets::Table::stamp();
-        let presets_loaded = crate::presets::reload();
-        let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
-
         // Load persisted stores before constructing shared state.
         let title_cache = Arc::new(crate::title::SummaryCache::load(crate::title::cache_path(
             &cfg_path,
         )));
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
-
-        // Refresh after main's catalog read; record stamps only on success so failures retry.
-        let jukebox_loaded = crate::jukebox::reload()
-            .inspect_err(|error| {
-                tracing::warn!("jukebox definitions are not reloadable: {error:#}")
-            })
-            .is_ok();
 
         let m = Arc::new(Self {
             #[cfg(test)]
@@ -59,10 +47,6 @@ impl Manager {
             temp: RwLock::new(HashMap::new()),
             config_authority,
             configuration: Transactions::new(Records::new(binding, stores), library_revision),
-            catalog_state: CatalogState::new(
-                presets_loaded.then_some(presets_mtime).flatten(),
-                jukebox_loaded.then_some(jukebox_mtime).flatten(),
-            ),
             host_metadata: HostMetadataPoll::default(),
             signals: Signals::new(),
             scroll_cache: Mutex::new(HashMap::new()),

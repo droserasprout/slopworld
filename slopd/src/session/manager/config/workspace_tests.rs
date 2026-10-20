@@ -3,6 +3,7 @@ use super::*;
 use crate::config::HostTerminalCfg;
 use crate::session::WorktreeRequest;
 use crate::storage::{target::StorageBinding, workspace};
+use std::path::PathBuf;
 use std::time::Duration;
 
 struct Fixture {

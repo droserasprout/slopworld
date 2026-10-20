@@ -3,6 +3,7 @@
 use super::*;
 use crate::config::HostTerminalCfg;
 use crate::storage::{target::StorageBinding, workspace::Store};
+use std::path::PathBuf;
 
 struct Fixture {
     manager: Arc<Manager>,

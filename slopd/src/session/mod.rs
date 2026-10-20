@@ -3,7 +3,7 @@
 use crate::clock::unix_ms;
 mod protobuf;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -20,14 +20,12 @@ use launch::{
     ExecutionSource, HostLifetime, LaunchContent, LaunchDestination, LaunchOptions, LaunchRequest,
 };
 pub(crate) use launch::{ExplicitLaunch, LaunchContext, ReaderContext};
-mod template;
 mod text;
 mod title;
 mod validation;
 mod view;
 
 mod manager;
-mod prompt;
 mod role;
 pub(crate) use manager::{WorkerCheckout, WorkerRequest, WorktreeRequest};
 use role::{AgentLifetime, SessionRole};
@@ -45,16 +43,16 @@ pub use view::{
     SessionWorkerView,
 };
 
+use crate::config::check_belongs;
 use crate::config::patch::json_to_toml;
 use crate::config::{check_library_item, check_project};
-use crate::files::actions::{absolute_path, normalize_action_command, project_action_path};
+use crate::prompt::{PromptVars, render_prompt, render_prompt_with};
 pub(crate) use input::Input;
 use input::merge_input;
-use prompt::{PromptVars, render_prompt, render_prompt_with};
 pub use text::strip_sgr;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
 pub(crate) use validation::name_slug;
-use validation::{check_belongs, check_name, free_name, free_project_name, settle, slug};
+use validation::{check_name, free_name, free_project_name, settle, slug};
 
 #[cfg(test)]
 use input::INPUT_BATCH;

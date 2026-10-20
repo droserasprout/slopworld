@@ -540,10 +540,13 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     );
     assert!(Path::new(&renamed_path).exists());
     assert_eq!(
-        manager
-            .worktree_for_path("renamed", &format!("{renamed_path}/file"))
-            .await
-            .unwrap(),
+        crate::application::file_actions::worktree_for_path(
+            manager.as_ref(),
+            "renamed",
+            &format!("{renamed_path}/file")
+        )
+        .await
+        .unwrap(),
         w.id
     );
     // Simulate completed Git removal before the daemon saves the result.

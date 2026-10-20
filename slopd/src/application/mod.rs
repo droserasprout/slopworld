@@ -2,6 +2,9 @@
 //! Session runtime supplies identity and operation leases; API owns wire encoding.
 //! Session runtime retains live validation, operation guards, and reconciliation.
 mod agent_templates;
+pub(crate) mod catalogs;
+pub(crate) mod file_actions;
+pub(crate) mod worktrees;
 pub(crate) use agent_templates::{AgentTemplates, TemplatePersistence};
 mod config_authority;
 pub(crate) use config_authority::{AuthChange, ConfigAuthority};
@@ -21,6 +24,7 @@ use tokio::sync::{RwLock, broadcast};
 
 pub(crate) struct Services {
     tasks: TaskStore,
+    pub(crate) catalogs: catalogs::CatalogState,
     pub(crate) library: LibraryCatalog,
     pub(crate) templates: AgentTemplates,
     pub(crate) music: crate::music::Music,
@@ -41,7 +45,9 @@ impl Services {
             &config.join("config.toml"),
         ))
         .await?;
-        Ok(Arc::new(Self::new(tasks, tmux, 256, templates)))
+        let mut services = Self::new(tasks, tmux, 256, templates);
+        services.catalogs = catalogs::CatalogState::load();
+        Ok(Arc::new(services))
     }
 
     pub(crate) fn new(
@@ -53,6 +59,7 @@ impl Services {
         let (events, _) = broadcast::channel(event_capacity);
         Self {
             tasks,
+            catalogs: catalogs::CatalogState::new(None, None),
             library: LibraryCatalog::default(),
             templates,
             events,

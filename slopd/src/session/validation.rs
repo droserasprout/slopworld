@@ -1,4 +1,4 @@
-//! Session names, membership and live-name allocation. Domain validation belongs to config.
+//! Session names and live-name allocation. Static configuration checks belong to config.
 
 use super::*;
 
@@ -49,16 +49,6 @@ pub(super) fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) 
         .expect("an increasing suffix eventually produces an unused session name")
 }
 
-pub(super) fn check_presets(names: &[String]) -> Result<()> {
-    let t = crate::presets::table();
-    for name in names {
-        if t.sandbox(name).is_none() {
-            bail!("Sandbox preset {name:?} does not exist.");
-        }
-    }
-    Ok(())
-}
-
 pub(super) fn settle(p: &mut ProjectCfg) {
     if p.temp {
         p.dir = crate::paths::temp_dir(&p.name);
@@ -82,30 +72,6 @@ pub(super) fn free_project_name(
         .map(|i| format!("{base}-{i}"))
         .find(|n| !taken(n))
         .expect("an increasing suffix eventually produces an unused project name")
-}
-
-pub(super) fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
-    if s.project.trim().is_empty() {
-        bail!("Choose a project for session {:?}.", s.name);
-    }
-    let Some(project) = cfg.project(&s.project) else {
-        bail!("Project {:?} does not exist.", s.project);
-    };
-    s.dns.validate(&format!("agent {}", s.name))?;
-    let live_presets: Vec<String> = s
-        .sandbox
-        .iter()
-        .filter(|name| {
-            !s.sandbox_snapshots
-                .iter()
-                .any(|snapshot| snapshot.name == **name)
-        })
-        .cloned()
-        .collect();
-    check_presets(&live_presets)?;
-    s.limits.validate()?;
-    crate::config::validate_mount_paths(project)?;
-    Ok(())
 }
 
 #[cfg(test)]

@@ -6,6 +6,7 @@ use std::time::Duration;
 pub(crate) mod checkout;
 pub(crate) mod directories;
 pub(crate) mod relocation;
+pub(crate) mod resolution;
 mod write_guard;
 
 /// Lifecycle values retain their existing spelling in storage and client views.

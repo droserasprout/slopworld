@@ -4,15 +4,12 @@ The library catalog contains prompts, shell errands, breadcrumbs, and file actio
 Runnable items can reference [agent templates](daemon-agent-templates.md), which
 have their own catalog and API.
 
-`config/library.rs` owns item definitions, validation, supplied entries, and lookups.
-`config/catalog.rs` owns per-kind validation, loading and preparation of bound
-transaction changes. The manager checks catalog revisions and commits those changes
-through `storage/transaction.rs`. `application/library.rs` owns catalog mutation policy,
-discovery, retained snapshots, and publication. `session/manager/library.rs` supplies
-guarded configuration commits and launch adapters; `api/handlers/library.rs` owns the HTTP boundary. `session/launch.rs` converts saved entries into transient launch requests.
-`session/manager/launch.rs` prepares explicit requests and owns guarded execution;
-`session/manager/errands.rs` resolves settings and constructs live sessions.
-`config/commands.rs` resolves launch commands without depending on catalog records.
+`config/library.rs` owns definitions and validation; `config/catalog.rs` prepares
+catalog transactions. `application/library.rs` owns mutation policy, discovery,
+snapshots, and publication. Session adapters supply guarded commits and launches;
+`api/handlers/library.rs` owns HTTP. Launch conversion lives in `session/launch.rs`,
+guarded execution in `session/manager/launch.rs`, and live construction in `errands.rs`.
+File-action scope coordination belongs to `application/file_actions.rs`.
 
 A user item shadows a supplied entry with the same name. Deleting that user item
 reveals the supplied entry again. Saved runnable entries require an explicit host
@@ -20,7 +17,7 @@ or template execution choice. File actions run on the daemon host and do not
 participate in agent breadcrumb delivery. `files/actions/execution.rs` owns bounded
 host execution and output formatting; `files/desktop.rs` owns MIME associations and
 desktop application discovery.
-`session/template.rs` owns placeholder scanning; `session/prompt.rs` supplies values,
+`prompt/template.rs` owns placeholder scanning; `prompt/mod.rs` supplies values,
 including client-selected tips. Replacement text is literal and is not scanned again.
 Library breadcrumbs are inserted manually, never automatically at agent startup.
 

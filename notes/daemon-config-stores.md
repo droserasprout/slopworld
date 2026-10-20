@@ -21,7 +21,7 @@ directly. `session/manager/caps.rs` retains session identity checks and guarded
 grant mutations.
 Client announcements follow the completed transaction. `config/accepted.rs` gives background services
 read-only daemon-settings snapshots from that same lock; there is no secondary
-settings cache or independent publication step. `session/manager/catalog_state.rs` holds independent
+settings cache or independent publication step. `application/catalogs.rs` holds independent
 catalog polling deadlines and timestamps.
 `storage/layout.rs` recovers and loads the workspace once, then hands the validated
 configuration, typed record indexes and sampled library revision to the manager.
