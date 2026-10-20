@@ -20,9 +20,13 @@ namespace SlopWorld
 
         public static void GrainedFill(Rect r, Color c)
         {
-            Flat(r, c);
-            if (Paint(c))
-                SurfaceGrain.Draw(Snap(r), c.a);
+            if (!Paint(c))
+                return;
+
+            // Face and grain share one screen transform and exactly the same snapped bounds.
+            r = Snap(r, out var screenScale);
+            FlatSnapped(r, c);
+            SurfaceGrain.Draw(r, c.a, screenScale);
         }
 
         // The same box's border and nothing inside it, laid inside the rect so an outlined
@@ -83,13 +87,16 @@ namespace SlopWorld
 
         // Snap both edges of each axis in screen space. Nested GUI groups make arithmetic
         // inversion through ScreenToGUIPoint unreliable. WorkspaceWindow uses the same transform.
-        static Rect Snap(Rect r)
+        static Rect Snap(Rect r) => Snap(r, out _);
+
+        static Rect Snap(Rect r, out Vector2 screenScale)
         {
             var p0 = GUIUtility.GUIToScreenPoint(Vector2.zero);
             var p1 = GUIUtility.GUIToScreenPoint(Vector2.one);
 
             float sx = p1.x - p0.x,
                 sy = p1.y - p0.y;
+            screenScale = new Vector2(Mathf.Abs(sx), Mathf.Abs(sy));
             if (Mathf.Abs(sx) < 0.0001f || Mathf.Abs(sy) < 0.0001f)
                 return r;
 
@@ -119,7 +126,11 @@ namespace SlopWorld
             if (!Paint(c))
                 return;
 
-            r = Snap(r);
+            FlatSnapped(Snap(r), c);
+        }
+
+        static void FlatSnapped(Rect r, Color c)
+        {
             if (r.width <= 0f || r.height <= 0f)
                 return;
 

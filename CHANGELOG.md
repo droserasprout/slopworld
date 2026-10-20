@@ -10,9 +10,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- UI: Post-processing!
+- Settings: Made post-processing intensity configurable.
+- UI: Use grained texture for accented surfaces.
 
 ## [0.0.8] - 2026-10-20
 

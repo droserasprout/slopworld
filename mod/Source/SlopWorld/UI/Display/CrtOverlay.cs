@@ -7,7 +7,6 @@ namespace SlopWorld
     internal sealed class CrtOverlay : MonoBehaviour
     {
         const int ScanlinePeriod = 3;
-        const float DitherRange = 2f / 255f;
         const float ResizeSettleSeconds = 0.2f;
 
         string _mode;
@@ -37,18 +36,17 @@ namespace SlopWorld
                 _mode = mode;
             }
             if (mode == VisualEffectsMode.Off)
-            {
-                ReleaseTextures();
                 return;
-            }
-            if (Event.current.type != EventType.Repaint || Screen.width <= 0 || Screen.height <= 0)
+            if (Event.current.type != EventType.Repaint)
                 return;
 
+            // Screen dimensions cross into Unity; sample them once for this repaint.
+            int width = Screen.width;
+            int height = Screen.height;
+            if (width <= 0 || height <= 0)
+                return;
             float scale = UiScale.Current;
-            if (
-                _scanlines != null
-                && (_scanlines.height != Screen.height || _scanlineScale != scale)
-            )
+            if (_scanlines != null && (_scanlines.height != height || _scanlineScale != scale))
             {
                 Destroy(_scanlines);
                 _scanlines = null;
@@ -56,13 +54,13 @@ namespace SlopWorld
             if (_scanlines == null)
             {
                 _scanlines = CreateScanlines(
-                    Screen.height,
+                    height,
                     scale,
                     VisualEffectsMode.ScanlineOpacity(mode)
                 );
                 _scanlineScale = scale;
             }
-            RefreshVignette(Screen.width, Screen.height);
+            RefreshVignette(width, height);
 
             var matrix = GUI.matrix;
             var color = GUI.color;
@@ -74,7 +72,7 @@ namespace SlopWorld
                 GUI.matrix = Matrix4x4.identity;
                 GUI.color = Color.white;
                 GUI.enabled = true;
-                var screen = new Rect(0f, 0f, Screen.width, Screen.height);
+                var screen = new Rect(0f, 0f, width, height);
                 GUI.DrawTexture(screen, _scanlines, ScaleMode.StretchToFill, true);
                 if (_vignette != null)
                     GUI.DrawTexture(screen, _vignette, ScaleMode.StretchToFill, true);
@@ -141,43 +139,10 @@ namespace SlopWorld
             var texture = CreateTexture("SlopWorld vignette", width, height);
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
-            var pixels = new Color32[width * height];
-            for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                float nx = 2f * (x + 0.5f) / width - 1f;
-                float ny = 2f * (y + 0.5f) / height - 1f;
-                // A continuous quartic falloff spreads the shading across the whole image,
-                // with a flat, clear centre and no threshold outlining an inner ellipse.
-                float radiusSquared = (nx * nx + ny * ny) * 0.5f;
-                float opacity = cornerOpacity * radiusSquared * radiusSquared;
-                // Alpha-only noise vanishes over dark panels. Encode a tiny neutral RGB
-                // contribution too, so the blended result varies by up to two display
-                // levels even on black. The added attenuation keeps the mean shift within
-                // roughly one display level. Quantize alpha first to account for RGBA32.
-                byte alpha = (byte)Mathf.RoundToInt((opacity + DitherRange) * 255f);
-                float lift = PixelNoise(x, y) * DitherRange;
-                byte gray = (byte)Mathf.RoundToInt(lift * 255f * 255f / alpha);
-                pixels[y * width + x] = new Color32(gray, gray, gray, alpha);
-            }
+            var pixels = CrtVignettePixels.Build(width, height, cornerOpacity);
             texture.SetPixels32(pixels);
             texture.Apply(false, true);
             return texture;
-        }
-
-        // A stable coordinate hash avoids both repeating grids and frame-to-frame shimmer.
-        static float PixelNoise(int x, int y)
-        {
-            unchecked
-            {
-                uint bits = (uint)x * 0x9e3779b9u ^ (uint)y * 0x85ebca6bu;
-                bits ^= bits >> 16;
-                bits *= 0x7feb352du;
-                bits ^= bits >> 15;
-                bits *= 0x846ca68bu;
-                bits ^= bits >> 16;
-                return (bits & 0xffffffu) / 16777216f;
-            }
         }
 
         static Texture2D CreateTexture(string name, int width, int height) =>

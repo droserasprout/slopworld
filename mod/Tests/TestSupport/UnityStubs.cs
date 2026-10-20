@@ -1,5 +1,22 @@
 namespace UnityEngine
 {
+    // Match Unity's four-byte RGBA payload for CPU pixel-generation benchmarks.
+    public struct Color32
+    {
+        public byte r,
+            g,
+            b,
+            a;
+
+        public Color32(byte red, byte green, byte blue, byte alpha)
+        {
+            r = red;
+            g = green;
+            b = blue;
+            a = alpha;
+        }
+    }
+
     public enum FontStyle
     {
         Normal,

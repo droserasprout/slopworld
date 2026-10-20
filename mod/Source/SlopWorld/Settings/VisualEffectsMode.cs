@@ -18,13 +18,12 @@ namespace SlopWorld
             : "Mild";
 
         // Absolute alpha values keep tuning here, independent of renderer multipliers.
-        // Mild is the calibrated baseline; higher levels add roughly equal opacity steps
-        // while keeping corner shading near 1.5 times the darkest scanline.
+        // Mild keeps scanlines subtle; vignette and grain strengths are tuned independently.
         public static float ScanlineOpacity(string value) =>
             Normalize(value) == Off ? 0f
             : Normalize(value) == Moderate ? 0.25f
             : Normalize(value) == Massive ? 0.36f
-            : 0.126f;
+            : 0.08f;
 
         public static float CornerOpacity(string value) =>
             Normalize(value) == Off ? 0f

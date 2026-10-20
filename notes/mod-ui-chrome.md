@@ -10,6 +10,8 @@ VSync, and offers Meh, Mild (default), Moderate, and Massive.
 `VisualEffectsMode` owns scanline, vignette, grain, and cursor strengths for each preset; the overlay
 owns coverage, falloff, and dithering. Changes rebuild textures immediately,
 and Meh disables the overlay and releases them.
+`CrtVignettePixels` owns the CPU pixel bake; the overlay owns texture uploads
+and drawing. The bake runs on cache construction, not every frame.
 The hardware cursor bypasses the overlay. Its texture cache bakes a uniform RGB dim
 and alpha reduction from `VisualEffectsMode` and rebuilds when the preset changes. Hotspots
 are calculated before alpha changes so effect strength cannot move the click point.
@@ -25,7 +27,9 @@ owners supply status, availability, empty messages, and actions.
 
 Grained widget faces use `Slab.GrainedFill` or `Slab.Box` with `grain: true`.
 `SurfaceGrain` owns their shared, static noise tile, drawn at physical-pixel scale
-before borders, labels, and icons. Primary and danger buttons, checked indicators,
+before borders, labels, and icons. `Slab` supplies the snapped face bounds and
+physical scale from one transform sample, shared by the face and grain.
+Primary and danger buttons, checked indicators,
 slider fills, settings tabs, selected rows, and interactive hover faces opt in
 explicitly; color equality does not select textured surfaces. Slider knobs and
 scrollbar thumbs opt in while hovered or dragged. Appearance previews reuse the

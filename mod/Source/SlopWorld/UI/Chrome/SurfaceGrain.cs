@@ -8,7 +8,7 @@ namespace SlopWorld
         const int TileSize = 128;
         static Texture2D _texture;
 
-        internal static void Draw(Rect rect, float opacity)
+        internal static void Draw(Rect rect, float opacity, Vector2 screenScale)
         {
             opacity *= VisualEffectsMode.GrainOpacity(Settings.VisualEffects);
             if (opacity <= 0f || rect.width <= 0f || rect.height <= 0f)
@@ -18,13 +18,11 @@ namespace SlopWorld
 
             // Keep grains one physical pixel wide, including at fractional UI scales.
             // Local UVs let the texture travel with its widget rather than shimmer on scroll.
-            var origin = GUIUtility.GUIToScreenPoint(Vector2.zero);
-            var unit = GUIUtility.GUIToScreenPoint(Vector2.one);
             var uv = new Rect(
                 0f,
                 0f,
-                rect.width * Mathf.Abs(unit.x - origin.x) / TileSize,
-                rect.height * Mathf.Abs(unit.y - origin.y) / TileSize
+                rect.width * screenScale.x / TileSize,
+                rect.height * screenScale.y / TileSize
             );
             var color = GUI.color;
             try
