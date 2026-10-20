@@ -13,7 +13,7 @@ use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 use tokio::time::{Instant, sleep_until};
 
-use super::super::Mgr;
+use super::super::App;
 use super::{WsSubs, WsTx};
 use crate::application::{Event, EventMessage};
 use crate::grant::Cap;
@@ -47,7 +47,7 @@ pub(super) fn scope_event(cap: &Cap, ev: Arc<EventMessage>) -> Option<Arc<EventM
 }
 
 /// Seed state that may not broadcast again until it changes, using the live event scope filter.
-pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
+pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &App, cap: &Cap) -> bool {
     if let Some(ev) = scope_event(
         cap,
         EventMessage::new(Event::Capabilities {
@@ -60,7 +60,7 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool
     if let Some(ev) = scope_event(
         cap,
         EventMessage::new(Event::Sessions {
-            sessions: m.views().await,
+            sessions: m.sessions.views().await,
         }),
     ) && send(tx, cap, &ev).await.is_err()
     {
@@ -71,7 +71,7 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool
     }
     // Query each root-only source only after the preceding send succeeds.
     let ev = EventMessage::new(Event::Usage {
-        usage: m.application.usage().await,
+        usage: m.services.usage().await,
     });
     if send(tx, cap, &ev).await.is_err() {
         return false;
@@ -89,7 +89,7 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool
         return false;
     }
     let ev = EventMessage::new(Event::Audio {
-        audio: m.application.music.state().await,
+        audio: m.services.music.state().await,
     });
     if send(tx, cap, &ev).await.is_err() {
         return false;

@@ -11,8 +11,8 @@ fn scoped(names: &[&str], level: Level) -> Cap {
     })
 }
 
-async fn configured_manager() -> Mgr {
-    let manager = crate::session::test_manager(Config {
+async fn configured_manager() -> App {
+    let manager = crate::application::test_application(Config {
         sessions: ["agent", "private"]
             .into_iter()
             .map(|name| crate::config::SessionCfg {
@@ -23,7 +23,7 @@ async fn configured_manager() -> Mgr {
             .collect(),
         ..Default::default()
     });
-    manager.sync_from_config().await;
+    manager.sessions.sync_from_config().await;
     manager
 }
 
@@ -149,7 +149,7 @@ async fn label_updates_require_write_access_and_preserve_state_on_invalid_input(
             StatusCode::FORBIDDEN
         );
     }
-    assert!(manager.config().await.sessions[0].label.is_none());
+    assert!(manager.sessions.config().await.sessions[0].label.is_none());
     for cap in [Cap::Root, scoped(&["agent"], Level::Rw)] {
         assert!(
             set_label(
@@ -190,7 +190,7 @@ async fn label_updates_require_write_access_and_preserve_state_on_invalid_input(
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert!(error.error.contains("at most 60 characters"));
         assert_eq!(
-            manager.config().await.sessions[0].label.as_deref(),
+            manager.sessions.config().await.sessions[0].label.as_deref(),
             Some("界 label")
         );
         assert!(
@@ -207,7 +207,7 @@ async fn label_updates_require_write_access_and_preserve_state_on_invalid_input(
             .0
             .ok
         );
-        assert!(manager.config().await.sessions[0].label.is_none());
+        assert!(manager.sessions.config().await.sessions[0].label.is_none());
     }
 }
 
@@ -245,13 +245,20 @@ async fn pinning_rejects_denied_missing_and_non_reader_sessions() {
             assert_eq!(error.error, "session agent is not a pinnable reader");
         }
     }
-    assert!(manager.views().await.iter().all(|s| !s.reader.pinned));
+    assert!(
+        manager
+            .sessions
+            .views()
+            .await
+            .iter()
+            .all(|s| !s.reader.pinned)
+    );
 }
 
 #[tokio::test]
 async fn creating_sessions_is_root_only_and_duplicate_failure_keeps_existing_configuration() {
     let directory = super::super::tests::fixture("session-create");
-    let manager = crate::session::test_manager(Config {
+    let manager = crate::application::test_application(Config {
         projects: vec![ProjectCfg {
             name: "repo".into(),
             dir: directory.to_string_lossy().into_owned(),
@@ -281,7 +288,7 @@ async fn creating_sessions_is_root_only_and_duplicate_failure_keeps_existing_con
             error.error,
             "Only the root token can create sessions through this request."
         );
-        assert!(manager.config().await.sessions.is_empty());
+        assert!(manager.sessions.config().await.sessions.is_empty());
     }
     assert!(
         create(State(manager.clone()), Extension(Cap::Root), request())
@@ -290,7 +297,7 @@ async fn creating_sessions_is_root_only_and_duplicate_failure_keeps_existing_con
             .0
             .ok
     );
-    let saved = manager.config().await.sessions;
+    let saved = manager.sessions.config().await.sessions;
     assert_eq!(saved.len(), 1);
     assert!(crate::storage_id::valid(&saved[0].state_id));
     assert!(!saved[0].worker);
@@ -302,14 +309,14 @@ async fn creating_sessions_is_root_only_and_duplicate_failure_keeps_existing_con
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(error.error, "session created already exists");
     assert_eq!(
-        serde_json::to_value(manager.config().await.sessions).unwrap(),
+        serde_json::to_value(manager.sessions.config().await.sessions).unwrap(),
         serde_json::to_value(saved).unwrap()
     );
 }
 
 #[tokio::test]
 async fn session_actions_require_write_access_and_keep_response_shapes() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let name = format!("missing-{}", uuid::Uuid::new_v4());
     macro_rules! check {
             ($action:ident, $status:expr) => {
@@ -348,7 +355,7 @@ async fn session_actions_require_write_access_and_keep_response_shapes() {
 
 #[tokio::test]
 async fn configured_session_stop_obeys_read_and_write_grants() {
-    let manager = crate::session::test_manager(Config {
+    let manager = crate::application::test_application(Config {
         sessions: vec![crate::config::SessionCfg {
             name: "agent".into(),
             ..Default::default()
@@ -376,7 +383,7 @@ async fn replacing_session_configuration_is_root_only_and_root_can_change_sandbo
     let directory =
         std::env::temp_dir().join(format!("slopd-config-boundary-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&directory).unwrap();
-    let manager = crate::session::test_manager(Config {
+    let manager = crate::application::test_application(Config {
         projects: vec![
             ProjectCfg {
                 name: "repo".into(),
@@ -402,7 +409,7 @@ async fn replacing_session_configuration_is_root_only_and_root_can_change_sandbo
         sandbox: vec!["slopworld-debug".into()],
         ..Default::default()
     };
-    let original = manager.config().await;
+    let original = manager.sessions.config().await;
 
     for level in [Level::Ro, Level::Rw] {
         let cap = Cap::Scoped(Grant {
@@ -428,7 +435,7 @@ async fn replacing_session_configuration_is_root_only_and_root_can_change_sandbo
             json!({ "error": "Only the root token can replace session configuration." })
         );
         assert_eq!(
-            serde_json::to_value(manager.config().await.sessions).unwrap(),
+            serde_json::to_value(manager.sessions.config().await.sessions).unwrap(),
             serde_json::to_value(&original.sessions).unwrap()
         );
     }
@@ -441,7 +448,7 @@ async fn replacing_session_configuration_is_root_only_and_root_can_change_sandbo
     )
     .await
     .expect("root configuration update should remain available");
-    let saved = manager.config().await;
+    let saved = manager.sessions.config().await;
     assert_eq!(saved.sessions[0].name, "renamed");
     assert_eq!(saved.sessions[0].project, "other");
     assert_eq!(saved.sessions[0].sandbox, ["slopworld-debug"]);

@@ -12,7 +12,7 @@ use super::*;
 pub const TOKEN_REDACTED: &str = "<redacted>";
 
 /// Redact a nonempty `[daemon] token` in configuration text. Preserve comments and blank lines.
-/// `Manager::replace_config` restores the real value when a client writes the sentinel.
+/// `SessionRuntime::replace_config` restores the real value when a client writes the sentinel.
 pub fn redact_token_text(text: &str) -> Result<String> {
     let mut document: toml_edit::DocumentMut =
         text.parse().context("parsing config for token redaction")?;

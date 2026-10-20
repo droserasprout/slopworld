@@ -2,7 +2,7 @@
 
 `slopd/src/tasks.rs` defines mailbox records; `tasks/service.rs` owns policy, accepted
 ID/order indexes and participant authority. Persistence belongs to the selected disk
-adapter. Manager task operations and HTTP handlers resolve caller identities.
+adapter. SessionRuntime task operations and HTTP handlers resolve caller identities.
 Sandboxes use the API rather than editing storage.
 Each task has one shared record; reads do not consume it.
 The body records the original request; `history` retains every accepted update in

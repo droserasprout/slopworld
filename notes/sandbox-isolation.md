@@ -25,7 +25,7 @@ also omits relative preset bind sources as a defensive check.
 Private state uses daemon-assigned opaque IDs preserved through rename. Configured
 identities require the shared 16-character lowercase hexadecimal format; validation
 belongs to `storage_id.rs`. New configured agents and workers
-allocate through `session/manager/identity.rs` under the session boundary. Allocation
+allocate through `session/identity.rs` under the session boundary. Allocation
 checks configured/live identities, task participants, record destinations, and retained
 private state; unreadable trash metadata rejects allocation rather than making an
 identity available. Edits and restores retain their existing identity. Stopped agents retain their state;

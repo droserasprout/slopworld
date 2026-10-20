@@ -8,14 +8,14 @@ use serde_json::json;
 use crate::grant::Level;
 
 use super::super::types::GrantReq;
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 
 /// Mint a grant: let `grantor` watch or drive the named `sessions`. Root-only by the router,
 /// so only the mod asks. The daemon refuses a host session in the scope - the one line the
 /// whole scheme is for - and refuses a grantor or target that is not there. The token comes
 /// back once. The daemon keeps a private copy so the credential survives daemon restarts.
 pub(crate) async fn mint_grant(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(q): Proto<wire::GrantReq>,
 ) -> ApiResult<wire::GrantResult> {
     let q: GrantReq = domain(q)?;
@@ -30,6 +30,7 @@ pub(crate) async fn mint_grant(
         }
     };
     let token = m
+        .sessions
         .mint_grant(q.grantor, q.sessions, level)
         .await
         .map_err(|e| {
@@ -45,16 +46,17 @@ pub(crate) async fn mint_grant(
 
 /// How many grants are live, for the mod's readout. Not the tokens themselves: those are
 /// bearer secrets and leave the daemon once, at the mint.
-pub(crate) async fn list_grants(State(m): State<Mgr>) -> ApiResult<wire::GrantsReply> {
+pub(crate) async fn list_grants(State(m): State<App>) -> ApiResult<wire::GrantsReply> {
     reply(json!({ "grants": m.config_authority.grant_count().await }))
 }
 
 /// Drop every grant a session minted, by hand rather than by its exit. The mod's revoke.
 pub(crate) async fn revoke_grants(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(grantor): Path<String>,
 ) -> ApiResult<wire::Ack> {
-    m.revoke_grants(&grantor)
+    m.sessions
+        .revoke_grants(&grantor)
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     Ok(Proto(wire::Ack { ok: true }))
@@ -67,7 +69,7 @@ mod tests {
 
     #[tokio::test]
     async fn mint_distinguishes_invalid_scope_from_failed_persistence() {
-        let manager = crate::session::test_manager(Config {
+        let manager = crate::application::test_application(Config {
             sessions: vec![
                 SessionCfg {
                     name: "grantor".into(),
@@ -95,8 +97,8 @@ mod tests {
                 .0,
             StatusCode::BAD_REQUEST
         );
-        manager.use_persisted_grants_for_test().await;
-        let path = manager.cfg_path().with_file_name("grants.toml");
+        manager.sessions.use_persisted_grants_for_test().await;
+        let path = manager.sessions.cfg_path().with_file_name("grants.toml");
         std::fs::create_dir(&path).unwrap();
         assert_eq!(
             mint_grant(State(manager.clone()), request("target"))

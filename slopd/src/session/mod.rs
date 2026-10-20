@@ -1,4 +1,5 @@
-//! Shared session state; manager/ owns lifecycle and application owns daemon publication.
+//! Live session state, lifecycle, operation guards and terminal capture.
+//! Application owns user-operation coordination, configuration edits and daemon publication.
 
 use crate::clock::unix_ms;
 use std::collections::HashMap;
@@ -8,7 +9,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
-use serde_json::Value;
 use tokio::sync::{RwLock, mpsc};
 use tokio::task::JoinHandle;
 
@@ -23,17 +23,44 @@ mod title;
 mod validation;
 mod view;
 
-mod manager;
+mod boundary;
+mod caps;
+mod capture;
+mod config;
+mod delivery;
+mod errands;
+mod host_metadata;
+mod identity;
+mod init;
+mod lifecycle;
+mod maintenance;
+mod music;
+#[cfg(test)]
+#[path = "projects_tests.rs"]
+mod project_operation_tests;
+mod runtime;
+mod session_state;
+mod sessions;
+mod signals;
+mod tasks;
+mod views;
+mod workers;
+mod worktrees;
+
+use capture::CachedScroll;
+pub(crate) use host_metadata::HostMetadataPoll;
+pub(crate) use signals::Signals;
+pub use signals::WatchGuard;
+
 mod role;
 use role::{AgentLifetime, SessionRole};
 
-use crate::agent_templates::AgentTemplate;
 #[cfg(test)]
 use crate::agent_templates::AgentTemplateStore;
 use crate::application::Event;
-pub use manager::{Manager, WatchGuard};
+pub use runtime::SessionRuntime;
 #[cfg(test)]
-pub(crate) use manager::{test_manager, test_manager_with_socket};
+pub(crate) use runtime::{test_manager, test_manager_with_socket};
 pub(crate) use view::FrameViewArgs;
 pub use view::{
     ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
@@ -41,7 +68,6 @@ pub use view::{
 };
 
 use crate::config::check_belongs;
-use crate::config::patch::json_to_toml;
 use crate::emu::strip_sgr;
 pub(crate) use input::Input;
 use input::merge_input;
@@ -69,7 +95,7 @@ crate::wire_enum!(State, {
     State::Idle => crate::shared::protocol::enums::agent_state::IDLE,
 });
 
-/// Mutable runtime state for one session, owned by Manager.
+/// Mutable runtime state for one session, owned by SessionRuntime.
 struct Live {
     // Configuration and host-shell identity.
     cfg: SessionCfg,

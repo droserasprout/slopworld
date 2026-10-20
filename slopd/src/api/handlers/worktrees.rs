@@ -1,5 +1,5 @@
 //! Worktree HTTP authorization and wire projection; recovery fields stay in durable records.
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 use crate::api::protobuf::{Proto, domain};
 use crate::application::workers::Workers;
 use crate::application::worktrees::Worktrees;
@@ -19,7 +19,7 @@ pub(crate) struct WorktreeQuery {
 }
 
 pub(crate) async fn list_worktrees(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Query(q): Query<WorktreeQuery>,
@@ -47,7 +47,7 @@ pub(crate) async fn list_worktrees(
 }
 
 pub(crate) async fn create_worktree(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Proto(q): Proto<wire::CreateWorktreeReq>,
@@ -71,7 +71,7 @@ pub(crate) async fn create_worktree(
 }
 
 pub(crate) async fn remove_worktree(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(id): Path<String>,
     Query(q): Query<WorktreeQuery>,
 ) -> ApiResult {
@@ -79,7 +79,7 @@ pub(crate) async fn remove_worktree(
 }
 
 pub(crate) async fn rename_worktree(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(id): Path<String>,
     Query(q): Query<WorktreeQuery>,
     Proto(req): Proto<wire::CreateWorktreeReq>,
@@ -93,7 +93,7 @@ pub(crate) async fn rename_worktree(
 }
 
 pub(crate) async fn preview_worktree(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Proto(q): Proto<wire::CreateWorktreeReq>,

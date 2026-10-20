@@ -36,6 +36,11 @@ impl ConfigAuthority {
         }
     }
 
+    /// Return an owned snapshot so callers cannot retain the config lock across I/O.
+    pub(crate) async fn snapshot(&self) -> Config {
+        self.read_config().await.clone()
+    }
+
     pub(crate) async fn read_config(&self) -> tokio::sync::RwLockReadGuard<'_, Config> {
         self.config.read().await
     }

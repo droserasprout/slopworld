@@ -14,7 +14,7 @@ async fn theme_requests_do_not_mutate_daemon_defaults() {
     let mut cfg = crate::config::Config::default();
     cfg.commands.highlighter = executable.to_string_lossy().into_owned();
     let original = cfg.commands.highlighter.clone();
-    let manager = crate::session::test_manager(cfg);
+    let manager = crate::application::test_application(cfg);
     let Proto(catalog) = highlight_themes(
         State(manager.clone()),
         Query(HighlightThemesQuery::default()),
@@ -32,7 +32,10 @@ async fn theme_requests_do_not_mutate_daemon_defaults() {
             .await
             .unwrap();
         assert!(result.text.contains(&format!("--theme={theme}")));
-        assert_eq!(manager.config().await.commands.highlighter, original);
+        assert_eq!(
+            manager.sessions.config().await.commands.highlighter,
+            original
+        );
     }
 }
 
@@ -49,7 +52,7 @@ async fn draft_highlighter_catalog_and_preview_leave_defaults_unchanged() {
     let mut cfg = crate::config::Config::default();
     cfg.commands.highlighter = "highlight --out-format=xterm256".into();
     let original = cfg.commands.highlighter.clone();
-    let manager = crate::session::test_manager(cfg);
+    let manager = crate::application::test_application(cfg);
     let command = executable.to_string_lossy().into_owned();
     let Proto(catalog) = highlight_themes(
         State(manager.clone()),
@@ -61,13 +64,19 @@ async fn draft_highlighter_catalog_and_preview_leave_defaults_unchanged() {
     .unwrap();
     assert_eq!(catalog.engine, "bat");
     assert_eq!(catalog.themes, ["DraftTheme"]);
-    assert_eq!(manager.config().await.commands.highlighter, original);
+    assert_eq!(
+        manager.sessions.config().await.commands.highlighter,
+        original
+    );
     let request = serde_json::from_value(json!({"text":"sample", "language":"rs", "engine":"bat", "theme":"DraftTheme", "command":command})).unwrap();
     let Proto(preview) = highlight(State(manager.clone()), Proto(request))
         .await
         .unwrap();
     assert!(preview.text.contains("--theme=DraftTheme"));
-    assert_eq!(manager.config().await.commands.highlighter, original);
+    assert_eq!(
+        manager.sessions.config().await.commands.highlighter,
+        original
+    );
     let Proto(off) = highlight_themes(
         State(manager.clone()),
         Query(HighlightThemesQuery {
@@ -78,12 +87,18 @@ async fn draft_highlighter_catalog_and_preview_leave_defaults_unchanged() {
     .unwrap();
     assert!(off.engine.is_empty());
     assert!(off.themes.is_empty());
-    assert_eq!(manager.config().await.commands.highlighter, original);
+    assert_eq!(
+        manager.sessions.config().await.commands.highlighter,
+        original
+    );
     let request = serde_json::from_value(json!({"text":"sample", "command":""})).unwrap();
     let Proto(preview) = highlight(State(manager.clone()), Proto(request))
         .await
         .unwrap();
     assert_eq!(preview.text, "sample");
     assert_eq!(preview.bytes, 6);
-    assert_eq!(manager.config().await.commands.highlighter, original);
+    assert_eq!(
+        manager.sessions.config().await.commands.highlighter,
+        original
+    );
 }

@@ -1,8 +1,8 @@
 # Session state ownership
 
-`session/manager/session_state.rs` owns activity classification, idle decay, and
+`session/session_state.rs` owns activity classification, idle decay, and
 activity persistence. `views.rs` owns client projection and publication;
-`session/manager/maintenance.rs` supplies runtime deadlines; application maintenance
+`session/maintenance.rs` supplies runtime deadlines; application maintenance
 combines them with catalog polling and schedules refreshes. Capture and lifecycle owners are separate:
 [terminal capture](daemon-terminal-capture.md) and [session lifecycle](daemon-session-lifecycle.md).
 

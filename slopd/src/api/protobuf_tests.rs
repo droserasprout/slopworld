@@ -6,11 +6,11 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn shared_health_and_task_routes_continue_during_worktree_guard() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
     let (started, started_wait) = tokio::sync::oneshot::channel();
-    let checkout = manager.session_read_operation(async {
+    let checkout = manager.sessions.session_read_operation(async {
         started.send(()).unwrap();
         wait.await.unwrap();
     });
@@ -41,9 +41,9 @@ async fn shared_health_and_task_routes_continue_during_worktree_guard() {
 
 #[tokio::test]
 async fn read_routes_emit_the_declared_binary_payloads() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     std::fs::write(
-        manager.cfg_path(),
+        manager.sessions.cfg_path(),
         toml::to_string(&crate::config::Config::default()).unwrap(),
     )
     .unwrap();
@@ -115,8 +115,8 @@ async fn config_read_preserves_stored_host_identity_without_exposing_it_on_the_w
         autostart: false,
         ..Default::default()
     });
-    let manager = crate::session::test_manager(cfg.clone());
-    let settings = std::fs::read_to_string(manager.cfg_path()).unwrap();
+    let manager = crate::application::test_application(cfg.clone());
+    let settings = std::fs::read_to_string(manager.sessions.cfg_path()).unwrap();
     let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
     let response = app
         .oneshot(
@@ -141,18 +141,18 @@ async fn config_read_preserves_stored_host_identity_without_exposing_it_on_the_w
     assert!(!host.autostart);
     assert_eq!(values.daemon.unwrap().token, crate::config::TOKEN_REDACTED);
     assert_eq!(
-        manager.config().await.host_terminals[0].id,
+        manager.sessions.config().await.host_terminals[0].id,
         cfg.host_terminals[0].id
     );
     assert_eq!(
-        std::fs::read_to_string(manager.cfg_path()).unwrap(),
+        std::fs::read_to_string(manager.sessions.cfg_path()).unwrap(),
         settings
     );
 }
 
 #[tokio::test]
 async fn binary_requests_preserve_defaults_and_reject_wrong_media_and_malformed_bytes() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let app = crate::api::router(manager).layer(Extension(crate::grant::Cap::Root));
     for (mime, body, expected) in [
         (
@@ -279,7 +279,7 @@ async fn normalized_errors_keep_response_metadata() {
 
 #[tokio::test]
 async fn root_session_snapshots_continue_during_an_unrelated_lifecycle_transaction() {
-    let manager = crate::session::test_manager(crate::config::Config {
+    let manager = crate::application::test_application(crate::config::Config {
         sessions: vec![crate::config::SessionCfg {
             name: "pager".into(),
             autostart: false,
@@ -287,10 +287,12 @@ async fn root_session_snapshots_continue_during_an_unrelated_lifecycle_transacti
         }],
         ..Default::default()
     });
-    manager.sync_from_config().await;
+    manager.sessions.sync_from_config().await;
     let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
-    let transaction = manager.session_operation(async { wait.await.unwrap() });
+    let transaction = manager
+        .sessions
+        .session_operation(async { wait.await.unwrap() });
     tokio::pin!(transaction);
     assert!(futures::poll!(transaction.as_mut()).is_pending());
     for path in ["/api/sessions", "/api/sessions/pager"] {

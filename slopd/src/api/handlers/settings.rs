@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use serde_json::json;
 
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 
 #[derive(Deserialize)]
 pub(crate) struct SettingsPreviewReq {
@@ -23,12 +23,14 @@ pub(crate) struct SettingsPreviewReq {
 /// Root-only, read-only resolution of an unsaved project, recipe or agent form.
 /// Saved snapshots are daemon-owned and retained using the same rule as an actual edit.
 pub(crate) async fn settings_preview(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(req): Proto<wire::SettingsPreviewRequest>,
 ) -> ApiResult<wire::SettingsPreview> {
     let req: SettingsPreviewReq = domain(req)?;
-    m.reload_if_changed().await;
-    let cfg = m.config().await;
+    crate::application::Configuration::new(&m)
+        .reload_if_changed()
+        .await;
+    let cfg = m.config_authority.snapshot().await;
     let requested_session = req
         .session
         .clone()
@@ -74,6 +76,7 @@ pub(crate) async fn settings_preview(
         return Err(err(StatusCode::BAD_REQUEST, "Choose an available project"));
     }
     let project = m
+        .sessions
         .resolve_worktree(&project, &session.worktree)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;

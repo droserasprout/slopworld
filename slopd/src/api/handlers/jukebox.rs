@@ -6,7 +6,7 @@ use crate::shared::wire;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 
-use super::super::{ApiResult, Mgr, err};
+use super::super::{ApiResult, App, err};
 
 pub(crate) async fn jukebox_presets() -> ApiResult<wire::JukeboxCatalog> {
     // The regular catalog omits URLs before sending data to the mod.
@@ -36,14 +36,14 @@ pub(crate) async fn jukebox_presets() -> ApiResult<wire::JukeboxCatalog> {
 }
 
 pub(crate) async fn create_jukebox_preset(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(body): Proto<wire::Station>,
 ) -> ApiResult<wire::Ack> {
     save(m, body, None).await
 }
 
 pub(crate) async fn update_jukebox_preset(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(id): Path<String>,
     Proto(body): Proto<wire::Station>,
 ) -> ApiResult<wire::Ack> {
@@ -51,7 +51,7 @@ pub(crate) async fn update_jukebox_preset(
 }
 
 pub(crate) async fn delete_jukebox_preset(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(id): Path<String>,
 ) -> ApiResult<wire::Ack> {
     let deleted = tokio::task::spawn_blocking(move || crate::jukebox::delete_user(&id))
@@ -62,7 +62,7 @@ pub(crate) async fn delete_jukebox_preset(
     Ok(Proto(wire::Ack { ok: true }))
 }
 
-async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiResult<wire::Ack> {
+async fn save(m: App, body: wire::Station, original_id: Option<String>) -> ApiResult<wire::Ack> {
     let station = station_from_wire(body);
     if let Some(original_id) = original_id
         && station.id != original_id
@@ -80,8 +80,8 @@ async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiRe
     Ok(Proto(wire::Ack { ok: true }))
 }
 
-async fn reload_after_mutation(m: &Mgr) -> Result<(), super::super::ApiError> {
-    m.application.reload_jukebox_if_changed(m).await.map_err(|error| {
+async fn reload_after_mutation(m: &App) -> Result<(), super::super::ApiError> {
+    m.services.reload_jukebox_if_changed(&m.sessions).await.map_err(|error| {
         err(StatusCode::INTERNAL_SERVER_ERROR, format!(
             "The change was saved to disk, but the live jukebox catalog could not reload. Fix the station definitions to apply it: {error:#}"
         ))

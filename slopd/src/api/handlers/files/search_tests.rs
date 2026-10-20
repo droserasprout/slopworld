@@ -11,7 +11,7 @@ async fn include_filters_preserve_ignore_and_hidden_policy_before_limiting_resul
     for path in ["keep.rs", "ignored.rs", ".hidden.rs", "other.txt"] {
         std::fs::write(fixture.join(path), "needle\n").unwrap();
     }
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for (gitignore, hidden, expected) in [
         (true, false, vec!["keep.rs"]),
         (false, false, vec!["ignored.rs", "keep.rs"]),
@@ -41,7 +41,7 @@ async fn include_filter_skips_oversized_unselected_matches_and_validates_globs()
     )
     .unwrap();
     std::fs::write(fixture.join("keep.rs"), "needle\n").unwrap();
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let mut request = search_request(&fixture, "needle", 1);
     request.include = "*.{cs,rs}".into();
     let result = search(State(manager.clone()), Query(request))
@@ -72,7 +72,7 @@ async fn search_filters_paths_with_exclusions_taking_precedence() {
     ] {
         std::fs::write(fixture.join(path), "needle\n").unwrap();
     }
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for (include, exclude, expected) in [
         ("*.rs", "skip.rs", vec!["keep.rs", "nested/keep.rs"]),
         ("", "*.rs", vec!["other.txt"]),
@@ -107,7 +107,7 @@ async fn search_literal_directory_filters_include_descendants() {
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(file, "code\n").unwrap();
     }
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for (include, exclude, expected) in [
         (
             "notes",
@@ -143,7 +143,7 @@ async fn search_literal_directory_filters_include_descendants() {
 async fn search_reports_relative_paths_byte_columns_and_real_truncation() {
     let fixture = crate::api::handlers::tests::fixture("search");
     std::fs::write(fixture.join("café.txt"), "é needle\nneedle again\n").unwrap();
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let result = search(
         State(manager.clone()),
         Query(search_request(&fixture, "needle", 2)),
@@ -180,7 +180,7 @@ async fn search_reports_relative_paths_byte_columns_and_real_truncation() {
 #[tokio::test]
 async fn search_default_and_maximum_limits_preserve_exact_truncation() {
     let fixture = crate::api::handlers::tests::fixture("search-result-limit");
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for (lines, requested_limit, truncated) in [
         (SEARCH_LIMIT, None, false),
         (SEARCH_LIMIT + 1, None, true),
@@ -202,7 +202,7 @@ async fn search_default_and_maximum_limits_preserve_exact_truncation() {
 #[tokio::test]
 async fn search_distinguishes_invalid_requests_from_no_matches() {
     let fixture = crate::api::handlers::tests::fixture("search");
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for (request, expected) in [
         (
             search_request(Path::new(""), "query", 1),
@@ -237,7 +237,7 @@ async fn search_distinguishes_invalid_requests_from_no_matches() {
 #[tokio::test]
 async fn byte_encoded_lines_preserve_matches_and_source_columns() {
     let fixture = crate::api::handlers::tests::fixture("search-byte-lines");
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for prefix in [b"caf\xe9 ".to_vec(), vec![0xff; 2000]] {
         let mut bytes = prefix.clone();
         bytes.extend_from_slice(b"needle\n");
@@ -270,7 +270,7 @@ async fn unsupported_search_names_return_an_explicit_error() {
         "needle\n",
     )
     .unwrap();
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let (status, Proto(error)) = search(
         State(manager),
         Query(search_request(&fixture, "needle", 10)),

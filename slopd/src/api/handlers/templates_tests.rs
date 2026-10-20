@@ -7,8 +7,8 @@ fn proto<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Proto<T> {
 
 #[tokio::test]
 async fn template_write_failure_is_a_server_error_without_publishing_a_draft() {
-    let m = crate::session::test_manager(Config::default());
-    let path = crate::agent_templates::AgentTemplateStore::path_for(m.cfg_path());
+    let m = crate::application::test_application(Config::default());
+    let path = crate::agent_templates::AgentTemplateStore::path_for(m.sessions.cfg_path());
     std::fs::write(&path, "blocking file").unwrap();
     let result = save_template(
         State(m.clone()),
@@ -17,13 +17,13 @@ async fn template_write_failure_is_a_server_error_without_publishing_a_draft() {
     )
     .await;
     assert_eq!(result.unwrap_err().0, StatusCode::INTERNAL_SERVER_ERROR);
-    assert!(m.application.templates.list().await.is_empty());
+    assert!(m.services.templates.list().await.is_empty());
     std::fs::remove_file(path).unwrap();
 }
 
 #[tokio::test]
 async fn template_crud_rejects_stale_versions_and_preserves_winner() {
-    let m = crate::session::test_manager(Config::default());
+    let m = crate::application::test_application(Config::default());
     let draft = json!({"name":"reviewer", "description":"original", "defaults":{}});
     let saved = save_template(State(m.clone()), Extension(Cap::Root), proto(draft.clone()))
         .await
@@ -115,12 +115,12 @@ async fn template_crud_rejects_stale_versions_and_preserves_winner() {
         .0,
         StatusCode::NOT_FOUND
     );
-    assert!(m.application.templates.list().await.is_empty());
+    assert!(m.services.templates.list().await.is_empty());
 }
 
 #[tokio::test]
 async fn template_mutations_require_correct_version_shape() {
-    let m = crate::session::test_manager(Config::default());
+    let m = crate::application::test_application(Config::default());
     assert_eq!(
         save_template(
             State(m.clone()),
@@ -156,12 +156,12 @@ async fn template_mutations_require_correct_version_shape() {
         .0,
         StatusCode::BAD_REQUEST
     );
-    assert!(m.application.templates.list().await.is_empty());
+    assert!(m.services.templates.list().await.is_empty());
 }
 
 #[tokio::test]
 async fn duplicate_is_independent_and_missing_sources_are_rejected() {
-    let m = crate::session::test_manager(Config::default());
+    let m = crate::application::test_application(Config::default());
     save_template(
         State(m.clone()),
         Extension(Cap::Root),
@@ -181,7 +181,7 @@ async fn duplicate_is_independent_and_missing_sources_are_rejected() {
     .unwrap();
     assert_eq!(duplicate.name, "copy");
     assert_eq!(duplicate.description, "copied");
-    assert_eq!(m.application.templates.list().await.len(), 2);
+    assert_eq!(m.services.templates.list().await.len(), 2);
     destroy_template(
         State(m.clone()),
         Extension(Cap::Root),
@@ -192,7 +192,7 @@ async fn duplicate_is_independent_and_missing_sources_are_rejected() {
     )
     .await
     .unwrap();
-    let templates = m.application.templates.list().await;
+    let templates = m.services.templates.list().await;
     assert_eq!(templates.len(), 1);
     assert_eq!(templates[0].name, "original");
     assert_eq!(
@@ -274,7 +274,7 @@ async fn spawnable_catalog_filters_policy_and_enforces_agent_project() {
         project: "own".into(),
         ..Default::default()
     });
-    let m = crate::session::test_manager(cfg);
+    let m = crate::application::test_application(cfg);
     for name in ["enabled", "disabled"] {
         save_template(
             State(m.clone()),

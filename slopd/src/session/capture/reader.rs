@@ -1,0 +1,629 @@
+//! tmux control-mode reader attachment and transport lifetime.
+//! Startup owns failed launches; exit handling owns confirmed process exits and recovery.
+
+use super::super::lifecycle::stop::{
+    ReaderDisposition, finish_reader, reader_owned_by, replace_reader,
+};
+use super::*;
+use std::sync::atomic::AtomicBool;
+use tokio::time::Instant;
+
+use crate::tmux::control::parse_output;
+use anyhow::anyhow;
+
+/// Only attachment to a new startup placeholder may fail the process run.
+/// Adoption, rename, and recovery observe an independently running process.
+#[derive(Clone, Copy)]
+enum Attachment {
+    Startup,
+    Existing,
+}
+
+// Limit watched terminal redraws to roughly one per display frame.
+const FAST_TICK: Duration = Duration::from_millis(16);
+// less redraws a horizontally shifted page in several tmux output records. Give
+// the replacement rows a short quiet interval, but keep continuous output bounded.
+const REDRAW_QUIET: Duration = Duration::from_millis(3);
+const REDRAW_LIMIT: Duration = Duration::from_millis(32);
+// Capture unwatched panes less often while still tracking activity.
+const SLOW_TICK: Duration = Duration::from_millis(200);
+
+/// Schedule output, subscription, and clipboard work on Tokio's monotonic clock.
+/// Wall-clock activity timestamps must not affect draw deadlines.
+#[derive(Default)]
+struct DrawSchedule {
+    dirty: bool,
+    last_drawn: Option<Instant>,
+    deadline: Option<Instant>,
+    redraw_started: Option<Instant>,
+}
+
+// A watched clean pane may need clipboard delivery without a redraw.
+#[derive(Debug, PartialEq, Eq)]
+enum TickAction {
+    Idle,
+    ClipboardOnly,
+    Render { clipboard: bool },
+}
+
+impl DrawSchedule {
+    fn output(&mut self, now: Instant, watched: bool, redraw_clear: bool) {
+        self.dirty = true;
+        let deadline = if watched {
+            self.last_drawn
+                .map_or(now + FAST_TICK, |last| (last + FAST_TICK).max(now))
+        } else if let Some(last_drawn) = self.last_drawn {
+            last_drawn + SLOW_TICK
+        } else {
+            now + FAST_TICK
+        };
+        // A stream of output must not postpone an already scheduled redraw.
+        self.deadline = Some(
+            self.deadline
+                .map_or(deadline, |pending| pending.min(deadline)),
+        );
+        if watched {
+            if redraw_clear && self.redraw_started.is_none() {
+                self.redraw_started = Some(now);
+            }
+            if let Some(started) = self.redraw_started {
+                let settled = (now + REDRAW_QUIET).min(started + REDRAW_LIMIT);
+                self.deadline = self.deadline.map(|pending| pending.max(settled));
+            }
+        }
+    }
+
+    fn wake(&mut self, now: Instant, watched: bool) {
+        if watched {
+            // A subscription or clipboard wake must not expose a pager's clear
+            // before its replacement rows have reached the mirror.
+            self.deadline = Some(if self.dirty && self.redraw_started.is_some() {
+                self.deadline.map_or(now, |pending| pending.max(now))
+            } else {
+                now
+            });
+        } else if self.dirty {
+            self.output(now, false, false);
+        }
+    }
+
+    fn fire(&mut self, now: Instant, watched: bool) -> TickAction {
+        if !self.dirty {
+            self.deadline = None;
+            // A newly watched pane may already have an OSC 52 value waiting in the emulator.
+            // Give the tick a chance to take it even when no screen redraw is pending.
+            return if watched {
+                TickAction::ClipboardOnly
+            } else {
+                TickAction::Idle
+            };
+        }
+        if watched || self.last_drawn.is_none_or(|last| now >= last + SLOW_TICK) {
+            // Commit before rendering awaits; the loop cannot feed new output during the draw.
+            self.dirty = false;
+            self.last_drawn = Some(now);
+            self.deadline = None;
+            self.redraw_started = None;
+            TickAction::Render { clipboard: watched }
+        } else {
+            self.deadline = self.last_drawn.map(|last| last + SLOW_TICK);
+            TickAction::Idle
+        }
+    }
+
+    fn deadline(&self) -> Option<Instant> {
+        self.deadline
+    }
+}
+
+// Adapt tmux's combined history/viewport snapshot to the emulator's separate buffers.
+fn seed_emulator(e: &mut SessionEmu, cap: &crate::tmux::Screen, rows: u16) {
+    let mut seed = String::new();
+    // tmux returns primary history with the alternate screen. Initialize each buffer separately.
+    let visible = if cap.alt_screen {
+        let split = cap.lines.len().saturating_sub(rows as usize);
+        if split > 0 {
+            // CUP homes the cursor; SGR 0 resets text attributes before replaying history.
+            seed.push_str("\x1b[H\x1b[0m");
+            // CRLF starts each captured line in column zero, advancing or scrolling the grid.
+            seed.push_str(&cap.lines.get(..split).unwrap_or_default().join("\r\n"));
+            seed.push_str("\r\n");
+        }
+        // DECSET 1049 saves the primary cursor and enters a cleared alternate screen.
+        seed.push_str("\x1b[?1049h");
+        cap.lines.get(split..).unwrap_or_default()
+    } else {
+        cap.lines.as_slice()
+    };
+    // Start the visible content at home with default text attributes.
+    seed.push_str("\x1b[H\x1b[0m");
+    // CRLF preserves captured line boundaries without carrying the previous column.
+    seed.push_str(&visible.join("\r\n"));
+    // CUP restores the cursor using one-based row and column coordinates.
+    seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
+    if cap.bracketed_paste {
+        seed.push_str("\x1b[?2004h");
+    }
+    // Applications need not repeat DECSET after reader attachment or a repaint.
+    // Restore tracking separately from encoding so reports retain their original format.
+    for (enabled, mode) in [
+        (cap.mouse.standard, 1000),
+        (cap.mouse.button, 1002),
+        (cap.mouse.all, 1003),
+        (cap.mouse.utf8, 1005),
+        (cap.mouse.sgr, 1006),
+    ] {
+        if enabled {
+            seed.push_str(&format!("\x1b[?{mode}h"));
+        }
+    }
+    if !cap.title.is_empty() {
+        // OSC 0 restores the window/icon title; BEL terminates the sequence.
+        seed.push_str(&format!("\x1b]0;{}\x07", cap.title));
+    }
+    e.feed(seed.as_bytes());
+}
+
+#[derive(Clone, Default)]
+struct ClipboardPump {
+    copying: Arc<AtomicBool>,
+    wake: Arc<tokio::sync::Notify>,
+}
+
+impl ClipboardPump {
+    fn finish(&self, name: &str, emu: Arc<Mutex<SessionEmu>>) {
+        if !self.copying.load(Ordering::Relaxed) {
+            self.start_if_idle(name, &emu);
+            return;
+        }
+        let pump = self.clone();
+        let name = name.to_owned();
+        // Preserve clipboard ordering even after the reader exits. The final
+        // pending value follows the in-flight write and retains its emulator.
+        tokio::spawn(async move {
+            loop {
+                let done = pump.wake.notified();
+                if !pump.copying.load(Ordering::Relaxed) {
+                    break;
+                }
+                done.await;
+            }
+            pump.start_if_idle(&name, &emu);
+        });
+    }
+
+    fn start_if_idle(&self, name: &str, emu: &Mutex<SessionEmu>) {
+        // Only the reader starts writes; the detached task only clears this flag.
+        if self.copying.load(Ordering::Relaxed) {
+            return;
+        }
+        let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
+        if let Some(text) = clip {
+            self.copying.store(true, Ordering::Relaxed);
+            let done = self.copying.clone();
+            let wake = self.wake.clone();
+            let who = name.to_string();
+            // Keep writes detached from reader lifetime, and wake even after failure.
+            tokio::spawn(async move {
+                if let Err(e) = crate::clipboard::write(&text).await {
+                    tracing::debug!("osc52 clipboard {who}: {e:#}");
+                }
+                done.store(false, Ordering::Relaxed);
+                wake.notify_one();
+            });
+        }
+    }
+}
+
+fn handle_control_line(emu: &Mutex<SessionEmu>, line: &[u8]) -> ControlLine {
+    if let Some(bytes) = parse_output(line) {
+        if let Ok(mut e) = emu.lock() {
+            e.feed(&bytes);
+            return ControlLine::Output {
+                redraw_clear: e.take_redraw_clear(),
+            };
+        }
+        ControlLine::Output {
+            redraw_clear: false,
+        }
+    } else if line.starts_with(b"%exit") {
+        ControlLine::Exit
+    } else {
+        ControlLine::Ignore
+    }
+}
+
+// Return false on exit so buffered and newly received lines stop the reader identically.
+fn process_control_line(
+    emu: &Mutex<SessionEmu>,
+    line: &[u8],
+    schedule: &mut DrawSchedule,
+    watched: bool,
+) -> bool {
+    match handle_control_line(emu, line) {
+        ControlLine::Output { redraw_clear } => {
+            schedule.output(Instant::now(), watched, redraw_clear)
+        }
+        ControlLine::Exit => return false,
+        ControlLine::Ignore => {}
+    }
+    true
+}
+
+impl SessionRuntime {
+    /// Release capture ownership without declaring process exit. A failed
+    /// attachment must remain eligible for retry, and stale work must leave a
+    /// replacement reader alone. Drop the handle rather than aborting the
+    /// completing reader, which may be executing this cleanup itself.
+    pub(super) async fn release_completed_reader(&self, name: &str, token: &Arc<()>) -> bool {
+        let mut live = self.live.write().await;
+        let Some(current) = live.get_mut(name).filter(|l| reader_owned_by(l, token)) else {
+            return false;
+        };
+        current.capture.emu = None;
+        current.capture.reader_token = None;
+        current.capture.retry_at = Some(Instant::now() + super::exit::CAPTURE_RETRY_DELAY);
+        drop(current.capture.reader.take());
+        self.signals.maintenance_wake.notify_one();
+        true
+    }
+
+    pub(crate) async fn spawn_reader(self: &Arc<Self>, name: &str) -> Result<bool> {
+        self.session_operation(async {
+            let terminal = self.terminal_boundary(name).write_owned().await;
+            self.spawn_reader_with_terminal(name, &terminal).await
+        })
+        .await
+    }
+
+    /// Caller owns the session boundary and this name's terminal writer through
+    /// dimension sampling, attachment, and inline failure cleanup.
+    pub(in crate::session) async fn spawn_reader_with_terminal(
+        self: &Arc<Self>,
+        name: &str,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) -> Result<bool> {
+        self.attach_reader(name, Attachment::Existing, terminal)
+            .await
+    }
+
+    pub(in crate::session) async fn start_reader(
+        self: &Arc<Self>,
+        name: &str,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) -> Result<bool> {
+        self.attach_reader(name, Attachment::Startup, terminal)
+            .await
+    }
+
+    async fn attach_reader(
+        self: &Arc<Self>,
+        name: &str,
+        attachment: Attachment,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) -> Result<bool> {
+        let (cols, rows, has_emu) = {
+            let live = self.live.read().await;
+            match live.get(name) {
+                Some(l) => (l.cols, l.rows, l.capture.emu.is_some()),
+                None => return Ok(false),
+            }
+        };
+        if has_emu {
+            return Ok(false);
+        }
+
+        #[cfg(test)]
+        {
+            let pause = self.reader_attach_pause.lock().unwrap().take();
+            if let Some((reached, release)) = pause {
+                reached.notify_one();
+                release.notified().await;
+            }
+        }
+
+        let mut e = SessionEmu::new(cols, rows);
+        if let Ok(cap) = self.tmux.capture(name, crate::tmux::SCROLLBACK_LINES).await {
+            seed_emulator(&mut e, &cap, rows);
+        }
+        let emu = Arc::new(Mutex::new(e));
+        let reader_token = Arc::new(());
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (start_tx, start_rx) = tokio::sync::oneshot::channel();
+
+        let handle = {
+            let m = self.clone();
+            let name = name.to_string();
+            let emu = emu.clone();
+            let reader_token = reader_token.clone();
+            tokio::spawn(async move {
+                // Wait until the handle and token are installed before allowing cleanup.
+                if start_rx.await.is_ok() {
+                    m.run_control(name, emu, reader_token, ready_tx, attachment)
+                        .await;
+                }
+            })
+        };
+
+        let replaced_reader = {
+            let mut live = self.live.write().await;
+            match live.get_mut(name) {
+                // Capture yielded; another caller may have installed a reader meanwhile.
+                Some(l) if l.capture.emu.is_none() => {
+                    l.capture.emu = Some(emu.clone());
+                    l.capture.reader_token = Some(reader_token.clone());
+                    l.capture.retry_at = None;
+                    replace_reader(l, handle)
+                }
+                _ => {
+                    finish_reader(ReaderDisposition::Abort(handle));
+                    return Ok(false);
+                }
+            }
+        };
+        finish_reader(replaced_reader);
+
+        if start_tx.send(()).is_err() {
+            self.cleanup_reader_start(name, &reader_token, attachment, terminal)
+                .await;
+            return Err(anyhow!("control reader for {name} exited before starting"));
+        }
+        match ready_rx.await {
+            Ok(Ok(())) => {
+                self.render_and_broadcast(name, &emu).await;
+                if self
+                    .live
+                    .read()
+                    .await
+                    .get(name)
+                    .is_some_and(|live| reader_owned_by(live, &reader_token))
+                {
+                    Ok(true)
+                } else {
+                    Err(anyhow!("control reader for {name} exited during startup"))
+                }
+            }
+            Ok(Err(error)) => {
+                self.cleanup_reader_start(name, &reader_token, attachment, terminal)
+                    .await;
+                Err(anyhow!(error))
+            }
+            Err(_) => {
+                self.cleanup_reader_start(name, &reader_token, attachment, terminal)
+                    .await;
+                Err(anyhow!("control reader for {name} exited before attach"))
+            }
+        }
+    }
+
+    async fn cleanup_reader_start(
+        self: &Arc<Self>,
+        name: &str,
+        token: &Arc<()>,
+        attachment: Attachment,
+        terminal: &tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) {
+        if matches!(attachment, Attachment::Startup) {
+            self.mark_down_with_terminal(name, token, terminal).await;
+        } else {
+            self.release_completed_reader(name, token).await;
+        }
+    }
+
+    async fn fail_reader_start(
+        self: &Arc<Self>,
+        name: &str,
+        reader_token: &Arc<()>,
+        ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+        error: String,
+        attachment: Attachment,
+    ) {
+        if matches!(attachment, Attachment::Existing) {
+            // Release failed capture before waking the caller so an immediate
+            // retry cannot mistake the failed attachment for a live reader.
+            self.release_completed_reader(name, reader_token).await;
+        }
+        // Release startup before cleanup waits for its session boundary.
+        drop(ready_tx.send(Err(error)));
+        if matches!(attachment, Attachment::Startup) {
+            self.mark_down(name, reader_token).await;
+        }
+    }
+
+    async fn run_control(
+        self: Arc<Self>,
+        name: String,
+        emu: Arc<Mutex<SessionEmu>>,
+        reader_token: Arc<()>,
+        ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+        attachment: Attachment,
+    ) {
+        let (cols, rows) = match self.live.read().await.get(&name) {
+            Some(l) => (l.cols, l.rows),
+            None => {
+                self.fail_reader_start(
+                    &name,
+                    &reader_token,
+                    ready_tx,
+                    format!("session {name} disappeared before control attach"),
+                    attachment,
+                )
+                .await;
+                return;
+            }
+        };
+        let (mut child, master) = match self.tmux.control_attach(&name, cols, rows) {
+            Ok(c) => c,
+            Err(e) => {
+                let error = format!(
+                    "control attach {name}: {}",
+                    crate::sandbox::sanitize_diagnostic(&e.to_string())
+                );
+                tracing::error!("{error}");
+                self.fail_reader_start(&name, &reader_token, ready_tx, error, attachment)
+                    .await;
+                return;
+            }
+        };
+
+        let mut rx = spawn_control_reader(master);
+        let attached =
+            match tokio::time::timeout(CONTROL_ATTACH_TIMEOUT, wait_for_control_attach(&mut rx))
+                .await
+            {
+                Ok(result) => result.map_err(|error| {
+                    format!(
+                        "control attach {name}: {}",
+                        crate::sandbox::sanitize_diagnostic(&error.to_string()),
+                    )
+                }),
+                Err(_) => Err(format!(
+                    "control attach {name} did not become ready within {CONTROL_ATTACH_TIMEOUT:?}"
+                )),
+            };
+        let pending = match attached {
+            Ok(pending) => pending,
+            Err(error) => {
+                tracing::error!("{error}");
+                // Both handshake errors and timeouts must reap before releasing startup.
+                if let Err(kill_error) = child.kill().await {
+                    tracing::debug!("stopping failed control client for {name}: {kill_error}");
+                }
+                self.fail_reader_start(&name, &reader_token, ready_tx, error, attachment)
+                    .await;
+                return;
+            }
+        };
+
+        drop(ready_tx.send(Ok(())));
+        // A pane can die while slopd is offline or between status inspection and
+        // attachment. The death hook is not replayed for an already-dead pane.
+        // Inspect after the handshake: later deaths will wake this attached client.
+        if matches!(self.tmux.pane_exit(&name).await, Ok(Some(_)))
+            && let Err(error) = child.kill().await
+        {
+            tracing::debug!("stopping control client for dead pane {name}: {error}");
+        }
+        // Drain queued output and perform the ordinary frame/clipboard handoff
+        // even when attachment discovers an exit instead of receiving its hook.
+        self.run_control_loop(&name, emu, rx, pending).await;
+
+        // Reap before mark_down so the client releases the PTY slave.
+        // kill_on_drop does not wait; cleanup can race and stall Ctrl+D exit.
+        if let Err(error) = child.kill().await {
+            tracing::debug!("stopping control client for {name}: {error}");
+        }
+        self.reader_ended(name, reader_token).await;
+    }
+
+    async fn run_control_loop(
+        &self,
+        name: &str,
+        emu: Arc<Mutex<SessionEmu>>,
+        mut rx: ControlLineReceiver,
+        pending: Vec<Vec<u8>>,
+    ) {
+        let mut watchers_changed = self.signals.watchers_changed.subscribe();
+        let mut schedule = DrawSchedule::default();
+        schedule.wake(Instant::now(), self.watched(name));
+        let clipboard = ClipboardPump::default();
+
+        // Replay handshake output before reading newer bytes from the transport.
+        for line in pending {
+            if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
+                self.flush_control_exit(name, &emu, &schedule, &clipboard)
+                    .await;
+                return;
+            }
+        }
+
+        loop {
+            tokio::select! {
+                line = rx.recv() => match line {
+                    Some(line) => {
+                        if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
+                            break;
+                        }
+                    }
+                    None => break,
+                },
+                () = async {
+                    match schedule.deadline() {
+                        Some(deadline) => tokio::time::sleep_until(deadline).await,
+                        None => futures::future::pending().await,
+                    }
+                } => {
+                    let watched = self.watched(name);
+                    let now = Instant::now();
+                    let action = schedule.fire(now, watched);
+                    self.handle_control_tick(name, &emu, action, &clipboard).await;
+                },
+                _ = watchers_changed.changed() => {
+                    schedule.wake(Instant::now(), self.watched(name));
+                },
+                () = clipboard.wake.notified() => {
+                    schedule.wake(Instant::now(), self.watched(name));
+                }
+            }
+        }
+        if let Some(error) = rx
+            .failure
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
+        {
+            tracing::warn!("control stream {name}: {error}");
+        }
+        self.flush_control_exit(name, &emu, &schedule, &clipboard)
+            .await;
+    }
+
+    async fn flush_control_exit(
+        &self,
+        name: &str,
+        emu: &Arc<Mutex<SessionEmu>>,
+        schedule: &DrawSchedule,
+        clipboard: &ClipboardPump,
+    ) {
+        if schedule.dirty {
+            self.render_and_broadcast(name, emu).await;
+        }
+        if self.watched(name)
+            && self
+                .live
+                .read()
+                .await
+                .get(name)
+                .and_then(|live| live.capture.emu.as_ref())
+                .is_some_and(|current| Arc::ptr_eq(current, emu))
+        {
+            clipboard.finish(name, emu.clone());
+        }
+    }
+
+    async fn handle_control_tick(
+        &self,
+        name: &str,
+        emu: &Mutex<SessionEmu>,
+        action: TickAction,
+        clipboard: &ClipboardPump,
+    ) {
+        if matches!(action, TickAction::Render { .. }) {
+            self.render_and_broadcast(name, emu).await;
+        }
+        if matches!(
+            action,
+            TickAction::ClipboardOnly | TickAction::Render { clipboard: true }
+        ) {
+            clipboard.start_if_idle(name, emu);
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "reader_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "reader_boundary_tests.rs"]
+mod boundary_tests;

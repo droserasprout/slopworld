@@ -4,7 +4,7 @@ use prost::Message;
 
 #[tokio::test]
 async fn root_listing_round_trips_without_a_parent() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let request = serde_json::from_value(serde_json::json!({"path": "/", "limit": 1})).unwrap();
     let Proto(reply) = browse(State(manager), Query(request)).await.unwrap();
     let decoded = wire::BrowseResult::decode(reply.encode_to_vec().as_slice()).unwrap();
@@ -17,7 +17,7 @@ async fn listing_preserves_names_parent_and_truncation_on_the_wire() {
     let fixture = crate::api::handlers::tests::fixture("browse-wire");
     std::fs::create_dir(fixture.join("empty")).unwrap();
     std::fs::write(fixture.join("café.txt"), "text").unwrap();
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for limit in [1, 10] {
         let request = serde_json::from_value(serde_json::json!({
             "path": fixture.to_str().unwrap(), "files": "1", "limit": limit
@@ -44,7 +44,7 @@ async fn unsupported_names_fail_instead_of_aliasing_another_file() {
     let original = fixture.join(std::ffi::OsStr::from_bytes(b"bad\xff.txt"));
     std::fs::write(&original, "original").unwrap();
     std::fs::write(fixture.join("bad\u{fffd}.txt"), "other").unwrap();
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let request = serde_json::from_value(serde_json::json!({
         "path": fixture.to_str().unwrap(), "files": "1"
     }))
@@ -76,7 +76,7 @@ async fn ignored_batches_do_not_consume_visible_limit_or_cause_false_truncation(
     }
     std::fs::create_dir(fixture.join("visible-dir")).unwrap();
     std::fs::write(fixture.join("visible.txt"), "text").unwrap();
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for (limit, count, truncated) in [(1, 1, true), (2, 2, false), (500, 2, false)] {
         let request = serde_json::from_value(serde_json::json!({
             "path": fixture.to_str().unwrap(), "files": "1", "gitignore": "1", "limit": limit

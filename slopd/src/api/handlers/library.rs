@@ -11,14 +11,14 @@ use crate::config::LibraryItemCfg;
 use crate::session::RunWhere;
 
 use super::super::types::*;
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 
-pub(crate) async fn list_projects(State(m): State<Mgr>) -> ApiResult<wire::ProjectsReply> {
+pub(crate) async fn list_projects(State(m): State<App>) -> ApiResult<wire::ProjectsReply> {
     reply(json!({ "projects": Projects::new(&m).projects().await }))
 }
 
 pub(crate) async fn one_project(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::Project> {
     Projects::new(&m)
@@ -36,7 +36,7 @@ pub(crate) async fn one_project(
 }
 
 pub(crate) async fn create_project(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(value): Proto<wire::Project>,
 ) -> ApiResult<wire::Ack> {
     let p = crate::api::parse_project(domain(value)?)?;
@@ -55,7 +55,7 @@ pub(crate) async fn project_preview(
 }
 
 pub(crate) async fn update_project(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(name): Path<String>,
     Proto(value): Proto<wire::Project>,
 ) -> ApiResult<wire::Ack> {
@@ -64,18 +64,18 @@ pub(crate) async fn update_project(
 }
 
 pub(crate) async fn destroy_project(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
     super::ack_result(Projects::new(&m).remove_project(&name).await)
 }
 
-pub(crate) async fn list_library(State(m): State<Mgr>) -> ApiResult<wire::LibraryReply> {
+pub(crate) async fn list_library(State(m): State<App>) -> ApiResult<wire::LibraryReply> {
     reply(json!({ "library": Library::new(&m).library().await }))
 }
 
 pub(crate) async fn create_library_item(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(sc): Proto<wire::LibraryItem>,
 ) -> ApiResult<wire::Ack> {
     let sc: LibraryItemCfg = domain(sc)?;
@@ -83,7 +83,7 @@ pub(crate) async fn create_library_item(
 }
 
 pub(crate) async fn update_library_item(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(name): Path<String>,
     Proto(sc): Proto<wire::LibraryItem>,
 ) -> ApiResult<wire::Ack> {
@@ -92,7 +92,7 @@ pub(crate) async fn update_library_item(
 }
 
 pub(crate) async fn destroy_library_item(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
     super::ack_result(Library::new(&m).remove_library_item(&name).await)
@@ -103,7 +103,7 @@ pub(crate) async fn destroy_library_item(
 /// The body selects the destination with `{"project":"..."}` or `{"temp":true}`.
 /// `Option<Proto<wire::RunWhere>>` permits a missing body when the errand specifies its destination.
 pub(crate) async fn run_library_item(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(name): Path<String>,
     want: Option<Proto<wire::RunWhere>>,
 ) -> ApiResult<wire::SessionResult> {

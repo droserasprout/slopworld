@@ -1,7 +1,7 @@
 # Agent title ownership
 
 The daemon owns managed-session summaries. [Session title policy](../slopd/src/session/title.rs)
-owns composition, eligibility, and transitions; [title capture](../slopd/src/session/manager/capture/title.rs)
+owns composition, eligibility, and transitions; [title capture](../slopd/src/session/capture/title.rs)
 coordinates provider requests and commits. [The title provider and cache](../slopd/src/title/)
 are separate from session policy. [SummariesPage](../mod/Source/SlopWorld/UI/Settings/SummariesPage.cs)
 edits daemon policies and defaults.

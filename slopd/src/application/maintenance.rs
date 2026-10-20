@@ -1,13 +1,13 @@
 //! Daemon catalog polling and combined application/session maintenance scheduling.
 use super::catalogs::Catalog;
 use super::{Event, Services};
-use crate::{clock::unix_ms, session::Manager};
+use crate::{clock::unix_ms, session::SessionRuntime};
 use std::{sync::Arc, time::Duration};
 
 impl Services {
     pub(crate) fn spawn_maintenance(
         self: &Arc<Self>,
-        sessions: Arc<Manager>,
+        sessions: Arc<SessionRuntime>,
     ) -> tokio::task::JoinHandle<()> {
         let services = self.clone();
         tokio::spawn(async move {
@@ -22,10 +22,10 @@ impl Services {
         })
     }
 
-    pub(crate) async fn reload_if_due(&self, sessions: &Arc<Manager>) {
+    pub(crate) async fn reload_if_due(&self, sessions: &Arc<SessionRuntime>) {
         let now = unix_ms();
         if self.catalogs.claim(Catalog::Config, now) {
-            sessions.reload_if_changed().await;
+            sessions.configuration().reload_if_changed().await;
         }
         if self.catalogs.claim(Catalog::Presets, now) {
             self.reload_presets_if_changed(sessions).await;
@@ -37,7 +37,7 @@ impl Services {
         }
     }
 
-    pub(crate) async fn reload_presets_if_changed(&self, sessions: &Arc<Manager>) -> bool {
+    pub(crate) async fn reload_presets_if_changed(&self, sessions: &Arc<SessionRuntime>) -> bool {
         let reloaded = self.catalogs.reload_presets_if_changed();
         if !reloaded {
             return false;
@@ -50,7 +50,7 @@ impl Services {
 
     pub(crate) async fn reload_jukebox_if_changed(
         &self,
-        sessions: &Arc<Manager>,
+        sessions: &Arc<SessionRuntime>,
     ) -> anyhow::Result<bool> {
         let reloaded = self.catalogs.reload_jukebox_if_changed()?;
         if !reloaded {
@@ -64,12 +64,12 @@ impl Services {
         Ok(true)
     }
 
-    pub(crate) async fn maintenance_delay(&self, sessions: &Manager) -> Duration {
+    pub(crate) async fn maintenance_delay(&self, sessions: &SessionRuntime) -> Duration {
         let now = unix_ms();
         Duration::from_millis(self.catalogs.deadline(now).saturating_sub(now))
             .min(sessions.maintenance_delay().await)
     }
-    pub(crate) async fn maintain(&self, sessions: &Arc<Manager>) {
+    pub(crate) async fn maintain(&self, sessions: &Arc<SessionRuntime>) {
         self.reload_if_due(sessions).await;
         sessions.retick().await;
     }

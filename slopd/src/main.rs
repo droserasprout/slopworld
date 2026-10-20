@@ -129,12 +129,12 @@ async fn main() -> Result<()> {
     )
     .await?;
     // Player recovery needs adopted host terminals, before polling or serving requests.
-    services.music.recover(&m).await;
+    services.music.recover(&m.sessions).await;
 
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;
 
-    let poller = services.spawn_maintenance(m.clone());
+    let poller = services.spawn_maintenance(m.sessions.clone());
 
     // Spawn even when disabled so polling can be enabled without a restart.
     let usage = services.spawn_usage_poll(config_authority.daemon_settings());
@@ -151,7 +151,7 @@ async fn main() -> Result<()> {
         .layer(middleware::from_fn(api::protobuf::normalize_errors));
 
     tracing::info!("listening on http://{bind}");
-    endpoint::write(&bind, &m.config().await.daemon.token).await?;
+    endpoint::write(&bind, &m.config_authority.snapshot().await.daemon.token).await?;
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {

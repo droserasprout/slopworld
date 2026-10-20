@@ -55,18 +55,18 @@ async fn mutations_report_reload_failure_and_recover_after_definition_repair() {
         return;
     };
     crate::test_support::set_env("SLOPD_CONFIG_ROOT", &root);
-    let manager = crate::session::test_manager_with_socket(
+    let manager = crate::application::test_application_with_socket(
         crate::config::Config::default(),
         format!("jukebox-{}", uuid::Uuid::new_v4()),
     );
     let app = crate::api::router(manager.clone()).layer(Extension(Cap::Root));
-    let mut events = manager.application.subscribe();
+    let mut events = manager.services.subscribe();
     let mut station = radio_station();
     create_and_read_preset(&app, &mut events, &station, &root).await;
     assert!(
         !manager
-            .application
-            .reload_jukebox_if_changed(&manager)
+            .services
+            .reload_jukebox_if_changed(&manager.sessions)
             .await
             .unwrap()
     );
@@ -94,23 +94,23 @@ async fn mutations_report_reload_failure_and_recover_after_definition_repair() {
             assert!(!root.join("jukebox/radio.toml").exists());
         }
         manager
-            .application
-            .reload_jukebox_if_changed(&manager)
+            .services
+            .reload_jukebox_if_changed(&manager.sessions)
             .await
             .unwrap_err();
         std::fs::remove_file(&broken).unwrap();
         assert!(
             manager
-                .application
-                .reload_jukebox_if_changed(&manager)
+                .services
+                .reload_jukebox_if_changed(&manager.sessions)
                 .await
                 .unwrap()
         );
         assert_preset_event(&mut events);
         assert!(
             !manager
-                .application
-                .reload_jukebox_if_changed(&manager)
+                .services
+                .reload_jukebox_if_changed(&manager.sessions)
                 .await
                 .unwrap()
         );
@@ -131,12 +131,12 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
         return;
     };
     crate::test_support::set_env("SLOPD_CONFIG_ROOT", &root);
-    let manager = crate::session::test_manager_with_socket(
+    let manager = crate::application::test_application_with_socket(
         crate::config::Config::default(),
         format!("jukebox-{}", uuid::Uuid::new_v4()),
     );
     let app = crate::api::router(manager.clone()).layer(Extension(Cap::Root));
-    let mut events = manager.application.subscribe();
+    let mut events = manager.services.subscribe();
     let path = "/api/jukebox/presets/radio";
     let mut station = radio_station();
 
@@ -170,7 +170,7 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
     assert_invalid_and_failed_writes(&app, &mut events, &station, path, &root, &saved).await;
     update_and_delete_preset(&app, &mut events, &mut station, path, &root).await;
     assert_storage_errors(&app, &station, path, &root).await;
-    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.sessions.cfg_path().parent().unwrap()).unwrap();
 }
 
 fn radio_station() -> wire::Station {
@@ -193,7 +193,7 @@ async fn assert_initial_catalog_empty(app: &Router) {
     );
 }
 
-fn scoped_app(manager: &std::sync::Arc<crate::session::Manager>, level: Level) -> Router {
+fn scoped_app(manager: &crate::application::Application, level: Level) -> Router {
     crate::api::router(manager.clone()).layer(Extension(Cap::Scoped(Grant {
         grantor: "agent".into(),
         sessions: ["agent".into()].into(),
@@ -203,7 +203,7 @@ fn scoped_app(manager: &std::sync::Arc<crate::session::Manager>, level: Level) -
 }
 
 async fn assert_scoped_routes_forbidden(
-    manager: &std::sync::Arc<crate::session::Manager>,
+    manager: &crate::application::Application,
     station: &wire::Station,
     routes: &[(&str, &str)],
 ) {
@@ -259,7 +259,7 @@ async fn create_and_read_preset(
 }
 
 struct PresetRouteContext<'a> {
-    manager: &'a std::sync::Arc<crate::session::Manager>,
+    manager: &'a crate::application::Application,
     app: &'a Router,
     events: &'a mut EventReceiver,
     station: &'a wire::Station,

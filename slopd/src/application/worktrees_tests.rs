@@ -30,10 +30,12 @@ async fn allocation_record_failure_removes_only_newly_created_directories() {
             ..Default::default()
         },
     };
-    Coordinator::new(manager.as_ref())
-        .finish_worktree_creation(prepared)
-        .await
-        .unwrap_err();
+    Coordinator::new(&Worktrees::new(
+        &crate::application::Application::from_runtime(&manager),
+    ))
+    .finish_worktree_creation(prepared)
+    .await
+    .unwrap_err();
     assert!(!parent.exists());
     assert!(manager.cfg_path().parent().unwrap().is_dir());
 }
@@ -69,7 +71,12 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
         },
         index: 1,
     };
-    removal.record_intent(manager.as_ref()).await.unwrap();
+    removal
+        .record_intent(&Worktrees::new(
+            &crate::application::Application::from_runtime(&manager),
+        ))
+        .await
+        .unwrap();
     // Simulate Git deleting the checkout before the final catalog write fails.
     std::fs::remove_dir(&checkout).unwrap();
     let fault = crate::paths::fail_writes(
@@ -79,7 +86,13 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
             .unwrap()
             .join(format!("data/worktrees/{TREE}.toml")),
     );
-    removal.finish(manager.as_ref(), Ok(())).await.unwrap_err();
+    removal
+        .finish(
+            &Worktrees::new(&crate::application::Application::from_runtime(&manager)),
+            Ok(()),
+        )
+        .await
+        .unwrap_err();
     let retained = manager.worktree_records();
     assert_eq!(retained.worktrees[0].id, SIBLING);
     assert_eq!(
@@ -92,7 +105,10 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
     );
     drop(fault);
 
-    Worktrees::new(&manager).recover_worktrees().await.unwrap();
+    Worktrees::new(&crate::application::Application::from_runtime(&manager))
+        .recover_worktrees()
+        .await
+        .unwrap();
     let recovered = manager.worktree_records();
     assert_eq!(
         recovered.worktrees[1].phase,
@@ -104,8 +120,19 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
         store: recovered,
         index: 1,
     };
-    retry.record_intent(manager.as_ref()).await.unwrap();
-    retry.finish(manager.as_ref(), Ok(())).await.unwrap();
+    retry
+        .record_intent(&Worktrees::new(
+            &crate::application::Application::from_runtime(&manager),
+        ))
+        .await
+        .unwrap();
+    retry
+        .finish(
+            &Worktrees::new(&crate::application::Application::from_runtime(&manager)),
+            Ok(()),
+        )
+        .await
+        .unwrap();
     let remaining = manager.worktree_records();
     assert_eq!(remaining.worktrees.len(), 1);
     assert_eq!(remaining.worktrees[0].id, SIBLING);

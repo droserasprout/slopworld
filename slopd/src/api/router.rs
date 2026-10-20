@@ -11,9 +11,9 @@ use crate::shared::protocol::routes;
 
 use super::handlers::*;
 use super::ws::ws_upgrade;
-use super::{Mgr, err};
+use super::{App, err};
 
-pub(crate) fn router(m: Mgr) -> Router {
+pub(crate) fn router(m: App) -> Router {
     scoped_routes(m.clone())
         .merge(shared_routes(m.clone()))
         .merge(snapshot_routes(m.clone()))
@@ -21,7 +21,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .with_state(m)
 }
 
-fn scoped_routes(m: Mgr) -> Router<Mgr> {
+fn scoped_routes(m: App) -> Router<App> {
     // Scoped routes revalidate credentials and hold the session boundary through each request.
     Router::new()
         .route(routes::SESSIONS, post(create))
@@ -39,7 +39,7 @@ fn scoped_routes(m: Mgr) -> Router<Mgr> {
         .layer(middleware::from_fn_with_state(m, scoped_request))
 }
 
-fn snapshot_routes(m: Mgr) -> Router<Mgr> {
+fn snapshot_routes(m: App) -> Router<App> {
     Router::new()
         .route(routes::SESSIONS, get(list))
         .route(routes::SESSION, get(one))
@@ -47,7 +47,7 @@ fn snapshot_routes(m: Mgr) -> Router<Mgr> {
         .layer(middleware::from_fn_with_state(m, snapshot_request))
 }
 
-async fn snapshot_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
+async fn snapshot_request(State(m): State<App>, req: Request, next: Next) -> Response {
     if req.extensions().get::<Cap>().is_some_and(Cap::may_create) {
         // Root snapshots use accepted in-memory state. Maintenance owns external
         // reloads; a read must not queue behind lifecycle I/O or trigger it itself.
@@ -57,7 +57,7 @@ async fn snapshot_request(State(m): State<Mgr>, req: Request, next: Next) -> Res
     }
 }
 
-fn shared_routes(m: Mgr) -> Router<Mgr> {
+fn shared_routes(m: App) -> Router<App> {
     // These handlers keep session identity fixed but do not mutate it. Sharing the guard
     // allows terminal input while Git checkout or task persistence is in progress.
     Router::new()
@@ -77,7 +77,7 @@ fn shared_routes(m: Mgr) -> Router<Mgr> {
         .layer(middleware::from_fn_with_state(m, shared_request))
 }
 
-fn root_routes(m: Mgr) -> Router<Mgr> {
+fn root_routes(m: App) -> Router<App> {
     // Host controls and configuration default to root-only access.
     Router::new()
         .route(
@@ -155,15 +155,15 @@ fn root_routes(m: Mgr) -> Router<Mgr> {
         .layer(middleware::from_fn_with_state(m, require_root))
 }
 
-async fn scoped_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
+async fn scoped_request(State(m): State<App>, req: Request, next: Next) -> Response {
     bounded_request(m, req, next, false).await
 }
 
-async fn shared_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
+async fn shared_request(State(m): State<App>, req: Request, next: Next) -> Response {
     bounded_request(m, req, next, true).await
 }
 
-async fn bounded_request(m: Mgr, req: Request, next: Next, shared: bool) -> Response {
+async fn bounded_request(m: App, req: Request, next: Next, shared: bool) -> Response {
     // Read uploads before taking the session boundary: a stalled client must not block
     // lifecycle changes or revocation. Use the extractor to preserve Axum's body limit.
     let (parts, body) = req.into_parts();
@@ -187,9 +187,9 @@ async fn bounded_request(m: Mgr, req: Request, next: Next, shared: bool) -> Resp
         next.run(req).await
     };
     if shared {
-        m.session_read_request(operation).await
+        m.sessions.session_read_request(operation).await
     } else {
-        m.session_request(operation).await
+        m.sessions.session_request(operation).await
     }
 }
 
@@ -197,7 +197,7 @@ async fn bounded_request(m: Mgr, req: Request, next: Next, shared: bool) -> Resp
 /// Therefore, a scoped grant gets 403 here before a handler runs. The capability was resolved and
 /// hung on the request by `auth`, which is the outer layer, so it is always present by now.
 async fn require_root(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     req: Request,
     next: Next,

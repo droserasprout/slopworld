@@ -24,7 +24,7 @@ async fn unsupported_git_filename_returns_bad_request() {
     git(&fixture, &["init", "-q"]);
     let name = std::ffi::OsString::from_vec(b"file-\xff.txt".to_vec());
     std::fs::write(fixture.join(name), "content\n").unwrap();
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for counts in [false, true] {
         let (status, _) = git_status(
             State(manager.clone()),
@@ -42,7 +42,7 @@ async fn unsupported_git_filename_returns_bad_request() {
 #[tokio::test]
 async fn non_repository_reply_keeps_requested_path() {
     let fixture = crate::api::handlers::tests::fixture("git-wire-none");
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let Proto(reply) = git_status(
         State(manager),
         Query(GitReq {
@@ -75,7 +75,7 @@ async fn status_wire_distinguishes_uncounted_binary_and_zero_line_counts() {
     );
     std::fs::write(fixture.join("text"), "original\nadded\n").unwrap();
     std::fs::write(fixture.join("binary"), b"new\0data").unwrap();
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for counts in [false, true] {
         let Proto(reply) = git_status(
             State(manager.clone()),
@@ -130,7 +130,7 @@ async fn rename_source_survives_status_wire_with_and_without_counts() {
         ],
     );
     git(&fixture, &["mv", "old.txt", "new.txt"]);
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for counts in [false, true] {
         let Proto(reply) = git_status(
             State(manager.clone()),

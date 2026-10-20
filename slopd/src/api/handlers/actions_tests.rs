@@ -8,7 +8,7 @@ fn proto<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Proto<T> {
 
 #[tokio::test]
 async fn invalid_explicit_runs_and_file_actions_return_bad_request() {
-    let manager = crate::session::test_manager(Config::default());
+    let manager = crate::application::test_application(Config::default());
     for (request, message) in [
         (
             json!({"kind":"prompt","command":" ","temp":true}),

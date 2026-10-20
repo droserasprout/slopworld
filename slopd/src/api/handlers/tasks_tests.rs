@@ -12,7 +12,7 @@ fn root_worker_requests_use_the_explicit_session_caller() {
 
 #[tokio::test]
 async fn missing_template_worker_requests_are_rejected_before_task_creation() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let mut headers = HeaderMap::new();
     headers.insert(SESSION_HEADER, HeaderValue::from_static(crate::tasks::HOST));
     let result = Box::pin(spawn_worker(
@@ -32,6 +32,7 @@ async fn missing_template_worker_requests_are_rejected_before_task_creation() {
     assert!(body.error.contains("template"));
     assert!(
         manager
+            .sessions
             .task_store()
             .all_tasks_async()
             .await
@@ -153,7 +154,7 @@ async fn mailbox_visibility_and_global_operations_respect_principal() {
 
 #[tokio::test]
 async fn renamed_recipient_updates_use_current_label_without_changing_authority() {
-    let m = crate::session::test_manager(crate::config::Config {
+    let m = crate::application::test_application(crate::config::Config {
         projects: vec![crate::config::ProjectCfg {
             id: crate::storage_id::draft_identity(),
             name: "repo".into(),
@@ -187,9 +188,9 @@ async fn renamed_recipient_updates_use_current_label_without_changing_authority(
     .unwrap();
     // Rename the original recipient and reuse its old label for another identity.
     for (old, new) in [("bob", "renamed"), ("carol", "bob")] {
-        let mut session = m.config().await.session(old).unwrap().clone();
+        let mut session = m.sessions.config().await.session(old).unwrap().clone();
         session.name = new.into();
-        m.update(old, session).await.unwrap();
+        m.sessions.update(old, session).await.unwrap();
     }
     let update = || {
         Proto(wire::UpdateTaskReq {
@@ -231,7 +232,7 @@ async fn renamed_recipient_updates_use_current_label_without_changing_authority(
     .await
     .unwrap();
     assert_eq!(reply.tasks[0].history[0].sender, "renamed");
-    let reloaded = crate::tasks::Tasks::load(m.cfg_path()).unwrap();
+    let reloaded = crate::tasks::Tasks::load(m.sessions.cfg_path()).unwrap();
     assert_eq!(
         reloaded
             .get(&mailbox_identity("bob"), &task.id)
@@ -323,12 +324,20 @@ async fn recipient_updates_and_removal_preserve_task_lifecycle() {
     .await
     .unwrap();
     assert_eq!(reply.task.unwrap().id, task.id);
-    assert!(m.task_store().all_tasks_async().await.unwrap().is_empty());
+    assert!(
+        m.sessions
+            .task_store()
+            .all_tasks_async()
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
 async fn bulk_cancel_remove_and_prune_enforce_scope() {
     let m = mailbox_manager();
+    let store = || m.sessions.task_store();
     let a = mailbox_task(&m, "alice", "bob", "first").await.unwrap();
     let b = mailbox_task(&m, "carol", "dave", "second").await.unwrap();
     let ids = || {
@@ -349,7 +358,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
         StatusCode::BAD_REQUEST
     );
     assert!(
-        m.task_store()
+        store()
             .all_tasks_async()
             .await
             .unwrap()
@@ -378,7 +387,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
         .0,
         StatusCode::BAD_REQUEST
     );
-    assert_eq!(m.task_store().all_tasks_async().await.unwrap().len(), 2);
+    assert_eq!(store().all_tasks_async().await.unwrap().len(), 2);
     assert_eq!(
         remove_tasks(
             State(m.clone()),
@@ -400,7 +409,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
     .await
     .unwrap();
     assert_eq!(reply.removed, 1);
-    assert_eq!(m.task_store().all_tasks_async().await.unwrap()[0].id, b.id);
+    assert_eq!(store().all_tasks_async().await.unwrap()[0].id, b.id);
     let Proto(reply) = remove_tasks(
         State(m.clone()),
         Extension(Cap::Root),
@@ -419,7 +428,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
     .await
     .unwrap();
     assert_eq!(reply.removed, 0);
-    assert!(m.task_store().all_tasks_async().await.unwrap().is_empty());
+    assert!(store().all_tasks_async().await.unwrap().is_empty());
 }
 #[tokio::test]
 async fn unknown_task_endpoints_fail_before_persistence() {
@@ -438,12 +447,19 @@ async fn unknown_task_endpoints_fail_before_persistence() {
         let (status, Proto(error)) = result.unwrap_err();
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert!(error.error.contains("Session missing does not exist."));
-        assert!(m.task_store().all_tasks_async().await.unwrap().is_empty());
+        assert!(
+            m.sessions
+                .task_store()
+                .all_tasks_async()
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 }
 
-fn mailbox_manager() -> Mgr {
-    crate::session::test_manager(crate::config::Config {
+fn mailbox_manager() -> App {
+    crate::application::test_application(crate::config::Config {
         sessions: ["alice", "bob", "carol", "dave"]
             .into_iter()
             .map(|name| crate::config::SessionCfg {
@@ -459,7 +475,7 @@ fn mailbox_manager() -> Mgr {
 #[tokio::test]
 async fn batch_response_reports_partial_record_commits_and_idempotent_retry() {
     let m = mailbox_manager();
-    let data = m.cfg_path().parent().unwrap().join("data");
+    let data = m.sessions.cfg_path().parent().unwrap().join("data");
     let a = mailbox_task(&m, "alice", "bob", "first").await.unwrap();
     let b = mailbox_task(&m, "alice", "bob", "second").await.unwrap();
     let c = mailbox_task(&m, "alice", "bob", "third").await.unwrap();
@@ -517,22 +533,23 @@ fn mailbox_identity(name: &str) -> String {
 }
 
 async fn mailbox_task(
-    m: &Mgr,
+    m: &App,
     from: &str,
     to: &str,
     body: &str,
 ) -> anyhow::Result<crate::tasks::Task> {
-    m.create_task_owned(
-        crate::tasks::Participant {
-            name: from.into(),
-            identity: mailbox_identity(from),
-        },
-        crate::tasks::Participant {
-            name: to.into(),
-            identity: mailbox_identity(to),
-        },
-        body.into(),
-        None,
-    )
-    .await
+    m.sessions
+        .create_task_owned(
+            crate::tasks::Participant {
+                name: from.into(),
+                identity: mailbox_identity(from),
+            },
+            crate::tasks::Participant {
+                name: to.into(),
+                identity: mailbox_identity(to),
+            },
+            body.into(),
+            None,
+        )
+        .await
 }

@@ -8,8 +8,8 @@ These application entry points acquire session operation leases before the works
 mutation gate and retain owned work through commit or rollback. A validated project
 replacement carries the original identity and proposed record through relocation and reference updates;
 static edit policy is checked before Git effects. Session adapters implement the
-operation leases, configuration transaction hooks, live identity references, and
-attachment checks. `worktrees/inspection.rs` owns revision verification and checkout observations; project and worktree client views belong to application.
+operation leases, live identity references, and attachment checks.
+`application/configuration.rs` owns configuration transaction coordination. `worktrees/inspection.rs` owns revision verification and checkout observations; project and worktree client views belong to application.
 
 Worktree HTTP requests use host-user authority for root credentials, independent
 of the terminal session header. Scoped credentials retain the grantor's project

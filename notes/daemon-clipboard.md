@@ -12,7 +12,7 @@ client HTTP timeout. Exact tool ordering belongs to source/tests.
 Client input ordering belongs to [terminal](mod-terminal.md).
 
 Desktop image file-link paste is a session import, not a clipboard rewrite.
-`session/manager/capture/images.rs` admits root-authorized paste intent for the
+`session/capture/images.rs` admits root-authorized paste intent for the
 current Codex run; `sandbox/images.rs` owns local URI decoding, bounded image
 validation and private staging. Ordinary API/agent text paste does not import host
 files. Sidecar imports are rejected because its filesystem is not the desktop host.

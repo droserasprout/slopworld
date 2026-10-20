@@ -12,7 +12,7 @@ adapter supplies guarded commits; `api/handlers/library.rs` owns HTTP.
 common request in `session/launch.rs`. Explicit
 request decoding belongs to `api/types.rs`. Application `Launches` coordinates
 guarded allocation, startup, failure cleanup, and prompt delivery through the session
-runtime. Live construction belongs to `session/manager/errands.rs`.
+runtime. Live construction belongs to `session/errands.rs`.
 `application/errands.rs` owns copied source settings, executable precedence, and
 display-label policy; validation still precedes runtime allocation under session guards.
 `application/library.rs` prepares breadcrumb text from resolved session/project context;
@@ -35,7 +35,7 @@ Temporary errands disappear on stop or exit and clean up their private state.
 Reader tabs use opaque 16-character lowercase hexadecimal handles from
 `storage_id.rs`, reserved against live and configured session names under the session
 boundary. Display labels and reader intent remain separate metadata.
-`session/manager/delivery.rs` owns readiness and ordered paste, delay, and Enter for
+`session/delivery.rs` owns readiness and ordered paste, delay, and Enter for
 composed worker/errand prompts. Creation can return before delivery finishes;
 readiness timeout withholds input. Callers compose prompts before delivery.
 [Saved host tabs](daemon-host-terminals.md) have a separate persistence contract.

@@ -1,6 +1,7 @@
 use super::*;
 use crate::application::file_actions::FileActions;
 use crate::session::{ExecutionSource, HostLifetime, LaunchDestination};
+
 use serde_json::json;
 fn decode_launch(value: serde_json::Value) -> crate::application::launch::ExplicitLaunch {
     serde_json::from_value::<RunReq>(value).unwrap().into()
@@ -8,7 +9,7 @@ fn decode_launch(value: serde_json::Value) -> crate::application::launch::Explic
 
 #[tokio::test]
 async fn reader_launches_reject_unknown_intents_and_missing_paths() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for (intent, message) in [
         ("unknown", "Unknown terminal intent"),
         ("view", "needs a path"),
@@ -28,7 +29,7 @@ async fn reader_launches_reject_unknown_intents_and_missing_paths() {
 
 #[tokio::test]
 async fn host_shell_persistence_requires_a_project_and_no_explicit_command() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for (project, command, temp, persistent, temporary) in [
         (" repo ", " ", false, true, false),
         ("repo", "echo hello", false, false, false),
@@ -71,7 +72,7 @@ async fn host_shell_persistence_requires_a_project_and_no_explicit_command() {
 
 #[tokio::test]
 async fn reader_plan_preserves_source_identity_geometry_and_template() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let request = decode_launch(json!({
         "kind": "shell", "project": " repo ", "command": " less file ",
         "label": " reader ", "intent": "view", "worktree": "checkout",
@@ -104,7 +105,7 @@ async fn reader_plan_preserves_source_identity_geometry_and_template() {
 
 #[tokio::test]
 async fn explicit_launches_reject_ambiguous_authority_before_allocation() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     for fields in [
         json!({}),
         json!({"host": true, "agent_template": "review"}),
@@ -122,7 +123,7 @@ async fn explicit_launches_reject_ambiguous_authority_before_allocation() {
         )
         .await
         .unwrap_err();
-        assert!(manager.views().await.is_empty());
+        assert!(manager.sessions.views().await.is_empty());
     }
     let request = decode_launch(json!({"kind":"shell", "temp":true, "like":" source "}));
     let plan =
@@ -134,7 +135,7 @@ async fn explicit_launches_reject_ambiguous_authority_before_allocation() {
 
 #[tokio::test]
 async fn file_launches_quote_paths_and_keep_disposable_host_lifetime() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let request = decode_launch(json!({
         "kind": "shell", "host": true, "path": "/tmp/a'b", "hold": true,
         "command": "cat {{ absolute_path }}"

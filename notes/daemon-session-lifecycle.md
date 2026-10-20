@@ -1,7 +1,7 @@
 # Session lifecycle boundary
 
-`session/manager/lifecycle/` owns start, stop, adoption, and reconciliation.
-`session/manager/sessions.rs` owns configured session edits. Operations validate a
+`session/lifecycle/` owns start, stop, adoption, and reconciliation.
+`session/sessions.rs` owns configured session edits. Operations validate a
 complete candidate before changing tmux identity and protect commit/rollback from
 caller cancellation. Creation, label edits, deletion, and private-state restoration
 also retain their session boundary in owned work through publication or cleanup.
@@ -10,7 +10,7 @@ also retain their session boundary in owned work through publication or cleanup.
 `SessionCfg` and saved library entries. Execution source distinguishes host lifetime,
 agent templates and cloned agent settings; destination distinguishes selected and
 temporary projects. `application/launch.rs` coordinates explicit and saved launches
-under the session operation guard; `session/manager/errands.rs` owns live allocation. Template/source
+under the session operation guard; `session/errands.rs` owns live allocation. Template/source
 lookup and worktree resolution remain inside that guard before allocation.
 `session/role.rs` distinguishes durable and temporary agents, saved host shells, and
 unsaved host actions. Stop and process exit retain durable agents and saved shells;

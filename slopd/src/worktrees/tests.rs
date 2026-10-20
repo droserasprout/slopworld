@@ -86,7 +86,7 @@ async fn metadata_paths_reports_unreadable_commondir() {
 
 struct LifecycleFixture {
     root: PathBuf,
-    manager: std::sync::Arc<crate::session::Manager>,
+    manager: std::sync::Arc<crate::session::SessionRuntime>,
     worktree: Worktree,
 }
 
@@ -107,11 +107,15 @@ async fn lifecycle_fixture() -> LifecycleFixture {
     });
     let manager = test_manager(cfg);
     std::fs::write(root.join("file"), "caller dirty\n").unwrap();
-    let worktree = Box::pin(Worktrees::new(&manager).create_worktree(WorktreeRequest {
-        project: "repo".into(),
-        name: "parallel".into(),
-        ..Default::default()
-    }))
+    let worktree = Box::pin(
+        Worktrees::new(&crate::application::Application::from_runtime(&manager)).create_worktree(
+            WorktreeRequest {
+                project: "repo".into(),
+                name: "parallel".into(),
+                ..Default::default()
+            },
+        ),
+    )
     .await
     .unwrap();
     assert_eq!(Path::new(&worktree.path).file_name().unwrap(), "parallel");
@@ -123,19 +127,19 @@ async fn lifecycle_fixture() -> LifecycleFixture {
             .unwrap(),
         "repo"
     );
-    Worktrees::new(&manager)
+    Worktrees::new(&crate::application::Application::from_runtime(&manager))
         .rename_worktree("repo".into(), worktree.id.clone(), "../escape".into())
         .await
         .unwrap_err();
     let occupied = Path::new(&worktree.path).parent().unwrap().join("occupied");
     std::fs::create_dir(&occupied).unwrap();
-    Worktrees::new(&manager)
+    Worktrees::new(&crate::application::Application::from_runtime(&manager))
         .rename_worktree("repo".into(), worktree.id.clone(), "occupied".into())
         .await
         .unwrap_err();
     assert!(Path::new(&worktree.path).exists());
     let old_path = worktree.path.clone();
-    let worktree = Worktrees::new(&manager)
+    let worktree = Worktrees::new(&crate::application::Application::from_runtime(&manager))
         .rename_worktree("repo".into(), worktree.id.clone(), "feature name".into())
         .await
         .unwrap();
@@ -168,7 +172,7 @@ async fn lifecycle_fixture() -> LifecycleFixture {
     );
     assert!(manager.config().await.sessions.is_empty());
     assert!(
-        Projects::new(&manager)
+        Projects::new(&crate::application::Application::from_runtime(&manager))
             .remove_project("repo")
             .await
             .is_err()
@@ -203,7 +207,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
             .unwrap();
     }
     assert_eq!(
-        Worktrees::new(&manager)
+        Worktrees::new(&crate::application::Application::from_runtime(&manager))
             .worktree_list("repo")
             .await
             .unwrap()[1]
@@ -211,12 +215,12 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
             .len(),
         2
     );
-    Worktrees::new(&manager)
+    Worktrees::new(&crate::application::Application::from_runtime(&manager))
         .rename_worktree("repo".into(), w.id.clone(), "blocked".into())
         .await
         .unwrap_err();
     assert!(
-        Worktrees::new(&manager)
+        Worktrees::new(&crate::application::Application::from_runtime(&manager))
             .remove_worktree("repo".into(), w.id.clone())
             .await
             .is_err()
@@ -229,7 +233,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     // Failed removal neither commits nor destroys files. Retry uses the actual current branch.
     std::fs::write(Path::new(&w.path).join("untracked"), "keep me").unwrap();
     assert!(
-        Worktrees::new(&manager)
+        Worktrees::new(&crate::application::Application::from_runtime(&manager))
             .remove_worktree("repo".into(), w.id.clone())
             .await
             .is_err()
@@ -253,7 +257,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     )
     .await
     .unwrap();
-    let rows = Worktrees::new(&manager)
+    let rows = Worktrees::new(&crate::application::Application::from_runtime(&manager))
         .worktree_list("repo")
         .await
         .unwrap();
@@ -262,7 +266,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     if mismatched_proc_namespace() {
         assert!(Path::new(&w.path).exists());
     } else {
-        Worktrees::new(&manager)
+        Worktrees::new(&crate::application::Application::from_runtime(&manager))
             .remove_worktree("repo".into(), w.id)
             .await
             .unwrap();
@@ -293,10 +297,14 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
         ..Default::default()
     });
     let manager = test_manager(cfg);
-    let w = Box::pin(Worktrees::new(&manager).create_worktree(WorktreeRequest {
-        project: "repo".into(),
-        ..Default::default()
-    }))
+    let w = Box::pin(
+        Worktrees::new(&crate::application::Application::from_runtime(&manager)).create_worktree(
+            WorktreeRequest {
+                project: "repo".into(),
+                ..Default::default()
+            },
+        ),
+    )
     .await
     .unwrap();
     let path = Path::new(&w.path);
@@ -304,7 +312,7 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     std::fs::write(root.join(".git/info/exclude"), "precious\n").unwrap();
     std::fs::write(path.join("precious"), "not committed").unwrap();
     assert!(
-        Worktrees::new(&manager)
+        Worktrees::new(&crate::application::Application::from_runtime(&manager))
             .remove_worktree("repo".into(), w.id.clone())
             .await
             .unwrap_err()
@@ -336,7 +344,7 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
             .success()
     );
     assert!(
-        Worktrees::new(&manager)
+        Worktrees::new(&crate::application::Application::from_runtime(&manager))
             .remove_worktree("repo".into(), w.id.clone())
             .await
             .unwrap_err()
@@ -344,7 +352,7 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
             .contains("retained local branch")
     );
     assert_eq!(
-        Worktrees::new(&manager)
+        Worktrees::new(&crate::application::Application::from_runtime(&manager))
             .worktree_list("repo")
             .await
             .unwrap()[1]
@@ -355,7 +363,10 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     let mut store = manager.worktree_records();
     store.worktrees[0].phase = crate::worktrees::WorktreePhase::Removing;
     manager.save_worktrees(&store).await.unwrap();
-    Worktrees::new(&manager).recover_worktrees().await.unwrap();
+    Worktrees::new(&crate::application::Application::from_runtime(&manager))
+        .recover_worktrees()
+        .await
+        .unwrap();
     let recovered = manager.worktree_records();
     assert_eq!(
         recovered.worktrees[0].phase,
@@ -384,7 +395,7 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
     let renamed = rename_project_worktree(&manager, &root, &named).await;
 
     if !mismatched_proc_namespace() {
-        Worktrees::new(&manager)
+        Worktrees::new(&crate::application::Application::from_runtime(&manager))
             .remove_worktree("renamed".into(), renamed.id.clone())
             .await
             .unwrap();
@@ -396,16 +407,19 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
 }
 
 async fn assert_rejected_managed_worktree_names(
-    manager: &std::sync::Arc<crate::session::Manager>,
+    manager: &std::sync::Arc<crate::session::SessionRuntime>,
     root: &Path,
 ) {
     use crate::application::worktrees::WorktreeRequest;
     for name in ["invalid name", "bad..name", "HEAD", "-option", "@{-1}"] {
-        let invalid = Box::pin(Worktrees::new(manager).create_worktree(WorktreeRequest {
-            project: "repo".into(),
-            name: name.into(),
-            ..Default::default()
-        }))
+        let invalid = Box::pin(
+            Worktrees::new(&crate::application::Application::from_runtime(manager))
+                .create_worktree(WorktreeRequest {
+                    project: "repo".into(),
+                    name: name.into(),
+                    ..Default::default()
+                }),
+        )
         .await
         .unwrap_err();
         assert!(invalid.to_string().contains("invalid Git branch name"));
@@ -421,11 +435,15 @@ async fn assert_rejected_managed_worktree_names(
             .unwrap()
             .success()
     );
-    let collision = Box::pin(Worktrees::new(manager).create_worktree(WorktreeRequest {
-        project: "repo".into(),
-        name: "already-exists".into(),
-        ..Default::default()
-    }))
+    let collision = Box::pin(
+        Worktrees::new(&crate::application::Application::from_runtime(manager)).create_worktree(
+            WorktreeRequest {
+                project: "repo".into(),
+                name: "already-exists".into(),
+                ..Default::default()
+            },
+        ),
+    )
     .await
     .unwrap_err();
     assert!(collision.to_string().contains("already exists"));
@@ -434,15 +452,19 @@ async fn assert_rejected_managed_worktree_names(
 }
 
 async fn create_managed_worktrees(
-    manager: &std::sync::Arc<crate::session::Manager>,
+    manager: &std::sync::Arc<crate::session::SessionRuntime>,
     root: &Path,
 ) -> (Worktree, Worktree) {
     use crate::application::worktrees::WorktreeRequest;
-    let named = Box::pin(Worktrees::new(manager).create_worktree(WorktreeRequest {
-        project: "repo".into(),
-        name: "feature-branch".into(),
-        ..Default::default()
-    }))
+    let named = Box::pin(
+        Worktrees::new(&crate::application::Application::from_runtime(manager)).create_worktree(
+            WorktreeRequest {
+                project: "repo".into(),
+                name: "feature-branch".into(),
+                ..Default::default()
+            },
+        ),
+    )
     .await
     .unwrap();
     assert_eq!(named.initial_branch, named.name);
@@ -457,10 +479,14 @@ async fn create_managed_worktrees(
         "feature-branch"
     );
 
-    let generated = Box::pin(Worktrees::new(manager).create_worktree(WorktreeRequest {
-        project: "repo".into(),
-        ..Default::default()
-    }))
+    let generated = Box::pin(
+        Worktrees::new(&crate::application::Application::from_runtime(manager)).create_worktree(
+            WorktreeRequest {
+                project: "repo".into(),
+                ..Default::default()
+            },
+        ),
+    )
     .await
     .unwrap();
     assert_eq!(generated.initial_branch, generated.name);
@@ -481,18 +507,18 @@ async fn create_managed_worktrees(
 }
 
 async fn rename_project_worktree(
-    manager: &std::sync::Arc<crate::session::Manager>,
+    manager: &std::sync::Arc<crate::session::SessionRuntime>,
     root: &Path,
     named: &Worktree,
 ) -> Worktree {
     let mut project = manager.config().await.projects[0].clone();
     project.name = "renamed".into();
-    Projects::new(manager)
+    Projects::new(&crate::application::Application::from_runtime(manager))
         .update_project("repo", project)
         .await
         .unwrap();
     assert_eq!(
-        Worktrees::new(manager)
+        Worktrees::new(&crate::application::Application::from_runtime(manager))
             .worktree_list("renamed")
             .await
             .unwrap()[1]
@@ -500,7 +526,7 @@ async fn rename_project_worktree(
             .path,
         named.path
     );
-    let renamed = Worktrees::new(manager)
+    let renamed = Worktrees::new(&crate::application::Application::from_runtime(manager))
         .rename_worktree("renamed".into(), named.id.clone(), "new-name".into())
         .await
         .unwrap();
@@ -541,8 +567,8 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
         }],
         ..Default::default()
     });
-    let worktrees = Worktrees::new(&manager);
-    let projects = Projects::new(&manager);
+    let worktrees = Worktrees::new(&crate::application::Application::from_runtime(&manager));
+    let projects = Projects::new(&crate::application::Application::from_runtime(&manager));
     let w = Box::pin(worktrees.create_worktree(WorktreeRequest {
         project: "repo".into(),
         ..Default::default()
@@ -575,7 +601,7 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     assert!(Path::new(&renamed_path).exists());
     assert_eq!(
         crate::application::file_actions::worktree_for_path(
-            manager.as_ref(),
+            &Worktrees::new(&crate::application::Application::from_runtime(&manager)),
             "renamed",
             &format!("{renamed_path}/file")
         )
@@ -692,10 +718,14 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
         }],
         ..Default::default()
     });
-    let w = Box::pin(Worktrees::new(&manager).create_worktree(WorktreeRequest {
-        project: "repo".into(),
-        ..Default::default()
-    }))
+    let w = Box::pin(
+        Worktrees::new(&crate::application::Application::from_runtime(&manager)).create_worktree(
+            WorktreeRequest {
+                project: "repo".into(),
+                ..Default::default()
+            },
+        ),
+    )
     .await
     .unwrap();
     let cfg = manager.config().await;
@@ -741,7 +771,7 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
         .unwrap_err();
     assert!(cache.exists());
     std::fs::write(cache.join("artifact"), "kept").unwrap();
-    match Worktrees::new(&manager)
+    match Worktrees::new(&crate::application::Application::from_runtime(&manager))
         .remove_worktree("repo".into(), w.id)
         .await
     {
@@ -800,9 +830,19 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
     moved.path = destination.to_string_lossy().into_owned();
     let mut relocation = relocation::Relocations::new(store, vec![(0, moved.clone())])
         .expect("test relocation uses a catalog entry that exists");
-    relocation.execute(manager.as_ref()).await.unwrap();
+    relocation
+        .execute(&Worktrees::new(
+            &crate::application::Application::from_runtime(&manager),
+        ))
+        .await
+        .unwrap();
     assert_eq!(manager.worktree_records().worktrees[0].path, moved.path);
-    relocation.rollback(manager.as_ref()).await.unwrap();
+    relocation
+        .rollback(&Worktrees::new(
+            &crate::application::Application::from_runtime(&manager),
+        ))
+        .await
+        .unwrap();
     assert!(!destination.exists());
     assert_eq!(manager.worktree_records().worktrees[0].path, original.path);
     assert_eq!(
@@ -812,6 +852,11 @@ async fn relocation_rollback_restores_checkout_registration_and_catalog() {
         original.path
     );
     // Repeated cleanup remains safe after all moves have been restored.
-    relocation.rollback(manager.as_ref()).await.unwrap();
+    relocation
+        .rollback(&Worktrees::new(
+            &crate::application::Application::from_runtime(&manager),
+        ))
+        .await
+        .unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }

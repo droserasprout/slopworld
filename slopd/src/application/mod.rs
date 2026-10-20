@@ -3,6 +3,12 @@
 //! Feature entry points coordinate operations through runtime leases; live validation,
 //! state, registration, lifecycle and reconciliation remain with session.
 mod agent_templates;
+mod configuration;
+mod state;
+pub(crate) use configuration::Configuration;
+pub(crate) use state::Application;
+#[cfg(test)]
+pub(crate) use state::{test_application, test_application_with_socket};
 pub(crate) mod catalogs;
 pub(crate) mod file_actions;
 pub(crate) mod workers;
@@ -98,3 +104,6 @@ impl Services {
 
 #[cfg(test)]
 mod test_support;
+
+mod template_operations;
+pub(crate) use template_operations::TemplateOperations;

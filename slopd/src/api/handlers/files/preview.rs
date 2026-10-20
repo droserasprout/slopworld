@@ -1,5 +1,5 @@
 //! File preview HTTP decoding and projection.
-use super::super::{ApiResult, Mgr, err};
+use super::super::{ApiResult, App, err};
 use crate::api::{
     protobuf::{Proto, path_text},
     types::ReadReq,
@@ -12,7 +12,7 @@ use axum::{
 };
 
 pub(crate) async fn file_stat(
-    State(_m): State<Mgr>,
+    State(_m): State<App>,
     Query(q): Query<ReadReq>,
 ) -> ApiResult<wire::FileStatResult> {
     let path = &q.path;
@@ -30,7 +30,7 @@ pub(crate) async fn file_stat(
 }
 
 pub(crate) async fn read_file(
-    State(_m): State<Mgr>,
+    State(_m): State<App>,
     Query(q): Query<ReadReq>,
 ) -> ApiResult<wire::TextResult> {
     let path = &q.path;
@@ -50,7 +50,7 @@ pub(crate) async fn read_file(
 }
 
 pub(crate) async fn read_image(
-    State(_m): State<Mgr>,
+    State(_m): State<App>,
     Query(q): Query<ReadReq>,
 ) -> ApiResult<wire::ImageResult> {
     let path = &q.path;

@@ -7,9 +7,9 @@ use serde_json::json;
 
 use crate::grant::{Cap, Level};
 
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 
-pub(crate) async fn health(State(_m): State<Mgr>) -> ApiResult<wire::Health> {
+pub(crate) async fn health(State(_m): State<App>) -> ApiResult<wire::Health> {
     reply(json!({
         "ok": true,
         "protocol_version": 2,
@@ -20,12 +20,12 @@ pub(crate) async fn health(State(_m): State<Mgr>) -> ApiResult<wire::Health> {
 }
 
 pub(crate) async fn list(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
 ) -> ApiResult<wire::SessionsReply> {
     let mut sessions = Vec::new();
-    for session in m.views().await {
-        if m.cap_ok(&cap, &session.name, Level::Ro).await {
+    for session in m.sessions.views().await {
+        if m.sessions.cap_ok(&cap, &session.name, Level::Ro).await {
             sessions.push(session);
         }
     }
@@ -33,12 +33,13 @@ pub(crate) async fn list(
 }
 
 pub(crate) async fn one(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::SessionView> {
     super::guard(&m, &cap, &name, Level::Ro).await?;
-    m.views()
+    m.sessions
+        .views()
         .await
         .into_iter()
         .find(|s| s.name == name)
@@ -47,12 +48,13 @@ pub(crate) async fn one(
 }
 
 pub(crate) async fn cwd(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::PathResult> {
     super::guard(&m, &cap, &name, Level::Ro).await?;
     let path = m
+        .sessions
         .tmux
         .current_path(&name)
         .await
@@ -61,62 +63,63 @@ pub(crate) async fn cwd(
 }
 
 pub(crate) async fn sandbox(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::SandboxReport> {
     super::guard(&m, &cap, &name, Level::Ro).await?;
-    if !m.session_known(&name).await {
+    if !m.sessions.session_known(&name).await {
         return Err(err(
             StatusCode::NOT_FOUND,
             format!("no such session: {name}"),
         ));
     }
-    m.sandbox_inspect(&name)
+    m.sessions
+        .sandbox_inspect(&name)
         .await
         .map(reply)
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
 }
 
 pub(crate) async fn create(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Proto(value): Proto<wire::SessionConfig>,
 ) -> ApiResult<wire::Ack> {
     super::guard_create(&cap)?;
     let s = crate::api::parse_session(domain(value)?)?;
-    super::ack_result(m.add(s).await)
+    super::ack_result(m.sessions.add(s).await)
 }
 
 pub(crate) async fn update(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
     Proto(value): Proto<wire::SessionConfig>,
 ) -> ApiResult<wire::Ack> {
     super::guard_root(&cap)?;
     let s = crate::api::parse_session(domain(value)?)?;
-    super::ack_result(m.update(&name, s).await)
+    super::ack_result(m.sessions.update(&name, s).await)
 }
 
 pub(crate) async fn destroy(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
     super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ack_result(m.remove(&name).await)
+    super::ack_result(m.sessions.remove(&name).await)
 }
 
 macro_rules! session_action {
     ($($action:ident),+ $(,)?) => {
         $(pub(crate) async fn $action(
-            State(m): State<Mgr>,
+            State(m): State<App>,
             Extension(cap): Extension<Cap>,
             Path(name): Path<String>,
         ) -> ApiResult {
             super::guard(&m, &cap, &name, Level::Rw).await?;
-            super::ack_result(m.$action(&name).await)
+            super::ack_result(m.sessions.$action(&name).await)
         })+
     };
 }
@@ -134,13 +137,16 @@ fn storage_sizes_default() -> bool {
 }
 
 pub(crate) async fn stored_states(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Query(query): Query<StorageQuery>,
 ) -> ApiResult<wire::StoredStates> {
-    crate::application::stored_state::stored_states(m.config().await, query.sizes)
-        .await
-        .map(|entries| reply(json!({ "entries": entries })))
-        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
+    crate::application::stored_state::stored_states(
+        m.config_authority.snapshot().await,
+        query.sizes,
+    )
+    .await
+    .map(|entries| reply(json!({ "entries": entries })))
+    .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
 }
 
 pub(crate) async fn empty_trash() -> ApiResult<wire::Ack> {
@@ -148,43 +154,49 @@ pub(crate) async fn empty_trash() -> ApiResult<wire::Ack> {
 }
 
 pub(crate) async fn delete_stored_state(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path((kind, key)): Path<(String, String)>,
 ) -> ApiResult<wire::Ack> {
     super::ack_result(
-        crate::application::stored_state::delete_stored_state(m.config().await, &kind, &key).await,
+        crate::application::stored_state::delete_stored_state(
+            m.config_authority.snapshot().await,
+            &kind,
+            &key,
+        )
+        .await,
     )
 }
 
 pub(crate) async fn restore_stored_state(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path(key): Path<String>,
 ) -> ApiResult<wire::SessionResult> {
-    m.restore_stored_state(&key)
+    m.sessions
+        .restore_stored_state(&key)
         .await
         .map(|session| reply(json!({ "ok": true, "session": session })))
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
 }
 
 pub(crate) async fn set_label(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
     Proto(q): Proto<wire::LabelReq>,
 ) -> ApiResult<wire::Ack> {
     let q: super::super::types::LabelReq = domain(q)?;
     super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ack_result(m.set_label(&name, q.label).await)
+    super::ack_result(m.sessions.set_label(&name, q.label).await)
 }
 
 pub(crate) async fn set_reader_pinned(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
     Proto(q): Proto<wire::ReaderPinnedReq>,
 ) -> ApiResult<wire::Ack> {
     super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ack_result(m.set_reader_pinned(&name, q.pinned).await)
+    super::ack_result(m.sessions.set_reader_pinned(&name, q.pinned).await)
 }
 
 #[cfg(test)]

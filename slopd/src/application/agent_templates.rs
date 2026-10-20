@@ -1,5 +1,5 @@
 //! Personal template catalog mutations and cancellation-safe persistence/publication.
-//! Session adapters own capture and guarded registration; this owner composes drafts.
+//! template_operations owns capture; session owns guarded registration. This owner composes drafts.
 //! crate::agent_templates owns
 //! portable definitions, version policy, and the on-disk format.
 use crate::agent_templates::{AgentTemplate, AgentTemplateStore};

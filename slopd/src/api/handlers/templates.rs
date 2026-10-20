@@ -13,7 +13,7 @@ use crate::grant::Cap;
 use super::super::types::{
     CreateAgentTemplateReq, SaveAgentTemplateReq, SpawnableTemplatesQuery, TemplateVersionQuery,
 };
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 
 fn template_error(error: anyhow::Error) -> crate::api::protobuf::ApiError {
     let status = match error.downcast_ref::<crate::agent_templates::AgentTemplateError>() {
@@ -34,11 +34,11 @@ fn template_error(error: anyhow::Error) -> crate::api::protobuf::ApiError {
 }
 
 pub(crate) async fn list_templates(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(_cap): Extension<Cap>,
     Query(query): Query<SpawnableTemplatesQuery>,
 ) -> ApiResult<wire::TemplatesReply> {
-    let templates = m.application.templates.list().await;
+    let templates = m.services.templates.list().await;
     if query.project.trim().is_empty() {
         return reply(json!({ "templates": templates }));
     }
@@ -54,7 +54,7 @@ pub(crate) async fn list_templates(
 /// the complete enabled catalog. The response uses the same template shape as the root catalog
 /// so agents and the CLI cannot grow a second definition parser.
 pub(crate) async fn list_spawnable_templates(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: axum::http::HeaderMap,
     Query(query): Query<SpawnableTemplatesQuery>,
@@ -68,8 +68,7 @@ pub(crate) async fn list_spawnable_templates(
             .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
         let enabled = Workers::new(&m).worker_template_names().await;
         return reply(json!({
-            "templates": m
-                .application.templates.list()
+            "templates": m.services.templates.list()
                 .await
                 .into_iter()
                 .filter(|template| enabled.contains(&template.name))
@@ -80,8 +79,7 @@ pub(crate) async fn list_spawnable_templates(
 
     let enabled = Workers::new(&m).worker_template_names().await;
     reply(json!({
-        "templates": m
-            .application.templates.list()
+        "templates": m.services.templates.list()
             .await
             .into_iter()
             .filter(|template| enabled.contains(&template.name))
@@ -90,7 +88,7 @@ pub(crate) async fn list_spawnable_templates(
 }
 
 pub(crate) async fn save_template(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(_cap): Extension<Cap>,
     Proto(value): Proto<wire::SaveTemplateRequest>,
 ) -> ApiResult<wire::TemplateResult> {
@@ -106,7 +104,7 @@ pub(crate) async fn save_template(
             ));
         }
         let saved = m
-            .application
+            .services
             .templates
             .create(template)
             .await
@@ -117,13 +115,14 @@ pub(crate) async fn save_template(
     let req: SaveAgentTemplateReq =
         serde_json::from_value(value).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
     let saved = if !req.duplicate.trim().is_empty() {
-        m.application
+        m.services
             .templates
             .duplicate(&req.duplicate, req.name, req.description)
             .await
             .map_err(template_error)?
     } else {
-        m.capture_agent_template(&req.source, req.name, req.description)
+        crate::application::TemplateOperations::new(&m)
+            .capture_agent_template(&req.source, req.name, req.description)
             .await
             .map_err(template_error)?
     };
@@ -131,7 +130,7 @@ pub(crate) async fn save_template(
 }
 
 pub(crate) async fn replace_template(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(_cap): Extension<Cap>,
     Path(name): Path<String>,
     Proto(value): Proto<wire::AgentTemplate>,
@@ -144,7 +143,7 @@ pub(crate) async fn replace_template(
         ));
     }
     let saved = m
-        .application
+        .services
         .templates
         .replace(&name, template.version, template)
         .await
@@ -153,7 +152,7 @@ pub(crate) async fn replace_template(
 }
 
 pub(crate) async fn destroy_template(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(_cap): Extension<Cap>,
     Path(name): Path<String>,
     Query(query): Query<TemplateVersionQuery>,
@@ -161,7 +160,7 @@ pub(crate) async fn destroy_template(
     let version = query
         .version
         .ok_or_else(|| err(StatusCode::BAD_REQUEST, "delete requires template version"))?;
-    m.application
+    m.services
         .templates
         .remove(&name, version)
         .await
@@ -170,14 +169,14 @@ pub(crate) async fn destroy_template(
 }
 
 pub(crate) async fn create_from_template(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(_cap): Extension<Cap>,
     Path(template): Path<String>,
     Proto(req): Proto<wire::CreateAgentTemplateReq>,
 ) -> ApiResult<wire::SessionResult> {
     let req: CreateAgentTemplateReq = domain(req)?;
     let overrides = req.overrides.map(crate::api::parse_session).transpose()?;
-    let session = m
+    let session = crate::application::TemplateOperations::new(&m)
         .create_from_agent_template(&template, req.name, req.project, overrides, req.start)
         .await
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;

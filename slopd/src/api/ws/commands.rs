@@ -4,7 +4,7 @@
 use crate::application::{Event, EventMessage};
 use crate::grant::{Cap, Level};
 
-use super::super::Mgr;
+use super::super::App;
 use super::super::types::{
     AudioReq, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
 };
@@ -14,7 +14,7 @@ use super::{WsSubs, WsTx, send};
 /// A failed direct response indicates a closed socket and tells the caller to stop reading.
 pub(super) async fn handle_client_msg(
     cm: ClientMsg,
-    m: &Mgr,
+    m: &App,
     cap: &Cap,
     tx: &WsTx,
     subs: &WsSubs,
@@ -52,7 +52,7 @@ pub(super) async fn handle_client_msg(
     };
     let terminal_guard = if cap.may_create() {
         if let Some(name) = terminal_name {
-            let Some(guard) = m.terminal_input_guard(name).await else {
+            let Some(guard) = m.sessions.terminal_input_guard(name).await else {
                 return true;
             };
             Some(guard)
@@ -86,7 +86,7 @@ pub(super) async fn handle_client_msg(
                 if let Some(audio) = handle_audio(req, m, cap).await {
                     // The game may already be closing its read side after sending Stop.
                     // A failed audio reply must not prevent draining that queued command.
-                    m.emit(Event::Audio { audio });
+                    m.services.emit(Event::Audio { audio });
                 }
             }
         }
@@ -101,42 +101,45 @@ pub(super) async fn handle_client_msg(
     } else if shared {
         if let Some(trace) = trace {
             Box::pin(
-                m.session_read_operation(crate::latency::CURRENT.scope(Some(trace), operation)),
+                m.sessions
+                    .session_read_operation(crate::latency::CURRENT.scope(Some(trace), operation)),
             )
             .await
         } else {
-            Box::pin(m.session_read_operation(operation)).await
+            Box::pin(m.sessions.session_read_operation(operation)).await
         }
     } else {
-        m.session_operation(operation).await
+        m.sessions.session_operation(operation).await
     }
 }
 
-fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) {
+fn handle_redraw(m: &App, cap: &Cap, shape: Option<(u16, u16)>) {
     // A panel refresh reaches every live tmux session, so it is deliberately root-only. A
     // scoped grant must never be able to cause work or visible flicker in sessions it cannot
     // see.
     if cap.may_create() {
-        m.request_redraw(shape);
+        m.sessions.request_redraw(shape);
     }
 }
 
-async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
+async fn handle_sub(name: String, m: &App, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
     let snapshot = async {
-        if !m.cap_ok(cap, &name, Level::Ro).await {
+        if !m.sessions.cap_ok(cap, &name, Level::Ro).await {
             return None;
         }
-        subs.lock().await.insert(name.clone(), m.watching(&name));
-        m.clear_bell(&name).await;
-        m.screen(&name).await
+        subs.lock()
+            .await
+            .insert(name.clone(), m.sessions.watching(&name));
+        m.sessions.clear_bell(&name).await;
+        m.sessions.screen(&name).await
     };
     let screen = if cap.may_create() {
-        let Some(_terminal) = m.terminal_input_guard(&name).await else {
+        let Some(_terminal) = m.sessions.terminal_input_guard(&name).await else {
             return true;
         };
         snapshot.await
     } else {
-        m.session_read_operation(snapshot).await
+        m.sessions.session_read_operation(snapshot).await
     };
     // Socket backpressure must not hold the session boundary.
     if let Some(s) = screen {
@@ -151,29 +154,29 @@ async fn handle_unsub(name: String, subs: &WsSubs) {
     subs.lock().await.remove(&name);
 }
 
-async fn handle_keys(req: KeysReq, m: &Mgr, cap: &Cap) {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+async fn handle_keys(req: KeysReq, m: &App, cap: &Cap) {
+    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     if let Some(run_id) = req.run_id
-        && !m.input_run_current(&req.name, run_id).await
+        && !m.sessions.input_run_current(&req.name, run_id).await
     {
         return;
     }
-    m.send_keys(&req.name, req.keys, req.literal).await;
+    m.sessions.send_keys(&req.name, req.keys, req.literal).await;
 }
 
-async fn handle_resize(req: ResizeReq, m: &Mgr, cap: &Cap) {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+async fn handle_resize(req: ResizeReq, m: &App, cap: &Cap) {
+    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
-    if let Err(e) = m.resize(&req.name, req.cols, req.rows).await {
+    if let Err(e) = m.sessions.resize(&req.name, req.cols, req.rows).await {
         tracing::debug!("resize: {e:#}");
     }
 }
 
-async fn handle_mouse(req: MouseReq, m: &Mgr, cap: &Cap) {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+async fn handle_mouse(req: MouseReq, m: &App, cap: &Cap) {
+    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     let Some(action) = crate::emu::MouseAction::parse(&req.action) else {
@@ -186,15 +189,15 @@ async fn handle_mouse(req: MouseReq, m: &Mgr, cap: &Cap) {
         col: req.col,
         row: req.row,
     };
-    m.send_mouse(&req.name, ev, req.count).await;
+    m.sessions.send_mouse(&req.name, ev, req.count).await;
 }
 
-async fn handle_paste(req: PasteReq, m: &Mgr, cap: &Cap) {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+async fn handle_paste(req: PasteReq, m: &App, cap: &Cap) {
+    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     if let Some(run_id) = req.run_id
-        && !m.input_run_current(&req.name, run_id).await
+        && !m.sessions.input_run_current(&req.name, run_id).await
     {
         return;
     }
@@ -203,21 +206,23 @@ async fn handle_paste(req: PasteReq, m: &Mgr, cap: &Cap) {
         if !cap.may_create() {
             return;
         }
-        m.paste_host_file_image(&req.name, &req.text, req.run_id)
+        m.sessions
+            .paste_host_file_image(&req.name, &req.text, req.run_id)
             .await
     } else {
-        m.paste(&req.name, &req.text).await
+        m.sessions.paste(&req.name, &req.text).await
     };
     if let Err(e) = result {
         tracing::warn!("paste to {}: {e:#}", req.name);
     }
 }
 
-async fn handle_breadcrumb(req: BreadcrumbReq, m: &Mgr, cap: &Cap) {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+async fn handle_breadcrumb(req: BreadcrumbReq, m: &App, cap: &Cap) {
+    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     if let Err(e) = m
+        .sessions
         .paste_breadcrumb(&req.name, &req.breadcrumb, req.random_tips)
         .await
     {
@@ -227,11 +232,11 @@ async fn handle_breadcrumb(req: BreadcrumbReq, m: &Mgr, cap: &Cap) {
 
 pub(super) async fn handle_audio(
     req: AudioReq,
-    m: &Mgr,
+    m: &App,
     cap: &Cap,
 ) -> Option<crate::audio::AudioState> {
     if !cap.may_create() {
         return None;
     }
-    m.select_music(req).await
+    m.sessions.select_music(req).await
 }

@@ -2,39 +2,40 @@
 //! Session adapters retain configuration transaction and authorization guards.
 use super::{Event, Services};
 use crate::config::{Config, LibraryItemCfg, check_library_item};
-use crate::session::Manager;
 use anyhow::{Result, anyhow, bail};
 use std::sync::Arc;
 use std::sync::Mutex;
 
-pub(crate) struct Library<'a> {
-    sessions: &'a Arc<Manager>,
+#[derive(Clone)]
+pub(crate) struct Library {
+    configuration: super::Configuration,
+    services: Arc<super::Services>,
 }
 
-impl<'a> Library<'a> {
-    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
-        Self { sessions }
+impl Library {
+    pub(crate) fn new(application: &super::Application) -> Self {
+        Self {
+            configuration: super::Configuration::new(application),
+            services: application.services.clone(),
+        }
     }
 
     pub(crate) async fn library(&self) -> Vec<LibraryItemCfg> {
-        self.sessions
-            .application
-            .library(self.sessions.config().await)
+        self.services
+            .library(self.configuration.config().await)
             .await
     }
 
     pub(crate) async fn add_library_item(&self, item: LibraryItemCfg) -> Result<()> {
-        self.sessions
-            .application
-            .mutate_library(self.sessions, LibraryMutation::Add(item))
+        self.services
+            .mutate_library(&self.configuration, LibraryMutation::Add(item))
             .await
     }
 
     pub(crate) async fn update_library_item(&self, name: &str, item: LibraryItemCfg) -> Result<()> {
-        self.sessions
-            .application
+        self.services
             .mutate_library(
-                self.sessions,
+                &self.configuration,
                 LibraryMutation::Replace {
                     name: name.into(),
                     item,
@@ -44,9 +45,8 @@ impl<'a> Library<'a> {
     }
 
     pub(crate) async fn remove_library_item(&self, name: &str) -> Result<()> {
-        self.sessions
-            .application
-            .mutate_library(self.sessions, LibraryMutation::Remove(name.into()))
+        self.services
+            .mutate_library(&self.configuration, LibraryMutation::Remove(name.into()))
             .await
     }
 }

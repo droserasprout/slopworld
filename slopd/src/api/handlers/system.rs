@@ -6,14 +6,14 @@ use axum::extract::State;
 
 use serde_json::json;
 
-use super::super::{ApiResult, Mgr};
+use super::super::{ApiResult, App};
 
-pub(crate) async fn usage(State(m): State<Mgr>) -> ApiResult<wire::UsageSnapshot> {
-    reply(json!(m.application.usage().await))
+pub(crate) async fn usage(State(m): State<App>) -> ApiResult<wire::UsageSnapshot> {
+    reply(json!(m.services.usage().await))
 }
 
-pub(crate) async fn audio(State(m): State<Mgr>) -> ApiResult<wire::AudioState> {
-    reply(json!(m.application.music.state().await))
+pub(crate) async fn audio(State(m): State<App>) -> ApiResult<wire::AudioState> {
+    reply(json!(m.services.music.state().await))
 }
 
 /// Supply the station catalog for jukebox clients. Keep URLs in the daemon.
@@ -24,10 +24,11 @@ pub(crate) async fn jukebox() -> ApiResult<wire::JukeboxCatalog> {
 
 /// Open the Spotify terminal owned by the daemon. Playback uses the ordinary audio selection.
 pub(crate) async fn ncspot(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     super::super::protobuf::Proto(q): super::super::protobuf::Proto<wire::RedrawReq>,
 ) -> ApiResult<wire::SessionResult> {
     let session = m
+        .sessions
         .open_spotify(
             q.cols
                 .map(|n| u16::try_from(n.clamp(1, u32::from(u16::MAX))).unwrap_or(u16::MAX)),

@@ -19,7 +19,8 @@ Within the mod, `Patches/` owns Harmony integration, `Sim/` owns simulation, and
 and hands updates to the session, task, catalog, terminal, usage, and audio services.
 
 Within the daemon, `api/` owns transport and request handling, while
-`session/manager/` coordinates live sessions and related services. Configuration,
+`application/state.rs` composes API state and application feature dependencies.
+`session/runtime.rs` coordinates live sessions and their operation guards. Configuration,
 persistence, sandbox construction, Git operations, and terminal emulation have
 separate owners. The [daemon source map](https://github.com/droserasprout/slopworld/blob/main/notes/daemon-files.md)
 and [mod source map](https://github.com/droserasprout/slopworld/blob/main/notes/mod-source-layout.md)

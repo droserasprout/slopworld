@@ -8,10 +8,10 @@ use axum::extract::{Query, State};
 use serde_json::json;
 
 use super::super::types::{FileActionReq, OpenAppsQuery, RunReq};
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 
 pub(crate) async fn run(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(q): Proto<wire::RunReq>,
 ) -> ApiResult<wire::SessionResult> {
     let q: RunReq = domain(q)?;
@@ -29,7 +29,7 @@ pub(crate) async fn run(
 /// Validate project paths against their project. All file actions execute on the host.
 /// Interactive actions use `/api/run` because their terminals need tmux sessions and persistent screens.
 pub(crate) async fn file_action(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(q): Proto<wire::FileActionReq>,
 ) -> ApiResult<wire::OutputResult> {
     let q: FileActionReq = domain(q)?;

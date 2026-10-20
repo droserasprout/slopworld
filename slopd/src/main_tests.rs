@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::{Daemon, ProjectCfg, SessionCfg};
 use crate::grant::Level;
-use crate::session::Manager;
+use crate::session::SessionRuntime;
 use crate::shared::{http_wire, wire};
 use axum::body::Body;
 use axum::http::Request;
@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::ServiceExt;
 
-fn manager() -> Arc<Manager> {
+fn manager() -> Arc<SessionRuntime> {
     crate::session::test_manager(Config {
         settings: crate::config::Settings {
             daemon: Daemon {
@@ -34,9 +34,9 @@ fn manager() -> Arc<Manager> {
     })
 }
 
-fn app(manager: Arc<Manager>) -> axum::Router {
+fn app(manager: &Arc<SessionRuntime>) -> axum::Router {
     let config_authority = manager.config_authority.clone();
-    api::router(manager)
+    api::router(application::Application::from_runtime(manager))
         .layer(middleware::from_fn_with_state(config_authority, auth))
         .layer(middleware::from_fn(api::protobuf::normalize_errors))
 }
@@ -134,7 +134,7 @@ where
     }
 }
 
-async fn add_unrelated_sessions(manager: &Arc<Manager>) -> crate::config::Config {
+async fn add_unrelated_sessions(manager: &Arc<SessionRuntime>) -> crate::config::Config {
     let mut cfg = manager.config().await;
     cfg.sessions
         .extend(["other", "other-owner"].map(|name| SessionCfg {
@@ -163,7 +163,7 @@ async fn stalled_scoped_uploads_allow_revocation_and_recheck_authority_on_comple
             .mint_grant("grantor".into(), vec!["target".into()], level)
             .await
             .unwrap();
-        let app = app(manager.clone());
+        let app = app(&manager);
         let (entered, observed) = tokio::sync::oneshot::channel();
         let (release, resume) = tokio::sync::oneshot::channel();
         let stream = futures::stream::once(async move {
@@ -228,7 +228,7 @@ async fn scoped_uploads_preserve_body_limits_and_accept_valid_json() {
         .mint_grant("grantor".into(), vec!["target".into()], Level::Ro)
         .await
         .unwrap();
-    let app = app(manager.clone());
+    let app = app(&manager);
     for (body, expected) in [
         (
             vec![0u8; 2 * 1024 * 1024 + 1],
@@ -264,7 +264,7 @@ async fn scoped_uploads_preserve_body_limits_and_accept_valid_json() {
 
 #[tokio::test]
 async fn api_auth_requires_the_configured_root_token() {
-    let app = app(manager());
+    let app = app(&manager());
 
     assert_eq!(
         get(&app, shared::protocol::routes::HEALTH, None).await,
@@ -287,7 +287,7 @@ async fn scoped_tokens_reach_shared_routes_but_not_root_routes() {
         .mint_grant("grantor".into(), vec!["target".into()], Level::Ro)
         .await
         .unwrap();
-    let app = app(manager);
+    let app = app(&manager);
 
     assert_eq!(
         get(&app, shared::protocol::routes::HEALTH, Some(&scoped)).await,
@@ -354,7 +354,7 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
         .mint_grant("caller".into(), vec!["caller".into()], Level::Ro)
         .await
         .unwrap();
-    let app = app(manager);
+    let app = app(&manager);
     let request = Request::builder()
         .uri(shared::protocol::routes::SPAWNABLE_TEMPLATES)
         .header(shared::protocol::TOKEN_HEADER, token)
@@ -386,7 +386,7 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
         .mint_grant("grantor".into(), vec!["target".into()], Level::Rw)
         .await
         .unwrap();
-    let app = app(manager.clone());
+    let app = app(&manager);
     let revoke_app = app.clone();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -502,7 +502,7 @@ async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() 
                     .mint_grant("other-owner".into(), vec!["other".into()], level)
                     .await
                     .unwrap();
-                let app = app(manager.clone());
+                let app = app(&manager);
                 let rest = app.clone();
                 let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
                 let address = listener.local_addr().unwrap();
@@ -583,7 +583,7 @@ async fn stalled_root_uploads_reject_rotated_credentials_before_mutation() {
         "/api/sessions/target/label",
     ] {
         let manager = manager();
-        let app = app(manager.clone());
+        let app = app(&manager);
         let (entered, observed) = tokio::sync::oneshot::channel();
         let (release, resume) = tokio::sync::oneshot::channel();
         let stream = futures::stream::once(async move {
@@ -611,11 +611,13 @@ async fn stalled_root_uploads_reject_rotated_credentials_before_mutation() {
             .unwrap()
             .unwrap();
         manager
+            .configuration()
             .patch_config(serde_json::json!({"daemon":{"token":"rotated-root"}}))
             .await
             .unwrap();
         // Returning to the original token must not revive previously admitted requests.
         manager
+            .configuration()
             .patch_config(serde_json::json!({"daemon":{"token":"root-secret"}}))
             .await
             .unwrap();
@@ -641,7 +643,7 @@ async fn stalled_root_uploads_reject_rotated_credentials_before_mutation() {
 #[tokio::test]
 async fn queued_root_mutation_rechecks_rotation_after_acquiring_boundary() {
     let manager = manager();
-    let app = app(manager.clone());
+    let app = app(&manager);
     let (entered, observed) = tokio::sync::oneshot::channel();
     let stream = futures::stream::once(async move {
         entered.send(()).unwrap();
@@ -665,6 +667,7 @@ async fn queued_root_mutation_rechecks_rotation_after_acquiring_boundary() {
                 .unwrap()
                 .unwrap();
             manager
+                .configuration()
                 .patch_config(serde_json::json!({"daemon":{"token":"rotated-root"}}))
                 .await
                 .unwrap();

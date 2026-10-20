@@ -8,18 +8,20 @@ use axum::http::StatusCode;
 use serde_json::json;
 
 use super::super::types::*;
-use super::{ApiResult, Mgr, ack_result, err};
+use super::{ApiResult, App, ack_result, err};
 
-pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigResult> {
+pub(crate) async fn get_config(State(m): State<App>) -> ApiResult<wire::ConfigResult> {
     // Keep the raw text and parsed values from different snapshots when a user edits the file
     // outside the daemon.
-    m.reload_if_changed().await;
-    let text = std::fs::read_to_string(m.cfg_path())
+    crate::application::Configuration::new(&m)
+        .reload_if_changed()
+        .await;
+    let text = std::fs::read_to_string(m.workspace.settings_path())
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     // Replace the token with the redaction sentinel in raw text and parsed values.
     // Writing the sentinel preserves the token. Authentication still protects this endpoint.
     // Redaction prevents the raw editor and other configuration readers from displaying the secret.
-    let cfg = m.config().await;
+    let cfg = m.config_authority.snapshot().await;
     let redacted_text = crate::config::redact_token_text(&text)
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     let factory = crate::config::Config::default();
@@ -31,7 +33,7 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigRe
         host.id.clear();
     }
     reply(json!({
-        "path": m.cfg_path(),
+        "path": m.workspace.settings_path(),
         "text": redacted_text,
         "values": values,
         "metadata": {
@@ -55,19 +57,27 @@ pub(crate) async fn whereis() -> ApiResult<wire::WhereIsReply> {
 }
 
 pub(crate) async fn put_config(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(req): Proto<wire::ReplaceConfigRequest>,
 ) -> ApiResult<wire::Ack> {
     let req: ConfigReq = domain(req)?;
-    ack_result(m.replace_config(&req.text).await)
+    ack_result(
+        crate::application::Configuration::new(&m)
+            .replace_config(&req.text)
+            .await,
+    )
 }
 
 /// Apply only the fields named by the client, leaving unmentioned fields untouched.
 pub(crate) async fn put_config_patch(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(req): Proto<wire::ConfigPatch>,
 ) -> ApiResult<wire::Ack> {
-    ack_result(m.patch_config(config_patch(req)?).await)
+    ack_result(
+        crate::application::Configuration::new(&m)
+            .patch_config(config_patch(req)?)
+            .await,
+    )
 }
 
 /// Assemble only selected editable leaves. Decode escaped map keys before looking up source values.

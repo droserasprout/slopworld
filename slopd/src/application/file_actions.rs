@@ -2,17 +2,21 @@
 //! Application entry points refresh configuration; files owns path and command policy.
 use crate::config::Config;
 use crate::files::actions::{absolute_path, normalize_action_command, project_action_path};
-use crate::session::Manager;
 use anyhow::{Result, anyhow, bail};
 use std::sync::Arc;
 
-pub(crate) struct FileActions<'a> {
-    sessions: &'a Arc<Manager>,
+#[derive(Clone)]
+pub(crate) struct FileActions {
+    configuration: super::Configuration,
+    workspace: Arc<super::Workspace>,
 }
 
-impl<'a> FileActions<'a> {
-    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
-        Self { sessions }
+impl FileActions {
+    pub(crate) fn new(application: &super::Application) -> Self {
+        Self {
+            configuration: super::Configuration::new(application),
+            workspace: application.workspace.clone(),
+        }
     }
 
     pub(crate) async fn file_action(
@@ -23,16 +27,8 @@ impl<'a> FileActions<'a> {
         command: &str,
         host: bool,
     ) -> Result<String> {
-        self.sessions.reload_if_changed().await;
-        file_action(
-            self.sessions.as_ref(),
-            project,
-            worktree,
-            raw_path,
-            command,
-            host,
-        )
-        .await
+        self.configuration.reload_if_changed().await;
+        file_action(self, project, worktree, raw_path, command, host).await
     }
 
     pub(crate) async fn file_action_command(
@@ -43,20 +39,12 @@ impl<'a> FileActions<'a> {
         command: &str,
         host: bool,
     ) -> Result<String> {
-        self.sessions.reload_if_changed().await;
-        file_action_command(
-            self.sessions.as_ref(),
-            project,
-            worktree,
-            raw_path,
-            command,
-            host,
-        )
-        .await
+        self.configuration.reload_if_changed().await;
+        file_action_command(self, project, worktree, raw_path, command, host).await
     }
 }
 
-impl super::launch::Runtime for FileActions<'_> {
+impl super::launch::Runtime for FileActions {
     async fn file_action_command(
         &self,
         project: &str,
@@ -157,4 +145,13 @@ pub(crate) async fn file_action_command(
         project_action_path(p, raw_path)?
     };
     Ok(normalize_action_command(&path, command))
+}
+
+impl super::worktrees::Catalog for FileActions {
+    async fn config(&self) -> Config {
+        self.configuration.config().await
+    }
+    fn worktree_records(&self) -> crate::worktrees::Store {
+        self.workspace.configuration.records.worktrees()
+    }
 }

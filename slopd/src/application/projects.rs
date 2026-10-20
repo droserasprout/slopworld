@@ -3,7 +3,7 @@
 //! adapters supply identity reservation, attachments and configuration transactions.
 use crate::config::transactions::{ConfigMutation, PreparedConfigChange};
 use crate::config::{Config, ProjectCfg, check_project, expand, validate_mount_paths};
-use crate::session::Manager;
+use crate::session::SessionRuntime;
 use crate::worktrees::{Store, Worktree, WorktreePhase, directories::CreatedDirectories};
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Serialize;
@@ -267,93 +267,167 @@ impl From<crate::config::ProjectCfg> for ProjectView {
     }
 }
 
-pub(crate) struct Projects<'a> {
-    sessions: &'a Arc<Manager>,
+#[derive(Clone)]
+pub(crate) struct Projects {
+    sessions: Arc<SessionRuntime>,
+    workspace: Arc<super::Workspace>,
+    config_authority: Arc<super::ConfigAuthority>,
+    services: Arc<super::Services>,
 }
 
-impl<'a> Projects<'a> {
-    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
-        Self { sessions }
+impl Projects {
+    fn configuration(&self) -> super::Configuration {
+        super::Configuration::from_parts(
+            self.sessions.clone(),
+            self.workspace.clone(),
+            self.config_authority.clone(),
+            self.services.clone(),
+        )
+    }
+
+    pub(crate) fn new(application: &super::Application) -> Self {
+        Self {
+            sessions: application.sessions.clone(),
+            workspace: application.workspace.clone(),
+            config_authority: application.config_authority.clone(),
+            services: application.services.clone(),
+        }
     }
 
     pub(crate) async fn projects(&self) -> Vec<ProjectView> {
-        list(&*self.sessions.config_authority.read_config().await)
+        list(&*self.config_authority.read_config().await)
     }
 
     pub(crate) async fn add_project(&self, p: ProjectCfg) -> Result<()> {
-        let manager = self.sessions.clone();
+        let manager = self.clone();
         self.sessions
-            .owned_session_operation(
-                async move { Projects::new(&manager).add_project_inner(p).await },
-            )
+            .owned_session_operation(async move { manager.add_project_inner(p).await })
             .await
     }
 
     async fn add_project_inner(&self, mut p: ProjectCfg) -> Result<()> {
-        let _worktrees = self.sessions.workspace.worktrees.mutation.lock().await;
-        self.sessions.reload_if_changed().await;
+        let _worktrees = self.workspace.worktrees.mutation.lock().await;
+        self.configuration().reload_if_changed().await;
         settle(&mut p);
         p.id = self.sessions.allocate_project_identity().await?;
         check_project(&p)?;
-        self.sessions
+        self.configuration()
             .update_cfg(ConfigMutation::Projects, |cfg| add(cfg, p))
             .await?;
-        publish(self.sessions).await;
+        publish(&self.config_authority, &self.services).await;
         Ok(())
     }
 
     pub(crate) async fn update_project(&self, name: &str, mut p: ProjectCfg) -> Result<()> {
         settle(&mut p);
-        let manager = self.sessions.clone();
+        let manager = self.clone();
         let name = name.to_string();
         // The detached owner retains the boundary and rollback plan after caller cancellation.
         self.sessions
             .owned_session_operation(Box::pin(async move {
-                manager.reload_if_changed().await;
-                Projects::new(&manager)
-                    .update_project_inner(&name, p)
-                    .await?;
-                publish(&manager).await;
-                manager.announce_sessions().await;
+                manager.configuration().reload_if_changed().await;
+                manager.update_project_inner(&name, p).await?;
+                publish(&manager.config_authority, &manager.services).await;
+                manager.sessions.announce_sessions().await;
                 Ok(())
             }))
             .await
     }
 
     async fn update_project_inner(&self, name: &str, p: ProjectCfg) -> Result<()> {
-        let _lock = self.sessions.workspace.worktrees.mutation.lock().await;
-        update(self.sessions, name, p).await
+        let _lock = self.workspace.worktrees.mutation.lock().await;
+        update(self, name, p).await
     }
 
     pub(crate) async fn remove_project(&self, name: &str) -> Result<()> {
-        let manager = self.sessions.clone();
+        let manager = self.clone();
         let name = name.to_owned();
         self.sessions
-            .owned_session_operation(async move {
-                Projects::new(&manager).remove_project_inner(&name).await
-            })
+            .owned_session_operation(async move { manager.remove_project_inner(&name).await })
             .await
     }
 
     async fn remove_project_inner(&self, name: &str) -> Result<()> {
-        let _worktrees = self.sessions.workspace.worktrees.mutation.lock().await;
-        self.sessions.reload_if_changed().await;
-        let cfg = self.sessions.config().await;
-        check_removal(&cfg, &self.sessions.worktree_records(), name)?;
-        self.sessions
+        let _worktrees = self.workspace.worktrees.mutation.lock().await;
+        self.configuration().reload_if_changed().await;
+        let cfg = self.configuration().config().await;
+        check_removal(
+            &cfg,
+            &self.workspace.configuration.records.worktrees(),
+            name,
+        )?;
+        self.configuration()
             .update_cfg(ConfigMutation::ProjectReferences, |cfg| remove(cfg, name))
             .await?;
-        publish(self.sessions).await;
+        publish(&self.config_authority, &self.services).await;
         Ok(())
     }
 }
 
 /// Publish from accepted configuration, including callers holding runtime transaction guards.
-pub(crate) async fn publish(sessions: &crate::session::Manager) {
-    let projects = list(&*sessions.config_authority.read_config().await);
-    sessions.emit(super::Event::Projects { projects });
+pub(crate) async fn publish(authority: &super::ConfigAuthority, services: &super::Services) {
+    let projects = list(&*authority.read_config().await);
+    services.emit(super::Event::Projects { projects });
 }
 
 #[cfg(test)]
 #[path = "projects_tests.rs"]
 mod tests;
+
+impl crate::application::projects::ProjectRuntime for Projects {
+    async fn config(&self) -> Config {
+        self.configuration().config().await
+    }
+    fn worktree_records(&self) -> crate::worktrees::Store {
+        self.workspace.configuration.records.worktrees()
+    }
+    async fn worktree_attachments(&self, worktree: &crate::worktrees::Worktree) -> Vec<String> {
+        self.sessions.worktree_attachments(worktree).await
+    }
+    async fn prepare(
+        &self,
+        replacement: crate::application::projects::ProjectReplacement,
+    ) -> Result<Option<crate::config::transactions::PreparedConfigChange>> {
+        self.configuration()
+            .prepare_cfg_change(ConfigMutation::ProjectReferences, |cfg| {
+                replacement.apply(cfg)?;
+                Ok(((), true))
+            })
+            .await
+            .map(|((), prepared)| prepared)
+    }
+    async fn commit(
+        &self,
+        prepared: crate::config::transactions::PreparedConfigChange,
+        worktrees: Option<&crate::worktrees::Store>,
+    ) -> Result<()> {
+        if let Some(store) = worktrees {
+            self.configuration()
+                .commit_project_relocation(prepared, store)
+                .await
+        } else {
+            self.configuration().commit_prepared_cfg(prepared).await
+        }
+    }
+    async fn after_relocations(&self) {
+        #[cfg(test)]
+        {
+            let pause = self
+                .workspace
+                .worktrees
+                .relocation_pause
+                .lock()
+                .unwrap()
+                .take();
+            if let Some((reached, release)) = pause {
+                reached.notify_one();
+                release.notified().await;
+            }
+        }
+    }
+}
+impl crate::worktrees::relocation::Persistence for Projects {
+    async fn save_worktree_records(&self, store: &crate::worktrees::Store) -> Result<()> {
+        self.workspace.configuration.save_worktrees(store).await
+    }
+}

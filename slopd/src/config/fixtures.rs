@@ -1,5 +1,5 @@
 //! Test fixture assembly using production record documents and transactions.
-//! Manager edits always use their accepted stores, never this offline seed helper.
+//! SessionRuntime edits always use their accepted stores, never this offline seed helper.
 
 use super::Config;
 use crate::storage::{

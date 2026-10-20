@@ -1,5 +1,5 @@
 //! Directory listing HTTP projection.
-use super::super::{ApiResult, Mgr, err};
+use super::super::{ApiResult, App, err};
 use crate::api::{
     protobuf::{Proto, path_text},
     types::BrowseReq,
@@ -14,7 +14,7 @@ use axum::{
 /// Supply directory listings for project selection and the Files tree without direct host filesystem access from the mod.
 /// Always include directories. Include files only when requested.
 pub(crate) async fn browse(
-    State(_m): State<Mgr>,
+    State(_m): State<App>,
     Query(q): Query<BrowseReq>,
 ) -> ApiResult<wire::BrowseResult> {
     let _perf = crate::perf::timer("http-browse");

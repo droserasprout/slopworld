@@ -7,8 +7,8 @@ configuration and project invariants; the session adapter checks live constraint
 schemas, accepted indexes, targeted persistence and bound transaction recovery.
 `config/transactions/` owns the persistence gate, prepared changes, accepted record
 indexes, cache-link rollback, and library revision acceptance. Its runtime adapter
-in `session/manager/config/` retains session/worktree operation guards, validates
-live constraints, delegates accepted publication to `application/config_authority.rs`, and
+in `application/configuration.rs` retains session operation guards, asks the runtime to
+validate live constraints and invalidate replaced identities, delegates accepted publication to `application/config_authority.rs`, and
 delegates endpoint credential updates to `application/workspace.rs` before releasing
 the persistence gate. `ConfigAuthority` holds the single accepted configuration lock, grants, and credential epochs;
 it publishes root-token changes and invalidation under that lock. Session adapters
@@ -17,10 +17,10 @@ Startup consumes the loaded configuration into accepted state and passes the
 remaining storage state to `application/workspace.rs`. Application startup constructs
 that workspace owner and seeds the library snapshot from the injected authority.
 The workspace owns configuration transactions, the endpoint path, and the worktree
-mutation gate; Manager retains shared handles and session operation guards.
+mutation gate; SessionRuntime retains shared handles and session operation guards.
 HTTP and WebSocket admission,
 credential generations, notifications, and grant counts use `ConfigAuthority`
-directly. `session/manager/caps.rs` retains session identity checks and guarded
+directly. `session/caps.rs` retains session identity checks and guarded
 grant mutations.
 Client announcements follow the completed transaction. `config/accepted.rs` gives background services
 read-only daemon-settings snapshots from that same lock; there is no secondary
@@ -28,7 +28,7 @@ settings cache or independent publication step. `application/catalogs.rs` holds 
 catalog polling deadlines and timestamps.
 `storage/layout.rs` recovers and loads the workspace once, then hands the validated
 configuration, typed record indexes and sampled library revision to application startup.
-The session manager receives the constructed workspace; it never reloads workspace
+The session runtime receives the constructed workspace; it never reloads workspace
 records during initialization or ordinary mutations.
 
 The mod owns offline profile preferences. It reads `endpoint.toml` for credentials
@@ -76,7 +76,7 @@ Structured commits retain session/worktree guards and the persistence gate throu
 commit, rollback and accepted-state publication, even after requester cancellation.
 Root and library operations cannot accept revisions belonging to another owner.
 
-Manager/domain fixtures use the production record stores and transaction owner.
+SessionRuntime/domain fixtures use the production record stores and transaction owner.
 Schema tests deserialize individual documents; manager task tests use the production
 async I/O owner for mutations and reads.
 

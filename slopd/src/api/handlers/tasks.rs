@@ -11,7 +11,7 @@ use crate::grant::{Cap, Level};
 use crate::shared::protocol::SESSION_HEADER;
 
 use super::super::types::*;
-use super::{ApiResult, Mgr, err, guard};
+use super::{ApiResult, App, err, guard};
 
 /// Persistence identities stay private; the wire contract exposes participant labels.
 fn task_view(task: crate::tasks::Task) -> wire::Task {
@@ -57,19 +57,20 @@ fn task_status_view(status: crate::tasks::Status) -> &'static str {
 }
 
 /// The request must hold the session boundary through identity resolution and store access.
-async fn task_identity(m: &Mgr, cap: &Cap, headers: &HeaderMap) -> Result<String, ApiError> {
+async fn task_identity(m: &App, cap: &Cap, headers: &HeaderMap) -> Result<String, ApiError> {
     task_participant(m, cap, headers)
         .await
         .map(|participant| participant.identity)
 }
 
 async fn task_participant(
-    m: &Mgr,
+    m: &App,
     cap: &Cap,
     headers: &HeaderMap,
 ) -> Result<crate::tasks::Participant, ApiError> {
     let name = task_principal(cap, headers)?;
-    m.task_participant(&name)
+    m.sessions
+        .task_participant(&name)
         .await
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))
 }
@@ -110,12 +111,12 @@ pub(crate) fn task_principal(
 /// The daemon checks `host` here because it is not a session.
 /// It has no session record for the access check, and grants cannot include it.
 /// Agents can use the host mailbox to report results to the user.
-pub(crate) async fn task_endpoint_known(m: &Mgr, who: &str) -> bool {
-    who == crate::tasks::HOST || m.session_known(who).await
+pub(crate) async fn task_endpoint_known(m: &App, who: &str) -> bool {
+    who == crate::tasks::HOST || m.sessions.session_known(who).await
 }
 
 pub(crate) async fn create_task(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Proto(q): Proto<wire::CreateTaskReq>,
@@ -138,18 +139,21 @@ pub(crate) async fn create_task(
         guard(&m, &cap, &q.to, Level::Ro).await?;
     }
     let from = m
+        .sessions
         .task_participant(&from)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let to = m
+        .sessions
         .task_participant(&q.to)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let task = m
+        .sessions
         .create_task_owned(from, to, q.body, None)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    m.application
+    m.services
         .spawn_task_summary(m.config_authority.daemon_settings(), task.clone());
     Ok(Proto(wire::TaskResult {
         task: Some(task_view(task)),
@@ -162,7 +166,7 @@ pub(crate) async fn create_task(
 /// Root callers can choose any project. Scoped agents can use only their own project.
 /// The daemon checks that the selected template is allowed before it creates the worker.
 pub(crate) async fn spawn_worker(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Proto(value): Proto<wire::SpawnWorkerReq>,
@@ -224,7 +228,7 @@ pub(crate) async fn spawn_worker(
 }
 
 pub(crate) async fn list_tasks(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Query(q): Query<ListTasksQuery>,
@@ -237,12 +241,14 @@ pub(crate) async fn list_tasks(
         ));
     }
     let tasks = if q.all {
-        m.task_store()
+        m.sessions
+            .task_store()
             .all_tasks_async()
             .await
             .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
     } else {
-        m.task_store()
+        m.sessions
+            .task_store()
             .tasks_for_async(&who)
             .await
             .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
@@ -253,13 +259,14 @@ pub(crate) async fn list_tasks(
 }
 
 pub(crate) async fn one_task(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> ApiResult<wire::TaskResult> {
     let who = task_identity(&m, &cap, &headers).await?;
-    m.task_store()
+    m.sessions
+        .task_store()
         .task_for_async(&who, &id)
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
@@ -277,7 +284,7 @@ pub(crate) async fn one_task(
 }
 
 pub(crate) async fn update_task(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Path(id): Path<String>,
@@ -286,6 +293,7 @@ pub(crate) async fn update_task(
     let q: UpdateTaskReq = domain(q)?;
     let who = task_participant(&m, &cap, &headers).await?;
     let task = m
+        .sessions
         .task_store()
         .update_task_async(&who.identity, &who.name, &id, q.status, q.note)
         .await
@@ -296,7 +304,7 @@ pub(crate) async fn update_task(
 }
 
 pub(crate) async fn prune_tasks(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Query(q): Query<PruneTasksQuery>,
@@ -309,6 +317,7 @@ pub(crate) async fn prune_tasks(
         ));
     }
     let removed = m
+        .sessions
         .task_store()
         .prune_tasks_async(&who, q.all)
         .await
@@ -317,7 +326,7 @@ pub(crate) async fn prune_tasks(
 }
 
 pub(crate) async fn cancel_tasks(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Proto(q): Proto<wire::RemoveTasksReq>,
@@ -325,6 +334,7 @@ pub(crate) async fn cancel_tasks(
     let q: RemoveTasksReq = domain(q)?;
     let who = task_participant(&m, &cap, &headers).await?;
     let tasks = m
+        .sessions
         .task_store()
         .cancel_tasks_async(&who.identity, &who.name, &q.ids, cap.may_create())
         .await
@@ -333,13 +343,14 @@ pub(crate) async fn cancel_tasks(
 }
 
 pub(crate) async fn remove_task(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> ApiResult<wire::TaskResult> {
     let who = task_identity(&m, &cap, &headers).await?;
     let task = m
+        .sessions
         .task_store()
         .remove_task_async(&who, &id, cap.may_create())
         .await
@@ -350,7 +361,7 @@ pub(crate) async fn remove_task(
 }
 
 pub(crate) async fn remove_tasks(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Proto(q): Proto<wire::RemoveTasksReq>,
@@ -358,6 +369,7 @@ pub(crate) async fn remove_tasks(
     let q: RemoveTasksReq = domain(q)?;
     let who = task_identity(&m, &cap, &headers).await?;
     let removed = m
+        .sessions
         .task_store()
         .remove_tasks_async(&who, &q.ids, cap.may_create())
         .await

@@ -4,7 +4,8 @@
 mutation gate, and cancellation-safe persistence/publication. Application startup
 loads and injects the service; catalog-only API operations use it directly.
 `application/agent_templates.rs` resolves catalog entries and composes session drafts.
-`Manager` retains session capture and guarded draft registration. `agent_templates/mod.rs`
+`application/template_operations.rs` coordinates capture and instantiation;
+`SessionRuntime` retains guarded draft registration. `agent_templates/mod.rs`
 defines portable fields and snapshot rules; its persistence module owns storage.
 The [configuration store](daemon-config-stores.md) owns the `agent_templates/`
 location. The mod and CLI use daemon APIs, never direct file access.

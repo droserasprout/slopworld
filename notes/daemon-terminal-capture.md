@@ -1,6 +1,6 @@
 # Daemon terminal capture
 
-`session/manager/capture/` owns reader attachment, VT rendering, frames, scrollback,
+`session/capture/` owns reader attachment, VT rendering, frames, scrollback,
 input, and process-exit handling. `emu/` mirrors terminal geometry; `tmux/` owns the
 transport. Readers and frames belong to a specific session run: stop/reset or
 replacement prevents old work from republishing it.

@@ -1,5 +1,5 @@
 //! Syntax preview HTTP boundary; files::highlighting owns tool execution and styling.
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 use crate::api::{
     protobuf::{Proto, domain},
     types::HighlightReq,
@@ -16,12 +16,18 @@ pub(crate) struct HighlightThemesQuery {
 }
 
 pub(crate) async fn highlight_themes(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Query(q): Query<HighlightThemesQuery>,
 ) -> ApiResult<wire::HighlightThemes> {
-    let command = q
-        .command
-        .unwrap_or(m.config().await.settings.commands.highlighter);
+    let command = q.command.unwrap_or(
+        m.config_authority
+            .read_config()
+            .await
+            .clone()
+            .settings
+            .commands
+            .highlighter,
+    );
     let catalog = service::themes(&command)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -32,13 +38,19 @@ pub(crate) async fn highlight_themes(
 }
 
 pub(crate) async fn highlight(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Proto(q): Proto<wire::HighlightReq>,
 ) -> ApiResult<wire::TextResult> {
     let q: HighlightReq = domain(q)?;
-    let command = q
-        .command
-        .unwrap_or(m.config().await.settings.commands.highlighter);
+    let command = q.command.unwrap_or(
+        m.config_authority
+            .read_config()
+            .await
+            .clone()
+            .settings
+            .commands
+            .highlighter,
+    );
     let text = service::highlight(&command, &q.engine, &q.theme, &q.language, &q.text)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;

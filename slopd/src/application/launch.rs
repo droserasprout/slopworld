@@ -1,7 +1,7 @@
 //! Resolve launches and coordinate allocation, startup, cleanup, and prompt delivery.
 //! API owns decoding; session owns live construction, operation guards and terminal input.
 use crate::config::{Config, LibraryItemKind};
-use crate::session::Manager;
+use crate::session::SessionRuntime;
 use crate::session::{
     ExecutionSource, HostLifetime, LaunchContent, LaunchContext, LaunchDestination, LaunchOptions,
     LaunchRequest, ReaderContext, RunWhere,
@@ -10,13 +10,27 @@ use anyhow::{Result, anyhow, bail};
 use std::sync::Arc;
 
 /// Application launch operations borrow the session runtime without owning live state.
-pub(crate) struct Launches<'a> {
-    sessions: &'a Arc<Manager>,
+#[derive(Clone)]
+pub(crate) struct Launches {
+    configuration: super::Configuration,
+    sessions: Arc<SessionRuntime>,
 }
 
-impl<'a> Launches<'a> {
-    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
-        Self { sessions }
+impl Launches {
+    pub(crate) fn from_parts(
+        sessions: Arc<SessionRuntime>,
+        configuration: super::Configuration,
+    ) -> Self {
+        Self {
+            sessions,
+            configuration,
+        }
+    }
+    pub(crate) fn new(application: &super::Application) -> Self {
+        Self {
+            configuration: super::Configuration::new(application),
+            sessions: application.sessions.clone(),
+        }
     }
 
     pub(crate) async fn run_launch(&self, request: LaunchRequest) -> Result<String> {
@@ -24,9 +38,9 @@ impl<'a> Launches<'a> {
     }
 
     async fn run(&self, request: LaunchRequest) -> Result<String> {
-        let sessions = self.sessions;
-        sessions.reload_if_changed().await;
-        let cfg = sessions.config().await;
+        let sessions = &self.sessions;
+        self.configuration.reload_if_changed().await;
+        let cfg = self.configuration.config().await;
         request.content.validate()?;
         let session = sessions.create_errand_session(&cfg, &request).await?;
         if !sessions.tmux.exists(&session).await
@@ -44,8 +58,8 @@ impl<'a> Launches<'a> {
     }
 
     pub(crate) async fn run_library_item(&self, name: &str, want: RunWhere) -> Result<String> {
-        self.sessions.reload_if_changed().await;
-        let cfg = self.sessions.config().await;
+        self.configuration.reload_if_changed().await;
+        let cfg = self.configuration.config().await;
         let request = plan_library_launch(&cfg, name, want)?;
         drop(cfg);
         self.run_launch(request).await

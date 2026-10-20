@@ -24,7 +24,7 @@ use crate::application::{Event, EventMessage};
 use crate::session::{ScreenView, WatchGuard};
 
 use super::types::{ClientMsg, ScrollReq};
-use super::{Mgr, err, presented_token};
+use super::{App, err, presented_token};
 
 type WsTx = Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>;
 type WsSubs = Arc<Mutex<HashMap<String, WatchGuard>>>;
@@ -50,7 +50,7 @@ impl ScrollReplies {
         }
     }
 
-    fn enqueue(&mut self, req: ScrollReq, m: &Mgr, cap: &Cap) -> bool {
+    fn enqueue(&mut self, req: ScrollReq, m: &App, cap: &Cap) -> bool {
         let Ok(permit) = self.slots.clone().try_acquire_owned() else {
             return false;
         };
@@ -58,18 +58,19 @@ impl ScrollReplies {
         let cap = cap.clone();
         let capture = tokio::spawn(async move {
             let operation = async {
-                if !manager.cap_ok(&cap, &req.name, Level::Ro).await {
+                if !manager.sessions.cap_ok(&cap, &req.name, Level::Ro).await {
                     return None;
                 }
                 manager
+                    .sessions
                     .scroll_capture(&req.name, req.off, req.request_id)
                     .await
             };
             if cap.may_create() {
-                let _terminal = manager.terminal_input_guard(&req.name).await?;
+                let _terminal = manager.sessions.terminal_input_guard(&req.name).await?;
                 operation.await
             } else {
-                manager.session_read_operation(operation).await
+                manager.sessions.session_read_operation(operation).await
             }
         });
         self.pending.push_back(PendingScroll {
@@ -126,7 +127,7 @@ impl Drop for ScrollReplies {
 }
 
 pub(super) async fn ws_upgrade(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
@@ -168,7 +169,7 @@ pub(super) async fn ws_upgrade(
         .into_response()
 }
 
-async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
+async fn ws_run(socket: WebSocket, m: App, cap: Cap, generation: u64) {
     let (tx, rx) = socket.split();
     let tx = Arc::new(Mutex::new(tx));
     let auth_changes = m.config_authority.auth_changes();
@@ -179,7 +180,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     let subs: WsSubs = Arc::new(Mutex::new(HashMap::new()));
 
     // Subscribe before snapshot preparation so concurrent session starts cannot be lost.
-    let events = m.application.subscribe();
+    let events = m.services.subscribe();
     if !send_initial_snapshot(&tx, &m, &cap).await {
         return;
     }
@@ -211,7 +212,7 @@ struct CommandIntake {
 }
 
 impl CommandIntake {
-    async fn run(&mut self, m: &Mgr, cap: &Cap) {
+    async fn run(&mut self, m: &App, cap: &Cap) {
         loop {
             tokio::select! {
                 biased;

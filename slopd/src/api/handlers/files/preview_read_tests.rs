@@ -7,7 +7,7 @@ async fn preview_handlers_preserve_literal_paths_and_scope() {
     }) else {
         return;
     };
-    let manager = crate::session::test_manager_with_socket(
+    let manager = crate::application::test_application_with_socket(
         crate::config::Config::default(),
         format!("preview-{}", uuid::Uuid::new_v4()),
     );

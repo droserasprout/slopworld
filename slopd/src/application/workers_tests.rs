@@ -222,6 +222,7 @@ async fn allocation_failure_returns_inside_the_worker_request_boundary() {
         std::time::Duration::from_secs(2),
         manager.session_request(NewWorktree::allocate(
             manager.clone(),
+            Worktrees::new(&crate::application::Application::from_runtime(&manager)),
             crate::application::worktrees::WorktreeRequest {
                 project: "missing".into(),
                 ..Default::default()
@@ -263,7 +264,7 @@ async fn cancelled_worker_request_cleans_up_its_unattached_new_worktree() {
         .await
         .unwrap();
     drop(NewWorktree {
-        manager: manager.clone(),
+        worktrees: Worktrees::new(&crate::application::Application::from_runtime(&manager)),
         project: "repo".into(),
         id: Some("1111111111111111".into()),
     });
@@ -278,7 +279,8 @@ async fn cancelled_worker_request_cleans_up_its_unattached_new_worktree() {
     .await
     .expect("canceled request left an unattached worktree registered");
 }
-pub(crate) fn allocation_fixture() -> (Arc<Manager>, std::path::PathBuf, std::path::PathBuf) {
+pub(crate) fn allocation_fixture() -> (Arc<SessionRuntime>, std::path::PathBuf, std::path::PathBuf)
+{
     let root = std::env::temp_dir().join(format!("slopd-regression-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&root).unwrap();
     let main = root.join("repo");
@@ -328,6 +330,7 @@ async fn allocation_and_rollback_complete_inside_the_worker_request_boundary() {
         manager.session_request(async {
             let (id, mut owned) = NewWorktree::allocate(
                 manager.clone(),
+                Worktrees::new(&crate::application::Application::from_runtime(&manager)),
                 crate::application::worktrees::WorktreeRequest {
                     project: "repo".into(),
                     name: "allocated".into(),
@@ -361,6 +364,7 @@ async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
         .session_request(async {
             let allocation = NewWorktree::allocate(
                 manager.clone(),
+                Worktrees::new(&crate::application::Application::from_runtime(&manager)),
                 crate::application::worktrees::WorktreeRequest {
                     project: "repo".into(),
                     name: "canceled".into(),

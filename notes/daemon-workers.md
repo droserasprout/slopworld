@@ -3,7 +3,7 @@
 `slopd/src/application/workers.rs` owns typed worker requests, project/template
 policy, session preparation, checkout allocation and rollback, and task/startup
 coordination. Its `Workers` entry point retains the session request boundary and
-transfers startup to an owned operation. `session/manager/workers.rs` captures caller
+transfers startup to an owned operation. `session/workers.rs` captures caller
 identity, reserves worker names and identities, and registers durable or live sessions.
 The application retains the worker registration guard through task creation, startup,
 and failure cleanup. HTTP decodes caller credentials and the existing/new checkout
@@ -29,7 +29,7 @@ Worker policy uses `[daemon].worker_templates` and
 `[daemon.instructions].worker_prompt`. The prompt can refer to `$SLOPWORLD_TASK_ID`.
 The [Workers settings](../docs/src/customization/settings.md#workers) page edits both.
 The daemon queues the configured worker prompt after startup; asynchronous delivery
-can time out without sending it. Delivery belongs to `session/manager/delivery.rs`
+can time out without sending it. Delivery belongs to `session/delivery.rs`
 (see [library](daemon-library.md)),
 hierarchy presentation to [sidebar](mod-sidebar.md), independent checkout lifetime
 to [worktrees](daemon-worktrees.md), and adoption to [redeploy](daemon-redeploy.md).

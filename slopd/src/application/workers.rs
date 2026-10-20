@@ -4,7 +4,7 @@ use super::worktrees::WorktreeRequest;
 use crate::agent_templates::AgentTemplate;
 use crate::application::worktrees::Worktrees;
 use crate::config::{Config, NetworkMode, SessionCfg};
-use crate::session::Manager;
+use crate::session::SessionRuntime;
 use anyhow::{Context, Result, anyhow, bail};
 use std::sync::Arc;
 
@@ -189,14 +189,15 @@ pub(crate) fn worker_session_from_template(
 /// On cancellation, a detached cleanup task removes it unless a failed durable session
 /// still references it. Existing checkouts never enter this guard.
 struct NewWorktree {
-    manager: Arc<Manager>,
+    worktrees: Worktrees,
     project: String,
     id: Option<String>,
 }
 
 impl NewWorktree {
     async fn allocate(
-        manager: Arc<Manager>,
+        manager: Arc<SessionRuntime>,
+        worktrees: Worktrees,
         request: WorktreeRequest,
     ) -> anyhow::Result<(String, Self)> {
         // Inherit the caller's boundary and reload context before spawning.
@@ -205,11 +206,11 @@ impl NewWorktree {
             .clone()
             .owned_session_operation(Box::pin(async move {
                 let project = request.project.clone();
-                let created = Box::pin(Worktrees::new(&manager).create_worktree(request)).await?;
+                let created = Box::pin(worktrees.create_worktree(request)).await?;
                 Ok((
                     created.id.clone(),
                     Self {
-                        manager,
+                        worktrees,
                         project,
                         id: Some(created.id),
                     },
@@ -220,7 +221,8 @@ impl NewWorktree {
 
     async fn rollback(&mut self) {
         let Some(id) = self.id.take() else { return };
-        if let Err(error) = Worktrees::new(&self.manager)
+        if let Err(error) = self
+            .worktrees
             .remove_worktree(self.project.clone(), id)
             .await
         {
@@ -236,10 +238,10 @@ impl NewWorktree {
 impl Drop for NewWorktree {
     fn drop(&mut self) {
         let Some(id) = self.id.take() else { return };
-        let manager = self.manager.clone();
+        let worktrees = self.worktrees.clone();
         let project = self.project.clone();
         tokio::spawn(async move {
-            if let Err(error) = Worktrees::new(&manager).remove_worktree(project, id).await {
+            if let Err(error) = worktrees.remove_worktree(project, id).await {
                 tracing::warn!("new worker worktree retained after cancellation: {error:#}");
             }
         });
@@ -247,13 +249,31 @@ impl Drop for NewWorktree {
 }
 
 /// Worker operations retain the runtime boundary across allocation and owned startup.
-pub(crate) struct Workers<'a> {
-    sessions: &'a Arc<Manager>,
+#[derive(Clone)]
+pub(crate) struct Workers {
+    sessions: Arc<SessionRuntime>,
+    workspace: Arc<super::Workspace>,
+    config_authority: Arc<super::ConfigAuthority>,
+    services: Arc<super::Services>,
 }
 
-impl<'a> Workers<'a> {
-    pub(crate) fn new(sessions: &'a Arc<Manager>) -> Self {
-        Self { sessions }
+impl Workers {
+    fn configuration(&self) -> super::Configuration {
+        super::Configuration::from_parts(
+            self.sessions.clone(),
+            self.workspace.clone(),
+            self.config_authority.clone(),
+            self.services.clone(),
+        )
+    }
+
+    pub(crate) fn new(application: &super::Application) -> Self {
+        Self {
+            sessions: application.sessions.clone(),
+            workspace: application.workspace.clone(),
+            config_authority: application.config_authority.clone(),
+            services: application.services.clone(),
+        }
     }
 
     #[cfg(test)]
@@ -286,10 +306,10 @@ impl<'a> Workers<'a> {
     }
 
     async fn create_worker_inner(&self, request: WorkerRequest) -> Result<WorkerSpawn> {
-        let cfg = self.sessions.config().await;
+        let cfg = self.configuration().config().await;
         let caller = request.caller.trim();
         let context = self.sessions.worker_caller(caller).await;
-        let templates = self.sessions.application.templates.list().await;
+        let templates = self.services.templates.list().await;
         let PreparedWorker {
             mut session,
             caller,
@@ -307,11 +327,22 @@ impl<'a> Workers<'a> {
                 (id, None)
             }
             WorkerCheckout::New { base, name } => {
-                let base = Worktrees::new(self.sessions)
-                    .worktree_base(&caller, &project, &base)
-                    .await?;
+                let base = Worktrees::from_parts(
+                    self.sessions.clone(),
+                    self.workspace.clone(),
+                    self.config_authority.clone(),
+                    self.services.clone(),
+                )
+                .worktree_base(&caller, &project, &base)
+                .await?;
                 let (id, owned) = NewWorktree::allocate(
                     self.sessions.clone(),
+                    Worktrees::from_parts(
+                        self.sessions.clone(),
+                        self.workspace.clone(),
+                        self.config_authority.clone(),
+                        self.services.clone(),
+                    ),
                     WorktreeRequest {
                         project,
                         name,
@@ -324,11 +355,11 @@ impl<'a> Workers<'a> {
             }
         };
         session.worktree = worktree;
-        let manager = self.sessions.clone();
+        let manager = self.clone();
         let result = self
             .sessions
             .owned_session_operation(Box::pin(async move {
-                Workers::new(&manager)
+                manager
                     .commit_worker(session, caller, body, durable, cfg)
                     .await
             }))
@@ -353,7 +384,7 @@ impl<'a> Workers<'a> {
         durable: bool,
         cfg: Config,
     ) -> Result<WorkerSpawn> {
-        let sessions = self.sessions;
+        let sessions = &self.sessions;
         let _spawn = sessions.worker_registration_guard().await;
         sessions
             .allocate_worker_identity(&mut session, &caller)
@@ -373,9 +404,8 @@ impl<'a> Workers<'a> {
                 }),
             )
             .await?;
-        sessions
-            .application
-            .spawn_task_summary(sessions.config_authority.daemon_settings(), task.clone());
+        self.services
+            .spawn_task_summary(self.config_authority.daemon_settings(), task.clone());
         session.task_id = task.id.clone();
 
         if let Err(error) = sessions.register_task_worker(&session, durable).await {
@@ -415,7 +445,7 @@ impl<'a> Workers<'a> {
 
     pub(crate) async fn worker_project(&self, caller: &str, requested: &str) -> Result<String> {
         project(
-            &self.sessions.config().await,
+            &self.configuration().config().await,
             caller,
             &self.sessions.worker_caller(caller).await,
             requested,
@@ -423,7 +453,12 @@ impl<'a> Workers<'a> {
     }
 
     pub(crate) async fn worker_template_names(&self) -> std::collections::BTreeSet<String> {
-        self.sessions.config().await.daemon.worker_templates.clone()
+        self.configuration()
+            .config()
+            .await
+            .daemon
+            .worker_templates
+            .clone()
     }
 }
 

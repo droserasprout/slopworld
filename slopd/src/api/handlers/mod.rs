@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 
 use crate::grant::{Cap, Level};
 
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 
 mod settings;
 pub(crate) use settings::*;
@@ -45,12 +45,12 @@ fn ack_result(r: anyhow::Result<()>) -> ApiResult {
 
 /// Return 403 for denied or unknown names without revealing session existence.
 pub(super) async fn guard(
-    m: &Mgr,
+    m: &App,
     cap: &Cap,
     name: &str,
     need: Level,
 ) -> Result<(), crate::api::protobuf::ApiError> {
-    if m.cap_ok(cap, name, need).await {
+    if m.sessions.cap_ok(cap, name, need).await {
         Ok(())
     } else {
         Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")))

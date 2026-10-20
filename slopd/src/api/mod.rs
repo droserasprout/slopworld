@@ -9,8 +9,6 @@ mod ws;
 pub(crate) use crate::shared::protocol::TOKEN_HEADER;
 pub(crate) use router::router;
 
-use std::sync::Arc;
-
 use crate::shared::wire;
 use axum::http::{HeaderMap, StatusCode};
 use protobuf::{ApiError, Proto};
@@ -19,13 +17,11 @@ use serde_json::Value;
 #[cfg(test)]
 use serde_json::json;
 
-use crate::session::Manager;
-
 /// Root authorization captured before HTTP credential resolution.
 #[derive(Clone, Copy)]
 pub(crate) struct RootGeneration(pub(crate) u64);
 
-pub(super) type Mgr = Arc<Manager>;
+pub(super) use crate::application::Application as App;
 pub(super) type ApiResult<T = wire::Ack> = Result<Proto<T>, ApiError>;
 
 /// Requests permit only listed fields. Disk documents can preserve unrelated extensions.
@@ -93,7 +89,7 @@ pub(super) fn err(code: StatusCode, e: impl std::fmt::Display) -> ApiError {
     )
 }
 
-/// Read the request token, if present. `Manager::resolve_cap` checks it against root credentials and live grants.
+/// Read the request token, if present. `SessionRuntime::resolve_cap` checks it against root credentials and live grants.
 /// The `/ws` upgrade also uses this helper because the client sends the header only with the upgrade request.
 pub(crate) fn presented_token(headers: &HeaderMap) -> Option<String> {
     headers
@@ -109,3 +105,6 @@ mod tests;
 #[cfg(test)]
 #[path = "request_tests.rs"]
 mod request_tests;
+
+#[cfg(test)]
+mod operation_tests;

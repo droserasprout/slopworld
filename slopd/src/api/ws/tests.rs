@@ -7,6 +7,7 @@ use crate::session::{
     ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
     SessionWorkerView, State,
 };
+
 use std::collections::HashSet;
 use std::time::Duration;
 
@@ -26,7 +27,7 @@ async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change()
         assert!(output.status.success(), "{output:?}");
         return;
     }
-    let manager = crate::session::test_manager_with_socket(
+    let manager = crate::application::test_application_with_socket(
         crate::config::Config::default(),
         format!("slop-audio-reply-{}", uuid::Uuid::new_v4()),
     );
@@ -461,7 +462,7 @@ fn screen(name: &str, seq: u64) -> ScreenView {
 #[tokio::test]
 async fn initial_snapshots_send_binary_host_state_only_to_root() {
     use crate::shared::wire::event::Payload as P;
-    let manager = crate::session::test_manager(crate::config::Config {
+    let manager = crate::application::test_application(crate::config::Config {
         sessions: vec![
             crate::config::SessionCfg {
                 name: "a".into(),
@@ -474,7 +475,7 @@ async fn initial_snapshots_send_binary_host_state_only_to_root() {
         ],
         ..Default::default()
     });
-    manager.sync_from_config().await;
+    manager.sessions.sync_from_config().await;
     let mut socket = socket_pair().await;
     assert!(send_initial_snapshot(&socket.tx, &manager, &Cap::Root).await);
     assert!(matches!(
@@ -518,13 +519,13 @@ async fn initial_snapshots_send_binary_host_state_only_to_root() {
         vec!["a"]
     );
     assert!(matches!(receive(&mut socket.client).await, P::Screen(s) if s.name == "marker"));
-    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.sessions.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
 async fn subscriptions_filter_frames_and_flush_latest_frames_before_control_events() {
     use crate::shared::wire::event::Payload as P;
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let mut socket = socket_pair().await;
     let subs: WsSubs = Default::default();
     let cap = scoped(&["a", "b"], Level::Ro);
@@ -617,7 +618,7 @@ async fn subscriptions_filter_frames_and_flush_latest_frames_before_control_even
         .unwrap()
         .unwrap();
     subs.lock().await.clear();
-    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.sessions.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -711,7 +712,7 @@ async fn cancelled_scroll_send_keeps_ready_reply_and_slot() {
 
 #[tokio::test]
 async fn scroll_admission_counts_completed_replies_until_delivery() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let manager = crate::application::test_application(crate::config::Config::default());
     let mut scrolls = ScrollReplies::new();
     for id in 0..4 {
         assert!(scrolls.enqueue(
@@ -855,7 +856,7 @@ async fn frame_pump_stops_when_authority_is_revoked_while_waiting_to_send() {
 
 #[tokio::test]
 async fn root_panel_subscription_and_history_continue_during_unrelated_lifecycle_work() {
-    let manager = crate::session::test_manager(crate::config::Config {
+    let manager = crate::application::test_application(crate::config::Config {
         sessions: vec![crate::config::SessionCfg {
             name: "pager".into(),
             autostart: false,
@@ -863,14 +864,16 @@ async fn root_panel_subscription_and_history_continue_during_unrelated_lifecycle
         }],
         ..Default::default()
     });
-    manager.sync_from_config().await;
+    manager.sessions.sync_from_config().await;
     let mut emu = crate::emu::SessionEmu::new(80, 24);
     emu.feed(b"pager ready");
-    manager.apply_frame("pager", emu.render()).await;
+    manager.sessions.apply_frame("pager", emu.render()).await;
     let mut socket = socket_pair().await;
     let subs: WsSubs = Default::default();
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
-    let transaction = manager.session_operation(async { wait.await.unwrap() });
+    let transaction = manager
+        .sessions
+        .session_operation(async { wait.await.unwrap() });
     tokio::pin!(transaction);
     assert!(futures::poll!(transaction.as_mut()).is_pending());
     let subscribe = handle_client_msg(
@@ -933,7 +936,7 @@ async fn panel_switch_and_unsubscribe_overtake_an_unfinished_history_capture() {
     use crate::shared::wire::{self, client_message::Payload as C, event::Payload as E};
     use futures::SinkExt;
     use prost::Message as _;
-    let manager = crate::session::test_manager(crate::config::Config {
+    let manager = crate::application::test_application(crate::config::Config {
         sessions: ["pager", "other"]
             .into_iter()
             .map(|name| crate::config::SessionCfg {
@@ -944,11 +947,11 @@ async fn panel_switch_and_unsubscribe_overtake_an_unfinished_history_capture() {
             .collect(),
         ..Default::default()
     });
-    manager.sync_from_config().await;
+    manager.sessions.sync_from_config().await;
     for name in ["pager", "other"] {
         let mut emu = crate::emu::SessionEmu::new(80, 24);
         emu.feed(b"ready");
-        manager.apply_frame(name, emu.render()).await;
+        manager.sessions.apply_frame(name, emu.render()).await;
     }
     let (socket, mut client, server) = raw_socket_pair().await;
     let (tx, rx) = socket.split();
@@ -1056,8 +1059,8 @@ async fn broadcast_lag_closes_socket_for_authoritative_catalog_recovery() {
 #[tokio::test]
 async fn terminal_commands_require_write_scope_and_current_run() {
     use crate::session::Input;
-    let manager = crate::session::test_manager(crate::config::Config::default());
-    let mut input = manager.terminal_input_fixture("target", 7).await;
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let mut input = manager.sessions.terminal_input_fixture("target", 7).await;
     let socket = socket_pair().await;
     let subs = WsSubs::default();
     let keys = |run_id| {
@@ -1125,8 +1128,8 @@ async fn terminal_commands_require_write_scope_and_current_run() {
 #[tokio::test]
 async fn mouse_and_resize_commands_enforce_scope_before_changing_terminal() {
     use crate::session::Input;
-    let manager = crate::session::test_manager(crate::config::Config::default());
-    let mut input = manager.terminal_input_fixture("target", 7).await;
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let mut input = manager.sessions.terminal_input_fixture("target", 7).await;
     let socket = socket_pair().await;
     let subs = WsSubs::default();
     let mouse = |action| {
@@ -1149,7 +1152,7 @@ async fn mouse_and_resize_commands_enforce_scope_before_changing_terminal() {
     assert!(handle_client_msg(mouse("press"), &manager, &ro, &socket.tx, &subs).await);
     assert!(handle_client_msg(resize(), &manager, &ro, &socket.tx, &subs).await);
     assert!(input.try_recv().is_err());
-    let view = manager.views().await.pop().unwrap();
+    let view = manager.sessions.views().await.pop().unwrap();
     assert_ne!((view.runtime.cols, view.runtime.rows), (90, 30));
     let rw = scoped(&["target"], Level::Rw);
     assert!(handle_client_msg(mouse("invalid"), &manager, &rw, &socket.tx, &subs).await);
@@ -1159,6 +1162,6 @@ async fn mouse_and_resize_commands_enforce_scope_before_changing_terminal() {
         matches!(input.try_recv().unwrap(), Input::Bytes(bytes) if bytes == b"\x1b[<0;4;3M".repeat(2))
     );
     assert!(handle_client_msg(resize(), &manager, &rw, &socket.tx, &subs).await);
-    let view = manager.views().await.pop().unwrap();
+    let view = manager.sessions.views().await.pop().unwrap();
     assert_eq!((view.runtime.cols, view.runtime.rows), (90, 30));
 }

@@ -4,7 +4,7 @@ use crate::application::workers::Workers;
 #[tokio::test]
 async fn root_worktree_listing_does_not_require_an_agent_caller() {
     use crate::config::{Config, HostTerminalCfg, ProjectCfg};
-    let manager = crate::session::test_manager(Config {
+    let manager = crate::application::test_application(Config {
         projects: vec![ProjectCfg {
             name: "repo".into(),
             dir: "/tmp".into(),
@@ -17,7 +17,7 @@ async fn root_worktree_listing_does_not_require_an_agent_caller() {
         }],
         ..Default::default()
     });
-    manager.sync_from_config().await;
+    manager.sessions.sync_from_config().await;
     // Worker ownership must still reject the same host terminal.
     assert!(
         Workers::new(&manager)
@@ -54,7 +54,7 @@ async fn root_worktree_listing_does_not_require_an_agent_caller() {
 async fn pending_relocation_remains_listable_with_storage_only_recovery_evidence() {
     use crate::config::{Config, ProjectCfg};
     use crate::worktrees::{RelocationIntent, Store, Worktree, WorktreePhase};
-    let manager = crate::session::test_manager(Config {
+    let manager = crate::application::test_application(Config {
         projects: vec![ProjectCfg {
             id: "1111111111111111".into(),
             name: "repo".into(),
@@ -63,14 +63,21 @@ async fn pending_relocation_remains_listable_with_storage_only_recovery_evidence
         }],
         ..Default::default()
     });
-    let source = manager.cfg_path().parent().unwrap().join("missing-source");
+    let source = manager
+        .sessions
+        .cfg_path()
+        .parent()
+        .unwrap()
+        .join("missing-source");
     let destination = manager
+        .sessions
         .cfg_path()
         .parent()
         .unwrap()
         .join("missing-destination");
     let evidence = format!("Inspect {} and {}", source.display(), destination.display());
     manager
+        .sessions
         .save_worktrees(&Store {
             worktrees: vec![Worktree {
                 id: "2222222222222222".into(),
@@ -112,13 +119,17 @@ async fn pending_relocation_remains_listable_with_storage_only_recovery_evidence
     assert_eq!(pending.phase, "relocating");
     assert_eq!(pending.error, evidence);
     assert_eq!(pending.path, source.to_str().unwrap());
-    assert!(manager.worktree_records().worktrees[0].relocation.is_some());
+    assert!(
+        manager.sessions.worktree_records().worktrees[0]
+            .relocation
+            .is_some()
+    );
 }
 
 #[tokio::test]
 async fn scoped_worktree_requests_cannot_cross_projects_or_register_host_paths() {
     use crate::config::{Config, ProjectCfg, SessionCfg};
-    let manager = crate::session::test_manager(Config {
+    let manager = crate::application::test_application(Config {
         projects: vec![
             ProjectCfg {
                 name: "own".into(),
@@ -175,5 +186,5 @@ async fn scoped_worktree_requests_cannot_cross_projects_or_register_host_paths()
     ))
     .await;
     assert_eq!(result.unwrap_err().0, StatusCode::FORBIDDEN);
-    assert!(manager.worktree_records().worktrees.is_empty());
+    assert!(manager.sessions.worktree_records().worktrees.is_empty());
 }

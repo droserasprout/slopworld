@@ -1,5 +1,5 @@
 //! Search HTTP decoding, path resolution, and wire projection.
-use super::super::{ApiResult, Mgr, err};
+use super::super::{ApiResult, App, err};
 use crate::api::{
     protobuf::{Proto, path_text},
     types::SearchReq,
@@ -26,7 +26,7 @@ impl From<SearchReq> for service::SearchOptions {
     }
 }
 pub(crate) async fn search(
-    State(_m): State<Mgr>,
+    State(_m): State<App>,
     Query(q): Query<SearchReq>,
 ) -> ApiResult<wire::SearchResult> {
     let _perf = crate::perf::timer("http-search");

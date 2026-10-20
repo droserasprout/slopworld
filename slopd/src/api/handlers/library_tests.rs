@@ -8,7 +8,7 @@ fn proto<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Proto<T> {
 
 #[tokio::test]
 async fn library_crud_preserves_content_and_rejects_invalid_updates() {
-    let m = crate::session::test_manager(Config::default());
+    let m = crate::application::test_application(Config::default());
     let item = json!({"name":"test-note", "kind":"breadcrumb", "link":"project", "text":"remember this", "builtin":true});
     assert!(
         create_library_item(State(m.clone()), proto(item.clone()))
@@ -87,12 +87,12 @@ async fn library_crud_preserves_content_and_rejects_invalid_updates() {
             .0,
         StatusCode::BAD_REQUEST
     );
-    assert!(m.config().await.library.is_empty());
+    assert!(m.sessions.config().await.library.is_empty());
 }
 
 #[tokio::test]
 async fn project_crud_returns_not_found_and_persists_rename() {
-    let m = crate::session::test_manager(Config::default());
+    let m = crate::application::test_application(Config::default());
     let project = json!({"name":"test-project", "dir":std::env::temp_dir().to_str().unwrap()});
     assert!(
         create_project(State(m.clone()), proto(project.clone()))
@@ -156,7 +156,7 @@ async fn project_crud_returns_not_found_and_persists_rename() {
 
 #[tokio::test]
 async fn missing_library_errands_return_bad_request() {
-    let m = crate::session::test_manager(Config::default());
+    let m = crate::application::test_application(Config::default());
     for want in [None, Some(proto(json!({"temp":true})))] {
         assert_eq!(
             run_library_item(State(m.clone()), Path("missing".into()), want)

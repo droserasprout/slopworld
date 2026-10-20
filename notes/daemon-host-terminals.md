@@ -19,12 +19,12 @@ only when autostart is enabled. Otherwise, the tab returns as a stopped row.
 Periodic working-directory polling updates saved tabs so their next launch uses
 the last observed path.
 
-`session/manager/host_metadata.rs` owns host-shell record edits, observed working
+`session/host_metadata.rs` owns host-shell record edits, observed working
 directories and foreground processes, and serialized background metadata polling.
 `session_state.rs` schedules polls; tmux inspection runs outside the session boundary,
 and applying its result rechecks run identity under that boundary.
 
 Persistence belongs to [daemon configuration](daemon-config-stores.md); recovery
-belongs to `session/manager/lifecycle/`, mapped in [daemon sources](daemon-files.md).
+belongs to `session/lifecycle/`, mapped in [daemon sources](daemon-files.md).
 Title rendering belongs to the [sidebar](mod-sidebar.md). User actions are described
 in [Host shells](../docs/src/terminals/host-shells.md).

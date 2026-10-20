@@ -1,7 +1,7 @@
 # Scoped grants
 
 `slopd/src/grant.rs` owns bearer-token scope and revocation;
-`session/manager/caps.rs` coordinates authorization lifetime. Grants expose selected
+`session/caps.rs` coordinates authorization lifetime. Grants expose selected
 non-host sessions. Callers also need network reachability to the daemon API.
 User delivery and setup belong to [Agent collaboration](../docs/src/agents/agent-collaboration.md).
 

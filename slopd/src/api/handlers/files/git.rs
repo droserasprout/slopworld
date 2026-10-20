@@ -1,5 +1,5 @@
 //! Git status HTTP projection; repository inspection and counts belong to crate::git.
-use super::super::{ApiResult, Mgr, err};
+use super::super::{ApiResult, App, err};
 use crate::api::protobuf::Proto;
 use crate::api::protobuf::path_text;
 use crate::api::types::GitReq;
@@ -13,7 +13,7 @@ use axum::{
 /// The game cannot run `git` inside agent mount namespaces.
 /// Paths outside repositories return 200 with `repo: false`.
 pub(crate) async fn git_status(
-    State(_m): State<Mgr>,
+    State(_m): State<App>,
     Query(q): Query<GitReq>,
 ) -> ApiResult<wire::GitResult> {
     let _perf = crate::perf::timer("http-git");

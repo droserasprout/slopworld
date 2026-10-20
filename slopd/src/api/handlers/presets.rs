@@ -7,14 +7,14 @@ use axum::http::StatusCode;
 
 use serde_json::json;
 
-use super::{ApiResult, Mgr, err};
+use super::{ApiResult, App, err};
 
 use crate::presets::PresetKind;
 
 /// Supply preset and command catalogs for the GUI.
 /// The mod can discover definitions added while it runs without maintaining a separate list.
 /// Include `source` to distinguish built-in definitions from user overrides.
-pub(crate) async fn presets(State(_m): State<Mgr>) -> ApiResult<wire::PresetsReply> {
+pub(crate) async fn presets(State(_m): State<App>) -> ApiResult<wire::PresetsReply> {
     let effective = crate::presets::table();
     let builtins = crate::presets::Table::builtins();
     let users = crate::presets::Table::users();
@@ -85,7 +85,7 @@ pub(crate) fn parse_kind(kind: &str) -> Result<PresetKind, crate::api::protobuf:
 }
 
 pub(crate) async fn copy_preset(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path((kind, old_name)): Path<(String, String)>,
     body: Option<Proto<wire::CopyPresetReq>>,
 ) -> ApiResult<wire::Ack> {
@@ -101,12 +101,12 @@ pub(crate) async fn copy_preset(
             .await
             .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     copied.map_err(preset_error)?;
-    m.application.reload_presets_if_changed(&m).await;
+    m.services.reload_presets_if_changed(&m.sessions).await;
     Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) async fn update_preset(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path((kind, name)): Path<(String, String)>,
     Proto(body): Proto<wire::PresetRequest>,
 ) -> ApiResult<wire::Ack> {
@@ -138,12 +138,12 @@ pub(crate) async fn update_preset(
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
         .map_err(preset_error)?;
-    m.application.reload_presets_if_changed(&m).await;
+    m.services.reload_presets_if_changed(&m.sessions).await;
     Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) async fn delete_preset(
-    State(m): State<Mgr>,
+    State(m): State<App>,
     Path((kind, name)): Path<(String, String)>,
 ) -> ApiResult<wire::Ack> {
     let kind = parse_kind(&kind)?;
@@ -151,7 +151,7 @@ pub(crate) async fn delete_preset(
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     deleted.map_err(preset_error)?;
-    m.application.reload_presets_if_changed(&m).await;
+    m.services.reload_presets_if_changed(&m.sessions).await;
     Ok(Proto(wire::Ack { ok: true }))
 }
 
@@ -199,7 +199,7 @@ mod tests {
         };
         let blocked = root.join("blocked-presets");
         std::fs::write(&blocked, "not a directory").unwrap();
-        let manager = crate::session::test_manager(crate::config::Config::default());
+        let manager = crate::application::test_application(crate::config::Config::default());
         let request = |command: &str| {
             Proto(wire::PresetRequest {
                 definition: Some(wire::preset_request::Definition::Command(
