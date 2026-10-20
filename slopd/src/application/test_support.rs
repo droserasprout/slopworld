@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::Arc};
 
 pub(super) struct Fixture {
     pub(super) services: Arc<Services>,
-    root: PathBuf,
+    pub(super) root: PathBuf,
 }
 impl Fixture {
     pub(super) fn new() -> Self {
@@ -15,7 +15,7 @@ impl Fixture {
             crate::tmux::Tmux::new(root.join("tmux").to_str().unwrap()),
             16,
             super::AgentTemplates::new(
-                crate::session::AgentTemplateStore::default(),
+                crate::agent_templates::AgentTemplateStore::default(),
                 root.join("agent_templates"),
             ),
         ));

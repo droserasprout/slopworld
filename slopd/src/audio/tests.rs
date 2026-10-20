@@ -1,8 +1,8 @@
 use super::test_support::{FakeOutputFactory, FakeOutputState, ring};
 use super::{
-    AudioState, CONNECT, Feed, GENERATION, Icy, NULL_PCM, OutputFactory, Playlist, RING, Reconnect,
-    Ring, SERVER_PCMS, StreamBody, StreamConnector, TitleSink, enqueue_chunk, local_title,
-    open_device, pcm_id, stream_title, supported_file, wait_for_retry,
+    AudioState, CONNECT, Feed, Icy, NULL_PCM, OutputFactory, Playlist, RING, Reconnect, Ring,
+    SERVER_PCMS, StreamBody, StreamConnector, TitleSink, enqueue_chunk, local_title, open_device,
+    pcm_id, stream_title, supported_file, wait_for_retry,
 };
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{ChannelCount, Sample, SampleRate, Source, cpal};
@@ -44,10 +44,7 @@ fn a_fake_output_factory_can_commit_a_probed_source() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/silent.ogg");
     let source = source.to_string_lossy().into_owned();
 
-    let title = TitleSink::pending(
-        Some(Arc::new(Mutex::new(AudioState::default()))),
-        GENERATION.load(Ordering::SeqCst),
-    );
+    let title = TitleSink::pending(Some(Arc::new(Mutex::new(AudioState::default()))), 0);
     let opened = super::playback::open(&source, title).unwrap();
     let output = FakeOutputFactory(state.clone()).open().unwrap();
     let committed = super::playback::commit(opened, output.as_ref(), 0.73)
@@ -86,15 +83,14 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
 
     for (channels, rate) in stations {
         let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
-        // Preserve the global generation because other ring tests run concurrently.
-        // Changing it would stop their rings.
         player.append(Ring {
             rx,
             held: Vec::new(),
             at: 0,
             channels: ChannelCount::new(channels).unwrap(),
             rate: SampleRate::new(rate).unwrap(),
-            generation: GENERATION.load(Ordering::SeqCst),
+            current_generation: Arc::new(AtomicU64::new(0)),
+            generation: 0,
             cancelled: Arc::new(AtomicBool::new(false)),
             ready: Arc::new(AtomicBool::new(true)),
             finished: Arc::new(AtomicBool::new(false)),
@@ -188,7 +184,7 @@ fn queued_prefill_releases_playback_at_the_threshold() {
     let (tx, rx) = sync_channel(2);
     let ready = AtomicBool::new(false);
     let queued = AtomicUsize::new(0);
-    let generation = GENERATION.load(Ordering::SeqCst);
+    let generation = 0u64;
 
     assert!(enqueue_chunk(
         &tx,
@@ -197,6 +193,7 @@ fn queued_prefill_releases_playback_at_the_threshold() {
         &queued,
         5,
         generation,
+        &AtomicU64::new(0),
     ));
     assert!(!ready.load(Ordering::Acquire));
     assert!(enqueue_chunk(
@@ -206,6 +203,7 @@ fn queued_prefill_releases_playback_at_the_threshold() {
         &queued,
         5,
         generation,
+        &AtomicU64::new(0),
     ));
     assert!(ready.load(Ordering::Acquire));
     assert_eq!(rx.try_iter().flatten().count(), 5);
@@ -215,7 +213,7 @@ fn queued_prefill_releases_playback_at_the_threshold() {
 fn a_live_body_has_no_response_lifetime_deadline() {
     let connector = StreamConnector::new(
         "http://127.0.0.1/unused-local-fixture",
-        TitleSink::new(None, GENERATION.load(Ordering::SeqCst)),
+        TitleSink::new(None, 0),
     );
     let timeouts = connector.agent.config().timeouts();
 
@@ -267,7 +265,7 @@ fn cancelling_a_withheld_header_releases_the_loopback_connection() {
         }
     });
 
-    let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
+    let title = TitleSink::new(None, 0);
     let mut connector = StreamConnector::new(&format!("http://{address}"), title.clone());
     let opened = std::thread::spawn(move || connector.connect());
     accepted_rx.recv_timeout(Duration::from_secs(2)).unwrap();
@@ -282,13 +280,14 @@ fn an_underrun_rebuilds_headroom_before_resuming() {
     let (tx, rx) = sync_channel(4);
     let ready = Arc::new(AtomicBool::new(true));
     let queued = Arc::new(AtomicUsize::new(0));
-    let generation = GENERATION.load(Ordering::SeqCst);
+    let generation = 0u64;
     let mut ring = Ring {
         rx,
         held: Vec::new(),
         at: 0,
         channels: ChannelCount::new(1).unwrap(),
         rate: SampleRate::new(5).unwrap(),
+        current_generation: Arc::new(AtomicU64::new(0)),
         generation,
         cancelled: Arc::new(AtomicBool::new(false)),
         ready: ready.clone(),
@@ -304,6 +303,7 @@ fn an_underrun_rebuilds_headroom_before_resuming() {
         &queued,
         5,
         generation,
+        &AtomicU64::new(0),
     ));
     assert_eq!(ring.next(), Some(0.1));
     assert_eq!(ring.next(), Some(0.0));
@@ -316,6 +316,7 @@ fn an_underrun_rebuilds_headroom_before_resuming() {
         &queued,
         5,
         generation,
+        &AtomicU64::new(0),
     ));
     assert_eq!(ring.next(), Some(0.0));
     assert!(enqueue_chunk(
@@ -325,6 +326,7 @@ fn an_underrun_rebuilds_headroom_before_resuming() {
         &queued,
         5,
         generation,
+        &AtomicU64::new(0),
     ));
     assert!(ready.load(Ordering::Acquire));
     assert_eq!(ring.next(), Some(0.2));
@@ -332,7 +334,7 @@ fn an_underrun_rebuilds_headroom_before_resuming() {
 
 #[test]
 fn retry_wait_can_be_cancelled_by_a_new_selection() {
-    let generation = GENERATION.load(Ordering::SeqCst);
+    let generation = 0u64;
     let active = AtomicU64::new(generation.wrapping_add(1));
     assert!(!wait_for_retry(
         Duration::from_secs(30),
@@ -356,7 +358,8 @@ fn a_stream_body_break_is_hidden_from_its_consumer() {
             })
         },
         source: "synthetic fixture".to_string(),
-        generation: GENERATION.load(Ordering::SeqCst),
+        current_generation: Arc::new(AtomicU64::new(0)),
+        generation: 0,
         cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
@@ -397,7 +400,8 @@ fn a_stream_read_failure_is_hidden_from_its_consumer() {
             })
         },
         source: "synthetic fixture".to_string(),
-        generation: GENERATION.load(Ordering::SeqCst),
+        current_generation: Arc::new(AtomicU64::new(0)),
+        generation: 0,
         cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
@@ -445,14 +449,15 @@ fn loopback_http_responses_share_one_audio_reader() {
         }
     });
 
-    let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
+    let title = TitleSink::new(None, 0);
     let mut connector = StreamConnector::new(&format!("http://{address}"), title);
     let first = connector.connect().unwrap();
     let mut stream = Reconnect {
         inner: first,
         reopen: move || connector.connect(),
         source: "loopback fixture".to_string(),
-        generation: GENERATION.load(Ordering::SeqCst),
+        current_generation: Arc::new(AtomicU64::new(0)),
+        generation: 0,
         cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
@@ -485,7 +490,7 @@ fn cancelling_an_active_body_terminates_read_exact() {
             .unwrap();
         release_rx.recv_timeout(Duration::from_secs(3)).unwrap();
     });
-    let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
+    let title = TitleSink::new(None, 0);
     let mut connector = StreamConnector::new(&format!("http://{address}"), title.clone());
     let mut body = connector.connect().unwrap();
     body.read_exact(&mut [0u8; 1]).unwrap();
@@ -509,48 +514,32 @@ fn cancelling_an_active_body_terminates_read_exact() {
 /// This test uses a short timeout. Production uses STREAM_IDLE to permit normal stream delays.
 #[test]
 fn an_idle_http_body_reconnects_without_rebuilding_the_reader() {
-    // Other playback tests advance the process-global generation. Keep this
-    // reconnect alive across its timeout without an unrelated player's stop cancelling it.
-    let Some(_) = crate::test_support::isolated() else {
-        return;
-    };
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let address = listener.local_addr().unwrap();
+    listener.set_nonblocking(true).unwrap();
 
     let (idle_tx, idle_rx) = std::sync::mpsc::channel();
     let server = std::thread::spawn(move || {
-        for (index, audio) in [b"abc".as_slice(), b"def".as_slice()]
-            .into_iter()
-            .enumerate()
-        {
-            let (mut socket, peer) = listener.accept().unwrap();
-            assert!(peer.ip().is_loopback());
-            let mut request = BufReader::new(socket.try_clone().unwrap());
-            loop {
-                let mut line = String::new();
-                request.read_line(&mut line).unwrap();
-                if line == "\r\n" {
-                    break;
-                }
-            }
-
+        for audio in [b"abc".as_slice(), b"def".as_slice()] {
+            let mut socket =
+                crate::test_http::accept_request(&listener, Duration::from_secs(3)).unwrap();
+            crate::test_http::read_request(&socket, Duration::from_secs(3)).unwrap();
             socket
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\n\
-                          Content-Type: audio/mpeg\r\n\
-                          Connection: keep-alive\r\n\r\n",
-                )
+                .set_write_timeout(Some(Duration::from_secs(3)))
                 .unwrap();
-            socket.write_all(audio).unwrap();
+            let mut response =
+                b"HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\nConnection: keep-alive\r\n\r\n"
+                    .to_vec();
+            response.extend_from_slice(audio);
+            socket.write_all(&response).unwrap();
             socket.flush().unwrap();
-            if index == 0 {
-                // Keep the first socket alive until the client reports its timeout.
-                idle_rx.recv_timeout(Duration::from_secs(3)).unwrap();
-            }
+            // The client acknowledges the first timeout, then consumption of the second body.
+            // Keep each response open until that phase completes, independent of scheduling.
+            idle_rx.recv_timeout(Duration::from_secs(3)).unwrap();
         }
     });
 
-    let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
+    let title = TitleSink::new(None, 0);
     let mut connector = StreamConnector::new_with_body_timeout(
         &format!("http://{address}"),
         title,
@@ -572,9 +561,16 @@ fn an_idle_http_body_reconnects_without_rebuilding_the_reader() {
     idle_tx.send(()).unwrap();
     let mut stream = Reconnect {
         inner: first,
-        reopen: move || connector.connect(),
+        // This fixture serves exactly one reconnect. Surface unexpected connection failures
+        // instead of applying the production infinite retry policy to a departed mock server.
+        reopen: move || {
+            connector
+                .connect()
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        },
         source: "idle loopback fixture".to_string(),
-        generation: GENERATION.load(Ordering::SeqCst),
+        current_generation: Arc::new(AtomicU64::new(0)),
+        generation: 0,
         cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
@@ -582,6 +578,7 @@ fn an_idle_http_body_reconnects_without_rebuilding_the_reader() {
     let mut out = [0u8; 3];
     stream.read_exact(&mut out).unwrap();
     assert_eq!(&out, b"def");
+    idle_tx.send(()).unwrap();
     server.join().unwrap();
 }
 
@@ -612,7 +609,8 @@ fn decoder_survives_synthetic_body_breaks() {
             })
         },
         source: "local OGG fixture".to_string(),
-        generation: GENERATION.load(Ordering::SeqCst),
+        current_generation: Arc::new(AtomicU64::new(0)),
+        generation: 0,
         cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
@@ -728,7 +726,7 @@ fn icy_keeps_the_metadata_out_of_the_audio() {
         inner: io::Cursor::new(raw),
         metaint: 8,
         left: 8,
-        title: TitleSink::new(Some(state.clone()), GENERATION.load(Ordering::SeqCst)),
+        title: TitleSink::new(Some(state.clone()), 0),
     };
 
     // Read three bytes at a time so a request can cross a block boundary.
@@ -751,10 +749,7 @@ fn icy_keeps_the_metadata_out_of_the_audio() {
 #[test]
 fn a_superseded_title_is_dropped() {
     let state = Arc::new(Mutex::new(AudioState::default()));
-    let sink = TitleSink::new(
-        Some(state.clone()),
-        GENERATION.load(Ordering::SeqCst).wrapping_sub(1),
-    );
+    let sink = TitleSink::new(Some(state.clone()), u64::MAX);
     sink.set(Some("Too Late".to_string()));
     assert_eq!(state.lock().unwrap().title, None);
 }
@@ -762,7 +757,7 @@ fn a_superseded_title_is_dropped() {
 #[test]
 fn an_active_title_updates_clears_and_ignores_duplicates() {
     let state = Arc::new(Mutex::new(AudioState::default()));
-    let sink = TitleSink::new(Some(state.clone()), GENERATION.load(Ordering::SeqCst));
+    let sink = TitleSink::new(Some(state.clone()), 0);
 
     sink.set(Some("Now Playing".to_string()));
     assert_eq!(state.lock().unwrap().title.as_deref(), Some("Now Playing"));
@@ -776,7 +771,7 @@ fn an_active_title_updates_clears_and_ignores_duplicates() {
 #[test]
 fn a_pending_title_waits_for_source_commit() {
     let state = Arc::new(Mutex::new(AudioState::default()));
-    let sink = TitleSink::pending(Some(state.clone()), GENERATION.load(Ordering::SeqCst));
+    let sink = TitleSink::pending(Some(state.clone()), 0);
     sink.set(Some("candidate".to_string()));
     assert_eq!(state.lock().unwrap().title, None);
     sink.commit();
@@ -832,7 +827,8 @@ fn reconnect_preserves_invalid_data_and_empty_reads_do_nothing() {
             Ok(Box::new(io::Cursor::new(Vec::new())) as StreamBody)
         },
         source: "synthetic fixture".to_string(),
-        generation: GENERATION.load(Ordering::SeqCst),
+        current_generation: Arc::new(AtomicU64::new(0)),
+        generation: 0,
         cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: false,
     };
@@ -852,7 +848,7 @@ fn icy_reports_truncated_metadata_and_skips_it_for_empty_reads() {
         inner: io::Cursor::new(vec![1, b'x']),
         metaint: 4,
         left: 0,
-        title: TitleSink::new(None, GENERATION.load(Ordering::SeqCst)),
+        title: TitleSink::new(None, 0),
     };
 
     assert_eq!(icy.read(&mut []).unwrap(), 0);
@@ -886,7 +882,8 @@ fn enqueue_stops_for_a_missing_consumer_or_superseded_full_ring() {
         &ready,
         &queued,
         2,
-        GENERATION.load(Ordering::SeqCst),
+        0,
+        &AtomicU64::new(0),
     ));
     assert_eq!(queued.load(Ordering::Acquire), 0);
 
@@ -898,7 +895,8 @@ fn enqueue_stops_for_a_missing_consumer_or_superseded_full_ring() {
         &ready,
         &queued,
         2,
-        GENERATION.load(Ordering::SeqCst).wrapping_sub(1),
+        u64::MAX,
+        &AtomicU64::new(0),
     ));
     assert_eq!(queued.load(Ordering::Acquire), 0);
 }
@@ -990,7 +988,8 @@ fn reconnect_propagates_a_changed_codec_from_reopen() {
             Err(io::Error::new(io::ErrorKind::InvalidData, "changed MIME"))
         },
         source: "synthetic codec change".to_string(),
-        generation: GENERATION.load(Ordering::SeqCst),
+        current_generation: Arc::new(AtomicU64::new(0)),
+        generation: 0,
         cancelled: Arc::new(AtomicBool::new(false)),
         read_since_open: true,
     };
@@ -1015,7 +1014,8 @@ fn cancellation_ends_reconnect_without_requiring_a_new_generation() {
             Err(io::Error::other("cancelled connection"))
         },
         source: "cancelled retry fixture".into(),
-        generation: GENERATION.load(Ordering::SeqCst),
+        current_generation: Arc::new(AtomicU64::new(0)),
+        generation: 0,
         cancelled,
         read_since_open: true,
     };
@@ -1049,7 +1049,7 @@ fn continuous_http_audio_outlives_the_idle_timeout() {
             std::thread::sleep(Duration::from_millis(50));
         }
     });
-    let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
+    let title = TitleSink::new(None, 0);
     let mut connector = StreamConnector::new_with_body_timeout(
         &format!("http://{address}"),
         title,
@@ -1062,4 +1062,33 @@ fn continuous_http_audio_outlives_the_idle_timeout() {
     server.join().unwrap();
     result.expect("continuous traffic must not expire the response");
     assert_eq!(audio, [b'a'; 25]);
+}
+
+#[test]
+fn reconnect_observes_only_its_own_players_generation() {
+    let control = super::Control::new();
+    let generation = control.play("first");
+    let mut attempts = 0;
+    let mut stream = Reconnect {
+        inner: Box::new(io::Cursor::new(Vec::new())),
+        reopen: || {
+            attempts += 1;
+            Ok(Box::new(io::Cursor::new(vec![42u8])) as StreamBody)
+        },
+        source: "first".into(),
+        generation,
+        current_generation: control.current_generation.clone(),
+        read_since_open: true,
+        cancelled: Arc::new(AtomicBool::new(false)),
+    };
+    let other = super::Control::new();
+    other.play("second");
+    other.stop();
+    let mut byte = [0];
+    assert_eq!(stream.read(&mut byte).unwrap(), 1);
+    assert_eq!(byte, [42]);
+    control.stop();
+    assert_eq!(stream.read(&mut byte).unwrap(), 0);
+    drop(stream);
+    assert_eq!(attempts, 1);
 }

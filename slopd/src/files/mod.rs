@@ -8,3 +8,4 @@ mod preview_scope;
 pub(crate) mod search;
 
 pub(crate) mod actions;
+pub(crate) mod desktop;

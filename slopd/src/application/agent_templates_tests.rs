@@ -41,7 +41,7 @@ async fn template_writes_compare_versions_and_preserve_rejected_drafts() {
         .unwrap_err();
     assert!(
         error
-            .downcast_ref::<crate::session::AgentTemplateError>()
+            .downcast_ref::<crate::agent_templates::AgentTemplateError>()
             .is_some()
     );
     assert_eq!(catalog.list().await[0].description, "winner");
@@ -55,8 +55,8 @@ async fn template_writes_compare_versions_and_preserve_rejected_drafts() {
     assert!(matches!(
         missing_edit
             .unwrap_err()
-            .downcast_ref::<crate::session::AgentTemplateError>(),
-        Some(crate::session::AgentTemplateError::Missing(_))
+            .downcast_ref::<crate::agent_templates::AgentTemplateError>(),
+        Some(crate::agent_templates::AgentTemplateError::Missing(_))
     ));
     let mut recreated = winner;
     recreated.name = "reviewer".into();

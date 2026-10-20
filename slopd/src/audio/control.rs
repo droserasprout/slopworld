@@ -1,9 +1,9 @@
 //! Request identity, cancellation, and state publication. Playback I/O belongs to the worker.
 
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use super::{AudioState, GENERATION, fail_state};
+use super::{AudioState, fail_state};
 
 pub(super) struct RequestState {
     pub(super) source: Option<String>,
@@ -23,9 +23,9 @@ impl RequestState {
         self.source = None;
     }
 
-    fn replace(&mut self, source: Option<String>) -> u64 {
+    fn replace(&mut self, source: Option<String>, current: &AtomicU64) -> u64 {
         self.cancel();
-        self.generation = GENERATION.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
+        self.generation = current.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
         self.source = source;
         self.generation
     }
@@ -40,6 +40,8 @@ pub(super) enum SourceRequirement<'a> {
 
 pub(super) struct Control {
     request: Mutex<RequestState>,
+    // Shared only with this player's openers, decoders, and audio callbacks.
+    pub(super) current_generation: Arc<AtomicU64>,
     pub(super) volume: AtomicU32,
 }
 
@@ -48,9 +50,10 @@ impl Control {
         Self {
             request: Mutex::new(RequestState {
                 source: None,
-                generation: GENERATION.load(Ordering::SeqCst),
+                generation: 0,
                 cancel: None,
             }),
+            current_generation: Arc::new(AtomicU64::new(0)),
             volume: AtomicU32::new(1.0f32.to_bits()),
         }
     }
@@ -62,14 +65,14 @@ impl Control {
     pub(super) fn play(&self, source: &str) -> u64 {
         let mut request = self.request.lock().unwrap_or_else(|p| p.into_inner());
         if request.source.as_deref() != Some(source) {
-            request.replace(Some(source.to_string()));
+            request.replace(Some(source.to_string()), &self.current_generation);
         }
         request.generation
     }
 
     pub(super) fn stop(&self) -> u64 {
         let mut request = self.request.lock().unwrap_or_else(|p| p.into_inner());
-        request.replace(None)
+        request.replace(None, &self.current_generation)
     }
 
     /// Retire this worker's resources without changing another player's active generation.
@@ -95,7 +98,7 @@ impl Control {
             SourceRequirement::None => request.source.is_none(),
         };
         if request.generation != generation
-            || generation != GENERATION.load(Ordering::SeqCst)
+            || generation != self.current_generation.load(Ordering::SeqCst)
             || !source_matches
         {
             return None;
@@ -109,7 +112,7 @@ impl Control {
         let request = self.request.lock().unwrap_or_else(|p| p.into_inner());
         request.generation == generation
             && request.source.as_deref() == Some(source)
-            && generation == GENERATION.load(Ordering::SeqCst)
+            && generation == self.current_generation.load(Ordering::SeqCst)
     }
 
     pub(super) fn snapshot(&self) -> (Option<String>, u64) {
@@ -151,7 +154,7 @@ impl Control {
         let log_why = why.clone();
         {
             let mut request = self.request.lock().unwrap_or_else(|p| p.into_inner());
-            request.replace(None);
+            request.replace(None, &self.current_generation);
             let mut current = state.lock().unwrap_or_else(|p| p.into_inner());
             fail_state(&mut current, why);
         }

@@ -3,6 +3,8 @@ use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+pub(crate) mod checkout;
+pub(crate) mod directories;
 pub(crate) mod relocation;
 mod write_guard;
 

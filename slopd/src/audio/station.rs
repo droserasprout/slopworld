@@ -13,7 +13,7 @@ use ureq::unversioned::transport::Connector;
 
 pub(super) use super::title::TitleSink;
 use super::title::monotonic_millis;
-use super::{CONNECT, GENERATION, STREAM_IDLE};
+use super::{CONNECT, STREAM_IDLE};
 
 #[derive(Clone, Copy)]
 pub(crate) struct AudioFormat {
@@ -156,6 +156,7 @@ pub(crate) fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source
         reopen: move || connector.connect(),
         source,
         generation,
+        current_generation: title.current_generation.clone(),
         cancelled: title.cancelled.clone(),
         read_since_open: false,
     };
@@ -364,6 +365,11 @@ impl ureq::unversioned::transport::Transport for CancelTransport {
 
             match self.inner.await_input(sliced) {
                 Ok(ready) => return Ok(ready),
+                // Child-process notifications can interrupt a socket read. Retry within the
+                // original idle budget, rechecking cancellation before touching the socket.
+                Err(ureq::Error::Io(error)) if error.kind() == io::ErrorKind::Interrupted => {
+                    continue;
+                }
                 Err(ureq::Error::Timeout(_)) if !self.is_cancelled() && remaining > POLL => {
                     continue;
                 }
@@ -407,6 +413,7 @@ pub(crate) struct Reconnect<F> {
     pub(crate) reopen: F,
     pub(crate) source: String,
     pub(crate) generation: u64,
+    pub(crate) current_generation: Arc<AtomicU64>,
     pub(crate) read_since_open: bool,
     pub(crate) cancelled: Arc<AtomicBool>,
 }
@@ -424,14 +431,14 @@ where
                 && !super::wait_for_retry(
                     super::REOPEN_PAUSE,
                     self.generation,
-                    &GENERATION,
+                    &self.current_generation,
                     Some(&self.cancelled),
                 )
             {
                 return Ok(false);
             }
             if self.cancelled.load(Ordering::Acquire)
-                || self.generation != GENERATION.load(Ordering::SeqCst)
+                || self.generation != self.current_generation.load(Ordering::SeqCst)
             {
                 return Ok(false);
             }
@@ -584,3 +591,7 @@ impl<R: Read + Send> Seek for Feed<R> {
         ))
     }
 }
+
+#[cfg(test)]
+#[path = "station_tests.rs"]
+mod tests;

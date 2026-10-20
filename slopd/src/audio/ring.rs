@@ -2,11 +2,11 @@
 
 use rodio::{ChannelCount, Sample, SampleRate, Source};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, SyncSender, TryRecvError, TrySendError};
 use std::time::Duration;
 
-use super::{GENERATION, QUEUE_POLL};
+use super::QUEUE_POLL;
 
 pub(crate) const RING: usize = 256;
 const SPAN: usize = 8192;
@@ -18,6 +18,7 @@ pub(crate) fn enqueue_chunk(
     queued: &AtomicUsize,
     prefill_samples: usize,
     generation: u64,
+    current_generation: &AtomicU64,
 ) -> bool {
     let len = chunk.len();
     let mut chunk = chunk;
@@ -33,7 +34,7 @@ pub(crate) fn enqueue_chunk(
             }
             Err(TrySendError::Full(returned)) => {
                 queued.fetch_sub(len, Ordering::AcqRel);
-                if generation != GENERATION.load(Ordering::SeqCst) {
+                if generation != current_generation.load(Ordering::SeqCst) {
                     return false;
                 }
                 chunk = returned;
@@ -67,6 +68,7 @@ pub(crate) struct Ring {
     /// The source generation for this run.
     /// A generation change ends this source so the player advances to the next source.
     pub(crate) generation: u64,
+    pub(crate) current_generation: Arc<AtomicU64>,
     pub(crate) cancelled: Arc<AtomicBool>,
     /// Playback waits here while the feeder builds a small amount of live headroom.
     pub(crate) ready: Arc<AtomicBool>,
@@ -93,7 +95,7 @@ impl Iterator for Ring {
     fn next(&mut self) -> Option<Sample> {
         // Superseded, or stopped. This is the retirement `Player::clear` could not do:
         // clear pauses the player and blocks on a source that never ends.
-        if self.generation != GENERATION.load(Ordering::SeqCst)
+        if self.generation != self.current_generation.load(Ordering::SeqCst)
             || self.cancelled.load(Ordering::Acquire)
         {
             return None;

@@ -1,11 +1,7 @@
-//! Project catalog mutations and rollback of managed checkout relocations.
+//! Session guards, identity allocation, and publication for project operations.
 //! Library execution and delayed input belong to library.rs.
 use super::super::*;
-use super::directories::CreatedDirectories;
-use crate::config::validate_mount_paths;
 use crate::session::manager::config::ConfigMutation;
-use crate::worktrees::WorktreePhase;
-use anyhow::anyhow;
 
 impl Manager {
     pub async fn projects(&self) -> Vec<ProjectView> {
@@ -38,12 +34,7 @@ impl Manager {
         p.id = self.allocate_project_identity().await?;
         check_project(&p)?;
         self.update_cfg(ConfigMutation::Projects, |cfg| {
-            validate_mount_paths(&p)?;
-            if cfg.project(&p.name).is_some() {
-                bail!("project {} already exists", p.name);
-            }
-            cfg.projects.push(p);
-            Ok(())
+            crate::application::projects::add(cfg, p)
         })
         .await?;
         self.announce_projects().await;
@@ -65,159 +56,9 @@ impl Manager {
         .await
     }
 
-    async fn update_project_inner(self: &Arc<Self>, name: &str, mut p: ProjectCfg) -> Result<()> {
+    async fn update_project_inner(self: &Arc<Self>, name: &str, p: ProjectCfg) -> Result<()> {
         let _lock = self.worktrees.mutation.lock().await;
-        let old_project = self
-            .config()
-            .await
-            .project(name)
-            .cloned()
-            .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-        if old_project.temp != p.temp {
-            bail!("The daemon cannot change project temporary mode after creation.");
-        }
-        p.id = old_project.id.clone();
-        check_project(&p)?;
-        validate_mount_paths(&p)?;
-        let (store, planned, mut directories) = self
-            .plan_project_worktree_relocations(name, &old_project, &p)
-            .await?;
-        let mut relocations = crate::worktrees::relocation::Relocations::new(store, planned)?;
-        relocations.execute_pending(self.as_ref()).await?;
-        #[cfg(test)]
-        {
-            let pause = self.worktrees.relocation_pause.lock().unwrap().take();
-            if let Some((reached, release)) = pause {
-                reached.notify_one();
-                release.notified().await;
-            }
-        }
-        let result = self
-            .prepare_cfg_change(ConfigMutation::ProjectReferences, |cfg| {
-                let idx = cfg
-                    .projects
-                    .iter()
-                    .position(|x| x.name == name)
-                    .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-                let old_project = cfg
-                    .projects
-                    .get(idx)
-                    .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-                if old_project.temp != p.temp {
-                    bail!("The daemon cannot change project temporary mode after creation.");
-                }
-                p.id = old_project.id.clone();
-                check_project(&p)?;
-                validate_mount_paths(&p)?;
-                if p.name != name && cfg.project(&p.name).is_some() {
-                    bail!("project {} already exists", p.name);
-                }
-                let renamed = p.name.clone();
-                let project = cfg
-                    .projects
-                    .get_mut(idx)
-                    .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-                *project = p;
-                if renamed != name {
-                    for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
-                        s.project = renamed.clone();
-                    }
-                    for shell in cfg.host_terminals.iter_mut().filter(|s| s.project == name) {
-                        shell.project = renamed.clone();
-                    }
-                }
-                Ok(((), true))
-            })
-            .await;
-        let result = match result {
-            Ok(((), Some(prepared))) => {
-                if relocations.has_moves() {
-                    self.commit_project_relocation(prepared, relocations.candidate())
-                        .await
-                } else {
-                    self.commit_prepared_cfg(prepared).await
-                }
-            }
-            Ok(((), None)) => Ok(()),
-            Err(error) => Err(error),
-        };
-        if let Err(error) = result {
-            return match relocations.rollback(self.as_ref()).await {
-                Ok(()) => Err(error),
-                Err(rollback) => Err(anyhow!(
-                    "{error:#}; restoring project worktrees also failed: {rollback:#}"
-                )),
-            };
-        }
-        directories.commit();
-        Ok(())
-    }
-
-    async fn plan_project_worktree_relocations(
-        &self,
-        name: &str,
-        old_project: &ProjectCfg,
-        p: &ProjectCfg,
-    ) -> Result<(
-        crate::worktrees::Store,
-        Vec<(usize, crate::worktrees::Worktree)>,
-        CreatedDirectories,
-    )> {
-        let store = self.worktree_records();
-        let mut planned = Vec::new();
-        let mut directories = CreatedDirectories::default();
-        if p.name != name {
-            crate::config::project_name_component(&p.name)?;
-            if self.config().await.project(&p.name).is_some() {
-                bail!("project {} already exists", p.name);
-            }
-            let local_root = PathBuf::from(expand(&old_project.dir)).join(".worktrees");
-            let local_root = local_root.canonicalize().unwrap_or(local_root);
-            for (i, w) in store
-                .worktrees
-                .iter()
-                .enumerate()
-                .filter(|(_, w)| w.managed && w.project_id == old_project.id)
-            {
-                // Project-local worktrees do not depend on the project's display name.
-                if Path::new(&w.path).parent() == Some(local_root.as_path()) {
-                    continue;
-                }
-                if w.phase != WorktreePhase::Ready {
-                    bail!(
-                        "finish worktree {} recovery before renaming the project",
-                        w.id
-                    );
-                }
-                let users = self.worktree_attachments(w).await;
-                if !users.is_empty() {
-                    bail!(
-                        "Worktree {} remains attached to {}. Remove or move these sessions first.",
-                        w.name,
-                        users.join(", ")
-                    );
-                }
-                let old_path = Path::new(&w.path);
-                if old_path.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
-                    bail!("worktree path does not match its recorded name");
-                }
-                let root = old_path
-                    .parent()
-                    .and_then(Path::parent)
-                    .context("worktree root")?;
-                let project_dir = root.join(&p.name);
-                directories.create_all(&project_dir)?;
-                let dest =
-                    super::worktrees::checked_worktree_destination(&project_dir, &w.name).await?;
-                if std::fs::symlink_metadata(&dest).is_ok() {
-                    bail!("destination {} already exists", dest.display());
-                }
-                let mut destination = w.clone();
-                destination.path = dest.to_string_lossy().into_owned();
-                planned.push((i, destination));
-            }
-        }
-        Ok((store, planned, directories))
+        crate::application::projects::update(self, name, p).await
     }
 
     pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {
@@ -242,32 +83,64 @@ impl Manager {
             bail!("remove project worktrees explicitly first");
         }
         self.update_cfg(ConfigMutation::ProjectReferences, |cfg| {
-            if cfg.project(name).is_none() {
-                bail!("Project {name:?} does not exist.");
-            }
-            let users: Vec<&str> = cfg
-                .sessions
-                .iter()
-                .filter(|s| s.project == name)
-                .map(|s| s.name.as_str())
-                .chain(
-                    cfg.host_terminals
-                        .iter()
-                        .filter(|s| s.project == name)
-                        .map(|s| s.name.as_str()),
-                )
-                .collect();
-            if !users.is_empty() {
-                bail!(
-                    "project {name} still has agents in it: {}. Remove or move them first.",
-                    users.join(", ")
-                );
-            }
-            cfg.projects.retain(|p| p.name != name);
-            Ok(())
+            crate::application::projects::remove(cfg, name)
         })
         .await?;
         self.announce_projects().await;
         Ok(())
     }
 }
+
+impl crate::application::projects::ProjectRuntime for Arc<Manager> {
+    async fn config(&self) -> Config {
+        Manager::config(self).await
+    }
+    fn worktree_records(&self) -> crate::worktrees::Store {
+        Manager::worktree_records(self)
+    }
+    async fn worktree_attachments(&self, worktree: &crate::worktrees::Worktree) -> Vec<String> {
+        Manager::worktree_attachments(self, worktree).await
+    }
+    async fn prepare(
+        &self,
+        name: &str,
+        project: ProjectCfg,
+    ) -> Result<Option<crate::config::transactions::PreparedConfigChange>> {
+        self.prepare_cfg_change(ConfigMutation::ProjectReferences, |cfg| {
+            crate::application::projects::replace(cfg, name, project)?;
+            Ok(((), true))
+        })
+        .await
+        .map(|((), prepared)| prepared)
+    }
+    async fn commit(
+        &self,
+        prepared: crate::config::transactions::PreparedConfigChange,
+        worktrees: Option<&crate::worktrees::Store>,
+    ) -> Result<()> {
+        if let Some(store) = worktrees {
+            self.commit_project_relocation(prepared, store).await
+        } else {
+            self.commit_prepared_cfg(prepared).await
+        }
+    }
+    async fn after_relocations(&self) {
+        #[cfg(test)]
+        {
+            let pause = self.worktrees.relocation_pause.lock().unwrap().take();
+            if let Some((reached, release)) = pause {
+                reached.notify_one();
+                release.notified().await;
+            }
+        }
+    }
+}
+impl crate::worktrees::relocation::Persistence for Arc<Manager> {
+    async fn save_worktree_records(&self, store: &crate::worktrees::Store) -> Result<()> {
+        self.save_worktrees(store).await
+    }
+}
+
+#[cfg(test)]
+#[path = "projects_tests.rs"]
+mod tests;

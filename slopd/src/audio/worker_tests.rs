@@ -1,5 +1,4 @@
 use super::*;
-use crate::audio::GENERATION;
 use crate::audio::test_support::{FakeOutputFactory, FakeOutputState};
 use std::sync::atomic::AtomicUsize;
 
@@ -8,7 +7,7 @@ fn failed_opener_start_clears_the_pending_identity_and_allows_retry() {
     let (tx, rx) = std::sync::mpsc::channel();
     let state = Arc::new(Mutex::new(AudioState::default()));
     let control = Arc::new(Control::new());
-    let generation = GENERATION.load(Ordering::SeqCst);
+    let generation = 0;
     control
         .publish_current(&state, generation, SourceRequirement::None, |request, _| {
             request.source = Some("fixture".into());
@@ -95,7 +94,7 @@ fn recovering_worker() -> (AudioWorker, Receiver<WorkerMsg>, Arc<AtomicUsize>) {
     let (tx, rx) = std::sync::mpsc::channel();
     let state = Arc::new(Mutex::new(AudioState::default()));
     let control = Arc::new(Control::new());
-    let generation = GENERATION.load(Ordering::SeqCst);
+    let generation = 0;
     let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../mod/Sounds/SlopWorld/silent.ogg")
         .to_string_lossy()

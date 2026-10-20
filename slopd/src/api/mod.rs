@@ -78,7 +78,9 @@ pub(super) fn parse_project(value: Value) -> Result<crate::config::ProjectCfg, A
     )
 }
 
-pub(super) fn parse_template(value: Value) -> Result<crate::session::AgentTemplate, ApiError> {
+pub(super) fn parse_template(
+    value: Value,
+) -> Result<crate::agent_templates::AgentTemplate, ApiError> {
     serde_json::from_value(value).map_err(|error| err(StatusCode::BAD_REQUEST, error))
 }
 

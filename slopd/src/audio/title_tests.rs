@@ -6,7 +6,7 @@ fn pending_clear_survives_activation_and_repeated_commit() {
         title: Some("old".into()),
         ..Default::default()
     }));
-    let sink = TitleSink::pending(Some(state.clone()), GENERATION.load(Ordering::SeqCst));
+    let sink = TitleSink::pending(Some(state.clone()), 0);
     sink.set(Some("candidate".into()));
     sink.set(None);
     sink.commit();
@@ -19,7 +19,7 @@ fn pending_clear_survives_activation_and_repeated_commit() {
 #[test]
 fn activation_keeps_publication_order_while_a_new_title_waits() {
     let state = Arc::new(Mutex::new(AudioState::default()));
-    let sink = TitleSink::pending(Some(state.clone()), GENERATION.load(Ordering::SeqCst));
+    let sink = TitleSink::pending(Some(state.clone()), 0);
     sink.set(Some("pending".into()));
     let state_guard = state.lock().unwrap();
     let committing = sink.clone();

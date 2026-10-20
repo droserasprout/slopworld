@@ -8,7 +8,7 @@ fn proto<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Proto<T> {
 #[tokio::test]
 async fn template_write_failure_is_a_server_error_without_publishing_a_draft() {
     let m = crate::session::test_manager(Config::default());
-    let path = crate::session::AgentTemplateStore::path_for(&m.cfg_path);
+    let path = crate::agent_templates::AgentTemplateStore::path_for(&m.cfg_path);
     std::fs::write(&path, "blocking file").unwrap();
     let result = save_template(
         State(m.clone()),

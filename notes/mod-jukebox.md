@@ -38,6 +38,9 @@ The daemon audio worker owns output-device recovery. Backend failures retire the
 and restart the current source after bounded backoff; stop and source replacement
 cancel delayed recovery. Reopening restarts local files and reconnects stations.
 Ordinary ALSA underruns remain CPAL’s responsibility.
+Each audio player owns its source-generation counter. Its title sinks, feeders,
+rings, and reconnects share that counter; changing one player cannot retire another
+player’s work. Tests construct independent players and run concurrently.
 
 The station transport owns network idle timeouts per input wait. Live HTTP responses
 have no lifetime deadline; continuous traffic and playback backpressure must not

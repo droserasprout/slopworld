@@ -4,7 +4,7 @@ use super::super::*;
 use anyhow::anyhow;
 
 struct ErrandSessionPreparation {
-    template: Option<crate::session::AgentTemplate>,
+    template: Option<crate::agent_templates::AgentTemplate>,
     fresh: bool,
     project_name: String,
     selected_worktree: String,

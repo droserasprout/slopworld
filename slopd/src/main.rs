@@ -1,6 +1,7 @@
 //! Daemon startup, background services, HTTP authentication, and shutdown.
 
 mod activity;
+mod agent_templates;
 mod api;
 mod application;
 mod audio;

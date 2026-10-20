@@ -9,11 +9,11 @@ use anyhow::{Context, Result, anyhow};
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{Sample, Source, cpal};
 
+use super::REOPEN_PAUSE;
 use super::ring::{FinishedOnDrop, RING, Ring, enqueue_chunk};
 use super::station::{
     AudioFormat, Playlist, TitleSink, local_title, next_playlist_source, open_file, open_source,
 };
-use super::{GENERATION, REOPEN_PAUSE};
 
 const CHUNK: usize = 4096;
 const PREFILL_SECS: usize = 1;
@@ -256,7 +256,7 @@ fn commit_with_spawn(
         title,
     } = opened;
     let generation = title.generation;
-    if generation != GENERATION.load(Ordering::SeqCst) {
+    if generation != title.current_generation.load(Ordering::SeqCst) {
         return Ok(None);
     }
 
@@ -273,6 +273,7 @@ fn commit_with_spawn(
         channels: format.channels,
         rate: format.rate,
         generation,
+        current_generation: title.current_generation.clone(),
         cancelled: title.cancelled.clone(),
         ready: ready.clone(),
         finished: finished.clone(),
@@ -300,7 +301,9 @@ fn commit_with_spawn(
     .context("starting the feeder")?;
 
     // Replacement while starting the feeder discards both the ring and the gated feeder.
-    if generation != GENERATION.load(Ordering::SeqCst) || title.cancelled.load(Ordering::Acquire) {
+    if generation != title.current_generation.load(Ordering::SeqCst)
+        || title.cancelled.load(Ordering::Acquire)
+    {
         return Ok(None);
     }
     output.set_volume(volume);
@@ -308,7 +311,9 @@ fn commit_with_spawn(
     output.play();
     // Replacement during output I/O is handled by the ring's generation check; never start
     // decoding a candidate that has already been retired.
-    if generation != GENERATION.load(Ordering::SeqCst) || title.cancelled.load(Ordering::Acquire) {
+    if generation != title.current_generation.load(Ordering::SeqCst)
+        || title.cancelled.load(Ordering::Acquire)
+    {
         return Ok(None);
     }
     start_tx
@@ -355,7 +360,7 @@ fn feed(args: FeedArgs) {
 
     loop {
         if title.cancelled.load(Ordering::Acquire)
-            || generation != GENERATION.load(Ordering::SeqCst)
+            || generation != title.current_generation.load(Ordering::SeqCst)
         {
             return;
         }
@@ -382,7 +387,7 @@ fn feed(args: FeedArgs) {
                 if !super::wait_for_retry(
                     REOPEN_PAUSE,
                     generation,
-                    &GENERATION,
+                    &title.current_generation,
                     Some(&title.cancelled),
                 ) {
                     return;
@@ -409,7 +414,7 @@ fn feed(args: FeedArgs) {
         let mut chunk = Vec::with_capacity(CHUNK);
         for sample in decoded {
             if title.cancelled.load(Ordering::Acquire)
-                || generation != GENERATION.load(Ordering::SeqCst)
+                || generation != title.current_generation.load(Ordering::SeqCst)
             {
                 return;
             }
@@ -419,7 +424,15 @@ fn feed(args: FeedArgs) {
             }
             // Wait when the ring buffer is full to limit downloads to the playback rate.
             let full = std::mem::replace(&mut chunk, Vec::with_capacity(CHUNK));
-            if !enqueue_chunk(&tx, full, &ready, &queued, prefill_samples, generation) {
+            if !enqueue_chunk(
+                &tx,
+                full,
+                &ready,
+                &queued,
+                prefill_samples,
+                generation,
+                &title.current_generation,
+            ) {
                 return;
             }
         }
@@ -427,7 +440,15 @@ fn feed(args: FeedArgs) {
         // A dropped connection or a short local file can end between chunk boundaries. Keep
         // the tail instead of throwing it away before the reconnect or playlist handoff.
         if !chunk.is_empty()
-            && !enqueue_chunk(&tx, chunk, &ready, &queued, prefill_samples, generation)
+            && !enqueue_chunk(
+                &tx,
+                chunk,
+                &ready,
+                &queued,
+                prefill_samples,
+                generation,
+                &title.current_generation,
+            )
         {
             return;
         }

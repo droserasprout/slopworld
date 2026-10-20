@@ -184,9 +184,6 @@ impl Default for Audio {
     }
 }
 
-/// The active source generation. Old feeders stop before writing to the new ring buffer.
-static GENERATION: AtomicU64 = AtomicU64::new(0);
-
 fn fail(state: &Arc<Mutex<AudioState>>, why: String) {
     tracing::warn!("audio: {why}");
     let mut s = state.lock().unwrap_or_else(|p| p.into_inner());

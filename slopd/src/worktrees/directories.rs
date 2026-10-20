@@ -5,10 +5,10 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
-pub(super) struct CreatedDirectories(Vec<PathBuf>);
+pub(crate) struct CreatedDirectories(Vec<PathBuf>);
 
 impl CreatedDirectories {
-    pub(super) fn create_all(&mut self, path: &Path) -> Result<()> {
+    pub(crate) fn create_all(&mut self, path: &Path) -> Result<()> {
         let mut absent = Vec::new();
         for ancestor in path.ancestors() {
             match std::fs::symlink_metadata(ancestor) {
@@ -29,7 +29,7 @@ impl CreatedDirectories {
         }
         Ok(())
     }
-    pub(super) fn commit(&mut self) {
+    pub(crate) fn commit(&mut self) {
         self.0.clear();
     }
 }
@@ -40,3 +40,7 @@ impl Drop for CreatedDirectories {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "directories_tests.rs"]
+mod tests;

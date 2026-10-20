@@ -58,13 +58,20 @@ async fn endpoint_exclusion_precedes_supported_transaction_recovery() {
         std::fs::read(f.binding.journal().unwrap()).unwrap(),
         journal
     );
-    drop(occupied);
-    let reserved = reserve(&f.binding).await.unwrap();
-    f.recover().await;
-    let listener = serving_listener(reserved, &old_address).await.unwrap();
-    assert_eq!(listener.local_addr().unwrap().to_string(), old_address);
-    assert_eq!(std::fs::read_to_string(&f.binding.settings).unwrap(), old);
-    assert!(!f.binding.journal().unwrap().exists());
+    // Successful recovery gets a fresh kernel-assigned endpoint. A close/rebind window
+    // would race sibling listeners and descriptors briefly inherited by forked children.
+    let recoverable = Fixture::new();
+    let restored = "[daemon]\nbind='127.0.0.1:0'\ntoken='original'\n";
+    recoverable.interrupted(current, restored);
+    let reserved = reserve(&recoverable.binding).await.unwrap();
+    recoverable.recover().await;
+    let listener = serving_listener(reserved, "127.0.0.1:0").await.unwrap();
+    assert_ne!(listener.local_addr().unwrap().port(), 0);
+    assert_eq!(
+        std::fs::read_to_string(&recoverable.binding.settings).unwrap(),
+        restored
+    );
+    assert!(!recoverable.binding.journal().unwrap().exists());
 }
 
 #[tokio::test]

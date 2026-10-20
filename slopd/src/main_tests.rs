@@ -326,21 +326,23 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
         }],
         ..Default::default()
     });
-    let template: crate::session::AgentTemplate = serde_json::from_value(serde_json::json!({
-        "name": "review",
-        "defaults": {"cmd": "echo review"}
-    }))
-    .unwrap();
+    let template: crate::agent_templates::AgentTemplate =
+        serde_json::from_value(serde_json::json!({
+            "name": "review",
+            "defaults": {"cmd": "echo review"}
+        }))
+        .unwrap();
     manager
         .application
         .templates
         .create(template)
         .await
         .unwrap();
-    let excluded: crate::session::AgentTemplate = serde_json::from_value(serde_json::json!({
-        "name": "excluded", "defaults": {"cmd": "echo excluded"}
-    }))
-    .unwrap();
+    let excluded: crate::agent_templates::AgentTemplate =
+        serde_json::from_value(serde_json::json!({
+            "name": "excluded", "defaults": {"cmd": "echo excluded"}
+        }))
+        .unwrap();
     manager
         .application
         .templates

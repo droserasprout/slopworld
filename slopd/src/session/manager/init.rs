@@ -18,7 +18,9 @@ impl Manager {
             library_revision,
         } = storage;
         let cfg_path = binding.settings.clone();
-        let library_snapshot = config_authority.read_config().await.library_items_all();
+        application
+            .library
+            .seed(config_authority.read_config().await.library_items_all());
 
         // Catalog stamps seed the maintenance reload checks.
         let presets_mtime = crate::presets::Table::stamp();
@@ -26,7 +28,9 @@ impl Manager {
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
 
         // Load persisted stores before constructing shared state.
-        let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
+        let title_cache = Arc::new(crate::title::SummaryCache::load(crate::title::cache_path(
+            &cfg_path,
+        )));
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
 
@@ -53,7 +57,6 @@ impl Manager {
             endpoint_path: crate::endpoint::path(),
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
-            library_snapshot: Mutex::new(library_snapshot),
             config_authority,
             configuration: Transactions::new(Records::new(binding, stores), library_revision),
             catalog_state: CatalogState::new(

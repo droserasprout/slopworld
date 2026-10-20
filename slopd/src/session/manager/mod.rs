@@ -9,8 +9,6 @@ mod capture;
 mod catalog_state;
 mod config;
 mod delivery;
-mod desktop;
-mod directories;
 mod errands;
 mod host_metadata;
 mod identity;
@@ -59,13 +57,12 @@ pub struct Manager {
     pub tmux: Tmux,
     // Includes stopped sessions as well as attached processes.
     pub(super) live: RwLock<HashMap<String, Live>>,
-    pub(super) library_snapshot: Mutex<Vec<LibraryItemCfg>>,
     pub(super) temp: RwLock<HashMap<String, ProjectCfg>>,
     pub(super) host_metadata: HostMetadataPoll,
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_mutation: tokio::sync::Mutex<()>,
     pub(super) activity_cache: crate::activity::ActivityCache,
-    pub(super) title_cache: crate::title::SummaryCache,
+    pub(super) title_cache: Arc<crate::title::SummaryCache>,
 
     // Client communication and authorization.
     pub(crate) application: Arc<crate::application::Services>,

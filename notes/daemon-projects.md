@@ -1,7 +1,9 @@
 # Projects
 
 Projects supply working directories and shared mounts; agents own launch settings.
-`session/manager/projects.rs` owns project catalog mutations. Effective launch
+`application/projects.rs` owns project catalog policy and relocation coordination.
+`session/manager/projects.rs` supplies identity allocation, attachment checks, transaction
+adapters, and operation guards through commit or rollback. Effective launch
 resolution belongs to `config/resolution.rs`, and mount construction to `sandbox/`.
 See [configuration stores](daemon-config-stores.md) for saved and effective values.
 

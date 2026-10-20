@@ -50,7 +50,7 @@ fn publication_holds_request_identity_until_state_is_updated() {
 }
 
 #[test]
-fn final_handle_shutdown_cancels_its_request_without_advancing_global_generation() {
+fn final_handle_shutdown_cancels_its_request_without_advancing_player_generation() {
     let control = Control::new();
     let generation = control.snapshot().1;
     let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -63,5 +63,39 @@ fn final_handle_shutdown_cancels_its_request_without_advancing_global_generation
     control.shutdown();
     assert!(cancel.load(Ordering::Acquire));
     assert_eq!(control.snapshot(), (None, generation));
-    assert_eq!(GENERATION.load(Ordering::SeqCst), generation);
+    assert_eq!(
+        control.current_generation.load(Ordering::SeqCst),
+        generation
+    );
+}
+
+#[test]
+fn independent_players_do_not_retire_each_others_titles_or_requests() {
+    let control = Arc::new(Control::new());
+    let generation = control.play("first");
+    let state = Arc::new(Mutex::new(AudioState::default()));
+    let title = crate::audio::title::TitleSink::pending_for(
+        Some(state.clone()),
+        generation,
+        control.clone(),
+    );
+    title.set(Some("first title".into()));
+    // Complete another player's transitions before publishing the first player's candidate.
+    std::thread::spawn(|| {
+        let other = Control::new();
+        let other_state = Arc::new(Mutex::new(AudioState::default()));
+        other.play("second");
+        other.stop();
+        other.reject(&other_state, "unavailable".into());
+    })
+    .join()
+    .unwrap();
+    assert!(control.is_current("first", generation));
+    assert_eq!(control.play("first"), generation);
+    title.commit();
+    assert_eq!(state.lock().unwrap().title.as_deref(), Some("first title"));
+    control.stop();
+    assert!(!control.is_current("first", generation));
+    title.set(Some("stale title".into()));
+    assert_eq!(state.lock().unwrap().title.as_deref(), Some("first title"));
 }

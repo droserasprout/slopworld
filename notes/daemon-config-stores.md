@@ -40,7 +40,7 @@ belong to [paths](ops-paths.md).
 | Data `worktrees/` | `storage/workspace.rs`; [worktree ownership](daemon-worktrees.md). |
 | Data `tasks/`, `grants.toml` | [Tasks](agent-tasks.md), [grants](agent-grants.md). |
 | `prompts/`, `breadcrumbs/`, `file_actions/`, `shell_scripts/` | `config/catalog.rs`; [library](daemon-library.md). |
-| `agent_templates/` | `session/agent_templates/`; [templates](daemon-agent-templates.md). |
+| `agent_templates/` | `agent_templates/`; [templates](daemon-agent-templates.md). |
 | Config `sandbox_presets/`, `app_presets/` | `presets.rs`, `presets/edit.rs`; [presets](daemon-presets.md). |
 | Config `jukebox/` | `jukebox.rs`; [jukebox](mod-jukebox.md). |
 

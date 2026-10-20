@@ -6,16 +6,22 @@ pub(crate) use agent_templates::{AgentTemplates, TemplatePersistence};
 mod config_authority;
 pub(crate) use config_authority::{AuthChange, ConfigAuthority};
 mod events;
+mod library;
 mod music;
+pub(crate) mod projects;
+pub(crate) use library::{LibraryCatalog, LibraryMutation, LibraryRuntime};
+mod task_summaries;
 mod usage;
 use crate::tasks::io::TaskStore;
 use anyhow::{Context, Result};
 pub(crate) use events::{Event, EventMessage};
 use std::sync::Arc;
+pub(crate) use task_summaries::TaskSummaryRequest;
 use tokio::sync::{RwLock, broadcast};
 
 pub(crate) struct Services {
     tasks: TaskStore,
+    pub(crate) library: LibraryCatalog,
     pub(crate) templates: AgentTemplates,
     pub(crate) music: crate::music::Music,
     usage: RwLock<crate::usage::Snapshot>,
@@ -31,7 +37,7 @@ impl Services {
         let tasks = TaskStore::load(data.to_owned())
             .await
             .with_context(|| format!("loading task store in {}", data.display()))?;
-        let templates = AgentTemplates::load(crate::session::AgentTemplateStore::path_for(
+        let templates = AgentTemplates::load(crate::agent_templates::AgentTemplateStore::path_for(
             &config.join("config.toml"),
         ))
         .await?;
@@ -47,6 +53,7 @@ impl Services {
         let (events, _) = broadcast::channel(event_capacity);
         Self {
             tasks,
+            library: LibraryCatalog::default(),
             templates,
             events,
             music: crate::music::Music::new(tmux),

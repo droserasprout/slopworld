@@ -7,8 +7,9 @@ have their own catalog and API.
 `config/library.rs` owns item definitions, validation, supplied entries, and lookups.
 `config/catalog.rs` owns per-kind validation, loading and preparation of bound
 transaction changes. The manager checks catalog revisions and commits those changes
-through `storage/transaction.rs`. `session/manager/library.rs` owns catalog operations and
-`api/handlers/library.rs` owns the HTTP boundary. `session/launch.rs` converts saved entries into transient launch requests.
+through `storage/transaction.rs`. `application/library.rs` owns catalog mutation policy,
+discovery, retained snapshots, and publication. `session/manager/library.rs` supplies
+guarded configuration commits and launch adapters; `api/handlers/library.rs` owns the HTTP boundary. `session/launch.rs` converts saved entries into transient launch requests.
 `session/manager/launch.rs` prepares explicit requests and owns guarded execution;
 `session/manager/errands.rs` resolves settings and constructs live sessions.
 `config/commands.rs` resolves launch commands without depending on catalog records.
@@ -16,7 +17,9 @@ through `storage/transaction.rs`. `session/manager/library.rs` owns catalog oper
 A user item shadows a supplied entry with the same name. Deleting that user item
 reveals the supplied entry again. Saved runnable entries require an explicit host
 or template execution choice. File actions run on the daemon host and do not
-participate in agent breadcrumb delivery.
+participate in agent breadcrumb delivery. `files/actions/execution.rs` owns bounded
+host execution and output formatting; `files/desktop.rs` owns MIME associations and
+desktop application discovery.
 `session/template.rs` owns placeholder scanning; `session/prompt.rs` supplies values,
 including client-selected tips. Replacement text is literal and is not scanned again.
 Library breadcrumbs are inserted manually, never automatically at agent startup.

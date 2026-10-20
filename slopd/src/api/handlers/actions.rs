@@ -41,12 +41,8 @@ pub(crate) async fn file_action(
 
 /// List host desktop applications associated with a file. Only root can run this query.
 /// It runs outside project sandboxes, in the desktop environment that launches the selected application.
-pub(crate) async fn open_apps(
-    State(m): State<Mgr>,
-    Query(q): Query<OpenAppsQuery>,
-) -> ApiResult<wire::AppsReply> {
-    let apps = m
-        .open_apps(&q.path)
+pub(crate) async fn open_apps(Query(q): Query<OpenAppsQuery>) -> ApiResult<wire::AppsReply> {
+    let apps = crate::files::desktop::open_apps(&q.path)
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
     reply(json!({ "apps": apps }))

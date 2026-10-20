@@ -1,10 +1,9 @@
 //! Game-free output and ring fixtures shared by the audio owner tests.
 
-use super::GENERATION;
 use super::playback::{AudioOutput, OutputFactory};
 use super::ring::{RING, Ring};
 use rodio::{ChannelCount, Sample, SampleRate, Source};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{SyncSender, sync_channel};
 use std::sync::{Arc, Mutex};
 
@@ -47,8 +46,9 @@ pub(super) fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
             at: 0,
             channels: ChannelCount::new(2).unwrap(),
             rate: SampleRate::new(44100).unwrap(),
-            // Use the current generation. Only ignored tests change it, and they run separately.
-            generation: GENERATION.load(Ordering::SeqCst),
+            // This fixture owns its generation domain independently of other players.
+            generation: 0,
+            current_generation: Arc::new(AtomicU64::new(0)),
             cancelled: Arc::new(AtomicBool::new(false)),
             ready: Arc::new(AtomicBool::new(true)),
             finished: Arc::new(AtomicBool::new(false)),

@@ -23,7 +23,10 @@ remove unfinished work. Task authority is separate from terminal-input authority
 [grants](agent-grants.md) and [Agent collaboration](../docs/src/agents/agent-collaboration.md)
 own access rules.
 
-Task summaries reuse the title provider/cache without session title policy; see
+`application/task_summaries.rs` owns background task summaries, using the shared
+title provider/cache and accepted daemon settings. Task stamps protect publication
+after provider work; session adapters only schedule the request. Summaries do not
+use session title policy; see
 [title ownership](agent-titles.md). The mod host task board is integrated by
 [the sidebar](mod-sidebar.md). Worker lifecycle belongs to [workers](daemon-workers.md),
 notification limits to [discovery](agent-task-discovery.md), commands to

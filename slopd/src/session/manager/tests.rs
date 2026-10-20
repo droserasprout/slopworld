@@ -33,7 +33,8 @@ pub(crate) fn test_manager_with_socket(
         crate::config::catalog::revision(&cfg_path).ok(),
     );
     let tmux = Tmux::new(socket);
-    Arc::new(Manager {
+    let library_snapshot = config.library_items_all();
+    let manager = Arc::new(Manager {
         frame_commit_pause: Mutex::new(None),
         scroll_capture_pause: Mutex::new(None),
         reader_attach_pause: Mutex::new(None),
@@ -42,7 +43,6 @@ pub(crate) fn test_manager_with_socket(
         tmux: tmux.clone(),
         cfg_path: cfg_path.clone(),
         endpoint_path: cfg_path.with_extension("endpoint.toml"),
-        library_snapshot: Mutex::new(config.library_items_all()),
         config_authority: Arc::new(crate::application::ConfigAuthority::new(
             config,
             crate::grant::Grants::default(),
@@ -74,8 +74,12 @@ pub(crate) fn test_manager_with_socket(
         terminal_resizes: Mutex::new(HashMap::new()),
         worker_spawn: tokio::sync::Mutex::new(()),
         worktrees: WorktreeState::default(),
-        title_cache: crate::title::SummaryCache::load(directory.join("summary-cache.toml")),
-    })
+        title_cache: Arc::new(crate::title::SummaryCache::load(
+            directory.join("summary-cache.toml"),
+        )),
+    });
+    manager.application.library.seed(library_snapshot);
+    manager
 }
 
 // Declared last in the fixture's lifetime: Manager resources no longer use it on drop.

@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use super::control::{Control, SourceRequirement};
-use super::{AudioState, GENERATION, OPEN};
+use super::{AudioState, OPEN};
 
 /// Receive delayed station metadata. The generation prevents old metadata from changing a replacement station's title.
 /// `None` omits titles for files and tests.
@@ -14,6 +14,7 @@ pub(crate) struct TitleSink {
     pub(crate) state: Option<Arc<Mutex<AudioState>>>,
     pub(super) control: Option<Arc<Control>>,
     pub(crate) generation: u64,
+    pub(crate) current_generation: Arc<AtomicU64>,
     /// Opening and decoder probing happen before the worker commits a source. Metadata seen
     /// during that phase belongs to a candidate, not to the audible selection yet.
     phase: Arc<Mutex<TitlePhase>>,
@@ -39,7 +40,12 @@ impl TitleSink {
         control: Option<Arc<Control>>,
         phase: TitlePhase,
     ) -> Self {
+        let current_generation = control.as_ref().map_or_else(
+            || Arc::new(AtomicU64::new(0)),
+            |control| control.current_generation.clone(),
+        );
         Self {
+            current_generation,
             state,
             control,
             generation,
@@ -97,7 +103,7 @@ impl TitleSink {
                     }
                 })
                 .unwrap_or(false)
-        } else if self.generation == GENERATION.load(Ordering::SeqCst) {
+        } else if self.generation == self.current_generation.load(Ordering::SeqCst) {
             let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
             if s.title == title {
                 false

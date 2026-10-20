@@ -4,11 +4,7 @@ use std::time::Duration;
 
 fn candidate() -> OpenedSource {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/silent.ogg");
-    open(
-        &source.to_string_lossy(),
-        TitleSink::pending(None, GENERATION.load(Ordering::SeqCst)),
-    )
-    .unwrap()
+    open(&source.to_string_lossy(), TitleSink::pending(None, 0)).unwrap()
 }
 
 fn output() -> FakeOutput {
@@ -145,4 +141,40 @@ fn null_and_absent_default_devices_are_rejected() {
                 .contains("no usable output device")
         );
     }
+}
+
+#[test]
+fn committed_ring_and_feeder_retire_only_with_their_own_player() {
+    use crate::audio::control::Control;
+    use std::sync::Mutex;
+    #[derive(Default)]
+    struct HeldOutput(Mutex<Option<Box<dyn Source + Send>>>);
+    impl AudioOutput for HeldOutput {
+        fn append(&self, source: Box<dyn Source + Send>) {
+            *self.0.lock().unwrap() = Some(source);
+        }
+        fn set_volume(&self, _: f32) {}
+        fn play(&self) {}
+    }
+    let control = Arc::new(Control::new());
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/silent.ogg");
+    let generation = control.play(source.to_str().unwrap());
+    let title = TitleSink::pending_for(None, generation, control.clone());
+    let opened = open(source.to_str().unwrap(), title).unwrap();
+    let output = HeldOutput::default();
+    let mut feeder = None;
+    let committed = commit_with_spawn(opened, &output, 1.0, |work| {
+        let other = Control::new();
+        other.play("second");
+        other.stop();
+        feeder = Some(work);
+        Ok(())
+    })
+    .unwrap();
+    assert!(committed.is_some());
+    assert_eq!(output.0.lock().unwrap().as_mut().unwrap().next(), Some(0.0));
+    control.stop();
+    assert_eq!(output.0.lock().unwrap().as_mut().unwrap().next(), None);
+    // Release the accepted feeder after retirement; it must finish without decoding.
+    feeder.unwrap()();
 }

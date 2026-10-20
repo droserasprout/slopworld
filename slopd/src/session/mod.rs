@@ -13,7 +13,6 @@ use serde_json::Value;
 use tokio::sync::{RwLock, mpsc};
 use tokio::task::JoinHandle;
 
-mod agent_templates;
 mod input;
 mod launch;
 pub use launch::RunWhere;
@@ -33,10 +32,10 @@ mod role;
 pub(crate) use manager::{WorkerCheckout, WorkerRequest, WorktreeRequest};
 use role::{AgentLifetime, SessionRole};
 
-use crate::application::Event;
+use crate::agent_templates::AgentTemplate;
 #[cfg(test)]
-pub(crate) use agent_templates::validate_definition as validate_template_definition;
-pub(crate) use agent_templates::{AgentTemplate, AgentTemplateError, AgentTemplateStore};
+use crate::agent_templates::AgentTemplateStore;
+use crate::application::Event;
 pub use manager::{Manager, WatchGuard};
 #[cfg(test)]
 pub(crate) use manager::{test_manager, test_manager_with_socket};

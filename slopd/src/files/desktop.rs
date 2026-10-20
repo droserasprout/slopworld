@@ -1,6 +1,6 @@
 //! Host desktop application associations used by the Files sidebar.
 
-use super::super::*;
+use crate::files::actions::absolute_path;
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -21,29 +21,27 @@ pub(crate) struct DesktopApp {
     pub(crate) desktop_file: Option<String>,
 }
 
-impl Manager {
-    /// Query the host MIME database for applications associated with a path.
-    /// Return each desktop file's ID, display name, and resolved path for `gio launch`.
-    pub async fn open_apps(&self, raw_path: &str) -> Result<Vec<DesktopApp>> {
-        let path = absolute_path(raw_path)?;
-        let path = path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("file path is not valid UTF-8"))?;
+/// Query the host MIME database for applications associated with a path.
+/// Return each desktop file's ID, display name, and resolved path for `gio launch`.
+pub(crate) async fn open_apps(raw_path: &str) -> Result<Vec<DesktopApp>> {
+    let path = absolute_path(raw_path)?;
+    let path = path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("file path is not valid UTF-8"))?;
 
-        let info = command_output(
-            "gio",
-            &["info", "--attributes=standard::content-type", "--", path],
-        )
-        .await?;
-        let mime = content_type(&info)?;
-        let associations = command_output("gio", &["mime", &mime]).await?;
-        tokio::task::spawn_blocking(move || {
-            let discovery = DesktopDiscovery::load(&desktop_search_paths());
-            discovery.associated_apps(&mime, &associations)
-        })
-        .await
-        .context("desktop discovery task failed")
-    }
+    let info = command_output(
+        "gio",
+        &["info", "--attributes=standard::content-type", "--", path],
+    )
+    .await?;
+    let mime = content_type(&info)?;
+    let associations = command_output("gio", &["mime", &mime]).await?;
+    tokio::task::spawn_blocking(move || {
+        let discovery = DesktopDiscovery::load(&desktop_search_paths());
+        discovery.associated_apps(&mime, &associations)
+    })
+    .await
+    .context("desktop discovery task failed")
 }
 
 async fn command_output(program: &str, args: &[&str]) -> Result<String> {

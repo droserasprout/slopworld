@@ -2,8 +2,10 @@
 
 `worktrees/` owns durable records and bounded Git operations.
 `session/manager/worktrees.rs` owns lifecycle/catalog coordination;
-`session/manager/projects.rs` owns project edits and relocation.
-`session/manager/directories.rs` owns uncommitted directory creation.
+`application/projects.rs` owns project edits and relocation coordination, with session
+operation guards supplied by `session/manager/projects.rs`.
+`worktrees/checkout.rs` owns checkout validation and filesystem effects;
+`worktrees/directories.rs` owns uncommitted directory creation.
 
 Worktree HTTP requests use host-user authority for root credentials, independent
 of the terminal session header. Scoped credentials retain the grantor's project

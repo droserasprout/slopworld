@@ -1,8 +1,8 @@
 use super::*;
+use crate::agent_templates::AgentTemplate;
 use crate::config::{Limits, Mount, MountMode, NetworkMode};
 use crate::presets::CommandPreset;
 use crate::presets::SandboxPreset;
-use crate::session::AgentTemplate;
 
 #[test]
 fn changing_command_keeps_only_explicit_sandbox_and_its_dependencies() {
@@ -102,7 +102,7 @@ fn snapshot_selection_handles_cycles_shared_dependencies_and_missing_definitions
 #[test]
 fn sparse_recipe_uses_documented_agent_defaults() {
     let sparse: AgentTemplate = toml::from_str("name = 'sparse'\n[defaults]\n").unwrap();
-    crate::session::validate_template_definition(&sparse).unwrap();
+    crate::agent_templates::validate_definition(&sparse).unwrap();
     let cfg = Config::default();
     let project = ProjectCfg::default();
     let session = sparse.instantiate("agent".into(), "repo".into());

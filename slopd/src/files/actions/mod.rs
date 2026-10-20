@@ -1,4 +1,5 @@
-//! File-action path containment and shell command preparation. Execution belongs to the caller.
+//! File-action path containment and shell command preparation; execution owns bounded host commands.
+pub(crate) mod execution;
 use crate::config::{ProjectCfg, expand};
 use anyhow::{Result, bail};
 use std::path::{Component, Path, PathBuf};
@@ -79,5 +80,4 @@ pub(crate) fn normalize_action_command(path: &Path, command: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "actions_tests.rs"]
 mod tests;

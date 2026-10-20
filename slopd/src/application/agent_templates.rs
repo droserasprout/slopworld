@@ -1,7 +1,7 @@
 //! Personal template catalog mutations and cancellation-safe persistence/publication.
-//! Session adapters own capture and instantiation; session::agent_templates owns
+//! Session adapters own capture and instantiation; crate::agent_templates owns
 //! portable definitions, version policy, and the on-disk format.
-use crate::session::{AgentTemplate, AgentTemplateStore};
+use crate::agent_templates::{AgentTemplate, AgentTemplateStore};
 use anyhow::{Context, Result};
 #[cfg(test)]
 use std::sync::Mutex;
@@ -82,7 +82,9 @@ impl AgentTemplates {
             .await
             .into_iter()
             .find(|template| template.name == source_name)
-            .ok_or_else(|| crate::session::AgentTemplateError::Missing(source_name.into()))?;
+            .ok_or_else(|| {
+                crate::agent_templates::AgentTemplateError::Missing(source_name.into())
+            })?;
         copy.name = name;
         copy.description = description.trim().to_string();
         self.create(copy).await
