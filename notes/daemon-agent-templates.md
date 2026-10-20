@@ -2,7 +2,10 @@
 
 `application::AgentTemplates` owns the personal template catalog, its storage path,
 mutation gate, and cancellation-safe persistence/publication. Application startup
-loads and injects the service; catalog-only API operations use it directly.
+loads the service; catalog-only API operations use it directly. Session launch
+preparation receives a read-only `TemplateCatalog` sharing the accepted index.
+Failed saves remain invisible to that view; committed edits appear without replacing
+the handle.
 `application/agent_templates.rs` resolves catalog entries and composes session drafts.
 `application/template_operations.rs` coordinates capture and instantiation;
 `SessionRuntime` retains guarded draft registration. `agent_templates/mod.rs`

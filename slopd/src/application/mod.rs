@@ -13,7 +13,7 @@ pub(crate) mod catalogs;
 pub(crate) mod file_actions;
 pub(crate) mod workers;
 pub(crate) mod worktrees;
-pub(crate) use agent_templates::{AgentTemplates, TemplatePersistence};
+pub(crate) use agent_templates::{AgentTemplates, TemplateCatalog, TemplatePersistence};
 mod workspace;
 mod workspace_identity;
 pub(crate) use workspace::Workspace;
@@ -33,7 +33,7 @@ mod task_summaries;
 mod usage;
 use crate::tasks::io::TaskStore;
 use anyhow::{Context, Result};
-pub(crate) use events::{Event, EventMessage};
+pub(crate) use events::{Event, EventMessage, EventPublisher};
 use std::sync::Arc;
 use tokio::sync::{RwLock, broadcast};
 
@@ -45,7 +45,7 @@ pub(crate) struct Services {
     pub(crate) templates: AgentTemplates,
     pub(crate) music: crate::music::Music,
     usage: RwLock<crate::usage::Snapshot>,
-    events: broadcast::Sender<Arc<EventMessage>>,
+    events: EventPublisher,
 }
 
 impl Services {
@@ -76,7 +76,7 @@ impl Services {
         event_capacity: usize,
         templates: AgentTemplates,
     ) -> Self {
-        let (events, _) = broadcast::channel(event_capacity);
+        let events = EventPublisher::new(event_capacity);
         Self {
             tasks,
             title_cache,
@@ -89,6 +89,18 @@ impl Services {
         }
     }
 
+    /// Startup handoff; the runtime keeps individual capabilities, not this service owner.
+    pub(crate) fn session_services(self: &Arc<Self>) -> crate::session::RuntimeServices {
+        crate::session::RuntimeServices {
+            tasks: self.tasks.clone(),
+            events: self.events.clone(),
+            title_cache: self.title_cache.clone(),
+            templates: self.templates.catalog(),
+            #[cfg(test)]
+            application: self.clone(),
+        }
+    }
+
     pub(crate) fn tasks(&self, lease: impl Send + 'static) -> crate::tasks::io::TaskIo {
         self.tasks.access(lease)
     }
@@ -98,7 +110,7 @@ impl Services {
     }
 
     pub(crate) fn emit(&self, event: Event) {
-        drop(self.events.send(EventMessage::new(event)));
+        self.events.emit(event);
     }
 }
 

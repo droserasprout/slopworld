@@ -241,11 +241,7 @@ impl SessionRuntime {
             fresh,
             project_name,
             selected_worktree,
-        } = crate::application::errands::select(
-            cfg,
-            request,
-            &self.application.templates.list().await,
-        )?;
+        } = crate::application::errands::select(cfg, request, &self.templates.list().await)?;
         let worktree_path = if !fresh {
             let project = cfg
                 .project(&project_name)

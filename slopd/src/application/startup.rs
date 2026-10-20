@@ -18,7 +18,7 @@ pub(crate) async fn start_sessions(
     let host_records = super::HostRecords::new(workspace.clone(), authority.clone());
     let manager = SessionRuntime::new(
         workspace.clone(),
-        services.clone(),
+        services.session_services(),
         tmux,
         authority.clone(),
         host_records,

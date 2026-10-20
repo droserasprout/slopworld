@@ -27,6 +27,16 @@ pub(crate) struct AgentTemplates {
     publish_pause: Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
 }
 
+/// Read-only view of the accepted catalog, shared with session launch preparation.
+#[derive(Clone)]
+pub(crate) struct TemplateCatalog(Arc<RwLock<AgentTemplateStore>>);
+
+impl TemplateCatalog {
+    pub(crate) async fn list(&self) -> Vec<AgentTemplate> {
+        self.0.read().await.templates.clone()
+    }
+}
+
 impl AgentTemplates {
     pub(crate) async fn load(path: PathBuf) -> Result<Self> {
         let store = AgentTemplateStore::load(&path)
@@ -45,8 +55,12 @@ impl AgentTemplates {
         }
     }
 
+    pub(crate) fn catalog(&self) -> TemplateCatalog {
+        TemplateCatalog(self.store.clone())
+    }
+
     pub(crate) async fn list(&self) -> Vec<AgentTemplate> {
-        self.store.read().await.templates.clone()
+        self.catalog().list().await
     }
 
     pub(crate) async fn instantiate(

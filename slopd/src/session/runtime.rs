@@ -31,6 +31,12 @@ pub struct SessionRuntime {
     pub(super) activity_cache: crate::activity::ActivityCache,
 
     // Client communication and authorization.
+    pub(super) tasks: crate::tasks::io::TaskStore,
+    pub(super) events: crate::application::EventPublisher,
+    pub(super) title_cache: Arc<crate::title::SummaryCache>,
+    pub(super) templates: crate::application::TemplateCatalog,
+    // Fixture composition only; production runtime cannot access the service container.
+    #[cfg(test)]
     pub(crate) application: Arc<crate::application::Services>,
     pub(super) signals: Signals,
 
@@ -67,12 +73,12 @@ impl SessionRuntime {
 
     /// Capture the session authorization lease before task work can outlive its requester.
     pub(crate) fn task_store(&self) -> crate::tasks::io::TaskIo {
-        self.application.tasks(boundary::task_io_guards())
+        self.tasks.access(boundary::task_io_guards())
     }
 
     /// Publish one event with encoding shared across subscribers.
     pub(crate) fn emit(&self, event: Event) {
-        self.application.emit(event);
+        self.events.emit(event);
     }
 }
 

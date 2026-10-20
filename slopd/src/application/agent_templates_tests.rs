@@ -69,6 +69,7 @@ async fn template_writes_compare_versions_and_preserve_rejected_drafts() {
 async fn failed_save_preserves_catalog_and_version_then_retry_survives_reload() {
     let fixture = super::super::test_support::Fixture::new();
     let catalog = &fixture.services.templates;
+    let reader = catalog.catalog();
     let original = catalog
         .create(template("reviewer", "original"))
         .await
@@ -82,13 +83,14 @@ async fn failed_save_preserves_catalog_and_version_then_retry_survives_reload() 
         .await
         .unwrap_err();
     assert!(error.downcast_ref::<TemplatePersistence>().is_some());
-    assert_eq!(catalog.list().await[0].description, "original");
-    assert_eq!(catalog.list().await[0].version, original.version);
+    assert_eq!(reader.list().await[0].description, "original");
+    assert_eq!(reader.list().await[0].version, original.version);
     drop(fault);
     let saved = catalog
         .replace("reviewer", original.version, edited)
         .await
         .unwrap();
+    assert_eq!(reader.list().await[0].version, saved.version);
     let reloaded = AgentTemplates::load(catalog.path.clone()).await.unwrap();
     assert_eq!(reloaded.list().await[0].description, "accepted on retry");
     assert_eq!(reloaded.list().await[0].version, saved.version);
@@ -98,6 +100,7 @@ async fn failed_save_preserves_catalog_and_version_then_retry_survives_reload() 
 async fn caller_cancellation_cannot_separate_catalog_commit_from_publication() {
     let fixture = super::super::test_support::Fixture::new();
     let catalog = &fixture.services.templates;
+    let reader = catalog.catalog();
     let template: AgentTemplate = serde_json::from_value(serde_json::json!({
         "name": "owned", "description": "Committed despite cancellation", "defaults": {}
     }))
@@ -110,7 +113,7 @@ async fn caller_cancellation_cannot_separate_catalog_commit_from_publication() {
         tokio::spawn(async move { services.templates.create(template).await })
     };
     reached.notified().await;
-    assert!(catalog.list().await.is_empty());
+    assert!(reader.list().await.is_empty());
     assert!(
         AgentTemplateStore::load(&catalog.path)
             .await
@@ -124,7 +127,7 @@ async fn caller_cancellation_cannot_separate_catalog_commit_from_publication() {
     // The mutation gate is held through publication by the detached owner.
     let _done = catalog.mutation.lock().await;
     assert_eq!(
-        catalog.list().await[0].description,
+        reader.list().await[0].description,
         "Committed despite cancellation"
     );
 }

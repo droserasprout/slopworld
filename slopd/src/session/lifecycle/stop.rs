@@ -208,7 +208,7 @@ impl SessionRuntime {
     }
 
     pub(in crate::session) fn clear_latest_title(&self, name: &str) {
-        self.application.title_cache.clear_latest(name);
+        self.title_cache.clear_latest(name);
     }
 }
 

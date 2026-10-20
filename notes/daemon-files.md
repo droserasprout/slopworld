@@ -21,7 +21,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `session/validation.rs` | Session name allocation and normalization. |
 | `prompt/` | Placeholder scanning and values for prompts and breadcrumbs. |
 | `application/session_edits.rs`, `session/sessions.rs` | Application coordinates configured edits, labels, deletion and private-state recovery; session supplies live facts and terminal handoffs. |
-| `session/runtime.rs` | `SessionRuntime` and its guards, configuration synchronization, session lifecycle, capture, task/session integration, workers. |
+| `session/runtime.rs` | `SessionRuntime` and its guards, configuration synchronization, session lifecycle, capture, task/session integration, workers. Startup supplies task-store, event-publisher, title-cache and read-only template handles; the production runtime does not retain the application service container. |
 | `application/projects.rs`, `session/identity.rs`, `session/worktrees.rs` | Application owns project operations, policy, publication and relocation coordination; session supplies guards, live identity references, and attachments. See [worktree ownership](daemon-worktrees.md). |
 | `application/workers.rs`, `session/workers.rs` | Application owns worker policy, checkout rollback, task creation and startup coordination; application commits durable records; session owns caller facts, identity reservation, temporary registration and lifecycle guards. |
 | `application/workspace_identity.rs` | Workspace identity reservation against records and retained caches; session supplies live references and retains operation guards through publication. |

@@ -42,6 +42,21 @@ pub(crate) fn test_manager_with_socket(
         config,
         crate::grant::Grants::default(),
     ));
+    let application = Arc::new(crate::application::Services::new(
+        crate::tasks::io::TaskStore::new(
+            crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
+        ),
+        Arc::new(crate::title::SummaryCache::load(
+            directory.join("summary-cache.toml"),
+        )),
+        tmux.clone(),
+        16,
+        crate::application::AgentTemplates::new(
+            AgentTemplateStore::default(),
+            directory.join("agent_templates"),
+        ),
+    ));
+    let services = application.session_services();
     let manager = Arc::new(SessionRuntime {
         frame_commit_pause: Mutex::new(None),
         scroll_capture_pause: Mutex::new(None),
@@ -64,20 +79,11 @@ pub(crate) fn test_manager_with_socket(
         activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
             &cfg_path,
         )),
-        application: Arc::new(crate::application::Services::new(
-            crate::tasks::io::TaskStore::new(
-                crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
-            ),
-            Arc::new(crate::title::SummaryCache::load(
-                directory.join("summary-cache.toml"),
-            )),
-            tmux,
-            16,
-            crate::application::AgentTemplates::new(
-                AgentTemplateStore::default(),
-                directory.join("agent_templates"),
-            ),
-        )),
+        tasks: services.tasks,
+        events: services.events,
+        title_cache: services.title_cache,
+        templates: services.templates,
+        application,
         session_boundary: Arc::new(tokio::sync::RwLock::new(())),
         terminal_boundaries: Mutex::new(HashMap::new()),
         terminal_resizes: Mutex::new(HashMap::new()),

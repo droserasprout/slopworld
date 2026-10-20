@@ -5,6 +5,24 @@ use crate::config::LibraryItemCfg;
 use crate::session::{ScreenView, SessionView};
 use std::sync::{Arc, OnceLock};
 
+/// Producers share one channel and one encoded message per publication.
+#[derive(Clone)]
+pub(crate) struct EventPublisher(tokio::sync::broadcast::Sender<Arc<EventMessage>>);
+
+impl EventPublisher {
+    pub(super) fn new(capacity: usize) -> Self {
+        Self(tokio::sync::broadcast::channel(capacity).0)
+    }
+
+    pub(super) fn subscribe(&self) -> tokio::sync::broadcast::Receiver<Arc<EventMessage>> {
+        self.0.subscribe()
+    }
+
+    pub(crate) fn emit(&self, event: Event) {
+        drop(self.0.send(EventMessage::new(event)));
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Event {
     Capabilities {

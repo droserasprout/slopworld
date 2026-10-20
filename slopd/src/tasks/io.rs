@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 /// Blocking workers own task-file access and retain this mutex through accepted
 /// publication. Test seeding uses the same blocking owner.
+#[derive(Clone)]
 pub(crate) struct TaskStore(Arc<std::sync::Mutex<crate::tasks::Tasks>>);
 
 impl TaskStore {

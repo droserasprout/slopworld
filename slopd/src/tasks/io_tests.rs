@@ -6,7 +6,8 @@ async fn cancelled_request_retains_supplied_lease_until_publication() {
     let store = TaskStore::load(root.clone()).await.unwrap();
     let boundary = Arc::new(tokio::sync::RwLock::new(()));
     let lease = boundary.clone().read_owned().await;
-    let operation = store.access(lease);
+    let runtime_store = store.clone();
+    let operation = runtime_store.access(lease);
     let (entered, reached) = tokio::sync::oneshot::channel();
     let (release, wait) = std::sync::mpsc::channel();
     let request = tokio::spawn(operation.run(move |tasks| {
@@ -26,6 +27,10 @@ async fn cancelled_request_retains_supplied_lease_until_publication() {
         .await
         .unwrap();
     let accepted = store.access(()).all_tasks_async().await.unwrap();
+    assert_eq!(
+        runtime_store.access(()).all_tasks_async().await.unwrap()[0].id,
+        accepted[0].id
+    );
     let reloaded = TaskStore::load(root.clone())
         .await
         .unwrap()

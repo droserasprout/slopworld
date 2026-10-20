@@ -81,7 +81,7 @@ impl SessionRuntime {
     pub(in crate::session) async fn upsert_sessions(&self, cfg: &Config) {
         let mut live = self.live.write().await;
         for s in &cfg.sessions {
-            let title = TitleCapture::restored(self.application.title_cache.latest(&s.name));
+            let title = TitleCapture::restored(self.title_cache.latest(&s.name));
             if let Some(row) = live.get_mut(&s.name) {
                 if identity_conflict(cfg, &s.name, row) {
                     tracing::error!("cannot reuse incompatible live identity for {}", s.name);

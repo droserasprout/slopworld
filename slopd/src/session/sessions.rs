@@ -198,9 +198,7 @@ impl SessionRuntime {
             let running = l.capture.emu.take().is_some();
             l.capture.reader_token = None;
             l.title.label_changed(false);
-            self.application
-                .title_cache
-                .rename_latest(old, new, l.title.title());
+            self.title_cache.rename_latest(old, new, l.title.title());
             l.cfg.name = new.to_string();
             live.insert(new.to_string(), l);
             (running, reader)

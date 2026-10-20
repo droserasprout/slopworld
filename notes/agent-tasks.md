@@ -34,7 +34,7 @@ notification limits to [discovery](agent-task-discovery.md), commands to
 [Backup and recovery](../docs/src/maintenance/backup-and-recovery.md).
 
 `tasks/io.rs` owns task startup reads and serialized disk operations. Application
-services hold the task store; the session adapter resolves participants and explicitly
+services and session runtime share cloned handles to one task store; the session adapter resolves participants and explicitly
 supplies the active authorization lease for each operation. The blocking worker
 retains that lease under the task-store mutex,
 so requester cancellation cannot release it before disk and accepted-state publication.

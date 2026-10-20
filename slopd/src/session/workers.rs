@@ -80,7 +80,7 @@ impl SessionRuntime {
             &self.worker_caller(caller).await,
             project,
             requested,
-            &self.application.templates.list().await,
+            &self.templates.list().await,
         )
     }
 }
