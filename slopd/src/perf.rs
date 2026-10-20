@@ -158,3 +158,7 @@ pub(crate) fn maybe_report() {
         tracing::info!(target: "slopd::perf", "{line}");
     }
 }
+
+#[cfg(test)]
+#[path = "perf_tests.rs"]
+mod tests;

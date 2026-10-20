@@ -638,7 +638,3 @@ impl Manager {
 #[cfg(test)]
 #[path = "sessions_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "removal_bench.rs"]
-mod removal_bench;

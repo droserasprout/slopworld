@@ -47,3 +47,7 @@ pub(crate) async fn clip_write_primary(Proto(q): Proto<wire::ClipReq>) -> ApiRes
         .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
     Ok(Proto(wire::Ack { ok: true }))
 }
+
+#[cfg(test)]
+#[path = "clipboard_tests.rs"]
+mod tests;
