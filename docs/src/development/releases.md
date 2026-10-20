@@ -1,7 +1,8 @@
 # Packaging and releases
 
-GitHub Actions tests, builds, attests, and publishes versioned releases without a
-RimWorld installation. The mod compiles against the pinned RimRef package.
+GitHub Actions tests, builds, attests, and publishes versioned releases.
+Waylith builds require installed RimWorld 1.7 assemblies; hosted packaging needs
+those assemblies provisioned on the build runner.
 Start with [Build from source](build.md) for the toolchain and checks.
 
 ## Versioned GitHub releases
@@ -90,7 +91,7 @@ still receive updates.
 packaging flow. It requires a clean tagged commit on `main` (or a detached tagged
 commit belonging to `main`), an x86_64 Linux build host, and Podman. Set
 `CONTAINER=docker` to use Docker. All native packages build in containers;
-RimRef supplies the mod references. Output goes to
+The installed game supplies the mod references. Output goes to
 `dist/{{#constant release_version}}/`; set `RELEASE_DIR` to override it.
 
 `just release-publish` also builds locally and publishes through your authenticated
@@ -103,8 +104,8 @@ tag to use the verifiable CI flow. Local commands never commit changes or move t
 
 These commands build a local package without publishing or installing it.
 Each needs the [build prerequisites](build.md#prerequisites) and its distribution's
-native packaging tools. Set `MANAGED=rimref` to compile without a game installation,
-or use the installed game's assemblies by default. Commit changes before
+native packaging tools. The installed game supplies compilation references; set `MANAGED` to select
+a separate assembly directory. Commit changes before
 packaging to record the source revision. `VERSION` overrides the build version.
 
 Build Debian/Ubuntu and Fedora packages on the oldest distribution release you
@@ -115,7 +116,7 @@ intend to support; their library requirements come from the build host.
 Install `base-devel` and `bubblewrap` on Arch, then run:
 
 ```sh
-just MANAGED=rimref package-arch
+just package-arch
 ```
 
 The package goes to `dist/arch/`; override with `ARCH_DIR`.
@@ -125,7 +126,7 @@ The package goes to `dist/arch/`; override with `ARCH_DIR`.
 Install `libasound2-dev` and `dpkg-dev` on Debian or Ubuntu, then run:
 
 ```sh
-just MANAGED=rimref package-debian
+just package-debian
 ```
 
 The package goes to `dist/debian/`; override with `DEB_DIR`.
@@ -135,7 +136,7 @@ The package goes to `dist/debian/`; override with `DEB_DIR`.
 Install `alsa-lib-devel`, `rpm-build`, and `redhat-rpm-config` on Fedora, then run:
 
 ```sh
-just MANAGED=rimref package-fedora
+just package-fedora
 ```
 
 The package goes to `dist/fedora/`; override with `RPM_DIR`.

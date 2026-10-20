@@ -234,9 +234,11 @@ namespace SlopWorld
                 )
                 && (AutoCommands?.Highlighter ?? "").StartsWith("batcat ", StringComparison.Ordinal)
             )
-                return command.Substring(0, command.Length - trimmed.Length)
-                    + "batcat"
-                    + trimmed.Substring(3);
+                return string.Concat(
+                    command.AsSpan(0, command.Length - trimmed.Length),
+                    "batcat",
+                    trimmed.AsSpan(3)
+                );
             return command;
         }
 

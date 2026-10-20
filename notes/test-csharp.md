@@ -34,7 +34,7 @@ Run coverage and binding checks sequentially. Both rebuild the same test output
 with different debug settings; concurrent builds can overwrite the instrumented
 assembly and produce empty coverage.
 
-`just check mod-build` also runs `GameBindings` against the installed game and built mod
+`just mod-check-build` also runs `GameBindings` against the installed game and built mod
 in an isolated assembly context. It resolves native text targets and field geometry,
 and applies the swapchain rewrite to the game's actual IL. It does not start the game
 or validate rendering. Keep this check separate from the game-free coverage denominator.

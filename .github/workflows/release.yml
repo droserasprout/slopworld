@@ -97,7 +97,7 @@ jobs:
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
         with:
           tool: mdbook@0.5.4
-      - name: Build archives and native packages with RimRef
+      - name: Build archives and native packages
         run: just release-ci-package "$MODE"
       - name: Attest exact release files
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4

@@ -106,7 +106,7 @@ def build(output: Path, release: gates.Release) -> None:
     # A fresh bundle prevents an old package or attestation from entering a new run.
     if output.exists() and any(output.iterdir()):
         raise ValueError('Release output must be empty; use a fresh directory.')
-    just = [os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={release.version}', 'MANAGED=rimref']
+    just = [os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={release.version}']
     validate(release)
     for recipes in (
         ('generate-check-protocol', 'generate-licenses', 'generate-check-licenses', 'docs-build'),

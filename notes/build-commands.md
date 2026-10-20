@@ -55,6 +55,8 @@ severities, and `global.json` pins the SDK.
 The mod and runtime-package staging project target .NET 10 for RimWorld 1.7.
 `RIMWORLD` defaults to the Steam installation; `MANAGED` defaults to the same root.
 The game supplies `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`.
+RimRef 1.6 cannot compile this target. Game-free CI runs formatting and tests;
+mod compilation and release packaging require installed 1.7 assemblies.
 Never ship game DLLs: keep `Private=false`. Debug and Release overwrite the same
 assembly path. See
 [C# tests](test-csharp.md) for game-free coverage and [IPC benchmarks](../bench/ipc/README.md)

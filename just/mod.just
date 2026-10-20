@@ -1,4 +1,4 @@
-# Build against game assemblies, or pass managed='rimref' for pinned stubs
+# Build against the selected game's assemblies
 [group('mod')]
 mod-build $managed='' $configuration='' $warnings='true': mod-check-themes mod-restore
     #!/usr/bin/env bash
@@ -7,14 +7,9 @@ mod-build $managed='' $configuration='' $warnings='true': mod-check-themes mod-r
     if [ -z "$version" ]; then version=$(uv run --locked python -m tools.version.mod_version); fi
     managed="${managed:-$MANAGED}"
     configuration="${configuration:-$BUILD}"
-    if [ "$managed" = rimref ]; then
-        references=(-p:UseRimRef=true)
-    else
-        if [[ "$managed" != /* ]]; then managed="$PWD/$managed"; fi
-        references=(-p:UseRimRef=false "-p:RimWorldManaged=$managed")
-    fi
+    if [[ "$managed" != /* ]]; then managed="$PWD/$managed"; fi
     if [ "$configuration" = release ]; then configuration=Release; else configuration=Debug; fi
-    dotnet build "mod/Source/SlopWorld/SlopWorld.csproj" --verbosity quiet --nologo --configuration "$configuration" "${references[@]}" -p:InformationalVersion="$version" -p:TreatWarningsAsErrors="$warnings" -p:RestoreLockedMode=true
+    dotnet build "mod/Source/SlopWorld/SlopWorld.csproj" --verbosity quiet --nologo --configuration "$configuration" -p:RimWorldManaged="$managed" -p:InformationalVersion="$version" -p:TreatWarningsAsErrors="$warnings" -p:RestoreLockedMode=true
 
 # Restore locked .NET 10 runtime packages
 [group('mod')]
@@ -46,10 +41,6 @@ mod-lint: mod-restore-tools
 [group('mod')]
 mod-check-build: (mod-build '' 'release' 'true')
     dotnet run --project mod/Tests/SlopWorld.Tests.csproj --configuration Release -p:RestoreLockedMode=true -- --game-bindings "$MANAGED" mod/Assemblies/SlopWorld.dll
-
-# Validate a game-free Release build with pinned RimRef references
-[group('mod')]
-mod-check-build-rimref: (mod-build 'rimref' 'release' 'true')
 
 # Run game-free C# tests
 [positional-arguments]

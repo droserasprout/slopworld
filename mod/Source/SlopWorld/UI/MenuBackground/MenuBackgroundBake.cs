@@ -19,11 +19,7 @@ namespace SlopWorld
         {
             string identity =
                 $"{MenuBackgroundSource.Identity(src)}-{src.width}x{src.height}-{preset.Name}{preset.Total}-{Tuning}-v{MenuBackgroundTuning.Version}";
-            using (var hash = SHA256.Create())
-                return BitConverter
-                    .ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(identity)))
-                    .Replace("-", "")
-                    .ToLowerInvariant();
+            return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
         }
 
         // Every number the pixels depend on, hashed in. Under Version alone, a tuning change

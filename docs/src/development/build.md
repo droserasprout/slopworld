@@ -58,7 +58,6 @@ To compile without installing, choose a target:
 | `just build` | Daemon, CLI, launcher, and mod |
 | `just daemon-build` | Daemon, CLI, and launcher |
 | `just mod-build` | C# mod against installed game assemblies |
-| `just mod-build rimref` | C# mod against pinned RimRef stubs; no game installation needed |
 | `just sidecar-build` | Host-side container launcher; requires neither the game nor protoc |
 
 Builds use Debug mode by default. Use `just BUILD=release build` for Release.

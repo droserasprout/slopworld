@@ -52,8 +52,6 @@ namespace Verse
             .Windowed;
         public static int Saves;
 
-        public static void Save() => Saves++;
-
         public static float UIScale = 1f;
         public static float VolumeMaster,
             VolumeGame,
@@ -62,7 +60,11 @@ namespace Verse
             VolumeUI;
         public static int AudioPreferenceSaves;
 
-        public static void Save() => AudioPreferenceSaves++;
+        public static void Save()
+        {
+            Saves++;
+            AudioPreferenceSaves++;
+        }
     }
 }
 

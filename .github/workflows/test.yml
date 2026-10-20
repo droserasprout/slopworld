@@ -192,10 +192,3 @@ jobs:
           name: coverage-mod
           path: coverage/csharp.cobertura.xml
           if-no-files-found: error
-
-      - name: Upload compiled mod
-        uses: actions/upload-artifact@v6
-        with:
-          name: mod-assembly
-          path: mod/Assemblies/SlopWorld.dll
-          if-no-files-found: error

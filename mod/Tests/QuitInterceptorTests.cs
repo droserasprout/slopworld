@@ -362,5 +362,4 @@ namespace SlopWorld
         public void Stop(string name, System.Action<string> fail, System.Action done) =>
             ExitStops.Add((name, fail, done));
     }
-
 }
