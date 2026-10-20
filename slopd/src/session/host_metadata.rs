@@ -1,8 +1,7 @@
-//! Host-shell records and observed tmux metadata, including serialized background polling.
-//! Lifecycle owns launch/adoption; config owns persistence; session_state schedules polls.
+//! Observed host paths and processes, stale-run rejection, and serialized tmux polling.
+//! Application HostRecords owns saved records; lifecycle owns launch/adoption.
 
 use super::*;
-use crate::session::config::ConfigMutation;
 use std::collections::HashMap;
 use std::future::Future;
 
@@ -25,39 +24,6 @@ pub(crate) struct HostMetadataPoll {
 }
 
 impl SessionRuntime {
-    pub(super) async fn remember_host_terminal(
-        self: &Arc<Self>,
-        name: &str,
-        project: &str,
-        path: &str,
-    ) -> Result<()> {
-        self.configuration()
-            .update_cfg(ConfigMutation::HostShells, |cfg| {
-                if cfg.session(name).is_some() {
-                    bail!("host terminal {name} conflicts with an agent session");
-                }
-                if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
-                    tab.project = project.to_string();
-                    tab.path = path.to_string();
-                } else {
-                    let id = crate::storage_id::allocate(|id| {
-                        Ok(cfg.host_terminals.iter().any(|tab| tab.id == id))
-                    })?;
-                    cfg.host_terminals.push(crate::config::HostTerminalCfg {
-                        id,
-                        name: name.to_string(),
-                        label: None,
-                        project: project.to_string(),
-                        path: path.to_string(),
-                        autostart: true,
-                    });
-                }
-                Ok(())
-            })
-            .await?;
-        Ok(())
-    }
-
     pub(super) async fn remember_host_path(self: &Arc<Self>, name: &str, path: &str) -> bool {
         self.remember_host_path_inner(name, None, path, true).await
     }
@@ -106,23 +72,8 @@ impl SessionRuntime {
                 .unwrap_or(false)
         };
 
-        let (project, cfg_changed) = match self
-            .configuration()
-            .update_cfg_if_changed(ConfigMutation::HostShells, |cfg| {
-                let mut changed = false;
-                let mut project = None;
-                if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
-                    project = Some(tab.project.clone());
-                    if tab.path != path {
-                        tab.path = path.to_string();
-                        changed = true;
-                    }
-                }
-                Ok(((project, changed), changed))
-            })
-            .await
-        {
-            Ok(result) => result,
+        let (project, cfg_changed) = match self.host_records.remember_path(self, name, path).await {
+            Ok(saved) => (saved.project, saved.changed),
             Err(error) => {
                 tracing::warn!("could not persist host path for {name}: {error:#}");
                 (None, false)

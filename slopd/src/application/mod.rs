@@ -113,3 +113,7 @@ pub(crate) use music_operations::MusicOperations;
 
 mod session_edits;
 pub(crate) use session_edits::SessionEdits;
+
+mod config_runtime;
+mod host_records;
+pub(crate) use host_records::HostRecords;

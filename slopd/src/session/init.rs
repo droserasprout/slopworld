@@ -11,6 +11,7 @@ impl SessionRuntime {
         application: Arc<crate::application::Services>,
         tmux: Tmux,
         config_authority: Arc<crate::application::ConfigAuthority>,
+        host_records: crate::application::HostRecords,
     ) -> Result<Arc<Self>> {
         let activity_cache = crate::activity::ActivityCache::load(crate::activity::cache_path(
             workspace.settings_path(),
@@ -27,6 +28,7 @@ impl SessionRuntime {
             input_sink: Mutex::new(None),
             #[cfg(test)]
             _test_directory: None,
+            host_records,
             tmux,
             workspace,
             live: RwLock::new(HashMap::new()),

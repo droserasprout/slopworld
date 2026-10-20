@@ -34,6 +34,14 @@ pub(crate) fn test_manager_with_socket(
     );
     let tmux = Tmux::new(socket);
     let library_snapshot = config.library_items_all();
+    let workspace = Arc::new(crate::application::Workspace::from_transactions(
+        configuration,
+        cfg_path.with_extension("endpoint.toml"),
+    ));
+    let config_authority = Arc::new(crate::application::ConfigAuthority::new(
+        config,
+        crate::grant::Grants::default(),
+    ));
     let manager = Arc::new(SessionRuntime {
         frame_commit_pause: Mutex::new(None),
         scroll_capture_pause: Mutex::new(None),
@@ -41,14 +49,12 @@ pub(crate) fn test_manager_with_socket(
         input_sink: Mutex::new(None),
         _test_directory: Some(TestDirectory(directory.clone())),
         tmux: tmux.clone(),
-        workspace: Arc::new(crate::application::Workspace::from_transactions(
-            configuration,
-            cfg_path.with_extension("endpoint.toml"),
-        )),
-        config_authority: Arc::new(crate::application::ConfigAuthority::new(
-            config,
-            crate::grant::Grants::default(),
-        )),
+        host_records: crate::application::HostRecords::new(
+            workspace.clone(),
+            config_authority.clone(),
+        ),
+        workspace,
+        config_authority,
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
         host_metadata: HostMetadataPoll::default(),

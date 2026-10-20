@@ -15,8 +15,15 @@ pub(crate) async fn start_sessions(
         .library
         .seed(authority.read_config().await.library_items_all());
     let workspace = Arc::new(super::Workspace::new(storage, crate::endpoint::path()));
-    let manager =
-        SessionRuntime::new(workspace.clone(), services.clone(), tmux, authority.clone()).await?;
+    let host_records = super::HostRecords::new(workspace.clone(), authority.clone());
+    let manager = SessionRuntime::new(
+        workspace.clone(),
+        services.clone(),
+        tmux,
+        authority.clone(),
+        host_records,
+    )
+    .await?;
     let application = super::Application {
         sessions: manager.clone(),
         workspace,

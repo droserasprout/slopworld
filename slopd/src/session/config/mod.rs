@@ -1,11 +1,13 @@
 //! Live configuration reads and invalidation; application coordinates edits and reloads.
 use super::*;
+#[cfg(test)]
 pub(super) use crate::config::transactions::ConfigMutation;
 
 impl SessionRuntime {
     pub async fn config(&self) -> Config {
         self.config_authority.read_config().await.clone()
     }
+    #[cfg(test)]
     pub(crate) fn configuration(self: &Arc<Self>) -> crate::application::Configuration {
         crate::application::Configuration::from_parts(
             self.clone(),

@@ -1,9 +1,7 @@
 //! Configuration edits, catalog reload and publication coordination.
 //! Transactions own persistence; sessions retain live validation, invalidation and leases.
 use super::{Application, ConfigAuthority, LibraryMutation, LibraryRuntime, Services, Workspace};
-use crate::config::transactions::{
-    ConfigChange, ConfigMutation, PreparedConfigChange, SettingsEdit,
-};
+use crate::config::transactions::{ConfigMutation, PreparedConfigChange, SettingsEdit};
 use crate::config::{Config, patch::json_to_toml};
 use crate::session::SessionRuntime;
 use anyhow::Result;
@@ -40,29 +38,14 @@ impl Configuration {
         }
     }
 }
-impl crate::config::transactions::Runtime for Configuration {
-    async fn snapshot(&self) -> Config {
-        self.config().await
-    }
-    async fn validate(&self, old: &Config, new: &Config) -> Result<()> {
-        self.sessions.validate_worktree_config(old, new).await
-    }
-    fn worktrees(&self) -> crate::worktrees::Store {
-        self.workspace.configuration.records.worktrees()
-    }
-    async fn publish(&self, change: ConfigChange) -> String {
-        self.sessions
-            .invalidate_replaced_sessions(&change.new)
-            .await;
-        let token = Box::pin(self.config_authority.publish_config(change)).await;
-        self.sessions.maintenance_wake().notify_waiters();
-        token
-    }
-    async fn update_endpoint(&self, token: &str) {
-        self.workspace.update_endpoint(token).await;
-    }
-}
 impl Configuration {
+    fn runtime(&self) -> super::config_runtime::ConfigRuntime {
+        super::config_runtime::ConfigRuntime::new(
+            self.sessions.clone(),
+            self.workspace.clone(),
+            self.config_authority.clone(),
+        )
+    }
     pub(crate) async fn config(&self) -> Config {
         self.config_authority.read_config().await.clone()
     }
@@ -96,7 +79,7 @@ impl Configuration {
     ) -> Result<(T, Option<PreparedConfigChange>)> {
         self.workspace
             .configuration
-            .prepare(self, mutation, update)
+            .prepare(&self.runtime(), mutation, update)
             .await
     }
     pub(crate) async fn commit_prepared_cfg(&self, prepared: PreparedConfigChange) -> Result<()> {
@@ -106,7 +89,7 @@ impl Configuration {
                 manager
                     .workspace
                     .configuration
-                    .commit(&manager, prepared)
+                    .commit(&manager.runtime(), prepared)
                     .await
             }))
             .await
@@ -123,7 +106,7 @@ impl Configuration {
                 manager
                     .workspace
                     .configuration
-                    .commit_project_relocation(&manager, prepared, &store)
+                    .commit_project_relocation(&manager.runtime(), prepared, &store)
                     .await
             }))
             .await
@@ -143,7 +126,7 @@ impl Configuration {
                 manager
                     .workspace
                     .configuration
-                    .edit_settings(&manager, edit)
+                    .edit_settings(&manager.runtime(), edit)
                     .await?;
                 manager.finish_config_change().await;
                 Ok(())
@@ -157,7 +140,12 @@ impl Configuration {
         let manager = self.clone();
         self.sessions
             .owned_session_operation(async move {
-                if !manager.workspace.configuration.reload(&manager).await {
+                if !manager
+                    .workspace
+                    .configuration
+                    .reload(&manager.runtime())
+                    .await
+                {
                     return false;
                 }
                 manager

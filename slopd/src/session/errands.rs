@@ -89,7 +89,8 @@ impl SessionRuntime {
                             .map(|project| crate::config::expand(&project.dir))
                             .unwrap_or_default();
                         drop(live);
-                        self.remember_host_terminal(&name, &preparation.project_name, &path)
+                        self.host_records
+                            .remember(self, &name, &preparation.project_name, &path)
                             .await?;
                     }
                     return Ok(name);
@@ -166,7 +167,8 @@ impl SessionRuntime {
             .as_ref()
             .map(|project| crate::config::expand(&project.dir))
             .ok_or_else(|| anyhow!("Project {:?} does not exist.", preparation.project_name))?;
-        self.remember_host_terminal(name, &preparation.project_name, &path)
+        self.host_records
+            .remember(self, name, &preparation.project_name, &path)
             .await
     }
 

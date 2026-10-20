@@ -93,7 +93,8 @@ async fn manager_routes_rename_label_and_directory_updates_without_touching_othe
     assert_eq!(row.label.as_deref(), Some("new label"));
     let agent_bytes = tokio::fs::read(&agent).await.unwrap();
     f.manager
-        .remember_host_terminal("shell", "repo", "/new")
+        .host_records
+        .remember(&f.manager, "shell", "repo", "/new")
         .await
         .unwrap();
     assert_eq!(f.manager.config().await.host_terminals[0].path, "/new");
@@ -306,7 +307,8 @@ async fn record_mode_does_not_poll_or_accept_external_workspace_changes() {
     assert!(!f.manager.configuration().reload_if_changed().await);
     assert_eq!(f.manager.config().await.sessions[0].name, "agent");
     f.manager
-        .remember_host_terminal("shell", "repo", "/accepted")
+        .host_records
+        .remember(&f.manager, "shell", "repo", "/accepted")
         .await
         .unwrap();
     assert_eq!(

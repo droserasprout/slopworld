@@ -18,6 +18,8 @@ pub struct SessionRuntime {
     // Accepted configuration and auth publish together; configuration owns transactions.
     pub(crate) config_authority: Arc<crate::application::ConfigAuthority>,
 
+    pub(super) host_records: crate::application::HostRecords,
+
     // Live sessions, terminal capture, and activity.
     pub tmux: Tmux,
     // Includes stopped sessions as well as attached processes.

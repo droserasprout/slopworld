@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::config::ConfigMutation;
 use crate::session::{AgentLifetime, SessionRole};
 
 async fn finish_poll(manager: &SessionRuntime) {
@@ -183,7 +184,8 @@ pub(in crate::session) async fn metadata_fixture() -> Arc<SessionRuntime> {
         .await
         .unwrap();
     manager
-        .remember_host_terminal("shell", "repo", "/old")
+        .host_records
+        .remember(&manager, "shell", "repo", "/old")
         .await
         .unwrap();
     for (name, host) in [("shell", true), ("agent", false)] {
@@ -288,71 +290,6 @@ async fn current_host_metadata_persists_path_and_updates_foreground_process() {
 }
 
 #[tokio::test]
-async fn host_creation_serializes_identity_and_failed_save_does_not_publish() {
-    let manager = metadata_fixture().await;
-    let (one, two) = tokio::join!(
-        manager.remember_host_terminal("one", "repo", "/one"),
-        manager.remember_host_terminal("two", "repo", "/two"),
-    );
-    one.unwrap();
-    two.unwrap();
-    let cfg = manager.config().await;
-    let ids: std::collections::HashSet<_> = cfg.host_terminals.iter().map(|tab| &tab.id).collect();
-    assert_eq!(ids.len(), 3);
-    assert!(ids.iter().all(|id| crate::storage_id::valid(id)));
-    let before = std::fs::read(manager.cfg_path()).unwrap();
-    let directory = manager
-        .cfg_path()
-        .parent()
-        .unwrap()
-        .join("data/host_shells");
-    let backup = directory.with_extension("saved");
-    std::fs::rename(&directory, &backup).unwrap();
-    std::fs::write(&directory, "blocked").unwrap();
-    manager
-        .remember_host_terminal("failed", "repo", "/failed")
-        .await
-        .unwrap_err();
-    assert_eq!(manager.config().await.host_terminals.len(), 3);
-    assert_eq!(std::fs::read(manager.cfg_path()).unwrap(), before);
-    std::fs::remove_file(&directory).unwrap();
-    std::fs::rename(&backup, &directory).unwrap();
-    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
-}
-
-#[tokio::test]
-async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
-    let manager = metadata_fixture().await;
-    let id = manager.config().await.host_terminals[0].id.clone();
-    assert!(crate::storage_id::valid(&id));
-    manager
-        .edits()
-        .set_label("shell", "  My shell  ".into())
-        .await
-        .unwrap();
-    manager
-        .remember_host_terminal("shell", "repo", "/new")
-        .await
-        .unwrap();
-    let cfg = manager.config().await;
-    assert_eq!(cfg.host_terminals.len(), 1);
-    assert_eq!(cfg.host_terminals[0].id, id);
-    assert_eq!(cfg.host_terminals[0].label.as_deref(), Some("My shell"));
-    assert_eq!(cfg.host_terminals[0].path, "/new");
-    assert!(cfg.host_terminals[0].autostart);
-    assert!(
-        manager
-            .remember_host_terminal("agent", "repo", "/collision")
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("conflicts")
-    );
-    assert_eq!(manager.config().await.host_terminals.len(), 1);
-    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
-}
-
-#[tokio::test]
 async fn record_backend_host_metadata_keeps_run_checks_and_targets_one_shell() {
     let manager = metadata_fixture().await;
     let binding = manager.workspace.configuration.records.binding.clone();
@@ -388,4 +325,45 @@ async fn record_backend_host_metadata_keeps_run_checks_and_targets_one_shell() {
     );
     assert_eq!(manager.config().await.host_terminals[0].path, "/new");
     std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
+}
+
+#[tokio::test]
+async fn failed_path_save_retries_even_when_live_path_already_matches() {
+    let manager = metadata_fixture().await;
+    let directory = manager
+        .cfg_path()
+        .parent()
+        .unwrap()
+        .join("data/host_shells");
+    let backup = directory.with_extension("saved");
+    std::fs::rename(&directory, &backup).unwrap();
+    std::fs::write(&directory, "blocked").unwrap();
+    assert!(
+        manager
+            .remember_host_path_for_run("shell", 17, "/retry")
+            .await
+    );
+    assert_eq!(manager.live.read().await["shell"].host_path, "/retry");
+    assert_eq!(manager.config().await.host_terminals[0].path, "/old");
+    std::fs::remove_file(&directory).unwrap();
+    std::fs::rename(&backup, &directory).unwrap();
+    assert!(
+        manager
+            .remember_host_path_for_run("shell", 17, "/retry")
+            .await
+    );
+    assert_eq!(manager.config().await.host_terminals[0].path, "/retry");
+    assert_eq!(
+        Config::load(manager.cfg_path())
+            .await
+            .unwrap()
+            .host_terminals[0]
+            .path,
+        "/retry"
+    );
+    assert!(
+        !manager
+            .remember_host_path_for_run("shell", 17, "/retry")
+            .await
+    );
 }

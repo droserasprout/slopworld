@@ -19,8 +19,12 @@ only when autostart is enabled. Otherwise, the tab returns as a stopped row.
 Periodic working-directory polling updates saved tabs so their next launch uses
 the last observed path.
 
-`session/host_metadata.rs` owns host-shell record edits, observed working
-directories and foreground processes, and serialized background metadata polling.
+`application/host_records.rs` owns saved host-shell registration and path edits.
+It shares guarded transaction validation and publication with `Configuration` through
+`application/config_runtime.rs`, and retains no session runtime between operations.
+`session/host_metadata.rs` owns observed working directories and foreground processes,
+and serialized background metadata polling. Failed saves leave accepted records
+unchanged; later observations retry even when the live path already matches.
 `session_state.rs` schedules polls; tmux inspection runs outside the session boundary,
 and applying its result rechecks run identity under that boundary.
 
