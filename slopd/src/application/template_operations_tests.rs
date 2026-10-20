@@ -190,3 +190,47 @@ async fn an_instantiated_template_can_still_be_edited_without_live_dependencies(
     assert!(!session.sandbox_snapshots.is_empty());
     drop(std::fs::remove_dir_all(root));
 }
+
+#[tokio::test]
+async fn rejected_template_capture_leaves_catalog_unchanged() {
+    let root =
+        std::env::temp_dir().join(format!("slopd-template-rejected-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let app = crate::application::test_application(Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: root.to_string_lossy().into_owned(),
+            ..Default::default()
+        }],
+        sessions: vec![
+            SessionCfg {
+                name: "worker".into(),
+                project: "repo".into(),
+                worker: true,
+                ..Default::default()
+            },
+            SessionCfg {
+                name: "unavailable".into(),
+                project: "repo".into(),
+                command: "missing-command-for-capture-test".into(),
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    });
+    let operations = crate::application::TemplateOperations::new(&app);
+    for (source, expected) in [
+        ("worker", "task-owned worker"),
+        ("unavailable", "is unavailable"),
+        ("missing", "no configured agent"),
+    ] {
+        let error = operations
+            .capture_agent_template(source, "rejected".into(), String::new())
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains(expected), "{error:#}");
+        assert!(app.services.templates.list().await.is_empty());
+    }
+    assert!(!AgentTemplateStore::path_for(app.workspace.settings_path()).exists());
+    std::fs::remove_dir_all(root).unwrap();
+}

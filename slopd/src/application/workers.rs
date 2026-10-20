@@ -300,7 +300,7 @@ impl Workers {
     /// Abandoned allocation rolls back; once startup begins its owned operation finishes
     /// commit or failure cleanup even if the requesting transport disappears.
     pub(crate) async fn create_worker(&self, request: WorkerRequest) -> Result<WorkerSpawn> {
-        self.sessions
+        self.configuration()
             .session_request(self.create_worker_inner(request))
             .await
     }

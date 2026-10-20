@@ -1,23 +1,32 @@
-//! Adapt music's host-terminal operations to the session lifecycle.
-//! The music service owns playback state, transition locks, recovery, and ncspot IPC.
-use super::SessionRuntime;
-use crate::application::launch::Launches;
+//! Coordinate playback requests and adapt host lifecycle to music's player service.
+use super::{Application, launch::Launches};
 use crate::config::LibraryItemKind;
 use crate::session::{
     ExecutionSource, HostLifetime, LaunchContent, LaunchDestination, LaunchOptions, LaunchRequest,
+    SessionRuntime,
 };
 use anyhow::Result;
 use std::sync::Arc;
 
-impl crate::music::HostSessions for Arc<SessionRuntime> {
+pub(crate) struct MusicOperations<'a> {
+    sessions: Arc<SessionRuntime>,
+    launches: Launches,
+    music: &'a crate::music::Music,
+}
+
+impl<'a> MusicOperations<'a> {
+    pub(crate) fn new(application: &'a Application) -> Self {
+        Self {
+            sessions: application.sessions.clone(),
+            launches: Launches::new(application),
+            music: &application.services.music,
+        }
+    }
+}
+
+impl crate::music::HostSessions for MusicOperations<'_> {
     async fn host_sessions(&self) -> Vec<String> {
-        self.live
-            .read()
-            .await
-            .iter()
-            .filter(|(_, live)| live.role.is_host())
-            .map(|(name, _)| name.clone())
-            .collect()
+        self.sessions.host_sessions().await
     }
 
     async fn launch(
@@ -26,7 +35,7 @@ impl crate::music::HostSessions for Arc<SessionRuntime> {
         cols: Option<u16>,
         rows: Option<u16>,
     ) -> Result<String> {
-        Launches::from_parts(self.clone(), self.configuration())
+        self.launches
             .run_launch(LaunchRequest {
                 content: LaunchContent {
                     name: "Spotify".into(),
@@ -46,27 +55,27 @@ impl crate::music::HostSessions for Arc<SessionRuntime> {
     }
 
     async fn stop(&self, name: &str) -> Result<()> {
-        SessionRuntime::stop(self, name).await
+        self.sessions.stop(name).await
     }
 }
 
-impl SessionRuntime {
+impl MusicOperations<'_> {
     pub(crate) async fn open_spotify(
-        self: &Arc<Self>,
+        &self,
         cols: Option<u16>,
         rows: Option<u16>,
     ) -> Result<String> {
-        self.application.music.open_spotify(self, cols, rows).await
+        self.music.open_spotify(self, cols, rows).await
     }
 
     pub(crate) async fn select_music(
-        self: &Arc<Self>,
+        &self,
         req: crate::music::AudioReq,
     ) -> Option<crate::audio::AudioState> {
-        self.application.music.select(self, req).await
+        self.music.select(self, req).await
     }
 }
 
 #[cfg(test)]
-#[path = "music_tests.rs"]
+#[path = "music_operations_tests.rs"]
 mod tests;

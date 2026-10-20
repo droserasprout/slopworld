@@ -27,8 +27,7 @@ pub(crate) async fn ncspot(
     State(m): State<App>,
     super::super::protobuf::Proto(q): super::super::protobuf::Proto<wire::RedrawReq>,
 ) -> ApiResult<wire::SessionResult> {
-    let session = m
-        .sessions
+    let session = crate::application::MusicOperations::new(&m)
         .open_spotify(
             q.cols
                 .map(|n| u16::try_from(n.clamp(1, u32::from(u16::MAX))).unwrap_or(u16::MAX)),

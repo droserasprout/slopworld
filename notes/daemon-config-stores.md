@@ -84,3 +84,11 @@ Public read-model contracts belong to [the API](../docs/src/reference/api.md);
 draft/save behavior to [Settings](ui-settings.md); protected filesystem boundaries
 to [sandbox isolation](sandbox-isolation.md).
 `config/commands.rs` resolves Auto reader tools using the daemon's PATH.
+
+
+Application configuration owns request admission: exclusive requests reload under
+the session write guard before authorization; shared requests check for stale
+configuration before acquiring the read guard. Session boundaries own only the
+guard and admitted-request scope. Owned asynchronous work carries that scope so
+nested operations retain the configuration against which they were authorized.
+Application maintenance receives configuration operations explicitly.

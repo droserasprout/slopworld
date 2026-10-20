@@ -1,6 +1,6 @@
 //! Daemon catalog polling and combined application/session maintenance scheduling.
 use super::catalogs::Catalog;
-use super::{Event, Services};
+use super::{Configuration, Event, Services};
 use crate::{clock::unix_ms, session::SessionRuntime};
 use std::{sync::Arc, time::Duration};
 
@@ -8,6 +8,7 @@ impl Services {
     pub(crate) fn spawn_maintenance(
         self: &Arc<Self>,
         sessions: Arc<SessionRuntime>,
+        configuration: Configuration,
     ) -> tokio::task::JoinHandle<()> {
         let services = self.clone();
         tokio::spawn(async move {
@@ -15,17 +16,17 @@ impl Services {
                 let delay = services.maintenance_delay(&sessions).await;
                 let wake = sessions.maintenance_wake();
                 tokio::select! {
-                    () = tokio::time::sleep(delay) => services.maintain(&sessions).await,
+                    () = tokio::time::sleep(delay) => services.maintain(&sessions, &configuration).await,
                     () = wake.notified() => {}
                 }
             }
         })
     }
 
-    pub(crate) async fn reload_if_due(&self, sessions: &Arc<SessionRuntime>) {
+    async fn reload_if_due(&self, sessions: &Arc<SessionRuntime>, configuration: &Configuration) {
         let now = unix_ms();
         if self.catalogs.claim(Catalog::Config, now) {
-            sessions.configuration().reload_if_changed().await;
+            configuration.reload_if_changed().await;
         }
         if self.catalogs.claim(Catalog::Presets, now) {
             self.reload_presets_if_changed(sessions).await;
@@ -69,8 +70,8 @@ impl Services {
         Duration::from_millis(self.catalogs.deadline(now).saturating_sub(now))
             .min(sessions.maintenance_delay().await)
     }
-    pub(crate) async fn maintain(&self, sessions: &Arc<SessionRuntime>) {
-        self.reload_if_due(sessions).await;
+    async fn maintain(&self, sessions: &Arc<SessionRuntime>, configuration: &Configuration) {
+        self.reload_if_due(sessions, configuration).await;
         sessions.retick().await;
     }
 }

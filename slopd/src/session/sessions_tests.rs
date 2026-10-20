@@ -783,6 +783,7 @@ async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_re
         let manager = manager.clone();
         async move {
             manager
+                .configuration()
                 .session_request(manager.update("old", replacement("renamed")))
                 .await
         }
@@ -803,6 +804,7 @@ async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_re
     drop(boundary);
     drop(fault);
     manager
+        .configuration()
         .session_request(manager.update("old", replacement("renamed")))
         .await
         .unwrap();

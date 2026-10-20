@@ -9,6 +9,16 @@ use anyhow::anyhow;
 const MAX_MANUAL_LABEL_CHARS: usize = 60;
 
 impl SessionRuntime {
+    pub(crate) async fn host_sessions(&self) -> Vec<String> {
+        self.live
+            .read()
+            .await
+            .iter()
+            .filter(|(_, live)| live.role.is_host())
+            .map(|(name, _)| name.clone())
+            .collect()
+    }
+
     /// Return a sanitized launch report for an authorized diagnostic request.
     /// The sandbox module owns artifact parsing and process observation.
     /// API and CLI callers use this shared path to apply the same safeguards.

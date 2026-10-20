@@ -26,9 +26,9 @@ before changing players and holds one transition guard through the change and it
 reply. The ncspot player guard spans IPC polling and applied-volume persistence,
 so stop or reopen cannot reuse the socket during a poll. Session integration is
 limited to listing host terminals, launching a disposable host terminal, and
-stopping it; the manager retains lifecycle guards and cleanup. Startup recovers
-music after session adoption. Startup constructs the shared music service and injects
-application services into the session manager. `application/music.rs` polls combined player state every
+stopping it. Application `music_operations.rs` owns the host adapter and launch
+policy; the session runtime retains lifecycle guards and cleanup. Startup recovers
+music through that adapter after session adoption. `application/music.rs` polls combined player state every
 500 ms and publishes only changes. Tmux markers identify managed players and preserve
 applied volume across daemon restarts.
 

@@ -57,7 +57,8 @@ async fn shared_request_keeps_scoped_capability_valid_until_it_finishes() {
     replacement.sessions[0].state_id = crate::storage_id::draft_identity();
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
     let (started, started_wait) = tokio::sync::oneshot::channel();
-    let request = manager.session_read_request(async {
+    let configuration = manager.configuration();
+    let request = configuration.session_read_request(async {
         assert!(manager.cap_ok(&cap, "agent", Level::Rw).await);
         started.send(()).unwrap();
         wait.await.unwrap();
@@ -111,7 +112,8 @@ async fn replacement_waits_for_authorized_use_and_then_rejects_the_old_capabilit
         replacement.sessions[1].state_id = crate::storage_id::draft_identity();
         let (release, wait) = tokio::sync::oneshot::channel();
         let (checked, check_done) = tokio::sync::oneshot::channel();
-        let request = manager.session_request(async {
+        let configuration = manager.configuration();
+        let request = configuration.session_request(async {
             assert!(manager.cap_ok(&cap, "target", level).await);
             checked.send(()).unwrap();
             wait.await.unwrap();
@@ -202,6 +204,7 @@ fn named_locks_reuse_live_entries_and_prune_expired_names() {
 async fn owned_operations_keep_the_authorized_request_context() {
     let manager = crate::session::test_manager(Config::default());
     manager
+        .configuration()
         .session_request(async {
             let current = manager.clone();
             manager
@@ -213,6 +216,7 @@ async fn owned_operations_keep_the_authorized_request_context() {
         })
         .await;
     manager
+        .configuration()
         .session_read_request(async {
             let current = manager.clone();
             manager

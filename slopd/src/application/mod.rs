@@ -107,3 +107,6 @@ mod test_support;
 
 mod template_operations;
 pub(crate) use template_operations::TemplateOperations;
+
+mod music_operations;
+pub(crate) use music_operations::MusicOperations;

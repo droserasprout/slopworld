@@ -187,9 +187,13 @@ async fn bounded_request(m: App, req: Request, next: Next, shared: bool) -> Resp
         next.run(req).await
     };
     if shared {
-        m.sessions.session_read_request(operation).await
+        crate::application::Configuration::new(&m)
+            .session_read_request(operation)
+            .await
     } else {
-        m.sessions.session_request(operation).await
+        crate::application::Configuration::new(&m)
+            .session_request(operation)
+            .await
     }
 }
 

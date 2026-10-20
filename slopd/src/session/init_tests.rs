@@ -1,4 +1,5 @@
 use super::*;
+use crate::application::MusicOperations;
 
 #[tokio::test]
 async fn initialization_retains_loaded_records_and_prunes_credentials_after_reconciliation() {
@@ -83,7 +84,8 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     .unwrap();
     assert!(Arc::ptr_eq(&manager.services, &application));
     assert!(Arc::ptr_eq(&manager.config_authority, &authority));
-    application.music.recover(&manager.sessions).await;
+    let music = MusicOperations::new(&manager);
+    application.music.recover(&music).await;
 
     assert_reconciled_sessions_and_grants(&manager.sessions, &cfg, &kept, &stale).await;
 

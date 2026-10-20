@@ -75,21 +75,10 @@ impl SessionRuntime {
             .unwrap_or(false)
     }
 
-    /// Reload before authorization. Defer further disk reloads until the request completes.
-    pub(crate) async fn session_request<F: Future>(self: &Arc<Self>, request: F) -> F::Output {
-        self.session_operation(async {
-            self.configuration().reload_if_changed().await;
-            REQUEST.scope(Arc::as_ptr(self) as usize, request).await
-        })
-        .await
-    }
-
-    /// Read operations hold identity and revocation stable while remaining concurrent with
-    /// terminal input and worktree Git work. Reload before taking the shared guard.
-    pub(crate) async fn session_read_request<F: Future>(self: &Arc<Self>, request: F) -> F::Output {
-        self.configuration().reload_if_stale().await;
-        self.session_read_operation(REQUEST.scope(Arc::as_ptr(self) as usize, request))
-            .await
+    /// Mark an admitted request so nested operations preserve its accepted configuration.
+    /// Application reloads before entering this scope and retains the appropriate guard.
+    pub(crate) async fn admitted_request<F: Future>(&self, request: F) -> F::Output {
+        REQUEST.scope(self as *const Self as usize, request).await
     }
 
     pub(crate) async fn session_read_operation<'a, F: Future + 'a>(

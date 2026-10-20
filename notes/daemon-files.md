@@ -43,7 +43,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `git/` | Git inspection and restricted command execution; see [Git boundary](daemon-git.md). |
 | `worktrees/` | Independent worktree records, bounded Git operations, checkout validation/removal policy, and uncommitted directory guards. See [worktree ownership](daemon-worktrees.md). |
 | `tasks.rs`, `tasks/`, `grant.rs` | Mailbox model, indexed policy and persistence adapters; `tasks/io.rs` owns blocking startup and serialized I/O with explicit caller leases; scoped authority. |
-| `music/` | Playback selection, catalog resolution, recovery, and serialized source transitions. `ncspot.rs` owns managed-player state and bounded IPC; `session/music.rs` adapts host-terminal lifecycle through `HostSessions`. |
+| `music/` | Playback selection, catalog resolution, recovery, and serialized source transitions. `ncspot.rs` owns managed-player state and bounded IPC; `application/music_operations.rs` adapts host-terminal lifecycle through `HostSessions` and coordinates playback requests. |
 | `audio/`, `jukebox.rs` | Decoded playback and station catalog storage. `tmux/ncspot.rs` owns managed-player and applied-volume markers. See [jukebox](mod-jukebox.md). |
 | `usage/` | Provider polling laps and quota normalization. Accepts daemon settings and returns a snapshot plus the next delay; application owns the background loop and retained readout. |
 | `bin/` | Launcher, installer, and `slopctl` CLI. |

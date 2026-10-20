@@ -129,12 +129,16 @@ async fn main() -> Result<()> {
     )
     .await?;
     // Player recovery needs adopted host terminals, before polling or serving requests.
-    services.music.recover(&m.sessions).await;
+    services
+        .music
+        .recover(&application::MusicOperations::new(&m))
+        .await;
 
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;
 
-    let poller = services.spawn_maintenance(m.sessions.clone());
+    let poller =
+        services.spawn_maintenance(m.sessions.clone(), application::Configuration::new(&m));
 
     // Spawn even when disabled so polling can be enabled without a restart.
     let usage = services.spawn_usage_poll(config_authority.daemon_settings());

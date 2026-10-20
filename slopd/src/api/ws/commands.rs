@@ -238,5 +238,7 @@ pub(super) async fn handle_audio(
     if !cap.may_create() {
         return None;
     }
-    m.sessions.select_music(req).await
+    crate::application::MusicOperations::new(m)
+        .select_music(req)
+        .await
 }

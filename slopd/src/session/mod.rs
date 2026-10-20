@@ -34,7 +34,6 @@ mod identity;
 mod init;
 mod lifecycle;
 mod maintenance;
-mod music;
 #[cfg(test)]
 #[path = "projects_tests.rs"]
 mod project_operation_tests;

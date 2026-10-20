@@ -220,14 +220,16 @@ async fn allocation_failure_returns_inside_the_worker_request_boundary() {
     let manager = crate::session::test_manager(crate::config::Config::default());
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(2),
-        manager.session_request(NewWorktree::allocate(
-            manager.clone(),
-            Worktrees::new(&crate::application::Application::from_runtime(&manager)),
-            crate::application::worktrees::WorktreeRequest {
-                project: "missing".into(),
-                ..Default::default()
-            },
-        )),
+        manager
+            .configuration()
+            .session_request(NewWorktree::allocate(
+                manager.clone(),
+                Worktrees::new(&crate::application::Application::from_runtime(&manager)),
+                crate::application::worktrees::WorktreeRequest {
+                    project: "missing".into(),
+                    ..Default::default()
+                },
+            )),
     )
     .await
     .expect("allocation must not wait for its own request boundary");
@@ -327,7 +329,7 @@ async fn allocation_and_rollback_complete_inside_the_worker_request_boundary() {
     let (manager, root, _) = allocation_fixture();
     tokio::time::timeout(
         std::time::Duration::from_secs(10),
-        manager.session_request(async {
+        manager.configuration().session_request(async {
             let (id, mut owned) = NewWorktree::allocate(
                 manager.clone(),
                 Worktrees::new(&crate::application::Application::from_runtime(&manager)),
@@ -361,6 +363,7 @@ async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
         crate::worktrees::project_root(&manager.config().await.projects[0]).join("canceled");
     let mut events = manager.application.subscribe();
     manager
+        .configuration()
         .session_request(async {
             let allocation = NewWorktree::allocate(
                 manager.clone(),

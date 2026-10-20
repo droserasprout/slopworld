@@ -196,3 +196,30 @@ impl LibraryRuntime for Configuration {
         super::projects::publish(&self.config_authority, &self.services).await;
     }
 }
+
+impl Configuration {
+    /// Reload under the exclusive identity guard before authorization.
+    pub(crate) async fn session_request<F: std::future::Future>(&self, request: F) -> F::Output {
+        self.sessions
+            .session_operation(async {
+                self.reload_if_changed().await;
+                self.sessions.admitted_request(request).await
+            })
+            .await
+    }
+
+    /// Read admission refreshes configuration before acquiring the shared identity guard.
+    pub(crate) async fn session_read_request<F: std::future::Future>(
+        &self,
+        request: F,
+    ) -> F::Output {
+        self.reload_if_stale().await;
+        self.sessions
+            .session_read_operation(self.sessions.admitted_request(request))
+            .await
+    }
+}
+
+#[cfg(test)]
+#[path = "configuration_tests.rs"]
+mod tests;

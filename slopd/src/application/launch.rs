@@ -17,15 +17,6 @@ pub(crate) struct Launches {
 }
 
 impl Launches {
-    pub(crate) fn from_parts(
-        sessions: Arc<SessionRuntime>,
-        configuration: super::Configuration,
-    ) -> Self {
-        Self {
-            sessions,
-            configuration,
-        }
-    }
     pub(crate) fn new(application: &super::Application) -> Self {
         Self {
             configuration: super::Configuration::new(application),
