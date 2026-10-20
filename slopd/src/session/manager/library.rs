@@ -6,13 +6,6 @@ use crate::session::manager::config::ConfigMutation;
 
 use crate::application::{LibraryMutation, LibraryRuntime};
 
-pub(super) fn routed_action_label(name: &str) -> Option<String> {
-    ["view-", "search-", "link-", "edit-", "diff-"]
-        .iter()
-        .any(|prefix| name.starts_with(prefix))
-        .then(|| name.to_string())
-}
-
 impl Manager {
     pub async fn library(&self) -> Vec<LibraryItemCfg> {
         self.application.library(self.config().await).await
@@ -100,7 +93,7 @@ impl Manager {
         sc: &LaunchContent,
         want: &LaunchOptions,
     ) {
-        let text = render_prompt(&sc.text, &want.random_tips);
+        let text = crate::application::launch::prepare_prompt(sc, want);
         if text.trim().is_empty() {
             return;
         }

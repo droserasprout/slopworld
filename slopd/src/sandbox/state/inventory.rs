@@ -57,7 +57,7 @@ pub(crate) fn stored_entry(
 
 /// Return the state inventory for the settings UI.
 /// State without a configured state ID is orphaned state. Listing never removes storage;
-/// the manager coordinates expired-trash cleanup before a measured inventory.
+/// application::stored_state coordinates expired-trash cleanup before a measured inventory.
 pub(crate) fn stored_states(sessions: &[SessionCfg], measure_sizes: bool) -> Vec<StoredState> {
     let root = state_root();
     let mut out = Vec::new();

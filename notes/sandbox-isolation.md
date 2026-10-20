@@ -2,7 +2,9 @@
 
 Source paths below are relative to `slopd/src/`. `sandbox/bind/` owns launch/mount
 construction; `sandbox/paths.rs` owns guards; `sandbox/state/` owns private storage
-and inventory; `sandbox/seed.rs` owns initialization; `sandbox/network.rs` owns DNS.
+and inventory. `application/stored_state.rs` coordinates inventory, trash cleanup,
+and deletion using accepted configuration; session retains guarded reset/restore and
+live reconciliation. `sandbox/seed.rs` owns initialization; `sandbox/network.rs` owns DNS.
 Presets select access, while [grants](agent-grants.md) independently select API authority.
 
 Bubblewrap retains the daemon's numeric UID/GID inside its user namespace so

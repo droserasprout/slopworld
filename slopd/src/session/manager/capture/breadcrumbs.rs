@@ -1,4 +1,5 @@
-//! Render explicitly selected library breadcrumbs for paste without submission.
+//! Resolve live context and admit explicitly selected breadcrumbs without submission.
+//! Application library owns lookup and rendering.
 //! Terminal admission and delivery remain in input.rs.
 
 use super::*;
@@ -21,19 +22,13 @@ impl Manager {
             .project_for(&cfg, &s)
             .await
             .ok_or_else(|| anyhow!("session {name} has no configured project"))?;
-        let b = cfg
-            .library_item(breadcrumb)
-            .filter(|b| b.kind == LibraryItemKind::Breadcrumb)
-            .ok_or_else(|| anyhow!("no such breadcrumb: {breadcrumb}"))?;
-        let command = cfg.command_of(&s);
-        let directory = expand(&p.dir);
-        let vars = PromptVars {
-            agent: &s.name,
-            project: &p.name,
-            directory: &directory,
-            command: &command,
-        };
-        let text = render_prompt_with(&b.text, &random_tips, Some(&vars));
+        let text = crate::application::library::prepare_breadcrumb(
+            &cfg,
+            &s,
+            &p,
+            breadcrumb,
+            &random_tips,
+        )?;
         drop(cfg);
         self.ensure_paste_ready(name).await?;
         self.queue_paste(name, text.into_bytes()).await;

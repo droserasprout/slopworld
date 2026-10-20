@@ -216,6 +216,17 @@ pub(crate) fn plan_library_launch(
     library_launch(item, want)
 }
 
+pub(crate) fn routed_action_label(name: &str) -> Option<String> {
+    ["view-", "search-", "link-", "edit-", "diff-"]
+        .iter()
+        .any(|prefix| name.starts_with(prefix))
+        .then(|| name.to_string())
+}
+
+pub(crate) fn prepare_prompt(content: &LaunchContent, options: &LaunchOptions) -> String {
+    crate::prompt::render_prompt(&content.text, &options.random_tips)
+}
+
 #[cfg(test)]
 #[path = "launch_tests.rs"]
 mod tests;

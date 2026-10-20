@@ -1,6 +1,8 @@
-//! Temporary and host errand session construction.
+//! Temporary and host errand allocation and live construction.
+//! Application errands owns configuration and display policy; this owner retains guards.
 
 use super::super::*;
+use crate::application::errands::ErrandSourceSettings;
 use anyhow::anyhow;
 
 struct ErrandSessionPreparation {
@@ -13,15 +15,6 @@ struct ErrandSessionPreparation {
     source_settings: Option<ErrandSourceSettings>,
 }
 
-struct ErrandSourceSettings {
-    sandbox: Vec<String>,
-    sandbox_snapshots: Vec<crate::presets::SandboxPreset>,
-    persistent_tmp: bool,
-    network: crate::config::NetworkMode,
-    dns: crate::config::DnsConfig,
-    limits: crate::config::Limits,
-}
-
 struct ErrandLiveRequest<'a> {
     cfg: &'a Config,
     item: &'a LaunchContent,
@@ -30,34 +23,10 @@ struct ErrandLiveRequest<'a> {
     role: SessionRole,
 }
 
-fn capture_errand_source_settings(
-    cfg: &Config,
-    preparation: &mut ErrandSessionPreparation,
-) -> Result<()> {
-    let Some(source) = &preparation.source else {
-        return Ok(());
-    };
-    let project = cfg
-        .project(&source.project)
-        .context("source agent project is unavailable")?;
-    let table = source.preset_table();
-    preparation.source_settings = Some(ErrandSourceSettings {
-        sandbox: cfg.sandbox_of(source, project),
-        sandbox_snapshots: crate::sandbox::presets_for(cfg, source, project, &table)?
-            .into_iter()
-            .cloned()
-            .collect(),
-        persistent_tmp: source.persistent_tmp,
-        network: source.network,
-        dns: source.dns.clone(),
-        limits: source.limits,
-    });
-    Ok(())
-}
-
 impl Manager {
     /// Reserve an errand's live row before startup.
-    /// Manage name allocation, temporary project creation, host-tab storage, and optional copying of agent settings here.
+    /// Own name allocation, temporary project creation, and host-tab storage.
+    /// Capture application-prepared agent settings inside the session boundary.
     /// Callers control launch and input delivery.
     pub(super) async fn create_errand_session(
         self: &Arc<Self>,
@@ -129,7 +98,8 @@ impl Manager {
             }
         }
 
-        capture_errand_source_settings(cfg, &mut preparation)?;
+        preparation.source_settings =
+            crate::application::errands::capture_source_settings(cfg, preparation.source.as_ref())?;
         if persistent_host {
             self.remember_errand_host_terminal(&name, &preparation)
                 .await?;
@@ -223,58 +193,15 @@ impl Manager {
             preparation.project_name.clone()
         };
 
-        let mut base = request.cfg.session_for_command(
-            request.item.kind,
-            request.item.command.as_deref(),
-            request.name.to_owned(),
-            project.clone(),
+        let (session, context) = crate::application::errands::build_session(
+            request.cfg,
+            request.item,
+            request.location,
+            request.name,
+            project,
+            preparation.template.take(),
+            preparation.source_settings.take(),
         );
-        base.worktree = preparation.selected_worktree.clone();
-        let mut session = if let Some(template) = preparation.template.take() {
-            let mut session = template.instantiate(request.name.to_owned(), project);
-            // A shell errand or explicit command keeps its own executable while retaining the
-            // template's sandbox additions, snapshots, network/DNS and limits.
-            if request.item.kind == LibraryItemKind::Shell
-                || request
-                    .item
-                    .command
-                    .as_deref()
-                    .is_some_and(|cmd| !cmd.trim().is_empty())
-            {
-                session.sandbox = request.cfg.sandbox_of(&session, &ProjectCfg::default());
-                session.command = base.command;
-                session.cmd = base.cmd;
-                session.command_snapshot = None;
-            }
-            session
-        } else {
-            base
-        };
-        session.autostart = false;
-        session.auto_resume = false;
-        // Session name normalization replaces a file extension's dot with a dash for tmux.
-        // Preserve the original tab label in temporary session metadata.
-        // The client can then display the exact filename supplied by Files.
-        session.label = super::library::routed_action_label(&request.item.name);
-        let mut context = LaunchContext::default();
-        if !request.location.context.intent.is_empty() {
-            // The action is explicit metadata. Keep the display label human-readable.
-            let display = ["view-", "search-", "link-", "edit-", "diff-"]
-                .iter()
-                .find_map(|prefix| request.item.name.strip_prefix(prefix))
-                .unwrap_or(&request.item.name);
-            session.label = Some(display.to_string());
-            context = request.location.context.clone();
-            context.original_label = display.to_string();
-        }
-        if let Some(source) = preparation.source_settings {
-            session.sandbox = source.sandbox;
-            session.sandbox_snapshots = source.sandbox_snapshots;
-            session.persistent_tmp = source.persistent_tmp;
-            session.network = source.network;
-            session.dns = source.dns;
-            session.limits = source.limits;
-        }
         let mut state = Live::new(session, TitleCapture::default());
         state.launch = context;
         // less can retain blank leading rows when SIGWINCH arrives during LESSOPEN.

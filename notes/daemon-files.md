@@ -21,6 +21,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `prompt/` | Placeholder scanning and values for prompts and breadcrumbs. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task/session integration, workers. |
 | `application/projects.rs`, `session/manager/projects.rs` | Application owns project policy and relocation coordination; session supplies guards, identity allocation, attachments, and transaction adapters. See [worktree ownership](daemon-worktrees.md). |
+| `application/errands.rs`, `application/stored_state.rs` | Errand configuration/display policy and stored-state administration. Session retains allocation, guarded reset/restore, and live reconciliation. |
 | `application/launch.rs`, `session/manager/launch.rs` | Application resolves explicit and saved-library launch policy; session owns guarded execution. API owns explicit request decoding; saved library entries and music use the same resolved launch request. |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |
 | `session/manager/delivery.rs` | Run-bound delayed prompt submission, readiness, and auto-resume. Callers compose prompts; capture owns queued input execution. |

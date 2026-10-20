@@ -138,3 +138,20 @@ async fn invalid_reader_intent_is_rejected_before_file_preparation() {
     );
     assert_eq!(runtime.calls.load(std::sync::atomic::Ordering::Relaxed), 0);
 }
+
+#[test]
+fn routed_action_labels_keep_their_original_filename() {
+    assert_eq!(
+        routed_action_label("edit-README.md").as_deref(),
+        Some("edit-README.md")
+    );
+    assert_eq!(
+        routed_action_label("search-src/main.rs").as_deref(),
+        Some("search-src/main.rs")
+    );
+    assert_eq!(
+        routed_action_label("link-guide.md").as_deref(),
+        Some("link-guide.md")
+    );
+    assert_eq!(routed_action_label("terminal-README.md"), None);
+}

@@ -45,7 +45,6 @@ use crate::config::check_belongs;
 use crate::config::check_project;
 use crate::config::patch::json_to_toml;
 use crate::emu::strip_sgr;
-use crate::prompt::{PromptVars, render_prompt, render_prompt_with};
 pub(crate) use input::Input;
 use input::merge_input;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
@@ -56,8 +55,7 @@ use validation::{check_name, free_name, free_project_name, settle, slug};
 use input::INPUT_BATCH;
 
 use crate::config::{
-    Config, LibraryItemCfg, LibraryItemKind, NetworkMode, ProjectCfg, SessionCfg, TitlePolicy,
-    expand,
+    Config, LibraryItemCfg, NetworkMode, ProjectCfg, SessionCfg, TitlePolicy, expand,
 };
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;
@@ -179,4 +177,4 @@ impl Live {
 mod tests;
 
 #[cfg(test)]
-use crate::config::LibraryItemLink;
+use crate::config::{LibraryItemKind, LibraryItemLink};

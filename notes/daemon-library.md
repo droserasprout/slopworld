@@ -11,6 +11,10 @@ snapshots, and publication. Session adapters supply guarded commits and launches
 and explicit launch policy into the common request in `session/launch.rs`. Explicit
 request decoding belongs to `api/types.rs`; guarded execution belongs to
 `session/manager/launch.rs`, and live construction to `errands.rs`.
+`application/errands.rs` owns copied source settings, executable precedence, and
+display-label policy; validation still precedes runtime allocation under session guards.
+`application/library.rs` prepares breadcrumb text from resolved session/project context;
+capture owns paste admission and input ordering. Application launch prepares errand prompts.
 The file-command adapter refreshes configuration before resolving action scope;
 planning does not allocate a session or change startup/cleanup guard ownership.
 File-action scope coordination belongs to `application/file_actions.rs`.

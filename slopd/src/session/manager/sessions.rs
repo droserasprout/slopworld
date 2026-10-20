@@ -543,39 +543,15 @@ impl Manager {
         &self,
         measure_sizes: bool,
     ) -> Result<Vec<crate::sandbox::StoredState>> {
-        let cfg = self.config().await;
-        tokio::task::spawn_blocking(move || {
-            // Quick inventory skips expired-tree deletion as well as recursive accounting.
-            if measure_sizes && let Err(e) = crate::sandbox::purge_trash() {
-                tracing::warn!("purging private-state trash before inventory: {e:#}");
-            }
-            let mut entries = crate::sandbox::stored_states(&cfg.sessions, measure_sizes);
-            entries.extend(crate::sandbox::cache::inventory(
-                &cfg.projects,
-                measure_sizes,
-            ));
-            entries
-        })
-        .await
-        .map_err(|e| anyhow!("scanning private state: {e}"))
+        crate::application::stored_state::stored_states(self.config().await, measure_sizes).await
     }
 
     pub async fn empty_trash(&self) -> Result<()> {
-        tokio::task::spawn_blocking(crate::sandbox::empty_trash)
-            .await
-            .map_err(|e| anyhow!("emptying private-state trash: {e}"))??;
-        Ok(())
+        crate::application::stored_state::empty_trash().await
     }
 
     pub async fn delete_stored_state(&self, kind: &str, key: &str) -> Result<()> {
-        let sessions = self.config().await.sessions;
-        let kind = kind.to_string();
-        let key = key.to_string();
-        tokio::task::spawn_blocking(move || {
-            crate::sandbox::delete_stored_state(&kind, &key, &sessions)
-        })
-        .await
-        .map_err(|e| anyhow!("deleting private state: {e}"))?
+        crate::application::stored_state::delete_stored_state(self.config().await, kind, key).await
     }
 
     pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
