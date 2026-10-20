@@ -32,7 +32,7 @@ mod manager;
 mod prompt;
 mod role;
 pub(crate) use manager::TemplatePersistence;
-pub(crate) use manager::WorktreeRequest;
+pub(crate) use manager::{WorkerCheckout, WorkerRequest, WorktreeRequest};
 use role::{AgentLifetime, SessionRole};
 
 #[cfg(test)]
@@ -88,14 +88,6 @@ crate::wire_enum!(State, {
 pub(crate) enum AuthChange {
     GrantsRevoked,
     RootTokenChanged,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Ready {
-    Settled,
-    // Startup continues in the background. Only Gone cancels queued typing.
-    Timeout,
-    Gone,
 }
 
 /// Mutable runtime state for one session, owned by Manager.

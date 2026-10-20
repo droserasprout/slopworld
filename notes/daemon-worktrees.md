@@ -12,7 +12,8 @@ a host terminal cannot own a worker.
 
 Worker allocation owns the newly created checkout and its rollback guard together,
 including cancellation before the allocation returns. Its owned work inherits the
-worker HTTP request's exclusive session boundary and authorization context.
+worker coordinator's exclusive session boundary and request context.
+`session/manager/workers.rs` owns this allocation and rollback handoff.
 Worktree creation retains its shared session boundary and worktree mutation guard
 in owned work through completion or rollback. Accepted projects already have durable
 IDs; worktree creation reads them without a configuration transaction. Configuration

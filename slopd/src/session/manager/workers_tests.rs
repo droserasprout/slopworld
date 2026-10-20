@@ -467,3 +467,519 @@ async fn unusable_worker_templates_fail_before_creating_mailbox_records() {
         assert!(manager.live.read().await.is_empty());
     }
 }
+
+#[tokio::test]
+async fn allocation_failure_returns_inside_the_worker_request_boundary() {
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        manager.session_request(NewWorktree::allocate(
+            manager.clone(),
+            crate::session::WorktreeRequest {
+                project: "missing".into(),
+                ..Default::default()
+            },
+        )),
+    )
+    .await
+    .expect("allocation must not wait for its own request boundary");
+    let error = result
+        .err()
+        .expect("missing project must reject allocation");
+    assert!(error.to_string().contains("no project missing"));
+}
+
+#[tokio::test]
+async fn cancelled_worker_request_cleans_up_its_unattached_new_worktree() {
+    let project_id = crate::storage_id::draft_identity();
+    let manager = crate::session::test_manager(crate::config::Config {
+        projects: vec![crate::config::ProjectCfg {
+            id: project_id.clone(),
+            name: "repo".into(),
+            dir: std::env::temp_dir().to_string_lossy().into_owned(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    manager
+        .save_worktrees(&crate::worktrees::Store {
+            worktrees: vec![crate::worktrees::Worktree {
+                id: "1111111111111111".into(),
+                name: "new-tree".into(),
+                path: "/tmp/new-tree".into(),
+                repository: "/tmp/.git".into(),
+                project_id,
+                phase: crate::worktrees::WorktreePhase::Ready,
+                ..Default::default()
+            }],
+        })
+        .await
+        .unwrap();
+    drop(NewWorktree {
+        manager: manager.clone(),
+        project: "repo".into(),
+        id: Some("1111111111111111".into()),
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            if manager.worktree_records().worktrees.is_empty() {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("canceled request left an unattached worktree registered");
+}
+fn allocation_fixture() -> (Arc<Manager>, std::path::PathBuf, std::path::PathBuf) {
+    let root = std::env::temp_dir().join(format!("slopd-regression-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let main = root.join("repo");
+    std::fs::create_dir(&main).unwrap();
+    for args in [
+        vec!["init", "-q"],
+        vec![
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "initial",
+        ],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .arg("-C")
+                .arg(&main)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let project = crate::config::ProjectCfg {
+        id: crate::storage_id::draft_identity(),
+        name: "repo".into(),
+        dir: main.to_string_lossy().into(),
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(crate::config::Config {
+        projects: vec![project],
+        ..Default::default()
+    });
+    (manager, root, main)
+}
+
+#[tokio::test]
+async fn allocation_and_rollback_complete_inside_the_worker_request_boundary() {
+    let (manager, root, _) = allocation_fixture();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        manager.session_request(async {
+            let (id, mut owned) = NewWorktree::allocate(
+                manager.clone(),
+                crate::session::WorktreeRequest {
+                    project: "repo".into(),
+                    name: "allocated".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+            let worktrees = manager.worktree_records();
+            assert_eq!(worktrees.worktrees.len(), 1);
+            let checkout = &worktrees.worktrees[0];
+            assert_eq!(checkout.id, id);
+            assert!(std::path::Path::new(&checkout.path).is_dir());
+            owned.rollback().await;
+            assert!(manager.worktree_records().worktrees.is_empty());
+            assert!(!std::path::Path::new(&checkout.path).exists());
+        }),
+    )
+    .await
+    .expect("allocation must inherit the worker request boundary");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
+    let (manager, root, main) = allocation_fixture();
+    let checkout =
+        crate::worktrees::project_root(&manager.config().await.projects[0]).join("canceled");
+    let mut events = manager.events.subscribe();
+    manager
+        .session_request(async {
+            let allocation = NewWorktree::allocate(
+                manager.clone(),
+                crate::session::WorktreeRequest {
+                    project: "repo".into(),
+                    name: "canceled".into(),
+                    ..Default::default()
+                },
+            );
+            let mut allocation = Box::pin(allocation);
+            assert!(futures::poll!(allocation.as_mut()).is_pending());
+            // The owned task has inherited this request's boundary. Cancel before yielding
+            // to it so allocation and rollback must finish after the handler disappears.
+            drop(allocation);
+        })
+        .await;
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        // Creation publishes a project snapshot before dropping its abandoned result.
+        loop {
+            if matches!(
+                events.recv().await.unwrap().event(),
+                crate::session::Event::Projects { .. }
+            ) {
+                break;
+            }
+        }
+        while !manager.worktree_records().worktrees.is_empty() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("abandoned allocation must finish rollback");
+    assert!(!checkout.exists());
+    let listed = crate::worktrees::git(&main, &["worktree", "list", "--porcelain"])
+        .await
+        .unwrap();
+    assert!(!listed.contains(checkout.to_str().unwrap()));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn new_checkout_preflight_rejects_invalid_workers_without_allocating() {
+    let (manager, root, main) = allocation_fixture();
+    let mut selected = template("review");
+    selected.defaults.network = Some(NetworkMode::None);
+    manager.templates.store.write().await.templates = vec![selected];
+    for (body, selected, expected) in [
+        (" ", "review", "task text cannot be empty"),
+        ("work", "missing", "no such agent template"),
+        ("work", "review", "disables networking"),
+    ] {
+        let error = manager
+            .create_worker(WorkerRequest {
+                caller: crate::tasks::HOST.into(),
+                project: "repo".into(),
+                template: selected.into(),
+                body: body.into(),
+                durable: false,
+                checkout: WorkerCheckout::New {
+                    base: String::new(),
+                    name: "unallocated".into(),
+                },
+            })
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains(expected), "{error:#}");
+        assert!(manager.worktree_records().worktrees.is_empty());
+        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(manager.config().await.sessions.is_empty());
+        assert!(manager.live.read().await.is_empty());
+    }
+    let listed = crate::worktrees::git(&main, &["worktree", "list", "--porcelain"])
+        .await
+        .unwrap();
+    assert!(!listed.contains("unallocated"));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+// Keep real persistence, Git, tmux and reader attachment. Replace only the final
+// sandbox executable so these orchestration tests need no agent or nested sandbox.
+fn isolated_worker_runtime() -> Option<PathBuf> {
+    crate::test_support::isolated_with_env(|command, root| {
+        use std::os::unix::fs::PermissionsExt;
+        let bin = root.join("bin");
+        std::fs::create_dir(&bin).unwrap();
+        let executable = bin.join("bwrap");
+        std::fs::write(
+            &executable,
+            "#!/bin/sh\nfor arg do\n  if [ \"$arg\" = /usr/bin/git ]; then exec /usr/bin/bwrap \"$@\"; fi\ndone\nprintf '\\033[?2004hready> '\nexec /bin/sleep 60\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut paths = vec![bin];
+        paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+        command.env("PATH", std::env::join_paths(paths).unwrap());
+    })
+}
+
+async fn worker_runtime_fixture() -> (Arc<Manager>, PathBuf) {
+    let (manager, root, _) = allocation_fixture();
+    let mut selected = template("review");
+    selected.defaults.network = Some(NetworkMode::Host);
+    selected.defaults.limits = Limits::default();
+    selected.defaults.cmd = Some("/bin/sleep 60".into());
+    selected.defaults.persistent_tmp = Some(false);
+    manager.templates.store.write().await.templates = vec![selected];
+    manager
+        .cfg
+        .write()
+        .await
+        .daemon
+        .instructions
+        .worker_prompt
+        .clear();
+    (manager, root)
+}
+
+fn worker_request(durable: bool, checkout: WorkerCheckout) -> WorkerRequest {
+    WorkerRequest {
+        caller: crate::tasks::HOST.into(),
+        project: "repo".into(),
+        template: "review".into(),
+        body: "inspect the build".into(),
+        durable,
+        checkout,
+    }
+}
+
+fn new_worker_checkout() -> WorkerCheckout {
+    WorkerCheckout::New {
+        base: String::new(),
+        name: "worker-checkout".into(),
+    }
+}
+
+#[tokio::test]
+async fn worker_creation_commits_task_session_and_checkout_before_returning() {
+    let Some(_) = isolated_worker_runtime() else {
+        return;
+    };
+    for durable in [false, true] {
+        let (manager, root) = worker_runtime_fixture().await;
+        let existing = manager
+            .create_worktree(WorktreeRequest {
+                project: "repo".into(),
+                name: "existing".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        for checkout in [
+            WorkerCheckout::Existing(existing.id.clone()),
+            new_worker_checkout(),
+        ] {
+            let spawned = manager
+                .create_worker(worker_request(durable, checkout))
+                .await
+                .unwrap();
+            let tasks = manager.tasks.all_tasks_async().await.unwrap();
+            let task = tasks
+                .iter()
+                .find(|task| task.id == spawned.task.id)
+                .unwrap();
+            assert_eq!(task.status, crate::tasks::Status::Queued);
+            assert_eq!(task.body, "inspect the build");
+            assert_eq!(task.worker.as_ref().unwrap().durable, durable);
+            assert_eq!(task.worker.as_ref().unwrap().parent, crate::tasks::HOST);
+            let session = manager.session_cfg(&spawned.session).await.unwrap();
+            assert_eq!(session.task_id, task.id);
+            assert!(session.worker);
+            assert!(!session.autostart && !session.auto_resume);
+            assert!(!session.state_id.is_empty());
+            assert!(manager.tmux.exists(&spawned.session).await);
+            assert!(
+                manager.live.read().await[&spawned.session]
+                    .capture
+                    .reader
+                    .is_some()
+            );
+            let persisted = Config::load(&manager.cfg_path).await.unwrap();
+            assert_eq!(persisted.session(&spawned.session).is_some(), durable);
+            if durable {
+                assert_eq!(
+                    persisted.session(&spawned.session).unwrap().state_id,
+                    session.state_id
+                );
+            }
+            let records = manager.worktree_records();
+            let selected = records
+                .worktrees
+                .iter()
+                .find(|tree| tree.id == session.worktree)
+                .unwrap();
+            assert!(Path::new(&selected.path).is_dir());
+            manager.stop(&spawned.session).await.unwrap();
+            assert!(
+                manager
+                    .worktree_records()
+                    .worktrees
+                    .iter()
+                    .any(|tree| tree.id == selected.id)
+            );
+            assert!(
+                Path::new(&selected.path).is_dir(),
+                "worker cleanup must preserve checkout"
+            );
+        }
+        assert_eq!(manager.worktree_records().worktrees.len(), 2);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn worker_start_failure_retains_only_durable_session_and_its_new_checkout() {
+    let Some(_) = isolated_worker_runtime() else {
+        return;
+    };
+    for durable in [false, true] {
+        let (manager, root) = worker_runtime_fixture().await;
+        let reached = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        *manager.reader_attach_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+        let owner = manager.clone();
+        let operation = tokio::spawn(async move {
+            owner
+                .create_worker(worker_request(durable, new_worker_checkout()))
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(10), reached.notified())
+            .await
+            .unwrap();
+        let task = manager
+            .tasks
+            .all_tasks_async()
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(task.status, crate::tasks::Status::Queued);
+        let checkout = manager.worktree_records().worktrees[0].clone();
+        manager.tmux.kill(&task.to).await.unwrap();
+        release.notify_one();
+        let error = tokio::time::timeout(Duration::from_secs(10), operation)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap_err();
+        assert!(format!("{error:#}").contains("reader"), "{error:#}");
+        let task = manager
+            .tasks
+            .all_tasks_async()
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(task.status, crate::tasks::Status::Failed);
+        assert_eq!(manager.config().await.session(&task.to).is_some(), durable);
+        assert_eq!(manager.live.read().await.contains_key(&task.to), durable);
+        assert_eq!(
+            manager.worktree_records().worktrees.len(),
+            usize::from(durable)
+        );
+        assert_eq!(Path::new(&checkout.path).exists(), durable);
+        assert!(!manager.tmux.exists(&task.to).await);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn cancelled_worker_start_finishes_commit_and_preserves_attached_checkout() {
+    let Some(_) = isolated_worker_runtime() else {
+        return;
+    };
+    let (manager, root) = worker_runtime_fixture().await;
+    let reached = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    *manager.reader_attach_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+    let owner = manager.clone();
+    let operation = tokio::spawn(async move {
+        owner
+            .create_worker(worker_request(true, new_worker_checkout()))
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(10), reached.notified())
+        .await
+        .unwrap();
+    operation.abort();
+    assert!(operation.await.unwrap_err().is_cancelled());
+    manager.session_boundary.try_write().unwrap_err();
+    release.notify_one();
+    tokio::time::timeout(Duration::from_secs(10), manager.session_operation(async {}))
+        .await
+        .unwrap();
+    let task = manager
+        .tasks
+        .all_tasks_async()
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert_eq!(task.status, crate::tasks::Status::Queued);
+    assert!(manager.tmux.exists(&task.to).await);
+    let checkout = manager.worktree_records().worktrees[0].clone();
+    assert!(Path::new(&checkout.path).is_dir());
+    assert_eq!(
+        manager.config().await.session(&task.to).unwrap().worktree,
+        checkout.id
+    );
+    manager.stop(&task.to).await.unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
+    let Some(_) = isolated_worker_runtime() else {
+        return;
+    };
+    let (manager, root) = worker_runtime_fixture().await;
+    // Pause after allocation but before task/agent publication, while preserving
+    // the coordinator's accepted configuration and request context.
+    let spawn_guard = manager.worker_spawn.lock().await;
+    let mut events = manager.events.subscribe();
+    let owner = manager.clone();
+    let operation = tokio::spawn(async move {
+        owner
+            .create_worker(worker_request(true, new_worker_checkout()))
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if matches!(events.recv().await.unwrap().event(), Event::Projects { .. }) {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    // Removing write access fails publication but still permits identity inventory.
+    use std::os::unix::fs::PermissionsExt;
+    let agents = manager.configuration.records.binding.data.join("agents");
+    std::fs::create_dir_all(&agents).unwrap();
+    std::fs::set_permissions(&agents, std::fs::Permissions::from_mode(0o500)).unwrap();
+    drop(spawn_guard);
+    let error = tokio::time::timeout(Duration::from_secs(10), operation)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert!(!error.to_string().is_empty());
+    let task = manager
+        .tasks
+        .all_tasks_async()
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert_eq!(task.status, crate::tasks::Status::Failed);
+    assert!(
+        task.note
+            .as_deref()
+            .unwrap()
+            .contains("could not persist worker session")
+    );
+    assert!(manager.config().await.sessions.is_empty());
+    assert!(manager.live.read().await.is_empty());
+    assert!(manager.worktree_records().worktrees.is_empty());
+    let checkout =
+        crate::worktrees::project_root(&manager.config().await.projects[0]).join("worker-checkout");
+    assert!(!checkout.exists());
+    std::fs::set_permissions(&agents, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}

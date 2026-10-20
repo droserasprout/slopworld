@@ -13,10 +13,80 @@ pub struct WorkerSpawn {
     pub session: String,
 }
 
+/// Checkout selection is exclusive by construction; HTTP decodes its request flags.
+pub(crate) enum WorkerCheckout {
+    Existing(String),
+    New { base: String, name: String },
+}
+
+pub(crate) struct WorkerRequest {
+    pub caller: String,
+    pub project: String,
+    pub template: String,
+    pub body: String,
+    pub durable: bool,
+    pub checkout: WorkerCheckout,
+}
+
+/// A newly allocated checkout belongs to the request until worker startup commits it.
+/// On cancellation, a detached cleanup task removes it unless a failed durable session
+/// still references it. Existing checkouts never enter this guard.
+struct NewWorktree {
+    manager: Arc<Manager>,
+    project: String,
+    id: Option<String>,
+}
+
+impl NewWorktree {
+    async fn allocate(
+        manager: Arc<Manager>,
+        request: crate::session::WorktreeRequest,
+    ) -> anyhow::Result<(String, Self)> {
+        // Inherit the caller's boundary and reload context before spawning.
+        // Keep allocation and its rollback owner together so cancellation drops the guard.
+        manager
+            .clone()
+            .owned_session_operation(Box::pin(async move {
+                let project = request.project.clone();
+                let created = Box::pin(manager.create_worktree(request)).await?;
+                Ok((
+                    created.id.clone(),
+                    Self {
+                        manager,
+                        project,
+                        id: Some(created.id),
+                    },
+                ))
+            }))
+            .await
+    }
+
+    async fn rollback(&mut self) {
+        let Some(id) = self.id.take() else { return };
+        if let Err(error) = self.manager.remove_worktree(self.project.clone(), id).await {
+            tracing::warn!("new worker worktree retained after failed startup: {error:#}");
+        }
+    }
+
+    fn keep(&mut self) {
+        self.id = None;
+    }
+}
+
+impl Drop for NewWorktree {
+    fn drop(&mut self) {
+        let Some(id) = self.id.take() else { return };
+        let manager = self.manager.clone();
+        let project = self.project.clone();
+        tokio::spawn(async move {
+            if let Err(error) = manager.remove_worktree(project, id).await {
+                tracing::warn!("new worker worktree retained after cancellation: {error:#}");
+            }
+        });
+    }
+}
+
 impl Manager {
-    /// Create the mailbox record first. Then create and launch the child session.
-    /// A failed launch preserves the task and, for persistent workers, the stopped session.
-    /// These records support diagnosis and recovery after a restart.
     #[cfg(test)]
     pub async fn spawn_worker(
         self: &Arc<Self>,
@@ -26,38 +96,40 @@ impl Manager {
         body: String,
         durable: bool,
     ) -> Result<WorkerSpawn> {
-        self.spawn_worker_worktree(caller, project, template, body, durable, String::new())
-            .await
-    }
-
-    pub(crate) async fn spawn_worker_worktree(
-        self: &Arc<Self>,
-        caller: String,
-        project: String,
-        template: String,
-        body: String,
-        durable: bool,
-        worktree: String,
-    ) -> Result<WorkerSpawn> {
-        let manager = self.clone();
-        self.owned_session_operation(Box::pin(async move {
-            Box::pin(manager.spawn_worker_inner(caller, project, template, body, durable, worktree))
-                .await
-        }))
+        self.create_worker(WorkerRequest {
+            caller,
+            project,
+            template,
+            body,
+            durable,
+            checkout: WorkerCheckout::Existing(String::new()),
+        })
         .await
     }
 
-    async fn spawn_worker_inner(
+    /// Validate and allocate under one accepted configuration and identity boundary.
+    /// Abandoned allocation rolls back; once startup begins its owned operation finishes
+    /// commit or failure cleanup even if the requesting transport disappears.
+    pub(crate) async fn create_worker(
         self: &Arc<Self>,
-        caller: String,
-        project: String,
-        template_name: String,
-        body: String,
-        durable: bool,
-        worktree: String,
+        request: WorkerRequest,
     ) -> Result<WorkerSpawn> {
-        let _spawn = self.worker_spawn.lock().await;
-        self.reload_if_changed().await;
+        self.session_request(self.create_worker_inner(request))
+            .await
+    }
+
+    async fn create_worker_inner(self: &Arc<Self>, request: WorkerRequest) -> Result<WorkerSpawn> {
+        let WorkerRequest {
+            caller,
+            project,
+            template: template_name,
+            body,
+            durable,
+            checkout,
+        } = request;
+        if body.trim().is_empty() {
+            bail!("Worker task text cannot be empty.");
+        }
         let caller = caller.trim().to_string();
         if caller.is_empty() {
             bail!("a worker needs a caller identity");
@@ -75,19 +147,11 @@ impl Manager {
             .cloned()
             .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
 
-        self.resolve_worktree(&p, &worktree).await?;
-
         // The selected template supplies behavior.
         // The invoking session owns the child in the task mailbox and sidebar.
         // Do not copy caller configuration into the worker.
-        let mut session = worker_session_from_template(
-            &template,
-            self.fresh_worker_name(&caller).await,
-            &project,
-            &caller,
-        );
-        session.worktree = worktree;
-        session.state_id = self.allocate_agent_identity().await?;
+        let mut session =
+            worker_session_from_template(&template, "worker-validation".into(), &project, &caller);
         // A worker must have access to the daemon. Worker metadata supplies its task API capability.
         // The selected template supplies tool and state configuration.
         if cfg.network_of(&session, &p) == NetworkMode::None {
@@ -103,6 +167,59 @@ impl Manager {
             );
         }
 
+        crate::runtime::validate_limits(&session.limits)?;
+        let (worktree, mut allocated) = match checkout {
+            WorkerCheckout::Existing(id) => {
+                self.resolve_worktree(&p, &id).await?;
+                (id, None)
+            }
+            WorkerCheckout::New { base, name } => {
+                let base = self.worktree_base(&caller, &project, &base).await?;
+                let (id, owned) = NewWorktree::allocate(
+                    self.clone(),
+                    WorktreeRequest {
+                        project,
+                        name,
+                        base,
+                        path: String::new(),
+                    },
+                )
+                .await?;
+                (id, Some(owned))
+            }
+        };
+        session.worktree = worktree;
+        let manager = self.clone();
+        let result = self
+            .owned_session_operation(Box::pin(async move {
+                manager
+                    .commit_worker(session, caller, body, durable, cfg)
+                    .await
+            }))
+            .await;
+        if let Some(owned) = &mut allocated {
+            if result.is_ok() {
+                owned.keep();
+            } else {
+                owned.rollback().await;
+            }
+        }
+        result
+    }
+
+    /// Persist the task before registering and starting the session. Keep failed durable
+    /// sessions for diagnosis; their checkout reference prevents allocation rollback.
+    async fn commit_worker(
+        self: &Arc<Self>,
+        mut session: SessionCfg,
+        caller: String,
+        body: String,
+        durable: bool,
+        cfg: Config,
+    ) -> Result<WorkerSpawn> {
+        let _spawn = self.worker_spawn.lock().await;
+        session.name = self.fresh_worker_name(&caller).await;
+        session.state_id = self.allocate_agent_identity().await?;
         let task = self
             .create_task_owned(
                 self.task_participant(&caller).await?,
@@ -209,7 +326,7 @@ impl Manager {
 
 /// Validate the caller's permitted project context.
 /// Root callers may select any registered project. Agents may create workers only in their own project.
-/// Repeat the HTTP handler check here to protect direct manager calls and future transports.
+/// Shared by worker preflight and the spawnable-template catalog.
 impl Manager {
     pub(crate) async fn worker_project(&self, caller: &str, requested: &str) -> Result<String> {
         let requested = requested.trim();

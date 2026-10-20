@@ -1,7 +1,9 @@
 # Task-owned workers
 
-`slopd/src/session/manager/workers.rs` owns creation. Lifecycle start owns launch
-credentials; lifecycle stop and capture exit own termination. [Grants](agent-grants.md)
+`slopd/src/session/manager/workers.rs` owns the typed worker request, preflight,
+checkout allocation and rollback, and task/session creation. HTTP decodes caller
+credentials and the existing/new checkout choice before invoking that operation.
+Lifecycle start owns launch credentials; lifecycle stop and capture exit own termination. [Grants](agent-grants.md)
 own authority, and [templates](daemon-agent-templates.md) own portable copied settings.
 
 The selected template supplies configuration and snapshots. The worker receives a
@@ -22,7 +24,8 @@ Worker policy uses `[daemon].worker_templates` and
 `[daemon.instructions].worker_prompt`. The prompt can refer to `$SLOPWORLD_TASK_ID`.
 The [Workers settings](../docs/src/customization/settings.md#workers) page edits both.
 The daemon queues the configured worker prompt after startup; asynchronous delivery
-can time out without sending it. Delivery belongs to [library](daemon-library.md),
+can time out without sending it. Delivery belongs to `session/manager/delivery.rs`
+(see [library](daemon-library.md)),
 hierarchy presentation to [sidebar](mod-sidebar.md), independent checkout lifetime
 to [worktrees](daemon-worktrees.md), and adoption to [redeploy](daemon-redeploy.md).
 Commands and operational behavior belong to [Using slopctl](../docs/src/reference/slopctl.md).

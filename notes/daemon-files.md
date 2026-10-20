@@ -20,6 +20,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `session/manager/projects.rs` | Project edits and relocation; `directories.rs` owns uncommitted directories. See [worktree ownership](daemon-worktrees.md). |
 | `session/manager/launch.rs` | Explicit launch preparation and guarded execution; saved library entries and music use the same launch request. |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |
+| `session/manager/delivery.rs` | Run-bound delayed prompt submission, readiness, and auto-resume. Callers compose prompts; capture owns queued input execution. |
 | `session/manager/capture/` | Terminal readers, input, frames, scrollback, and title capture. |
 | `session/manager/host_metadata.rs` | Host-shell record edits, working-directory/process observations, and serialized background tmux polling. See [host tabs](daemon-host-terminals.md). |
 | `session/manager/init.rs`, `maintenance.rs` | Startup recovery and maintenance scheduling. The `config/` adapter publishes accepted configuration and auth; `lifecycle/reconcile.rs` applies configuration to live sessions. `catalog_state.rs` owns reload scheduling state. |
