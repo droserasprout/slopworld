@@ -8,7 +8,7 @@ async fn fixture() -> (Arc<Manager>, crate::tasks::Task) {
     let path = manager.cfg_path.with_file_name("summary-cache.toml");
     Arc::get_mut(&mut manager).unwrap().title_cache = crate::title::SummaryCache::load(path);
     let task = manager
-        .tasks
+        .task_store()
         .create_task(
             "host".into(),
             "agent".into(),
@@ -51,7 +51,7 @@ async fn disabled_and_short_tasks_ignore_even_cached_summaries() {
     m.cfg.write().await.daemon.task_summaries = TitlePolicy::Never;
     m.clone().run_task_summary(task.clone()).await;
     assert!(
-        m.tasks
+        m.task_store()
             .task_for_async("host", &task.id)
             .await
             .unwrap()
@@ -64,7 +64,7 @@ async fn disabled_and_short_tasks_ignore_even_cached_summaries() {
     cache(&m, &task).await;
     m.clone().run_task_summary(task.clone()).await;
     assert!(
-        m.tasks
+        m.task_store()
             .task_for_async("host", &task.id)
             .await
             .unwrap()
@@ -78,12 +78,12 @@ async fn disabled_and_short_tasks_ignore_even_cached_summaries() {
 async fn completed_summary_does_not_resurrect_a_removed_task() {
     let (m, task) = fixture().await;
     cache(&m, &task).await;
-    m.tasks
+    m.task_store()
         .remove_task_async("host", &task.id, true)
         .await
         .unwrap();
     m.clone().run_task_summary(task).await;
-    assert!(m.tasks.all_tasks_async().await.unwrap().is_empty());
+    assert!(m.task_store().all_tasks_async().await.unwrap().is_empty());
     assert!(
         crate::tasks::Tasks::load(&m.cfg_path)
             .unwrap()
@@ -105,7 +105,7 @@ async fn missing_credentials_leave_task_unchanged() {
         .into_owned();
     m.clone().run_task_summary(task.clone()).await;
     let saved = m
-        .tasks
+        .task_store()
         .task_for_async("host", &task.id)
         .await
         .unwrap()

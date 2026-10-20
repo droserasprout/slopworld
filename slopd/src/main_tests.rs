@@ -208,7 +208,14 @@ async fn stalled_scoped_uploads_allow_revocation_and_recheck_authority_on_comple
             .unwrap()
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(
+            manager
+                .task_store()
+                .all_tasks_async()
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 }
 
@@ -247,7 +254,10 @@ async fn scoped_uploads_preserve_body_limits_and_accept_valid_json() {
             expected
         );
     }
-    assert_eq!(manager.tasks.all_tasks_async().await.unwrap().len(), 1);
+    assert_eq!(
+        manager.task_store().all_tasks_async().await.unwrap().len(),
+        1
+    );
 }
 
 #[tokio::test]
@@ -425,7 +435,7 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
         StatusCode::OK
     );
 
-    manager.emit(crate::session::Event::Sessions {
+    manager.emit(crate::application::Event::Sessions {
         sessions: manager.views().await,
     });
     tokio::time::timeout(
@@ -609,7 +619,14 @@ async fn stalled_root_uploads_reject_rotated_credentials_before_mutation() {
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{path}");
         assert_eq!(manager.config().await.daemon.token, "root-secret");
-        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(
+            manager
+                .task_store()
+                .all_tasks_async()
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 }
 

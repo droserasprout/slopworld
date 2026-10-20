@@ -8,15 +8,16 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | Area | Responsibility |
 | --- | --- |
 | `main.rs` | Startup/service orchestration and token middleware. |
+| `application/` | Daemon-wide event publication and task-service composition. Session adapters supply identity/authorization leases; API owns event encoding. |
 | `shared/` | Protocol constants/enums and serialization helpers. |
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` decodes explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md) and [file preview boundary](daemon-file-previews.md). |
 | `api/handlers/files/`, `api/handlers/highlighting.rs` | File and syntax-preview HTTP decoding, path resolution, error mapping, and wire projection. |
 | `files/` | Transport-independent browsing, file-action path/command preparation, mutations, preview containment and reader stamps, bounded ripgrep search, and highlighter execution. `crate::git` retains Git inspection ownership. |
 | `session/launch.rs` | Common launch requests, execution source, destination, launch overrides and reader context. Live sessions own UI intent and reader identity separately from saved agent definitions; startup snapshots them and adoption restores them from tmux metadata. |
-| `session/` | Session types, agent-template definitions, input, validation, wire views. `events.rs` owns published events and their shared encoding cache; `protobuf.rs` owns wire conversion. |
+| `session/` | Session types, agent-template definitions, input, validation, wire views. `crate::application` owns daemon events and their shared encoding cache; `api/events.rs` owns event wire conversion and `session/protobuf.rs` projects screens. |
 | `session/role.rs` | Live agent lifetime and host roles; lifecycle owns retention/cleanup and views projects compatibility flags. |
 | `session/validation.rs` | Generated-name normalization shared by library and host sessions; each caller chooses its empty-name fallback. |
-| `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
+| `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task/session integration, workers. |
 | `session/manager/projects.rs` | Project edits and relocation; `directories.rs` owns uncommitted directories. See [worktree ownership](daemon-worktrees.md). |
 | `session/manager/launch.rs` | Explicit launch preparation and guarded execution; saved library entries and music use the same launch request. |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |
@@ -34,7 +35,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `config/transactions/` | Serialized preparation, recovery, disk commits, cache rollback, and accepted record/catalog indexes. `session/manager/config/` adapts session validation, guarded runtime publication, and announcements. |
 | `git/` | Git inspection and restricted command execution; see [Git boundary](daemon-git.md). |
 | `worktrees/` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
-| `tasks.rs`, `tasks/`, `grant.rs` | Mailbox model, indexed policy and persistence adapters; scoped authority. |
+| `tasks.rs`, `tasks/`, `grant.rs` | Mailbox model, indexed policy and persistence adapters; `tasks/io.rs` owns blocking startup and serialized I/O with explicit caller leases; scoped authority. |
 | `music/` | Playback selection, catalog resolution, recovery, and serialized source transitions. `ncspot.rs` owns managed-player state and bounded IPC; `session/manager/music.rs` adapts host-terminal lifecycle through `HostSessions`. |
 | `audio/`, `jukebox.rs` | Decoded playback and station catalog storage. `tmux/ncspot.rs` owns managed-player and applied-volume markers. See [jukebox](mod-jukebox.md). |
 | `usage/` | Provider polling and quota normalization. |

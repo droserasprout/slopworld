@@ -13,7 +13,7 @@ impl Manager {
     }
 
     async fn run_task_summary(self: Arc<Self>, task: crate::tasks::Task) {
-        let Ok(Some(stamp)) = self.tasks.summary_stamp(task.clone()).await else {
+        let Ok(Some(stamp)) = self.task_store().summary_stamp(task.clone()).await else {
             return;
         };
         let cfg = self.config().await;
@@ -42,7 +42,11 @@ impl Manager {
 
         self.title_cache.store(&input, &summary, None);
 
-        match self.tasks.set_summary_checked(stamp, summary.text).await {
+        match self
+            .task_store()
+            .set_summary_checked(stamp, summary.text)
+            .await
+        {
             Ok(Some(_)) => tracing::debug!(
                 target: "slopd::task_summaries",
                 task = %task.id,

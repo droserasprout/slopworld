@@ -30,8 +30,10 @@ notification limits to [discovery](agent-task-discovery.md), commands to
 [Using slopctl](../docs/src/reference/slopctl.md), and backup requirements to
 [Backup and recovery](../docs/src/maintenance/backup-and-recovery.md).
 
-Task disk operations run on blocking workers under the task-store mutex, including
-startup reads. An active session authorization guard transfers with the I/O operation,
+`tasks/io.rs` owns task startup reads and serialized disk operations. Application
+services hold the task store; the session adapter resolves participants and explicitly
+supplies the active authorization lease for each operation. The blocking worker
+retains that lease under the task-store mutex,
 so requester cancellation cannot release it before disk and accepted-state publication.
 Worker creation retains its entire startup/cleanup operation after requester cancellation.
 Summary completions check an accepted task incarnation and cannot overwrite an

@@ -192,7 +192,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         .await
         .unwrap();
     let cap = manager.resolve_cap(Some(&token)).await.unwrap();
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
 
     manager.stop("child").await.unwrap();
 
@@ -228,7 +228,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     manager.forget("child").await;
     assert_eq!(
         manager
-            .tasks
+            .task_store()
             .task_for_async("host", &task_id)
             .await
             .unwrap()
@@ -363,7 +363,7 @@ async fn restart_rejects_runtime_only_viewers_and_workers_without_stopping_them(
         if worker {
             assert_eq!(
                 manager
-                    .tasks
+                    .task_store()
                     .task_for_async("host", &task)
                     .await
                     .unwrap()

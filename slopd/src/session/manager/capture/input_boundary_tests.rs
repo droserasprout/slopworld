@@ -593,7 +593,7 @@ async fn quiet_resize_publishes_width_and_height_without_new_output() {
         row.capture.emu = Some(emu.clone());
     }
     manager.render_and_broadcast("target", &emu).await;
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let initial = manager.screen("target").await.unwrap();
     for (cols, rows) in [(81, 24), (81, 25)] {
         manager.resize("target", cols, rows).await.unwrap();

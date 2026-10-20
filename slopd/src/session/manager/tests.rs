@@ -32,7 +32,6 @@ pub(crate) fn test_manager_with_socket(
         records,
         crate::config::catalog::revision(&cfg_path).ok(),
     );
-    let (events, _) = broadcast::channel(16);
     let tmux = Tmux::new(socket);
     Arc::new(Manager {
         frame_commit_pause: Mutex::new(None),
@@ -58,14 +57,16 @@ pub(crate) fn test_manager_with_socket(
             &cfg_path,
         )),
         music: Music::new(tmux),
-        events,
+        application: crate::application::Services::new(
+            crate::tasks::io::TaskStore::new(
+                crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
+            ),
+            16,
+        ),
         auth: Authorization::new(crate::grant::Grants::default()),
         session_boundary: Arc::new(tokio::sync::RwLock::new(())),
         terminal_boundaries: Mutex::new(HashMap::new()),
         terminal_resizes: Mutex::new(HashMap::new()),
-        tasks: super::TaskStore::new(
-            crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
-        ),
         worker_spawn: tokio::sync::Mutex::new(()),
         worktrees: WorktreeState::default(),
         title_cache: crate::title::SummaryCache::load(directory.join("summary-cache.toml")),

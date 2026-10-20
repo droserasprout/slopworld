@@ -13,8 +13,8 @@ use tokio::time::{Instant, sleep_until};
 
 use super::super::Mgr;
 use super::{WsSubs, WsTx};
+use crate::application::{Event, EventMessage};
 use crate::grant::Cap;
-use crate::session::{Event, EventMessage};
 
 /// Filter events by socket capability. Root receives all events.
 /// Scoped grants receive permitted sessions and screens.

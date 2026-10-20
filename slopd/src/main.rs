@@ -2,6 +2,7 @@
 
 mod activity;
 mod api;
+mod application;
 mod audio;
 mod benchmark;
 mod clipboard;

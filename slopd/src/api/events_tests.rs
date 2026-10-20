@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::ScreenView;
 
 #[test]
 fn event_message_reuses_its_encoded_protobuf() {

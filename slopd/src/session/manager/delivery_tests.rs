@@ -293,7 +293,7 @@ async fn readiness_timeout_fails_only_the_undelivered_workers_current_task() {
     assert!(rx.try_recv().is_err());
     assert_eq!(
         manager
-            .tasks
+            .task_store()
             .task_for_async(crate::tasks::HOST, &task.id)
             .await
             .unwrap()
@@ -360,7 +360,7 @@ async fn queued_auto_resume_submits_current_run_and_publishes_completion() {
         row.input.auto_resume_pending = true;
         row.run_id
     };
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     manager.queue_auto_resume("missing", run_id).await;
     manager.queue_auto_resume("worker", run_id + 1).await;
     assert!(rx.try_recv().is_err());

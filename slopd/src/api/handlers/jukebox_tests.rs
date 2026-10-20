@@ -46,7 +46,8 @@ async fn request(
     )
 }
 
-type EventReceiver = tokio::sync::broadcast::Receiver<std::sync::Arc<crate::session::EventMessage>>;
+type EventReceiver =
+    tokio::sync::broadcast::Receiver<std::sync::Arc<crate::application::EventMessage>>;
 
 #[tokio::test]
 async fn mutations_report_reload_failure_and_recover_after_definition_repair() {
@@ -59,7 +60,7 @@ async fn mutations_report_reload_failure_and_recover_after_definition_repair() {
         format!("jukebox-{}", uuid::Uuid::new_v4()),
     );
     let app = crate::api::router(manager.clone()).layer(Extension(Cap::Root));
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let mut station = radio_station();
     create_and_read_preset(&app, &mut events, &station, &root).await;
     assert!(!manager.reload_jukebox_if_changed().await.unwrap());
@@ -113,7 +114,7 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
         format!("jukebox-{}", uuid::Uuid::new_v4()),
     );
     let app = crate::api::router(manager.clone()).layer(Extension(Cap::Root));
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let path = "/api/jukebox/presets/radio";
     let mut station = radio_station();
 
@@ -374,7 +375,7 @@ async fn assert_storage_errors(
 fn assert_preset_event(events: &mut EventReceiver) {
     assert!(matches!(
         events.try_recv().unwrap().event(),
-        crate::session::Event::Jukebox { .. }
+        crate::application::Event::Jukebox { .. }
     ));
 }
 

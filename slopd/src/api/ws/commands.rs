@@ -1,8 +1,8 @@
 //! Socket command authorization and dispatch into manager operations.
 //! The connection owns scroll admission; manager services own session and playback policy.
 
+use crate::application::{Event, EventMessage};
 use crate::grant::{Cap, Level};
-use crate::session::{Event, EventMessage};
 
 use super::super::Mgr;
 use super::super::types::{

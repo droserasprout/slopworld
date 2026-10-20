@@ -241,7 +241,7 @@ async fn configuration_entry_points_preserve_notification_scope() {
         Config::default(),
         format!("slopworld-config-events-{}", uuid::Uuid::new_v4()),
     );
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
 
     // Structured edits leave announcements to the operation that requested the edit.
     manager

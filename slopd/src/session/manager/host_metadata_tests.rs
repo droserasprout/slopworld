@@ -77,7 +77,7 @@ async fn failed_poll_preserves_state_and_allows_a_successful_retry() {
         .join("host_shells")
         .join(format!("{}.toml", cfg.host_terminals[0].id));
     let before = std::fs::read(&record).unwrap();
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
 
     manager
         .start_host_metadata_poll_with(|| async { Err(anyhow::anyhow!("inspection failed")) })

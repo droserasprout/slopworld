@@ -235,12 +235,12 @@ pub(crate) async fn list_tasks(
         ));
     }
     let tasks = if q.all {
-        m.tasks
+        m.task_store()
             .all_tasks_async()
             .await
             .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
     } else {
-        m.tasks
+        m.task_store()
             .tasks_for_async(&who)
             .await
             .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
@@ -257,7 +257,7 @@ pub(crate) async fn one_task(
     Path(id): Path<String>,
 ) -> ApiResult<wire::TaskResult> {
     let who = task_identity(&m, &cap, &headers).await?;
-    m.tasks
+    m.task_store()
         .task_for_async(&who, &id)
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
@@ -284,7 +284,7 @@ pub(crate) async fn update_task(
     let q: UpdateTaskReq = domain(q)?;
     let who = task_participant(&m, &cap, &headers).await?;
     let task = m
-        .tasks
+        .task_store()
         .update_task_async(&who.identity, &who.name, &id, q.status, q.note)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -307,7 +307,7 @@ pub(crate) async fn prune_tasks(
         ));
     }
     let removed = m
-        .tasks
+        .task_store()
         .prune_tasks_async(&who, q.all)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -323,7 +323,7 @@ pub(crate) async fn cancel_tasks(
     let q: RemoveTasksReq = domain(q)?;
     let who = task_participant(&m, &cap, &headers).await?;
     let tasks = m
-        .tasks
+        .task_store()
         .cancel_tasks_async(&who.identity, &who.name, &q.ids, cap.may_create())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -338,7 +338,7 @@ pub(crate) async fn remove_task(
 ) -> ApiResult<wire::TaskResult> {
     let who = task_identity(&m, &cap, &headers).await?;
     let task = m
-        .tasks
+        .task_store()
         .remove_task_async(&who, &id, cap.may_create())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -356,7 +356,7 @@ pub(crate) async fn remove_tasks(
     let q: RemoveTasksReq = domain(q)?;
     let who = task_identity(&m, &cap, &headers).await?;
     let removed = m
-        .tasks
+        .task_store()
         .remove_tasks_async(&who, &q.ids, cap.may_create())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;

@@ -117,3 +117,5 @@ mod service;
 #[path = "tasks_tests.rs"]
 mod tests;
 pub(crate) use service::{BatchResult, TaskStamp, Tasks};
+
+pub(crate) mod io;

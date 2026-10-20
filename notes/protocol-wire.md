@@ -21,7 +21,9 @@ JSON-to-message conversion guard. Simple file and worktree responses construct
 wire messages directly; storage-only recovery fields never enter worktree replies.
 
 Session reader, runtime, launch, and worker groups are nested messages; reader launch
-metadata is nested in `RunReq.reader`. Live screens may coalesce while replies/control
+metadata is nested in `RunReq.reader`. `application/events.rs` owns daemon event payloads and the shared encoding cache;
+`api/events.rs` supplies Protobuf conversion. Application services publish and subscribe
+without session lifecycle or transport policy. Live screens may coalesce while replies/control
 events retain required ordering. Pending history captures must not block panel-switch
 or input command intake. Broadcast lag closes the socket so reconnect restores
 authoritative catalogs as well as terminal state.

@@ -69,7 +69,7 @@ impl Manager {
             return;
         }
         *last = Some(now.clone());
-        self.emit(crate::session::Event::Audio { audio: now });
+        self.emit(crate::application::Event::Audio { audio: now });
     }
 
     pub(crate) async fn music_state(&self) -> crate::audio::AudioState {

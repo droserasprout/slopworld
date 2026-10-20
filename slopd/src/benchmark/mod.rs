@@ -10,9 +10,10 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
+use crate::application::{Event, EventMessage};
 use crate::emu::{Frame, SessionEmu, benchmark_content_hash as hash_content};
 use crate::perf;
-use crate::session::{Event, EventMessage, ScreenView};
+use crate::session::ScreenView;
 
 mod storage;
 

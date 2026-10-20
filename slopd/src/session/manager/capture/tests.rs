@@ -210,7 +210,7 @@ async fn applying_a_frame_updates_state_screen_and_bell_events() {
             TitleCapture::default(),
         ),
     );
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let frame = Frame {
         lines: vec!["hello".into()],
         content_hash: 0,
@@ -288,7 +288,7 @@ async fn metadata_only_frame_updates_the_screen_and_emits_no_content_change() {
             TitleCapture::default(),
         ),
     );
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let frame = |cx: u16, title: &str, app_mouse: bool| Frame {
         lines: vec!["same".into()],
         content_hash: 7,
@@ -389,7 +389,7 @@ async fn faint_prompt_particles_do_not_keep_a_quiet_session_working() {
         live.last_change = 0;
         live.activity_at = None;
     }
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     for (dot, gray) in [('⠁', 13), ('⠈', 28), ('⢀', 20), (' ', 20)] {
         emu.feed(format!("\x1b[2;1H\x1b[38;2;{gray};{gray};{gray}m{dot}").as_bytes());
         manager.apply_frame("agent", emu.render()).await;
@@ -433,7 +433,7 @@ async fn applying_a_frame_uses_the_emulator_content_hash() {
             TitleCapture::default(),
         ),
     );
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let frame = |content_hash| Frame {
         lines: vec!["same".into()],
         content_hash,
@@ -472,7 +472,7 @@ async fn clearing_a_bell_is_idempotent_and_announces_the_change() {
     );
     live.bell = true;
     manager.live.write().await.insert("agent".into(), live);
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
 
     manager.clear_bell("agent").await;
     assert!(!manager.live.read().await["agent"].bell);
@@ -557,7 +557,7 @@ async fn capture_retries_after_competing_idle_decay() {
     live.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("agent".into(), live);
     manager.apply_frame("agent", test_frame("old", 1)).await;
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
 
     let reached = Arc::new(tokio::sync::Notify::new());
     let release = Arc::new(tokio::sync::Notify::new());

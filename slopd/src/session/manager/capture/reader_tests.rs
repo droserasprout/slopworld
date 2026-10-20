@@ -23,7 +23,7 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
             .unwrap()
             .capture
             .emu = Some(emu.clone());
-        let mut events = manager.events.subscribe();
+        let mut events = manager.application.subscribe();
         let mut schedule = DrawSchedule::default();
         assert!(matches!(
             handle_control_line(&emu, b"%output %1 hello"),

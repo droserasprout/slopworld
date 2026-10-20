@@ -30,12 +30,12 @@ async fn music_adapter_launches_disposable_host_terminal_and_stops_it() {
 #[tokio::test]
 async fn music_poll_publishes_only_changed_snapshots() {
     let manager = crate::session::test_manager(crate::config::Config::default());
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let mut last = None;
     manager.publish_music_if_changed(&mut last).await;
     assert!(matches!(
         events.try_recv().unwrap().event(),
-        crate::session::Event::Audio { .. }
+        crate::application::Event::Audio { .. }
     ));
     manager.publish_music_if_changed(&mut last).await;
     assert!(matches!(
@@ -50,7 +50,7 @@ async fn music_poll_publishes_only_changed_snapshots() {
     manager.publish_music_if_changed(&mut last).await;
     let event = events.try_recv().unwrap();
     assert!(
-        matches!(event.event(), crate::session::Event::Audio { audio } if audio.error.as_deref() == Some("Select a station and stream, or select a file."))
+        matches!(event.event(), crate::application::Event::Audio { audio } if audio.error.as_deref() == Some("Select a station and stream, or select a file."))
     );
     manager.publish_music_if_changed(&mut last).await;
     assert!(matches!(
@@ -62,7 +62,7 @@ async fn music_poll_publishes_only_changed_snapshots() {
 #[tokio::test]
 async fn music_poll_task_publishes_initial_state_and_accepts_shutdown() {
     let manager = crate::session::test_manager(crate::config::Config::default());
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let poll = manager.spawn_music_poll();
     let initial = tokio::time::timeout(std::time::Duration::from_secs(3), events.recv())
         .await
@@ -70,7 +70,7 @@ async fn music_poll_task_publishes_initial_state_and_accepts_shutdown() {
         .unwrap();
     assert!(matches!(
         initial.event(),
-        crate::session::Event::Audio { .. }
+        crate::application::Event::Audio { .. }
     ));
     poll.abort();
     assert!(poll.await.unwrap_err().is_cancelled());

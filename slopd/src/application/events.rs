@@ -1,8 +1,7 @@
 //! Published daemon events and their shared encoded representation.
 
-use super::{ProjectView, ScreenView, SessionView};
 use crate::config::LibraryItemCfg;
-use prost::Message;
+use crate::session::{ProjectView, ScreenView, SessionView};
 use std::sync::{Arc, OnceLock};
 
 #[derive(Debug, Clone)]
@@ -51,16 +50,12 @@ impl EventMessage {
         &self.event
     }
 
-    pub(crate) fn encoded(&self) -> Result<Arc<[u8]>, String> {
-        self.encoded
-            .get_or_init(|| {
-                let _perf = crate::perf::timer("websocket-serialize");
-                self.event
-                    .to_protobuf()
-                    .map(|e| Arc::from(e.encode_to_vec()))
-                    .map_err(|e| e.to_string())
-            })
-            .clone()
+    /// The transport supplies the encoder; all subscribers share its accepted bytes or error.
+    pub(crate) fn encode_with(
+        &self,
+        encode: impl FnOnce(&Event) -> Result<Arc<[u8]>, String>,
+    ) -> Result<Arc<[u8]>, String> {
+        self.encoded.get_or_init(|| encode(&self.event)).clone()
     }
 }
 

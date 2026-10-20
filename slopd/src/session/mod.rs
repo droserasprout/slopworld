@@ -1,4 +1,4 @@
-//! Shared session state; manager/ owns lifecycle and events.rs owns publication.
+//! Shared session state; manager/ owns lifecycle and application owns daemon publication.
 
 use crate::clock::unix_ms;
 mod protobuf;
@@ -14,7 +14,6 @@ use tokio::sync::{RwLock, broadcast, mpsc};
 use tokio::task::JoinHandle;
 
 mod agent_templates;
-mod events;
 mod input;
 mod launch;
 pub use launch::RunWhere;
@@ -35,11 +34,10 @@ pub(crate) use manager::TemplatePersistence;
 pub(crate) use manager::{WorkerCheckout, WorkerRequest, WorktreeRequest};
 use role::{AgentLifetime, SessionRole};
 
+use crate::application::Event;
 #[cfg(test)]
 pub(crate) use agent_templates::validate_definition as validate_template_definition;
 pub(crate) use agent_templates::{AgentTemplate, AgentTemplateError, AgentTemplateStore};
-pub use events::Event;
-pub(crate) use events::EventMessage;
 pub use manager::{Manager, WatchGuard};
 #[cfg(test)]
 pub(crate) use manager::{test_manager, test_manager_with_socket};

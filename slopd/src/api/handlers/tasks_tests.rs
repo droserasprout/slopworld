@@ -30,7 +30,14 @@ async fn missing_template_worker_requests_are_rejected_before_task_creation() {
     };
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(body.error.contains("template"));
-    assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+    assert!(
+        manager
+            .task_store()
+            .all_tasks_async()
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 fn caller(name: &str) -> HeaderMap {
     let mut headers = HeaderMap::new();
@@ -316,7 +323,7 @@ async fn recipient_updates_and_removal_preserve_task_lifecycle() {
     .await
     .unwrap();
     assert_eq!(reply.task.unwrap().id, task.id);
-    assert!(m.tasks.all_tasks_async().await.unwrap().is_empty());
+    assert!(m.task_store().all_tasks_async().await.unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -342,7 +349,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
         StatusCode::BAD_REQUEST
     );
     assert!(
-        m.tasks
+        m.task_store()
             .all_tasks_async()
             .await
             .unwrap()
@@ -371,7 +378,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
         .0,
         StatusCode::BAD_REQUEST
     );
-    assert_eq!(m.tasks.all_tasks_async().await.unwrap().len(), 2);
+    assert_eq!(m.task_store().all_tasks_async().await.unwrap().len(), 2);
     assert_eq!(
         remove_tasks(
             State(m.clone()),
@@ -393,7 +400,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
     .await
     .unwrap();
     assert_eq!(reply.removed, 1);
-    assert_eq!(m.tasks.all_tasks_async().await.unwrap()[0].id, b.id);
+    assert_eq!(m.task_store().all_tasks_async().await.unwrap()[0].id, b.id);
     let Proto(reply) = remove_tasks(
         State(m.clone()),
         Extension(Cap::Root),
@@ -412,7 +419,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
     .await
     .unwrap();
     assert_eq!(reply.removed, 0);
-    assert!(m.tasks.all_tasks_async().await.unwrap().is_empty());
+    assert!(m.task_store().all_tasks_async().await.unwrap().is_empty());
 }
 #[tokio::test]
 async fn unknown_task_endpoints_fail_before_persistence() {
@@ -431,7 +438,7 @@ async fn unknown_task_endpoints_fail_before_persistence() {
         let (status, Proto(error)) = result.unwrap_err();
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert!(error.error.contains("Session missing does not exist."));
-        assert!(m.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(m.task_store().all_tasks_async().await.unwrap().is_empty());
     }
 }
 

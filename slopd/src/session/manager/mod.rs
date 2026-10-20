@@ -42,13 +42,12 @@ pub(crate) use catalog_state::CatalogState;
 pub(crate) use host_metadata::HostMetadataPoll;
 pub(crate) use signals::Signals;
 pub use signals::WatchGuard;
-pub(crate) use tasks::TaskStore;
 
 use super::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::RwLock;
 
 /// Shared daemon coordinator; each subsystem keeps its own state and locks.
 pub struct Manager {
@@ -74,12 +73,11 @@ pub struct Manager {
     pub(super) title_cache: crate::title::SummaryCache,
 
     // Client communication and authorization.
-    pub events: broadcast::Sender<Arc<EventMessage>>,
+    pub(crate) application: crate::application::Services,
     pub(super) signals: Signals,
     pub(super) auth: Authorization,
 
     // Supporting services.
-    pub(crate) tasks: TaskStore,
     pub(super) worktrees: WorktreeState,
     music: Music,
 
@@ -109,9 +107,14 @@ pub struct Manager {
 }
 
 impl Manager {
+    /// Capture the session authorization lease before task work can outlive its requester.
+    pub(crate) fn task_store(&self) -> crate::tasks::io::TaskIo {
+        self.application.tasks(boundary::task_io_guards())
+    }
+
     /// Publish one event with encoding shared across subscribers.
     pub(crate) fn emit(&self, event: Event) {
-        drop(self.events.send(EventMessage::new(event)));
+        self.application.emit(event);
     }
 }
 

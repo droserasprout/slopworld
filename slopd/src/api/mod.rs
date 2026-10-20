@@ -1,4 +1,5 @@
 mod client_message;
+mod events;
 mod handlers;
 pub(crate) mod protobuf;
 mod router;

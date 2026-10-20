@@ -19,7 +19,7 @@ async fn watch_guards_release_their_bookkeeping() {
 #[tokio::test]
 async fn usage_broadcasts_only_when_the_readout_changes() {
     let manager = test_manager(Config::default());
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let unchanged = crate::usage::Snapshot::default();
     manager.set_usage(unchanged).await;
     assert!(events.try_recv().is_err());
@@ -49,7 +49,7 @@ async fn timestamp_only_usage_update_refreshes_snapshot_without_broadcasting() {
         ..Default::default()
     };
     manager.set_usage(snapshot.clone()).await;
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
 
     snapshot.fetched_ms = 200;
     manager.set_usage(snapshot.clone()).await;

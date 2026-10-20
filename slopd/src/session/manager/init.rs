@@ -16,7 +16,6 @@ impl Manager {
             library_revision,
         } = loaded;
         let cfg_path = binding.settings.clone();
-        let (events, _) = broadcast::channel(256);
 
         // Catalog stamps seed the maintenance reload checks.
         let presets_mtime = crate::presets::Table::stamp();
@@ -26,12 +25,9 @@ impl Manager {
         // Load persisted stores before constructing shared state.
         let grants = crate::grant::Grants::load_data(&binding.data)
             .with_context(|| format!("loading grant store for {}", cfg_path.display()))?;
-        let task_path = binding.data.clone();
-        let tasks =
-            tokio::task::spawn_blocking(move || crate::tasks::Tasks::load_records(&task_path))
-                .await
-                .context("task startup owner panicked")?
-                .with_context(|| format!("loading task store for {}", cfg_path.display()))?;
+        let tasks = crate::tasks::io::TaskStore::load(binding.data.clone())
+            .await
+            .with_context(|| format!("loading task store for {}", cfg_path.display()))?;
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let template_path = binding.config.join("agent_templates");
         let templates = crate::session::AgentTemplateStore::load(&template_path)
@@ -78,12 +74,11 @@ impl Manager {
             activity_mutation: tokio::sync::Mutex::new(()),
             activity_cache,
             music: Music::new(tmux),
-            events,
+            application: crate::application::Services::new(tasks, 256),
             auth: Authorization::new(grants),
             session_boundary: Arc::new(tokio::sync::RwLock::new(())),
             terminal_boundaries: Mutex::new(HashMap::new()),
             terminal_resizes: Mutex::new(HashMap::new()),
-            tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
             worktrees: WorktreeState::default(),
             title_cache,

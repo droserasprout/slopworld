@@ -199,7 +199,14 @@ async fn invalid_worker_template_is_rejected_before_task_creation() {
         .to_string();
 
     assert!(error.contains("no such agent template: missing"), "{error}");
-    assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+    assert!(
+        manager
+            .task_store()
+            .all_tasks_async()
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -384,7 +391,14 @@ async fn invalid_worker_callers_and_projects_leave_no_tasks_or_sessions() {
             .await
             .unwrap_err();
         assert!(error.to_string().contains(message), "{error:#}");
-        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(
+            manager
+                .task_store()
+                .all_tasks_async()
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert!(manager.live.read().await.is_empty());
         assert_eq!(manager.config().await.sessions.len(), 1);
     }
@@ -462,7 +476,14 @@ async fn unusable_worker_templates_fail_before_creating_mailbox_records() {
             .await
             .unwrap_err();
         assert!(error.to_string().contains(message), "{error:#}");
-        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(
+            manager
+                .task_store()
+                .all_tasks_async()
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert!(manager.config().await.sessions.is_empty());
         assert!(manager.live.read().await.is_empty());
     }
@@ -609,7 +630,7 @@ async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
     let (manager, root, main) = allocation_fixture();
     let checkout =
         crate::worktrees::project_root(&manager.config().await.projects[0]).join("canceled");
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     manager
         .session_request(async {
             let allocation = NewWorktree::allocate(
@@ -632,7 +653,7 @@ async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
         loop {
             if matches!(
                 events.recv().await.unwrap().event(),
-                crate::session::Event::Projects { .. }
+                crate::application::Event::Projects { .. }
             ) {
                 break;
             }
@@ -678,7 +699,14 @@ async fn new_checkout_preflight_rejects_invalid_workers_without_allocating() {
             .unwrap_err();
         assert!(error.to_string().contains(expected), "{error:#}");
         assert!(manager.worktree_records().worktrees.is_empty());
-        assert!(manager.tasks.all_tasks_async().await.unwrap().is_empty());
+        assert!(
+            manager
+                .task_store()
+                .all_tasks_async()
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert!(manager.config().await.sessions.is_empty());
         assert!(manager.live.read().await.is_empty());
     }
@@ -769,7 +797,7 @@ async fn worker_creation_commits_task_session_and_checkout_before_returning() {
                 .create_worker(worker_request(durable, checkout))
                 .await
                 .unwrap();
-            let tasks = manager.tasks.all_tasks_async().await.unwrap();
+            let tasks = manager.task_store().all_tasks_async().await.unwrap();
             let task = tasks
                 .iter()
                 .find(|task| task.id == spawned.task.id)
@@ -843,7 +871,7 @@ async fn worker_start_failure_retains_only_durable_session_and_its_new_checkout(
             .await
             .unwrap();
         let task = manager
-            .tasks
+            .task_store()
             .all_tasks_async()
             .await
             .unwrap()
@@ -860,7 +888,7 @@ async fn worker_start_failure_retains_only_durable_session_and_its_new_checkout(
             .unwrap_err();
         assert!(format!("{error:#}").contains("reader"), "{error:#}");
         let task = manager
-            .tasks
+            .task_store()
             .all_tasks_async()
             .await
             .unwrap()
@@ -905,7 +933,7 @@ async fn cancelled_worker_start_finishes_commit_and_preserves_attached_checkout(
         .await
         .unwrap();
     let task = manager
-        .tasks
+        .task_store()
         .all_tasks_async()
         .await
         .unwrap()
@@ -932,7 +960,7 @@ async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
     // Pause after allocation but before task/agent publication, while preserving
     // the coordinator's accepted configuration and request context.
     let spawn_guard = manager.worker_spawn.lock().await;
-    let mut events = manager.events.subscribe();
+    let mut events = manager.application.subscribe();
     let owner = manager.clone();
     let operation = tokio::spawn(async move {
         owner
@@ -961,7 +989,7 @@ async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
         .unwrap_err();
     assert!(!error.to_string().is_empty());
     let task = manager
-        .tasks
+        .task_store()
         .all_tasks_async()
         .await
         .unwrap()

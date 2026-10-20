@@ -38,7 +38,7 @@ async fn maintenance_recovers_reader_after_unavailable_status_without_config_cha
     })
     .await;
     let status = manager
-        .tasks
+        .task_store()
         .task_for_async(crate::tasks::HOST, &task.id)
         .await
         .unwrap()
@@ -104,7 +104,7 @@ async fn repeated_unavailable_status_schedules_a_bounded_retry_and_stop_cancels_
         );
         assert_eq!(
             manager
-                .tasks
+                .task_store()
                 .task_for_async(crate::tasks::HOST, &task.id)
                 .await
                 .unwrap()
@@ -225,7 +225,7 @@ async fn failed_existing_attachment_releases_capture_and_allows_retry() {
     assert_eq!(manager.live.read().await["worker"].run_id, run);
     assert_eq!(
         manager
-            .tasks
+            .task_store()
             .task_for_async(crate::tasks::HOST, &task.id)
             .await
             .unwrap()
@@ -291,7 +291,7 @@ async fn unavailable_pane_status_releases_reader_without_failing_task_or_replace
     }
     assert_eq!(
         manager
-            .tasks
+            .task_store()
             .task_for_async(crate::tasks::HOST, &task.id)
             .await
             .unwrap()
@@ -338,7 +338,7 @@ async fn disconnected_reader_reattaches_without_failing_live_worker_task() {
     manager.reader_ended("worker".into(), token).await;
     assert_eq!(
         manager
-            .tasks
+            .task_store()
             .task_for_async(crate::tasks::HOST, &task.id)
             .await
             .unwrap()
@@ -437,7 +437,7 @@ async fn confirmed_worker_exit_preserves_private_evidence_and_task_exit_status()
         0o600
     );
     let task = manager
-        .tasks
+        .task_store()
         .task_for_async(crate::tasks::HOST, &task.id)
         .await
         .unwrap()
@@ -536,7 +536,7 @@ async fn adoption_finalizes_a_pane_that_exited_without_a_reader() {
     assert!(!manager.tmux.exists("worker").await);
     assert_eq!(
         manager
-            .tasks
+            .task_store()
             .task_for_async(crate::tasks::HOST, &task.id)
             .await
             .unwrap()

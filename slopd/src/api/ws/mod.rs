@@ -19,7 +19,8 @@ use futures::StreamExt;
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore, broadcast};
 use tokio::task::JoinHandle;
 
-use crate::session::{AuthChange, Event, EventMessage, ScreenView, WatchGuard};
+use crate::application::{Event, EventMessage};
+use crate::session::{AuthChange, ScreenView, WatchGuard};
 
 use super::types::{ClientMsg, ScrollReq};
 use super::{Mgr, err, presented_token};
@@ -173,7 +174,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     let subs: WsSubs = Arc::new(Mutex::new(HashMap::new()));
 
     // Subscribe before snapshot preparation so concurrent session starts cannot be lost.
-    let events = m.events.subscribe();
+    let events = m.application.subscribe();
     if !send_initial_snapshot(&tx, &m, &cap).await {
         return;
     }
