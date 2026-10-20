@@ -4,7 +4,7 @@ use crate::tasks::Task;
 use crate::title::SummaryCache;
 use std::sync::Arc;
 
-pub(crate) struct TaskSummaryRequest {
+struct TaskSummaryRequest {
     pub(crate) tasks: Arc<super::Services>,
     pub(crate) settings: DaemonSettings,
     pub(crate) cache: Arc<SummaryCache>,
@@ -87,3 +87,14 @@ impl TaskSummaryRequest {
 #[cfg(test)]
 #[path = "task_summaries_tests.rs"]
 mod tests;
+
+impl super::Services {
+    pub(crate) fn spawn_task_summary(self: &Arc<Self>, settings: DaemonSettings, task: Task) {
+        TaskSummaryRequest {
+            tasks: self.clone(),
+            settings,
+            cache: self.title_cache.clone(),
+        }
+        .spawn(task);
+    }
+}

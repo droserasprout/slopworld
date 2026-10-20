@@ -1,7 +1,6 @@
 //! Shared session state; manager/ owns lifecycle and application owns daemon publication.
 
 use crate::clock::unix_ms;
-mod protobuf;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -20,7 +19,6 @@ use launch::{
     ExecutionSource, HostLifetime, LaunchContent, LaunchDestination, LaunchOptions, LaunchRequest,
 };
 pub(crate) use launch::{ExplicitLaunch, LaunchContext, ReaderContext};
-mod text;
 mod title;
 mod validation;
 mod view;
@@ -39,17 +37,17 @@ pub use manager::{Manager, WatchGuard};
 pub(crate) use manager::{test_manager, test_manager_with_socket};
 pub(crate) use view::FrameViewArgs;
 pub use view::{
-    ProjectView, ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
+    ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
     SessionWorkerView,
 };
 
 use crate::config::check_belongs;
 use crate::config::patch::json_to_toml;
 use crate::config::{check_library_item, check_project};
+use crate::emu::strip_sgr;
 use crate::prompt::{PromptVars, render_prompt, render_prompt_with};
 pub(crate) use input::Input;
 use input::merge_input;
-pub use text::strip_sgr;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
 pub(crate) use validation::name_slug;
 use validation::{check_name, free_name, free_project_name, settle, slug};

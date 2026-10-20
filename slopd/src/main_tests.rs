@@ -1,6 +1,7 @@
 use super::*;
 use crate::config::{Daemon, ProjectCfg, SessionCfg};
 use crate::grant::Level;
+use crate::session::Manager;
 use crate::shared::{http_wire, wire};
 use axum::body::Body;
 use axum::http::Request;

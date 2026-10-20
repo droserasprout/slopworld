@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 pub(crate) mod checkout;
 pub(crate) mod directories;
+pub(crate) mod inspection;
 pub(crate) mod relocation;
 pub(crate) mod resolution;
 mod write_guard;

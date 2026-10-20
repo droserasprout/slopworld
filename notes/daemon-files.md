@@ -8,14 +8,14 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | Area | Responsibility |
 | --- | --- |
 | `main.rs` | Startup/service orchestration and token middleware. |
-| `application/` | Startup-constructed accepted configuration/credential state, personal template and library catalogs, project coordination, and shared event/task/music services. Application owns catalog maintenance, worktree and file-action coordination, task summaries, and usage/music publication; session adapters supply identity/authorization leases and host lifecycle; API owns event encoding. |
+| `application/` | Startup-constructed accepted configuration/credential state, personal template and library catalogs, project coordination, and shared event/task/music services. Application owns catalog maintenance, worktree and file-action coordination, task summaries and their shared title cache, and usage/music publication; session adapters supply identity/authorization leases and host lifecycle; API owns event encoding. |
 | `agent_templates/` | Portable template definitions, snapshot/version policy, and generation persistence. Application owns the accepted catalog; session adapters capture and instantiate agents. |
 | `shared/` | Protocol constants/enums and serialization helpers. |
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` decodes explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md) and [file preview boundary](daemon-file-previews.md). |
 | `api/handlers/files/`, `api/handlers/highlighting.rs` | File and syntax-preview HTTP decoding, path resolution, error mapping, and wire projection. |
 | `files/` | Transport-independent browsing, file-action preparation and bounded host execution, desktop app discovery, mutations, preview containment and reader stamps, bounded ripgrep search, and highlighter execution. `crate::git` retains Git inspection ownership. |
 | `session/launch.rs` | Common launch requests, execution source, destination, launch overrides and reader context. Live sessions own UI intent and reader identity separately from saved agent definitions; startup snapshots them and adoption restores them from tmux metadata. |
-| `session/` | Session types, input, validation, wire views. `crate::application` owns daemon events and their shared encoding cache; `api/events.rs` owns event wire conversion and `session/protobuf.rs` projects screens. |
+| `session/` | Session types, input, validation, wire views. `crate::application` owns daemon events and their shared encoding cache; `api/events.rs` owns event and screen wire conversion. |
 | `session/role.rs` | Live agent lifetime and host roles; lifecycle owns retention/cleanup and views projects compatibility flags. |
 | `session/validation.rs` | Session name allocation and normalization. |
 | `prompt/` | Placeholder scanning and values for prompts and breadcrumbs. |
@@ -26,12 +26,12 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `session/manager/delivery.rs` | Run-bound delayed prompt submission, readiness, and auto-resume. Callers compose prompts; capture owns queued input execution. |
 | `session/manager/capture/` | Terminal readers, input, frames, scrollback, and title capture. |
 | `session/manager/host_metadata.rs` | Host-shell record edits, working-directory/process observations, and serialized background tmux polling. See [host tabs](daemon-host-terminals.md). |
-| `session/manager/init.rs`, `maintenance.rs` | Startup recovery and maintenance scheduling. The `config/` adapter delegates accepted configuration/auth publication to `application/config_authority.rs`; `lifecycle/reconcile.rs` applies configuration to live sessions. `application/catalogs.rs` owns catalog polling and reload state. |
+| `application/startup.rs`, `application/maintenance.rs` | Daemon recovery ordering, catalog polling, and combined maintenance scheduling. Session `init.rs` constructs runtime state; session `maintenance.rs` supplies activity, capture-retry, and host-poll deadlines. The `config/` adapter delegates accepted configuration/auth publication to `application/config_authority.rs`; `lifecycle/reconcile.rs` applies configuration to live sessions. `application/catalogs.rs` owns catalog reload state. |
 | `clock.rs`, `paths.rs` | Unix-millisecond timestamps, filesystem metadata, and atomic file writes. Latency measurements use their own monotonic clock in `latency.rs`. |
 | `storage/workspace.rs`, `storage/document.rs` | Shared ordered-record discovery, preparation and publication, and TOML extension mechanics. Session/project/checkout schemas retain their own validation and nested extension policy. |
 | `storage_id.rs` | OS-random opaque storage IDs and syntax checks; each store owns reservation and collision exclusion. |
 | `process.rs` | Shared bounded child capture, timeout, kill, and reap mechanics. |
-| `emu/`, `tmux/` | Terminal mirror and tmux transport. `tmux/server.rs` owns server startup and readiness; `emu/serialize.rs` owns cell-to-row encoding; `tmux/control.rs` decodes control-mode output before bytes enter the mirror. |
+| `emu/`, `tmux/` | Terminal mirror and tmux transport. `tmux/server.rs` owns server startup and readiness; `emu/serialize.rs` owns cell-to-row encoding and `emu/text.rs` owns escape-sequence stripping; `tmux/control.rs` decodes control-mode output before bytes enter the mirror. |
 | `sandbox/`, `presets.rs`, `presets/edit.rs` | Sandbox construction, preset snapshots, and serialized catalog mutations. |
 | `config/` | Machine settings, assembled configuration view, domain validation and command resolution. `validation.rs` owns static configuration/project/session checks, `library.rs` owns library-item rules, and `patch.rs` converts JSON settings patches. `settings_document.rs` prepares root-only edits; `crate::storage` owns workspace records and recovery. |
 | `config/transactions/` | Serialized preparation, recovery, disk commits, cache rollback, and accepted record/catalog indexes. `session/manager/config/` adapts session validation, guarded application publication, endpoint updates, and announcements. |

@@ -53,7 +53,6 @@ use axum::middleware::{self, Next};
 use axum::response::IntoResponse;
 
 use crate::config::Config;
-use crate::session::Manager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -122,27 +121,20 @@ async fn main() -> Result<()> {
             )
         })?,
     ));
-    let m = Manager::new(storage, services.clone(), tmux, config_authority.clone()).await?;
+    let m = crate::application::startup::start_sessions(
+        storage,
+        services.clone(),
+        tmux,
+        config_authority.clone(),
+    )
+    .await?;
     // Player recovery needs adopted host terminals, before polling or serving requests.
     services.music.recover(&m).await;
 
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;
 
-    // Session maintenance retains lifecycle coordination.
-    let poller = {
-        let m: Arc<Manager> = m.clone();
-        tokio::spawn(async move {
-            loop {
-                let delay = m.maintenance_delay().await;
-                let wake = m.maintenance_wake();
-                tokio::select! {
-                    () = tokio::time::sleep(delay) => m.retick().await,
-                    () = wake.notified() => {}
-                }
-            }
-        })
-    };
+    let poller = services.spawn_maintenance(m.clone());
 
     // Spawn even when disabled so polling can be enabled without a restart.
     let usage = services.spawn_usage_poll(config_authority.daemon_settings());

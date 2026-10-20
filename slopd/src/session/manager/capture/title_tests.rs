@@ -56,17 +56,22 @@ async fn successful_title_is_cached_and_reused_without_a_provider_request() {
         Some("Architecture")
     );
     assert_eq!(
-        m.title_cache.latest("agent").as_deref(),
+        m.application.title_cache.latest("agent").as_deref(),
         Some("Architecture")
     );
     let next = prepare(&m, &request.input.prompt).await;
-    let cached = m.title_cache.resolve(&next.input).await.unwrap();
+    let cached = m
+        .application
+        .title_cache
+        .resolve(&next.input)
+        .await
+        .unwrap();
     assert!(cached.cache_hit);
     assert_eq!(cached.text, "Architecture");
-    m.title_cache.clear_latest("agent");
+    m.application.title_cache.clear_latest("agent");
     assert!(m.apply_title_result("agent", &next, Ok(cached)).await);
     assert_eq!(
-        m.title_cache.latest("agent").as_deref(),
+        m.application.title_cache.latest("agent").as_deref(),
         Some("Architecture")
     );
     // Repeated completion cannot overwrite a previously committed response.
@@ -83,7 +88,7 @@ async fn stale_results_cannot_replace_new_work_or_a_replacement_session() {
     assert!(!m.title_request_enabled("agent", &old).await);
     assert!(!m.apply_title_result("agent", &old, summary("Stale")).await);
     assert!(m.live.read().await["agent"].title.accepts(&current));
-    assert!(m.title_cache.latest("agent").is_none());
+    assert!(m.application.title_cache.latest("agent").is_none());
     {
         let mut live = m.live.write().await;
         let cfg = live["agent"].cfg.clone();
@@ -131,7 +136,10 @@ async fn disabled_or_short_requests_are_discarded_and_failures_keep_previous_tit
             .await
     );
     m.clone().run_title_request("agent".into(), disabled).await;
-    assert_eq!(m.title_cache.latest("agent").as_deref(), Some("Previous"));
+    assert_eq!(
+        m.application.title_cache.latest("agent").as_deref(),
+        Some("Previous")
+    );
 }
 
 #[tokio::test]
@@ -149,7 +157,7 @@ async fn disabling_titles_clears_work_and_cache_before_old_results_can_commit() 
     assert!(!m.reconcile_title_settings(&cfg).await);
     assert!(!m.live.read().await["agent"].title.accepts(&request));
     assert!(m.live.read().await["agent"].title.title().is_none());
-    assert!(m.title_cache.latest("agent").is_none());
+    assert!(m.application.title_cache.latest("agent").is_none());
     assert!(
         !m.apply_title_result("agent", &request, summary("Old result"))
             .await
@@ -157,7 +165,7 @@ async fn disabling_titles_clears_work_and_cache_before_old_results_can_commit() 
     // Actual configuration is still enabled; the pending composer must have been cleared.
     m.capture_title_keys("agent", &["Enter".into()], false)
         .await;
-    assert!(m.title_cache.latest("agent").is_none());
+    assert!(m.application.title_cache.latest("agent").is_none());
     assert!(
         !m.live.read().await["agent"].title.has_pending(),
         "unfinished input produced a request"
@@ -181,7 +189,10 @@ async fn new_conversation_updates_recovery_state_and_rejects_old_results() {
         m.capture_title_keys("agent", &["Enter".into()], false)
             .await;
         assert_eq!(m.live.read().await["agent"].title.title(), expected);
-        assert_eq!(m.title_cache.latest("agent").as_deref(), expected);
+        assert_eq!(
+            m.application.title_cache.latest("agent").as_deref(),
+            expected
+        );
         assert!(
             !m.apply_title_result("agent", &pending, summary("Late result"))
                 .await
@@ -189,7 +200,7 @@ async fn new_conversation_updates_recovery_state_and_rejects_old_results() {
     }
     let path = m.cfg_path.with_file_name("summary-cache.toml");
     tokio::task::spawn_blocking(move || {
-        m.title_cache.flush().unwrap();
+        m.application.title_cache.flush().unwrap();
         assert!(
             crate::title::SummaryCache::load(path)
                 .latest("agent")
@@ -258,14 +269,14 @@ async fn rename_moves_recovery_title_and_invalidates_pending_requests() {
         m.live.read().await["renamed"].title.title(),
         Some("Current title")
     );
-    assert!(m.title_cache.latest("agent").is_none());
+    assert!(m.application.title_cache.latest("agent").is_none());
     assert_eq!(
-        m.title_cache.latest("renamed").as_deref(),
+        m.application.title_cache.latest("renamed").as_deref(),
         Some("Current title")
     );
     let path = m.cfg_path.with_file_name("summary-cache.toml");
     tokio::task::spawn_blocking(move || {
-        m.title_cache.flush().unwrap();
+        m.application.title_cache.flush().unwrap();
         let restored = crate::title::SummaryCache::load(path);
         assert!(restored.latest("agent").is_none());
         assert_eq!(restored.latest("renamed").as_deref(), Some("Current title"));

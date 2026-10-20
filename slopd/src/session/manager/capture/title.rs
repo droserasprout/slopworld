@@ -17,7 +17,7 @@ impl Manager {
             }
             return;
         }
-        let result = self.title_cache.resolve(&request.input).await;
+        let result = self.application.title_cache.resolve(&request.input).await;
         if self.apply_title_result(&name, &request, result).await {
             self.announce_sessions().await;
         }
@@ -58,7 +58,9 @@ impl Manager {
             Ok(summary) => {
                 // Update bounded cache memory in live-commit order. The single writer
                 // persists later, so /new, disable, and rename cannot be overtaken by this result.
-                self.title_cache.store(&request.input, &summary, Some(name));
+                self.application
+                    .title_cache
+                    .store(&request.input, &summary, Some(name));
                 l.title.finish(request, Some(summary.text))
             }
             Err(error) => {
@@ -86,8 +88,8 @@ impl Manager {
             let action = l.title.capture_keys(&settings, keys, literal);
             if matches!(action, Some(TitleAction::Boundary)) {
                 match l.title.title() {
-                    Some(title) => self.title_cache.remember(name, title),
-                    None => self.title_cache.clear_latest(name),
+                    Some(title) => self.application.title_cache.remember(name, title),
+                    None => self.application.title_cache.clear_latest(name),
                 }
             }
             action
@@ -108,7 +110,7 @@ impl Manager {
         for (name, l) in live.iter_mut() {
             if TitleSettings::for_session(cfg, &l.cfg, l.role.is_host()).is_none() {
                 changed |= l.title.disable();
-                self.title_cache.clear_latest(name);
+                self.application.title_cache.clear_latest(name);
             }
         }
         changed

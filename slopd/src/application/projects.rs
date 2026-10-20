@@ -4,6 +4,7 @@ use crate::config::transactions::PreparedConfigChange;
 use crate::config::{Config, ProjectCfg, check_project, expand, validate_mount_paths};
 use crate::worktrees::{Store, Worktree, WorktreePhase, directories::CreatedDirectories};
 use anyhow::{Context, Result, anyhow, bail};
+use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 pub(crate) trait ProjectRuntime: crate::worktrees::relocation::Persistence + Sync {
@@ -218,3 +219,24 @@ async fn plan_relocations(
         directories,
     })
 }
+
+/// Editable project configuration alongside its daemon-expanded directory.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProjectView {
+    #[serde(flatten)]
+    pub config: crate::config::ProjectCfg,
+    pub expanded_dir: String,
+}
+
+impl From<crate::config::ProjectCfg> for ProjectView {
+    fn from(config: crate::config::ProjectCfg) -> Self {
+        Self {
+            expanded_dir: crate::config::expand(&config.dir),
+            config,
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "projects_tests.rs"]
+mod tests;

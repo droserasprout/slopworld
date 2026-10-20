@@ -81,7 +81,7 @@ async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiRe
 }
 
 async fn reload_after_mutation(m: &Mgr) -> Result<(), super::super::ApiError> {
-    m.reload_jukebox_if_changed().await.map_err(|error| {
+    m.application.reload_jukebox_if_changed(m).await.map_err(|error| {
         err(StatusCode::INTERNAL_SERVER_ERROR, format!(
             "The change was saved to disk, but the live jukebox catalog could not reload. Fix the station definitions to apply it: {error:#}"
         ))

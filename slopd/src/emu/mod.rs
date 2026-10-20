@@ -13,6 +13,8 @@ use alacritty_terminal::term::{
 };
 use alacritty_terminal::vte::ansi::{Color, CursorShape, CursorStyle, Processor};
 
+mod text;
+pub(crate) use text::strip_sgr;
 mod handler;
 mod serialize;
 

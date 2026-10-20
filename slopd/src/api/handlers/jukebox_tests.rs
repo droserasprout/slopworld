@@ -63,7 +63,13 @@ async fn mutations_report_reload_failure_and_recover_after_definition_repair() {
     let mut events = manager.application.subscribe();
     let mut station = radio_station();
     create_and_read_preset(&app, &mut events, &station, &root).await;
-    assert!(!manager.reload_jukebox_if_changed().await.unwrap());
+    assert!(
+        !manager
+            .application
+            .reload_jukebox_if_changed(&manager)
+            .await
+            .unwrap()
+    );
 
     let broken = root.join("jukebox/broken.toml");
     let path = "/api/jukebox/presets/radio";
@@ -87,11 +93,27 @@ async fn mutations_report_reload_failure_and_recover_after_definition_repair() {
         } else {
             assert!(!root.join("jukebox/radio.toml").exists());
         }
-        manager.reload_jukebox_if_changed().await.unwrap_err();
+        manager
+            .application
+            .reload_jukebox_if_changed(&manager)
+            .await
+            .unwrap_err();
         std::fs::remove_file(&broken).unwrap();
-        assert!(manager.reload_jukebox_if_changed().await.unwrap());
+        assert!(
+            manager
+                .application
+                .reload_jukebox_if_changed(&manager)
+                .await
+                .unwrap()
+        );
         assert_preset_event(&mut events);
-        assert!(!manager.reload_jukebox_if_changed().await.unwrap());
+        assert!(
+            !manager
+                .application
+                .reload_jukebox_if_changed(&manager)
+                .await
+                .unwrap()
+        );
         if method == "PUT" {
             assert_eq!(
                 crate::jukebox::catalog().stations[0].metadata.name,

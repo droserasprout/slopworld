@@ -1,6 +1,8 @@
 //! Session guards, attachment checks, and views for application worktree operations.
 use super::super::*;
-use crate::worktrees::{Store, Worktree, WorktreePhase, git};
+#[cfg(test)]
+use crate::worktrees::git;
+use crate::worktrees::{Store, Worktree};
 use anyhow::anyhow;
 use std::collections::HashMap;
 
@@ -14,13 +16,6 @@ pub(crate) struct WorktreeState {
 }
 
 pub(crate) use crate::application::worktrees::WorktreeRequest;
-
-pub(crate) struct WorktreeView {
-    pub worktree: Worktree,
-    pub branch: String,
-    pub head: String,
-    pub attachments: Vec<String>,
-}
 
 impl Manager {
     /// Read the accepted index under session/worktree operation guards.
@@ -77,23 +72,8 @@ impl Manager {
             String::new()
         };
         let project = self.resolve_worktree(project, &selected).await?;
-        git(
-            Path::new(&expand(&project.dir)),
-            &[
-                "rev-parse",
-                "--verify",
-                "--end-of-options",
-                &format!(
-                    "{}^{{commit}}",
-                    if revision.is_empty() {
-                        "HEAD"
-                    } else {
-                        revision
-                    }
-                ),
-            ],
-        )
-        .await
+        crate::worktrees::inspection::resolve_commit(Path::new(&expand(&project.dir)), revision)
+            .await
     }
 
     pub(super) async fn validate_worktree_config(&self, old: &Config, new: &Config) -> Result<()> {
@@ -139,68 +119,13 @@ impl Manager {
         users
     }
 
-    pub(crate) async fn worktree_list(&self, project: &str) -> Result<Vec<WorktreeView>> {
-        let cfg = self.config().await;
-        let p = cfg
-            .project(project)
-            .ok_or_else(|| anyhow!("no project {project}"))?;
-        let mut rows = vec![Worktree {
-            id: "main".into(),
-            project_id: p.id.clone(),
-            name: "main".into(),
-            path: expand(&p.dir),
-            phase: WorktreePhase::Ready,
-            ..Default::default()
-        }];
-        rows.extend(
-            self.worktree_records()
-                .worktrees
-                .into_iter()
-                .filter(|w| !p.id.is_empty() && w.project_id == p.id),
-        );
-        let mut result = Vec::new();
-        for mut w in rows {
-            let path = Path::new(&w.path);
-            let head = git(path, &["rev-parse", "--verify", "HEAD"])
-                .await
-                .unwrap_or_default();
-            let branch = git(path, &["symbolic-ref", "--quiet", "--short", "HEAD"])
-                .await
-                .unwrap_or_default();
-            // Keep interrupted requests visible for inspection during this daemon run.
-            // Startup recovery identifies completed allocations but never restarts workers.
-            if w.phase == WorktreePhase::Allocating {
-                w.error = "Allocation was interrupted. Inspect the worktree before you remove or reuse it.".into();
-            }
-            if w.phase == WorktreePhase::Relocating {
-                // The persisted error includes both source and destination; preserve it.
-            } else if !path.is_dir() {
-                w.phase = WorktreePhase::Error;
-                w.error =
-                    "The checkout directory is missing. Retry manual removal to reconcile its record."
-                        .into();
-            } else if w.managed && path.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
-                w.phase = WorktreePhase::Error;
-                w.error = "The managed checkout path does not match its recorded name.".into();
-            }
-            let mut attachments = self.worktree_attachments(&w).await;
-            if w.id == "main" {
-                attachments = self
-                    .views()
-                    .await
-                    .into_iter()
-                    .filter(|s| s.project == project && Path::new(&expand(&s.dir)) == path)
-                    .map(|s| s.name)
-                    .collect();
-            }
-            result.push(WorktreeView {
-                worktree: w,
-                branch,
-                head,
-                attachments,
-            });
-        }
-        Ok(result)
+    pub(crate) async fn worktree_list(
+        &self,
+        project: &str,
+    ) -> Result<Vec<crate::application::worktrees::WorktreeView>> {
+        crate::application::worktrees::Coordinator::new(self)
+            .list(project)
+            .await
     }
 
     pub(crate) async fn create_worktree(self: &Arc<Self>, q: WorktreeRequest) -> Result<Worktree> {
@@ -267,6 +192,14 @@ impl crate::application::worktrees::Runtime for Manager {
     }
     async fn worktree_attachments(&self, worktree: &Worktree) -> Vec<String> {
         Manager::worktree_attachments(self, worktree).await
+    }
+    async fn main_attachments(&self, project: &str, path: &Path) -> Vec<String> {
+        self.views()
+            .await
+            .into_iter()
+            .filter(|s| s.project == project && Path::new(&expand(&s.dir)) == path)
+            .map(|s| s.name)
+            .collect()
     }
     async fn announce_projects(&self) {
         Manager::announce_projects(self).await;

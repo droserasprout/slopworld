@@ -1,7 +1,8 @@
 //! Published daemon events and their shared encoded representation.
 
+use super::projects::ProjectView;
 use crate::config::LibraryItemCfg;
-use crate::session::{ProjectView, ScreenView, SessionView};
+use crate::session::{ScreenView, SessionView};
 use std::sync::{Arc, OnceLock};
 
 #[derive(Debug, Clone)]

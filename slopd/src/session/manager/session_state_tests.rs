@@ -30,6 +30,17 @@ async fn future_epoch_timestamp_cannot_delay_monotonic_idle_deadline() {
         row.retick_seq = row.seq;
     }
     assert_eq!(manager.maintenance_delay().await, Duration::ZERO);
+    for catalog in [
+        crate::application::catalogs::Catalog::Config,
+        crate::application::catalogs::Catalog::Presets,
+        crate::application::catalogs::Catalog::Jukebox,
+    ] {
+        manager.application.catalogs.claim(catalog, unix_ms());
+    }
+    assert_eq!(
+        manager.application.maintenance_delay(&manager).await,
+        Duration::ZERO
+    );
     manager.retick().await;
     let live = manager.live.read().await;
     assert_eq!(live["agent"].state, State::Idle);

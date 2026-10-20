@@ -22,6 +22,13 @@ pub(crate) struct WorktreeRequest {
     pub path: String,
 }
 
+pub(crate) struct WorktreeView {
+    pub worktree: Worktree,
+    pub branch: String,
+    pub head: String,
+    pub attachments: Vec<String>,
+}
+
 struct PreparedWorktree {
     root: PathBuf,
     project: ProjectCfg,
@@ -43,6 +50,11 @@ pub(crate) trait Runtime: Catalog + crate::worktrees::relocation::Persistence {
         &self,
         worktree: &Worktree,
     ) -> impl std::future::Future<Output = Vec<String>> + Send;
+    fn main_attachments(
+        &self,
+        project: &str,
+        path: &Path,
+    ) -> impl std::future::Future<Output = Vec<String>> + Send;
     fn announce_projects(&self) -> impl std::future::Future<Output = ()> + Send;
 }
 
@@ -54,6 +66,44 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
     pub(crate) fn new(runtime: &'a R) -> Self {
         Self { runtime }
     }
+    pub(crate) async fn list(&self, project: &str) -> Result<Vec<WorktreeView>> {
+        let cfg = self.runtime.config().await;
+        let p = cfg
+            .project(project)
+            .ok_or_else(|| anyhow!("no project {project}"))?;
+        let mut rows = vec![Worktree {
+            id: "main".into(),
+            project_id: p.id.clone(),
+            name: "main".into(),
+            path: expand(&p.dir),
+            phase: WorktreePhase::Ready,
+            ..Default::default()
+        }];
+        rows.extend(
+            self.runtime
+                .worktree_records()
+                .worktrees
+                .into_iter()
+                .filter(|w| !p.id.is_empty() && w.project_id == p.id),
+        );
+        let mut result = Vec::new();
+        for mut w in rows {
+            let (branch, head) = crate::worktrees::inspection::inspect(&mut w).await;
+            let path = Path::new(&w.path);
+            let mut attachments = self.runtime.worktree_attachments(&w).await;
+            if w.id == "main" {
+                attachments = self.runtime.main_attachments(project, path).await;
+            }
+            result.push(WorktreeView {
+                worktree: w,
+                branch,
+                head,
+                attachments,
+            });
+        }
+        Ok(result)
+    }
+
     pub(crate) async fn create(&self, request: &WorktreeRequest) -> Result<Worktree> {
         let prepared = self.prepare_worktree(request).await?;
         self.finish_worktree_creation(prepared).await
@@ -140,19 +190,7 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
             crate::worktrees::validate_new_branch(&root, &name).await?;
         }
         let branch = name.clone();
-        let base = git(
-            &root,
-            &[
-                "rev-parse",
-                "--verify",
-                "--end-of-options",
-                &format!(
-                    "{}^{{commit}}",
-                    if q.base.is_empty() { "HEAD" } else { &q.base }
-                ),
-            ],
-        )
-        .await?;
+        let base = crate::worktrees::inspection::resolve_commit(&root, &q.base).await?;
         let requested_path = if managed {
             let parent = crate::worktrees::project_root(&project);
             if !parent.is_absolute() {

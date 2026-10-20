@@ -12,6 +12,9 @@ impl Fixture {
         let tasks = crate::tasks::Tasks::load_records(&root).unwrap();
         let services = Arc::new(Services::new(
             crate::tasks::io::TaskStore::new(tasks),
+            Arc::new(crate::title::SummaryCache::load(
+                root.join("summary-cache.toml"),
+            )),
             crate::tmux::Tmux::new(root.join("tmux").to_str().unwrap()),
             16,
             super::AgentTemplates::new(

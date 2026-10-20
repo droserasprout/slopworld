@@ -99,7 +99,7 @@ impl Manager {
         out
     }
 
-    pub(super) async fn announce_sessions(&self) {
+    pub(crate) async fn announce_sessions(&self) {
         self.emit(Event::Sessions {
             sessions: self.views().await,
         });

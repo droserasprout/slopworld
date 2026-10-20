@@ -101,7 +101,7 @@ pub(crate) async fn copy_preset(
             .await
             .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     copied.map_err(preset_error)?;
-    m.reload_presets_if_changed().await;
+    m.application.reload_presets_if_changed(&m).await;
     Ok(Proto(wire::Ack { ok: true }))
 }
 
@@ -138,7 +138,7 @@ pub(crate) async fn update_preset(
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
         .map_err(preset_error)?;
-    m.reload_presets_if_changed().await;
+    m.application.reload_presets_if_changed(&m).await;
     Ok(Proto(wire::Ack { ok: true }))
 }
 
@@ -151,7 +151,7 @@ pub(crate) async fn delete_preset(
         .await
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     deleted.map_err(preset_error)?;
-    m.reload_presets_if_changed().await;
+    m.application.reload_presets_if_changed(&m).await;
     Ok(Proto(wire::Ack { ok: true }))
 }
 

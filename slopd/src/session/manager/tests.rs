@@ -61,6 +61,9 @@ pub(crate) fn test_manager_with_socket(
             crate::tasks::io::TaskStore::new(
                 crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
             ),
+            Arc::new(crate::title::SummaryCache::load(
+                directory.join("summary-cache.toml"),
+            )),
             tmux,
             16,
             crate::application::AgentTemplates::new(
@@ -73,9 +76,6 @@ pub(crate) fn test_manager_with_socket(
         terminal_resizes: Mutex::new(HashMap::new()),
         worker_spawn: tokio::sync::Mutex::new(()),
         worktrees: WorktreeState::default(),
-        title_cache: Arc::new(crate::title::SummaryCache::load(
-            directory.join("summary-cache.toml"),
-        )),
     });
     manager.application.library.seed(library_snapshot);
     manager

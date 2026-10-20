@@ -6,23 +6,6 @@ use crate::emu::Frame;
 use serde::Serialize;
 use std::sync::Arc;
 
-/// Editable project configuration alongside its daemon-expanded directory.
-#[derive(Debug, Clone, Serialize)]
-pub struct ProjectView {
-    #[serde(flatten)]
-    pub config: crate::config::ProjectCfg,
-    pub expanded_dir: String,
-}
-
-impl From<crate::config::ProjectCfg> for ProjectView {
-    fn from(config: crate::config::ProjectCfg) -> Self {
-        Self {
-            expanded_dir: crate::config::expand(&config.dir),
-            config,
-        }
-    }
-}
-
 /// Session identity, effective launch settings, and current runtime status.
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionView {

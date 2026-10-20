@@ -208,7 +208,7 @@ impl Manager {
     }
 
     pub(in crate::session::manager) fn clear_latest_title(&self, name: &str) {
-        self.title_cache.clear_latest(name);
+        self.application.title_cache.clear_latest(name);
     }
 }
 

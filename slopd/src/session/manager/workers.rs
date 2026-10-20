@@ -235,7 +235,8 @@ impl Manager {
                 }),
             )
             .await?;
-        self.spawn_task_summary_request(task.clone());
+        self.application
+            .spawn_task_summary(self.config_authority.daemon_settings(), task.clone());
         session.task_id = task.id.clone();
 
         self.register_task_worker(&session, durable).await?;

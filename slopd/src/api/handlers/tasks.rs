@@ -148,7 +148,8 @@ pub(crate) async fn create_task(
         .create_task_owned(from, to, q.body, None)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    m.spawn_task_summary_request(task.clone());
+    m.application
+        .spawn_task_summary(m.config_authority.daemon_settings(), task.clone());
     Ok(Proto(wire::TaskResult {
         task: Some(task_view(task)),
     }))

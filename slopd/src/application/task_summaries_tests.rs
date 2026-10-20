@@ -33,9 +33,7 @@ async fn fixture() -> (Fixture, Task) {
             cfg,
             Default::default(),
         )),
-        title_cache: Arc::new(SummaryCache::load(
-            application.root.join("summary-cache.toml"),
-        )),
+        title_cache: application.services.title_cache.clone(),
         cfg_path,
         application,
     };

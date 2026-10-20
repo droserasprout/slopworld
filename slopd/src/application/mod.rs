@@ -13,17 +13,19 @@ mod library;
 mod music;
 pub(crate) mod projects;
 pub(crate) use library::{LibraryCatalog, LibraryMutation, LibraryRuntime};
+mod maintenance;
+pub(crate) mod startup;
 mod task_summaries;
 mod usage;
 use crate::tasks::io::TaskStore;
 use anyhow::{Context, Result};
 pub(crate) use events::{Event, EventMessage};
 use std::sync::Arc;
-pub(crate) use task_summaries::TaskSummaryRequest;
 use tokio::sync::{RwLock, broadcast};
 
 pub(crate) struct Services {
     tasks: TaskStore,
+    pub(crate) title_cache: Arc<crate::title::SummaryCache>,
     pub(crate) catalogs: catalogs::CatalogState,
     pub(crate) library: LibraryCatalog,
     pub(crate) templates: AgentTemplates,
@@ -45,13 +47,17 @@ impl Services {
             &config.join("config.toml"),
         ))
         .await?;
-        let mut services = Self::new(tasks, tmux, 256, templates);
+        let cache = Arc::new(crate::title::SummaryCache::load(crate::title::cache_path(
+            &config.join("config.toml"),
+        )));
+        let mut services = Self::new(tasks, cache, tmux, 256, templates);
         services.catalogs = catalogs::CatalogState::load();
         Ok(Arc::new(services))
     }
 
     pub(crate) fn new(
         tasks: TaskStore,
+        title_cache: Arc<crate::title::SummaryCache>,
         tmux: crate::tmux::Tmux,
         event_capacity: usize,
         templates: AgentTemplates,
@@ -59,6 +65,7 @@ impl Services {
         let (events, _) = broadcast::channel(event_capacity);
         Self {
             tasks,
+            title_cache,
             catalogs: catalogs::CatalogState::new(None, None),
             library: LibraryCatalog::default(),
             templates,

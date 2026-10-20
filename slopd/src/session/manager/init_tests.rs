@@ -73,9 +73,14 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
         config,
         crate::grant::Grants::load_data(&storage.binding.data).unwrap(),
     ));
-    let manager = Manager::new(storage, application.clone(), tmux, authority.clone())
-        .await
-        .unwrap();
+    let manager = crate::application::startup::start_sessions(
+        storage,
+        application.clone(),
+        tmux,
+        authority.clone(),
+    )
+    .await
+    .unwrap();
     assert!(Arc::ptr_eq(&manager.application, &application));
     assert!(Arc::ptr_eq(&manager.config_authority, &authority));
     application.music.recover(&manager).await;

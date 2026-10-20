@@ -1,5 +1,6 @@
 //! Session manager state and focused implementation modules.
-//! Start at init.rs for construction, boundary.rs for concurrency, and lifecycle/start.rs for launch.
+//! init.rs constructs state; application/startup.rs orders recovery.
+//! boundary.rs owns concurrency and lifecycle/start.rs owns launch.
 //! session_state.rs owns classification; views.rs projects live state for clients.
 
 mod agent_templates;
@@ -21,7 +22,6 @@ mod projects;
 mod session_state;
 mod sessions;
 mod signals;
-mod task_summary;
 mod tasks;
 mod views;
 mod workers;
@@ -59,7 +59,6 @@ pub struct Manager {
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_mutation: tokio::sync::Mutex<()>,
     pub(super) activity_cache: crate::activity::ActivityCache,
-    pub(super) title_cache: Arc<crate::title::SummaryCache>,
 
     // Client communication and authorization.
     pub(crate) application: Arc<crate::application::Services>,

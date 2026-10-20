@@ -1,6 +1,7 @@
 //! Session guards, identity allocation, and publication for project operations.
 //! Library execution and delayed input belong to library.rs.
 use super::super::*;
+use crate::application::projects::ProjectView;
 use crate::session::manager::config::ConfigMutation;
 
 impl Manager {
