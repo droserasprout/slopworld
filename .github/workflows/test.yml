@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - '**'
-    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+      # Release calls this workflow for tags and packaging previews.
+      - '!release-ci'
     # Documentation has its own workflow; mixed code/docs pushes still run tests.
     paths-ignore:
       - 'docs/**'

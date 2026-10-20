@@ -188,14 +188,14 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.env['BUILD'] = 'debug'
         self.run_recipe('BUILD=release', 'daemon-build')
         (call,) = self.calls('cargo')
-        self.assertEqual(call['args'], ['build', '--release'])
+        self.assertEqual(call['args'], ['build', '--locked', '--release'])
         self.assertEqual(call['env']['BUILD'], 'release')
         self.assertEqual(call['cwd'], str(ROOT / 'slopd'))
 
     def test_build_overrides_preserve_frozen_flags_and_custom_paths(self) -> None:
         self.run_recipe('BUILD=release', 'CARGOFLAGS=--release --frozen', 'daemon-build')
         (call,) = self.calls('cargo')
-        self.assertEqual(call['args'], ['build', '--release', '--frozen'])
+        self.assertEqual(call['args'], ['build', '--locked', '--release', '--frozen'])
         self.log.unlink()
         self.run_recipe(f'RUNNER={self.directory / "runner"}', 'install-mod')
         installer = next(call for call in self.calls('uv') if 'tools.host.install_mod' in call['args'])
@@ -245,7 +245,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.run_recipe('BUILD=release', 'bench-terminal')
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
         self.assertEqual([call['tool'] for call in calls], ['cargo', 'uv'])
-        self.assertEqual(calls[0]['args'], ['build', '--release'])
+        self.assertEqual(calls[0]['args'], ['build', '--locked', '--release'])
         self.assertIn('bench/terminal-input/terminal-input-bench.py', calls[1]['args'])
 
     def test_invalid_build_fails_before_running_commands(self) -> None:

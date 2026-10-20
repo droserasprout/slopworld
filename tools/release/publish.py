@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 from tools import ROOT
-from tools.release import arch
 from tools.release import changelog
 from tools.release import container
 from tools.release import gates
@@ -60,8 +59,7 @@ def package(output: Path, revision: str, version: str, *, notes: str, native_pac
                     archive.write(source, source.relative_to(workspace))
         names = list(asset_names[:2])
         if native_packages:
-            names.append(arch.package(workspace, revision, version, 'x86_64', mod=mod).name)
-            for distribution in ('debian', 'fedora'):
+            for distribution in ('arch', 'debian', 'fedora'):
                 names.append(container.package(distribution, workspace, revision, version).name)
         checksums = []
         for name in names:
@@ -86,7 +84,16 @@ def github_json(gh: list[str], endpoint: str) -> dict[str, Any] | None:
     return document
 
 
-def publish(gh: list[str], repository: str, output: Path, revision: str, tag: str, assets: list[Path]) -> None:
+def publish(
+    gh: list[str],
+    repository: str,
+    output: Path,
+    revision: str,
+    tag: str,
+    assets: list[Path],
+    *,
+    require_tag: bool = False,
+) -> None:
     if github_json(gh, f'repos/{repository}/releases/tags/{tag}'):
         raise ValueError(f'Release {tag} already exists; published versions are not replaced.')
     # The commits endpoint dereferences both lightweight and annotated tags.
@@ -94,6 +101,8 @@ def publish(gh: list[str], repository: str, output: Path, revision: str, tag: st
     if remote and remote.get('sha') != revision:
         raise ValueError(f'Remote tag {tag} does not point to the built commit.')
     if not remote:
+        if require_tag:
+            raise ValueError(f'Remote release tag {tag} is missing; refusing to recreate it.')
         run(
             [
                 *gh,

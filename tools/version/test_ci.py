@@ -96,7 +96,8 @@ def test_image_tags_and_embedded_version_agree(
     }
     publish = workflow['jobs']['publish']
     assert publish['needs'] == 'prepare'
-    assert publish['uses'] == 'docker/github-builder/.github/workflows/build.yml@v1'
+    assert publish['uses'].startswith('docker/github-builder/.github/workflows/build.yml@')
+    assert publish['with']['sign'] == 'true'
     build = publish['with']
     assert build['meta-images'] == '${{ needs.prepare.outputs.image }}'
     assert build['meta-tags'].splitlines() == [
@@ -108,15 +109,16 @@ def test_image_tags_and_embedded_version_agree(
     assert 'org.opencontainers.image.version=${{ needs.prepare.outputs.version }}' in build['labels']
 
 
-def test_sidecar_builds_trigger_on_release_tags_or_explicit_dispatch() -> None:
+def test_sidecar_builds_are_coordinated_by_release_or_explicit_dispatch() -> None:
     # BaseLoader preserves the YAML key "on" instead of treating it as a boolean.
     workflow = yaml.load((ROOT / '.github/workflows/image.yml').read_text(), Loader=yaml.BaseLoader)
-    assert set(workflow['on']) == {'push', 'workflow_dispatch'}
-    assert set(workflow['on']['push']) == {'tags'}
-    assert workflow['on']['push']['tags'] == [TAG_GLOB]
+    assert set(workflow['on']) == {'workflow_call', 'workflow_dispatch'}
     assert workflow['on']['workflow_dispatch']['inputs']['release_tag']['required'] == 'true'
 
 
-def test_test_workflow_uses_the_same_release_tag_filter() -> None:
+def test_release_workflow_owns_tag_tests() -> None:
     workflow = yaml.load((ROOT / '.github/workflows/test.yml').read_text(), Loader=yaml.BaseLoader)
-    assert workflow['on']['push']['tags'] == [TAG_GLOB]
+    assert 'tags' not in workflow['on']['push']
+    release = yaml.load((ROOT / '.github/workflows/release.yml').read_text(), Loader=yaml.BaseLoader)
+    assert release['on']['push']['tags'] == [TAG_GLOB]
+    assert release['jobs']['test']['uses'] == './.github/workflows/test.yml'

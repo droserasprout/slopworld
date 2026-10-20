@@ -24,9 +24,15 @@ def git(*arguments: str) -> str:
 def prepare() -> Release:
     if git('status', '--porcelain', '--untracked-files=normal'):
         raise ValueError('Release requires a clean checkout; review and commit changes first.')
-    if git('rev-parse', '--abbrev-ref', 'HEAD') != 'main':
-        raise ValueError('Release requires the main branch; detached HEAD is not allowed.')
+    branch = git('rev-parse', '--abbrev-ref', 'HEAD')
+    if branch not in ('main', 'HEAD'):
+        raise ValueError('Release requires main or a detached release commit on main.')
     revision = git('rev-parse', 'HEAD')
+    # Hosted runners check out an immutable SHA. Require it to belong to fetched
+    # main, rather than trusting a tag on an unrelated branch.
+    main = os.environ.get('RELEASE_MAIN_REF', 'refs/heads/main')
+    if git('merge-base', revision, main) != revision:
+        raise ValueError('Release commit must belong to main.')
     tags = {
         tag: version
         for tag in git('tag', '--points-at', 'HEAD').splitlines()
@@ -59,5 +65,5 @@ def build(release: Release) -> None:
         ('generate-check-protocol', 'generate-check-licenses', 'docs-build'),
         ('build',),
     ):
-        run([*command, *recipes])
+        run([*command, 'MANAGED=rimref', *recipes])
         validate(release)

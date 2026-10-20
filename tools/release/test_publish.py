@@ -254,11 +254,11 @@ def test_native_packages_are_included_in_checksums_and_outputs(inputs: Path, tmp
         return build
 
     with (
-        patch('tools.release.arch.package', side_effect=native('slopworld-1.0.0-x86_64.pkg.tar.zst')),
         patch(
             'tools.release.container.package',
             side_effect=lambda distribution, directory, *args: native(
-                'slopworld-1.0.0-' + ('amd64.deb' if distribution == 'debian' else 'x86_64.rpm')
+                'slopworld-1.0.0-'
+                + {'arch': 'x86_64.pkg.tar.zst', 'debian': 'amd64.deb', 'fedora': 'x86_64.rpm'}[distribution]
             )(directory),
         ),
     ):
@@ -298,14 +298,11 @@ def test_native_package_failure_preserves_entire_previous_release(
         return native(distribution + '.archive')(directory)
 
     with (
-        patch('tools.release.arch.package', side_effect=native('arch.pkg.tar.zst')) as arch_package,
         patch('tools.release.container.package', side_effect=container_package),
     ):
         assets = publish.package(output, 'revision', '1.0.0', notes='Previous notes\n', native_packages=True)
         previous = {path.name: path.read_bytes() for path in (*assets, output / 'release-notes.md')}
         failing = True
-        if failed_package == 'arch':
-            arch_package.side_effect = ValueError('native build failed')
         with pytest.raises(ValueError, match='native build failed'):
             publish.package(output, 'new revision', '1.0.0', notes='New notes\n', native_packages=True)
     assert {path.name: path.read_bytes() for path in output.iterdir()} == previous

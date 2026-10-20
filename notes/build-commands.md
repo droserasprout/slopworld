@@ -34,6 +34,13 @@ files must not invalidate builds. `tools/release/gates.py` rechecks checkout
 identity and cleanliness after every validation stage. Publication belongs to
 `tools/release/publish.py`; existing tags must match the built commit and existing
 releases must not be overwritten.
+`tools/release/ci.py` owns the hosted build manifest and verifies downloaded file
+hashes and GitHub attestations before calling the publisher. Preview bundles have
+no release tag and cannot publish. `.github/workflows/release.yml` orders tests,
+package attestation, sidecar publication, and release publication; the publisher
+downloads the package job's artifact ID and never recompiles. Detached releases
+must belong to fetched main. CI consumes committed artwork; maintainers regenerate
+and review it before tagging. Local release builds still run all generators.
 Manual sidecar image publication requires the selected release tag to resolve to
 the workflow commit: the reusable image builder builds that commit, independently
 of the preparation job's checkout.

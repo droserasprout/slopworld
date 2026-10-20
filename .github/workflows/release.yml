@@ -1,0 +1,149 @@
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+    # Exercise the full packaging path before landing release changes.
+    branches: [release-ci]
+  # Manual runs build previews, even when a tag is selected. Re-run a tag push
+  # to retry publication; existing releases are never overwritten.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_MAIN_REF: refs/remotes/origin/main
+  RELEASE_DIR: dist/release
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.release.outputs.commit }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-tools
+      - name: Select release or preview
+        id: mode
+        env:
+          PUBLISH: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+        run: |
+          if [[ "$PUBLISH" == true ]]; then mode=release; else mode=preview; fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+      - name: Validate source identity and version
+        id: release
+        env:
+          MODE: ${{ steps.mode.outputs.mode }}
+          RELEASE_REVISION: ${{ github.sha }}
+        run: just release-ci-prepare "$MODE"
+
+  test:
+    needs: prepare
+    uses: ./.github/workflows/test.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+
+  package:
+    needs: [prepare, test]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      artifact: ${{ steps.upload.outputs.artifact-id }}
+    env:
+      CONTAINER: docker
+      RELEASE_REVISION: ${{ needs.test.outputs.commit }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      MODE: ${{ needs.prepare.outputs.mode }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install native compiler dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libasound2-dev lld pkg-config
+      - uses: ./.github/actions/setup-build-tools
+        with:
+          protoc: 'true'
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            mod/Source/SlopWorld/packages.lock.json
+            mod/Dependencies/packages.lock.json
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
+        with:
+          build-warnings: ''
+          cache-key: release
+          cache-workspaces: slopd -> target
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
+        with:
+          tool: mdbook@0.5.4
+      - name: Build archives and native packages with RimRef
+        run: just release-ci-package "$MODE"
+      - name: Attest exact release files
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/release/*
+      - name: Save release bundle
+        id: upload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: release-${{ needs.prepare.outputs.version }}
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 30
+
+  image:
+    if: needs.prepare.outputs.mode == 'release'
+    needs: [prepare, package]
+    uses: ./.github/workflows/image.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+  publish:
+    if: needs.prepare.outputs.mode == 'release'
+    needs: [prepare, package, image]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      attestations: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_REVISION: ${{ needs.prepare.outputs.commit }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-tools
+      - name: Download this run's exact build
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          artifact-ids: ${{ needs.package.outputs.artifact }}
+          path: dist/release
+          merge-multiple: true
+      - name: Verify provenance and publish without rebuilding
+        run: just release-ci-publish

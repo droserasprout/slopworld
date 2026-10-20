@@ -1,8 +1,7 @@
 name: Sidecar image
 
 on:
-  push:
-    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+  workflow_call:
   workflow_dispatch:
     inputs:
       release_tag:
@@ -15,7 +14,7 @@ permissions:
 
 concurrency:
   group: image-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   prepare:
@@ -53,10 +52,11 @@ jobs:
 
   publish:
     needs: prepare
-    uses: docker/github-builder/.github/workflows/build.yml@v1
+    uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
     permissions:
       contents: read
       packages: write
+      id-token: write
     with:
       context: .
       file: slopcar/Dockerfile
@@ -67,7 +67,7 @@ jobs:
       cache: true
       cache-scope: slopcar
       cache-mode: max
-      sign: 'false'
+      sign: 'true'
       build-args: |
         SLOPWORLD_BUILD_VERSION=${{ needs.prepare.outputs.version }}
       meta-images: ${{ needs.prepare.outputs.image }}
@@ -84,3 +84,24 @@ jobs:
         - registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+  attest:
+    needs: [prepare, publish]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Attest the published multi-platform image digest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ needs.prepare.outputs.image }}
+          subject-digest: ${{ needs.publish.outputs.digest }}
+          push-to-registry: true

@@ -32,6 +32,7 @@ def repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Callable[...,
     monkeypatch.setattr(gates, 'git', git)
     monkeypatch.setattr(gates, 'ROOT', tmp_path)
     monkeypatch.delenv('VERSION', raising=False)
+    monkeypatch.delenv('RELEASE_MAIN_REF', raising=False)
     return git
 
 
@@ -43,11 +44,10 @@ def test_clean_main_accepts_lightweight_and_annotated_tags(
     assert gates.prepare() == gates.Release(repository('rev-parse', 'HEAD'), tag, '0.0.1')
 
 
-@pytest.mark.parametrize('branch', ['feature', 'HEAD'])
-def test_tagged_non_main_or_detached_checkout_is_rejected(repository: Callable[..., str], branch: str) -> None:
+def test_tagged_feature_checkout_is_rejected(repository: Callable[..., str]) -> None:
     repository('tag', 'v0.0.1')
-    repository('checkout', '--detach' if branch == 'HEAD' else '-b', branch)
-    with pytest.raises(ValueError, match='main branch'):
+    repository('checkout', '-b', 'feature')
+    with pytest.raises(ValueError, match='requires main'):
         gates.prepare()
 
 
@@ -114,7 +114,7 @@ def test_build_stops_at_failed_stage(monkeypatch: pytest.MonkeyPatch, failed_sta
 
     def invoke(args: list[str]) -> None:
         calls.append(args)
-        if args[3] == failed_stage:
+        if args[4] == failed_stage:
             raise subprocess.CalledProcessError(1, args)
 
     with patch.object(gates, 'run', side_effect=invoke), patch.object(gates, 'validate') as validate:
@@ -125,7 +125,7 @@ def test_build_stops_at_failed_stage(monkeypatch: pytest.MonkeyPatch, failed_sta
             gates.build(release)
         stages = ['generate-all', 'lint', 'test', 'generate-check-protocol', 'build']
         count = stages.index(failed_stage) + 1 if failed_stage else len(stages)
-        assert [call[3] for call in calls] == stages[:count]
+        assert [call[4] for call in calls] == stages[:count]
         assert all(call[:3] == ['/path with spaces/just', 'BUILD=release', 'VERSION=0.0.1'] for call in calls)
         assert validate.call_count == count + (0 if failed_stage else 1)
 
@@ -140,3 +140,17 @@ def test_sources_changed_by_stage_stop_release(monkeypatch: pytest.MonkeyPatch, 
         with pytest.raises(ValueError, match='dirty'):
             gates.build(gates.Release('commit', 'v0.0.1', '0.0.1'))
         assert invoke.call_count == stage + 1
+
+
+@pytest.mark.parametrize('on_main', [False, True])
+def test_detached_release_requires_main_ancestry(repository: Callable[..., str], on_main: bool) -> None:
+    if not on_main:
+        repository('checkout', '-b', 'feature')
+        repository('commit', '--allow-empty', '-m', 'not on main')
+    repository('tag', 'v0.0.1')
+    repository('checkout', '--detach')
+    if on_main:
+        assert gates.prepare().tag == 'v0.0.1'
+    else:
+        with pytest.raises(ValueError, match='belong to main'):
+            gates.prepare()

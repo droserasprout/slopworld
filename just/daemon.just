@@ -1,7 +1,7 @@
 # Build the daemon, CLI and launcher
 [group('daemon')]
 daemon-build:
-    cd slopd && env ${VERSION:+SLOPWORLD_BUILD_VERSION="$VERSION"} cargo build $CARGOFLAGS
+    cd slopd && env ${VERSION:+SLOPWORLD_BUILD_VERSION="$VERSION"} cargo build --locked $CARGOFLAGS
 
 # Format Rust sources
 [group('daemon')]
