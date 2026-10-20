@@ -41,15 +41,16 @@ pub(crate) fn test_manager_with_socket(
         input_sink: Mutex::new(None),
         _test_directory: Some(TestDirectory(directory.clone())),
         tmux: tmux.clone(),
-        cfg_path: cfg_path.clone(),
-        endpoint_path: cfg_path.with_extension("endpoint.toml"),
+        workspace: Arc::new(crate::application::Workspace::from_transactions(
+            configuration,
+            cfg_path.with_extension("endpoint.toml"),
+        )),
         config_authority: Arc::new(crate::application::ConfigAuthority::new(
             config,
             crate::grant::Grants::default(),
         )),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
-        configuration,
         host_metadata: HostMetadataPoll::default(),
         signals: super::Signals::new(),
         scroll_cache: Mutex::new(HashMap::new()),
@@ -75,7 +76,6 @@ pub(crate) fn test_manager_with_socket(
         terminal_boundaries: Mutex::new(HashMap::new()),
         terminal_resizes: Mutex::new(HashMap::new()),
         worker_spawn: tokio::sync::Mutex::new(()),
-        worktrees: WorktreeState::default(),
     });
     manager.application.library.seed(library_snapshot);
     manager
@@ -137,6 +137,6 @@ impl Manager {
 impl Manager {
     pub(crate) async fn use_persisted_grants_for_test(&self) {
         *self.config_authority.grants_for_test().write().await =
-            crate::grant::Grants::load(&self.cfg_path).unwrap();
+            crate::grant::Grants::load(self.cfg_path()).unwrap();
     }
 }

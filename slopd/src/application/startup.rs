@@ -13,7 +13,8 @@ pub(crate) async fn start_sessions(
     services
         .library
         .seed(authority.read_config().await.library_items_all());
-    let manager = Manager::new(storage, services, tmux, authority).await?;
+    let workspace = Arc::new(super::Workspace::new(storage, crate::endpoint::path()));
+    let manager = Manager::new(workspace, services, tmux, authority).await?;
     // Filesystem recovery must finish before configured sessions are reconciled.
     match crate::sandbox::purge_trash() {
         Ok(n) if n > 0 => tracing::info!("purged {n} expired private-state trash entries"),

@@ -238,7 +238,7 @@ async fn cancelled_owned_shared_operation_retains_session_and_worktree_guards() 
             let operation = current.clone();
             current
                 .owned_session_read_operation(async move {
-                    let _worktrees = operation.worktrees.mutation.lock().await;
+                    let _worktrees = operation.workspace.worktrees.mutation.lock().await;
                     entered.wait().await;
                     release.notified().await;
                 })
@@ -252,11 +252,11 @@ async fn cancelled_owned_shared_operation_retains_session_and_worktree_guards() 
     drop(request.await);
     manager.session_boundary.try_write().unwrap_err();
     drop(manager.session_boundary.try_read().unwrap());
-    manager.worktrees.mutation.try_lock().unwrap_err();
+    manager.workspace.worktrees.mutation.try_lock().unwrap_err();
     release.notify_one();
     let guard = tokio::time::timeout(Duration::from_secs(5), manager.session_boundary.write())
         .await
         .unwrap();
     drop(guard);
-    drop(manager.worktrees.mutation.try_lock().unwrap());
+    drop(manager.workspace.worktrees.mutation.try_lock().unwrap());
 }

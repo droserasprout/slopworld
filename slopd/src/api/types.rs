@@ -103,7 +103,96 @@ pub(crate) struct CreateAgentTemplateReq {
     pub(crate) start: Option<bool>,
 }
 
-pub(crate) use crate::session::ExplicitLaunch as RunReq;
+/// An errand defined in the request body instead of a saved library entry.
+/// It creates the same temporary agent as `/api/library/NAME/run`.
+/// `text` is optional because commands such as `less` can run without additional input.
+#[derive(Deserialize)]
+pub(crate) struct RunReq {
+    #[serde(default)]
+    pub(crate) worktree: String,
+    pub(crate) cols: Option<u16>,
+    pub(crate) rows: Option<u16>,
+    #[serde(default)]
+    pub(crate) project: String,
+    #[serde(default)]
+    pub(crate) kind: crate::config::LibraryItemKind,
+    /// A preset name or command line, interpreted as in a library entry.
+    #[serde(default)]
+    pub(crate) command: String,
+    /// Raw selected Files-sidebar path. When present, the daemon expands it and replaces the
+    /// quoted raw path in `command`, so interactive and captured file actions agree.
+    #[serde(default)]
+    pub(crate) path: String,
+    /// Keep a file-action terminal open after its command exits so short output remains visible.
+    #[serde(default)]
+    pub(crate) hold: bool,
+    #[serde(default)]
+    pub(crate) text: String,
+    /// The session label. `slug` converts it to the tmux session name.
+    /// If empty with `host` set, the daemon generates a name. See `sandbox::host_session_name`.
+    #[serde(default)]
+    pub(crate) label: String,
+    #[serde(default)]
+    pub(crate) intent: String,
+    #[serde(default)]
+    pub(crate) reader: ExplicitReader,
+    #[serde(default)]
+    pub(crate) temp: bool,
+    /// Distinct loading-screen tips supplied by the game for `{{ random_tip }}`.
+    /// Each occurrence consumes one tip, so five occurrences receive five different tips.
+    #[serde(default)]
+    pub(crate) random_tips: Vec<String>,
+    /// Explicit unsandboxed errand execution.
+    #[serde(default)]
+    pub(crate) host: bool,
+    #[serde(default)]
+    pub(crate) agent_template: String,
+    /// Clone agent-owned process settings (presets, persistent /tmp, network, DNS, and limits)
+    /// from this session. The selected project supplies mounts.
+    #[serde(default)]
+    pub(crate) like: String,
+}
+
+/// Optional source metadata for a terminal reader.
+#[derive(Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct ExplicitReader {
+    pub(crate) path: String,
+    pub(crate) key: String,
+    pub(crate) scope: String,
+    pub(crate) line: u32,
+    pub(crate) pinned: bool,
+}
+
+impl From<RunReq> for crate::application::launch::ExplicitLaunch {
+    fn from(q: RunReq) -> Self {
+        Self {
+            worktree: q.worktree,
+            cols: q.cols,
+            rows: q.rows,
+            project: q.project,
+            kind: q.kind,
+            command: q.command,
+            path: q.path,
+            hold: q.hold,
+            text: q.text,
+            label: q.label,
+            intent: q.intent,
+            temp: q.temp,
+            random_tips: q.random_tips,
+            host: q.host,
+            agent_template: q.agent_template,
+            like: q.like,
+            reader: crate::session::ReaderContext {
+                path: q.reader.path,
+                key: q.reader.key,
+                scope: q.reader.scope,
+                line: q.reader.line,
+                pinned: q.reader.pinned,
+            },
+        }
+    }
+}
 
 #[derive(Deserialize)]
 pub(crate) struct FileActionReq {

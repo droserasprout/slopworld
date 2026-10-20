@@ -15,7 +15,7 @@ async fn removal_save_failure_restores_private_state_before_retry() {
     std::fs::create_dir_all(&state).unwrap();
     std::fs::write(state.join("retained"), "private state").unwrap();
     let record = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .join("data/agents")
@@ -31,7 +31,7 @@ async fn removal_save_failure_restores_private_state_before_retry() {
     );
     assert!(manager.config().await.session("old").is_some());
     assert!(
-        Config::load(&manager.cfg_path)
+        Config::load(manager.cfg_path())
             .await
             .unwrap()
             .session("old")
@@ -133,7 +133,9 @@ async fn cleanup_rename_fixture(
             .output(),
     );
     drop(std::fs::remove_dir_all(root));
-    drop(std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()));
+    drop(std::fs::remove_dir_all(
+        manager.cfg_path().parent().unwrap(),
+    ));
 }
 
 fn replacement(name: &str) -> SessionCfg {
@@ -194,7 +196,7 @@ async fn invalid_or_conflicting_renames_do_not_touch_tmux_or_config() {
         })
         .await
         .unwrap();
-    let persisted = std::fs::read(&manager.cfg_path).unwrap();
+    let persisted = std::fs::read(manager.cfg_path()).unwrap();
     for invalid in [
         replacement("occupied"),
         SessionCfg {
@@ -224,7 +226,7 @@ async fn invalid_or_conflicting_renames_do_not_touch_tmux_or_config() {
         assert_eq!(manager.config().await.sessions[0].name, "old");
         assert_eq!(manager.config().await.sessions[1].name, "occupied");
         assert!(manager.live.read().await.contains_key("old"));
-        assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), persisted);
+        assert_eq!(std::fs::read(manager.cfg_path()).unwrap(), persisted);
     }
     cleanup_rename_fixture(&manager, root, &socket, &["old", "renamed"]).await;
 }
@@ -244,7 +246,7 @@ async fn running_and_down_renames_preserve_private_state() {
         let cfg = manager.config().await;
         assert_eq!(cfg.sessions[0].name, "renamed");
         assert_eq!(cfg.sessions[0].state_id, state_id);
-        let saved = Config::load(&manager.cfg_path).await.unwrap();
+        let saved = Config::load(manager.cfg_path()).await.unwrap();
         assert_eq!(saved.sessions[0].name, "renamed");
         assert_eq!(saved.sessions[0].state_id, state_id);
         assert!(manager.live.read().await.contains_key("renamed"));
@@ -257,9 +259,9 @@ async fn running_and_down_renames_preserve_private_state() {
 async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
     for rollback_fails in [false, true] {
         let (manager, root, socket) = rename_fixture(true).await;
-        let persisted = std::fs::read(&manager.cfg_path).unwrap();
+        let persisted = std::fs::read(manager.cfg_path()).unwrap();
         let record = manager
-            .cfg_path
+            .cfg_path()
             .parent()
             .unwrap()
             .join("data/agents")
@@ -296,7 +298,7 @@ async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
         assert_eq!(manager.tmux.exists("renamed").await, rollback_fails);
         assert_eq!(manager.config().await.sessions[0].name, "old");
         assert!(manager.live.read().await.contains_key("old"));
-        assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), persisted);
+        assert_eq!(std::fs::read(manager.cfg_path()).unwrap(), persisted);
         cleanup_rename_fixture(&manager, root, &socket, &["old", "renamed"]).await;
     }
 }
@@ -305,7 +307,7 @@ async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
 async fn abandoning_update_cannot_skip_commit_or_rollback() {
     let (manager, root, socket) = rename_fixture(true).await;
     let record = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .join("data/agents")
@@ -527,7 +529,7 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
         manager.set_label(name, "  ".into()).await.unwrap();
         assert!(manager.live.read().await[name].cfg.label.is_none());
     }
-    let saved = Config::load(&manager.cfg_path).await.unwrap();
+    let saved = Config::load(manager.cfg_path()).await.unwrap();
     assert!(saved.sessions[0].label.is_none());
     assert!(saved.host_terminals[0].label.is_none());
     assert!(
@@ -538,13 +540,13 @@ async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_tit
             .to_string()
             .contains("no such session")
     );
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
 async fn ephemeral_labels_stay_runtime_only() {
     let manager = metadata_fixture().await;
-    let before = std::fs::read(&manager.cfg_path).unwrap();
+    let before = std::fs::read(manager.cfg_path()).unwrap();
     let mut live = Live::new(
         SessionCfg {
             name: "worker".into(),
@@ -564,8 +566,8 @@ async fn ephemeral_labels_stay_runtime_only() {
         Some("Temporary worker")
     );
     assert!(manager.config().await.session("worker").is_none());
-    assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), before);
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    assert_eq!(std::fs::read(manager.cfg_path()).unwrap(), before);
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -574,7 +576,7 @@ async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
     manager.set_label("agent", "Original".into()).await.unwrap();
     let request = pending_title(&mut manager.live.write().await.get_mut("agent").unwrap().title);
     let record = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .join("data/agents")
@@ -599,7 +601,7 @@ async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
             .as_deref(),
         Some("Original")
     );
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 #[tokio::test]
 async fn measured_inventory_purges_expired_trash_while_quick_inventory_retains_it() {
@@ -667,9 +669,9 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     let private = crate::sandbox::state_dir(&session).unwrap();
     std::fs::create_dir_all(&private).unwrap();
     std::fs::write(private.join("memory"), "remember me").unwrap();
-    let saved = std::fs::read(&manager.cfg_path).unwrap();
+    let saved = std::fs::read(manager.cfg_path()).unwrap();
     let record = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .join("data/agents")
@@ -679,7 +681,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         ));
     let fault = crate::paths::fail_writes(&record);
     assert!(manager.remove("old").await.is_err());
-    assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), saved);
+    assert_eq!(std::fs::read(manager.cfg_path()).unwrap(), saved);
     assert_eq!(
         std::fs::read_to_string(private.join("memory")).unwrap(),
         "remember me"
@@ -724,7 +726,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         session.state_id
     );
     assert_eq!(
-        Config::load(&manager.cfg_path)
+        Config::load(manager.cfg_path())
             .await
             .unwrap()
             .session("old")
@@ -821,11 +823,11 @@ async fn removing_one_durable_session_does_not_autostart_an_unrelated_host_tab()
 #[tokio::test]
 async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_retries() {
     let (manager, root, socket) = rename_fixture(true).await;
-    let binding = manager.configuration.records.binding.clone();
+    let binding = manager.workspace.configuration.records.binding.clone();
     let id = manager.config().await.sessions[0].state_id.clone();
     let path = binding.data.join("agents").join(format!("{id}.toml"));
     let before = std::fs::read(&path).unwrap();
-    let root_before = std::fs::read(&manager.cfg_path).unwrap();
+    let root_before = std::fs::read(manager.cfg_path()).unwrap();
     let fault = crate::paths::fail_writes(&path);
     let (renamed, release) = manager.tmux.pause_after_rename_for_test();
     let request = tokio::spawn({
@@ -857,7 +859,7 @@ async fn record_backend_rename_rolls_back_tmux_after_request_cancellation_and_re
         .unwrap();
     assert_eq!(manager.config().await.sessions[0].state_id, id);
     assert!(manager.tmux.exists("renamed").await);
-    assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), root_before);
+    assert_eq!(std::fs::read(manager.cfg_path()).unwrap(), root_before);
     cleanup_rename_fixture(&manager, root, &socket, &["old", "renamed"]).await;
 }
 
@@ -867,7 +869,7 @@ async fn record_retirement_failure_restores_private_state_and_preserves_accepted
         return;
     };
     let (manager, root, socket) = rename_fixture(false).await;
-    let binding = manager.configuration.records.binding.clone();
+    let binding = manager.workspace.configuration.records.binding.clone();
     let session = manager.config().await.sessions[0].clone();
     let state = crate::sandbox::state_dir(&session).unwrap();
     std::fs::create_dir_all(&state).unwrap();

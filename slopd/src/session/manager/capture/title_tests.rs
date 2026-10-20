@@ -198,7 +198,7 @@ async fn new_conversation_updates_recovery_state_and_rejects_old_results() {
                 .await
         );
     }
-    let path = m.cfg_path.with_file_name("summary-cache.toml");
+    let path = m.cfg_path().with_file_name("summary-cache.toml");
     tokio::task::spawn_blocking(move || {
         m.application.title_cache.flush().unwrap();
         assert!(
@@ -274,7 +274,7 @@ async fn rename_moves_recovery_title_and_invalidates_pending_requests() {
         m.application.title_cache.latest("renamed").as_deref(),
         Some("Current title")
     );
-    let path = m.cfg_path.with_file_name("summary-cache.toml");
+    let path = m.cfg_path().with_file_name("summary-cache.toml");
     tokio::task::spawn_blocking(move || {
         m.application.title_cache.flush().unwrap();
         let restored = crate::title::SummaryCache::load(path);

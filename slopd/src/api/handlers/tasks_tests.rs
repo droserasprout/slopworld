@@ -231,7 +231,7 @@ async fn renamed_recipient_updates_use_current_label_without_changing_authority(
     .await
     .unwrap();
     assert_eq!(reply.tasks[0].history[0].sender, "renamed");
-    let reloaded = crate::tasks::Tasks::load(&m.cfg_path).unwrap();
+    let reloaded = crate::tasks::Tasks::load(m.cfg_path()).unwrap();
     assert_eq!(
         reloaded
             .get(&mailbox_identity("bob"), &task.id)
@@ -459,7 +459,7 @@ fn mailbox_manager() -> Mgr {
 #[tokio::test]
 async fn batch_response_reports_partial_record_commits_and_idempotent_retry() {
     let m = mailbox_manager();
-    let data = m.cfg_path.parent().unwrap().join("data");
+    let data = m.cfg_path().parent().unwrap().join("data");
     let a = mailbox_task(&m, "alice", "bob", "first").await.unwrap();
     let b = mailbox_task(&m, "alice", "bob", "second").await.unwrap();
     let c = mailbox_task(&m, "alice", "bob", "third").await.unwrap();

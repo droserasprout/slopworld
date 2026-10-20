@@ -102,33 +102,6 @@ pub(crate) enum HostLifetime {
 }
 
 impl ExecutionSource {
-    pub(super) fn select(
-        host: bool,
-        persistent: bool,
-        template: &str,
-        like: &str,
-    ) -> anyhow::Result<Self> {
-        let template = template.trim();
-        if host && (!template.is_empty() || !like.is_empty()) {
-            anyhow::bail!("choose host execution or agent settings, not both");
-        }
-        if !template.is_empty() && !like.is_empty() {
-            anyhow::bail!("choose an agent template or a source agent, not both");
-        }
-        Ok(if host {
-            Self::Host(if persistent {
-                HostLifetime::Persistent
-            } else {
-                HostLifetime::Disposable
-            })
-        } else if !template.is_empty() {
-            Self::Template(template.to_owned())
-        } else if !like.is_empty() {
-            Self::CloneAgent(like.to_owned())
-        } else {
-            anyhow::bail!("choose Host or an agent template for this errand before running it");
-        })
-    }
     pub(super) fn is_host(&self) -> bool {
         matches!(self, Self::Host(_))
     }
@@ -153,7 +126,7 @@ pub(crate) struct LaunchContent {
 }
 
 impl LaunchContent {
-    pub(super) fn validate(&self) -> anyhow::Result<()> {
+    pub(crate) fn validate(&self) -> anyhow::Result<()> {
         if matches!(
             self.kind,
             crate::config::LibraryItemKind::Breadcrumb | crate::config::LibraryItemKind::FileAction
@@ -195,113 +168,4 @@ pub(crate) struct LaunchRequest {
     pub execution: ExecutionSource,
     pub destination: LaunchDestination,
     pub options: LaunchOptions,
-}
-
-impl LaunchRequest {
-    pub(crate) fn library(
-        item: crate::config::LibraryItemCfg,
-        want: RunWhere,
-    ) -> anyhow::Result<Self> {
-        let execution = ExecutionSource::select(item.host, false, &item.agent_template, "")?;
-        Self::from_library(item, want, execution)
-    }
-
-    pub(super) fn from_library(
-        item: crate::config::LibraryItemCfg,
-        want: RunWhere,
-        execution: ExecutionSource,
-    ) -> anyhow::Result<Self> {
-        use crate::config::LibraryItemLink;
-        let content = LaunchContent {
-            name: item.name,
-            kind: item.kind,
-            command: item.command,
-            text: item.text,
-        };
-        content.validate()?;
-        let asked = want
-            .project
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-        let destination = if want.temp || (asked.is_none() && item.link == LibraryItemLink::Temp) {
-            LaunchDestination::Temporary
-        } else if let Some(project) = asked {
-            LaunchDestination::Project(project.to_owned())
-        } else if item.link == LibraryItemLink::Ask {
-            anyhow::bail!(
-                "Choose a project or request a temporary project for library item {:?}.",
-                content.name
-            );
-        } else {
-            LaunchDestination::Project(item.project)
-        };
-        Ok(Self {
-            content,
-            execution,
-            destination,
-            options: want.into(),
-        })
-    }
-}
-
-/// An errand defined in the request body instead of a saved library entry.
-/// It creates the same temporary agent as `/api/library/NAME/run`.
-/// `text` is optional because commands such as `less` can run without additional input.
-#[derive(Deserialize)]
-pub(crate) struct ExplicitLaunch {
-    #[serde(default)]
-    pub(crate) worktree: String,
-    pub(crate) cols: Option<u16>,
-    pub(crate) rows: Option<u16>,
-    #[serde(default)]
-    pub(crate) project: String,
-    #[serde(default)]
-    pub(crate) kind: crate::config::LibraryItemKind,
-    /// A preset name or command line, interpreted as in a library entry.
-    #[serde(default)]
-    pub(crate) command: String,
-    /// Raw selected Files-sidebar path. When present, the daemon expands it and replaces the
-    /// quoted raw path in `command`, so interactive and captured file actions agree.
-    #[serde(default)]
-    pub(crate) path: String,
-    /// Keep a file-action terminal open after its command exits so short output remains visible.
-    #[serde(default)]
-    pub(crate) hold: bool,
-    #[serde(default)]
-    pub(crate) text: String,
-    /// The session label. `slug` converts it to the tmux session name.
-    /// If empty with `host` set, the daemon generates a name. See `sandbox::host_session_name`.
-    #[serde(default)]
-    pub(crate) label: String,
-    #[serde(default)]
-    pub(crate) intent: String,
-    #[serde(default)]
-    pub(crate) reader: ExplicitReader,
-    #[serde(default)]
-    pub(crate) temp: bool,
-    /// Distinct loading-screen tips supplied by the game for `{{ random_tip }}`.
-    /// Each occurrence consumes one tip, so five occurrences receive five different tips.
-    #[serde(default)]
-    pub(crate) random_tips: Vec<String>,
-    /// Explicit unsandboxed errand execution.
-    #[serde(default)]
-    pub(crate) host: bool,
-    #[serde(default)]
-    pub(crate) agent_template: String,
-    /// Clone agent-owned process settings (presets, persistent /tmp, network, DNS, and limits)
-    /// from this session. The selected project supplies mounts.
-    #[serde(default)]
-    pub(crate) like: String,
-}
-
-/// Optional source metadata for a terminal reader.
-#[derive(Default, Deserialize)]
-#[serde(default)]
-pub(crate) struct ExplicitReader {
-    pub(crate) path: String,
-    pub(crate) key: String,
-    pub(crate) scope: String,
-    pub(crate) line: u32,
-    pub(crate) pinned: bool,
 }

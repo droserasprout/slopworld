@@ -6,25 +6,16 @@ use crate::worktrees::{Store, Worktree};
 use anyhow::anyhow;
 use std::collections::HashMap;
 
-/// Worktree mutation serialization and relocation test coordination.
-#[derive(Default)]
-pub(crate) struct WorktreeState {
-    pub(super) mutation: tokio::sync::Mutex<()>,
-    #[cfg(test)]
-    pub(super) relocation_pause:
-        std::sync::Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
-}
-
 pub(crate) use crate::application::worktrees::WorktreeRequest;
 
 impl Manager {
     /// Read the accepted index under session/worktree operation guards.
     pub(crate) fn worktree_records(&self) -> Store {
-        self.configuration.records.worktrees()
+        self.workspace.configuration.records.worktrees()
     }
 
     pub(crate) async fn save_worktrees(&self, store: &Store) -> Result<()> {
-        self.configuration.save_worktrees(store).await
+        self.workspace.configuration.save_worktrees(store).await
     }
 
     pub(crate) async fn rename_worktree(
@@ -36,7 +27,7 @@ impl Manager {
         crate::config::project_name_component(&name).context("invalid worktree name")?;
         let manager = self.clone();
         self.owned_session_operation(Box::pin(async move {
-            let _lock = manager.worktrees.mutation.lock().await;
+            let _lock = manager.workspace.worktrees.mutation.lock().await;
             crate::application::worktrees::Coordinator::new(manager.as_ref())
                 .rename(&project, &id, name)
                 .await
@@ -132,7 +123,7 @@ impl Manager {
         self.reload_if_changed().await;
         let manager = self.clone();
         Box::pin(self.owned_session_read_operation(async move {
-            let _lock = manager.worktrees.mutation.lock().await;
+            let _lock = manager.workspace.worktrees.mutation.lock().await;
             crate::application::worktrees::Coordinator::new(manager.as_ref())
                 .create(&q)
                 .await
@@ -153,14 +144,14 @@ impl Manager {
     }
 
     async fn remove_worktree_inner(&self, project: &str, id: &str) -> Result<()> {
-        let _mutation = self.worktrees.mutation.lock().await;
+        let _mutation = self.workspace.worktrees.mutation.lock().await;
         crate::application::worktrees::Coordinator::new(self)
             .remove(project, id)
             .await
     }
 
     pub(crate) async fn recover_worktrees(&self) -> Result<()> {
-        let _mutation = self.worktrees.mutation.lock().await;
+        let _mutation = self.workspace.worktrees.mutation.lock().await;
         crate::application::worktrees::Coordinator::new(self)
             .recover_worktrees()
             .await

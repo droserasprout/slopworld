@@ -148,7 +148,7 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
     live.cols = 101;
     live.rows = 37;
     live.host_path = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .to_string_lossy()
@@ -170,7 +170,7 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
         .get_mut("agent")
         .unwrap()
         .host_path = manager
-        .cfg_path
+        .cfg_path()
         .with_extension("missing")
         .to_string_lossy()
         .into_owned();
@@ -290,7 +290,7 @@ async fn host_start_rejects_duplicate_without_replacing_the_running_pane() {
     .await;
 
     manager.stop("agent").await.unwrap();
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
     result.unwrap();
 }
 
@@ -338,7 +338,7 @@ async fn failed_worker_start_removes_owned_state_and_revokes_credentials() {
     assert!(!manager.tmux.exists("agent").await);
     // Cleanup can repeat after a partially completed failure path.
     manager.cleanup_failed_start("agent", true).await;
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -403,7 +403,7 @@ async fn malformed_commands_reject_before_tmux_creation_and_revoke_worker_creden
             0
         );
         assert!(!manager.tmux.exists("agent").await);
-        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+        std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
     }
 }
 
@@ -466,6 +466,6 @@ async fn start_plan_snapshots_reader_context_and_publishes_recoverable_metadata(
         !plan.context.reader.pinned,
         "the owned start plan changed after preparation"
     );
-    let saved = Config::load(&manager.cfg_path).await.unwrap();
+    let saved = Config::load(manager.cfg_path()).await.unwrap();
     assert!(saved.sessions.is_empty() && saved.host_terminals.is_empty());
 }

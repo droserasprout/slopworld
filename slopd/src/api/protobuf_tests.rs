@@ -43,7 +43,7 @@ async fn shared_health_and_task_routes_continue_during_worktree_guard() {
 async fn read_routes_emit_the_declared_binary_payloads() {
     let manager = crate::session::test_manager(crate::config::Config::default());
     std::fs::write(
-        &manager.cfg_path,
+        manager.cfg_path(),
         toml::to_string(&crate::config::Config::default()).unwrap(),
     )
     .unwrap();
@@ -116,7 +116,7 @@ async fn config_read_preserves_stored_host_identity_without_exposing_it_on_the_w
         ..Default::default()
     });
     let manager = crate::session::test_manager(cfg.clone());
-    let settings = std::fs::read_to_string(&manager.cfg_path).unwrap();
+    let settings = std::fs::read_to_string(manager.cfg_path()).unwrap();
     let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
     let response = app
         .oneshot(
@@ -145,7 +145,7 @@ async fn config_read_preserves_stored_host_identity_without_exposing_it_on_the_w
         cfg.host_terminals[0].id
     );
     assert_eq!(
-        std::fs::read_to_string(&manager.cfg_path).unwrap(),
+        std::fs::read_to_string(manager.cfg_path()).unwrap(),
         settings
     );
 }

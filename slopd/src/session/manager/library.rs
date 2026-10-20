@@ -5,7 +5,6 @@ use super::super::*;
 use crate::session::manager::config::ConfigMutation;
 
 use crate::application::{LibraryMutation, LibraryRuntime};
-use anyhow::anyhow;
 
 pub(super) fn routed_action_label(name: &str) -> Option<String> {
     ["view-", "search-", "link-", "edit-", "diff-"]
@@ -50,13 +49,9 @@ impl Manager {
     pub async fn run_library_item(self: &Arc<Self>, name: &str, want: RunWhere) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
-        let sc = cfg
-            .library_item(name)
-            .ok_or_else(|| anyhow!("no such library item: {name}"))?
-            .clone();
-        check_library_item(&cfg, &sc)?;
+        let request = crate::application::launch::plan_library_launch(&cfg, name, want)?;
         drop(cfg);
-        self.run_launch(LaunchRequest::library(sc, want)?).await
+        self.run_launch(request).await
     }
 
     pub async fn file_action(

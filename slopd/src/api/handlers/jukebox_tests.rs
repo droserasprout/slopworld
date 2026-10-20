@@ -170,7 +170,7 @@ async fn preset_routes_persist_reload_validate_and_protect_stream_urls() {
     assert_invalid_and_failed_writes(&app, &mut events, &station, path, &root, &saved).await;
     update_and_delete_preset(&app, &mut events, &mut station, path, &root).await;
     assert_storage_errors(&app, &station, path, &root).await;
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 fn radio_station() -> wire::Station {

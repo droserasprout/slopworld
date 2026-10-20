@@ -21,11 +21,12 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `prompt/` | Placeholder scanning and values for prompts and breadcrumbs. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task/session integration, workers. |
 | `application/projects.rs`, `session/manager/projects.rs` | Application owns project policy and relocation coordination; session supplies guards, identity allocation, attachments, and transaction adapters. See [worktree ownership](daemon-worktrees.md). |
-| `session/manager/launch.rs` | Explicit launch preparation and guarded execution; saved library entries and music use the same launch request. |
+| `application/launch.rs`, `session/manager/launch.rs` | Application resolves explicit and saved-library launch policy; session owns guarded execution. API owns explicit request decoding; saved library entries and music use the same resolved launch request. |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |
 | `session/manager/delivery.rs` | Run-bound delayed prompt submission, readiness, and auto-resume. Callers compose prompts; capture owns queued input execution. |
 | `session/manager/capture/` | Terminal readers, input, frames, scrollback, and title capture. |
 | `session/manager/host_metadata.rs` | Host-shell record edits, working-directory/process observations, and serialized background tmux polling. See [host tabs](daemon-host-terminals.md). |
+| `application/workspace.rs` | Startup-constructed configuration transactions, storage binding, endpoint publication, and worktree mutation gate. Session runtime borrows the settings path and retains operation guards around workspace effects. |
 | `application/startup.rs`, `application/maintenance.rs` | Daemon recovery ordering, catalog polling, and combined maintenance scheduling. Session `init.rs` constructs runtime state; session `maintenance.rs` supplies activity, capture-retry, and host-poll deadlines. The `config/` adapter delegates accepted configuration/auth publication to `application/config_authority.rs`; `lifecycle/reconcile.rs` applies configuration to live sessions. `application/catalogs.rs` owns catalog reload state. |
 | `clock.rs`, `paths.rs` | Unix-millisecond timestamps, filesystem metadata, and atomic file writes. Latency measurements use their own monotonic clock in `latency.rs`. |
 | `storage/workspace.rs`, `storage/document.rs` | Shared ordered-record discovery, preparation and publication, and TOML extension mechanics. Session/project/checkout schemas retain their own validation and nested extension policy. |

@@ -849,7 +849,7 @@ async fn worker_creation_commits_task_session_and_checkout_before_returning() {
                     .reader
                     .is_some()
             );
-            let persisted = Config::load(&manager.cfg_path).await.unwrap();
+            let persisted = Config::load(manager.cfg_path()).await.unwrap();
             assert_eq!(persisted.session(&spawned.session).is_some(), durable);
             if durable {
                 assert_eq!(
@@ -1009,7 +1009,13 @@ async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
     .unwrap();
     // Removing write access fails publication but still permits identity inventory.
     use std::os::unix::fs::PermissionsExt;
-    let agents = manager.configuration.records.binding.data.join("agents");
+    let agents = manager
+        .workspace
+        .configuration
+        .records
+        .binding
+        .data
+        .join("agents");
     std::fs::create_dir_all(&agents).unwrap();
     std::fs::set_permissions(&agents, std::fs::Permissions::from_mode(0o500)).unwrap();
     drop(spawn_guard);

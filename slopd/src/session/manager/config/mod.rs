@@ -20,7 +20,7 @@ impl crate::config::transactions::Runtime for Manager {
         self.publish_config(change).await
     }
     async fn update_endpoint(&self, token: &str) {
-        Manager::update_endpoint(self, token).await;
+        self.workspace.update_endpoint(token).await;
     }
 }
 
@@ -55,7 +55,10 @@ impl Manager {
         mutation: ConfigMutation,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<(T, Option<PreparedConfigChange>)> {
-        self.configuration.prepare(self, mutation, update).await
+        self.workspace
+            .configuration
+            .prepare(self, mutation, update)
+            .await
     }
     pub(super) async fn commit_prepared_cfg(
         self: &Arc<Self>,
@@ -64,6 +67,7 @@ impl Manager {
         let manager = self.clone();
         self.owned_session_operation(Box::pin(async move {
             manager
+                .workspace
                 .configuration
                 .commit(manager.as_ref(), prepared)
                 .await
@@ -79,6 +83,7 @@ impl Manager {
         let store = store.clone();
         self.owned_session_operation(Box::pin(async move {
             manager
+                .workspace
                 .configuration
                 .commit_project_relocation(manager.as_ref(), prepared, &store)
                 .await
@@ -97,6 +102,7 @@ impl Manager {
         let manager = self.clone();
         self.owned_session_operation(async move {
             manager
+                .workspace
                 .configuration
                 .edit_settings(manager.as_ref(), edit)
                 .await?;
@@ -111,7 +117,12 @@ impl Manager {
         }
         let manager = self.clone();
         self.owned_session_operation(async move {
-            if !manager.configuration.reload(manager.as_ref()).await {
+            if !manager
+                .workspace
+                .configuration
+                .reload(manager.as_ref())
+                .await
+            {
                 return false;
             }
             manager.announce_library().await;
@@ -120,7 +131,7 @@ impl Manager {
         .await
     }
     pub(super) async fn reload_if_stale(self: &Arc<Self>) {
-        if !self.configuration.library_is_current() {
+        if !self.workspace.configuration.library_is_current() {
             self.reload_if_changed().await;
         }
     }
@@ -141,14 +152,6 @@ impl Manager {
         self.signals.maintenance_wake.notify_waiters();
 
         endpoint_token
-    }
-
-    async fn update_endpoint(&self, token: &str) {
-        if let Err(e) = crate::endpoint::update_token(&self.endpoint_path, token).await {
-            tracing::warn!(
-                "The daemon accepted the config but could not update the endpoint descriptor: {e:#}"
-            );
-        }
     }
 
     /// Called after releasing the persistence gate. Structured edits let their caller reconcile.

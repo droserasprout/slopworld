@@ -109,7 +109,7 @@ async fn saving_a_template_persists_it_separately_from_config() {
         .await
         .unwrap();
     assert_eq!(manager.application.templates.list().await.len(), 1);
-    let loaded = AgentTemplateStore::load(&AgentTemplateStore::path_for(&manager.cfg_path))
+    let loaded = AgentTemplateStore::load(&AgentTemplateStore::path_for(manager.cfg_path()))
         .await
         .unwrap();
     let saved = loaded.get("reviewer").unwrap();
@@ -119,7 +119,7 @@ async fn saving_a_template_persists_it_separately_from_config() {
         toml::to_string(&manager.application.templates.list().await[0]).unwrap()
     );
     assert_eq!(
-        std::fs::read_to_string(&manager.cfg_path).unwrap(),
+        std::fs::read_to_string(manager.cfg_path()).unwrap(),
         toml::to_string_pretty(&manager.config().await.settings).unwrap()
     );
     drop(std::fs::remove_dir_all(root));

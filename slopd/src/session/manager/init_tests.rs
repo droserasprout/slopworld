@@ -26,7 +26,7 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     }
     let seed = crate::session::test_manager_with_socket(cfg.clone(), socket.clone());
     *seed.config_authority.grants_for_test().write().await =
-        crate::grant::Grants::load(&seed.cfg_path).unwrap();
+        crate::grant::Grants::load(seed.cfg_path()).unwrap();
     for session in &cfg.sessions {
         seed.live.write().await.insert(
             session.name.clone(),
@@ -45,7 +45,7 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
         )
         .await
         .unwrap();
-    let path = seed.cfg_path.clone();
+    let path = seed.cfg_path().to_owned();
     cfg.sessions[1].state_id = crate::storage_id::draft_identity();
 
     // Seed current stores directly; initialization must not depend on a converter.

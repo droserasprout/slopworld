@@ -96,7 +96,7 @@ mod tests {
             StatusCode::BAD_REQUEST
         );
         manager.use_persisted_grants_for_test().await;
-        let path = manager.cfg_path.with_file_name("grants.toml");
+        let path = manager.cfg_path().with_file_name("grants.toml");
         std::fs::create_dir(&path).unwrap();
         assert_eq!(
             mint_grant(State(manager.clone()), request("target"))

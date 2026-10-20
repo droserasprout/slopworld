@@ -9,13 +9,16 @@ schemas, accepted indexes, targeted persistence and bound transaction recovery.
 indexes, cache-link rollback, and library revision acceptance. Its runtime adapter
 in `session/manager/config/` retains session/worktree operation guards, validates
 live constraints, delegates accepted publication to `application/config_authority.rs`, and
-updates endpoint credentials before releasing the persistence gate. The application
-owner holds the single accepted configuration lock, grants, and credential epochs;
+delegates endpoint credential updates to `application/workspace.rs` before releasing
+the persistence gate. `ConfigAuthority` holds the single accepted configuration lock, grants, and credential epochs;
 it publishes root-token changes and invalidation under that lock. Session adapters
 validate grant identities and retain operation guards through credential changes.
 Startup consumes the loaded configuration into accepted state and passes the
-remaining storage state to the manager. The manager derives its initial library
-snapshot from the injected authority. HTTP and WebSocket admission,
+remaining storage state to `application/workspace.rs`. Application startup constructs
+that workspace owner and seeds the library snapshot from the injected authority.
+The workspace owns configuration transactions, the endpoint path, and the worktree
+mutation gate; Manager retains shared handles and session operation guards.
+HTTP and WebSocket admission,
 credential generations, notifications, and grant counts use `ConfigAuthority`
 directly. `session/manager/caps.rs` retains session identity checks and guarded
 grant mutations.
@@ -24,8 +27,8 @@ read-only daemon-settings snapshots from that same lock; there is no secondary
 settings cache or independent publication step. `application/catalogs.rs` holds independent
 catalog polling deadlines and timestamps.
 `storage/layout.rs` recovers and loads the workspace once, then hands the validated
-configuration, typed record indexes and sampled library revision to the manager.
-The manager requires that backend from construction; it never reloads workspace
+configuration, typed record indexes and sampled library revision to application startup.
+The session manager receives the constructed workspace; it never reloads workspace
 records during initialization or ordinary mutations.
 
 The mod owns offline profile preferences. It reads `endpoint.toml` for credentials

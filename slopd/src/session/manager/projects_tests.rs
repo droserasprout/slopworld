@@ -45,7 +45,8 @@ async fn canceled_project_update_retains_boundary_until_commit() {
     });
     let reached = std::sync::Arc::new(tokio::sync::Notify::new());
     let release = std::sync::Arc::new(tokio::sync::Notify::new());
-    *manager.worktrees.relocation_pause.lock().unwrap() = Some((reached.clone(), release.clone()));
+    *manager.workspace.worktrees.relocation_pause.lock().unwrap() =
+        Some((reached.clone(), release.clone()));
     let owner = manager.clone();
     let request = tokio::spawn(async move {
         owner

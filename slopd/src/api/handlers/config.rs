@@ -14,7 +14,7 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigRe
     // Keep the raw text and parsed values from different snapshots when a user edits the file
     // outside the daemon.
     m.reload_if_changed().await;
-    let text = std::fs::read_to_string(&m.cfg_path)
+    let text = std::fs::read_to_string(m.cfg_path())
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     // Replace the token with the redaction sentinel in raw text and parsed values.
     // Writing the sentinel preserves the token. Authentication still protects this endpoint.
@@ -31,7 +31,7 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigRe
         host.id.clear();
     }
     reply(json!({
-        "path": m.cfg_path,
+        "path": m.cfg_path(),
         "text": redacted_text,
         "values": values,
         "metadata": {

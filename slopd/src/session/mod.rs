@@ -15,10 +15,10 @@ use tokio::task::JoinHandle;
 mod input;
 mod launch;
 pub use launch::RunWhere;
-use launch::{
+pub(crate) use launch::{
     ExecutionSource, HostLifetime, LaunchContent, LaunchDestination, LaunchOptions, LaunchRequest,
 };
-pub(crate) use launch::{ExplicitLaunch, LaunchContext, ReaderContext};
+pub(crate) use launch::{LaunchContext, ReaderContext};
 mod title;
 mod validation;
 mod view;
@@ -42,8 +42,8 @@ pub use view::{
 };
 
 use crate::config::check_belongs;
+use crate::config::check_project;
 use crate::config::patch::json_to_toml;
-use crate::config::{check_library_item, check_project};
 use crate::emu::strip_sgr;
 use crate::prompt::{PromptVars, render_prompt, render_prompt_with};
 pub(crate) use input::Input;

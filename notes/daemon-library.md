@@ -7,8 +7,12 @@ have their own catalog and API.
 `config/library.rs` owns definitions and validation; `config/catalog.rs` prepares
 catalog transactions. `application/library.rs` owns mutation policy, discovery,
 snapshots, and publication. Session adapters supply guarded commits and launches;
-`api/handlers/library.rs` owns HTTP. Launch conversion lives in `session/launch.rs`,
-guarded execution in `session/manager/launch.rs`, and live construction in `errands.rs`.
+`api/handlers/library.rs` owns HTTP. `application/launch.rs` resolves saved-library
+and explicit launch policy into the common request in `session/launch.rs`. Explicit
+request decoding belongs to `api/types.rs`; guarded execution belongs to
+`session/manager/launch.rs`, and live construction to `errands.rs`.
+The file-command adapter refreshes configuration before resolving action scope;
+planning does not allocate a session or change startup/cleanup guard ownership.
 File-action scope coordination belongs to `application/file_actions.rs`.
 
 A user item shadows a supplied entry with the same name. Deleting that user item

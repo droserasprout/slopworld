@@ -29,7 +29,7 @@ impl Manager {
     }
 
     async fn add_project_inner(self: &Arc<Self>, mut p: ProjectCfg) -> Result<()> {
-        let _worktrees = self.worktrees.mutation.lock().await;
+        let _worktrees = self.workspace.worktrees.mutation.lock().await;
         self.reload_if_changed().await;
         settle(&mut p);
         p.id = self.allocate_project_identity().await?;
@@ -58,7 +58,7 @@ impl Manager {
     }
 
     async fn update_project_inner(self: &Arc<Self>, name: &str, p: ProjectCfg) -> Result<()> {
-        let _lock = self.worktrees.mutation.lock().await;
+        let _lock = self.workspace.worktrees.mutation.lock().await;
         crate::application::projects::update(self, name, p).await
     }
 
@@ -70,7 +70,7 @@ impl Manager {
     }
 
     async fn remove_project_inner(self: &Arc<Self>, name: &str) -> Result<()> {
-        let _worktrees = self.worktrees.mutation.lock().await;
+        let _worktrees = self.workspace.worktrees.mutation.lock().await;
         self.reload_if_changed().await;
         let cfg = self.config().await;
         if let Some(p) = cfg.project(name)
@@ -128,7 +128,13 @@ impl crate::application::projects::ProjectRuntime for Arc<Manager> {
     async fn after_relocations(&self) {
         #[cfg(test)]
         {
-            let pause = self.worktrees.relocation_pause.lock().unwrap().take();
+            let pause = self
+                .workspace
+                .worktrees
+                .relocation_pause
+                .lock()
+                .unwrap()
+                .take();
             if let Some((reached, release)) = pause {
                 reached.notify_one();
                 release.notified().await;

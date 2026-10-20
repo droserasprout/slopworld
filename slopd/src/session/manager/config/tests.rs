@@ -6,7 +6,7 @@ use crate::session::test_manager;
 #[tokio::test]
 async fn settings_cannot_clear_root_authority_or_change_accepted_state_on_failure() {
     let manager = test_manager(Config::default());
-    let before = std::fs::read_to_string(&manager.cfg_path).unwrap();
+    let before = std::fs::read_to_string(manager.cfg_path()).unwrap();
     let token = manager.config().await.daemon.token.clone();
     for blank in ["", "  ", "\t\n"] {
         let error = manager
@@ -31,7 +31,7 @@ async fn settings_cannot_clear_root_authority_or_change_accepted_state_on_failur
                 .contains("non-empty [daemon] token")
         );
         assert_eq!(manager.config().await.daemon.token, token);
-        assert_eq!(std::fs::read_to_string(&manager.cfg_path).unwrap(), before);
+        assert_eq!(std::fs::read_to_string(manager.cfg_path()).unwrap(), before);
         assert_eq!(manager.config_authority.auth_generation(), 0);
         assert!(matches!(
             manager.config_authority.resolve_cap(Some(&token)).await,
@@ -112,7 +112,7 @@ async fn persisted_root_token_changes_invalidate_existing_auth() {
     ));
     assert_eq!(manager.config().await.daemon.token, "rotated-root");
     assert_eq!(
-        Config::load(&manager.cfg_path).await.unwrap().daemon.token,
+        Config::load(manager.cfg_path()).await.unwrap().daemon.token,
         "rotated-root"
     );
 }
@@ -132,7 +132,7 @@ async fn concurrent_structured_writes_keep_both_changes() {
     let cfg = manager.config().await;
     assert_eq!(cfg.daemon.title_model, "left-model");
     assert_eq!(cfg.daemon.summary_prompt, "right-prompt");
-    drop(std::fs::remove_file(manager.cfg_path.clone()));
+    drop(std::fs::remove_file(manager.cfg_path()));
 }
 
 #[tokio::test]
@@ -149,10 +149,10 @@ async fn raw_replacement_persists_the_real_token_for_a_redacted_candidate() {
         .expect("replace config");
 
     assert_eq!(manager.config().await.daemon.token, "real-root-token");
-    let persisted = std::fs::read_to_string(&manager.cfg_path).unwrap();
+    let persisted = std::fs::read_to_string(manager.cfg_path()).unwrap();
     assert!(persisted.contains("real-root-token"));
     assert!(!persisted.contains(crate::config::TOKEN_REDACTED));
-    drop(std::fs::remove_file(manager.cfg_path.clone()));
+    drop(std::fs::remove_file(manager.cfg_path()));
 }
 
 #[tokio::test]
@@ -176,7 +176,7 @@ async fn json_patch_preserves_omitted_fields_and_redacted_token() {
     assert_eq!(updated.daemon.token, "real-root-token");
     assert_eq!(updated.daemon.summary_prompt, "keep this prompt");
     assert_eq!(updated.daemon.title_min_chars, 42);
-    drop(std::fs::remove_file(manager.cfg_path.clone()));
+    drop(std::fs::remove_file(manager.cfg_path()));
 }
 
 #[tokio::test]
@@ -223,18 +223,24 @@ async fn config_sync_upserts_agents_and_only_valid_host_terminals() {
 async fn invalid_library_does_not_consume_its_revision() {
     let manager = test_manager(Config::default());
     let accepted = manager
+        .workspace
         .configuration
         .library_revision
         .lock()
         .unwrap()
         .clone();
-    let dir = manager.cfg_path.parent().unwrap().join("prompts");
+    let dir = manager.cfg_path().parent().unwrap().join("prompts");
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("retry.toml");
     std::fs::write(&path, "name = [").unwrap();
     assert!(!manager.reload_if_changed().await);
     assert_eq!(
-        *manager.configuration.library_revision.lock().unwrap(),
+        *manager
+            .workspace
+            .configuration
+            .library_revision
+            .lock()
+            .unwrap(),
         accepted
     );
     std::fs::write(&path, "name = 'retry'\nlink = 'project'\ntext = 'fixed'").unwrap();
@@ -270,10 +276,10 @@ async fn configuration_entry_points_preserve_notification_scope() {
     assert!(events.try_recv().is_err());
 
     // External root edits are ignored; library reloads announce only the library.
-    std::fs::write(&manager.cfg_path, "[daemon]\ntitle_model = 'external'").unwrap();
+    std::fs::write(manager.cfg_path(), "[daemon]\ntitle_model = 'external'").unwrap();
     assert!(!manager.reload_if_changed().await);
     assert!(events.try_recv().is_err());
-    let dir = manager.cfg_path.parent().unwrap().join("prompts");
+    let dir = manager.cfg_path().parent().unwrap().join("prompts");
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("new.toml"), "name = 'new'\nlink = 'project'").unwrap();
     assert!(manager.reload_if_changed().await);
@@ -288,12 +294,13 @@ async fn configuration_entry_points_preserve_notification_scope() {
 async fn document_save_does_not_acknowledge_an_external_library_revision() {
     let manager = test_manager(Config::default());
     let accepted = manager
+        .workspace
         .configuration
         .library_revision
         .lock()
         .unwrap()
         .clone();
-    let dir = manager.cfg_path.parent().unwrap().join("prompts");
+    let dir = manager.cfg_path().parent().unwrap().join("prompts");
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(
         dir.join("external.toml"),
@@ -305,7 +312,12 @@ async fn document_save_does_not_acknowledge_an_external_library_revision() {
         .await
         .unwrap();
     assert_eq!(
-        *manager.configuration.library_revision.lock().unwrap(),
+        *manager
+            .workspace
+            .configuration
+            .library_revision
+            .lock()
+            .unwrap(),
         accepted
     );
     assert!(manager.reload_if_changed().await);
@@ -321,12 +333,13 @@ async fn agent_edit_does_not_read_or_retire_unselected_library_files() {
         }],
         ..Default::default()
     });
-    let dir = manager.cfg_path.parent().unwrap().join("prompts");
+    let dir = manager.cfg_path().parent().unwrap().join("prompts");
     tokio::fs::create_dir_all(&dir).await.unwrap();
     let sibling = dir.join("external.toml");
     let bytes = "unaccepted external edit [";
     tokio::fs::write(&sibling, bytes).await.unwrap();
     let stamp = manager
+        .workspace
         .configuration
         .library_revision
         .lock()
@@ -341,7 +354,12 @@ async fn agent_edit_does_not_read_or_retire_unselected_library_files() {
         .unwrap();
     assert_eq!(tokio::fs::read_to_string(sibling).await.unwrap(), bytes);
     assert_eq!(
-        *manager.configuration.library_revision.lock().unwrap(),
+        *manager
+            .workspace
+            .configuration
+            .library_revision
+            .lock()
+            .unwrap(),
         stamp
     );
     assert_eq!(
@@ -354,7 +372,7 @@ async fn agent_edit_does_not_read_or_retire_unselected_library_files() {
 async fn library_edit_does_not_write_or_accept_an_external_root_revision() {
     let manager = test_manager(Config::default());
     let bytes = "invalid pending root edit [";
-    tokio::fs::write(&manager.cfg_path, bytes).await.unwrap();
+    tokio::fs::write(manager.cfg_path(), bytes).await.unwrap();
     manager
         .update_cfg(ConfigMutation::Library, |cfg| {
             for name in ["new-prompt", "another-prompt"] {
@@ -368,16 +386,21 @@ async fn library_edit_does_not_write_or_accept_an_external_root_revision() {
         .await
         .unwrap();
     assert_eq!(
-        tokio::fs::read_to_string(&manager.cfg_path).await.unwrap(),
+        tokio::fs::read_to_string(manager.cfg_path()).await.unwrap(),
         bytes
     );
     assert_eq!(manager.config().await.library[0].name, "new-prompt");
     assert_eq!(
-        *manager.configuration.library_revision.lock().unwrap(),
-        crate::config::catalog::revision(&manager.cfg_path).ok()
+        *manager
+            .workspace
+            .configuration
+            .library_revision
+            .lock()
+            .unwrap(),
+        crate::config::catalog::revision(manager.cfg_path()).ok()
     );
     assert_eq!(
-        Config::load_library_for(&manager.cfg_path).await.unwrap()[0].name,
+        Config::load_library_for(manager.cfg_path()).await.unwrap()[0].name,
         "another-prompt"
     );
 }
@@ -385,7 +408,7 @@ async fn library_edit_does_not_write_or_accept_an_external_root_revision() {
 #[tokio::test]
 async fn mutation_cannot_change_an_unowned_store_or_publish_its_candidate() {
     let manager = test_manager(Config::default());
-    let before = tokio::fs::read(&manager.cfg_path).await.unwrap();
+    let before = tokio::fs::read(manager.cfg_path()).await.unwrap();
     let error = manager
         .update_cfg(ConfigMutation::Agents, |cfg| {
             cfg.daemon.token = "not-owned".into();
@@ -394,7 +417,7 @@ async fn mutation_cannot_change_an_unowned_store_or_publish_its_candidate() {
         .await
         .unwrap_err();
     assert!(error.to_string().contains("does not own daemon"));
-    assert_eq!(tokio::fs::read(&manager.cfg_path).await.unwrap(), before);
+    assert_eq!(tokio::fs::read(manager.cfg_path()).await.unwrap(), before);
     assert_ne!(manager.config().await.daemon.token, "not-owned");
     let error = manager
         .update_cfg(ConfigMutation::HostShells, |cfg| {
@@ -428,7 +451,7 @@ async fn failed_prepared_commit_keeps_accepted_snapshot_and_allows_retry() {
         .unwrap();
     assert_eq!(manager.config().await.sessions[0].label, None);
     let path = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .join("data/agents")
@@ -470,7 +493,7 @@ async fn daemon_settings_reader_observes_only_accepted_settings_and_survives_man
     let mut changes = manager.config_authority.auth_changes();
     let old_token = reader.snapshot().await.token;
     let patch = serde_json::json!({"daemon": {"usage_poll_secs": next, "token": "retry-root"}});
-    let fault = crate::paths::fail_writes(&manager.cfg_path);
+    let fault = crate::paths::fail_writes(manager.cfg_path());
     manager.patch_config(patch.clone()).await.unwrap_err();
     assert_eq!(reader.snapshot().await.usage_poll_secs, before);
     assert_eq!(reader.snapshot().await.token, old_token);
@@ -502,4 +525,40 @@ async fn daemon_settings_reader_observes_only_accepted_settings_and_survives_man
     drop(manager);
     assert!(weak.upgrade().is_none());
     assert_eq!(reader.snapshot().await.usage_poll_secs, next);
+}
+
+#[tokio::test]
+async fn configuration_updates_only_its_workspace_endpoint_after_acceptance() {
+    let manager = test_manager(Config::default());
+    let other = test_manager(Config::default());
+    let endpoint = manager.cfg_path().with_extension("endpoint.toml");
+    let other_endpoint = other.cfg_path().with_extension("endpoint.toml");
+    let original = toml::to_string(&crate::endpoint::Endpoint {
+        url: "http://127.0.0.1:7717".into(),
+        token: manager.config().await.daemon.token.clone(),
+    })
+    .unwrap();
+    std::fs::write(&endpoint, &original).unwrap();
+    std::fs::write(&other_endpoint, &original).unwrap();
+
+    for token in ["rotated-once", "rotated-twice"] {
+        manager
+            .patch_config(serde_json::json!({
+                "daemon": { "token": token, "bind": "127.0.0.1:8818" }
+            }))
+            .await
+            .unwrap();
+        let saved: crate::endpoint::Endpoint =
+            toml::from_str(&std::fs::read_to_string(&endpoint).unwrap()).unwrap();
+        assert_eq!(saved.token, token);
+        assert_eq!(saved.url, "http://127.0.0.1:7717");
+        assert_eq!(manager.config().await.daemon.token, token);
+        assert_eq!(std::fs::read_to_string(&other_endpoint).unwrap(), original);
+    }
+    let accepted = std::fs::read(&endpoint).unwrap();
+    manager
+        .patch_config(serde_json::json!({"daemon": {"token": ""}}))
+        .await
+        .unwrap_err();
+    assert_eq!(std::fs::read(&endpoint).unwrap(), accepted);
 }

@@ -518,7 +518,7 @@ async fn initial_snapshots_send_binary_host_state_only_to_root() {
         vec!["a"]
     );
     assert!(matches!(receive(&mut socket.client).await, P::Screen(s) if s.name == "marker"));
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -617,7 +617,7 @@ async fn subscriptions_filter_frames_and_flush_latest_frames_before_control_even
         .unwrap()
         .unwrap();
     subs.lock().await.clear();
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]

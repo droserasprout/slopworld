@@ -70,6 +70,7 @@ async fn failed_poll_preserves_state_and_allows_a_successful_retry() {
     let manager = metadata_fixture().await;
     let cfg = manager.config().await;
     let record = manager
+        .workspace
         .configuration
         .records
         .binding
@@ -98,7 +99,7 @@ async fn failed_poll_preserves_state_and_allows_a_successful_retry() {
     assert_eq!(manager.live.read().await["shell"].host_path, "/retry");
     assert!(manager.live.read().await["shell"].process_running);
     assert_eq!(
-        Config::load(&manager.cfg_path)
+        Config::load(manager.cfg_path())
             .await
             .unwrap()
             .host_terminals[0]
@@ -158,7 +159,7 @@ fn host_commands_update_foreground_process_state() {
 pub(in crate::session::manager) async fn metadata_fixture() -> Arc<Manager> {
     let manager = crate::session::test_manager(Config::default());
     let dir = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .to_string_lossy()
@@ -230,7 +231,7 @@ async fn host_metadata_ignores_stale_runs_down_sessions_and_agents() {
     );
     assert_eq!(manager.live.read().await["shell"].host_path, "/old");
     assert_eq!(manager.config().await.host_terminals[0].path, "/old");
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -253,7 +254,7 @@ async fn current_host_metadata_persists_path_and_updates_foreground_process() {
     assert!(!manager.live.read().await["shell"].process_running);
     assert_eq!(manager.live.read().await["shell"].host_path, "/old");
     assert_eq!(
-        Config::load(&manager.cfg_path)
+        Config::load(manager.cfg_path())
             .await
             .unwrap()
             .host_terminals[0]
@@ -268,7 +269,7 @@ async fn current_host_metadata_persists_path_and_updates_foreground_process() {
         .await;
     assert_eq!(manager.live.read().await["shell"].host_path, "/current");
     assert!(manager.live.read().await["shell"].process_running);
-    let saved = Config::load(&manager.cfg_path).await.unwrap();
+    let saved = Config::load(manager.cfg_path()).await.unwrap();
     assert_eq!(saved.host_terminals[0].path, "/current");
     assert!(
         !manager
@@ -282,7 +283,7 @@ async fn current_host_metadata_persists_path_and_updates_foreground_process() {
         )
         .await;
     assert!(!manager.live.read().await["shell"].process_running);
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -298,8 +299,12 @@ async fn host_creation_serializes_identity_and_failed_save_does_not_publish() {
     let ids: std::collections::HashSet<_> = cfg.host_terminals.iter().map(|tab| &tab.id).collect();
     assert_eq!(ids.len(), 3);
     assert!(ids.iter().all(|id| crate::storage_id::valid(id)));
-    let before = std::fs::read(&manager.cfg_path).unwrap();
-    let directory = manager.cfg_path.parent().unwrap().join("data/host_shells");
+    let before = std::fs::read(manager.cfg_path()).unwrap();
+    let directory = manager
+        .cfg_path()
+        .parent()
+        .unwrap()
+        .join("data/host_shells");
     let backup = directory.with_extension("saved");
     std::fs::rename(&directory, &backup).unwrap();
     std::fs::write(&directory, "blocked").unwrap();
@@ -308,10 +313,10 @@ async fn host_creation_serializes_identity_and_failed_save_does_not_publish() {
         .await
         .unwrap_err();
     assert_eq!(manager.config().await.host_terminals.len(), 3);
-    assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), before);
+    assert_eq!(std::fs::read(manager.cfg_path()).unwrap(), before);
     std::fs::remove_file(&directory).unwrap();
     std::fs::rename(&backup, &directory).unwrap();
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -342,13 +347,13 @@ async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
             .contains("conflicts")
     );
     assert_eq!(manager.config().await.host_terminals.len(), 1);
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
 async fn record_backend_host_metadata_keeps_run_checks_and_targets_one_shell() {
     let manager = metadata_fixture().await;
-    let binding = manager.configuration.records.binding.clone();
+    let binding = manager.workspace.configuration.records.binding.clone();
     let cfg = manager.config().await;
     let agent = binding
         .data
@@ -380,5 +385,5 @@ async fn record_backend_host_metadata_keeps_run_checks_and_targets_one_shell() {
             .await
     );
     assert_eq!(manager.config().await.host_terminals[0].path, "/new");
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }

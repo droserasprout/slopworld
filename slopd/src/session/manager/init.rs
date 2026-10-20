@@ -2,25 +2,19 @@
 //! Application startup owns recovery ordering.
 
 use super::super::*;
-use super::{HostMetadataPoll, Signals, WorktreeState};
-use crate::config::transactions::{Transactions, records::Records};
+use super::{HostMetadataPoll, Signals};
 
 impl Manager {
-    /// Adopt accepted stores and construct an empty session runtime.
+    /// Borrow application owners and construct an empty session runtime.
     pub(crate) async fn new(
-        storage: crate::storage::layout::LoadedStorage,
+        workspace: Arc<crate::application::Workspace>,
         application: Arc<crate::application::Services>,
         tmux: Tmux,
         config_authority: Arc<crate::application::ConfigAuthority>,
     ) -> Result<Arc<Self>> {
-        let crate::storage::layout::LoadedStorage {
-            binding,
-            stores,
-            library_revision,
-        } = storage;
-        let cfg_path = binding.settings.clone();
-        let activity_cache =
-            crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
+        let activity_cache = crate::activity::ActivityCache::load(crate::activity::cache_path(
+            workspace.settings_path(),
+        ));
 
         let m = Arc::new(Self {
             #[cfg(test)]
@@ -34,12 +28,10 @@ impl Manager {
             #[cfg(test)]
             _test_directory: None,
             tmux,
-            cfg_path,
-            endpoint_path: crate::endpoint::path(),
+            workspace,
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             config_authority,
-            configuration: Transactions::new(Records::new(binding, stores), library_revision),
             host_metadata: HostMetadataPoll::default(),
             signals: Signals::new(),
             scroll_cache: Mutex::new(HashMap::new()),
@@ -50,7 +42,6 @@ impl Manager {
             terminal_boundaries: Mutex::new(HashMap::new()),
             terminal_resizes: Mutex::new(HashMap::new()),
             worker_spawn: tokio::sync::Mutex::new(()),
-            worktrees: WorktreeState::default(),
         });
 
         Ok(m)

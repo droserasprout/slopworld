@@ -62,9 +62,9 @@ async fn pending_relocation_remains_listable_with_storage_only_recovery_evidence
         }],
         ..Default::default()
     });
-    let source = manager.cfg_path.parent().unwrap().join("missing-source");
+    let source = manager.cfg_path().parent().unwrap().join("missing-source");
     let destination = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .join("missing-destination");

@@ -1,4 +1,4 @@
-//! Launch preparation and guarded execution; HTTP owns decoding and error mapping.
+//! Guarded launch execution and file-scope adapter; application owns launch planning.
 use super::super::*;
 
 impl Manager {
@@ -27,91 +27,17 @@ impl Manager {
 
         Ok(session)
     }
-
-    pub(crate) async fn plan_explicit_launch(
-        self: &Arc<Self>,
-        q: ExplicitLaunch,
-    ) -> Result<LaunchRequest> {
-        if !matches!(q.intent.as_str(), "" | "view" | "edit" | "diff" | "search") {
-            bail!("Unknown terminal intent.");
-        }
-        if matches!(q.intent.as_str(), "view" | "edit" | "search") && q.reader.path.is_empty() {
-            bail!("A file reader needs a path.");
-        }
-        let project = q.project.trim();
-        let command = if q.path.trim().is_empty() {
-            q.command.trim().to_owned()
-        } else {
-            self.file_action_command(project, &q.worktree, &q.path, q.command.trim(), q.host)
-                .await?
-        };
-        let command = if q.hold && !q.path.trim().is_empty() {
-            crate::files::actions::hold_action_command(command.trim())
-        } else {
-            command.trim().to_owned()
-        };
-        if command.is_empty() && q.kind != LibraryItemKind::Shell {
-            bail!("Provide a command for this action.");
-        }
-        if project.is_empty() && !q.temp && !q.host {
-            bail!("Choose a project or request a temporary project.");
-        }
-        let name = match q.label.trim() {
-            "" if q.host => crate::sandbox::host_session_name(project),
-            "" => "run".to_owned(),
-            label => label.to_owned(),
-        };
-        let content = LaunchContent {
-            name,
-            kind: q.kind,
-            command: (!command.is_empty()).then_some(command),
-            text: q.text,
-        };
-        content.validate()?;
-        let persistent = q.host
-            && q.kind == LibraryItemKind::Shell
-            && !project.is_empty()
-            && q.path.trim().is_empty()
-            && q.command.trim().is_empty()
-            && !q.temp;
-        // File actions execute on the host, including those scoped to a project.
-        let execution = ExecutionSource::select(
-            q.host || !q.path.trim().is_empty(),
-            persistent,
-            &q.agent_template,
-            q.like.trim(),
-        )?;
-        // Unscoped host readers still need a managed working directory.
-        let destination = if q.temp || (q.host && project.is_empty()) {
-            LaunchDestination::Temporary
-        } else {
-            LaunchDestination::Project(project.to_owned())
-        };
-        Ok(LaunchRequest {
-            content,
-            execution,
-            destination,
-            options: LaunchOptions {
-                worktree: q.worktree,
-                cols: q.cols,
-                rows: q.rows,
-                random_tips: q.random_tips,
-                context: LaunchContext {
-                    intent: q.intent,
-                    reader: ReaderContext {
-                        path: q.reader.path,
-                        key: q.reader.key,
-                        scope: q.reader.scope,
-                        line: q.reader.line,
-                        pinned: q.reader.pinned,
-                    },
-                    ..Default::default()
-                },
-            },
-        })
-    }
 }
 
-#[cfg(test)]
-#[path = "launch_tests.rs"]
-mod tests;
+impl crate::application::launch::Runtime for Arc<Manager> {
+    async fn file_action_command(
+        &self,
+        project: &str,
+        worktree: &str,
+        path: &str,
+        command: &str,
+        host: bool,
+    ) -> Result<String> {
+        Manager::file_action_command(self, project, worktree, path, command, host).await
+    }
+}

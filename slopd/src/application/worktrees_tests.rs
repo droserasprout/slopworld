@@ -5,10 +5,10 @@ const SIBLING: &str = "3333333333333333";
 #[tokio::test]
 async fn allocation_record_failure_removes_only_newly_created_directories() {
     let manager = crate::session::test_manager(Config::default());
-    let parent = manager.cfg_path.parent().unwrap().join("checkouts");
+    let parent = manager.cfg_path().parent().unwrap().join("checkouts");
     let _fault = crate::paths::fail_writes(
         &manager
-            .cfg_path
+            .cfg_path()
             .parent()
             .unwrap()
             .join(format!("data/worktrees/{TREE}.toml")),
@@ -34,12 +34,12 @@ async fn allocation_record_failure_removes_only_newly_created_directories() {
         .await
         .unwrap_err();
     assert!(!parent.exists());
-    assert!(manager.cfg_path.parent().unwrap().is_dir());
+    assert!(manager.cfg_path().parent().unwrap().is_dir());
 }
 #[tokio::test]
 async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
     let manager = crate::session::test_manager(Config::default());
-    let checkout = manager.cfg_path.parent().unwrap().join("deleted");
+    let checkout = manager.cfg_path().parent().unwrap().join("deleted");
     std::fs::create_dir(&checkout).unwrap();
     let worktree = Worktree {
         id: TREE.into(),
@@ -73,7 +73,7 @@ async fn failed_removal_commit_retains_intent_for_recovery_and_retry() {
     std::fs::remove_dir(&checkout).unwrap();
     let fault = crate::paths::fail_writes(
         &manager
-            .cfg_path
+            .cfg_path()
             .parent()
             .unwrap()
             .join(format!("data/worktrees/{TREE}.toml")),

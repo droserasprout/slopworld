@@ -583,7 +583,7 @@ async fn host_reader_exit_removes_tab_without_explicit_stop() {
     };
     let name = manager
         .run_launch(
-            LaunchRequest::library(
+            crate::application::launch::library_launch(
                 item,
                 RunWhere {
                     context: LaunchContext {

@@ -37,8 +37,8 @@ impl Fixture {
             }],
             ..Default::default()
         });
-        let binding = manager.configuration.records.binding.clone();
-        crate::paths::write_atomic_async(&manager.cfg_path, "# untouched root\n", Some(0o600))
+        let binding = manager.workspace.configuration.records.binding.clone();
+        crate::paths::write_atomic_async(manager.cfg_path(), "# untouched root\n", Some(0o600))
             .await
             .unwrap();
         manager.sync_from_config().await;
@@ -59,7 +59,7 @@ impl Fixture {
 impl Drop for Fixture {
     fn drop(&mut self) {
         drop(std::fs::remove_dir_all(
-            self.manager.cfg_path.parent().unwrap(),
+            self.manager.cfg_path().parent().unwrap(),
         ));
     }
 }
@@ -75,7 +75,7 @@ async fn manager_routes_rename_label_and_directory_updates_without_touching_othe
         .unwrap()
         .modified()
         .unwrap();
-    let root = tokio::fs::read(&f.manager.cfg_path).await.unwrap();
+    let root = tokio::fs::read(f.manager.cfg_path()).await.unwrap();
     let mut edited = f.manager.config().await.session("agent").unwrap().clone();
     edited.name = "renamed".into();
     f.manager.update("agent", edited).await.unwrap();
@@ -105,7 +105,7 @@ async fn manager_routes_rename_label_and_directory_updates_without_touching_othe
             .unwrap(),
         stamp
     );
-    assert_eq!(tokio::fs::read(&f.manager.cfg_path).await.unwrap(), root);
+    assert_eq!(tokio::fs::read(f.manager.cfg_path()).await.unwrap(), root);
 }
 
 #[tokio::test]
@@ -144,7 +144,7 @@ async fn configured_creation_and_retirement_use_records_and_keep_reused_names_di
         .unwrap();
     assert_ne!(f.agent_path("new-agent").await, path);
     assert_eq!(
-        tokio::fs::read_to_string(&f.manager.cfg_path)
+        tokio::fs::read_to_string(f.manager.cfg_path())
             .await
             .unwrap(),
         "# untouched root\n"
@@ -223,8 +223,12 @@ async fn cancellation_after_disk_commit_still_publishes_config_and_record_indexe
     let f = Fixture::new().await;
     let committed = Arc::new(tokio::sync::Barrier::new(2));
     let release = Arc::new(tokio::sync::Notify::new());
-    *f.manager.configuration.commit_pause.lock().unwrap() =
-        Some((committed.clone(), release.clone()));
+    *f.manager
+        .workspace
+        .configuration
+        .commit_pause
+        .lock()
+        .unwrap() = Some((committed.clone(), release.clone()));
     let manager = f.manager.clone();
     let request = tokio::spawn(async move { manager.set_label("agent", "committed".into()).await });
     tokio::time::timeout(Duration::from_secs(5), committed.wait())
@@ -233,11 +237,16 @@ async fn cancellation_after_disk_commit_still_publishes_config_and_record_indexe
     assert_eq!(f.manager.config().await.sessions[0].label, None);
     request.abort();
     drop(request.await);
-    f.manager.configuration.persist.try_lock().unwrap_err();
+    f.manager
+        .workspace
+        .configuration
+        .persist
+        .try_lock()
+        .unwrap_err();
     release.notify_one();
     let gate = tokio::time::timeout(
         Duration::from_secs(5),
-        f.manager.configuration.persist.lock(),
+        f.manager.workspace.configuration.persist.lock(),
     )
     .await
     .unwrap();
@@ -276,7 +285,7 @@ async fn record_mode_does_not_poll_or_accept_external_workspace_changes() {
     tokio::fs::write(path, "invalid offline edit [")
         .await
         .unwrap();
-    tokio::fs::write(&f.manager.cfg_path, "invalid root edit [")
+    tokio::fs::write(f.manager.cfg_path(), "invalid root edit [")
         .await
         .unwrap();
     assert!(!f.manager.reload_if_changed().await);
@@ -286,7 +295,7 @@ async fn record_mode_does_not_poll_or_accept_external_workspace_changes() {
         .await
         .unwrap();
     assert_eq!(
-        tokio::fs::read_to_string(&f.manager.cfg_path)
+        tokio::fs::read_to_string(f.manager.cfg_path())
             .await
             .unwrap(),
         "invalid root edit ["
@@ -315,13 +324,14 @@ async fn independent_library_reload_preserves_workspace_and_rejects_invalid_revi
     tokio::fs::write(&path, toml::to_string(&item).unwrap())
         .await
         .unwrap();
-    tokio::fs::write(&f.manager.cfg_path, "unaccepted root [")
+    tokio::fs::write(f.manager.cfg_path(), "unaccepted root [")
         .await
         .unwrap();
     assert!(f.manager.reload_if_changed().await);
     assert_eq!(f.manager.config().await.library[0].text, "prompt");
     let stamp = f
         .manager
+        .workspace
         .configuration
         .library_revision
         .lock()
@@ -334,13 +344,18 @@ async fn independent_library_reload_preserves_workspace_and_rejects_invalid_revi
         .unwrap();
     assert!(!f.manager.reload_if_changed().await);
     assert_eq!(
-        *f.manager.configuration.library_revision.lock().unwrap(),
+        *f.manager
+            .workspace
+            .configuration
+            .library_revision
+            .lock()
+            .unwrap(),
         stamp
     );
     assert_eq!(f.manager.config().await.library[0].text, "prompt");
     assert_eq!(f.manager.config().await.sessions[0].name, "agent");
     assert_eq!(
-        tokio::fs::read_to_string(&f.manager.cfg_path)
+        tokio::fs::read_to_string(f.manager.cfg_path())
             .await
             .unwrap(),
         "unaccepted root ["
@@ -479,6 +494,7 @@ async fn library_reload_retries_recovery_without_accepting_pending_files() {
     let original = std::fs::read_to_string(&path).unwrap();
     let revision = f
         .manager
+        .workspace
         .configuration
         .library_revision
         .lock()
@@ -503,7 +519,12 @@ async fn library_reload_retries_recovery_without_accepting_pending_files() {
         assert!(!f.manager.reload_if_changed().await);
         assert_eq!(f.manager.config().await.library[0].text, "accepted");
         assert_eq!(
-            *f.manager.configuration.library_revision.lock().unwrap(),
+            *f.manager
+                .workspace
+                .configuration
+                .library_revision
+                .lock()
+                .unwrap(),
             revision
         );
         assert_eq!(std::fs::read_to_string(&path).unwrap(), pending);
@@ -554,7 +575,7 @@ async fn canceled_library_reload_retains_its_boundary_through_recovery() {
     });
     let journal = f.binding.journal().unwrap();
     std::fs::write(&journal, undo.to_string()).unwrap();
-    let gate = f.manager.configuration.persist.lock().await;
+    let gate = f.manager.workspace.configuration.persist.lock().await;
     let reached = Arc::new(tokio::sync::Notify::new());
     let request = tokio::spawn({
         let manager = f.manager.clone();

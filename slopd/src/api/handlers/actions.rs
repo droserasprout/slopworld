@@ -13,8 +13,7 @@ pub(crate) async fn run(
     Proto(q): Proto<wire::RunReq>,
 ) -> ApiResult<wire::SessionResult> {
     let q: RunReq = domain(q)?;
-    let plan = m
-        .plan_explicit_launch(q)
+    let plan = crate::application::launch::plan_explicit_launch(&m, q.into())
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
     let session = m
@@ -51,3 +50,7 @@ pub(crate) async fn open_apps(Query(q): Query<OpenAppsQuery>) -> ApiResult<wire:
 #[cfg(test)]
 #[path = "actions_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "launch_tests.rs"]
+mod launch_tests;

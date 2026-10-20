@@ -80,7 +80,7 @@ async fn task_owner_preserves_visibility_authority_and_durable_mutations() {
     assert_eq!(canceled.tasks[0].status, Status::Canceled);
     assert_eq!(canceled.committed, std::slice::from_ref(&task.id));
     assert!(canceled.failed.is_empty() && canceled.unattempted.is_empty());
-    let reloaded = crate::tasks::Tasks::load(&m.cfg_path).unwrap();
+    let reloaded = crate::tasks::Tasks::load(m.cfg_path()).unwrap();
     assert_eq!(
         reloaded.get("sender", &task.id).unwrap().status,
         Status::Canceled
@@ -95,7 +95,7 @@ async fn task_owner_preserves_visibility_authority_and_durable_mutations() {
     );
     assert!(m.task_store().all_tasks_async().await.unwrap().is_empty());
     assert!(
-        crate::tasks::Tasks::load(&m.cfg_path)
+        crate::tasks::Tasks::load(m.cfg_path())
             .unwrap()
             .all()
             .is_empty()
@@ -144,7 +144,7 @@ async fn bulk_removal_prevalidates_authority_and_pruning_respects_visibility() {
     assert_eq!(removed.committed, [b.id]);
     assert!(removed.failed.is_empty() && removed.unattempted.is_empty());
     assert!(
-        crate::tasks::Tasks::load(&m.cfg_path)
+        crate::tasks::Tasks::load(m.cfg_path())
             .unwrap()
             .all()
             .is_empty()
@@ -189,7 +189,7 @@ async fn worker_failure_only_changes_unfinished_worker_tasks() {
     m.fail_worker_task_checked(&worker.id, "child", "Must not overwrite terminal result")
         .await;
     assert_task(&m, &ordinary.id, Status::Queued, None).await;
-    let saved = crate::tasks::Tasks::load(&m.cfg_path)
+    let saved = crate::tasks::Tasks::load(m.cfg_path())
         .unwrap()
         .get("host", &worker.id)
         .unwrap();
@@ -206,7 +206,7 @@ async fn assert_task(manager: &Manager, id: &str, status: Status, note: Option<&
         .into_iter()
         .find(|task| task.id == id)
         .unwrap();
-    let saved = crate::tasks::Tasks::load(&manager.cfg_path)
+    let saved = crate::tasks::Tasks::load(manager.cfg_path())
         .unwrap()
         .all()
         .into_iter()
@@ -221,7 +221,7 @@ async fn assert_task(manager: &Manager, id: &str, status: Status, note: Option<&
 #[tokio::test]
 async fn disconnected_task_io_retains_authorization_guard_through_publication() {
     let manager = crate::session::test_manager(Config::default());
-    let data = manager.cfg_path.parent().unwrap().join("data");
+    let data = manager.cfg_path().parent().unwrap().join("data");
     let (committed, reached) = tokio::sync::oneshot::channel();
     let (release, wait) = std::sync::mpsc::channel();
     let request = tokio::spawn({

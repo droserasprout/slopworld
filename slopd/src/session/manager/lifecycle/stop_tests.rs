@@ -139,7 +139,7 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
         .await
         .unwrap()
         .unwrap();
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -223,7 +223,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         Event::Sessions { sessions } if sessions.is_empty()
     ));
 
-    let saved = crate::tasks::Tasks::load(&manager.cfg_path)
+    let saved = crate::tasks::Tasks::load(manager.cfg_path())
         .unwrap()
         .get("host", &task_id)
         .unwrap();
@@ -246,7 +246,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
             .note,
         saved.note
     );
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 async fn temporary_worker_task_session(manager: &Manager) -> SessionCfg {

@@ -100,7 +100,7 @@ async fn view_index_ignores_external_record_edits() {
     };
     manager.save_worktrees(&store).await.unwrap();
     let path = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .join(format!("data/worktrees/{TREE}.toml"));
@@ -298,7 +298,7 @@ async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
         projects: vec![project.clone()],
         ..Default::default()
     });
-    let checkout = manager.cfg_path.parent().unwrap().join("external");
+    let checkout = manager.cfg_path().parent().unwrap().join("external");
     std::fs::create_dir(&checkout).unwrap();
     std::fs::write(checkout.join("keep"), "external data").unwrap();
     let store = Store {
@@ -314,7 +314,7 @@ async fn failed_removal_intent_preserves_external_checkout_and_catalog() {
     };
     manager.save_worktrees(&store).await.unwrap();
     let catalog = manager
-        .cfg_path
+        .cfg_path()
         .parent()
         .unwrap()
         .join(format!("data/worktrees/{TREE}.toml"));

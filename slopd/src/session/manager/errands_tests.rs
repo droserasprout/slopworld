@@ -259,7 +259,7 @@ async fn missing_clone_source_does_not_reserve_a_temporary_errand() {
     assert!(manager.live.read().await.is_empty());
     assert!(manager.temp.read().await.is_empty());
     assert!(manager.config().await.host_terminals.is_empty());
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -292,13 +292,13 @@ async fn host_with_clone_source_fails_before_persistence_or_allocation() {
     assert!(manager.temp.read().await.is_empty());
     assert!(manager.config().await.host_terminals.is_empty());
     assert!(
-        Config::load(&manager.cfg_path)
+        Config::load(manager.cfg_path())
             .await
             .unwrap()
             .sessions
             .is_empty()
     );
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -317,7 +317,7 @@ async fn host_persistence_failure_leaves_no_live_or_temporary_state() {
         project: "repo".into(),
         ..Default::default()
     };
-    let parent = manager.cfg_path.parent().unwrap();
+    let parent = manager.cfg_path().parent().unwrap();
     std::fs::remove_dir_all(parent).unwrap();
     std::fs::write(parent, "blocks config directory").unwrap();
 
@@ -328,7 +328,7 @@ async fn host_persistence_failure_leaves_no_live_or_temporary_state() {
     assert!(manager.live.read().await.is_empty());
     assert!(manager.temp.read().await.is_empty());
     assert!(manager.config().await.host_terminals.is_empty());
-    assert!(!manager.cfg_path.exists());
+    assert!(!manager.cfg_path().exists());
     std::fs::remove_file(parent).unwrap();
 }
 
@@ -381,7 +381,7 @@ async fn temporary_clone_copies_agent_limits_within_session_boundary() {
     assert_eq!(row.cfg.limits.memory_mb, Some(256));
     assert!(row.cfg.persistent_tmp);
     assert!(manager.temp.read().await[&row.cfg.project].temp);
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -414,7 +414,7 @@ async fn invalid_temporary_clone_settings_do_not_allocate_a_project() {
     assert!(error.to_string().contains("unknown sandbox preset"));
     assert!(manager.live.read().await.is_empty());
     assert!(manager.temp.read().await.is_empty());
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -438,7 +438,7 @@ async fn persistent_host_errand_saves_tab_and_live_metadata() {
         .create_test_errand_session(&cfg, &item, &RunWhere::default(), true, true, "")
         .await
         .unwrap();
-    let saved = Config::load(&manager.cfg_path).await.unwrap();
+    let saved = Config::load(manager.cfg_path()).await.unwrap();
     assert_eq!(saved.host_terminals.len(), 1);
     assert_eq!(saved.host_terminals[0].name, name);
     assert_eq!(saved.host_terminals[0].project, "repo");
@@ -447,7 +447,7 @@ async fn persistent_host_errand_saves_tab_and_live_metadata() {
     assert_eq!(live[&name].role, SessionRole::HostShell);
     assert_eq!(live[&name].host_path, "/tmp");
     assert!(manager.temp.read().await.is_empty());
-    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    std::fs::remove_dir_all(manager.cfg_path().parent().unwrap()).unwrap();
 }
 
 #[tokio::test]
@@ -497,8 +497,14 @@ impl Manager {
         persistent: bool,
         like: &str,
     ) -> Result<String> {
-        let execution = ExecutionSource::select(host, persistent, &item.agent_template, like)?;
-        let request = LaunchRequest::from_library(item.clone(), want.clone(), execution)?;
+        let execution = crate::application::launch::select_execution(
+            host,
+            persistent,
+            &item.agent_template,
+            like,
+        )?;
+        let request =
+            crate::application::launch::from_library(item.clone(), want.clone(), execution)?;
         self.create_errand_session(cfg, &request).await
     }
 }

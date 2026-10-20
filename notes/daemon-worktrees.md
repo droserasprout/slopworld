@@ -12,6 +12,7 @@ of the terminal session header. Scoped credentials retain the grantor's project
 restriction. Worker requests separately require an agent owner or the host user;
 a host terminal cannot own a worker.
 
+`application/workspace.rs` owns the shared worktree mutation gate.
 Session adapters retain guards in owned work after requester cancellation. Creation
 holds the shared session boundary, then the worktree mutation guard; project edits,
 rename, and removal take the exclusive boundary first. Configuration persistence

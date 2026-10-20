@@ -14,7 +14,7 @@ struct Fixture {
 impl Fixture {
     async fn new() -> Self {
         let manager = crate::session::test_manager(Config::default());
-        let root = manager.cfg_path.parent().unwrap().to_owned();
+        let root = manager.cfg_path().parent().unwrap().to_owned();
         let repo = root.join("repo");
         std::fs::create_dir(&repo).unwrap();
         for args in [
@@ -49,8 +49,8 @@ impl Fixture {
             ..Default::default()
         });
         manager.replace_workspace_fixture(&cfg).await.unwrap();
-        let binding = manager.configuration.records.binding.clone();
-        std::fs::write(&manager.cfg_path, "# root stays unchanged\n").unwrap();
+        let binding = manager.workspace.configuration.records.binding.clone();
+        std::fs::write(manager.cfg_path(), "# root stays unchanged\n").unwrap();
         Self {
             manager,
             binding,
@@ -166,7 +166,7 @@ async fn worktree_records_keep_main_derived_siblings_unchanged_and_ignore_extern
     );
     assert_eq!(f.manager.worktree_records().worktrees[0].path, renamed.path);
     assert_eq!(
-        std::fs::read_to_string(&f.manager.cfg_path).unwrap(),
+        std::fs::read_to_string(f.manager.cfg_path()).unwrap(),
         "# root stays unchanged\n"
     );
 }
@@ -234,7 +234,7 @@ async fn project_rename_commits_agent_and_host_references_together_and_preserves
     assert_eq!(cfg.projects[0].id, "1111111111111111");
     assert!(f.manager.remove_project("renamed").await.is_err());
     assert_eq!(
-        std::fs::read_to_string(&f.manager.cfg_path).unwrap(),
+        std::fs::read_to_string(f.manager.cfg_path()).unwrap(),
         "# root stays unchanged\n"
     );
 }
@@ -246,8 +246,12 @@ async fn canceled_project_move_rolls_back_git_and_records_after_final_write_fail
     let old_project = std::fs::read(f.project_path()).unwrap();
     let reached = Arc::new(tokio::sync::Notify::new());
     let release = Arc::new(tokio::sync::Notify::new());
-    *f.manager.worktrees.relocation_pause.lock().unwrap() =
-        Some((reached.clone(), release.clone()));
+    *f.manager
+        .workspace
+        .worktrees
+        .relocation_pause
+        .lock()
+        .unwrap() = Some((reached.clone(), release.clone()));
     let mut next = f.manager.config().await.projects[0].clone();
     next.name = "renamed".into();
     let request = tokio::spawn({
@@ -302,8 +306,12 @@ async fn failed_git_rollback_retains_relocation_intent_instead_of_ready_stale_pa
     let tree = f.tree("checkout").await;
     let reached = Arc::new(tokio::sync::Notify::new());
     let release = Arc::new(tokio::sync::Notify::new());
-    *f.manager.worktrees.relocation_pause.lock().unwrap() =
-        Some((reached.clone(), release.clone()));
+    *f.manager
+        .workspace
+        .worktrees
+        .relocation_pause
+        .lock()
+        .unwrap() = Some((reached.clone(), release.clone()));
     let mut next = f.manager.config().await.projects[0].clone();
     next.name = "renamed".into();
     let request = tokio::spawn({
@@ -383,7 +391,7 @@ async fn removing_external_record_leaves_checkout_and_siblings_untouched() {
     let sibling_bytes = std::fs::read(f.tree_path(&sibling.id)).unwrap();
     f.manager
         .session_operation(async {
-            let _worktrees = f.manager.worktrees.mutation.lock().await;
+            let _worktrees = f.manager.workspace.worktrees.mutation.lock().await;
             let mut store = f.manager.worktree_records();
             store.worktrees[0].managed = false;
             f.manager.save_worktrees(&store).await.unwrap();
