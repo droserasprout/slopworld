@@ -33,6 +33,10 @@ def package(distribution: str, output: Path, revision: str, version: str) -> Pat
     # Fresh output prevents stale package reuse; the same filesystem allows atomic rename.
     with tempfile.TemporaryDirectory(prefix=f'.{distribution}-container-', dir=output) as temporary:
         workspace = Path(temporary)
+        # Docker preserves the host runner's UID on /output. Arch's Bubblewrap
+        # maps container root to an ordinary UID, which must traverse this mount
+        # to reach its own writable staging directory. TemporaryDirectory is 0700.
+        workspace.chmod(0o755)
         compile_package(ROOT, distribution, workspace, revision, version)
         generated = workspace / generated_name
         if not generated.is_file() or generated.stat().st_size == 0:

@@ -119,7 +119,9 @@ conversion; `container.py` owns container builds and artifact handoff. Build Deb
 binaries on the target distribution because dependency discovery uses its host
 libraries. RPM dependency discovery must exclude private Unity assemblies.
 Containers write fresh temporary output and publish only after successful checks,
-so stale or empty artifacts cannot replace existing packages. SELinux labeling is
+so stale or empty artifacts cannot replace existing packages. The container output
+mount must be traversable by Arch's mapped build UID even when the host runner owns
+it; keep that temporary mount at mode 0755. SELinux labeling is
 disabled to avoid relabeling repositories and linked-worktree metadata.
 
 Packages leave game attachment and user-service lifecycle to the user. Source

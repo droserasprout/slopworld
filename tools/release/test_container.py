@@ -91,6 +91,7 @@ def test_container_trusts_only_mounted_checkout_and_mounts_external_git_metadata
             mounts = [arguments[index + 1] for index, value in enumerate(arguments) if value == '--volume']
             workspace = Path(next(mount.removesuffix(':/output') for mount in mounts if mount.endswith(':/output')))
             assert workspace != output
+            assert workspace.stat().st_mode & 0o777 == 0o755
             (workspace / generated).write_bytes(b'fixture archive')
         return subprocess.CompletedProcess(arguments, 0, '')
 
