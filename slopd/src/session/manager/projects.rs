@@ -1,19 +1,12 @@
 //! Session guards, identity allocation, and publication for project operations.
 //! Library execution and delayed input belong to library.rs.
 use super::super::*;
-use crate::application::projects::ProjectView;
+use crate::application::projects::{ProjectView, settle};
 use crate::session::manager::config::ConfigMutation;
 
 impl Manager {
     pub async fn projects(&self) -> Vec<ProjectView> {
-        self.config_authority
-            .read_config()
-            .await
-            .projects
-            .iter()
-            .cloned()
-            .map(ProjectView::from)
-            .collect()
+        crate::application::projects::list(&*self.config_authority.read_config().await)
     }
 
     pub(super) async fn announce_projects(&self) {
@@ -73,16 +66,7 @@ impl Manager {
         let _worktrees = self.workspace.worktrees.mutation.lock().await;
         self.reload_if_changed().await;
         let cfg = self.config().await;
-        if let Some(p) = cfg.project(name)
-            && !p.id.is_empty()
-            && self
-                .worktree_records()
-                .worktrees
-                .iter()
-                .any(|w| w.project_id == p.id)
-        {
-            bail!("remove project worktrees explicitly first");
-        }
+        crate::application::projects::check_removal(&cfg, &self.worktree_records(), name)?;
         self.update_cfg(ConfigMutation::ProjectReferences, |cfg| {
             crate::application::projects::remove(cfg, name)
         })

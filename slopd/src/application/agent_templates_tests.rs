@@ -128,3 +128,53 @@ async fn caller_cancellation_cannot_separate_catalog_commit_from_publication() {
         "Committed despite cancellation"
     );
 }
+
+#[tokio::test]
+async fn instantiation_rejects_deleted_templates_and_preserves_destination_identity() {
+    let fixture = super::super::test_support::Fixture::new();
+    let catalog = &fixture.services.templates;
+    let mut selected = template("reviewer", "");
+    selected.defaults.cmd = Some("review-agent".into());
+    selected.defaults.autostart = Some(true);
+    let selected = catalog.create(selected).await.unwrap();
+    let overrides = crate::config::SessionCfg {
+        name: "untrusted".into(),
+        project: "other".into(),
+        state_id: "untrusted".into(),
+        worker: true,
+        parent: "untrusted".into(),
+        task_id: "untrusted".into(),
+        cmd: Some("custom-agent".into()),
+        ..Default::default()
+    };
+    let session = catalog
+        .instantiate(
+            "reviewer",
+            "destination".into(),
+            "repo".into(),
+            Some(overrides),
+            Some(false),
+        )
+        .await
+        .unwrap();
+    assert_eq!(session.name, "destination");
+    assert_eq!(session.project, "repo");
+    assert_ne!(session.state_id, "untrusted");
+    assert!(!session.worker && session.parent.is_empty() && session.task_id.is_empty());
+    assert_eq!(session.cmd.as_deref(), Some("custom-agent"));
+    assert!(!session.autostart);
+    let default = catalog
+        .instantiate("reviewer", "next".into(), "repo".into(), None, None)
+        .await
+        .unwrap();
+    assert!(default.autostart);
+    catalog.remove("reviewer", selected.version).await.unwrap();
+    assert!(
+        catalog
+            .instantiate("reviewer", "next".into(), "repo".into(), None, None)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("no such agent template")
+    );
+}

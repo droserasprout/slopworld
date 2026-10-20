@@ -4,9 +4,11 @@
 mod agent_templates;
 pub(crate) mod catalogs;
 pub(crate) mod file_actions;
+pub(crate) mod workers;
 pub(crate) mod worktrees;
 pub(crate) use agent_templates::{AgentTemplates, TemplatePersistence};
 mod workspace;
+mod workspace_identity;
 pub(crate) use workspace::Workspace;
 mod config_authority;
 pub(crate) use config_authority::{AuthChange, ConfigAuthority};

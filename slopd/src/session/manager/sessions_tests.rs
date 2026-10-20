@@ -633,8 +633,7 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     assert!(manager.config().await.session("old").is_some());
     assert!(manager.live.read().await.contains_key("old"));
     assert!(
-        !manager
-            .stored_states(true)
+        !crate::application::stored_state::stored_states(manager.config().await, true)
             .await
             .unwrap()
             .iter()
@@ -646,7 +645,9 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
     assert!(!private.exists());
     assert!(manager.config().await.session("old").is_none());
     assert!(!manager.live.read().await.contains_key("old"));
-    let entries = manager.stored_states(true).await.unwrap();
+    let entries = crate::application::stored_state::stored_states(manager.config().await, true)
+        .await
+        .unwrap();
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(archived.session.as_deref(), Some("old"));
     let fault = crate::paths::fail_writes(&record);
@@ -691,7 +692,9 @@ async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved(
         manager.config().await.session("old").unwrap().state_id,
         session.state_id
     );
-    let entries = manager.stored_states(true).await.unwrap();
+    let entries = crate::application::stored_state::stored_states(manager.config().await, true)
+        .await
+        .unwrap();
     let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
     assert_eq!(
         manager.restore_stored_state(&archived.key).await.unwrap(),
@@ -873,5 +876,75 @@ async fn role_projection_preserves_host_and_worker_wire_flags() {
             (host, ephemeral, durable_worker),
             "{name}"
         );
+    }
+}
+
+#[tokio::test]
+async fn host_removal_retires_saved_tabs_and_runtime_actions_without_touching_agents() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let manager = metadata_fixture().await;
+    manager.live.write().await.get_mut("shell").unwrap().role = SessionRole::HostShell;
+    let mut action = Live::new(
+        SessionCfg {
+            name: "action".into(),
+            project: "repo".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    action.role = SessionRole::HostAction;
+    manager.live.write().await.insert("action".into(), action);
+    let before = manager.config().await.sessions[0].clone();
+    for name in ["shell", "action"] {
+        manager.remove(name).await.unwrap();
+        assert!(!manager.live.read().await.contains_key(name));
+        assert!(
+            !manager
+                .config()
+                .await
+                .host_terminals
+                .iter()
+                .any(|host| host.name == name)
+        );
+        manager.stop(name).await.unwrap();
+    }
+    let saved = Config::load(manager.cfg_path()).await.unwrap();
+    assert!(saved.host_terminals.is_empty());
+    assert_eq!(saved.sessions[0].state_id, before.state_id);
+    assert!(manager.live.read().await.contains_key("agent"));
+}
+
+#[tokio::test]
+async fn reset_rejects_runtime_only_roles_before_stopping_or_mutating_them() {
+    let manager = crate::session::test_manager(Config::default());
+    for role in [
+        SessionRole::HostShell,
+        SessionRole::HostAction,
+        SessionRole::Agent(AgentLifetime::Temporary),
+    ] {
+        let mut row = Live::new(
+            SessionCfg {
+                name: "runtime".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.role = role;
+        row.state = State::Working;
+        row.run_id = 42;
+        manager.live.write().await.insert("runtime".into(), row);
+        assert!(
+            manager
+                .reset_state("runtime")
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("no resettable private state")
+        );
+        let live = manager.live.read().await;
+        assert_eq!(live["runtime"].state, State::Working);
+        assert_eq!(live["runtime"].run_id, 42);
     }
 }

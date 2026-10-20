@@ -143,3 +143,81 @@ fn cloned_settings_are_owned_and_require_a_resolvable_source_project() {
     assert_eq!(cfg.command_of(&session), "explicit-command");
     assert_eq!(session.project, "destination");
 }
+
+#[test]
+fn selection_uses_explicit_checkout_then_clone_default_except_for_temporary_projects() {
+    let cfg = Config {
+        sessions: vec![SessionCfg {
+            name: "source".into(),
+            worktree: "inherited".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mut request = LaunchRequest {
+        content: LaunchContent::default(),
+        execution: ExecutionSource::CloneAgent("source".into()),
+        destination: LaunchDestination::Project("repo".into()),
+        options: LaunchOptions::default(),
+    };
+    assert_eq!(
+        select(&cfg, &request, &[]).unwrap().selected_worktree,
+        "inherited"
+    );
+    request.options.worktree = "explicit".into();
+    assert_eq!(
+        select(&cfg, &request, &[]).unwrap().selected_worktree,
+        "explicit"
+    );
+    request.destination = LaunchDestination::Temporary;
+    assert!(
+        select(&cfg, &request, &[])
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("cannot select a worktree")
+    );
+    request.options.worktree.clear();
+    let selected = select(&cfg, &request, &[]).unwrap();
+    assert!(selected.fresh);
+    assert!(selected.project_name.is_empty());
+    assert!(selected.selected_worktree.is_empty());
+    assert_eq!(selected.source.unwrap().name, "source");
+    request.execution = ExecutionSource::Host(crate::session::HostLifetime::Disposable);
+    let selected = select(&cfg, &request, &[]).unwrap();
+    assert!(selected.source.is_none() && selected.template.is_none());
+}
+
+#[test]
+fn selection_rejects_missing_sources_and_copies_template_settings() {
+    let cfg = Config::default();
+    let mut request = LaunchRequest {
+        content: LaunchContent::default(),
+        execution: ExecutionSource::Template("reviewer".into()),
+        destination: LaunchDestination::Project("repo".into()),
+        options: LaunchOptions::default(),
+    };
+    assert!(
+        select(&cfg, &request, &[])
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("no such agent template")
+    );
+    let mut templates = vec![template()];
+    let selected = select(&cfg, &request, &templates).unwrap();
+    templates[0].defaults.cmd = Some("changed".into());
+    assert_eq!(
+        selected.template.unwrap().defaults.cmd.as_deref(),
+        Some("review-agent")
+    );
+    assert!(selected.source.is_none());
+    request.execution = ExecutionSource::CloneAgent("missing".into());
+    assert!(
+        select(&cfg, &request, &templates)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("no such session to clone")
+    );
+}

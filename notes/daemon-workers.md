@@ -1,7 +1,9 @@
 # Task-owned workers
 
-`slopd/src/session/manager/workers.rs` owns the typed worker request, preflight,
-checkout allocation and rollback, and task/session creation. HTTP decodes caller
+`slopd/src/application/workers.rs` owns typed worker requests, project/template
+policy, and allocation-free session preparation. `session/manager/workers.rs` captures
+caller identity and owns guarded checkout allocation and rollback, and task/session
+creation. HTTP decodes caller
 credentials and the existing/new checkout choice before invoking that operation.
 Lifecycle start owns launch credentials; lifecycle stop and capture exit own termination. [Grants](agent-grants.md)
 own authority, and [templates](daemon-agent-templates.md) own portable copied settings.

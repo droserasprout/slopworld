@@ -137,21 +137,23 @@ pub(crate) async fn stored_states(
     State(m): State<Mgr>,
     Query(query): Query<StorageQuery>,
 ) -> ApiResult<wire::StoredStates> {
-    m.stored_states(query.sizes)
+    crate::application::stored_state::stored_states(m.config().await, query.sizes)
         .await
         .map(|entries| reply(json!({ "entries": entries })))
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
 }
 
-pub(crate) async fn empty_trash(State(m): State<Mgr>) -> ApiResult<wire::Ack> {
-    super::ack_result(m.empty_trash().await)
+pub(crate) async fn empty_trash() -> ApiResult<wire::Ack> {
+    super::ack_result(crate::application::stored_state::empty_trash().await)
 }
 
 pub(crate) async fn delete_stored_state(
     State(m): State<Mgr>,
     Path((kind, key)): Path<(String, String)>,
 ) -> ApiResult<wire::Ack> {
-    super::ack_result(m.delete_stored_state(&kind, &key).await)
+    super::ack_result(
+        crate::application::stored_state::delete_stored_state(m.config().await, &kind, &key).await,
+    )
 }
 
 pub(crate) async fn restore_stored_state(

@@ -36,3 +36,63 @@ fn project_paths_keep_config_and_daemon_expansion_separate() {
         Some(expected.to_string_lossy().as_ref())
     );
 }
+
+#[test]
+fn temp_projects_settle_on_a_path_under_the_root() {
+    let mut p = ProjectCfg {
+        name: "scratch pad".into(),
+        temp: true,
+        ..Default::default()
+    };
+    settle(&mut p);
+    assert_eq!(p.dir, "/tmp/slopworld/scratch-pad");
+
+    p.dir = "/home/you/git/repo".into();
+    settle(&mut p);
+    assert_eq!(p.dir, "/tmp/slopworld/scratch-pad");
+
+    let mut plain = ProjectCfg {
+        name: "repo".into(),
+        dir: "/home/you/git/repo".into(),
+        ..Default::default()
+    };
+    settle(&mut plain);
+    assert_eq!(plain.dir, "/home/you/git/repo");
+}
+
+#[test]
+fn project_removal_requires_explicit_checkout_removal_and_preserves_other_projects() {
+    let mut cfg = Config {
+        projects: vec![
+            ProjectCfg {
+                name: "repo".into(),
+                id: "stable".into(),
+                ..Default::default()
+            },
+            ProjectCfg {
+                name: "legacy".into(),
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    };
+    let mut records = Store::default();
+    records.worktrees.push(Worktree {
+        project_id: "stable".into(),
+        ..Default::default()
+    });
+    assert!(
+        check_removal(&cfg, &records, "repo")
+            .unwrap_err()
+            .to_string()
+            .contains("explicitly")
+    );
+    check_removal(&cfg, &records, "legacy").unwrap();
+    check_removal(&cfg, &records, "missing").unwrap();
+    assert!(remove(&mut cfg, "missing").is_err());
+    assert_eq!(cfg.projects.len(), 2);
+    records.worktrees.clear();
+    check_removal(&cfg, &records, "repo").unwrap();
+    remove(&mut cfg, "repo").unwrap();
+    assert_eq!(list(&cfg)[0].config.name, "legacy");
+}

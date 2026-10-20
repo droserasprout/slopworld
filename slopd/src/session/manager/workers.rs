@@ -1,32 +1,15 @@
-//! Create workers owned by tasks.
+//! Guarded worker checkout allocation, task/session commit, and failure cleanup.
+//! Application workers owns preflight policy and template construction.
 //! A worker is a sandboxed session with explicit ownership metadata and a persistent mailbox task.
 //! Do not infer ownership from its name.
 
 use super::super::*;
 use crate::session::manager::config::ConfigMutation;
 
-use anyhow::anyhow;
-
-#[derive(Debug, Clone)]
-pub struct WorkerSpawn {
-    pub task: crate::tasks::Task,
-    pub session: String,
-}
-
-/// Checkout selection is exclusive by construction; HTTP decodes its request flags.
-pub(crate) enum WorkerCheckout {
-    Existing(String),
-    New { base: String, name: String },
-}
-
-pub(crate) struct WorkerRequest {
-    pub caller: String,
-    pub project: String,
-    pub template: String,
-    pub body: String,
-    pub durable: bool,
-    pub checkout: WorkerCheckout,
-}
+use crate::application::workers::{self, WorkerSpawn};
+pub(crate) use crate::application::workers::{WorkerCheckout, WorkerRequest};
+#[cfg(test)]
+use workers::worker_session_from_template;
 
 /// A newly allocated checkout belongs to the request until worker startup commits it.
 /// On cancellation, a detached cleanup task removes it unless a failed durable session
@@ -119,58 +102,24 @@ impl Manager {
     }
 
     async fn create_worker_inner(self: &Arc<Self>, request: WorkerRequest) -> Result<WorkerSpawn> {
-        let WorkerRequest {
+        let cfg = self.config().await;
+        let caller = request.caller.trim();
+        let context = self.worker_caller(caller).await;
+        let templates = self.application.templates.list().await;
+        let workers::PreparedWorker {
+            mut session,
             caller,
-            project,
-            template: template_name,
             body,
             durable,
             checkout,
-        } = request;
-        if body.trim().is_empty() {
-            bail!("Worker task text cannot be empty.");
-        }
-        let caller = caller.trim().to_string();
-        if caller.is_empty() {
-            bail!("a worker needs a caller identity");
-        }
-        if caller != crate::tasks::HOST && !self.session_known(&caller).await {
-            bail!("no such caller session: {caller}");
-        }
-        let project = self.worker_project(&caller, project.trim()).await?;
-        let template = self
-            .spawnable_worker_template(&caller, &project, template_name.trim())
-            .await?;
-        let cfg = self.config().await;
+        } = workers::prepare(&cfg, &context, &templates, request)?;
+        let project = session.project.clone();
         let p = cfg
             .project(&project)
-            .cloned()
-            .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
-
-        // The selected template supplies behavior.
-        // The invoking session owns the child in the task mailbox and sidebar.
-        // Do not copy caller configuration into the worker.
-        let mut session =
-            worker_session_from_template(&template, "worker-validation".into(), &project, &caller);
-        // A worker must have access to the daemon. Worker metadata supplies its task API capability.
-        // The selected template supplies tool and state configuration.
-        if cfg.network_of(&session, &p) == NetworkMode::None {
-            bail!(
-                "Worker template {} disables networking. Task API access requires a network.",
-                template.name
-            );
-        }
-        if cfg.command_of(&session).trim().is_empty() {
-            bail!(
-                "worker template {} does not resolve to an executable command",
-                template.name
-            );
-        }
-
-        crate::runtime::validate_limits(&session.limits)?;
+            .context("prepared worker project disappeared")?;
         let (worktree, mut allocated) = match checkout {
             WorkerCheckout::Existing(id) => {
-                self.resolve_worktree(&p, &id).await?;
+                self.resolve_worktree(p, &id).await?;
                 (id, None)
             }
             WorkerCheckout::New { base, name } => {
@@ -325,104 +274,52 @@ impl Manager {
     }
 }
 
-/// Validate the caller's permitted project context.
-/// Root callers may select any registered project. Agents may create workers only in their own project.
-/// Shared by worker preflight and the spawnable-template catalog.
 impl Manager {
+    /// Capture runtime facts while the caller retains its session operation lease.
+    async fn worker_caller(&self, caller: &str) -> workers::Caller {
+        if caller == crate::tasks::HOST {
+            workers::Caller::Root
+        } else if self.is_host(caller).await {
+            workers::Caller::HostTerminal
+        } else {
+            match self.session_cfg(caller).await {
+                Some(session) => workers::Caller::Agent {
+                    project: session.project,
+                },
+                None => workers::Caller::Missing,
+            }
+        }
+    }
+
     pub(crate) async fn worker_project(&self, caller: &str, requested: &str) -> Result<String> {
-        let requested = requested.trim();
-        let cfg = self.config().await;
-        let caller_project = if caller != crate::tasks::HOST {
-            let session = self
-                .session_cfg(caller)
-                .await
-                .ok_or_else(|| anyhow!("no such caller session: {caller}"))?;
-            if self.is_host(caller).await {
-                bail!("A host terminal cannot own a worker. Choose an agent caller.");
-            }
-            let project = session.project.trim();
-            if project.is_empty() {
-                bail!("caller {caller} has no project context");
-            }
-            Some(project.to_string())
-        } else {
-            None
-        };
-        let project = if requested.is_empty() {
-            caller_project
-                .clone()
-                .ok_or_else(|| anyhow!("a worker needs a project context"))?
-        } else {
-            requested.to_string()
-        };
-        if cfg.project(&project).is_none() {
-            bail!("no such worker project: {project}");
-        }
-        if let Some(caller_project) = caller_project
-            && caller_project != project
-        {
-            bail!("caller {caller} may spawn workers only in project {caller_project}");
-        }
-        Ok(project.clone())
+        workers::project(
+            &self.config().await,
+            caller,
+            &self.worker_caller(caller).await,
+            requested,
+        )
     }
 
     pub(crate) async fn worker_template_names(&self) -> std::collections::BTreeSet<String> {
         self.config().await.daemon.worker_templates.clone()
     }
 
-    /// Return the definition from the current catalog. Worker policy must permit scoped agent callers.
-    /// The host user may select any catalog template.
-    /// Validate before creating tasks or sessions so a deleted template cannot leave mailbox records or private state.
+    #[cfg(test)]
     pub(crate) async fn spawnable_worker_template(
         &self,
         caller: &str,
         project: &str,
         requested: &str,
     ) -> Result<AgentTemplate> {
-        if requested.is_empty() {
-            bail!("a worker needs a template");
-        }
-        let cfg = self.config().await;
-        if caller != crate::tasks::HOST {
-            let session = self
-                .session_cfg(caller)
-                .await
-                .ok_or_else(|| anyhow!("no such caller session: {caller}"))?;
-            if session.project.trim() != project {
-                bail!("Caller {caller} cannot use project {project}.");
-            }
-        }
-        if caller != crate::tasks::HOST && !cfg.daemon.worker_templates.contains(requested) {
-            bail!("Worker policy does not allow agent template {requested}.");
-        }
-        drop(cfg);
-        self.application
-            .templates
-            .list()
-            .await
-            .into_iter()
-            .find(|template| template.name == requested)
-            .ok_or_else(|| anyhow!("no such agent template: {requested}"))
+        workers::template(
+            &self.config().await,
+            caller,
+            &self.worker_caller(caller).await,
+            project,
+            requested,
+            &self.application.templates.list().await,
+        )
     }
-}
-
-/// Create a session from the selected template with a new private identity and hierarchy metadata owned by the daemon.
-/// Workers use the selected project's current mounts without inheriting caller settings.
-/// Stop workers after their tasks exit. The operator must explicitly request a retry.
-fn worker_session_from_template(
-    template: &AgentTemplate,
-    name: String,
-    project: &str,
-    owner_name: &str,
-) -> SessionCfg {
-    let mut session = template.instantiate(name, project.to_string());
-    session.worker = true;
-    session.parent = owner_name.to_string();
-    session.task_id.clear();
-    session.autostart = false;
-    session.auto_resume = false;
-    session.worker_token = None;
-    session
 }
 
 #[cfg(test)]

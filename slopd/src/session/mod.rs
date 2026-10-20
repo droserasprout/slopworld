@@ -49,7 +49,7 @@ pub(crate) use input::Input;
 use input::merge_input;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
 pub(crate) use validation::name_slug;
-use validation::{check_name, free_name, free_project_name, settle, slug};
+use validation::{check_name, free_name, free_project_name, slug};
 
 #[cfg(test)]
 use input::INPUT_BATCH;

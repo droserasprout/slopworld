@@ -49,12 +49,6 @@ pub(super) fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) 
         .expect("an increasing suffix eventually produces an unused session name")
 }
 
-pub(super) fn settle(p: &mut ProjectCfg) {
-    if p.temp {
-        p.dir = crate::paths::temp_dir(&p.name);
-    }
-}
-
 #[expect(
     clippy::expect_used,
     reason = "finite project catalogs leave an unused increasing numeric suffix"

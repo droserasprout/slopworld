@@ -70,21 +70,11 @@ impl Manager {
         overrides: Option<SessionCfg>,
         start: Option<bool>,
     ) -> Result<String> {
-        let template = self
+        let session = self
             .application
             .templates
-            .list()
-            .await
-            .into_iter()
-            .find(|template| template.name == template_name)
-            .ok_or_else(|| anyhow::anyhow!("no such agent template: {template_name}"))?;
-        let mut session = template.instantiate(name, project);
-        if let Some(overrides) = overrides {
-            template.apply_overrides(&mut session, &overrides);
-        }
-        if let Some(start) = start {
-            session.autostart = start;
-        }
+            .instantiate(template_name, name, project, overrides, start)
+            .await?;
         let name = session.name.clone();
         self.add_template_session(session).await?;
         Ok(name)

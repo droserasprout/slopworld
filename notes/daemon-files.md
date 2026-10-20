@@ -9,7 +9,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | --- | --- |
 | `main.rs` | Startup/service orchestration and token middleware. |
 | `application/` | Startup-constructed accepted configuration/credential state, personal template and library catalogs, project coordination, and shared event/task/music services. Application owns catalog maintenance, worktree and file-action coordination, task summaries and their shared title cache, and usage/music publication; session adapters supply identity/authorization leases and host lifecycle; API owns event encoding. |
-| `agent_templates/` | Portable template definitions, snapshot/version policy, and generation persistence. Application owns the accepted catalog; session adapters capture and instantiate agents. |
+| `agent_templates/` | Portable template definitions, snapshot/version policy, and generation persistence. Application owns the accepted catalog; session adapters capture agents and commit application-prepared session drafts. |
 | `shared/` | Protocol constants/enums and serialization helpers. |
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` decodes explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md) and [file preview boundary](daemon-file-previews.md). |
 | `api/handlers/files/`, `api/handlers/highlighting.rs` | File and syntax-preview HTTP decoding, path resolution, error mapping, and wire projection. |
@@ -20,7 +20,9 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `session/validation.rs` | Session name allocation and normalization. |
 | `prompt/` | Placeholder scanning and values for prompts and breadcrumbs. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task/session integration, workers. |
-| `application/projects.rs`, `session/manager/projects.rs` | Application owns project policy and relocation coordination; session supplies guards, identity allocation, attachments, and transaction adapters. See [worktree ownership](daemon-worktrees.md). |
+| `application/projects.rs`, `session/manager/projects.rs` | Application owns project policy and relocation coordination; session supplies guards, live identity references, attachments, and transaction adapters. See [worktree ownership](daemon-worktrees.md). |
+| `application/workers.rs`, `session/manager/workers.rs` | Application owns worker request/preflight policy and template construction; session owns guarded allocation, task/session commit, and cancellation cleanup. |
+| `application/workspace_identity.rs` | Workspace identity reservation against records and retained caches; session supplies live references and retains operation guards through publication. |
 | `application/errands.rs`, `application/stored_state.rs` | Errand configuration/display policy and stored-state administration. Session retains allocation, guarded reset/restore, and live reconciliation. |
 | `application/launch.rs`, `session/manager/launch.rs` | Application resolves explicit and saved-library launch policy; session owns guarded execution. API owns explicit request decoding; saved library entries and music use the same resolved launch request. |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |

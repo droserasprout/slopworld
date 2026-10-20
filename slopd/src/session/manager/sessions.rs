@@ -539,21 +539,6 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn stored_states(
-        &self,
-        measure_sizes: bool,
-    ) -> Result<Vec<crate::sandbox::StoredState>> {
-        crate::application::stored_state::stored_states(self.config().await, measure_sizes).await
-    }
-
-    pub async fn empty_trash(&self) -> Result<()> {
-        crate::application::stored_state::empty_trash().await
-    }
-
-    pub async fn delete_stored_state(&self, kind: &str, key: &str) -> Result<()> {
-        crate::application::stored_state::delete_stored_state(self.config().await, kind, key).await
-    }
-
     pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
         let manager = self.clone();
         let key = key.to_owned();

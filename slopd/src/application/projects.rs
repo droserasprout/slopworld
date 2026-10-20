@@ -1,5 +1,5 @@
 //! Project catalog policy and checkout relocation coordination.
-//! Session adapters retain operation guards, identity allocation, and attachment checks.
+//! Session adapters retain operation guards, identity reservation leases, and attachment checks.
 use crate::config::transactions::PreparedConfigChange;
 use crate::config::{Config, ProjectCfg, check_project, expand, validate_mount_paths};
 use crate::worktrees::{Store, Worktree, WorktreePhase, directories::CreatedDirectories};
@@ -25,6 +25,31 @@ pub(crate) trait ProjectRuntime: crate::worktrees::relocation::Persistence + Syn
         worktrees: Option<&Store>,
     ) -> impl std::future::Future<Output = Result<()>> + Send;
     fn after_relocations(&self) -> impl std::future::Future<Output = ()> + Send;
+}
+
+pub(crate) fn list(cfg: &Config) -> Vec<ProjectView> {
+    cfg.projects
+        .iter()
+        .cloned()
+        .map(ProjectView::from)
+        .collect()
+}
+
+pub(crate) fn settle(project: &mut ProjectCfg) {
+    if project.temp {
+        project.dir = crate::paths::temp_dir(&project.name);
+    }
+}
+
+/// Independent checkouts must be explicitly removed before their project record.
+pub(crate) fn check_removal(cfg: &Config, records: &Store, name: &str) -> Result<()> {
+    if let Some(project) = cfg.project(name)
+        && !project.id.is_empty()
+        && records.worktrees.iter().any(|w| w.project_id == project.id)
+    {
+        bail!("remove project worktrees explicitly first");
+    }
+    Ok(())
 }
 
 pub(crate) fn add(cfg: &mut Config, p: ProjectCfg) -> Result<()> {

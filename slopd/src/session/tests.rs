@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use super::{
     INPUT_BATCH, Input, Live, LiveCapture, LiveInput, State, TitleCapture, check_name, free_name,
-    free_project_name, merge_input, settle, slug, strip_sgr,
+    free_project_name, merge_input, slug, strip_sgr,
 };
 use crate::config::{Config, ProjectCfg, SessionCfg};
 
@@ -157,29 +157,6 @@ fn free_name_counts_up_past_config_live_and_host_tables() {
         ..Default::default()
     });
     assert_eq!(free_name(&live, &cfg, "review-diff"), "review-diff-4");
-}
-
-#[test]
-fn temp_projects_settle_on_a_path_under_the_root() {
-    let mut p = ProjectCfg {
-        name: "scratch pad".into(),
-        temp: true,
-        ..Default::default()
-    };
-    settle(&mut p);
-    assert_eq!(p.dir, "/tmp/slopworld/scratch-pad");
-
-    p.dir = "/home/you/git/repo".into();
-    settle(&mut p);
-    assert_eq!(p.dir, "/tmp/slopworld/scratch-pad");
-
-    let mut plain = ProjectCfg {
-        name: "repo".into(),
-        dir: "/home/you/git/repo".into(),
-        ..Default::default()
-    };
-    settle(&mut plain);
-    assert_eq!(plain.dir, "/home/you/git/repo");
 }
 
 #[test]

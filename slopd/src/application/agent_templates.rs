@@ -1,5 +1,6 @@
 //! Personal template catalog mutations and cancellation-safe persistence/publication.
-//! Session adapters own capture and instantiation; crate::agent_templates owns
+//! Session adapters own capture and guarded registration; this owner composes drafts.
+//! crate::agent_templates owns
 //! portable definitions, version policy, and the on-disk format.
 use crate::agent_templates::{AgentTemplate, AgentTemplateStore};
 use anyhow::{Context, Result};
@@ -46,6 +47,30 @@ impl AgentTemplates {
 
     pub(crate) async fn list(&self) -> Vec<AgentTemplate> {
         self.store.read().await.templates.clone()
+    }
+
+    pub(crate) async fn instantiate(
+        &self,
+        template_name: &str,
+        name: String,
+        project: String,
+        overrides: Option<crate::config::SessionCfg>,
+        start: Option<bool>,
+    ) -> Result<crate::config::SessionCfg> {
+        let template = self
+            .list()
+            .await
+            .into_iter()
+            .find(|template| template.name == template_name)
+            .ok_or_else(|| anyhow::anyhow!("no such agent template: {template_name}"))?;
+        let mut session = template.instantiate(name, project);
+        if let Some(overrides) = overrides {
+            template.apply_overrides(&mut session, &overrides);
+        }
+        if let Some(start) = start {
+            session.autostart = start;
+        }
+        Ok(session)
     }
 
     #[cfg(test)]

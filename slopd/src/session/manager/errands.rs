@@ -233,53 +233,23 @@ impl Manager {
         cfg: &Config,
         request: &LaunchRequest,
     ) -> Result<ErrandSessionPreparation> {
-        let want = &request.options;
-        let template = match &request.execution {
-            ExecutionSource::Template(name) => Some(
-                self.application
-                    .templates
-                    .list()
-                    .await
-                    .into_iter()
-                    .find(|t| t.name == *name)
-                    .ok_or_else(|| anyhow!("no such agent template: {name}"))?,
-            ),
-            _ => None,
-        };
-        if let Some(template) = &template {
-            crate::runtime::validate_limits(&template.defaults.limits)?;
-        }
-        let source = match &request.execution {
-            ExecutionSource::CloneAgent(name) => Some(
-                cfg.session(name)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("no such session to clone sandbox from: {name}"))?,
-            ),
-            _ => None,
-        };
-        let (fresh, project_name) = match &request.destination {
-            LaunchDestination::Temporary => (true, String::new()),
-            LaunchDestination::Project(name) => (false, name.clone()),
-        };
-        let selected_worktree = if fresh {
-            String::new()
-        } else if want.worktree.is_empty() {
-            source
-                .as_ref()
-                .map(|s| s.worktree.clone())
-                .unwrap_or_default()
-        } else {
-            want.worktree.clone()
-        };
+        let crate::application::errands::ErrandSelection {
+            template,
+            source,
+            fresh,
+            project_name,
+            selected_worktree,
+        } = crate::application::errands::select(
+            cfg,
+            request,
+            &self.application.templates.list().await,
+        )?;
         let worktree_path = if !fresh {
             let project = cfg
                 .project(&project_name)
                 .ok_or_else(|| anyhow!("Project {project_name:?} does not exist."))?;
             Some(self.resolve_worktree(project, &selected_worktree).await?)
         } else {
-            if !want.worktree.is_empty() {
-                bail!("temporary errands cannot select a worktree");
-            }
             None
         };
         Ok(ErrandSessionPreparation {

@@ -1,4 +1,4 @@
-//! New agent identity allocation. The session boundary reserves the selected ID
+//! Live identity/reference capture for workspace reservation. The session boundary reserves the selected ID
 //! through task/config publication; private-state discovery runs without state locks.
 
 use super::super::*;
@@ -33,23 +33,7 @@ impl Manager {
                 .await
                 .context("private-state identity inventory failed")??,
         );
-        let records = self
-            .workspace
-            .configuration
-            .records
-            .binding
-            .data
-            .join("agents");
-        crate::storage_id::allocate(|id| {
-            if occupied.contains(id) {
-                return Ok(true);
-            }
-            match std::fs::symlink_metadata(records.join(format!("{id}.toml"))) {
-                Ok(_) => Ok(true),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-                Err(error) => Err(error).context("checking agent record identity"),
-            }
-        })
+        self.workspace.allocate_agent_identity(occupied)
     }
 }
 
@@ -61,27 +45,8 @@ impl Manager {
     /// Caller holds the worktree mutation guard inside a session boundary. Cache
     /// directories outlive projects and reserve their identities as well.
     pub(super) async fn allocate_project_identity(&self) -> Result<String> {
-        let mut occupied: HashSet<String> = self
-            .config()
-            .await
-            .projects
-            .into_iter()
-            .map(|p| p.id)
-            .collect();
-        occupied.extend(
-            self.worktree_records()
-                .worktrees
-                .into_iter()
-                .map(|w| w.project_id),
-        );
-        let root = &self.workspace.configuration.records.binding.config;
-        let records = root.join("projects");
-        let caches = crate::sandbox::cache::root();
-        crate::storage_id::allocate(|id| {
-            Ok(occupied.contains(id)
-                || occupied_path(&records.join(format!("{id}.toml")))?
-                || occupied_path(&caches.join(id))?)
-        })
+        self.workspace
+            .allocate_project_identity(&self.config().await, &self.worktree_records())
     }
 
     /// Worktree IDs remain reserved by configured/live references after a damaged
@@ -101,18 +66,6 @@ impl Manager {
                 .values()
                 .map(|live| live.cfg.worktree.clone()),
         );
-        let root = &self.workspace.configuration.records.binding.data;
-        let records = root.join("worktrees");
-        crate::storage_id::allocate(|id| {
-            Ok(occupied.contains(id) || occupied_path(&records.join(format!("{id}.toml")))?)
-        })
-    }
-}
-
-fn occupied_path(path: &Path) -> Result<bool> {
-    match std::fs::symlink_metadata(path) {
-        Ok(_) => Ok(true),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error).context("checking retained workspace identity"),
+        self.workspace.allocate_worktree_identity(occupied)
     }
 }
