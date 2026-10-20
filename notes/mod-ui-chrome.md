@@ -10,6 +10,9 @@ VSync, and offers Meh, Mild (default), Moderate, and Massive.
 `CrtMode` owns absolute scanline and corner opacities for each preset; the overlay
 owns coverage, falloff, and dithering. Changes rebuild textures immediately,
 and Meh disables the overlay and releases them.
+The hardware cursor bypasses the overlay. Its texture cache bakes a uniform RGB dim
+and alpha reduction from `CrtMode` and rebuilds when the preset changes. Hotspots
+are calculated before alpha changes so effect strength cannot move the click point.
 Vignette dithering is baked at screen resolution. During resize it is hidden, then
 rebuilt after dimensions remain stable for 200 ms to avoid repeated full-screen
 CPU bakes and uploads. Enabling the overlay builds it immediately. Filtering

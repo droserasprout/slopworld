@@ -79,14 +79,21 @@ namespace SlopWorld
         // Preference changes reapply the cursor. Preserve animation unless textures change.
         public static void Apply()
         {
-            var choice = ChoiceFor(Settings.Cursor) ?? _choices[0];
-            if (!Textures.Matches(choice, Settings.CursorGrayscale))
-            {
-                Animation.Reset();
-                Textures.Build(choice, Settings.CursorGrayscale);
-            }
+            EnsureTextures();
             Textures.InvalidateShown();
             Tick();
+        }
+
+        static void EnsureTextures()
+        {
+            var choice = ChoiceFor(Settings.Cursor) ?? _choices[0];
+            float brightness = CrtMode.CursorBrightness(Settings.CrtOverlay);
+            float opacity = CrtMode.CursorOpacity(Settings.CrtOverlay);
+            if (!Textures.Matches(choice, Settings.CursorGrayscale, brightness, opacity))
+            {
+                Animation.Reset();
+                Textures.Build(choice, Settings.CursorGrayscale, brightness, opacity);
+            }
         }
 
         // Ignore repeated pats until the animation ends.
@@ -115,6 +122,7 @@ namespace SlopWorld
 
         public static void Tick()
         {
+            EnsureTextures();
             Textures.Show(Animation.Step(Time.realtimeSinceStartup));
         }
     }

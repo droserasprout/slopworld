@@ -21,6 +21,8 @@ namespace SlopWorld
         Vector2 _hotspot;
         string _builtKey;
         bool _builtGrayscale;
+        float _builtBrightness;
+        float _builtOpacity;
 
         // Source pixels for rotated frames.
         Color[] _px;
@@ -33,8 +35,17 @@ namespace SlopWorld
 
         public bool Ready => _tex != null;
 
-        public bool Matches(GameCursor.Choice choice, bool grayscale) =>
-            Ready && _builtKey == choice.Key && _builtGrayscale == grayscale;
+        public bool Matches(
+            GameCursor.Choice choice,
+            bool grayscale,
+            float brightness,
+            float opacity
+        ) =>
+            Ready
+            && _builtKey == choice.Key
+            && _builtGrayscale == grayscale
+            && _builtBrightness == brightness
+            && _builtOpacity == opacity;
 
         public void InvalidateShown() => _shown = -1;
 
@@ -97,7 +108,7 @@ namespace SlopWorld
             return CreateTexture(RotatedSize, px);
         }
 
-        public void Build(GameCursor.Choice choice, bool grayscale)
+        public void Build(GameCursor.Choice choice, bool grayscale, float brightness, float opacity)
         {
             ClearBuilt();
             var src = ContentFinder<Texture2D>.Get(choice.TexturePath, false);
@@ -113,13 +124,24 @@ namespace SlopWorld
             var srcPx = TextureReadback.ReadBack(src);
 
             var px = PreparePixels(srcPx, w, h, choice.Reversed, grayscale);
-
+            // Locate the tip before changing alpha so effect strength cannot move it.
             _hotspot = FindHotspot(px);
+            // Rotated frames reuse these pixels so animation keeps the same treatment.
+            for (int i = 0; i < px.Length; i++)
+            {
+                px[i].r *= brightness;
+                px[i].g *= brightness;
+                px[i].b *= brightness;
+                px[i].a *= opacity;
+            }
+
             _px = px;
 
             _tex = CreateTexture(CursorSize, px);
             _builtKey = choice.Key;
             _builtGrayscale = grayscale;
+            _builtBrightness = brightness;
+            _builtOpacity = opacity;
         }
 
         static Color[] PreparePixels(Color[] srcPx, int w, int h, bool reversed, bool grayscale)

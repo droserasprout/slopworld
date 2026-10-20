@@ -31,5 +31,11 @@ namespace SlopWorld
             : Normalize(value) == Intense ? 0.38f
             : Normalize(value) == FullOn ? 0.54f
             : 0.215985f;
+
+        // Hardware cursors bypass the overlay. A uniform RGB dim keeps them in tone
+        // without tying cursor updates to pointer position or the game's frame rate.
+        public static float CursorBrightness(string value) => 1f - ScanlineOpacity(value);
+
+        public static float CursorOpacity(string value) => 1f - ScanlineOpacity(value) * 0.5f;
     }
 }
