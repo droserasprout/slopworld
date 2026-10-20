@@ -46,6 +46,7 @@ jobs:
         env:
           MODE: ${{ steps.mode.outputs.mode }}
           RELEASE_REVISION: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: just release-ci-prepare "$MODE"
 
   test:

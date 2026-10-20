@@ -46,6 +46,17 @@ def validate(release: gates.Release) -> None:
         raise ValueError('Release identity changed during the build.')
 
 
+def preflight(release: gates.Release) -> None:
+    """Reject published versions before spending build time or touching image tags."""
+    repository = os.environ['GITHUB_REPOSITORY']
+    gh = command('GH', 'gh')
+    if publish.github_json(gh, f'repos/{repository}/releases/tags/{release.tag}'):
+        raise ValueError(f'Release {release.tag} already exists; published versions are not replaced.')
+    remote = publish.github_json(gh, f'repos/{repository}/commits/{release.tag}')
+    if not remote or remote.get('sha') != release.revision:
+        raise ValueError('Remote release tag is missing or does not match the workflow commit.')
+
+
 def asset_names(version: str) -> list[str]:
     return [
         f'slopworld-{version}-x86_64-linux.tar.gz',
@@ -153,6 +164,7 @@ def main() -> None:
     if args.action == 'prepare':
         if release.tag:
             changelog.description(ROOT / 'CHANGELOG.md', release.version)
+            preflight(release)
         values = f'commit={release.revision}\nversion={release.version}\ntag={release.tag}\n'
         if github_output := os.environ.get('GITHUB_OUTPUT'):
             with Path(github_output).open('a') as stream:

@@ -151,3 +151,18 @@ def test_release_workflow_gates_publication_and_downloads_exact_artifact() -> No
     assert jobs['package']['permissions']['contents'] == 'read'
     assert jobs['publish']['permissions']['contents'] == 'write'
     assert workflow['concurrency']['cancel-in-progress'] == 'false'
+
+
+@pytest.mark.parametrize('state', ['published', 'missing', 'moved', 'matching'])
+def test_preflight_blocks_existing_release_or_changed_remote_tag(
+    release: gates.Release, monkeypatch: pytest.MonkeyPatch, state: str
+) -> None:
+    monkeypatch.setenv('GITHUB_REPOSITORY', 'owner/repo')
+    remote = None if state == 'missing' else {'sha': release.revision if state == 'matching' else 'other'}
+    responses = [{'id': 1} if state == 'published' else None, remote]
+    with patch.object(publish, 'github_json', side_effect=responses):
+        if state == 'matching':
+            ci.preflight(release)
+        else:
+            with pytest.raises(ValueError):
+                ci.preflight(release)
