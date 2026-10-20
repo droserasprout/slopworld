@@ -673,3 +673,9 @@ fn in_memory_state_ids_reject_control_characters() {
         super::state_id_component(id).unwrap_err();
     }
 }
+
+impl Config {
+    fn session_for(&self, item: &LibraryItemCfg, name: String, project: String) -> SessionCfg {
+        self.session_for_command(item.kind, item.command.as_deref(), name, project)
+    }
+}

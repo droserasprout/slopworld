@@ -4,12 +4,14 @@ The library catalog contains prompts, shell errands, breadcrumbs, and file actio
 Runnable items can reference [agent templates](daemon-agent-templates.md), which
 have their own catalog and API.
 
-`config/library.rs` owns item definitions, supplied entries, and lookups.
+`config/library.rs` owns item definitions, validation, supplied entries, and lookups.
 `config/catalog.rs` owns per-kind validation, loading and preparation of bound
 transaction changes. The manager checks catalog revisions and commits those changes
 through `storage/transaction.rs`. `session/manager/library.rs` owns catalog operations and
-`api/handlers/library.rs` owns the HTTP boundary. `session/manager/errands.rs`
-owns launches.
+`api/handlers/library.rs` owns the HTTP boundary. `session/launch.rs` converts saved entries into transient launch requests.
+`session/manager/launch.rs` prepares explicit requests and owns guarded execution;
+`session/manager/errands.rs` resolves settings and constructs live sessions.
+`config/commands.rs` resolves launch commands without depending on catalog records.
 
 A user item shadows a supplied entry with the same name. Deleting that user item
 reveals the supplied entry again. Saved runnable entries require an explicit host

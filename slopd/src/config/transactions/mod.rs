@@ -9,7 +9,7 @@ mod mutation;
 pub(crate) mod records;
 
 use crate::config::Config;
-use crate::session::validate_config;
+use crate::config::validate_config;
 use anyhow::{Result, bail};
 pub(crate) use mutation::ConfigMutation;
 use std::sync::{Arc, Mutex};

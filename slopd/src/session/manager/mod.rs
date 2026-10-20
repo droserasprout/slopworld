@@ -14,6 +14,7 @@ mod errands;
 mod host_metadata;
 mod identity;
 mod init;
+mod launch;
 mod library;
 mod lifecycle;
 mod maintenance;

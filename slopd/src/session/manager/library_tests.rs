@@ -1,6 +1,7 @@
 use super::{Manager, auto_resume_inputs, routed_action_label};
-use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
+use crate::config::{Config, LibraryItemKind, ProjectCfg, SessionCfg};
 use crate::session::Input;
+use crate::session::{LaunchContent, LaunchOptions};
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 use std::time::Duration;
@@ -80,15 +81,15 @@ fn file_action_result_fails_on_nonzero_exit() {
 /// Reject breadcrumb and file-action items.
 #[test]
 fn only_runnable_library_pass_the_errand_guard() {
-    let sc = |kind| LibraryItemCfg {
+    let sc = |kind| LaunchContent {
         name: "x".into(),
         kind,
         ..Default::default()
     };
-    Manager::validate_errand(&sc(LibraryItemKind::Prompt)).unwrap();
-    Manager::validate_errand(&sc(LibraryItemKind::Shell)).unwrap();
-    assert!(Manager::validate_errand(&sc(LibraryItemKind::Breadcrumb)).is_err());
-    assert!(Manager::validate_errand(&sc(LibraryItemKind::FileAction)).is_err());
+    sc(LibraryItemKind::Prompt).validate().unwrap();
+    sc(LibraryItemKind::Shell).validate().unwrap();
+    assert!(sc(LibraryItemKind::Breadcrumb).validate().is_err());
+    assert!(sc(LibraryItemKind::FileAction).validate().is_err());
 }
 
 #[test]
@@ -298,11 +299,11 @@ async fn errand_renders_tips_before_paste_and_submission() {
     manager
         .queue_errand_delivery(
             "worker",
-            &LibraryItemCfg {
+            &LaunchContent {
                 text: "{{ random_tip }}\n{{ random_tip }}".into(),
                 ..Default::default()
             },
-            &crate::session::RunWhere {
+            &LaunchOptions {
                 random_tips: vec!["First context".into(), "Second context".into()],
                 ..Default::default()
             },

@@ -1,11 +1,11 @@
-//! Cross-entry validation for a loaded configuration.
+//! Configuration and project invariants. Live-session constraints belong to the runtime adapter.
 
 use std::{
     collections::HashSet,
     path::{Component, Path},
 };
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 
 use super::{Config, ProjectCfg, mount_target};
 
@@ -222,3 +222,56 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
 #[cfg(test)]
 #[path = "validation_mount_tests.rs"]
 mod mount_tests;
+
+pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
+    anyhow::ensure!(
+        !cfg.daemon.token.trim().is_empty(),
+        "Set a non-empty [daemon] token. Daemon authentication cannot be disabled."
+    );
+    crate::config::validate_project_names(&cfg.projects)?;
+    cfg.daemon
+        .bind
+        .parse::<std::net::SocketAddr>()
+        .with_context(|| format!("The daemon bind address {:?} is invalid.", cfg.daemon.bind))?;
+    let table = crate::presets::table();
+    for (field, name) in [
+        ("agent", &cfg.defaults.agent),
+        ("shell", &cfg.defaults.shell),
+    ] {
+        let name = name.trim();
+        if name.is_empty() {
+            bail!("Set the default {field} to a command preset.");
+        }
+        if table.command(name).is_none() {
+            bail!("Command preset {name:?} does not exist.");
+        }
+    }
+    for s in &cfg.sessions {
+        s.limits.validate()?;
+        s.dns.validate(&format!("agent {}", s.name))?;
+    }
+    for p in &cfg.projects {
+        validate_mount_paths(p)?;
+    }
+    crate::runtime::validate_config(cfg)?;
+    Ok(())
+}
+
+pub(crate) fn check_project(p: &ProjectCfg) -> Result<()> {
+    crate::config::project_name_component(&p.name)?;
+    if p.dir.trim().is_empty() {
+        bail!("Set a directory for project {:?}.", p.name);
+    }
+    let dir = super::expand(&p.dir);
+    if let Some(what) = crate::sandbox::refused(&dir) {
+        bail!(
+            "Project {:?} cannot use directory {dir}. The path overlaps a protected location: {what}.",
+            p.name
+        );
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "validation_tests.rs"]
+mod tests;

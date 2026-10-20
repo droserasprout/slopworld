@@ -22,8 +22,8 @@ pub use persistence::{TOKEN_REDACTED, redact_token_text};
 pub use sandbox::*;
 pub use settings::Settings;
 pub(crate) use validation::{
-    project_name_component, state_id_component, validate_loaded, validate_mount_paths,
-    validate_project_names, validate_state_id,
+    check_project, project_name_component, state_id_component, validate_config, validate_loaded,
+    validate_mount_paths, validate_project_names, validate_state_id,
 };
 
 impl Config {
@@ -142,3 +142,5 @@ pub(super) fn is_true(b: &bool) -> bool {
 pub(super) fn is_false(b: &bool) -> bool {
     !*b
 }
+
+pub(crate) mod patch;

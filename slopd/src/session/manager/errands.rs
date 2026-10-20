@@ -24,8 +24,8 @@ struct ErrandSourceSettings {
 
 struct ErrandLiveRequest<'a> {
     cfg: &'a Config,
-    item: &'a LibraryItemCfg,
-    location: &'a RunWhere,
+    item: &'a LaunchContent,
+    location: &'a LaunchOptions,
     name: &'a str,
     host: bool,
     persistent_host: bool,
@@ -63,35 +63,22 @@ impl Manager {
     pub(super) async fn create_errand_session(
         self: &Arc<Self>,
         cfg: &Config,
-        sc: &LibraryItemCfg,
-        want: &RunWhere,
-        host: bool,
-        persistent_host: bool,
-        like: &str,
+        request: &LaunchRequest,
     ) -> Result<String> {
-        self.session_operation(self.create_errand_session_inner(
-            cfg,
-            sc,
-            want,
-            host,
-            persistent_host,
-            like,
-        ))
-        .await
+        self.session_operation(self.create_errand_session_inner(cfg, request))
+            .await
     }
 
     async fn create_errand_session_inner(
         self: &Arc<Self>,
         cfg: &Config,
-        sc: &LibraryItemCfg,
-        want: &RunWhere,
-        host: bool,
-        persistent_host: bool,
-        like: &str,
+        request: &LaunchRequest,
     ) -> Result<String> {
-        let mut preparation = self
-            .prepare_errand_session(cfg, sc, want, host, like)
-            .await?;
+        let sc = &request.content;
+        let want = &request.options;
+        let host = request.execution.is_host();
+        let persistent_host = request.execution.persistent_host();
+        let mut preparation = self.prepare_errand_session(cfg, request).await?;
         // Serialized launches reuse a running editor even across concurrent requests
         // or a mod restart. Return its handle so the client focuses the existing pane.
         if host
@@ -170,8 +157,8 @@ impl Manager {
     async fn errand_session_name(
         &self,
         cfg: &Config,
-        sc: &LibraryItemCfg,
-        want: &RunWhere,
+        sc: &LaunchContent,
+        want: &LaunchOptions,
         persistent_host: bool,
         preparation: &ErrandSessionPreparation,
     ) -> Result<String> {
@@ -232,10 +219,12 @@ impl Manager {
             preparation.project_name.clone()
         };
 
-        let mut base =
-            request
-                .cfg
-                .session_for(request.item, request.name.to_owned(), project.clone());
+        let mut base = request.cfg.session_for_command(
+            request.item.kind,
+            request.item.command.as_deref(),
+            request.name.to_owned(),
+            project.clone(),
+        );
         base.worktree = preparation.selected_worktree.clone();
         let mut session = if let Some(template) = preparation.template.take() {
             let mut session = template.instantiate(request.name.to_owned(), project);
@@ -313,61 +302,33 @@ impl Manager {
     async fn prepare_errand_session(
         &self,
         cfg: &Config,
-        sc: &LibraryItemCfg,
-        want: &RunWhere,
-        host: bool,
-        like: &str,
+        request: &LaunchRequest,
     ) -> Result<ErrandSessionPreparation> {
-        // Resolve execution before reserving a row or allocating a temporary workspace.
-        // Missing settings must never silently gain network access or lose resource caps.
-        let template_name = sc.agent_template.trim();
-        if host && (!template_name.is_empty() || !like.is_empty()) {
-            bail!("choose host execution or agent settings, not both");
-        }
-        if !template_name.is_empty() && !like.is_empty() {
-            bail!("choose an agent template or a source agent, not both");
-        }
-        if !host && template_name.is_empty() && like.is_empty() {
-            bail!("choose Host or an agent template for this errand before running it");
-        }
-        let template = if template_name.is_empty() {
-            None
-        } else {
-            Some(
+        let want = &request.options;
+        let template = match &request.execution {
+            ExecutionSource::Template(name) => Some(
                 self.agent_templates()
                     .await
                     .into_iter()
-                    .find(|t| t.name == template_name)
-                    .ok_or_else(|| anyhow!("no such agent template: {template_name}"))?,
-            )
+                    .find(|t| t.name == *name)
+                    .ok_or_else(|| anyhow!("no such agent template: {name}"))?,
+            ),
+            _ => None,
         };
         if let Some(template) = &template {
             crate::runtime::validate_limits(&template.defaults.limits)?;
         }
-        let source = if like.is_empty() {
-            None
-        } else {
-            Some(
-                cfg.session(like)
+        let source = match &request.execution {
+            ExecutionSource::CloneAgent(name) => Some(
+                cfg.session(name)
                     .cloned()
-                    .ok_or_else(|| anyhow!("no such session to clone sandbox from: {like}"))?,
-            )
-        };
-        let item_name = sc.name.as_str();
-        let asked = match want.project.as_deref().map(str::trim) {
-            Some(project) if !project.is_empty() => Some(project.to_string()),
+                    .ok_or_else(|| anyhow!("no such session to clone sandbox from: {name}"))?,
+            ),
             _ => None,
         };
-        let fresh = want.temp || (asked.is_none() && sc.link == LibraryItemLink::Temp);
-        let project_name = match (&asked, sc.link) {
-            _ if fresh => String::new(),
-            (Some(project), _) => project.clone(),
-            (None, LibraryItemLink::Ask) => {
-                bail!(
-                    "Choose a project or request a temporary project for library item {item_name:?}."
-                )
-            }
-            (None, _) => sc.project.clone(),
+        let (fresh, project_name) = match &request.destination {
+            LaunchDestination::Temporary => (true, String::new()),
+            LaunchDestination::Project(name) => (false, name.clone()),
         };
         let selected_worktree = if fresh {
             String::new()

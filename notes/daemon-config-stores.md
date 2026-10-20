@@ -1,7 +1,9 @@
 # Configuration ownership
 
 The daemon owns machine settings and workspace records. `config/settings.rs` owns
-root settings; `config/model.rs` assembles client views. `storage/` owns record
+root settings; `config/model.rs` assembles client views. `config/validation.rs` owns
+configuration and project invariants; the session adapter checks live constraints.
+`config/patch.rs` converts JSON patches before settings document preparation. `storage/` owns record
 schemas, accepted indexes, targeted persistence and bound transaction recovery.
 `config/transactions/` owns the persistence gate, prepared changes, accepted record
 indexes, cache-link rollback, and library revision acceptance. Its runtime adapter

@@ -1,64 +1,12 @@
 use super::LaunchContext;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::{
-    INPUT_BATCH, Input, Live, LiveCapture, LiveInput, State, TitleCapture, check_library_item,
-    check_name, check_project, free_name, free_project_name, hold_action_command, json_to_toml,
-    merge_input, merge_toml, normalize_action_command, normalize_path, project_action_path, settle,
-    slug, strip_sgr,
+    INPUT_BATCH, Input, Live, LiveCapture, LiveInput, State, TitleCapture, check_name, free_name,
+    free_project_name, merge_input, settle, slug, strip_sgr,
 };
-use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
-
-#[test]
-fn file_action_paths_normalize_the_absolute_placeholder() {
-    let path = normalize_path(Path::new("/tmp/slop/../repo/file name"));
-    assert_eq!(path, PathBuf::from("/tmp/repo/file name"));
-    assert_eq!(
-        normalize_action_command(&path, "du -sh {{ absolute_path }}"),
-        "du -sh '/tmp/repo/file name'"
-    );
-    assert_eq!(
-        crate::sandbox::shell_split(&hold_action_command("du -sh '/tmp/repo/file name'")).unwrap(),
-        vec![
-            "bash",
-            "-lc",
-            "du -sh '/tmp/repo/file name'; exec \"${SHELL:-bash}\""
-        ]
-    );
-}
-
-#[test]
-fn config_patches_merge_nested_fields_without_resetting_unmentioned_values() {
-    let mut document: toml::Value = toml::from_str(
-        r#"
-[daemon]
-bind = "127.0.0.1:7717"
-token = "secret"
-future = "keep"
-
-[defaults]
-agent = "claude"
-shell = "bash"
-"#,
-    )
-    .expect("config parses");
-
-    let patch = json_to_toml(serde_json::json!({
-        "daemon": { "usage_poll_secs": 120 },
-    }))
-    .expect("patch converts");
-    merge_toml(&mut document, patch);
-
-    assert_eq!(
-        document["daemon"]["usage_poll_secs"].as_integer(),
-        Some(120)
-    );
-    assert_eq!(document["daemon"]["future"].as_str(), Some("keep"));
-    assert_eq!(document["defaults"]["agent"].as_str(), Some("claude"));
-    assert_eq!(document["daemon"]["token"].as_str(), Some("secret"));
-}
+use crate::config::{Config, ProjectCfg, SessionCfg};
 
 #[test]
 fn merges_a_run_of_mouse_reports() {
@@ -236,46 +184,6 @@ fn temp_projects_settle_on_a_path_under_the_root() {
 }
 
 #[test]
-fn an_entry_must_have_something_to_send() {
-    let mut cfg = Config::default();
-    cfg.projects.push(ProjectCfg {
-        name: "repo".into(),
-        dir: "/home/you/git/repo".into(),
-        ..Default::default()
-    });
-
-    let errand = LibraryItemCfg {
-        name: "view-main-rs".into(),
-        kind: LibraryItemKind::Shell,
-        project: "repo".into(),
-        command: Some("less -R -- /home/you/git/repo/main.rs".into()),
-        text: String::new(),
-        ..Default::default()
-    };
-    assert!(check_library_item(&cfg, &errand).is_err());
-
-    let nowhere = LibraryItemCfg {
-        project: String::new(),
-        text: "hello".into(),
-        ..errand.clone()
-    };
-    assert!(check_library_item(&cfg, &nowhere).is_err());
-
-    let gone = LibraryItemCfg {
-        project: "not-a-project".into(),
-        text: "hello".into(),
-        ..errand.clone()
-    };
-    assert!(check_library_item(&cfg, &gone).is_err());
-
-    let fine = LibraryItemCfg {
-        text: "hello".into(),
-        ..errand
-    };
-    check_library_item(&cfg, &fine).unwrap();
-}
-
-#[test]
 fn temp_project_names_dodge_both_tables() {
     let mut cfg = Config::default();
     let mut temp: HashMap<String, ProjectCfg> = HashMap::new();
@@ -314,65 +222,6 @@ fn strips_color_and_keeps_text() {
     assert_eq!(strip_sgr("esc to interrupt"), "esc to interrupt");
     assert_eq!(strip_sgr("\x1b]0;title\x07body"), "body");
     assert_eq!(strip_sgr("\x1b[38;5;214m❯ 1.\x1b[m"), "❯ 1.");
-}
-
-#[test]
-fn json_patch_conversion_rejects_null_and_preserves_nested_values() {
-    let value = json_to_toml(serde_json::json!({
-        "enabled": true,
-        "count": 3,
-        "nested": ["one", false],
-    }))
-    .unwrap();
-    assert_eq!(value["enabled"].as_bool(), Some(true));
-    assert_eq!(value["count"].as_integer(), Some(3));
-    assert_eq!(value["nested"][0].as_str(), Some("one"));
-    assert_eq!(value["nested"][1].as_bool(), Some(false));
-    json_to_toml(serde_json::Value::Null).unwrap_err();
-}
-
-#[test]
-fn a_toml_table_patch_can_replace_a_scalar() {
-    let mut base = toml::Value::String("old".into());
-    merge_toml(
-        &mut base,
-        toml::toml! {
-            replacement = "new"
-        }
-        .into(),
-    );
-    assert_eq!(base["replacement"].as_str(), Some("new"));
-}
-
-#[test]
-fn file_actions_stay_inside_the_project_root() {
-    let project = ProjectCfg {
-        name: "repo".into(),
-        dir: "/tmp/slopworld-project".into(),
-        ..Default::default()
-    };
-    assert_eq!(
-        project_action_path(&project, "/tmp/slopworld-project/src/main.rs").unwrap(),
-        PathBuf::from("/tmp/slopworld-project/src/main.rs")
-    );
-    let error = project_action_path(&project, "/tmp/slopworld-project-other/file")
-        .unwrap_err()
-        .to_string();
-    assert!(error.contains("inside project"), "{error}");
-}
-
-#[test]
-fn check_project_rejects_unsafe_names() {
-    for name in ["../escape", "one/two", "/tmp/escape", ".", "..", r"one\two"] {
-        let error = check_project(&ProjectCfg {
-            name: name.into(),
-            dir: "/tmp".into(),
-            ..Default::default()
-        })
-        .unwrap_err()
-        .to_string();
-        assert!(error.contains("path component"), "{name:?}: {error}");
-    }
 }
 
 #[test]

@@ -163,10 +163,8 @@ impl Manager {
             .ok_or_else(|| anyhow!("no such library item: {name}"))?
             .clone();
         check_library_item(&cfg, &sc)?;
-        Self::validate_errand(&sc)?;
         drop(cfg);
-        let host = sc.host;
-        self.run_errand(sc, want, host, false, "").await
+        self.run_launch(LaunchRequest::library(sc, want)?).await
     }
 
     fn resolve_file_action(
@@ -310,72 +308,17 @@ impl Manager {
         Ok(normalize_action_command(&path, command))
     }
 
-    fn validate_errand(sc: &LibraryItemCfg) -> Result<()> {
-        if matches!(
-            sc.kind,
-            LibraryItemKind::Breadcrumb | LibraryItemKind::FileAction
-        ) {
-            bail!(
-                "library item {} is not runnable as an agent errand",
-                sc.name
-            );
-        }
-        Ok(())
-    }
-
-    async fn queue_errand_delivery(
+    pub(super) async fn queue_errand_delivery(
         self: &Arc<Self>,
         session: &str,
-        sc: &LibraryItemCfg,
-        want: &RunWhere,
+        sc: &LaunchContent,
+        want: &LaunchOptions,
     ) {
         let text = render_prompt(&sc.text, &want.random_tips);
         if text.trim().is_empty() {
             return;
         }
         self.queue_delivery(session, text).await;
-    }
-
-    pub async fn run_errand(
-        self: &Arc<Self>,
-        sc: LibraryItemCfg,
-        want: RunWhere,
-        host: bool,
-        persistent_host: bool,
-        like: &str,
-    ) -> Result<String> {
-        self.session_operation(self.run_errand_inner(sc, want, host, persistent_host, like))
-            .await
-    }
-
-    async fn run_errand_inner(
-        self: &Arc<Self>,
-        sc: LibraryItemCfg,
-        want: RunWhere,
-        host: bool,
-        persistent_host: bool,
-        like: &str,
-    ) -> Result<String> {
-        self.reload_if_changed().await;
-        let cfg = self.config().await;
-        Self::validate_errand(&sc)?;
-        let session = self
-            .create_errand_session(&cfg, &sc, &want, host, persistent_host, like)
-            .await?;
-
-        if !self.tmux.exists(&session).await
-            && let Err(e) = self.start(&session).await
-        {
-            if !persistent_host {
-                self.forget(&session).await;
-            }
-            return Err(e);
-        }
-
-        self.announce_sessions().await;
-        self.queue_errand_delivery(&session, &sc, &want).await;
-
-        Ok(session)
     }
 
     /// Capture the destination before spawning, while the caller owns the session boundary.

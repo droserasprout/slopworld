@@ -37,14 +37,14 @@ async fn editor_reopens_share_running_session_but_not_other_readers_or_stopped_r
     let (cfg, item, mut want) = editor_request();
     let manager = crate::session::test_manager(cfg.clone());
     let name = manager
-        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
     manager.live.write().await.get_mut(&name).unwrap().state = State::Working;
     want.context.reader.line = 12;
     let (first, second) = tokio::join!(
-        manager.create_errand_session(&cfg, &item, &want, true, false, ""),
-        manager.create_errand_session(&cfg, &item, &want, true, false, ""),
+        manager.create_test_errand_session(&cfg, &item, &want, true, false, ""),
+        manager.create_test_errand_session(&cfg, &item, &want, true, false, ""),
     );
     assert_eq!(first.unwrap(), name);
     assert_eq!(second.unwrap(), name);
@@ -54,14 +54,14 @@ async fn editor_reopens_share_running_session_but_not_other_readers_or_stopped_r
     let mut different = want.clone();
     different.context.reader.path = "/tmp/other.rs".into();
     let other = manager
-        .create_errand_session(&cfg, &item, &different, true, false, "")
+        .create_test_errand_session(&cfg, &item, &different, true, false, "")
         .await
         .unwrap();
     assert_ne!(other, name);
     different = want.clone();
     different.context.reader.scope = "scope/other/main".into();
     let other = manager
-        .create_errand_session(&cfg, &item, &different, true, false, "")
+        .create_test_errand_session(&cfg, &item, &different, true, false, "")
         .await
         .unwrap();
     assert_ne!(other, name);
@@ -70,14 +70,14 @@ async fn editor_reopens_share_running_session_but_not_other_readers_or_stopped_r
         different = want.clone();
         different.context.intent = intent.into();
         let other = manager
-            .create_errand_session(&cfg, &item, &different, true, false, "")
+            .create_test_errand_session(&cfg, &item, &different, true, false, "")
             .await
             .unwrap();
         assert_ne!(other, name);
     }
     manager.live.write().await.get_mut(&name).unwrap().state = State::Down;
     let replacement = manager
-        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
     assert_ne!(replacement, name);
@@ -90,12 +90,12 @@ async fn unscoped_editor_reopen_does_not_allocate_another_temporary_project() {
     want.context.reader.scope.clear();
     let manager = crate::session::test_manager(cfg.clone());
     let name = manager
-        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
     manager.live.write().await.get_mut(&name).unwrap().state = State::Working;
     let reopened = manager
-        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
     assert_eq!(reopened, name);
@@ -136,12 +136,12 @@ async fn reader_intent_keeps_display_and_scope_without_encoding_them_in_name() {
         ..Default::default()
     };
     let name = manager
-        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
     assert!(crate::storage_id::valid(&name));
     let second_name = manager
-        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
     assert!(crate::storage_id::valid(&second_name));
@@ -177,7 +177,7 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
     };
     let want = RunWhere::default();
     let error = manager
-        .create_errand_session(&cfg, &item, &want, false, false, "")
+        .create_test_errand_session(&cfg, &item, &want, false, false, "")
         .await
         .unwrap_err();
     assert!(error.to_string().contains("Host or an agent template"));
@@ -197,7 +197,7 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
         .unwrap();
     item.agent_template = "offline".into();
     let name = manager
-        .create_errand_session(&cfg, &item, &want, false, false, "")
+        .create_test_errand_session(&cfg, &item, &want, false, false, "")
         .await
         .unwrap();
     {
@@ -216,13 +216,13 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
         Some(256)
     );
     manager
-        .create_errand_session(&cfg, &item, &want, false, false, "")
+        .create_test_errand_session(&cfg, &item, &want, false, false, "")
         .await
         .unwrap_err();
     item.agent_template.clear();
     item.name = "host-command".into();
     let host = manager
-        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
     assert!(manager.live.read().await[&host].host);
@@ -239,7 +239,7 @@ async fn missing_clone_source_does_not_reserve_a_temporary_errand() {
     };
 
     let error = manager
-        .create_errand_session(&cfg, &item, &RunWhere::default(), false, false, "gone")
+        .create_test_errand_session(&cfg, &item, &RunWhere::default(), false, false, "gone")
         .await
         .unwrap_err();
     assert!(
@@ -271,7 +271,7 @@ async fn host_with_clone_source_fails_before_persistence_or_allocation() {
     };
 
     let error = manager
-        .create_errand_session(&cfg, &item, &RunWhere::default(), true, true, "source")
+        .create_test_errand_session(&cfg, &item, &RunWhere::default(), true, true, "source")
         .await
         .unwrap_err();
     assert!(
@@ -313,7 +313,7 @@ async fn host_persistence_failure_leaves_no_live_or_temporary_state() {
     std::fs::write(parent, "blocks config directory").unwrap();
 
     manager
-        .create_errand_session(&cfg, &item, &RunWhere::default(), true, true, "")
+        .create_test_errand_session(&cfg, &item, &RunWhere::default(), true, true, "")
         .await
         .unwrap_err();
     assert!(manager.live.read().await.is_empty());
@@ -355,7 +355,7 @@ async fn temporary_clone_copies_agent_limits_within_session_boundary() {
     tokio::pin!(guarded);
     assert!(futures::poll!(guarded.as_mut()).is_pending());
     let want = RunWhere::default();
-    let create = manager.create_errand_session(&cfg, &item, &want, false, false, "source");
+    let create = manager.create_test_errand_session(&cfg, &item, &want, false, false, "source");
     tokio::pin!(create);
     assert!(futures::poll!(create.as_mut()).is_pending());
     assert!(manager.live.read().await.is_empty());
@@ -399,7 +399,7 @@ async fn invalid_temporary_clone_settings_do_not_allocate_a_project() {
     };
 
     let error = manager
-        .create_errand_session(&cfg, &item, &RunWhere::default(), false, false, "source")
+        .create_test_errand_session(&cfg, &item, &RunWhere::default(), false, false, "source")
         .await
         .unwrap_err();
     assert!(error.to_string().contains("unknown sandbox preset"));
@@ -426,7 +426,7 @@ async fn persistent_host_errand_saves_tab_and_live_metadata() {
     };
 
     let name = manager
-        .create_errand_session(&cfg, &item, &RunWhere::default(), true, true, "")
+        .create_test_errand_session(&cfg, &item, &RunWhere::default(), true, true, "")
         .await
         .unwrap();
     let saved = Config::load(&manager.cfg_path).await.unwrap();
@@ -464,7 +464,7 @@ async fn fresh_errands_do_not_inherit_the_source_worktree() {
         ..Default::default()
     };
     let name = manager
-        .create_errand_session(&cfg, &item, &RunWhere::default(), false, false, "source")
+        .create_test_errand_session(&cfg, &item, &RunWhere::default(), false, false, "source")
         .await
         .unwrap();
     let live = manager.live.read().await;
@@ -476,4 +476,20 @@ async fn fresh_errands_do_not_inherit_the_source_worktree() {
             .await
             .contains_key(&live[&name].cfg.project)
     );
+}
+
+impl Manager {
+    pub(in crate::session) async fn create_test_errand_session(
+        self: &Arc<Self>,
+        cfg: &Config,
+        item: &LibraryItemCfg,
+        want: &RunWhere,
+        host: bool,
+        persistent: bool,
+        like: &str,
+    ) -> Result<String> {
+        let execution = ExecutionSource::select(host, persistent, &item.agent_template, like)?;
+        let request = LaunchRequest::from_library(item.clone(), want.clone(), execution)?;
+        self.create_errand_session(cfg, &request).await
+    }
 }

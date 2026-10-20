@@ -411,7 +411,7 @@ async fn start_plan_snapshots_reader_context_and_publishes_recoverable_metadata(
         ..Default::default()
     };
     let name = manager
-        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
     let plan = manager.prepare_start(&name).await.unwrap();

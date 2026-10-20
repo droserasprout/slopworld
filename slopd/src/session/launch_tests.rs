@@ -77,3 +77,57 @@ fn reader_metadata_round_trip_preserves_context_and_uses_current_session_identit
         );
     }
 }
+
+#[test]
+fn library_launches_resolve_overrides_without_carrying_catalog_fields() {
+    use crate::config::{LibraryItemCfg, LibraryItemKind, LibraryItemLink};
+    let item = LibraryItemCfg {
+        name: "review".into(),
+        kind: LibraryItemKind::Prompt,
+        project: "saved".into(),
+        link: LibraryItemLink::Temp,
+        text: "review changes".into(),
+        agent_template: " reviewer ".into(),
+        builtin: true,
+        ..Default::default()
+    };
+    let temporary = LaunchRequest::library(item.clone(), RunWhere::default()).unwrap();
+    assert_eq!(temporary.destination, LaunchDestination::Temporary);
+    assert_eq!(
+        temporary.execution,
+        ExecutionSource::Template("reviewer".into())
+    );
+    let selected = LaunchRequest::library(
+        item.clone(),
+        RunWhere {
+            project: Some(" selected ".into()),
+            worktree: "checkout".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        selected.destination,
+        LaunchDestination::Project("selected".into())
+    );
+    assert_eq!(selected.options.worktree, "checkout");
+    assert_eq!(selected.content.text, item.text);
+    let forced = LaunchRequest::library(
+        item.clone(),
+        RunWhere {
+            project: Some("selected".into()),
+            temp: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(forced.destination, LaunchDestination::Temporary);
+    let mut ask = item;
+    ask.link = LibraryItemLink::Ask;
+    assert!(
+        LaunchRequest::library(ask, RunWhere::default())
+            .unwrap_err()
+            .to_string()
+            .contains("Choose a project")
+    );
+}

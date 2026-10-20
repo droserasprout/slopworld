@@ -1,6 +1,7 @@
 //! Library entries, supplied content, and catalog lookups.
 
-use super::{Config, SessionCfg, is_false};
+use super::{Config, is_false};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
@@ -162,39 +163,51 @@ impl Config {
         !self.library.iter().any(|s| s.name == name)
             && builtin_library_items().iter().any(|b| b.name == name)
     }
+}
 
-    /// A prompt without a command uses the `[defaults] agent` preset.
-    /// Explicit presets and command lines keep their own command. The project may be empty.
-    pub fn session_for(&self, sc: &LibraryItemCfg, name: String, project: String) -> SessionCfg {
-        let t = crate::presets::table();
-        let own = sc
+pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()> {
+    if sc.name.trim().is_empty() {
+        bail!("Enter a name for the library item.");
+    }
+    if sc.kind == LibraryItemKind::Breadcrumb {
+        if sc.text.trim().is_empty() {
+            bail!("Enter text for breadcrumb {:?}.", sc.name);
+        }
+        return Ok(());
+    }
+    if sc.host && !sc.agent_template.trim().is_empty() {
+        bail!(
+            "Choose either Host or an agent template for library item {:?}.",
+            sc.name
+        );
+    }
+    if sc.kind == LibraryItemKind::FileAction {
+        if sc
             .command
             .as_deref()
             .map(str::trim)
-            .filter(|c| !c.is_empty());
-        let known = own.filter(|c| t.command(c).is_some());
-
-        let (command, cmd) = match (sc.kind, known, own) {
-            (_, Some(preset), _) => (preset.to_string(), None),
-            (LibraryItemKind::Prompt, None, Some(line)) => (String::new(), Some(line.to_string())),
-            (LibraryItemKind::Prompt, None, None) => {
-                (self.command_name(&SessionCfg::default()), None)
-            }
-            // Use the shell preset to run the errand command in a shell.
-            (LibraryItemKind::Shell, None, line) => (
-                self.defaults.shell.trim().to_string(),
-                line.map(str::to_string),
-            ),
-            (LibraryItemKind::Breadcrumb | LibraryItemKind::FileAction, _, _) => {
-                (String::new(), None)
-            }
-        };
-        SessionCfg {
-            name,
-            project,
-            command,
-            cmd,
-            ..Default::default()
+            .unwrap_or("")
+            .is_empty()
+        {
+            bail!("Enter a command for file action {:?}.", sc.name);
         }
+        if !sc.text.trim().is_empty() {
+            bail!("Remove text from file action {:?}.", sc.name);
+        }
+        return Ok(());
     }
+    if sc.link == LibraryItemLink::Project && sc.project.trim().is_empty() {
+        bail!("Choose a project for library item {:?}.", sc.name);
+    }
+    if !sc.project.trim().is_empty() && cfg.project(&sc.project).is_none() {
+        bail!("Project {:?} does not exist.", sc.project);
+    }
+    if sc.text.trim().is_empty() {
+        bail!("Enter text for library item {:?}.", sc.name);
+    }
+    Ok(())
 }
+
+#[cfg(test)]
+#[path = "library_tests.rs"]
+mod tests;

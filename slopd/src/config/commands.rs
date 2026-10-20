@@ -1,6 +1,6 @@
-//! Resolve automatic reader tools on the daemon host; stored choices stay unchanged.
+//! Resolve launch commands and automatic reader tools; stored choices stay unchanged.
 
-use super::CommandDefaults;
+use super::{CommandDefaults, LibraryItemKind, SessionCfg};
 
 const AUTO: &str = "auto";
 
@@ -53,4 +53,43 @@ pub(crate) fn resolve_highlighter(command: &str) -> String {
         }
     }
     String::new()
+}
+
+impl super::Config {
+    /// A prompt without a command uses the `[defaults] agent` preset.
+    /// Explicit presets and command lines keep their own command. The project may be empty.
+    pub(crate) fn session_for_command(
+        &self,
+        kind: LibraryItemKind,
+        command: Option<&str>,
+        name: String,
+        project: String,
+    ) -> SessionCfg {
+        let t = crate::presets::table();
+        let own = command.map(str::trim).filter(|c| !c.is_empty());
+        let known = own.filter(|c| t.command(c).is_some());
+
+        let (command, cmd) = match (kind, known, own) {
+            (_, Some(preset), _) => (preset.to_string(), None),
+            (LibraryItemKind::Prompt, None, Some(line)) => (String::new(), Some(line.to_string())),
+            (LibraryItemKind::Prompt, None, None) => {
+                (self.command_name(&SessionCfg::default()), None)
+            }
+            // Use the shell preset to run the errand command in a shell.
+            (LibraryItemKind::Shell, None, line) => (
+                self.defaults.shell.trim().to_string(),
+                line.map(str::to_string),
+            ),
+            (LibraryItemKind::Breadcrumb | LibraryItemKind::FileAction, _, _) => {
+                (String::new(), None)
+            }
+        };
+        SessionCfg {
+            name,
+            project,
+            command,
+            cmd,
+            ..Default::default()
+        }
+    }
 }

@@ -2,8 +2,8 @@
 //! Library execution and delayed input belong to library.rs.
 use super::super::*;
 use super::directories::CreatedDirectories;
+use crate::config::validate_mount_paths;
 use crate::session::manager::config::ConfigMutation;
-use crate::session::validation::check_project_mounts;
 use crate::worktrees::WorktreePhase;
 use anyhow::anyhow;
 
@@ -38,7 +38,7 @@ impl Manager {
         p.id = self.allocate_project_identity().await?;
         check_project(&p)?;
         self.update_cfg(ConfigMutation::Projects, |cfg| {
-            check_project_mounts(cfg, &p)?;
+            validate_mount_paths(&p)?;
             if cfg.project(&p.name).is_some() {
                 bail!("project {} already exists", p.name);
             }
@@ -78,7 +78,7 @@ impl Manager {
         }
         p.id = old_project.id.clone();
         check_project(&p)?;
-        check_project_mounts(&self.config().await, &p)?;
+        validate_mount_paths(&p)?;
         let (store, planned, mut directories) = self
             .plan_project_worktree_relocations(name, &old_project, &p)
             .await?;
@@ -108,7 +108,7 @@ impl Manager {
                 }
                 p.id = old_project.id.clone();
                 check_project(&p)?;
-                check_project_mounts(cfg, &p)?;
+                validate_mount_paths(&p)?;
                 if p.name != name && cfg.project(&p.name).is_some() {
                     bail!("project {} already exists", p.name);
                 }

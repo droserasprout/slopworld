@@ -581,22 +581,22 @@ async fn host_reader_exit_removes_tab_without_explicit_stop() {
         ..Default::default()
     };
     let name = manager
-        .run_errand(
-            item,
-            RunWhere {
-                context: LaunchContext {
-                    intent: "view".into(),
-                    reader: ReaderContext {
-                        path: "/tmp/sample".into(),
+        .run_launch(
+            LaunchRequest::library(
+                item,
+                RunWhere {
+                    context: LaunchContext {
+                        intent: "view".into(),
+                        reader: ReaderContext {
+                            path: "/tmp/sample".into(),
+                            ..Default::default()
+                        },
                         ..Default::default()
                     },
                     ..Default::default()
                 },
-                ..Default::default()
-            },
-            true,
-            false,
-            "",
+            )
+            .unwrap(),
         )
         .await
         .unwrap();

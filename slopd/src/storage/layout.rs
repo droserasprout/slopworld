@@ -83,7 +83,7 @@ pub(crate) fn validate(cfg: &Config, worktrees: &[crate::worktrees::Worktree]) -
         ensure!(names.insert(name), "duplicate agent/host-shell name {name}");
     }
     crate::config::validate_loaded(cfg)?;
-    crate::session::validate_config(cfg)?;
+    crate::config::validate_config(cfg)?;
     for worktree in worktrees {
         ensure!(
             cfg.projects.iter().any(|p| p.id == worktree.project_id),

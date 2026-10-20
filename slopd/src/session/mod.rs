@@ -3,7 +3,7 @@
 use crate::clock::unix_ms;
 mod protobuf;
 use std::collections::HashMap;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -18,7 +18,10 @@ mod events;
 mod input;
 mod launch;
 pub use launch::RunWhere;
-pub(crate) use launch::{LaunchContext, ReaderContext};
+use launch::{
+    ExecutionSource, HostLifetime, LaunchContent, LaunchDestination, LaunchOptions, LaunchRequest,
+};
+pub(crate) use launch::{ExplicitLaunch, LaunchContext, ReaderContext};
 mod template;
 mod text;
 mod title;
@@ -44,25 +47,23 @@ pub use view::{
     SessionWorkerView,
 };
 
+use crate::config::patch::json_to_toml;
+use crate::config::{check_library_item, check_project};
+use crate::files::actions::{absolute_path, normalize_action_command, project_action_path};
 pub(crate) use input::Input;
 use input::merge_input;
 use prompt::{PromptVars, render_prompt, render_prompt_with};
 pub use text::strip_sgr;
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
-use validation::{
-    absolute_path, check_belongs, check_name, check_project, free_name, free_project_name,
-    json_to_toml, normalize_action_command, project_action_path, settle, slug,
-};
-pub(crate) use validation::{check_library_item, hold_action_command, name_slug, validate_config};
+pub(crate) use validation::name_slug;
+use validation::{check_belongs, check_name, free_name, free_project_name, settle, slug};
 
 #[cfg(test)]
 use input::INPUT_BATCH;
-#[cfg(test)]
-use validation::normalize_path;
 
 use crate::config::{
-    Config, LibraryItemCfg, LibraryItemKind, LibraryItemLink, NetworkMode, ProjectCfg, SessionCfg,
-    TitlePolicy, expand,
+    Config, LibraryItemCfg, LibraryItemKind, NetworkMode, ProjectCfg, SessionCfg, TitlePolicy,
+    expand,
 };
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;
@@ -205,4 +206,4 @@ impl Live {
 mod tests;
 
 #[cfg(test)]
-use validation::merge_toml;
+use crate::config::LibraryItemLink;

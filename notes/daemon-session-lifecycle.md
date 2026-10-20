@@ -6,7 +6,12 @@ complete candidate before changing tmux identity and protect commit/rollback fro
 caller cancellation. Creation, label edits, deletion, and private-state restoration
 also retain their session boundary in owned work through publication or cleanup.
 
-`session/launch.rs` owns launch and reader context separately from `SessionCfg`.
+`session/launch.rs` owns transient launch requests and reader context separately from
+`SessionCfg` and saved library entries. Execution source distinguishes host lifetime,
+agent templates and cloned agent settings; destination distinguishes selected and
+temporary projects. `session/manager/launch.rs` adapts explicit requests and executes
+both explicit and saved launches under the session operation guard. Template/source
+lookup and worktree resolution remain inside that guard before allocation.
 Live rows retain this context across process restarts; start plans snapshot it before
 I/O. Reader labels, scope, pin state, and position recover through tmux metadata,
 never through saved agent records.
