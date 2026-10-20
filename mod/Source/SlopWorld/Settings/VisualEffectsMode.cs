@@ -18,29 +18,29 @@ namespace SlopWorld
             : "Mild";
 
         // Absolute alpha values keep tuning here, independent of renderer multipliers.
-        // Mild keeps scanlines subtle; vignette and grain strengths are tuned independently.
+        // Equal steps above Mild keep the progression smooth for each effect.
         public static float ScanlineOpacity(string value) =>
             Normalize(value) == Off ? 0f
-            : Normalize(value) == Moderate ? 0.25f
-            : Normalize(value) == Massive ? 0.36f
+            : Normalize(value) == Moderate ? 0.17f
+            : Normalize(value) == Massive ? 0.26f
             : 0.08f;
 
         public static float CornerOpacity(string value) =>
             Normalize(value) == Off ? 0f
-            : Normalize(value) == Moderate ? 0.38f
-            : Normalize(value) == Massive ? 0.54f
+            : Normalize(value) == Moderate ? 0.32f
+            : Normalize(value) == Massive ? 0.445f
             : 0.195f;
 
         public static float GrainOpacity(string value) =>
             Normalize(value) == Off ? 0f
-            : Normalize(value) == Moderate ? 40f / 255f
-            : Normalize(value) == Massive ? 56f / 255f
+            : Normalize(value) == Moderate ? 37f / 255f
+            : Normalize(value) == Massive ? 49f / 255f
             : 25f / 255f;
 
-        // Hardware cursors bypass the overlay. A uniform RGB dim keeps them in tone
-        // without tying cursor updates to pointer position or the game's frame rate.
-        public static float CursorBrightness(string value) => 1f - ScanlineOpacity(value);
+        // Hardware cursors bypass the overlay. Match the average dimming of scanlines
+        // covering one-third of the rows, keeping alpha intact for pointer visibility.
+        public static float CursorBrightness(string value) => 1f - ScanlineOpacity(value) / 3f;
 
-        public static float CursorOpacity(string value) => 1f - ScanlineOpacity(value) * 0.5f;
+        public static float CursorOpacity(string value) => 1f;
     }
 }

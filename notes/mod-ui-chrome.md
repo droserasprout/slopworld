@@ -13,8 +13,9 @@ and Meh disables the overlay and releases them.
 `CrtVignettePixels` owns the CPU pixel bake; the overlay owns texture uploads
 and drawing. The bake runs on cache construction, not every frame.
 The hardware cursor bypasses the overlay. Its texture cache bakes a uniform RGB dim
-and alpha reduction from `VisualEffectsMode` and rebuilds when the preset changes. Hotspots
-are calculated before alpha changes so effect strength cannot move the click point.
+matching average scanline coverage from `VisualEffectsMode`, preserves alpha, and
+rebuilds when the preset changes. Hotspots are calculated from the original pixels
+so effect strength cannot move the click point.
 Vignette dithering is baked at screen resolution. During resize it is hidden, then
 rebuilt after dimensions remain stable for 200 ms to avoid repeated full-screen
 CPU bakes and uploads. Enabling the overlay builds it immediately. Filtering
