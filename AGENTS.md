@@ -17,8 +17,6 @@ communicate through HTTP and WebSocket. `slopcar/` packages the Linux daemon for
 
 Start with the relevant map. Follow its focused links. Then read the source and tests.
 Do not read every note. User workflows live in the [book index](docs/src/SUMMARY.md).
-A `priv/notes/plan-*` file tracks a change through review and merge.
-It does not describe current behavior.
 
 | Area | Starting points |
 | --- | --- |
@@ -30,8 +28,6 @@ It does not describe current behavior.
 | Build and runtime operations | [Build](notes/build-commands.md), [paths](notes/ops-paths.md), [diagnostics](notes/ops-diagnostics.md), [sidecar architecture](notes/ops-macos-compatibility.md) |
 
 ## Rust code guidelines
-
-Follow the patterns in the reviewed Rust files listed in `priv/BIG_REVIEW.md`:
 
 - Give each module one clear responsibility. Start with a short `//!` ownership summary;
   name neighboring owners where the boundary matters. Keep coordination separate from

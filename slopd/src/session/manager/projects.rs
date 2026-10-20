@@ -88,11 +88,10 @@ impl crate::application::projects::ProjectRuntime for Arc<Manager> {
     }
     async fn prepare(
         &self,
-        name: &str,
-        project: ProjectCfg,
+        replacement: crate::application::projects::ProjectReplacement,
     ) -> Result<Option<crate::config::transactions::PreparedConfigChange>> {
         self.prepare_cfg_change(ConfigMutation::ProjectReferences, |cfg| {
-            crate::application::projects::replace(cfg, name, project)?;
+            replacement.apply(cfg)?;
             Ok(((), true))
         })
         .await

@@ -16,8 +16,7 @@ pub(crate) trait ProjectRuntime: crate::worktrees::relocation::Persistence + Syn
     ) -> impl std::future::Future<Output = Vec<String>> + Send;
     fn prepare(
         &self,
-        name: &str,
-        project: ProjectCfg,
+        replacement: ProjectReplacement,
     ) -> impl std::future::Future<Output = Result<Option<PreparedConfigChange>>> + Send;
     fn commit(
         &self,
@@ -60,40 +59,61 @@ pub(crate) fn add(cfg: &mut Config, p: ProjectCfg) -> Result<()> {
     cfg.projects.push(p);
     Ok(())
 }
-pub(crate) fn replace(cfg: &mut Config, name: &str, mut p: ProjectCfg) -> Result<()> {
-    let idx = cfg
-        .projects
-        .iter()
-        .position(|x| x.name == name)
-        .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-    let old_project = cfg
-        .projects
-        .get(idx)
-        .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-    if old_project.temp != p.temp {
-        bail!("The daemon cannot change project temporary mode after creation.");
-    }
-    p.id = old_project.id.clone();
-    check_project(&p)?;
-    validate_mount_paths(&p)?;
-    if p.name != name && cfg.project(&p.name).is_some() {
-        bail!("project {} already exists", p.name);
-    }
-    let renamed = p.name.clone();
-    let project = cfg
-        .projects
-        .get_mut(idx)
-        .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-    *project = p;
-    if renamed != name {
-        for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
-            s.project = renamed.clone();
+/// Validated project edit, prepared before any checkout movement. The session and
+/// worktree operation guards keep its source identity stable through application.
+pub(crate) struct ProjectReplacement {
+    name: String,
+    old: ProjectCfg,
+    next: ProjectCfg,
+}
+
+impl ProjectReplacement {
+    fn prepare(cfg: &Config, name: &str, mut next: ProjectCfg) -> Result<Self> {
+        let old = cfg
+            .project(name)
+            .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
+        if old.temp != next.temp {
+            bail!("The daemon cannot change project temporary mode after creation.");
         }
-        for shell in cfg.host_terminals.iter_mut().filter(|s| s.project == name) {
-            shell.project = renamed.clone();
+        next.id = old.id.clone();
+        check_project(&next)?;
+        validate_mount_paths(&next)?;
+        if next.name != name && cfg.project(&next.name).is_some() {
+            bail!("project {} already exists", next.name);
         }
+        Ok(Self {
+            name: name.to_owned(),
+            old: old.clone(),
+            next,
+        })
     }
-    Ok(())
+
+    pub(crate) fn apply(self, cfg: &mut Config) -> Result<()> {
+        let project = cfg
+            .projects
+            .iter_mut()
+            .find(|p| p.name == self.name)
+            .ok_or_else(|| anyhow!("Project {:?} does not exist.", self.name))?;
+        anyhow::ensure!(
+            project.id == self.old.id,
+            "project identity changed during replacement"
+        );
+        let renamed = self.next.name.clone();
+        *project = self.next;
+        if renamed != self.name {
+            for session in cfg.sessions.iter_mut().filter(|s| s.project == self.name) {
+                session.project = renamed.clone();
+            }
+            for shell in cfg
+                .host_terminals
+                .iter_mut()
+                .filter(|s| s.project == self.name)
+            {
+                shell.project = renamed.clone();
+            }
+        }
+        Ok(())
+    }
 }
 pub(crate) fn remove(cfg: &mut Config, name: &str) -> Result<()> {
     if cfg.project(name).is_none() {
@@ -120,32 +140,17 @@ pub(crate) fn remove(cfg: &mut Config, name: &str) -> Result<()> {
     cfg.projects.retain(|p| p.name != name);
     Ok(())
 }
-pub(crate) async fn update(
-    runtime: &impl ProjectRuntime,
-    name: &str,
-    mut p: ProjectCfg,
-) -> Result<()> {
-    let old_project = runtime
-        .config()
-        .await
-        .project(name)
-        .cloned()
-        .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-    if old_project.temp != p.temp {
-        bail!("The daemon cannot change project temporary mode after creation.");
-    }
-    p.id = old_project.id.clone();
-    check_project(&p)?;
-    validate_mount_paths(&p)?;
+pub(crate) async fn update(runtime: &impl ProjectRuntime, name: &str, p: ProjectCfg) -> Result<()> {
+    let replacement = ProjectReplacement::prepare(&runtime.config().await, name, p)?;
     let RelocationPlan {
         store,
         moves,
         mut directories,
-    } = plan_relocations(runtime, name, &old_project, &p).await?;
+    } = plan_relocations(runtime, name, &replacement.old, &replacement.next).await?;
     let mut relocations = crate::worktrees::relocation::Relocations::new(store, moves)?;
     relocations.execute_pending(runtime).await?;
     runtime.after_relocations().await;
-    let result = runtime.prepare(name, p).await;
+    let result = runtime.prepare(replacement).await;
     let result = match result {
         Ok(Some(prepared)) => {
             if relocations.has_moves() {
@@ -188,9 +193,6 @@ async fn plan_relocations(
     let mut directories = CreatedDirectories::default();
     if p.name != name {
         crate::config::project_name_component(&p.name)?;
-        if runtime.config().await.project(&p.name).is_some() {
-            bail!("project {} already exists", p.name);
-        }
         let local_root = PathBuf::from(expand(&old_project.dir)).join(".worktrees");
         let local_root = local_root.canonicalize().unwrap_or(local_root);
         for (i, w) in store

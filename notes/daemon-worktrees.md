@@ -3,7 +3,9 @@
 `worktrees/` owns durable records, checkout validation, bounded Git effects, and
 uncommitted directory guards. `application/worktrees.rs` coordinates creation,
 rename, removal, recovery, and listing projection; `application/projects.rs`
-coordinates project edits and relocation. Session adapters supply operation guards, live identity references,
+coordinates project edits and relocation. A validated project replacement carries
+the original identity and proposed record through relocation and reference updates;
+static edit policy is checked before Git effects. Session adapters supply operation guards, live identity references,
 and attachment checks. `worktrees/inspection.rs` owns revision verification and
 checkout observations; project and worktree client views belong to application.
 

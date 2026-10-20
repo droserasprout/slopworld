@@ -96,3 +96,69 @@ fn project_removal_requires_explicit_checkout_removal_and_preserves_other_projec
     remove(&mut cfg, "repo").unwrap();
     assert_eq!(list(&cfg)[0].config.name, "legacy");
 }
+
+#[test]
+fn replacement_preserves_identity_and_updates_agent_and_shell_references() {
+    let mut cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "old".into(),
+            id: "identity".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        sessions: vec![crate::config::SessionCfg {
+            name: "agent".into(),
+            project: "old".into(),
+            ..Default::default()
+        }],
+        host_terminals: vec![crate::config::HostTerminalCfg {
+            name: "shell".into(),
+            project: "old".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let replacement = ProjectReplacement::prepare(
+        &cfg,
+        "old",
+        ProjectCfg {
+            name: "new".into(),
+            id: "untrusted".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    replacement.apply(&mut cfg).unwrap();
+    assert_eq!(cfg.projects[0].id, "identity");
+    assert_eq!(cfg.projects[0].name, "new");
+    assert_eq!(cfg.sessions[0].project, "new");
+    assert_eq!(cfg.host_terminals[0].project, "new");
+}
+
+#[test]
+fn replacement_rejects_collisions_and_replaced_source_identity() {
+    let mut cfg = Config {
+        projects: ["old", "occupied"]
+            .into_iter()
+            .map(|name| ProjectCfg {
+                name: name.into(),
+                id: name.into(),
+                dir: "/tmp".into(),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    };
+    let candidate = |name: &str| ProjectCfg {
+        name: name.into(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    };
+    assert!(ProjectReplacement::prepare(&cfg, "old", candidate("occupied")).is_err());
+    let replacement = ProjectReplacement::prepare(&cfg, "old", candidate("new")).unwrap();
+    cfg.projects[0].id = "replacement".into();
+    assert!(replacement.apply(&mut cfg).is_err());
+    assert_eq!(cfg.projects[0].name, "old");
+    assert_eq!(cfg.projects[0].id, "replacement");
+}
