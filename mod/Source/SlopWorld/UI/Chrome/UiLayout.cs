@@ -122,7 +122,7 @@ namespace SlopWorld
         public static void IconButtonBackground(Rect r, bool over, bool held)
         {
             if (over)
-                Slab.Fill(r, held ? BtnDown : BtnHover);
+                Slab.GrainedFill(r, held ? BtnDown : BtnHover);
         }
 
         public static void SectionHeading(Listing_Standard l, string text)
@@ -289,7 +289,7 @@ namespace SlopWorld
         {
             var box = TickBox(r, on);
             if (mixed)
-                Slab.Fill(box.ContractedBy(Mathf.Round(box.width * 0.3f)), CheckFace);
+                Slab.GrainedFill(box.ContractedBy(Mathf.Round(box.width * 0.3f)), CheckFace);
             // extraPartOnGUI's return means the extra part handled the click. The row does.
             return false;
         }

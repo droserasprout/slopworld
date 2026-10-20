@@ -639,7 +639,7 @@ namespace SlopWorld
             // the wash from making a field one pixel heavier than its neighbours.
             Slab.Fill(r, on ? Well : Fade(Well, 0.5f));
             if (on && over)
-                Slab.Fill(r, held ? BtnDown : BtnHover);
+                Slab.GrainedFill(r, held ? BtnDown : BtnHover);
             Slab.Outline(r, focused ? Accent : BtnEdge);
 
             // The one control with real keyboard focus: the ring makes the active entry

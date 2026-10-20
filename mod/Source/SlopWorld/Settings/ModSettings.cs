@@ -146,7 +146,7 @@ namespace SlopWorld
         public string displayMode = FramePolicy.Auto;
         public int foregroundFps = 60;
         public bool vsync;
-        public string crtOverlay = CrtMode.Mild;
+        public string visualEffects = VisualEffectsMode.Mild;
         public bool smoothScrolling = true;
 
         // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
@@ -186,7 +186,7 @@ namespace SlopWorld
         {
             Field("autoConnect", (ModSettings s) => ref s.autoConnect, Bool, String),
             Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
-            Field("crtOverlay", (ModSettings s) => ref s.crtOverlay, Crt, String),
+            Field("visualEffects", (ModSettings s) => ref s.visualEffects, Text, String),
             Field("sidebarHidden", (ModSettings s) => ref s.sidebarHidden, Bool, String),
             Field("sidebarWidth", (ModSettings s) => ref s.sidebarWidth, Float, Number),
             Field(
@@ -298,7 +298,7 @@ namespace SlopWorld
 
         void Normalize()
         {
-            crtOverlay = CrtMode.Normalize(crtOverlay);
+            visualEffects = VisualEffectsMode.Normalize(visualEffects);
             sidebarFilesOpenFraction = NormalizeSidebarFilesOpenFraction(sidebarFilesOpenFraction);
         }
 
@@ -307,17 +307,6 @@ namespace SlopWorld
             if (float.IsNaN(value) || float.IsInfinity(value))
                 return 0.25f;
             return Math.Max(0f, Math.Min(1f, value));
-        }
-
-        // Accept the original boolean preference without turning a disabled overlay back on.
-        static string Crt(Dictionary<string, Toml.Scalar> values, string key, string fallback)
-        {
-            if (
-                values.TryGetValue(key, out Toml.Scalar value)
-                && value.TryGetBoolean(out bool enabled)
-            )
-                return enabled ? CrtMode.Mild : CrtMode.Off;
-            return Text(values, key, fallback);
         }
 
         static string Text(Dictionary<string, Toml.Scalar> values, string key, string fallback) =>

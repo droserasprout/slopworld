@@ -66,19 +66,23 @@ namespace SlopWorld
             UiSelector.Draw(
                 l,
                 "Post-processing",
-                CrtMode.Label(S.crtOverlay),
-                new[] { CrtMode.Off, CrtMode.Mild, CrtMode.Intense, CrtMode.FullOn }.Select(
-                    mode => new FloatMenuOption(
-                        CrtMode.Label(mode),
-                        () =>
-                        {
-                            S.crtOverlay = mode;
-                            S.MarkDirty();
-                        }
-                    )
-                ),
+                VisualEffectsMode.Label(S.visualEffects),
+                new[]
+                {
+                    VisualEffectsMode.Off,
+                    VisualEffectsMode.Mild,
+                    VisualEffectsMode.Moderate,
+                    VisualEffectsMode.Massive,
+                }.Select(mode => new FloatMenuOption(
+                    VisualEffectsMode.Label(mode),
+                    () =>
+                    {
+                        S.visualEffects = mode;
+                        S.MarkDirty();
+                    }
+                )),
                 out _,
-                "Scanlines and vignette across the whole window. Mild is the default. Applies immediately."
+                "Window scanlines and vignette, surface grain, and cursor dimming. Mild is the default. Applies immediately."
             );
 
             UiLayout.SectionHeading(l, "Scrolling");

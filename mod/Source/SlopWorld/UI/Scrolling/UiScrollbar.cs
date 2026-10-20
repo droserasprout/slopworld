@@ -46,12 +46,15 @@ namespace SlopWorld
                 UiTheme.ScrollRailW,
                 track.height
             );
-            Widgets.DrawBoxSolid(rail, UiTheme.ScrollTrough);
-            Widgets.DrawBoxSolid(
+            bool over = hit.Contains(Event.current.mousePosition);
+            Slab.Fill(rail, UiTheme.ScrollTrough);
+            Slab.Box(
                 thumb,
                 held ? UiTheme.ScrollThumbHeld
-                    : hit.Contains(Event.current.mousePosition) ? UiTheme.ScrollThumbHover
-                    : UiTheme.ScrollThumb
+                    : over ? UiTheme.ScrollThumbHover
+                    : UiTheme.ScrollThumb,
+                Color.clear,
+                grain: held || over
             );
         }
     }

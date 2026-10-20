@@ -207,9 +207,9 @@ namespace SlopWorld
         static void CategoryRow(Rect r, bool selected)
         {
             if (selected)
-                Slab.Fill(r, UiTheme.Sel);
+                Slab.GrainedFill(r, UiTheme.Sel);
             else if (Mouse.IsOver(r))
-                Slab.Fill(r, UiTheme.Hover);
+                Slab.GrainedFill(r, UiTheme.Hover);
         }
 
         static void Select(Dialog_Options dlg, OptionCategoryDef category)

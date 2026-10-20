@@ -104,9 +104,7 @@ namespace SlopWorld
                 bool folded = _folded.Contains(group.Key);
 
                 var headRect = new Rect(rect.x, y, rect.width, CatH);
-                bool overHead = Mouse.IsOver(headRect);
-                if (overHead)
-                    Slab.Fill(headRect, UiTheme.Hover);
+                bool overHead = RowChrome.Hover(headRect, false, true, RowHoverPolicy.Local);
 
                 float arrowSize = 10f;
                 var arrowRect = new Rect(

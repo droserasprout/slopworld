@@ -184,7 +184,7 @@
     <Compile Include="../Source/SlopWorld/UI/Text/FieldFocusOrder.cs" Link="Source/UI/Text/FieldFocusOrder.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalSelectionState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalPanelGeometry.cs" Link="Source/UI/Terminal/Rendering/TerminalPanelGeometry.cs" />
-    <Compile Include="../Source/SlopWorld/Settings/CrtMode.cs" />
+    <Compile Include="../Source/SlopWorld/Settings/VisualEffectsMode.cs" />
     <Compile Include="../Source/SlopWorld/Settings/FramePolicy.cs" Link="Source/Settings/FramePolicy.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" Link="Source/Client/SessionHub/HubEventBatch.cs" />
     <Compile Include="../Source/SlopWorld/Client/Transport/IncomingMessageQueue.cs" Link="Source/IncomingMessageQueue.cs" />

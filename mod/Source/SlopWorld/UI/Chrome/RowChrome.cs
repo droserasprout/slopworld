@@ -61,14 +61,20 @@ namespace SlopWorld
         )
         {
             if (selected)
-                Slab.Fill(
+                Slab.GrainedFill(
                     rect,
                     selectionStyle == RowSelectionStyle.Palette ? UiTheme.Sel
                         : selectionStyle == RowSelectionStyle.Hover ? UiTheme.Hover
                         : UiTheme.RowOn
                 );
             if (over)
-                Slab.Fill(rect, UiTheme.Hover);
+            {
+                // Selected rows already carry grain; don't stack it on hover.
+                if (selected)
+                    Slab.Fill(rect, UiTheme.Hover);
+                else
+                    Slab.GrainedFill(rect, UiTheme.Hover);
+            }
             return over;
         }
 

@@ -3,7 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Flat rectangular chrome with no textures. Geometry is snapped through GUIToScreenPoint
+    // Rectangular chrome with optional grain on widget faces. Geometry is snapped through GUIToScreenPoint
     // so edges land on the screen pixel grid at non-integer UI scales.
     public static class Slab
     {
@@ -17,6 +17,13 @@ namespace SlopWorld
 
         // A box in one color.
         public static void Fill(Rect r, Color c) => Flat(r, c);
+
+        public static void GrainedFill(Rect r, Color c)
+        {
+            Flat(r, c);
+            if (Paint(c))
+                SurfaceGrain.Draw(Snap(r), c.a);
+        }
 
         // The same box's border and nothing inside it, laid inside the rect so an outlined
         // box covers exactly what it was given.
@@ -38,9 +45,12 @@ namespace SlopWorld
         // panel and a check box differ by which two colors they hand over, and by nothing
         // else. Flat, with no relief: a pressed button is a darker face rather than a box
         // that moves.
-        public static void Box(Rect r, Color face, Color edge)
+        public static void Box(Rect r, Color face, Color edge, bool grain = false)
         {
-            Fill(r, face);
+            if (grain)
+                GrainedFill(r, face);
+            else
+                Fill(r, face);
             Outline(r, edge);
         }
 

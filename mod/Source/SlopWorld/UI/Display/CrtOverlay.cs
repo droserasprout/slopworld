@@ -30,13 +30,13 @@ namespace SlopWorld
             // Depth belongs to this separate GUI behaviour. Root's windows, tooltips and
             // screensaver must all remain below it; drawing allocates no input controls.
             GUI.depth = -10000;
-            string mode = Settings.CrtOverlay;
+            string mode = Settings.VisualEffects;
             if (_mode != mode)
             {
                 ReleaseTextures();
                 _mode = mode;
             }
-            if (mode == CrtMode.Off)
+            if (mode == VisualEffectsMode.Off)
             {
                 ReleaseTextures();
                 return;
@@ -55,7 +55,11 @@ namespace SlopWorld
             }
             if (_scanlines == null)
             {
-                _scanlines = CreateScanlines(Screen.height, scale, CrtMode.ScanlineOpacity(mode));
+                _scanlines = CreateScanlines(
+                    Screen.height,
+                    scale,
+                    VisualEffectsMode.ScanlineOpacity(mode)
+                );
                 _scanlineScale = scale;
             }
             RefreshVignette(Screen.width, Screen.height);
@@ -99,7 +103,7 @@ namespace SlopWorld
                 _vignette = null;
             }
             if (_vignette == null && Time.realtimeSinceStartup >= _vignetteReadyAt)
-                _vignette = CreateVignette(width, height, CrtMode.CornerOpacity(_mode));
+                _vignette = CreateVignette(width, height, VisualEffectsMode.CornerOpacity(_mode));
         }
 
         static Texture2D CreateScanlines(int height, float scale, float opacity)

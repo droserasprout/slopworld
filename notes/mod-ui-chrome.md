@@ -5,13 +5,13 @@ separate GUI behaviour draws above Root's windows and tooltips in physical pixel
 independently of terminal caches. Scanline thickness and spacing follow the game's
 UI scale, with fractional coverage at line edges; the strip rebuilds when scale
 or screen height changes. It creates no input controls. The
-profile's `crtOverlay` preference appears as Post-processing under Rendering, after
+profile's `visualEffects` preference appears as Post-processing under Rendering, after
 VSync, and offers Meh, Mild (default), Moderate, and Massive.
-`CrtMode` owns absolute scanline and corner opacities for each preset; the overlay
+`VisualEffectsMode` owns scanline, vignette, grain, and cursor strengths for each preset; the overlay
 owns coverage, falloff, and dithering. Changes rebuild textures immediately,
 and Meh disables the overlay and releases them.
 The hardware cursor bypasses the overlay. Its texture cache bakes a uniform RGB dim
-and alpha reduction from `CrtMode` and rebuilds when the preset changes. Hotspots
+and alpha reduction from `VisualEffectsMode` and rebuilds when the preset changes. Hotspots
 are calculated before alpha changes so effect strength cannot move the click point.
 Vignette dithering is baked at screen resolution. During resize it is hidden, then
 rebuilt after dimensions remain stable for 200 ms to avoid repeated full-screen
@@ -22,6 +22,17 @@ or scaling its noise would reintroduce bands or turn the noise into visible patc
 icon catalogs; `UI/Workspace/` owns workspace host chrome. Start with `UiText`,
 `UiButtons`, `UiControls`, `UiLayout`, and `Slab` when adding a control. Feature
 owners supply status, availability, empty messages, and actions.
+
+Grained widget faces use `Slab.GrainedFill` or `Slab.Box` with `grain: true`.
+`SurfaceGrain` owns their shared, static noise tile, drawn at physical-pixel scale
+before borders, labels, and icons. Primary and danger buttons, checked indicators,
+slider fills, settings tabs, selected rows, and interactive hover faces opt in
+explicitly; color equality does not select textured surfaces. Slider knobs and
+scrollbar thumbs opt in while hovered or dragged. Appearance previews reuse the
+button and row renderers. Grain opacity follows face opacity, including disabled faces.
+The post-processing selector also controls grain: Meh disables it, Mild keeps the
+baseline, and Moderate/Massive increase its strength. Changes apply on the next
+repaint without rebuilding the shared tile.
 
 Measurement, drawing, and hit testing must share stable geometry and control IDs
 across IMGUI passes. Measurement must not invoke controls, setters, or mutate form

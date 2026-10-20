@@ -87,8 +87,8 @@ namespace SlopWorld
         static void EnsureTextures()
         {
             var choice = ChoiceFor(Settings.Cursor) ?? _choices[0];
-            float brightness = CrtMode.CursorBrightness(Settings.CrtOverlay);
-            float opacity = CrtMode.CursorOpacity(Settings.CrtOverlay);
+            float brightness = VisualEffectsMode.CursorBrightness(Settings.VisualEffects);
+            float opacity = VisualEffectsMode.CursorOpacity(Settings.VisualEffects);
             if (!Textures.Matches(choice, Settings.CursorGrayscale, brightness, opacity))
             {
                 Animation.Reset();

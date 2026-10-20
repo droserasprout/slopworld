@@ -408,23 +408,20 @@ namespace SlopWorld
                     DrawButtonExample(
                         new Rect(x, y, buttonW, buttonH),
                         "OPEN",
-                        UiTheme.Accent,
-                        UIScheme.Current.AccentText,
-                        Color.clear
+                        UiTheme.Btn.Primary,
+                        UIScheme.Current.AccentText
                     );
                     DrawButtonExample(
                         new Rect(x + buttonW + gap, y, buttonW, buttonH),
                         "DEFAULT",
-                        UiTheme.Well,
-                        UiTheme.Lead,
-                        UiTheme.Edge
+                        UiTheme.Btn.Default,
+                        UiTheme.Lead
                     );
                     DrawButtonExample(
                         new Rect(x + (buttonW + gap) * 2f, y, buttonW, buttonH),
                         "DELETE",
-                        UiTheme.Destructive,
-                        UIScheme.Current.DestructiveText,
-                        Color.clear
+                        UiTheme.Btn.Danger,
+                        UIScheme.Current.DestructiveText
                     );
                     y += buttonH;
                 }
@@ -468,9 +465,9 @@ namespace SlopWorld
             }
         }
 
-        static void DrawButtonExample(Rect r, string label, Color face, Color text, Color edge)
+        static void DrawButtonExample(Rect r, string label, UiTheme.Btn kind, Color text)
         {
-            Slab.Box(r, face, edge);
+            UiButtons.ButtonBackground(r, kind, true, false, false);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Tiny;
@@ -519,7 +516,8 @@ namespace SlopWorld
 
         static void DrawListExample(Rect r)
         {
-            Slab.Box(r, UiTheme.RowOn, UiTheme.EdgeLit);
+            RowChrome.Hover(r, true, true, RowHoverPolicy.None);
+            Slab.Outline(r, UiTheme.EdgeLit);
             float marker = Mathf.Min(UiTheme.StatusMarker, r.height - 8f);
             Slab.Fill(
                 new Rect(r.x + 6f, r.y + (r.height - marker) / 2f, marker, marker),

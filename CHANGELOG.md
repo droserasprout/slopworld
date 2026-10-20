@@ -12,7 +12,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
-- Settings: Configurable CRT effect intensity.
+- UI: Post-processing!
 
 ## [0.0.8] - 2026-10-20
 

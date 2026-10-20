@@ -128,7 +128,7 @@ namespace SlopWorld
             {
                 Slab.Fill(r, on ? defaultFace : Fade(defaultFace, 0.5f));
                 if (on && over)
-                    Slab.Fill(r, held ? BtnDown : BtnHover);
+                    Slab.GrainedFill(r, held ? BtnDown : BtnHover);
                 face = Clear;
             }
             else
@@ -165,7 +165,7 @@ namespace SlopWorld
                 : on ? BtnEdge
                 : Fade(BtnEdge, 0.5f);
 
-            Slab.Box(r, face, edge);
+            Slab.Box(r, face, edge, grain: solid || (on && over));
         }
     }
 
@@ -193,7 +193,7 @@ namespace SlopWorld
                 face = Fade(face, 0.5f);
                 edge = Fade(edge, 0.5f);
             }
-            Slab.Box(box, face, edge);
+            Slab.Box(box, face, edge, grain: on);
             if (on)
             {
                 using (WidgetState.Save())
@@ -231,7 +231,7 @@ namespace SlopWorld
         {
             bool over = !locked && Mouse.IsOver(r);
             if (over)
-                Slab.Fill(r, Hover);
+                Slab.GrainedFill(r, Hover);
             if (!string.IsNullOrEmpty(tip))
                 TooltipHandler.TipRegion(r, tip);
             var box = TickBox(new Rect(r.x + 1f, r.y, TickW, r.height), on, locked);
@@ -415,7 +415,7 @@ namespace SlopWorld
                 : held ? BtnDown
                 : over ? BtnHover
                 : Well;
-            Slab.Box(box, face, on ? BtnEdge : Fade(BtnEdge, 0.5f));
+            Slab.Box(box, face, on ? BtnEdge : Fade(BtnEdge, 0.5f), grain: over);
             if (shownOpen)
                 Slab.Ring(box, Accent);
 
@@ -709,9 +709,10 @@ namespace SlopWorld
             Slab.Box(track, Well, BtnEdge);
             var fill = new Rect(track.x, track.y, track.width * Mathf.Clamp01(value), track.height);
             if (fill.width > 0f)
-                Slab.Fill(fill, PrimeFace);
+                Slab.GrainedFill(fill, PrimeFace);
             float knobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
             bool grabbed = held = state.dragging;
+            bool overKnob = Mouse.IsOver(hit);
             Slab.Box(
                 new Rect(
                     knobX - SliderKnobWidth / 2f,
@@ -720,9 +721,10 @@ namespace SlopWorld
                     track.height + SliderKnobVerticalInset * 2f
                 ),
                 grabbed ? Lighten(KnobFace, -0.20f)
-                    : Mouse.IsOver(hit) ? Lighten(KnobFace, -0.08f)
+                    : overKnob ? Lighten(KnobFace, -0.08f)
                     : KnobFace,
-                Clear
+                Clear,
+                grain: grabbed || overKnob
             );
             return value;
         }

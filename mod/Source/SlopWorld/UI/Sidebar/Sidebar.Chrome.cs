@@ -36,7 +36,10 @@ namespace SlopWorld
             // press, but the pointer is still visibly over the control that opened it.
             bool over = ColonistBarStrip.MouseOver(AddHitBar);
 
-            Slab.Fill(r, over ? UiTheme.Hover : UiTheme.Panel);
+            if (over)
+                Slab.GrainedFill(r, UiTheme.Hover);
+            else
+                Slab.Fill(r, UiTheme.Panel);
             TooltipHandler.TipRegion(
                 r,
                 "Add projects, agents, workers, tasks, library items, presets, "
