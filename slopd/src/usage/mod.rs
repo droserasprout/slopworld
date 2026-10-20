@@ -1,16 +1,14 @@
-//! Poll provider usage with current credentials and validated response fields.
+//! Provider usage model and polling laps; application owns scheduling and publication.
 //! Preserve snapshots after failures. Unknown responses supply no values, instead of incorrect zero values.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use serde::Serialize;
-
-use crate::session::Manager;
 
 mod anthropic_cache;
 mod parsing;
 mod polling;
+pub(crate) use polling::UsagePollers;
 mod providers;
 mod publication;
 mod rows;
@@ -154,10 +152,6 @@ impl Default for Snapshot {
             rows: Vec::new(),
         }
     }
-}
-
-pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
-    polling::spawn(m)
 }
 
 #[cfg(test)]

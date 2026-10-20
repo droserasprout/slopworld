@@ -69,7 +69,7 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool
     }
     // Query each root-only source only after the preceding send succeeds.
     let ev = EventMessage::new(Event::Usage {
-        usage: m.usage().await,
+        usage: m.application.usage().await,
     });
     if send(tx, cap, &ev).await.is_err() {
         return false;
@@ -87,7 +87,7 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool
         return false;
     }
     let ev = EventMessage::new(Event::Audio {
-        audio: m.music_state().await,
+        audio: m.application.music.state().await,
     });
     if send(tx, cap, &ev).await.is_err() {
         return false;

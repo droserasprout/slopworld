@@ -8,7 +8,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | Area | Responsibility |
 | --- | --- |
 | `main.rs` | Startup/service orchestration and token middleware. |
-| `application/` | Daemon-wide event publication and task-service composition. Session adapters supply identity/authorization leases; API owns event encoding. |
+| `application/` | Startup-constructed, shared event/task/music services. Application owns usage and music polling/publication; session adapters supply identity/authorization leases and host lifecycle; API owns event encoding. |
 | `shared/` | Protocol constants/enums and serialization helpers. |
 | `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. `handlers/actions.rs` decodes explicit launches and file actions; `handlers/config.rs` owns config patch policy. See [file mutation boundary](daemon-file-mutations.md) and [file preview boundary](daemon-file-previews.md). |
 | `api/handlers/files/`, `api/handlers/highlighting.rs` | File and syntax-preview HTTP decoding, path resolution, error mapping, and wire projection. |
@@ -38,7 +38,7 @@ and Cargo binary entry points. Test and coverage guidance belongs to
 | `tasks.rs`, `tasks/`, `grant.rs` | Mailbox model, indexed policy and persistence adapters; `tasks/io.rs` owns blocking startup and serialized I/O with explicit caller leases; scoped authority. |
 | `music/` | Playback selection, catalog resolution, recovery, and serialized source transitions. `ncspot.rs` owns managed-player state and bounded IPC; `session/manager/music.rs` adapts host-terminal lifecycle through `HostSessions`. |
 | `audio/`, `jukebox.rs` | Decoded playback and station catalog storage. `tmux/ncspot.rs` owns managed-player and applied-volume markers. See [jukebox](mod-jukebox.md). |
-| `usage/` | Provider polling and quota normalization. |
+| `usage/` | Provider polling laps and quota normalization. Accepts daemon settings and returns a snapshot plus the next delay; application owns the background loop and retained readout. |
 | `bin/` | Launcher, installer, and `slopctl` CLI. |
 | `bin/slopctl/logs/stream.rs` | Bounded log fan-in and producer/child cleanup. |
 

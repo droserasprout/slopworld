@@ -33,7 +33,6 @@ mod worktrees;
 pub(crate) use worktrees::WorktreeRequest;
 pub(crate) use worktrees::WorktreeState;
 
-use crate::music::Music;
 pub(crate) use agent_templates::TemplatePersistence;
 pub(crate) use agent_templates::TemplateStore;
 pub(crate) use caps::Authorization;
@@ -55,7 +54,7 @@ pub struct Manager {
     pub cfg_path: PathBuf,
     pub(super) endpoint_path: PathBuf,
     // Accepted configuration and auth publish together; configuration owns transactions.
-    pub(super) cfg: RwLock<Config>,
+    pub(super) cfg: Arc<RwLock<Config>>,
     pub(super) catalog_state: CatalogState,
     pub(super) configuration: crate::config::transactions::Transactions,
     pub(super) templates: TemplateStore,
@@ -73,13 +72,12 @@ pub struct Manager {
     pub(super) title_cache: crate::title::SummaryCache,
 
     // Client communication and authorization.
-    pub(crate) application: crate::application::Services,
+    pub(crate) application: Arc<crate::application::Services>,
     pub(super) signals: Signals,
     pub(super) auth: Authorization,
 
     // Supporting services.
     pub(super) worktrees: WorktreeState,
-    music: Music,
 
     // Operation locks spanning multiple owners.
     // Shared for ordinary requests, exclusive for session identity and lifecycle changes.

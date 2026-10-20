@@ -182,14 +182,11 @@ async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles
         Instant::now(),
     );
     let due = pollers.providers[0].poller.due;
-    let first = crate::session::test_manager(config.clone());
-    pollers.poll_once(&first).await;
+    let (first, _) = pollers.poll_once(&config.daemon).await;
     assert_eq!(pollers.providers[0].poller.due, due);
     assert_eq!(pollers.providers[0].poller.fails, 1);
     assert!(
         first
-            .usage()
-            .await
             .rows
             .iter()
             .find(|row| row.key == CLAUDE_SESSION)
@@ -211,11 +208,9 @@ async fn polling_laps_preserve_failure_deadlines_and_publish_placeholder_toggles
         .get_mut(CLAUDE_WEEK)
         .unwrap()
         .interval_secs = Some(300);
-    let changed = crate::session::test_manager(config);
-    pollers.poll_once(&changed).await;
+    let (published, _) = pollers.poll_once(&config.daemon).await;
     assert_eq!(pollers.providers[0].poller.due, due);
     assert_eq!(pollers.providers[0].poller.fails, 1);
-    let published = changed.usage().await;
     let session = published
         .rows
         .iter()
@@ -381,13 +376,13 @@ async fn missing_credentials_hide_rows_and_restored_credentials_recover_them() {
 
 #[tokio::test]
 async fn default_configuration_does_not_poll_any_provider() {
-    let manager = crate::session::test_manager(crate::config::Config::default());
+    let config = crate::config::Daemon::default();
     let mut pollers = UsagePollers::new();
     for provider in &mut pollers.providers {
         provider.read = |_| panic!("disabled polling must not read credentials");
     }
-    assert_eq!(pollers.poll_once(&manager).await, LOOK);
-    let published = manager.usage().await;
+    let (published, wait) = pollers.poll_once(&config).await;
+    assert_eq!(wait, LOOK);
     assert!(published.sources.is_empty());
     assert!(published.windows.is_empty());
     assert!(published.rows.iter().all(|row| !row.poll));

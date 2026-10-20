@@ -10,7 +10,9 @@ indexes, cache-link rollback, and library revision acceptance. Its runtime adapt
 in `session/manager/config/` retains session/worktree operation guards, validates
 live constraints, publishes configuration and authentication together, and updates
 endpoint credentials before releasing the persistence gate. Client announcements
-follow the completed transaction. `session/manager/catalog_state.rs` holds independent
+follow the completed transaction. `config/accepted.rs` gives background services
+read-only daemon-settings snapshots from that same lock; there is no secondary
+settings cache or independent publication step. `session/manager/catalog_state.rs` holds independent
 catalog polling deadlines and timestamps.
 `storage/layout.rs` recovers and loads the workspace once, then hands the validated
 configuration, typed record indexes and sampled library revision to the manager.

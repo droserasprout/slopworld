@@ -1,9 +1,14 @@
 # Daemon usage polling
 
-`usage/mod.rs` owns the public model and background entry point; `polling.rs` owns
-provider execution and credential watching; `schedule.rs` owns retry and row cadence
+`usage/mod.rs` owns the public model; `polling.rs` owns provider execution and
+credential watching. Each lap accepts a daemon-settings snapshot and returns the
+readout plus the next delay. `application/usage.rs` owns the background loop, retained
+snapshot, and change-only event publication. Its read-only settings handle shares
+the accepted configuration lock and does not retain the session manager.
+`schedule.rs` owns retry and row cadence
 transitions with caller-supplied monotonic time; `publication.rs` owns aggregation
 and poll diagnostics, including enabled sources and final row resolution once per lap.
+
 `rows.rs` owns catalog and row policy;
 `providers.rs` owns credential reads and HTTP; `parsing.rs` interprets upstream JSON;
 `anthropic_cache.rs` owns shared Anthropic request coordination. Daemon configuration

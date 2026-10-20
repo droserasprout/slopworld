@@ -1,14 +1,16 @@
 //! Manager construction and startup recovery.
 
 use super::super::*;
-use super::{
-    Authorization, CatalogState, HostMetadataPoll, Music, Signals, TemplateStore, WorktreeState,
-};
+use super::{Authorization, CatalogState, HostMetadataPoll, Signals, TemplateStore, WorktreeState};
 use crate::config::transactions::{Transactions, records::Records};
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
-    pub(crate) async fn new(loaded: crate::storage::layout::Loaded) -> Result<Arc<Self>> {
+    pub(crate) async fn new(
+        loaded: crate::storage::layout::Loaded,
+        application: Arc<crate::application::Services>,
+        tmux: Tmux,
+    ) -> Result<Arc<Self>> {
         let crate::storage::layout::Loaded {
             config: cfg,
             binding,
@@ -25,9 +27,6 @@ impl Manager {
         // Load persisted stores before constructing shared state.
         let grants = crate::grant::Grants::load_data(&binding.data)
             .with_context(|| format!("loading grant store for {}", cfg_path.display()))?;
-        let tasks = crate::tasks::io::TaskStore::load(binding.data.clone())
-            .await
-            .with_context(|| format!("loading task store for {}", cfg_path.display()))?;
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let template_path = binding.config.join("agent_templates");
         let templates = crate::session::AgentTemplateStore::load(&template_path)
@@ -43,7 +42,6 @@ impl Manager {
             })
             .is_ok();
 
-        let tmux = Tmux::new(crate::tmux::tmux_socket());
         let m = Arc::new(Self {
             #[cfg(test)]
             frame_commit_pause: Mutex::new(None),
@@ -55,13 +53,13 @@ impl Manager {
             input_sink: Mutex::new(None),
             #[cfg(test)]
             _test_directory: None,
-            tmux: tmux.clone(),
+            tmux,
             cfg_path,
             endpoint_path: crate::endpoint::path(),
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             library_snapshot: Mutex::new(cfg.library_items_all()),
-            cfg: RwLock::new(cfg),
+            cfg: Arc::new(RwLock::new(cfg)),
             templates: TemplateStore::new(templates),
             configuration: Transactions::new(Records::new(binding, stores), library_revision),
             catalog_state: CatalogState::new(
@@ -73,8 +71,7 @@ impl Manager {
             scroll_cache: Mutex::new(HashMap::new()),
             activity_mutation: tokio::sync::Mutex::new(()),
             activity_cache,
-            music: Music::new(tmux),
-            application: crate::application::Services::new(tasks, 256),
+            application,
             auth: Authorization::new(grants),
             session_boundary: Arc::new(tokio::sync::RwLock::new(())),
             terminal_boundaries: Mutex::new(HashMap::new()),
@@ -109,8 +106,6 @@ impl Manager {
         {
             tracing::error!("could not prune stale persisted grants: {error:#}");
         }
-
-        m.music.recover(&m).await;
 
         Ok(m)
     }

@@ -453,3 +453,22 @@ async fn failed_prepared_commit_keeps_accepted_snapshot_and_allows_retry() {
         Some("retry")
     );
 }
+
+#[tokio::test]
+async fn daemon_settings_reader_observes_only_accepted_settings_and_survives_manager_drop() {
+    let manager = test_manager(Config::default());
+    let reader = manager.daemon_settings();
+    let before = reader.snapshot().await.usage_poll_secs;
+    let next = before + 60;
+    let patch = serde_json::json!({"daemon": {"usage_poll_secs": next}});
+    let fault = crate::paths::fail_writes(&manager.cfg_path);
+    manager.patch_config(patch.clone()).await.unwrap_err();
+    assert_eq!(reader.snapshot().await.usage_poll_secs, before);
+    drop(fault);
+    manager.patch_config(patch).await.unwrap();
+    assert_eq!(reader.snapshot().await.usage_poll_secs, next);
+    let weak = Arc::downgrade(&manager);
+    drop(manager);
+    assert!(weak.upgrade().is_none());
+    assert_eq!(reader.snapshot().await.usage_poll_secs, next);
+}

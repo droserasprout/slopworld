@@ -1,4 +1,4 @@
-//! Background provider execution and credential watching; schedule owns policy, publication owns views.
+//! Provider execution and credential watching; schedule owns policy, publication owns views.
 use super::Snapshot;
 use super::parsing::{parse_anthropic, parse_openai_response, parse_openrouter};
 use super::providers::{
@@ -8,10 +8,8 @@ use super::providers::{
 use super::publication::{merge, report_poll};
 use super::rows::provider_enabled;
 use super::schedule::{Poller, filter_snapshot};
-use crate::session::Manager;
 use std::{
     path::PathBuf,
-    sync::Arc,
     time::{Duration, Instant, SystemTime},
 };
 
@@ -116,15 +114,15 @@ async fn poll_one(provider: &mut Provider, d: &crate::config::Daemon, now: Insta
 /// This lets the loop detect newly enabled sources.
 const LOOK: Duration = Duration::from_secs(30);
 
-/// Provider polling state for the background task started by main.
+/// Provider polling state; application owns the background loop and publication.
 /// Log errors without logging each successful poll.
-struct UsagePollers {
+pub(crate) struct UsagePollers {
     providers: [Provider; 3],
     anthropic_creds_stamp: Option<SystemTime>,
 }
 
 impl UsagePollers {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let now = Instant::now();
         Self {
             providers: [
@@ -154,9 +152,7 @@ impl UsagePollers {
         }
     }
 
-    async fn poll_once(&mut self, m: &Arc<Manager>) -> Duration {
-        let cfg = m.config().await;
-        let d = &cfg.daemon;
+    pub(crate) async fn poll_once(&mut self, d: &crate::config::Daemon) -> (Snapshot, Duration) {
         let now = Instant::now();
         for provider in &mut self.providers {
             if provider.source == "anthropic" {
@@ -173,14 +169,12 @@ impl UsagePollers {
         }
 
         // Resolve every lap: config toggles also affect placeholders with no retained windows.
-        // Manager suppresses broadcasts when the effective readout has not changed.
         let out = merge(
             self.providers
                 .iter()
                 .map(|provider| (provider.source, &provider.poller.snap)),
             d,
         );
-        m.set_usage(out).await;
 
         let due = self
             .providers
@@ -189,23 +183,15 @@ impl UsagePollers {
             .map(|provider| provider.poller.due)
             .min();
 
-        due.map(|at| at.saturating_duration_since(Instant::now()))
+        let wait = due
+            .map(|at| at.saturating_duration_since(Instant::now()))
             .unwrap_or(LOOK)
             .min(LOOK)
             // A poll that came back instantly must not spin the loop on a due time
             // already in the past.
-            .max(Duration::from_secs(1))
+            .max(Duration::from_secs(1));
+        (out, wait)
     }
-}
-
-pub(super) fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        let mut pollers = UsagePollers::new();
-        loop {
-            let wait = pollers.poll_once(&m).await;
-            tokio::time::sleep(wait).await;
-        }
-    })
 }
 
 #[cfg(test)]

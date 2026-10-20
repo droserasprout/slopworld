@@ -43,7 +43,7 @@ pub(crate) fn test_manager_with_socket(
         cfg_path: cfg_path.clone(),
         endpoint_path: cfg_path.with_extension("endpoint.toml"),
         library_snapshot: Mutex::new(config.library_items_all()),
-        cfg: RwLock::new(config),
+        cfg: Arc::new(RwLock::new(config)),
         templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
@@ -56,13 +56,13 @@ pub(crate) fn test_manager_with_socket(
         activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
             &cfg_path,
         )),
-        music: Music::new(tmux),
-        application: crate::application::Services::new(
+        application: Arc::new(crate::application::Services::new(
             crate::tasks::io::TaskStore::new(
                 crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
             ),
+            tmux,
             16,
-        ),
+        )),
         auth: Authorization::new(crate::grant::Grants::default()),
         session_boundary: Arc::new(tokio::sync::RwLock::new(())),
         terminal_boundaries: Mutex::new(HashMap::new()),

@@ -1,5 +1,7 @@
 //! Configuration module, project/session lookups, and configured-path resolution.
 
+mod accepted;
+pub(crate) use accepted::DaemonSettings;
 pub(crate) mod catalog;
 mod commands;
 mod daemon;

@@ -25,6 +25,10 @@ impl crate::config::transactions::Runtime for Manager {
 }
 
 impl Manager {
+    pub(crate) fn daemon_settings(&self) -> crate::config::DaemonSettings {
+        crate::config::DaemonSettings::new(self.cfg.clone())
+    }
+
     pub async fn config(&self) -> Config {
         self.cfg.read().await.clone()
     }

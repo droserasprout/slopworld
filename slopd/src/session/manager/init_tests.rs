@@ -59,7 +59,15 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     // Manager construction must adopt the validated indexes, not reload a second
     // workspace snapshot after startup has already selected its configuration.
     std::fs::write(&kept_path, "broken external edit after load").unwrap();
-    let manager = Manager::new(loaded).await.unwrap();
+    let tmux = Tmux::new(socket.clone());
+    let application = crate::application::Services::load(&loaded.binding.data, tmux.clone())
+        .await
+        .unwrap();
+    let manager = Manager::new(loaded, application.clone(), tmux)
+        .await
+        .unwrap();
+    assert!(Arc::ptr_eq(&manager.application, &application));
+    application.music.recover(&manager).await;
 
     let live = manager.live.read().await;
     assert_eq!(live.len(), 2);

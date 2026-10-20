@@ -106,12 +106,16 @@ async fn main() -> Result<()> {
         .collect();
     let bind = cfg.daemon.bind.clone();
     let listener = storage::startup::serving_listener(reservations, &bind).await?;
-    let m = Manager::new(loaded).await?;
+    let tmux = tmux::Tmux::new(tmux::tmux_socket());
+    let services = application::Services::load(&loaded.binding.data, tmux.clone()).await?;
+    let m = Manager::new(loaded, services.clone(), tmux).await?;
+    // Player recovery needs adopted host terminals, before polling or serving requests.
+    services.music.recover(&m).await;
 
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;
 
-    // Background maintenance and media services share the manager.
+    // Session maintenance retains lifecycle coordination.
     let poller = {
         let m: Arc<Manager> = m.clone();
         tokio::spawn(async move {
@@ -127,10 +131,10 @@ async fn main() -> Result<()> {
     };
 
     // Spawn even when disabled so polling can be enabled without a restart.
-    let usage = usage::spawn(m.clone());
+    let usage = services.spawn_usage_poll(m.daemon_settings());
 
     // Monitor the jukebox. The mod selects what to play.
-    let audio = m.spawn_music_poll();
+    let audio = services.spawn_music_poll();
 
     // Publish discovery information only after the listener is bound.
     let app = api::router(m.clone())

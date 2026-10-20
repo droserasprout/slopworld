@@ -9,11 +9,11 @@ use serde_json::json;
 use super::super::{ApiResult, Mgr};
 
 pub(crate) async fn usage(State(m): State<Mgr>) -> ApiResult<wire::UsageSnapshot> {
-    reply(json!(m.usage().await))
+    reply(json!(m.application.usage().await))
 }
 
 pub(crate) async fn audio(State(m): State<Mgr>) -> ApiResult<wire::AudioState> {
-    reply(json!(m.music_state().await))
+    reply(json!(m.application.music.state().await))
 }
 
 /// Supply the station catalog for jukebox clients. Keep URLs in the daemon.

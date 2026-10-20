@@ -49,46 +49,19 @@ impl crate::music::HostSessions for Arc<Manager> {
 }
 
 impl Manager {
-    /// Schedule combined player-state publication without coupling audio output to events.
-    pub(crate) fn spawn_music_poll(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
-        let manager = self.clone();
-        tokio::spawn(async move {
-            let mut last = None;
-            let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
-            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            loop {
-                tick.tick().await;
-                manager.publish_music_if_changed(&mut last).await;
-            }
-        })
-    }
-
-    async fn publish_music_if_changed(&self, last: &mut Option<crate::audio::AudioState>) {
-        let now = self.music.state().await;
-        if last.as_ref() == Some(&now) {
-            return;
-        }
-        *last = Some(now.clone());
-        self.emit(crate::application::Event::Audio { audio: now });
-    }
-
-    pub(crate) async fn music_state(&self) -> crate::audio::AudioState {
-        self.music.state().await
-    }
-
     pub(crate) async fn open_spotify(
         self: &Arc<Self>,
         cols: Option<u16>,
         rows: Option<u16>,
     ) -> Result<String> {
-        self.music.open_spotify(self, cols, rows).await
+        self.application.music.open_spotify(self, cols, rows).await
     }
 
     pub(crate) async fn select_music(
         self: &Arc<Self>,
         req: crate::music::AudioReq,
     ) -> Option<crate::audio::AudioState> {
-        self.music.select(self, req).await
+        self.application.music.select(self, req).await
     }
 }
 
