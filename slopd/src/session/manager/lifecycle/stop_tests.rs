@@ -1,66 +1,62 @@
 use super::*;
+use crate::session::{AgentLifetime, SessionRole};
 
 #[test]
-fn stopping_host_viewers_forgets_them_but_keeps_saved_shells() {
+fn teardown_retains_saved_roles_and_only_deletes_temporary_agent_state() {
     let manager = crate::session::test_manager(Config::default());
-    for persistent in [false, true] {
-        let mut live = HashMap::new();
-        let mut row = Live::new(SessionCfg::default(), TitleCapture::default());
-        row.ephemeral = true;
-        row.host = true;
-        row.persistent_host = persistent;
-        live.insert("host".into(), row);
+    for (role, saved, temporary_state) in [
+        (SessionRole::Agent(AgentLifetime::Durable), true, false),
+        (SessionRole::Agent(AgentLifetime::Temporary), false, true),
+        (SessionRole::HostShell, true, false),
+        (SessionRole::HostAction, false, false),
+    ] {
+        let token = Arc::new(());
+        for (cause, retained) in [
+            (DetachCause::Stop, saved),
+            (
+                DetachCause::ProcessExit {
+                    reader_token: token.clone(),
+                },
+                saved,
+            ),
+            (DetachCause::ConfigRemoval, false),
+            (DetachCause::Forget, false),
+        ] {
+            let mut live = HashMap::new();
+            let mut row = Live::new(SessionCfg::default(), TitleCapture::default());
+            row.role = role;
+            row.run_id = 17;
+            row.state = State::Working;
+            row.capture.reader_token = Some(token.clone());
+            live.insert("session".into(), row);
 
-        let plan = manager
-            .detach_live_locked(&mut live, "host", &DetachCause::Stop)
-            .unwrap();
-
-        assert_eq!(live.contains_key("host"), persistent);
-        assert!(!plan.remove_ephemeral_state);
+            let plan = manager
+                .detach_live_locked(&mut live, "session", &cause)
+                .unwrap();
+            assert_eq!(live.contains_key("session"), retained, "{role:?}");
+            assert_eq!(plan.remove_ephemeral_state, temporary_state, "{role:?}");
+            assert_eq!(plan.remove_temp_project, !retained, "{role:?}");
+            if retained {
+                let row = &live["session"];
+                assert_eq!(row.role, role);
+                assert_eq!(row.state, State::Down);
+                assert_eq!(row.run_id, 18);
+                assert!(row.capture.reader_token.is_none());
+            }
+            // The old capture owner cannot remove a retained row or a replacement.
+            assert!(
+                manager
+                    .detach_live_locked(
+                        &mut live,
+                        "session",
+                        &DetachCause::ProcessExit {
+                            reader_token: token.clone(),
+                        }
+                    )
+                    .is_none()
+            );
+        }
     }
-}
-
-#[test]
-fn config_removal_does_not_delete_durable_private_state() {
-    let manager = crate::session::test_manager(Config::default());
-    let mut live = HashMap::new();
-    live.insert(
-        "agent".into(),
-        Live::new(
-            SessionCfg {
-                name: "agent".into(),
-                ..Default::default()
-            },
-            TitleCapture::default(),
-        ),
-    );
-
-    let plan = manager
-        .detach_live_locked(&mut live, "agent", &DetachCause::ConfigRemoval)
-        .expect("durable live row should produce a cleanup plan");
-
-    assert!(!plan.remove_ephemeral_state);
-}
-
-#[test]
-fn config_removal_deletes_ephemeral_private_state() {
-    let manager = crate::session::test_manager(Config::default());
-    let mut live = HashMap::new();
-    let mut ephemeral = Live::new(
-        SessionCfg {
-            name: "agent".into(),
-            ..Default::default()
-        },
-        TitleCapture::default(),
-    );
-    ephemeral.ephemeral = true;
-    live.insert("agent".into(), ephemeral);
-
-    let plan = manager
-        .detach_live_locked(&mut live, "agent", &DetachCause::ConfigRemoval)
-        .expect("ephemeral live row should produce a cleanup plan");
-
-    assert!(plan.remove_ephemeral_state);
 }
 
 #[tokio::test]
@@ -167,7 +163,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     std::fs::create_dir_all(&unrelated).unwrap();
 
     let mut row = Live::new(session, TitleCapture::default());
-    row.ephemeral = true;
+    row.role = SessionRole::Agent(AgentLifetime::Temporary);
     row.set_state(State::Working);
     let (started, running) = tokio::sync::oneshot::channel();
     let (cancelled, cancellation) = tokio::sync::oneshot::channel::<()>();
@@ -286,7 +282,7 @@ async fn cancelled_stop_keeps_cleanup_and_identity_boundary_until_completion() {
         },
         TitleCapture::default(),
     );
-    row.ephemeral = true;
+    row.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("temporary".into(), row);
     manager
         .temp
@@ -335,8 +331,11 @@ async fn restart_rejects_runtime_only_viewers_and_workers_without_stopping_them(
         let name = session.name.clone();
         let task = session.task_id.clone();
         let mut row = Live::new(session, TitleCapture::default());
-        row.ephemeral = true;
-        row.host = !worker;
+        row.role = if !worker {
+            SessionRole::HostAction
+        } else {
+            SessionRole::Agent(AgentLifetime::Temporary)
+        };
         row.state = State::Working;
         manager.live.write().await.insert(name.clone(), row);
         manager

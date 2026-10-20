@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::SessionRole;
 
 fn editor_request() -> (Config, LibraryItemCfg, RunWhere) {
     let cfg = Config {
@@ -225,7 +226,7 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
         .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
-    assert!(manager.live.read().await[&host].host);
+    assert!(manager.live.read().await[&host].role.is_host());
 }
 
 #[tokio::test]
@@ -366,8 +367,8 @@ async fn temporary_clone_copies_agent_limits_within_session_boundary() {
     let name = create.await.unwrap();
     let live = manager.live.read().await;
     let row = &live[&name];
-    assert!(row.ephemeral);
-    assert!(!row.host);
+    assert!(!row.role.is_durable_agent());
+    assert!(!row.role.is_host());
     assert_eq!(row.cfg.network, crate::config::NetworkMode::None);
     assert_eq!(row.cfg.limits.memory_mb, Some(256));
     assert!(row.cfg.persistent_tmp);
@@ -435,7 +436,7 @@ async fn persistent_host_errand_saves_tab_and_live_metadata() {
     assert_eq!(saved.host_terminals[0].project, "repo");
     assert_eq!(saved.host_terminals[0].path, "/tmp");
     let live = manager.live.read().await;
-    assert!(live[&name].host && live[&name].persistent_host);
+    assert_eq!(live[&name].role, SessionRole::HostShell);
     assert_eq!(live[&name].host_path, "/tmp");
     assert!(manager.temp.read().await.is_empty());
     std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();

@@ -14,7 +14,7 @@ impl crate::music::HostSessions for Arc<Manager> {
             .read()
             .await
             .iter()
-            .filter(|(_, live)| live.host)
+            .filter(|(_, live)| live.role.is_host())
             .map(|(name, _)| name.clone())
             .collect()
     }

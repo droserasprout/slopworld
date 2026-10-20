@@ -179,7 +179,7 @@ impl Manager {
             self.sync_from_config().await;
         } else {
             let mut live = Live::new(session.clone(), TitleCapture::default());
-            live.ephemeral = true;
+            live.role = SessionRole::Agent(AgentLifetime::Temporary);
             self.live.write().await.insert(session.name.clone(), live);
         }
 

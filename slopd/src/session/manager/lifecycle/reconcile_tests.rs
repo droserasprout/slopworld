@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::{AgentLifetime, SessionRole};
 
 #[tokio::test]
 async fn cancelling_batch_cleanup_aborts_all_removed_readers() {
@@ -72,12 +73,12 @@ async fn host_catalog_refresh_preserves_existing_non_host_identity() {
 
     let live = manager.live.read().await;
     let shell = &live["shell"];
-    assert!(shell.host && shell.persistent_host && shell.ephemeral);
+    assert_eq!(shell.role, SessionRole::HostShell);
     assert_eq!(shell.cfg.label.as_deref(), Some("updated label"));
     assert_eq!(shell.host_path, "/");
     let worker = &live["worker"];
     assert!(worker.cfg.worker);
-    assert!(!worker.host && !worker.persistent_host);
+    assert_eq!(worker.role, SessionRole::Agent(AgentLifetime::Durable));
     assert_eq!(worker.cfg.label.as_deref(), Some("worker label"));
 }
 
@@ -100,8 +101,7 @@ async fn configured_agent_never_inherits_a_former_host_row() {
         },
         TitleCapture::default(),
     );
-    host.host = true;
-    host.ephemeral = true;
+    host.role = SessionRole::HostAction;
     manager.live.write().await.insert("shell".into(), host);
     {
         let live = manager.live.read().await;
@@ -109,6 +109,6 @@ async fn configured_agent_never_inherits_a_former_host_row() {
     }
     manager.upsert_sessions(&cfg).await;
     let live = manager.live.read().await;
-    assert!(live["shell"].host);
+    assert!(live["shell"].role.is_host());
     assert_ne!(live["shell"].cfg.state_id, session.state_id);
 }

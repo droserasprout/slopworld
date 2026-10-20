@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::{AgentLifetime, SessionRole};
 
 fn manager_for_start() -> Arc<Manager> {
     let mut cfg = Config::default();
@@ -143,7 +144,7 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
     let manager = manager_for_start();
     let cfg = manager.config().await;
     let mut live = Live::new(cfg.sessions[0].clone(), TitleCapture::default());
-    live.host = true;
+    live.role = SessionRole::HostAction;
     live.cols = 101;
     live.rows = 37;
     live.host_path = manager
@@ -156,7 +157,7 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
     manager.cfg.write().await.sessions.clear();
     manager.live.write().await.insert("agent".into(), live);
     let plan = manager.prepare_start("agent").await.unwrap();
-    assert!(plan.host);
+    assert!(plan.role.is_host());
     assert!(!plan.is_worker());
     assert!(plan.launch.is_none());
     assert_eq!((plan.cols, plan.rows), (101, 37));
@@ -193,7 +194,7 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
         session: session.clone(),
         cols: 80,
         rows: 24,
-        host: true,
+        role: SessionRole::HostAction,
         dir: root.to_string_lossy().into_owned(),
         launch: None,
         argv: vec![
@@ -264,7 +265,7 @@ async fn host_start_rejects_duplicate_without_replacing_the_running_pane() {
     let manager = manager_for_start();
     let cfg = manager.config().await;
     let mut row = Live::new(cfg.sessions[0].clone(), TitleCapture::default());
-    row.host = true;
+    row.role = SessionRole::HostAction;
     row.run_id = 7;
     row.cfg.cmd = Some("/bin/sleep 60".into());
     manager.live.write().await.insert("agent".into(), row);
@@ -306,7 +307,7 @@ async fn failed_worker_start_removes_owned_state_and_revokes_credentials() {
     let unrelated = root.join("data/sessions/unrelated");
     std::fs::create_dir_all(&unrelated).unwrap();
     let mut row = Live::new(session, TitleCapture::default());
-    row.ephemeral = true;
+    row.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("agent".into(), row);
     let token = manager
         .mint_grant(
@@ -336,7 +337,11 @@ async fn start_rejects_retained_incompatible_identities_before_launch() {
         let manager = manager_for_start();
         let cfg = manager.config().await;
         let mut live = Live::new(cfg.sessions[0].clone(), TitleCapture::default());
-        live.host = host;
+        live.role = if host {
+            SessionRole::HostAction
+        } else {
+            SessionRole::Agent(AgentLifetime::Durable)
+        };
         if !host {
             live.cfg.state_id = crate::storage_id::draft_identity();
         }
@@ -361,7 +366,7 @@ async fn malformed_commands_reject_before_tmux_creation_and_revoke_worker_creden
         session.task_id = "task".into();
         if host {
             let mut row = Live::new(session, TitleCapture::default());
-            row.host = true;
+            row.role = SessionRole::HostAction;
             manager.cfg.write().await.sessions.clear();
             manager.live.write().await.insert("agent".into(), row);
         } else {

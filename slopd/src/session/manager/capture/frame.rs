@@ -245,7 +245,7 @@ impl Manager {
         if l.set_state(delta.next_state) {
             effects.announce = true;
             // Temporary sessions have no durable activity record.
-            if !l.ephemeral {
+            if l.role.is_durable_agent() {
                 effects.activity = Some(ActivityRecord::from_live(l));
             }
         }

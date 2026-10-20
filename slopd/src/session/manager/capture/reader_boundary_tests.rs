@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::SessionRole;
 
 #[tokio::test]
 async fn shell_titles_survive_reader_and_daemon_restarts_without_input() {
@@ -75,8 +76,7 @@ async fn assert_title_after_repeated_attachment(socket: &str, name: &str, expect
             },
             TitleCapture::default(),
         );
-        row.host = true;
-        row.ephemeral = true;
+        row.role = SessionRole::HostAction;
         row.set_state(State::Working);
         recovered
             .live

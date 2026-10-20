@@ -328,7 +328,7 @@ impl Manager {
             name: name.to_string(),
             identity: live.cfg.state_id.clone(),
             run_id: live.run_id,
-            requires_paste_mode: !live.host
+            requires_paste_mode: !live.role.is_host()
                 && live.cfg.command_snapshot.as_ref().map_or_else(
                     || {
                         !live

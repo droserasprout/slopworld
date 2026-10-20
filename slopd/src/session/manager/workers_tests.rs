@@ -416,7 +416,7 @@ async fn one_shot_registration_is_live_only_and_keeps_worker_identity() {
     assert!(manager.config().await.sessions.is_empty());
     let rows = manager.live.read().await;
     let row = &rows["child"];
-    assert!(row.ephemeral);
+    assert!(!row.role.is_durable_agent());
     assert_eq!(row.state, State::Down);
     assert_eq!(row.cfg.state_id, worker.state_id);
     assert_eq!(row.cfg.task_id, "task-1");

@@ -21,3 +21,8 @@ worker/task consequences to [workers](daemon-workers.md), prompt/breadcrumb deli
 to [library](daemon-library.md), and process survival to [redeploy](daemon-redeploy.md).
 
 Existing tmux activity metadata takes precedence over disk fallback on adoption.
+
+Live role and client flags have different meanings. `session/role.rs` owns runtime
+retention and execution identity. Only durable agents persist activity history.
+`views.rs` preserves the wire contract: all host roles project `ephemeral: true`,
+including saved shells that remain restartable after stop or exit.

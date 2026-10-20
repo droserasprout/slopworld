@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::SessionRole;
 
 #[tokio::test]
 async fn host_refresh_preserves_queued_input() {
@@ -557,7 +558,7 @@ async fn host_image_intent_rejects_stale_run_and_preserves_host_text() {
         let mut rows = manager.live.write().await;
         let row = rows.get_mut("target").unwrap();
         row.state = State::Working;
-        row.host = true;
+        row.role = SessionRole::HostAction;
         row.run_id = 7;
     }
     let text = "file:///tmp/image.png";

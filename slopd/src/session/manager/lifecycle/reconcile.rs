@@ -126,22 +126,20 @@ impl Manager {
                 crate::config::expand(&tab.path)
             };
             if let Some(l) = live.get_mut(&tab.name) {
-                if !l.host {
+                if !l.role.is_host() {
                     continue;
                 }
                 // Catalog edits do not replace the shell or its queued input owner.
                 session.state_id.clone_from(&l.cfg.state_id);
                 l.cfg = session;
                 l.launch = LaunchContext::default();
-                l.persistent_host = true;
+                l.role = SessionRole::HostShell;
                 l.host_path = path;
                 continue;
             }
 
             let mut l = Live::new(session, TitleCapture::default());
-            l.ephemeral = true;
-            l.host = true;
-            l.persistent_host = true;
+            l.role = SessionRole::HostShell;
             l.host_path = path;
             live.insert(tab.name.clone(), l);
         }
@@ -184,18 +182,16 @@ fn keep_live_session(cfg: &Config, name: &str, live: &Live) -> bool {
     if cfg.session(name).is_some() {
         return !identity_conflict(cfg, name, live);
     }
-    if !live.ephemeral {
-        return false;
+    match live.role {
+        SessionRole::Agent(AgentLifetime::Durable) => false,
+        SessionRole::Agent(AgentLifetime::Temporary) | SessionRole::HostAction => true,
+        SessionRole::HostShell => cfg.host_terminals.iter().any(|tab| tab.name == name),
     }
-    if !live.persistent_host {
-        return true;
-    }
-    live.host && cfg.host_terminals.iter().any(|tab| tab.name == name)
 }
 
 fn identity_conflict(cfg: &Config, name: &str, live: &Live) -> bool {
     cfg.session(name)
-        .is_some_and(|session| live.host || live.cfg.state_id != session.state_id)
+        .is_some_and(|session| live.role.is_host() || live.cfg.state_id != session.state_id)
 }
 
 #[cfg(test)]

@@ -71,7 +71,7 @@ impl Manager {
             let Some(current) = live.get(name).filter(|l| reader_owned_by(l, token)) else {
                 return;
             };
-            (current.cfg.clone(), current.host)
+            (current.cfg.clone(), current.role.is_host())
         };
         let outcome = match self.confirm_pane_exit(name).await {
             Ok(outcome) => outcome,

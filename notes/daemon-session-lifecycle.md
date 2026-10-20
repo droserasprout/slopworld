@@ -12,6 +12,13 @@ agent templates and cloned agent settings; destination distinguishes selected an
 temporary projects. `session/manager/launch.rs` adapts explicit requests and executes
 both explicit and saved launches under the session operation guard. Template/source
 lookup and worktree resolution remain inside that guard before allocation.
+`session/role.rs` distinguishes durable and temporary agents, saved host shells, and
+unsaved host actions. Stop and process exit retain durable agents and saved shells;
+only temporary agents own private state that teardown deletes. Worker metadata
+restores agent lifetime during adoption and takes precedence over stale host identity.
+Capture and input owners remain shared across roles. Start plans snapshot the role
+alongside launch inputs; transport booleans are derived only when needed.
+
 Live rows retain this context across process restarts; start plans snapshot it before
 I/O. Reader labels, scope, pin state, and position recover through tmux metadata,
 never through saved agent records.

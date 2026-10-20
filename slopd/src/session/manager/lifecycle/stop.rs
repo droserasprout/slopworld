@@ -122,9 +122,7 @@ impl Manager {
 
         // Saved sessions stay available to restart; disposable sessions are forgotten.
         let forget_live = match cause {
-            DetachCause::Stop | DetachCause::ProcessExit { .. } => {
-                current.ephemeral && !current.persistent_host
-            }
+            DetachCause::Stop | DetachCause::ProcessExit { .. } => current.role.is_disposable(),
             DetachCause::ConfigRemoval | DetachCause::Forget => true,
         };
 
@@ -154,7 +152,7 @@ impl Manager {
             session,
             project,
             reader,
-            remove_ephemeral_state: forget_live && current.ephemeral && !current.host,
+            remove_ephemeral_state: forget_live && current.role.is_temporary_agent(),
             remove_temp_project: forget_live,
             revoke_grants: forget_live
                 || current.cfg.worker

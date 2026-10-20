@@ -15,7 +15,7 @@ struct StartPlan {
     context: LaunchContext,
     cols: u16,
     rows: u16,
-    host: bool,
+    role: SessionRole,
     dir: String,
     /// Sandbox details retained for redacted diagnostics; absent for host terminals.
     launch: Option<LaunchPlan>,
@@ -75,10 +75,10 @@ impl Manager {
             }
         }
         // Reuse terminal dimensions and a valid remembered host directory.
-        let (cols, rows, host, host_path, context) = match self.live.read().await.get(name) {
+        let (cols, rows, role, host_path, context) = match self.live.read().await.get(name) {
             Some(live) => {
                 if cfg.session(name).is_some()
-                    && (live.host || live.cfg.state_id != session.state_id)
+                    && (live.role.is_host() || live.cfg.state_id != session.state_id)
                 {
                     bail!(
                         "Session {name} has an incompatible live identity; reconcile it before starting."
@@ -87,7 +87,7 @@ impl Manager {
                 (
                     live.cols,
                     live.rows,
-                    live.host,
+                    live.role,
                     live.host_path.clone(),
                     live.launch.clone(),
                 )
@@ -95,12 +95,12 @@ impl Manager {
             None => (
                 Live::BOOT_COLS,
                 Live::BOOT_ROWS,
-                false,
+                SessionRole::Agent(AgentLifetime::Durable),
                 String::new(),
                 LaunchContext::default(),
             ),
         };
-        let dir = if host && !host_path.trim().is_empty() {
+        let dir = if role.is_host() && !host_path.trim().is_empty() {
             let remembered = expand(&host_path);
             if std::path::Path::new(&remembered).is_dir() {
                 remembered
@@ -127,13 +127,14 @@ impl Manager {
             session.worker_token = Some(token);
         }
 
-        let planned = build_start_plan(&cfg, &session, &project, host).and_then(|launch| {
-            let argv = match &launch {
-                Some(plan) => plan.lower(),
-                None => crate::sandbox::host_argv(&cfg, &session, &project)?,
-            };
-            Ok((launch, argv))
-        });
+        let planned =
+            build_start_plan(&cfg, &session, &project, role.is_host()).and_then(|launch| {
+                let argv = match &launch {
+                    Some(plan) => plan.lower(),
+                    None => crate::sandbox::host_argv(&cfg, &session, &project)?,
+                };
+                Ok((launch, argv))
+            });
         let (launch, argv) = match planned {
             Ok(planned) => planned,
             Err(error) => {
@@ -149,7 +150,7 @@ impl Manager {
             context,
             cols,
             rows,
-            host,
+            role,
             dir,
             launch,
             argv,
@@ -167,7 +168,7 @@ impl Manager {
                 plan.cols,
                 plan.rows,
                 &["sleep".into(), "2147483647".into()],
-                plan.host,
+                plan.role.is_host(),
             )
             .await
         {
@@ -184,7 +185,7 @@ impl Manager {
             self.tmux
                 .set_worker_worktree(name, &plan.session.project, &plan.session.worktree)
                 .await?;
-            let durable = !self.is_ephemeral(name).await;
+            let durable = plan.role.is_durable_agent();
             self.tmux
                 .set_worker_metadata(
                     name,
@@ -196,10 +197,10 @@ impl Manager {
                 .await
                 .context("persisting essential worker metadata")?;
         }
-        if !plan.host {
+        if !plan.role.is_host() {
             self.tmux.retain_exit(name).await?;
         }
-        if plan.host {
+        if plan.role.is_host() {
             if let Err(error) = self
                 .tmux
                 .set_host_metadata(name, &plan.session.project, &plan.dir)
@@ -244,7 +245,8 @@ impl Manager {
 
         // Give the new reader a fresh run identity and activity history.
         self.clear_activity(name).await;
-        let auto_resume_pending = !plan.host && plan.session.auto_resume && !plan.is_worker();
+        let auto_resume_pending =
+            !plan.role.is_host() && plan.session.auto_resume && !plan.is_worker();
         let run_id = self.reset_live_for_start(name, auto_resume_pending).await;
 
         // Attachment must succeed before the real command can produce output.
@@ -320,7 +322,7 @@ impl Manager {
             .read()
             .await
             .get(name)
-            .filter(|live| live.ephemeral && !live.host)
+            .filter(|live| live.role.is_temporary_agent())
             .map(|live| live.cfg.clone());
         if self.tmux.exists(name).await
             && let Err(cleanup) = self.tmux.kill(name).await

@@ -1,4 +1,5 @@
 use crate::music::HostSessions;
+use crate::session::SessionRole;
 
 #[tokio::test]
 async fn music_adapter_launches_disposable_host_terminal_and_stops_it() {
@@ -17,7 +18,7 @@ async fn music_adapter_launches_disposable_host_terminal_and_stops_it() {
     {
         let live = manager.live.read().await;
         let row = &live[&name];
-        assert!(row.host && row.ephemeral && !row.persistent_host);
+        assert_eq!(row.role, SessionRole::HostAction);
         assert_eq!((row.cols, row.rows), (90, 30));
     }
     let cfg = manager.config().await;

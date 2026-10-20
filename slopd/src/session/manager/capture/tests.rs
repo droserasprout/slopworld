@@ -1,5 +1,6 @@
 use super::super::lifecycle::stop::{DetachCause, ReaderDisposition, reset_process_state};
 use super::*;
+use crate::session::{AgentLifetime, SessionRole};
 use std::io::Write;
 use std::os::fd::OwnedFd;
 use std::os::unix::net::UnixStream;
@@ -375,7 +376,7 @@ async fn faint_prompt_particles_do_not_keep_a_quiet_session_working() {
         },
         TitleCapture::default(),
     );
-    live.ephemeral = true;
+    live.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("agent".into(), live);
     let mut emu = SessionEmu::new(80, 24);
     // Captured prompt animation: background RGB 30, moving single-dot Braille
@@ -553,7 +554,7 @@ async fn capture_retries_after_competing_idle_decay() {
         },
         TitleCapture::default(),
     );
-    live.ephemeral = true;
+    live.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("agent".into(), live);
     manager.apply_frame("agent", test_frame("old", 1)).await;
     let mut events = manager.events.subscribe();
@@ -596,7 +597,7 @@ async fn prompt_wording_does_not_override_activity() {
         },
         TitleCapture::default(),
     );
-    live.ephemeral = true;
+    live.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("agent".into(), live);
     let frame = test_frame("Do you want to continue? ❯ 1. Yes (esc to interrupt)", 1);
     manager.apply_frame("agent", frame.clone()).await;
@@ -632,7 +633,7 @@ async fn capture_cannot_commit_to_a_replacement_with_matching_counters() {
             },
             TitleCapture::default(),
         );
-        row.ephemeral = true;
+        row.role = SessionRole::Agent(AgentLifetime::Temporary);
         row.capture.emu = Some(emu.clone());
         manager.live.write().await.insert("agent".into(), row);
         let reached = Arc::new(tokio::sync::Notify::new());

@@ -97,7 +97,7 @@ impl Manager {
             let mut state_ids = HashMap::new();
             let mut host_sessions = std::collections::HashSet::new();
             for (name, session) in live.iter() {
-                if session.host {
+                if session.role.is_host() {
                     host_sessions.insert(name.clone());
                 } else {
                     state_ids.insert(name.clone(), session.cfg.state_id.clone());

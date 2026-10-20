@@ -112,7 +112,10 @@ impl Manager {
             }
             l.retick_seq = previous.seq;
             if l.set_state(state) {
-                let activity = (!l.ephemeral).then(|| ActivityRecord::from_live(l));
+                let activity = l
+                    .role
+                    .is_durable_agent()
+                    .then(|| ActivityRecord::from_live(l));
                 return (true, activity);
             }
         }
@@ -132,7 +135,7 @@ impl Manager {
             .read()
             .await
             .values()
-            .any(|l| l.host && l.state != State::Down);
+            .any(|l| l.role.is_host() && l.state != State::Down);
         let host_poll_due = has_hosts
             && now.saturating_sub(
                 self.host_metadata

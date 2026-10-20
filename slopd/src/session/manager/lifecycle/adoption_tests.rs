@@ -65,7 +65,7 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
             }),
         };
         let live = Manager::new_adopted_live(&cfg, &decision);
-        assert_eq!(live.ephemeral, !durable);
+        assert_eq!(!live.role.is_durable_agent(), !durable);
         if durable {
             assert_eq!(live.state, State::Idle);
             assert_eq!(live.state_since, 123);
@@ -278,7 +278,7 @@ async fn surviving_host_cannot_be_adopted_as_a_configured_agent_at_startup() {
     manager.sync_from_config().await;
     assert!(!manager.tmux.exists("reused").await);
     let live = manager.live.read().await;
-    assert!(!live["reused"].host);
+    assert!(!live["reused"].role.is_host());
     assert!(live["reused"].capture.emu.is_none());
 }
 
@@ -319,7 +319,7 @@ fn adoption_restores_reader_context_without_putting_it_in_agent_configuration() 
     assert_eq!(row.cfg.label.as_deref(), Some("custom label"));
     assert_eq!(row.cfg.project, "repo");
     assert_eq!(row.cfg.worktree, "checkout");
-    assert!(row.host && row.ephemeral && !row.persistent_host);
+    assert_eq!(row.role, SessionRole::HostAction);
     assert!(cfg.sessions.is_empty() && cfg.host_terminals.is_empty());
     let worker_decision = AdoptionDecision {
         worker_session: Some(SessionCfg::default()),
@@ -338,4 +338,89 @@ fn adoption_restores_reader_context_without_putting_it_in_agent_configuration() 
             .get("reader_path")
             .is_none()
     );
+}
+
+#[test]
+fn host_adoption_uses_saved_catalog_for_lifetime_and_never_restores_agent_activity() {
+    use super::*;
+    for (saved, expected) in [
+        (false, SessionRole::HostAction),
+        (true, SessionRole::HostShell),
+    ] {
+        let cfg = Config::default();
+        let decision = Manager::decide_orphan(
+            &cfg,
+            AdoptionProbe {
+                name: "host".into(),
+                worker: None,
+                host: true,
+                saved_host: saved.then(|| crate::config::HostTerminalCfg {
+                    name: "host".into(),
+                    path: "/tmp".into(),
+                    ..Default::default()
+                }),
+                tmux_host: Some(("repo".into(), "/tmp".into())),
+                activity: Some(crate::activity::Activity {
+                    state: State::Idle,
+                    state_since: 123,
+                }),
+                current_path: None,
+                reader: None,
+            },
+            &crate::session::test_manager(cfg.clone()).activity_cache,
+        );
+        let row = Manager::new_adopted_live(&cfg, &decision);
+        assert_eq!(row.role, expected);
+        assert_eq!(row.host_path, "/tmp");
+        assert_eq!(row.state, State::Working);
+        assert_ne!(row.state_since, 123);
+    }
+}
+
+#[test]
+fn worker_recovery_replaces_stale_host_role_and_directory() {
+    use super::*;
+    let cfg = Config::default();
+    let manager = crate::session::test_manager(cfg.clone());
+    for (durable, lifetime) in [
+        (false, AgentLifetime::Temporary),
+        (true, AgentLifetime::Durable),
+    ] {
+        let metadata = crate::tmux::WorkerMetadata {
+            session: Some(Box::new(SessionCfg::default())),
+            project: None,
+            worktree: None,
+            parent: "parent".into(),
+            task_id: "task".into(),
+            durable,
+            state_id: Some("1111111111114111".into()),
+        };
+        let decision = Manager::decide_orphan(
+            &cfg,
+            AdoptionProbe {
+                name: "worker".into(),
+                worker: Some(metadata),
+                host: false,
+                saved_host: Some(crate::config::HostTerminalCfg {
+                    name: "worker".into(),
+                    ..Default::default()
+                }),
+                tmux_host: None,
+                activity: None,
+                current_path: None,
+                reader: None,
+            },
+            &manager.activity_cache,
+        );
+        for stale in [SessionRole::HostShell, SessionRole::HostAction] {
+            let mut row = Live::new(SessionCfg::default(), TitleCapture::default());
+            row.role = stale;
+            row.host_path = "/stale".into();
+            manager.repair_adopted_live(&mut row, &decision);
+            assert_eq!(row.role, SessionRole::Agent(lifetime));
+            assert!(row.cfg.worker);
+            assert_eq!(row.cfg.state_id, "1111111111114111");
+            assert!(row.host_path.is_empty());
+        }
+    }
 }

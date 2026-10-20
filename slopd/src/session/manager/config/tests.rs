@@ -204,9 +204,9 @@ async fn config_sync_upserts_agents_and_only_valid_host_terminals() {
     manager.upsert_host_terminals(&cfg).await;
 
     let live = manager.live.read().await;
-    assert!(!live["agent"].host);
-    assert!(live["shell"].host);
-    assert!(live["shell"].ephemeral);
+    assert!(!live["agent"].role.is_host());
+    assert!(live["shell"].role.is_host());
+    assert!(!live["shell"].role.is_durable_agent());
     assert_eq!(live["shell"].host_path, crate::config::expand("~/repo"));
     assert!(!live.contains_key("bad name"));
     assert_eq!(live.len(), 2);

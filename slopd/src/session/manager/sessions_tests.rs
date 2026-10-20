@@ -2,6 +2,7 @@ use super::super::host_metadata::tests::metadata_fixture;
 use super::super::lifecycle::start::prepare_project_dir;
 use super::*;
 use crate::session::manager::config::ConfigMutation;
+use crate::session::{AgentLifetime, SessionRole};
 
 #[tokio::test]
 async fn removal_save_failure_restores_private_state_before_retry() {
@@ -389,7 +390,7 @@ async fn session_and_project_targets_resolve_from_config_temp_and_host_state() {
         },
         TitleCapture::default(),
     );
-    host.host = true;
+    host.role = SessionRole::HostAction;
     host.host_path = "/tmp/remembered".into();
     manager.live.write().await.insert("host-shell".into(), host);
     let orphan_host = SessionCfg {
@@ -471,8 +472,7 @@ async fn views_keep_host_paths_and_sort_by_session_name() {
         },
         TitleCapture::default(),
     );
-    host.host = true;
-    host.ephemeral = true;
+    host.role = SessionRole::HostAction;
     host.process_running = true;
     host.host_path = "/tmp/host-cwd".into();
     manager.live.write().await.insert("z-shell".into(), host);
@@ -553,7 +553,7 @@ async fn ephemeral_labels_stay_runtime_only() {
         },
         TitleCapture::default(),
     );
-    live.ephemeral = true;
+    live.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("worker".into(), live);
     manager
         .set_label("worker", "Temporary worker".into())
@@ -892,4 +892,40 @@ async fn record_retirement_failure_restores_private_state_and_preserves_accepted
     assert!(!path.exists());
     assert!(manager.config().await.session("old").is_none());
     cleanup_rename_fixture(&manager, root, &socket, &["old"]).await;
+}
+
+#[tokio::test]
+async fn role_projection_preserves_host_and_worker_wire_flags() {
+    let manager = crate::session::test_manager(Config::default());
+    for (name, role) in [
+        ("durable", SessionRole::Agent(AgentLifetime::Durable)),
+        ("temporary", SessionRole::Agent(AgentLifetime::Temporary)),
+        ("shell", SessionRole::HostShell),
+        ("action", SessionRole::HostAction),
+    ] {
+        let mut row = Live::new(
+            SessionCfg {
+                name: name.into(),
+                worker: matches!(role, SessionRole::Agent(_)),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.role = role;
+        manager.live.write().await.insert(name.into(), row);
+    }
+    let views = manager.views().await;
+    for (name, host, ephemeral, durable_worker) in [
+        ("durable", false, false, true),
+        ("temporary", false, true, false),
+        ("shell", true, true, false),
+        ("action", true, true, false),
+    ] {
+        let view = views.iter().find(|view| view.name == name).unwrap();
+        assert_eq!(
+            (view.host, view.ephemeral, view.worker.durable),
+            (host, ephemeral, durable_worker),
+            "{name}"
+        );
+    }
 }

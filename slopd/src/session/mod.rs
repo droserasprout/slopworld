@@ -30,8 +30,10 @@ mod view;
 
 mod manager;
 mod prompt;
+mod role;
 pub(crate) use manager::TemplatePersistence;
 pub(crate) use manager::WorktreeRequest;
+use role::{AgentLifetime, SessionRole};
 
 #[cfg(test)]
 pub(crate) use agent_templates::validate_definition as validate_template_definition;
@@ -101,11 +103,7 @@ struct Live {
     // Configuration and host-shell identity.
     cfg: SessionCfg,
     launch: LaunchContext,
-    ephemeral: bool,
-    // Recovered from a private tmux option after daemon restart; never saved in config.
-    host: bool,
-    // Preserve only cataloged host shell records after exit. Remove viewer and action records.
-    persistent_host: bool,
+    role: SessionRole,
     // Host shells keep their last tmux cwd separately from the project's configured root.
     host_path: String,
     // Activity classification and terminal revisions.
@@ -163,9 +161,7 @@ impl Live {
         Self {
             cfg,
             launch: LaunchContext::default(),
-            ephemeral: false,
-            host: false,
-            persistent_host: false,
+            role: SessionRole::Agent(AgentLifetime::Durable),
             host_path: String::new(),
             state: State::Down,
             process_running: false,

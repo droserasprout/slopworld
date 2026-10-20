@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::SessionRole;
 
 #[tokio::test]
 async fn maintenance_recovers_reader_after_unavailable_status_without_config_change() {
@@ -661,9 +662,11 @@ async fn disappeared_host_panes_do_not_allocate_private_storage() {
         let state_dir = crate::sandbox::state_dir(&session).unwrap();
         let token = Arc::new(());
         let mut live = Live::new(session, TitleCapture::default());
-        live.host = true;
-        live.ephemeral = true;
-        live.persistent_host = persistent;
+        live.role = if persistent {
+            SessionRole::HostShell
+        } else {
+            SessionRole::HostAction
+        };
         live.process_running = true;
         live.set_state(State::Working);
         live.capture.reader_token = Some(token.clone());

@@ -14,7 +14,7 @@ impl Manager {
             .map(|l| {
                 let p = cfg.project_of(&l.cfg).or_else(|| temp.get(&l.cfg.project));
                 // Temporary projects supply host-shell directories without creating sidebar groups.
-                let display_project = if l.host && temp.contains_key(&l.cfg.project) {
+                let display_project = if l.role.is_host() && temp.contains_key(&l.cfg.project) {
                     String::new()
                 } else {
                     l.cfg.project.clone()
@@ -36,7 +36,7 @@ impl Manager {
                         line: l.launch.reader.line,
                     },
                     project: display_project,
-                    dir: if l.host && !l.host_path.trim().is_empty() {
+                    dir: if l.role.is_host() && !l.host_path.trim().is_empty() {
                         l.host_path.clone()
                     } else {
                         worktrees
@@ -65,10 +65,12 @@ impl Manager {
                         enabled: l.cfg.worker,
                         parent: l.cfg.parent.clone(),
                         task_id: l.cfg.task_id.clone(),
-                        durable: l.cfg.worker && !l.ephemeral,
+                        durable: l.cfg.worker && l.role.is_durable_agent(),
                     },
-                    ephemeral: l.ephemeral,
-                    host: l.host,
+                    // Legacy wire meaning: host tabs are ephemeral even when their
+                    // saved shell record retains them across stop and exit.
+                    ephemeral: !l.role.is_durable_agent(),
+                    host: l.role.is_host(),
                     runtime: SessionRuntimeView {
                         auto_resume_pending: l.input.auto_resume_pending,
                         state: l.state,

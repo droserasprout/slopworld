@@ -28,7 +28,7 @@ impl Manager {
         let live = self.live.read().await;
         live.get(name).is_some_and(|l| {
             l.title.accepts(request)
-                && TitleSettings::for_session(&cfg, &l.cfg, l.host)
+                && TitleSettings::for_session(&cfg, &l.cfg, l.role.is_host())
                     .is_some_and(|settings| settings.allows(&request.input.prompt))
         })
     }
@@ -48,7 +48,7 @@ impl Manager {
         if !l.title.accepts(request) {
             return false;
         }
-        if !TitleSettings::for_session(&cfg, &l.cfg, l.host)
+        if !TitleSettings::for_session(&cfg, &l.cfg, l.role.is_host())
             .is_some_and(|settings| settings.allows(&request.input.prompt))
         {
             l.title.finish(request, None);
@@ -80,7 +80,7 @@ impl Manager {
             let cfg = self.cfg.read().await;
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
-            let Some(settings) = TitleSettings::for_session(&cfg, &l.cfg, l.host) else {
+            let Some(settings) = TitleSettings::for_session(&cfg, &l.cfg, l.role.is_host()) else {
                 return;
             };
             let action = l.title.capture_keys(&settings, keys, literal);
@@ -106,7 +106,7 @@ impl Manager {
         let mut changed = false;
         let mut live = self.live.write().await;
         for (name, l) in live.iter_mut() {
-            if TitleSettings::for_session(cfg, &l.cfg, l.host).is_none() {
+            if TitleSettings::for_session(cfg, &l.cfg, l.role.is_host()).is_none() {
                 changed |= l.title.disable();
                 self.title_cache.clear_latest(name);
             }
@@ -118,7 +118,7 @@ impl Manager {
         let cfg = self.cfg.read().await;
         let mut live = self.live.write().await;
         let Some(l) = live.get_mut(name) else { return };
-        if TitleSettings::for_session(&cfg, &l.cfg, l.host).is_some() {
+        if TitleSettings::for_session(&cfg, &l.cfg, l.role.is_host()).is_some() {
             l.title.paste(text);
         }
     }

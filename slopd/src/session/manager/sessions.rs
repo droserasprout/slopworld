@@ -42,7 +42,7 @@ impl Manager {
             .read()
             .await
             .get(&s.name)
-            .filter(|l| l.host)
+            .filter(|l| l.role.is_host())
             .map(|l| l.host_path.clone())
             .filter(|path| !path.trim().is_empty())?;
         Some(ProjectCfg {
@@ -52,13 +52,8 @@ impl Manager {
         })
     }
 
-    pub(super) async fn is_ephemeral(&self, name: &str) -> bool {
-        self.live
-            .read()
-            .await
-            .get(name)
-            .map(|l| l.ephemeral)
-            .unwrap_or(false)
+    async fn session_role(&self, name: &str) -> Option<SessionRole> {
+        self.live.read().await.get(name).map(|live| live.role)
     }
 
     pub(super) async fn is_host(&self, name: &str) -> bool {
@@ -66,7 +61,7 @@ impl Manager {
             .read()
             .await
             .get(name)
-            .map(|l| l.host)
+            .map(|l| l.role.is_host())
             .unwrap_or(false)
     }
 
@@ -318,8 +313,9 @@ impl Manager {
         } else {
             Some(label.clone())
         };
-        let host = self.is_host(name).await;
-        if host || !self.is_ephemeral(name).await {
+        let role = self.session_role(name).await;
+        let host = role.is_some_and(SessionRole::is_host);
+        if role.is_none_or(|role| !role.is_temporary_agent()) {
             self.update_cfg(
                 if host {
                     ConfigMutation::HostShells
@@ -476,7 +472,11 @@ impl Manager {
             self.announce_sessions().await;
             return Ok(());
         }
-        if self.is_ephemeral(name).await {
+        if self
+            .session_role(name)
+            .await
+            .is_some_and(SessionRole::is_temporary_agent)
+        {
             return self.stop(name).await;
         }
         self.stop(name).await?;
@@ -516,7 +516,11 @@ impl Manager {
 
     async fn reset_state_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
-        if self.is_ephemeral(name).await {
+        if self
+            .session_role(name)
+            .await
+            .is_some_and(|role| !role.is_durable_agent())
+        {
             bail!("temporary session {name} has no resettable private state");
         }
         self.stop(name).await?;

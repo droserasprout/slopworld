@@ -1,4 +1,5 @@
 use super::LaunchContext;
+use crate::session::{AgentLifetime, SessionRole};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -99,9 +100,7 @@ fn placeholder() -> Live {
     Live {
         cfg: SessionCfg::default(),
         launch: LaunchContext::default(),
-        ephemeral: true,
-        host: false,
-        persistent_host: false,
+        role: SessionRole::Agent(AgentLifetime::Temporary),
         host_path: String::new(),
         state: State::Down,
         process_running: false,
@@ -278,8 +277,8 @@ fn new_live_starts_as_a_boot_placeholder() {
 
     assert_eq!(live.cfg.name, cfg.name);
     assert_eq!(live.cfg.project, cfg.project);
-    assert!(!live.ephemeral);
-    assert!(!live.host);
+    assert!(live.role.is_durable_agent());
+    assert!(!live.role.is_host());
     assert!(live.host_path.is_empty());
     assert_eq!(live.state, State::Down);
     assert_eq!((live.cols, live.rows), (Live::BOOT_COLS, Live::BOOT_ROWS));

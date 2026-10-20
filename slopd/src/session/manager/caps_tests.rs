@@ -1,6 +1,7 @@
 use crate::config::{Config, Daemon, SessionCfg};
 use crate::grant::{Cap, Level};
 use crate::session::test_manager;
+use crate::session::{AgentLifetime, SessionRole};
 
 fn config() -> Config {
     Config {
@@ -109,13 +110,8 @@ async fn durable_stop_preserves_grants_but_ephemeral_removal_invalidates_them() 
             assert!(manager.cap_ok(&cap, "target", level).await);
             assert!(manager.start(subject).await.is_err()); // No command in this fixture.
             assert!(manager.cap_ok(&cap, "target", level).await);
-            manager
-                .live
-                .write()
-                .await
-                .get_mut(subject)
-                .unwrap()
-                .ephemeral = true;
+            manager.live.write().await.get_mut(subject).unwrap().role =
+                SessionRole::Agent(AgentLifetime::Temporary);
             manager.stop(subject).await.unwrap();
             manager.sync_from_config().await;
             assert!(!manager.cap_ok(&cap, "target", level).await);

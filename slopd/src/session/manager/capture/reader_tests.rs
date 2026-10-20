@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::{AgentLifetime, SessionRole};
 
 #[tokio::test]
 async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
@@ -11,7 +12,7 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
             },
             TitleCapture::default(),
         );
-        live.ephemeral = true;
+        live.role = SessionRole::Agent(AgentLifetime::Temporary);
         manager.live.write().await.insert("agent".into(), live);
         let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
         manager
@@ -66,7 +67,7 @@ async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader(
         },
         TitleCapture::default(),
     );
-    live.ephemeral = true;
+    live.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("agent".into(), live);
     let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
     manager
@@ -443,7 +444,7 @@ async fn exit_and_eof_flush_output_received_before_the_last_draw() {
             },
             TitleCapture::default(),
         );
-        row.ephemeral = true;
+        row.role = SessionRole::Agent(AgentLifetime::Temporary);
         row.capture.emu = Some(emu.clone());
         manager.live.write().await.insert("agent".into(), row);
         let (tx, rx) = mpsc::channel(2);

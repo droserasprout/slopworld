@@ -246,20 +246,27 @@ impl Manager {
         {
             l.launch = LaunchContext::from(reader);
         }
-        l.ephemeral = decision
-            .probe
-            .worker
-            .as_ref()
-            .map(|metadata| !metadata.durable)
-            .unwrap_or(true);
-        l.host = decision.probe.host;
-        l.persistent_host = decision.probe.host && decision.probe.saved_host.is_some();
+        l.role = if let Some(metadata) = &decision.probe.worker {
+            SessionRole::Agent(if metadata.durable {
+                AgentLifetime::Durable
+            } else {
+                AgentLifetime::Temporary
+            })
+        } else if decision.probe.host {
+            if decision.probe.saved_host.is_some() {
+                SessionRole::HostShell
+            } else {
+                SessionRole::HostAction
+            }
+        } else {
+            SessionRole::Agent(AgentLifetime::Temporary)
+        };
         l.host_path = decision.host_path.clone();
         l.state = State::Working;
         l.last_change = now;
         l.activity_at = Some(tokio::time::Instant::now());
         l.state_since = now;
-        if !l.ephemeral
+        if l.role.is_durable_agent()
             && let Some(activity) = decision.activity
         {
             l.state = activity.state;
@@ -284,12 +291,14 @@ impl Manager {
             // Worker metadata overrides a stale host-catalog identity.
             l.cfg = session;
             l.launch = LaunchContext::default();
-            l.ephemeral = !metadata.durable;
-            l.host = false;
-            l.persistent_host = false;
+            l.role = SessionRole::Agent(if metadata.durable {
+                AgentLifetime::Durable
+            } else {
+                AgentLifetime::Temporary
+            });
             l.host_path.clear();
         }
-        if decision.probe.host && l.host {
+        if decision.probe.host && l.role.is_host() {
             if !decision.host_project.is_empty() {
                 l.cfg.project = decision.host_project.clone();
             }
@@ -321,7 +330,7 @@ impl Manager {
 
     /// Restore saved activity only for durable rows still marked Down.
     fn restore_activity(&self, l: &mut Live, activity: Option<crate::activity::Activity>) {
-        if l.ephemeral || l.state != State::Down {
+        if !l.role.is_durable_agent() || l.state != State::Down {
             return;
         }
         let Some(activity) = activity else { return };

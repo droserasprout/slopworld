@@ -443,7 +443,7 @@ impl Manager {
             }
         }
         for l in live.values() {
-            if l.host && Path::new(&l.host_path).starts_with(&w.path) {
+            if l.role.is_host() && Path::new(&l.host_path).starts_with(&w.path) {
                 users.push(l.cfg.name.clone());
             }
         }

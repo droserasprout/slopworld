@@ -1,5 +1,6 @@
 use super::*;
 use crate::clock::unix_ms;
+use crate::session::{AgentLifetime, SessionRole};
 
 #[tokio::test]
 async fn activity_decay_ignores_changes_to_the_epoch_timestamp() {
@@ -45,7 +46,7 @@ async fn quiet_session() -> (Arc<Manager>, crate::emu::SessionEmu) {
         },
         TitleCapture::default(),
     );
-    live.ephemeral = true;
+    live.role = SessionRole::Agent(AgentLifetime::Temporary);
     manager.live.write().await.insert("agent".into(), live);
     let mut emu = crate::emu::SessionEmu::new(80, 24);
     emu.feed(b"old output");

@@ -1,6 +1,7 @@
 use super::{Manager, auto_resume_inputs, routed_action_label};
 use crate::config::{Config, LibraryItemKind, ProjectCfg, SessionCfg};
 use crate::session::Input;
+use crate::session::{AgentLifetime, SessionRole};
 use crate::session::{LaunchContent, LaunchOptions};
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
@@ -244,7 +245,7 @@ async fn delivery_fixture() -> (
         },
         TitleCapture::default(),
     );
-    live.ephemeral = true;
+    live.role = SessionRole::Agent(AgentLifetime::Temporary);
     live.input.sender = Some(tx);
     manager.live.write().await.insert("worker".into(), live);
     let mut emu = crate::emu::SessionEmu::new(80, 24);
@@ -473,7 +474,7 @@ async fn paste_mode_is_rechecked_when_startup_input_is_admitted() {
 #[tokio::test]
 async fn host_shell_delivery_does_not_require_agent_paste_mode() {
     let (manager, mut rx) = delivery_fixture().await;
-    manager.live.write().await.get_mut("worker").unwrap().host = true;
+    manager.live.write().await.get_mut("worker").unwrap().role = SessionRole::HostAction;
     manager.live.read().await["worker"]
         .capture
         .emu

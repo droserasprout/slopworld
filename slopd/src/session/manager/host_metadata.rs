@@ -85,7 +85,7 @@ impl Manager {
             let live = self.live.read().await;
             if !live
                 .get(name)
-                .is_some_and(|l| l.host && l.state != State::Down && l.run_id == run)
+                .is_some_and(|l| l.role.is_host() && l.state != State::Down && l.run_id == run)
             {
                 return false;
             }
@@ -94,7 +94,9 @@ impl Manager {
             let mut live = self.live.write().await;
             live.get_mut(name)
                 .filter(|l| {
-                    l.host && l.host_path != path && run_id.is_none_or(|run| l.run_id == run)
+                    l.role.is_host()
+                        && l.host_path != path
+                        && run_id.is_none_or(|run| l.run_id == run)
                 })
                 .map(|l| {
                     l.host_path = path.to_string();
@@ -140,7 +142,7 @@ impl Manager {
             .read()
             .await
             .values()
-            .filter(|l| l.host && l.state != State::Down)
+            .filter(|l| l.role.is_host() && l.state != State::Down)
             .map(|l| (l.cfg.name.clone(), l.run_id))
             .collect()
     }
@@ -162,7 +164,7 @@ impl Manager {
                 let mut live = self.live.write().await;
                 if let Some(l) = live
                     .get_mut(&name)
-                    .filter(|l| l.host && l.state != State::Down && l.run_id == run_id)
+                    .filter(|l| l.role.is_host() && l.state != State::Down && l.run_id == run_id)
                 {
                     changed |= update_host_process(l, command);
                 }

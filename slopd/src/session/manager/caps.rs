@@ -90,20 +90,24 @@ impl Manager {
         let cfg = self.config().await;
         let live = self.live.read().await;
         let grantor_state_id = match live.get(&grantor) {
-            Some(session) if session.host => String::new(),
+            Some(session) if session.role.is_host() => String::new(),
             Some(session) => session.cfg.state_id.clone(),
             None => cfg
                 .session(&grantor)
                 .map(|session| session.state_id.clone())
                 .unwrap_or_default(),
         };
-        if grantor_state_id.is_empty() && !live.get(&grantor).is_some_and(|session| session.host) {
+        if grantor_state_id.is_empty()
+            && !live
+                .get(&grantor)
+                .is_some_and(|session| session.role.is_host())
+        {
             bail!("session {grantor} has no stable identity for a grant");
         }
         let mut scope = std::collections::HashSet::new();
         let mut session_state_ids = std::collections::BTreeMap::new();
         for s in sessions {
-            if live.get(&s).map(|l| l.host).unwrap_or(false) {
+            if live.get(&s).map(|l| l.role.is_host()).unwrap_or(false) {
                 bail!("the host terminal cannot be granted: {s}");
             }
             if !live.contains_key(&s) && cfg.session(&s).is_none() {

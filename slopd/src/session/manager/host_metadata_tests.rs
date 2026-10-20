@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::{AgentLifetime, SessionRole};
 
 async fn finish_poll(manager: &Manager) {
     let task = manager.host_metadata.task.lock().await;
@@ -192,7 +193,11 @@ pub(in crate::session::manager) async fn metadata_fixture() -> Arc<Manager> {
             },
             TitleCapture::default(),
         );
-        live.host = host;
+        live.role = if host {
+            SessionRole::HostAction
+        } else {
+            SessionRole::Agent(AgentLifetime::Durable)
+        };
         live.host_path = "/old".into();
         live.state = State::Idle;
         live.run_id = 17;

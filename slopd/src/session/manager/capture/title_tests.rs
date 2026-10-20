@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::{AgentLifetime, SessionRole};
 
 async fn fixture() -> (Arc<Manager>, TitleRequest) {
     let mut cfg = Config::default();
@@ -24,7 +25,7 @@ async fn prepare(manager: &Manager, prompt: &str) -> TitleRequest {
     let cfg = manager.config().await;
     let mut live = manager.live.write().await;
     let row = live.get_mut("agent").unwrap();
-    let settings = TitleSettings::for_session(&cfg, &row.cfg, row.host).unwrap();
+    let settings = TitleSettings::for_session(&cfg, &row.cfg, row.role.is_host()).unwrap();
     row.title.paste(prompt);
     let Some(TitleAction::Request(request)) =
         row.title.capture_keys(&settings, &["Enter".into()], false)
@@ -206,7 +207,11 @@ async fn host_and_fixed_label_sessions_do_not_capture_prompts() {
         {
             let mut live = m.live.write().await;
             let agent = live.get_mut("agent").unwrap();
-            agent.host = host;
+            agent.role = if host {
+                SessionRole::HostAction
+            } else {
+                SessionRole::Agent(AgentLifetime::Durable)
+            };
             agent.cfg.label = if host { None } else { Some("Fixed".into()) };
         }
         assert!(!m.title_request_enabled("agent", &request).await);
@@ -218,7 +223,7 @@ async fn host_and_fixed_label_sessions_do_not_capture_prompts() {
     {
         let mut live = m.live.write().await;
         let agent = live.get_mut("agent").unwrap();
-        agent.host = false;
+        agent.role = SessionRole::Agent(AgentLifetime::Durable);
         agent.cfg.label = None;
     }
     m.capture_title_keys("agent", &["Enter".into()], false)

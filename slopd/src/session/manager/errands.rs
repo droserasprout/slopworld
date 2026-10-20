@@ -27,8 +27,7 @@ struct ErrandLiveRequest<'a> {
     item: &'a LaunchContent,
     location: &'a LaunchOptions,
     name: &'a str,
-    host: bool,
-    persistent_host: bool,
+    role: SessionRole,
 }
 
 fn capture_errand_source_settings(
@@ -77,7 +76,14 @@ impl Manager {
         let sc = &request.content;
         let want = &request.options;
         let host = request.execution.is_host();
-        let persistent_host = request.execution.persistent_host();
+        let role = match request.execution {
+            ExecutionSource::Host(HostLifetime::Persistent) => SessionRole::HostShell,
+            ExecutionSource::Host(HostLifetime::Disposable) => SessionRole::HostAction,
+            ExecutionSource::Template(_) | ExecutionSource::CloneAgent(_) => {
+                SessionRole::Agent(AgentLifetime::Temporary)
+            }
+        };
+        let persistent_host = role == SessionRole::HostShell;
         let mut preparation = self.prepare_errand_session(cfg, request).await?;
         // Serialized launches reuse a running editor even across concurrent requests
         // or a mod restart. Return its handle so the client focuses the existing pane.
@@ -88,8 +94,7 @@ impl Manager {
         {
             let live = self.live.read().await;
             if let Some(editor) = live.values().find(|row| {
-                row.host
-                    && row.ephemeral
+                row.role == SessionRole::HostAction
                     && row.state != State::Down
                     && row.launch.intent == "edit"
                     && row.launch.reader.path == want.context.reader.path
@@ -107,7 +112,7 @@ impl Manager {
         {
             let live = self.live.read().await;
             if let Some(existing) = live.get(&name) {
-                if existing.host == host {
+                if existing.role.is_host() == host {
                     if persistent_host {
                         let path = preparation
                             .worktree_path
@@ -132,7 +137,7 @@ impl Manager {
 
         let mut live = self.live.write().await;
         if let Some(existing) = live.get(&name) {
-            if existing.host == host {
+            if existing.role.is_host() == host {
                 return Ok(name);
             }
             bail!("session {name} already exists");
@@ -144,8 +149,7 @@ impl Manager {
                     item: sc,
                     location: want,
                     name: &name,
-                    host,
-                    persistent_host,
+                    role,
                 },
                 preparation,
             )
@@ -286,10 +290,8 @@ impl Manager {
             );
         }
         state.cfg.worktree = preparation.selected_worktree;
-        state.ephemeral = true;
-        state.host = request.host;
-        state.persistent_host = request.persistent_host;
-        if request.persistent_host {
+        state.role = request.role;
+        if request.role == SessionRole::HostShell {
             state.host_path = preparation
                 .worktree_path
                 .as_ref()

@@ -21,7 +21,7 @@ impl Manager {
                 expected_run == Some(row.run_id),
                 "paste belongs to a stale session run"
             );
-            (row.cfg.clone(), row.run_id, row.host)
+            (row.cfg.clone(), row.run_id, row.role.is_host())
         };
         self.ensure_paste_ready(name).await?;
         // The client flag is an intent, never authority or proof of target type.
@@ -56,7 +56,7 @@ impl Manager {
     ) -> Result<()> {
         anyhow::ensure!(
             self.live.read().await.get(name).is_some_and(|row| {
-                row.cfg.state_id == identity && row.run_id == run_id && !row.host
+                row.cfg.state_id == identity && row.run_id == run_id && !row.role.is_host()
             }),
             "image import belongs to a stale session run"
         );
