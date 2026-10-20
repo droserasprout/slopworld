@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## [Unreleased]
+
+### Added
+
+- Settings: Configurable CRT effect intensity.
+
 ## [0.0.8] - 2026-10-20
 
 ### Added

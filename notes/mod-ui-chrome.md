@@ -5,7 +5,11 @@ separate GUI behaviour draws above Root's windows and tooltips in physical pixel
 independently of terminal caches. Scanline thickness and spacing follow the game's
 UI scale, with fractional coverage at line edges; the strip rebuilds when scale
 or screen height changes. It creates no input controls. The
-profile's `crtOverlay` toggle applies live; disabling it releases its textures.
+profile's `crtOverlay` preference appears as Post-processing under Rendering, after
+VSync, and offers Meh, Mild (default), Moderate, and Massive.
+`CrtMode` owns absolute scanline and corner opacities for each preset; the overlay
+owns coverage, falloff, and dithering. Changes rebuild textures immediately,
+and Meh disables the overlay and releases them.
 Vignette dithering is baked at screen resolution. During resize it is hidden, then
 rebuilt after dimensions remain stable for 200 ms to avoid repeated full-screen
 CPU bakes and uploads. Enabling the overlay builds it immediately. Filtering

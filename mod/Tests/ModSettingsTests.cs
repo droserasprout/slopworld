@@ -33,7 +33,7 @@ namespace SlopWorld.Tests
                 CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
                 var settings = ProfileSettings.Load();
                 AssertEx.Equal(true, settings.smoothScrolling, "smooth scrolling default");
-                AssertEx.Equal(true, settings.crtOverlay, "CRT overlay defaults on");
+                AssertEx.Equal(CrtMode.Mild, settings.crtOverlay, "CRT overlay defaults to Mild");
                 AssertEx.Equal(true, settings.autoConnect, "missing file default");
                 AssertEx.Equal(true, settings.statusbarUsage, "usage visibility defaults on");
                 AssertEx.Equal(DateFormat.YearFirst, settings.dateFormat, "date format default");
@@ -123,6 +123,36 @@ namespace SlopWorld.Tests
                 File.WriteAllText(path, "theme = \"unterminated");
                 AssertEx.Equal("match-ui", ProfileSettings.Load().theme, "malformed TOML defaults");
             });
+
+        public static void CrtPreferencesPreserveDisabledAndRoundTripLevels()
+        {
+            AssertEx.Equal(
+                CrtMode.Off,
+                ModSettings.FromToml("crtOverlay = false").crtOverlay,
+                "disabled stays off"
+            );
+            AssertEx.Equal(
+                CrtMode.Mild,
+                ModSettings.FromToml("crtOverlay = true").crtOverlay,
+                "enabled becomes mild"
+            );
+            AssertEx.Equal(
+                CrtMode.Mild,
+                ModSettings.FromToml("crtOverlay = \"unknown\"").crtOverlay,
+                "unknown defaults to mild"
+            );
+            foreach (
+                string mode in new[] { CrtMode.Off, CrtMode.Mild, CrtMode.Intense, CrtMode.FullOn }
+            )
+            {
+                var settings = new ModSettings { crtOverlay = mode };
+                AssertEx.Equal(
+                    mode,
+                    ModSettings.FromToml(settings.ToToml()).crtOverlay,
+                    "CRT level persists"
+                );
+            }
+        }
 
         public static void FractionNormalizationPersists() =>
             WithProfile(profile =>

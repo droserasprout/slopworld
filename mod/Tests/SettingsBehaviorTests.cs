@@ -352,7 +352,6 @@ namespace SlopWorld.Tests
                     ("grandmaMode", v => settings.grandmaMode = v, () => Settings.GrandmaMode),
                     ("ecoMode", v => settings.ecoMode = v, () => Settings.EcoMode),
                     ("vsync", v => settings.vsync = v, () => Settings.VSync),
-                    ("crtOverlay", v => settings.crtOverlay = v, () => Settings.CrtOverlay),
                 };
                 foreach (var item in cases)
                 foreach (bool value in new[] { false, true })

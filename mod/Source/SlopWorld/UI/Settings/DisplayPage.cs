@@ -63,6 +63,24 @@ namespace SlopWorld
                 S.MarkDirty();
             }
 
+            UiSelector.Draw(
+                l,
+                "Post-processing",
+                CrtMode.Label(S.crtOverlay),
+                new[] { CrtMode.Off, CrtMode.Mild, CrtMode.Intense, CrtMode.FullOn }.Select(
+                    mode => new FloatMenuOption(
+                        CrtMode.Label(mode),
+                        () =>
+                        {
+                            S.crtOverlay = mode;
+                            S.MarkDirty();
+                        }
+                    )
+                ),
+                out _,
+                "Scanlines and vignette across the whole window. Mild is the default. Applies immediately."
+            );
+
             UiLayout.SectionHeading(l, "Scrolling");
             bool smooth = UiControls.Checkbox(
                 l,
@@ -74,19 +92,6 @@ namespace SlopWorld
             if (smooth != S.smoothScrolling)
             {
                 S.smoothScrolling = smooth;
-                S.MarkDirty();
-            }
-
-            UiLayout.SectionHeading(l, "Just for fun");
-            bool crt = UiControls.Checkbox(
-                l,
-                "CRT overlay",
-                S.crtOverlay,
-                "Subtle scanlines and vignette across the whole window. Applies immediately."
-            );
-            if (crt != S.crtOverlay)
-            {
-                S.crtOverlay = crt;
                 S.MarkDirty();
             }
         }

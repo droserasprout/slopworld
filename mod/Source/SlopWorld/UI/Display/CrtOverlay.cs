@@ -7,11 +7,10 @@ namespace SlopWorld
     internal sealed class CrtOverlay : MonoBehaviour
     {
         const int ScanlinePeriod = 3;
-        const float ScanlineOpacity = 0.11f;
-        const float CornerOpacity = 0.17f;
         const float DitherRange = 2f / 255f;
         const float ResizeSettleSeconds = 0.2f;
 
+        string _mode;
         Texture2D _scanlines;
         Texture2D _vignette;
         float _scanlineScale;
@@ -31,7 +30,13 @@ namespace SlopWorld
             // Depth belongs to this separate GUI behaviour. Root's windows, tooltips and
             // screensaver must all remain below it; drawing allocates no input controls.
             GUI.depth = -10000;
-            if (!Settings.CrtOverlay)
+            string mode = Settings.CrtOverlay;
+            if (_mode != mode)
+            {
+                ReleaseTextures();
+                _mode = mode;
+            }
+            if (mode == CrtMode.Off)
             {
                 ReleaseTextures();
                 return;
@@ -50,7 +55,7 @@ namespace SlopWorld
             }
             if (_scanlines == null)
             {
-                _scanlines = CreateScanlines(Screen.height, scale);
+                _scanlines = CreateScanlines(Screen.height, scale, CrtMode.ScanlineOpacity(mode));
                 _scanlineScale = scale;
             }
             RefreshVignette(Screen.width, Screen.height);
@@ -94,10 +99,10 @@ namespace SlopWorld
                 _vignette = null;
             }
             if (_vignette == null && Time.realtimeSinceStartup >= _vignetteReadyAt)
-                _vignette = CreateVignette(width, height);
+                _vignette = CreateVignette(width, height, CrtMode.CornerOpacity(_mode));
         }
 
-        static Texture2D CreateScanlines(int height, float scale)
+        static Texture2D CreateScanlines(int height, float scale, float opacity)
         {
             var texture = CreateTexture("SlopWorld scanlines", 1, height);
             texture.filterMode = FilterMode.Point;
@@ -112,7 +117,7 @@ namespace SlopWorld
                 float start = row / scale;
                 float end = (row + 1f) / scale;
                 float coverage = (DarkRowsBefore(end) - DarkRowsBefore(start)) * scale;
-                pixels[y] = new Color(0f, 0f, 0f, ScanlineOpacity * Mathf.Clamp01(coverage));
+                pixels[y] = new Color(0f, 0f, 0f, opacity * Mathf.Clamp01(coverage));
             }
             texture.SetPixels(pixels);
             texture.Apply(false, true);
@@ -125,7 +130,7 @@ namespace SlopWorld
             return periods + Mathf.Clamp01(position - periods * ScanlinePeriod);
         }
 
-        static Texture2D CreateVignette(int width, int height)
+        static Texture2D CreateVignette(int width, int height, float cornerOpacity)
         {
             // Dither at the final pixel resolution. Scaling a small noisy texture would
             // filter away the noise or turn it into visible patches.
@@ -141,7 +146,7 @@ namespace SlopWorld
                 // A continuous quartic falloff spreads the shading across the whole image,
                 // with a flat, clear centre and no threshold outlining an inner ellipse.
                 float radiusSquared = (nx * nx + ny * ny) * 0.5f;
-                float opacity = CornerOpacity * radiusSquared * radiusSquared;
+                float opacity = cornerOpacity * radiusSquared * radiusSquared;
                 // Alpha-only noise vanishes over dark panels. Encode a tiny neutral RGB
                 // contribution too, so the blended result varies by up to two display
                 // levels even on black. The added attenuation keeps the mean shift within
@@ -175,7 +180,7 @@ namespace SlopWorld
             new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 name = name,
-                // The overlay outlives maps and menus. OnDestroy and the live toggle own
+                // The overlay outlives maps and menus. OnDestroy and the live setting own
                 // cleanup rather than scene asset unloading.
                 hideFlags = HideFlags.DontUnloadUnusedAsset,
             };
