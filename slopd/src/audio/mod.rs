@@ -184,26 +184,6 @@ impl Default for Audio {
     }
 }
 
-/// Polls player state and broadcasts changes without coupling the audio thread to the event bus.
-pub fn spawn(m: std::sync::Arc<crate::session::Manager>) -> tokio::task::JoinHandle<()> {
-    const BEAT: Duration = Duration::from_millis(500);
-
-    tokio::spawn(async move {
-        let mut last: Option<AudioState> = None;
-        let mut tick = tokio::time::interval(BEAT);
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        loop {
-            tick.tick().await;
-            let now = m.music_state().await;
-            if last.as_ref() == Some(&now) {
-                continue;
-            }
-            last = Some(now.clone());
-            m.emit(crate::session::Event::Audio { audio: now });
-        }
-    })
-}
-
 /// The active source generation. Old feeders stop before writing to the new ring buffer.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 

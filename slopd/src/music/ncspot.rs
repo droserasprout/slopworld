@@ -1,9 +1,10 @@
-//! Native Linux proof of concept. ncspot owns Spotify credentials and playback.
-//! SlopWorld owns one host terminal and a private IPC runtime directory.
-//! It does not control other players owned by the user.
-use crate::session::*;
+//! Managed ncspot lifecycle, volume recovery, and bounded IPC.
+//! HostSessions owns terminal creation/cleanup; tmux owns private player markers.
+//! Only the marked SlopWorld player is controlled; ncspot owns Spotify credentials.
+use super::{HostSessions, Music};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
 #[derive(Default)]
@@ -35,16 +36,16 @@ fn launch_command(root: &Path) -> String {
     )
 }
 
-impl Manager {
+impl Music {
     // Called after startup adoption and before serving requests. Recovery must not send
     // a default volume to a player with a saved applied volume. A missing marker means
     // IPC may never have become ready before shutdown, so volume still needs applying.
-    pub(super) async fn recover_ncspot(&self, root: &Path) {
-        let mut player = self.music.ncspot.lock().await;
+    pub(super) async fn recover_ncspot(&self, sessions: &impl HostSessions, root: &Path) {
+        let mut player = self.ncspot.lock().await;
         if player.session.is_some() {
             return;
         }
-        if let Some(session) = self.adopted_ncspot().await {
+        if let Some(session) = self.adopted_ncspot(sessions).await {
             let applied_volume = self.tmux.ncspot_volume(&session).await;
             let volume = applied_volume.unwrap_or(1.0);
             *player = Player {
@@ -57,15 +58,8 @@ impl Manager {
         }
     }
 
-    async fn adopted_ncspot(&self) -> Option<String> {
-        let names: Vec<_> = self
-            .live
-            .read()
-            .await
-            .iter()
-            .filter(|(_, live)| live.host)
-            .map(|(name, _)| name.clone())
-            .collect();
+    async fn adopted_ncspot(&self, sessions: &impl HostSessions) -> Option<String> {
+        let names = sessions.host_sessions().await;
         for name in names {
             if self.tmux.is_ncspot(&name).await {
                 return Some(name);
@@ -75,17 +69,18 @@ impl Manager {
     }
 
     pub(super) async fn open_ncspot(
-        self: &Arc<Self>,
+        &self,
+        sessions: &impl HostSessions,
         cols: Option<u16>,
         rows: Option<u16>,
         volume: Option<f32>,
     ) -> Result<String> {
         let root = runtime()?;
-        let mut player = self.music.ncspot.lock().await;
+        let mut player = self.ncspot.lock().await;
         let command = launch_command(&root);
         // The explicit tmux marker survives daemon deployment. Labels and reconstructed commands do not.
         if player.session.is_none() {
-            player.session = self.adopted_ncspot().await;
+            player.session = self.adopted_ncspot(sessions).await;
         }
         if let Some(name) = player.session.clone() {
             if self.tmux.is_ncspot(&name).await {
@@ -93,7 +88,7 @@ impl Manager {
                     player.volume = volume.clamp(0.0, 1.0);
                 }
                 player.socket = Some(root.join("slopworld-ncspot/ncspot/ncspot.sock"));
-                self.music.audio.stop();
+                self.audio.stop();
                 return Ok(name);
             }
             player.session = None;
@@ -118,29 +113,10 @@ impl Manager {
             tokio::net::UnixStream::connect(&socket).await.is_err(),
             "An unmanaged ncspot uses the SlopWorld socket. Close it before opening this player."
         );
-        self.music.audio.stop();
-        let session = self
-            .run_errand(
-                LibraryItemCfg {
-                    name: "Spotify".into(),
-                    kind: LibraryItemKind::Shell,
-                    command: Some(command),
-                    host: true,
-                    ..Default::default()
-                },
-                RunWhere {
-                    temp: true,
-                    cols,
-                    rows,
-                    ..Default::default()
-                },
-                true,
-                false,
-                "",
-            )
-            .await?;
+        self.audio.stop();
+        let session = sessions.launch(command, cols, rows).await?;
         if let Err(error) = self.tmux.mark_ncspot(&session).await {
-            self.stop(&session).await?;
+            sessions.stop(&session).await?;
             return Err(error);
         }
         player.session = Some(session.clone());
@@ -151,15 +127,15 @@ impl Manager {
         Ok(session)
     }
 
-    pub(super) async fn stop_ncspot(self: &Arc<Self>) -> Result<()> {
-        let mut player = self.music.ncspot.lock().await;
+    pub(super) async fn stop_ncspot(&self, sessions: &impl HostSessions) -> Result<()> {
+        let mut player = self.ncspot.lock().await;
         if player.session.is_none() {
-            player.session = self.adopted_ncspot().await;
+            player.session = self.adopted_ncspot(sessions).await;
         }
         if let Some(name) = player.session.as_ref()
             && self.tmux.is_ncspot(name).await
         {
-            self.stop(name).await?;
+            sessions.stop(name).await?;
         }
         *player = Player::default();
         Ok(())
@@ -175,7 +151,10 @@ impl Player {
         true
     }
 
-    pub(super) async fn state(&mut self, manager: &Manager) -> Option<crate::audio::AudioState> {
+    pub(super) async fn state(
+        &mut self,
+        tmux: &crate::tmux::Tmux,
+    ) -> Option<crate::audio::AudioState> {
         let name = self.session.as_ref()?;
         let mut state = crate::audio::AudioState {
             source: Some("ncspot".into()),
@@ -183,7 +162,7 @@ impl Player {
             volume: self.volume,
             ..Default::default()
         };
-        if !manager.tmux.is_ncspot(name).await {
+        if !tmux.is_ncspot(name).await {
             state.error = Some("ncspot exited. Open Spotify again to restart it.".into());
             return Some(state);
         }
@@ -197,7 +176,7 @@ impl Player {
                 state.title = title;
                 self.applied_volume = Some(self.volume);
                 if self.persisted_volume != Some(self.volume) {
-                    match manager.tmux.set_ncspot_volume(name, self.volume).await {
+                    match tmux.set_ncspot_volume(name, self.volume).await {
                         Ok(()) => self.persisted_volume = Some(self.volume),
                         Err(error) => tracing::warn!("could not remember ncspot volume: {error:#}"),
                     }
@@ -208,31 +187,6 @@ impl Player {
             Err(e) => tracing::debug!("ncspot IPC not ready: {e:#}"),
         }
         Some(state)
-    }
-}
-
-impl crate::tmux::Tmux {
-    async fn mark_ncspot(&self, name: &str) -> Result<()> {
-        self.set_option(name, "@slopworld_ncspot", "1").await?;
-        Ok(())
-    }
-
-    async fn is_ncspot(&self, name: &str) -> bool {
-        self.option(name, "@slopworld_ncspot").await.as_deref() == Some("1")
-    }
-
-    async fn ncspot_volume(&self, name: &str) -> Option<f32> {
-        self.option(name, "@slopworld_ncspot_volume")
-            .await?
-            .parse::<f32>()
-            .ok()
-            .filter(|volume| (0.0..=1.0).contains(volume))
-    }
-
-    async fn set_ncspot_volume(&self, name: &str, volume: f32) -> Result<()> {
-        self.set_option(name, "@slopworld_ncspot_volume", &volume.to_string())
-            .await?;
-        Ok(())
     }
 }
 

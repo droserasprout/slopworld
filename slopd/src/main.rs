@@ -14,6 +14,7 @@ mod git;
 mod grant;
 mod jukebox;
 mod latency;
+mod music;
 mod paths;
 mod perf;
 mod presets;
@@ -128,7 +129,7 @@ async fn main() -> Result<()> {
     let usage = usage::spawn(m.clone());
 
     // Monitor the jukebox. The mod selects what to play.
-    let audio = audio::spawn(m.clone());
+    let audio = m.spawn_music_poll();
 
     // Publish discovery information only after the listener is bound.
     let app = api::router(m.clone())

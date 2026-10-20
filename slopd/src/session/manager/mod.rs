@@ -29,16 +29,13 @@ mod worktrees;
 pub(crate) use worktrees::WorktreeRequest;
 pub(crate) use worktrees::WorktreeState;
 
+use crate::music::Music;
 pub(crate) use agent_templates::TemplatePersistence;
 pub(crate) use agent_templates::TemplateStore;
 pub(crate) use caps::Authorization;
 use capture::CachedScroll;
 pub(crate) use config::ConfigState;
 pub(crate) use host_metadata::HostMetadataPoll;
-pub(crate) use music::AudioReq;
-#[cfg(test)]
-pub(crate) use music::AudioSelection;
-use music::MusicState;
 pub(crate) use signals::Signals;
 pub use signals::WatchGuard;
 pub(crate) use tasks::TaskStore;
@@ -79,7 +76,7 @@ pub struct Manager {
     // Supporting services.
     pub(crate) tasks: TaskStore,
     pub(super) worktrees: WorktreeState,
-    music: MusicState,
+    music: Music,
 
     // Operation locks spanning multiple owners.
     // Shared for ordinary requests, exclusive for session identity and lifecycle changes.

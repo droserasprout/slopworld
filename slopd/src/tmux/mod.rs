@@ -1,6 +1,7 @@
 //! tmux session transport and recovery metadata. `server` owns startup and readiness.
 
 pub(crate) mod control;
+mod ncspot;
 mod server;
 mod titles;
 

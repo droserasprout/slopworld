@@ -11,6 +11,16 @@ root-only API edits. Playback and catalog owners are mapped in
 [daemon sources](daemon-files.md), storage in [configuration stores](daemon-config-stores.md),
 and transport in [the client](mod-client.md).
 
+`music/` owns daemon source selection and recovery. It validates each selection
+before changing players and holds one transition guard through the change and its
+reply. The ncspot player guard spans IPC polling and applied-volume persistence,
+so stop or reopen cannot reuse the socket during a poll. Session integration is
+limited to listing host terminals, launching a disposable host terminal, and
+stopping it; the manager retains lifecycle guards and cleanup. Startup recovers
+music after session adoption. The manager adapter polls combined player state every
+500 ms and publishes only changes. Tmux markers identify managed players and preserve
+applied volume across daemon restarts.
+
 The daemon tries the preferred ALSA PCMs in order, then the default device, until
 a stream opens. Null sinks and already attempted PCM IDs are excluded.
 The daemon audio worker owns output-device recovery. Backend failures retire the device

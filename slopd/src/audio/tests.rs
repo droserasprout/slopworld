@@ -509,6 +509,11 @@ fn cancelling_an_active_body_terminates_read_exact() {
 /// This test uses a short timeout. Production uses STREAM_IDLE to permit normal stream delays.
 #[test]
 fn an_idle_http_body_reconnects_without_rebuilding_the_reader() {
+    // Other playback tests advance the process-global generation. Keep this
+    // reconnect alive across its timeout without an unrelated player's stop cancelling it.
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let address = listener.local_addr().unwrap();
 

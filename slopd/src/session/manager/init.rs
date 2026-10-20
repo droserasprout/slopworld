@@ -2,7 +2,7 @@
 
 use super::super::*;
 use super::{
-    Authorization, ConfigState, HostMetadataPoll, MusicState, Signals, TemplateStore, WorktreeState,
+    Authorization, ConfigState, HostMetadataPoll, Music, Signals, TemplateStore, WorktreeState,
 };
 
 impl Manager {
@@ -46,6 +46,7 @@ impl Manager {
             })
             .is_ok();
 
+        let tmux = Tmux::new(crate::tmux::tmux_socket());
         let m = Arc::new(Self {
             #[cfg(test)]
             frame_commit_pause: Mutex::new(None),
@@ -57,7 +58,7 @@ impl Manager {
             input_sink: Mutex::new(None),
             #[cfg(test)]
             _test_directory: None,
-            tmux: Tmux::new(crate::tmux::tmux_socket()),
+            tmux: tmux.clone(),
             cfg_path,
             endpoint_path: crate::endpoint::path(),
             live: RwLock::new(HashMap::new()),
@@ -76,7 +77,7 @@ impl Manager {
             scroll_cache: Mutex::new(HashMap::new()),
             activity_mutation: tokio::sync::Mutex::new(()),
             activity_cache,
-            music: MusicState::new(),
+            music: Music::new(tmux),
             events,
             auth: Authorization::new(grants),
             session_boundary: Arc::new(tokio::sync::RwLock::new(())),
@@ -114,7 +115,7 @@ impl Manager {
             tracing::error!("could not prune stale persisted grants: {error:#}");
         }
 
-        m.recover_music().await;
+        m.music.recover(&m).await;
 
         Ok(m)
     }

@@ -35,13 +35,14 @@ pub(crate) fn test_manager_with_socket(
         None,
     );
     let (events, _) = broadcast::channel(16);
+    let tmux = Tmux::new(socket);
     Arc::new(Manager {
         frame_commit_pause: Mutex::new(None),
         scroll_capture_pause: Mutex::new(None),
         reader_attach_pause: Mutex::new(None),
         input_sink: Mutex::new(None),
         _test_directory: Some(TestDirectory(directory.clone())),
-        tmux: Tmux::new(socket),
+        tmux: tmux.clone(),
         cfg_path: cfg_path.clone(),
         endpoint_path: cfg_path.with_extension("endpoint.toml"),
         library_snapshot: Mutex::new(config.library_items_all()),
@@ -57,7 +58,7 @@ pub(crate) fn test_manager_with_socket(
         activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
             &cfg_path,
         )),
-        music: MusicState::new(),
+        music: Music::new(tmux),
         events,
         auth: Authorization::new(crate::grant::Grants::default()),
         session_boundary: Arc::new(tokio::sync::RwLock::new(())),
