@@ -2,7 +2,7 @@ use super::super::host_metadata::tests::metadata_fixture;
 use super::super::lifecycle::start::prepare_project_dir;
 use super::*;
 const MAX_MANUAL_LABEL_CHARS: usize = 60;
-use crate::session::config::ConfigMutation;
+use crate::config::transactions::ConfigMutation;
 use crate::session::{AgentLifetime, SessionRole};
 
 #[tokio::test]

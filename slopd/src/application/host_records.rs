@@ -6,6 +6,7 @@ use crate::session::SessionRuntime;
 use anyhow::{Result, bail};
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub(crate) struct HostRecords {
     workspace: Arc<Workspace>,
     authority: Arc<ConfigAuthority>,

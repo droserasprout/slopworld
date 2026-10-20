@@ -10,7 +10,6 @@ pub(crate) struct RuntimeServices {
     pub(crate) tasks: crate::tasks::io::TaskStore,
     pub(crate) events: crate::application::EventPublisher,
     pub(crate) title_cache: Arc<crate::title::SummaryCache>,
-    pub(crate) templates: crate::application::TemplateCatalog,
     #[cfg(test)]
     pub(crate) application: Arc<crate::application::Services>,
 }
@@ -61,7 +60,6 @@ impl SessionRuntime {
             tasks: services.tasks,
             events: services.events,
             title_cache: services.title_cache,
-            templates: services.templates,
             #[cfg(test)]
             application: services.application,
             session_boundary: Arc::new(tokio::sync::RwLock::new(())),

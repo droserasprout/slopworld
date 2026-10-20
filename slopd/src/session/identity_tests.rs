@@ -57,7 +57,7 @@ async fn configured_creation_ignores_client_identity_and_preserves_id_on_label_e
     assert_ne!(saved, supplied);
     manager
         .configuration()
-        .update_cfg(super::super::config::ConfigMutation::Agents, |cfg| {
+        .update_cfg(crate::config::transactions::ConfigMutation::Agents, |cfg| {
             cfg.sessions[0].label = Some("label".into());
             Ok(())
         })

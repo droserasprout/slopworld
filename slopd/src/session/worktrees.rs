@@ -20,11 +20,6 @@ impl SessionRuntime {
         self.worktrees.snapshot()
     }
 
-    #[cfg(test)]
-    pub(crate) async fn save_worktrees(&self, store: &Store) -> Result<()> {
-        self.workspace.configuration.save_worktrees(store).await
-    }
-
     /// Build the view from accepted records; offline changes load at startup.
     pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
         Arc::new(
@@ -82,13 +77,3 @@ impl SessionRuntime {
 #[cfg(test)]
 #[path = "worktrees_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-impl crate::application::worktrees::Catalog for SessionRuntime {
-    async fn config(&self) -> Config {
-        SessionRuntime::config(self).await
-    }
-    fn worktree_records(&self) -> Store {
-        SessionRuntime::worktree_records(self)
-    }
-}

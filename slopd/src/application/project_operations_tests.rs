@@ -65,7 +65,7 @@ async fn canceled_project_update_retains_boundary_until_commit() {
         .unwrap();
     request.abort();
     assert!(request.await.unwrap_err().is_cancelled());
-    manager.session_boundary.try_write().unwrap_err();
+    manager.session_boundary_fixture().try_write().unwrap_err();
     release.notify_one();
     tokio::time::timeout(
         Duration::from_secs(5),

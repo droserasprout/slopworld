@@ -1,11 +1,13 @@
 //! Real manager/Git integration against the fixture-selected record layout.
-use super::*;
 use crate::application::projects::Projects;
 use crate::application::worktrees::WorktreeRequest;
 use crate::application::worktrees::Worktrees;
 use crate::config::HostTerminalCfg;
+use crate::config::{Config, ProjectCfg, SessionCfg, transactions::ConfigMutation};
+use crate::session::SessionRuntime;
 use crate::storage::{target::StorageBinding, workspace};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 struct Fixture {
@@ -170,7 +172,15 @@ async fn worktree_records_keep_main_derived_siblings_unchanged_and_ignore_extern
     assert!(!f.tree_path("main").exists());
     std::fs::write(f.tree_path(&first.id), "broken external edit").unwrap();
     assert_eq!(
-        f.manager.worktree_view_index().await[&first.id].path,
+        Worktrees::new(&crate::application::Application::from_runtime(&f.manager))
+            .worktree_list("repo")
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|row| row.worktree.id == first.id)
+            .unwrap()
+            .worktree
+            .path,
         renamed.path
     );
     assert_eq!(f.manager.worktree_records().worktrees[0].path, renamed.path);
@@ -304,10 +314,12 @@ async fn canceled_project_move_rolls_back_git_and_records_after_final_write_fail
     let fault = crate::paths::fail_writes(&f.project_path());
     request.abort();
     release.notify_one();
-    let _boundary =
-        tokio::time::timeout(Duration::from_secs(10), f.manager.session_boundary.write())
-            .await
-            .unwrap();
+    let _boundary = tokio::time::timeout(
+        Duration::from_secs(10),
+        f.manager.session_boundary_fixture().write(),
+    )
+    .await
+    .unwrap();
     assert!(Path::new(&tree.path).exists());
     assert!(!f.root.join("trees/renamed/checkout").exists());
     assert_eq!(std::fs::read(f.project_path()).unwrap(), old_project);

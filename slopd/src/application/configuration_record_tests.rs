@@ -1,10 +1,13 @@
-//! SessionRuntime integration tests for production record storage.
+//! Application record transactions against production storage and live reconciliation.
 
-use super::*;
 use crate::application::library::Library;
-use crate::config::HostTerminalCfg;
+use crate::config::{Config, ProjectCfg, SessionCfg, transactions::ConfigMutation};
+use crate::config::{HostTerminalCfg, LibraryItemCfg};
+use crate::session::SessionRuntime;
 use crate::storage::{target::StorageBinding, workspace::Store};
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
 
 struct Fixture {
     manager: Arc<SessionRuntime>,
@@ -93,7 +96,7 @@ async fn manager_routes_rename_label_and_directory_updates_without_touching_othe
     assert_eq!(row.label.as_deref(), Some("new label"));
     let agent_bytes = tokio::fs::read(&agent).await.unwrap();
     f.manager
-        .host_records
+        .configuration_host_records_fixture()
         .remember(&f.manager, "shell", "repo", "/new")
         .await
         .unwrap();
@@ -173,7 +176,10 @@ async fn failed_record_commit_does_not_publish_indexes_or_config_and_retry_succe
         f.manager.config().await.session("agent").unwrap().label,
         None
     );
-    assert_eq!(f.manager.live.read().await["agent"].cfg.label, None);
+    assert_eq!(
+        f.manager.live_config_fixture("agent").await.unwrap().label,
+        None
+    );
     assert_eq!(tokio::fs::read(&path).await.unwrap(), before);
     drop(fault);
     f.manager
@@ -270,11 +276,19 @@ async fn cancellation_after_disk_commit_still_publishes_config_and_record_indexe
         Some("committed")
     );
     drop(gate);
-    let boundary = tokio::time::timeout(Duration::from_secs(5), f.manager.session_boundary.write())
-        .await
-        .unwrap();
+    let boundary = tokio::time::timeout(
+        Duration::from_secs(5),
+        f.manager.session_boundary_fixture().write(),
+    )
+    .await
+    .unwrap();
     assert_eq!(
-        f.manager.live.read().await["agent"].cfg.label.as_deref(),
+        f.manager
+            .live_config_fixture("agent")
+            .await
+            .unwrap()
+            .label
+            .as_deref(),
         Some("committed")
     );
     drop(boundary);
@@ -307,7 +321,7 @@ async fn record_mode_does_not_poll_or_accept_external_workspace_changes() {
     assert!(!f.manager.configuration().reload_if_changed().await);
     assert_eq!(f.manager.config().await.sessions[0].name, "agent");
     f.manager
-        .host_records
+        .configuration_host_records_fixture()
         .remember(&f.manager, "shell", "repo", "/accepted")
         .await
         .unwrap();
@@ -621,12 +635,17 @@ async fn canceled_library_reload_retains_its_boundary_through_recovery() {
     reached.notified().await;
     request.abort();
     assert!(request.await.unwrap_err().is_cancelled());
-    f.manager.session_boundary.try_write().unwrap_err();
+    f.manager
+        .session_boundary_fixture()
+        .try_write()
+        .unwrap_err();
     drop(gate);
-    let _boundary =
-        tokio::time::timeout(Duration::from_secs(5), f.manager.session_boundary.write())
-            .await
-            .unwrap();
+    let _boundary = tokio::time::timeout(
+        Duration::from_secs(5),
+        f.manager.session_boundary_fixture().write(),
+    )
+    .await
+    .unwrap();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
     assert!(!journal.exists());
 }

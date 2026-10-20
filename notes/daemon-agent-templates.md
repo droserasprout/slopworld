@@ -2,13 +2,13 @@
 
 `application::AgentTemplates` owns the personal template catalog, its storage path,
 mutation gate, and cancellation-safe persistence/publication. Application startup
-loads the service; catalog-only API operations use it directly. Session launch
+loads the service; catalog-only API operations use it directly. Application launch
 preparation receives a read-only `TemplateCatalog` sharing the accepted index.
 Failed saves remain invisible to that view; committed edits appear without replacing
 the handle.
 `application/agent_templates.rs` resolves catalog entries and composes session drafts.
 `application/template_operations.rs` coordinates capture and instantiation;
-`SessionRuntime` retains guarded draft registration. `agent_templates/mod.rs`
+`application/session_edits.rs` coordinates guarded draft registration. `agent_templates/mod.rs`
 defines portable fields and snapshot rules; its persistence module owns storage.
 The [configuration store](daemon-config-stores.md) owns the `agent_templates/`
 location. The mod and CLI use daemon APIs, never direct file access.

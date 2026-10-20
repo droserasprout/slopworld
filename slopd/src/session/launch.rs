@@ -102,9 +102,6 @@ pub(crate) enum HostLifetime {
 }
 
 impl ExecutionSource {
-    pub(super) fn is_host(&self) -> bool {
-        matches!(self, Self::Host(_))
-    }
     pub(crate) fn persistent_host(&self) -> bool {
         matches!(self, Self::Host(HostLifetime::Persistent))
     }

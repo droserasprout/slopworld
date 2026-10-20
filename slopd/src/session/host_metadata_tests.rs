@@ -1,5 +1,5 @@
 use super::*;
-use crate::session::config::ConfigMutation;
+use crate::config::transactions::ConfigMutation;
 use crate::session::{AgentLifetime, SessionRole};
 
 async fn finish_poll(manager: &SessionRuntime) {

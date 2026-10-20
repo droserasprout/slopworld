@@ -38,7 +38,6 @@ pub struct SessionRuntime {
     pub(super) tasks: crate::tasks::io::TaskStore,
     pub(super) events: crate::application::EventPublisher,
     pub(super) title_cache: Arc<crate::title::SummaryCache>,
-    pub(super) templates: crate::application::TemplateCatalog,
     // Fixture composition only; production runtime cannot access the service container.
     #[cfg(test)]
     pub(crate) application: Arc<crate::application::Services>,

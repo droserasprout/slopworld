@@ -83,7 +83,6 @@ pub(crate) fn test_manager_with_socket(
         tasks: services.tasks,
         events: services.events,
         title_cache: services.title_cache,
-        templates: services.templates,
         application,
         session_boundary: Arc::new(tokio::sync::RwLock::new(())),
         terminal_boundaries: Mutex::new(HashMap::new()),
@@ -105,20 +104,6 @@ impl Drop for TestDirectory {
                 .output(),
         );
         drop(std::fs::remove_dir_all(&self.0));
-    }
-}
-
-impl SessionRuntime {
-    /// Exercise production ownership and commit while replacing fixture membership.
-    pub(crate) async fn replace_workspace_fixture(self: &Arc<Self>, cfg: &Config) -> Result<()> {
-        self.configuration()
-            .update_cfg(super::config::ConfigMutation::ProjectReferences, |next| {
-                next.projects = cfg.projects.clone();
-                next.sessions = cfg.sessions.clone();
-                next.host_terminals = cfg.host_terminals.clone();
-                Ok(())
-            })
-            .await
     }
 }
 
@@ -156,7 +141,15 @@ impl SessionRuntime {
 }
 
 impl SessionRuntime {
-    pub(crate) fn edits(self: &Arc<Self>) -> crate::application::SessionEdits {
-        crate::application::SessionEdits::new(&crate::application::Application::from_runtime(self))
+    pub(crate) fn session_boundary_fixture(&self) -> &tokio::sync::RwLock<()> {
+        &self.session_boundary
+    }
+
+    pub(crate) async fn live_config_fixture(&self, name: &str) -> Option<SessionCfg> {
+        self.live
+            .read()
+            .await
+            .get(name)
+            .map(|live| live.cfg.clone())
     }
 }

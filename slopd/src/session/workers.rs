@@ -1,11 +1,7 @@
 //! Worker session identity, guarded registration, and caller facts.
 //! Application workers coordinates checkouts, tasks, startup and rollback.
 use super::*;
-#[cfg(test)]
-use crate::agent_templates::AgentTemplate;
 use crate::application::workers;
-#[cfg(test)]
-use workers::{WorkerCheckout, WorkerRequest, worker_session_from_template};
 
 impl SessionRuntime {
     pub(crate) async fn worker_registration_guard(&self) -> tokio::sync::MutexGuard<'_, ()> {
@@ -65,23 +61,6 @@ impl SessionRuntime {
                 None => workers::Caller::Missing,
             }
         }
-    }
-
-    #[cfg(test)]
-    pub(crate) async fn spawnable_worker_template(
-        &self,
-        caller: &str,
-        project: &str,
-        requested: &str,
-    ) -> Result<AgentTemplate> {
-        workers::template(
-            &self.config().await,
-            caller,
-            &self.worker_caller(caller).await,
-            project,
-            requested,
-            &self.templates.list().await,
-        )
     }
 }
 

@@ -29,15 +29,13 @@ mod capture;
 mod config;
 mod delivery;
 mod errands;
+pub(crate) use errands::{ErrandAllocation, PreparedErrand};
 mod host_metadata;
 mod identity;
 mod init;
 pub(crate) use init::{RuntimeServices, RuntimeStorage};
 mod lifecycle;
 mod maintenance;
-#[cfg(test)]
-#[path = "projects_tests.rs"]
-mod project_operation_tests;
 mod runtime;
 mod session_state;
 mod sessions;

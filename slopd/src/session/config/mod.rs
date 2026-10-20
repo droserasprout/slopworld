@@ -1,20 +1,9 @@
 //! Live configuration reads and invalidation; application coordinates edits and reloads.
 use super::*;
-#[cfg(test)]
-pub(super) use crate::config::transactions::ConfigMutation;
 
 impl SessionRuntime {
     pub async fn config(&self) -> Config {
         self.config_authority.read_config().await.clone()
-    }
-    #[cfg(test)]
-    pub(crate) fn configuration(self: &Arc<Self>) -> crate::application::Configuration {
-        crate::application::Configuration::from_parts(
-            self.clone(),
-            self.workspace.clone(),
-            self.config_authority.clone(),
-            self.application.clone(),
-        )
     }
     pub(crate) async fn invalidate_replaced_sessions(&self, new: &Config) {
         let old = self.config().await;
@@ -31,8 +20,4 @@ impl SessionRuntime {
 }
 
 #[cfg(test)]
-pub(super) mod record_tests;
-#[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod workspace_tests;

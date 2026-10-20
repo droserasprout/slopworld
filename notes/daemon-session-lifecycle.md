@@ -12,8 +12,11 @@ also retain their session boundary in owned work through publication or cleanup.
 `SessionCfg` and saved library entries. Execution source distinguishes host lifetime,
 agent templates and cloned agent settings; destination distinguishes selected and
 temporary projects. `application/launch.rs` coordinates explicit and saved launches
-under the session operation guard; `session/errands.rs` owns live allocation. Template/source
-lookup and worktree resolution remain inside that guard before allocation.
+under the session operation guard. `application/launch_sessions.rs` selects templates,
+resolves worktrees, captures source settings and persists host records.
+`session/errands.rs` reserves a name and temporary-project identity without publishing
+state; application passes back a complete plan for live publication. The guard spans
+reservation through publication. Dropping a reservation leaves no live or temporary row.
 `session/role.rs` distinguishes durable and temporary agents, saved host shells, and
 unsaved host actions. Stop and process exit retain durable agents and saved shells;
 only temporary agents own private state that teardown deletes. Worker metadata

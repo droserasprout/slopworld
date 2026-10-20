@@ -1,6 +1,8 @@
 use super::*;
+use crate::agent_templates::AgentTemplate;
 use crate::application::workers::Workers;
 use crate::application::workers::tests::allocation_fixture;
+use crate::application::workers::{WorkerCheckout, WorkerRequest, worker_session_from_template};
 use crate::application::worktrees::WorktreeRequest;
 use crate::application::worktrees::Worktrees;
 use crate::config::{Config, Daemon, Limits, ProjectCfg, SessionCfg};

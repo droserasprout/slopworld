@@ -12,7 +12,8 @@ adapter supplies guarded commits; `api/handlers/library.rs` owns HTTP.
 common request in `session/launch.rs`. Explicit
 request decoding belongs to `api/types.rs`. Application `Launches` coordinates
 guarded allocation, startup, failure cleanup, and prompt delivery through the session
-runtime. Live construction belongs to `session/errands.rs`.
+runtime. `application/launch_sessions.rs` prepares configured launch plans and host
+records; `session/errands.rs` reserves identities and publishes live state.
 `application/errands.rs` owns copied source settings, executable precedence, and
 display-label policy; validation still precedes runtime allocation under session guards.
 `application/library.rs` prepares breadcrumb text from resolved session/project context;

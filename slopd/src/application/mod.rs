@@ -23,6 +23,7 @@ pub(crate) use config_authority::{AuthChange, ConfigAuthority};
 pub(crate) mod errands;
 mod events;
 pub(crate) mod launch;
+mod launch_sessions;
 pub(crate) mod library;
 mod music;
 pub(crate) mod projects;
@@ -96,7 +97,6 @@ impl Services {
             tasks: self.tasks.clone(),
             events: self.events.clone(),
             title_cache: self.title_cache.clone(),
-            templates: self.templates.catalog(),
             #[cfg(test)]
             application: self.clone(),
         }
@@ -130,3 +130,12 @@ pub(crate) use session_edits::SessionEdits;
 mod config_runtime;
 mod host_records;
 pub(crate) use host_records::HostRecords;
+
+#[cfg(test)]
+mod configuration_record_tests;
+#[cfg(test)]
+mod project_operations_tests;
+#[cfg(test)]
+mod session_fixture_tests;
+#[cfg(test)]
+mod workspace_operations_tests;

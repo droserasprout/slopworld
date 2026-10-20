@@ -488,24 +488,53 @@ async fn fresh_errands_do_not_inherit_the_source_worktree() {
     );
 }
 
-impl SessionRuntime {
-    pub(in crate::session) async fn create_test_errand_session(
-        self: &Arc<Self>,
-        cfg: &Config,
-        item: &LibraryItemCfg,
-        want: &RunWhere,
-        host: bool,
-        persistent: bool,
-        like: &str,
-    ) -> Result<String> {
-        let execution = crate::application::launch::select_execution(
-            host,
-            persistent,
-            &item.agent_template,
-            like,
-        )?;
-        let request =
-            crate::application::launch::from_library(item.clone(), want.clone(), execution)?;
-        self.create_errand_session(cfg, &request).await
-    }
+#[tokio::test]
+async fn cancelled_live_publication_leaves_no_temporary_project_and_can_retry() {
+    let cfg = Config::default();
+    let manager = crate::session::test_manager(cfg.clone());
+    let request = LaunchRequest {
+        content: LaunchContent {
+            name: "scratch".into(),
+            kind: crate::config::LibraryItemKind::Shell,
+            command: None,
+            text: String::new(),
+        },
+        execution: ExecutionSource::Host(HostLifetime::Disposable),
+        destination: LaunchDestination::Temporary,
+        options: LaunchOptions::default(),
+    };
+    manager.session_operation(async {
+        let allocate = || manager.allocate_errand(&cfg, &request, "", true, "");
+        let ErrandAllocation::New(slot) = allocate().await.unwrap() else { panic!("new slot") };
+        let name = slot.name.clone();
+        let project = slot.project.clone();
+        assert!(manager.live.read().await.is_empty());
+        let temp = manager.temp.write().await;
+        let mut publish = Box::pin(manager.publish_errand(PreparedErrand {
+            session: SessionCfg { name: name.clone(), project: project.clone(), ..Default::default() },
+            slot: *slot,
+            context: LaunchContext::default(),
+            host_path: String::new(),
+        }));
+        tokio::select! {
+            biased;
+            result = &mut publish => panic!("publication passed the held temp lock: {result:?}"),
+            () = tokio::task::yield_now() => {}
+        }
+        drop(publish);
+        assert!(manager.live.read().await.is_empty());
+        assert!(temp.is_empty());
+        drop(temp);
+        let ErrandAllocation::New(slot) = allocate().await.unwrap() else { panic!("retry slot") };
+        assert_eq!(slot.name, name);
+        assert_eq!(slot.project, project);
+        manager.publish_errand(PreparedErrand {
+            session: SessionCfg { name: name.clone(), project: project.clone(), ..Default::default() },
+            slot: *slot,
+            context: LaunchContext::default(),
+            host_path: String::new(),
+        }).await.unwrap();
+        assert_eq!(manager.live.read().await[&name].cfg.project, project);
+        assert!(manager.temp.read().await.contains_key(&project));
+    }).await;
 }

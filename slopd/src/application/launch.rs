@@ -13,7 +13,9 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub(crate) struct Launches {
     configuration: super::Configuration,
-    sessions: Arc<SessionRuntime>,
+    pub(super) sessions: Arc<SessionRuntime>,
+    pub(super) templates: super::TemplateCatalog,
+    pub(super) host_records: super::HostRecords,
 }
 
 impl Launches {
@@ -21,6 +23,11 @@ impl Launches {
         Self {
             configuration: super::Configuration::new(application),
             sessions: application.sessions.clone(),
+            templates: application.services.templates.catalog(),
+            host_records: super::HostRecords::new(
+                application.workspace.clone(),
+                application.config_authority.clone(),
+            ),
         }
     }
 
@@ -33,7 +40,7 @@ impl Launches {
         self.configuration.reload_if_changed().await;
         let cfg = self.configuration.config().await;
         request.content.validate()?;
-        let session = sessions.create_errand_session(&cfg, &request).await?;
+        let session = self.create_errand_session(&cfg, &request).await?;
         if !sessions.tmux.exists(&session).await
             && let Err(error) = sessions.start(&session).await
         {

@@ -1,5 +1,5 @@
 //! Errand source/destination selection, executable precedence, copied settings and display metadata.
-//! Session owns catalog/context capture under its guards, allocation and live construction.
+//! Application launch captures context under session guards; session owns identity and live publication.
 use crate::agent_templates::AgentTemplate;
 use crate::config::{Config, LibraryItemKind, ProjectCfg, SessionCfg};
 use crate::session::{
