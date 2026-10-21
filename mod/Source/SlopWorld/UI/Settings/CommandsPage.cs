@@ -88,16 +88,9 @@ namespace SlopWorld
                 ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.AppearanceCode));
 
             l.Gap(UiTheme.GapL);
-            UiLayout.SectionHeading(l, "Editor template rules");
             UiLayout.Note(
                 l,
-                "Use {file} to insert a quoted path. Use {line} to insert the line from a "
-                    + "search result. For a line jump, missing {file} appends the path and missing {line} "
-                    + "appends +LINE after it. Without a line jump, missing {file} appends -- and the path."
-            );
-            UiLayout.Note(
-                l,
-                "SlopWorld splits each template into arguments. It does not use a shell."
+                "For custom commands use {file} to insert a quoted path, {line} to insert the search result."
             );
         }
 

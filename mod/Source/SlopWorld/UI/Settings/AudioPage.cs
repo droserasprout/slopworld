@@ -80,12 +80,7 @@ namespace SlopWorld
             if (UiLayout.Button(l, "History"))
                 JukeboxHistoryView.Open();
 
-            bool mute = UiControls.Checkbox(
-                l,
-                "Mute",
-                Radio.Muted,
-                "Stop playback without downloading unheard audio."
-            );
+            bool mute = UiControls.Checkbox(l, "Mute", Radio.Muted, "Stop playback.");
             if (mute != Radio.Muted)
                 Radio.ToggleMute();
 

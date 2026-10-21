@@ -25,8 +25,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Templates");
             UiLayout.Note(
                 l,
-                "Selected templates are available to agents that create task workers. "
-                    + "You can use any catalog template from the Worker menu."
+                "Selected templates are available to agents that create task workers."
             );
 
             var templates = SessionHub
@@ -40,7 +39,7 @@ namespace SlopWorld
             foreach (var template in templates)
             {
                 bool selected = _cfg.WorkerTemplates.Contains(template.Name);
-                string tip = "Existing workers keep their saved settings.";
+                string tip = "";
                 bool next = UiControls.Checkbox(l, template.DisplayLabel, selected, tip);
                 if (next == selected)
                     continue;
@@ -54,8 +53,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Instructions");
             UiLayout.Note(
                 l,
-                "The daemon sends this prompt when it starts a worker from a selected template. "
-                    + "Task commands use the worker's task ID when SLOPWORLD_TASK_ID is set."
+                "Prompt sent to worker. Task commands use the worker's SLOPWORLD_TASK_ID."
             );
             _cfg.WorkerPrompt = UiControls.Area(
                 l,
@@ -66,11 +64,7 @@ namespace SlopWorld
                 defaultValue: _cfg.FactoryDefaults?.WorkerPrompt,
                 resize: _promptResize
             );
-            UiLayout.Note(
-                l,
-                "The daemon stores each task body in its mailbox. This prompt tells the worker "
-                    + "how to retrieve and report on the task. Reset changes this form only. Select Save to apply changes."
-            );
+            UiLayout.Note(l, "Task bodies are stored in the workers' mailboxes.");
         }
     }
 }

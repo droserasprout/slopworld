@@ -90,8 +90,7 @@ namespace SlopWorld
                 UiScale.Readout(shown),
                 out bool held,
                 out bool released,
-                "Scales the SlopWorld and game interfaces. The game's scale control stops "
-                    + "when the scaled screen would be smaller than 1024x768. This control has no such limit."
+                "Scales the SlopWorld and game interfaces."
             );
             if (held)
             {
@@ -234,7 +233,7 @@ namespace SlopWorld
                 l,
                 "Grayscale",
                 S.cursorGrayscale,
-                "Use neutral grey instead of each asset's original colors."
+                "Render cursor in grayscale."
             );
             if (grayscale != S.cursorGrayscale)
             {

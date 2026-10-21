@@ -205,7 +205,7 @@ namespace SlopWorld
             bool presets = _section == Section.SandboxPresets;
             string heading = presets ? "Sandbox presets" : "Apps";
             string caption = presets
-                ? "The daemon supplies system presets. Copy one to your list to edit it. You can also create user presets."
+                ? "The daemon supplies system presets. Copy one to your list to edit it, or create new preset."
                 : "App presets define the command an agent runs and its sandbox presets. Copy a system app to create an editable user copy.";
             UiLayout.SectionHeading(new Rect(r.x, r.y, r.width, UiTheme.RowH), heading);
 

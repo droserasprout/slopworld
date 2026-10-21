@@ -229,7 +229,7 @@ namespace SlopWorld
                 l,
                 "Line numbers",
                 Appearance.LineNumbers,
-                "Show source line numbers in files and diffs. Custom file pagers manage their own numbering."
+                "Show source line numbers in files and diffs. Custom pagers manage their own numbering."
             );
             l.Gap(UiTheme.GapM);
             UiLayout.SectionHeading(l, "Colors");
@@ -242,7 +242,7 @@ namespace SlopWorld
                     l,
                     _command.Trim() == "auto"
                         ? "No supported highlighter installed; using plain text."
-                        : "Choose highlight, Pygments, or bat to select a theme here."
+                        : "Choose syntax highlighter to select a theme here."
                 );
             else
             {

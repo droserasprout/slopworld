@@ -63,7 +63,7 @@ namespace SlopWorld
                 l,
                 "Show sidebar",
                 !S.sidebarHidden,
-                "Keep the sidebar visible. Hidden sidebar consumes no width."
+                "Toggle sidebar visibility."
             );
             if (visible == S.sidebarHidden)
             {
@@ -77,7 +77,7 @@ namespace SlopWorld
                 "Show agent status indicators",
                 S,
                 ref S.statusbarAgentIndicators,
-                "Show autostart, resume-on-start, and host-network flags in agent rows."
+                "Show [a]utostart, [h]ost-network, and other flags in agent rows"
             );
 
             UiLayout.SectionHeading(l, "Statusbar");
@@ -121,22 +121,21 @@ namespace SlopWorld
                 "Show spent instead of left",
                 S,
                 ref S.usageSpent,
-                "Applies to every provider. Left is the amount remaining. Spent is the "
-                    + "provider-facing percentage or amount used."
+                "Major providers usually show quota as % spent. We show % left by default (resources you posess)."
             );
             UiControls.CheckboxSetting(
                 l,
                 "Show Jukebox in statusbar",
                 S,
                 ref S.statusbarJukebox,
-                "Show the jukebox door when a jukebox is present."
+                "Show the jukebox tray icon."
             );
             UiControls.CheckboxSetting(
                 l,
                 "Show GM in statusbar",
                 S,
                 ref S.statusbarGM,
-                "Show the Computer Core door when the core is present."
+                "Show the GM tray icon."
             );
         }
 

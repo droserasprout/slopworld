@@ -102,10 +102,7 @@ namespace SlopWorld
                 _load.SizesAvailable ? Human(_entries.Sum(e => e.Bytes)) + " total."
                 : _loading ? "Calculating storage sizes…"
                 : "Storage sizes unavailable.";
-            string caption =
-                total
-                + " Configured agents remain. "
-                + "State from deleted or reset agents expires after 14 days. Shared caches remain.";
+            string caption = total + " " + "Data in trash expires after 14 days.";
             float width = UiScrollBody
                 .Measure(inner, 0f, UiScrollbarReservation.Always)
                 .ContentWidth;

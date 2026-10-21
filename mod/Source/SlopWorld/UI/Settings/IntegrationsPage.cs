@@ -29,7 +29,7 @@ namespace SlopWorld
                 _cfg.OpenrouterKeyFile,
                 defaultValue: ""
             );
-            UiLayout.Note(l, "Blank uses $OPENROUTER_API_KEY. The key stays on the host.");
+            UiLayout.Note(l, "Blank uses $OPENROUTER_API_KEY.");
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "OpenAI / Codex");
@@ -42,7 +42,7 @@ namespace SlopWorld
             );
 
             l.Gap(UiTheme.GapL);
-            UiLayout.Note(l, "Credential files stay on the host.");
+            UiLayout.Note(l, "Credential files and keys stay on the host.");
         }
     }
 }

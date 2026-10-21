@@ -34,7 +34,7 @@ namespace SlopWorld
             if (_scroll.HandleWheel(inner))
                 return;
             string caption =
-                "Commands used, integrated, or recommended by SlopWorld. "
+                "Commands used, integrated, or suggested by SlopWorld. "
                 + "Host rows check the game's PATH. Daemon rows use the daemon's effective PATH.";
             float width = UiScrollBody
                 .Measure(inner, 0f, UiScrollbarReservation.Always)

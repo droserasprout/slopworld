@@ -26,7 +26,7 @@ namespace SlopWorld
                 l,
                 "Fullscreen",
                 S.fullscreen,
-                "Use window-manager fullscreen without changing Unity's render mode."
+                "Use window-manager fullscreen."
             );
             if (fullscreen != S.fullscreen)
                 LinuxGameWindow.Set(fullscreen);
@@ -38,8 +38,7 @@ namespace SlopWorld
             string frameLimitLabel = mode == FramePolicy.Auto ? autoLabel : fps + " FPS";
             string frameLimitTip = S.vsync
                 ? "Turn off VSync to choose an FPS limit."
-                : "Auto matches the current display refresh rate. Lower limits save power. "
-                    + "Higher limits improve responsiveness.";
+                : "Auto matches the current display refresh rate. Set lower to save power or higher to improve responsiveness.";
             UiSelector.Draw(
                 l,
                 "Frame limiter",
@@ -54,8 +53,7 @@ namespace SlopWorld
                 l,
                 "VSync (not recommended)",
                 S.vsync,
-                "Synchronize presentation with the display refresh rate. "
-                    + "Adds scrolling latency and overrides the FPS limit."
+                "Enable vertical synchronization. Adds input lag. Testing only."
             );
             if (vsync != S.vsync)
             {
@@ -82,7 +80,7 @@ namespace SlopWorld
                     }
                 )),
                 out _,
-                "Window scanlines and vignette, surface grain, and cursor dimming. Mild is the default. Applies immediately."
+                "Window scanlines and vignette, surface grain, and cursor dimming."
             );
 
             UiLayout.SectionHeading(l, "Scrolling");
@@ -91,7 +89,7 @@ namespace SlopWorld
                 "Smooth scrolling",
                 S.smoothScrolling,
                 "Use precise touchpad scrolling in terminals, panels, and Markdown. "
-                    + "Turn off to use wheel steps. Applies immediately."
+                    + "Turn off to use wheel steps."
             );
             if (smooth != S.smoothScrolling)
             {

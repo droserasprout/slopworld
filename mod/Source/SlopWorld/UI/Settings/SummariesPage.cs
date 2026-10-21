@@ -73,11 +73,7 @@ namespace SlopWorld
                 UiTable.Draw(table, Targets, rowH, PolicyColumns(), DrawPolicyRow);
             }
             l.Gap(UiTheme.GapM);
-            UiLayout.Note(
-                l,
-                "Choose which submitted prompts or delegated tasks receive an "
-                    + "OpenRouter summary. The daemon creates each task summary once."
-            );
+            UiLayout.Note(l, "Choose which prompts or tasks receive a summary.");
 
             l.Gap(UiTheme.GapL);
             l.Label("Minimum prompt length");
@@ -96,11 +92,7 @@ namespace SlopWorld
                 minPromptChars
             );
             UiLayout.Validation(l, MinimumError(minPromptChars));
-            UiLayout.Note(
-                l,
-                "The daemon skips prompts shorter than this many characters. "
-                    + "A short prompt does not count as the first title attempt."
-            );
+            UiLayout.Note(l, "Prompts shorter than this many characters won't be summarized.");
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Summarizer");
             l.Label("Model");
@@ -113,7 +105,6 @@ namespace SlopWorld
             UiLayout.Note(
                 l,
                 "The daemon sends up to 2,000 characters of each prompt to OpenRouter. "
-                    + "Summary requests do not depend on usage polling."
             );
 
             l.Gap(UiTheme.GapM);
@@ -128,8 +119,7 @@ namespace SlopWorld
             );
             UiLayout.Note(
                 l,
-                "When this field has text, the daemon sends it before the submitted prompt "
-                    + "for session titles and task summaries. The daemon adds the submitted prompt automatically."
+                "When summarizing is enabled, the daemon sends this before the prompt/task."
             );
         }
 
