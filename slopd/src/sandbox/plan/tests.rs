@@ -255,7 +255,7 @@ fn modified_saved_plan_cannot_reintroduce_unknown_credentials() {
         serde_json::to_string(&hostile).unwrap(),
     )
     .unwrap();
-    let safe = read(&session).unwrap().unwrap();
+    let safe = read_for_inspection(&session).unwrap().unwrap().view;
     assert_eq!(safe.session, "configured");
     assert_eq!(safe.limits[1], scope);
     assert_eq!(safe.command, [UNKNOWN_ARG, "--help"]);

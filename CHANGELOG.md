@@ -10,6 +10,12 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Sandbox: Reject overlapping private directories.
+- Sandbox: Fixed skipped files being copied into private directories.
+- Sandbox: Fixed command comparison in live inspection.
+
 ### Changed
 
 - Settings: Made post-processing intensity configurable.

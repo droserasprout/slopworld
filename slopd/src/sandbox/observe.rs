@@ -10,7 +10,7 @@ use tokio::process::Command;
 use crate::config::SessionCfg;
 use crate::tmux::Tmux;
 
-use super::{PlanView, read_launch_plan, sanitize_process_argv};
+use super::{PlanView, sanitize_process_argv};
 
 #[derive(Debug, Clone)]
 struct Process {
@@ -39,8 +39,11 @@ pub(crate) async fn inspect_session(
     }
 
     let session = session.clone();
-    let plan = tokio::task::spawn_blocking(move || read_launch_plan(&session)).await??;
-    let scope = plan.as_ref().and_then(expected_scope);
+    let saved =
+        tokio::task::spawn_blocking(move || super::plan::read_for_inspection(&session)).await??;
+    let command = saved.as_ref().and_then(|plan| plan.executable.as_deref());
+    let plan = saved.as_ref().map(|plan| &plan.view);
+    let scope = plan.and_then(expected_scope);
     let exists = tmux.exists(name).await;
     let (live, comparison) = if !exists {
         (
@@ -56,7 +59,7 @@ pub(crate) async fn inspect_session(
         match pane_pid {
             Some(pid) => match observe_tree(pid, scope).await {
                 Some((source, processes)) => {
-                    let comparison = compare(plan.as_ref(), &processes);
+                    let comparison = compare(command, &processes);
 
                     let views: Vec<Value> = processes
                         .iter()
@@ -263,16 +266,10 @@ fn parse_ps_tree(root: u32, output: &str) -> Option<Vec<Process>> {
     Some(select_tree(root, all, None))
 }
 
-fn compare(plan: Option<&PlanView>, processes: &[Process]) -> &'static str {
-    let Some(plan) = plan else {
+fn compare(command: Option<&str>, processes: &[Process]) -> &'static str {
+    let Some(command) = command else {
         return "unavailable";
     };
-    let Some(command) = plan.command.first() else {
-        return "different";
-    };
-    if command == super::plan::UNKNOWN_ARG || command == super::plan::REDACTED {
-        return "unavailable";
-    }
     let command = executable(command);
     if processes
         .iter()

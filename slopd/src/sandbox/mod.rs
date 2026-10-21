@@ -27,7 +27,7 @@ pub use network::prepare_network;
 pub(crate) use network::{dns_servers, private_resolver_path};
 pub(crate) use observe::inspect_session;
 pub use paths::{refused, validate_preset, validate_preset_name};
-pub(crate) use plan::{LaunchPlan, PlanView, read as read_launch_plan};
+pub(crate) use plan::{LaunchPlan, PlanView};
 pub(crate) use plan::{sanitize_diagnostic, sanitize_process_argv};
 pub(crate) use preset_cache::prepare as prepare_preset_caches;
 pub use state::StoredState;
@@ -293,6 +293,7 @@ pub(crate) fn presets_for<'a>(
         })?;
         resolved.push(preset);
     }
+    paths::validate_private_roots(resolved.iter().flat_map(|preset| &preset.private))?;
     Ok(resolved)
 }
 

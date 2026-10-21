@@ -186,15 +186,30 @@ fn comparison_uses_executable_not_an_argument_or_prefix() {
     plan.command = vec!["/opt/bin/agent".into()];
     let mut row = process(1, 0, None);
     row.argv = vec!["/bin/shell".into(), "agent".into()];
-    assert_eq!(compare(Some(&plan), &[row.clone()]), "different");
+    assert_eq!(
+        compare(plan.command.first().map(String::as_str), &[row.clone()]),
+        "different"
+    );
     row.argv = vec!["agent-helper".into()];
-    assert_eq!(compare(Some(&plan), &[row.clone()]), "different");
+    assert_eq!(
+        compare(plan.command.first().map(String::as_str), &[row.clone()]),
+        "different"
+    );
     row.argv.clear();
-    assert_eq!(compare(Some(&plan), &[row.clone()]), "different");
+    assert_eq!(
+        compare(plan.command.first().map(String::as_str), &[row.clone()]),
+        "different"
+    );
     row.argv = vec!["/another/bin/agent".into()];
-    assert_eq!(compare(Some(&plan), &[row.clone()]), "compatible");
+    assert_eq!(
+        compare(plan.command.first().map(String::as_str), &[row.clone()]),
+        "compatible"
+    );
     plan.command.clear();
-    assert_eq!(compare(Some(&plan), &[row]), "different");
+    assert_eq!(
+        compare(plan.command.first().map(String::as_str), &[row]),
+        "unavailable"
+    );
 }
 
 #[test]
@@ -236,11 +251,14 @@ fn process_comparison_does_not_claim_success_without_a_live_command() {
         command: vec!["codex".into()],
         argv: Vec::new(),
     };
-    assert_eq!(compare(Some(&plan), &[]), "different");
+    assert_eq!(
+        compare(plan.command.first().map(String::as_str), &[]),
+        "different"
+    );
     assert_eq!(compare(None, &[]), "unavailable");
     assert_eq!(
         compare(
-            Some(&plan),
+            plan.command.first().map(String::as_str),
             &[Process {
                 pid: 1,
                 ppid: 0,
@@ -296,4 +314,48 @@ async fn saved_plan_remains_visible_after_the_pane_exits() {
     assert_eq!(view["plan"]["session"], "gone");
     assert_eq!(view["live"]["status"], "not-running");
     assert_eq!(view["comparison"], "unavailable");
+}
+
+#[test]
+fn saved_executable_compares_after_reload_without_exposing_it() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let session = SessionCfg {
+        name: "inspect".into(),
+        state_id: uuid::Uuid::new_v4().to_string(),
+        ..Default::default()
+    };
+    let directory = super::super::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&directory).unwrap();
+    for (command, expected) in [
+        ("/opt/bin/agent", "compatible"),
+        ("other", "different"),
+        ("<redacted>", "unavailable"),
+        ("/bin/<redacted>-agent", "unavailable"),
+        ("<arg>", "unavailable"),
+        ("", "unavailable"),
+    ] {
+        let mut saved = plan(vec![]);
+        saved.command = vec![command.into()];
+        std::fs::write(
+            directory.join("launch-plan.json"),
+            serde_json::to_string(&saved).unwrap(),
+        )
+        .unwrap();
+        let loaded = super::super::plan::read_for_inspection(&session)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            compare(loaded.executable.as_deref(), &[process(1, 0, None)]),
+            expected
+        );
+        assert_eq!(loaded.view.command, [super::super::plan::UNKNOWN_ARG]);
+        assert!(
+            !serde_json::to_string(&loaded.view)
+                .unwrap()
+                .contains("/opt/bin/agent")
+        );
+    }
+    std::fs::remove_dir_all(directory).unwrap();
 }

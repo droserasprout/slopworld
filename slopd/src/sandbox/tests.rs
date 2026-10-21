@@ -240,3 +240,51 @@ fn agent_shell_presets_resolve_to_absolute_executables() {
 pub(crate) fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
     build_plan(cfg, s, p).map(|plan| plan.lower())
 }
+
+#[test]
+fn nested_private_roots_fail_before_preparation_in_either_order() {
+    let root = std::env::temp_dir().join(format!("slopd-nested-private-{}", uuid::Uuid::new_v4()));
+    let host = root.join("host");
+    std::fs::create_dir_all(host.join("child")).unwrap();
+    std::fs::write(host.join("auth"), "credential").unwrap();
+    let project = ProjectCfg {
+        name: "p".into(),
+        dir: root.to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+    for reverse in [false, true] {
+        for separate_presets in [false, true] {
+            let mut roots = vec![
+                host.to_string_lossy().into_owned(),
+                host.join("child").to_string_lossy().into_owned(),
+            ];
+            if reverse {
+                roots.reverse();
+            }
+            let mut presets = vec![SandboxPreset {
+                name: "parent".into(),
+                private: roots,
+                ..Default::default()
+            }];
+            if separate_presets {
+                let child = presets[0].private.pop().unwrap();
+                presets.push(SandboxPreset {
+                    name: "child".into(),
+                    private: vec![child],
+                    ..Default::default()
+                });
+            }
+            let session = SessionCfg {
+                name: "nested".into(),
+                state_id: uuid::Uuid::new_v4().to_string(),
+                sandbox: presets.iter().map(|preset| preset.name.clone()).collect(),
+                sandbox_snapshots: presets,
+                ..Default::default()
+            };
+            let error = prepare_network(&Config::default(), &session, &project).unwrap_err();
+            assert!(format!("{error:#}").contains("overlap"), "{error:#}");
+            assert!(!state_dir(&session).unwrap().exists());
+        }
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}

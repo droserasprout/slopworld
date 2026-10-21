@@ -30,8 +30,10 @@ checks configured/live identities, task participants, record destinations, and r
 private state; unreadable trash metadata rejects allocation rather than making an
 identity available. Edits and restores retain their existing identity. Stopped agents retain their state;
 reset/delete move it to trash, while temporary errands own
-cleanup. Persistent `/tmp` follows that state lifetime. Seeding must not follow source
-symlinks, and trash inventory measures links without following them. Shared-file
+cleanup. Persistent `/tmp` follows that state lifetime. Private roots must not nest,
+including across selected presets; use one root with seed entries to avoid overlapping
+initialization. Exclusions use the same resolved paths as validation. Seeding must
+not follow source symlinks, and trash inventory measures links without following them. Shared-file
 mounts permit in-place host writes but block unlinking the mountpoint. Recursive
 removal can delete private siblings before failing on a shared credential; restart
 does not reseed an existing copy. Repair or reset is required. User-facing guidance
@@ -61,7 +63,8 @@ precede persistent `/tmp`, capability mounts, private copies, shared files, and
 the private-network resolver. Read-write binds win over read-only duplicates;
 private and shared overlays must preserve their intended precedence.
 
-Live inspection compares the saved command executable with an observable pane
+Live inspection retains the saved executable only as internal comparison input;
+serialized diagnostics still redact it. It compares that executable with an observable pane
 process tree, not every saved-plan field. Without a usable PID/tree or executable,
 comparison is unavailable. Saved sanitized plans survive process exit and restart.
 

@@ -327,3 +327,19 @@ fn missing_suffix_parent_traversal_rechecks_existing_aliases() {
     assert!(refused(&root.join("missing/../home").to_string_lossy()).is_some());
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn private_storage_overlap_is_rejected_even_when_host_aliases_are_disjoint() {
+    let root = std::env::temp_dir().join(format!("slopd-private-alias-{}", uuid::Uuid::new_v4()));
+    let host = root.join("host");
+    let outside = root.join("outside");
+    std::fs::create_dir_all(&host).unwrap();
+    std::fs::create_dir_all(outside.join("child")).unwrap();
+    std::os::unix::fs::symlink(&outside, host.join("alias")).unwrap();
+    let roots = [
+        host.to_string_lossy().into_owned(),
+        host.join("alias/child").to_string_lossy().into_owned(),
+    ];
+    assert!(validate_private_roots(roots.iter()).is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}

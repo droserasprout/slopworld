@@ -14,6 +14,8 @@ use super::{PRIVATE_RESOLVER, persistent_tmp_path, presets_for, private_path, st
 /// Keep existing private copies. Private network mode always uses a generated resolver file.
 /// Host network mode also needs this file when the configuration specifies DNS servers.
 pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
+    let t = s.preset_table();
+    let presets = presets_for(cfg, s, p, &t)?;
     super::images::prepare(s)?;
     if s.persistent_tmp {
         let path = persistent_tmp_path(s)?;
@@ -37,8 +39,7 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
     // Use the same saved preset definitions for preparation and launch-plan construction.
     // A preset can change from private copies to shared mounts.
     // Different tables can leave a session without either the initial copy or the shared mount.
-    let t = s.preset_table();
-    for pr in presets_for(cfg, s, p, &t)? {
+    for pr in presets {
         for path in &pr.private {
             let host = expand(path);
             if host.is_empty() {

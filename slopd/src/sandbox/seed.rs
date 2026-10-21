@@ -67,8 +67,8 @@ fn copy_selected(pr: &SandboxPreset, host: &Path, stage: &Path, file: bool) -> R
         .chain(&pr.shared)
         .map(|raw| expand(raw))
         .filter(|path| !path.is_empty())
-        .map(PathBuf::from)
-        .collect();
+        .map(|path| crate::paths::normalize(Path::new(&path)))
+        .collect::<Result<_>>()?;
     for entry in std::fs::read_dir(host)? {
         let entry = entry?;
         if entry.file_type()?.is_file() {
@@ -105,13 +105,14 @@ fn copy_selected(pr: &SandboxPreset, host: &Path, stage: &Path, file: bool) -> R
 }
 
 fn seed(from: &Path, to: &Path, skip: &[PathBuf], depth: usize) -> Result<()> {
-    if skip.iter().any(|path| from.starts_with(path)) {
-        return Ok(());
-    }
     let Some(meta) = metadata(from)? else {
         return Ok(());
     };
     if meta.file_type().is_symlink() {
+        return Ok(());
+    }
+    let resolved = crate::paths::normalize(from)?;
+    if skip.iter().any(|path| resolved.starts_with(path)) {
         return Ok(());
     }
     anyhow::ensure!(

@@ -70,6 +70,9 @@ configured `seed` paths, except those excluded by `skip` or `shared`. Seeding om
 symlinks and seed paths with symlinked parents inside the private source. A symlink
 at the private source root prevents initialization and launch.
 
+Private roots cannot contain another selected private root, including roots from
+different presets. Use one private root with `seed` entries for its subdirectories.
+
 Existing copies are retained and are not reseeded on restart. See [Paths and files](../reference/paths.md)
 for state locations and [Backup and recovery](../maintenance/backup-and-recovery.md) for reset and restore.
 

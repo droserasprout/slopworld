@@ -229,3 +229,23 @@ fn a_seeded_directory_comes_across_whole_bar_what_skip_names() {
 
     drop(std::fs::remove_dir_all(&root));
 }
+
+#[test]
+fn normalized_skip_and_shared_paths_exclude_top_level_credentials() {
+    let (root, host, copy, mut preset) = fixture();
+    preset.name = "normalized-exclusions".into();
+    preset.private = vec![host.to_string_lossy().into_owned()];
+    preset.skip = vec![host.join("selected/../auth").to_string_lossy().into_owned()];
+    std::fs::write(host.join("shared-auth"), "shared credential").unwrap();
+    preset.shared = vec![
+        host.join("selected/../shared-auth")
+            .to_string_lossy()
+            .into_owned(),
+    ];
+    crate::sandbox::validate_preset(&preset, &crate::presets::Table::builtins()).unwrap();
+    seed_into(&preset, host.to_str().unwrap(), &copy).unwrap();
+    assert!(!copy.join("auth").exists());
+    assert!(!copy.join("shared-auth").exists());
+    assert!(copy.join("selected").is_dir());
+    std::fs::remove_dir_all(root).unwrap();
+}

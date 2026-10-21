@@ -105,7 +105,13 @@ impl LaunchPlan {
     }
 }
 
-pub(crate) fn read(session: &SessionCfg) -> Result<Option<PlanView>> {
+/// Internal comparison input is never serialized into diagnostics.
+pub(super) struct InspectionPlan {
+    pub(super) view: PlanView,
+    pub(super) executable: Option<String>,
+}
+
+pub(super) fn read_for_inspection(session: &SessionCfg) -> Result<Option<InspectionPlan>> {
     let path = super::state_dir(session)?.join("launch-plan.json");
     let text = match std::fs::read_to_string(&path) {
         Ok(text) => text,
@@ -115,11 +121,18 @@ pub(crate) fn read(session: &SessionCfg) -> Result<Option<PlanView>> {
     let view: PlanView = serde_json::from_str(&text)
         .with_context(|| format!("parsing saved launch plan {}", path.display()))?;
     // Treat saved files as untrusted input, including files with manual changes.
-    // After restart only fixed diagnostics and canonical scope identity survive;
-    // unknown credentials cannot be recovered from the original launch.
+    // Only fixed diagnostics and canonical scope identity survive in the view.
+    // Keep the executable solely for internal equality checks, never serialization.
+    let executable = view
+        .command
+        .first()
+        .filter(|command| {
+            !command.is_empty() && !command.contains(REDACTED) && command.as_str() != UNKNOWN_ARG
+        })
+        .cloned();
     let mut view = sanitize_view(&view);
     view.session = session.name.clone();
-    Ok(Some(view))
+    Ok(Some(InspectionPlan { view, executable }))
 }
 
 pub(crate) fn render_view_human(view: &PlanView) -> String {

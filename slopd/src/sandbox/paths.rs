@@ -74,6 +74,37 @@ pub(super) fn overlaps(left: &str, right: &str) -> bool {
     left.starts_with(&right) || right.starts_with(&left)
 }
 
+/// Nested roots share private storage ancestors. Preparing either first can make
+/// the other look initialized, so reject this ambiguity before creating copies.
+pub(super) fn validate_private_roots<'a>(roots: impl Iterator<Item = &'a String>) -> Result<()> {
+    let roots = roots
+        .map(|raw| expand(raw))
+        .filter(|path| !path.is_empty())
+        .map(|path| {
+            let literal = PathBuf::from(path);
+            let resolved = safety_path(&literal)?;
+            Ok((literal, resolved))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    for (index, (root, resolved)) in roots.iter().enumerate() {
+        for (other, other_resolved) in roots.iter().take(index) {
+            // Literal paths determine private storage; resolved paths determine
+            // host overlap. An intermediate symlink can make these disagree.
+            if [(root, other), (resolved, other_resolved)]
+                .iter()
+                .any(|(a, b)| a != b && (a.starts_with(b) || b.starts_with(a)))
+            {
+                anyhow::bail!(
+                    "private roots {} and {} overlap; use one private root with seed entries",
+                    root.display(),
+                    other.display()
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Validate a sandbox preset before bwrap uses it or the API saves it.
 /// This check keeps safety rules consistent for API requests and manual file changes.
 pub fn validate_preset(p: &SandboxPreset, table: &Table) -> Result<()> {
@@ -126,6 +157,7 @@ fn validate_preset_fields(p: &SandboxPreset, table: &Table) -> Result<()> {
 }
 
 fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
+    validate_private_roots(p.private.iter())?;
     if p.name.trim().is_empty() {
         anyhow::bail!("Enter a sandbox preset name.");
     }
