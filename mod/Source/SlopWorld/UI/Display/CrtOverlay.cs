@@ -3,16 +3,16 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Owns the Unity presentation of the profile's CRT overlay, independently of pane caches.
-    // Two alpha textures shade the finished GUI without capturing or distorting it.
+    // One combined texture shades the finished GUI; a strip covers pending resize bakes.
     internal sealed class CrtOverlay : MonoBehaviour
     {
-        const int ScanlinePeriod = 3;
         const float ResizeSettleSeconds = 0.2f;
 
         string _mode;
         Texture2D _scanlines;
         Texture2D _vignette;
         float _scanlineScale;
+        float _pendingScale;
         int _pendingWidth;
         int _pendingHeight;
         float _vignetteReadyAt;
@@ -24,11 +24,8 @@ namespace SlopWorld
             owner.AddComponent<CrtOverlay>();
         }
 
-        void OnGUI()
+        void Update()
         {
-            // Depth belongs to this separate GUI behaviour. Root's windows, tooltips and
-            // screensaver must all remain below it; drawing allocates no input controls.
-            GUI.depth = -10000;
             string mode = Settings.VisualEffects;
             if (_mode != mode)
             {
@@ -37,10 +34,8 @@ namespace SlopWorld
             }
             if (mode == VisualEffectsMode.Off)
                 return;
-            if (Event.current.type != EventType.Repaint)
-                return;
 
-            // Screen dimensions cross into Unity; sample them once for this repaint.
+            // Prepare textures outside IMGUI repaint; sample dimensions once.
             int width = Screen.width;
             int height = Screen.height;
             if (width <= 0 || height <= 0)
@@ -60,8 +55,19 @@ namespace SlopWorld
                 );
                 _scanlineScale = scale;
             }
-            RefreshVignette(width, height);
+            RefreshVignette(width, height, scale);
+        }
 
+        void OnGUI()
+        {
+            // This separate behaviour stays above windows and tooltips without controls.
+            GUI.depth = -10000;
+            if (Event.current.type != EventType.Repaint || Settings.VisualEffects != _mode)
+                return;
+            if (_mode == VisualEffectsMode.Off || _scanlines == null)
+                return;
+            int width = Screen.width;
+            int height = Screen.height;
             var matrix = GUI.matrix;
             var color = GUI.color;
             bool enabled = GUI.enabled;
@@ -73,9 +79,17 @@ namespace SlopWorld
                 GUI.color = Color.white;
                 GUI.enabled = true;
                 var screen = new Rect(0f, 0f, width, height);
-                GUI.DrawTexture(screen, _scanlines, ScaleMode.StretchToFill, true);
-                if (_vignette != null)
-                    GUI.DrawTexture(screen, _vignette, ScaleMode.StretchToFill, true);
+                bool ready =
+                    _vignette != null
+                    && _pendingWidth == width
+                    && _pendingHeight == height
+                    && _pendingScale == UiScale.Current;
+                GUI.DrawTexture(
+                    screen,
+                    ready ? _vignette : _scanlines,
+                    ScaleMode.StretchToFill,
+                    true
+                );
             }
             finally
             {
@@ -85,9 +99,9 @@ namespace SlopWorld
             }
         }
 
-        void RefreshVignette(int width, int height)
+        void RefreshVignette(int width, int height, float scale)
         {
-            if (_pendingWidth != width || _pendingHeight != height)
+            if (_pendingWidth != width || _pendingHeight != height || _pendingScale != scale)
             {
                 // Enable immediately, but wait for resizing to settle before doing another
                 // full-screen CPU bake and upload. Real time also advances while paused.
@@ -95,13 +109,14 @@ namespace SlopWorld
                     Time.realtimeSinceStartup + (_pendingWidth == 0 ? 0f : ResizeSettleSeconds);
                 _pendingWidth = width;
                 _pendingHeight = height;
+                _pendingScale = scale;
                 if (_vignette != null)
                     Destroy(_vignette);
                 // Hide while resizing: stretching the old dither makes its noise visible.
                 _vignette = null;
             }
             if (_vignette == null && Time.realtimeSinceStartup >= _vignetteReadyAt)
-                _vignette = CreateVignette(width, height, VisualEffectsMode.CornerOpacity(_mode));
+                _vignette = CreateVignette(width, height, scale, _mode);
         }
 
         static Texture2D CreateScanlines(int height, float scale, float opacity)
@@ -109,37 +124,36 @@ namespace SlopWorld
             var texture = CreateTexture("SlopWorld scanlines", 1, height);
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
-            var pixels = new Color[height];
+            var pixels = new Color32[height];
             for (int y = 0; y < height; y++)
             {
-                // Texture rows count from the bottom. Integrate the dark part of each
-                // screen row in logical coordinates, anchored at the top. Fractional UI
-                // scales get partial edge rows instead of uneven rounded line spacing.
-                int row = height - 1 - y;
-                float start = row / scale;
-                float end = (row + 1f) / scale;
-                float coverage = (DarkRowsBefore(end) - DarkRowsBefore(start)) * scale;
-                pixels[y] = new Color(0f, 0f, 0f, opacity * Mathf.Clamp01(coverage));
+                // Texture rows count from the bottom; scanlines anchor at the top.
+                pixels[y] = new Color32(
+                    0,
+                    0,
+                    0,
+                    CrtVignettePixels.ScanlineAlpha(height - 1 - y, scale, opacity)
+                );
             }
-            texture.SetPixels(pixels);
+            texture.SetPixels32(pixels);
             texture.Apply(false, true);
             return texture;
         }
 
-        static float DarkRowsBefore(float position)
-        {
-            float periods = Mathf.Floor(position / ScanlinePeriod);
-            return periods + Mathf.Clamp01(position - periods * ScanlinePeriod);
-        }
-
-        static Texture2D CreateVignette(int width, int height, float cornerOpacity)
+        static Texture2D CreateVignette(int width, int height, float scale, string mode)
         {
             // Dither at the final pixel resolution. Scaling a small noisy texture would
             // filter away the noise or turn it into visible patches.
             var texture = CreateTexture("SlopWorld vignette", width, height);
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
-            var pixels = CrtVignettePixels.Build(width, height, cornerOpacity);
+            var pixels = CrtVignettePixels.Build(
+                width,
+                height,
+                VisualEffectsMode.CornerOpacity(mode),
+                VisualEffectsMode.ScanlineOpacity(mode),
+                scale
+            );
             texture.SetPixels32(pixels);
             texture.Apply(false, true);
             return texture;

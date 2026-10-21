@@ -7,7 +7,13 @@ namespace SlopWorld
     {
         const float DitherRange = 2f / 255f;
 
-        internal static Color32[] Build(int width, int height, float cornerOpacity)
+        internal static Color32[] Build(
+            int width,
+            int height,
+            float cornerOpacity,
+            float scanlineOpacity = 0f,
+            float scale = 1f
+        )
         {
             var pixels = new Color32[width * height];
             // Horizontal coordinates repeat on every row. Preserve the original float
@@ -23,6 +29,7 @@ namespace SlopWorld
                 float ny = 2f * (y + 0.5f) / height - 1f;
                 float verticalSquared = ny * ny;
                 int row = y * width;
+                byte scanline = ScanlineAlpha(height - 1 - y, scale, scanlineOpacity);
                 for (int x = 0; x < width; x++)
                 {
                     // A continuous quartic falloff spreads the shading across the whole image,
@@ -36,10 +43,34 @@ namespace SlopWorld
                     byte alpha = (byte)Mathf.RoundToInt((opacity + DitherRange) * 255f);
                     float lift = PixelNoise(x, y) * DitherRange;
                     byte gray = (byte)Mathf.RoundToInt(lift * 255f * 255f / alpha);
-                    pixels[row + x] = new Color32(gray, gray, gray, alpha);
+                    // Compose the vignette over black scanlines using straight alpha.
+                    // Preserve the vignette's premultiplied RGB contribution.
+                    byte combinedAlpha = (byte)
+                        Mathf.RoundToInt(alpha + scanline * (1f - alpha / 255f));
+                    byte combinedGray = (byte)Mathf.RoundToInt(gray * (float)alpha / combinedAlpha);
+                    pixels[row + x] = new Color32(
+                        combinedGray,
+                        combinedGray,
+                        combinedGray,
+                        combinedAlpha
+                    );
                 }
             }
             return pixels;
+        }
+
+        internal static byte ScanlineAlpha(int row, float scale, float opacity)
+        {
+            float start = row / scale;
+            float end = (row + 1f) / scale;
+            float coverage = (DarkRowsBefore(end) - DarkRowsBefore(start)) * scale;
+            return (byte)Mathf.RoundToInt(opacity * Mathf.Clamp01(coverage) * 255f);
+        }
+
+        static float DarkRowsBefore(float position)
+        {
+            float periods = Mathf.Floor(position / 3f);
+            return periods + Mathf.Clamp01(position - periods * 3f);
         }
 
         // A stable coordinate hash avoids both repeating grids and frame-to-frame shimmer.

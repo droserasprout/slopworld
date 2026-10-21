@@ -445,6 +445,10 @@ namespace UnityEngine
 
         public static float Ceil(float value) => (float)System.Math.Ceiling(value);
 
+        public static float Floor(float value) => (float)System.Math.Floor(value);
+
+        public static float Clamp01(float value) => Clamp(value, 0f, 1f);
+
         public static float Clamp(float v, float min, float max) =>
             v < min ? min
             : v > max ? max

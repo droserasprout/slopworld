@@ -26,8 +26,9 @@ See [focus](ui-focus.md) for field lifetime and restoration.
 `Slab` supplies snapped bounds and scale. Grain is an explicit control choice, drawn
 before borders/text with face opacity. Appearance previews reuse these renderers.
 `CrtOverlay` draws in physical pixels above windows/tooltips without input or terminal
-cache dependencies. Bake vignette textures outside frame drawing, rebuild after
-resize settles, and release them when disabled. Cursor dimming must preserve the
+cache dependencies. A combined scanline/vignette texture uses one full-screen draw;
+a scanline strip covers pending resizes. Bake textures in Update outside frame drawing, rebuild after
+resize or UI-scale changes settle, and release them when disabled. Cursor dimming must preserve the
 original hotspot.
 
 `TooltipLayout` freezes wrapping because GUI transforms can change native line breaks.
