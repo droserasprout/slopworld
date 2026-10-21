@@ -18,6 +18,10 @@ Restore the PID namespace's `/proc` after overlays. Preserve mount precedence:
 preset read-only, read-write, devices; then project mounts, persistent `/tmp`,
 capabilities, private/shared files, and the private-network resolver. Image imports
 mount last and read-only; see [clipboard](daemon-clipboard.md).
+Persistent `/tmp` reapplies preset descendant binds before capabilities and private
+overlays so host display and agent sockets remain reachable.
+The reserved .NET CLI home receives aliases of selected NuGet mounts after its
+private overlay; sources overlapping private preset roots are rejected.
 
 Private state follows opaque identity, not names. `storage_id.rs` owns the format;
 `session/identity.rs` allocates under the session boundary, accounting for live/saved

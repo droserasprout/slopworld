@@ -15,8 +15,12 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Agents: Preserve temporary agents’ settings and private-state identity across daemon restarts.
 - Library: Fixed project renames breaking saved library items.
 - Projects: Prevent deleting projects referenced by saved library items.
+- Sandbox: Copy user Codex skills into new private directories.
 - Sandbox: Fixed skipped files being copied into private directories.
 - Sandbox: Fixed command comparison in live inspection.
+- Sandbox: Fixed user-installed .NET SDKs being hidden by private CLI state.
+- Sandbox: Mount custom Kubernetes configuration files listed in KUBECONFIG.
+- Sandbox: Preserve X11 and other preset sockets when using persistent /tmp.
 - Sandbox: Preserve captured cache paths and warning levels across edits and daemon restarts.
 - Sandbox: Reject overlapping private directories.
 - UI: Fixed unchecking All in agent status, Library, and task filters.

@@ -6,5 +6,5 @@ requires = ["dotnet"]
 cache = [
     "~/.nuget/packages",
     "~/.local/share/NuGet/http-cache",
-    "~/.local/share/NuGet/plugins-cache",
+    "~/.local/share/NuGet/plugin-cache",
 ]

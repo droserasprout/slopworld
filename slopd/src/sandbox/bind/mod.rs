@@ -8,6 +8,7 @@ use crate::presets::{SandboxPreset, Table};
 use super::LaunchPlan;
 use super::ResolvedMount;
 
+mod dotnet;
 mod mounts;
 mod policy;
 #[cfg(test)]
@@ -101,6 +102,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     mounts::push_persistent_tmp(&mut mounts_args, &bind)?;
     mounts::push_capability_binds(&mut mounts_args, &bind);
     mounts::push_private_binds(&mut mounts_args, &bind)?;
+    dotnet::push_nuget_binds(&mut mounts_args, &bind, presets, home)?;
     let images = super::images::directory(s)?;
     mounts_args.extend([
         "--ro-bind".into(),

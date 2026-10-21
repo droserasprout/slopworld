@@ -32,6 +32,12 @@ Missing ordinary bind sources are skipped; an invalid project directory prevents
 Protected paths, including the daemon's configuration and private state, cannot
 be mounted through ordinary path fields.
 
+In `ro`, `rw`, and `dev`, a whole entry such as `${KUBECONFIG:paths}` expands
+an environment variable containing a platform path list (colon-separated on Linux).
+Empty entries are ignored. Each remaining entry must be absolute and pass the
+same protected-path checks as an ordinary bind. Missing files are skipped.
+Ordinary `$VARIABLE` expansion still selects one path, including any literal colons.
+
 ## Mount fields
 
 | Kind | Behavior |
@@ -76,6 +82,9 @@ different presets. Use one private root with `seed` entries for its subdirectori
 Existing copies are retained and are not reseeded on restart. See [Paths and files](../reference/paths.md)
 for state locations and [Backup and recovery](../maintenance/backup-and-recovery.md) for reset and restore.
 
+The `codex` preset seeds user prompts and skills into new private copies. Existing
+copies need the skills installed there or a private-state reset to pick them up.
+
 `shared` mounts existing host credential files read-write inside private directories.
 Host updates reach the sandboxes, and agents can overwrite those files in place.
 Treat them as writable host data; see the [Security model](security.md).
@@ -118,6 +127,22 @@ writable game files, profiles and host installation directories, desktop service
 Docker, host terminals, and the daemon root credential. Select it only when those
 host-control capabilities are needed. The base preset does not grant them;
 other selected presets and the implicit global preset still contribute access.
+
+## Tool configuration
+
+The `dotnet` preset mounts user-installed SDKs and tools under `~/.dotnet`
+read-only. It sets `DOTNET_CLI_HOME` to `/tmp/slopworld-dotnet-cli`, backed by
+persistent private session state, so CLI writes do not change the host installation.
+Selected NuGet configuration and plugin mounts are also available read-only beneath
+that CLI home. With `nuget-cache`, its package and download paths use the shared
+host caches there as well; without it, NuGet caches remain private to the session.
+
+The `kube` preset mounts `~/.kube` and each existing file listed in the daemon's
+`KUBECONFIG` read-only. Configuration references to credentials or executables
+outside mounted paths require additional mounts.
+
+Preset mounts beneath `/tmp`, including X11 sockets, remain available when the
+agent enables persistent `/tmp`. Private preset copies still take precedence.
 
 ## SSH agents {#ssh-agents}
 

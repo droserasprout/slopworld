@@ -10,7 +10,7 @@ private = ["~/.codex"]
 # Codex saves refreshed tokens in this file. Sharing it gives the host and all sandboxes the same tokens.
 # Configuration and MCP definitions remain private.
 shared = ["~/.codex/auth.json"]
-seed = ["~/.codex/prompts"]
+seed = ["~/.codex/prompts", "~/.codex/skills"]
 env = [
     "OPENAI_API_KEY",
     "OPENAI_BASE_URL",

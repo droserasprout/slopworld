@@ -924,6 +924,61 @@ fn effective_mount<'a>(args: &'a [String], target: &str) -> Option<(&'a str, &'a
 }
 
 #[test]
+fn persistent_tmp_preserves_preset_sockets_and_private_overlays() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let socket = root.join("display.sock");
+    let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+    let private = root.join("private-dir");
+    std::fs::create_dir(&private).unwrap();
+    let session = SessionCfg {
+        name: "agent".into(),
+        state_id: uuid::Uuid::new_v4().to_string(),
+        cmd: Some("true".into()),
+        persistent_tmp: true,
+        sandbox: vec!["tmp-fixture".into()],
+        sandbox_snapshots: vec![SandboxPreset {
+            name: "tmp-fixture".into(),
+            ro: vec![
+                socket.to_str().unwrap().into(),
+                private.to_str().unwrap().into(),
+            ],
+            private: vec![private.to_str().unwrap().into()],
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let project = ProjectCfg {
+        name: "repo".into(),
+        dir: root.to_str().unwrap().into(),
+        ..Default::default()
+    };
+    crate::sandbox::prepare_network(&Config::default(), &session, &project).unwrap();
+    let plan = crate::sandbox::build_plan(&Config::default(), &session, &project).unwrap();
+    assert_eq!(
+        effective_mount(&plan.mounts, socket.to_str().unwrap()),
+        Some((
+            "--ro-bind",
+            socket.to_str().unwrap(),
+            socket.to_str().unwrap()
+        ))
+    );
+    assert_eq!(
+        effective_mount(&plan.mounts, private.to_str().unwrap()),
+        Some((
+            "--bind",
+            private_path(&session.state_id, private.to_str().unwrap())
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            private.to_str().unwrap()
+        ))
+    );
+    drop(listener);
+}
+
+#[test]
 fn explicit_host_dns_supports_regular_and_symlinked_resolver_layouts() {
     let state_id = uuid::Uuid::new_v4().to_string();
     let dns = DnsConfig::Servers {

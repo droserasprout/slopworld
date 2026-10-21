@@ -2,9 +2,15 @@
 # Keep both paths read-only.
 [[sandbox]]
 name = "dotnet"
-description = "Private .NET CLI state and read-only NuGet configuration"
-ro = ["~/.nuget/NuGet/NuGet.Config", "~/.nuget/plugins"]
-# Use a private copy because ~/.dotnet/tools contains executables on the host user PATH.
-private = ["~/.dotnet"]
-# Omit DOTNET_CLI_HOME and NUGET_PACKAGES because each changes a path that this preset mounts.
+description = "Read-only .NET SDK, tools and NuGet configuration with private CLI state"
+# User-installed SDKs need host/, sdk/, shared/ and packs/ beneath ~/.dotnet.
+# Tools here also execute on the host, so keep the entire installation read-only.
+ro = ["~/.dotnet", "~/.nuget/NuGet/NuGet.Config", "~/.nuget/plugins"]
+# A /tmp private root is created even when there is no host source and persists per session.
+private = ["/tmp/slopworld-dotnet-cli"]
+# The launch planner aliases selected NuGet configuration/plugin/cache mounts into
+# this CLI home, preserving their read-only or shared-cache permissions.
 env = ["DOTNET_ROOT"]
+
+[sandbox.setenv]
+DOTNET_CLI_HOME = "/tmp/slopworld-dotnet-cli"

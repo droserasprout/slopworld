@@ -2,6 +2,51 @@ use super::*;
 use crate::sandbox::state_root;
 
 #[test]
+fn bind_path_lists_reject_relative_and_protected_entries() {
+    let Some(root) = crate::test_support::isolated_with_env(|command, root| {
+        command.env(
+            "SLOPD_TEST_RELATIVE_PATHS",
+            format!("{}:relative", root.join("allowed").display()),
+        );
+        command.env(
+            "SLOPD_TEST_PROTECTED_PATHS",
+            format!(
+                "{}:{}",
+                root.join("allowed").display(),
+                root.join("data/agents").display()
+            ),
+        );
+        command.env_remove("SLOPD_TEST_UNSET_PATHS");
+    }) else {
+        return;
+    };
+    for (expression, message) in [
+        ("${SLOPD_TEST_RELATIVE_PATHS:paths}", "must be absolute"),
+        (
+            "${SLOPD_TEST_PROTECTED_PATHS:paths}",
+            "exposes agent records",
+        ),
+    ] {
+        let preset = SandboxPreset {
+            name: "list".into(),
+            ro: vec![expression.into()],
+            ..Default::default()
+        };
+        assert!(
+            validate_preset(&preset, &Table::builtins())
+                .unwrap_err()
+                .to_string()
+                .contains(message)
+        );
+    }
+    assert!(expand_bind_paths("${SLOPD_TEST_UNSET_PATHS:paths}").is_empty());
+    assert_eq!(
+        expand_bind_paths(root.join("literal:colon").to_str().unwrap()),
+        vec![root.join("literal:colon").to_str().unwrap()]
+    );
+}
+
+#[test]
 fn every_preset_path_field_rejects_relative_paths_after_expansion() {
     let Some(_) = crate::test_support::isolated_with_env(|command, _| {
         command.env("SLOPD_TEST_PRESET_PATH", "relative");

@@ -142,22 +142,23 @@ pub(super) fn paths(
 
     let mut out: Vec<String> = Vec::new();
     for path in from_presets {
-        let path = expand(&path);
-        if path.is_empty() || out.contains(&path) {
-            continue;
-        }
-        // Do not let the launch cwd reinterpret a source checked in the daemon cwd.
-        if !Path::new(&path).is_absolute() {
-            tracing::warn!("not binding {path}: preset paths must be absolute after expansion");
-            continue;
-        }
-        // Never mount paths that fail validation.
-        if let Some(what) = refused(&path) {
-            tracing::warn!("not binding {path}: it reaches {what}");
-            continue;
-        }
-        if Path::new(&path).exists() {
-            out.push(path);
+        for path in super::super::paths::expand_bind_paths(&path) {
+            if path.is_empty() || out.contains(&path) {
+                continue;
+            }
+            // Do not let the launch cwd reinterpret a source checked in the daemon cwd.
+            if !Path::new(&path).is_absolute() {
+                tracing::warn!("not binding {path}: preset paths must be absolute after expansion");
+                continue;
+            }
+            // Never mount paths that fail validation.
+            if let Some(what) = refused(&path) {
+                tracing::warn!("not binding {path}: it reaches {what}");
+                continue;
+            }
+            if Path::new(&path).exists() {
+                out.push(path);
+            }
         }
     }
     out

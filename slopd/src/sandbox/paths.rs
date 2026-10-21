@@ -10,6 +10,26 @@ use crate::presets::{SandboxPreset, Table};
 
 use super::state_root;
 
+/// Ordinary binds may select a platform path list with `${VAR:paths}`.
+/// Keep entries literal, omit empty entries, and validate each path independently.
+/// Other fields retain single-path expansion because they own individual state roots.
+pub(super) fn expand_bind_paths(raw: &str) -> Vec<String> {
+    if let Some(name) = raw
+        .strip_prefix("${")
+        .and_then(|s| s.strip_suffix(":paths}"))
+    {
+        return std::env::var_os(name)
+            .map(|value| {
+                std::env::split_paths(&value)
+                    .filter(|path| !path.as_os_str().is_empty())
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
+    }
+    vec![expand(raw)]
+}
+
 /// Reject paths that expose daemon credentials, configuration, preset definitions, or private session state.
 /// Also reject ancestors and descendants of these protected paths.
 pub fn refused(path: &str) -> Option<String> {
@@ -176,23 +196,29 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
         ("shared", p.shared.as_slice()),
     ] {
         for raw in paths {
-            let expanded = expand(raw);
-            if expanded.is_empty() {
-                continue;
-            }
-            // Launch runs from the project directory, not the daemon's cwd.
-            // A relative spelling could therefore mount a different host source.
-            if !Path::new(&expanded).is_absolute() {
-                anyhow::bail!(
-                    "Sandbox preset {:?} {kind} path {raw:?} must be absolute after expansion.",
-                    p.name
-                );
-            }
-            if let Some(what) = refused(&expanded) {
-                anyhow::bail!(
-                    "Sandbox preset {:?} {kind} path {raw:?} exposes {what}.",
-                    p.name
-                );
+            let expanded_paths = if matches!(kind, "read-only" | "read-write" | "device") {
+                expand_bind_paths(raw)
+            } else {
+                vec![expand(raw)]
+            };
+            for expanded in expanded_paths {
+                if expanded.is_empty() {
+                    continue;
+                }
+                // Launch runs from the project directory, not the daemon's cwd.
+                // A relative spelling could therefore mount a different host source.
+                if !Path::new(&expanded).is_absolute() {
+                    anyhow::bail!(
+                        "Sandbox preset {:?} {kind} path {raw:?} must be absolute after expansion.",
+                        p.name
+                    );
+                }
+                if let Some(what) = refused(&expanded) {
+                    anyhow::bail!(
+                        "Sandbox preset {:?} {kind} path {raw:?} exposes {what}.",
+                        p.name
+                    );
+                }
             }
         }
     }

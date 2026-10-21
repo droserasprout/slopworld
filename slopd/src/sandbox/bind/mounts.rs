@@ -111,6 +111,19 @@ pub(super) fn push_persistent_tmp(
     if bind.s.persistent_tmp {
         let path = persistent_tmp_path(bind.s)?;
         push_args(a, &["--bind", &path.to_string_lossy(), "/tmp"]);
+        // The persistent parent hides earlier preset sockets and other /tmp data.
+        // Reapply descendants in their original precedence, before private overlays.
+        for (flag, paths) in [
+            ("--ro-bind", bind.ro),
+            ("--bind", bind.rw),
+            ("--dev-bind", bind.dev),
+        ] {
+            for path in paths {
+                if Path::new(path) != Path::new("/tmp") && Path::new(path).starts_with("/tmp") {
+                    push_args(a, &[flag, path, path]);
+                }
+            }
+        }
     }
     Ok(())
 }
