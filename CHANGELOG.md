@@ -16,6 +16,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Projects: Prevent deleting projects referenced by saved library items.
 - Sandbox: Fixed skipped files being copied into private directories.
 - Sandbox: Fixed command comparison in live inspection.
+- Sandbox: Preserve captured cache paths and warning levels across edits and daemon restarts.
 - Sandbox: Reject overlapping private directories.
 
 ### Changed

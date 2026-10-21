@@ -53,6 +53,7 @@ impl<T: Record> Drop for Fixture<T> {
 }
 
 const FIRST: &str = "ffffffffffffffff";
+
 const SECOND: &str = "0000000000000000";
 fn agent(id: &str, name: &str) -> SessionCfg {
     SessionCfg {
@@ -67,6 +68,56 @@ fn shell(id: &str, name: &str) -> HostTerminalCfg {
         name: name.into(),
         ..Default::default()
     }
+}
+
+#[tokio::test]
+async fn snapshot_cache_and_warning_level_survive_restart() {
+    let mut f = Fixture::<SessionCfg>::new();
+    let mut value = agent(FIRST, "agent");
+    value.sandbox_snapshots.push(crate::presets::SandboxPreset {
+        name: "policy".into(),
+        cache: vec!["~/.cache/tool".into()],
+        warning_level: crate::presets::WarningLevel::HostControl,
+        ..Default::default()
+    });
+    f.change(|rows| rows.push(value)).await.unwrap();
+    f.reload().await.unwrap();
+    let snapshot = &f.value(FIRST).sandbox_snapshots[0];
+    assert_eq!(snapshot.cache, ["~/.cache/tool"]);
+    assert_eq!(
+        snapshot.warning_level,
+        crate::presets::WarningLevel::HostControl
+    );
+}
+
+#[tokio::test]
+async fn snapshot_cache_and_warning_level_edits_reach_disk() {
+    let mut f = Fixture::<SessionCfg>::new();
+    let mut value = agent(FIRST, "agent");
+    value.sandbox_snapshots.push(crate::presets::SandboxPreset {
+        name: "policy".into(),
+        cache: vec!["~/.cache/old".into()],
+        ..Default::default()
+    });
+    f.change(|rows| rows.push(value)).await.unwrap();
+    f.change(|rows| {
+        rows[0].sandbox_snapshots[0].cache = vec!["~/.cache/new".into()];
+        rows[0].sandbox_snapshots[0].warning_level = crate::presets::WarningLevel::HostControl;
+    })
+    .await
+    .unwrap();
+    let raw: toml::Value =
+        toml::from_str(&std::fs::read_to_string(f.path(FIRST)).unwrap()).unwrap();
+    assert_eq!(
+        raw["sandbox_snapshots"][0]["cache"][0].as_str(),
+        Some("~/.cache/new")
+    );
+    assert_eq!(
+        raw["sandbox_snapshots"][0]["warning_level"].as_str(),
+        Some("host_control")
+    );
+    f.reload().await.unwrap();
+    assert_eq!(f.value(FIRST).sandbox_snapshots[0].cache, ["~/.cache/new"]);
 }
 
 #[tokio::test]
