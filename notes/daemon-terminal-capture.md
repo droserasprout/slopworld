@@ -12,6 +12,9 @@ invalidate history; scroll snapshots cannot consume bells. Titles and newly latc
 bells publish even without changed text. Scheduling consumes dirty state; rendering
 executes the selected action. Clipboard handoff has an independent lifetime.
 
+The mirror bounds each cell's combining tail. Discarded scalars still advance cluster
+parsing so standalone text after an oversized cluster keeps its columns.
+
 Reader disconnect is not process exit. Failed status queries cannot declare exit;
 missing panes require a checked session listing. Confirmed exit records evidence
 before pane removal, falling back to the last frame if needed. Failed evidence writes

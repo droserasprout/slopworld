@@ -154,6 +154,7 @@ pub struct SessionEmu {
     render_cache: RenderCache,
     history_extent_cache: Option<u32>,
     redraw_clear: bool,
+    overflow_tail: Option<handler::OverflowTail>,
 }
 
 const TMUX_TITLE_MAX: usize = 512;
@@ -184,6 +185,7 @@ impl SessionEmu {
             render_cache: RenderCache::new(),
             history_extent_cache: None,
             redraw_clear: false,
+            overflow_tail: None,
         }
     }
 
@@ -266,6 +268,7 @@ impl SessionEmu {
                     cache: &mut self.render_cache,
                     history_dirty: &mut history_dirty,
                     redraw_clear: &mut self.redraw_clear,
+                    overflow_tail: &mut self.overflow_tail,
                 },
                 bytes,
             );

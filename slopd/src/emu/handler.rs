@@ -1,19 +1,31 @@
-//! Preserve tmux erase semantics while forwarding the remaining VT operations.
+//! Preserve tmux erase and cluster semantics while bounding retained cell tails.
 
 use super::{RenderCache, SideSink};
 use alacritty_terminal::index::Column;
 use alacritty_terminal::index::Line;
 use alacritty_terminal::term::Term;
-use alacritty_terminal::term::cell::Flags;
+use alacritty_terminal::term::cell::{CellExtra, Flags};
 use alacritty_terminal::vte::ansi::cursor_icon::CursorIcon;
 use alacritty_terminal::vte::ansi::*;
-use unicode_width::UnicodeWidthStr;
+use std::sync::Arc;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
+// Grid and history limits do not bound an individual cell's combining tail.
+pub(super) const MAX_CELL_MARKS: usize = 64;
+
+// Keep parsing discarded scalars without extending the cell's rendered prefix.
+// Cell identity prevents this state from surviving an overwrite or grid reset.
+pub(super) struct OverflowTail {
+    cell: Arc<CellExtra>,
+    follows_joiner: bool,
+}
 
 pub(super) struct Mirror<'a> {
     pub term: &'a mut Term<SideSink>,
     pub cache: &'a mut RenderCache,
     pub history_dirty: &'a mut bool,
     pub redraw_clear: &'a mut bool,
+    pub overflow_tail: &'a mut Option<OverflowTail>,
 }
 
 macro_rules! forward {
@@ -59,6 +71,21 @@ impl Handler for Mirror<'_> {
     fn input(&mut self, c: char) {
         *self.history_dirty = true;
         if !self.try_input_cluster_component(c) {
+            // Alacritty attaches zero-width scalars to column zero at the left
+            // margin, and to the base of wide cells elsewhere.
+            if c.width() == Some(0) {
+                let column = previous_base_column(self.term).unwrap_or(Column(0));
+                let line = self.term.grid().cursor.point.line;
+                if self.term.grid()[line][column]
+                    .zerowidth()
+                    .unwrap_or_default()
+                    .len()
+                    >= MAX_CELL_MARKS
+                {
+                    self.discard_cluster_component(column, c);
+                    return;
+                }
+            }
             self.term.input(c);
         }
     }
@@ -167,6 +194,18 @@ impl Handler for Mirror<'_> {
 }
 
 impl Mirror<'_> {
+    fn discard_cluster_component(&mut self, column: Column, c: char) {
+        let line = self.term.grid().cursor.point.line;
+        *self.overflow_tail =
+            self.term.grid()[line][column]
+                .extra
+                .as_ref()
+                .map(|cell| OverflowTail {
+                    cell: cell.clone(),
+                    follows_joiner: c == '\u{200d}',
+                });
+    }
+
     // Consume tmux cluster components; ordinary characters use Term::input.
     fn try_input_cluster_component(&mut self, c: char) -> bool {
         // ASCII cannot extend any of the tmux emoji clusters handled below.
@@ -178,6 +217,15 @@ impl Mirror<'_> {
         if ('\u{1f3fb}'..='\u{1f3ff}').contains(&c) {
             if let Some(column) = previous_base_column(self.term) {
                 let line = self.term.grid().cursor.point.line;
+                if self.term.grid()[line][column]
+                    .zerowidth()
+                    .unwrap_or_default()
+                    .len()
+                    >= MAX_CELL_MARKS
+                {
+                    self.discard_cluster_component(column, c);
+                    return true;
+                }
                 self.term.grid_mut()[line][column].push_zerowidth(c);
                 self.cache.invalidate();
             }
@@ -190,7 +238,18 @@ impl Mirror<'_> {
             let line = self.term.grid().cursor.point.line;
             let cell = &self.term.grid()[line][column];
             let marks = cell.zerowidth().unwrap_or_default();
-            let follows_joiner = marks.last() == Some(&'\u{200d}');
+            let follows_joiner = self
+                .overflow_tail
+                .as_ref()
+                .filter(|tail| {
+                    cell.extra
+                        .as_ref()
+                        .is_some_and(|extra| Arc::ptr_eq(extra, &tail.cell))
+                })
+                .map_or_else(
+                    || marks.last() == Some(&'\u{200d}'),
+                    |tail| tail.follows_joiner,
+                );
             let regional_pair = (0x1f1e6..=0x1f1ff).contains(&(cell.c as u32))
                 && (0x1f1e6..=0x1f1ff).contains(&(c as u32))
                 && marks.is_empty();
@@ -209,6 +268,10 @@ impl Mirror<'_> {
                     0x2194 | 0x2195 | 0x2b1b | 0x2600..=0x27ff | 0x1f000..=0x1ffff);
                 let joined_emoji = follows_joiner && emoji_base && emoji_part;
                 if joined_emoji || (regional_pair && width == 2) {
+                    if marks.len() >= MAX_CELL_MARKS {
+                        self.discard_cluster_component(column, c);
+                        return true;
+                    }
                     self.term.grid_mut()[line][column].push_zerowidth(c);
                     if width == 2 && !wide {
                         promote_to_wide(self.term, line, column);
@@ -217,6 +280,10 @@ impl Mirror<'_> {
                     return true;
                 }
                 if width_mark && width == 2 && !wide {
+                    if marks.len() >= MAX_CELL_MARKS {
+                        self.discard_cluster_component(column, c);
+                        return true;
+                    }
                     self.term.input(c);
                     promote_to_wide(self.term, line, column);
                     self.cache.invalidate();

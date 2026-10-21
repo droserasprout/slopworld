@@ -1,6 +1,71 @@
 use super::*;
 
 #[test]
+fn truncated_clusters_preserve_following_standalone_emoji() {
+    for marks in [handler::MAX_CELL_MARKS - 1, handler::MAX_CELL_MARKS] {
+        for chunk_size in [1, 4096] {
+            let mut emu = SessionEmu::new(20, 2);
+            let prefix = format!("😀{}", "\u{301}".repeat(marks));
+            emu.feed(prefix.as_bytes());
+            // Exercise both a retained and a discarded joiner at the limit,
+            // including continuations split across feed calls and renders.
+            for _ in 0..3 {
+                for chunk in "\u{200d}😀".as_bytes().chunks(chunk_size) {
+                    emu.feed(chunk);
+                    emu.render();
+                }
+            }
+            emu.feed("😎🚀Z".as_bytes());
+            let row = &emu.term.grid()[Line(0)];
+            assert_eq!(
+                row[Column(0)].zerowidth().unwrap().len(),
+                handler::MAX_CELL_MARKS
+            );
+            assert_eq!(row[Column(2)].c, '😎');
+            assert_eq!(row[Column(4)].c, '🚀');
+            assert_eq!(row[Column(6)].c, 'Z');
+            assert_eq!(emu.render().cx, 7);
+
+            emu.feed("\x1b[H😀\u{200d}🚀😎".as_bytes());
+            let row = &emu.term.grid()[Line(0)];
+            assert_eq!(row[Column(0)].zerowidth().unwrap(), &['\u{200d}', '🚀']);
+            assert_eq!(row[Column(2)].c, '😎');
+        }
+    }
+}
+
+#[test]
+fn combining_storage_is_bounded_and_recovers_after_overwrite() {
+    for (prefix, tail) in [
+        ("x", "\u{1f3fb}"),
+        ("x", "\u{301}"),
+        ("", "\u{301}"),
+        ("界", "\u{301}"),
+        ("😀", "\u{200d}😀"),
+        ("x", "\u{fe0f}"),
+    ] {
+        let mut emu = SessionEmu::new(20, 2);
+        emu.feed(prefix.as_bytes());
+        for _ in 0..4 {
+            emu.feed(tail.repeat(4096).as_bytes());
+            let retained = emu.term.grid()[Line(0)][Column(0)]
+                .zerowidth()
+                .unwrap_or_default()
+                .len();
+            assert!(
+                retained <= handler::MAX_CELL_MARKS,
+                "{prefix:?} {tail:?}: {retained}"
+            );
+        }
+        emu.feed(b"\x1b[HZ");
+        emu.feed("\u{301}".as_bytes());
+        let cell = &emu.term.grid()[Line(0)][Column(0)];
+        assert_eq!(cell.c, 'Z');
+        assert_eq!(cell.zerowidth().unwrap(), &['\u{301}']);
+    }
+}
+
+#[test]
 fn cursor_updates_reuse_blank_history_extent_until_history_can_change() {
     let mut e = SessionEmu::new(20, 2);
     e.feed(b"\r\n\r\n");
