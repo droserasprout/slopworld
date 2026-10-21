@@ -27,8 +27,9 @@ See [focus](ui-focus.md) for field lifetime and restoration.
 before borders/text with face opacity. Appearance previews reuse these renderers.
 `CrtOverlay` draws in physical pixels above windows/tooltips without input or terminal
 cache dependencies. A combined scanline/vignette texture uses one full-screen draw;
-a scanline strip covers pending resizes. Bake textures in Update outside frame drawing, rebuild after
-resize or UI-scale changes settle, and release them when disabled. Cursor dimming must preserve the
+a scanline strip covers initial preparation. Keep the previous combined texture visible while
+resize or UI-scale changes settle. Bake replacements in Update outside frame drawing and
+release textures when disabled. Cursor dimming must preserve the
 original hotspot.
 
 `TooltipLayout` freezes wrapping because GUI transforms can change native line breaks.

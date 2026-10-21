@@ -3,7 +3,7 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Owns the Unity presentation of the profile's CRT overlay, independently of pane caches.
-    // One combined texture shades the finished GUI; a strip covers pending resize bakes.
+    // One combined texture shades the finished GUI and stays visible during resize bakes.
     internal sealed class CrtOverlay : MonoBehaviour
     {
         const float ResizeSettleSeconds = 0.2f;
@@ -16,6 +16,7 @@ namespace SlopWorld
         int _pendingWidth;
         int _pendingHeight;
         float _vignetteReadyAt;
+        bool _vignetteDirty;
 
         internal static void Install()
         {
@@ -79,14 +80,9 @@ namespace SlopWorld
                 GUI.color = Color.white;
                 GUI.enabled = true;
                 var screen = new Rect(0f, 0f, width, height);
-                bool ready =
-                    _vignette != null
-                    && _pendingWidth == width
-                    && _pendingHeight == height
-                    && _pendingScale == UiScale.Current;
                 GUI.DrawTexture(
                     screen,
-                    ready ? _vignette : _scanlines,
+                    _vignette != null ? _vignette : _scanlines,
                     ScaleMode.StretchToFill,
                     true
                 );
@@ -103,20 +99,25 @@ namespace SlopWorld
         {
             if (_pendingWidth != width || _pendingHeight != height || _pendingScale != scale)
             {
-                // Enable immediately, but wait for resizing to settle before doing another
+                // Keep the previous texture visible while resizing settles before another
                 // full-screen CPU bake and upload. Real time also advances while paused.
                 _vignetteReadyAt =
                     Time.realtimeSinceStartup + (_pendingWidth == 0 ? 0f : ResizeSettleSeconds);
                 _pendingWidth = width;
                 _pendingHeight = height;
                 _pendingScale = scale;
+                _vignetteDirty = true;
+            }
+            if (_vignetteDirty && Time.realtimeSinceStartup >= _vignetteReadyAt)
+            {
+                // A brief stretch of the old dither is preferable to dropping the shading.
+                // Replace only after the new texture is ready.
+                var replacement = CreateVignette(width, height, scale, _mode);
                 if (_vignette != null)
                     Destroy(_vignette);
-                // Hide while resizing: stretching the old dither makes its noise visible.
-                _vignette = null;
+                _vignette = replacement;
+                _vignetteDirty = false;
             }
-            if (_vignette == null && Time.realtimeSinceStartup >= _vignetteReadyAt)
-                _vignette = CreateVignette(width, height, scale, _mode);
         }
 
         static Texture2D CreateScanlines(int height, float scale, float opacity)
@@ -181,6 +182,7 @@ namespace SlopWorld
             _pendingWidth = 0;
             _pendingHeight = 0;
             _vignetteReadyAt = 0f;
+            _vignetteDirty = false;
         }
     }
 }
