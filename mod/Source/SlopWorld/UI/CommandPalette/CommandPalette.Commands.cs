@@ -344,6 +344,19 @@ namespace SlopWorld
                 _ => Sidebar.ToggleSidebar()
             ),
             new CommandDef(
+                "view.toggle-open-files",
+                "View: Toggle Open files",
+                "View",
+                _ => Sidebar.ToggleOpenFiles()
+            ),
+            new CommandDef(
+                "view.toggle-terminal",
+                "View: Toggle Terminal",
+                "View",
+                _ => WorkspaceHotkeys.Toggle(),
+                enabled: Playing
+            ),
+            new CommandDef(
                 "view.screensaver",
                 "Screensaver",
                 "View",
@@ -355,6 +368,12 @@ namespace SlopWorld
                 "Settings: General",
                 "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Config))
+            ),
+            new CommandDef(
+                "view.display",
+                "Settings: Display",
+                "Settings",
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Display))
             ),
             new CommandDef(
                 "view.storage",
@@ -406,6 +425,15 @@ namespace SlopWorld
                 "Settings: Appearance",
                 "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Appearance))
+            ),
+            new CommandDef(
+                "view.code-settings",
+                "Settings: Appearance - Code",
+                "Settings",
+                _ =>
+                    ModOptions.OpenCategory(
+                        ModOptions.CategoryFor(ModOptions.PageId.AppearanceCode)
+                    )
             ),
             new CommandDef(
                 "view.audio",
