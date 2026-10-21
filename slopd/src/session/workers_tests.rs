@@ -734,8 +734,7 @@ async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
     })
     .await
     .unwrap();
-    // Removing write access fails publication but still permits identity inventory.
-    use std::os::unix::fs::PermissionsExt;
+    // Fail publication even as root, while still permitting identity inventory.
     let agents = manager
         .workspace
         .configuration
@@ -743,15 +742,14 @@ async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
         .binding
         .data
         .join("agents");
-    std::fs::create_dir_all(&agents).unwrap();
-    std::fs::set_permissions(&agents, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let fault = crate::paths::fail_writes(&agents);
     drop(spawn_guard);
     let error = tokio::time::timeout(Duration::from_secs(10), operation)
         .await
         .unwrap()
         .unwrap()
         .unwrap_err();
-    assert!(!error.to_string().is_empty());
+    assert!(format!("{error:#}").contains("injected persistence failure"));
     let task = manager
         .task_store()
         .all_tasks_async()
@@ -772,6 +770,6 @@ async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
     let checkout =
         crate::worktrees::project_root(&manager.config().await.projects[0]).join("worker-checkout");
     assert!(!checkout.exists());
-    std::fs::set_permissions(&agents, std::fs::Permissions::from_mode(0o700)).unwrap();
+    drop(fault);
     std::fs::remove_dir_all(root).unwrap();
 }

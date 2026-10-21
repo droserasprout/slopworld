@@ -254,7 +254,8 @@ mod tests;
 #[cfg(test)]
 static WRITE_FAULTS: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
 
-/// Scoped, path-specific failure at the persistence boundary, independent of temp naming.
+/// Scoped failure for a file or directory subtree at the persistence boundary,
+/// independent of temp naming and process privileges.
 #[cfg(test)]
 pub(crate) struct WriteFault(PathBuf);
 
@@ -277,7 +278,8 @@ pub(crate) fn check_write_fault(path: &Path) -> Result<()> {
         !WRITE_FAULTS
             .lock()
             .unwrap_or_else(|error| error.into_inner())
-            .contains(&path.to_owned()),
+            .iter()
+            .any(|fault| path.starts_with(fault)),
         "injected persistence failure"
     );
     Ok(())

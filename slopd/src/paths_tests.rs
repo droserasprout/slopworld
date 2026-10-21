@@ -1,6 +1,23 @@
 use super::*;
 
 #[test]
+fn directory_write_faults_leave_siblings_readable_and_release_on_drop() {
+    let root = std::env::temp_dir().join(format!("slopd-write-fault-{}", uuid::Uuid::new_v4()));
+    let agents = root.join("agents");
+    std::fs::create_dir_all(&agents).unwrap();
+    let record = agents.join("worker.toml");
+    std::fs::write(&record, "original").unwrap();
+    let fault = fail_writes(&agents);
+    assert!(check_write_fault(&agents).is_err());
+    assert!(check_write_fault(&record).is_err());
+    check_write_fault(&root.join("agents-other/worker.toml")).unwrap();
+    assert_eq!(std::fs::read_to_string(&record).unwrap(), "original");
+    drop(fault);
+    check_write_fault(&record).unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn stores_follow_their_independent_application_roots() {
     let Some(root) = crate::test_support::isolated() else {
         return;
