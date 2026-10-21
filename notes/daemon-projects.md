@@ -11,7 +11,7 @@ See [configuration stores](daemon-config-stores.md) for saved and effective valu
 Temporary mode is fixed at project creation. Rename updates saved agent, host-shell, and library project references
 in one journaled transaction. Library revision conflicts reject the rename before
 record writes. Captured command/sandbox definitions and mount
-shortcuts contain copied values, not project-name references. Removal is blocked by configured agents, saved host shells, or
+shortcuts contain copied values, not project-name references. Removal is blocked by library project references, configured agents, saved host shells, or
 [worktree records](daemon-worktrees.md), including stopped sessions.
 
 Configured temporary projects persist until removed. Library errands instead use

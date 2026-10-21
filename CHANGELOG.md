@@ -13,6 +13,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Fixed
 
 - Library: Fixed project renames breaking saved library items.
+- Projects: Prevent deleting projects referenced by saved library items.
 - Sandbox: Fixed skipped files being copied into private directories.
 - Sandbox: Fixed command comparison in live inspection.
 - Sandbox: Reject overlapping private directories.

@@ -193,7 +193,6 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
             crate::worktrees::validate_new_branch(&root, &name).await?;
         }
         let branch = name.clone();
-        let base = crate::worktrees::inspection::resolve_commit(&root, &q.base).await?;
         let requested_path = if managed {
             let parent = crate::worktrees::project_root(&project);
             if !parent.is_absolute() {
@@ -209,6 +208,13 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
         if !managed {
             validate_external_worktree(&root, &repository, &requested_path).await?;
         }
+        let base = if managed {
+            crate::worktrees::inspection::resolve_commit(&root, &q.base).await?
+        } else {
+            // Registration preserves the existing checkout. Recovery must compare
+            // against its HEAD, independent of the main checkout or requested base.
+            crate::worktrees::inspection::resolve_commit(&requested_path, "").await?
+        };
         let path = requested_path;
         Ok(PreparedWorktree {
             root,

@@ -90,6 +90,62 @@ impl Drop for Fixture {
 }
 
 #[tokio::test]
+async fn register_external_checkout_uses_its_head_with_unborn_main() {
+    let f = Fixture::new().await;
+    let repo = f.root.join("repo");
+    let external = f.root.join("external");
+    for args in [
+        vec![
+            "worktree",
+            "add",
+            "-b",
+            "external",
+            external.to_str().unwrap(),
+        ],
+        vec!["checkout", "--orphan", "unborn"],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .arg("-C")
+                .arg(&repo)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    crate::worktrees::checkout::validate_external_worktree(
+        &repo,
+        repo.join(".git").to_str().unwrap(),
+        &external,
+    )
+    .await
+    .unwrap();
+    let result = Worktrees::new(&crate::application::Application::from_runtime(&f.manager))
+        .create_worktree(WorktreeRequest {
+            project: "repo".into(),
+            name: "external".into(),
+            path: external.to_string_lossy().into_owned(),
+            base: "nonexistent-creation-base".into(),
+        })
+        .await;
+    let worktree = result.expect("valid existing checkout rejected");
+    assert!(!worktree.managed);
+    assert_eq!(worktree.phase, crate::worktrees::WorktreePhase::Ready);
+    assert_eq!(
+        worktree.base,
+        crate::worktrees::inspection::resolve_commit(&external, "")
+            .await
+            .unwrap()
+    );
+    assert!(
+        crate::worktrees::resolution::completed_allocation(&f.manager.config().await, &worktree)
+            .await
+            .unwrap()
+    );
+}
+
+#[tokio::test]
 async fn existing_agent_switches_worktrees_inside_session_request() {
     let f = Fixture::new().await;
     let tree = f.tree("waylith").await;

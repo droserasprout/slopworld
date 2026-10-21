@@ -147,6 +147,18 @@ pub(crate) fn remove(cfg: &mut Config, name: &str) -> Result<()> {
             users.join(", ")
         );
     }
+    let library_users: Vec<&str> = cfg
+        .library
+        .iter()
+        .filter(|item| item.project == name)
+        .map(|item| item.name.as_str())
+        .collect();
+    if !library_users.is_empty() {
+        bail!(
+            "project {name} is still referenced by library items: {}. Remove or edit them first.",
+            library_users.join(", ")
+        );
+    }
     cfg.projects.retain(|p| p.name != name);
     Ok(())
 }

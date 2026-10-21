@@ -33,6 +33,8 @@ selecting the original checkout. Branch names and HEAD describe state rather tha
 checkout identity. Task results, worker exits, one-shot cleanup, and final detachment
 never commit or delete worktrees. Project removal cannot discard worktree records.
 
+External checkout registration records its own HEAD as the recovery base, independent
+of the main checkout's HEAD or a requested creation base.
 External checkout removal deletes only its record. User operations belong to
 [Project worktrees](../docs/src/workspace/project-worktrees.md).
 

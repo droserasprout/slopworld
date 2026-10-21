@@ -3,6 +3,38 @@ use crate::config::{Config, ProjectCfg};
 use std::time::Duration;
 
 #[tokio::test]
+async fn project_removal_rejects_library_references_until_removed() {
+    let manager = crate::session::test_manager(Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        library: vec![crate::config::LibraryItemCfg {
+            name: "review".into(),
+            project: "repo".into(),
+            host: true,
+            text: "Review changes".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    let application = crate::application::Application::from_runtime(&manager);
+    let projects = Projects::new(&application);
+    let error = projects.remove_project("repo").await.unwrap_err();
+    assert!(error.to_string().contains("review"), "{error}");
+    let cfg = manager.config().await;
+    assert!(cfg.project("repo").is_some());
+    crate::application::launch::plan_library_launch(&cfg, "review", Default::default()).unwrap();
+    crate::application::library::Library::new(&application)
+        .remove_library_item("review")
+        .await
+        .unwrap();
+    projects.remove_project("repo").await.unwrap();
+    assert!(manager.config().await.project("repo").is_none());
+}
+
+#[tokio::test]
 async fn project_temporary_mode_is_immutable_after_creation() {
     let manager = crate::session::test_manager(Config {
         projects: vec![ProjectCfg {
