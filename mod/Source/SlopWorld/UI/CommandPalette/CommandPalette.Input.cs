@@ -75,8 +75,11 @@ namespace SlopWorld
                 case KeyCode.UpArrow:
                     if (_mode == Mode.Sub)
                     {
-                        _subIndex = Mathf.Max(0, _subIndex - 1);
-                        ScrollToSub();
+                        if (_subShown.Count > 0)
+                        {
+                            _subIndex = _subIndex == 0 ? _subShown.Count - 1 : _subIndex - 1;
+                            ScrollToSub();
+                        }
                     }
                     else if (_matches.Count > 0)
                     {
@@ -90,8 +93,11 @@ namespace SlopWorld
                 case KeyCode.DownArrow:
                     if (_mode == Mode.Sub)
                     {
-                        _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + 1);
-                        ScrollToSub();
+                        if (_subShown.Count > 0)
+                        {
+                            _subIndex = _subIndex == _subShown.Count - 1 ? 0 : _subIndex + 1;
+                            ScrollToSub();
+                        }
                     }
                     else if (_matches.Count > 0)
                     {
@@ -137,7 +143,7 @@ namespace SlopWorld
         {
             // Prompt on the left, filter input on the right.
             string prompt = _subPrompt + " ";
-            float promptW = UiTheme.Wide(prompt);
+            float promptW = Mathf.Min(UiTheme.Wide(prompt), inner.width * 0.5f);
             var labelRect = new Rect(inner.x, inner.y, promptW, inner.height);
             var fieldRect = new Rect(
                 inner.x + promptW,
@@ -148,6 +154,7 @@ namespace SlopWorld
 
             GUI.color = UiTheme.Dim;
             UiText.RowLabel(labelRect, prompt);
+            TooltipHandler.TipRegion(labelRect, prompt);
             GUI.color = Color.white;
 
             bool hadFilter = _subHasFilter;
@@ -162,7 +169,7 @@ namespace SlopWorld
                 Resize();
             }
 
-            // Backspace on empty filter in sub-mode: go back to command list.
+            // Backspace on an empty filter returns to the parent level.
             // The text field was empty so it didn't consume the key. Ours to take.
             if (isKeyDown && e.keyCode == KeyCode.Backspace && !hadFilter)
             {
@@ -194,12 +201,11 @@ namespace SlopWorld
             _subStack.Clear();
             _subFilter = "";
             _subHasFilter = false;
-            _input = "";
-            _filter = "";
-            _selectedIndex = 0;
             _scroll.JumpTo(Vector2.zero);
             _focusInput = true;
             RebuildMatches();
+            _selectedIndex = Mathf.Clamp(_selectedIndex, 0, Mathf.Max(0, _matches.Count - 1));
+            ScrollToSelected();
             Resize();
         }
 

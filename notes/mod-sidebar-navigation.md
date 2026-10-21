@@ -18,6 +18,12 @@ refreshes without repeating close/enter transitions. See [readers](mod-file-read
 [Search](mod-ui-search.md), [browse scopes](mod-ui-browse-scopes.md), and
 [Library](mod-ui-library.md).
 
+`CreationActions` owns the shared creation tree, lazy template/project choices, and
+launch callbacks. The sidebar's **+** menu and the palette's **Add…** command
+adapt that tree to their own rows. Worker and host-shell choices respect the shared
+project filter. Palette submenus retain parent searches and
+selection while descending and returning through breadcrumbs.
+
 Start with [tab definitions](../mod/Source/SlopWorld/UI/Sidebar/SidebarTabDefinition.cs),
 [history](../mod/Source/SlopWorld/UI/Sidebar/SidebarViewHistory.cs), and
 [tab tests](../mod/Tests/SidebarTabTests.cs).

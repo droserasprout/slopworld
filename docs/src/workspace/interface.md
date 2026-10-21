@@ -26,6 +26,12 @@ Library has an independent filter. See [Browse checkouts](../workspace/project-w
 for Main and worktree selection. Use **+** to add workspace items and
 **View: Toggle Sidebar** in the palette to hide the panel.
 
+The palette's **Add…** command opens the same choices as **+**. Type to filter each
+level, use Up/Down to select, and press Enter to open a submenu or launch an action.
+Escape returns one level with the previous search and selection preserved;
+Backspace also returns when the search is empty. The prompt shows the current path,
+such as **Add › Agent**.
+
 For step-by-step procedures, see [Files and search](../workspace/files-and-search.md)
 and [Git](../workspace/review-changes.md).
 

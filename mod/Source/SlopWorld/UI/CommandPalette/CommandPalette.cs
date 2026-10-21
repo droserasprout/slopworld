@@ -110,6 +110,7 @@ namespace SlopWorld
             SessionHub.Instance.TaskStore.Refresh();
             SessionHub.Instance.Catalog.RefreshProjects();
             SessionHub.Instance.Catalog.RefreshLibrary();
+            SessionHub.Instance.Catalog.RefreshTemplates();
             SessionHub.Instance.Catalog.LoadPresets();
 
             Find.WindowStack.Add(new CommandPalette());
@@ -144,6 +145,21 @@ namespace SlopWorld
             }
 
             public bool IsEnabled => Enabled();
+
+            public static CommandDef ForCreation(
+                string id,
+                string label,
+                string group,
+                CreationActions.Entry entry
+            ) =>
+                new CommandDef(
+                    id,
+                    label,
+                    group,
+                    _ => entry.Select?.Invoke(),
+                    () => entry.Enabled,
+                    entry.Children == null ? null : () => CreationSub(entry.Children())
+                );
 
             public static CommandDef ForAgent(
                 string id,

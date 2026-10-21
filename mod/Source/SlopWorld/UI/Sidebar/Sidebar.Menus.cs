@@ -328,116 +328,24 @@ namespace SlopWorld
             e.Use();
             SessionHub.Instance.Catalog.RefreshTemplates();
 
-            var opts = new List<FloatMenuOption>
-            {
-                new FloatMenuOption(
-                    "Project",
-                    () => WorkspaceWindow.OpenOverPane(new EditProjectDialog(null))
-                ),
-                new UiSubmenu("Agent", AgentCreationOptions),
-                new UiSubmenu("Worker", WorkerOptions),
-                new FloatMenuOption(
-                    "Task",
-                    () => WorkspaceWindow.OpenOverPane(new DelegateTaskDialog(null))
-                ),
-                new UiSubmenu("Library", LibraryItemOptions),
-                new FloatMenuOption("Sandbox preset", ModOptions.OpenNewSandboxPreset),
-                new FloatMenuOption("Command preset", ModOptions.OpenNewCommand),
-                new UiSubmenu("Host shell", HostShellOptions),
-            };
-            WorkspaceWindow.OpenOverPane(new UiMenu(opts));
+            WorkspaceWindow.OpenOverPane(new UiMenu(CreationMenu(CreationActions.Add.Children())));
             return true;
         }
 
-        static List<FloatMenuOption> AgentCreationOptions()
-        {
-            var options = new List<FloatMenuOption>();
-            foreach (
-                var template in SessionHub.Instance.Templates.OrderBy(
-                    t => t.Name,
-                    System.StringComparer.OrdinalIgnoreCase
-                )
-            )
-            {
-                var captured = template.Copy();
-                options.Add(
-                    new FloatMenuOption(
-                        template.DisplayLabel,
-                        () => WorkspaceWindow.OpenOverPane(EditSessionDialog.FromTemplate(captured))
-                    )
-                );
-            }
-            if (options.Count > 0)
-                options.Add(UiMenu.Separator());
-            options.Add(
-                new FloatMenuOption(
-                    "Custom",
-                    () => WorkspaceWindow.OpenOverPane(new EditSessionDialog(null))
-                )
-            );
-            return options;
-        }
-
-        static List<FloatMenuOption> WorkerOptions()
-        {
-            var options = new List<FloatMenuOption>();
-            foreach (
-                var project in SessionHub
-                    .Instance.Projects.Where(p => Passes(p.Name))
-                    .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-            )
-            {
-                var captured = project.Name;
-                options.Add(
-                    new FloatMenuOption(
-                        $"{project.Name}  -  {project.Dir}",
-                        () => WorkspaceWindow.OpenOverPane(new SpawnWorkerDialog(null, captured))
-                    )
-                );
-            }
-            if (options.Count == 0)
-                options.Add(new FloatMenuOption("(no projects)", null));
-            return options;
-        }
-
-        static List<FloatMenuOption> LibraryItemOptions()
-        {
-            var options = new List<FloatMenuOption>
-            {
-                new FloatMenuOption(
-                    "Agent template",
-                    () => WorkspaceWindow.OpenOverPane(EditSessionDialog.EditTemplate())
-                ),
-            };
-            options.AddRange(
-                LibraryItemCreation.Options.Select(option => new FloatMenuOption(
-                    option.SidebarLabel,
-                    option.Open
-                ))
-            );
-            return options;
-        }
-
-        static List<FloatMenuOption> HostShellOptions()
-        {
-            var options = new List<FloatMenuOption>
-            {
-                new FloatMenuOption("~", () => HostTerminalActions.HostShell("")),
-            };
-            foreach (var p in SessionHub.Instance.Projects)
-            {
-                if (!Passes(p.Name))
-                    continue;
-                string name = p.Name;
-                options.Add(
-                    new FloatMenuOption(
-                        $"{name}  -  {p.Dir}",
-                        () => HostTerminalActions.HostShell(name)
-                    )
-                );
-            }
-            return options;
-        }
+        static List<FloatMenuOption> CreationMenu(List<CreationActions.Entry> entries) =>
+            entries
+                .Select(entry =>
+                {
+                    if (entry == CreationActions.Entry.Separator)
+                        return UiMenu.Separator();
+                    FloatMenuOption option =
+                        entry.Children == null
+                            ? new FloatMenuOption(entry.Label, entry.Select)
+                            : new UiSubmenu(entry.Label, () => CreationMenu(entry.Children()));
+                    option.Disabled = !entry.Enabled;
+                    return option;
+                })
+                .ToList();
 
         sealed class ProjectFilterMenu : UiMenu
         {

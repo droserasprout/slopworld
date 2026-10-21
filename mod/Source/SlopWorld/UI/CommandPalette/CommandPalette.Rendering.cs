@@ -185,9 +185,13 @@ namespace SlopWorld
                     {
                         _subIndex = i;
                         ExecuteSub();
+                        // Execution can replace the list while entering a child or close
+                        // the palette. Draw the new state on the next GUI pass.
+                        return;
                     }
 
                     float left = row.x + UiTheme.FieldPadX;
+                    float arrowW = options[i].O.Children != null ? UiTheme.DisclosureW : 0f;
 
                     // The checkbox goes before the label, the way a settings page draws one,
                     // and the label starts after it. Rows without one keep the whole line:
@@ -215,11 +219,17 @@ namespace SlopWorld
                         new Rect(
                             left,
                             row.y + UiTheme.FieldPadY,
-                            row.xMax - UiTheme.FieldPadX - left,
+                            row.xMax - UiTheme.FieldPadX - left - arrowW,
                             RowH - UiTheme.FieldPadY * 2f
                         ),
                         options[i].Label
                     );
+                    if (arrowW > 0f)
+                        UiText.RowLabel(
+                            new Rect(row.xMax - UiTheme.FieldPadX - arrowW, row.y, arrowW, RowH),
+                            "›",
+                            TextAnchor.MiddleCenter
+                        );
                     GUI.color = Color.white;
 
                     y += RowH;

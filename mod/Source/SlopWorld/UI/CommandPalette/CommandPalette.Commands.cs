@@ -12,12 +12,7 @@ namespace SlopWorld
         // rebuilt, so game-state changes do not require rebuilding the definitions.
         static readonly List<CommandDef> CommandTable = new List<CommandDef>
         {
-            new CommandDef(
-                "agent.new",
-                "Agent: New",
-                "Agent",
-                _ => WorkspaceWindow.OpenOverPane(new EditSessionDialog(null))
-            ),
+            CommandDef.ForCreation("add", "Add…", "Create", CreationActions.Add),
             CommandDef.ForAgent(
                 "agent.label",
                 "Agent: Label",
@@ -111,12 +106,6 @@ namespace SlopWorld
                 AgentsSubWithProject,
                 SessionActions.AgentShell
             ),
-            new CommandDef(
-                "project.new",
-                "Project: New",
-                "Project",
-                _ => WorkspaceWindow.OpenOverPane(new EditProjectDialog(null))
-            ),
             CommandDef.ForProject(
                 "project.edit",
                 "Project: Edit",
@@ -140,13 +129,6 @@ namespace SlopWorld
                 "Project: Open Host Terminal",
                 ProjectsSub,
                 ProjectActions.ProjectTerminal
-            ),
-            new CommandDef(
-                "task.new",
-                "Task: New",
-                "Task",
-                _ => WorkspaceWindow.OpenOverPane(new DelegateTaskDialog(null)),
-                enabled: HasTaskRecipients
             ),
             CommandDef.ForTask("task.open", "Task: Open", TasksSub, t => TaskDetailView.Open(t)),
             CommandDef.ForTask(
@@ -175,13 +157,6 @@ namespace SlopWorld
                 LibraryItemsSub,
                 s => LibraryActions.Run(s)
             ),
-            new CommandDef(
-                "library.new",
-                "Library: New",
-                "Library",
-                _ => { },
-                subAction: NewLibraryItemSub
-            ),
             CommandDef.ForLibraryItem(
                 "library.edit",
                 "Library: Edit",
@@ -199,13 +174,6 @@ namespace SlopWorld
                 "Library: Duplicate",
                 LibraryManageSub,
                 LibraryActions.Duplicate
-            ),
-            new CommandDef(
-                "host.open-shell",
-                "Host: Open Shell",
-                "Host",
-                _ => { },
-                subAction: HostShellSub
             ),
             CommandDef.ForAgent(
                 "host.remove",
@@ -500,18 +468,6 @@ namespace SlopWorld
                 "Settings: About",
                 "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.About))
-            ),
-            new CommandDef(
-                "sandbox.new-preset",
-                "Sandbox: New Preset",
-                "Sandbox",
-                _ => ModOptions.OpenNewSandboxPreset()
-            ),
-            new CommandDef(
-                "command.new",
-                "Command: New",
-                "Commands",
-                _ => ModOptions.OpenNewCommand()
             ),
             new CommandDef(
                 "config.toml",

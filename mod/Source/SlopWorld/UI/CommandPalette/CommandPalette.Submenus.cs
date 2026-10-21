@@ -11,11 +11,6 @@ namespace SlopWorld
     {
         static bool Playing() => Current.ProgramState == ProgramState.Playing;
 
-        static bool HasTaskRecipients() =>
-            SessionHub.Instance.Sessions.Any(s =>
-                s != null && !s.Ephemeral && !s.Host && !string.IsNullOrEmpty(s.Name)
-            );
-
         // --------------------------------------------------------------- sub-option builders
 
         static SubOption AgentOption(SessionInfo session) =>
@@ -173,41 +168,17 @@ namespace SlopWorld
             return list;
         }
 
-        static List<SubOption> NewLibraryItemSub() =>
-            LibraryItemCreation
-                .Options.Select(option => new SubOption
+        static List<SubOption> CreationSub(List<CreationActions.Entry> entries) =>
+            entries
+                .Where(entry => entry != CreationActions.Entry.Separator)
+                .Select(entry => new SubOption
                 {
-                    Label = option.PaletteLabel,
-                    Select = option.Open,
+                    Label = entry.Label,
+                    Enabled = entry.Enabled,
+                    Select = entry.Select,
+                    Children = entry.Children == null ? null : () => CreationSub(entry.Children()),
                 })
                 .ToList();
-
-        static List<SubOption> HostShellSub()
-        {
-            var list = new List<SubOption>
-            {
-                new SubOption
-                {
-                    Label = "~",
-                    Value = "",
-                    Select = () => HostTerminalActions.HostShell(""),
-                },
-            };
-
-            foreach (var p in SessionHub.Instance.Projects)
-            {
-                string name = p.Name;
-                list.Add(
-                    new SubOption
-                    {
-                        Label = $"{name}  -  {p.Dir}",
-                        Value = name,
-                        Select = () => HostTerminalActions.HostShell(name),
-                    }
-                );
-            }
-            return list;
-        }
 
         static List<SubOption> HostSessionsSub()
         {

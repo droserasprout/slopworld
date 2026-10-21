@@ -94,11 +94,9 @@ namespace SlopWorld
             _subStack.Clear();
             _subOptions = entry.SubAction();
             _subIndex = 0;
-            _subPrompt = entry.Label + ":";
+            _subPrompt = entry.Label.TrimEnd('…') + ":";
             _subFilter = "";
             _subHasFilter = false;
-            _input = "";
-            _filter = "";
             _scroll.JumpTo(Vector2.zero);
             _focusInput = true;
             RebuildSub();
@@ -122,7 +120,7 @@ namespace SlopWorld
                 }
             );
             _subOptions = children;
-            _subPrompt = option.Label + ":";
+            _subPrompt = _subPrompt.TrimEnd(':') + " › " + option.Label + ":";
             _subFilter = "";
             _subHasFilter = false;
             _subIndex = 0;
