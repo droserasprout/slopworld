@@ -30,6 +30,7 @@ pub(super) struct PreparedRecords {
     hosts: Option<workspace::Prepared<crate::config::HostTerminalCfg>>,
     projects: Option<workspace::Prepared<ProjectCfg>>,
     worktrees: Option<workspace::Prepared<crate::worktrees::Worktree>>,
+    library: Option<(Vec<transaction::Change>, crate::config::catalog::Revision)>,
 }
 
 impl Records {
@@ -92,6 +93,7 @@ impl Records {
             hosts: None,
             projects: None,
             worktrees: None,
+            library: None,
         };
         match mutation {
             ConfigMutation::Agents | ConfigMutation::ProjectReferences => {
@@ -117,7 +119,18 @@ impl Records {
 }
 
 impl PreparedRecords {
+    pub(super) fn writes_library(&self) -> bool {
+        self.library.is_some()
+    }
+
     pub(super) async fn commit(&self, gate: &OwnedMutexGuard<()>) -> Result<()> {
+        if let Some((_, revision)) = &self.library {
+            anyhow::ensure!(
+                crate::config::catalog::revision(&self.owner.binding.config.join("config.toml"))?
+                    == *revision,
+                "library changed while preparing the edit; retry after reload"
+            );
+        }
         transaction::commit_in_operation(&self.owner.binding, self.changes(), gate).await
     }
 
@@ -134,7 +147,18 @@ impl PreparedRecords {
         {
             changes.extend(changes_for_store.iter().cloned());
         }
+        if let Some((library, _)) = &self.library {
+            changes.extend(library.iter().cloned());
+        }
         changes
+    }
+    pub(super) fn attach_library(
+        &mut self,
+        changes: Vec<transaction::Change>,
+        revision: crate::config::catalog::Revision,
+    ) {
+        // Project references and library files share one recovery journal.
+        self.library = Some((changes, revision));
     }
     pub(super) fn attach_worktrees(&mut self, values: &[crate::worktrees::Worktree]) -> Result<()> {
         let stores = self

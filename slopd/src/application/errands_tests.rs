@@ -150,6 +150,7 @@ fn selection_uses_explicit_checkout_then_clone_default_except_for_temporary_proj
         sessions: vec![SessionCfg {
             name: "source".into(),
             worktree: "inherited".into(),
+            project: "repo".into(),
             ..Default::default()
         }],
         ..Default::default()
@@ -163,6 +164,13 @@ fn selection_uses_explicit_checkout_then_clone_default_except_for_temporary_proj
     assert_eq!(
         select(&cfg, &request, &[]).unwrap().selected_worktree,
         "inherited"
+    );
+    request.destination = LaunchDestination::Project("other".into());
+    assert!(
+        select(&cfg, &request, &[])
+            .unwrap()
+            .selected_worktree
+            .is_empty()
     );
     request.options.worktree = "explicit".into();
     assert_eq!(

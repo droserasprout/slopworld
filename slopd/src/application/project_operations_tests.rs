@@ -76,3 +76,43 @@ async fn canceled_project_update_retains_boundary_until_commit() {
     .await
     .unwrap();
 }
+
+#[tokio::test]
+async fn project_rename_persists_library_references_and_keeps_items_runnable() {
+    let project = ProjectCfg {
+        name: "old".into(),
+        dir: "/tmp/slopworld-library-rename".into(),
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(Config {
+        projects: vec![project.clone()],
+        library: vec![crate::config::LibraryItemCfg {
+            name: "review".into(),
+            project: "old".into(),
+            host: true,
+            text: "Review changes".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    Projects::new(&crate::application::Application::from_runtime(&manager))
+        .update_project(
+            "old",
+            ProjectCfg {
+                name: "new".into(),
+                ..project
+            },
+        )
+        .await
+        .unwrap();
+    let cfg = manager.config().await;
+    let request =
+        crate::application::launch::plan_library_launch(&cfg, "review", Default::default())
+            .unwrap();
+    assert!(
+        matches!(request.destination, crate::session::LaunchDestination::Project(name) if name == "new")
+    );
+    let disk = Config::load_library_for(manager.cfg_path()).await.unwrap();
+    assert_eq!(disk[0].project, "new");
+    assert!(!manager.configuration().reload_if_changed().await);
+}

@@ -148,6 +148,7 @@ pub(crate) fn select(
     } else if want.worktree.is_empty() {
         source
             .as_ref()
+            .filter(|s| s.project == project_name)
             .map(|s| s.worktree.clone())
             .unwrap_or_default()
     } else {

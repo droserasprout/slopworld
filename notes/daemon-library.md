@@ -47,4 +47,6 @@ User instructions belong in [Library items and errands](../docs/src/workspace/li
 
 Library reload revisions include membership and each file’s metadata. Reloads recheck
 the revision before publication; API commits reject an externally changed revision.
-Workspace records and root settings do not participate in library reloads or writes.
+Ordinary library reloads and writes exclude workspace records and root settings.
+Project renames commit library project references alongside workspace references in
+one journaled transaction, retaining the library revision checks.

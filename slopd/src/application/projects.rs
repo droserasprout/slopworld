@@ -104,6 +104,13 @@ impl ProjectReplacement {
         let renamed = self.next.name.clone();
         *project = self.next;
         if renamed != self.name {
+            for item in cfg
+                .library
+                .iter_mut()
+                .filter(|item| item.project == self.name)
+            {
+                item.project = renamed.clone();
+            }
             for session in cfg.sessions.iter_mut().filter(|s| s.project == self.name) {
                 session.project = renamed.clone();
             }
@@ -329,6 +336,10 @@ impl Projects {
                 manager.update_project_inner(&name, p).await?;
                 publish(&manager.config_authority, &manager.services).await;
                 manager.sessions.announce_sessions().await;
+                manager
+                    .services
+                    .announce_library(manager.configuration().config().await)
+                    .await;
                 Ok(())
             }))
             .await

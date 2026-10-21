@@ -309,3 +309,68 @@ async fn settings_keep_gate_through_endpoint_update_and_preserve_workspace() {
     );
     assert_eq!(*f.owner.library_revision.lock().unwrap(), stamp);
 }
+
+#[tokio::test]
+async fn project_reference_commit_rejects_library_edits_without_writing_records() {
+    for edit_after_prepare in [false, true] {
+        let f = Fixture::new(Config {
+            projects: vec![crate::config::ProjectCfg {
+                name: "old".into(),
+                dir: "/tmp/rename-project".into(),
+                ..Default::default()
+            }],
+            library: vec![crate::config::LibraryItemCfg {
+                name: "review".into(),
+                project: "old".into(),
+                host: true,
+                text: "Review changes".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let before = f.config().await;
+        let project_path = f
+            .owner
+            .records
+            .binding
+            .config
+            .join("projects")
+            .join(format!("{}.toml", before.projects[0].id));
+        let project_bytes = std::fs::read(&project_path).unwrap();
+        let library_path = f.owner.records.binding.config.join("prompts/review.toml");
+        let edit = || {
+            let mut item = before.library[0].clone();
+            item.text = "Externally edited review instructions".into();
+            std::fs::write(&library_path, toml::to_string(&item).unwrap()).unwrap();
+        };
+        if !edit_after_prepare {
+            edit();
+        }
+        let prepared = f
+            .owner
+            .prepare(&f.runtime, ConfigMutation::ProjectReferences, |cfg| {
+                cfg.projects[0].name = "new".into();
+                cfg.library[0].project = "new".into();
+                Ok(((), true))
+            })
+            .await;
+        let error = if edit_after_prepare {
+            let ((), prepared) = prepared.unwrap();
+            edit();
+            f.owner
+                .commit(&f.runtime, prepared.unwrap())
+                .await
+                .unwrap_err()
+        } else {
+            prepared.err().expect("stale catalog must fail preparation")
+        };
+        assert!(error.to_string().contains("library changed"), "{error:#}");
+        assert_eq!(std::fs::read(&project_path).unwrap(), project_bytes);
+        assert_eq!(f.config().await.projects[0].name, "old");
+        assert!(
+            std::fs::read_to_string(&library_path)
+                .unwrap()
+                .contains("Externally edited")
+        );
+    }
+}

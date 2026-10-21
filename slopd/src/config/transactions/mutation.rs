@@ -14,7 +14,7 @@ pub(crate) enum ConfigMutation {
 
 impl ConfigMutation {
     pub(super) fn writes_library(self) -> bool {
-        matches!(self, Self::Library)
+        matches!(self, Self::Library | Self::ProjectReferences)
     }
 
     /// Reject an ownership mistake before cache, tmux, or disk effects. Full

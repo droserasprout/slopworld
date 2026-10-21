@@ -47,7 +47,6 @@ pub(crate) struct ConfigChange {
 pub(crate) struct PreparedConfigChange {
     change: ConfigChange,
     disk: backend::PreparedDisk,
-    mutation: ConfigMutation,
     worktrees: Option<crate::worktrees::Store>,
     // Prevent stale candidates, including across a tmux rename before commit.
     _persist: tokio::sync::OwnedMutexGuard<()>,
@@ -99,13 +98,14 @@ impl Transactions {
         mutation.validate(&old, &candidate)?;
         runtime.validate(&old, &candidate).await?;
         let change = prepare_candidate(&old, candidate)?;
-        let disk = self.prepare_config_disk(mutation, &change.new).await?;
+        let disk = self
+            .prepare_config_disk(mutation, &old, &change.new)
+            .await?;
         Ok((
             result,
             Some(PreparedConfigChange {
                 change,
                 disk,
-                mutation,
                 worktrees: None,
                 _persist: persist,
             }),
@@ -145,7 +145,6 @@ impl Transactions {
         let PreparedConfigChange {
             change,
             disk,
-            mutation,
             worktrees,
             _persist,
         } = prepared;
@@ -170,7 +169,7 @@ impl Transactions {
                 release.notified().await;
             }
         }
-        if mutation.writes_library() {
+        if disk.writes_library() {
             self.mark_saved_library(&change.new).await;
         }
         disk.publish();
