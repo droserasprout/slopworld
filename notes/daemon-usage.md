@@ -1,44 +1,23 @@
-# Daemon usage polling
+# Usage polling
 
-`usage/mod.rs` owns the public model; `polling.rs` owns provider execution and
-credential watching. Each lap accepts a daemon-settings snapshot and returns the
-readout plus the next delay. `application/usage.rs` owns the background loop, retained
-snapshot, and change-only event publication. Its read-only settings handle shares
-the accepted configuration lock and does not retain the session manager.
-`schedule.rs` owns retry and row cadence
-transitions with caller-supplied monotonic time; `publication.rs` owns aggregation
-and poll diagnostics, including enabled sources and final row resolution once per lap.
+`usage/` owns provider reads, parsing, row policy, and scheduling with caller-supplied
+monotonic time. `application/usage.rs` owns the background loop, retained snapshot,
+and change-only publication. It reads accepted settings without retaining the session
+manager. Wire fields and units belong to the shared protocol.
 
-`rows.rs` owns catalog and row policy;
-`providers.rs` owns credential reads and HTTP; `parsing.rs` interprets upstream JSON;
-`anthropic_cache.rs` owns shared Anthropic request coordination. Daemon configuration
-owns settings/defaults, and shared protocol owns wire fields and units.
+Providers fail and back off independently, retaining last-good values and timestamps.
+Changing cadence must not erase backoff. Missing credentials hide retained readouts;
+malformed credentials and request failures leave stale values visible. Unknown
+upstream shapes are errors. Credential watching can shorten Claude's failure delay;
+Codex does not use that mechanism.
 
-Each provider has independent failure/backoff state and retains last-good values and
-timestamps after failure. Cadence changes do not erase failure backoff. Claude's
-credential-file modification can shorten its failure delay; Codex credentials are
-not watched that way. Unknown upstream shapes are errors rather than invented values.
+The settings catalog retains discovered rows even when polling is disabled or
+credentials are missing. Only explicitly enabled rows cause polling. One request may
+serve several rows; use their fastest effective interval within provider limits.
+Resolve rows between polls: enabled sources without data get placeholders, but windows
+omitted from a valid partial response are inapplicable. Keep upstream availability
+separate from display filtering, and retain absolute reset deadlines when rebasing
+countdowns to a new poll timestamp.
 
-Missing credential files, absent tokens, and empty keys hide that provider's readout,
-including retained values, until a later poll reads credentials. Malformed files,
-expired logins, and request failures keep the existing stale-data behavior. The
-catalog remains available in settings regardless of credential availability.
-
-Polling defaults to off for every row, including discovered windows. The
-catalog retains discovered optional rows independently of enabled values, including
-while polling is disabled or credentials are missing, so Settings can enable them.
-The global interval defaults to 120 seconds before provider minimums. A provider runs only
-while at least one of its rows is explicitly enabled. Rows resolve between network
-polls. Enabled sources without data get placeholders; after a valid partial table,
-omitted windows are inapplicable rather
-than missing-data placeholders. One request can provide several windows; polling
-uses the fastest effective enabled interval within provider cache/rate limits.
-Upstream availability is retained separately from filtered display values so enabling
-a returned row can shorten cadence without erasing failure backoff. Retained rows
-keep absolute reset deadlines; their wire countdowns are rebased to each new
-provider timestamp.
-
-Client ages and discovered-row editing belong to [mod usage](mod-usage.md).
-Setup belongs to [Usage polling](../docs/src/agents/usage-and-summaries.md#usage-polling),
-and shared credential behavior to [sandbox isolation](sandbox-isolation.md) and
-[Sandbox presets](../docs/src/sandbox/sandbox-presets.md#credentials).
+[Mod usage](mod-usage.md) owns client ages and row editing. Setup belongs to
+[Usage polling](../docs/src/agents/usage-and-summaries.md#usage-polling).

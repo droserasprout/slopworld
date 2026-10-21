@@ -1,53 +1,34 @@
 # Settings apply boundaries
 
-Profile preferences belong to [mod settings](mod-settings.md); machine settings
-belong to the daemon; RimWorld preferences keep their own lifecycle. Most profile
-controls apply live and mark changes for a quiet-period flush or Settings closure.
-UI scale applies on slider release to keep its input target stable; `UnlockUIScale`
-bypasses vanilla's low-resolution reset.
+[Profile preferences](mod-settings.md), daemon settings, and RimWorld preferences
+have separate lifetimes. Profile controls usually apply live and flush after a quiet
+period or on close. UI scale applies on slider release so its target stays stable;
+`UnlockUIScale` bypasses vanilla's low-resolution reset.
 
-Daemon pages keep independent drafts and save changed fields only. Acknowledgement
-accepts submitted values while preserving edits made during the request. Reload
-merges unedited fields and reports conflicts; Discard takes the latest remote values.
-Stale callbacks cannot overwrite newer outcomes. Drafts are scoped by page and
-endpoint; saving one page must not reload another. Endpoint changes clear config
-paths. Raw editing waits for a successful load, and failed reload preserves text.
-`DaemonConfigEndpoint` resolves the endpoint once per synchronous page draw, including
-page preparation. Repeated draft reads reuse that snapshot; the next draw resolves
-again. Request transport and stale-callback checks still resolve the live endpoint.
-Effective previews are daemon-resolved. Connection lifetime belongs to
-[the client](mod-client.md); replacement and workspace-record protection belong to
-[configuration stores](daemon-config-stores.md).
+Daemon pages keep independent drafts scoped by page and endpoint. Save only changed
+fields; acknowledgements accept submitted values while preserving newer edits.
+Reload merges unedited fields and reports conflicts; Discard takes remote values.
+One save cannot reload another page. Endpoint changes clear config paths, failed
+reload retains raw text, and stale replies cannot replace newer outcomes.
 
-Code appearance keeps a local Save/Discard draft. Theme-only edits stay local;
-when commands also change, profile preferences commit after daemon acceptance.
-Reader replacement preserves pins and pane bindings and retains old readers on
-failure; [file readers](mod-file-readers.md) owns that lifetime. `PagerCommands`
-owns command construction. See `CodeAppearanceDraftTests` and `PagerCommandsTests`.
+`DaemonConfigEndpoint` resolves once per synchronous draw, including preparation;
+transport/callback guards still check the live endpoint. Effective previews come
+from the daemon. See [client](mod-client.md) and [configuration](daemon-config-stores.md).
 
-Sandbox and app editors keep independent drafts across selection changes; successful
-explicit reloads replace those drafts. Unsaved edits never mutate the shared catalog.
-Environment assignments preserve whitespace after `=` (excluding CRLF delimiters).
-Sandbox editors retain raw text, including trailing blank lines, for typing and
-measurement; normalized daemon lists are projections. Replacing a definition
-replaces its drafts, while renaming a new definition preserves drafts and geometry.
-`PresetHierarchy` and its tests own tree ordering, including the explicit
-`slopworld-debug` exception. Missing parents and cycles must leave presets visible.
+Code appearance keeps a local Save/Discard draft. When commands change with the theme,
+commit profile preferences after daemon acceptance. [Reader replacement](mod-file-readers.md)
+preserves pins/bindings and retains old readers on failure.
 
-`BinaryDiscovery` shares one request generation across host and daemon probes.
-Host lookup uses the game's environment; `/api/whereis` uses the daemon's.
-`StorageLoadState` publishes shallow inventory before recursive sizes and rejects
-callbacks after refresh or disposal. Failed scans preserve paths and navigation;
-unknown sizes are not zero. Storage row selection survives inventory replacement by
-kind and key; Explore opens the selected row's path in Files. Agent storage navigation
-opens Settings, selects the active agent entry after inventory arrives, and reveals it. The daemon's `sizes=false` request also skips trash
-purging. The manager purges before measured scans; sandbox inventory never deletes.
-See `BinaryDiscoveryTests` and `StorageLoadStateTests`.
+Preset drafts survive selection changes and never mutate the shared catalog. Explicit
+reload replaces them. Preserve raw text and whitespace; daemon-normalized lists are
+projections. Missing parents/cycles must leave entries visible in the hierarchy.
 
-`SettingsLayout` owns page geometry. `SettingsPreviewForm` and
-`SettingsPreviewLayout` retain scrolling and stable measurement, pinning previews
-when space permits and scrolling them with the form in short windows. Code keeps
-its save footer. Measurement must not invoke controls or setters. Shared geometry
-belongs to [chrome](mod-ui-chrome.md), scroll input to [scrolling](mod-ui-scrolling.md),
-and page registration/lifetime to [dialogs](mod-ui-windows.md).
-User-facing choices belong to the [Settings guide](../docs/src/customization/settings.md).
+Binary probes share a generation across host and daemon environments. Storage scans
+publish shallow inventory before sizes and reject replies after refresh/disposal.
+Failure preserves navigation; unknown sizes are not zero. Selection follows stable
+kind/key. Shallow scans skip purging; the manager purges before measured scans, while
+sandbox inventory never deletes. See `BinaryDiscoveryTests` and `StorageLoadStateTests`.
+
+`SettingsLayout` owns page geometry. Measurement cannot invoke controls or setters.
+[Chrome](mod-ui-chrome.md), [focus](ui-focus.md), and [dialogs](mod-ui-windows.md) own
+shared mechanics. User choices belong to [Settings](../docs/src/customization/settings.md).

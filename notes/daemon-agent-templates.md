@@ -1,37 +1,27 @@
 # Daemon agent templates
 
-`application::AgentTemplates` owns the personal template catalog, its storage path,
-mutation gate, and cancellation-safe persistence/publication. Application startup
-loads the service; catalog-only API operations use it directly. Application launch
-preparation receives a read-only `TemplateCatalog` sharing the accepted index.
-Failed saves remain invisible to that view; committed edits appear without replacing
-the handle.
-`application/agent_templates.rs` resolves catalog entries and composes session drafts.
-`application/template_operations.rs` coordinates capture and instantiation;
-`application/session_edits.rs` coordinates guarded draft registration. `agent_templates/mod.rs`
-defines portable fields and snapshot rules; its persistence module owns storage.
-The [configuration store](daemon-config-stores.md) owns the `agent_templates/`
-location. The mod and CLI use daemon APIs, never direct file access.
+`application::AgentTemplates` owns catalog loading, mutation serialization, and
+cancellation-safe persistence/publication. Launches receive a read-only accepted
+catalog handle: committed edits appear through it and failed saves stay invisible.
+Application coordinates capture/instantiation and guarded draft registration;
+`agent_templates/` owns portable definitions, snapshots, and storage.
+Clients use APIs; locations belong to [configuration stores](daemon-config-stores.md).
 
-Templates copy optional launch settings and explicit dependency snapshots once.
-They retain no source-agent or source-project relationship. Project settings/mounts,
-worktree selection, names, labels, state IDs, runtime state, worker hierarchy, and
-credentials are excluded. The destination project supplies mounts at launch.
-Invalid selected sandbox references reject capture and launch.
+Templates copy launch settings and explicit dependency snapshots once, with no source
+agent/project relationship. Identity, credentials, runtime state, and project context
+are excluded; the destination supplies mounts. Invalid selected sandbox references
+reject capture/launch. Later template/preset edits do not rewrite existing instances.
 
-Template creation preserves captured snapshots and allocates fresh private state.
-Ordinary creation clears snapshots; ordinary edits, settings previews, and template
-overrides preserve only still-selected snapshots through `config/resolution.rs`.
-Explicit dependencies are captured, while the implicit global launch preset stays
-live. Later template or preset edits do not rewrite existing instances.
-See [preset resolution](daemon-presets.md).
+Instantiation allocates fresh private state and preserves snapshots. Ordinary creation
+clears snapshots; edits/previews/overrides preserve only still-selected snapshots
+through `config/resolution.rs`. Explicit dependencies are captured; the implicit global
+preset remains live. See [presets](daemon-presets.md).
 
-Definitions carry daemon-assigned versions. Stale edit/delete requests conflict;
-create/duplicate require an absent destination. Deleting a template never deletes
-instantiated agents. Route and request contracts belong to the
-[API reference](../docs/src/reference/api.md#agent-templates), scoped visibility to
-[workers](daemon-workers.md), and editor behavior to [mod templates](mod-agent-templates.md).
-Defaults and user workflow belong to [Configuring agents](../docs/src/agents/configuring-agents.md).
+Daemon-assigned versions reject stale edit/delete requests. Create/duplicate require
+an absent destination; deletion leaves instances intact. The committed index selects
+one generation directory. Without an index the catalog is empty, including after an
+interrupted first save; loading never scans direct files.
 
-The committed index selects one generation directory. Without an index the catalog
-is empty, including after an interrupted first save. Loading never scans direct files.
+See [API](../docs/src/reference/api.md#agent-templates), [worker visibility](daemon-workers.md),
+[mod editors](mod-agent-templates.md), and
+[Configuring agents](../docs/src/agents/configuring-agents.md).

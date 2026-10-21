@@ -1,28 +1,20 @@
-# UI Library ownership
+# UI Library
 
-`UI/Views/Library/` owns catalog rows, details, and actions. `LibraryRowTarget`
-retains typed identity and availability for deferred actions; `LibraryRowSelection`
-owns selection across filtering. Rows consume captured catalog snapshots. The list
-viewport excludes search and details for both scrolling and hit testing.
+`UI/Views/Library/` owns rows and actions. Deferred actions retain typed identity and
+availability from catalog snapshots; selection survives filtering. The list viewport
+excludes search/details for scrolling and hit testing.
 
-Library's project filter is independent of the sidebar filter and applies only to
-Projects/Worktrees; global definitions remain visible. Preset categories show user
-definitions and overrides; system entries remain in Settings.
-`LibraryProjectFilter` owns the transient selection. All checks every project and
-includes future projects; unchecking individual projects can leave an explicit
-empty selection. Selecting All resets that selection.
+Library's project filter is independent of sidebar filters and applies only to
+Projects/Worktrees. All includes future projects; explicit empty selection stays
+distinct. Preset categories show user definitions/overrides; system entries stay in
+Settings.
 
-`WorktreeInventory` owns requests, retained snapshots, and errors. Refresh and
-filter changes invalidate delayed replies; failed loads retain successful rows.
-The daemon supplies all checkout rows, including Main and its readiness state.
-`WorktreeRequests` shares root-only transport with the sidebar catalog, but their
-filters and selections have separate lifetimes.
+`WorktreeInventory` owns requests, retained snapshots, and errors. Refresh/filter
+changes invalidate delayed replies; failure retains successful rows. The daemon
+supplies Main and readiness state. Shared root-only transport does not imply shared
+filter or selection lifetime with the sidebar.
 
-Library editors share `DialogSubmitState` for save admission and retries; fields remain
-disabled while saving. Command placeholders use `UiText.FieldWithPlaceholder` and
-never enter the editable value.
-
-Daemon items belong to [library](daemon-library.md), template forms to
-[mod templates](mod-agent-templates.md), and semantic history to
-[navigation](mod-sidebar-navigation.md). User interactions belong to the
-[Library guide](../docs/src/workspace/library.md).
+Editors use `DialogSubmitState` for save admission/retry, disabling fields while saving.
+Placeholders never become editable values. See [daemon library](daemon-library.md),
+[templates](mod-agent-templates.md), and [navigation](mod-sidebar-navigation.md).
+User interactions belong to [Library](../docs/src/workspace/library.md).

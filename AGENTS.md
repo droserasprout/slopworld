@@ -21,7 +21,7 @@ Do not read every note. User workflows live in the [book index](docs/src/SUMMARY
 | Area | Starting points |
 | --- | --- |
 | Daemon lifecycle and services | [Source map](notes/daemon-files.md), [session state](notes/daemon-session-state.md) |
-| Mod simulation and integration | [Source map](notes/mod-source-layout.md), [simulation](notes/mod-sim.md), [Harmony traps](notes/core-gotchas.md) |
+| Mod simulation and integration | [Source map](notes/mod-source-layout.md), [simulation](notes/mod-sim.md) |
 | UI and terminal ownership | [Workspace](notes/ui-dynamic-layout-architecture.md), [sidebar](notes/mod-sidebar.md), [terminal](notes/mod-terminal.md) |
 | Client/daemon boundary | [Client](notes/mod-client.md), [wire contract](notes/protocol-wire.md), [config ownership](notes/daemon-config-stores.md) |
 | Agent access and collaboration | [Sandbox](notes/sandbox-isolation.md), [tasks](notes/agent-tasks.md), [workers](notes/daemon-workers.md) |

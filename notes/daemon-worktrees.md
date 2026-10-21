@@ -1,64 +1,33 @@
-# Project worktree ownership
+# Project worktrees
 
-`worktrees/` owns durable records, checkout validation, bounded Git effects, and
-uncommitted directory guards. `application/worktrees.rs` coordinates creation,
-rename, removal, recovery, and listing projection through its `Worktrees` entry point;
-`application/projects.rs` exposes `Projects` and coordinates edits and relocation.
-These application entry points acquire session operation leases before the workspace
-mutation gate and retain owned work through commit or rollback. A validated project
-replacement carries the original identity and proposed record through relocation and reference updates;
-static edit policy is checked before Git effects. Session adapters implement the
-operation leases, live identity references, and attachment checks.
-`application/configuration.rs` owns configuration transaction coordination. `worktrees/inspection.rs` owns revision verification and checkout observations; project and worktree client views belong to application.
+`worktrees/` owns records, validation, Git effects, and guards for uncommitted directories.
+Application coordinates project policy, relocation, and publication; session adapters
+supply identity and attachment checks. Validate project edits before Git effects and
+retain identity through relocation/reference updates. See [projects](daemon-projects.md)
+and [configuration](daemon-config-stores.md).
 
-Worktree HTTP requests use host-user authority for root credentials, independent
-of the terminal session header. Scoped credentials retain the grantor's project
-restriction. Worker requests separately require an agent owner or the host user;
-a host terminal cannot own a worker.
+Acquire the session boundary, then `application/workspace.rs`'s worktree gate, then
+persistence. Creation uses the shared boundary; project edits/removal use exclusive
+access. Never upgrade while holding the gate. Retain guards through cancellation and
+worker checkout rollback/handoff. Runtime reads use the accepted `WorktreeCatalog`,
+so failed saves and offline edits cannot change live decisions.
 
-`application/workspace.rs` owns the shared worktree mutation gate. Runtime reads
-use `WorktreeCatalog`, a read-only handle to accepted records. Snapshots remain
-independent; successful publication updates future reads, while failed saves and
-offline edits do not. Identity reservation uses bound record paths through
-`WorkspaceIdentities`, without transaction access.
-Session adapters retain guards in owned work after requester cancellation. Creation
-holds the shared session boundary, then the worktree mutation guard; project edits,
-rename, and removal take the exclusive boundary first. Configuration persistence
-comes last. Never upgrade a shared session boundary while holding the worktree guard.
-Worker allocation retains its checkout rollback guard through handoff under the
-exclusive session boundary. Accepted project IDs require no creation-time config write.
+Root requests use host-user authority regardless of terminal headers. Scoped callers
+retain project restrictions; host terminals cannot own [workers](daemon-workers.md).
+Project/worktree IDs are durable; branch and HEAD are state, not identity. Empty or
+`main` selects the original checkout. Task completion, exit, and detachment never
+commit or delete checkouts. Project removal cannot discard worktree records. External
+registration captures that checkout's HEAD; removal deletes only its record.
 
-Projects have durable IDs; sessions select a worktree by ID, with empty or `main`
-selecting the original checkout. Branch names and HEAD describe state rather than
-checkout identity. Task results, worker exits, one-shot cleanup, and final detachment
-never commit or delete worktrees. Project removal cannot discard worktree records.
+Host-mode relative caches link to stable project storage; sidecars reject these links.
+Launch verifies the link and reachable absolute source. Explicit sources do not move
+with checkouts. Interrupted allocation accepts only verified cache links as untracked
+changes and checks Git root/common directory. Conflicting paths need recovery, never
+replacement. Checkout deletion leaves cache data intact. `sandbox/cache.rs` reports
+new links for rollback; `config/transactions/cache.rs` reconciles them.
 
-External checkout registration records its own HEAD as the recovery base, independent
-of the main checkout's HEAD or a requested creation base.
-External checkout removal deletes only its record. User operations belong to
+Persist relocation intent before Git effects. Publish project/reference and checkout
+changes together or reverse movement. Failed reversal retains pending intent for
+manual inspection, never a ready record for an unverified path. Final cache
+reconciliation uses prepared checkout paths. User procedures belong to
 [Project worktrees](../docs/src/workspace/project-worktrees.md).
-
-Mount/cache boundaries belong to [sandbox isolation](sandbox-isolation.md), storage
-to [configuration stores](daemon-config-stores.md), project lifecycle to
-[projects](daemon-projects.md), and worker lifecycle to [workers](daemon-workers.md).
-
-Host-mode relative cache destinations are checkout links to stable project storage
-that outlives worktrees/workers. Sidecar mode rejects those relative links. Launch
-requires the expected link and a source reachable at its absolute path. Explicit
-sources support home/environment expansion but are not relocated with the checkout.
-Interrupted allocation recovery accepts only verified cache links as untracked
-changes. Checkout resolution verifies its own Git root and registered common directory.
-Conflicting paths/changed links require recovery rather than replacement; removing
-a checkout never deletes cache data. Config reconciliation belongs to
-`config/transactions/cache.rs`; `sandbox/cache.rs` validates sources and returns
-each newly created link to the coordinator for rollback.
-Host inspection hardening belongs to [Git](daemon-git.md).
-
-Relocation persists intent before Git effects, retaining structured source and
-destination paths for interrupted recovery. Pending records require both paths
-and manual inspection.
-The coordinator owns the final project/reference and checkout publication
-or reverse movement. Failed reverse movement must leave relocation intent, never a
-ready record for an unverified path. Cache-link reconciliation uses the prepared
-checkout paths during the final commit. The accepted record owner commits affected
-`worktrees/<id>.toml` files with project/reference changes in the shared transaction.

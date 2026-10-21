@@ -1,38 +1,26 @@
 # Human documentation
 
-The mdBook in `docs/` owns public user procedures; developer notes own implementation
-constraints. README owns the project overview. `docs/src/introduction.md` includes it
-through mdBook; edit README for introduction content. `tools/docs/introduction.py`
-runs after native includes and adapts README links and image paths for the book.
+The mdBook in `docs/` owns user procedures; notes own implementation constraints.
+README owns the overview and is included by `docs/src/introduction.md`.
+`tools/docs/introduction.py` adapts its links/images after native includes.
 
-`docs/theme/` owns book presentation and follows the palettes in `mod/Themes/`.
-Screenshots use `<img align="right" width="…">` before the text they illustrate;
-use `.screenshot-stack` for a related group. The shared stylesheet floats them
-when the content column has room and stacks them above text on narrow layouts.
-Preserve PNG originals, generate compressed JPEG copies with
-`just docs-images`, and link screenshots to those JPEGs in README and the book.
-Keep logos and other inline artwork outside this convention.
-Cursor artwork and hotspots belong to `docs/theme/slopworld.css`; custom scrollbar
-controls belong to `docs/theme/scrollbars.js`. Keep their implementation constraints
-beside those owners.
-Rebase `index.hbs` when upgrading mdBook and update the docs workflow's version pin
-together; the override otherwise hides upstream template fixes.
+Put each fact on one page; tours and FAQ link to it. FAQ questions need stable
+anchors. `SUMMARY.md` owns navigation, with directories matching its sections.
+Keep short related topics together. Include the root changelog rather than copying it,
+and preserve the old Help troubleshooting URL through `docs/book.toml`.
 
-Put each fact on one main page; tours and FAQ link to detailed guides and references.
-Give every FAQ question an explicit stable anchor.
+`docs/theme/` owns presentation and follows `mod/Themes/` palettes. Screenshots use
+right-aligned images before their text; `.screenshot-stack` groups them. Preserve PNG
+originals, generate JPEGs with `just docs-images`, and reference those copies. Logos
+and inline artwork use their own layout. Keep cursor/scrollbar implementation details
+beside their stylesheet/script owners. Rebase `index.hbs` with mdBook upgrades and
+update the workflow pin together, or the override will hide upstream template fixes.
 
-`SUMMARY.md` owns book navigation; page directories mirror its sections. Keep
-related short topics together rather than creating a page per control.
-The book includes the human-maintained root `CHANGELOG.md`; do not copy it.
-Preserve the old Help troubleshooting URL through `docs/book.toml`.
+`tools/docs/check_book.py` validates navigation and repository links.
+`tools/docs/constants.py` expands release examples from shared version metadata;
+use its constants instead of copied versions. Expansion must leave Markdown sources
+and the human-managed changelog untouched. CI watches both metadata and changelog.
 
-Build and navigation maintenance belong to [Contributing](../docs/src/development/contributing.md#documentation).
-`tools/docs/check_book.py` owns book validation and repository documentation link checks.
-`tools/docs/constants.py` is the mdBook preprocessor for `{{#constant release_version}}`,
-`{{#constant release_tag}}`, and `{{#constant release_tag_format}}`. It reads the
-Cargo package version and shared tag conventions from `tools/version/metadata.py`;
-unknown names fail the build. Use these in release examples instead of duplicating
-version numbers. Build-time expansion leaves Markdown sources and the human-managed
-changelog untouched. Documentation CI watches both sources of these values and the root changelog.
-Public API contracts belong to the [API reference](../docs/src/reference/api.md);
-wire formats and generator ownership belong to [wire protocol](protocol-wire.md).
+See [Contributing](../docs/src/development/contributing.md#documentation) for maintenance,
+[API reference](../docs/src/reference/api.md) for public contracts, and
+[wire protocol](protocol-wire.md) for generator ownership.

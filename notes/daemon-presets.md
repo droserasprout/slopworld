@@ -1,52 +1,32 @@
 # Preset ownership and resolution
 
-`presets.rs` owns built-in/user catalogs and snapshots; `presets/edit.rs` owns
-serialized mutations. Storage belongs to [configuration stores](daemon-config-stores.md).
-Preset responses use an explicit `source` projection; new serialized fields do not
-automatically extend the API response.
+`presets.rs` owns catalogs/snapshots; `presets/edit.rs` serializes mutations.
+`config/resolution.rs` expands dependencies before session additions, including the
+implicit global preset. Project mounts are separate. Sandbox validation rejects cycles.
+API responses explicitly project fields; schema additions do not extend them automatically.
 
-`config/resolution.rs` selects the implicit global preset, command dependencies,
-and session additions, expanding dependencies first. Project mounts are separate
-from preset selection. `sandbox/` validates and consumes the resolved set; cyclic
-dependency graphs are rejected.
+`slopworld-dev` supplies read-only game inputs and shared compiler caches. Rustup
+needs writable download/staging paths as well as toolchains/update hashes; otherwise
+the read-only parent blocks installation. `slopworld-debug` adds writable installation
+paths and host capabilities. Its read-only endpoint mount exposes the root credential;
+read-only access does not limit credential use. See [sandbox isolation](sandbox-isolation.md).
 
-Mount policy and host-escape boundaries belong to [sandbox isolation](sandbox-isolation.md).
-`slopworld-dev` owns read-only game build inputs and compiler-cache dependencies.
-It uses `rust-sccache`, including the writable installed toolchains inherited
-through `rust-cache`. Rustup downloads and temporary staging also use shared
-writable cache mounts so installing a pinned toolchain can complete; mounting only
-toolchains and update hashes leaves rustup blocked by the read-only parent.
-`slopworld-debug` extends it with writable installation/profile paths and host
-capabilities; read-write game binds override the base read-only binds.
-The debug preset's read-only endpoint bind exposes the daemon root credential;
-read-only file access does not restrict credential use. Public configuration
-instructions belong to [Sandbox presets](../docs/src/sandbox/sandbox-presets.md).
+`cache` declares shared directories that may not exist yet. `sandbox/preset_cache.rs`
+resolves/guards them; lifecycle creates them only after validating a launch plan,
+using that plan's retained paths so catalog changes cannot change its mounts.
+Ordinary `rw` paths remain existing-only because they may name files or sockets.
+Cache contents outlive sessions. Keep platform-specific paths existing-only so Linux
+launches do not create macOS trees.
 
-Preset `cache` paths declare shared host directories. `sandbox/preset_cache.rs`
-resolves and guards them for previews; lifecycle launch prepares directories only
-after constructing a valid plan, using the cache paths retained by that plan so
-catalog changes cannot separate preparation from its mounts. Bind assembly includes
-them read-write even when they do not yet exist. Ordinary `rw` paths remain existing-only because they can
-name files and sockets. Cache contents outlive sessions.
+SSH presets expose files/sockets but do not override OpenSSH selection. Explicit
+`IdentityAgent` wins over `SSH_AUTH_SOCK`; selected sockets must be mounted as well
+as forwarded. See [SSH agents](../docs/src/sandbox/sandbox-presets.md#ssh-agents).
 
-Built-in download/compiler cache presets use `cache` for disposable shared data.
-Installed toolchains, application state, files, and sockets retain their existing
-mount semantics. Platform-specific Xcode paths remain existing-only so Linux
-launches do not create macOS directory trees.
+Warning metadata describes access rather than gating permission. Generated tmux and
+daemon-config capabilities force host-control severity. `PresetWarnings` resolves
+maximum severity through dependencies and template snapshots, including the implicit
+global preset. Locked rows retain warnings; editing metadata cannot downgrade root
+capabilities. Missing references remain a separate invalid state.
 
-SSH presets grant file and socket access; they do not override OpenSSH agent
-selection. `ssh` mounts client configuration and known hosts, `ssh-agent` mounts
-and forwards the daemon's `SSH_AUTH_SOCK`, and `1password` mounts the 1Password
-socket directory. An explicit `IdentityAgent` in the mounted configuration wins
-over `SSH_AUTH_SOCK`, so the presets must expose that selected socket. User-facing
-selection guidance belongs to [sandbox presets](../docs/src/sandbox/sandbox-presets.md#ssh-agents).
-
-Preset `warning_level` declares `none`, `sensitive`, or `host_control`; `escapes`
-explains the access. These are descriptive warnings, not permission gates. Legacy
-nonempty explanations retain at least sensitive severity. Generated `tmux` and
-`daemon_config` capabilities force host-control severity in the API projection and
-client model. `Client/Catalog/PresetWarnings.cs` resolves the maximum severity and
-source explanations over the supplied catalog's dependencies, including template
-snapshots. Selected configurations include the implicit global preset. Locked
-required rows retain their warning color; root capabilities cannot be downgraded by
-editing warning metadata. Missing references keep their separate invalid-state UI.
+Storage belongs to [configuration stores](daemon-config-stores.md); user configuration
+to [Sandbox presets](../docs/src/sandbox/sandbox-presets.md).

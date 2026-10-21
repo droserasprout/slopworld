@@ -1,18 +1,20 @@
 # Diagnostics
 
-[Using slopctl](../docs/src/reference/slopctl.md) owns log and status operations;
+[slopctl](../docs/src/reference/slopctl.md) owns log/status commands;
 [troubleshooting](../docs/src/resources/troubleshooting.md) owns connection diagnosis.
+[Terminal latency](terminal-latency.md) explains trace and benchmark limits;
+[capture](daemon-terminal-capture.md) owns exit evidence and reader recovery.
 
-[Terminal latency](terminal-latency.md) owns diagnostic data boundaries and links
-to capture/benchmark procedures. [CPU attribution](misc-cpu-threads.md) distinguishes
-elapsed timers from process/thread CPU measurements.
+The native service uses `Type=simple`: readiness requires a listener, not active status.
+Its unit sets `SLOPD_LOG`; shell exports do not change the service filter. Sidecar logs
+format both Docker output streams, including stderr in JSON and combined output.
 
-[Terminal capture](daemon-terminal-capture.md) owns confirmed process-exit evidence
-and reader recovery; [daemon sources](daemon-files.md) map CLI stream ownership.
-Sidecar daemon logs capture both Docker output streams through the same formatter,
-so stderr participates in JSON output and source-prefixed combined logs.
+Daemon CPU mixes Tokio capture/input work and dedicated audio threads. A busy runtime
+thread cannot identify an agent. Tmux, control clients, and sandbox process trees have
+separate accounting. Pane PIDs identify agent trees; configured resource limits add
+systemd scopes that account for descendants. Unrestricted sessions lack that boundary.
+The game mixes mod and vanilla work on Unity's main thread.
 
-The native service uses `Type=simple`; readiness requires a listener, not merely
-active status. Startup logs separate config, Git warmup, recovery, reconciliation,
-and bind failures. The unit supplies `SLOPD_LOG=slopd=info`; a shell export cannot
-change its logging filter.
+Trace timers measure elapsed time, not thread CPU; counters measure work. Use CPU
+samples and stacks for attribution. [Redeploy](daemon-redeploy.md) owns service
+lifetimes; [sandbox](sandbox-isolation.md) owns resource limits.

@@ -1,34 +1,21 @@
 # Host terminal tabs
 
-Host shells from project headings are persistent sidebar tabs. The daemon writes one
-`host_shells/<id>.toml` record per project/shell tab under the data root.
-These tabs are separate from agent sessions and have no colonist or sandboxed agent
-configuration. Confirmed host-pane exits are logged to the daemon journal; they
-do not allocate private sandbox storage for exit evidence.
-[Temporary host errands](daemon-library.md) have a different lifecycle.
+Saved host shells are restartable sidebar tabs, separate from sandboxed agents and
+[temporary errands](daemon-library.md). Their records retain identity, project, last
+observed directory, and autostart policy. They have no colonist or private sandbox
+state; exit evidence goes to the daemon journal.
 
-The saved record retains terminal identity, project grouping, last observed working
-directory, and autostart policy. A missing `autostart` field means true.
-New shells receive a stable 16-character lowercase hexadecimal `id`, allocated by
-`storage_id.rs` under the configuration mutation guard. Edits and renames retain it.
-Stored IDs must be valid and unique within the host-shell collection; loading
-never allocates one.
-Tmux metadata lets the daemon adopt a surviving shell after redeployment. If tmux
-state is lost, configuration restores the tab; a missing pane starts automatically
-only when autostart is enabled. Otherwise, the tab returns as a stopped row.
-Periodic working-directory polling updates saved tabs so their next launch uses
-the last observed path.
+`application/host_records.rs` owns registration and path edits through shared
+configuration transactions. `session/host_metadata.rs` polls live directories and
+foreground processes. Inspect tmux outside the session boundary, then recheck run
+identity before applying observations. Failed saves leave accepted records unchanged;
+later observations retry even if the live path already matches.
 
-`application/host_records.rs` owns saved host-shell registration and path edits.
-It shares guarded transaction validation and publication with `Configuration` through
-`application/config_runtime.rs`, and retains no session runtime between operations.
-`session/host_metadata.rs` owns observed working directories and foreground processes,
-and serialized background metadata polling. Failed saves leave accepted records
-unchanged; later observations retry even when the live path already matches.
-`session_state.rs` schedules polls; tmux inspection runs outside the session boundary,
-and applying its result rechecks run identity under that boundary.
+Tmux metadata recovers surviving shells after daemon replacement. Without a pane,
+saved configuration restores either an autostarted shell or a stopped tab. Renames
+retain identity, and loading never allocates replacement IDs. The last observed
+directory supplies the next launch path.
 
-Persistence belongs to [daemon configuration](daemon-config-stores.md); recovery
-belongs to `session/lifecycle/`, mapped in [daemon sources](daemon-files.md).
-Title rendering belongs to the [sidebar](mod-sidebar.md). User actions are described
-in [Host shells](../docs/src/terminals/host-shells.md).
+See [configuration](daemon-config-stores.md), [lifecycle](daemon-session-lifecycle.md),
+and [sidebar titles](mod-sidebar.md). User actions belong to
+[Host shells](../docs/src/terminals/host-shells.md).

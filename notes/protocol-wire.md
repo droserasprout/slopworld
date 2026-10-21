@@ -1,48 +1,31 @@
 # Wire coordination
 
-`shared/slopworld.proto` defines binary messages; `shared/protocol.yaml` owns routes,
-type mappings, enums, and limits. `just generate-protocol` generates C# bindings and the
-Rust HTTP dispatcher; `slopd/build.rs` generates Rust messages. `just generate-api-docs`
-generates the route inventory from the router and shared HTTP type mappings.
-`tools/docs/api_docs.py` reads middleware access from the named route-family functions
-and rejects unknown families; handler-level checks still determine effective access.
-Route inventory reads only the router and generated protocol constants.
-Unresolved route paths and HTTP inventory differences fail generation. The shared
-loader validates payload pairs, generated identifiers, and integer ranges; HTTP
-adapters reject overlapping patterns without a strictly more specific route.
-Never reuse field numbers; preserve optional presence
-where omission selects a daemon default.
+`shared/slopworld.proto` owns messages; `shared/protocol.yaml` owns routes, mappings,
+enums, and limits. `just generate-protocol` generates C# bindings and the Rust HTTP
+dispatcher; `slopd/build.rs` generates Rust messages. `just generate-api-docs` builds
+the [API reference](../docs/src/reference/api.md) from router/type mappings. Its access
+inventory reads named middleware families; handler checks still determine effective
+access. Generators reject unresolved routes and inconsistent inventories.
 
-Peers must be built for the current v2 schema. HTTP uses `application/x-protobuf`
-without version negotiation. WebSockets explicitly negotiate `slopworld.protobuf.v2`
-and carry application messages in binary frames. Unknown Protobuf field numbers
-remain readable; unexpected keys in internal Serde projections instead fail the
-JSON-to-message conversion guard. Simple file and worktree responses construct
-wire messages directly; storage-only recovery fields never enter worktree replies.
+Never reuse field numbers. Preserve optional presence when omission selects a daemon
+default. Peers use the current v2 schema: HTTP has no version negotiation, while
+WebSockets negotiate `slopworld.protobuf.v2` and carry binary frames. Unknown Protobuf
+fields remain readable; unexpected internal Serde keys fail conversion. Storage-only
+recovery fields must not leak into responses.
 
-Session reader, runtime, launch, and worker groups are nested messages; reader launch
-metadata is nested in `RunReq.reader`. `application/events.rs` owns daemon event payloads and the shared encoding cache;
-`api/events.rs` supplies Protobuf conversion. Application services publish and subscribe
-without session lifecycle or transport policy. Live screens may coalesce while replies/control
-events retain required ordering. Pending history captures must not block panel-switch
-or input command intake. Broadcast lag closes the socket so reconnect restores
-authoritative catalogs as well as terminal state.
+`application/events.rs` owns payloads and the encoding cache; `api/events.rs` converts
+to Protobuf. Application services do not own transport or lifecycle policy. Live screens
+may coalesce; replies/control events retain ordering. History capture must not block
+input or panel switching. Broadcast lag closes the socket so reconnect restores
+catalogs as well as terminal state. [Client ownership](mod-client.md) covers handoffs.
 
-Public endpoint contracts belong to [the API](../docs/src/reference/api.md), client
-identity/handoffs to [the client](mod-client.md), terminal cells to
-[rendering](mod-terminal-rendering.md), delayed history to [history](mod-terminal-history.md),
-config projections to [stores](daemon-config-stores.md), provider windows to
-[usage](daemon-usage.md), authority to [grants](agent-grants.md), worker identity to
-[workers](daemon-workers.md), and timings to [latency](terminal-latency.md).
+Terminal rows carry SGR/OSC styling and CHA columns. Scalars normally advance one
+cell; private `CSI <scalar-count>;<cell-width> z` introduces a complete multi-scalar cell; counts
+are bounded by remaining payload, not a fixed cluster size. CHA after a wide glyph
+retains its occupied end even at a trimmed tail. Parsing, sprite joins, selection,
+and copy preserve daemon columns and original text. See [rendering](mod-terminal-rendering.md).
 
-Terminal rows carry SGR/OSC styling and CHA column markers. Scalars normally advance
-one cell; private `CSI <scalar-count>;<cell-width> z` introduces a complete multi-scalar
-cell. Counts are bounded by remaining payload rather than a fixed cluster length.
-CHA after a wide glyph supplies its occupied end even at a trimmed tail. Sprite joins
-retain these columns and original copy text.
-
-Desktop paste intent is explicit in `PasteReq.host_file_images` and requires a
-captured `run_id`. It is root-only; ordinary scoped text paste never imports host
-files. Optional run IDs on paste/keys protect clipboard round trips independently
-of the queue's state/run ownership checks. Clipboard channels and image import
-ownership belong to [the clipboard boundary](daemon-clipboard.md).
+Desktop paste explicitly carries image intent and a captured run ID. It requires root
+authority; scoped text paste cannot import host files. Optional run IDs on paste/keys
+protect clipboard round trips in addition to queue identity checks.
+[Clipboard](daemon-clipboard.md) owns import policy; [grants](agent-grants.md) owns access.

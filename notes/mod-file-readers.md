@@ -1,72 +1,35 @@
 # File reader lifetime
 
-`FileReaders` owns the shared Files/Git pager collection; `FilesViewerController`
-owns native-reader handoffs. Search owns its separate pager. Host reader sessions
-are disposable rather than saved host-shell tabs. Their names are opaque handles;
-intent and source metadata enable restoration. Configured commands can also identify
-reader actions.
-`FileReaders` resolves the owning tab across Files/Git, native previews, and Search.
-`ReaderDismissal` closes that owner before applying the fallback for unowned disposable
-sessions. Editor processes retain their confirmed Stop action. Closing an owner cancels
-pending replacements as well as stopping its current process.
+`FileReaders` owns shared Files/Git readers; Search has a separate collection.
+`FilesViewerController` owns native handoffs. Each collection has one replaceable
+preview plus pinned readers. Source and diff identities stay distinct. Tab/focus
+changes preserve readers; pinned readers close only on dismissal or validated removal.
+Repeated editor launches for a path/checkout share one daemon-serialized host process.
 
-There is one replaceable preview and independently pinned readers. Reopening a path,
-including a line target, reuses its tab. Explicit Files line targets replace the process
-inside that tab, preserving its pin; newer targets supersede pending launches and
-identical pending targets share the request.
-Tab/focus changes preserve readers. Explicit dismissal or validated removal can close
-a pinned reader. Switching between native and pager previews retains the old row until
-the replacement is shown, then releases the other unpinned preview. Failed pager
-launches retain the native preview; returning to native content cancels a pending
-unpinned pager. Source and diff identity remain distinct.
-Markdown preview replacement retains the visible document until the new text is
-read and parsed. Rapid replacements transfer that retained document; completion,
-failure, or dismissal releases it. Retained content does not accept link/selection
-input or resource replies.
-Repeated editor launches for the same path and checkout reuse the live host editor;
-the daemon serializes that decision so concurrent requests share one session.
-Routed sidebar rows sort by display label and source metadata rather than opaque
-session handles, preserving order when a diff process is replaced.
-`ReaderSessionVisibility` gates session-backed rows and restoration during pager
-handoffs. Incoming processes stay hidden until claimed by their reader; retiring
-processes stay hidden until the daemon snapshot removes them. Replacement therefore
-publishes one row even when session pushes precede launch callbacks or stops finish late.
-`Pager` keeps committed session/source state separate from its pending replacement.
-Open, refresh, and appearance replacement share commit and cancellation; explicit opens
-focus content, while background replacements only rebind panes still showing the old reader.
-Explicit file, editor, diff, and Search reader opens reveal the open-files pane
-without changing the selected sidebar tab. Reveal happens at request time; delayed
-completion, reader restoration, and background refresh leave visibility alone.
-Alt+A/Alt+S reveals the pane and walks this same scoped reader inventory,
-including native previews, while preserving the selected sidebar tab and without
-depending on sidebar visibility, tree folds, or row geometry. Native content identity comes from the shown view rather than its
-retained backing terminal.
-Native reader headers carry the same intent, path and checkout metadata as pagers.
-Routed rows display filenames beside muted checkout context; main checkouts show
-only the project. Italics identify replaceable previews, while pinned readers use
-upright text.
-In Open files, rendered Markdown readers use a page-with-text mark and native image
-readers use a landscape; source pagers and native plain-text previews retain the view eye. `ReaderRow` supplies
-source targets, presentation, and pin/close capabilities to drawing and menus. Native
-presentation comes from the content creation decision, never the filename alone.
+`Pager` keeps committed content separate from pending replacement. Open, refresh,
+and appearance changes keep the old reader until its successor is ready; failure
+retains it for retry. Preserve pins, pane bindings, split selection, and focus.
+Explicit opens focus content; background refresh rebinds only panes still showing
+the old reader. New line targets supersede pending launches; identical targets share
+one request. Stale probes must not close another reader.
 
-Source-file probes reconcile readers independently of tree filters/folds. Failed
-probes preserve readers, and stale replies cannot replace another reader. Refresh
-starts replacement before retiring the old session, preserving pins, pane bindings,
-split selection, and focus. Failure retains the old reader for retry. Editors and
-Git diff commands do not participate in source-file refresh.
+Retained Markdown stays visible during replacement but cannot accept input or resource
+replies. Returning to native content cancels an unpinned pager replacement. Closing
+cancels replacements and closes the owning tab before any unowned disposable session;
+editors retain their confirmed Stop action.
 
-Pager startup requires assigned dimensions before launching; resizing during
-LESSOPEN can strand padding. Keep short output open and preserve alternate-screen
-wheel routing. Commands belong to `PagerCommands` and [Settings](ui-settings.md),
-input to [terminal](mod-terminal.md), and feature dispatch to
-[Files](mod-ui-files.md), [Git](mod-ui-git.md), and [Search](mod-ui-search.md).
+`ReaderSessionVisibility` hides incoming processes until claimed and retiring ones
+until daemon removal, preventing duplicate rows when pushes and launch replies race.
+Use source/display metadata for sorting, not opaque process handles. Native reader
+identity comes from the shown content, even when a backing terminal remains.
 
-`CodeHighlight` resolves profile-local syntax themes for readers and settings previews.
-An empty bat preference is **Auto (ansi)**: source files, Markdown code, and bat-themed
-diffs use the active terminal palette. Explicit themes remain profile preferences.
+Explicit opens reveal open-files immediately without switching sidebar tabs. Delayed
+completion and background refresh preserve the user's visibility choice. Navigation
+uses the scoped inventory, independent of folds or sidebar visibility; the
+[sidebar](mod-sidebar.md) owns pane lifetime.
 
-Open-file context menus use the reader's captured path and checkout, including native
-headers, and share Files' path actions. Reader dismissal shares middle-click's pane
-lifetime; editor Stop remains a confirmed process action. Linked Markdown source
-switches retain the captured preview root and use native plain text.
+Menus retain captured path/checkout metadata. Scoped Markdown source switches stay
+native and retain the root. Assign pager dimensions before launch: resizing during
+LESSOPEN can strand padding. `PagerCommands` owns command construction and
+`CodeHighlight` resolves themes. Feature dispatch belongs to [Files](mod-ui-files.md),
+[Git](mod-ui-git.md), and [Search](mod-ui-search.md).

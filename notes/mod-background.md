@@ -1,34 +1,20 @@
 # Baked backgrounds
 
-`UI/MenuBackground/` derives cached menu/loading/Eco frames from the selected source
-texture. `BackgroundOnGUI` is the entry point because loading screens bypass menu
-initialization. Selection uses an override when present, otherwise the content
-lookup for `UI/HeroArt/BGPlanet`.
+`UI/MenuBackground/` supplies cached menu/loading/Eco frames. `BackgroundOnGUI` is
+the entry point because loading bypasses menu initialization. Source textures remain
+provider-owned and immutable; the baker owns generated frames and cleanup. Build
+replacements before releasing the old set, retaining it on failure. Cache identity
+includes source, geometry, tuning, preset, and bake version.
 
-Source textures remain provider-owned and are assumed immutable for their lifetime.
-Bake owns generated frame/cache cleanup; effect partials own pixel math. Build a
-replacement before releasing the resident set, and keep the old set on failure.
-Cache directory names are SHA-256 hashes of the source, dimensions, preset, tuning,
-and bake version.
-[Eco](mod-eco.md) consumes frames rather than owning another baker.
+`MenuBackgroundLayers` shares frame selection, opacity, and offsets. Repeated GUI
+calls do not advance history, and replacement resets it. Menu/loading keep vanilla
+fitting and fades. Offset blending reduces grid lines without dimming the frame pair.
+[Eco](mod-eco.md) consumes those layers rather than owning a second baker.
 
-Every installed replacement begins a transition from source art. Grandma mode uses
-the same rot/fire background as other modes. Depth motion and phase variation remain
-independent. Background memory logs describe replacement work, not texture
-savings; process deltas include unrelated allocation/deferred destruction. General
-memory interpretation belongs to [diagnostics](terminal-latency.md).
+`EcoBackdrop` projects GUI offsets into world space and owns materials/matrices.
+Geometry depends on map/view/texture dimensions, not animation-frame identity. Hold
+map identity weakly. Draw an opaque black base beneath shifted layers, including
+beneath terminals: input can close a terminal after world draws have queued.
 
-Menu and loading draws retain vanilla fitting and fades, but draw the current and
-previous distinct animation frames with opposing GUI offsets whose
-axes use unequal fractional displacements to reduce block-grid lines. History resets
-with the resident set; repeated GUI calls do not advance it.
-The previous frame draws opaque and the current frame at half opacity, giving each
-equal weight without dimming the pair against the underlying background.
-MenuBackgroundLayers owns the shared layer selection, opacity, and offsets. EcoBackdrop
-projects those GUI offsets into world space and owns the reusable materials and
-draw matrices, preserving Eco dimming and camera fitting. Its geometry cache follows
-map, view, and texture dimensions rather than animation-frame identity.
-Map identity is held weakly so an idle backdrop cannot retain a discarded colony.
-Eco draws an opaque black base beneath the shifted layers so their exposed edges cannot
-retain camera contents from a covered frame. It keeps drawing beneath the terminal
-because GUI input can close the window after world draws have been queued.
+Memory logs describe replacement work, not texture savings; allocation and deferred
+destruction make process deltas ambiguous. See [diagnostics](terminal-latency.md).

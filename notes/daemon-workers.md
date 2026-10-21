@@ -1,53 +1,35 @@
 # Task-owned workers
 
-`slopd/src/application/workers.rs` owns typed worker requests, project/template
-policy, session preparation, checkout allocation and rollback, and task/startup
-coordination. Its `Workers` entry point retains the session request boundary and
-transfers startup to an owned operation. `session/workers.rs` captures caller
-identity, reserves worker names and identities, and installs temporary live sessions.
-Application commits durable worker records before runtime reconciliation.
-The application retains the worker registration guard through task creation, startup,
-and failure cleanup. HTTP decodes caller credentials and the existing/new checkout
-choice before invoking that operation.
-Lifecycle start owns launch credentials; lifecycle stop and capture exit own termination. [Grants](agent-grants.md)
-own authority, and [templates](daemon-agent-templates.md) own portable copied settings.
+`application/workers.rs` owns project/template policy, checkout allocation/rollback,
+and task/startup coordination. `session/workers.rs` supplies caller identity,
+reservations, and live registration. Application commits durable records before
+reconciliation. Registration and spawn guards remain held through task creation,
+startup, and cleanup, including after requester cancellation.
 
-`session/worker_failures.rs` owns worker task failure policy and notes for typed
-startup, delivery, and lifecycle causes. Callers validate delayed run/reader identity
-and retain their operation guards; the failure plan captures task identity before
-leaving live state. The task store checks worker identity and preserves terminal
-results, including detailed exit evidence when later detach cleanup repeats failure.
-Lifecycle retains session retention, resource cleanup, and grant revocation.
+Templates supply copied configuration/snapshots. Workers receive fresh private
+identity and scoped grants; the caller supplies parent/task ownership. Root may use
+any registered project and template; scoped callers use enabled templates in their
+own project. Host terminals cannot own workers. See [templates](daemon-agent-templates.md)
+and [grants](agent-grants.md).
 
-The selected template supplies configuration and snapshots. The worker receives a
-fresh private identity and scoped grant; the caller supplies task ownership and
-parent identity, never inherited sandbox state. Creation validates project, command,
-and network choices. Root callers can use any catalog template and registered
-project; scoped callers use policy-enabled templates in their own project.
-Ordinary host terminals cannot own a worker.
+Tasks persist before startup. `session/worker_failures.rs` owns failure policy;
+callers check delayed run/reader identity and capture task identity before leaving
+live state. The store preserves terminal results and detailed exit evidence across
+repeated cleanup. Lifecycle owns retention, resource cleanup, and grant revocation.
+Startup/delivery failure, stop, removal, or confirmed exit can fail unfinished work.
 
-The task persists before startup. An owned operation retains the session and spawn
-guards through startup or failure cleanup after requester cancellation. Startup failure, stop, removal, confirmed process
-exit, or initial-prompt timeout can fail unfinished work; terminal task results are
-preserved. Workers are durable by default. One-shot workers are removed on exit.
-Workers do not autostart or auto-resume, and deleting a parent does not cascade to
-children.
+Workers are durable by default; one-shot workers disappear on exit. Neither autostarts
+nor auto-resumes, and parent deletion does not cascade. Checkout lifetime is
+[independent](daemon-worktrees.md). Configured prompts are delivered asynchronously
+through `session/delivery.rs`; timeout may withhold them.
 
-Worker policy uses `[daemon].worker_templates` and
-`[daemon.instructions].worker_prompt`. The prompt can refer to `$SLOPWORLD_TASK_ID`.
-The [Workers settings](../docs/src/customization/settings.md#workers) page edits both.
-The daemon queues the configured worker prompt after startup; asynchronous delivery
-can time out without sending it. Delivery belongs to `session/delivery.rs`
-(see [library](daemon-library.md)),
-hierarchy presentation to [sidebar](mod-sidebar.md), independent checkout lifetime
-to [worktrees](daemon-worktrees.md), and adoption to [redeploy](daemon-redeploy.md).
-Commands and operational behavior belong to [Using slopctl](../docs/src/reference/slopctl.md).
+Recovery rejects a name reassigned to another identity and revokes grants before
+adoption. Durable workers use saved configuration; one-shot workers use credential-free
+tmux snapshots. Invalid identity or missing configuration retires the pane.
+Restart requires saved launch configuration and rejects one-shot workers and runtime-only
+viewers before stopping them. Stop, forget, and restart retain guards through cleanup
+after disconnect.
 
-Recovery rejects a surviving worker whose saved name now belongs to a different
-identity and revokes its grants before adoption. Durable workers recover their own
-saved configuration; one-shot workers retain a credential-free configuration snapshot
-in tmux metadata. Missing configuration snapshots or invalid identities reject
-adoption and retire the pane.
-Restart requires saved launch configuration and rejects runtime-only viewers and
-one-shot workers before stopping them. Stop, forget, and restart retain the operation
-boundary through cleanup even after the requesting caller disconnects.
+See [redeploy](daemon-redeploy.md) for adoption, [sidebar](mod-sidebar.md) for hierarchy,
+[Workers settings](../docs/src/customization/settings.md#workers) for prompt policy,
+and [slopctl](../docs/src/reference/slopctl.md) for commands.

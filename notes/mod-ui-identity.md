@@ -1,21 +1,32 @@
-# UI and terminal theme identity
+# Theme identity and upstream references
 
-`UIScheme` owns chrome semantic roles; `TerminalTheme` owns ANSI and pane colors.
-Settings persist stable IDs rather than picker labels. Match UI follows the current
-UI scheme's same-ID terminal theme. Explicit terminal choices remain independent.
+`UIScheme` owns chrome roles; `TerminalTheme` owns ANSI and pane colors. Persist stable
+IDs, not picker labels. Match UI follows the UI scheme's same-ID terminal theme;
+explicit terminal choices remain independent. Each shipped UI scheme needs a matching
+terminal theme; terminal-only IDs are allowed.
 
-Shipped definitions live one theme per file under `mod/Themes/UI/` and
-`mod/Themes/Terminal/`; `ThemeCatalog` loads them at runtime. Every UI scheme must
-have a same-ID terminal theme, while terminal-only IDs are allowed. `Well`, `Sel`, and `HostControl`
-are derived roles, not editable catalog roles. `HostControl` blends warning and danger
-colors for the stronger sandbox access warning. Accent, destructive, and checkbox
-faces must be opaque because their contrast-derived text has no backing-surface input.
+`ThemeCatalog` loads one definition per file under `mod/Themes/UI/` and
+`mod/Themes/Terminal/`. `ThemeLoader` shares loading/error recovery; each consumer
+owns its cache and fallback. Derived roles stay out of editable catalogs. Accent,
+destructive, and checkbox faces must be opaque for contrast-derived text.
+Validate with `just mod-check-themes`.
 
-`ThemeLoader` shares runtime loading and error recovery. `UIScheme` and
-`TerminalTheme` retain their own lazy caches, record conversion, and fallback palettes.
+Imported schemes preserve upstream colors, roles, and opacity even when contrast
+checks fail. SlopWorld Warm/Cold/Calm are house schemes. A palette is not a complete
+widget theme, and local ANSI/role adaptations must not be presented as originals.
+Use these sources rather than keeping a second set of color tables in notes:
 
-[Palette references](reference-original-palettes.md) own upstream value and role
-policy. `just mod-check-themes` validates shipped catalogs through
-`tools/themes/validate_themes.py`. Shared geometry
-and metrics belong to [chrome](mod-ui-chrome.md); terminal texture invalidation
-belongs to [terminal rendering](mod-terminal-rendering.md).
+| Scheme | Reference and caveat |
+| --- | --- |
+| Dracula | [Specification](https://draculatheme.com/spec); selection and current-line roles differ. |
+| Solarized | [Author's roles](https://github.com/altercation/solarized/blob/master/README.md) and [terminal mapping](https://github.com/GNOME/gnome-terminal/blob/gnome-46/src/profile-editor.cc); body and emphasized text differ, and Light does not imply remapped ANSI slots. |
+| Nord | [Palette guidance](https://www.nordtheme.com/docs/colors-and-palettes/) and [terminal port](https://github.com/nordtheme/gnome-terminal/blob/develop/src/nord.sh); upstream permits flexible widget roles. |
+| Gruvbox | [Original Vim theme](https://github.com/morhetz/gruvbox/blob/master/colors/gruvbox.vim); account for contrast variants and inverse selection. |
+| One Dark | Atom's [syntax](https://github.com/atom/one-dark-syntax/blob/master/styles/colors.less), [UI roles](https://github.com/atom/one-dark-ui/blob/master/styles/ui-variables.less), and [formulas](https://github.com/atom/one-dark-ui/blob/master/styles/ui-variables-custom.less); syntax alone defines neither the UI nor a canonical ANSI palette. |
+| GNOME / Tango | [Terminal 46 presets](https://github.com/GNOME/gnome-terminal/blob/gnome-46/src/profile-editor.cc); these are distinct from Adwaita and the [HIG illustration palette](https://developer.gnome.org/hig/reference/palette.html). |
+| Monokai | [Microsoft's port](https://github.com/microsoft/vscode/blob/main/extensions/theme-monokai/themes/monokai-color-theme.json); a port reference, not an authenticated original ANSI palette. |
+| VS Code Dark+ | [Dark+](https://github.com/microsoft/vscode/blob/main/extensions/theme-defaults/themes/dark_plus.json), inherited [Dark](https://github.com/microsoft/vscode/blob/main/extensions/theme-defaults/themes/dark_vs.json), and [terminal registry](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/terminal/common/terminalColorRegistry.ts); unspecified roles inherit registry defaults, and terminal/editor foregrounds differ. |
+
+Branch links can change; pin an upstream release before implementing exact fidelity.
+[Chrome](mod-ui-chrome.md) owns shared metrics; [terminal rendering](mod-terminal-rendering.md)
+owns texture invalidation.

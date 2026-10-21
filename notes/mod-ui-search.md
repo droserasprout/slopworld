@@ -1,57 +1,23 @@
-# Search ownership
+# Search
 
-`SearchView` owns draft controls, selection, geometry, and reader actions.
-Search uses the shared sidebar action row for fold/unfold-all and does not use Files visibility settings.
-It includes dotfiles; its own `gitignd`, include, and exclude options control filtering.
-Its underlined option labels toggle draft flags, all initially off. Selected
-`gitignd` enables the submission's `IncludeIgnored` flag. `inc` and `exc` reveal
-path-glob fields below the options strip. Disabling either retains its draft
-text but omits it from submissions; exclusions take precedence over inclusions.
-The daemon expands literal path filters to include directory descendants; a bare
-name such as `notes` matches that directory at any depth. Explicit globs retain
-ripgrep semantics.
-Include filters apply to ripgrep's results before the result limit; they do not
-override Git ignores or hidden-file policy. Exclusions still prune ripgrep's walk.
-Toggling any option submits the current draft when the query is non-empty.
-Enter submits from any visible Search field. Selection accents
-the label and underline without painting a background.
-`SearchStore` owns submitted queries, bounded requests, and grouped results through
-an injected daemon transport. It consumes snapshots of the
-[shared scope catalog](mod-sidebar-navigation.md); each submission captures the
-enabled ready checkouts by copying their descriptors, so delayed replies retain
-the submitted identity and root even if the catalog changes. Replies for a replaced query or
-scope cannot update current results.
-The daemon returns at most 1,000 matching lines per checkout and marks incomplete
-results as truncated. Search draws only visible rows while retaining the result set.
+`SearchView` owns drafts, selection, and reader actions; `SearchStore` owns submitted
+queries and bounded requests. Submission captures ready checkout descriptors from
+[browse scopes](mod-ui-browse-scopes.md). Delayed replies cannot cross query or scope
+identity. Actions retain captured roots so same-named paths in different checkouts
+stay distinct.
 
-Checkout filter changes rerun the last submitted query and options without replacing draft
-controls. Search submissions, option changes, and checkout filter changes preserve the
-open Search reader, including an unpinned preview.
-Search owns a separate preview/pinned pager collection; Files and Git share
-[FileReaders](mod-file-readers.md). Search previews use the same italic routed headers
-and double-click pinning as Files/Git. Double-clicking a result also pins its reader,
-including while its pager is starting. Pinned readers survive opening another result.
-Closing the Search tab releases field focus and preserves its reader.
+Search filters are independent of Files visibility. Disabled fields retain drafts
+but are omitted from requests. Exclusions win; literal directories expand to descendants,
+while globs retain ripgrep semantics. Includes apply before the cap without bypassing
+ignore/hidden rules. The daemon ignores personal ripgrep configuration. Truncated
+results must remain visibly incomplete.
 
-Results retain their captured root for reader actions. Project and checkout groups
-keep identical relative paths distinct. Scope and history identity belong to
-[sidebar navigation](mod-sidebar-navigation.md), daemon execution to the
-[daemon file API](daemon-files.md), and user workflow to the
-[Files and search guide](../docs/src/workspace/files-and-search.md).
+Scope changes rerun submitted options without replacing drafts. They preserve readers,
+including unpinned previews. Search has its own [reader collection](mod-file-readers.md);
+leaving the tab releases field focus but keeps readers. Reentry and appearance changes
+reattach them without changing intent.
 
-`SearchResultTree` owns the visible project, checkout, file, and match hierarchy.
-Each heading folds independently using captured project/checkout IDs and relative
-file paths. Fold state survives query replacement and scope refreshes; settled
-results prune missing keys. Folding preserves the Search reader. Revealing a search
-location opens its ancestors. Fold state is separate from Files and Git.
-File headings use the match context menu, targeting the file's first match even
-while folded. Project and checkout headings share the other trees' grey styling.
-A project's lone selected main checkout shares its project heading and fold, with
-the ginger prefix and match count. Other selections retain separate checkout
-headings, even when only main has matches. A hidden checkout fold does not suppress
-the merged heading's contents.
-Match counts align to the right edge of checkout and file headings, including
-merged project headings; labels fade before the reserved count space.
-
-Search reattaches its reader on entry and before appearance-restart discovery;
-appearance restarts preserve Search intent.
+Result folds use captured checkout IDs/relative paths. Preserve folds through query
+changes, pruning only after results settle. Revealing opens ancestors; folding cannot
+close readers. Execution belongs to `files/search.rs`; procedures to
+[Files and search](../docs/src/workspace/files-and-search.md).

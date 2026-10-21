@@ -1,75 +1,47 @@
 # Sandbox boundaries
 
-Source paths below are relative to `slopd/src/`. `sandbox/bind/` owns launch/mount
-construction; `sandbox/paths.rs` owns guards; `sandbox/state/` owns private storage
-and inventory. `application/stored_state.rs` coordinates inventory, trash cleanup,
-and deletion using accepted configuration; session retains guarded reset/restore and
-live reconciliation. `sandbox/seed.rs` owns initialization; `sandbox/network.rs` owns DNS.
-Presets select access, while [grants](agent-grants.md) independently select API authority.
+Within `slopd/src/`, `sandbox/bind/` builds mounts, `sandbox/paths.rs` guards paths,
+and `sandbox/state/` owns private storage. `application/stored_state.rs` coordinates
+inventory/trash deletion; session owns guarded reset/restore and live reconciliation.
+[Presets](daemon-presets.md) select access; [grants](agent-grants.md) separately select
+API authority. User guidance belongs to the [security model](../docs/src/sandbox/security.md).
 
-Bubblewrap retains the daemon's numeric UID/GID inside its user namespace so
-passwd-based home lookups (including OpenSSH configuration, known hosts, and
-home-relative agent sockets) agree with the selected user mounts. Debug tmux
-socket targets use that same UID. Host root remains unmapped for non-root daemons;
-system SSH includes still need private copies for OpenSSH ownership checks.
+Bubblewrap retains the daemon's numeric UID/GID so passwd-based home lookups match
+mounted user files. Host root stays unmapped for non-root daemons. System SSH includes
+still need private copies for OpenSSH ownership checks.
 
-Protected paths and unresolved safety aliases fail closed. An invalid project root
-stops launch rather than silently changing the workspace. Private overlays must hide
-host originals from earlier binds. Preset ro/rw/device/cache sources are checked
-against effective private roots; independent aliases to originals reject launch.
-The PID namespace's `/proc` is restored after all overlays. Invalid selected presets reject launch and settings preview.
-Preset path fields must be absolute after expansion: validation runs in the daemon's
-working directory while Bubblewrap starts in the project's directory. Mount assembly
-also omits relative preset bind sources as a defensive check.
+Protected paths and unresolved aliases fail closed. Invalid project roots or selected
+presets stop launch rather than changing the workspace. Expanded preset paths must
+be absolute because validation and Bubblewrap use different working directories.
+Private overlays hide earlier host binds; aliases to protected originals reject launch.
+Restore the PID namespace's `/proc` after overlays. Preserve mount precedence:
+preset read-only, read-write, devices; then project mounts, persistent `/tmp`,
+capabilities, private/shared files, and the private-network resolver. Image imports
+mount last and read-only; see [clipboard](daemon-clipboard.md).
 
-Private state uses daemon-assigned opaque IDs preserved through rename. Configured
-identities require the shared 16-character lowercase hexadecimal format; validation
-belongs to `storage_id.rs`. New configured agents and workers
-allocate through `session/identity.rs` under the session boundary. Allocation
-checks configured/live identities, task participants, record destinations, and retained
-private state; unreadable trash metadata rejects allocation rather than making an
-identity available. Edits and restores retain their existing identity. Stopped agents retain their state;
-reset/delete move it to trash, while temporary errands own
-cleanup. Persistent `/tmp` follows that state lifetime. Private roots must not nest,
-including across selected presets; use one root with seed entries to avoid overlapping
-initialization. Exclusions use the same resolved paths as validation. Seeding must
-not follow source symlinks, and trash inventory measures links without following them. Shared-file
-mounts permit in-place host writes but block unlinking the mountpoint. Recursive
-removal can delete private siblings before failing on a shared credential; restart
-does not reseed an existing copy. Repair or reset is required. User-facing guidance
-belongs to the [security model](../docs/src/sandbox/security.md).
+Private state follows opaque identity, not names. `storage_id.rs` owns the format;
+`session/identity.rs` allocates under the session boundary, accounting for live/saved
+references and retained state. Unreadable trash metadata cannot free an identity.
+Rename/restore preserve identity. Stop retains state; reset/delete move it to trash;
+temporary errands clean it up. Persistent `/tmp` shares that lifetime.
 
-Command strings use POSIX shell word parsing without expansion. Unfinished quotes
-and trailing escapes reject launch; comments and ASCII shell whitespace follow
-`shlex` semantics. Quote literal arguments containing comment markers or whitespace.
+Private roots must not nest, even across presets. Use one root with seed entries.
+Validation and exclusions share resolved paths. Seeding and trash measurement must
+not follow symlinks. Shared-file mounts allow in-place writes but block unlinking;
+recursive removal can damage private siblings before failing on a shared credential.
+Restart does not reseed an existing copy; repair or reset is required.
 
-Network/DNS and optional resource limits apply at launch. Requested limits cover the
-process tree and must be enforced or fail launch. Agent launches have no general
-seccomp policy or disk quota; host Git inspection is a separate
-[Git boundary](daemon-git.md). Private networking maps only the daemon port for an
-IPv4 loopback/unspecified listener, not other host loopback services.
+Command strings use POSIX word parsing without expansion. Network/DNS and optional
+process-tree limits apply at launch; requested limits must be enforced or launch fails.
+Agent launches have no general seccomp policy or disk quota. Host inspection uses
+the separate [Git boundary](daemon-git.md). Private networking exposes only the daemon
+port for an IPv4 loopback/unspecified listener, not arbitrary host loopback services.
 
-Mount configuration belongs to [projects](daemon-projects.md), cache/checkouts to
-[worktrees](daemon-worktrees.md), selection/host escapes to [presets](daemon-presets.md),
-and inspection operations to [Using slopctl](../docs/src/reference/slopctl.md).
-The debug preset deliberately exposes host control, including a readable daemon root
-token; read-only credential mounts do not restrict credential use.
-Its opt-in `daemon_config` capability selects existing native and sidecar
-`config.toml` and `endpoint.toml` files read-only. It never exposes their parent
-configuration directory or catalogs; worker sessions do not receive this capability.
+The debug preset deliberately exposes host control. Read-only credentials still grant
+full credential authority. Its opt-in `daemon_config` mounts existing config/endpoint
+files, never parent catalogs, and is withheld from workers.
 
-Preset binds are grouped read-only, read-write, then devices. Project mounts
-precede persistent `/tmp`, capability mounts, private copies, shared files, and
-the private-network resolver. Read-write binds win over read-only duplicates;
-private and shared overlays must preserve their intended precedence.
-
-Live inspection retains the saved executable only as internal comparison input;
-serialized diagnostics still redact it. It compares that executable with an observable pane
-process tree, not every saved-plan field. Without a usable PID/tree or executable,
-comparison is unavailable. Saved sanitized plans survive process exit and restart.
-
-Host image attachments use a dedicated read-only mount from the session's private
-state, after all preset/project overlays. Image import policy belongs to
-[the clipboard boundary](daemon-clipboard.md); it grants one desktop-selected image,
-not general host-directory access. Its storage shares the state identity and cleanup
-lifetime, with no project files or desktop clipboard writes.
+Inspection compares the saved executable with an observable pane process tree; it
+does not verify every launch-plan field. Without usable evidence, comparison is
+unavailable. Serialized plans remain redacted and survive exit/restart. Cache/checkouts
+belong to [worktrees](daemon-worktrees.md).

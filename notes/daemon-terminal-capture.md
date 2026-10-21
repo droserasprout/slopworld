@@ -1,51 +1,35 @@
-# Daemon terminal capture
+# Terminal capture
 
-`session/capture/` owns reader attachment, VT rendering, frames, scrollback,
-input, and process-exit handling. `emu/` mirrors terminal geometry; `tmux/` owns the
-transport. Readers and frames belong to a specific session run: stop/reset or
-replacement prevents old work from republishing it.
+`session/capture/` owns readers, frames, history, input, and exit handling. `emu/`
+mirrors geometry; `tmux/` owns transport. Work belongs to a specific run; stop/reset
+or replacement prevents stale publication. Cleanup retains cancellation and child
+reaping through teardown: dropping a task handle only detaches it.
 
-Tmux answers terminal queries; the local mirror must not emit duplicate replies into
-shell input. Live screens can coalesce, but terminal bytes and history replies remain
-complete. Scroll replies retain capture sequence and history extent so clients can
-translate delayed snapshots. History clear or screen-mode changes invalidate old
-history, and scroll snapshots must not consume bells.
+Tmux answers terminal queries; the mirror must not send duplicate replies to shell
+input. Screens may coalesce, but bytes and history replies stay complete. History
+replies retain sequence/extent for delayed translation. Clear and screen-mode changes
+invalidate history; scroll snapshots cannot consume bells. Titles and newly latched
+bells publish even without changed text. Scheduling consumes dirty state; rendering
+executes the selected action. Clipboard handoff has an independent lifetime.
 
-Title changes or newly latched bells publish a session snapshot even when screen
-text is unchanged. Scheduling owns dirty-state consumption; rendering executes its
-selected action. Clipboard write handoff is independent of reader lifetime.
+Reader disconnect is not process exit. Failed status queries cannot declare exit;
+missing panes require a checked session listing. Confirmed exit records evidence
+before pane removal, falling back to the last frame if needed. Failed evidence writes
+retain the dead pane for inspection. Inspection/attachment failures schedule bounded
+monotonic maintenance retries, independently of configuration reconciliation. Recheck
+pending identity under the session boundary; reset or success retires retries.
 
-A reader disconnect is not process exit. Confirmed live panes recover readers;
-failed status queries do not declare exit. Missing pane status must be confirmed
-against a checked session listing; a running tmux server with no sessions confirms
-absence. Confirmed exit records evidence before removing the pane. Screen capture
-can fall back to the last in-memory frame, and failed evidence writes preserve the
-dead pane for inspection.
+Tmux metadata restores temporary-reader intent and source identity. Native previews
+have no process to adopt. Startup seeding/repaint belongs to [redeploy](daemon-redeploy.md);
+role transitions to [lifecycle](daemon-session-lifecycle.md), activity to
+[state](daemon-session-state.md), and client history to [terminal](mod-terminal.md).
 
-Failed status inspection or reader attachment schedules a bounded monotonic retry
-on the maintenance loop, independently of config reconciliation. Capture owns the
-retry; lifecycle reset and successful attachment retire it. Retrying rechecks the
-pending work under the session boundary before inspecting or attaching a pane.
+The private tmux server and emulator must agree on emoji cell widths. New panes set
+`LESSUTFCHARDEF` to retain modifiers/joiners/selectors; overrides and existing panes
+keep their launch settings. CI and sidecar use the same pinned Debian forky tmux;
+older packages can lack required width ranges. Preserve application-negotiated
+bracketed paste rather than guessing from command names.
 
-Startup seeding/repaint belongs to [redeploy](daemon-redeploy.md), process transitions
-to [lifecycle](daemon-session-lifecycle.md), activity to [state](daemon-session-state.md),
-and client input/history to [terminal](mod-terminal.md).
-
-Temporary terminal reader intent, source identity, label, scope, and pin state recover
-from tmux metadata into client views. Native previews have no tmux process to adopt.
-
-The private tmux server and emulator agree on composing emoji modifiers and joined
-cell widths. New panes default `LESSUTFCHARDEF` to retain modifiers/joiners/selectors;
-custom environment/presets can override it, and existing panes keep launch settings
-until restarted. These daemon rules determine client columns.
-CI and the sidecar runtime use Debian forky with the same pinned tmux package;
-older distro packages can lack the required width ranges.
-
-Reader cleanup owns cancellation and child reaping before tmux/session removal.
-Dropping a task handle detaches work rather than aborting it; keep explicit ownership
-of cancellation through teardown. Paste transport preserves the application's
-bracketed-paste mode rather than inferring it from command names.
-
-Accepted live resizes publish the emulator immediately, even without application
-output. Frame comparison includes dimensions and rejects captures from an older
-size. Resizing a stopped mirror does not activate the session.
+Accepted live resizes publish immediately without waiting for output. Compare frame
+dimensions and reject captures from an older size. A stopped mirror resize must not
+activate the session.

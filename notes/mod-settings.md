@@ -1,37 +1,21 @@
-# Profile settings ownership
+# Profile settings
 
-`Settings/ModSettings.cs` owns portable profile data, typed TOML serialization,
-normalization, and dirty timing. `ModSettingsStore` owns file loading and replacement
-with caller-supplied paths and error reporting. `ProfileSettings` supplies RimWorld's
-profile path, fallback path, logging, and the runtime write/flush adapters.
-`Settings.cs` projects the active profile through `ModEntry`; only preferences
-consumed through that projection need shim properties. Daemon configuration and
-endpoint credentials belong to
-[the daemon](daemon-config-stores.md).
+`Settings/ModSettings.cs` owns typed profile data, normalization, and dirty timing;
+`ModSettingsStore` owns file replacement with caller-supplied paths/errors.
+`ProfileSettings` supplies RimWorld paths and runtime adapters. `Settings.cs` projects
+the active profile; only preferences consumed there need shim properties.
+[Daemon configuration](daemon-config-stores.md) has separate ownership.
 
-Every persisted field requires an explicit typed entry in `Fields`. Disk persistence
-omits runtime dirty state; failed timer writes retain pending changes for retry.
-[Settings apply behavior](ui-settings.md) owns application and save timing.
-The alternate temperature label is a profile preference stored separately from
-RimWorld's closed temperature enum.
-`PreferenceFormats` owns date/time and statusbar preference keys; callers supply
-format choices when formatting timestamps. `WorkspacePreferences` owns navigation
-side and density keys without depending on workspace geometry. Persisted machine
-timestamps keep their wire formats. The clock cache includes both format preferences.
+Persisted fields require explicit typed entries in `Fields`. Runtime dirty state stays
+off disk, and failed timed writes remain pending. Formatting preferences must not
+change machine timestamp formats; caches include the selected formats.
+[Settings drafts](ui-settings.md) owns apply/save timing.
 
-Feature owners are [terminal recall](mod-terminal.md), [Eco](mod-eco.md),
-[shared chrome](mod-ui-chrome.md),
-and [terminal rendering](mod-terminal-rendering.md) for appearance caches and emoji.
+`FramePolicy` alone owns foreground and unfocused pacing. `BackgroundFrames` supplies
+monitor refresh and applies the policy. VSync can override the FPS selector without
+replacing its choice; focus changes adjust target FPS without changing presentation
+mode. Eco does not add another foreground pacing policy.
 
-`FramePolicy` owns foreground vSync/FPS pacing and the unfocused 15 FPS cap; Eco
-is not a second foreground pacing owner. Auto FPS (the default) follows the monitor
-refresh rate, falling back to 60 FPS. VSync is an independent toggle, off by default;
-while enabled it overrides the FPS selector without replacing its choice. Profiles
-missing the `vsync` key migrate to Auto FPS with VSync off and queue a write.
-`BackgroundFrames` samples Unity's display refresh rate and applies both settings.
-Focus changes adjust only target FPS, retaining the selected presentation mode. Temperature-triggered camera/UI sound
-overrides belong to `Patches/Options/TemperatureSounds.cs`; map-scoped sounds retain
-their original definitions.
-
-When Eco or Grandma mode disables destructive effects, cancel pending effects
-rather than deferring them until the mode ends. Strike-specific cleanup stays with CoreTip.
+Temperature-triggered camera/UI sounds belong to `Patches/Options/TemperatureSounds.cs`;
+map sounds retain their definitions. Disabling destructive effects through Eco or
+Grandma cancels pending effects rather than postponing them. CoreTip owns strike cleanup.

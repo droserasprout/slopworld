@@ -1,23 +1,17 @@
-# Agent title ownership
+# Agent titles
 
-The daemon owns managed-session summaries. [Session title policy](../slopd/src/session/title.rs)
-owns composition, eligibility, and transitions; [title capture](../slopd/src/session/capture/title.rs)
-coordinates provider requests and commits. [The title provider and cache](../slopd/src/title/)
-are separate from session policy. [SummariesPage](../mod/Source/SlopWorld/UI/Settings/SummariesPage.cs)
-edits daemon policies and defaults.
+[Session policy](../slopd/src/session/title.rs) owns summary eligibility and transitions;
+[capture](../slopd/src/session/capture/title.rs) coordinates requests and commits.
+The [provider/cache](../slopd/src/title/) is shared with task summaries but does not
+own either feature's policy.
 
-Prompt capture excludes common approval answers, cancelled composers, history
-recall, and uncertain edits. Host shell commands never enter this path. Current
-managed-agent support covers Codex and Pi. Missing a title is preferable to sending
-unrelated input.
+Prompt capture skips approval answers, cancelled or uncertain edits, and history
+recall. Host commands never enter this path. Missing a title is preferable to sending
+unrelated input. Late results cannot replace a newer conversation or manual label.
+The `once` policy consumes its attempt even on failure. Recovery may restore the
+current conversation's cached title; a new conversation or run clears it. The cache
+stores digests and summaries, not prompt text.
 
-Late results cannot replace a newer conversation or manually edited label. The
-`once` policy consumes its attempt even on failure. Recovery may restore the current
-conversation's cached title; a new conversation or run clears it. The cache stores
-digests and summaries rather than submitted prompt text.
-
-The provider reads its configured OpenRouter key in the daemon. This is not a
-sandbox isolation guarantee: the Pi preset can separately forward
-`OPENROUTER_API_KEY`. See [Summaries](../docs/src/agents/usage-and-summaries.md#prompt-summaries)
-for settings and key handling, [Titles](../docs/src/agents/usage-and-summaries.md#prompt-summaries)
-for user behavior, and [task mailboxes](agent-tasks.md) for delegated-task summaries.
+The daemon reads the provider key. This does not isolate the key from agents: the Pi
+preset can also forward `OPENROUTER_API_KEY`. Settings and key handling belong to
+[Summaries](../docs/src/agents/usage-and-summaries.md#prompt-summaries).
