@@ -22,6 +22,9 @@ namespace SlopWorld
                 if (Syncing && _current == value)
                     return;
                 _current = value;
+                var info = SessionHub.Instance.Get(value);
+                if (info != null)
+                    WorkspaceNavigation.Shared.Remember(value, Sidebar.IsRouted(info));
                 Sidebar.RememberAgent(value);
 
                 // Clear map selection when another session becomes current.
@@ -42,6 +45,13 @@ namespace SlopWorld
         }
 
         static string _current;
+
+        // A reader refresh replaces identity without selecting a new item. In particular,
+        // the current session may be hidden behind a more recently visited native file.
+        internal static void ReplaceReader(string oldName, string newName)
+        {
+            _current = WorkspaceNavigation.Shared.ReplaceReader(oldName, newName, _current);
+        }
 
         /// True while <see cref="SessionGizmoSelection.SyncFromMapSelection"/> runs.
         internal static bool Syncing;

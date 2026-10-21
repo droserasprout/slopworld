@@ -12,7 +12,7 @@ namespace SlopWorld
             value == Off || value == Moderate || value == Massive ? value : Mild;
 
         public static string Label(string value) =>
-            Normalize(value) == Off ? "Meh"
+            Normalize(value) == Off ? "Off"
             : Normalize(value) == Moderate ? "Moderate"
             : Normalize(value) == Massive ? "Massive"
             : "Mild";

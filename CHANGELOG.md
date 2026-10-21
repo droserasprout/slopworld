@@ -13,6 +13,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Fixed
 
 - Agents: Preserve temporary agents’ settings and private-state identity across daemon restarts.
+- Keyboard: Restore the last active session or open file when switching between groups.
 - Library: Fixed project renames breaking saved library items.
 - Projects: Prevent deleting projects referenced by saved library items.
 - Sandbox: Copy user Codex skills into new private directories.

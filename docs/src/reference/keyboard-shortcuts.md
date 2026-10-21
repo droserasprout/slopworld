@@ -35,6 +35,10 @@ Press **?** in game to show current shortcuts.
 | Alt+A / Alt+S | Previous/next open file (view, editor, search reader or diff). |
 | Alt+1..9, Alt+0 | Select an agent on the map or switch panes in the terminal window; 0 is tenth. |
 
+Switching between sessions and open files with these Alt shortcuts returns to the
+last active item in that group. Press again to cycle. If that item is closed or
+filtered out, navigation starts at the first item (next) or last item (previous).
+
 ## Agent (map, with agent selected)
 
 | Default | Action | Rebindable |

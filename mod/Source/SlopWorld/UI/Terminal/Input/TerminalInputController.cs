@@ -563,15 +563,14 @@ namespace SlopWorld
                 return;
 
             // Keep the current pane open when it already shows the target agent.
-            var w = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
-            if (w != null && target == w.SessionName)
+            if (target == WorkspaceWindow.CurrentName)
                 return;
 
             WorkspaceWindow.Open(target);
         }
 
         // Map and pane navigation share ordering and selection; callers own pawn/camera
-        // behavior and opening panes. A missing selection starts at the requested end.
+        // behavior and opening panes. Navigation restores the session cursor when leaving readers.
         static string SelectAdjacentSession(int dir)
         {
             var order = TabOrder();
@@ -581,15 +580,8 @@ namespace SlopWorld
             if (order.Count == 0)
                 return null;
 
-            string current = SessionSelectable.Current;
-            int idx = -1;
-            if (current != null)
-                idx = order.IndexOf(current);
-
-            int next =
-                idx < 0 ? (dir > 0 ? 0 : order.Count - 1) : (idx + dir + order.Count) % order.Count;
-
-            string target = order[next];
+            string current = FilesView.CurrentViewerHeader ?? SessionSelectable.Current;
+            string target = WorkspaceNavigation.Shared.Select(order, current, dir, reader: false);
             if (target == null)
                 return null;
 

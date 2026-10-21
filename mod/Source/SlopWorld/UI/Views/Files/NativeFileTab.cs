@@ -46,6 +46,7 @@ namespace SlopWorld
             if (!Alive)
                 return false;
             WorkspaceWindow.OpenContent(View);
+            WorkspaceNavigation.Shared.Remember(Header, reader: true);
             return true;
         }
 

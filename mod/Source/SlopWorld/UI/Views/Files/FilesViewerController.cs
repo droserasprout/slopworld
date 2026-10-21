@@ -157,6 +157,7 @@ namespace SlopWorld
             tab.View = view;
             tab.Header = "view-native-" + (++_nativeHeader);
             WorkspaceWindow.OpenContent(tab.View);
+            WorkspaceNavigation.Shared.Remember(tab.Header, reader: true);
             // Publish the native replacement before retiring the pager. This also
             // cancels an in-flight pager when the user switches back to native content.
             Viewers.ReleasePreview();

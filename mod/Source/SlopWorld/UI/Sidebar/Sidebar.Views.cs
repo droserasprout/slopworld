@@ -403,7 +403,12 @@ namespace SlopWorld
         {
             PrepareRouted();
             string current = FilesView.CurrentViewerHeader ?? WorkspaceWindow.CurrentName;
-            string target = RoutedSessionRows.Adjacent(Layout.Routed, current, direction);
+            string target = WorkspaceNavigation.Shared.Select(
+                Layout.Routed.Select(row => row.Name).ToList(),
+                current,
+                direction,
+                reader: true
+            );
             if (target == null)
                 return;
             RevealOpenFiles();

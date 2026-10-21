@@ -13,7 +13,12 @@ remain usable. Bindings belong to [keyboard shortcuts](../docs/src/reference/key
 Workspace navigation runs before WindowStack consumes events and inside GUI.Window
 before sidebar fields draw. Both paths handle only unconsumed KeyDown events. Handled
 navigation releases Search focus and ends the draw; modal windows and binding capture
-retain input. Native fields receive keys inside the callback. Shift bypasses Alt
+retain input. `WorkspaceNavigation` remembers separate session and open-file targets.
+Crossing groups with Alt+Z/X or Alt+A/S restores the last eligible target; further
+presses cycle within that group. Removed or filtered targets fall back to the
+requested end. Native reader headers participate alongside daemon readers.
+Background reader replacements remap the remembered handle without creating a visit.
+Native fields receive keys inside the callback. Shift bypasses Alt
 navigation; terminal encoding forwards the unshifted Alt letter/digit.
 
 Each panel negotiates its own bounds using the same snapped cell advance for drawing

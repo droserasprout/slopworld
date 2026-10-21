@@ -94,12 +94,11 @@ namespace SlopWorld
         // Background reader refresh keeps split selection, content overlays, and window focus.
         internal static void ReplaceReader(string oldName, string newName)
         {
+            SessionSelectable.ReplaceReader(oldName, newName);
             var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
             var panel = window?._terminals.Find(oldName);
             if (panel != null)
                 panel.BindSession(newName);
-            if (SessionSelectable.Current == oldName)
-                SessionSelectable.Current = newName;
         }
 
         // What the chrome is showing, for anything that has to know which it is. Null is the
