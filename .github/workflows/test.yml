@@ -63,7 +63,8 @@ jobs:
         # actions/cache uses zstd when available; gzip makes Rust cache saves slow.
         run: |
           # GitHub mounts HOME at /github/home in job containers.
-          usermod --home "$HOME" root
+          # Edit passwd directly: usermod rejects root while it owns PID 1.
+          sed -i "/^root:/s|:/root:|:$HOME:|" /etc/passwd
           apt-get update
           apt-get install -y --no-install-recommends \
             ca-certificates curl git unzip zstd build-essential pkg-config \
@@ -124,7 +125,8 @@ jobs:
       - name: Install system dependencies
         run: |
           # Match the account database to GitHub's mounted home for rustup.
-          usermod --home "$HOME" root
+          # Edit passwd directly: usermod rejects root while it owns PID 1.
+          sed -i "/^root:/s|:/root:|:$HOME:|" /etc/passwd
           apt-get update
           apt-get install -y --no-install-recommends \
             ca-certificates curl git unzip zstd gcc libc6-dev python3 procps tmux=3.7c-1 less ripgrep
