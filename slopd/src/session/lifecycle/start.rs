@@ -197,6 +197,12 @@ impl SessionRuntime {
                 .await
                 .context("persisting essential worker metadata")?;
         }
+        if plan.role.is_temporary_agent() && !plan.is_worker() {
+            self.tmux
+                .set_temporary_agent_config(name, &plan.session)
+                .await
+                .context("persisting temporary agent configuration")?;
+        }
         if !plan.role.is_host() {
             self.tmux.retain_exit(name).await?;
         }

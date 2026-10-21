@@ -477,3 +477,58 @@ async fn start_plan_snapshots_reader_context_and_publishes_recoverable_metadata(
     let saved = Config::load(manager.cfg_path()).await.unwrap();
     assert!(saved.sessions.is_empty() && saved.host_terminals.is_empty());
 }
+
+#[tokio::test]
+async fn temporary_agent_adoption_preserves_configuration_and_cleans_original_state() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let socket = crate::test_support::TmuxSocket::new();
+    let cfg = Config::default();
+    let manager = crate::session::test_manager_with_socket(cfg.clone(), socket.path.clone());
+    let session = SessionCfg {
+        name: "temporary-agent".into(),
+        project: "original-project".into(),
+        worktree: "original-checkout".into(),
+        label: Some("Original label".into()),
+        command: "codex".into(),
+        sandbox: vec!["original-preset".into()],
+        state_id: crate::storage_id::draft_identity(),
+        ..Default::default()
+    };
+    let private = crate::sandbox::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("proof"), "original private data").unwrap();
+    let unrelated = crate::sandbox::state_dir(&SessionCfg::default()).unwrap();
+    std::fs::create_dir_all(&unrelated).unwrap();
+    let plan = StartPlan {
+        session: session.clone(),
+        context: LaunchContext::default(),
+        cols: 80,
+        rows: 24,
+        role: SessionRole::Agent(AgentLifetime::Temporary),
+        dir: "/tmp".into(),
+        launch: None,
+        argv: vec!["sleep".into(), "60".into()],
+    };
+    // Exercise the metadata written by startup without needing a sandbox process.
+    manager.launch_tmux(&session.name, &plan).await.unwrap();
+    let recovered = crate::session::test_manager_with_socket(cfg, socket.path.clone());
+    recovered.sync_from_config().await;
+    recovered.sync_from_config().await;
+    {
+        let live = recovered.live.read().await;
+        let row = &live[&session.name];
+        assert!(row.role.is_temporary_agent());
+        assert_eq!(row.cfg.state_id, session.state_id);
+        assert_eq!(row.cfg.project, session.project);
+        assert_eq!(row.cfg.worktree, session.worktree);
+        assert_eq!(row.cfg.label, session.label);
+        assert_eq!(row.cfg.command, session.command);
+        assert_eq!(row.cfg.sandbox, session.sandbox);
+    }
+    recovered.stop(&session.name).await.unwrap();
+    recovered.stop(&session.name).await.unwrap();
+    assert!(!private.exists());
+    assert!(unrelated.exists());
+}

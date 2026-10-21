@@ -7,6 +7,9 @@ metadata and rename handoffs. Operations validate a
 complete candidate before changing tmux identity and protect commit/rollback from
 caller cancellation. Creation, label edits, deletion, and private-state restoration
 also retain their session boundary in owned work through publication or cleanup.
+Agent deletion rejects a running tmux pane under that boundary; stop the agent
+first. A retained dead pane does not block deletion. Host-tab removal still stops
+the shell before removing its saved record.
 
 `session/launch.rs` owns transient launch requests and reader context separately from
 `SessionCfg` and saved library entries. Execution source distinguishes host lifetime,
@@ -21,6 +24,10 @@ reservation through publication. Dropping a reservation leaves no live or tempor
 unsaved host actions. Stop and process exit retain durable agents and saved shells;
 only temporary agents own private state that teardown deletes. Worker metadata
 restores agent lifetime during adoption and takes precedence over stale host identity.
+Non-worker temporary agents persist their configuration in tmux before launch.
+Adoption restores their private-state identity and project/worktree settings so
+teardown removes the original private state. Invalid recovery metadata leaves the
+pane untouched rather than inventing a replacement identity.
 Capture and input owners remain shared across roles. Start plans snapshot the role
 alongside launch inputs; transport booleans are derived only when needed.
 

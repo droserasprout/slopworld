@@ -292,6 +292,13 @@ impl SessionEdits {
             self.sessions.announce_sessions().await;
             return Ok(());
         }
+        // The operation guard excludes starts through deletion. Inspect tmux rather
+        // than UI activity: a running pane can temporarily have no capture reader.
+        if self.sessions.tmux.exists(name).await
+            && self.sessions.tmux.pane_exit(name).await?.is_none()
+        {
+            bail!("Agent {name} is running. Stop it before deleting it.");
+        }
         if self
             .sessions
             .session_role(name)

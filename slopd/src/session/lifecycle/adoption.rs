@@ -9,6 +9,7 @@ use futures::StreamExt;
 struct AdoptionProbe {
     name: String,
     worker: Option<crate::tmux::WorkerMetadata>,
+    temporary_session: Option<SessionCfg>,
     saved_host: Option<HostTerminalCfg>,
     host: bool,
     tmux_host: Option<(String, String)>,
@@ -28,7 +29,7 @@ struct AdoptionDecision {
 
 impl SessionRuntime {
     /// Read pane metadata, querying host details only for non-worker host panes.
-    async fn probe_orphan(&self, cfg: &Config, name: String) -> AdoptionProbe {
+    async fn probe_orphan(&self, cfg: &Config, name: String) -> Result<AdoptionProbe> {
         let saved_host = cfg
             .host_terminals
             .iter()
@@ -41,7 +42,26 @@ impl SessionRuntime {
             self.tmux.activity(&name),
             self.tmux.reader_metadata(&name),
         );
-        let host = worker.is_none() && (self.tmux.is_host(&name).await || saved_host.is_some());
+        let temporary_session = if worker.is_none() {
+            let mut session = self.tmux.temporary_agent_config(&name).await?;
+            if let Some(session) = &mut session {
+                crate::config::validate_state_id(&session.state_id)?;
+                anyhow::ensure!(
+                    !session.worker,
+                    "temporary agent metadata contains worker identity"
+                );
+                session.name.clone_from(&name);
+                session.autostart = false;
+                session.auto_resume = false;
+                session.worker_token = None;
+            }
+            session
+        } else {
+            None
+        };
+        let host = worker.is_none()
+            && temporary_session.is_none()
+            && (self.tmux.is_host(&name).await || saved_host.is_some());
         let (tmux_host, current_path) = if host {
             tokio::join!(
                 self.tmux.host_metadata(&name),
@@ -51,9 +71,10 @@ impl SessionRuntime {
             (None, None)
         };
 
-        AdoptionProbe {
+        Ok(AdoptionProbe {
             name,
             worker,
+            temporary_session,
             saved_host,
             host,
             tmux_host,
@@ -61,7 +82,7 @@ impl SessionRuntime {
                 .map(|(state, state_since)| crate::activity::Activity { state, state_since }),
             current_path,
             reader,
-        }
+        })
     }
 
     /// Prefer tmux metadata, falling back to saved host entries and disk activity.
@@ -113,12 +134,21 @@ impl SessionRuntime {
         // Each probe launches several tmux clients. Bound recovery bursts as well
         // as avoiding repeated probing during ordinary configuration edits.
         let probes = futures::stream::iter(names)
-            .map(|name| self.probe_orphan(cfg, name))
+            .map(|name| async move {
+                match self.probe_orphan(cfg, name.clone()).await {
+                    Ok(probe) => Some(probe),
+                    Err(error) => {
+                        tracing::warn!(session = %name, "cannot recover pane metadata: {error:#}");
+                        None
+                    }
+                }
+            })
             .buffer_unordered(8)
             .collect::<Vec<_>>()
             .await;
         let decisions = probes
             .into_iter()
+            .flatten()
             .map(|probe| Self::decide_orphan(cfg, probe, &self.activity_cache));
 
         let mut adopted = false;
@@ -127,6 +157,7 @@ impl SessionRuntime {
                 decision.probe.worker.is_some() && decision.worker_session.is_none();
             let conflict = cfg.session(&decision.probe.name).is_some_and(|saved| {
                 decision.probe.host
+                    || decision.probe.temporary_session.is_some()
                     || decision.probe.worker.as_ref().is_some_and(|metadata| {
                         !saved.worker
                             || metadata.state_id.as_deref() != Some(saved.state_id.as_str())
@@ -141,9 +172,9 @@ impl SessionRuntime {
                     .await;
                 self.invalidate_session(&decision.probe.name).await;
                 if let Err(error) = self.tmux.kill(&decision.probe.name).await {
-                    if decision.probe.host {
-                        // Failed retirement must retain the actual host identity. Otherwise
-                        // the configured placeholder would permit a new grant to this shell.
+                    if decision.probe.host || decision.probe.temporary_session.is_some() {
+                        // Failed retirement must retain the actual process identity. Otherwise
+                        // the configured placeholder would authorize the conflicting process.
                         self.live.write().await.insert(
                             decision.probe.name.clone(),
                             Self::new_adopted_live(cfg, &decision),
@@ -207,6 +238,9 @@ impl SessionRuntime {
     /// Build worker settings or reconstruct a host/viewer session from saved metadata.
     fn adopted_session_cfg(cfg: &Config, decision: &AdoptionDecision) -> SessionCfg {
         if let Some(session) = &decision.worker_session {
+            return session.clone();
+        }
+        if let Some(session) = &decision.probe.temporary_session {
             return session.clone();
         }
 
@@ -284,6 +318,11 @@ impl SessionRuntime {
 
     /// Repair worker/host identity, then restore activity for a durable Down row.
     fn repair_adopted_live(&self, l: &mut Live, decision: &AdoptionDecision) {
+        if let Some(session) = &decision.probe.temporary_session {
+            l.cfg = session.clone();
+            l.role = SessionRole::Agent(AgentLifetime::Temporary);
+            l.host_path.clear();
+        }
         if let (Some(metadata), Some(session)) = (
             decision.probe.worker.as_ref(),
             decision.worker_session.clone(),

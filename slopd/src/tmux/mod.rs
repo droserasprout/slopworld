@@ -42,6 +42,7 @@ const WORKER_TASK: &str = "@slopworld_worker_task";
 const WORKER_DURABLE: &str = "@slopworld_worker_durable";
 const WORKER_STATE: &str = "@slopworld_worker_state";
 const READER_METADATA: &str = "@slopworld_reader";
+const TEMPORARY_AGENT_CONFIG: &str = "@slopworld_temporary_agent_config";
 // tmux otherwise counts newer emoji modifiers as separate wide characters (for example
 // 🤝🏻 occupies four cells and 🫱🏻‍🫲🏼 six). Its emoji grapheme handling collapses the
 // complete sequence to two cells when modifiers have zero width.
@@ -440,6 +441,30 @@ impl Tmux {
                 .is_some_and(|value| value.trim() == "1"),
             state_id: self.option(name, WORKER_STATE).await,
         })
+    }
+
+    pub(crate) async fn set_temporary_agent_config(
+        &self,
+        name: &str,
+        session: &crate::config::SessionCfg,
+    ) -> Result<()> {
+        let value = serde_json::to_string(session)?;
+        self.set_option(name, TEMPORARY_AGENT_CONFIG, &value).await
+    }
+
+    pub(crate) async fn temporary_agent_config(
+        &self,
+        name: &str,
+    ) -> Result<Option<crate::config::SessionCfg>> {
+        // Missing metadata is distinct from a failed query: only the former may
+        // use legacy adoption without a saved temporary-agent identity.
+        let value = self
+            .run(&["show-options", "-qv", "-t", name, TEMPORARY_AGENT_CONFIG])
+            .await?;
+        if value.trim().is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(serde_json::from_str(&value)?))
     }
 
     /// The process tmux created for pane zero. A missing pane is a live-state observation, not a

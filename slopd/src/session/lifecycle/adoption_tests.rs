@@ -48,6 +48,7 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
         let decision = AdoptionDecision {
             worker_session: recovered_worker_cfg(&cfg, "worker", &metadata),
             probe: AdoptionProbe {
+                temporary_session: None,
                 name: "worker".into(),
                 worker: Some(metadata),
                 saved_host: None,
@@ -316,6 +317,7 @@ fn adoption_restores_reader_context_without_putting_it_in_agent_configuration() 
     };
     let decision = AdoptionDecision {
         probe: AdoptionProbe {
+            temporary_session: None,
             name: "reader".into(),
             worker: None,
             saved_host: None,
@@ -368,6 +370,7 @@ fn host_adoption_uses_saved_catalog_for_lifetime_and_never_restores_agent_activi
         let decision = SessionRuntime::decide_orphan(
             &cfg,
             AdoptionProbe {
+                temporary_session: None,
                 name: "host".into(),
                 worker: None,
                 host: true,
@@ -415,6 +418,7 @@ fn worker_recovery_replaces_stale_host_role_and_directory() {
         let decision = SessionRuntime::decide_orphan(
             &cfg,
             AdoptionProbe {
+                temporary_session: None,
                 name: "worker".into(),
                 worker: Some(metadata),
                 host: false,
@@ -439,5 +443,40 @@ fn worker_recovery_replaces_stale_host_role_and_directory() {
             assert_eq!(row.cfg.state_id, "1111111111114111");
             assert!(row.host_path.is_empty());
         }
+    }
+}
+
+#[tokio::test]
+async fn malformed_temporary_identity_is_not_adopted_or_deleted() {
+    use super::*;
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    manager
+        .tmux
+        .spawn(
+            "temporary",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    let invalid = serde_json::to_string(&SessionCfg {
+        name: "temporary".into(),
+        state_id: "../escape".into(),
+        ..Default::default()
+    })
+    .unwrap();
+    for value in ["{", invalid.as_str()] {
+        manager
+            .tmux
+            .set_option("temporary", "@slopworld_temporary_agent_config", value)
+            .await
+            .unwrap();
+        manager.sync_from_config().await;
+        assert!(!manager.live.read().await.contains_key("temporary"));
+        assert!(manager.tmux.exists("temporary").await);
     }
 }

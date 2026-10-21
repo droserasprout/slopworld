@@ -6,6 +6,40 @@ use crate::config::transactions::ConfigMutation;
 use crate::session::{AgentLifetime, SessionRole};
 
 #[tokio::test]
+async fn removal_rejects_running_agent_and_succeeds_after_stop() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let (manager, root, socket) = rename_fixture(true).await;
+    let session = manager.config().await.sessions[0].clone();
+    let state = crate::sandbox::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&state).unwrap();
+    std::fs::write(state.join("retained"), "private state").unwrap();
+
+    let error = manager.edits().remove("old").await.unwrap_err();
+    assert!(error.to_string().contains("Stop it before deleting"));
+    assert!(manager.tmux.exists("old").await);
+    assert!(manager.config().await.session("old").is_some());
+    assert!(
+        Config::load(manager.cfg_path())
+            .await
+            .unwrap()
+            .session("old")
+            .is_some()
+    );
+    assert_eq!(
+        std::fs::read_to_string(state.join("retained")).unwrap(),
+        "private state"
+    );
+
+    manager.stop("old").await.unwrap();
+    manager.edits().remove("old").await.unwrap();
+    assert!(manager.config().await.session("old").is_none());
+    assert!(!state.exists());
+    cleanup_rename_fixture(&manager, root, &socket, &["old"]).await;
+}
+
+#[tokio::test]
 async fn removal_save_failure_restores_private_state_before_retry() {
     let Some(_) = crate::test_support::isolated() else {
         return;

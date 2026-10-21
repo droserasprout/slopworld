@@ -14,7 +14,7 @@ lifetimes.
 | Restart an agent | Starts a fresh process with saved settings. | Reuses its private state and project files. |
 | Reboot the daemon host | Ends running processes. | Saved agents can start again according to autostart settings. |
 | Reset private state | Stops the configured agent. | Moves private state to trash; the next start creates fresh state. |
-| Delete a configured agent | Ends its process and removes its configuration. | Moves its private state to trash. Project files remain. |
+| Delete a configured agent | Requires its process to be stopped, then removes its configuration. | Moves its private state to trash. Project files remain. |
 
 Use an agent row's context menu for start, stop, and restart actions. Save command,
 sandbox, network, or mount edits before restarting; see

@@ -12,6 +12,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
+- Agents: Preserve temporary agents’ settings and private-state identity across daemon restarts.
 - Library: Fixed project renames breaking saved library items.
 - Projects: Prevent deleting projects referenced by saved library items.
 - Sandbox: Fixed skipped files being copied into private directories.
@@ -21,6 +22,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Changed
 
+- Agents: Require stopping running agents before deleting them.
 - Settings: Made post-processing intensity configurable.
 - UI: Use grained texture for accented surfaces.
 
