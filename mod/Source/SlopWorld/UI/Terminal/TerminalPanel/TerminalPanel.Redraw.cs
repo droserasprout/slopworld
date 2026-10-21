@@ -121,6 +121,7 @@ namespace SlopWorld
 
         internal void Update()
         {
+            PruneSessionCaches();
             // Both of these are the pane's business with its own session, and a view in the
             // body means there is no pane being measured or scrolled.
             if (_state.Name == null || !Visible)

@@ -16,6 +16,9 @@ The daemon is authoritative. Reconciliation preserves pawn identity across pendi
 session renames and keeps ephemeral/worker sessions sidebar-only. An exception
 aborts the whole sweep.
 
+Runtime face assignments and pet cooldowns use weak pawn identity. These caches must
+not retain pawns or games; `AgentColony` persists bound face variants in saves.
+
 [Colony scenes](mod-colony-scenes.md) own intro/departure phases and save interaction.
 [Worksites](mod-worksite.md) use Working state to control construction; completion
 adds [plague](mod-plague.md) sources.

@@ -216,21 +216,7 @@ namespace SlopWorld
                 _panel._historyLiveAltScreen = false;
             }
 
-            void PruneCaches()
-            {
-                if (_panel._historyCaches.Count == 0)
-                    return;
-                List<string> gone = null;
-                foreach (var name in _panel._historyCaches.Keys)
-                {
-                    if (SessionHub.Instance.Get(name) == null)
-                        (gone ?? (gone = new List<string>())).Add(name);
-                }
-                if (gone == null)
-                    return;
-                foreach (var name in gone)
-                    _panel._historyCaches.Remove(name);
-            }
+            void PruneCaches() => _panel.PruneSessionCaches();
 
             void DrainReplies(SessionHub hub, ScreenBuf live)
             {

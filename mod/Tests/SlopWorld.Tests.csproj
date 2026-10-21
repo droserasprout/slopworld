@@ -16,6 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalSessionCaches.cs" />
     <Compile Include="../Source/SlopWorld/UI/Display/CrtVignettePixels.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Links/TerminalPathProbe.cs" />
     <Compile Include="../Source/SlopWorld/UI/Async/DialogSubmitState.cs" />

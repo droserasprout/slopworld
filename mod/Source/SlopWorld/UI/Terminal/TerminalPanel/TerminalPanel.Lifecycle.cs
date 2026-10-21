@@ -6,6 +6,19 @@ namespace SlopWorld
     sealed partial class TerminalPanel
     {
         bool _opened;
+        long _cacheSessionsVersion = -1;
+
+        void PruneSessionCaches()
+        {
+            var hub = SessionHub.Instance;
+            if (_cacheSessionsVersion == hub.SessionsVersion)
+                return;
+            _cacheSessionsVersion = hub.SessionsVersion;
+            bool exists(string name) => hub.Get(name) != null;
+            TerminalSessionCaches.Prune(_displayedFrames, exists);
+            TerminalSessionCaches.Prune(_scrollbackStates, exists);
+            TerminalSessionCaches.Prune(_historyCaches, exists);
+        }
 
         public override void Opened()
         {
@@ -104,6 +117,8 @@ namespace SlopWorld
                 }
             }
             var info = SessionHub.Instance.Get(name);
+            if (info == null)
+                return;
             _scrollbackStates[name] = new ScrollbackState(
                 Mathf.Max(0, _scrollOff),
                 pixels,

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -24,20 +25,15 @@ namespace SlopWorld
         // Vanilla nuzzle expiry: 3000 game ticks.
         const int NuzzleExpiryTicks = 3000;
 
-        static readonly Dictionary<int, float> _lastPoke = new Dictionary<int, float>();
-        static readonly Dictionary<int, float> _lastNuzzle = new Dictionary<int, float>();
-
-        static Game _cooldownGame;
-
-        static void EnsureCooldownGame()
+        // Cooldowns follow the pawn without retaining it or its game after teardown.
+        sealed class Cooldowns
         {
-            var game = Current.Game;
-            if (ReferenceEquals(_cooldownGame, game))
-                return;
-            _cooldownGame = game;
-            _lastPoke.Clear();
-            _lastNuzzle.Clear();
+            public float Poke = float.NegativeInfinity;
+            public float Nuzzle = float.NegativeInfinity;
         }
+
+        static readonly ConditionalWeakTable<Pawn, Cooldowns> _cooldowns =
+            new ConditionalWeakTable<Pawn, Cooldowns>();
 
         // A colony animal: player faction, not humanlike, not an agent.
         public static bool Is(Pawn p) =>
@@ -120,14 +116,11 @@ namespace SlopWorld
             if (pet == null || pet.Dead || !pet.Spawned)
                 return;
 
-            EnsureCooldownGame();
+            var cooldown = _cooldowns.GetValue(pet, _ => new Cooldowns());
             float now = Time.realtimeSinceStartup;
-            if (
-                _lastPoke.TryGetValue(pet.thingIDNumber, out float last)
-                && now - last < PokeCooldownSeconds
-            )
+            if (now - cooldown.Poke < PokeCooldownSeconds)
                 return;
-            _lastPoke[pet.thingIDNumber] = now;
+            cooldown.Poke = now;
 
             pet.caller?.DoCall();
             GameCursor.Pat();
@@ -145,14 +138,11 @@ namespace SlopWorld
             if (pet.CurJobDef == JobDefOf.Nuzzle)
                 return;
 
-            EnsureCooldownGame();
+            var cooldown = _cooldowns.GetValue(pet, _ => new Cooldowns());
             float now = Time.realtimeSinceStartup;
-            if (
-                _lastNuzzle.TryGetValue(pet.thingIDNumber, out float last)
-                && now - last < NuzzleCooldownSeconds
-            )
+            if (now - cooldown.Nuzzle < NuzzleCooldownSeconds)
                 return;
-            _lastNuzzle[pet.thingIDNumber] = now;
+            cooldown.Nuzzle = now;
 
             var job = JobMaker.MakeJob(JobDefOf.Nuzzle, agent);
             job.expiryInterval = NuzzleExpiryTicks;

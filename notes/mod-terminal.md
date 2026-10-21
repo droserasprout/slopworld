@@ -2,6 +2,9 @@
 
 `WorkspaceWindow` hosts controls; `TerminalSplit` holds distinct panels.
 `TerminalPanel` owns rendering, history, subscriptions, caches, and input.
+Retained frames, scroll positions, and history caches are pruned against session
+inventory revisions even while a pane is hidden. Stopped sessions remain eligible
+until removed from that inventory.
 [Workspace](ui-dynamic-layout-architecture.md) owns geometry;
 [panels](mod-workspace-panels.md) owns lifetime.
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -55,19 +56,15 @@ namespace SlopWorld
             new Weighted { Color = EyeColor.Missing, Weight = 10f },
         };
 
-        // Runtime assignments keyed by pawn identity. AgentColony persists bound variants.
-        static readonly Dictionary<int, EyeColor> _eyeColors = new Dictionary<int, EyeColor>();
-
-        static Game _assignmentGame;
-
-        static void EnsureAssignmentGame()
+        // Weak pawn identity keeps assignments alive only as long as their owner.
+        // AgentColony persists bound variants; this cache must not root pawns or games.
+        sealed class FaceAssignment
         {
-            var game = Current.Game;
-            if (ReferenceEquals(_assignmentGame, game))
-                return;
-            _assignmentGame = game;
-            _eyeColors.Clear();
+            public EyeColor Color;
         }
+
+        static readonly ConditionalWeakTable<Pawn, FaceAssignment> _eyeColors =
+            new ConditionalWeakTable<Pawn, FaceAssignment>();
 
         // Omit _north because the faceplate node is hidden when facing north.
         // Graphic_Multi mirrors _east for the west view.
@@ -115,12 +112,11 @@ namespace SlopWorld
         {
             if (pawn == null)
                 return;
-            EnsureAssignmentGame();
-            if (_eyeColors.ContainsKey(pawn.thingIDNumber))
+            if (_eyeColors.TryGetValue(pawn, out _))
                 return;
 
             var color = ColorWeights.RandomElementByWeight(p => p.Weight).Color;
-            _eyeColors[pawn.thingIDNumber] = color;
+            _eyeColors.GetValue(pawn, _ => new FaceAssignment()).Color = color;
         }
 
         // Select a new face and hair using the same hair restrictions as generation.
@@ -130,8 +126,7 @@ namespace SlopWorld
             if (pawn?.story == null)
                 return;
 
-            EnsureAssignmentGame();
-            _eyeColors[pawn.thingIDNumber] = ColorWeights
+            _eyeColors.GetValue(pawn, _ => new FaceAssignment()).Color = ColorWeights
                 .RandomElementByWeight(p => p.Weight)
                 .Color;
 
@@ -153,16 +148,14 @@ namespace SlopWorld
         {
             if (pawn == null)
                 return EyeColor.Blue;
-            EnsureAssignmentGame();
-            return _eyeColors.TryGetValue(pawn.thingIDNumber, out var c) ? c : EyeColor.Blue;
+            return _eyeColors.TryGetValue(pawn, out var c) ? c.Color : EyeColor.Blue;
         }
 
         internal static void Restore(Pawn pawn, EyeColor color)
         {
             if (pawn == null)
                 return;
-            EnsureAssignmentGame();
-            _eyeColors[pawn.thingIDNumber] = color;
+            _eyeColors.GetValue(pawn, _ => new FaceAssignment()).Color = color;
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
