@@ -213,11 +213,18 @@ struct CommandIntake {
 
 impl CommandIntake {
     async fn run(&mut self, m: &App, cap: &Cap) {
+        let mut watch_changes = m.sessions.watch_changes();
+        // Include removals that happened before this receiver was installed.
+        self.subs.lock().await.retain(|_, guard| guard.is_current());
         loop {
             tokio::select! {
                 biased;
                 invalidated = auth_invalidated(&mut self.auth_changes, cap) => {
                     if invalidated { break; }
+                }
+                changed = watch_changes.changed() => {
+                    if changed.is_err() { break; }
+                    self.subs.lock().await.retain(|_, guard| guard.is_current());
                 }
                 sent = self.scrolls.send_next(&self.tx, cap), if self.scrolls.has_pending() => {
                     if !sent { break; }

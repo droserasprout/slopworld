@@ -157,6 +157,10 @@ impl SessionRuntime {
         if !forget_live {
             reset_process_state(&mut current);
             live.insert(name.to_string(), current);
+        } else {
+            // Retire before this name can be reused; delayed guard drops must not
+            // decrement subscriptions belonging to the replacement session.
+            self.retire_watches(name);
         }
         Some(plan)
     }

@@ -34,7 +34,7 @@ impl RedrawQueue {
 /// Temporary state for client coordination and redraw publication.
 /// Keep it separate from persistent configuration and live pane state.
 pub(crate) struct Signals {
-    pub(crate) watchers: Mutex<HashMap<String, usize>>,
+    pub(crate) watchers: Mutex<HashMap<String, WatchEntry>>,
     // Watch receivers retain changes while readers await frame publication.
     pub(crate) watchers_changed: tokio::sync::watch::Sender<()>,
     pub(crate) maintenance_wake: Arc<tokio::sync::Notify>,
@@ -54,17 +54,34 @@ impl Signals {
     }
 }
 
-/// Keeps a session watched until the subscription is dropped.
-pub struct WatchGuard(pub(super) Arc<SessionRuntime>, pub(super) String);
+pub(crate) struct WatchEntry {
+    count: usize,
+    identity: Arc<()>,
+}
+
+/// A deleted session retires this generation even if a socket still holds its guard.
+pub struct WatchGuard(Arc<SessionRuntime>, String, Arc<()>);
+
+impl WatchGuard {
+    pub(crate) fn is_current(&self) -> bool {
+        self.0.signals.watchers.lock().is_ok_and(|watchers| {
+            watchers
+                .get(&self.1)
+                .is_some_and(|entry| Arc::ptr_eq(&entry.identity, &self.2))
+        })
+    }
+}
 
 impl Drop for WatchGuard {
     fn drop(&mut self) {
         let Ok(mut w) = self.0.signals.watchers.lock() else {
             return;
         };
-        if let Some(n) = w.get_mut(&self.1) {
-            *n -= 1;
-            if *n == 0 {
+        if let Some(entry) = w.get_mut(&self.1)
+            && Arc::ptr_eq(&entry.identity, &self.2)
+        {
+            entry.count -= 1;
+            if entry.count == 0 {
                 w.remove(&self.1);
             }
         }
@@ -74,11 +91,28 @@ impl Drop for WatchGuard {
 
 impl SessionRuntime {
     pub fn watching(self: &Arc<Self>, name: &str) -> WatchGuard {
+        let mut identity = Arc::new(());
         if let Ok(mut w) = self.signals.watchers.lock() {
-            *w.entry(name.to_string()).or_insert(0) += 1;
+            let entry = w.entry(name.to_string()).or_insert_with(|| WatchEntry {
+                count: 0,
+                identity: identity.clone(),
+            });
+            entry.count += 1;
+            identity = entry.identity.clone();
         }
         self.signals.watchers_changed.send_replace(());
-        WatchGuard(self.clone(), name.to_string())
+        WatchGuard(self.clone(), name.to_string(), identity)
+    }
+
+    pub(crate) fn watch_changes(&self) -> tokio::sync::watch::Receiver<()> {
+        self.signals.watchers_changed.subscribe()
+    }
+
+    pub(super) fn retire_watches(&self, name: &str) {
+        if let Ok(mut watchers) = self.signals.watchers.lock() {
+            watchers.remove(name);
+        }
+        self.signals.watchers_changed.send_replace(());
     }
 
     pub(super) fn watched(&self, name: &str) -> bool {

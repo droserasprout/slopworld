@@ -14,7 +14,7 @@ use tokio::task::JoinHandle;
 use tokio::time::{Instant, sleep_until};
 
 use super::super::App;
-use super::{WsSubs, WsTx};
+use super::{WatchGuard, WsSubs, WsTx};
 use crate::application::{Event, EventMessage};
 use crate::grant::Cap;
 
@@ -187,7 +187,7 @@ async fn pump_frames(
                     let Some(event) = scope_event(cap, event) else { continue };
                     if let Event::Screen { screen } = event.event() {
                         let name = screen.name.clone();
-                        if !subs.lock().await.contains_key(&name) {
+                        if !subs.lock().await.get(&name).is_some_and(WatchGuard::is_current) {
                             continue;
                         }
                         pending.screen(tx, cap, event, name).await?;

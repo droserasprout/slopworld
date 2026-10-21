@@ -18,6 +18,9 @@ to Protobuf. Application services do not own transport or lifecycle policy. Live
 may coalesce; replies/control events retain ordering. History capture must not block
 input or panel switching. Broadcast lag closes the socket so reconnect restores
 catalogs as well as terminal state. [Client ownership](mod-client.md) covers handoffs.
+Deleting or renaming a session retires its watch generation and wakes socket intake to release
+the subscription. A reused name requires a fresh subscription; stopping a retained
+session preserves its subscriptions.
 
 Terminal rows carry SGR/OSC styling and CHA columns. Scalars normally advance one
 cell; private `CSI <scalar-count>;<cell-width> z` introduces a complete multi-scalar cell; counts

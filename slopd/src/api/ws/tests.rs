@@ -1165,3 +1165,72 @@ async fn mouse_and_resize_commands_enforce_scope_before_changing_terminal() {
     let view = manager.sessions.views().await.pop().unwrap();
     assert_eq!((view.runtime.cols, view.runtime.rows), (90, 30));
 }
+
+#[tokio::test]
+async fn deleted_sessions_release_socket_subscriptions_without_unsubscribe() {
+    use crate::shared::wire::{self, client_message::Payload as C, event::Payload as E};
+    use futures::SinkExt;
+    use prost::Message as _;
+
+    let names: Vec<String> = (0..64).map(|index| format!("temporary-{index}")).collect();
+    let manager = crate::application::test_application(crate::config::Config {
+        sessions: names
+            .iter()
+            .chain(std::iter::once(&"retained".to_string()))
+            .map(|name| crate::config::SessionCfg {
+                name: name.clone(),
+                autostart: false,
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    });
+    manager.sessions.sync_from_config().await;
+    let mut emu = crate::emu::SessionEmu::new(80, 24);
+    emu.feed(b"ready");
+    manager.sessions.apply_frame("retained", emu.render()).await;
+    let (socket, mut client, server) = raw_socket_pair().await;
+    let (tx, rx) = socket.split();
+    let subs = WsSubs::default();
+    for name in &names {
+        subs.lock()
+            .await
+            .insert(name.clone(), manager.sessions.watching(name));
+    }
+    let mut intake = CommandIntake {
+        tx: Arc::new(Mutex::new(tx)),
+        rx,
+        subs: subs.clone(),
+        auth_changes: manager.config_authority.auth_changes(),
+        scrolls: ScrollReplies::new(),
+    };
+    let running_manager = manager.clone();
+    let driving = tokio::spawn(async move { intake.run(&running_manager, &Cap::Root).await });
+    for name in &names {
+        manager.sessions.forget(name).await;
+    }
+    // Intake prioritizes watch retirement before this marker command. Its reply
+    // establishes that cleanup ran while the connection remained usable.
+    client
+        .send(tokio_tungstenite::tungstenite::Message::Binary(
+            wire::ClientMessage {
+                payload: Some(C::Sub(wire::NameReq {
+                    name: Some("retained".into()),
+                })),
+            }
+            .encode_to_vec(),
+        ))
+        .await
+        .unwrap();
+    assert!(matches!(receive(&mut client).await, E::Screen(s) if s.name == "retained"));
+    let subscriptions = subs.lock().await;
+    assert_eq!(subscriptions.len(), 1);
+    assert!(subscriptions.contains_key("retained"));
+    drop(subscriptions);
+    client.close(None).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), driving)
+        .await
+        .unwrap()
+        .unwrap();
+    server.abort();
+}

@@ -190,6 +190,9 @@ impl SessionRuntime {
             let Some(mut l) = live.remove(old) else {
                 return;
             };
+            if old != new {
+                self.retire_watches(old);
+            }
             let reader = take_reader_for_abort(&mut l);
             // The input consumer captures its tmux target at startup.
             // Drop its sender so the next key creates a consumer for the new name.
