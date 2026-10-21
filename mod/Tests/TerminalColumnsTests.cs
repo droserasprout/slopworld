@@ -64,7 +64,10 @@ namespace SlopWorld.Tests
         {
             var runs = Row((0, new string('x', 120)), (120, "😀"));
             var buffer = new char[122];
-            TerminalColumns.WriteScanLine(runs, buffer, 0, buffer.Length);
+            // Exercise the hot loops before measuring: a single call leaves runtime
+            // warmup (including tiered execution under coverage) inside the sample.
+            for (int i = 0; i < 1000; i++)
+                TerminalColumns.WriteScanLine(runs, buffer, 0, buffer.Length);
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 100; i++)
                 TerminalColumns.WriteScanLine(runs, buffer, 0, buffer.Length);
