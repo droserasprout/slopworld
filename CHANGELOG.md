@@ -19,6 +19,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Sandbox: Fixed command comparison in live inspection.
 - Sandbox: Preserve captured cache paths and warning levels across edits and daemon restarts.
 - Sandbox: Reject overlapping private directories.
+- UI: Fixed unchecking All in agent status, Library, and task filters.
 
 ### Changed
 

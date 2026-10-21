@@ -225,7 +225,7 @@ namespace SlopWorld
         static void ToggleProjectFilter(string key, Rect anchor)
         {
             if (key.Length == 0)
-                ProjectFilter.SelectAll();
+                ProjectFilter.ToggleAll();
             else
                 ProjectFilter.Toggle(
                     key,

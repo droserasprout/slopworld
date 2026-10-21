@@ -49,5 +49,17 @@ namespace SlopWorld
             Direction.SelectAll();
             Agent.SelectAll();
         }
+
+        public void ToggleAll()
+        {
+            if (Filtering)
+                Clear();
+            else
+            {
+                Status.DeselectAll();
+                Direction.DeselectAll();
+                Agent.DeselectAll();
+            }
+        }
     }
 }

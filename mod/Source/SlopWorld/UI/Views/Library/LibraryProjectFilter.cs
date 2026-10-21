@@ -34,6 +34,17 @@ namespace SlopWorld
             _all = true;
         }
 
+        public void ToggleAll()
+        {
+            if (_all)
+            {
+                _selected.Clear();
+                _all = false;
+            }
+            else
+                SelectAll();
+        }
+
         public void Toggle(string key, IEnumerable<string> projects)
         {
             // Materialize All before removing a visible project. An empty explicit set

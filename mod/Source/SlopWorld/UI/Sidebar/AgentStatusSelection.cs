@@ -16,6 +16,9 @@ namespace SlopWorld
     // Shared checkbox and persistence policy for sidebar and command-palette status controls.
     static class AgentStatusSelection
     {
+        public static AgentStatusFilter ToggleAll(AgentStatusFilter selected) =>
+            selected == AgentStatusFilter.All ? AgentStatusFilter.None : AgentStatusFilter.All;
+
         public static AgentStatusFilter Toggle(
             AgentStatusFilter selected,
             AgentStatusFilter status

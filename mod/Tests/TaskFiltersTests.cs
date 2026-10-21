@@ -34,6 +34,42 @@ namespace SlopWorld.Tests
             Assert.That(filters.Matches(Task("future", TaskInfo.Host)), Is.True);
         }
 
+        public static void AllCheckboxesClearSelectionsAndRestoreAllFromPartialOrEmpty()
+        {
+            var filters = new TaskFilters();
+            filters.Status.ToggleAll();
+            foreach (var status in Statuses)
+                Assert.That(filters.Matches(Task("a", TaskInfo.Host, status)), Is.False);
+            filters.Status.Toggle(DelegatedTaskStatus.Working, Statuses);
+            Assert.That(filters.Matches(Task("a", TaskInfo.Host)), Is.True);
+            filters.Status.ToggleAll();
+            Assert.That(filters.Status.AllSelected, Is.True);
+
+            filters.Direction.ToggleAll();
+            Assert.That(filters.Matches(Task("a", TaskInfo.Host)), Is.False);
+            Assert.That(filters.Matches(Task(TaskInfo.Host, "a")), Is.False);
+            Assert.That(filters.Matches(Task("a", "b")), Is.False);
+            filters.Direction.ToggleAll();
+
+            filters.Agent.ToggleAll();
+            Assert.That(filters.Agent.Contains("future"), Is.False);
+            Assert.That(filters.Matches(Task("a", "b")), Is.False);
+            filters.Agent.ToggleAll();
+            Assert.That(filters.Matches(Task("future", TaskInfo.Host)), Is.True);
+
+            filters.ToggleAll();
+            Assert.That(filters.Status.AllSelected, Is.False);
+            Assert.That(filters.Direction.AllSelected, Is.False);
+            Assert.That(filters.Agent.AllSelected, Is.False);
+            Assert.That(filters.Matches(Task("a", "b")), Is.False);
+            filters.ToggleAll();
+            Assert.That(filters.Filtering, Is.False);
+            filters.Status.Toggle(DelegatedTaskStatus.Working, Statuses);
+            filters.ToggleAll();
+            Assert.That(filters.Filtering, Is.False);
+            Assert.That(filters.Matches(Task("future", TaskInfo.Host)), Is.True);
+        }
+
         public static void StatusAndDirectionSelectionsAllowMultipleValuesAndCanBeEmpty()
         {
             var filters = new TaskFilters();

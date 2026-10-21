@@ -339,7 +339,7 @@ namespace SlopWorld
         {
             if (string.Equals(value, "all", StringComparison.Ordinal))
             {
-                Sidebar.SetStatusFilter(AgentStatusFilter.All);
+                Sidebar.SetStatusFilter(AgentStatusSelection.ToggleAll(Sidebar.StatusFilter));
                 return;
             }
 

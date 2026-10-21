@@ -20,6 +20,20 @@ namespace SlopWorld
             AllSelected = true;
         }
 
+        public void DeselectAll()
+        {
+            _selected.Clear();
+            AllSelected = false;
+        }
+
+        public void ToggleAll()
+        {
+            if (AllSelected)
+                DeselectAll();
+            else
+                SelectAll();
+        }
+
         public void Toggle(T value, IEnumerable<T> values)
         {
             if (AllSelected)

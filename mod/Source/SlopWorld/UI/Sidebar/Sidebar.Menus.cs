@@ -21,7 +21,7 @@ namespace SlopWorld
                 UiLayout.MenuToggle(
                     "All",
                     selected == AgentStatusFilter.All,
-                    () => SetAgentStatusAndReopen(AgentStatusFilter.All)
+                    () => SetAgentStatusAndReopen(AgentStatusSelection.ToggleAll(StatusFilter))
                 ),
                 UiLayout.MenuToggle(
                     "Active",

@@ -76,7 +76,7 @@ namespace SlopWorld
                     selection.AllSelected,
                     () =>
                     {
-                        selection.SelectAll();
+                        selection.ToggleAll();
                         FiltersChanged();
                     }
                 ),
@@ -105,9 +105,9 @@ namespace SlopWorld
             OpenFilterMenuAt(_filterAnchor);
         }
 
-        static void ClearFilters()
+        static void ToggleAllTasks()
         {
-            Filters.Clear();
+            Filters.ToggleAll();
             FiltersChanged();
         }
 
@@ -123,7 +123,7 @@ namespace SlopWorld
             _filterAnchor = screenAnchor;
             var options = new List<FloatMenuOption>
             {
-                UiLayout.MenuToggle("All tasks", !Filtering, ClearFilters),
+                UiLayout.MenuToggle("All tasks", !Filtering, ToggleAllTasks),
                 new UiSubmenu("Status", StatusOptions),
                 new UiSubmenu("Direction", DirectionOptions),
                 new UiSubmenu("Agent", AgentOptions),

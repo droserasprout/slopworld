@@ -4,6 +4,25 @@ namespace SlopWorld.Tests
 {
     static class LibraryProjectFilterTests
     {
+        public static void AllCheckboxClearsProjectsAndRestoresAllFromEmptyOrPartial()
+        {
+            var filter = new LibraryProjectFilter();
+            var projects = new[] { "a", "[none]" };
+            filter.ToggleAll();
+            Assert.That(filter.Label, Is.EqualTo("No projects"));
+            foreach (var project in projects)
+                Assert.That(filter.Passes(project), Is.False);
+            Assert.That(filter.Passes("future"), Is.False);
+            filter.ToggleAll();
+            Assert.That(filter.Filtering, Is.False);
+            Assert.That(filter.Passes("future"), Is.True);
+            filter.Toggle("a", projects);
+            filter.ToggleAll();
+            Assert.That(filter.Filtering, Is.False);
+            foreach (var project in projects)
+                Assert.That(filter.Passes(project), Is.True);
+        }
+
         public static void AllChecksEveryProjectAndTogglingOneHidesOnlyThatProject()
         {
             var filter = new LibraryProjectFilter();

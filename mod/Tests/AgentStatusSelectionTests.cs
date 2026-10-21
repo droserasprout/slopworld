@@ -4,6 +4,27 @@ namespace SlopWorld.Tests
 {
     static class AgentStatusSelectionTests
     {
+        public static void AllCheckboxClearsAllAndRestoresAllFromEveryOtherSelection()
+        {
+            for (int mask = 0; mask <= 7; mask++)
+            {
+                var selected = (AgentStatusFilter)mask;
+                var next = AgentStatusSelection.ToggleAll(selected);
+                Assert.That(
+                    next,
+                    Is.EqualTo(
+                        selected == AgentStatusFilter.All
+                            ? AgentStatusFilter.None
+                            : AgentStatusFilter.All
+                    )
+                );
+                Assert.That(
+                    AgentStatusSelection.Parse(AgentStatusSelection.Format(next)),
+                    Is.EqualTo(next)
+                );
+            }
+        }
+
         public static void AllChecksEveryStatusAndUncheckingOneKeepsTheOthers()
         {
             var selected = AgentStatusSelection.Parse("all");
