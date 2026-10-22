@@ -10,6 +10,10 @@ remain available. Individual weather, label, overlay, and camera paths need thei
 own integration. Fleck expiry and bounded sky maintenance continue. Programmatic
 selection belongs to [terminal input](mod-terminal.md).
 
+Ambient samples are muted during rest at the sound-volume boundary, including
+already-running sustainers. User volume preferences, music, and UI sounds remain
+independent; ambient volume returns when the shared rest predicate clears.
+
 `EcoMapMemory` releases audited vanilla geometry and pawn runtime atlases while
 retaining sections and simulation grids. Unaudited layer types retain geometry.
 Reveal restores geometry/bounds before drawing or maintenance. Ordinary terminal

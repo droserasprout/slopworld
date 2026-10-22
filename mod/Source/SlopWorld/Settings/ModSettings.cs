@@ -153,7 +153,7 @@ namespace SlopWorld
         public bool smoothScrolling = true;
 
         // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
-        public float ecoDim = 0.45f;
+        public float ecoDim = 0.3f;
 
         public static ModSettings FromToml(string text)
         {

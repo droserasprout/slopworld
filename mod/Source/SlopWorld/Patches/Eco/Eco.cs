@@ -2,6 +2,7 @@ using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
+using Verse.Sound;
 
 namespace SlopWorld
 {
@@ -48,11 +49,24 @@ namespace SlopWorld
         }
 
         // Weather draws through CameraDriver.OnPreCull, outside PaneOverDraw checks.
-        // Skip hidden weather graphics while retaining weather updates and audio.
+        // Skip hidden weather graphics while retaining weather updates.
         [HarmonyPatch(typeof(WeatherManager), nameof(WeatherManager.DrawAllWeather))]
         public static class Patch_Weather
         {
             static bool Prefix() => !Resting && !WorkspaceWindow.Covering;
+        }
+
+        // Existing sustainers keep updating while game ticks are paused. Mute at
+        // the sample boundary so entering and leaving Eco also affects live ambience
+        // without changing the user's audio preferences or suppressing UI/music.
+        [HarmonyPatch(typeof(Sample), "Volume", MethodType.Getter)]
+        public static class Patch_AmbientVolume
+        {
+            static void Postfix(Sample __instance, ref float __result)
+            {
+                if (Resting && __instance.IsAmbient)
+                    __result = 0f;
+            }
         }
 
         // Suppress world overlays while retaining UI gizmos.
