@@ -14,15 +14,14 @@ For other setups, see [macOS](../installation/macos.md) or [Sidecar mode](../ins
 Install a Linux binary package from the
 [release downloads](https://github.com/droserasprout/slopworld/releases).
 Each package includes the daemon, CLI, launcher, and RimWorld mod.
+The commands below require `wget` and use version {{#constant release_version}}.
 
 ### Arch Linux
 
-The examples below use version {{#constant release_version}}; substitute the version you downloaded.
-
-Download `slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst` from the release, then run
-this command in your download directory:
+Download and install the Arch package:
 
 ```sh
+wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst
 sudo pacman -U ./slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst
 ```
 
@@ -30,10 +29,10 @@ sudo pacman -U ./slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst
 
 ### Debian and Ubuntu
 
-Download `slopworld-{{#constant release_version}}-amd64.deb` from the release, then run
-this command in your download directory:
+Download and install the Debian package:
 
 ```sh
+wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-amd64.deb
 sudo apt install ./slopworld-{{#constant release_version}}-amd64.deb
 ```
 
@@ -43,10 +42,10 @@ see [Build from source](../development/build.md#debian-packages) to build a pack
 
 ### Fedora
 
-Download `slopworld-{{#constant release_version}}-x86_64.rpm` from the release
-and install it:
+Download and install the Fedora package:
 
 ```sh
+wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-x86_64.rpm
 sudo dnf install ./slopworld-{{#constant release_version}}-x86_64.rpm
 ```
 
