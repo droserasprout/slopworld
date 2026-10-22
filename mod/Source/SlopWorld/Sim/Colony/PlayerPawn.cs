@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -9,6 +10,7 @@ namespace SlopWorld
     public class PlayerPawn : GameComponent
     {
         const float ProjectileCooldownSeconds = 0.5f;
+        const int PodOpenDelay = 60;
         static readonly string PlayerName =
             System.Environment.GetEnvironmentVariable("USER") is string user
             && !string.IsNullOrWhiteSpace(user)
@@ -57,11 +59,14 @@ namespace SlopWorld
                 return;
             if (Eco.Resting)
                 return;
+            var intro = IntroDirector.Current;
+            if (NextPlanet.Leaving || (intro != null && intro.PlayerHeld))
+                return;
             var map = Find.CurrentMap;
             if (map == null)
                 return;
 
-            EnsurePawn(map);
+            EnsurePawn(map, intro != null && intro.ArrivalsInProgress);
         }
 
         public override void GameComponentOnGUI()
@@ -106,19 +111,52 @@ namespace SlopWorld
             }
         }
 
-        void EnsurePawn(Map map)
+        // Called at the scene's arrival boundary, independently of daemon sessions.
+        internal void Arrive(Map map) => EnsurePawn(map, dropPod: true);
+
+        void EnsurePawn(Map map, bool dropPod)
         {
             if (_pawn != null && !_pawn.Destroyed && !_pawn.Dead)
+            {
+                // A pawn inside its incoming pod is already owned. Wait until it lands
+                // before repairing a missing jukebox, including after loading a save.
+                if (_pawn.Spawned && _pawn.Map == map)
+                    map.GetComponent<Jukebox>()?.EnsurePlaced(_pawn.Position);
                 return;
-            _pawn = Spawn(map);
+            }
+            _pawn = Spawn(map, dropPod);
         }
 
-        Pawn Spawn(Map map)
+        Pawn Spawn(Map map, bool dropPod)
         {
             var pawn = ColonyPawn.Generate();
             pawn.Name = new NameSingle(PlayerName);
 
-            GenSpawn.Spawn(pawn, map.Center, map);
+            var cell = SpawnSpot.Find(map, map.Center);
+            if (dropPod)
+            {
+                var cargo = new List<Thing> { pawn };
+                var box = map.GetComponent<Jukebox>()?.ArrivalCargo();
+                if (box != null)
+                    cargo.Add(box);
+                DropPodUtility.DropThingsNear(
+                    cell,
+                    map,
+                    cargo,
+                    openDelay: PodOpenDelay,
+                    canInstaDropDuringInit: false,
+                    leaveSlag: false,
+                    canRoofPunch: true,
+                    forbid: false,
+                    allowFogged: true,
+                    faction: Faction.OfPlayer
+                );
+                Log.Message("[SlopWorld] player and jukebox are on their way down");
+                return pawn;
+            }
+
+            GenSpawn.Spawn(pawn, cell, map);
+            map.GetComponent<Jukebox>()?.EnsurePlaced(cell);
             Log.Message("[SlopWorld] player pawn spawned");
             return pawn;
         }

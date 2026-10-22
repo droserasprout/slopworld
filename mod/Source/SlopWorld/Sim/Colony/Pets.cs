@@ -9,10 +9,10 @@ using Verse.AI;
 namespace SlopWorld
 {
     // Manage the colony's pet. Plague.Infectable excludes the player faction.
-    // Keep the API plural so Place controls the pet count without assumptions in other callers.
+    // IntroDirector owns arrival timing; this owner generates and delivers the pet.
     public static class Pets
     {
-        const int PlacementTries = 40;
+        const int PodOpenDelay = 60;
 
         // Drag selection calls Select for each enclosed object.
         // Limit repeated selection effects for each pet.
@@ -47,16 +47,15 @@ namespace SlopWorld
         public static List<Pawn> On(Map map) =>
             map?.mapPawns?.SpawnedColonyAnimals?.Where(Is).ToList() ?? new List<Pawn>();
 
-        // The intro calls this before pod arrivals.
-        // Prefer a random standable cell so the pet does not appear to arrive with the pods.
-        public static void Place(Map map)
+        // The intro calls this once at its arrival boundary, alongside the player's
+        // separate pod. The saved intro phase prevents repeated delivery.
+        public static void Arrive(Map map)
         {
             if (map == null)
                 return;
 
-            // ModScenario removes the scenario's starting animal.
-            // Remove any remaining colony animals, including pets from a repeated Place call.
-            // Repeated placement deliberately replaces the previous pet.
+            // ModScenario removes the scenario's starting animal. Remove any
+            // remaining colony animals before delivering the intended pet.
             foreach (var other in On(map))
             {
                 Log.Message($"[SlopWorld] removing stray colony animal '{other.LabelShort}'");
@@ -72,22 +71,14 @@ namespace SlopWorld
                 return;
             }
 
-            Place(map, cat);
+            Arrive(map, cat);
         }
 
-        static void Place(Map map, PawnKindDef kind)
+        static void Arrive(Map map, PawnKindDef kind)
         {
             try
             {
-                if (
-                    !CellFinderLoose.TryGetRandomCellWith(
-                        c => c.Standable(map),
-                        map,
-                        PlacementTries,
-                        out var cell
-                    )
-                )
-                    cell = map.Center;
+                var cell = SpawnSpot.Find(map, map.Center);
 
                 var req = new PawnGenerationRequest(
                     kind,
@@ -99,7 +90,21 @@ namespace SlopWorld
                 var pet = PawnGenerator.GeneratePawn(req);
                 pet.Name = PawnBioAndNameGenerator.GeneratePawnName(pet);
 
-                GenSpawn.Spawn(pet, cell, map);
+                if (Eco.Resting)
+                    GenSpawn.Spawn(pet, cell, map);
+                else
+                    DropPodUtility.DropThingsNear(
+                        cell,
+                        map,
+                        new List<Thing> { pet },
+                        openDelay: PodOpenDelay,
+                        canInstaDropDuringInit: false,
+                        leaveSlag: false,
+                        canRoofPunch: true,
+                        forbid: false,
+                        allowFogged: true,
+                        faction: Faction.OfPlayer
+                    );
 
                 Log.Message($"[SlopWorld] the cat is '{pet.LabelShort}' ({kind.defName})");
             }

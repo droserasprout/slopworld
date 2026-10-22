@@ -11,7 +11,23 @@ namespace SlopWorld
         public Jukebox(Map map)
             : base(map) { }
 
-        // Remove duplicate jukeboxes after loading. AgentColony prevents new duplicates.
+        // Initial placement belongs to the player's arrival, not agent sessions.
+        public Thing ArrivalCargo() => On(map) ? null : ThingMaker.MakeThing(ModDefOf.SlopJukebox);
+
+        // Repair loaded colonies after the player lands. Never place a second box
+        // while its arrival cargo is still inside the player's pod.
+        public void EnsurePlaced(IntVec3 cell)
+        {
+            var box = ArrivalCargo();
+            if (box == null)
+                return;
+            if (!GenPlace.TryPlaceThing(box, cell, map, ThingPlaceMode.Near))
+            {
+                box.Destroy(DestroyMode.Vanish);
+                Log.Warning("[SlopWorld] Could not place the map jukebox.");
+            }
+        }
+
         public override void FinalizeInit()
         {
             var boxes = map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox);
@@ -75,7 +91,7 @@ namespace SlopWorld
             );
         }
 
-        // Check for an existing jukebox before AgentColony adds another to a pod.
+        // Pending pod cargo is intentionally absent until it lands on the map.
         public static bool On(Map map) =>
             map != null && map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox).Count > 0;
     }

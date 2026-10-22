@@ -66,6 +66,9 @@ namespace SlopWorld
 
         public static IntroDirector Current => Verse.Current.Game?.GetComponent<IntroDirector>();
 
+        public bool PlayerHeld => IntroSceneState.PlayerHeld(_phase);
+        public bool ArrivalsInProgress => _phase == IntroPhase.Bloom;
+
         Map TheMap => _map ?? (_map = Find.CurrentMap);
 
         // Advance these phases even when the game is paused.
@@ -165,7 +168,6 @@ namespace SlopWorld
             {
                 _populationArmed = true;
                 Find.CameraDriver?.JumpToCurrentMapLoc(map.Center);
-                Pets.Place(map);
             }
 
             if (_animalKinds == null)
@@ -309,6 +311,9 @@ namespace SlopWorld
             if (Held)
                 return;
 
+            // The player and jukebox arrive even when the daemon has no agents.
+            PlayerPawn.Current?.Arrive(map);
+            Pets.Arrive(map);
             AgentsHeld = false; // the reconcile may drop the agents in now
             Go(IntroPhase.Bloom, BloomSeconds);
         }
@@ -355,7 +360,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref _phase, "introPhase", IntroPhase.Waiting);
             Scribe_Values.Look(ref _animalsLeft, "introAnimalsLeft", 0);
             Scribe_Values.Look(ref _humansLeft, "introHumansLeft", 0);
-            // Preserve population setup so loading does not replace the already placed pet.
+            // Preserve population setup across loads during the opening scene.
             Scribe_Values.Look(ref _populationArmed, "introPopulationArmed", false);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {

@@ -37,9 +37,6 @@ namespace SlopWorld
         // Check every tick so the haze appears when the pawn spawns, without waiting for the next reconciliation.
         readonly List<Pawn> _landing = new List<Pawn>();
 
-        // Whether this colony's one jukebox has been put in a pod. See Spawn.
-        bool _jukeboxSent;
-
         readonly Game _game;
 
         public AgentColony(Game game)
@@ -499,29 +496,14 @@ namespace SlopWorld
             RobotFace.Assign(pawn);
             AgentLook.Roll(pawn);
 
-            // Prepare arrival cargo for a pod, except when Eco requires direct placement.
             // SpawnSpot selects the landing area. DropCellFinder selects the final pod position.
-            var cargo = new List<Thing> { pawn };
-
-            // Include one jukebox in the first arrival.
-            // The saved flag prevents duplicates from concurrent arrivals or loading before pods open.
-            if (!_jukeboxSent && !Jukebox.On(map))
-            {
-                cargo.Add(ThingMaker.MakeThing(ModDefOf.SlopJukebox));
-                _jukeboxSent = true;
-            }
-
             var cell = SpawnSpot.Find(map, Anchor(map));
 
-            // During Eco, place the pawn and cargo directly at the landing cell.
+            // During Eco, place the pawn directly at the landing cell.
             // Paused game ticks would otherwise prevent the pod from opening and leave a duplicate sidebar row.
             if (Eco.Resting)
             {
                 GenSpawn.Spawn(pawn, cell, map);
-                foreach (var thing in cargo)
-                    if (thing != pawn)
-                        GenPlace.TryPlaceThing(thing, cell, map, ThingPlaceMode.Near);
-
                 Log.Message($"[SlopWorld] Colonist '{name}' set down. The game remains paused.");
                 return pawn;
             }
@@ -529,7 +511,7 @@ namespace SlopWorld
             DropPodUtility.DropThingsNear(
                 cell,
                 map,
-                cargo,
+                new List<Thing> { pawn },
                 openDelay: PodOpenDelay,
                 canInstaDropDuringInit: false,
                 leaveSlag: false,
@@ -610,7 +592,6 @@ namespace SlopWorld
                         RobotFace.Assign(binding.Value);
                 _savedEyeColors = null;
             }
-            Scribe_Values.Look(ref _jukeboxSent, "jukeboxSent", false);
             _reindex = true; // whatever the table is now, it is not what the index holds
             _orderDirty = true;
         }
