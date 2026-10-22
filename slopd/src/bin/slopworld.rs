@@ -193,6 +193,16 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     }
 
     let mut command = Command::new(&executable);
+    // Let RimWorld initialize display preferences before the mod applies audio
+    // defaults. Precreating Prefs.xml bypasses the game's first-run detection.
+    command.env(
+        "SLOPWORLD_INITIAL_AUDIO",
+        if profile.join("Config/Prefs.xml").exists() {
+            "0"
+        } else {
+            "1"
+        },
+    );
     // Pass the same resolved roots to the mod, including platform defaults and
     // absolute paths so a different game working directory cannot relocate them.
     for (variable, root) in [

@@ -142,6 +142,26 @@ fn an_explicit_mac_game_uses_the_app_mods_directory() {
 }
 
 #[test]
+fn seeding_leaves_game_preferences_to_rimworld_and_preserves_existing_preferences() {
+    for sidecar in [false, true] {
+        let p = scratch("audio-prefs");
+        seed(&p, false, sidecar).expect("seeds audio");
+        let prefs = p.join("Config/Prefs.xml");
+        assert!(
+            !prefs.exists(),
+            "RimWorld must run first-time display detection"
+        );
+        let edited = "<PrefsData><volumeMaster>0.4</volumeMaster></PrefsData>\n";
+        std::fs::write(&prefs, edited).unwrap();
+        for reset in [false, true] {
+            seed(&p, reset, sidecar).expect("preserves audio");
+            assert_eq!(std::fs::read_to_string(&prefs).unwrap(), edited);
+        }
+        std::fs::remove_dir_all(p).unwrap();
+    }
+}
+
+#[test]
 fn seeding_writes_a_marker_and_a_mod_list() {
     let p = scratch("seed");
     seed(&p, false, false).expect("seeds");

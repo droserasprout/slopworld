@@ -39,10 +39,11 @@ namespace SlopWorld
         static double _cachedNowPlayingAt = double.NegativeInfinity;
         static int _cachedNowPlayingVersion = -1;
 
-        // Use native SlopWorld SongDefs when the daemon cannot play audio.
+        // Use bundled SongDefs when the daemon cannot play audio or open the OST.
         // Until capabilities arrive, the default permits daemon playback.
-        static bool SidecarAudio =>
-            SessionHub.Instance != null && !SessionHub.Instance.Capabilities.AudioPlayback;
+        static bool NativeAudio =>
+            LocalOst
+            || (SessionHub.Instance != null && !SessionHub.Instance.Capabilities.AudioPlayback);
 
         internal static Func<NativeTrackSnapshot> NativeTrackProvider =
             NativeJukebox.ReadNativeTrack;
@@ -147,7 +148,7 @@ namespace SlopWorld
                 Read();
                 if (_muted)
                     return null;
-                if (SidecarAudio)
+                if (NativeAudio)
                     return NativeNowPlaying();
                 if (!_playing)
                     return null;
@@ -245,7 +246,7 @@ namespace SlopWorld
             get
             {
                 Read();
-                return _muted || SidecarAudio ? null : StationNowPlaying();
+                return _muted || NativeAudio ? null : StationNowPlaying();
             }
         }
 
@@ -253,7 +254,7 @@ namespace SlopWorld
         internal static JukeboxLikeRecord CaptureLike(DateTime now, out string display)
         {
             display = null;
-            if (SidecarAudio)
+            if (NativeAudio)
             {
                 var track = SampleNativeTrack();
                 if (track == null || !track.IsUsable)
@@ -373,7 +374,7 @@ namespace SlopWorld
         public static void ToggleMute()
         {
             Read();
-            if (SidecarAudio)
+            if (NativeAudio)
             {
                 _muted = !_muted;
                 if (_muted)
@@ -425,8 +426,11 @@ namespace SlopWorld
             // On macOS, wait for daemon capabilities before disabling native music.
             if (!hub.Capabilities.Known && Application.platform == RuntimePlatform.OSXPlayer)
                 return;
-            if (!hub.Capabilities.AudioPlayback)
+            if (NativeAudio)
             {
+                // Stop the failed daemon source once before running local music.
+                if (hub.Capabilities.AudioPlayback)
+                    UpdatePlayback(Time.realtimeSinceStartupAsDouble, hub, Volume());
                 NativeJukebox.SetMuted(_muted);
                 return;
             }
@@ -440,7 +444,7 @@ namespace SlopWorld
         static float Volume() => NativeJukebox.Volume;
 
         // Read the daemon playback report. Log failures once per selection.
-        // If a radio station fails, notify the player and select OST. OST failures have no fallback.
+        // Failed stations select OST; failed daemon OST playback uses bundled SongDefs.
         public static void Report(
             bool playing,
             string error,
@@ -475,6 +479,12 @@ namespace SlopWorld
             if (playing || string.IsNullOrEmpty(error))
             {
                 _blamed = false;
+                return;
+            }
+            if (FallbackToLocalOst(source, error))
+            {
+                Log.Warning("[SlopWorld] jukebox: " + error + ". Using the bundled OST locally.");
+                NativeJukebox.Resume();
                 return;
             }
             if (_blamed)

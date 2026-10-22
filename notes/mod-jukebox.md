@@ -27,7 +27,15 @@ deadline: continuous traffic or playback backpressure must not force reconnects.
 Catalog reload failure retains the valid snapshot for retry. Mutation errors distinguish
 saved disk changes from failed activation so repaired definitions can activate later.
 
-Daemon playback disables vanilla music; sidecar OST uses RimWorld's music manager.
+Daemon playback disables vanilla music. Sidecar OST and failed daemon OST playback
+use the bundled SongDefs through RimWorld's music manager. The OST failure fallback
+lasts for the game process, stops daemon playback, and leaves other sources available.
+On a profile's first run, OST playback is local and selects `pace` once before
+returning to RimWorld's usual selection and inter-track pauses. The launcher's
+first-run signal is shared with initial audio preferences.
+The map component prepares jukebox cargo for the player's opening pod, independently
+of agents. Player reconciliation repairs a missing jukebox only after the player
+has landed, so pending pod cargo cannot cause duplicate placement.
 Muting daemon streams/Spotify stops them to avoid background playback/downloads.
 Spotify requires both ncspot and audio capabilities; sidecar supplies neither and
 falls back to OST for unavailable saved selections.

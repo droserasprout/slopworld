@@ -47,6 +47,7 @@
     <Compile Include="../Source/SlopWorld/Client/Audio/AudioBus.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Selection.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/ModProfile.cs" />
+    <Compile Include="../Source/SlopWorld/Bootstrap/ProfileAudioDefaults.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/ProfileRefusal.cs" />
     <Compile Include="../Source/SlopWorld/UI/MenuBackground/BandedNoiseRow.cs" />
     <Compile Include="../Source/SlopWorld/Platform/Windowing/LinuxGameWindow.cs" />

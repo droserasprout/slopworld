@@ -48,6 +48,14 @@ namespace Verse
     static class Prefs
     {
         public static float UIScale = 1f;
+        public static float VolumeMaster,
+            VolumeGame,
+            VolumeMusic,
+            VolumeAmbient,
+            VolumeUI;
+        public static int AudioPreferenceSaves;
+
+        public static void Save() => AudioPreferenceSaves++;
     }
 }
 

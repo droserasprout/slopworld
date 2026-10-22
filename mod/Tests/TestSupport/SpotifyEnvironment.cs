@@ -36,9 +36,13 @@ namespace SlopWorld
         internal static void UpdatePlaybackTest(double now, float volume) =>
             UpdatePlayback(now, SessionHub.Instance, volume);
 
+        internal static bool FallbackToLocalOstTest(string source, string error) =>
+            FallbackToLocalOst(source, error);
+
         internal static void ResetSpotifyTest()
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;
+            _localOstFallback = false;
             _spotifyOpened = _spotifyFailed = null;
             _station = null;
             _read = false;

@@ -59,6 +59,7 @@ precedence over the configuration root.
 | `RIMWORLD` | `slopworld mod` commands | Game installation for mod management when an explicit destination is absent. Also used by build recipes. |
 | `MAC_RIMWORLD` | `slopworld mod` commands on macOS | Game app location after `RIMWORLD`; defaults to `~/Documents/RimWorld.app`. Also used by macOS recipes. |
 | `SLOPWORLD_PROFILE` | `slopworld` | Game profile when `--profile` is absent. |
+| `SLOPWORLD_INITIAL_AUDIO` | Mod | Set automatically by the launcher when game preferences are missing. Applies initial audio volumes after RimWorld detects display settings. |
 
 The launcher ignores blank values for these game/profile choices. An explicit
 `--profile` wins profile selection. `--sidecar` selects sidecar defaults and

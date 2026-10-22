@@ -1,3 +1,4 @@
+using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -7,6 +8,26 @@ namespace SlopWorld
     // Adapt host music, SongDefs and game volume; Radio owns source and playback policy.
     internal static class NativeJukebox
     {
+        static bool _openingTrackPending = ProfileAudioDefaults.FirstRun;
+
+        // Override only the first selection in a new profile. The manager retains
+        // its normal history, inter-track timing, and subsequent song selection.
+        [HarmonyPatch(typeof(MusicManagerPlay), "ChooseNextSong")]
+        static class Patch_OpeningSong
+        {
+            static bool Prefix(ref SongDef __result)
+            {
+                if (!_openingTrackPending)
+                    return true;
+                _openingTrackPending = false;
+                var song = DefDatabase<SongDef>.GetNamedSilentFail("SlopWorld_pace_20261012");
+                if (song == null)
+                    return true;
+                __result = song;
+                return false;
+            }
+        }
+
         internal static string OstPath()
         {
             var root = ModEntry.Instance?.Content?.RootDir;
@@ -54,6 +75,8 @@ namespace SlopWorld
             music.disabled = muted;
             if (muted && (changed || music.IsPlaying))
                 music.Stop();
+            else if (!muted && changed)
+                Resume();
         }
 
         // Start the next SlopWorld song immediately after unmuting.

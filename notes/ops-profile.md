@@ -15,6 +15,10 @@ Validate before seeding. Preserve existing mod lists unless reset is explicit; s
 lists omit `<version>` so RimWorld cannot replace them on mismatch. Reject `=` in
 resolved profile paths because the game parser splits on it. Print mode creates
 nothing.
+The launcher leaves `Config/Prefs.xml` creation to RimWorld so first-run display
+detection runs. It signals a missing preferences file through the game-only
+`SLOPWORLD_INITIAL_AUDIO` environment value; the mod applies audio defaults after
+initialization. Existing preferences remain authoritative even with mod-list reset.
 
 Retain the profile lock through game exit on Linux/macOS; external-game detection
 is Linux-only. Native/sidecar defaults are selected by `--sidecar`, not endpoint or
