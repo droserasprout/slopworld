@@ -8,6 +8,8 @@ Component justfiles own tool commands; the root owns aggregates and `just/ci.jus
 owns CI groups. Imports share one namespace and repository-root working directory.
 Use native dependencies for ordering. Python owns substantive generation, staging,
 and reporting; run `tools/` as a package through `uv run --locked python -m`.
+Routine checks and builds use native quiet options; keep warnings, failures, and
+compact test summaries visible.
 `mac/` owns native macOS workflows; `slopcar/` owns containers. Mod builds do not
 build Rust, so install/launch recipes must declare their launcher dependency.
 

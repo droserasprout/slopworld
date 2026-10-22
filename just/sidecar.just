@@ -1,7 +1,7 @@
 # Build the native host-side launcher
 [group('sidecar')]
 sidecar-build:
-    cd slopcar && cargo build --locked $CARGOFLAGS
+    cd slopcar && cargo build --quiet --locked $CARGOFLAGS
 
 # Build the Linux sidecar runtime image
 [group('sidecar')]
@@ -23,13 +23,13 @@ sidecar-format:
 [group('sidecar')]
 sidecar-lint:
     cd slopcar && cargo fmt --check
-    cd slopcar && cargo clippy --locked --all-targets -- -D warnings
+    cd slopcar && cargo clippy --quiet --locked --all-targets -- -D warnings
 
 # Run launcher Rust tests; Python tests belong to tools-test
 [positional-arguments]
 [group('sidecar')]
 sidecar-test *args:
-    cd slopcar && cargo test --locked "$@"
+    cd slopcar && cargo test --quiet --locked "$@"
 
 # Remove component build output
 [group('sidecar')]

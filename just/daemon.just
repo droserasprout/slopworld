@@ -1,7 +1,7 @@
 # Build the daemon, CLI and launcher
 [group('daemon')]
 daemon-build:
-    cd slopd && env ${VERSION:+SLOPWORLD_BUILD_VERSION="$VERSION"} cargo build --locked $CARGOFLAGS
+    cd slopd && env ${VERSION:+SLOPWORLD_BUILD_VERSION="$VERSION"} cargo build --quiet --locked $CARGOFLAGS
 
 # Format Rust sources
 [group('daemon')]
@@ -16,7 +16,7 @@ daemon-check-format:
 # Check formatting and Clippy
 [group('daemon')]
 daemon-lint: daemon-check-format
-    cd slopd && cargo clippy --all-targets -- -D warnings
+    cd slopd && cargo clippy --quiet --all-targets -- -D warnings
 
 # Run Rust tests
 [positional-arguments]
