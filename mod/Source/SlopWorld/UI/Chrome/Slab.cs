@@ -76,11 +76,25 @@ namespace SlopWorld
         }
 
         // Draw a one-screen-pixel top rule regardless of UI scale.
-        public static void Hairline(Rect r, Color c) => Flat(new Rect(r.x, r.y, r.width, LineW), c);
+        public static void Hairline(Rect r, Color c) => Rule(r, c, false);
 
         // The vertical counterpart, for a panel boundary that stays one screen pixel wide.
-        public static void VHairline(Rect r, Color c) =>
-            Flat(new Rect(r.x, r.y, LineW, r.height), c);
+        public static void VHairline(Rect r, Color c) => Rule(r, c, true);
+
+        static void Rule(Rect r, Color c, bool vertical)
+        {
+            if (!Paint(c))
+                return;
+
+            r = Snap(r, out var screenScale);
+            // Snap the origin, then assign thickness. Independently rounding both edges
+            // of a one-pixel rule can collapse it at half-pixel ties or float error.
+            if (vertical)
+                r.width = screenScale.x >= 0.0001f ? 1f / screenScale.x : LineW;
+            else
+                r.height = screenScale.y >= 0.0001f ? 1f / screenScale.y : LineW;
+            FlatSnapped(r, c);
+        }
 
         // Draw only during Repaint, and skip fully transparent colors.
         static bool Paint(Color c) => Event.current.type == EventType.Repaint && c.a > 0f;
