@@ -7,6 +7,7 @@ namespace SlopWorld
     internal sealed class AboutRobots
     {
         const GameFont RegularFont = GameFont.Medium;
+        const float MinimumLayoutWidth = 1440f;
         static float TailPadding => UiTheme.GapL;
         const string RobotTexturePath = "SlopWorld/Marks/08";
         const float RobotImageSize = 88f;
@@ -42,9 +43,25 @@ namespace SlopWorld
 
         public float Draw(Rect r, float viewportHeight)
         {
+            var naturalText = UiText.SizedStyle(
+                RegularFont,
+                BodyTextSize,
+                TextAnchor.UpperLeft,
+                false
+            );
+            float layoutWidth = MinimumLayoutWidth;
+            // Include the icon column, bullet indent, and rounding slack in the single-line width.
+            foreach (string bullet in Bullets)
+                layoutWidth = Mathf.Max(
+                    layoutWidth,
+                    HeaderTextOffset
+                        + BulletIndent * 1.6f
+                        + naturalText.CalcSize(new GUIContent(bullet)).x
+                        + 16f
+                );
             // Center against the viewport, never the previous scroll-content height.
-            float scale = Mathf.Clamp(r.width / 1320f, 0.6f, 1f);
-            float width = Mathf.Min(r.width, 1320f);
+            float scale = Mathf.Clamp(r.width / layoutWidth, 0.6f, 1f);
+            float width = Mathf.Min(r.width, layoutWidth);
             r = new Rect(r.center.x - width / 2f, r.y, width, r.height);
             float offset = r.width < 480f ? 0f : HeaderTextOffset * scale;
             var body = new Rect(r.x + offset, r.y, Mathf.Max(1f, r.width - offset), r.height);
@@ -57,7 +74,7 @@ namespace SlopWorld
             title.fontStyle = FontStyle.Bold;
             var text = UiText.SizedStyle(
                 RegularFont,
-                Mathf.RoundToInt(BodyTextSize * scale),
+                Mathf.FloorToInt(BodyTextSize * scale),
                 TextAnchor.UpperLeft,
                 true
             );
