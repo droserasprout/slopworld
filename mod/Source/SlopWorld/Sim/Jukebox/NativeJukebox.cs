@@ -11,7 +11,7 @@ namespace SlopWorld
         static bool _openingTrackPending = ProfileAudioDefaults.FirstRun;
 
         // Override only the first selection in a new profile. The manager retains
-        // its normal history, inter-track timing, and subsequent song selection.
+        // its normal history and subsequent song selection.
         [HarmonyPatch(typeof(MusicManagerPlay), "ChooseNextSong")]
         static class Patch_OpeningSong
         {
@@ -25,6 +25,19 @@ namespace SlopWorld
                     return true;
                 __result = song;
                 return false;
+            }
+        }
+
+        // MusicUpdate initializes the audio source and marks completed songs idle.
+        // Advance after that work to bypass vanilla's random inter-track delay.
+        // Radio disables this manager while muted or using daemon playback.
+        [HarmonyPatch(typeof(MusicManagerPlay), nameof(MusicManagerPlay.MusicUpdate))]
+        static class Patch_ContinuousPlayback
+        {
+            static void Postfix(MusicManagerPlay __instance)
+            {
+                if (!__instance.disabled && !__instance.IsPlaying)
+                    __instance.StartNewSong();
             }
         }
 

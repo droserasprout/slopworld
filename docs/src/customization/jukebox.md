@@ -6,7 +6,8 @@ The jukebox arrives with the player in a drop pod during the opening scene,
 even without any agents.
 If the daemon cannot open or play the OST, RimWorld plays the bundled tracks locally.
 The first launch of a new profile starts the OST with **pace**, played locally.
-Local playback uses RimWorld's normal pauses between tracks.
+Local playback advances to the next track without RimWorld's random pauses,
+just like daemon playback.
 
 ## Native Linux playback
 

@@ -31,8 +31,10 @@ Daemon playback disables vanilla music. Sidecar OST and failed daemon OST playba
 use the bundled SongDefs through RimWorld's music manager. The OST failure fallback
 lasts for the game process, stops daemon playback, and leaves other sources available.
 On a profile's first run, OST playback is local and selects `pace` once before
-returning to RimWorld's usual selection and inter-track pauses. The launcher's
-first-run signal is shared with initial audio preferences.
+returning to RimWorld's usual song selection. Native playback advances after the
+music manager's update when enabled and idle, bypassing its random inter-track
+delay without interrupting active songs. The launcher's first-run signal is shared
+with initial audio preferences.
 The map component prepares jukebox cargo for the player's opening pod, independently
 of agents. Player reconciliation repairs a missing jukebox only after the player
 has landed, so pending pod cargo cannot cause duplicate placement.

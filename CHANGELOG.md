@@ -19,7 +19,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 - Eco: Mute ambient sounds while the colony is paused.
 - Jukebox: Fall back to local OST playback when daemon playback fails.
-- Jukebox: Deliver the jukebox with the player even without any agents.
+- Jukebox: Drop the jukebox in a pod during initial cutscene.
 
 ### Changed
 
