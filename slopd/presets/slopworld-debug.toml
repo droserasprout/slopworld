@@ -53,7 +53,7 @@ ro = [
 ]
 # Bind the daemon's configured tmux socket. Exclude other host tmux servers.
 tmux = true
-# Bind native and sidecar config.toml and endpoint.toml read-only for diagnostics.
+# Bind native and sidecar config.toml and endpoints/local.toml read-only for diagnostics.
 # This generated mount is an exception to the ordinary preset path restriction.
 daemon_config = true
 escapes = "Can use the daemon root credential, control host terminals, start processes outside the sandbox, and modify host game files and profiles"

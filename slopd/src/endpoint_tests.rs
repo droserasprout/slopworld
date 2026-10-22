@@ -27,11 +27,13 @@ fn descriptor_round_trips_through_toml() {
 
 #[tokio::test]
 async fn descriptor_writes_and_token_updates_preserve_the_bound_url() {
-    let path = std::env::temp_dir().join(format!(
-        "slopd-endpoint-{}-{}.toml",
+    let root = std::env::temp_dir().join(format!(
+        "slopd-endpoint-{}-{}",
         std::process::id(),
         uuid::Uuid::new_v4()
     ));
+    let path = root.join("endpoints/local.toml");
+    let remote = root.join("endpoints/remote.toml");
     let endpoint = Endpoint {
         url: "http://127.0.0.1:7717".into(),
         token: "old".into(),
@@ -42,12 +44,17 @@ async fn descriptor_writes_and_token_updates_preserve_the_bound_url() {
     assert_eq!(initial.url, endpoint.url);
     assert_eq!(initial.token, endpoint.token);
 
+    std::fs::write(&remote, "remote connection").unwrap();
     update_token(&path, "new").await.unwrap();
 
     let written: Endpoint = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(written.url, endpoint.url);
     assert_eq!(written.token, "new");
-    std::fs::remove_file(path).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(remote).unwrap(),
+        "remote connection"
+    );
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

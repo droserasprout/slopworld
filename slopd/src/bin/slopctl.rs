@@ -16,7 +16,6 @@ mod test_http;
 mod tests;
 
 use commands::{Command, USAGE, parse_command};
-use http::load_endpoint;
 use logs::{LOGS_USAGE, run_logs};
 use shared::application_paths::{self, Mode};
 use std::process::ExitCode;
@@ -42,8 +41,9 @@ fn run() -> Result<(), String> {
     } else {
         Mode::Native
     };
+    let named_endpoint = application_paths::take_endpoint(&mut args)?;
     let json = take_json_flag(&mut args);
-    if let Some(path) = application_paths::path_query(&args, mode)? {
+    if let Some(path) = application_paths::path_query(&args, mode, named_endpoint.as_deref())? {
         if json {
             println!(
                 "{}",
@@ -65,7 +65,7 @@ fn run() -> Result<(), String> {
         return Ok(());
     }
     // Read local log files so they remain available while slopd is down.
-    // Handle this command before loading endpoint.toml because it does not need the endpoint token.
+    // Handle this command before loading endpoints/local.toml because it does not need the endpoint token.
     if let Command::Logs { ref args } = command {
         if args
             .iter()
@@ -77,7 +77,7 @@ fn run() -> Result<(), String> {
         return run_logs(args, json, mode);
     }
 
-    let endpoint = load_endpoint(mode)?;
+    let endpoint = http::load_endpoint(mode, named_endpoint.as_deref())?;
     // Use the host identity when SLOPWORLD_SESSION is absent or empty.
     // This lets users read the host inbox without specifying an identity.
     let session = std::env::var("SLOPWORLD_SESSION")

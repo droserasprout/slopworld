@@ -107,7 +107,7 @@ pub struct SandboxPreset {
     /// is deliberately opt-in: the socket is a live control channel to host terminals.
     #[serde(default)]
     pub tmux: bool,
-    /// Bind native and sidecar config.toml and endpoint.toml read-only for diagnostics. Ordinary
+    /// Bind native and sidecar config.toml and endpoints/local.toml read-only for diagnostics. Ordinary
     /// path lists still cannot reach either secret-bearing file.
     #[serde(default)]
     pub daemon_config: bool,

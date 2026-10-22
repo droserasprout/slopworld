@@ -86,9 +86,9 @@ namespace SlopWorld.Tests
             string previousConfig = Environment.GetEnvironmentVariable("SLOPD_CONFIG_ROOT");
             try
             {
-                Directory.CreateDirectory(Path.Combine(root, "slopworld"));
+                Directory.CreateDirectory(Path.Combine(root, "slopworld", "endpoints"));
                 File.WriteAllText(
-                    Path.Combine(root, "slopworld", "endpoint.toml"),
+                    Path.Combine(root, "slopworld", "endpoints", "local.toml"),
                     "url = \"http://example.test:8822\"\ntoken = \"xdg\"\n"
                 );
                 Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", null);
@@ -131,9 +131,9 @@ namespace SlopWorld.Tests
             {
                 string config = Path.Combine(root, "config");
                 string data = Path.Combine(root, "data");
-                Directory.CreateDirectory(config);
+                Directory.CreateDirectory(Path.Combine(config, "endpoints"));
                 File.WriteAllText(
-                    Path.Combine(config, "endpoint.toml"),
+                    Path.Combine(config, "endpoints", "local.toml"),
                     "url = \"http://root.test:8823\"\ntoken = \"root\"\n"
                 );
                 Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", null);

@@ -21,7 +21,7 @@ namespace SlopWorld
     }
 
     // The daemon owns the live endpoint. The mod discovers its address and token from
-    // endpoint.toml instead of keeping a second connection configuration.
+    // endpoints/local.toml instead of keeping a second connection configuration.
     public static class Endpoint
     {
         // Bootstrap-only values. Once connected, daemon metadata is authoritative for policy.
@@ -57,7 +57,7 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(explicitPath))
                 return explicitPath;
 
-            return Path.Combine(ApplicationPaths.ConfigRoot, "endpoint.toml");
+            return Path.Combine(ApplicationPaths.ConfigRoot, "endpoints", "local.toml");
         }
     }
 }

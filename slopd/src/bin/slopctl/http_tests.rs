@@ -6,50 +6,16 @@ use crate::tests::http_fixture::{serve, serve_raw, serve_sequence, serve_truncat
 fn endpoint_credentials_follow_overrides_and_report_descriptor_failures() {
     const CASE: &str = "SLOPCTL_ENDPOINT_TEST_CASE";
     if let Ok(case) = std::env::var(CASE) {
-        match case.as_str() {
-            "paired" => {
-                let endpoint = load_endpoint(Mode::Native).unwrap();
-                assert_eq!(endpoint.url, "http://override");
-                assert_eq!(endpoint.token, "override-token");
-            }
-            "unpaired" => {
-                let error = load_endpoint(Mode::Native).err().unwrap();
-                assert!(error.contains("SLOPD_TOKEN is missing"), "{error}");
-            }
-            "native" | "sidecar" => {
-                let mode = if case == "native" {
-                    Mode::Native
-                } else {
-                    Mode::Sidecar
-                };
-                let endpoint = load_endpoint(mode).unwrap();
-                assert_eq!(endpoint.url, format!("http://{case}"));
-                assert_eq!(endpoint.token, format!("{case}-token"));
-            }
-            "explicit" => {
-                let endpoint = load_endpoint(Mode::Sidecar).unwrap();
-                assert_eq!(endpoint.url, "http://native");
-                assert_eq!(endpoint.token, "native-token");
-            }
-            "missing" | "invalid" => {
-                let error = load_endpoint(Mode::Native).err().unwrap();
-                let verb = if case == "missing" {
-                    "reading"
-                } else {
-                    "parsing"
-                };
-                assert!(error.starts_with(verb), "{error}");
-                assert!(error.contains(&format!("{case}.toml")), "{error}");
-            }
-            _ => panic!("unknown endpoint fixture"),
-        }
+        assert_endpoint_case(&case);
         return;
     }
     let root = std::env::temp_dir().join(format!("slopctl-endpoint-{}", uuid::Uuid::new_v4()));
-    std::fs::create_dir_all(root.join("sidecar")).unwrap();
+    std::fs::create_dir_all(root.join("sidecar/endpoints")).unwrap();
+    std::fs::create_dir_all(root.join("endpoints")).unwrap();
     for (path, name) in [
-        ("endpoint.toml", "native"),
-        ("sidecar/endpoint.toml", "sidecar"),
+        ("endpoints/local.toml", "native"),
+        ("endpoints/tank.toml", "tank"),
+        ("sidecar/endpoints/local.toml", "sidecar"),
     ] {
         std::fs::write(
             root.join(path),
@@ -59,7 +25,8 @@ fn endpoint_credentials_follow_overrides_and_report_descriptor_failures() {
     }
     std::fs::write(root.join("invalid.toml"), "not valid TOML").unwrap();
     let outcomes = [
-        "paired", "unpaired", "native", "sidecar", "explicit", "missing", "invalid",
+        "paired", "unpaired", "native", "sidecar", "explicit", "named", "missing", "invalid",
+        "selected",
     ]
     .map(|case| {
         let mut command = std::process::Command::new(std::env::current_exe().unwrap());
@@ -75,6 +42,11 @@ fn endpoint_credentials_follow_overrides_and_report_descriptor_failures() {
             .env_remove("SLOPD_TOKEN")
             .env_remove("SLOPD_ENDPOINT");
         match case {
+            "named" => {
+                command.env("SLOPD_ENDPOINT", root.join("missing.toml"));
+                command.env("SLOPD_URL", "http://ignored");
+                // An explicit selection does not inherit environment credentials.
+            }
             "paired" | "unpaired" => {
                 command.env("SLOPD_URL", "http://override");
                 if case == "paired" {
@@ -82,7 +54,7 @@ fn endpoint_credentials_follow_overrides_and_report_descriptor_failures() {
                 }
             }
             "explicit" => {
-                command.env("SLOPD_ENDPOINT", root.join("endpoint.toml"));
+                command.env("SLOPD_ENDPOINT", root.join("endpoints/local.toml"));
             }
             "missing" | "invalid" => {
                 command.env("SLOPD_ENDPOINT", root.join(format!("{case}.toml")));
@@ -100,6 +72,62 @@ fn endpoint_credentials_follow_overrides_and_report_descriptor_failures() {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+}
+
+fn assert_endpoint_case(case: &str) {
+    match case {
+        "paired" => {
+            let endpoint = load_endpoint(Mode::Native, None).unwrap();
+            assert_eq!(endpoint.url, "http://override");
+            assert_eq!(endpoint.token, "override-token");
+        }
+        "unpaired" => {
+            let error = load_endpoint(Mode::Native, None).err().unwrap();
+            assert!(error.contains("SLOPD_TOKEN is missing"), "{error}");
+        }
+        "native" | "sidecar" => {
+            let mode = if case == "native" {
+                Mode::Native
+            } else {
+                Mode::Sidecar
+            };
+            let endpoint = load_endpoint(mode, None).unwrap();
+            assert_eq!(endpoint.url, format!("http://{case}"));
+            assert_eq!(endpoint.token, format!("{case}-token"));
+        }
+        "selected" => {
+            let config = std::env::var_os("SLOPD_CONFIG_ROOT").unwrap();
+            std::fs::write(
+                std::path::PathBuf::from(config).join("client.toml"),
+                "endpoint = 'tank'\n",
+            )
+            .unwrap();
+            let endpoint = load_endpoint(Mode::Native, None).unwrap();
+            assert_eq!(endpoint.url, "http://tank");
+            assert_eq!(endpoint.token, "tank-token");
+        }
+        "named" => {
+            let endpoint = load_endpoint(Mode::Native, Some("tank")).unwrap();
+            assert_eq!(endpoint.url, "http://tank");
+            assert_eq!(endpoint.token, "tank-token");
+        }
+        "explicit" => {
+            let endpoint = load_endpoint(Mode::Sidecar, None).unwrap();
+            assert_eq!(endpoint.url, "http://native");
+            assert_eq!(endpoint.token, "native-token");
+        }
+        "missing" | "invalid" => {
+            let error = load_endpoint(Mode::Native, None).err().unwrap();
+            let verb = if case == "missing" {
+                "reading"
+            } else {
+                "parsing"
+            };
+            assert!(error.starts_with(verb), "{error}");
+            assert!(error.contains(&format!("{case}.toml")), "{error}");
+        }
+        _ => panic!("unknown endpoint fixture"),
     }
 }
 

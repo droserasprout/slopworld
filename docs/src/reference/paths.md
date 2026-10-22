@@ -23,8 +23,10 @@ On Unix, mode `0600` gives read and write access only to the owner.
 
 | Path | Override | Description |
 | --- | --- | --- |
+| `<CONFIG>/client.toml` | `--sidecar` uses its separate config directory | Client-owned selected endpoint name. |
 | `<CONFIG>/config.toml` | under `SLOPD_CONFIG_ROOT` | Machine settings, seeded on first run. |
-| `<CONFIG>/endpoint.toml` | `SLOPD_ENDPOINT` | Effective URL and token while the daemon is running. Mode `0600`. |
+| `<CONFIG>/endpoints/local.toml` | `SLOPD_ENDPOINT` | Effective local daemon URL and token while running. Mode `0600`. |
+| `<CONFIG>/endpoints/<name>.toml` | `--endpoint NAME`, then `SLOPD_ENDPOINT` | Saved peer URL and key, managed with `slopworld connect`. Mode `0600`. |
 | `<CONFIG>/projects/<id>.toml` | under `SLOPD_CONFIG_ROOT` | Project definitions. |
 | `<CONFIG>/prompts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal prompt library items, one definition per file. |
 | `<CONFIG>/breadcrumbs/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal breadcrumb library items, one definition per file. |
@@ -59,7 +61,7 @@ directory stores the canonical game directory path.
 | `<DATA>/sessions/.trash/` | under `SLOPD_DATA` | Recoverable private-state trash. |
 | `<project_path>/.worktrees/<worktree-name>/` | `project.worktree_root` | Default managed checkout path. An explicit root uses `<root>/<project-name>/<worktree-name>/`. |
 | `<DATA>/jukebox.toml` | under `SLOPD_DATA` | Jukebox likes (`[[like]]` tables). |
-| `<DATA>/profile` | `--profile`, then `SLOPWORLD_PROFILE` | Game profile: saves, screenshots, and `Config/`. |
+| `<DATA>/profiles/<name>` | `--profile`, then `SLOPWORLD_PROFILE` | Game profile for the selected peer (default `local`): saves and `Config/`. |
 
 `just run` passes `PROFILE` as the launcher's `--profile`. See
 [Game profiles](../maintenance/game-profiles.md) for initialization and
@@ -98,9 +100,9 @@ Setting a profile or endpoint override does not select sidecar mode.
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `<CONFIG>/sidecar/` | under `SLOPD_CONFIG_ROOT` | Sidecar configuration, catalogs, and `endpoint.toml`. |
+| `<CONFIG>/sidecar/` | under `SLOPD_CONFIG_ROOT` | Sidecar configuration, catalogs, and `endpoints/local.toml`. |
 | `<DATA>/sidecar/daemon/` | under `SLOPD_DATA` | Persistent container daemon state. |
-| `<DATA>/sidecar/profile/` | `--profile`, then `SLOPWORLD_PROFILE` | Host game's sidecar profile. |
+| `<DATA>/sidecar/profiles/<name>/` | `--profile`, then `SLOPWORLD_PROFILE` | Host game's sidecar profile. |
 | `<CACHE>/sidecar/Player.log` | `SLOPWORLD_GAME_LOG` | Host game's sidecar log. |
 
 `SLOPD_ENDPOINT` overrides descriptor discovery for clients in either mode.

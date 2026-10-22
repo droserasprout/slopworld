@@ -111,7 +111,7 @@ pub(super) fn daemon_config_binds() -> Vec<String> {
         Config::path_in_use(),
         crate::endpoint::path(),
         sidecar.join("config.toml"),
-        sidecar.join("endpoint.toml"),
+        sidecar.join("endpoints/local.toml"),
     ]
     .into_iter()
     .filter(|path| path.is_file())

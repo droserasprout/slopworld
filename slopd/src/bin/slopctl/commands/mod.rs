@@ -59,11 +59,14 @@ usage:
 
 Use --json anywhere to print JSON instead of human-readable output.
 Use --sidecar to select the sidecar endpoint and log sources.
+Use --endpoint NAME to select endpoints/NAME.toml and its automatic game profile.
+Connection precedence: --endpoint, SLOPD_URL/SLOPD_TOKEN, SLOPD_ENDPOINT, saved peer, local.
+Manage client peers with `slopworld connect NAME [URL]` and `slopworld peers`.
 
 SLOPWORLD_SESSION identifies the caller. It defaults to `host`, the user at the
 keyboard. The daemon accepts `host` only with the root token. When
 SLOPWORLD_TASK_ID is set, omit IDs from task lifecycle commands.
-SLOPD_ENDPOINT selects endpoint.toml. SLOPD_URL and SLOPD_TOKEN override it.
+SLOPD_ENDPOINT selects endpoints/local.toml. SLOPD_URL and SLOPD_TOKEN override it.
 ");
 
 #[derive(Debug, PartialEq, Eq)]

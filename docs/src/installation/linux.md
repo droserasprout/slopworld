@@ -135,20 +135,15 @@ Keep the other settings, including the token. Start the daemon with the new addr
 systemctl --user start slopd.service
 ```
 
-On the client, copy the endpoint descriptor and edit its `url` to
-`http://192.168.1.10:7717`, keeping its token:
+On the client, register the daemon and enter its token at the hidden key prompt:
 
 ```sh
-# On client
-mkdir -p ~/.config/slopworld
-scp tank:.config/slopworld/endpoint.toml ~/.config/slopworld/tank.toml
-nano ~/.config/slopworld/tank.toml
-
-# Run the game with a separate profile for this server
-SLOPD_ENDPOINT="$HOME/.config/slopworld/tank.toml" \
-SLOPWORLD_PROFILE="$HOME/.local/share/slopworld/profile-tank" \
+slopworld connect tank http://192.168.1.10:7717
 slopworld
 ```
+
+The client saves the connection as `endpoints/tank.toml` and automatically creates
+its separate `profiles/tank` game profile. Use `slopworld peers` to list saved peers.
 
 ## Next steps
 

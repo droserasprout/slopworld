@@ -13,12 +13,18 @@ sandbox sets this variable to its session name.
 The [environment reference](environment.md)
 covers connection overrides and their precedence.
 
-`slopctl` reads `endpoint.toml` for the daemon URL and token.
-`--sidecar` selects `<CONFIG>/sidecar/endpoint.toml` instead of the native
-`<CONFIG>/endpoint.toml`. `SLOPD_ENDPOINT` selects a different endpoint file in either mode.
-`SLOPD_URL` and `SLOPD_TOKEN` override it entirely. Use scoped credentials for
-agents; see [Agent collaboration](../agents/agent-collaboration.md) for permissions and
-[Paths and files](paths.md) for endpoint locations.
+`slopctl` uses the peer selected by `slopworld connect NAME`. Manage saved client
+connections with `slopworld connect NAME URL` and list them with `slopworld peers`.
+See [Saves and profiles](../maintenance/game-profiles.md) for connection setup.
+
+For one command, use `slopctl --endpoint tank status`. The precedence is
+`--endpoint NAME`, paired `SLOPD_URL`/`SLOPD_TOKEN`, `SLOPD_ENDPOINT`, the saved
+selection in `<CONFIG>/client.toml`, then `endpoints/local.toml`.
+`--sidecar` uses the catalog and client selection under `<CONFIG>/sidecar/`.
+`slopctl peers` continues to list live daemon sessions.
+
+Use scoped credentials for agents; see [Agent collaboration](../agents/agent-collaboration.md)
+for permissions and [Paths and files](paths.md) for endpoint locations.
 
 ## Resolved paths
 

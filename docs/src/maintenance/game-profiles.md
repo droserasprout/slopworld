@@ -4,27 +4,42 @@
 
 ## Profile selection
 
-The launcher uses a separate RimWorld save-data folder. A normal launch initializes
-missing profile data automatically:
+The launcher automatically creates a RimWorld save-data folder for each named peer:
 
 ```sh
-slopworld --profile /path/to/profile
+slopworld connect tank http://tank:7717
+slopworld
 ```
+
+`connect` checks the daemon, prompts for its key with hidden input when needed, saves
+`<CONFIG>/endpoints/tank.toml`, and selects `tank` in `<CONFIG>/client.toml`. It does
+not launch the game. To switch to a saved peer, use `slopworld connect NAME`.
+`slopworld peers` lists saved names and URLs, marking the saved selection with `*`.
+Keys are never displayed. A failed verification leaves the saved connection and selection intact.
+
+The selected peer uses `<DATA>/profiles/NAME`. Without a saved selection, `local` is
+used. `slopworld --endpoint NAME` overrides the selection for one launch. Renaming a
+peer changes its profile; changing its URL or key keeps the same profile. For an
+explicit `SLOPD_ENDPOINT` file, the filename without `.toml` supplies the profile name.
+
+`--sidecar` selects a separate catalog and selection under `<CONFIG>/sidecar/`, with
+profiles under `<DATA>/sidecar/profiles/NAME`. Use `slopworld --sidecar connect NAME`
+and `slopworld --sidecar peers` to manage those peers. The [sidecar](../installation/sidecar.md)
+and [macOS](../installation/macos.md) recipes select sidecar mode explicitly.
+
+`--profile DIR` overrides automatic profile selection, followed by `SLOPWORLD_PROFILE`.
+Explicit paths can share a folder. Profile paths cannot contain `=`.
+See [Paths and files](../reference/paths.md) for locations and overrides.
 
 New profiles start with master volume at 80%, game at 100%, music at 80%,
 ambience at 0%, and UI at 30%. Existing preferences are preserved.
-
-See [Paths and files](../reference/paths.md) for defaults and overrides. Native mode defaults to `<DATA>/profile`; `--sidecar` defaults to
-`<DATA>/sidecar/profile`. The [sidecar](../installation/sidecar.md) and
-[macOS](../installation/macos.md) recipes select sidecar mode explicitly. Explicit paths can select the same folder, so choose separate folders when
-you want separate saves. Profile paths cannot contain `=`.
 
 ## Profile initialization and repair
 
 Create the profile marker and missing mod list without opening the game:
 
 ```sh
-slopworld --profile /path/to/profile --init-profile
+slopworld --endpoint tank --init-profile
 ```
 
 Existing settings and mod choices are preserved. With `--sidecar`, initialization
@@ -35,7 +50,7 @@ sets the sidecar UI default only when `Config/SlopWorld.toml` is missing.
 To replace `Config/ModsConfig.xml`, add `--reset`:
 
 ```sh
-slopworld --profile /path/to/profile --init-profile --reset
+slopworld --endpoint tank --init-profile --reset
 ```
 
 This discards the existing mod list; it does not reset saves or the whole profile.

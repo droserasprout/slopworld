@@ -1150,9 +1150,11 @@ fn diagnostic_config_binds_include_sidecar_files_without_exposing_catalogs() {
     let sidecar = config.join("sidecar");
     std::fs::create_dir_all(sidecar.join("projects")).unwrap();
     let sidecar_config = sidecar.join("config.toml");
-    let endpoint = sidecar.join("endpoint.toml");
+    let endpoint = sidecar.join("endpoints/local.toml");
+    let remote = sidecar.join("endpoints/tank.toml");
+    std::fs::create_dir_all(endpoint.parent().unwrap()).unwrap();
     let catalog = sidecar.join("projects/private.toml");
-    for path in [&sidecar_config, &endpoint, &catalog] {
+    for path in [&sidecar_config, &endpoint, &remote, &catalog] {
         std::fs::write(path, "fixture").unwrap();
     }
     let binds = policy::daemon_config_binds();

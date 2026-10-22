@@ -14,7 +14,7 @@ for overrides, XDG locations, and sidecar/macOS paths.
 | Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, project records, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
 | Workspace records and authority | `~/.local/share/slopworld/` | Agent and host-shell definitions, worktree/task records, grants, and any pending workspace recovery journal. |
 | Agent private state | `~/.local/share/slopworld/sessions/` | Tool state, history, configuration copies, and recoverable trash. |
-| Game profile | `~/.local/share/slopworld/profile/` | Saves and mod settings. |
+| Game profile | `~/.local/share/slopworld/profiles/` | Saves and mod settings. |
 | Jukebox | `~/.config/slopworld/jukebox/` and `~/.local/share/slopworld/jukebox.toml` | Stations and liked songs. |
 | External data | Your project, worktree, cache-mount, and credential-source paths | These are not backed up by copying SlopWorld's roots. |
 

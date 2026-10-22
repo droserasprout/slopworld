@@ -23,7 +23,7 @@ options take precedence where available. Build recipe settings belong to
 | `SLOPD_CONFIG_ROOT` | Daemon, mod, launcher, CLI | Platform config directory | Configuration root for settings, catalogs, endpoint discovery, and the saved game directory.[^paths] |
 | `SLOPD_CREDITS_URL` | Daemon | `https://openrouter.ai/api/v1/credits` | OpenRouter balance endpoint. |
 | `SLOPD_DATA` | Daemon, mod, launcher, CLI | Platform data directory | Data root for workspace state, jukebox likes, and the default game profile.[^paths] |
-| `SLOPD_ENDPOINT` | Daemon, mod, launcher, `slopctl` | `<CONFIG>/endpoint.toml` | Endpoint descriptor containing the daemon URL and token.[^connection] |
+| `SLOPD_ENDPOINT` | Daemon, mod, launcher, `slopctl` | `<CONFIG>/endpoints/local.toml` | Explicit descriptor path; clients otherwise use their selected peer, then `endpoints/local.toml`.[^connection] |
 | `SLOPD_LOG` | Daemon | `slopd=info` | Tracing filter; use `slopd=debug` for more detail. |
 | `SLOPD_OPENAI_USAGE_URL` | Daemon | `https://chatgpt.com/backend-api/wham/usage` | OpenAI usage endpoint. |
 | `SLOPD_TITLE_URL` | Daemon | `https://openrouter.ai/api/v1/chat/completions` | Prompt summary endpoint. |
@@ -35,7 +35,7 @@ options take precedence where available. Build recipe settings belong to
 | `SLOPWORLD_DEBUG` | Daemon, mod | Disabled | Enables performance and terminal-latency instrumentation with `1` or `true` (case-insensitive). |
 | `SLOPWORLD_GAME` | `slopworld` | Saved or discovered game directory | Game directory when `--game` is absent. |
 | `SLOPWORLD_GAME_LOG` | Launcher, `slopctl logs`, `just logs` | `<CACHE>/Player.log` | Unity log path, passed to the game with `-logFile`; sidecar defaults to `<CACHE>/sidecar/Player.log`. |
-| `SLOPWORLD_PROFILE` | `slopworld` | `<DATA>/profile` | Game profile when `--profile` is absent; sidecar defaults to `<DATA>/sidecar/profile`. |
+| `SLOPWORLD_PROFILE` | `slopworld` | `<DATA>/profiles/<name>` | Override the selected peer’s profile when `--profile` is absent; sidecar profiles use `<DATA>/sidecar/profiles/<name>`. |
 | `SLOPWORLD_PROJECT` | Session commands | Set by daemon | Project name supplied to agent and host-shell processes. |
 | `SLOPWORLD_SESSION` | `slopctl` | `host` | Caller identity; supplied by the daemon to agent and host-shell processes. |
 | `SLOPWORLD_TASK_ID` | `slopctl` | Set for workers | Task ID used when a task command omits it. |
@@ -44,7 +44,9 @@ options take precedence where available. Build recipe settings belong to
     Host `slopcar` also reads these roots and derives its paths beneath them;
     container paths stay fixed. See [Sidecar mode](../installation/sidecar.md).
 
-[^connection]: The daemon writes the descriptor; clients read it. `SLOPD_URL` and
+[^connection]: The daemon publishes the local descriptor; `slopworld connect` stores
+    named peers and the client selection. `--endpoint NAME` overrides environment
+    connection settings for one client invocation. Otherwise, `SLOPD_URL` and
     `SLOPD_TOKEN` override the CLI connection together; they do not configure the
     daemon listener or the mod. Workers receive a scoped URL/token pair automatically.
     See [Agent collaboration](../agents/agent-collaboration.md).

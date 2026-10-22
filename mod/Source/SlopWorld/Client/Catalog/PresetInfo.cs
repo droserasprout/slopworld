@@ -48,7 +48,7 @@ namespace SlopWorld
         // change, but it must round-trip when the settings page saves this preset.
         public bool Tmux;
 
-        // Generated read-only binds for config.toml and endpoint.toml. Kept out of the path
+        // Generated read-only binds for config.toml and endpoints/local.toml. Kept out of the path
         // lists because those remain subject to the ordinary protected-path guard.
         public bool DaemonConfig;
         public bool IsEscape => PresetWarnings.OwnLevel(this) != PresetWarningLevel.None;

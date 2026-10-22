@@ -46,8 +46,8 @@ The launcher supplies `PUID`/`PGID` from your Linux user, or 1000:1000 on macOS.
 The entrypoint starts as root to configure the `slop` account, then drops privileges
 before starting the daemon. Workspace and credential ownership stays unchanged.
 
-The worker writes `endpoint.toml` inside its config directory.
-The default host location is `<CONFIG>/sidecar/endpoint.toml`.
+The worker writes `endpoints/local.toml` inside its config directory.
+The default host location is `<CONFIG>/sidecar/endpoints/local.toml`.
 It publishes only its configured loopback port (7718 by default).
 Add more `--workspace` options when needed.
 

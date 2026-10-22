@@ -98,11 +98,45 @@ impl Mode {
     ) -> PathBuf {
         lookup("SLOPD_ENDPOINT")
             .map(|path| expand_home(PathBuf::from(path), &lookup))
-            .unwrap_or_else(|| self.config_dir_with(lookup).join("endpoint.toml"))
+            .unwrap_or_else(|| self.config_dir_with(lookup).join("endpoints/local.toml"))
     }
 
-    pub(crate) fn profile_path(self) -> PathBuf {
-        self.profile_path_with(std::env::var_os)
+    /// Named connections override the environment without changing process-global state.
+    pub(crate) fn endpoint_path_for(self, name: Option<&str>) -> Result<PathBuf, String> {
+        match name {
+            Some(name) => {
+                validate_endpoint_name(name)?;
+                Ok(self
+                    .config_dir()
+                    .join("endpoints")
+                    .join(format!("{name}.toml")))
+            }
+            None if std::env::var_os("SLOPD_ENDPOINT").is_some() => Ok(self.endpoint_path()),
+            None => {
+                let name = self.selected_endpoint()?;
+                self.endpoint_path_for(Some(&name))
+            }
+        }
+    }
+
+    /// Client selection never changes the daemon's own descriptor publication path.
+    pub(crate) fn selected_endpoint(self) -> Result<String, String> {
+        selected_endpoint_in(&self.config_dir().join("client.toml"))
+    }
+
+    pub(crate) fn profile_path_for(self, name: Option<&str>) -> Result<PathBuf, String> {
+        let endpoint = self.endpoint_path_for(name)?;
+        Ok(self.profile_path_for_endpoint(&endpoint))
+    }
+
+    pub(crate) fn profile_path_for_endpoint(self, endpoint: &std::path::Path) -> PathBuf {
+        self.profile_path_with(|key| {
+            if key == "SLOPD_ENDPOINT" {
+                Some(endpoint.as_os_str().to_owned())
+            } else {
+                std::env::var_os(key)
+            }
+        })
     }
 
     pub(crate) fn profile_path_with(
@@ -113,10 +147,17 @@ impl Mode {
             .filter(|value| !value.to_string_lossy().trim().is_empty())
             .map(|path| expand_home(PathBuf::from(path), &lookup))
             .unwrap_or_else(|| {
-                Root::Data.resolve_with(lookup).join(match self {
-                    Self::Native => "profile",
-                    Self::Sidecar => "sidecar/profile",
-                })
+                // Connection names own profile identity; address/token changes keep saves.
+                let endpoint = self.endpoint_path_with(&lookup);
+                let name = endpoint
+                    .file_stem()
+                    .unwrap_or_else(|| std::ffi::OsStr::new("local"));
+                let root = Root::Data.resolve_with(lookup);
+                let root = match self {
+                    Self::Native => root,
+                    Self::Sidecar => root.join("sidecar"),
+                };
+                root.join("profiles").join(name)
             })
     }
 
@@ -140,7 +181,7 @@ impl Mode {
     }
 
     /// Read-only path queries let recipes consume this policy without reproducing it.
-    pub(crate) fn query(self, name: &str) -> Result<PathBuf, String> {
+    pub(crate) fn query(self, name: &str, endpoint: Option<&str>) -> Result<PathBuf, String> {
         let path = match name {
             "config" => self.config_dir(),
             "data" => self.daemon_data_dir(),
@@ -148,8 +189,8 @@ impl Mode {
                 Self::Native => Root::Cache.resolve(),
                 Self::Sidecar => Root::Cache.resolve().join("sidecar"),
             },
-            "endpoint" => self.endpoint_path(),
-            "profile" => self.profile_path(),
+            "endpoint" => self.endpoint_path_for(endpoint)?,
+            "profile" => self.profile_path_for(endpoint)?,
             "game-log" => self.game_log_path(),
             _ => {
                 return Err(format!(
@@ -175,14 +216,18 @@ fn expand_home(path: PathBuf, lookup: impl Fn(&'static str) -> Option<OsString>)
         .unwrap_or(path)
 }
 
-pub(crate) fn path_query(args: &[String], mode: Mode) -> Result<Option<PathBuf>, String> {
+pub(crate) fn path_query(
+    args: &[String],
+    mode: Mode,
+    endpoint: Option<&str>,
+) -> Result<Option<PathBuf>, String> {
     if args.first().map(String::as_str) != Some("paths") {
         return Ok(None);
     }
     let [_, name] = args else {
         return Err("usage: paths config|data|cache|endpoint|profile|game-log".into());
     };
-    mode.query(name).map(Some)
+    mode.query(name, endpoint).map(Some)
 }
 
 /// Global flags are recognized only before the argument separator.
@@ -206,3 +251,67 @@ pub(crate) fn take_flag(args: &mut Vec<String>, flag: &str) -> bool {
 #[cfg(test)]
 #[path = "application_paths_tests.rs"]
 mod tests;
+
+/// Keep names portable and confined to one file beneath endpoints/.
+pub(crate) fn validate_endpoint_name(name: &str) -> Result<(), String> {
+    if name.is_empty()
+        || !name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return Err("endpoint name must contain only letters, digits, '-' or '_'".into());
+    }
+    Ok(())
+}
+
+/// Consume a global named connection before dispatch; never consume forwarded arguments.
+pub(crate) fn take_endpoint(args: &mut Vec<String>) -> Result<Option<String>, String> {
+    let mut selected = None;
+    let mut index = 0;
+    while let Some(arg) = args.get(index) {
+        if arg == "--" {
+            break;
+        }
+        let value = if arg == "--endpoint" {
+            args.remove(index);
+            if index == args.len() {
+                return Err("--endpoint wants a connection name".into());
+            }
+            Some(args.remove(index))
+        } else if let Some(value) = arg.strip_prefix("--endpoint=") {
+            let value = value.to_owned();
+            args.remove(index);
+            Some(value)
+        } else {
+            index += 1;
+            None
+        };
+        if let Some(value) = value {
+            validate_endpoint_name(&value)?;
+            if selected.replace(value).is_some() {
+                return Err("--endpoint may only be supplied once".into());
+            }
+        }
+    }
+    Ok(selected)
+}
+
+/// Missing client settings select local; malformed or unreadable settings fail explicitly.
+pub(crate) fn selected_endpoint_in(path: &std::path::Path) -> Result<String, String> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && !path.is_symlink() => {
+            return Ok("local".into());
+        }
+        Err(error) => return Err(format!("reading {}: {error}", path.display())),
+    };
+    let value: toml::Table =
+        toml::from_str(&text).map_err(|error| format!("parsing {}: {error}", path.display()))?;
+    let name = match value.get("endpoint") {
+        None => "local",
+        Some(toml::Value::String(name)) => name,
+        Some(_) => return Err(format!("endpoint in {} must be a name", path.display())),
+    };
+    validate_endpoint_name(name).map_err(|error| format!("{}: {error}", path.display()))?;
+    Ok(name.to_owned())
+}

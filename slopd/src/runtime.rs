@@ -189,7 +189,7 @@ fn validate_slopcar_config(cfg: &Config) -> Result<()> {
         .parse::<SocketAddr>()
         .with_context(|| format!("bad sidecar bind address {:?}", cfg.daemon.bind))?;
     // Bind the IPv4 wildcard so Docker can publish the port on the Mac loopback interface.
-    // `slopcar --port` selects the port, with 7718 as the default. Store that port in endpoint.toml.
+    // `slopcar --port` selects the port, with 7718 as the default. Store that port in endpoints/local.toml.
     if bind.ip() != IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
         bail!(
             "slopcar requires `[daemon] bind = \"0.0.0.0:<port>\"`. Docker publishes this port on Mac loopback only."

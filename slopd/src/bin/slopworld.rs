@@ -20,6 +20,9 @@ mod mod_install;
 #[path = "slopworld/game_config.rs"]
 mod game_config;
 
+#[path = "slopworld/peers.rs"]
+mod peers;
+
 /// The launcher writes this marker for the mod to detect.
 /// Only the file's existence controls detection. Its contents explain the profile to users.
 const MARKER: &str = "slopworld.profile";
@@ -56,8 +59,9 @@ options:
   --working-dir DIR
                    working directory for the game process
   --mods DIR       mod directory to validate (required with a non-Linux game layout)
+  --endpoint NAME  use a saved connection for this launch (default selected peer, then local)
   --profile DIR    save data folder to use or create
-                   (default $SLOPWORLD_PROFILE, then <DATA>/profile or <DATA>/sidecar/profile)
+                   (default $SLOPWORLD_PROFILE, then a profile for the selected connection)
   --init-profile   create or repair the profile, then exit without starting the game
   --sidecar        use the sidecar endpoint, profile, game log, and UI defaults
   --reset          rewrite the profile's mod list, discarding what is there
@@ -67,6 +71,9 @@ options:
   -h, --help       this
 
 commands:
+  connect NAME [URL]
+                   verify, save, and select a peer; prompt for its key if needed
+  peers            list saved peers and mark the selected one
   paths NAME       print config, data, cache, endpoint, profile, or game-log path
   mod install      install the SlopWorld mod from a source tree
   mod uninstall    remove the installed SlopWorld mod
@@ -93,7 +100,23 @@ fn run() -> Result<ExitCode, String> {
     } else {
         application_paths::Mode::Native
     };
-    if let Some(path) = application_paths::path_query(&query_args, mode)? {
+    let named_endpoint = application_paths::take_endpoint(&mut query_args)?;
+    if named_endpoint.is_some()
+        && matches!(
+            query_args.first().map(String::as_str),
+            Some("connect" | "peers")
+        )
+    {
+        return Err(
+            "--endpoint applies to launches and path queries; use `connect NAME` to select a peer"
+                .into(),
+        );
+    }
+    if peers::try_run(&query_args, mode)? {
+        return Ok(ExitCode::SUCCESS);
+    }
+    if let Some(path) = application_paths::path_query(&query_args, mode, named_endpoint.as_deref())?
+    {
         println!("{}", path.display());
         return Ok(ExitCode::SUCCESS);
     }
@@ -124,7 +147,8 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     } else {
         application_paths::Mode::Native
     };
-    let profile = profile_dir(args.profile.as_deref(), mode)?;
+    let endpoint = mode.endpoint_path_for(args.endpoint.as_deref())?;
+    let profile = profile_dir_for(args.profile.as_deref(), mode, &endpoint)?;
 
     // The game expects exactly one `=` in this argument.
     // An additional `=` in the path prevents the game from using the requested profile.
@@ -145,7 +169,24 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let sidecar = sidecar_paths(mode)?;
+    let working_dir = validate_working_dir(args.working_dir.as_deref())?;
+    if !endpoint.is_file() && !args.print {
+        return Err(format!(
+            "endpoint descriptor does not exist: {}. Use `slopworld connect NAME URL`.",
+            endpoint.display()
+        ));
+    }
+    let sidecar = if mode == application_paths::Mode::Sidecar {
+        Some(sidecar_paths_from(&endpoint)?)
+    } else {
+        if args.endpoint.is_some() && !endpoint.is_file() {
+            return Err(format!(
+                "endpoint descriptor does not exist: {}",
+                endpoint.display()
+            ));
+        }
+        None
+    };
     let (executable, mods) = game_target(
         args.game.as_deref(),
         args.game_exe.as_deref(),
@@ -162,7 +203,6 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
         ));
     }
 
-    let working_dir = validate_working_dir(args.working_dir.as_deref())?;
     let log = mode.game_log_path();
     let log = PathBuf::from(expand(&log.to_string_lossy()));
     let log = std::path::absolute(&log).map_err(|e| format!("resolving {}: {e}", log.display()))?;
@@ -193,6 +233,30 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     }
 
     let mut command = Command::new(&executable);
+    let endpoint = sidecar
+        .as_ref()
+        .map(|paths| paths.endpoint.as_path())
+        .unwrap_or(&endpoint);
+    configure_game_environment(&mut command, &profile, endpoint, working_dir.as_deref())?;
+    let status = command
+        .args(argv.get(1..).unwrap_or_default())
+        .status()
+        .map_err(|e| format!("launching {}: {e}", executable.display()))?;
+
+    // Report failure if a signal terminates the game without an exit code.
+    Ok(match status.code() {
+        Some(c) => ExitCode::from(u8::try_from(c.clamp(0, 255)).unwrap_or(u8::MAX)),
+        None => ExitCode::FAILURE,
+    })
+}
+
+/// Resolve environment paths before handing control to the game process.
+fn configure_game_environment(
+    command: &mut Command,
+    profile: &Path,
+    endpoint: &Path,
+    working_dir: Option<&Path>,
+) -> Result<(), String> {
     // Let RimWorld initialize display preferences before the mod applies audio
     // defaults. Precreating Prefs.xml bypasses the game's first-run detection.
     command.env(
@@ -218,26 +282,10 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     if let Some(working_dir) = working_dir {
         command.current_dir(working_dir);
     }
-    if let Some(sidecar) = &sidecar {
-        // The justfile can receive a literal `~`. Neither the game nor the mod expands shell paths.
-        // Pass the resolved path to the child process.
-        command.env("SLOPD_ENDPOINT", &sidecar.endpoint);
-    } else if std::env::var_os("SLOPD_ENDPOINT").is_some() {
-        let endpoint = mode.endpoint_path();
-        let absolute = std::path::absolute(&endpoint)
-            .map_err(|e| format!("resolving {}: {e}", endpoint.display()))?;
-        command.env("SLOPD_ENDPOINT", absolute);
-    }
-    let status = command
-        .args(argv.get(1..).unwrap_or_default())
-        .status()
-        .map_err(|e| format!("launching {}: {e}", executable.display()))?;
-
-    // Report failure if a signal terminates the game without an exit code.
-    Ok(match status.code() {
-        Some(c) => ExitCode::from(u8::try_from(c.clamp(0, 255)).unwrap_or(u8::MAX)),
-        None => ExitCode::FAILURE,
-    })
+    let absolute = std::path::absolute(endpoint)
+        .map_err(|e| format!("resolving {}: {e}", endpoint.display()))?;
+    command.env("SLOPD_ENDPOINT", absolute);
+    Ok(())
 }
 
 fn validate_working_dir(path: Option<&str>) -> Result<Option<PathBuf>, String> {
@@ -261,6 +309,7 @@ struct Args {
     working_dir: Option<String>,
     mods: Option<String>,
     profile: Option<String>,
+    endpoint: Option<String>,
     init_profile: bool,
     sidecar: bool,
     reset: bool,
@@ -274,7 +323,11 @@ struct Args {
 /// Reject unknown options with two leading hyphens to detect incorrect launcher options.
 /// Put game arguments with two leading hyphens after `--` to forward them.
 fn parse(args: &[String]) -> Result<Option<Args>, String> {
-    let mut out = Args::default();
+    let mut args = args.to_vec();
+    let mut out = Args {
+        endpoint: application_paths::take_endpoint(&mut args)?,
+        ..Args::default()
+    };
     let mut it = args.iter();
     while let Some(a) = it.next() {
         let (flag, inline) = match a.split_once('=') {
@@ -380,10 +433,20 @@ fn game_target(
 }
 
 /// Explicit profiles change storage without selecting sidecar integration.
+#[cfg(test)]
 fn profile_dir(explicit: Option<&str>, mode: application_paths::Mode) -> Result<PathBuf, String> {
-    let path = explicit
-        .map(|path| PathBuf::from(expand(path)))
-        .unwrap_or_else(|| mode.profile_path());
+    profile_dir_for(explicit, mode, &mode.endpoint_path_for(None)?)
+}
+
+fn profile_dir_for(
+    explicit: Option<&str>,
+    mode: application_paths::Mode,
+    endpoint: &Path,
+) -> Result<PathBuf, String> {
+    let path = match explicit {
+        Some(path) => PathBuf::from(expand(path)),
+        None => mode.profile_path_for_endpoint(endpoint),
+    };
     let path = PathBuf::from(expand(&path.to_string_lossy()));
     std::path::absolute(&path).map_err(|e| format!("resolving {}: {e}", path.display()))
 }
@@ -394,6 +457,7 @@ struct SidecarPaths {
 
 /// Sidecar mode validates its selected descriptor before a game launch.
 /// Profile initialization does not require a running sidecar.
+#[cfg(test)]
 fn sidecar_paths(mode: application_paths::Mode) -> Result<Option<SidecarPaths>, String> {
     if mode == application_paths::Mode::Native {
         return Ok(None);

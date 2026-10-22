@@ -2,7 +2,7 @@
 
 `Client/SessionHub/` owns connection lifetime, cross-service subscriptions, and rename
 handoffs. Feature services own their state and operations. Catalog models receive
-collections from callers rather than reading the hub. HTTP resolves `endpoint.toml`
+collections from callers rather than reading the hub. HTTP resolves `endpoints/local.toml`
 metadata through `Endpoint`, independently of game settings.
 
 `DaemonClient` is the static facade; `DaemonHttpTransport` owns admission, deadlines,

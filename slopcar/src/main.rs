@@ -20,7 +20,7 @@ fn main() {
             println!(
                 "{}",
                 application_paths::Mode::Sidecar
-                    .query(name)
+                    .query(name, None)
                     .map_err(anyhow::Error::msg)?
                     .display()
             );

@@ -93,7 +93,7 @@ fn run_with(
         Command::Paths(name) => println!(
             "{}",
             crate::application_paths::Mode::Sidecar
-                .query(&name)
+                .query(&name, None)
                 .map_err(anyhow::Error::msg)?
                 .display()
         ),
@@ -268,7 +268,7 @@ fn start_container(
     );
     println!(
         "slopcar: endpoint and token: {}",
-        settings.config.join("endpoint.toml").display()
+        settings.config.join("endpoints/local.toml").display()
     );
     Ok(())
 }

@@ -16,8 +16,11 @@ pub(crate) struct Endpoint {
 
 pub(crate) fn load_endpoint(
     mode: crate::shared::application_paths::Mode,
+    name: Option<&str>,
 ) -> Result<Endpoint, String> {
-    if let Ok(url) = std::env::var("SLOPD_URL") {
+    if name.is_none()
+        && let Ok(url) = std::env::var("SLOPD_URL")
+    {
         // Require paired overrides rather than accidentally discarding the descriptor's credential.
         let token = std::env::var("SLOPD_TOKEN").map_err(|_error| {
             "SLOPD_URL is set, but SLOPD_TOKEN is missing. Set it to a root or scoped token."
@@ -25,7 +28,7 @@ pub(crate) fn load_endpoint(
         })?;
         return Ok(Endpoint { url, token });
     }
-    let path = mode.endpoint_path();
+    let path = mode.endpoint_path_for(name)?;
     let text =
         std::fs::read_to_string(&path).map_err(|e| format!("reading {}: {e}", path.display()))?;
     toml::from_str(&text).map_err(|e| format!("parsing {}: {e}", path.display()))

@@ -25,7 +25,7 @@ fn home_relative_roots_and_explicit_paths_expand_before_consumption() {
         let config = mode.config_dir_with(lookup);
         assert_eq!(
             mode.endpoint_path_with(lookup),
-            config.join("endpoint.toml")
+            config.join("endpoints/local.toml")
         );
         let explicit = |key| match key {
             "SLOPD_ENDPOINT" => Some(OsString::from("~/endpoint.toml")),
@@ -78,7 +78,7 @@ fn roots_are_independent_and_endpoint_override_wins() {
     );
     assert_eq!(
         Mode::Native.endpoint_path_with(lookup),
-        PathBuf::from("/chosen/config/endpoint.toml")
+        PathBuf::from("/chosen/config/endpoints/local.toml")
     );
     assert_eq!(
         Mode::Native.game_log_path_with(lookup),
@@ -131,11 +131,11 @@ fn sidecar_paths_use_separate_subdirectories_and_common_overrides() {
     );
     assert_eq!(
         Mode::Sidecar.endpoint_path_with(lookup),
-        PathBuf::from("/config/sidecar/endpoint.toml")
+        PathBuf::from("/config/sidecar/endpoints/local.toml")
     );
     assert_eq!(
         Mode::Sidecar.profile_path_with(lookup),
-        PathBuf::from("/data/sidecar/profile")
+        PathBuf::from("/data/sidecar/profiles/local")
     );
     assert_eq!(
         Mode::Sidecar.game_log_path_with(lookup),
@@ -171,4 +171,54 @@ fn global_flags_preserve_arguments_after_the_separator() {
     assert!(take_flag(&mut args, "--sidecar"));
     assert_eq!(args, ["logs", "--", "--sidecar"]);
     assert!(!take_flag(&mut args, "--sidecar"));
+}
+
+#[test]
+fn profiles_follow_connection_names_and_explicit_profiles_win() {
+    for (mode, base) in [(Mode::Native, "/data"), (Mode::Sidecar, "/data/sidecar")] {
+        for name in ["local", "tank", "another-host"] {
+            let endpoint = format!("/config/endpoints/{name}.toml");
+            let lookup = |key| match key {
+                "SLOPD_DATA" => Some(OsString::from("/data")),
+                "SLOPD_ENDPOINT" => Some(OsString::from(&endpoint)),
+                _ => None,
+            };
+            assert_eq!(
+                mode.profile_path_with(lookup),
+                PathBuf::from(base).join("profiles").join(name)
+            );
+            assert_eq!(
+                mode.profile_path_with(|key| match key {
+                    "HOME" => Some(OsString::from("/home/test")),
+                    "SLOPWORLD_PROFILE" => Some(OsString::from("~/chosen-profile")),
+                    _ => lookup(key),
+                }),
+                PathBuf::from("/home/test/chosen-profile")
+            );
+        }
+    }
+}
+
+#[test]
+fn endpoint_flags_reject_ambiguous_names_and_preserve_forwarded_arguments() {
+    for words in [vec!["--endpoint", "tank"], vec!["--endpoint=tank"]] {
+        let mut args = words.into_iter().map(str::to_owned).collect();
+        assert_eq!(take_endpoint(&mut args), Ok(Some("tank".into())));
+        assert!(args.is_empty());
+    }
+    for words in [
+        vec!["--endpoint"],
+        vec!["--endpoint="],
+        vec!["--endpoint", "../tank"],
+        vec!["--endpoint", "/tank"],
+        vec!["--endpoint", "tank.toml"],
+        vec!["--endpoint", "tank", "--endpoint=other"],
+    ] {
+        let mut args = words.into_iter().map(str::to_owned).collect();
+        assert!(take_endpoint(&mut args).err().is_some());
+    }
+    let mut args = vec!["--".to_owned(), "--endpoint=tank".to_owned()];
+    let original = args.clone();
+    assert_eq!(take_endpoint(&mut args), Ok(None));
+    assert_eq!(args, original);
 }

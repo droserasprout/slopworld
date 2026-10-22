@@ -20,6 +20,14 @@ fn a_value_comes_inline_or_after() {
     assert_eq!(parsed(&["--game=/a"]).game.as_deref(), Some("/a"));
     assert_eq!(parsed(&["--game", "/a"]).game.as_deref(), Some("/a"));
     assert_eq!(parsed(&["--profile=/p"]).profile.as_deref(), Some("/p"));
+    assert_eq!(
+        parsed(&["--endpoint=tank"]).endpoint.as_deref(),
+        Some("tank")
+    );
+    assert_eq!(
+        parsed(&["--endpoint", "tank"]).endpoint.as_deref(),
+        Some("tank")
+    );
 }
 
 /// Forward game flags with one leading hyphen without requiring a separator.
@@ -308,55 +316,8 @@ fn launcher_defaults_follow_roots_and_print_creates_no_state() {
     const MARKER_ENV: &str = "SLOPWORLD_ROOT_TEST";
     if let Some(root) = std::env::var_os(MARKER_ENV) {
         let root = PathBuf::from(root);
-        assert_eq!(
-            game_config::config_path().unwrap(),
-            root.join("config/game.toml")
-        );
-        assert_eq!(
-            profile_dir(None, application_paths::Mode::Native).unwrap(),
-            root.join("data/profile")
-        );
-        assert_eq!(
-            application_paths::Mode::Native.game_log_path(),
-            root.join("cache/Player.log")
-        );
-        let game = root.join("game");
-        std::fs::create_dir_all(game.join("Mods/SlopWorld/About")).unwrap();
-        std::fs::write(game.join(EXE), "fixture").unwrap();
-        std::fs::write(game.join("Mods/SlopWorld/About/About.xml"), "fixture").unwrap();
-        run_launcher(&Args {
-            game: Some(game.to_string_lossy().into_owned()),
-            print: true,
-            ..Args::default()
-        })
-        .unwrap();
-        for name in ["config", "data", "cache", "unused-xdg"] {
-            assert!(!root.join(name).exists(), "print created {name}");
-        }
-        let mode = application_paths::Mode::Sidecar;
-        assert_eq!(
-            mode.query("profile").unwrap(),
-            root.join("data/sidecar/profile")
-        );
-        assert_eq!(
-            mode.query("game-log").unwrap(),
-            root.join("cache/sidecar/Player.log")
-        );
-        assert!(sidecar_paths(mode).is_err());
-        let endpoint = root.join("config/sidecar/endpoint.toml");
-        std::fs::create_dir_all(endpoint.parent().unwrap()).unwrap();
-        std::fs::write(&endpoint, "fixture").unwrap();
-        assert_eq!(sidecar_paths(mode).unwrap().unwrap().endpoint, endpoint);
-        run_launcher(&Args {
-            game: Some(game.to_string_lossy().into_owned()),
-            sidecar: true,
-            print: true,
-            ..Args::default()
-        })
-        .unwrap();
-        for name in ["data", "cache", "unused-xdg"] {
-            assert!(!root.join(name).exists(), "sidecar print created {name}");
-        }
+        assert_default_root_paths(&root);
+        assert_named_profile_paths(&root);
         return;
     }
     // Set environment before the child harness starts threads, avoiding global
@@ -383,6 +344,126 @@ fn launcher_defaults_follow_roots_and_print_creates_no_state() {
         "{}\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn assert_default_root_paths(root: &Path) {
+    assert_eq!(
+        game_config::config_path().unwrap(),
+        root.join("config/game.toml")
+    );
+    assert_eq!(
+        profile_dir(None, application_paths::Mode::Native).unwrap(),
+        root.join("data/profiles/local")
+    );
+    assert_eq!(
+        application_paths::Mode::Native.game_log_path(),
+        root.join("cache/Player.log")
+    );
+    let game = root.join("game");
+    std::fs::create_dir_all(game.join("Mods/SlopWorld/About")).unwrap();
+    std::fs::write(game.join(EXE), "fixture").unwrap();
+    std::fs::write(game.join("Mods/SlopWorld/About/About.xml"), "fixture").unwrap();
+    run_launcher(&Args {
+        game: Some(game.to_string_lossy().into_owned()),
+        print: true,
+        ..Args::default()
+    })
+    .unwrap();
+    for name in ["config", "data", "cache", "unused-xdg"] {
+        assert!(!root.join(name).exists(), "print created {name}");
+    }
+    let mode = application_paths::Mode::Sidecar;
+    assert_eq!(
+        mode.query("profile", None).unwrap(),
+        root.join("data/sidecar/profiles/local")
+    );
+    assert_eq!(
+        mode.query("game-log", None).unwrap(),
+        root.join("cache/sidecar/Player.log")
+    );
+    assert!(sidecar_paths(mode).is_err());
+    let endpoint = root.join("config/sidecar/endpoints/local.toml");
+    std::fs::create_dir_all(endpoint.parent().unwrap()).unwrap();
+    std::fs::write(&endpoint, "fixture").unwrap();
+    assert_eq!(sidecar_paths(mode).unwrap().unwrap().endpoint, endpoint);
+    run_launcher(&Args {
+        game: Some(game.to_string_lossy().into_owned()),
+        sidecar: true,
+        print: true,
+        ..Args::default()
+    })
+    .unwrap();
+    for name in ["data", "cache", "unused-xdg"] {
+        assert!(!root.join(name).exists(), "sidecar print created {name}");
+    }
+}
+
+fn assert_named_profile_paths(root: &Path) {
+    let mode = application_paths::Mode::Sidecar;
+    // Named connections initialize independently, even while their daemons are offline.
+    for name in ["tank", "other"] {
+        let args = parsed(&["--endpoint", name, "--init-profile"]);
+        run_launcher(&args).unwrap();
+        let profile = root.join("data/profiles").join(name);
+        assert!(profile.join(MARKER).is_file());
+        assert_eq!(
+            mode.query("profile", Some(name)).unwrap(),
+            root.join("data/sidecar/profiles").join(name)
+        );
+        assert_eq!(
+            application_paths::Mode::Native
+                .query("endpoint", Some(name))
+                .unwrap(),
+            root.join("config/endpoints").join(format!("{name}.toml"))
+        );
+        let mods = profile.join("Config/ModsConfig.xml");
+        std::fs::write(&mods, "custom mods").unwrap();
+        run_launcher(&args).unwrap();
+        assert_eq!(std::fs::read_to_string(mods).unwrap(), "custom mods");
+        let missing = parsed(&["--endpoint", name, "--print"]);
+        assert!(
+            run_launcher(&missing)
+                .unwrap_err()
+                .contains("endpoint descriptor does not exist")
+        );
+    }
+    std::fs::write(root.join("config/client.toml"), "endpoint = 'tank'\n").unwrap();
+    assert_eq!(
+        profile_dir(None, application_paths::Mode::Native).unwrap(),
+        root.join("data/profiles/tank")
+    );
+    assert_eq!(
+        application_paths::Mode::Native
+            .endpoint_path_for(None)
+            .unwrap(),
+        root.join("config/endpoints/tank.toml")
+    );
+    // Saved client selection must not redirect the daemon's credential publication.
+    assert_eq!(
+        application_paths::Mode::Native.endpoint_path(),
+        root.join("config/endpoints/local.toml")
+    );
+    std::fs::write(root.join("config/client.toml"), "endpoint = [").unwrap();
+    application_paths::Mode::Native
+        .endpoint_path_for(None)
+        .unwrap_err();
+    assert_eq!(
+        application_paths::Mode::Native
+            .endpoint_path_for(Some("tank"))
+            .unwrap(),
+        root.join("config/endpoints/tank.toml")
+    );
+    assert!(!root.join("data/profile").exists());
+    assert!(!root.join("data/sidecar/profile").exists());
+    assert_eq!(
+        profile_dir_for(
+            Some("/explicit"),
+            mode,
+            Path::new("/config/endpoints/tank.toml")
+        )
+        .unwrap(),
+        PathBuf::from("/explicit")
     );
 }
 

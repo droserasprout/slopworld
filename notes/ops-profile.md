@@ -21,8 +21,15 @@ detection runs. It signals a missing preferences file through the game-only
 initialization. Existing preferences remain authoritative even with mod-list reset.
 
 Retain the profile lock through game exit on Linux/macOS; external-game detection
-is Linux-only. Native/sidecar defaults are selected by `--sidecar`, not endpoint or
-profile overrides. Explicit paths can share a folder; endpoint does not select lock
-identity. Redirect Unity logs through the shared resolver unless an explicit game
+is Linux-only. `slopworld/peers.rs` owns authenticated client registration and
+secret-free listing. `peer_probe.rs` owns authenticated discovery, `peer_store.rs`
+owns private file publication, and `peer_prompt.rs` owns hidden input and terminal
+restoration. A launch derives its profile from the already selected descriptor,
+so a concurrent selection change cannot mix a peer with another profile.
+The shared path resolver reads the client-owned selected name; daemon publication
+always uses its own descriptor path. Native/sidecar catalogs and client selections
+remain separate. Profiles follow peer names, with explicit path overrides taking
+precedence. The resolved profile owns lock identity; explicit paths can share a
+folder. Redirect Unity logs through the shared resolver unless an explicit game
 `-logFile` was supplied, and create the log parent only for normal launch.
 [Linux window integration](ui-window-fullscreen.md) owns window behavior.
