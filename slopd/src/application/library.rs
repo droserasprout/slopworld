@@ -69,7 +69,7 @@ impl LibraryMutation {
                 if cfg.library.iter().any(|existing| existing.name == sc.name) {
                     bail!("library item {} already exists", sc.name);
                 }
-                cfg.library.push(sc.clone());
+                cfg.library.push(sc);
                 Ok(())
             }
             Self::Replace { name, item: mut sc } => {

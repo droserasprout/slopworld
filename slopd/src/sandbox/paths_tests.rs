@@ -284,7 +284,7 @@ fn sandbox_validation_uses_the_candidate_replacement() {
         ..candidate.clone()
     };
     let valid_table = Table {
-        sandbox: vec![candidate.clone()],
+        sandbox: vec![candidate],
         commands: vec![],
     };
     assert!(

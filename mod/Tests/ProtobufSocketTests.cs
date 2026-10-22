@@ -98,7 +98,7 @@ namespace SlopWorld.Tests
 
         public static void BinaryFramesFragmentationPingAndMaskedCommands()
         {
-            var listener = new TcpListener(IPAddress.Loopback, 0);
+            using var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
             int port = ((IPEndPoint)listener.LocalEndpoint).Port;
             var server = Task.Run(() =>

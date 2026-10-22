@@ -21,7 +21,7 @@ async fn cache_configuration_removes_only_owned_links() {
         ..Default::default()
     };
     let configured = Config {
-        projects: vec![project.clone()],
+        projects: vec![project],
         ..Default::default()
     };
     reconcile_store_links(&Store::default(), &Config::default(), &configured).unwrap();

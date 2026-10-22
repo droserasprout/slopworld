@@ -174,7 +174,7 @@ fn saved_projection_is_private_and_replaces_atomically() {
     );
     assert!(!dir.join("launch-plan.json.tmp").exists());
 
-    let mut replacement = plan.clone();
+    let mut replacement = plan;
     replacement.session = "replacement".into();
     replacement.save_at(&path).unwrap();
     assert_eq!(

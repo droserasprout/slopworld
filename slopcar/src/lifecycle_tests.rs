@@ -326,7 +326,9 @@ fn linux_identity_does_not_depend_on_a_writable_temporary_directory() {
         return;
     }
     // SAFETY: effective credential queries have no preconditions.
-    let (uid, gid) = unsafe { (libc::geteuid(), libc::getegid()) };
+    let uid = unsafe { libc::geteuid() };
+    // SAFETY: querying the effective group ID also has no preconditions.
+    let gid = unsafe { libc::getegid() };
     if uid == 0 {
         assert!(
             container_identity()

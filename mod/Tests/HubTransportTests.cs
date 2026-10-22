@@ -207,7 +207,7 @@ namespace SlopWorld.Tests
             foreach (bool schedulerFails in new[] { false, true })
             {
                 bool fail = true;
-                var socket = new Socket();
+                using var socket = new Socket();
                 var pending = new Queue<Action>();
                 var hub = new HubTransport(
                     () =>

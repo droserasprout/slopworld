@@ -272,7 +272,7 @@ fn restoration_reports_conflicting_files_and_links() {
     std::fs::create_dir_all(&root).unwrap();
     let target = root.join("target");
     let source = root.join("source");
-    let links = [(target.clone(), source.clone())];
+    let links = [(target.clone(), source)];
     restore_links(&links).unwrap();
     restore_links(&links).unwrap(); // expected dangling link is already restored
     std::fs::remove_file(&target).unwrap();

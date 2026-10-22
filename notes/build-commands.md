@@ -10,6 +10,9 @@ Use native dependencies for ordering. Python owns substantive generation, stagin
 and reporting; run `tools/` as a package through `uv run --locked python -m`.
 Routine checks and builds use native quiet options; keep warnings, failures, and
 compact test summaries visible.
+C# formatting belongs to CSharpier; analyzer policy belongs to `.editorconfig` and
+`Directory.Build.props` and runs during builds, not `mod-lint`. Rust lint selection
+belongs to each crate's manifest; `clippy.toml` owns thresholds and test allowances.
 `mac/` owns native macOS workflows; `slopcar/` owns containers. Mod builds do not
 build Rust, so install/launch recipes must declare their launcher dependency.
 

@@ -155,7 +155,7 @@ fn merged_usage_preserves_each_providers_last_good_timestamp() {
     let failed = Snapshot::failed(&good, "offline");
     let fresh = Snapshot {
         fetched_ms: 99,
-        ..good.clone()
+        ..good
     };
     let merged = merge(
         [("anthropic", &failed), ("openai", &fresh)],

@@ -6,7 +6,7 @@ fn correlation_survives_coalescing_and_rejects_old_capture_and_run() {
     let start = trace.timing.lock().unwrap().received_us;
     trace.timing.lock().unwrap().tmux_us = start + 10;
     let mut pending = Pending::default();
-    pending.add(7, trace.clone());
+    pending.add(7, trace);
     assert!(pending.capture(7, 1, start + 9).is_empty());
     let first = pending.capture(7, 2, start + 20);
     assert_eq!(first[0].first_seq, 2);

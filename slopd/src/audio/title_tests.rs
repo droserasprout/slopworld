@@ -39,7 +39,7 @@ fn activation_keeps_publication_order_while_a_new_title_waits() {
         );
         std::thread::yield_now();
     }
-    let newer = sink.clone();
+    let newer = sink;
     let update = std::thread::spawn(move || newer.set(Some("newest".into())));
     drop(state_guard);
     commit.join().unwrap();

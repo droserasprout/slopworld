@@ -20,6 +20,9 @@ trim_trailing_whitespace = false
 
 [*.cs]
 indent_size = 4
+# Check resource cleanup and repeated deferred enumeration in builds.
+dotnet_diagnostic.CA2000.severity = warning
+dotnet_diagnostic.CA1851.severity = warning
 
 # The mod is a game integration, not a general-purpose library API. Plain data
 # fields and Harmony/game naming are established contracts. Keep API shape and

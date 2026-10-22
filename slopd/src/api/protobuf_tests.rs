@@ -88,7 +88,7 @@ async fn read_routes_emit_the_declared_binary_payloads() {
             status,
             StatusCode::OK,
             "{path}: {:?}",
-            wire::Error::decode(bytes.clone())
+            wire::Error::decode(bytes.as_ref())
         );
         let value = crate::shared::http_wire::decode_response("GET", path, &bytes).unwrap();
         if path == "/api/health" {

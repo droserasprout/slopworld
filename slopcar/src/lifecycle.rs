@@ -18,7 +18,9 @@ fn container_identity() -> Result<(u32, u32)> {
     {
         // SAFETY: effective credential queries have no preconditions.
         // Unlike temporary-file ownership, these do not depend on TMPDIR.
-        let (uid, gid) = unsafe { (libc::geteuid(), libc::getegid()) };
+        let uid = unsafe { libc::geteuid() };
+        // SAFETY: querying the effective group ID also has no preconditions.
+        let gid = unsafe { libc::getegid() };
         if uid == 0 {
             bail!("run slopcar as the non-root user who owns its persistent state");
         }

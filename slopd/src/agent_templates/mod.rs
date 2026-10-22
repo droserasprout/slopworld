@@ -159,7 +159,7 @@ impl AgentTemplateStore {
 
     pub(crate) fn create(&mut self, mut template: AgentTemplate) -> Result<AgentTemplate> {
         if self.get(&template.name).is_some() {
-            return Err(AgentTemplateError::Exists(template.name.clone()).into());
+            return Err(AgentTemplateError::Exists(template.name).into());
         }
         template.version = self.allocate_version()?;
         validate_template_name(&template.name)?;
@@ -194,7 +194,7 @@ impl AgentTemplateStore {
             .into());
         }
         if template.name != old_name && self.get(&template.name).is_some() {
-            return Err(AgentTemplateError::Exists(template.name.clone()).into());
+            return Err(AgentTemplateError::Exists(template.name).into());
         }
         template.version = self.allocate_version()?;
         validate_template_name(&template.name)?;

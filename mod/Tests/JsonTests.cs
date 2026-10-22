@@ -101,7 +101,7 @@ namespace SlopWorld.Tests
             )
             {
                 JVal.Parse(json);
-                var reader = new JsonReader(json);
+                using var reader = new JsonReader(json);
                 reader.Value(false);
                 reader.Finish();
             }

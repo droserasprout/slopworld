@@ -16,7 +16,7 @@ daemon-check-format:
 # Check formatting and Clippy
 [group('daemon')]
 daemon-lint: daemon-check-format
-    cd slopd && cargo clippy --quiet --all-targets -- -D warnings
+    cd slopd && cargo clippy --quiet --locked --all-targets -- -D warnings
 
 # Run Rust tests
 [positional-arguments]

@@ -438,7 +438,7 @@ impl AudioWorker {
                 }
                 committed.title.commit();
                 self.active_generation = Some(generation);
-                self.active_cancel = Some(committed.title.cancelled.clone());
+                self.active_cancel = Some(committed.title.cancelled);
                 tracing::info!("audio: playing {}", source);
             }
             Ok(None) => {}

@@ -274,7 +274,7 @@ async fn temporary_worker_task_session(manager: &SessionRuntime) -> SessionCfg {
         name: "child".into(),
         project: "scratch".into(),
         worker: true,
-        task_id: task.id.clone(),
+        task_id: task.id,
         state_id: identity,
         ..Default::default()
     }

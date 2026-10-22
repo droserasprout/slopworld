@@ -10,7 +10,7 @@ namespace SlopWorld.Tests
         {
             string saved = Environment.GetEnvironmentVariable("SLOPWORLD_INITIAL_AUDIO");
             string savedRadio = Settings.S.radio;
-            var socket = new Socket();
+            using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
             {
@@ -46,7 +46,7 @@ namespace SlopWorld.Tests
         public static void FailedDaemonOstStopsRemotePlaybackAndKeepsLocalFallbackAcrossReconnect()
         {
             string saved = Settings.S.radio;
-            var socket = new Socket();
+            using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
             {
@@ -154,7 +154,7 @@ namespace SlopWorld.Tests
         public static void SourceChangesDispatchSelectionsImmediatelyAndReconnectRetainsMute()
         {
             string saved = Settings.S.radio;
-            var socket = new Socket();
+            using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
             {

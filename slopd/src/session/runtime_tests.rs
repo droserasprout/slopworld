@@ -63,8 +63,8 @@ pub(crate) fn test_manager_with_socket(
         scroll_capture_pause: Mutex::new(None),
         reader_attach_pause: Mutex::new(None),
         input_sink: Mutex::new(None),
-        _test_directory: Some(TestDirectory(directory.clone())),
-        tmux: tmux.clone(),
+        _test_directory: Some(TestDirectory(directory)),
+        tmux,
         host_records: crate::application::HostRecords::new(
             workspace.clone(),
             config_authority.clone(),

@@ -69,7 +69,7 @@ fn desktop_ids_resolve_to_launchable_files() {
 
     assert_eq!(
         desktop_file_path_in("nested-editor.desktop", std::slice::from_ref(&root)),
-        Some(path.clone())
+        Some(path)
     );
     assert_eq!(
         desktop_file_id(Path::new("nested/editor.desktop")),

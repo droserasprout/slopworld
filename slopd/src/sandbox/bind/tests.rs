@@ -501,7 +501,7 @@ fn worker_identity_is_exported_to_the_sandbox() {
 fn a_preset_asking_for_the_world_does_not_get_it() {
     let home = dirs::home_dir().map(|h| h.to_string_lossy().into_owned());
     let mut asked = vec!["/".to_string(), "/usr".to_string()];
-    asked.extend(home.clone());
+    asked.extend(home);
     asked.push(Config::path_in_use().to_string_lossy().into_owned());
 
     let preset = SandboxPreset {
@@ -1126,7 +1126,7 @@ fn image_import_mount_is_private_read_only_and_wins_over_project_overlays() {
         ))
     );
     let other = SessionCfg {
-        name: session.name.clone(),
+        name: session.name,
         ..Default::default()
     };
     assert_ne!(
