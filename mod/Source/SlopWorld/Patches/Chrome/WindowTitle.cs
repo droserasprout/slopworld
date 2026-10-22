@@ -4,22 +4,18 @@ namespace SlopWorld
 {
     public static class WindowTitle
     {
-        const string NativeTitle = "SlopWorld";
-        const string SidecarTitle = "SlopWorld [s]";
         const float RetrySeconds = 1f;
 
         static string _applied;
         static float _nextTry;
 
-        // Use daemon capabilities from the initial WebSocket snapshot to select the title.
-        // The endpoint path does not determine the connected runtime.
+        // Follow the connected daemon's hostname as health information becomes available.
         public static void Follow()
         {
             if (Application.platform != RuntimePlatform.LinuxPlayer)
                 return;
 
-            string title =
-                SessionHub.Instance.Capabilities.Runtime == "slopcar" ? SidecarTitle : NativeTitle;
+            string title = "SlopWorld - " + SessionHub.Instance.Health.Hostname;
             if (_applied == title)
                 return;
 
