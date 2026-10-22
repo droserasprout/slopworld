@@ -12,8 +12,18 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
-- UI: Added missing View and Add actions to Command palette.
 - Settings: Added configurable on-exit actions to the General tab.
+- UI: Added missing View and Add actions to Command palette.
+
+### Fixed
+
+- Eco: Mute ambient sounds while the colony is paused.
+- Jukebox: Fall back to local OST playback when daemon playback fails.
+- Jukebox: Deliver the jukebox with the player even without any agents.
+
+### Changed
+
+- Settings: Adjust default audio volumes and backdrop dimming.
 
 ## [0.0.9] - 2026-10-21
 
