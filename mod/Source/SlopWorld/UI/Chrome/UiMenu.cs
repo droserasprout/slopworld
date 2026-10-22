@@ -216,13 +216,15 @@ namespace SlopWorld
             }
         }
 
-        float WidestLabel()
+        // Checkbox columns and submenu arrows consume the same row width as the label.
+        // Selectors must measure these too before fixing the popup to the control width.
+        public static float WidthFor(IEnumerable<FloatMenuOption> options)
         {
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
                 float w = 0f;
-                foreach (var o in _options)
+                foreach (var o in options)
                 {
                     if (o is SeparatorOption)
                         continue;
@@ -235,7 +237,7 @@ namespace SlopWorld
                     if (w + PadX * 2f >= MaxW)
                         break;
                 }
-                return w;
+                return Mathf.Clamp(w + PadX * 2f, MinW, MaxW);
             }
         }
 
@@ -243,7 +245,7 @@ namespace SlopWorld
             new Vector2(
                 _selector && _selectorWidth > 0f
                     ? Mathf.Min(_selectorWidth, UI.screenWidth)
-                    : Mathf.Clamp(WidestLabel() + PadX * 2f, MinW, MaxW),
+                    : WidthFor(_options),
                 Mathf.Min(ContentH, UI.screenHeight * MaxScreen)
             );
 

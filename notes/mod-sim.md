@@ -3,6 +3,16 @@
 `Sim/Colony/` maps daemon sessions to pawns; `Sim/Lifecycle/` owns time, saves, and
 loads. [Mod sources](mod-source-layout.md) map the simulation and Harmony owners.
 
+`QuitInterceptor` owns user-requested exit from GM and window close, including
+confirmation and waiting for session-stop acknowledgements. It refreshes sessions
+before stopping a fixed snapshot of live processes; connection changes invalidate
+the attempt. Cancellation and failure must not enter `Root.Shutdown`, whose save
+and radio hooks remain the final shutdown boundary. Internal restart/profile
+shutdowns bypass user confirmation.
+The confirmation lists the client's current live sessions when session stopping
+is enabled. Its Don't ask again choice persists only on confirmed quit, before
+shutdown can bypass the profile's timed flush.
+
 `Sim/Colony/PlayerPawn` names the player from the game process's `$USER` (falling
 back to the OS username), including loaded saves. `Patches/Agents/PawnHoverLabel`
 keeps agent and player hover tooltips to names, health and any equipped weapon.

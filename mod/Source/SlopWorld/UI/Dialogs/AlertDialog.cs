@@ -18,6 +18,12 @@ namespace SlopWorld
         readonly Action _primary;
         readonly Action _secondary;
         readonly UiTheme.Btn _primaryKind;
+        readonly string _checkboxLabel;
+        readonly Action<bool> _checkboxChanged;
+        bool _checked;
+
+        float CheckboxHeight =>
+            string.IsNullOrEmpty(_checkboxLabel) ? 0f : UiTheme.RowH + UiTheme.GapM;
 
         AlertDialog(
             string title,
@@ -27,7 +33,9 @@ namespace SlopWorld
             string secondaryLabel,
             Action secondary,
             UiTheme.Btn primaryKind,
-            float width
+            float width,
+            string checkboxLabel,
+            Action<bool> checkboxChanged
         )
         {
             resizeable = true;
@@ -39,6 +47,8 @@ namespace SlopWorld
             _primary = primary;
             _secondary = secondary;
             _primaryKind = primaryKind;
+            _checkboxLabel = checkboxLabel;
+            _checkboxChanged = checkboxChanged;
             AcceptOnEnter(AcceptPrimary);
         }
 
@@ -50,7 +60,9 @@ namespace SlopWorld
             string secondaryLabel = null,
             Action secondary = null,
             UiTheme.Btn primaryKind = UiTheme.Btn.Primary,
-            float width = 520f
+            float width = 520f,
+            string checkboxLabel = null,
+            Action<bool> checkboxChanged = null
         ) =>
             new AlertDialog(
                 title,
@@ -60,7 +72,9 @@ namespace SlopWorld
                 secondaryLabel,
                 secondary,
                 primaryKind,
-                width
+                width,
+                checkboxLabel,
+                checkboxChanged
             );
 
         public override Vector2 InitialSize
@@ -72,7 +86,8 @@ namespace SlopWorld
                     4f * UiTheme.GapM
                     + UiTheme.HeaderH
                     + MessageHeight(_message, width - 2f * UiTheme.GapM - UiTheme.ScrollbarW)
-                    + UiTheme.BtnH;
+                    + UiTheme.BtnH
+                    + CheckboxHeight;
                 return new Vector2(width, Mathf.Min(height, UI.screenHeight));
             }
         }
@@ -91,12 +106,29 @@ namespace SlopWorld
                 rect.x,
                 messageY,
                 rect.width,
-                Mathf.Max(0f, UiLayout.FooterBar(rect).y - UiTheme.GapM - messageY)
+                Mathf.Max(0f, UiLayout.FooterBar(rect).y - CheckboxHeight - UiTheme.GapM - messageY)
             );
             float width = Mathf.Max(0f, message.width - UiTheme.ScrollbarW);
             var view = new Rect(0f, 0f, width, MessageHeight(_message, width));
             using (_scroll.Scope(message, view))
                 UiText.PlainStatusLabel(view, _message, UiTheme.Name);
+
+            // Keep the optional control beside the actions even when the message scrolls.
+            if (!string.IsNullOrEmpty(_checkboxLabel))
+            {
+                var checkbox = new Rect(
+                    rect.x,
+                    UiLayout.FooterBar(rect).y - CheckboxHeight,
+                    rect.width,
+                    UiTheme.RowH
+                );
+                bool value = UiControls.Checkbox(checkbox, _checkboxLabel, _checked);
+                if (value != _checked)
+                {
+                    _checked = value;
+                    _checkboxChanged?.Invoke(value);
+                }
+            }
 
             DrawActions(new UiLayout.Bar(UiLayout.FooterBar(rect)));
         }

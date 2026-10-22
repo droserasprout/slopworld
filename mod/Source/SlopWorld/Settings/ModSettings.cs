@@ -131,6 +131,9 @@ namespace SlopWorld
         // Whether the daemon is told to go quiet on the way out.
         public bool radioStopOnExit = true;
 
+        public bool askOnExit = true;
+        public bool stopSessionsOnExit;
+
         // Grandma's visiting hides gore and harmful tips.
         // It also disables destructive and Easter egg effects.
         // Plague arrivals use flowers.
@@ -263,6 +266,8 @@ namespace SlopWorld
                 String
             ),
             Field("radioStopOnExit", (ModSettings s) => ref s.radioStopOnExit, Bool, String),
+            Field("askOnExit", (ModSettings s) => ref s.askOnExit, Bool, String),
+            Field("stopSessionsOnExit", (ModSettings s) => ref s.stopSessionsOnExit, Bool, String),
             Field("grandmaMode", (ModSettings s) => ref s.grandmaMode, Bool, String),
             Field("temperatureUnit", (ModSettings s) => ref s.temperatureUnit, Text, String),
             Field("ecoMode", (ModSettings s) => ref s.ecoMode, Bool, String),

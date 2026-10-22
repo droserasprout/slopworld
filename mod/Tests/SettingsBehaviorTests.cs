@@ -9,6 +9,34 @@ namespace SlopWorld.Tests
 {
     static class SettingsBehaviorTests
     {
+        public static void ExitPreferencesDefaultSafelyAndRoundTripIndependently()
+        {
+            var defaults = ModSettings.FromToml("");
+            AssertEx.True(defaults.askOnExit, "ask before quitting by default");
+            AssertEx.True(defaults.radioStopOnExit, "stop radio by default");
+            AssertEx.Equal(false, defaults.stopSessionsOnExit, "keep agents running by default");
+            foreach (bool ask in new[] { false, true })
+            foreach (bool radio in new[] { false, true })
+            foreach (bool sessions in new[] { false, true })
+            {
+                var restored = ModSettings.FromToml(
+                    new ModSettings
+                    {
+                        askOnExit = ask,
+                        radioStopOnExit = radio,
+                        stopSessionsOnExit = sessions,
+                    }.ToToml()
+                );
+                AssertEx.Equal(ask, restored.askOnExit, "confirmation round trips");
+                AssertEx.Equal(radio, restored.radioStopOnExit, "radio preference round trips");
+                AssertEx.Equal(
+                    sessions,
+                    restored.stopSessionsOnExit,
+                    "session preference round trips"
+                );
+            }
+        }
+
         public static void FrameLimitDefaultsToAutoAndPreservesExplicitModes()
         {
             AssertEx.Equal(

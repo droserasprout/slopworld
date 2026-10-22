@@ -259,7 +259,7 @@ namespace SlopWorld
             options.Add(new FloatMenuOption("New looks", NewLookAction));
             if (!Settings.EcoMode)
                 options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
-            options.Add(new FloatMenuOption("Quit", Root.Shutdown));
+            options.Add(new FloatMenuOption("Quit", QuitInterceptor.Request));
 
             // OpenOverPane rather than a plain Add. The status bar is drawn over a terminal as well
             // as over the map, and a menu opened from it belongs above both.

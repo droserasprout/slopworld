@@ -396,11 +396,18 @@ namespace SlopWorld
                 fail
             );
 
-        public void Stop(string name, Action<string> fail = null) =>
+        // A completion callback takes ownership of refreshing, so batches can reload once.
+        public void Stop(string name, Action<string> fail = null, Action done = null) =>
             DaemonClient.Post(
                 $"{SessionsPath}/{HubWire.Esc(name)}/stop",
                 null,
-                _ => Refresh(),
+                _ =>
+                {
+                    if (done != null)
+                        done();
+                    else
+                        Refresh();
+                },
                 fail
             );
 

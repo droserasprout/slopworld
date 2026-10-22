@@ -10,6 +10,8 @@ also promotes added dialog-layer windows. [Workspace panels](mod-workspace-panel
 own retained content lifetime.
 
 Alerts scroll their message inside a capped viewport with a fixed action footer.
+Optional alert checkboxes stay above the footer while the message scrolls; callers
+own the choice's apply and persistence timing.
 Shared text-dialog notes measure and draw through the same native wrapping path.
 Shared form geometry/focus belongs to [chrome](mod-ui-chrome.md) and [focus](ui-focus.md).
 

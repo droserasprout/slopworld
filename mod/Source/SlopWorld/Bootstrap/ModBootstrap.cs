@@ -87,8 +87,8 @@ namespace SlopWorld
             DaemonClient.PumpCompletions(e => Log.Error($"[SlopWorld] completion: {e}"));
             SessionHub.Instance.Update();
             WindowTitle.Follow();
-            // Intercepts Alt+F4 / window close: shows the confirmation dialog on the
-            // frame after the save completes.
+            // Defer close requests out of Unity's quit callback. Confirmation and session
+            // stopping finish before Root.Shutdown saves and closes the connection.
             QuitInterceptor.Check();
             // Adjust the frame rate when the window loses focus.
             // Check each frame, including frames in menus.

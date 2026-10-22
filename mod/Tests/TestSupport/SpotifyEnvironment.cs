@@ -84,7 +84,7 @@ namespace SlopWorld
         public Action Refreshed;
         public Action<string> RefreshFailed;
 
-        public void Refresh(Action ok, Action<string> fail)
+        public void Refresh(Action ok = null, Action<string> fail = null)
         {
             Refreshed = ok;
             RefreshFailed = fail;

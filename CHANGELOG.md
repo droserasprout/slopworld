@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## [Unreleased]
+
+### Added
+
+- UI: Added missing View and Add actions to Command palette.
+- Settings: Added configurable on-exit actions to the General tab.
+
 ## [0.0.9] - 2026-10-21
 
 ### Fixed

@@ -17,6 +17,8 @@ but must not move targets. [Scrolling](mod-ui-scrolling.md) owns scrollbar hit i
 cannot reopen it. Close menus before raising another window. Vanilla replaces
 same-type windows, so each menu level needs a separate instance; submenu openers need a
 non-null action to remain enabled.
+Selector width measurement includes menu checkbox columns and submenu arrows, so
+matching the popup to its source control does not truncate those rows.
 
 `TextEntryController` owns native fields and delayed clipboard edits. Replies arrive
 on the UI thread but still need a live field owner. Resize grips run after the text

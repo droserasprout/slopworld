@@ -108,7 +108,7 @@ namespace SlopWorld
                 tip,
                 enabled,
                 open,
-                UiMenu.WidthFor(new[] { value }.Concat(options.Select(option => option.Label)))
+                Mathf.Max(UiMenu.WidthFor(new[] { value }), UiMenu.WidthFor(options))
             );
             if (!pressed)
                 return false;

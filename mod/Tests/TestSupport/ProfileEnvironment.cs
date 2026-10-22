@@ -54,6 +54,9 @@ namespace SlopWorld
             internal string Text;
             internal string Primary;
             internal Action Action;
+            internal Action SecondaryAction;
+            internal string CheckboxLabel;
+            internal Action<bool> CheckboxChanged;
         }
 
         public static Verse.Window Create(
@@ -63,7 +66,10 @@ namespace SlopWorld
             Action action,
             string secondary = null,
             Action secondaryAction = null,
-            UiTheme.Btn primaryKind = UiTheme.Btn.Primary
+            UiTheme.Btn primaryKind = UiTheme.Btn.Primary,
+            float width = 520f,
+            string checkboxLabel = null,
+            Action<bool> checkboxChanged = null
         ) =>
             new Notice
             {
@@ -71,6 +77,9 @@ namespace SlopWorld
                 Text = text,
                 Primary = primary,
                 Action = action,
+                SecondaryAction = secondaryAction,
+                CheckboxLabel = checkboxLabel,
+                CheckboxChanged = checkboxChanged,
             };
     }
 }

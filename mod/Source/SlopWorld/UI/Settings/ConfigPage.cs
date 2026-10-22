@@ -69,6 +69,42 @@ namespace SlopWorld
                 s.MarkDirty();
             }
 
+            var exitOptions = new (string Label, bool Enabled, Action Toggle)[]
+            {
+                (
+                    "Ask",
+                    s.askOnExit,
+                    () =>
+                    {
+                        s.askOnExit = !s.askOnExit;
+                        s.MarkDirty();
+                    }
+                ),
+                ("Stop radio", Radio.StopOnExit, Radio.ToggleStopOnExit),
+                (
+                    "Stop active sessions",
+                    s.stopSessionsOnExit,
+                    () =>
+                    {
+                        s.stopSessionsOnExit = !s.stopSessionsOnExit;
+                        s.MarkDirty();
+                    }
+                ),
+            };
+            var exitSummary = exitOptions
+                .Where(option => option.Enabled)
+                .Select(option => option.Label);
+            UiControls.Select(
+                l,
+                "On exit",
+                string.Join(", ", exitSummary.DefaultIfEmpty("Quit")),
+                exitOptions.Select(option =>
+                    UiLayout.MenuToggle(option.Label, option.Enabled, option.Toggle)
+                ),
+                out _,
+                "Choose what happens when quitting from GM or closing the window."
+            );
+
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
             var temperatureChoices = Enum.GetValues(typeof(TemperatureDisplayMode))

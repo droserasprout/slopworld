@@ -36,6 +36,23 @@ for machine settings and workspace records. To edit their files externally, stop
 the daemon first; those files load at startup. Library items and preset files
 reload while the daemon runs.
 
+## On exit
+
+Under **General > Game**, open **On exit** to toggle its checkboxes:
+
+- **Ask** (on by default): confirm before quitting from GM, Alt+F4, or window close.
+- **Stop radio** (on by default): stop jukebox playback when quitting. This is the
+  same preference shown in Audio and the jukebox menu.
+- **Stop active sessions** (off by default): stop running session processes before
+  quitting, without deleting configured sessions.
+
+With **Ask** unchecked, quitting applies the selected actions immediately. If
+sessions cannot be stopped, choose **Retry** or **Quit anyway**, or press Escape
+to stay in SlopWorld. Quit saves the colony through the usual shutdown path.
+When **Stop active sessions** is checked, the confirmation lists the currently
+active sessions. Check **Don't ask again** and choose **Quit** to turn off **Ask**;
+cancelling leaves the setting unchanged.
+
 ## Display
 
 Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.

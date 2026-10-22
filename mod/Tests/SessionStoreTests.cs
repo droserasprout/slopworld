@@ -6,6 +6,22 @@ namespace SlopWorld.Tests
 {
     static class SessionStoreTests
     {
+        public static void StopCallbackLetsBatchOwnRefresh()
+        {
+            DaemonClient.Requests.Clear();
+            var store = new SessionStore(_ => { });
+            int completed = 0;
+            store.Stop("agent", done: () => completed++);
+            DaemonClient.Requests[0].Reply(new Wire.Ack());
+            Assert.That(completed, Is.EqualTo(1));
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1));
+            store.Stop("agent");
+            DaemonClient.Requests[1].Reply(new Wire.Ack());
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(3));
+            Assert.That(DaemonClient.Requests[2].Method, Is.EqualTo("GET"));
+            DaemonClient.Requests.Clear();
+        }
+
         public static void LaunchWaitsThroughAnOlderPushForItsOwnSession()
         {
             DaemonClient.Requests.Clear();
