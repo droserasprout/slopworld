@@ -62,6 +62,70 @@ fn bounded_control_sender_exits_when_receiver_is_cancelled() {
 }
 
 #[tokio::test]
+async fn control_line_receiver_preserves_dense_lines_and_unterminated_tail() {
+    let (tx, rx) = mpsc::channel(1);
+    let mut lines = ControlLineReceiver::new(rx);
+    let mut chunk = Vec::new();
+    for index in 0..512 {
+        chunk.extend_from_slice(format!("%output %1 {index}\r\n").as_bytes());
+    }
+    chunk.extend_from_slice(b"tail\r");
+    tx.send(chunk).await.unwrap();
+    drop(tx);
+
+    for index in 0..512 {
+        assert_eq!(
+            lines.recv().await.unwrap(),
+            format!("%output %1 {index}").as_bytes()
+        );
+    }
+    assert_eq!(lines.recv().await.as_deref(), Some(b"tail".as_slice()));
+    assert_eq!(lines.recv().await, None);
+    assert_eq!(lines.recv().await, None);
+}
+
+#[tokio::test]
+async fn control_line_receiver_resumes_compacted_partial_line_after_cancellation() {
+    let (tx, rx) = mpsc::channel(1);
+    let mut lines = ControlLineReceiver::new(rx);
+    tx.send(b"first\npartial\r".to_vec()).await.unwrap();
+    assert_eq!(lines.recv().await.as_deref(), Some(b"first".as_slice()));
+
+    // Poll recv through compaction until it awaits the next chunk, then cancel it.
+    tokio::select! {
+        biased;
+        line = lines.recv() => panic!("partial line returned before next chunk: {line:?}"),
+        () = std::future::ready(()) => {}
+    }
+    assert_eq!(lines.pending, b"partial\r");
+    assert_eq!(lines.searched, lines.pending.len());
+
+    tx.send(b"\n\nlast\n".to_vec()).await.unwrap();
+    drop(tx);
+    assert_eq!(lines.recv().await.as_deref(), Some(b"partial".as_slice()));
+    assert_eq!(lines.recv().await.as_deref(), Some(b"".as_slice()));
+    assert_eq!(lines.recv().await.as_deref(), Some(b"last".as_slice()));
+    assert_eq!(lines.recv().await, None);
+}
+
+#[tokio::test]
+async fn control_line_receiver_releases_large_buffer_without_losing_following_lines() {
+    let (tx, rx) = mpsc::channel(1);
+    let mut lines = ControlLineReceiver::new(rx);
+    let long_line = vec![b'x'; 3 * CONTROL_QUEUE_CHUNK_BYTES];
+    let mut chunk = long_line.clone();
+    chunk.extend_from_slice(b"\nnext\nfinal");
+    tx.send(chunk).await.unwrap();
+    drop(tx);
+
+    assert_eq!(lines.recv().await.unwrap(), long_line);
+    assert!(lines.pending.capacity() <= CONTROL_QUEUE_CHUNK_BYTES * 2);
+    assert_eq!(lines.recv().await.as_deref(), Some(b"next".as_slice()));
+    assert_eq!(lines.recv().await.as_deref(), Some(b"final".as_slice()));
+    assert_eq!(lines.recv().await, None);
+}
+
+#[tokio::test]
 async fn control_line_receiver_resumes_long_line_after_cancelled_recv() {
     let (tx, rx) = mpsc::channel(4);
     let mut lines = ControlLineReceiver::new(rx);

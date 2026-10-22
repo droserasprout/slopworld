@@ -61,6 +61,10 @@ namespace SlopWorld.Tests
             yield return ("uses wire defaults", UsesWireDefaults);
             yield return ("detects a live row shift", DetectsLiveRowShift);
             yield return (
+                "detects a live row shift at the history limit",
+                DetectsLiveRowShiftAtHistoryLimit
+            );
+            yield return (
                 "detects a live row shift with a repeated outgoing row",
                 DetectsRepeatedRowShift
             );
@@ -186,6 +190,19 @@ namespace SlopWorld.Tests
             screen.FromWire(Frame(2, 20, new[] { "two", "three", "four" }, 0, cy: 2, history: 6));
 
             AssertEx.Equal(1, screen.LiveShift, "live row shift");
+        }
+
+        static void DetectsLiveRowShiftAtHistoryLimit()
+        {
+            int limit = DaemonCapabilities.Current.Terminal.ScrollbackLines;
+            var screen = new ScreenBuf();
+            screen.FromWire(
+                Frame(1, 20, new[] { "one", "two", "three" }, 0, cy: 2, history: limit)
+            );
+            screen.FromWire(
+                Frame(2, 20, new[] { "two", "three", "four" }, 0, cy: 2, history: limit)
+            );
+            AssertEx.Equal(1, screen.LiveShift, "full history uses visible overlap without growth");
         }
 
         static void DetectsRepeatedRowShift()

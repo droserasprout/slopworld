@@ -124,6 +124,8 @@ mod title;
 struct ControlLineReceiver {
     rx: mpsc::Receiver<Vec<u8>>,
     pending: Vec<u8>,
+    // Consumed bytes stay in place until the current chunk has been scanned.
+    consumed: usize,
     searched: usize,
     failure: Arc<Mutex<Option<std::io::Error>>>,
 }
@@ -133,6 +135,7 @@ impl ControlLineReceiver {
         Self {
             rx,
             pending: Vec::new(),
+            consumed: 0,
             searched: 0,
             failure: Arc::default(),
         }
@@ -150,17 +153,18 @@ impl ControlLineReceiver {
                 .position(|&byte| byte == b'\n')
             {
                 let end = self.searched + offset;
-                let mut line: Vec<u8> = self.pending.drain(..=end).collect();
-                self.searched = 0;
-                line.pop();
+                let mut line = self.pending.get(self.consumed..end)?.to_vec();
+                self.consumed = end + 1;
+                self.searched = self.consumed;
                 if line.last() == Some(&b'\r') {
                     line.pop();
                 }
                 // Release a large line allocation after sending its bytes to the emulator.
                 // The next small chunk can use a new buffer without retaining the previous capacity.
-                if self.pending.len() < CONTROL_QUEUE_CHUNK_BYTES
+                if self.pending.len() - self.consumed < CONTROL_QUEUE_CHUNK_BYTES
                     && self.pending.capacity() > CONTROL_QUEUE_CHUNK_BYTES * 2
                 {
+                    self.compact_pending();
                     self.pending.shrink_to_fit();
                 }
                 return Some(line);
@@ -169,6 +173,9 @@ impl ControlLineReceiver {
             // Preserve the scan cursor across awaits and select! cancellation.
             // This scans each byte once without scanning earlier chunks again.
             self.searched = self.pending.len();
+            // Move only the unfinished line, once per chunk rather than once per line.
+            // Commit both cursors before awaiting so cancellation preserves the scan.
+            self.compact_pending();
             match self.rx.recv().await {
                 Some(chunk) => self.pending.extend_from_slice(&chunk),
                 None => {
@@ -183,6 +190,15 @@ impl ControlLineReceiver {
                 }
             }
         }
+    }
+
+    fn compact_pending(&mut self) {
+        if self.consumed == 0 {
+            return;
+        }
+        drop(self.pending.drain(..self.consumed));
+        self.searched -= self.consumed;
+        self.consumed = 0;
     }
 }
 

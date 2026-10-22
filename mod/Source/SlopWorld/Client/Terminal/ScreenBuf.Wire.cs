@@ -108,8 +108,13 @@ namespace SlopWorld
             // daemon sequence. It is a new observation of the same live epoch, not rows that
             // scrolled while this tab was away. Only a strictly newer frame may move history.
             bool newer = hadSequence && Seq > previousSeq;
+            // Below the history limit only history growth contributes to LiveShift.
             int visibleShift =
-                Off == 0 && newer && !previousAltScreen && !AltScreen
+                History >= DaemonCapabilities.Current.Terminal.ScrollbackLines
+                && Off == 0
+                && newer
+                && !previousAltScreen
+                && !AltScreen
                     ? VerticalShift(previousLines, Lines, previousRows, Rows, previousCy)
                     : 0;
             int historyShift =
