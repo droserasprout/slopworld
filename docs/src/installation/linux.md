@@ -77,6 +77,54 @@ use `--source DIR` for another mod tree.
 Always launch with `slopworld`. The mod uses a separate
 [game profile](../maintenance/game-profiles.md); keep it disabled in your vanilla profile.
 
+## Remote connection
+
+Install SlopWorld on both machines and attach the mod to the client's RimWorld
+installation as above. The remote server runs `slopd` and your agents; the client
+runs the game. This example uses SSH host `tank` and server IP `192.168.1.10`.
+Replace them with your server's hostname and reachable IP address.
+
+On the remote server, start the daemon once to create its configuration, then stop
+it before editing:
+
+```sh
+# On remote server
+systemctl --user daemon-reload
+systemctl --user enable --now slopd.service
+systemctl --user stop slopd.service
+nano ~/.config/slopworld/config.toml
+```
+
+In the existing `[daemon]` section, set the listener address:
+
+```toml
+[daemon]
+bind = "192.168.1.10:7717"
+```
+
+Keep the other settings, including the token. Start the daemon with the new address:
+
+```sh
+systemctl --user start slopd.service
+```
+
+On the client, copy the endpoint descriptor and edit its `url` to
+`http://192.168.1.10:7717`, keeping its token:
+
+```sh
+# On client
+mkdir -p ~/.config/slopworld
+scp tank:.config/slopworld/endpoint.toml ~/.config/slopworld/tank.toml
+nano ~/.config/slopworld/tank.toml
+
+# Run the game with a separate profile for this server
+SLOPD_ENDPOINT="$HOME/.config/slopworld/tank.toml" \
+SLOPWORLD_PROFILE="$HOME/.local/share/slopworld/profile-tank" \
+slopworld
+```
+
+## Next steps
+
 Continue with [Quickstart](../getting-started/quickstart.md) to prepare your agent CLI, add a project,
 and run your first task.
 

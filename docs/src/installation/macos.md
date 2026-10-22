@@ -1,6 +1,7 @@
 # macOS
 
->macOS support is experimental and was only tested in VM. Keep your expectations low!
+> [!WARNING]
+> macOS support is experimental and was only tested in a VM. Keep your expectations low!
 
 You can run SlopWorld on Apple silicon in a hybrid mode. RimWorld and the mod run natively, while the `slopd` daemon and agent sandboxes run
 in a Linux sidecar container. See [Sidecar mode](sidecar.md) for standalone use.

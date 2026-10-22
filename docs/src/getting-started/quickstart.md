@@ -149,6 +149,8 @@ worker instructions and delegation.
 
 ## Read the task report
 
+<img src="../images/quickstart-task-report.jpg" alt="Tasks sidebar showing completed worker assignments with one task selected" align="right" width="360">
+
 Open **Tasks** in the sidebar and select the assignment to read its progress and
 final report. Check that the task finishes; an **Idle** terminal alone does not
 confirm completion. Initial worker instructions can be set under **Settings > Agents > Workers**.

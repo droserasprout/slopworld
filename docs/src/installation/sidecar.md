@@ -1,5 +1,9 @@
 # Sidecar mode
 
+> [!WARNING]
+> Sidecar mode is not well tested and has many limitations. On Linux, consider a
+> [remote connection](linux.md#remote-connection) instead.
+
 A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The game
 can remain on the host and connect to the sidecar over a loopback port. This page covers standalone sidecar setup. The native-game
 [macOS workflow](macos.md) uses the same Linux sidecar.
@@ -114,6 +118,6 @@ Host storage uses `SLOPD_CONFIG_ROOT`, `SLOPD_DATA`, and `SLOPD_CACHE` in both
 standalone and recipe workflows. Set the same environment when starting the
 sidecar and launching clients. See [Paths and files](../reference/paths.md#sidecar-host-storage)
 for host layout and fixed container mount targets, and
-[Environment variables](../reference/environment.md#sidecar-container-controls)
+[Environment variables](../reference/environment.md)
 for container controls. `slopcar paths endpoint` prints the resolved descriptor
 path without requiring Docker.

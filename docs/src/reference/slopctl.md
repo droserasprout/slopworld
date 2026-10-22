@@ -10,7 +10,7 @@ sandbox sets this variable to its session name.
 
 ## Connection
 
-The [environment reference](environment.md#connection-and-identity)
+The [environment reference](environment.md)
 covers connection overrides and their precedence.
 
 `slopctl` reads `endpoint.toml` for the daemon URL and token.
