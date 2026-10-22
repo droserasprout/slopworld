@@ -125,6 +125,8 @@ namespace SlopWorld
 
             // Layout.
             float y = LayoutAgents(entries, locs, measure);
+            if (AgentTabEmpty)
+                y += TextH;
             Layout.AgentContentH = Mathf.Max(Body.height, y + Pad);
             Layout.LastScale = measure.Scale;
             Layout.RememberInputs(

@@ -11,6 +11,18 @@ namespace SlopWorld
     {
         public static bool Drawing { get; private set; }
 
+        // File-reader sessions belong to Open files rather than the Agents tab.
+        static bool AgentTabEmpty
+        {
+            get
+            {
+                foreach (var session in SessionHub.Instance.Sessions)
+                    if (session != null && !IsRouted(session))
+                        return false;
+                return true;
+            }
+        }
+
         static void DrawChromeAndClicks()
         {
             Tabs();
@@ -73,6 +85,21 @@ namespace SlopWorld
             foreach (var head in Layout.Heads)
                 if (!SkipAgentPaint(head.Rect))
                     DrawHead(head);
+            if (AgentTabEmpty)
+            {
+                float y = Pad;
+                foreach (var head in Layout.Heads)
+                    y = Mathf.Max(y, head.Rect.yMax);
+                using (WidgetState.Save())
+                {
+                    Text.Font = GameFont.Small;
+                    GUI.color = UiTheme.Faint;
+                    UiText.FadedRowLabel(
+                        new Rect(Pad, y, Width - 2 * Pad, TextH),
+                        "No agents/shells."
+                    );
+                }
+            }
             // This must precede vanilla: its portrait handler consumes right-clicks.
             // The scroll group also lets Menus use the content-local row geometry
             // directly, just like portrait and label hit testing.
