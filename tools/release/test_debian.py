@@ -58,7 +58,7 @@ def test_package_system_paths_permissions_dependencies_and_metadata(
         assert f'Architecture: {architecture}\n' in control
         assert 'Version: 0.1.0-20261005-abcdef-1\n' in control
         assert 'libasound2t64 (>= 1.0), libc6 (>= 2.38)' in control
-        assert 'passt' in control and 'tmux' in control
+        assert 'passt' in control and 'tmux (>= 3.7)' in control
         for binary in release_staging.BINARIES:
             assert (staging / 'usr/bin' / binary).stat().st_mode & 0o777 == 0o755
         unit = (staging / 'usr/lib/systemd/user/slopd.service').read_text()

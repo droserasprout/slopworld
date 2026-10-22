@@ -1,13 +1,13 @@
 # Linux
 
-Install SlopWorld on native Linux using an Arch, Debian/Ubuntu, or Fedora package.
+Install SlopWorld on native Linux using binary Arch/DEB/RPM packages.
 For other setups, see [macOS](../installation/macos.md) or [Sidecar mode](../installation/sidecar.md).
 
 ## Requirements
 
 - **x86_64 Linux** with systemd user services and scopes.
 - **RimWorld 1.6** installed separately. Locate the folder containing the `RimWorldLinux` binary.
-- **Runtime dependencies**, including Bubblewrap, passt, and tmux. The package manager installs these.
+- **Runtime dependencies**, including Bubblewrap, passt, and tmux 3.7+. The package manager installs these.
 
 ## Get binaries
 
@@ -25,20 +25,31 @@ wget https://github.com/droserasprout/slopworld/releases/download/{{#constant re
 sudo pacman -U ./slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst
 ```
 
-<a id="debian--ubuntu"></a>
+### Ubuntu 26.10+
 
-### Debian and Ubuntu
-
-Download and install the Debian package:
+Download and install the deb package:
 
 ```sh
 wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-amd64.deb
 sudo apt install ./slopworld-{{#constant release_version}}-amd64.deb
 ```
 
-The release package is built on Debian 13 (trixie). Your distribution must provide
-its required library versions. If your release cannot satisfy those dependencies,
-see [Build from source](../development/build.md#debian-packages) to build a package for your system.
+Older releases don't have tmux 3.7 in repositories or backports.
+
+<a id="debian--ubuntu"></a>
+
+### Debian 13+
+
+Download and install the deb package:
+
+```sh
+echo 'deb https://deb.debian.org/debian trixie-backports main' | sudo tee /etc/apt/sources.list.d/backports.list
+sudo apt update
+sudo apt install tmux/trixie-backports
+
+wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-amd64.deb
+sudo apt install ./slopworld-{{#constant release_version}}-amd64.deb
+```
 
 ### Fedora
 
@@ -49,8 +60,24 @@ wget https://github.com/droserasprout/slopworld/releases/download/{{#constant re
 sudo dnf install ./slopworld-{{#constant release_version}}-x86_64.rpm
 ```
 
-The RPM requires Fedora 43 library versions. To build for another Fedora release, see
-[Fedora packages](../development/releases.md#fedora-packages).
+The RPM requires Fedora 43 library versions. To build for another Fedora release, see [Fedora packages](../development/releases.md#fedora-packages).
+
+## Optional integrations
+
+Packages list these as optional dependencies (`optdepends` on Arch, `Suggests`
+on Debian and Fedora). Install the tools for the features you use:
+
+| Feature | Arch | Debian/Ubuntu | Fedora |
+| --- | --- | --- | --- |
+| Alternative highlighters | `highlight`, `python-pygments` | `highlight`, `python3-pygments` | `highlight`, `python3-pygments` |
+| Desktop application associations | `glib2` | `libglib2.0-bin` | `glib2` |
+| Native Open With chooser | `python-gobject`, `gtk3` | `python3-gi`, `gir1.2-gtk-3.0` | `python3-gobject`, `gtk3` |
+| Portal chooser fallback | `xdg-desktop-portal` | same | same |
+| Wayland clipboard | `wl-clipboard` | `wl-clipboard` | `wl-clipboard` |
+| X11/XWayland clipboard | `xclip` or `xsel` | same | same |
+| Process inspection fallback | `procps-ng` | `procps` | `procps-ng` |
+| Spotify playback | `ncspot` | not packaged | not packaged |
+| Song recognition | `songrec` | not packaged | not packaged |
 
 ## Attach the mod and launch
 

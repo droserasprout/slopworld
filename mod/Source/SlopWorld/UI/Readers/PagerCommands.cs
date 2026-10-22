@@ -185,6 +185,7 @@ namespace SlopWorld
             switch (Path.GetFileName(Executable(command, "less")))
             {
                 case "bat":
+                case "batcat":
                     return BatOptions(
                         command,
                         "--style=plain --decorations=never --color=never --language=txt --strip-ansi=never --wrap=never"
@@ -203,6 +204,7 @@ namespace SlopWorld
             switch (Path.GetFileName(Executable(command, "less")))
             {
                 case "bat":
+                case "batcat":
                     return BatOptions(
                         command,
                         (
@@ -319,7 +321,7 @@ namespace SlopWorld
             // +LINE selector; pass that selector to the child pager through LESS instead.
             if (
                 line > 0
-                && Path.GetFileName(Executable(pager, "less")) == "bat"
+                && CodeHighlight.Engine(App(pager, "less")) == "bat"
                 && !(pager ?? "").Contains("{line}")
             )
             {

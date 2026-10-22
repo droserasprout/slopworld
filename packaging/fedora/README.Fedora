@@ -27,3 +27,29 @@ After removal, run systemctl --user daemon-reload.
 Configuration, sessions, and saves are preserved.
 A source installation's unit under ~/.config/systemd/user overrides the packaged
 unit; remove it before enabling this one.
+
+File paging and highlighting use the required bat and less packages. Bat renders
+files and less provides interactive paging. Auto selection and custom commands
+remain available.
+
+Optional integrations
+---------------------
+
+The Suggests field lists optional packages; install those for the features you use.
+
+  highlight             Alternative syntax highlighter.
+  python3-pygments      Alternative highlighter (pygmentize).
+  glib2                 Desktop associations and launching (gio), portal access (gdbus).
+  python3-gobject, gtk3
+                        Full native Open With chooser, using Python and GTK 3.
+  xdg-desktop-portal    Open With fallback; also requires a backend appropriate
+                        to your desktop and OpenURI interface version 3 or newer.
+  wl-clipboard          Clipboard and PRIMARY selection on Wayland.
+  xclip, xsel           Clipboard and PRIMARY selection on X11 or GNOME/XWayland;
+                        xsel is a fallback to xclip.
+  procps-ng             Fallback process inspection.
+
+Spotify playback requires ncspot and Spotify Premium; song recognition requires
+songrec. These are not provided by the official target distribution repositories;
+install them separately if needed. The game must find songrec on its PATH, and
+the daemon must find ncspot on its PATH.

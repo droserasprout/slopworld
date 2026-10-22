@@ -101,6 +101,7 @@ pub fn whereis() -> Vec<BinaryLocation> {
         "delta",
         "more",
         "bat",
+        "batcat",
         "highlight",
         "pygmentize",
         "micro",

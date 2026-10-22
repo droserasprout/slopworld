@@ -16,8 +16,8 @@ Summary: RimWorld colony interface for live AI coding agents
 License: MIT
 URL: https://github.com/droserasprout/slopworld
 ExclusiveArch: x86_64 aarch64
-Requires: bash, bubblewrap, git, passt, ripgrep, systemd, tmux
-Suggests: glib2, highlight, less, micro, procps-ng, wl-clipboard, xclip, xsel
+Requires: bash, bat, bubblewrap, git, less, micro, passt, ripgrep, systemd, tmux >= 3.7
+Suggests: glib2, gtk3, highlight, procps-ng, python3-gobject, python3-pygments, wl-clipboard, xclip, xdg-desktop-portal, xsel
 Provides: slopd = %{version}-%{release}
 
 %description

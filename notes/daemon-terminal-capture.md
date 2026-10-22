@@ -33,6 +33,11 @@ keep their launch settings. CI and sidecar use the same pinned Debian forky tmux
 older packages can lack required width ranges. Preserve application-negotiated
 bracketed paste rather than guessing from command names.
 
+Native packages require tmux 3.7 or newer: 3.6 introduced `codepoint-widths`,
+but our skin-tone override uses range syntax introduced in 3.7. Pane recovery
+also reads `bracket_paste_flag`, introduced in 3.7. Debian 13's stock 3.5a does
+not meet this contract, even though release binaries compile on Debian 13.
+
 Accepted live resizes publish immediately without waiting for output. Compare frame
 dimensions and reject captures from an older size. A stopped mirror resize must not
 activate the session.

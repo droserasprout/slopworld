@@ -18,11 +18,13 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Fixed
 
 - Eco: Mute ambient sounds while the colony is paused.
+- Files: Recognize Debian’s batcat executable.
 - Jukebox: Fall back to local OST playback when daemon playback fails.
 - Jukebox: Drop the jukebox in a pod during initial cutscene.
 
 ### Changed
 
+- Packaging: Require bat, less, micro, and tmux 3.7 or newer.
 - Settings: Adjust default audio volumes and backdrop dimming.
 
 ## [0.0.9] - 2026-10-21

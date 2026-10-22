@@ -44,8 +44,8 @@ def main() -> int:
     missing += commands('workspace search', 'rg')
     missing += commands('Git view', 'git')
     missing += commands('default shell', 'bash')
-    missing += commands('default pager', 'less')
-    missing += commands('pager syntax highlighting', 'highlight')
+    missing += commands('interactive pager', 'less')
+    missing += commands('default pager and syntax highlighting', 'bat', 'batcat')
     missing += commands('default editor', 'micro')
     missing += commands('desktop application associations', 'gio')
     missing += commands('native application chooser', 'gdbus')
@@ -71,6 +71,7 @@ def main() -> int:
     missing += commands('agent CLI (one of)', 'claude', 'codex', 'opencode', 'pi')
 
     print('Optional: integrations')
+    commands('alternative syntax highlighter', 'highlight', 'pygmentize', required=False)
     commands('Rust compiler cache', 'sccache', required=False)
     commands('Wayland clipboard copy', 'wl-copy', required=False)
     commands('Wayland clipboard paste', 'wl-paste', required=False)

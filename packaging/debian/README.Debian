@@ -1,5 +1,14 @@
-SlopWorld on Debian
-==================
+SlopWorld on Debian 13+ and Ubuntu 26.10+
+=======================================
+
+SlopWorld requires tmux 3.7 or newer for emoji widths and terminal state
+recovery. Debian 13 ships tmux 3.5a: enable trixie-backports and install
+tmux/trixie-backports. Debian testing (forky), unstable (sid), and Ubuntu 26.10
+provide a sufficiently recent tmux in their normal repositories. The package
+is built against Debian 13 libraries; APT checks its runtime dependencies.
+For distribution-specific commands, see:
+https://slopworld.space/installation/linux.html
+Rebuilding SlopWorld does not remove the tmux requirement.
 
 The package stages the mod at /usr/share/slopworld/SlopWorld. As your normal
 user, attach it to a separately installed native Linux RimWorld 1.6 game:
@@ -30,3 +39,32 @@ After package removal, run systemctl --user daemon-reload.
 The package leaves per-user configuration, sessions, and game saves intact.
 A user unit under ~/.config/systemd/user takes precedence over the packaged
 unit; remove a previous source installation's unit before enabling this one.
+
+File paging and highlighting use the required bat and less packages. Bat renders
+files and less provides interactive paging. Auto selection and custom commands
+remain available.
+
+Optional integrations
+---------------------
+
+The Suggests field lists optional packages; install those for the features you use.
+
+  highlight             Alternative syntax highlighter.
+  python3-pygments      Alternative highlighter (pygmentize).
+  libglib2.0-bin        Desktop associations and launching (gio), portal access (gdbus).
+  python3-gi, gir1.2-gtk-3.0
+                        Full native Open With chooser, using Python and GTK 3.
+  xdg-desktop-portal    Open With fallback; also requires a backend appropriate
+                        to your desktop and OpenURI interface version 3 or newer.
+  wl-clipboard          Clipboard and PRIMARY selection on Wayland.
+  xclip, xsel           Clipboard and PRIMARY selection on X11 or GNOME/XWayland;
+                        xsel is a fallback to xclip.
+  procps                Fallback process inspection.
+
+Debian names the bat executable batcat; SlopWorld Auto and the bat selector
+resolve the installed executable automatically.
+
+Spotify playback requires ncspot and Spotify Premium; song recognition requires
+songrec. These are not provided by the official target distribution repositories;
+install them separately if needed. The game must find songrec on its PATH, and
+the daemon must find ncspot on its PATH.

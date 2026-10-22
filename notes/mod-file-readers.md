@@ -33,3 +33,9 @@ native and retain the root. Assign pager dimensions before launch: resizing duri
 LESSOPEN can strand padding. `PagerCommands` owns command construction and
 `CodeHighlight` resolves themes. Feature dispatch belongs to [Files](mod-ui-files.md),
 [Git](mod-ui-git.md), and [Search](mod-ui-search.md).
+
+Daemon Auto resolution and mod reader commands recognize both `bat` and Debian's
+`batcat`; both use the `bat` theme engine. The single bat selector stores a
+portable bare `bat` command. The daemon resolves highlighter requests through its
+PATH; client launches use the executable advertised by daemon Auto metadata. Preserve the actual executable name
+when applying themes, source numbering, diff options, and child-pager line targets.

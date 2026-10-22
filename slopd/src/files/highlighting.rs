@@ -18,7 +18,7 @@ fn engine(argv: &[String]) -> &str {
     {
         Some("highlight") => "highlight",
         Some("pygmentize") => "pygments",
-        Some("bat") => "bat",
+        Some("bat" | "batcat") => "bat",
         _ => "",
     }
 }

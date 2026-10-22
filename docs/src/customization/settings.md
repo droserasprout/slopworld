@@ -82,7 +82,7 @@ These preferences apply live and are saved with the profile.
 Under **Appearance > Code**, **Auto** selects tools installed on the daemon host:
 
 - Pager: bat → less → more.
-- Highlighter: bat → Pygments (`pygmentize`) → highlight → plain text.
+- Highlighter: bat → Pygments → highlight → plain text.
 
 Explicit tools and custom commands stay fixed. **Off** disables highlighting.
 When Auto selects bat as the pager, bat uses less or more to page its output;

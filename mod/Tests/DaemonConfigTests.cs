@@ -11,6 +11,7 @@ namespace SlopWorld.Tests
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("reads daemon defaults", ReadsDaemonDefaults);
+            yield return ("portable bat choices use the daemon executable", PortableBatChoices);
             yield return ("round trips every patch field", RoundTripsEveryPatchField);
             yield return (
                 "independent page saves preserve drafts and saved values",
@@ -34,6 +35,44 @@ namespace SlopWorld.Tests
             yield return ("validates settings numeric boundaries", NumericValidation);
             yield return ("operation generations reject stale completions", OperationGenerations);
             yield return ("uses daemon factory metadata when available", UsesFactoryMetadata);
+        }
+
+        static void PortableBatChoices()
+        {
+            var config = new DaemonConfig
+            {
+                Pager = "bat --paging=always",
+                Highlighter = "bat --color=always --theme='bat'",
+                AutoCommands = new Wire.CommandDefaults
+                {
+                    Pager = "batcat --paging=always --pager more",
+                    Highlighter = "batcat --color=always --style=plain --paging=never",
+                },
+            };
+            Assert.That(config.EffectivePager, Is.EqualTo("batcat --paging=always"));
+            Assert.That(
+                config.EffectiveHighlighter,
+                Is.EqualTo("batcat --color=always --theme='bat'")
+            );
+            Assert.That(config.Pager, Is.EqualTo("bat --paging=always"));
+            foreach (
+                string command in new[]
+                {
+                    "/opt/bat --paging=always",
+                    "wrapper bat",
+                    "battery",
+                    "batcat",
+                }
+            )
+            {
+                config.Pager = command;
+                Assert.That(config.EffectivePager, Is.EqualTo(command));
+            }
+            config.Pager = "bat --paging=always";
+            config.AutoCommands.Highlighter = "bat --color=always";
+            Assert.That(config.EffectivePager, Is.EqualTo(config.Pager));
+            config.AutoCommands = null;
+            Assert.That(config.EffectiveHighlighter, Is.EqualTo(config.Highlighter));
         }
 
         public static void MissingMetadataSourcePreservesMetadataAndPendingEdits()

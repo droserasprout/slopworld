@@ -16,6 +16,7 @@ namespace SlopWorld
                 case "pygmentize":
                     return "pygments";
                 case "bat":
+                case "batcat":
                     return "bat";
                 default:
                     return "";

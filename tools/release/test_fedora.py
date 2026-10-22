@@ -171,7 +171,7 @@ def test_real_rpm_archive_round_trip(package_inputs: Path, tmp_path: Path) -> No
     assert build_time == '1792454400'
     requires = execute(['rpm', '-qp', '--requires', str(archive)], capture_output=True, text=True).stdout
     assert 'libc.so.6' in requires
-    assert all(dependency in requires.splitlines() for dependency in ('bubblewrap', 'passt', 'tmux'))
+    assert all(dependency in requires.splitlines() for dependency in ('bubblewrap', 'passt', 'tmux >= 3.7'))
     assert 'mono' not in requires.lower()
     assert not execute(['rpm', '-qp', '--scripts', str(archive)], capture_output=True, text=True).stdout.strip()
     owners = execute(

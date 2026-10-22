@@ -21,6 +21,32 @@ namespace SlopWorld.Tests
             yield return ("profile code themes preserve pager command boundaries", CodeThemes);
             yield return ("diff pager overrides replace safely", DiffPager);
             yield return ("line numbers belong to source views", LineNumbers);
+            yield return ("Debian batcat preserves bat reader behavior", DebianBatcat);
+        }
+
+        static void DebianBatcat()
+        {
+            const string command = "'/opt/my tools/batcat' --paging=always";
+            AssertEx.Equal("bat", CodeHighlight.Engine(command), "batcat uses bat themes");
+            var settings = new ModSettings { codeBatTheme = "ansi" };
+            AssertEx.True(
+                CodeHighlight.Command(command, settings).Contains("--theme='ansi'"),
+                "batcat receives the selected theme"
+            );
+            AssertEx.True(
+                PagerCommands.FilePager(command, true).Contains("--style=numbers"),
+                "source numbering is enabled for batcat"
+            );
+            AssertEx.True(
+                PagerCommands.PipePager(command).Contains("--strip-ansi=never"),
+                "batcat preserves diff styling"
+            );
+            string launch = PagerCommands.PagerCommand(command, "", "/a", 42);
+            AssertEx.True(launch.Contains("LESS='-RSc +42'"), "line target reaches child pager");
+            AssertEx.True(
+                launch.EndsWith(" '/a'", StringComparison.Ordinal),
+                "no batcat line argument"
+            );
         }
 
         static void LiteralFileActionPaths()

@@ -16,6 +16,7 @@ Install these tools before building:
 | Protobuf compiler (`protoc`) | Required for Rust builds. Use **36.1** for stable generated C# output; check with `protoc --version`. |
 | just | Version **1.58 or newer**. Install through your package manager or with `cargo install just --locked`. |
 | Python and uv | Python **3.12 or newer** and uv. Recipes synchronize the locked tooling dependencies automatically. |
+| tmux | **3.7 or newer** for runtime sessions and terminal tests; CI and the sidecar pin 3.7c. |
 
 If your distribution does not supply protoc 36.1, download the matching binary
 archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)

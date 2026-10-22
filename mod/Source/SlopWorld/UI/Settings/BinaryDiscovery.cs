@@ -226,7 +226,13 @@ namespace SlopWorld
             new BinarySpec(
                 "Command tools",
                 "bat",
-                "pager or syntax highlighter",
+                "pager/highlighter",
+                ProbeKind.DaemonPath
+            ),
+            new BinarySpec(
+                "Command tools",
+                "batcat",
+                "bat on Debian",
                 ProbeKind.DaemonPath
             ),
             new BinarySpec(
@@ -238,7 +244,7 @@ namespace SlopWorld
             new BinarySpec(
                 "Command tools",
                 "pygmentize",
-                "Pygments syntax highlighter",
+                "syntax highlighter",
                 ProbeKind.DaemonPath
             ),
             new BinarySpec("Command tools", "micro", "default editor", ProbeKind.DaemonPath),
@@ -273,13 +279,13 @@ namespace SlopWorld
             new BinarySpec(
                 "Desktop, audio, and clipboard",
                 "xclip",
-                "X11 clipboard",
+                "X11/XWayland clipboard",
                 ProbeKind.DaemonPath
             ),
             new BinarySpec(
                 "Desktop, audio, and clipboard",
                 "xsel",
-                "X11 clipboard fallback",
+                "X11/XWayland clipboard fallback",
                 ProbeKind.DaemonPath
             ),
             new BinarySpec("Desktop, audio, and clipboard", "pactl", "audio device lookup"),

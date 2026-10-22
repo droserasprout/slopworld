@@ -213,9 +213,33 @@ namespace SlopWorld
 
         // Keep editable choices (including Auto) separate from the daemon's host commands.
         public string EffectivePager =>
-            Pager.Trim() == "auto" ? AutoCommands?.Pager ?? Pager : Pager;
+            Pager.Trim() == "auto" ? AutoCommands?.Pager ?? Pager : ResolveBat(Pager);
         public string EffectiveHighlighter =>
-            Highlighter.Trim() == "auto" ? AutoCommands?.Highlighter ?? Highlighter : Highlighter;
+            Highlighter.Trim() == "auto"
+                ? AutoCommands?.Highlighter ?? Highlighter
+                : ResolveBat(Highlighter);
+
+        string ResolveBat(string command)
+        {
+            // Factory Auto metadata already reflects the daemon's PATH, including
+            // Debian's executable name. Keep the stored portable choice unchanged.
+            string trimmed = command.TrimStart();
+            if (
+                (
+                    trimmed == "bat"
+                    || (
+                        trimmed.StartsWith("bat", StringComparison.Ordinal)
+                        && trimmed.Length > 3
+                        && char.IsWhiteSpace(trimmed[3])
+                    )
+                )
+                && (AutoCommands?.Highlighter ?? "").StartsWith("batcat ", StringComparison.Ordinal)
+            )
+                return command.Substring(0, command.Length - trimmed.Length)
+                    + "batcat"
+                    + trimmed.Substring(3);
+            return command;
+        }
 
         public static DaemonConfig FromWire(Wire.Config v, Wire.ConfigMetadata metadata = null) =>
             Read(v.Daemon, v.Defaults, v.Commands, metadata);

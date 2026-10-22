@@ -5,6 +5,12 @@ use std::path::Path;
 fn themes_are_request_local_and_preserve_command_arguments() {
     for (command, kind, theme, expected) in [
         (
+            "batcat --color=always -- %s",
+            "bat",
+            "ansi",
+            vec!["batcat", "--color=always", "--theme=ansi", "--", "%s"],
+        ),
+        (
             "highlight --out-format=xterm256 %s",
             "highlight",
             "base16/monokai",
