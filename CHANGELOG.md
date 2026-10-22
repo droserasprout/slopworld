@@ -10,6 +10,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
+### Security
+
+- Sandbox: Prevent crafted terminal input from executing tmux commands outside the sandbox.
+
 ### Added
 
 - CLI: Added `slopworld connect` and `slopworld peers` to manage saved daemon connections.

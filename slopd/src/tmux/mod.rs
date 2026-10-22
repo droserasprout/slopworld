@@ -731,12 +731,23 @@ impl Tmux {
 
     /// `keys` are tmux key names (Enter, C-c, Up) or literal text when `literal`.
     pub async fn send_keys(&self, name: &str, keys: &[String], literal: bool) -> Result<()> {
-        let target = format!("{name}:.0");
-        let mut args: Vec<&str> = vec!["send-keys", "-t", &target];
         if literal {
-            args.push("-l");
+            // Keep text out of tmux's argv parser: even after `--`, a trailing
+            // semicolon can start another command. Do not add paste-mode markers
+            // to ordinary key input, even when the application enables them.
+            let text = keys.concat();
+            if text.is_empty() {
+                return Ok(());
+            }
+            return self.paste_buffer(name, text.as_bytes(), false).await;
         }
-        args.push("--");
+        // Validate the whole batch before sending anything. tmux recognizes
+        // trailing semicolons (including `;` and `;;`) before parsing key names.
+        if keys.iter().any(|key| key.ends_with(';')) {
+            bail!("tmux key names must not end with a semicolon");
+        }
+        let target = format!("{name}:.0");
+        let mut args: Vec<&str> = vec!["send-keys", "-t", &target, "--"];
         args.extend(keys.iter().map(String::as_str));
         self.run(&args).await?;
         Ok(())
@@ -762,9 +773,12 @@ impl Tmux {
     /// Bracketed paste mode groups a large paste into one terminal event.
     /// This prevents Codex from splitting the paste when PTY reads pause.
     pub async fn paste_bytes(&self, name: &str, bytes: &[u8]) -> Result<()> {
-        use tokio::io::AsyncWriteExt;
-
         let _perf = crate::perf::timer("input-paste-tmux");
+        self.paste_buffer(name, bytes, true).await
+    }
+
+    async fn paste_buffer(&self, name: &str, bytes: &[u8], bracketed: bool) -> Result<()> {
+        use tokio::io::AsyncWriteExt;
 
         let buf = format!("slopworld-{name}");
         let target = format!("{name}:.0");
@@ -772,7 +786,8 @@ impl Tmux {
             .args(self.socket_args())
             .args(["load-buffer", "-b", buf.as_str(), "-"])
             .arg(";")
-            .args(["paste-buffer", "-d", "-r", "-p", "-b", &buf, "-t", &target])
+            .args(["paste-buffer", "-d", "-r", "-b", &buf, "-t", &target])
+            .args(if bracketed { &["-p"][..] } else { &[] })
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())

@@ -611,6 +611,157 @@ async fn missing_pane_status_is_not_a_live_process_and_empty_server_lists_no_ses
 }
 
 #[tokio::test]
+async fn send_keys_rejects_command_separators_before_sending_named_keys() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = super::Tmux::new(&socket.path);
+    tmux.run(&["-f", "/dev/null", "new-session", "-d", "-s", "keys", "cat"])
+        .await
+        .unwrap();
+    let marker = std::path::Path::new(&socket.path).with_file_name("injected");
+    for separator in [";", ";;", "Enter;", "\\;"] {
+        tmux.send_keys(
+            "keys",
+            &[
+                separator.into(),
+                "run-shell".into(),
+                format!("touch '{}'", marker.display()),
+            ],
+            false,
+        )
+        .await
+        .unwrap_err();
+        assert!(!marker.exists(), "named keys executed a host command");
+    }
+    tmux.send_keys("keys", &[";".into(), "kill-server".into()], false)
+        .await
+        .unwrap_err();
+    tmux.send_keys(
+        "keys",
+        &["must-not-arrive".into(), ";;".into(), "kill-server".into()],
+        false,
+    )
+    .await
+    .unwrap_err();
+    assert!(tmux.server_running().await.unwrap());
+    assert!(
+        tmux.run(&["capture-pane", "-p", "-t", "keys:.0"])
+            .await
+            .unwrap()
+            .trim()
+            .is_empty(),
+        "a rejected batch must not deliver any keys"
+    );
+}
+
+#[tokio::test]
+async fn send_keys_delivers_literal_data_and_named_keys_in_order() {
+    // Raw input distinguishes exact bytes, named-key translation, and unwanted
+    // bracketed-paste wrappers. Exercise both application paste modes.
+    for bracketed in [false, true] {
+        let socket = crate::test_support::TmuxSocket::new();
+        let root = std::path::Path::new(&socket.path).parent().unwrap();
+        let tmux = super::Tmux::new(&socket.path);
+        let script = root.join("receiver.py");
+        std::fs::write(
+            &script,
+            r#"
+import os, pathlib, select, sys, time, tty
+root = pathlib.Path(__file__).parent
+tty.setraw(0)
+os.write(1, b'\x1b[?2004h' if sys.argv[1] == 'true' else b'\x1b[?2004l')
+(root / 'ready').touch()
+data = bytearray()
+deadline = time.monotonic() + 10
+while not data.endswith(b'\x03'):
+    assert time.monotonic() < deadline, 'incomplete input'
+    if select.select([0], [], [], 0.1)[0]:
+        chunk = os.read(0, 65536)
+        assert chunk, 'unexpected EOF'
+        data.extend(chunk)
+(root / 'pending').write_bytes(data)
+(root / 'pending').rename(root / 'received')
+time.sleep(60)
+"#,
+        )
+        .unwrap();
+        tmux.run(&[
+            "-f",
+            "/dev/null",
+            "new-session",
+            "-d",
+            "-s",
+            "keys",
+            "python3",
+            script.to_str().unwrap(),
+            if bracketed { "true" } else { "false" },
+        ])
+        .await
+        .unwrap();
+        wait_for_input_file(&root.join("ready")).await;
+        // File readiness alone does not prove tmux consumed the mode sequence.
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while tmux.capture("keys", 1).await.unwrap().bracketed_paste != bracketed {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("tmux did not observe the application's paste mode");
+
+        tmux.send_keys("keys", &[], true).await.unwrap();
+        tmux.send_keys("keys", &["".into(), "".into()], true)
+            .await
+            .unwrap();
+        let marker = root.join("injected");
+        let attack = vec![
+            ";".into(),
+            "run-shell".into(),
+            format!("touch '{}'", marker.display()),
+        ];
+        tmux.send_keys("keys", &attack, true).await.unwrap();
+        let kill = vec![";".into(), "kill-server".into()];
+        tmux.send_keys("keys", &kill, true).await.unwrap();
+        let text = vec![
+            "-hello --help ;; \\; λ 🦀\r\n".repeat(4096),
+            "Enter".into(),
+            "".into(),
+            "tail".into(),
+        ];
+        tmux.send_keys("keys", &text, true).await.unwrap();
+        tmux.send_keys(
+            "keys",
+            &["Enter", "Up", "Down", "Left", "Right", "C-c"].map(String::from),
+            false,
+        )
+        .await
+        .unwrap();
+        wait_for_input_file(&root.join("received")).await;
+        let expected = [
+            attack.concat().as_bytes(),
+            kill.concat().as_bytes(),
+            text.concat().as_bytes(),
+            b"\r\x1b[A\x1b[B\x1b[D\x1b[C\x03",
+        ]
+        .concat();
+        assert!(
+            std::fs::read(root.join("received")).unwrap() == expected,
+            "input bytes or ordering changed with bracketed paste {bracketed}"
+        );
+        assert!(!marker.exists(), "literal keys executed a host command");
+        assert!(tmux.server_running().await.unwrap());
+    }
+}
+
+async fn wait_for_input_file(path: &std::path::Path) {
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while !path.exists() {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("raw input receiver did not reach the expected stage");
+}
+
+#[tokio::test]
 async fn literal_input_starting_with_dashes_reaches_the_pane() {
     let socket = crate::test_support::TmuxSocket::new();
     let tmux = super::Tmux::new(&socket.path);

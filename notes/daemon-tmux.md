@@ -5,6 +5,12 @@ transport and target construction. `tmux/titles.rs` owns application title hooks
 and their recovery format. [Daemon replacement](daemon-redeploy.md)
 keeps server lifetime separate from the daemon.
 
+Terminal input must stay data at the tmux boundary: `--` does not disable tmux's
+command-separator parsing. Literal keys travel through a buffer loaded from stdin,
+without bracketed-paste markers; named-key batches reject trailing semicolons before
+dispatch. Byte input uses hexadecimal arguments. Application paste alone requests
+bracketed-paste wrapping according to the pane's current mode.
+
 The private server permits application window titles (`allow-rename`). Server hooks
 retain the latest title source in a window option, so recovery chooses between
 `ESC k` window names and OSC pane titles in update order even while the daemon is
