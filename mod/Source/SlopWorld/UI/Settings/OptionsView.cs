@@ -12,6 +12,15 @@ namespace SlopWorld
         // the options list, the button being gone (Patch_OptionsOk).
         const float OkRow = 60f;
 
+        // Reserve side margins and include the category rail in the width cap.
+        public static Rect Band(Rect rect)
+        {
+            float side = Mathf.Min(rect.width / 2f, UiTheme.GapL * 2f);
+            rect.x += side;
+            rect.width -= side * 2f;
+            return UiLayout.CenteredBand(rect, 1220f);
+        }
+
         readonly Dialog_Options _dlg;
 
         // True for the length of this view's own call into the dialog.
@@ -55,7 +64,7 @@ namespace SlopWorld
 
         public override void Draw(Rect body)
         {
-            var band = UiLayout.CenteredBand(body);
+            var band = Band(body);
             // Other views own wheel input outside Settings or already consumed.
             if (
                 SmoothScroll.WheelOnly

@@ -474,7 +474,8 @@ namespace SlopWorld
             // Keep vertical glyph overflow; labels apply their own horizontal column clip.
             float line = Mathf.Max(UiFont.LineHeight(detailStyle), UiFont.LineHeight(nameStyle));
             float gap = ColumnGap;
-            columns = Mathf.Clamp(Mathf.FloorToInt((rect.width + gap) / (240f + gap)), 1, columns);
+            // Allow three columns within the Settings margins.
+            columns = Mathf.Clamp(Mathf.FloorToInt((rect.width + gap) / (200f + gap)), 1, columns);
             int rows = (credits.Length + columns - 1) / columns;
             var widths = new float[columns];
             float naturalWidth = gap * (columns - 1);

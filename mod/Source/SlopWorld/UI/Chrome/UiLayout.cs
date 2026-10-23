@@ -13,9 +13,9 @@ namespace SlopWorld
         const float CenteredBandMaxWidth = 1020f;
 
         // Shared readable content band for settings, help, and task details.
-        public static Rect CenteredBand(Rect rect)
+        public static Rect CenteredBand(Rect rect, float maxWidth = CenteredBandMaxWidth)
         {
-            float width = Mathf.Min(rect.width, CenteredBandMaxWidth);
+            float width = Mathf.Min(rect.width, maxWidth);
             float inset = Mathf.Min(rect.height, UiTheme.GapL);
             return new Rect(
                 rect.x + (rect.width - width) / 2f,

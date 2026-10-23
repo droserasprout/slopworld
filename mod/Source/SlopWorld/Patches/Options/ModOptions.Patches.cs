@@ -410,7 +410,7 @@ namespace SlopWorld
             {
                 if (OptionsView.Drawing)
                     return;
-                var band = UiLayout.CenteredBand(inRect);
+                var band = OptionsView.Band(inRect);
                 GUI.BeginGroup(band);
                 _grouped = true;
                 inRect = OptionsView.Inner(band);

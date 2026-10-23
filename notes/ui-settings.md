@@ -30,5 +30,7 @@ kind/key. Shallow scans skip purging; the manager purges before measured scans, 
 sandbox inventory never deletes. See `BinaryDiscoveryTests` and `StorageLoadStateTests`.
 
 `SettingsLayout` owns page geometry. Measurement cannot invoke controls or setters.
+`OptionsView.Band` owns the shared width cap and side margins for workspace and
+main-menu Settings, including the category rail.
 [Chrome](mod-ui-chrome.md), [focus](ui-focus.md), and [dialogs](mod-ui-windows.md) own
 shared mechanics. User choices belong to [Settings](../docs/src/customization/settings.md).
