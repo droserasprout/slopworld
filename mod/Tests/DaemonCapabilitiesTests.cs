@@ -44,7 +44,6 @@ namespace SlopWorld.Tests
             AssertEx.False(caps.Known, "known");
             AssertEx.Equal("native", caps.Runtime, "runtime");
             AssertEx.True(caps.AudioPlayback, "audio");
-            AssertEx.True(caps.Clipboard, "clipboard");
             AssertEx.True(caps.DesktopOpen, "desktop open");
             AssertEx.True(caps.PerSessionLimits, "limits");
             AssertEx.False(caps.HostNetworkIsContainer, "network");
@@ -63,7 +62,7 @@ namespace SlopWorld.Tests
                     ProtobufFixtures.Read<Wire.Capabilities>(
                         JVal.Parse(
                             "{\"runtime\":\"slopcar\",\"audio_playback\":false,"
-                                + "\"clipboard\":false,\"desktop_open\":false,\"ncspot\":false,"
+                                + "\"desktop_open\":false,\"ncspot\":false,"
                                 + "\"per_session_limits\":false,\"host_network_is_container\":true,"
                                 + "\"host_terminals_are_container\":true,"
                                 + "\"terminal\":{\"scrollback_lines\":123,\"min_cols\":22,"
@@ -74,7 +73,6 @@ namespace SlopWorld.Tests
                 AssertEx.Equal("slopcar", caps.Runtime, "runtime");
                 AssertEx.True(caps.Known, "known");
                 AssertEx.False(caps.AudioPlayback, "audio");
-                AssertEx.False(caps.Clipboard, "clipboard");
                 AssertEx.False(caps.DesktopOpen, "desktop open");
                 AssertEx.False(caps.Ncspot, "ncspot");
                 AssertEx.False(caps.PerSessionLimits, "limits");

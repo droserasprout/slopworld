@@ -24,29 +24,38 @@ Expect any imaginable incompatibilities until 0.1.0.
 - CLI: Added automatic game profile selection for each connection.
 - Settings: Added configurable on-exit actions to the General tab.
 - UI: Added missing View and Add actions to Command palette.
-- UI: Show the daemon hostname in the game window title.
-- UI: Show an empty state in the Agents sidebar.
 
 ### Fixed
 
-- Files: Recognize Debian’s batcat executable.
+- Apps: Recognize Debian’s `batcat` executable.
 - Game: Mute ambient sounds while the colony is paused.
 - Jukebox: Fall back to local OST playback when daemon playback fails.
 - Jukebox: Drop the jukebox in a pod during initial cutscene.
 - Jukebox: Remove random pauses between local OST tracks.
 - Settings: Refresh active fonts and font menus after rescanning installed fonts.
 - Terminal: Fixed image paste failing when the daemon starts before the graphical session.
+- Terminal: Fixed image paste into Codex on remote daemon.
 - Terminal: On Shift+Enter send Enter in shells and multiline input in agents.
+- Terminal: Prevent stalled clipboard helpers from blocking later copy-paste actions.
 - Terminal: Preserve control characters in keyboard input and clipboard paste on tmux 3.8.
+- Terminal: Use the game desktop's clipboard when connected to remote daemon.
 - UI: Fixed separator lines disappearing during pixel snapping.
+- UI: Show the daemon hostname in the game window title.
+- UI: Show an empty state in the Agents sidebar.
 
 ### Changed
 
-- Packaging: Require bat, less, micro, and tmux 3.7 or newer.
+- Packaging: Require bat, less, micro, xclip, and tmux 3.7+.
 - Settings: Adjust default audio volumes and backdrop dimming.
 - Storage: Store connection files in `endpoints/`.
+- Terminal: Keep clipboard access on the game desktop, including remote connections.
 - UI: Prefer installed Nerd Font variants when terminal font is set to Auto.
 - UI: Updated default fonts and sizes.
+
+### Removed
+
+- API: Removed `/clipboard` methods and image imports from file URIs.
+- Clipboard: Removed unused `wl-clipboard` integration.
 
 ## [0.0.9] - 2026-10-21
 

@@ -13,12 +13,6 @@ from pathlib import Path
 TEXT = 'Az漢字かな한글🙂🚀e\u0301 '
 
 
-def use_wayland_clipboard(backend):
-    # GNOME's wl-clipboard fallback can map a surface and steal terminal focus.
-    desktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':')
-    return backend == 'ydotool' and not ('gnome' in desktop and os.environ.get('DISPLAY'))
-
-
 def run_command(args, **kwargs):
     result = subprocess.run(args, capture_output=True, text=True, timeout=2, **kwargs)
     if result.returncode:
@@ -52,13 +46,10 @@ class Backend:
         self.held = set()
 
     def preflight(self, text=True):
-        clipboard = 'wl-copy' if use_wayland_clipboard(self.name) else 'xclip'
         if not os.environ.get('DISPLAY') or not shutil.which('xdotool'):
             raise RuntimeError('An X11/XWayland display and xdotool are required to guard RimWorld focus')
-        if text and not shutil.which(clipboard):
-            raise RuntimeError(f'Install {clipboard} for Unicode clipboard input')
-        if text and use_wayland_clipboard(self.name) and not shutil.which('wl-paste'):
-            raise RuntimeError('Install wl-paste to verify the Unicode clipboard fixture')
+        if text and not shutil.which('xclip'):
+            raise RuntimeError('Install xclip for Unicode clipboard input')
         if self.name == 'ydotool':
             # Verify installed CLI/protocol family without sending events.
             if '--wheel' not in run_command(['ydotool', 'mousemove', '--help']):
@@ -72,14 +63,12 @@ class Backend:
     def prepare_text(self, text=TEXT):
         # Fixed public fixture, no newline/Enter and no destructive editing.
         # Replace the clipboard with the public fixture. Do not read or save its old contents.
-        wayland = use_wayland_clipboard(self.name)
-        command = (['wl-copy', '--type', 'text/plain;charset=utf-8', text]
-                   if wayland else ['xclip', '-selection', 'clipboard'])
+        command = ['xclip', '-selection', 'clipboard']
         # Clipboard owners fork and stay alive. Their inherited stderr/stdout must
         # not keep communicate() waiting for EOF after the parent has exited.
         with tempfile.TemporaryFile() as errors:
             try:
-                result = subprocess.run(command, input=None if wayland else text.encode(),
+                result = subprocess.run(command, input=text.encode(),
                                         stdout=subprocess.DEVNULL, stderr=errors, timeout=10)
             except subprocess.TimeoutExpired as error:
                 raise RuntimeError('Clipboard setup did not finish. Check compositor clipboard access. '
@@ -89,8 +78,7 @@ class Backend:
                 detail = errors.read().decode(errors='replace').strip()
                 raise RuntimeError(f'Clipboard setup exited {result.returncode}: {detail}')
 
-        verify = (['wl-paste', '--no-newline'] if wayland
-                  else ['xclip', '-selection', 'clipboard', '-out'])
+        verify = ['xclip', '-selection', 'clipboard', '-out']
         for _ in range(2):
             if run_command(verify) != text.strip():
                 raise RuntimeError('The clipboard did not return the benchmark fixture twice. No input was sent.')

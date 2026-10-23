@@ -57,10 +57,6 @@ namespace SlopWorld
             public const string PresetCopy = "/api/presets/:kind/:name/copy";
             public const string Config = "/api/config";
             public const string ConfigPatch = "/api/config/patch";
-            public const string Clipboard = "/api/clipboard";
-            public const string ClipboardText = "/api/clipboard/text";
-            public const string ClipboardPrimary = "/api/clipboard/primary";
-            public const string ClipboardPrimaryText = "/api/clipboard/primary/text";
             public const string Usage = "/api/usage";
             public const string Audio = "/api/audio";
             public const string Ncspot = "/api/ncspot";
@@ -88,6 +84,7 @@ namespace SlopWorld
             public const string Usage = "usage";
             public const string Audio = "audio";
             public const string Jukebox = "jukebox";
+            public const string Clipboard = "clipboard";
         }
 
         internal static class Messages

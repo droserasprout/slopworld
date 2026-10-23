@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -45,15 +46,14 @@ namespace SlopWorld
             CopyText(SelectionText(buf).TrimEnd('\n'));
         }
 
-        // The *host's* clipboard, through the daemon: on this Unity player
-        // GUIUtility.systemCopyBuffer is as often the process's own buffer as the desktop's.
-        // An agent copying on its own behalf goes via OSC 52 instead, never through here.
+        // Clipboard transport chooses the game desktop on Linux; Unity's buffer alone
+        // is unreliable under some compositors. Application OSC 52 has a separate owner.
         void CopyText(string text)
         {
             if (string.IsNullOrEmpty(text))
                 return;
 
-            DaemonClipboard.Copy(text, null, msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
+            DesktopClipboard.Copy(text, null, msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
         }
 
         void CopyPrimaryText(string text)
@@ -61,7 +61,7 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(text))
                 return;
 
-            DaemonClipboard.CopyPrimary(
+            DesktopClipboard.CopyPrimary(
                 text,
                 null,
                 msg => Log.Warning($"[SlopWorld] primary selection: {msg}")
@@ -186,23 +186,15 @@ namespace SlopWorld
             return options;
         }
 
-        // Falls back to the game's own buffer. A round trip, so the paste lands a frame or
-        // two later.
         // Missing session metadata is conservative: a stale snapshot must not send an image to
         // a host shell.
         bool HostClipboardTextOnly => SessionHub.Instance.Get(_state.Name)?.Host != false;
 
-        // Codex owns Ctrl+V for image clipboard data: its TUI turns that data into an attachment.
-        // Sending image bytes through the daemon's text/JSON paste path turns them into a huge
-        // string of replacement characters instead.
+        // Codex accepts image attachments. Linux uploads binary clipboard data and
+        // pastes a staged path. macOS uses local text paste only.
         bool CodexImagePaste =>
             !HostClipboardTextOnly
             && SessionHub.Instance.Get(_state.Name)?.CommandPreset == "codex";
-
-        static void ForwardCodexImagePaste(string name, long runId)
-        {
-            SessionHub.Instance.Terminal.SendKeysForRun(name, new[] { "C-v" }, false, (ulong)runId);
-        }
 
         internal void PasteClipboard()
         {
@@ -211,71 +203,54 @@ namespace SlopWorld
             var target = SessionHub.Instance.Get(name);
             long? runId = target?.RunId;
             int epoch = _pasteEpoch;
-            if (CodexImagePaste && SessionHub.Instance.Capabilities.Clipboard)
+            if (DesktopClipboard.UsesX11)
             {
-                // Codex's image handler claims Ctrl+V even when the clipboard only has text,
-                // then reports "no image". Read the text format first and reserve Ctrl+V for an
-                // image (or another non-text clipboard format).
-                DaemonClient.Get<Wire.TextResult>(
-                    WireProtocol.Routes.ClipboardText,
-                    j =>
+                bool images = CodexImagePaste;
+                DesktopClipboard.ReadLocalPaste(
+                    text => Deliver(name, text, runId, epoch),
+                    images
+                        ? bytes =>
+                        {
+                            if (PasteTargetCurrent(name, runId, epoch))
+                                SessionHub.Instance.Terminal.PasteImage(
+                                    name,
+                                    bytes,
+                                    (ulong)runId.Value
+                                );
+                        }
+                        : (Action<byte[]>)null,
+                    error =>
                     {
                         if (!PasteTargetCurrent(name, runId, epoch))
                             return;
-                        string text = j.Text;
-                        if (!string.IsNullOrEmpty(text))
-                            SessionHub.Instance.Terminal.PasteHostClipboard(
-                                name,
-                                text,
-                                (ulong)runId.Value,
-                                true
-                            );
+                        if (images)
+                            Log.Warning("[SlopWorld] image paste: " + error);
                         else
-                            ForwardCodexImagePaste(name, runId.Value);
-                    },
-                    _ =>
-                    {
-                        if (PasteTargetCurrent(name, runId, epoch))
-                            ForwardCodexImagePaste(name, runId.Value);
+                            DeliverLocal(name, runId, epoch);
                     }
                 );
                 return;
             }
-            if (!SessionHub.Instance.Capabilities.Clipboard)
-            {
-                DeliverLocal(name, runId, epoch);
-                return;
-            }
-            string path = HostClipboardTextOnly
-                ? WireProtocol.Routes.ClipboardText
-                : WireProtocol.Routes.Clipboard;
-            DaemonClient.Get<Wire.TextResult>(
-                path,
-                j => Deliver(name, j.Text, runId, epoch, false),
-                _ => DeliverLocal(name, runId, epoch)
-            );
+            DeliverLocal(name, runId, epoch);
         }
 
-        // Middle-click reads Wayland/X11 PRIMARY, not the ordinary CLIPBOARD. There is no
+        // Middle-click reads X11 PRIMARY, not the ordinary CLIPBOARD. There is no
         // useful game-local fallback: Unity exposes the latter, if anything, and substituting
         // it would make a missing primary selection paste the wrong text.
         internal void PastePrimarySelection()
         {
-            if (!SessionHub.Instance.Capabilities.Clipboard)
+            if (DesktopClipboard.UsesX11)
+            {
+                Flush();
+                string localName = _state.Name;
+                long? localRun = SessionHub.Instance.Get(localName)?.RunId;
+                int localEpoch = _pasteEpoch;
+                DesktopClipboard.ReadLocal(
+                    true,
+                    text => Deliver(localName, text, localRun, localEpoch)
+                );
                 return;
-            Flush();
-            string name = _state.Name;
-            long? runId = SessionHub.Instance.Get(name)?.RunId;
-            int epoch = _pasteEpoch;
-            bool images = CodexImagePaste;
-            string path = HostClipboardTextOnly
-                ? WireProtocol.Routes.ClipboardPrimaryText
-                : WireProtocol.Routes.ClipboardPrimary;
-            DaemonClient.Get<Wire.TextResult>(
-                path,
-                j => Deliver(name, j.Text, runId, epoch, images),
-                _ => { }
-            );
+            }
         }
 
         bool PasteTargetCurrent(string name, long? runId, int epoch) =>
@@ -285,18 +260,13 @@ namespace SlopWorld
             && runId.HasValue
             && SessionHub.Instance.Get(name)?.RunId == runId;
 
-        void Deliver(string name, string text, long? runId, int epoch, bool images)
+        void Deliver(string name, string text, long? runId, int epoch)
         {
             if (!string.IsNullOrEmpty(text) && PasteTargetCurrent(name, runId, epoch))
-                SessionHub.Instance.Terminal.PasteHostClipboard(
-                    name,
-                    text,
-                    (ulong)runId.Value,
-                    images
-                );
+                SessionHub.Instance.Terminal.PasteForRun(name, text, (ulong)runId.Value);
         }
 
         void DeliverLocal(string name, long? runId, int epoch) =>
-            Deliver(name, GUIUtility.systemCopyBuffer, runId, epoch, false);
+            Deliver(name, GUIUtility.systemCopyBuffer, runId, epoch);
     }
 }

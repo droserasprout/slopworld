@@ -343,6 +343,11 @@ fn screens_require_a_live_grant_for_the_named_session() {
 fn a_scoped_grant_is_denied_host_wide_categories() {
     let cap = scoped(&["a"], Level::Ro);
     let denied = [
+        message(Event::Clipboard {
+            name: "a".into(),
+            run_id: 7,
+            text: "copy".into(),
+        }),
         message(Event::Projects {
             projects: Vec::new(),
         }),
@@ -1071,9 +1076,9 @@ async fn terminal_commands_require_write_scope_and_current_run() {
             .unwrap(),
         )
     };
-    let paste = |run_id, images| {
+    let paste = |run_id| {
         let request = serde_json::json!({
-            "name": "target", "text": "paste λ", "run_id": run_id, "host_file_images": images
+            "name": "target", "text": "paste λ", "run_id": run_id
         });
         ClientMsg::Paste(serde_json::from_value(request).unwrap())
     };
@@ -1088,13 +1093,13 @@ async fn terminal_commands_require_write_scope_and_current_run() {
         scoped(&["other"], Level::Rw),
         revoked,
     ] {
-        for command in [keys(Some(7)), paste(Some(7), false)] {
+        for command in [keys(Some(7)), paste(Some(7))] {
             assert!(handle_client_msg(command, &manager, &cap, &socket.tx, &subs).await);
             assert!(input.try_recv().is_err());
         }
     }
     for cap in [Cap::Root, scoped(&["target"], Level::Rw)] {
-        for command in [keys(Some(6)), paste(Some(6), false)] {
+        for command in [keys(Some(6)), paste(Some(6))] {
             assert!(handle_client_msg(command, &manager, &cap, &socket.tx, &subs).await);
             assert!(input.try_recv().is_err(), "stale command was queued");
         }
@@ -1103,26 +1108,44 @@ async fn terminal_commands_require_write_scope_and_current_run() {
             assert!(
                 matches!(input.try_recv().unwrap(), Input::Keys { keys, literal: true } if keys == ["hello"])
             );
-            assert!(handle_client_msg(paste(run, false), &manager, &cap, &socket.tx, &subs).await);
+            assert!(handle_client_msg(paste(run), &manager, &cap, &socket.tx, &subs).await);
             assert!(
                 matches!(input.try_recv().unwrap(), Input::Paste { bytes } if bytes == "paste λ".as_bytes())
             );
         }
     }
-    assert!(
-        handle_client_msg(
-            paste(Some(7), true),
-            &manager,
-            &scoped(&["target"], Level::Rw),
-            &socket.tx,
-            &subs
-        )
-        .await
-    );
-    assert!(
-        input.try_recv().is_err(),
-        "scoped paste imported host files"
-    );
+    // File URIs are ordinary text for every authorized client, never host imports.
+    for cap in [Cap::Root, scoped(&["target"], Level::Rw)] {
+        let uri = "file:///tmp/desktop-image.png";
+        let paste = ClientMsg::Paste(
+            serde_json::from_value(serde_json::json!({
+                "name": "target", "text": uri, "run_id": 7
+            }))
+            .unwrap(),
+        );
+        assert!(handle_client_msg(paste, &manager, &cap, &socket.tx, &subs).await);
+        assert!(
+            matches!(input.try_recv().unwrap(), Input::Paste { bytes } if bytes == uri.as_bytes())
+        );
+    }
+    // Image uploads never fall through to literal text, including unauthorized
+    // callers, stale runs, and a root caller targeting a non-Codex terminal.
+    for cap in [Cap::Root, scoped(&["target"], Level::Rw)] {
+        for run in [None, Some(6), Some(7)] {
+            let upload = ClientMsg::Paste(
+                serde_json::from_value(serde_json::json!({
+                    "name": "target", "text": "must not paste", "run_id": run,
+                    "image_data": [137, 80, 78, 71, 0, 255]
+                }))
+                .unwrap(),
+            );
+            assert!(handle_client_msg(upload, &manager, &cap, &socket.tx, &subs).await);
+            assert!(
+                input.try_recv().is_err(),
+                "rejected image became text input"
+            );
+        }
+    }
 }
 
 #[tokio::test]
@@ -1233,4 +1256,47 @@ async fn deleted_sessions_release_socket_subscriptions_without_unsubscribe() {
         .unwrap()
         .unwrap();
     server.abort();
+}
+
+#[tokio::test]
+async fn clipboard_events_only_reach_current_root_subscriptions_in_order() {
+    use crate::shared::wire::event::Payload as E;
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let mut socket = socket_pair().await;
+    let subs = WsSubs::default();
+    subs.lock()
+        .await
+        .insert("watched".into(), manager.watching("watched"));
+    subs.lock()
+        .await
+        .insert("retired".into(), manager.watching("retired"));
+    subs.lock().await.remove("retired");
+    let (events, rx) = broadcast::channel(32);
+    let pump = spawn_frame_pump(rx, socket.tx.clone(), subs.clone(), Cap::Root);
+    for (name, text) in [
+        ("unwatched", "ignore"),
+        ("retired", "ignore"),
+        ("watched", "first"),
+        ("watched", "second"),
+    ] {
+        events
+            .send(message(Event::Clipboard {
+                name: name.into(),
+                run_id: 7,
+                text: text.into(),
+            }))
+            .ok()
+            .unwrap();
+    }
+    events
+        .send(message(Event::Sessions { sessions: vec![] }))
+        .ok()
+        .unwrap();
+    for expected in ["first", "second"] {
+        assert!(
+            matches!(receive(&mut socket.client).await, E::Clipboard(copy) if copy.name == "watched" && copy.run_id == 7 && copy.text == expected)
+        );
+    }
+    assert!(matches!(receive(&mut socket.client).await, E::Sessions(_)));
+    pump.abort();
 }

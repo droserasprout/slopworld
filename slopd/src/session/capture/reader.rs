@@ -5,7 +5,6 @@ use super::super::lifecycle::stop::{
     ReaderDisposition, finish_reader, reader_owned_by, replace_reader,
 };
 use super::*;
-use std::sync::atomic::AtomicBool;
 use tokio::time::Instant;
 
 use crate::tmux::control::parse_output;
@@ -75,7 +74,7 @@ impl DrawSchedule {
 
     fn wake(&mut self, now: Instant, watched: bool) {
         if watched {
-            // A subscription or clipboard wake must not expose a pager's clear
+            // A subscription wake must not expose a pager's clear
             // before its replacement rows have reached the mirror.
             self.deadline = Some(if self.dirty && self.redraw_started.is_some() {
                 self.deadline.map_or(now, |pending| pending.max(now))
@@ -162,57 +161,6 @@ fn seed_emulator(e: &mut SessionEmu, cap: &crate::tmux::Screen, rows: u16) {
         seed.push_str(&format!("\x1b]0;{}\x07", cap.title));
     }
     e.feed(seed.as_bytes());
-}
-
-#[derive(Clone, Default)]
-struct ClipboardPump {
-    copying: Arc<AtomicBool>,
-    wake: Arc<tokio::sync::Notify>,
-}
-
-impl ClipboardPump {
-    fn finish(&self, name: &str, emu: Arc<Mutex<SessionEmu>>) {
-        if !self.copying.load(Ordering::Relaxed) {
-            self.start_if_idle(name, &emu);
-            return;
-        }
-        let pump = self.clone();
-        let name = name.to_owned();
-        // Preserve clipboard ordering even after the reader exits. The final
-        // pending value follows the in-flight write and retains its emulator.
-        tokio::spawn(async move {
-            loop {
-                let done = pump.wake.notified();
-                if !pump.copying.load(Ordering::Relaxed) {
-                    break;
-                }
-                done.await;
-            }
-            pump.start_if_idle(&name, &emu);
-        });
-    }
-
-    fn start_if_idle(&self, name: &str, emu: &Mutex<SessionEmu>) {
-        // Only the reader starts writes; the detached task only clears this flag.
-        if self.copying.load(Ordering::Relaxed) {
-            return;
-        }
-        let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
-        if let Some(text) = clip {
-            self.copying.store(true, Ordering::Relaxed);
-            let done = self.copying.clone();
-            let wake = self.wake.clone();
-            let who = name.to_string();
-            // Keep writes detached from reader lifetime, and wake even after failure.
-            tokio::spawn(async move {
-                if let Err(e) = crate::clipboard::write(&text).await {
-                    tracing::debug!("osc52 clipboard {who}: {e:#}");
-                }
-                done.store(false, Ordering::Relaxed);
-                wake.notify_one();
-            });
-        }
-    }
 }
 
 fn handle_control_line(emu: &Mutex<SessionEmu>, line: &[u8]) -> ControlLine {
@@ -526,13 +474,11 @@ impl SessionRuntime {
         let mut watchers_changed = self.signals.watchers_changed.subscribe();
         let mut schedule = DrawSchedule::default();
         schedule.wake(Instant::now(), self.watched(name));
-        let clipboard = ClipboardPump::default();
 
         // Replay handshake output before reading newer bytes from the transport.
         for line in pending {
             if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
-                self.flush_control_exit(name, &emu, &schedule, &clipboard)
-                    .await;
+                self.flush_control_exit(name, &emu, &schedule).await;
                 return;
             }
         }
@@ -556,14 +502,11 @@ impl SessionRuntime {
                     let watched = self.watched(name);
                     let now = Instant::now();
                     let action = schedule.fire(now, watched);
-                    self.handle_control_tick(name, &emu, action, &clipboard).await;
+                    self.handle_control_tick(name, &emu, action).await;
                 },
                 _ = watchers_changed.changed() => {
                     schedule.wake(Instant::now(), self.watched(name));
                 },
-                () = clipboard.wake.notified() => {
-                    schedule.wake(Instant::now(), self.watched(name));
-                }
             }
         }
         if let Some(error) = rx
@@ -574,8 +517,33 @@ impl SessionRuntime {
         {
             tracing::warn!("control stream {name}: {error}");
         }
-        self.flush_control_exit(name, &emu, &schedule, &clipboard)
-            .await;
+        self.flush_control_exit(name, &emu, &schedule).await;
+    }
+
+    // Publication is synchronous once the reader/run identity is validated. There is
+    // no desktop I/O or detached work that could outlive this run or reorder writes.
+    async fn publish_clipboard(&self, name: &str, emu: &Mutex<SessionEmu>) {
+        if !self.watched(name) {
+            return;
+        }
+        let live = self.live.read().await;
+        let Some(row) = live.get(name) else { return };
+        if !row
+            .capture
+            .emu
+            .as_ref()
+            .is_some_and(|current| std::ptr::eq(current.as_ref(), emu))
+        {
+            return;
+        }
+        let text = emu.lock().ok().and_then(|mut e| e.take_clip());
+        if let Some(text) = text {
+            self.emit(Event::Clipboard {
+                name: name.to_owned(),
+                run_id: row.run_id,
+                text,
+            });
+        }
     }
 
     async fn flush_control_exit(
@@ -583,31 +551,14 @@ impl SessionRuntime {
         name: &str,
         emu: &Arc<Mutex<SessionEmu>>,
         schedule: &DrawSchedule,
-        clipboard: &ClipboardPump,
     ) {
         if schedule.dirty {
             self.render_and_broadcast(name, emu).await;
         }
-        if self.watched(name)
-            && self
-                .live
-                .read()
-                .await
-                .get(name)
-                .and_then(|live| live.capture.emu.as_ref())
-                .is_some_and(|current| Arc::ptr_eq(current, emu))
-        {
-            clipboard.finish(name, emu.clone());
-        }
+        self.publish_clipboard(name, emu).await;
     }
 
-    async fn handle_control_tick(
-        &self,
-        name: &str,
-        emu: &Mutex<SessionEmu>,
-        action: TickAction,
-        clipboard: &ClipboardPump,
-    ) {
+    async fn handle_control_tick(&self, name: &str, emu: &Mutex<SessionEmu>, action: TickAction) {
         if matches!(action, TickAction::Render { .. }) {
             self.render_and_broadcast(name, emu).await;
         }
@@ -615,7 +566,7 @@ impl SessionRuntime {
             action,
             TickAction::ClipboardOnly | TickAction::Render { clipboard: true }
         ) {
-            clipboard.start_if_idle(name, emu);
+            self.publish_clipboard(name, emu).await;
         }
     }
 }

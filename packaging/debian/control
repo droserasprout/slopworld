@@ -5,8 +5,8 @@ Section: games
 Priority: optional
 Maintainer: Lev Gorodetskii <slopworld@drsr.io>
 Homepage: https://github.com/droserasprout/slopworld
-Depends: bash, bat, bubblewrap, git, less, micro, passt, ripgrep, systemd, tmux (>= 3.7), {shared_libraries}
-Suggests: gir1.2-gtk-3.0, highlight, libglib2.0-bin, procps, python3-gi, python3-pygments, wl-clipboard, xclip, xdg-desktop-portal, xsel
+Depends: bash, bat, bubblewrap, git, less, micro, passt, ripgrep, systemd, tmux (>= 3.7), xclip, {shared_libraries}
+Suggests: gir1.2-gtk-3.0, highlight, libglib2.0-bin, procps, python3-gi, python3-pygments, xdg-desktop-portal, xsel
 Provides: slopd
 Description: RimWorld colony interface for live AI coding agents
  Includes the Linux session daemon, CLI, launcher, and RimWorld 1.6 mod.

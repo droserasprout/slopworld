@@ -68,7 +68,7 @@ fn native_capabilities_keep_host_integrations() {
     };
     let caps = capabilities();
     assert_eq!(caps.runtime, "native");
-    assert!(caps.audio_playback && caps.clipboard && caps.desktop_open && caps.per_session_limits);
+    assert!(caps.audio_playback && caps.desktop_open && caps.per_session_limits);
     assert!(!caps.host_network_is_container && !caps.host_terminals_are_container);
     assert_eq!(caps.ncspot, ncspot_available());
 }

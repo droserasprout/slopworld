@@ -14,12 +14,6 @@ session creation requires root. See [Authorization](api.md#authorization).
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/audio` | `root-only` | `Empty` | `AudioState` |
 | `GET` | `/api/capabilities` | `root-only` | `Empty` | `Capabilities` |
-| `GET` | `/api/clipboard` | `root-only` | `Empty` | `TextResult` |
-| `POST` | `/api/clipboard` | `root-only` | `ClipReq` | `Ack` |
-| `GET` | `/api/clipboard/primary` | `root-only` | `Empty` | `TextResult` |
-| `POST` | `/api/clipboard/primary` | `root-only` | `ClipReq` | `Ack` |
-| `GET` | `/api/clipboard/primary/text` | `root-only` | `Empty` | `TextResult` |
-| `GET` | `/api/clipboard/text` | `root-only` | `Empty` | `TextResult` |
 | `GET` | `/api/health` | `scoped` | `Empty` | `Health` |
 | `GET` | `/api/jukebox` | `root-only` | `Empty` | `JukeboxCatalog` |
 | `GET` | `/api/jukebox/presets` | `root-only` | `Empty` | `JukeboxCatalog` |

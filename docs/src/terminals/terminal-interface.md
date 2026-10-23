@@ -10,6 +10,11 @@ Type into the terminal to interact with the running CLI. Select text and press
 Ctrl+C to copy it; without a selection, Ctrl+C interrupts the process. Ctrl+V
 pastes.
 
+On Linux, pasting an image into a Codex agent uploads the local clipboard's PNG
+data to that session, including when the daemon is remote. Images must be at most
+20 MiB and 8192 pixels in each dimension. If the daemon reports a missing image
+mount, restart the agent to enable image attachments.
+
 SlopWorld uses function keys for workspace navigation. Hold Shift to forward a
 function key to the CLI without Shift. Escape goes to the CLI.
 See [Keyboard and mouse](../reference/keyboard-shortcuts.md) for all controls,

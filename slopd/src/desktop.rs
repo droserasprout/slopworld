@@ -1,6 +1,5 @@
 //! Capture current desktop variables without mutating the daemon's process environment.
-//! Bind planning uses one snapshot for preset socket paths and forwarded variables;
-//! clipboard tools use it for desktop selection and child execution too.
+//! Bind planning uses one snapshot for preset socket paths and forwarded variables.
 
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
@@ -76,7 +75,7 @@ impl Environment {
     }
 
     // Sandbox arguments and config expansion are UTF-8 strings. Omit values they
-    // cannot represent; clipboard children inherit the original bytes via iter().
+    // cannot represent; the snapshot retains the original bytes.
     pub(crate) fn text_vars(&self) -> impl Iterator<Item = (&str, &str)> {
         self.iter()
             .filter_map(|(name, value)| Some((name.to_str()?, value.to_str()?)))

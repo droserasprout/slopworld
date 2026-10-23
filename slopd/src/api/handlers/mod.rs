@@ -10,7 +10,6 @@ mod settings;
 pub(crate) use settings::*;
 
 mod actions;
-mod clipboard;
 mod config;
 #[cfg(test)]
 pub(crate) use config::config_patch;
@@ -26,7 +25,6 @@ mod tasks;
 mod templates;
 
 pub(crate) use actions::*;
-pub(crate) use clipboard::*;
 pub(crate) use config::*;
 pub(crate) use files::*;
 pub(crate) use grants::*;

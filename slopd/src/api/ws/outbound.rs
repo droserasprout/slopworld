@@ -36,7 +36,8 @@ pub(super) fn scope_event(cap: &Cap, ev: Arc<EventMessage>) -> Option<Arc<EventM
                     .collect(),
             })),
             Event::Screen { screen } => cap.can_see(&screen.name, false).then_some(ev),
-            Event::Capabilities { .. }
+            Event::Clipboard { .. }
+            | Event::Capabilities { .. }
             | Event::Projects { .. }
             | Event::Library { .. }
             | Event::Usage { .. }
@@ -192,6 +193,11 @@ async fn pump_frames(
                         }
                         pending.screen(tx, cap, event, name).await?;
                     } else {
+                        if let Event::Clipboard { name, .. } = event.event()
+                            && !subs.lock().await.get(name).is_some_and(WatchGuard::is_current)
+                        {
+                            continue;
+                        }
                         pending.flush(tx, cap).await?;
                         send(tx, cap, &event).await?;
                     }

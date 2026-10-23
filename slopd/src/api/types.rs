@@ -353,7 +353,7 @@ pub(crate) use crate::music::AudioSelection;
 #[derive(Deserialize)]
 pub(crate) struct PasteReq {
     #[serde(default)]
-    pub(crate) host_file_images: bool,
+    pub(crate) image_data: Option<Vec<u8>>,
     #[serde(default)]
     pub(crate) run_id: Option<u64>,
     #[serde(default)]

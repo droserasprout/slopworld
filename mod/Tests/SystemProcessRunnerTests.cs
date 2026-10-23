@@ -7,6 +7,19 @@ namespace SlopWorld.Tests
 {
     static class SystemProcessRunnerTests
     {
+        public static void BinaryCapturePreservesNonUtf8AndRejectsOversize()
+        {
+            var spec = Shell("printf '\\377\\000\\200A'");
+            spec.BinaryOutputLimit = 4;
+            var run = new SystemProcessRunner().Run(spec, CancellationToken.None);
+            Assert.That(run.ExitCode, Is.Zero);
+            Assert.That(run.BinaryOutput, Is.EqualTo(new byte[] { 255, 0, 128, 65 }));
+            spec.BinaryOutputLimit = 3;
+            run = new SystemProcessRunner().Run(spec, CancellationToken.None);
+            Assert.That(run.ExitCode, Is.Not.Zero);
+            Assert.That(run.BinaryOutput, Is.Empty);
+        }
+
         static ProcessSpec Shell(string command, int timeout = 5000) =>
             new ProcessSpec
             {
@@ -14,6 +27,96 @@ namespace SlopWorld.Tests
                 Arguments = "-c \"" + command + "\"",
                 TimeoutMs = timeout,
             };
+
+        public static void StandardInputPreservesLiteralUnicodeAndNewlines()
+        {
+            var spec = Shell("cat");
+            spec.StandardInput = "é\n$(literal) `literal`\n";
+            var run = new SystemProcessRunner().Run(spec, CancellationToken.None);
+            Assert.That(run.Started, Is.True);
+            Assert.That(run.ExitCode, Is.Zero);
+            Assert.That(run.StandardOutput, Is.EqualTo(spec.StandardInput));
+        }
+
+        public static void StandardInputUsesUtf8EvenWhenConsoleEncodingIsAscii()
+        {
+            var original = Console.InputEncoding;
+            try
+            {
+                Console.InputEncoding = System.Text.Encoding.ASCII;
+                var spec = Shell("cat");
+                spec.StandardInput = "é Ελληνικά 日本語 🙂 — ’\n";
+                spec.BinaryOutputLimit = 1024;
+                var run = new SystemProcessRunner().Run(spec, CancellationToken.None);
+                Assert.That(run.ExitCode, Is.Zero);
+                Assert.That(
+                    run.BinaryOutput,
+                    Is.EqualTo(System.Text.Encoding.UTF8.GetBytes(spec.StandardInput))
+                );
+            }
+            finally
+            {
+                Console.InputEncoding = original;
+            }
+        }
+
+        public static void BlockedStandardInputObeysProcessDeadline()
+        {
+            var spec = Shell("exec /bin/sleep 5", 200);
+            spec.StandardInput = new string('x', 1024 * 1024);
+            var run = new SystemProcessRunner().Run(spec, CancellationToken.None);
+            Assert.That(run.Started, Is.True);
+            Assert.That(run.ExitCode, Is.Not.Zero);
+        }
+
+        public static void InheritedPipesObeyDeadlineAndCancellationAfterParentExits()
+        {
+            foreach (bool input in new[] { false, true })
+            foreach (bool canceled in new[] { false, true })
+            {
+                string pidFile = Path.Combine(
+                    Path.GetTempPath(),
+                    "slopworld-pipe-" + Guid.NewGuid().ToString("N")
+                );
+                using var cancel = new CancellationTokenSource();
+                try
+                {
+                    // Explicit stdin inheritance avoids the shell's /dev/null default for
+                    // background jobs. The parent exits while sleep retains the pipe ends.
+                    var spec = Shell(
+                        "sleep 5 <&0 & echo $! > " + pidFile + "; exit 0",
+                        canceled ? 10000 : 200
+                    );
+                    spec.InheritOutput = input;
+                    if (input)
+                        spec.StandardInput = new string('x', 1024 * 1024);
+                    if (canceled)
+                        cancel.CancelAfter(200);
+                    var elapsed = System.Diagnostics.Stopwatch.StartNew();
+                    var run = new SystemProcessRunner().Run(spec, cancel.Token);
+                    Assert.That(elapsed.Elapsed.TotalSeconds, Is.LessThan(2));
+                    Assert.That(run.Started, Is.True);
+                    Assert.That(run.TimedOut, Is.EqualTo(!canceled));
+                    Assert.That(run.Canceled, Is.EqualTo(canceled));
+                    Assert.That(run.ExitCode, Is.Not.Zero);
+                }
+                finally
+                {
+                    if (File.Exists(pidFile))
+                    {
+                        using var child = System.Diagnostics.Process.GetProcessById(
+                            int.Parse(
+                                File.ReadAllText(pidFile).Trim(),
+                                System.Globalization.CultureInfo.InvariantCulture
+                            )
+                        );
+                        if (!child.HasExited)
+                            child.Kill();
+                        File.Delete(pidFile);
+                    }
+                }
+            }
+        }
 
         public static void CapturesBothStreamsAndNonzeroExitStatus()
         {

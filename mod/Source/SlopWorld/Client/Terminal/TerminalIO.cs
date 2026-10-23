@@ -136,8 +136,21 @@ namespace SlopWorld
                 }
             );
 
-        // Desktop clipboard intent is explicit; ordinary agent/API text paste cannot import host files.
-        public void PasteHostClipboard(string name, string text, ulong runId, bool images) =>
+        public void PasteImage(string name, byte[] bytes, ulong runId) =>
+            _send(
+                new Wire.ClientMessage
+                {
+                    Paste = new Wire.PasteReq
+                    {
+                        Name = name,
+                        RunId = runId,
+                        ImageData = Google.Protobuf.ByteString.CopyFrom(bytes),
+                    },
+                }
+            );
+
+        // Delayed clipboard reads retain the target run identity.
+        public void PasteForRun(string name, string text, ulong runId) =>
             _send(
                 new Wire.ClientMessage
                 {
@@ -146,7 +159,6 @@ namespace SlopWorld
                         Name = name,
                         Text = text,
                         RunId = runId,
-                        HostFileImages = images,
                     },
                 }
             );

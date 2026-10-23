@@ -6,7 +6,6 @@ mod api;
 mod application;
 mod audio;
 mod benchmark;
-mod clipboard;
 mod clock;
 mod config;
 mod desktop;

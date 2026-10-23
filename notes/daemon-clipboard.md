@@ -1,19 +1,39 @@
 # Clipboard boundary
 
-`clipboard.rs` owns desktop CLIPBOARD/PRIMARY access and clipboard-tool execution.
-Text requests select text formats and decode UTF-8. Concurrent channel requests share
-outcomes; repeated copies verify desktop contents rather than trusting cached ownership.
-On GNOME/XWayland, use the X11 bridge: a Wayland helper can steal focus during paste.
-Other desktops retain Wayland-first selection. Deadlines must fit the client timeout.
-Each operation uses `desktop.rs` to refresh the desktop environment before choosing
-and executing its tools. Neither clipboard nor sandbox planning mutates process-global
-environment; unavailable user-manager integration preserves inherited values.
+Linux mod clipboard actions belong to the game's desktop. `X11Clipboard` executes
+local `xclip`/`xsel` for CLIPBOARD and PRIMARY regardless of the endpoint or daemon
+capabilities. `DesktopClipboard` pumps completions on the UI thread; pane/run and
+field lifetime owners still reject stale reads. Helper stdin uses explicit UTF-8 bytes;
+Unity/Mono console defaults must not choose clipboard encoding.
+Linux copies never set Unity's clipboard buffer: that setter can change the desktop
+selection outside the serialized helper queue and overtake a pending paste.
+Only ordinary text reads fall back
+to Unity's buffer. Linux Codex panes handle empty or failed text reads by reading
+the local PNG clipboard target within the same serialized operation, then uploading
+its bytes. Later local copies cannot overtake that fallback. This avoids consulting stale
+Unity text or forwarding Ctrl+V to a remote clipboard. Client clipboard text is
+pasted as text, without daemon-side file import intent: a client path need not
+exist on a remote daemon.
 
-Desktop image paste imports a file into the current Codex run. It does not rewrite
-the clipboard. `session/capture/images.rs` admits root-authorized desktop intent;
-`sandbox/images.rs` validates local URIs and stages bounded images. Ordinary text
-paste cannot import files. Sidecars reject imports because their filesystem is not
-the desktop host.
+Application OSC 52 writes publish `clipboard` events with the session name and run
+ID. Only root clients with a current subscription receive them. Publication validates
+the reader identity; the client validates the run and writes its own desktop clipboard
+without issuing another daemon clipboard request. Copy events retain control-event
+ordering and are not replayed on reconnect. Unwatched mirrors keep only their latest
+pending write until watched. OSC 52 reads remain unsupported.
+
+macOS text copy and paste use Unity's local buffer. PRIMARY and image reads are
+Linux-only. The daemon does not read or write its host desktop clipboard.
+
+WebSocket `paste.image_data` carries client image bytes with a required run ID.
+Only root clients may upload to a current Codex agent. The daemon validates size,
+format and decoded dimensions before staging in the existing private image mount.
+Uploads work independently of desktop access, including remote daemons and sidecars.
+Linux clients read the PNG target with bounded binary `xclip` output (20 MiB).
+
+`session/capture/images.rs` admits root-authorized image paste;
+`sandbox/images.rs` validates uploaded bytes and stages bounded images. Text paste
+always stays literal, including file URIs; the daemon does not import desktop paths.
 
 The session's private image directory mounts read-only at `/mnt/slopworld-images`
 after other overlays. A successful launch records the mounted state identity in a

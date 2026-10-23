@@ -305,32 +305,6 @@ http:
       path: "/api/config/patch"
       methods: [PUT]
       scope: root
-    clipboard:
-      protobuf:
-        GET: [Empty, TextResult]
-        POST: [ClipReq, Ack]
-      path: "/api/clipboard"
-      methods: [GET, POST]
-      scope: root
-    clipboard_text:
-      protobuf:
-        GET: [Empty, TextResult]
-      path: "/api/clipboard/text"
-      methods: [GET]
-      scope: root
-    clipboard_primary:
-      protobuf:
-        GET: [Empty, TextResult]
-        POST: [ClipReq, Ack]
-      path: "/api/clipboard/primary"
-      methods: [GET, POST]
-      scope: root
-    clipboard_primary_text:
-      protobuf:
-        GET: [Empty, TextResult]
-      path: "/api/clipboard/primary/text"
-      methods: [GET]
-      scope: root
     usage:
       protobuf:
         GET: [Empty, UsageSnapshot]
@@ -440,6 +414,7 @@ websocket:
     - usage
     - audio
     - jukebox
+    - clipboard
   messages:
     - redraw
     - sub

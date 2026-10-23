@@ -44,6 +44,9 @@ File paging and highlighting use the required bat and less packages. Bat renders
 files and less provides interactive paging. Auto selection and custom commands
 remain available.
 
+The required xclip package provides clipboard and PRIMARY selection on the game's
+X11/XWayland desktop, including connections to remote daemons.
+
 Optional integrations
 ---------------------
 
@@ -56,9 +59,7 @@ The Suggests field lists optional packages; install those for the features you u
                         Full native Open With chooser, using Python and GTK 3.
   xdg-desktop-portal    Open With fallback; also requires a backend appropriate
                         to your desktop and OpenURI interface version 3 or newer.
-  wl-clipboard          Clipboard and PRIMARY selection on Wayland.
-  xclip, xsel           Clipboard and PRIMARY selection on X11 or GNOME/XWayland;
-                        xsel is a fallback to xclip.
+  xsel                  Fallback to the required xclip tool.
   procps                Fallback process inspection.
 
 Debian names the bat executable batcat; SlopWorld Auto and the bat selector

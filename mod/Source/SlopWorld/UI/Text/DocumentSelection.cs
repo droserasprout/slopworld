@@ -413,14 +413,14 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(text))
                 return;
-            DaemonClipboard.Copy(text, null, msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
+            DesktopClipboard.Copy(text, null, msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
         }
 
         static void CopyPrimaryText(string text)
         {
             if (string.IsNullOrEmpty(text))
                 return;
-            DaemonClipboard.CopyPrimary(
+            DesktopClipboard.CopyPrimary(
                 text,
                 null,
                 msg => Log.Warning($"[SlopWorld] primary selection: {msg}")

@@ -202,12 +202,12 @@ async fn handle_paste(req: PasteReq, m: &App, cap: &Cap) {
         return;
     }
     // Authorization is already complete. Report delivery errors so failed pastes are visible in the log.
-    let result = if req.host_file_images {
+    let result = if let Some(bytes) = req.image_data {
         if !cap.may_create() {
             return;
         }
         m.sessions
-            .paste_host_file_image(&req.name, &req.text, req.run_id)
+            .paste_uploaded_image(&req.name, bytes, req.run_id)
             .await
     } else {
         m.sessions.paste(&req.name, &req.text).await

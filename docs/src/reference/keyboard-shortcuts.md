@@ -69,11 +69,11 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 
 | Gesture | Action |
 | --- | --- |
-| Middle-click | Paste the host's PRIMARY selection (Wayland/X11). |
+| Middle-click | Paste the game desktop's PRIMARY selection (X11/XWayland on Linux). |
 | Ctrl+click | Open a URL printed in the terminal, or show a file menu. The menu offers applicable Focus, View, Edit, Open in, File actions, and Copy path actions. View and Edit honor a `:line` suffix. |
 | Right-click | Terminal context menu. |
-| Double-click | Select a word and publish it to the host's PRIMARY selection. |
-| Triple-click | Select a line and publish it to the host's PRIMARY selection. |
+| Double-click | Select a word and publish it to the game desktop's PRIMARY selection. |
+| Triple-click | Select a line and publish it to the game desktop's PRIMARY selection. |
 
 When an application requests mouse reporting, left-click selection gestures on the
 live screen go to the application. Hold Shift to select text locally, including word

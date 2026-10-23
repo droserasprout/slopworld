@@ -1,6 +1,23 @@
 use super::*;
 use wire::client_message::Payload;
 
+#[test]
+fn uploaded_image_preserves_binary_data_and_run_without_text() {
+    let bytes = vec![137, 80, 78, 71, 0, 255];
+    let ClientMsg::Paste(req) = command(Payload::Paste(wire::PasteReq {
+        name: Some("codex".into()),
+        run_id: Some(7),
+        image_data: Some(bytes.clone()),
+        ..Default::default()
+    }))
+    .unwrap() else {
+        panic!("expected paste")
+    };
+    assert_eq!(req.image_data, Some(bytes));
+    assert_eq!(req.run_id, Some(7));
+    assert!(req.text.is_empty());
+}
+
 fn command(payload: Payload) -> anyhow::Result<ClientMsg> {
     decode(
         &wire::ClientMessage {

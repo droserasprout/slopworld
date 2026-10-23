@@ -44,6 +44,7 @@ def main() -> int:
     missing += commands('workspace search', 'rg')
     missing += commands('Git view', 'git')
     missing += commands('default shell', 'bash')
+    missing += commands('X11/XWayland clipboard and PRIMARY selection', 'xclip')
     missing += commands('interactive pager', 'less')
     missing += commands('default pager and syntax highlighting', 'bat', 'batcat')
     missing += commands('default editor', 'micro')
@@ -73,9 +74,7 @@ def main() -> int:
     print('Optional: integrations')
     commands('alternative syntax highlighter', 'highlight', 'pygmentize', required=False)
     commands('Rust compiler cache', 'sccache', required=False)
-    commands('Wayland clipboard copy', 'wl-copy', required=False)
-    commands('Wayland clipboard paste', 'wl-paste', required=False)
-    commands('X11 clipboard', 'xclip', 'xsel', required=False)
+    commands('X11 clipboard fallback', 'xsel', required=False)
 
     print('Optional: developer tools')
     commands('redeploy helper', 'curl', required=False)

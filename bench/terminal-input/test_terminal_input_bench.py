@@ -4,7 +4,7 @@ import json
 import struct
 import socket
 import os
-from terminal_input_backend import Backend, packets, TEXT, run_command, use_wayland_clipboard
+from terminal_input_backend import Backend, packets, TEXT, run_command
 from unittest.mock import patch, Mock
 from test_latency_summary import record
 from pathlib import Path
@@ -28,18 +28,14 @@ class Clock:
 
 
 class BenchmarkTests(unittest.TestCase):
-    def test_gnome_wayland_injection_uses_x11_clipboard(self):
-        with patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'ubuntu:GNOME', 'DISPLAY': ':0'}):
-            self.assertFalse(use_wayland_clipboard('ydotool'))
+    def test_all_injection_backends_use_x11_clipboard(self):
+        for backend in ['ydotool', 'xdotool']:
             with patch('terminal_input_backend.subprocess.run') as run, \
                     patch('terminal_input_backend.run_command', return_value=TEXT.strip()):
                 run.return_value.returncode = 0
-                Backend('ydotool').prepare_text()
+                Backend(backend).prepare_text()
                 self.assertEqual(run.call_args.args[0], ['xclip', '-selection', 'clipboard'])
                 self.assertEqual(run.call_args.kwargs['input'], TEXT.encode())
-        with patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'sway', 'DISPLAY': ':0'}):
-            self.assertTrue(use_wayland_clipboard('ydotool'))
-            self.assertFalse(use_wayland_clipboard('xdotool'))
 
     def test_exact_counts_and_timing(self):
         for phase, rate, _ in bench.PHASES:
@@ -149,7 +145,7 @@ class BenchmarkTests(unittest.TestCase):
                 run_command(['ydotool', 'mousemove', '--help'])
 
     def test_clipboard_does_not_capture_daemon_output_pipes(self):
-        result = bench.subprocess.CompletedProcess(['wl-copy'], 0)
+        result = bench.subprocess.CompletedProcess(['xclip'], 0)
         with patch.object(bench.subprocess, 'run', return_value=result) as run, \
                 patch('terminal_input_backend.run_command', return_value=TEXT.strip()):
             Backend('ydotool').prepare_text()

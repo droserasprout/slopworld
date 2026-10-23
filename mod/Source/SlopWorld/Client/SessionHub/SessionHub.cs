@@ -49,7 +49,6 @@ namespace SlopWorld
             {
                 _connectionGeneration++;
                 _sessions.ResetConnectionScreens();
-                DaemonClipboard.Reset();
                 RefreshConfig();
                 RefreshHealth();
                 _catalog.RefreshTemplates();

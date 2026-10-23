@@ -87,23 +87,38 @@ namespace SlopWorld.Tests
             Assert.That(sent.Last().Paste.Text, Is.EqualTo("line one\nλ\tline two"));
         }
 
-        public static void HostClipboardIntentRetainsRunAndText()
+        public static void ClipboardPasteRetainsRunAndText()
         {
             var sent = new List<Wire.ClientMessage>();
             var terminal = new TerminalIO(sent.Add);
             string text = "file:///tmp/a%20b.png";
-            terminal.PasteHostClipboard("codex", text, 7, true);
+            terminal.PasteForRun("codex", text, 7);
             Assert.That(sent.Single().Paste.Text, Is.EqualTo(text));
             Assert.That(sent.Single().Paste.RunId, Is.EqualTo(7));
-            Assert.That(sent.Single().Paste.HostFileImages, Is.True);
             sent.Clear();
             terminal.SendKeysForRun("codex", new[] { "C-v" }, false, 7);
             Assert.That(sent.Single().Keys.RunId, Is.EqualTo(7));
             Assert.That(sent.Single().Keys.Keys, Is.EqualTo(new[] { "C-v" }));
             sent.Clear();
             terminal.Paste("shell", text);
-            Assert.That(sent.Single().Paste.HostFileImages, Is.False);
             Assert.That(sent.Single().Paste.HasRunId, Is.False);
+        }
+
+        public static void ImagePasteSendsBytesAndCapturedRunWithoutRemoteClipboardKeys()
+        {
+            var sent = new List<Wire.ClientMessage>();
+            var terminal = new TerminalIO(sent.Add);
+            var bytes = new byte[] { 137, 80, 78, 71, 0, 255 };
+            terminal.PasteImage("codex", bytes, 7);
+            bytes[0] = 0;
+            var paste = sent.Single().Paste;
+            Assert.That(paste.Name, Is.EqualTo("codex"));
+            Assert.That(paste.RunId, Is.EqualTo(7));
+            Assert.That(
+                paste.ImageData.ToByteArray(),
+                Is.EqualTo(new byte[] { 137, 80, 78, 71, 0, 255 })
+            );
+            Assert.That(paste.Text, Is.Empty);
         }
 
         public static void GeometryAndHistoryPayloads()

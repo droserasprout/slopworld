@@ -4,14 +4,36 @@
 use super::*;
 use crate::sandbox::images;
 
+// The operation guard held by the caller keeps this owned target stable through import.
+struct ImagePasteTarget {
+    session: SessionCfg,
+    run_id: u64,
+}
+
 impl SessionRuntime {
-    /// Caller holds the terminal/session operation guard through import and queue admission.
-    pub(crate) async fn paste_host_file_image(
+    /// Root client supplied bytes, independent of the daemon's desktop or filesystem.
+    /// Caller retains the terminal operation guard through validation and queue admission.
+    pub(crate) async fn paste_uploaded_image(
         self: &Arc<Self>,
         name: &str,
-        text: &str,
+        bytes: Vec<u8>,
         expected_run: Option<u64>,
     ) -> Result<()> {
+        let target = self.prepare_image_paste(name, expected_run).await?;
+        let ImagePasteTarget { session, run_id } = target;
+        let identity = session.state_id.clone();
+        let imported =
+            tokio::task::spawn_blocking(move || images::import_uploaded(&session, &bytes))
+                .await??;
+        self.commit_image_paste(name, &identity, run_id, imported)
+            .await
+    }
+
+    async fn prepare_image_paste(
+        &self,
+        name: &str,
+        expected_run: Option<u64>,
+    ) -> Result<ImagePasteTarget> {
         let (session, run_id, host) = {
             let live = self.live.read().await;
             let row = live
@@ -24,7 +46,6 @@ impl SessionRuntime {
             (row.cfg.clone(), row.run_id, row.role.is_host())
         };
         self.ensure_paste_ready(name).await?;
-        // The client flag is an intent, never authority or proof of target type.
         let codex = !host
             && self
                 .config_authority
@@ -32,25 +53,13 @@ impl SessionRuntime {
                 .await
                 .command_name(&session)
                 == "codex";
-        if !codex {
-            return self.paste(name, text).await;
-        }
-        let Some(source) = images::local_image_uri(text)? else {
-            return self.paste(name, text).await;
-        };
+        anyhow::ensure!(codex, "image paste requires a Codex agent");
         anyhow::ensure!(
-            !crate::runtime::is_slopcar(),
-            "host image imports are unavailable in the sidecar"
+            self.tmux.option(name, images::MOUNT_STATE).await.as_deref()
+                == Some(session.state_id.as_str()),
+            "restart this agent to enable image imports"
         );
-        let identity = session.state_id.clone();
-        anyhow::ensure!(
-            self.tmux.option(name, images::MOUNT_STATE).await.as_deref() == Some(identity.as_str()),
-            "restart this agent to enable host image imports"
-        );
-        let imported =
-            tokio::task::spawn_blocking(move || images::import(&session, &source)).await??;
-        self.commit_image_paste(name, &identity, run_id, imported)
-            .await
+        Ok(ImagePasteTarget { session, run_id })
     }
 
     async fn commit_image_paste(

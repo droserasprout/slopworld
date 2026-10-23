@@ -14,7 +14,6 @@ namespace SlopWorld
         public string Runtime = "native";
         public bool AudioPlayback = true;
         public bool Ncspot = true;
-        public bool Clipboard = true;
         public bool DesktopOpen = true;
         public bool PerSessionLimits = true;
         public bool HostNetworkIsContainer;
@@ -34,7 +33,6 @@ namespace SlopWorld
                 Runtime = j.Runtime,
                 AudioPlayback = j.AudioPlayback,
                 Ncspot = j.Ncspot,
-                Clipboard = j.Clipboard,
                 DesktopOpen = j.DesktopOpen,
                 PerSessionLimits = j.PerSessionLimits,
                 HostNetworkIsContainer = j.HostNetworkIsContainer,

@@ -256,27 +256,15 @@ namespace SlopWorld
             ),
             new BinarySpec(
                 "Desktop, audio, and clipboard",
-                "wl-copy",
-                "Wayland clipboard copy",
-                ProbeKind.DaemonPath
-            ),
-            new BinarySpec(
-                "Desktop, audio, and clipboard",
-                "wl-paste",
-                "Wayland clipboard paste",
-                ProbeKind.DaemonPath
-            ),
-            new BinarySpec(
-                "Desktop, audio, and clipboard",
                 "xclip",
-                "X11/XWayland clipboard",
-                ProbeKind.DaemonPath
+                "game desktop clipboard and PRIMARY selection",
+                ProbeKind.HostPath
             ),
             new BinarySpec(
                 "Desktop, audio, and clipboard",
                 "xsel",
-                "X11/XWayland clipboard fallback",
-                ProbeKind.DaemonPath
+                "game desktop clipboard fallback",
+                ProbeKind.HostPath
             ),
             new BinarySpec("Desktop, audio, and clipboard", "pactl", "audio device lookup"),
             new BinarySpec("Desktop, audio, and clipboard", "songrec", "jukebox recognition"),

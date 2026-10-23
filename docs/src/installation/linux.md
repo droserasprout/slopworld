@@ -7,7 +7,7 @@ For other setups, see [macOS](../installation/macos.md) or [Sidecar mode](../ins
 
 - **x86_64 Linux** with systemd user services and scopes.
 - **RimWorld 1.6** installed separately. Locate the folder containing the `RimWorldLinux` binary.
-- **Runtime dependencies**, including Bubblewrap, passt, and tmux 3.7+. The package manager installs these.
+- **Runtime dependencies**, including Bubblewrap, passt, tmux 3.7+, and others. The package manager installs these.
 
 ## Get binaries
 
@@ -73,8 +73,7 @@ on Debian and Fedora). Install the tools for the features you use:
 | Desktop application associations | `glib2` | `libglib2.0-bin` | `glib2` |
 | Native Open With chooser | `python-gobject`, `gtk3` | `python3-gi`, `gir1.2-gtk-3.0` | `python3-gobject`, `gtk3` |
 | Portal chooser fallback | `xdg-desktop-portal` | same | same |
-| Wayland clipboard | `wl-clipboard` | `wl-clipboard` | `wl-clipboard` |
-| X11/XWayland clipboard | `xclip` or `xsel` | same | same |
+| X11 clipboard fallback | `xsel` | same | same |
 | Process inspection fallback | `procps-ng` | `procps` | `procps-ng` |
 | Spotify playback | `ncspot` | not packaged | not packaged |
 | Song recognition | `songrec` | not packaged | not packaged |

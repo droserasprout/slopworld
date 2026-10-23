@@ -38,6 +38,13 @@ impl Event {
                 Self::Library { library } => Payload::Library(wire::LibraryReply {
                     library: project(library)?,
                 }),
+                Self::Clipboard { name, run_id, text } => {
+                    Payload::Clipboard(wire::ClipboardWrite {
+                        name: name.clone(),
+                        run_id: *run_id,
+                        text: text.clone(),
+                    })
+                }
                 Self::Usage { usage } => Payload::Usage(project(usage)?),
                 Self::Audio { audio } => Payload::Audio(project(audio)?),
                 Self::Jukebox { jukebox } => Payload::Jukebox(project(jukebox)?),

@@ -22,7 +22,6 @@ fn matches(pattern: &str, path: &str) -> bool {
 #[derive(Clone, Copy)]
 enum RequestKind {
     AgentTemplate,
-    ClipReq,
     ConfigPatch,
     CopyPresetReq,
     CreateAgentTemplateReq,
@@ -168,16 +167,6 @@ const ROUTES: &[Route] = &[
     ("GET /api/config", Req::Empty, Resp::ConfigResult),
     ("PUT /api/config", Req::ReplaceConfigRequest, Resp::Ack),
     ("PUT /api/config/patch", Req::ConfigPatch, Resp::Ack),
-    ("GET /api/clipboard", Req::Empty, Resp::TextResult),
-    ("POST /api/clipboard", Req::ClipReq, Resp::Ack),
-    ("GET /api/clipboard/text", Req::Empty, Resp::TextResult),
-    ("GET /api/clipboard/primary", Req::Empty, Resp::TextResult),
-    ("POST /api/clipboard/primary", Req::ClipReq, Resp::Ack),
-    (
-        "GET /api/clipboard/primary/text",
-        Req::Empty,
-        Resp::TextResult,
-    ),
     ("GET /api/usage", Req::Empty, Resp::UsageSnapshot),
     ("GET /api/audio", Req::Empty, Resp::AudioState),
     ("POST /api/ncspot", Req::RedrawReq, Resp::SessionResult),
@@ -286,7 +275,6 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     let route = route(method, path)?;
     match route.1 {
         RequestKind::AgentTemplate => encode_wire::<wire::AgentTemplate>(value),
-        RequestKind::ClipReq => encode_wire::<wire::ClipReq>(value),
         RequestKind::ConfigPatch => encode_wire::<wire::ConfigPatch>(value),
         RequestKind::CopyPresetReq => encode_wire::<wire::CopyPresetReq>(value),
         RequestKind::CreateAgentTemplateReq => encode_wire::<wire::CreateAgentTemplateReq>(value),
@@ -396,7 +384,6 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
         RequestKind::AgentTemplate => {
             Ok(serde_json::to_value(wire::AgentTemplate::decode(value)?)?)
         }
-        RequestKind::ClipReq => Ok(serde_json::to_value(wire::ClipReq::decode(value)?)?),
         RequestKind::ConfigPatch => Ok(serde_json::to_value(wire::ConfigPatch::decode(value)?)?),
         RequestKind::CopyPresetReq => {
             Ok(serde_json::to_value(wire::CopyPresetReq::decode(value)?)?)

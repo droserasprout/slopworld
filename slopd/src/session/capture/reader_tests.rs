@@ -35,9 +35,7 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
         schedule.output(now, watched, false);
         let action = schedule.fire(now + FAST_TICK, watched);
         assert_eq!(action, TickAction::Render { clipboard: watched });
-        manager
-            .handle_control_tick("agent", &emu, action, &ClipboardPump::default())
-            .await;
+        manager.handle_control_tick("agent", &emu, action).await;
 
         assert!(manager.screen("agent").await.is_some());
         assert!(
@@ -86,10 +84,9 @@ async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader(
     schedule.output(now, false, false);
     let action = schedule.fire(now + FAST_TICK, false);
     assert_eq!(action, TickAction::Render { clipboard: false });
-    let clipboard = ClipboardPump::default();
 
     let live_lock = manager.live.write().await;
-    let mut tick = Box::pin(manager.handle_control_tick("agent", &emu, action, &clipboard));
+    let mut tick = Box::pin(manager.handle_control_tick("agent", &emu, action));
     assert!(futures::poll!(tick.as_mut()).is_pending());
     // No receiver is waiting on changed() while frame publication is suspended.
     let watch = manager.watching("agent");
@@ -466,4 +463,65 @@ async fn exit_and_eof_flush_output_received_before_the_last_draw() {
                 .any(|line| line.contains("final output"))
         );
     }
+}
+
+#[tokio::test]
+async fn osc52_is_published_once_for_watched_current_readers_including_on_exit() {
+    let manager = crate::session::test_manager(Config::default());
+    let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+    let mut row = Live::new(
+        SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    row.run_id = 7;
+    row.capture.emu = Some(emu.clone());
+    manager.live.write().await.insert("agent".into(), row);
+    let mut events = manager.application.subscribe();
+    emu.lock().unwrap().feed(b"\x1b]52;c;aGVsbG8=\x07");
+    manager.publish_clipboard("agent", &emu).await;
+    assert!(events.try_recv().is_err(), "unwatched output stays pending");
+    let _watch = manager.watching("agent");
+    manager
+        .handle_control_tick("agent", &emu, TickAction::ClipboardOnly)
+        .await;
+    assert!(
+        matches!(events.try_recv().unwrap().event(), Event::Clipboard { name, run_id: 7, text } if name == "agent" && text == "hello")
+    );
+    manager.publish_clipboard("agent", &emu).await;
+    assert!(events.try_recv().is_err(), "writes are consumed once");
+    emu.lock().unwrap().feed(b"\x1b]52;c;ZmluYWw=\x07");
+    manager
+        .flush_control_exit("agent", &emu, &DrawSchedule::default())
+        .await;
+    assert!(
+        matches!(events.try_recv().unwrap().event(), Event::Clipboard { text, .. } if text == "final")
+    );
+    manager
+        .flush_control_exit("agent", &emu, &DrawSchedule::default())
+        .await;
+    assert!(
+        events.try_recv().is_err(),
+        "repeated exit cleanup cannot replay a copy"
+    );
+
+    emu.lock().unwrap().feed(b"\x1b]52;c;c3RhbGU=\x07");
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("agent")
+        .unwrap()
+        .capture
+        .emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
+    manager.publish_clipboard("agent", &emu).await;
+    manager
+        .flush_control_exit("agent", &emu, &DrawSchedule::default())
+        .await;
+    assert!(
+        events.try_recv().is_err(),
+        "replaced readers cannot change the clipboard"
+    );
 }

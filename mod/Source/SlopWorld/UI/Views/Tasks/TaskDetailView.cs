@@ -175,7 +175,7 @@ namespace SlopWorld
 
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
             if (foot.Left("Copy task text", UiTheme.Btn.Ghost))
-                DaemonClipboard.Copy(DialogueText());
+                DesktopClipboard.Copy(DialogueText());
 
             if (
                 _task.Incoming

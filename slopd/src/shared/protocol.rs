@@ -57,10 +57,6 @@ pub(crate) mod routes {
     pub(crate) const PRESET_COPY: &str = "/api/presets/:kind/:name/copy";
     pub(crate) const CONFIG: &str = "/api/config";
     pub(crate) const CONFIG_PATCH: &str = "/api/config/patch";
-    pub(crate) const CLIPBOARD: &str = "/api/clipboard";
-    pub(crate) const CLIPBOARD_TEXT: &str = "/api/clipboard/text";
-    pub(crate) const CLIPBOARD_PRIMARY: &str = "/api/clipboard/primary";
-    pub(crate) const CLIPBOARD_PRIMARY_TEXT: &str = "/api/clipboard/primary/text";
     pub(crate) const USAGE: &str = "/api/usage";
     pub(crate) const AUDIO: &str = "/api/audio";
     pub(crate) const NCSPOT: &str = "/api/ncspot";
@@ -87,6 +83,7 @@ pub(crate) mod events {
     pub(crate) const USAGE: &str = "usage";
     pub(crate) const AUDIO: &str = "audio";
     pub(crate) const JUKEBOX: &str = "jukebox";
+    pub(crate) const CLIPBOARD: &str = "clipboard";
 }
 
 pub(crate) mod messages {

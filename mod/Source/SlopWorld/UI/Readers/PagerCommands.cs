@@ -147,7 +147,7 @@ namespace SlopWorld
 
         // Sidebar editors run through slopd, so micro's external clipboard backend cannot
         // reach the host display from a project sandbox. Its terminal backend emits OSC 52,
-        // which slopd already delivers to the host clipboard. Respect an explicit clipboard
+        // which slopd delivers to subscribed desktop clients. Respect an explicit clipboard
         // choice in a configured micro command.
         static string MicroTerminalClipboard(string command)
         {

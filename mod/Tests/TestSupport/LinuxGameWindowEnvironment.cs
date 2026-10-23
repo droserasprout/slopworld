@@ -4,6 +4,7 @@ namespace UnityEngine
     {
         LinuxPlayer,
         WindowsPlayer,
+        OSXPlayer,
     }
 
     public enum FullScreenMode

@@ -165,6 +165,10 @@ pub(super) async fn ws_upgrade(
         .into_response();
     }
     ws.protocols(["slopworld.protobuf.v2"])
+        // A client image is at most 20 MiB, plus its Protobuf envelope. The mod
+        // sends one binary frame, so the frame limit must match the message limit.
+        .max_frame_size(32 * 1024 * 1024)
+        .max_message_size(32 * 1024 * 1024)
         .on_upgrade(move |socket| ws_run(socket, m, cap, generation))
         .into_response()
 }

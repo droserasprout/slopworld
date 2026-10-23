@@ -40,6 +40,11 @@ pub enum Event {
     Screen {
         screen: ScreenView,
     },
+    Clipboard {
+        name: String,
+        run_id: u64,
+        text: String,
+    },
     Usage {
         usage: crate::usage::Snapshot,
     },

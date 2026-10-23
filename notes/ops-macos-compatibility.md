@@ -30,9 +30,9 @@ Container replacement ends tmux processes while
 persistent private state remains;
 this differs from daemon-only redeployment.
 
-Sidecar capabilities disable daemon clipboard, desktop opening, audio playback, and
+Sidecar capabilities disable desktop opening, audio playback, and
 per-session limits. Ordinary text clipboard operations use RimWorld/Unity fallback;
-PRIMARY and daemon clipboard integration are unavailable. The mod can play its
+PRIMARY and image clipboard reads are unavailable on macOS. The mod can play its
 bundled OST through RimWorld while radio/Spotify daemon playback is unavailable.
 Native platform behavior requires platform-specific evidence, separate from runtime
 capability declarations.

@@ -7,7 +7,7 @@ namespace SlopWorld
     internal static class UiClipboardActions
     {
         public static void Copy(string text, string confirmation) =>
-            DaemonClipboard.Copy(
+            DesktopClipboard.Copy(
                 text,
                 () => Messages.Message(confirmation, MessageTypeDefOf.SilentInput, false),
                 UiLayout.Fail

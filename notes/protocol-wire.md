@@ -28,7 +28,12 @@ are bounded by remaining payload, not a fixed cluster size. CHA after a wide gly
 retains its occupied end even at a trimmed tail. Parsing, sprite joins, selection,
 and copy preserve daemon columns and original text. See [rendering](mod-terminal-rendering.md).
 
-Desktop paste explicitly carries image intent and a captured run ID. It requires root
-authority; scoped text paste cannot import host files. Optional run IDs on paste/keys
-protect clipboard round trips in addition to queue identity checks.
-[Clipboard](daemon-clipboard.md) owns import policy; [grants](agent-grants.md) owns access.
+Application OSC 52 copies use root-only `clipboard` control events, filtered by current
+terminal subscriptions and carrying a run ID. The client writes its desktop selection.
+These events retain order and are never part of reconnect snapshots.
+
+Optional run IDs on paste/keys protect clipboard round trips in addition to queue
+identity checks. Optional `paste.image_data` uploads bounded image bytes; it requires
+root authority and a current run ID, and takes precedence over text. Text paste never
+imports daemon-host files. [Clipboard](daemon-clipboard.md) owns import policy;
+[grants](agent-grants.md) owns access.

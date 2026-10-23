@@ -725,7 +725,7 @@ fn takes_an_osc52_copy() {
     // Keep only the latest clipboard update.
     e.feed(b"\x1b]52;c;Zmlyc3Q=\x07\x1b]52;c;c2Vjb25k\x07");
     assert_eq!(e.take_clip().as_deref(), Some("second"));
-    // Ignore primary-selection updates because the clipboard tools do not support them.
+    // Only the CLIPBOARD selection is forwarded to desktop clients.
     e.feed(b"\x1b]52;p;cHJpbWFyeQ==\x07");
     assert!(e.take_clip().is_none());
 }

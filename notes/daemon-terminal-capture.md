@@ -10,7 +10,8 @@ input. Screens may coalesce, but bytes and history replies stay complete. Histor
 replies retain sequence/extent for delayed translation. Clear and screen-mode changes
 invalidate history; scroll snapshots cannot consume bells. Titles and newly latched
 bells publish even without changed text. Scheduling consumes dirty state; rendering
-executes the selected action. Clipboard handoff has an independent lifetime.
+executes the selected action. OSC 52 publication validates the reader identity and hands off to subscribed clients
+without desktop I/O; [clipboard](daemon-clipboard.md) owns the client boundary.
 
 The mirror bounds each cell's combining tail. Discarded scalars still advance cluster
 parsing so standalone text after an oversized cluster keeps its columns.

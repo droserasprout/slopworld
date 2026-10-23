@@ -4,7 +4,7 @@ use std::io::Cursor;
 struct Fixture {
     manager: Arc<SessionRuntime>,
     session: SessionCfg,
-    source: std::path::PathBuf,
+    bytes: Vec<u8>,
     rx: mpsc::UnboundedReceiver<Input>,
     _socket: crate::test_support::TmuxSocket,
 }
@@ -41,17 +41,14 @@ impl Fixture {
             .write()
             .await
             .insert(session.name.clone(), live);
-        let source =
-            std::env::temp_dir().join(format!("slopd-import-{}.png", uuid::Uuid::new_v4()));
         let mut bytes = Cursor::new(Vec::new());
         image::DynamicImage::new_rgb8(1, 1)
             .write_to(&mut bytes, image::ImageFormat::Png)
             .unwrap();
-        std::fs::write(&source, bytes.into_inner()).unwrap();
         Self {
             manager,
             session,
-            source,
+            bytes: bytes.into_inner(),
             rx,
             _socket: socket,
         }
@@ -68,17 +65,58 @@ impl Fixture {
             .await
             .unwrap();
     }
-
-    fn uri(&self) -> String {
-        url::Url::from_file_path(&self.source).unwrap().into()
-    }
 }
 
 impl Drop for Fixture {
     fn drop(&mut self) {
-        std::fs::remove_file(&self.source).unwrap();
         crate::sandbox::remove_ephemeral_state(&self.session).unwrap();
     }
+}
+
+#[tokio::test]
+async fn uploaded_image_requires_current_run_and_mount_then_pastes_staged_bytes() {
+    let Some(_root) = crate::test_support::isolated() else {
+        return;
+    };
+    let mut fixture = Fixture::new().await;
+    let bytes = fixture.bytes.clone();
+    let manager = &fixture.manager;
+    let name = &fixture.session.name;
+    assert!(
+        manager
+            .paste_uploaded_image(name, bytes.clone(), Some(7))
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("restart")
+    );
+    fixture.publish_mount().await;
+    for run in [None, Some(6)] {
+        manager
+            .paste_uploaded_image(name, bytes.clone(), run)
+            .await
+            .unwrap_err();
+    }
+    manager
+        .paste_uploaded_image(name, b"not an image".to_vec(), Some(7))
+        .await
+        .unwrap_err();
+    assert!(fixture.rx.try_recv().is_err());
+    assert!(!images::directory(&fixture.session).unwrap().exists());
+    manager
+        .paste_uploaded_image(name, bytes.clone(), Some(7))
+        .await
+        .unwrap();
+    let Input::Paste { bytes: path } = fixture.rx.try_recv().unwrap() else {
+        panic!("expected image path")
+    };
+    let path = String::from_utf8(path).unwrap();
+    assert!(path.starts_with(images::GUEST));
+    let file = images::directory(&fixture.session)
+        .unwrap()
+        .join(std::path::Path::new(&path).file_name().unwrap());
+    assert_eq!(std::fs::read(file).unwrap(), bytes);
+    assert!(fixture.rx.try_recv().is_err());
 }
 
 #[tokio::test]
@@ -94,7 +132,7 @@ async fn imported_image_pastes_guest_path_in_order_and_follows_private_state_cle
         .await;
     fixture
         .manager
-        .paste_host_file_image(&fixture.session.name, &fixture.uri(), Some(7))
+        .paste_uploaded_image(&fixture.session.name, fixture.bytes.clone(), Some(7))
         .await
         .unwrap();
     fixture
@@ -113,10 +151,7 @@ async fn imported_image_pastes_guest_path_in_order_and_follows_private_state_cle
     let file = images::directory(&fixture.session)
         .unwrap()
         .join(std::path::Path::new(&guest).file_name().unwrap());
-    assert_eq!(
-        std::fs::read(file).unwrap(),
-        std::fs::read(&fixture.source).unwrap()
-    );
+    assert_eq!(std::fs::read(file).unwrap(), fixture.bytes.clone());
     assert!(matches!(
         fixture.rx.try_recv().unwrap(),
         Input::Keys { literal: false, .. }
@@ -127,44 +162,13 @@ async fn imported_image_pastes_guest_path_in_order_and_follows_private_state_cle
 }
 
 #[tokio::test]
-async fn missing_mount_and_invalid_data_never_paste_a_literal_uri_or_import_path() {
-    let Some(_root) = crate::test_support::isolated() else {
-        return;
-    };
-    let mut fixture = Fixture::new().await;
-    let error = fixture
-        .manager
-        .paste_host_file_image(&fixture.session.name, &fixture.uri(), Some(7))
-        .await
-        .unwrap_err();
-    assert!(error.to_string().contains("restart"));
-    fixture.publish_mount().await;
-    std::fs::write(&fixture.source, b"bad image").unwrap();
-    fixture
-        .manager
-        .paste_host_file_image(&fixture.session.name, &fixture.uri(), Some(7))
-        .await
-        .unwrap_err();
-    assert!(fixture.rx.try_recv().is_err());
-    assert!(!images::directory(&fixture.session).unwrap().exists());
-    fixture
-        .manager
-        .paste_host_file_image(&fixture.session.name, "normal text", Some(7))
-        .await
-        .unwrap();
-    assert!(
-        matches!(fixture.rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == b"normal text")
-    );
-}
-
-#[tokio::test]
 async fn replaced_run_or_identity_removes_uncommitted_import_without_delivery() {
     let Some(_root) = crate::test_support::isolated() else {
         return;
     };
     let mut fixture = Fixture::new().await;
     for replace_identity in [false, true] {
-        let imported = images::import(&fixture.session, &fixture.source).unwrap();
+        let imported = images::import_uploaded(&fixture.session, &fixture.bytes).unwrap();
         {
             let mut rows = fixture.manager.live.write().await;
             let row = rows.get_mut(&fixture.session.name).unwrap();
@@ -195,7 +199,7 @@ async fn replaced_run_or_identity_removes_uncommitted_import_without_delivery() 
 }
 
 #[tokio::test]
-async fn mismatched_mount_identity_rejects_import_before_reading_host_file() {
+async fn mismatched_mount_identity_rejects_upload_before_staging() {
     let Some(_root) = crate::test_support::isolated() else {
         return;
     };
@@ -212,7 +216,7 @@ async fn mismatched_mount_identity_rejects_import_before_reading_host_file() {
         .unwrap();
     fixture
         .manager
-        .paste_host_file_image(&fixture.session.name, &fixture.uri(), Some(7))
+        .paste_uploaded_image(&fixture.session.name, fixture.bytes.clone(), Some(7))
         .await
         .unwrap_err();
     assert!(fixture.rx.try_recv().is_err());

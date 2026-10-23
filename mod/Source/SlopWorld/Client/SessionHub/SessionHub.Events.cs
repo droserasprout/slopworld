@@ -46,6 +46,12 @@ namespace SlopWorld
                     );
                     break;
 
+                case Wire.Event.PayloadOneofCase.Clipboard:
+                    var copy = ev.Clipboard;
+                    if (Get(copy.Name)?.RunId == (long)copy.RunId)
+                        DesktopClipboard.CopyFromApplication(copy.Text);
+                    break;
+
                 case Wire.Event.PayloadOneofCase.Screen:
                     _sessions.ApplyScreen(ev.Screen);
                     break;

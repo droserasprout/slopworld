@@ -16,7 +16,6 @@ pub struct Capabilities {
     pub runtime: &'static str,
     pub audio_playback: bool,
     pub ncspot: bool,
-    pub clipboard: bool,
     pub desktop_open: bool,
     pub per_session_limits: bool,
     pub host_network_is_container: bool,
@@ -46,7 +45,6 @@ pub fn capabilities() -> Capabilities {
         runtime: if sidecar { SLOPCAR } else { "native" },
         audio_playback: !sidecar,
         ncspot: ncspot_available(),
-        clipboard: !sidecar,
         desktop_open: !sidecar,
         per_session_limits: !sidecar,
         host_network_is_container: sidecar,
@@ -111,10 +109,6 @@ pub fn whereis() -> Vec<BinaryLocation> {
         "emacsclient",
         "gio",
         "gdbus",
-        "wl-copy",
-        "wl-paste",
-        "xclip",
-        "xsel",
         "ncspot",
     ];
 

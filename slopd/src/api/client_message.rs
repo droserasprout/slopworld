@@ -26,7 +26,14 @@ pub(super) fn decode(bytes: &[u8]) -> anyhow::Result<ClientMsg> {
             P::Resize(v) => ClientMsg::Resize(convert(v)?),
             P::Scroll(v) => ClientMsg::Scroll(convert(v)?),
             P::Mouse(v) => ClientMsg::Mouse(convert(v)?),
-            P::Paste(v) => ClientMsg::Paste(convert(v)?),
+            // Move image payloads directly; a JSON projection expands every byte into a value.
+            P::Paste(v) => ClientMsg::Paste(PasteReq {
+                name: v.name.ok_or_else(|| anyhow::anyhow!("missing name"))?,
+                text: v.text.unwrap_or_default(),
+                trace_id: v.trace_id.unwrap_or_default(),
+                run_id: v.run_id,
+                image_data: v.image_data,
+            }),
             P::Breadcrumb(v) => ClientMsg::Breadcrumb(convert(v)?),
             P::Audio(v) => ClientMsg::Audio(AudioReq {
                 volume: v.volume,

@@ -1,34 +1,5 @@
 use super::*;
 
-#[test]
-fn local_uri_decodes_utf8_spaces_and_literal_percent_once() {
-    assert_eq!(
-        local_image_uri(" file:///tmp/a%20%CE%BB%2520.PNG\n").unwrap(),
-        Some(PathBuf::from("/tmp/a λ%20.PNG"))
-    );
-    assert_eq!(
-        local_image_uri("file://localhost/tmp/a.jpg").unwrap(),
-        Some(PathBuf::from("/tmp/a.jpg"))
-    );
-    for text in [
-        "hello",
-        "file:///tmp/a.txt",
-        "file://other/tmp/a.png",
-        "file:///tmp/a.png\nfile:///tmp/b.png",
-        "prefix file:///tmp/a.png",
-    ] {
-        assert_eq!(local_image_uri(text).unwrap(), None, "{text}");
-    }
-    for text in [
-        "file:///tmp/a%zz.png",
-        "file:///tmp/a%00.png",
-        "file:///tmp/a.png?x=1",
-        "file:///tmp/a.png#frag",
-    ] {
-        assert!(local_image_uri(text).is_err(), "{text}");
-    }
-}
-
 fn temp() -> PathBuf {
     let root = std::env::temp_dir().join(format!("slopd-image-test-{}", uuid::Uuid::new_v4()));
     fs::create_dir(&root).unwrap();
@@ -44,27 +15,12 @@ fn png() -> Vec<u8> {
 }
 
 #[test]
-fn validates_actual_data_and_rejects_truncation_nonfiles_and_oversize() {
-    let root = temp();
-    let path = root.join("image.jpg");
+fn uploaded_bytes_validate_size_format_and_decode_before_staging() {
+    assert_eq!(validate_image(&png()).unwrap(), "png");
+    validate_image(b"not an image").unwrap_err();
     let bytes = png();
-    fs::write(&path, &bytes).unwrap();
-    let (read, extension) = image_bytes(&path).unwrap();
-    assert_eq!(read, bytes);
-    assert_eq!(extension, "png", "content selects the staged suffix");
-    fs::write(&path, &bytes[..bytes.len() / 2]).unwrap();
-    image_bytes(&path).unwrap_err();
-    fs::write(&path, b"not an image").unwrap();
-    image_bytes(&path).unwrap_err();
-    OpenOptions::new()
-        .write(true)
-        .open(&path)
-        .unwrap()
-        .set_len(MAX_BYTES + 1)
-        .unwrap();
-    image_bytes(&path).unwrap_err();
-    image_bytes(&root).unwrap_err();
-    fs::remove_dir_all(root).unwrap();
+    validate_image(&bytes[..bytes.len() / 2]).unwrap_err();
+    validate_image(&vec![0; usize::try_from(MAX_BYTES).unwrap() + 1]).unwrap_err();
 }
 
 #[test]
@@ -116,24 +72,6 @@ fn staging_rejects_symlink_redirection_and_full_storage() {
     symlink(root.join("missing"), store.join("link")).unwrap();
     stage(&store, &png(), "png").unwrap_err();
     fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn host_alias_cannot_import_another_sessions_private_image() {
-    let Some(_root) = crate::test_support::isolated() else {
-        return;
-    };
-    let session = SessionCfg::default();
-    prepare(&session).unwrap();
-    let source = directory(&session).unwrap().join("private.png");
-    fs::write(&source, png()).unwrap();
-    let alias =
-        std::env::temp_dir().join(format!("slopd-image-alias-{}.png", uuid::Uuid::new_v4()));
-    std::os::unix::fs::symlink(&source, &alias).unwrap();
-    let error = image_bytes(&alias).unwrap_err();
-    assert!(error.to_string().contains("session private state"));
-    fs::remove_file(alias).unwrap();
-    crate::sandbox::remove_ephemeral_state(&session).unwrap();
 }
 
 #[tokio::test]

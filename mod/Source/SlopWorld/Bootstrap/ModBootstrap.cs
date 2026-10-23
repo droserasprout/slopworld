@@ -23,7 +23,7 @@ namespace SlopWorld
 
             JukeboxActions.Install();
             LongEventHandler.ExecuteWhenFinished(ProfileAudioDefaults.Apply);
-            UiClipboard.Provider = new DaemonUiClipboard();
+            UiClipboard.Provider = new DesktopUiClipboard();
             RowChrome.OverlayHitTest = ColonistBarStrip.SidebarHover;
 
             var h = new Harmony("io.drsr.slopworld");
@@ -85,6 +85,7 @@ namespace SlopWorld
             // The jukebox has no MonoBehaviour of its own.
             // Update it before the client so connection work cannot delay audio updates within this frame.
             Radio.Update();
+            DesktopClipboard.Pump();
             DaemonClient.PumpCompletions(e => Log.Error($"[SlopWorld] completion: {e}"));
             SessionHub.Instance.Update();
             WindowTitle.Follow();

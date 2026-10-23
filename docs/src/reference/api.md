@@ -60,6 +60,7 @@ not accepted.
 | `library` | Library catalog. |
 | `jukebox` | Jukebox state. |
 | `audio` | Current audio state, also sent in the initial snapshot. |
+| `clipboard` | Application OSC 52 copy (`name`, `run_id`, `text`), sent to root clients subscribed to that terminal. The client writes its local CLIPBOARD. |
 
 Catalogs arrive on connect and are resent when changed.
 
@@ -73,7 +74,7 @@ Catalogs arrive on connect and are resent when changed.
 | `resize` | Negotiate terminal size. |
 | `scroll` | Scroll the terminal. |
 | `mouse` | Send mouse events. |
-| `paste` | Paste text; root desktop clients can opt into host image file-link import. |
+| `paste` | Paste text; root desktop clients can upload image bytes or import host image file links. |
 | `breadcrumb` | Insert a saved guidance block. |
 | `audio` | Audio control. Always includes `volume`. The selection supports `station`, `stream`, `file`, or `ncspot`, or `stop: true`. An absent oneof changes volume only. |
 
@@ -167,15 +168,19 @@ With `host: true` and no project, the request accepts an absolute host path.
 
 ### Clipboard
 
-`/api/clipboard` accesses CLIPBOARD; `/api/clipboard/primary` accesses the
-Wayland/X11 PRIMARY selection. Their `/text` variants read text without image data.
+Clipboard access belongs to the client desktop. Application OSC 52 writes arrive
+through subscribed `clipboard` events; the daemon has no host clipboard HTTP routes.
 
-WebSocket `paste` normally treats `text` literally. With `host_file_images: true`,
-root clients may import a single local image file URI into the current Codex agent's
-private storage and paste its sandbox-visible attachment path. This intent requires
-`run_id` from the session runtime snapshot; scoped agents cannot import host files.
-The sidecar rejects host imports. Normal `paste` and `keys` may also include `run_id`
-to discard input for a replaced run. Failed imports are recorded in the daemon log.
+WebSocket `paste` normally treats `text` literally. Optional `image_data` carries
+encoded image bytes (PNG, JPEG, GIF or WebP, at most 20 MiB and 8192 pixels per
+dimension). Uploads require root authority, a current `run_id`, and a Codex agent
+with its private image mount. They work with remote daemons and sidecars; the
+daemon stages the bytes and pastes the mounted path. `image_data` takes precedence
+over `text`.
+
+Text paste preserves file URIs as literal text. Normal `paste` and `keys` may also
+include `run_id` to discard input for a replaced run. Failed image uploads are
+recorded in the daemon log.
 
 ## Configuration and templates
 

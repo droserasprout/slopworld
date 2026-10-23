@@ -70,7 +70,7 @@ fn exported(plan: &crate::sandbox::LaunchPlan, name: &str) -> Option<String> {
 }
 
 #[tokio::test]
-async fn non_unicode_environment_survives_clipboard_execution_and_preset_validation() {
+async fn non_unicode_environment_survives_snapshots_and_preset_validation() {
     let raw = OsString::from_vec(b"value-\xff".to_vec());
     let Some(root) = crate::test_support::isolated_with_env(|command, root| {
         command
@@ -84,26 +84,10 @@ async fn non_unicode_environment_survives_clipboard_execution_and_preset_validat
         &root,
         "printf '{\"DISPLAY\":\":77\",\"XDG_CURRENT_DESKTOP\":\"GNOME\"}'",
     );
-    let xclip = root.join("xclip");
-    std::fs::write(
-        &xclip,
-        "#!/bin/sh\nprintf '%s' \"$SLOPD_TEST_RAW\" > \"$SLOPD_TEST_ROOT/raw-environment\"\nprintf clipboard-text\n",
-    ).unwrap();
-    std::fs::set_permissions(&xclip, std::fs::Permissions::from_mode(0o700)).unwrap();
-
     let snapshot = Environment::current().await;
     assert_eq!(snapshot.get_os("SLOPD_TEST_RAW"), Some(raw.as_os_str()));
     assert_eq!(snapshot.get("SLOPD_TEST_RAW"), None);
     assert_eq!(snapshot.expand("$SLOPD_TEST_RAW"), "");
-    assert_eq!(
-        crate::clipboard::read_text().await.unwrap(),
-        "clipboard-text"
-    );
-    assert_eq!(
-        std::fs::read(root.join("raw-environment")).unwrap(),
-        b"value-\xff"
-    );
-
     let (mut cfg, mut session, project) = inputs();
     cfg.defaults.agent_shell = "/bin/sh".into();
     session.sandbox_snapshots[0]
@@ -248,42 +232,6 @@ fn new_desktop_snapshot_clears_old_login_paths_without_importing_unrelated_value
     assert!(environment.get_os("WAYLAND_DISPLAY").is_none());
     assert!(environment.get_os("XAUTHORITY").is_none());
     assert_eq!(environment.get("PATH"), Some("/inherited/bin"));
-}
-
-#[tokio::test]
-async fn clipboard_tools_receive_current_display_and_keep_gnome_xwayland_policy() {
-    let Some(root) = isolated() else { return };
-    tool(&root, "/bin/cat \"$SLOPD_TEST_ROOT/manager.json\"");
-    let xclip = root.join("xclip");
-    std::fs::write(
-        &xclip,
-        "#!/bin/sh\nprintf '%s|%s|%s' \"$DISPLAY\" \"$XAUTHORITY\" \"$*\"\n",
-    )
-    .unwrap();
-    std::fs::set_permissions(&xclip, std::fs::Permissions::from_mode(0o700)).unwrap();
-    manager(
-        &root,
-        &serde_json::json!({"DISPLAY": ":77", "XAUTHORITY": "/current/auth", "XDG_CURRENT_DESKTOP": "GNOME"}),
-    );
-    assert_eq!(
-        crate::clipboard::read_text().await.unwrap(),
-        ":77|/current/auth|-selection clipboard -target UTF8_STRING -out"
-    );
-    assert_eq!(
-        crate::clipboard::read_primary_text().await.unwrap(),
-        ":77|/current/auth|-selection primary -target UTF8_STRING -out"
-    );
-    // Change the owner-side helper to a write sink; no test touches the real clipboard.
-    std::fs::write(&xclip, "#!/bin/sh\nprintf '%s|%s' \"$DISPLAY\" \"$XAUTHORITY\" > \"$SLOPD_TEST_ROOT/copy-environment\"\n/bin/cat > \"$SLOPD_TEST_ROOT/copy-input\"\n").unwrap();
-    crate::clipboard::write("test text").await.unwrap();
-    assert_eq!(
-        std::fs::read_to_string(root.join("copy-environment")).unwrap(),
-        ":77|/current/auth"
-    );
-    assert_eq!(
-        std::fs::read_to_string(root.join("copy-input")).unwrap(),
-        "test text"
-    );
 }
 
 #[tokio::test]

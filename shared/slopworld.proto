@@ -309,7 +309,8 @@ message UsageSnapshot {
 message Capabilities {
   string runtime = 1;
   bool audio_playback = 2;
-  bool clipboard = 3;
+  reserved 3;
+  reserved "clipboard";
   bool desktop_open = 4;
   bool per_session_limits = 5;
   bool host_network_is_container = 6;
@@ -487,10 +488,6 @@ message ProjectPreviewReq {
   optional bool temp = 2;
 }
 
-message ClipReq {
-  optional string text = 1;
-}
-
 message HighlightReq {
   optional string text = 1;
   optional string language = 2;
@@ -530,8 +527,10 @@ message PasteReq {
   optional string name = 1;
   optional string text = 2;
   optional string trace_id = 3;
-  bool host_file_images = 4;
+  reserved 4;
+  reserved "host_file_images";
   optional uint64 run_id = 5;
+  optional bytes image_data = 6;
 }
 
 message BreadcrumbReq {
@@ -886,6 +885,12 @@ message ClientMessage {
   }
 }
 
+message ClipboardWrite {
+  string name = 1;
+  uint64 run_id = 2;
+  string text = 3;
+}
+
 message Event {
   oneof payload {
     Capabilities capabilities = 1;
@@ -896,6 +901,7 @@ message Event {
     UsageSnapshot usage = 6;
     AudioState audio = 7;
     JukeboxCatalog jukebox = 8;
+    ClipboardWrite clipboard = 9;
   }
 }
 

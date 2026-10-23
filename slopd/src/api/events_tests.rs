@@ -67,6 +67,14 @@ fn every_event_encodes_its_protobuf_payload() {
         ),
         (Event::Screen { screen }, "screen"),
         (
+            Event::Clipboard {
+                name: "agent".into(),
+                run_id: 7,
+                text: "copy λ".into(),
+            },
+            "clipboard",
+        ),
+        (
             Event::Usage {
                 usage: Default::default(),
             },
@@ -96,6 +104,7 @@ fn every_event_encodes_its_protobuf_payload() {
             Payload::Projects(_) => "projects",
             Payload::Library(_) => "library",
             Payload::Screen(_) => "screen",
+            Payload::Clipboard(_) => "clipboard",
             Payload::Usage(_) => "usage",
             Payload::Audio(_) => "audio",
             Payload::Jukebox(_) => "jukebox",
