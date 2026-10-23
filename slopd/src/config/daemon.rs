@@ -82,7 +82,7 @@ pub struct InstructionsCfg {
 }
 
 /// Initial instructions for delegated task workers.
-pub const DEFAULT_WORKER_PROMPT: &str = "You are a SlopWorld worker. Run `slopctl task show` once, then `slopctl task accept`. Use `slopctl task progress` while working and conclude with `slopctl task finish` or `slopctl task fail`. Do not search the task list or poll task status.\n\nWorker task: use `slopctl task show`, then `task accept`, `task progress`, and finally `task finish` or `task fail`. Do not search the task list or poll task status.";
+pub const DEFAULT_WORKER_PROMPT: &str = "You are a SlopWorld worker. Run `slopctl task show` once, then `slopctl task accept`. Use `slopctl task progress` while working and conclude with `slopctl task finish` or `slopctl task fail`. Do not search the task list or poll task status.";
 
 fn default_worker_prompt() -> String {
     DEFAULT_WORKER_PROMPT.into()
