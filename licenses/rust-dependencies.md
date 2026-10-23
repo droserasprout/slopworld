@@ -35,7 +35,7 @@ and does not identify which crates are included in a particular binary.
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
 | bytes | 1.12.1 | MIT |
-| cc | 1.9.0 | MIT OR Apache-2.0 |
+| cc | 1.10.0 | MIT OR Apache-2.0 |
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
@@ -220,7 +220,7 @@ and does not identify which crates are included in a particular binary.
 | simd-adler32 | 0.3.10 | MIT |
 | simdutf8 | 0.1.5 | MIT OR Apache-2.0 |
 | slab | 0.4.12 | MIT |
-| smallvec | 1.16.3 | MIT OR Apache-2.0 |
+| smallvec | 1.16.4 | MIT OR Apache-2.0 |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 |
 | subtle | 2.6.1 | BSD-3-Clause |
@@ -275,7 +275,7 @@ and does not identify which crates are included in a particular binary.
 | utf-8 | 0.7.6 | MIT OR Apache-2.0 |
 | utf8-zero | 0.8.1 | MIT OR Apache-2.0 |
 | utf8_iter | 1.0.4 | Apache-2.0 OR MIT |
-| uuid | 1.28.0 | Apache-2.0 OR MIT |
+| uuid | 1.29.0 | Apache-2.0 OR MIT |
 | valuable | 0.1.1 | MIT |
 | version_check | 0.9.5 | MIT/Apache-2.0 |
 | vte | 0.15.0 | Apache-2.0 OR MIT |
@@ -287,7 +287,7 @@ and does not identify which crates are included in a particular binary.
 | wasm-bindgen-macro-support | 0.2.129 | MIT OR Apache-2.0 |
 | wasm-bindgen-shared | 0.2.129 | MIT OR Apache-2.0 |
 | web-sys | 0.3.106 | MIT OR Apache-2.0 |
-| webpki-roots | 1.0.10 | CDLA-Permissive-2.0 |
+| webpki-roots | 1.0.11 | CDLA-Permissive-2.0 |
 | weezl | 0.1.12 | MIT OR Apache-2.0 |
 | winapi-util | 0.1.11 | Unlicense OR MIT |
 | windows | 0.62.2 | MIT OR Apache-2.0 |
