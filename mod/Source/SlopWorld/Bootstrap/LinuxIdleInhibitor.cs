@@ -38,7 +38,9 @@ namespace SlopWorld
             var failures = new List<Exception>();
             foreach (bool portal in new[] { true, false })
             {
+#pragma warning disable CA2000 // Success transfers the connection to the returned lease; failure disposes below.
                 var bus = new DBusConnection(address);
+#pragma warning restore CA2000
                 try
                 {
                     Wait(bus.ConnectAsync().AsTask(), timeout);

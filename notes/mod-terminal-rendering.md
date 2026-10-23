@@ -16,10 +16,11 @@ and returns monochrome families in `FcFontSort` order; color faces stay on the e
 atlas path. `TerminalFontFallbacks` caches this order by selection and installed-font
 revision, without promoting Nerd Fonts or special-casing glyphs. A failed query uses
 the selected family plus `monospace` until a selection change or rescan retries it.
-`InstalledFonts` owns the Unity font catalog. Catalog revisions invalidate the active
+`InstalledFonts` publishes the font catalog; `NativeFonts` owns file discovery,
+OpenType face selection, and native registration. A rescan invalidates both owners. Catalog revisions invalidate the active
 terminal font, monospace probes, and cached font menus; font invalidation also advances
-the terminal render revision. Fontconfig selects family order; Unity still resolves
-and rasterizes those names, so this does not replace Unity with Pango shaping.
+the terminal render revision. Fontconfig selects family order; the native backend resolves
+and rasterizes those names.
 
 `TerminalCachePaint` records full-repaint backgrounds and glyphs in the same native GUI
 render-target batch. GPU clears through `GL.Clear` use a separate command stream; keep them

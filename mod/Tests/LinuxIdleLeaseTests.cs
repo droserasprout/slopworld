@@ -1,3 +1,4 @@
+#pragma warning disable CA2000 // The composite lease owns injected fake leases; tests assert failure and repeated cleanup.
 using System;
 
 namespace SlopWorld.Tests

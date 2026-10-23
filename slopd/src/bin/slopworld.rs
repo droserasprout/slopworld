@@ -225,7 +225,7 @@ fn configure_game_environment(
             "1"
         },
     );
-    configure_game_window(&mut command);
+    configure_game_window(command);
     // Pass the same resolved roots to the mod, including platform defaults and
     // absolute paths so a different game working directory cannot relocate them.
     for (variable, root) in [

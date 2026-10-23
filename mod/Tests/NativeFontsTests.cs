@@ -17,7 +17,7 @@ namespace SlopWorld.Tests
         static void U32(byte[] data, int at, uint value) =>
             BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(at), value);
 
-        static byte[] Face(
+        internal static byte[] Face(
             string family,
             bool mono = false,
             bool collection = false,

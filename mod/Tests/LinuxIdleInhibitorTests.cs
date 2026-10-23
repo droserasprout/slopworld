@@ -1,3 +1,4 @@
+#pragma warning disable CA2000 // Tests explicitly exercise lease cleanup and process exit without disposal.
 using System;
 using System.Diagnostics;
 using System.Linq;

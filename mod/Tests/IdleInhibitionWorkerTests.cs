@@ -1,3 +1,4 @@
+#pragma warning disable CA2000 // The worker owns returned fake leases; tests assert asynchronous and repeated release.
 using System;
 using System.Diagnostics;
 using System.Threading;

@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // Owns OS discovery. Consumers use Revision to invalidate fonts, probes, and menus.
+    // Publishes the shared catalog and revision; NativeFonts owns discovery and registration.
+    // Consumers use Revision to invalidate fonts, probes, and menus.
     static class InstalledFonts
     {
         static IReadOnlyList<string> _all;

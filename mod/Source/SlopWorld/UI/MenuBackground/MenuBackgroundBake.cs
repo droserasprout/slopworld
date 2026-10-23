@@ -146,7 +146,9 @@ namespace SlopWorld
                     Texture2D tex = null;
                     try
                     {
+#pragma warning disable CA2000 // Success transfers the texture into frames; failure releases it through Object.Destroy.
                         tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+#pragma warning restore CA2000
                         if (!LoadFrame(tex, File.ReadAllBytes(path)))
                         {
                             UnityEngine.Object.Destroy(tex);
