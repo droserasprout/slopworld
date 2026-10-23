@@ -1,6 +1,25 @@
 use super::*;
 
 #[test]
+fn shift_enter_inserts_a_newline_without_submitting_the_prompt() {
+    for legacy in [false, true] {
+        let mut c = Composer::ready();
+        c.literal("firstsecond");
+        for _ in 0..6 {
+            c.key("Left");
+        }
+        if legacy {
+            c.literal("\x1b[13;2u");
+        } else {
+            assert!(c.key("S-Enter").is_none());
+        }
+        assert!(
+            matches!(c.key("Enter"), Some(Submission::Prompt(prompt)) if prompt == "first\nsecond")
+        );
+    }
+}
+
+#[test]
 fn codex_composer_recovers_the_submitted_prompt() {
     let mut c = Composer::ready();
     c.literal("fix teh parser");

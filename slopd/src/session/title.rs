@@ -235,8 +235,7 @@ impl Composer {
     }
 
     fn literal(&mut self, text: &str) {
-        // The mod encodes Shift+Enter with the kitty keyboard protocol.
-        // Codex inserts a newline. Remove the escape bytes to keep the mirrored prompt consistent.
+        // Older clients encode Shift+Enter as literal CSI-u.
         if text == "\x1b[13;2u" {
             self.text.insert(self.cursor, '\n');
             self.cursor += 1;
@@ -250,6 +249,10 @@ impl Composer {
 
     fn key(&mut self, key: &str) -> Option<Submission> {
         match key {
+            "S-Enter" => {
+                self.text.insert(self.cursor, '\n');
+                self.cursor += 1;
+            }
             // Codex's line editor accepts these readline-style aliases as well as the named
             // cursor keys emitted by the terminal window.
             "Enter" | "C-j" | "C-m" => return self.submit(),

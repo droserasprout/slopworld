@@ -44,7 +44,8 @@ namespace SlopWorld
             {
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
-                    return "Enter";
+                    // The daemon resolves Shift+Enter against the foreground application.
+                    return e.shift ? "S-Enter" : "Enter";
                 case KeyCode.Escape:
                     return "Escape";
                 case KeyCode.Backspace:

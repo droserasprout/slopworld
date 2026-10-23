@@ -7,9 +7,9 @@ mod titles;
 
 use std::collections::HashMap;
 use std::process::Stdio;
-use std::sync::OnceLock;
 #[cfg(test)]
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context, Result, bail};
 use tokio::process::{Child, Command};
@@ -74,6 +74,7 @@ struct RenameTestControls {
 #[derive(Clone)]
 pub struct Tmux {
     socket: String,
+    verbatim_paste: Arc<tokio::sync::OnceCell<bool>>,
     #[cfg(test)]
     rename_test: Arc<Mutex<RenameTestControls>>,
 }
@@ -124,6 +125,7 @@ impl Tmux {
     pub fn new(socket: impl Into<String>) -> Self {
         Self {
             socket: socket.into(),
+            verbatim_paste: Arc::default(),
             #[cfg(test)]
             rename_test: Arc::default(),
         }
@@ -747,8 +749,32 @@ impl Tmux {
             bail!("tmux key names must not end with a semicolon");
         }
         let target = format!("{name}:.0");
+        let shift_enter = if keys.iter().any(|key| key == "S-Enter") {
+            let mode = self
+                .run(&[
+                    "display-message",
+                    "-p",
+                    "-t",
+                    &target,
+                    "#{pane_key_mode}\n#{pane_current_command}",
+                ])
+                .await?;
+            let (mode, command) = mode
+                .trim_end_matches('\n')
+                .split_once('\n')
+                .context("tmux Shift+Enter foreground metadata")?;
+            shift_enter_key(mode, command)
+        } else {
+            "S-Enter"
+        };
         let mut args: Vec<&str> = vec!["send-keys", "-t", &target, "--"];
-        args.extend(keys.iter().map(String::as_str));
+        args.extend(keys.iter().map(|key| {
+            if key == "S-Enter" {
+                shift_enter
+            } else {
+                key.as_str()
+            }
+        }));
         self.run(&args).await?;
         Ok(())
     }
@@ -780,6 +806,15 @@ impl Tmux {
     async fn paste_buffer(&self, name: &str, bytes: &[u8], bracketed: bool) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
+        // tmux 3.8 escapes control bytes by default; older servers paste them raw.
+        // Query the connected server's command contract rather than the client version.
+        let verbatim = self
+            .verbatim_paste
+            .get_or_try_init(|| async {
+                let commands = self.run(&["list-commands"]).await?;
+                Ok::<bool, anyhow::Error>(paste_supports_verbatim(&commands))
+            })
+            .await?;
         let buf = format!("slopworld-{name}");
         let target = format!("{name}:.0");
         let mut child = Command::new("tmux")
@@ -787,6 +822,7 @@ impl Tmux {
             .args(["load-buffer", "-b", buf.as_str(), "-"])
             .arg(";")
             .args(["paste-buffer", "-d", "-r", "-b", &buf, "-t", &target])
+            .args(if *verbatim { &["-S"][..] } else { &[] })
             .args(if bracketed { &["-p"][..] } else { &[] })
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
@@ -808,6 +844,28 @@ impl Tmux {
         }
         Ok(())
     }
+}
+
+fn shift_enter_key(mode: &str, command: &str) -> &'static str {
+    match mode {
+        // Honor the format requested by an application, including an enhanced shell.
+        "Ext 1" | "Ext 2" => "S-Enter",
+        "VT10x" if crate::sandbox::is_shell_command(command) => "Enter",
+        // Legacy agents accept CSI-u without negotiating it. In particular, sandboxed
+        // agents cannot probe the host tmux socket. Keep their multiline input working.
+        // This constant is safe in tmux argv: it cannot end a command with a semicolon.
+        _ => "\x1b[13;2u",
+    }
+}
+
+fn paste_supports_verbatim(commands: &str) -> bool {
+    commands
+        .lines()
+        .find(|line| line.starts_with("paste-buffer "))
+        .is_some_and(|line| {
+            line.split_whitespace()
+                .any(|word| word.starts_with("[-") && word.contains('S'))
+        })
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]

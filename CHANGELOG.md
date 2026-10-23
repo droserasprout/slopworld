@@ -12,8 +12,6 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [0.0.10] - 2026-10-23
 
-A highly recommended release.
-
 ### Security
 
 - Sandbox: Prevent crafted terminal input from executing tmux commands outside the sandbox.
@@ -35,8 +33,9 @@ A highly recommended release.
 - Jukebox: Fall back to local OST playback when daemon playback fails.
 - Jukebox: Drop the jukebox in a pod during initial cutscene.
 - Jukebox: Remove random pauses between local OST tracks.
+- Terminal: On Shift+Enter send Enter in shells and multiline input in agents.
+- Terminal: Preserve control characters in keyboard input and clipboard paste on tmux 3.8.
 - UI: Fixed separator lines disappearing during pixel snapping.
-- UI: Use the selected profile icons as defaults for usage rows.
 
 ### Changed
 

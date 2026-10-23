@@ -78,10 +78,10 @@ namespace SlopWorld
             "The main thing is to always find pleasure in what we do.",
             "Dr. Pussycat!",
             "And move your finger down so it's five centimeters away from the entrance. (",
-            "Slut-shaming is when people, usually men just like you, judge another person by how they dress. (",
             "But that's good! Diversity makes life more interesting.",
             "What? A foreigner in the pretty forest? No fucking way! (",
             "Oh fuck, voices in my head! (",
+            "And you will have to face the big bad cock-chopping she-wolf. (",
             //
             // => Series
             //

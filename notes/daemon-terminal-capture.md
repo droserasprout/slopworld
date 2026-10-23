@@ -33,6 +33,15 @@ keep their launch settings. CI and sidecar use the same pinned Debian forky tmux
 older packages can lack required width ranges. Preserve application-negotiated
 bracketed paste rather than guessing from command names.
 
+Literal keys and clipboard paste preserve control bytes. tmux 3.8 requires
+`paste-buffer -S` for this; detect support from the connected server's command
+list so tmux 3.7 retains its raw-paste behavior.
+
+Named Shift+Enter uses tmux's negotiated key mode when present. In legacy mode,
+foreground shells receive Enter while other applications retain CSI-u for multiline
+input. Sandboxed agents cannot probe the host tmux socket, so negotiation alone is
+not sufficient for compatibility. Literal text and clipboard bytes bypass this policy.
+
 Native packages require tmux 3.7 or newer: 3.6 introduced `codepoint-widths`,
 but our skin-tone override uses range syntax introduced in 3.7. Pane recovery
 also reads `bracket_paste_flag`, introduced in 3.7. Debian 13's stock 3.5a does

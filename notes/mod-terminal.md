@@ -35,6 +35,10 @@ round trips. CLIPBOARD, PRIMARY, and OSC writes stay separate; PRIMARY never sen
 image shortcut. Codex tries text before forwarding its image shortcut; host panes
 accept text only. [Clipboard](daemon-clipboard.md) owns host image imports.
 
+Shift+Enter travels as a named key, not literal escape bytes. The daemon owns its
+foreground-shell fallback and legacy application compatibility; prompt title capture
+tracks it as a newline without submission.
+
 Selection across missing rows leaves the clipboard unchanged. Translate endpoints
 and drag anchors with history growth so highlights stay on text. Edge scrolling keeps
 the pointer-row endpoint, clamping only outside displayed rows. Closing/rebinding

@@ -19,8 +19,6 @@ namespace SlopWorld
             _local = new Dictionary<KeyCode, System.Func<Event, bool>>
             {
                 { KeyCode.Escape, HandleEscapeKey },
-                { KeyCode.Return, HandleReturnKey },
-                { KeyCode.KeypadEnter, HandleReturnKey },
                 { KeyCode.PageUp, HandleHistoryKey },
                 { KeyCode.PageDown, HandleHistoryKey },
             };
@@ -267,7 +265,7 @@ namespace SlopWorld
 
         internal void HandleKey(Event e)
         {
-            // Try workspace actions before checking the connection. Bare Escape and Return return false, then reach terminal dispatch.
+            // Try workspace actions before checking the connection. Terminal keys reach dispatch below.
             if (TryLocal(e))
                 return;
 
@@ -371,22 +369,6 @@ namespace SlopWorld
             if (!e.shift)
                 return false;
             _panel.Close();
-            e.Use();
-            return true;
-        }
-
-        internal bool HandleReturnKey(Event e)
-        {
-            // Send the Kitty sequence for Shift+Enter. Compatible apps can insert a newline instead of submitting.
-            if (!e.shift)
-                return false;
-            _panel.JumpToLive();
-            _panel.Flush();
-            SessionHub.Instance.Terminal.SendKeys(
-                _panel.SessionName,
-                new[] { "\u001b[13;2u" },
-                true
-            );
             e.Use();
             return true;
         }

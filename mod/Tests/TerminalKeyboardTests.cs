@@ -5,6 +5,20 @@ namespace SlopWorld.Tests
 {
     static class TerminalKeyboardTests
     {
+        public static void ShiftEnterRemainsADistinctKeyOnBothScreensAndKeypads()
+        {
+            foreach (var key in new[] { KeyCode.Return, KeyCode.KeypadEnter })
+            foreach (bool altScreen in new[] { false, true })
+            foreach (bool shift in new[] { false, true })
+            {
+                var e = new Event { keyCode = key, shift = shift };
+                Assert.That(
+                    TerminalInputController.MapKey(e, altScreen),
+                    Is.EqualTo(shift ? "S-Enter" : "Enter")
+                );
+            }
+        }
+
         public static void ShiftAltForwardsWorkspaceLettersAndDigitsWithoutShift()
         {
             foreach (bool altScreen in new[] { false, true })

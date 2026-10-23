@@ -3,6 +3,17 @@ use super::{
     parse_length_framed_field,
 };
 
+#[test]
+fn verbatim_paste_flag_follows_the_server_command_contract() {
+    for (commands, expected) in [
+        ("paste-buffer (pasteb) [-dpr] [-s separator]", false),
+        ("paste-buffer (pasteb) [-dprS] [-s separator]", true),
+        ("send-keys [-S]\npaste-buffer (pasteb) [-dpr]", false),
+    ] {
+        assert_eq!(super::paste_supports_verbatim(commands), expected);
+    }
+}
+
 #[tokio::test]
 async fn socket_fixture_stops_its_server_and_removes_its_directory() {
     for _ in 0..2 {
@@ -166,7 +177,9 @@ async fn paste_follows_the_current_application_mode() {
             .to_owned(),
     };
     std::fs::create_dir(&fixture.dir).unwrap();
-    let payload = "hello λ 🦀\nsecond line\r\n".repeat(4096).into_bytes();
+    let payload = "hello λ 🦀\nsecond line\r\n\x1b[31m\t\x7f"
+        .repeat(4096)
+        .into_bytes();
     std::fs::write(
         fixture.dir.join("payload-length"),
         payload.len().to_string(),
@@ -721,6 +734,7 @@ time.sleep(60)
         let kill = vec![";".into(), "kill-server".into()];
         tmux.send_keys("keys", &kill, true).await.unwrap();
         let text = vec![
+            "\x1b[13;2u\t\x7f".into(),
             "-hello --help ;; \\; λ 🦀\r\n".repeat(4096),
             "Enter".into(),
             "".into(),
@@ -729,7 +743,7 @@ time.sleep(60)
         tmux.send_keys("keys", &text, true).await.unwrap();
         tmux.send_keys(
             "keys",
-            &["Enter", "Up", "Down", "Left", "Right", "C-c"].map(String::from),
+            &["Enter", "Up", "Down", "Left", "Right", "S-Enter", "C-c"].map(String::from),
             false,
         )
         .await
@@ -739,7 +753,7 @@ time.sleep(60)
             attack.concat().as_bytes(),
             kill.concat().as_bytes(),
             text.concat().as_bytes(),
-            b"\r\x1b[A\x1b[B\x1b[D\x1b[C\x03",
+            b"\r\x1b[A\x1b[B\x1b[D\x1b[C\x1b[13;2u\x03",
         ]
         .concat();
         assert!(
@@ -759,6 +773,119 @@ async fn wait_for_input_file(path: &std::path::Path) {
     })
     .await
     .expect("raw input receiver did not reach the expected stage");
+}
+
+#[test]
+fn shift_enter_preserves_legacy_agents_and_negotiated_shells() {
+    for shell in ["zsh", "-zsh", "/bin/bash", "fish"] {
+        assert_eq!(super::shift_enter_key("VT10x", shell), "Enter");
+        for mode in ["Ext 1", "Ext 2"] {
+            assert_eq!(super::shift_enter_key(mode, shell), "S-Enter");
+        }
+    }
+    for agent in ["codex", "claude", "pi", "python3"] {
+        assert_eq!(super::shift_enter_key("VT10x", agent), "\x1b[13;2u");
+        assert_eq!(super::shift_enter_key("Ext 2", agent), "S-Enter");
+    }
+}
+
+#[tokio::test]
+async fn shift_enter_follows_shell_keyboard_mode_changes() {
+    // bash is a test dependency; also exercise the reported zsh case when installed.
+    for shell in ["bash", "zsh"] {
+        if shell == "zsh"
+            && std::process::Command::new(shell)
+                .arg("--version")
+                .output()
+                .is_err()
+        {
+            continue;
+        }
+        for format in ["csi-u", "xterm"] {
+            let socket = crate::test_support::TmuxSocket::new();
+            let root = std::path::Path::new(&socket.path).parent().unwrap();
+            let script = root.join("receiver.sh");
+            std::fs::write(
+                &script,
+                r#"
+cd -- "$1"
+stty raw -echo
+for index in 0 1 2; do
+    if [ "$index" = 1 ]; then
+        printf '\033[>4;2m'
+    else
+        printf '\033[>4;0m'
+    fi
+    printf '\033]2;shift-ready-%s\007' "$index"
+    IFS= read -r -d '|' data
+    printf '%s' "$data" > pending
+    mv pending "received-$index"
+done
+IFS= read -r data
+"#,
+            )
+            .unwrap();
+            let tmux = super::Tmux::new(&socket.path);
+            tmux.run(&[
+                "-f",
+                "/dev/null",
+                "new-session",
+                "-d",
+                "-s",
+                "paste",
+                shell,
+                script.to_str().unwrap(),
+                root.to_str().unwrap(),
+            ])
+            .await
+            .unwrap();
+            tmux.run(&["set-option", "-s", "extended-keys", "on"])
+                .await
+                .unwrap();
+            tmux.run(&["set-option", "-s", "extended-keys-format", format])
+                .await
+                .unwrap();
+            for index in 0..3 {
+                wait_for_pane_title(&tmux, &format!("shift-ready-{index}")).await;
+                assert_eq!(
+                    tmux.run(&[
+                        "display-message",
+                        "-p",
+                        "-t",
+                        "paste:.0",
+                        "#{pane_key_mode}:#{pane_current_command}"
+                    ])
+                    .await
+                    .unwrap()
+                    .trim(),
+                    format!("{}:{shell}", if index == 1 { "Ext 2" } else { "VT10x" }),
+                    "{shell} {format} stage {index}"
+                );
+                tmux.send_keys("paste", &["a", "S-Enter", "b"].map(String::from), false)
+                    .await
+                    .unwrap();
+                tmux.paste_buffer("paste", b"|", false).await.unwrap();
+                let received = root.join(format!("received-{index}"));
+                wait_for_input_file(&received).await;
+                let received = std::fs::read(received).unwrap();
+                if index != 1 {
+                    // Shell read builtins may restore ICRNL while reading. Both are
+                    // plain Enter; neither may contain the CSI-u suffix reported by zsh.
+                    assert!(
+                        matches!(received.as_slice(), b"a\rb" | b"a\nb"),
+                        "{shell} {format} stage {index}: {received:?}"
+                    );
+                    continue;
+                }
+                let expected = match (index, format) {
+                    (1, "csi-u") => b"a\x1b[13;2ub".as_slice(),
+                    (1, _) => b"a\x1b[27;2;13~b".as_slice(),
+                    _ => b"a\rb".as_slice(),
+                };
+                assert_eq!(received, expected, "{shell} {format} stage {index}");
+            }
+        }
+    }
 }
 
 #[tokio::test]
