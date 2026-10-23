@@ -341,7 +341,7 @@ namespace SlopWorld.Tests
                     "bat --color=always --style=plain --paging=never";
                 pager.RestartForAppearance(pager.Session, pager.Operation);
                 AssertEx.Equal(
-                    "env BAT_THEME='Monokai Extended' DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true -c delta.minus-style='syntax auto' diff HEAD",
+                    "env BAT_THEME='Monokai Extended' LESSANSIENDCHARS=mK DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true -c delta.max-line-length=0 -c delta.max-syntax-highlighting-length=0 -c delta.minus-style='syntax auto' diff HEAD",
                     SessionHub.Instance.SessionStore.Command,
                     "recovered diff uses the selected bat theme"
                 );

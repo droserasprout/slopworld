@@ -39,3 +39,10 @@ Daemon Auto resolution and mod reader commands recognize both `bat` and Debian's
 portable bare `bat` command. The daemon resolves highlighter requests through its
 PATH; client launches use the executable advertised by daemon Auto metadata. Preserve the actual executable name
 when applying themes, source numbering, diff options, and child-pager line targets.
+
+Diff launches pass `LESSANSIENDCHARS=mK` through bat to its less child, matching
+what delta sets when it launches less directly. Without `K`, less drops delta's
+erase-to-end sequence and addition/removal backgrounds stop at the text.
+Delta must parse complete source lines: disable both its syntax-length cutoff and
+input-line truncation. A cutoff inside a string or comment otherwise corrupts the
+syntax state for subsequent rows; less owns viewport clipping and horizontal scrolling.

@@ -10,6 +10,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- UI: Fixed syntax highlighting in diffs breaking after long lines.
+
 ## [0.0.10] - 2026-10-23
 
 ### Security

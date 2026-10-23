@@ -147,7 +147,9 @@ namespace SlopWorld.Tests
             string first = PagerCommands.DiffCommand("git diff HEAD", "bat --paging=always", true);
             string second = PagerCommands.DiffCommand(first, "bat --paging=always", false);
             AssertEx.True(
-                second.Contains("git -c delta.line-numbers=false diff HEAD"),
+                second.Contains(
+                    "git -c delta.line-numbers=false -c delta.max-line-length=0 -c delta.max-syntax-highlighting-length=0 diff HEAD"
+                ),
                 "delta source numbers disabled"
             );
             AssertEx.False(
@@ -178,16 +180,24 @@ namespace SlopWorld.Tests
                 "less --prompt=it's"
             );
             AssertEx.Equal(
-                "env DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true diff -- 'file name'",
+                "env LESSANSIENDCHARS=mK DELTA_PAGER='less -N -+N -S --shift=1 --wheel-lines=1' git -c delta.line-numbers=true -c delta.max-line-length=0 -c delta.max-syntax-highlighting-length=0 diff -- 'file name'",
                 PagerCommands.DiffCommand(first, "less -N"),
                 "replace quoted pager without touching git arguments"
+            );
+            AssertEx.Equal(
+                PagerCommands.DiffCommand("git diff", "bat --paging=always"),
+                PagerCommands.DiffCommand(
+                    "env DELTA_PAGER='less' git -c delta.line-numbers=false diff",
+                    "bat --paging=always"
+                ),
+                "recovered diff commands gain background fill support"
             );
             string twice = PagerCommands.DiffCommand(
                 PagerCommands.DiffCommand("git diff", "less"),
                 "more"
             );
             AssertEx.Equal(
-                "env DELTA_PAGER='more' git -c delta.line-numbers=true diff",
+                "env LESSANSIENDCHARS=mK DELTA_PAGER='more' git -c delta.line-numbers=true -c delta.max-line-length=0 -c delta.max-syntax-highlighting-length=0 diff",
                 twice,
                 "only one override remains"
             );
@@ -199,14 +209,14 @@ namespace SlopWorld.Tests
             );
             AssertEx.True(
                 themed.StartsWith(
-                    "env BAT_THEME='Monokai Extended' DELTA_PAGER=",
+                    "env BAT_THEME='Monokai Extended' LESSANSIENDCHARS=mK DELTA_PAGER=",
                     StringComparison.Ordinal
                 ),
                 "bat theme reaches delta"
             );
             AssertEx.True(
                 themed.Contains(
-                    "git -c delta.line-numbers=true -c delta.minus-style='syntax auto' diff HEAD"
+                    "git -c delta.line-numbers=true -c delta.max-line-length=0 -c delta.max-syntax-highlighting-length=0 -c delta.minus-style='syntax auto' diff HEAD"
                 ),
                 "removed lines retain syntax colors"
             );
@@ -246,7 +256,10 @@ namespace SlopWorld.Tests
             AssertEx.True(
                 PagerCommands
                     .DiffCommand("git diff", "less", true, CodeHighlight.Theme(auto, "bat"))
-                    .StartsWith("env BAT_THEME='ansi' DELTA_PAGER=", StringComparison.Ordinal),
+                    .StartsWith(
+                        "env BAT_THEME='ansi' LESSANSIENDCHARS=mK DELTA_PAGER=",
+                        StringComparison.Ordinal
+                    ),
                 "auto colors reach delta"
             );
             var settings = new ModSettings

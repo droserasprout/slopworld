@@ -234,10 +234,10 @@ namespace SlopWorld
         }
 
         static readonly Regex DeltaPagerPrefix = new Regex(
-            @"^env (?:BAT_THEME='(?:[^']|'\\'')*' )?DELTA_PAGER='(?:[^']|'\\'')*' "
+            @"^env (?:BAT_THEME='(?:[^']|'\\'')*' )?(?:LESSANSIENDCHARS=mK )?DELTA_PAGER='(?:[^']|'\\'')*' "
         );
-        static readonly Regex DeltaNumbersPrefix = new Regex(
-            @"^git -c delta\.line-numbers=(?:true|false) "
+        static readonly Regex DeltaRenderPrefix = new Regex(
+            @"^git -c delta\.line-numbers=(?:true|false) (?:-c delta\.max-line-length=0 -c delta\.max-syntax-highlighting-length=0 )?"
         );
         static readonly Regex DeltaBatStylePrefix = new Regex(
             @"^git -c delta\.minus-style='syntax auto' "
@@ -254,7 +254,7 @@ namespace SlopWorld
         )
         {
             string git = DeltaPagerPrefix.Replace(command ?? "", "", 1);
-            git = DeltaNumbersPrefix.Replace(git, "git ", 1);
+            git = DeltaRenderPrefix.Replace(git, "git ", 1);
             git = DeltaBatStylePrefix.Replace(git, "git ", 1);
             if (git.StartsWith("git ", StringComparison.Ordinal))
             {
@@ -263,12 +263,22 @@ namespace SlopWorld
                 git =
                     "git -c delta.line-numbers="
                     + (lineNumbers ? "true" : "false")
+                    // Truncating a line before syntax parsing can drop a closing
+                    // quote/comment and corrupt highlighting on following lines.
+                    + " -c delta.max-line-length=0 -c delta.max-syntax-highlighting-length=0"
                     + git.Substring(3);
             }
             string theme = string.IsNullOrEmpty(batTheme)
                 ? ""
                 : "BAT_THEME=" + Quote(batTheme) + " ";
-            return "env " + theme + "DELTA_PAGER=" + Quote(PipePager(pager)) + " " + git;
+            // Delta sets this only when it starts less directly. Bat starts its own
+            // less child, which must also retain delta's erase-to-end background fill.
+            return "env "
+                + theme
+                + "LESSANSIENDCHARS=mK DELTA_PAGER="
+                + Quote(PipePager(pager))
+                + " "
+                + git;
         }
 
         public static bool IsPagerCommand(string pager, string command) =>

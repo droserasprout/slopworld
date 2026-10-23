@@ -2,12 +2,58 @@
 
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
 import time
+from typing import NamedTuple
 
 from tools import ROOT
+
+
+class Cell(NamedTuple):
+    text: str
+    background: tuple[int, ...] | None
+    foreground: tuple[int, ...] | None
+
+
+def parse_capture(output: str) -> list[list[Cell]]:
+    """Decode the SGR colors emitted by tmux for our ASCII diff fixture."""
+    # capture-pane shares SGR state across rows. Inspect cell backgrounds,
+    # including trailing blanks; plain text alone cannot expose lost EL.
+    background: tuple[int, ...] | None = None
+    foreground: tuple[int, ...] | None = None
+    rows: list[list[Cell]] = []
+    for line in output.splitlines():
+        cells: list[Cell] = []
+        for match in re.finditer(r'\x1b\[([0-9;]*)m|([^\x1b]+)', line):
+            if match[2] is not None:
+                cells.extend(Cell(char, background, foreground) for char in match[2])
+                continue
+            codes = [int(code or 0) for code in match[1].split(';')]
+            at = 0
+            while at < len(codes):
+                code = codes[at]
+                if code == 0:
+                    background = foreground = None
+                elif code == 49:
+                    background = None
+                elif code == 39:
+                    foreground = None
+                elif 30 <= code <= 37 or 90 <= code <= 97:
+                    foreground = (code,)
+                elif code in (38, 48) and at + 1 < len(codes):
+                    count = 3 if codes[at + 1] == 2 else 1
+                    color = tuple(codes[at + 2 : at + 2 + count])
+                    if code == 48:
+                        background = color
+                    else:
+                        foreground = color
+                    at += 1 + count
+                at += 1
+        rows.append(cells)
+    return rows
 
 
 def main() -> None:
@@ -18,14 +64,24 @@ def main() -> None:
         def tmux(*args: str) -> str:
             return subprocess.check_output(['tmux', '-f', '/dev/null', '-S', socket, *args], text=True)
 
-        def wait_for(name: str, expected: str) -> list[str]:
+        def wait_for(name: str, expected: str, *, styled: bool = False) -> list[str]:
+            """Wait for a first row, or a marker anywhere in a styled capture."""
             deadline = time.monotonic() + 5
+            lines: list[str] = []
             while time.monotonic() < deadline:
-                lines = tmux('capture-pane', '-p', '-t', name + ':').splitlines()
-                if lines and lines[0] == expected:
+                options = ('-e', '-N') if styled else ()
+                lines = tmux('capture-pane', '-p', *options, '-t', name + ':').splitlines()
+                if styled:
+                    ready = any(
+                        expected in ''.join(cell.text for cell in row) for row in parse_capture('\n'.join(lines))
+                    )
+                else:
+                    ready = bool(lines) and lines[0] == expected
+                if ready:
                     return lines
                 time.sleep(0.05)
-            raise AssertionError(f'{name}: expected {expected!r} at row 1, got {lines!r}')
+            location = 'in capture' if styled else 'at row 1'
+            raise AssertionError(f'{name}: expected {expected!r} {location}, got {lines!r}')
 
         # Delay preprocessing to exercise pager startup at the supplied geometry.
         preprocessor = root / 'preprocess'
@@ -119,14 +175,11 @@ def main() -> None:
                 '--',
                 str(long_emoji),
             )
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                lines = tmux('capture-pane', '-p', '-t', 'long-emoji:').splitlines()
-                if lines and lines[0].startswith('1F46F'):
-                    break
-                time.sleep(0.05)
+            lines = wait_for('long-emoji', source_rows[0].rstrip())
             assert lines[:18] == [row.rstrip() for row in source_rows], lines[:18]
-            if shutil.which('bat'):
+            print('Pager geometry and emoji sequences passed')
+            bat = shutil.which('bat') or shutil.which('batcat')
+            if bat:
                 # bat receives the file; LESS carries the diagnostic line selector to its pager.
                 tmux(
                     'new-session',
@@ -139,7 +192,7 @@ def main() -> None:
                     '12',
                     'env',
                     'LESS=-RSc +19',
-                    'bat',
+                    bat,
                     '--paging=always',
                     '--style=plain',
                     '--wrap=never',
@@ -149,7 +202,64 @@ def main() -> None:
                     str(long),
                 )
                 wait_for('bat-line', 'line 19')
-            print('Pager geometry and emoji sequence output passed')
+                print('Bat line navigation passed')
+            else:
+                print('SKIP: bat line navigation requires bat or batcat')
+            if bat and shutil.which('delta'):
+                diff = root / 'diff.patch'
+                diff.write_text(
+                    'diff --git a/sample.rs b/sample.rs\n'
+                    '--- a/sample.rs\n+++ b/sample.rs\n@@ -1 +1,46 @@\n'
+                    '-let old = 0;\n'
+                    + '+let description = "'
+                    + 'x' * 440
+                    + '";\n'
+                    + '+struct AfterLongString;\n'
+                    + '+let minified = "'
+                    + 'x' * 3200
+                    + '";\n'
+                    + '+struct AfterTruncatedLine;\n'
+                    + '+let short = 1;\n+\n'
+                    + ''.join(f'+let value_{i} = {i};\n' for i in range(40))
+                )
+                pager = (
+                    f'{shlex.quote(bat)} --paging=always --style=plain --decorations=never '
+                    '--color=never --language=txt --strip-ansi=never --wrap=never '
+                    "--pager 'less -RS --shift=1 --wheel-lines=1'"
+                )
+                tmux(
+                    'new-session',
+                    '-d',
+                    '-s',
+                    'diff',
+                    '-x',
+                    '80',
+                    '-y',
+                    '24',
+                    'env COLORTERM=truecolor LESS=-RSc LESSANSIENDCHARS=mK DELTA_PAGER='
+                    + shlex.quote(pager)
+                    + ' delta --no-gitconfig --paging=always --syntax-theme=ansi'
+                    + ' --max-line-length=0 --max-syntax-highlighting-length=0'
+                    + ' --minus-style="syntax #3f0001" --plus-style="syntax #002800" < '
+                    + shlex.quote(str(diff)),
+                )
+                output = '\n'.join(wait_for('diff', 'let value_5', styled=True))
+                rows = parse_capture(output)
+                short_row = next(i for i, row in enumerate(rows) if 'let short' in ''.join(cell.text for cell in row))
+                removed = next(row for row in rows if 'let old' in ''.join(cell.text for cell in row))
+                for row, color in [
+                    (removed, (63, 0, 1)),
+                    (rows[short_row], (0, 40, 0)),
+                    (rows[short_row + 1], (0, 40, 0)),
+                ]:
+                    assert len(row) == 80 and row[-1].background == color, row
+                for name in ['AfterLongString', 'AfterTruncatedLine']:
+                    row = next(row for row in rows if name in ''.join(cell.text for cell in row))
+                    column = ''.join(cell.text for cell in row).index('struct')
+                    assert row[column].foreground == (35,), (name, row)
+                print('Diff backgrounds and long-line syntax passed')
+            else:
+                print('SKIP: diff backgrounds and long-line syntax require bat/batcat and delta')
         finally:
             subprocess.run(['tmux', '-S', socket, 'kill-server'], check=False)
 
