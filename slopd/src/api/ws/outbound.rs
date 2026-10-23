@@ -216,14 +216,29 @@ async fn pump_frames(
 }
 
 pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), axum::Error> {
+    let mut changes = tx.authority.auth_changes();
+    tokio::select! {
+        biased;
+        _ = super::auth_invalidated(&mut changes, cap) => {
+            Err(axum::Error::new(std::io::Error::other("capability revoked")))
+        }
+        result = send_authorized(tx, cap, ev) => result,
+    }
+}
+
+pub(super) async fn send_authorized(
+    tx: &WsTx,
+    cap: &Cap,
+    ev: &EventMessage,
+) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
     let started = crate::perf::enabled().then(std::time::Instant::now);
     let mut bytes = ev
         .encoded()
         .map_err(|e| axum::Error::new(std::io::Error::other(e)))?
         .to_vec();
-    let mut tx = tx.lock().await;
-    if !cap.is_valid() {
+    let mut writer = tx.lock().await;
+    if !tx.is_valid(cap) {
         return Err(axum::Error::new(std::io::Error::other(
             "capability revoked",
         )));
@@ -245,7 +260,7 @@ pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), 
         bytes = message.encode_to_vec();
     }
     crate::perf::count("websocket-bytes", bytes.len() as u64);
-    let result = tx.send(Message::Binary(bytes)).await;
+    let result = writer.send(Message::Binary(bytes)).await;
     if let Some(started) = started {
         tracing::debug!(
             target: "slopd::perf",

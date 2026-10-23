@@ -417,10 +417,22 @@ async fn raw_socket_pair() -> (WebSocket, ClientSocket, JoinHandle<()>) {
 }
 
 async fn socket_pair() -> SocketPair {
+    socket_pair_for(&crate::application::test_application(
+        crate::config::Config::default(),
+    ))
+    .await
+}
+
+async fn socket_pair_for(manager: &App) -> SocketPair {
     let (socket, client, server) = raw_socket_pair().await;
     let (tx, _) = socket.split();
     SocketPair {
-        tx: Arc::new(Mutex::new(tx)),
+        tx: WsTx::new(
+            tx,
+            manager,
+            &Cap::Root,
+            manager.config_authority.root_generation(),
+        ),
         client,
         server,
     }
@@ -717,6 +729,7 @@ async fn cancelled_scroll_send_keeps_ready_reply_and_slot() {
 
 #[tokio::test]
 async fn scroll_admission_counts_completed_replies_until_delivery() {
+    let socket = socket_pair().await;
     let manager = crate::application::test_application(crate::config::Config::default());
     let mut scrolls = ScrollReplies::new();
     for id in 0..4 {
@@ -727,7 +740,8 @@ async fn scroll_admission_counts_completed_replies_until_delivery() {
                 request_id: id,
             },
             &manager,
-            &Cap::Root
+            &Cap::Root,
+            &socket.tx
         ));
     }
     tokio::task::yield_now().await;
@@ -739,7 +753,8 @@ async fn scroll_admission_counts_completed_replies_until_delivery() {
             request_id: 5,
         },
         &manager,
-        &Cap::Root
+        &Cap::Root,
+        &socket.tx
     ));
     drop(scrolls);
 }
@@ -906,7 +921,8 @@ async fn root_panel_subscription_and_history_continue_during_unrelated_lifecycle
             request_id: 17
         },
         &manager,
-        &Cap::Root
+        &Cap::Root,
+        &socket.tx
     ));
     assert!(
         tokio::time::timeout(
@@ -973,7 +989,12 @@ async fn panel_switch_and_unsubscribe_overtake_an_unfinished_history_capture() {
         _permit: permit,
     });
     let mut intake = CommandIntake {
-        tx: Arc::new(Mutex::new(tx)),
+        tx: WsTx::new(
+            tx,
+            &manager,
+            &Cap::Root,
+            manager.config_authority.root_generation(),
+        ),
         rx,
         subs: subs.clone(),
         auth_changes: manager.config_authority.auth_changes(),
@@ -1094,7 +1115,10 @@ async fn terminal_commands_require_write_scope_and_current_run() {
         revoked,
     ] {
         for command in [keys(Some(7)), paste(Some(7))] {
-            assert!(handle_client_msg(command, &manager, &cap, &socket.tx, &subs).await);
+            assert_eq!(
+                handle_client_msg(command, &manager, &cap, &socket.tx, &subs).await,
+                cap.is_valid()
+            );
             assert!(input.try_recv().is_err());
         }
     }
@@ -1221,7 +1245,12 @@ async fn deleted_sessions_release_socket_subscriptions_without_unsubscribe() {
             .insert(name.clone(), manager.sessions.watching(name));
     }
     let mut intake = CommandIntake {
-        tx: Arc::new(Mutex::new(tx)),
+        tx: WsTx::new(
+            tx,
+            &manager,
+            &Cap::Root,
+            manager.config_authority.root_generation(),
+        ),
         rx,
         subs: subs.clone(),
         auth_changes: manager.config_authority.auth_changes(),
@@ -1299,4 +1328,299 @@ async fn clipboard_events_only_reach_current_root_subscriptions_in_order() {
     }
     assert!(matches!(receive(&mut socket.client).await, E::Sessions(_)));
     pump.abort();
+}
+
+async fn rotate_root(manager: &App) {
+    let mut config = manager.config_authority.snapshot().await;
+    config.daemon.token = uuid::Uuid::new_v4().to_string();
+    manager
+        .config_authority
+        .publish_config(crate::config::transactions::ConfigChange {
+            new: config,
+            root_token_changed: true,
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn root_commands_queued_behind_rotation_have_no_effect() {
+    use crate::api::types::BreadcrumbReq;
+    use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg};
+    let manager = crate::application::test_application(Config {
+        sessions: vec![crate::config::SessionCfg {
+            name: "target".into(),
+            project: "repo".into(),
+            ..Default::default()
+        }],
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp/project".into(),
+            ..Default::default()
+        }],
+        library: vec![LibraryItemCfg {
+            name: "context".into(),
+            kind: LibraryItemKind::Breadcrumb,
+            text: "context".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    let mut input = manager.sessions.terminal_input_fixture("target", 7).await;
+    manager
+        .sessions
+        .paste_breadcrumb("target", "context", vec![])
+        .await
+        .unwrap();
+    assert!(
+        matches!(input.try_recv().unwrap(), crate::session::Input::Paste { bytes } if bytes == b"context")
+    );
+    let socket = socket_pair_for(&manager).await;
+    let subs = WsSubs::default();
+    let volume = manager.services.music.state().await.volume;
+    let mut transaction = Box::pin(
+        manager
+            .sessions
+            .session_operation(std::future::pending::<()>()),
+    );
+    assert!(futures::poll!(transaction.as_mut()).is_pending());
+    let admitted = std::sync::atomic::AtomicBool::new(false);
+    let audio = super::commands::dispatch_client_msg(
+        ClientMsg::Audio(AudioReq {
+            selection: None,
+            volume: if volume < 0.5 { 0.75 } else { 0.25 },
+        }),
+        &manager,
+        &Cap::Root,
+        &socket.tx,
+        &subs,
+        &admitted,
+    );
+    let breadcrumb = super::commands::dispatch_client_msg(
+        ClientMsg::Breadcrumb(BreadcrumbReq {
+            name: "target".into(),
+            breadcrumb: "context".into(),
+            random_tips: vec![],
+        }),
+        &manager,
+        &Cap::Root,
+        &socket.tx,
+        &subs,
+        &admitted,
+    );
+    tokio::pin!(audio, breadcrumb);
+    assert!(futures::poll!(audio.as_mut()).is_pending());
+    assert!(futures::poll!(breadcrumb.as_mut()).is_pending());
+    rotate_root(&manager).await;
+    drop(transaction);
+    assert!(!audio.await);
+    assert!(!breadcrumb.await);
+    assert!(input.try_recv().is_err());
+    assert_eq!(manager.services.music.state().await.volume, volume);
+}
+
+#[tokio::test]
+async fn root_terminal_input_rechecks_rotation_after_terminal_admission() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let mut input = manager.sessions.terminal_input_fixture("target", 7).await;
+    let socket = socket_pair_for(&manager).await;
+    let subs = WsSubs::default();
+    let guard = manager
+        .sessions
+        .terminal_boundary("target")
+        .write_owned()
+        .await;
+    let admitted = std::sync::atomic::AtomicBool::new(false);
+    let command = super::commands::dispatch_client_msg(
+        ClientMsg::Keys(
+            serde_json::from_value(serde_json::json!({
+                "name": "target", "keys": ["hello"], "literal": true
+            }))
+            .unwrap(),
+        ),
+        &manager,
+        &Cap::Root,
+        &socket.tx,
+        &subs,
+        &admitted,
+    );
+    tokio::pin!(command);
+    assert!(futures::poll!(command.as_mut()).is_pending());
+    rotate_root(&manager).await;
+    drop(guard);
+    assert!(!command.await);
+    assert!(input.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn root_snapshot_revocation_interrupts_initialization_while_writer_is_blocked() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let mut socket = socket_pair_for(&manager).await;
+    let writer = socket.tx.lock().await;
+    let mut changes = manager.config_authority.auth_changes();
+    let snapshot = initialize_snapshot(&socket.tx, &manager, &Cap::Root, &mut changes);
+    tokio::pin!(snapshot);
+    assert!(futures::poll!(snapshot.as_mut()).is_pending());
+    rotate_root(&manager).await;
+    assert!(
+        !tokio::time::timeout(Duration::from_secs(2), snapshot)
+            .await
+            .unwrap()
+    );
+    drop(writer);
+    tokio::time::timeout(Duration::from_millis(20), socket.client.next())
+        .await
+        .expect_err("revoked root published a snapshot event");
+}
+
+#[tokio::test]
+async fn root_snapshot_and_live_sends_recheck_rotation_after_waiting_for_writer() {
+    for snapshot in [true, false] {
+        let manager = crate::application::test_application(crate::config::Config::default());
+        let mut socket = socket_pair_for(&manager).await;
+        let writer = socket.tx.lock().await;
+        let event = message(Event::Projects { projects: vec![] });
+        let publishing = async {
+            if snapshot {
+                send_initial_snapshot(&socket.tx, &manager, &Cap::Root).await
+            } else {
+                super::outbound::send_authorized(&socket.tx, &Cap::Root, &event)
+                    .await
+                    .is_ok()
+            }
+        };
+        tokio::pin!(publishing);
+        assert!(futures::poll!(publishing.as_mut()).is_pending());
+        rotate_root(&manager).await;
+        drop(writer);
+        assert!(!publishing.await);
+        tokio::time::timeout(Duration::from_millis(20), socket.client.next())
+            .await
+            .expect_err("revoked root published an event");
+    }
+}
+
+#[tokio::test]
+async fn root_revocation_cancels_dispatch_still_waiting_for_admission() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let socket = socket_pair_for(&manager).await;
+    let subs = WsSubs::default();
+    let mut transaction = Box::pin(
+        manager
+            .sessions
+            .session_operation(std::future::pending::<()>()),
+    );
+    assert!(futures::poll!(transaction.as_mut()).is_pending());
+    let dispatch = handle_client_msg(
+        ClientMsg::Audio(AudioReq {
+            selection: None,
+            volume: 0.25,
+        }),
+        &manager,
+        &Cap::Root,
+        &socket.tx,
+        &subs,
+    );
+    tokio::pin!(dispatch);
+    assert!(futures::poll!(dispatch.as_mut()).is_pending());
+    rotate_root(&manager).await;
+    assert!(
+        !tokio::time::timeout(Duration::from_secs(2), dispatch)
+            .await
+            .unwrap()
+    );
+    // Cancellation finishes even though the exclusive boundary is still held.
+    drop(transaction);
+}
+
+#[tokio::test]
+async fn root_revocation_finishes_admitted_subscription_without_blocking_on_publication() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    manager.sessions.terminal_input_fixture("target", 7).await;
+    let mut emu = crate::emu::SessionEmu::new(80, 24);
+    emu.feed(b"ready");
+    manager.sessions.apply_frame("target", emu.render()).await;
+    let socket = socket_pair_for(&manager).await;
+    let subs = WsSubs::default();
+    let writer = socket.tx.lock().await;
+    let dispatch = handle_client_msg(
+        ClientMsg::Sub {
+            name: "target".into(),
+        },
+        &manager,
+        &Cap::Root,
+        &socket.tx,
+        &subs,
+    );
+    tokio::pin!(dispatch);
+    assert!(futures::poll!(dispatch.as_mut()).is_pending());
+    assert!(subs.lock().await.contains_key("target"));
+    rotate_root(&manager).await;
+    // Publication is cancellable even though the admitted subscription completed.
+    assert!(!dispatch.await);
+    drop(writer);
+    assert!(subs.lock().await.contains_key("target"));
+}
+
+#[tokio::test]
+async fn socket_writer_retains_the_epoch_from_authentication() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let epoch = manager.config_authority.root_generation();
+    let original = manager.config_authority.snapshot().await;
+    rotate_root(&manager).await;
+    manager
+        .config_authority
+        .publish_config(crate::config::transactions::ConfigChange {
+            new: original,
+            root_token_changed: true,
+        })
+        .await;
+    let (socket, _client, server) = raw_socket_pair().await;
+    let (sink, _) = socket.split();
+    let tx = WsTx::new(sink, &manager, &Cap::Root, epoch);
+    assert!(
+        !tx.is_valid(&Cap::Root),
+        "restoring a token must not revive its epoch"
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn root_revocation_retains_admitted_command_and_its_guard_until_completion() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    manager.sessions.terminal_input_fixture("target", 7).await;
+    let socket = socket_pair_for(&manager).await;
+    let subs = WsSubs::default();
+    let subscriptions = subs.lock().await;
+    let terminal = manager.sessions.terminal_boundary("target");
+    let dispatch = handle_client_msg(
+        ClientMsg::Sub {
+            name: "target".into(),
+        },
+        &manager,
+        &Cap::Root,
+        &socket.tx,
+        &subs,
+    );
+    tokio::pin!(dispatch);
+    // Admission acquires the terminal guard before waiting to commit the subscription.
+    assert!(futures::poll!(dispatch.as_mut()).is_pending());
+    terminal
+        .try_write()
+        .expect_err("admitted command must retain its guard");
+    rotate_root(&manager).await;
+    assert!(futures::poll!(dispatch.as_mut()).is_pending());
+    terminal
+        .try_write()
+        .expect_err("revocation dropped an admitted guard");
+    drop(subscriptions);
+    assert!(dispatch.await);
+    assert!(
+        subs.lock().await.contains_key("target"),
+        "admitted work was cancelled"
+    );
+    drop(
+        terminal
+            .try_write()
+            .expect("completed command retained its guard"),
+    );
 }

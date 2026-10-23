@@ -3,6 +3,7 @@
 
 use crate::application::{Event, EventMessage};
 use crate::grant::{Cap, Level};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::super::App;
 use super::super::types::{
@@ -19,8 +20,34 @@ pub(super) async fn handle_client_msg(
     tx: &WsTx,
     subs: &WsSubs,
 ) -> bool {
+    let admitted = AtomicBool::new(false);
+    let mut changes = m.config_authority.auth_changes();
+    let dispatch = dispatch_client_msg(cm, m, cap, tx, subs, &admitted);
+    tokio::pin!(dispatch);
+    tokio::select! {
+        biased;
+        _ = super::auth_invalidated(&mut changes, cap) => {
+            // Waiting for admission is disposable. Once admitted, keep the future
+            // and its guards alive through effects and their owned cleanup.
+            if admitted.load(Ordering::Relaxed) { dispatch.await } else { false }
+        }
+        result = &mut dispatch => result,
+    }
+}
+
+pub(super) async fn dispatch_client_msg(
+    cm: ClientMsg,
+    m: &App,
+    cap: &Cap,
+    tx: &WsTx,
+    subs: &WsSubs,
+    admitted: &AtomicBool,
+) -> bool {
+    if !tx.is_valid(cap) {
+        return false;
+    }
     if let ClientMsg::Sub { name } = cm {
-        return handle_sub(name, m, cap, tx, subs).await;
+        return handle_sub(name, m, cap, tx, subs, admitted).await;
     }
     // These commands only update connection state or schedule background work.
     // They must not block intake behind an unrelated lifecycle transaction.
@@ -41,7 +68,7 @@ pub(super) async fn handle_client_msg(
         ClientMsg::Paste(r) => crate::latency::InputTrace::begin(&r.trace_id),
         _ => None,
     };
-    // Root input cannot be revoked by a worker's lifecycle. Protect its target
+    // Root input bypasses unrelated worker lifecycle operations. Protect its target
     // directly so unrelated session removal does not stall socket intake.
     let terminal_name = match &cm {
         ClientMsg::Keys(req) => Some(&req.name),
@@ -71,6 +98,11 @@ pub(super) async fn handle_client_msg(
             | ClientMsg::Breadcrumb(_)
     );
     let operation = async {
+        // This future starts only after the global or per-terminal guard is held.
+        if !tx.is_valid(cap) {
+            return false;
+        }
+        admitted.store(true, Ordering::Relaxed);
         match cm {
             ClientMsg::Redraw { cols, rows } => handle_redraw(m, cap, cols.zip(rows)),
             ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
@@ -122,11 +154,19 @@ fn handle_redraw(m: &App, cap: &Cap, shape: Option<(u16, u16)>) {
     }
 }
 
-async fn handle_sub(name: String, m: &App, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
+async fn handle_sub(
+    name: String,
+    m: &App,
+    cap: &Cap,
+    tx: &WsTx,
+    subs: &WsSubs,
+    admitted: &AtomicBool,
+) -> bool {
     let snapshot = async {
-        if !m.sessions.cap_ok(cap, &name, Level::Ro).await {
+        if !tx.is_valid(cap) || !m.sessions.cap_ok(cap, &name, Level::Ro).await {
             return None;
         }
+        admitted.store(true, Ordering::Relaxed);
         subs.lock()
             .await
             .insert(name.clone(), m.sessions.watching(&name));

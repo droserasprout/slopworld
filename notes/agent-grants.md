@@ -17,6 +17,13 @@ Root HTTP mutations drain uploads before acquiring the session boundary and rech
 the captured root credential generation inside it. Token rotation invalidates pending
 mutations even if a later rotation restores the same token; accepted owned work retains
 the boundary through completion. Root snapshots keep their independent read path.
+
+WebSockets retain the root credential generation for their whole lifetime. Command
+admission rechecks it under the session or terminal guard, and serialized publication
+rechecks it after waiting for the writer. Revocation interrupts snapshot initialization
+and commands still waiting for admission; admitted effects retain their guards through
+completion and cleanup.
+
 The CLI refuses HTTP redirects so bearer headers cannot reach another endpoint.
 
 Removal, rename, or identity replacement revokes grants owned by or targeting that

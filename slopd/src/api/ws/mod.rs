@@ -26,7 +26,43 @@ use crate::session::{ScreenView, WatchGuard};
 use super::types::{ClientMsg, ScrollReq};
 use super::{App, err, presented_token};
 
-type WsTx = Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>;
+/// The writer carries the credential epoch to every command and publication path.
+#[derive(Clone)]
+struct WsTx {
+    sink: Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>,
+    authority: Arc<crate::application::ConfigAuthority>,
+    root_generation: Option<u64>,
+}
+
+impl WsTx {
+    fn new(
+        sink: futures::stream::SplitSink<WebSocket, Message>,
+        m: &App,
+        cap: &Cap,
+        root_generation: u64,
+    ) -> Self {
+        Self {
+            sink: Arc::new(Mutex::new(sink)),
+            authority: m.config_authority.clone(),
+            root_generation: cap.may_create().then_some(root_generation),
+        }
+    }
+
+    fn is_valid(&self, cap: &Cap) -> bool {
+        cap.is_valid()
+            && self
+                .root_generation
+                .is_none_or(|epoch| epoch == self.authority.root_generation())
+    }
+}
+
+impl std::ops::Deref for WsTx {
+    type Target = Mutex<futures::stream::SplitSink<WebSocket, Message>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sink
+    }
+}
 type WsSubs = Arc<Mutex<HashMap<String, WatchGuard>>>;
 
 /// Owns bounded scroll captures and their ordered replies for one connection.
@@ -50,15 +86,17 @@ impl ScrollReplies {
         }
     }
 
-    fn enqueue(&mut self, req: ScrollReq, m: &App, cap: &Cap) -> bool {
+    fn enqueue(&mut self, req: ScrollReq, m: &App, cap: &Cap, tx: &WsTx) -> bool {
         let Ok(permit) = self.slots.clone().try_acquire_owned() else {
             return false;
         };
         let manager = m.clone();
         let cap = cap.clone();
+        let tx = tx.clone();
         let capture = tokio::spawn(async move {
             let operation = async {
-                if !manager.sessions.cap_ok(&cap, &req.name, Level::Ro).await {
+                if !tx.is_valid(&cap) || !manager.sessions.cap_ok(&cap, &req.name, Level::Ro).await
+                {
                     return None;
                 }
                 manager
@@ -134,6 +172,7 @@ pub(super) async fn ws_upgrade(
     // Credentials arrive only during upgrade. Reject changes during resolution,
     // then carry the capability and generation into the connection lifetime.
     let generation_before = m.config_authority.auth_generation();
+    let root_generation = m.config_authority.root_generation();
     let Some(cap) = m
         .config_authority
         .resolve_cap(presented_token(&headers).as_deref())
@@ -169,14 +208,14 @@ pub(super) async fn ws_upgrade(
         // sends one binary frame, so the frame limit must match the message limit.
         .max_frame_size(32 * 1024 * 1024)
         .max_message_size(32 * 1024 * 1024)
-        .on_upgrade(move |socket| ws_run(socket, m, cap, generation))
+        .on_upgrade(move |socket| ws_run(socket, m, cap, generation, root_generation))
         .into_response()
 }
 
-async fn ws_run(socket: WebSocket, m: App, cap: Cap, generation: u64) {
+async fn ws_run(socket: WebSocket, m: App, cap: Cap, generation: u64, root_generation: u64) {
     let (tx, rx) = socket.split();
-    let tx = Arc::new(Mutex::new(tx));
-    let auth_changes = m.config_authority.auth_changes();
+    let tx = WsTx::new(tx, &m, &cap, root_generation);
+    let mut auth_changes = m.config_authority.auth_changes();
     if m.config_authority.auth_generation() != generation {
         return;
     }
@@ -185,7 +224,7 @@ async fn ws_run(socket: WebSocket, m: App, cap: Cap, generation: u64) {
 
     // Subscribe before snapshot preparation so concurrent session starts cannot be lost.
     let events = m.services.subscribe();
-    if !send_initial_snapshot(&tx, &m, &cap).await {
+    if !initialize_snapshot(&tx, &m, &cap, &mut auth_changes).await {
         return;
     }
 
@@ -203,6 +242,20 @@ async fn ws_run(socket: WebSocket, m: App, cap: Cap, generation: u64) {
     // Aborting the task does not guarantee immediate release of its watch guards.
     subs.lock().await.clear();
     pump.abort();
+}
+
+/// Initialization has no committed effects, so revocation can cancel stalled reads/writes.
+async fn initialize_snapshot(
+    tx: &WsTx,
+    m: &App,
+    cap: &Cap,
+    changes: &mut broadcast::Receiver<AuthChange>,
+) -> bool {
+    tokio::select! {
+        biased;
+        _ = auth_invalidated(changes, cap) => false,
+        sent = send_initial_snapshot(tx, m, cap) => sent,
+    }
 }
 
 /// Socket intake remains independent of history capture completion. Replies keep
@@ -244,7 +297,7 @@ impl CommandIntake {
 
                     if let ClientMsg::Scroll(req) = cm {
                         // Overload closes the connection; no request disappears without a reply.
-                        if !self.scrolls.enqueue(req, m, cap) {
+                        if !self.scrolls.enqueue(req, m, cap, &self.tx) {
                             tracing::debug!("closing WebSocket after scroll queue overload");
                             break;
                         }
