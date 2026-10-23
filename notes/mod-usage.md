@@ -10,5 +10,10 @@ The profile's global statusbar visibility defaults on; daemon polling defaults o
 The statusbar requires global visibility and an enabled daemon row. Missing provider
 credentials remove its rows without removing the settings catalog. Visibility does
 not change polling, and there are no per-row visibility preferences.
+
+`UI/Usage/UsageReadout.Icons.cs` owns fixed default resource icons for built-in rows.
+Profile icon choices override these defaults; discovered rows use the remaining
+fallback pool without claiming built-in or explicitly chosen icons.
+
 [Daemon usage](daemon-usage.md) owns polling and resolved applicability, while
 [Settings](ui-settings.md) owns draft/save lifetimes.

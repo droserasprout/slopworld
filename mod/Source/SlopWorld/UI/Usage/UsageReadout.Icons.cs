@@ -16,6 +16,8 @@ namespace SlopWorld
             "claude_week_sonnet",
             "claude_week_cowork",
             "claude_spend",
+            "openai_session",
+            "openai_week",
             "openrouter_balance",
         };
         static UsageInfo _iconUsage;
@@ -175,7 +177,7 @@ namespace SlopWorld
             switch (key)
             {
                 case "claude_session":
-                    return ThingDefOf.Chemfuel;
+                    return ThingDefOf.WoodLog;
                 case "claude_week":
                     return ThingDefOf.Steel;
                 case "claude_week_opus":
@@ -186,6 +188,10 @@ namespace SlopWorld
                     return ThingDefOf.Jade;
                 case "claude_spend":
                     return ThingDefOf.Silver;
+                case "openai_session":
+                    return ThingDefOf.SmokeleafJoint;
+                case "openai_week":
+                    return ThingDefOf.Beer;
                 // Money like the row above it, and the two are never the same coin. What is left of
                 // a budget and what is left of a wallet are different questions.
                 case "openrouter_balance":
