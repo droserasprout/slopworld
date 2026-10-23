@@ -85,10 +85,16 @@ namespace SlopWorld
             if (Event.current.type == EventType.Layout)
                 return;
 
-            var r = Rect;
-            Slab.Fill(r, UiTheme.Panel);
+            var workspace = WorkspaceLayout.Current;
+            var r = workspace.TopBar;
+            var face = r;
+            // Scaled viewport bounds can stop short of the final screen pixel. Overdraw
+            // the outer edge while keeping door placement and input on the layout bounds.
+            if (face.xMax == workspace.Viewport.xMax)
+                face.width += Slab.LineW;
+            Slab.Fill(face, UiTheme.Panel);
             // Keep the hairline inside the bar so adjoining chrome shares its boundary pixel.
-            Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), UiTheme.Edge);
+            Slab.Hairline(new Rect(face.x, face.yMax - 1f, face.width, 1f), UiTheme.Edge);
 
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
