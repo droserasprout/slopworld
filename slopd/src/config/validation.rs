@@ -224,6 +224,17 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
 mod mount_tests;
 
 pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
+    // Agent and host records share both the sidebar and tmux namespace. Apply the
+    // startup invariant to every candidate before any record writer can commit it.
+    let mut names = HashSet::new();
+    for name in cfg
+        .sessions
+        .iter()
+        .map(|s| &s.name)
+        .chain(cfg.host_terminals.iter().map(|s| &s.name))
+    {
+        anyhow::ensure!(names.insert(name), "duplicate agent/host-shell name {name}");
+    }
     anyhow::ensure!(
         !cfg.daemon.token.trim().is_empty(),
         "Set a non-empty [daemon] token. Daemon authentication cannot be disabled."

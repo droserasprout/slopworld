@@ -2,7 +2,7 @@
 //! Session owns live facts, terminal handoffs and operation guards; configuration owns commits.
 use super::{Application, Configuration};
 use crate::config::transactions::ConfigMutation;
-use crate::config::{SessionCfg, check_belongs};
+use crate::config::{Config, SessionCfg, check_belongs};
 use crate::session::{SessionRole, SessionRuntime, check_name};
 use anyhow::{Result, anyhow, bail};
 use std::sync::Arc;
@@ -42,6 +42,8 @@ impl SessionEdits {
         if let Some(p) = self.configuration.config().await.project(&s.project) {
             self.sessions.resolve_worktree(p, &s.worktree).await?;
         }
+        self.check_available_name(&self.configuration.config().await, &s.name)
+            .await?;
         let state_id = self.sessions.allocate_agent_identity().await?;
         let (autostart, name) = self
             .configuration
@@ -77,6 +79,22 @@ impl SessionEdits {
         // Retry only if no tmux session exists. Otherwise, a successful addition would report an already-running error.
         if autostart && !self.sessions.tmux.exists(&name).await {
             self.sessions.start(&name).await?;
+        }
+        Ok(())
+    }
+
+    /// Called under the exclusive session operation guard, before state or record changes.
+    /// Saved stopped shells, unpublished live identities and surviving tmux panes all reserve names.
+    async fn check_available_name(&self, cfg: &Config, name: &str) -> Result<()> {
+        check_name(name)?;
+        if cfg.session(name).is_some()
+            || cfg.host_terminals.iter().any(|host| host.name == name)
+            || self.sessions.live_name_exists(name).await
+        {
+            bail!("session {name} already exists");
+        }
+        if self.sessions.tmux.exists(name).await {
+            bail!("session {name} already exists in tmux");
         }
         Ok(())
     }
@@ -390,7 +408,7 @@ impl SessionEdits {
         let add = existing.is_none();
         let session = existing.unwrap_or_else(|| archived.clone());
         if add {
-            check_name(&session.name)?;
+            self.check_available_name(&cfg, &session.name).await?;
         }
 
         crate::sandbox::restore_stored_state(key, &cfg.sessions)?;

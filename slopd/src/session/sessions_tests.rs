@@ -1072,3 +1072,6 @@ async fn reset_rejects_runtime_only_roles_before_stopping_or_mutating_them() {
         assert_eq!(live["runtime"].run_id, 42);
     }
 }
+
+#[path = "session_namespace_tests.rs"]
+mod namespace_tests;

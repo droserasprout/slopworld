@@ -99,15 +99,6 @@ pub(crate) async fn load(binding: &StorageBinding) -> Result<Loaded> {
 }
 
 pub(crate) fn validate(cfg: &Config, worktrees: &[crate::worktrees::Worktree]) -> Result<()> {
-    let mut names = std::collections::HashSet::new();
-    for name in cfg
-        .sessions
-        .iter()
-        .map(|s| &s.name)
-        .chain(cfg.host_terminals.iter().map(|s| &s.name))
-    {
-        ensure!(names.insert(name), "duplicate agent/host-shell name {name}");
-    }
     crate::config::validate_loaded(cfg)?;
     crate::config::validate_config(cfg)?;
     for worktree in worktrees {

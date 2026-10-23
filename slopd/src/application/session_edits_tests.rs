@@ -78,3 +78,40 @@ async fn failed_creation_publishes_nothing_and_can_be_retried() {
     operations.add(draft()).await.unwrap_err();
     assert_eq!(app.config_authority.snapshot().await.sessions.len(), 1);
 }
+
+#[tokio::test]
+async fn candidate_writer_rejects_cross_kind_names_without_publishing_or_persisting() {
+    let app = fixture();
+    let records =
+        super::super::HostRecords::new(app.workspace.clone(), app.config_authority.clone());
+    records
+        .remember(&app.sessions, "created", "repo", "/tmp")
+        .await
+        .unwrap();
+    let accepted = toml::to_string(&app.config_authority.snapshot().await).unwrap();
+    let configuration = Configuration::new(&app);
+    let error = configuration
+        .update_cfg(ConfigMutation::Agents, |cfg| {
+            let mut session = draft();
+            session.state_id = crate::storage_id::draft_identity();
+            cfg.sessions.push(session);
+            Ok(())
+        })
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("duplicate agent/host-shell name created")
+    );
+    assert_eq!(
+        toml::to_string(&app.config_authority.snapshot().await).unwrap(),
+        accepted
+    );
+    let loaded = Config::load(&app.workspace.configuration.records.binding.settings)
+        .await
+        .unwrap();
+    assert!(loaded.sessions.is_empty());
+    assert_eq!(loaded.host_terminals.len(), 1);
+    assert_eq!(loaded.host_terminals[0].name, "created");
+}

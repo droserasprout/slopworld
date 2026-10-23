@@ -131,11 +131,9 @@ async fn configured_creation_and_retirement_use_records_and_keep_reused_names_di
         .await
         .unwrap();
     let path = f.agent_path("new-agent").await;
-    f.manager
-        .configuration()
-        .remove_agent_record("new-agent")
-        .await
-        .unwrap();
+    f.manager.edits().remove("new-agent").await.unwrap();
+    assert!(f.manager.live_config_fixture("new-agent").await.is_none());
+
     assert!(!path.exists());
     f.manager
         .configuration()

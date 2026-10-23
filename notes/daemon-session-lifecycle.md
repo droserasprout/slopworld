@@ -4,7 +4,10 @@
 `application/session_edits.rs` coordinates configured edits/private-state recovery;
 `session/sessions.rs` supplies live facts. Validate complete candidates before tmux
 identity changes, and retain guards through commit, rollback, publication, and cleanup
-after caller cancellation.
+after caller cancellation. Creation and archived-agent restoration reserve names across
+saved agents, saved host shells, live temporary identities, and surviving tmux panes
+before changing records or moving archived state. Shared candidate validation also
+rejects duplicate persisted agent/host names.
 
 Agent deletion rejects running panes; retained dead panes do not block it. Host-tab
 removal stops the shell first. Rename preserves durable identity. Failed persistence
