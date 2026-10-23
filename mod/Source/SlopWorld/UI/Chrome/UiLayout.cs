@@ -254,9 +254,15 @@ namespace SlopWorld
             Action<string> choose
         )
         {
-            var groups = (names ?? Enumerable.Empty<string>())
+            var installed = (names ?? Enumerable.Empty<string>())
                 .Where(name => !string.IsNullOrEmpty(name))
-                .GroupBy(FontFamily, StringComparer.OrdinalIgnoreCase)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var groups = installed
+                .GroupBy(
+                    name => FontFamilyIdentity.MenuGroup(name, installed),
+                    StringComparer.OrdinalIgnoreCase
+                )
                 .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
 
             foreach (var group in groups)
@@ -274,12 +280,6 @@ namespace SlopWorld
                     () => faces.Select(name => FontOption(name, choose)).ToList()
                 );
             }
-        }
-
-        static string FontFamily(string name)
-        {
-            int space = name.IndexOf(' ');
-            return space > 0 ? name.Substring(0, space) : name;
         }
 
         static FloatMenuOption FontOption(string name, Action<string> choose) =>

@@ -5,6 +5,14 @@ and repaint lifetime. `TerminalRunCache` and `Sgr` own parsed rows; `TerminalThe
 and `TerminalFont` supply cache revisions. Parsed link decoration belongs to
 `TerminalAutolinks`, with URL recognition in `UrlScan`.
 
+`TerminalFontFallbacks` expands family priorities from the installed font catalog
+owned by `InstalledFonts`. Catalog revisions invalidate the active terminal font,
+monospace probes, and cached font menus; font invalidation also advances the terminal
+render revision. Nerd Font variants precede their original within each family;
+fixed-width icon variants take precedence over regular Nerd Fonts. Renamed
+families use the shared `FontFamilyIdentity` stem mappings rather than separate
+hardcoded variant lists.
+
 Texture creation failure falls back to direct painting. Damage describes one received
 revision: skipped predecessors or missing damage require a full repaint. Cursor and
 selection overlays must not repaint text. Theme/font, geometry, history position,

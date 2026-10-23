@@ -16,6 +16,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalFontFallbacks.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Fonts/FontFamilyIdentity.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Fonts/FontSelection.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Fonts/InstalledFonts.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalSessionCaches.cs" />
     <Compile Include="../Source/SlopWorld/UI/Display/CrtVignettePixels.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Links/TerminalPathProbe.cs" />

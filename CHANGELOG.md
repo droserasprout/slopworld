@@ -34,6 +34,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Jukebox: Fall back to local OST playback when daemon playback fails.
 - Jukebox: Drop the jukebox in a pod during initial cutscene.
 - Jukebox: Remove random pauses between local OST tracks.
+- Settings: Refresh active fonts and font menus after rescanning installed fonts.
 - Terminal: Fixed image paste failing when the daemon starts before the graphical session.
 - Terminal: On Shift+Enter send Enter in shells and multiline input in agents.
 - Terminal: Preserve control characters in keyboard input and clipboard paste on tmux 3.8.
@@ -44,10 +45,8 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Packaging: Require bat, less, micro, and tmux 3.7 or newer.
 - Settings: Adjust default audio volumes and backdrop dimming.
 - Storage: Store connection files in `endpoints/`.
-
-### Other
-
-- Performance optimizations.
+- UI: Prefer installed Nerd Font variants when terminal font is set to Auto.
+- UI: Updated default fonts and sizes.
 
 ## [0.0.9] - 2026-10-21
 

@@ -1,7 +1,8 @@
 # Shared UI chrome
 
 `UI/Chrome/` owns controls and shared layout; `UI/Theme/` owns styling and icons;
-`UI/Workspace/` owns host chrome. Features supply state and actions.
+`UI/Fonts/` owns shared font discovery, identity, selection labels, and UI font
+application; `UI/Workspace/` owns host chrome. Features supply state and actions.
 
 Measurement, drawing, and hit testing share geometry and control IDs across IMGUI
 passes. Measurement must not invoke controls, setters, or menu construction. Cache
@@ -19,6 +20,13 @@ same-type windows, so each menu level needs a separate instance; submenu openers
 non-null action to remain enabled.
 Selector width measurement includes menu checkbox columns and submenu arrows, so
 matching the popup to its source control does not truncate those rows.
+Font menus use `FontFamilyIdentity` to group patched faces with their installed
+original family, sharing alias identity with terminal fallback selection. Menu
+grouping preserves each face's installed name for selection and persistence.
+`InstalledFonts` owns OS discovery and the catalog revision shared by font consumers.
+Rescanning reapplies UI fonts; terminal fonts and both menus observe the revision.
+`FontSelection` labels Auto with its first installed candidate, explicitly as a
+preference rather than a claim about Unity's native glyph resolution.
 
 `TextEntryController` owns native fields and delayed clipboard edits. Replies arrive
 on the UI thread but still need a live field owner. Resize grips run after the text

@@ -10,18 +10,20 @@ namespace SlopWorld
     // `GUIStyle.fontSize` zero so measurement and drawing use each tier's native baked size.
     public static class UiFont
     {
-        // Unity's text generator can report a line one or two pixels shorter than the
-        // dynamic font's actual ink. Keep that slack in the style.
-        // CalcSize and CalcHeight callers, such as ActiveTip, then allocate the same space.
-        // This prevents clipping when glyph ink reaches the final pixel of a measured rect.
+        // Unity can underreport glyph height by two pixels. Include that slack in
+        // style padding so measurement and drawing reserve the same space.
         const int BottomSafety = 2;
 
-        // Default proportional faces for the "Automatic" fallback chain. Listed in
-        // preference order, so the first one installed on the system becomes the face.
+        // Proportional font candidates in Auto preference order.
         static readonly string[] Candidates =
         {
-            "DejaVu Sans",
+            "PT Sans",
             "Noto Sans",
+            "Inter",
+            "Inter Variable",
+            "Adwaita Sans",
+            "Cantarell",
+            "DejaVu Sans",
             "Liberation Sans",
             "Arial",
             "Segoe UI",
@@ -29,8 +31,7 @@ namespace SlopWorld
             "sans-serif",
         };
 
-        // RimWorld's built-in Tiny/Small/Medium sizes, kept so we can leave them alone
-        // when the user only picks a face and preserve their offsets for custom sizes.
+        // Built-in Tiny/Small/Medium sizes; custom sizes preserve their offsets.
         static readonly int[] DefaultSizes = { 11, 13, 15 };
 
         // Keep the fonts alive while the styles reference their dynamic atlases.
@@ -38,8 +39,10 @@ namespace SlopWorld
         static string _fontName;
         static int _fontSize = -1;
         static int _revision;
+        static int _catalogRevision = -1;
 
         public static int Revision => _revision;
+        public static string PreferredName { get; private set; } = "";
 
         // Replaces the built-in fonts with the user's chosen OS font in every
         // Text font-style array. Called at startup and when appearance settings change.
@@ -53,7 +56,13 @@ namespace SlopWorld
             if (size > 48)
                 size = 48;
 
-            if (_fonts != null && _fontName == name && _fontSize == size && AllAlive(_fonts))
+            if (
+                _fonts != null
+                && _fontName == name
+                && _fontSize == size
+                && _catalogRevision == InstalledFonts.Revision
+                && AllAlive(_fonts)
+            )
             {
                 // Reapply in case another caller changed the style arrays.
                 ApplyFont(_fonts);
@@ -109,6 +118,8 @@ namespace SlopWorld
             _fonts = fonts;
             _fontName = name;
             _fontSize = size;
+            _catalogRevision = InstalledFonts.Revision;
+            PreferredName = FontSelection.FirstInstalled(Candidates, InstalledFonts.All);
 
             ApplyFont(fonts);
             unchecked
@@ -301,43 +312,6 @@ namespace SlopWorld
                 if (p != null && p.bottom < BottomSafety)
                     styles[i].padding = new RectOffset(p.left, p.right, p.top, BottomSafety);
             }
-        }
-
-        // ---------------------------------------------------------------- font listing
-
-        static List<string> _all;
-
-        public static List<string> All
-        {
-            get
-            {
-                if (_all == null)
-                    _all = Scan();
-                return _all;
-            }
-        }
-
-        public static void Rescan() => _all = null;
-
-        static List<string> Scan()
-        {
-            var found = new List<string>();
-            try
-            {
-                var names = Font.GetOSInstalledFontNames();
-                if (names == null)
-                    return found;
-                var seen = new HashSet<string>();
-                foreach (var name in names)
-                    if (!string.IsNullOrEmpty(name) && seen.Add(name))
-                        found.Add(name);
-                found.Sort(StringComparer.OrdinalIgnoreCase);
-            }
-            catch (Exception e)
-            {
-                Log.Warning($"[SlopWorld] UI font scan: {e.Message}");
-            }
-            return found;
         }
     }
 }

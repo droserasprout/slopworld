@@ -8,14 +8,21 @@ namespace SlopWorld
     // an OS font resolves against both the prefix's fonts and the host's.
     public static class TerminalFont
     {
-        // The first installed name becomes the face. The rest are per-glyph fallbacks.
-        // The symbol faces at the tail are there for that alone - mono faces stop well
-        // short of the arrows and chevrons Claude Code's whole UI is built out of.
+        // Family preference order; TerminalFontFallbacks inserts Nerd Font variants.
+        // Symbol faces at the tail cover glyphs missing from monospace fonts.
         static readonly string[] Candidates =
         {
-            "DejaVu Sans Mono",
+            "Fira Code",
             "JetBrains Mono",
+            "Hack",
             "Noto Sans Mono",
+            "Cascadia Mono",
+            "Cascadia Code",
+            "Source Code Pro",
+            "Iosevka",
+            "Menlo",
+            "Ubuntu Mono",
+            "DejaVu Sans Mono",
             "Adwaita Mono",
             "Liberation Mono",
             "Consolas",
@@ -38,18 +45,35 @@ namespace SlopWorld
 
         const int ProbeSize = 30;
         static List<string> _mono;
+        static int _catalogRevision = -1;
 
         // Per-char verdicts from CalcSize, which is far too slow to run per frame.
         static readonly Dictionary<char, bool> _fits = new Dictionary<char, bool>();
 
         public static float CellW { get; private set; }
         public static float CellH { get; private set; }
-        public static int Rev => _rev;
+        public static int Rev
+        {
+            get
+            {
+                SyncCatalog();
+                return _rev;
+            }
+        }
+        public static string PreferredName { get; private set; } = "";
 
-        // GUI text is rasterized after the UI matrix has scaled it. Therefore, a fractional logical
-        // advance can become a different integer number of screen pixels from the one CalcSize
-        // reports. Use the same pixel grid for the terminal cells. Otherwise the cursor drifts
-        // against a long run of text at non-1x UI scales.
+        // Invalidate texture caches through Rev even before Style is read.
+        // Defer monospace probing until Mono is read.
+        static void SyncCatalog()
+        {
+            if (_catalogRevision == InstalledFonts.Revision)
+                return;
+            _catalogRevision = InstalledFonts.Revision;
+            _mono = null;
+            Invalidate();
+        }
+
+        // Snap cell advances to rasterized screen pixels to prevent cursor drift at fractional UI scales.
         public static float CellWAtScreenScale(float screenScale)
         {
             if (CellW <= 0.01f || screenScale <= 0.01f)
@@ -69,11 +93,10 @@ namespace SlopWorld
         {
             get
             {
+                SyncCatalog();
                 HookTextureRebuilds();
-                // A GUIStyle is not a UnityEngine.Object, so the font it holds is rooted by nothing
-                // Unity can see. The unload RimWorld runs on every map switch destroys it and
-                // leaves the style in the default proportional face. The null check catches a face
-                // lost some other way, a destroyed Font comparing equal to null.
+                // GUIStyle does not keep its font alive through Unity asset unloading.
+                // Destroyed fonts compare equal to null and must be recreated.
                 if (
                     _style != null
                     && _size == Settings.FontSize
@@ -86,13 +109,13 @@ namespace SlopWorld
                 _size = Mathf.Clamp(Settings.FontSize, 8, 28);
                 _name = Settings.FontName;
 
-                // The one it is replacing, dropped once nothing points at it. A dynamic font is an
-                // asset with a texture atlas behind it and this one is marked never to unload.
-                // Therefore, the size slider - which comes back through here on every step it
-                // passes - would otherwise pin one atlas per step for the rest of the process.
+                // Destroy the previous font after replacement; otherwise each size-slider
+                // step retains a DontUnloadUnusedAsset atlas.
                 var old = _font;
+                var chain = Chain(_name);
+                PreferredName = FontSelection.FirstInstalled(chain, InstalledFonts.All);
                 _font =
-                    Font.CreateDynamicFontFromOSFont(Chain(_name), _size)
+                    Font.CreateDynamicFontFromOSFont(chain, _size)
                     ?? Font.CreateDynamicFontFromOSFont("Courier New", _size);
                 _fontless = _font == null;
                 if (_font != null)
@@ -126,9 +149,7 @@ namespace SlopWorld
             }
         }
 
-        // A supplementary glyph may be the first character that asks Unity to rebuild the dynamic
-        // atlas. The pane is rendered into a RenderTexture. Therefore, that rebuild must be a cache
-        // key too or the first frame can preserve the pre-glyph (blank) texture forever.
+        // Atlas rebuilds must invalidate cached pane textures or newly loaded glyphs stay blank.
         static void HookTextureRebuilds()
         {
             if (_textureRebuildHooked)
@@ -143,44 +164,24 @@ namespace SlopWorld
             _fits.Clear();
         }
 
-        static string[] Chain(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-                return Candidates;
-            var chain = new List<string> { name };
-            foreach (var c in Candidates)
-                if (c != name)
-                    chain.Add(c);
-            return chain.ToArray();
-        }
+        static string[] Chain(string name) =>
+            TerminalFontFallbacks.Build(Candidates, InstalledFonts.All, name);
 
         public static List<string> Mono
         {
             get
             {
+                SyncCatalog();
                 if (_mono == null)
                     _mono = ScanMono();
                 return _mono;
             }
         }
 
-        public static void Rescan() => _mono = null;
-
         static List<string> ScanMono()
         {
             var found = new List<string>();
-            string[] names;
-            try
-            {
-                names = Font.GetOSInstalledFontNames();
-            }
-            catch (System.Exception e)
-            {
-                Log.Warning($"[SlopWorld] font list: {e.Message}");
-                return found;
-            }
-            if (names == null)
-                return found;
+            var names = InstalledFonts.All;
 
             var probe = new GUIStyle
             {
@@ -192,12 +193,8 @@ namespace SlopWorld
                 margin = new RectOffset(0, 0, 0, 0),
             };
 
-            var seen = new HashSet<string>();
             foreach (var name in names)
             {
-                if (string.IsNullOrEmpty(name) || !seen.Add(name))
-                    continue;
-
                 Font f = null;
                 try
                 {
@@ -219,7 +216,7 @@ namespace SlopWorld
             }
 
             found.Sort(System.StringComparer.OrdinalIgnoreCase);
-            Log.Message($"[SlopWorld] mono faces: {found.Count} of {names.Length}");
+            Log.Message($"[SlopWorld] mono faces: {found.Count} of {names.Count}");
             return found;
         }
 

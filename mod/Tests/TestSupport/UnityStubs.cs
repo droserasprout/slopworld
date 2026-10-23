@@ -43,6 +43,10 @@ namespace UnityEngine
 
     public class Font
     {
+        public static System.Func<string[]> InstalledNames = () => System.Array.Empty<string>();
+
+        public static string[] GetOSInstalledFontNames() => InstalledNames();
+
         public int fontSize = 16;
         public float ascent = 12f;
         public float Height = 18f;

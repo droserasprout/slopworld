@@ -50,17 +50,19 @@ namespace SlopWorld
         }
 
         List<FloatMenuOption> _fontOptions;
+        int _fontOptionsRevision = -1;
 
         void DrawFont(Listing_Standard l, ModSettings s)
         {
             UiLayout.SectionHeading(l, "Font");
-            // OS catalogs are stable for the page lifetime; group their faces once.
-            if (_fontOptions == null)
+            // Rebuild open pages' menus when the shared installed catalog changes.
+            if (_fontOptions == null || _fontOptionsRevision != InstalledFonts.Revision)
             {
+                _fontOptionsRevision = InstalledFonts.Revision;
                 _fontOptions = new List<FloatMenuOption>
                 {
                     new FloatMenuOption(
-                        "Automatic",
+                        "Auto",
                         () =>
                         {
                             if (UiControls.SetSetting(s, ref s.fontName, ""))
@@ -82,7 +84,7 @@ namespace SlopWorld
             UiControls.Select(
                 l,
                 "Font",
-                s.fontName.NullOrEmpty() ? "Automatic" : s.fontName,
+                FontSelection.Label(s.fontName, TerminalFont.PreferredName),
                 _fontOptions,
                 out _
             );

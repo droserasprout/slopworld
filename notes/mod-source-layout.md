@@ -13,6 +13,7 @@ Handwritten types use `SlopWorld`; generated protobuf types use `SlopWorld.Wire`
 | `Settings/`, `Serialization/` | Profile preferences, persistence, and shared format adapters. Callers validate feature schemas. |
 | `Sim/`, `Patches/` | Simulation and Harmony integration, respectively. Start with [simulation](mod-sim.md). |
 | `UI/Chrome/`, `UI/Theme/` | Shared controls, geometry, styling, and icons. See [chrome](mod-ui-chrome.md). |
+| `UI/Fonts/` | Shared font discovery, family identity, selection labels, and UI font application. Terminal metrics and fallback policy stay in `UI/Terminal/Rendering/`. |
 | `UI/Display/`, `UI/Cursor/` | Window-wide effects and cursor rendering, independent of terminal caches. |
 | `UI/Workspace/`, `UI/Sidebar/` | Panel placement, host chrome, and sidebar navigation. See [workspace](ui-dynamic-layout-architecture.md) and [sidebar](mod-sidebar.md). |
 | `UI/Browsing/`, `UI/Readers/`, `UI/Views/` | Shared scopes/trees, reader lifetime, and feature views. See [readers](mod-file-readers.md). |

@@ -80,7 +80,7 @@ namespace SlopWorld
         public int fontSize = 14;
         public string fontName = "";
 
-        public int uiFontSize;
+        public int uiFontSize = 14;
         public string uiFontName = "";
 
         // Named chrome palette, separate from the terminal's `theme`. Unknown schemes fall back
