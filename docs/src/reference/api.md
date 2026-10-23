@@ -1,303 +1,247 @@
 # API overview
 
-SlopWorld clients use HTTP for requests and WebSocket for live updates and terminal
-input. Both transports use binary Protobuf. This page explains the shared protocol
-and endpoint behavior; [API routes](api-routes.md) lists methods, paths, access
-groups, and request and response types.
+SlopWorld uses binary Protobuf over HTTP for requests and WebSocket for live
+updates and terminal input. Use [API routes](api-routes.md) to find methods,
+paths, access groups, and message types; use
+[`shared/slopworld.proto`](https://github.com/droserasprout/slopworld/blob/main/shared/slopworld.proto)
+for fields. This page covers transport and behavior beyond the schema.
 
 ## Connect to the daemon
 
-Find the daemon URL and token in its endpoint file; see
-[Paths and files](paths.md#daemon-configuration) for locations and overrides.
-Send the token in the `x-slop-token` header on HTTP requests and the WebSocket
-upgrade request. See the [Security model](../sandbox/security.md) for credential handling.
-
-Use clients built for protocol version 2, and upgrade the daemon, mod, and CLI
-together. HTTP has no version negotiation. WebSocket requires the
-`slopworld.protobuf.v2` subprotocol.
+Read the URL and token from the [endpoint file](paths.md#daemon-configuration).
+Send `x-slop-token` on HTTP requests and the WebSocket upgrade request.
+Use protocol version 2 and upgrade the daemon, mod, and CLI together.
+HTTP has no version negotiation; WebSocket requires `slopworld.protobuf.v2`.
 
 ### Authorization {#authorization}
 
-The daemon's own token grants root authority. Session and task routes also accept
-appropriately scoped grants. The access groups in [API routes](api-routes.md)
-describe middleware placement; handlers enforce the permissions for each operation.
+The daemon token grants root authority. Session and task routes also accept
+scoped grants; `rw` grants permit input, labels, and allowed lifecycle operations.
+Creating sessions or replacing their configuration requires root authority.
+Configuration, catalogs, files, usage, audio, and private state also require root,
+except for [template discovery](#agent-templates).
 
-- Creating a session or replacing its configuration with
-  `PUT /api/sessions/:name` requires root authority.
-- Scoped `rw` grants allow input, labels, and permitted lifecycle operations.
-- Configuration, catalogs, filesystem operations, usage, audio, and private-state
-  operations require root authority, except for the template discovery described below.
-
-Removing or renaming a session invalidates its target memberships and owned grants,
-and closes affected WebSockets. Reusing the name requires a new grant.
+Route access groups describe middleware; handlers check each operation's
+permissions. Removing or renaming a session revokes its target memberships and
+owned grants and closes affected WebSockets. Reusing its name requires a new
+grant. See [Security model](../sandbox/security.md) for credential handling.
 
 ## HTTP
 
-Encode request bodies as Protobuf and set `Content-Type: application/x-protobuf`.
-Responses, including daemon errors (`Error`), also use Protobuf. Routes without a
-request message send no body. URL query parameters remain text.
-
-Use [API routes](api-routes.md) to find each message type and
-[`shared/slopworld.proto`](https://github.com/droserasprout/slopworld/blob/main/shared/slopworld.proto)
-for its fields. JSON clients are incompatible. Object notation in the sections
-below illustrates field values; it is not a JSON request format.
+Send Protobuf bodies with `Content-Type: application/x-protobuf`. Responses,
+including `Error` messages, are Protobuf. Routes without a request message take
+no body; query parameters remain text. JSON is not a supported wire format.
 
 ## WebSocket
 
-Connect to `/ws`. The handshake requires subprotocol `slopworld.protobuf.v2`. Each binary message is one
-`Event` (server) or `ClientMessage` (client), with an explicit payload oneof. Text frames are
-not accepted.
+Connect to `/ws` with subprotocol `slopworld.protobuf.v2`. Each binary message
+contains an `Event` from the server or a `ClientMessage` from the client, with a
+payload oneof. Text frames are rejected.
 
 ### Server events
 
-| Event | Description |
+| Event | Contents |
 | --- | --- |
-| `capabilities` | Runtime integration flags and terminal limits (`scrollback_lines`, dimension bounds). Sent on connect. |
+| `capabilities` | Integration flags and terminal limits, including `scrollback_lines` and dimension bounds; sent on connect. |
 | `sessions` | Session state, title, and bell. |
-| `screen` | Terminal content. Scrolled replies include `off`, `request_id`, and `history` (total scrollback rows). |
-| `usage` | Quota updates, including daemon-owned `catalog` metadata and resolved `rows`. `window` is optional; see [Usage polling](../agents/usage-and-summaries.md#usage-polling). |
-| `projects` | Project catalog. |
-| `library` | Library catalog. |
-| `jukebox` | Jukebox state. |
-| `audio` | Current audio state, also sent in the initial snapshot. |
-| `clipboard` | Application OSC 52 copy (`name`, `run_id`, `text`), sent to root clients subscribed to that terminal. The client writes its local CLIPBOARD. |
+| `screen` | Terminal content; scroll replies include `off`, `request_id`, and total scrollback rows in `history`. |
+| `usage` | Quotas, catalog metadata, and resolved rows; `window` is optional. See [Usage polling](../agents/usage-and-summaries.md#usage-polling). |
+| `projects`, `library`, `jukebox` | Project and library catalogs, and jukebox state. |
+| `audio` | Audio state, included in the initial snapshot. |
+| `clipboard` | OSC 52 copy: `name`, `run_id`, and `text`. Sent only to root clients subscribed to that terminal. |
 
-Catalogs arrive on connect and are resent when changed.
+Catalogs arrive on connect and again when changed.
 
 ### Client messages
 
-| Message | Description |
+| Message | Action |
 | --- | --- |
-| `redraw` | Root-only background repaint of all live panes. May include `cols` and `rows` after a sidebar layout change. |
-| `sub` / `unsub` | Subscribe or unsubscribe to a session's screen updates. |
-| `keys` | Send keystrokes to an agent. |
-| `resize` | Negotiate terminal size. |
-| `scroll` | Scroll the terminal. |
-| `mouse` | Send mouse events. |
-| `paste` | Paste text; root desktop clients can upload image bytes or import host image file links. |
-| `breadcrumb` | Insert a saved guidance block. |
-| `audio` | Audio control. Always includes `volume`. The selection supports `station`, `stream`, `file`, or `ncspot`, or `stop: true`. An absent oneof changes volume only. |
+| `redraw` | Repaint all live panes (root only); optional `cols` and `rows` accommodate layout changes. |
+| `sub`, `unsub` | Subscribe to or unsubscribe from session screens. |
+| `keys`, `mouse` | Send keyboard or mouse input. |
+| `resize`, `scroll` | Negotiate terminal size or request scrollback. |
+| `paste` | Paste literal text or upload image bytes; see [Clipboard](#clipboard). |
+| `breadcrumb` | Insert saved guidance. |
+| `audio` | Set `volume` and optionally select `station`, `stream`, `file`, `ncspot`, or `stop: true`. An absent selection changes volume only. |
 
 ### Audio state
 
-Audio state is `{playing, source, volume, error, title, session?}`. Station titles come from ICY
-metadata. Stream URLs are not forwarded to the mod.
+Audio state contains `playing`, `source`, `volume`, `error`, `title`, and optional
+`session`. Station titles come from ICY metadata; stream URLs are not sent to the mod.
+
+### Clipboard
+
+The client owns its desktop clipboard and applies subscribed OSC 52 events.
+There are no daemon-host clipboard HTTP routes.
+
+`paste.text` is literal, including file URIs. `image_data` takes precedence over
+text and accepts PNG, JPEG, GIF, or WebP bytes up to 20 MiB and 8192 pixels per
+dimension. Uploads require root, a current `run_id`, and a Codex agent with its
+private image mount. The daemon stages the bytes and pastes their mounted path;
+this also works remotely and in sidecars. Failures appear in daemon logs.
+
+Ordinary `paste` and `keys` may include `run_id` to discard input for a replaced run.
 
 ## Sessions and tasks
 
 ### Workers
 
-`POST /api/workers` creates a task-owned child and returns its task and worker
-identity. Its fields are `project`, `template`, `body`, `durable`, `worktree`,
-`new_worktree`, `base`, and `worktree_name`.
+`POST /api/workers` creates a task-owned child and returns task and worker IDs.
+Fields are `project`, `template`, `body`, `durable`, `worktree`, `new_worktree`,
+`base`, and `worktree_name`. Root may select any template; scoped callers must
+use their own project and an allowed template.
 
-Root callers may choose any catalog template. Scoped callers must use their own
-project and a template enabled by the daemon worker policy. The worker uses the
-template's captured settings and a fresh private identity. The caller determines
-only task and sidebar parentage.
+Workers receive the template's captured settings and fresh private state. The
+caller determines task and sidebar parentage only.
 
 ### Sandbox inspection
 
-`GET /api/sessions/:name/sandbox` returns the sanitized saved launch plan and a
-best-effort live process tree. It requires the same read grant as the session route.
-The saved plan remains available after the pane stops; its presence does not mean
-the launch succeeded. Host terminals have no sandbox plan.
+`GET /api/sessions/:name/sandbox` uses the session's read grant. It returns a
+sanitized saved launch plan and a best-effort live process tree. The plan survives
+process exit and does not prove startup succeeded. Host terminals have no plan.
 
 ### Ephemeral errands
 
-`POST /api/run` creates an unnamed errand. Choose one execution context:
+`POST /api/run` selects one execution context:
 
-| Choice | Behavior |
+| Field | Context |
 | --- | --- |
-| `host: true` | Run outside bwrap with the tmux environment plus `TERM`, `COLORTERM`, and `SLOPWORLD_*`. |
-| `agent_template: "name"` | Use an agent template. |
-| `like: "existing-agent"` | Copy an existing session's agent process settings: presets, network, DNS, and limits. |
+| `host: true` | Outside bwrap, using tmux's environment plus `TERM`, `COLORTERM`, and `SLOPWORLD_*`. |
+| `agent_template` | A named template. |
+| `like` | A named session's presets, network, DNS, and limits. |
 
-The daemon rejects conflicting choices and missing sandbox settings. The selected
-project supplies mounts. An empty shell command uses the daemon's `$SHELL`.
-Only an empty host shell command attached to a project without `temp` becomes a
-saved host-terminal tab. Explicit host commands and file actions are temporary.
-See [Library items and errands](../workspace/library.md) for user workflows.
+Conflicting choices or missing sandbox settings are rejected. Projects supply
+mounts. An empty shell command uses the daemon's `$SHELL`; only an empty host
+shell command attached to a project without `temp` creates a saved host tab.
+Explicit host commands and file actions are temporary. See
+[Library items and errands](../workspace/library.md) for workflows.
 
 ### Task batch operations
 
-Bulk task cancellation and removal validate the entire selection before changing
-anything. A later disk failure can leave partial completion. Replies distinguish
-committed, unchanged or absent, failed, and unattempted IDs.
+Cancellation and removal validate the whole selection before changing it.
+Disk failures can still leave partial completion: replies distinguish committed,
+unchanged or absent, failed, and unattempted IDs. The task board applies committed
+changes and refreshes even on failure.
 
-The task board applies completed changes and refreshes even when it reports a
-failure. Retrying is safe: canceled tasks stay canceled and removed tasks stay
-absent. Requests already handed to storage may finish after a client disconnects.
+Retries are safe: canceled tasks stay canceled and removed tasks stay absent.
+Storage requests may finish after the client disconnects.
 
 ## Workspace and files
 
 ### Browse, read, search, and Git
 
-| Operation | Behavior and limits |
+| Operation | Contract |
 | --- | --- |
-| Browse | Returns directory entries with file, hidden, gitignore, and limit flags. The maximum limit is 500. |
-| Read | Returns bounded UTF-8 text. |
-| Image | Returns bounded image bytes. |
-| Search | Requires a project path and query. Supports regex, case, word, hidden, and gitignore flags and optional `include`/`exclude` paths or globs (literal paths include directory descendants; exclusions win); caps results at 1,000 matching lines per checkout. |
-| Git | Returns repository status, or `repo: false` when the path is not a repository. |
+| Browse | Directory entries with file, hidden, gitignore, and limit flags; maximum 500 entries. A case-sensitive `filter` substring applies before the cap. Narrow it when `truncated` is true. |
+| Read / Image | Bounded UTF-8 text / image bytes. |
+| Search | Project path and query required; maximum 1,000 matching lines per checkout. Supports regex, case, word, hidden, and gitignore flags, plus `include`/`exclude` paths or globs. Literal paths include descendants; exclusions win. |
+| Git | Repository status, or `repo: false`. Line counts have a two-second budget; `counts=false` skips them. `counts_complete` is false when skipped or timed out. |
 
-Browse's optional `filter` matches a case-sensitive substring of each entry name
-before applying the cap. Narrow it when `truncated` is true to reach omitted entries.
+### File mutations {#files-mutations}
 
-Git includes line counts by default, with a two-second time limit. Use
-`counts=false` to skip counting. `counts_complete` is false if counting was skipped
-or exceeded its budget.
-
-### Files mutations
-
-Create, single-component rename, and recursive delete require root authority.
-Names must be a single non-empty path component. Dots within names are allowed;
-`.`, `..`, slash, backslash, and NUL are rejected. Existing targets are preserved.
+Root can create, rename, and recursively delete files. Names must be single,
+nonempty path components; `.`, `..`, slash, backslash, and NUL are rejected.
+Other dots are allowed. Existing targets are preserved.
 
 ### File actions
 
-`POST /api/file-action` and `/api/run` requests with `path` execute file actions
-on the daemon host without private agent state.
+`POST /api/file-action` and `/api/run` with `path` run on the daemon host without
+private agent state. A project scopes the path and working directory. `worktree`
+selects a registered, ready checkout; empty selects Main. Other checkouts must be
+named explicitly. An explicit worktree ID rejects paths in other checkouts,
+including those nested under Main. Symlink escapes are rejected.
 
-A named project scopes the path and working directory. The optional `worktree` ID
-selects a registered, ready checkout; an empty ID selects Main. Requests must name
-another registered checkout explicitly. An explicit ID rejects paths in other
-checkouts, including those nested under Main. Symlink escapes are rejected.
-
-With `host: true` and no project, the request accepts an absolute host path.
-
-### Clipboard
-
-Clipboard access belongs to the client desktop. Application OSC 52 writes arrive
-through subscribed `clipboard` events; the daemon has no host clipboard HTTP routes.
-
-WebSocket `paste` normally treats `text` literally. Optional `image_data` carries
-encoded image bytes (PNG, JPEG, GIF or WebP, at most 20 MiB and 8192 pixels per
-dimension). Uploads require root authority, a current `run_id`, and a Codex agent
-with its private image mount. They work with remote daemons and sidecars; the
-daemon stages the bytes and pastes the mounted path. `image_data` takes precedence
-over `text`.
-
-Text paste preserves file URIs as literal text. Normal `paste` and `keys` may also
-include `run_id` to discard input for a replaced run. Failed image uploads are
-recorded in the daemon log.
+With `host: true` and no project, an absolute host path is accepted.
 
 ## Configuration and templates
 
 ### Read configuration
 
-`GET /api/config` separates editable `values` from response-only `metadata`.
-Metadata includes factory defaults, usage catalog entries, temporary-root policy,
-terminal limits, and `auto_commands`.
-
-Reader commands resolved from Auto use the daemon's PATH; editable values retain
-`auto`. Clients keep independent allocation limits.
+`GET /api/config` separates editable `values` from response-only `metadata`:
+factory defaults, usage catalog, temporary-root policy, terminal limits, and
+`auto_commands`. Auto reader commands resolve against the daemon's PATH while
+editable values retain `auto`. Clients enforce their own allocation limits.
 
 ### Configuration patching
 
-The patch route accepts `ConfigPatch`: editable `values` and repeated leaf `paths`.
-Only listed paths are merged and checked; omitted paths preserve existing fields.
-Explicit paths allow false, zero, and empty-list values.
+`ConfigPatch` contains `values` and leaf `paths`. Only listed paths are merged
+and validated; explicit paths allow false, zero, and empty lists. Escape tilde
+as `~0` and dot as `~1` in map keys. Root, unknown, and overlapping paths are rejected.
 
-Map keys escape tilde as `~0` and dot as `~1`. Root, unknown, and overlapping paths
-are rejected. Patches require the root token. Updating `daemon.bind` persists the
-address for the next daemon startup; updating `daemon.token` rotates authentication
-immediately and updates local endpoint credentials. Token reads remain redacted.
+Patching requires root authority. `daemon.bind` applies on daemon restart;
+`daemon.token` rotates authentication and local endpoint credentials immediately.
+Token reads are redacted.
 
-Project responses include both editable `dir` and `expanded_dir`, resolved using
-the daemon's home and environment. Project messages contain the directory,
-temporary flag, and shared `mounts`. For example, a mount has
-`{"from":"/work/shared","to":"/mnt/shared","mode":"ro"}`. Mounts store literal
-paths, not project references; both TOML and API writes use `from` and `to`.
+### Project and session fields
 
-Session messages contain direct agent network, DNS, limits, and startup settings.
-DNS has an explicit mode and server list, such as `{"mode":"resolved"}` or
-`{"mode":"servers","servers":["IPv4", ...]}`.
+Projects contain `dir`, a temporary flag, and shared `mounts`. Responses also
+include `expanded_dir`, resolved against the daemon's home and environment.
+Mounts use literal `from` and `to` paths and a `mode` in both TOML and the API.
+
+Sessions carry network, DNS, limits, and startup settings directly. DNS specifies
+mode `resolved`, or mode `servers` with an IPv4 server list.
 
 ### Agent templates
 
-Template routes require root authority except `GET /api/templates/spawnable`:
+Template routes require root except `GET /api/templates/spawnable`. Scoped
+callers see worker-enabled templates in their project; root may select a project
+or omit it for the enabled catalog without project context.
+`GET /api/templates` returns user definitions; its optional project query validates
+and returns project context without filtering the catalog.
 
-- Scoped callers receive worker-enabled templates in their own project.
-- Root callers may choose a project, or omit it for the enabled catalog without
-  project context.
+| Operation | Request |
+| --- | --- |
+| Create template | `POST /api/templates`: `name`, `description`, and either `source` to capture an agent's choices and dependencies or `duplicate` to copy a template. Alternatively, send a complete definition without `version`. |
+| Create agent | `POST /api/templates/:name/create`: new `name`, registered `project`, optional session `overrides`, and optional `start`. Copies portable settings into fresh private state; the project supplies mounts. |
+| Replace or rename | `PUT /api/templates/:name`: complete definition and expected `version`. For renames, the path may name the old definition. Replacement is atomic. |
+| Delete | `DELETE /api/templates/:name?version=N`: expected version required. |
 
-`GET /api/templates` returns user-level definitions. Its optional project query
-checks and returns a root project context without filtering the catalog.
-
-**Create a template.** `POST /api/templates` accepts one of three forms:
-
-- `name`, `description`, and `source`: capture the configured source agent's
-  explicit choices and dependencies.
-- `name`, `description`, and `duplicate`: make an independent copy of an existing template.
-- A complete definition with `version` omitted: create a definition from the template editor.
-
-Project settings are never template fields. Each definition has a daemon-owned,
-monotonically increasing `version`.
-
-**Create an agent.** `POST /api/templates/:name/create` accepts a new `name`, a
-registered `project`, optional `overrides` session form, and optional `start`
-boolean. It copies the template's portable fields and allocates fresh private
-state. The project supplies mounts.
-
-**Edit or delete a template.** `PUT /api/templates/:name` atomically replaces the
-complete definition and requires its expected `version`. The path may name the
-old definition when renaming. `DELETE /api/templates/:name?version=N` also requires
-the expected version.
-
-Stale edits and deletes return `409 Conflict`; missing targets return `404`.
-Duplicate destinations are rejected. The daemon never retries conflicts
-automatically. See [Configuring agents](../agents/configuring-agents.md) for template defaults.
+Templates exclude project settings and have daemon-owned, increasing versions.
+Stale edits/deletes return `409 Conflict`; missing targets return `404`.
+Duplicate destinations are rejected; conflicts are never retried automatically.
+See [Configuring agents](../agents/configuring-agents.md) for defaults.
 
 ### Preview settings and projects
 
-`POST /api/settings/preview` requires root authority and neither saves nor launches
-anything. It accepts an optional complete `session` draft, an `existing` agent name
-to retain saved snapshots, a `project` draft, and/or a `template` definition.
-To inspect a recipe without a destination project, set `recipe: true` and leave
-`session` absent.
+Root-only `POST /api/settings/preview` accepts a complete `session` draft,
+`existing` agent name to retain saved snapshots, `project` draft, and/or `template`.
+For a recipe without a destination project, use `recipe: true` and omit `session`.
 
-The response provides `title`, `subtitle`, `notes`, and `fields` (`label`, `values`)
-for display. Its `definitions` contain captured command and sandbox definitions.
-Effective values and contribution sources use the launch configuration resolvers.
-The preview describes the next launch, not the running process. The daemon still
-checks requested paths before execution.
+It returns display `title`, `subtitle`, `notes`, and `fields` (`label`, `values`),
+plus captured command and sandbox `definitions`. Launch resolvers supply effective
+values and their sources. Preview neither saves nor launches: it describes the
+next launch, whose paths are still checked before execution.
 
-`POST /api/projects/preview` accepts `name` and `temp: true` and returns the
-normalized prospective temporary directory without creating a project. Project
-creation and updates use the same normalization before saving.
+`POST /api/projects/preview` accepts `name` and `temp: true`. It returns the
+prospective temporary directory using the same normalization as project writes,
+without creating the project.
 
 ### Settings discovery and highlighting
 
-Root-only `GET /api/whereis` resolves executables from the daemon's effective PATH,
-not the game's environment.
+Root-only `GET /api/whereis` resolves executables against the daemon's PATH.
+`GET /api/highlight/themes` accepts `command` as a query parameter;
+`POST /api/highlight` accepts it in the body:
 
-`GET /api/highlight/themes` accepts an optional unsaved `command` query;
-`POST /api/highlight` accepts the same optional command in its body:
-
-| Command | Result |
+| `command` | Result |
 | --- | --- |
-| Omitted | Use the daemon default. |
-| Empty (Off) | Return plain text. |
-| `auto` | Select an installed highlighter, or return the input unchanged if none is available. |
+| Omitted | Daemon default. |
+| Empty (Off) | Plain text. |
+| `auto` | Installed highlighter, or unchanged input if none is available. |
 
-These overrides do not change configuration. Profile-local `engine` and `theme`
-overrides apply only to the matching highlighter engine. Mismatched themed requests
-are rejected.
+Overrides do not save configuration. Profile-local `engine` and `theme` must
+match the highlighter engine; mismatches are rejected.
 
 ## Private state
 
-Reset moves configured agent private state to trash for at least 14 days.
-Root-only inventory reports active, orphan, and trash entries. The API permanently
-deletes only orphan and trash entries.
+Reset moves configured agents' private state to trash for at least 14 days.
+Root-only inventory lists active, orphan, and trash entries; only orphan and
+trash entries can be permanently deleted.
 
-`GET /api/state` measures entry sizes. Use `?sizes=false` for a quick list of names,
-ownership, paths, and modification times without walking storage trees or purging
-expired trash. In this response, `bytes: 0` means unmeasured.
+`GET /api/state` measures sizes. With `?sizes=false`, it returns names, ownership,
+paths, and modification times without walking trees or purging expired trash;
+`bytes: 0` then means unmeasured.
 
-Reset uses the session state route. Deletion and restore use the `/api/state`
-routes in [API routes](api-routes.md). `DELETE /api/state/trash` permanently deletes
-all retained trash entries.
-
-Restore requires no replacement state tree. A deleted agent may be recreated if
-its saved name, project, and mounts remain valid.
+Reset uses the session state route; deletion and restore use `/api/state` routes.
+`DELETE /api/state/trash` permanently deletes all trash. Restore requires no
+replacement state tree. Deleted agents can be recreated if their saved name,
+project, and mounts remain valid.

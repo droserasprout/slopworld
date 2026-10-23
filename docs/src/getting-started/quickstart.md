@@ -33,7 +33,7 @@ If the workspace cannot connect to the daemon, follow
 [Troubleshooting](../resources/troubleshooting.md).
 
 1. Choose preferred pager and highlighter under **Settings > Appearance > Code**.
-2. Choose preferred shell and editor under **Settings > Apps > Defaults**.
+2. Choose preferred shell and editor under **Settings > Commands > Defaults**.
 3. Visit **Appearance** to configure fonts, colors, UI scale, and, most importantly, mouse cursor.
 
 <a id="add-your-project"></a>
