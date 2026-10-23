@@ -88,18 +88,25 @@ pub(crate) async fn validate_new_branch(root: &Path, branch: &str) -> Result<()>
     Ok(())
 }
 
-async fn git_command(path: &Path, args: &[&str], writable: &[&Path]) -> Result<String> {
+/// Both captured and streamed Git reads use the selected checkout, never ambient
+/// repository/index overrides. Callers add write authority only for explicit mutations.
+fn repository_command(path: &Path) -> std::process::Command {
     let mut command = crate::git::inspection_std_command(path);
-    if !writable.is_empty() {
-        write_guard::restrict(&mut command, writable)?;
-    }
-    let mut command = tokio::process::Command::from(command);
     command
-        .args(args)
         .env_remove("GIT_DIR")
         .env_remove("GIT_WORK_TREE")
         .env_remove("GIT_INDEX_FILE")
         .env("GIT_OPTIONAL_LOCKS", "0");
+    command
+}
+
+async fn git_command(path: &Path, args: &[&str], writable: &[&Path]) -> Result<String> {
+    let mut command = repository_command(path);
+    if !writable.is_empty() {
+        write_guard::restrict(&mut command, writable)?;
+    }
+    let mut command = tokio::process::Command::from(command);
+    command.args(args);
     let output = crate::process::run_bounded(
         &mut command,
         Duration::from_secs(30),
@@ -282,10 +289,9 @@ fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
 #[cfg(test)]
 mod tests;
 
-/// Git starts a status helper when it removes a worktree. Run removal in a minimal Bubblewrap namespace.
-/// Mount the named project's worktree directory and shared Git metadata.
-/// Do not mount the original checkout, host home, or host configuration.
-/// These restrictions prevent Git helpers from accessing host secrets.
+/// Remove only the selected checkout in the daemon, then retire its Git registration.
+/// Cleanliness and retained HEAD are checked by checkout before this filesystem stage.
+/// Git never receives write access to the checkout parent, which contains other sessions.
 pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
     let checkout = Path::new(&w.path);
     let parent = checkout
@@ -297,83 +303,37 @@ pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
     if parent.canonicalize()? != parent || checkout.canonicalize()? != checkout {
         bail!("worktree path changed");
     }
-    let repo = Path::new(&w.repository).canonicalize()?;
-    if let Some(reason) = crate::sandbox::refused(&repo.to_string_lossy()) {
-        bail!("Git metadata reaches {reason}");
-    }
-    let mut command = tokio::process::Command::new("bwrap");
-    command.args([
-        "--die-with-parent",
-        "--unshare-all",
-        "--new-session",
-        "--clearenv",
-        "--ro-bind",
-        "/usr",
-        "/usr",
-        "--proc",
-        "/proc",
-        "--dev",
-        "/dev",
-        "--tmpfs",
-        "/tmp",
-    ]);
-    for name in ["/lib", "/lib64", "/bin", "/sbin"] {
-        if Path::new(name).exists() {
-            command.args(["--ro-bind", name, name]);
+    let repo = Path::new(&w.repository);
+    let metadata = validated_metadata_paths(checkout, Some(repo))?;
+    let gitdir = metadata.first().context("missing worktree Git directory")?;
+    anyhow::ensure!(gitdir != repo, "cannot remove the primary checkout");
+    // Preserve Git's refusal to delete locked worktrees or submodule storage. These
+    // checks happen before deleting files, rather than while retiring registration.
+    anyhow::ensure!(
+        !gitdir.join("locked").try_exists()?,
+        "cannot remove a locked worktree"
+    );
+    anyhow::ensure!(
+        !gitdir.join("modules").try_exists()? && !inspection::contains_submodules(checkout).await?,
+        "cannot remove a worktree containing submodules"
+    );
+    // Recursive removal does not follow directory symlinks, including cache links.
+    // No repository-selected code runs during this narrowly owned deletion.
+    // The application's owned operation awaits this worker while retaining both
+    // lifecycle and worktree mutation guards, even after requester cancellation.
+    let checkout = checkout.to_path_buf();
+    let parent = parent.to_path_buf();
+    tokio::task::spawn_blocking(move || -> Result<()> {
+        if parent.canonicalize()? != parent || checkout.canonicalize()? != checkout {
+            bail!("worktree path changed");
         }
-    }
-    command
-        .arg("--bind")
-        .arg(&repo)
-        .arg(&repo)
-        .arg("--bind")
-        .arg(parent)
-        .arg(parent)
-        .args([
-            "--setenv",
-            "PATH",
-            "/usr/bin:/bin",
-            "--setenv",
-            "HOME",
-            "/tmp",
-            "--setenv",
-            "GIT_CONFIG_NOSYSTEM",
-            "1",
-            "--setenv",
-            "GIT_CONFIG_GLOBAL",
-            "/dev/null",
-            "--setenv",
-            "GIT_TERMINAL_PROMPT",
-            "0",
-            "--setenv",
-            "LC_ALL",
-            "C",
-            "--chdir",
-        ])
-        .arg(&repo)
-        .args(["--", "/usr/bin/git"])
-        .args(crate::git::inspection_args())
-        .args(["worktree", "remove"])
-        .arg(checkout);
-    let output = crate::process::run_bounded(
-        &mut command,
-        Duration::from_secs(30),
-        crate::process::CaptureLimits {
-            stdout: 8192,
-            stderr: 8192,
-        },
-    )
-    .await?;
-    if !output.status.success() {
-        bail!(
-            "Git worktree removal: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-    if checkout.exists() {
-        bail!("Git reported removal but checkout still exists");
-    }
-    Ok(())
+        std::fs::remove_dir_all(&checkout).context("removing selected worktree files")
+    })
+    .await
+    .context("joining worktree file deletion")??;
+    // A failure leaves a missing checkout with its record intact; the normal retry
+    // path retires only that registration. No unrelated worktree is pruned.
+    forget_missing(w).await
 }
 
 /// Retry an authorized removal after the checkout no longer exists.

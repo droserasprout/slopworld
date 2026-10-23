@@ -31,6 +31,12 @@ changes and checks Git root/common directory. Conflicting paths need recovery, n
 replacement. Checkout deletion leaves cache data intact. `sandbox/cache.rs` reports
 new links for rollback; `config/transactions/cache.rs` reconciles them.
 
+Removal checks cleanliness and retained branches with helper execution blocked, then
+removes only the selected checkout's files in the daemon. Git registration cleanup
+has writable authority only for the recorded metadata, never the checkout parent or
+sibling checkouts. Locked worktrees and submodules require manual resolution. A
+failure after file deletion retains the record for missing-checkout recovery.
+
 Persist relocation intent before Git effects. Publish project/reference and checkout
 changes together or reverse movement. Failed reversal retains pending intent for
 manual inspection, never a ready record for an unverified path. Final cache

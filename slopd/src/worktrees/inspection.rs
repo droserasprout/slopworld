@@ -23,6 +23,56 @@ pub(crate) async fn resolve_commit(path: &Path, revision: &str) -> Result<String
     .await
 }
 
+/// Stream fixed-width index modes rather than retaining paths from a potentially huge index.
+/// Keep the restricted Git command, deadline, and child cleanup through pipe failures.
+pub(super) async fn contains_submodules(path: &Path) -> Result<bool> {
+    use anyhow::{Context, bail};
+    use std::process::Stdio;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, BufReader};
+
+    let mut command = tokio::process::Command::from(super::repository_command(path));
+    let mut child = command
+        .args(["ls-files", "--format=%(objectmode)"])
+        .kill_on_drop(true)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    let stdout = child.stdout.take().context("capturing Git index modes")?;
+    let stderr = child.stderr.take().context("capturing Git index errors")?;
+    let collected = tokio::time::timeout(Duration::from_secs(30), async {
+        let scan = async {
+            let mut reader = BufReader::new(stdout);
+            let mut mode = [0; 7];
+            let mut found = false;
+            while reader.read(&mut mode[..1]).await? != 0 {
+                reader.read_exact(&mut mode[1..]).await?;
+                anyhow::ensure!(mode[6] == b'\n', "invalid Git index mode");
+                found |= &mode == b"160000\n";
+            }
+            Ok::<_, anyhow::Error>(found)
+        };
+        let (found, (stderr, truncated), status) = tokio::try_join!(
+            scan,
+            async { Ok(crate::process::read_bounded(stderr, 8192).await?) },
+            async { Ok(child.wait().await?) },
+        )?;
+        if !status.success() {
+            bail!("Git ls-files: {}", String::from_utf8_lossy(&stderr).trim());
+        }
+        anyhow::ensure!(!truncated, "Git output exceeded limit");
+        Ok::<_, anyhow::Error>(found)
+    })
+    .await
+    .unwrap_or_else(|_| Err(crate::process::TimedOut.into()));
+    if collected.is_err() {
+        drop(child.kill().await);
+        drop(child.wait().await);
+    }
+    collected
+}
+
 /// Project observed failures without changing the durable record.
 pub(crate) async fn inspect(w: &mut Worktree) -> (String, String) {
     let path = Path::new(&w.path);

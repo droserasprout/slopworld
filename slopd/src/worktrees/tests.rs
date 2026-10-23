@@ -57,17 +57,210 @@ async fn restricted_worktree_creation() {
         repository: root.join(".git").to_string_lossy().into_owned(),
         ..Default::default()
     };
-    if mismatched_proc_namespace() {
-        // The sandbox command is unavailable in this test namespace.
-        // Use ordinary Git to verify worktree contents and registration. Later tests check removal requirements.
-        assert_eq!(git(&root, &["rev-parse", "worker"]).await.unwrap(), base);
-        let registered = git(&root, &["worktree", "list", "--porcelain"])
+    remove_tree(&w).await.unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn removal_preserves_locked_worktrees_and_submodule_storage_before_deleting_files() {
+    let root = repo();
+    let path = root.join("linked");
+    std::fs::create_dir(&path).unwrap();
+    allocate(&root, &path, "linked", "HEAD").await.unwrap();
+    let w = Worktree {
+        name: "linked".into(),
+        path: path.to_string_lossy().into_owned(),
+        repository: root.join(".git").to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+    let gitdir = metadata_paths(&path).unwrap().remove(0);
+    std::fs::write(gitdir.join("locked"), "keep").unwrap();
+    assert!(
+        remove_tree(&w)
             .await
-            .unwrap();
-        assert!(registered.contains(&format!("worktree {}\n", path.display())));
-    } else {
-        remove_tree(&w).await.unwrap();
+            .unwrap_err()
+            .to_string()
+            .contains("locked")
+    );
+    assert_eq!(
+        std::fs::read_to_string(path.join("file")).unwrap(),
+        "base\n"
+    );
+    std::fs::remove_file(gitdir.join("locked")).unwrap();
+
+    std::fs::create_dir(gitdir.join("modules")).unwrap();
+    std::fs::write(gitdir.join("modules/retained"), "keep").unwrap();
+    assert!(
+        remove_tree(&w)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("submodules")
+    );
+    assert_eq!(
+        std::fs::read_to_string(path.join("file")).unwrap(),
+        "base\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(gitdir.join("modules/retained")).unwrap(),
+        "keep"
+    );
+    std::fs::remove_dir_all(gitdir.join("modules")).unwrap();
+
+    let head = git(&path, &["rev-parse", "HEAD"]).await.unwrap();
+    git(
+        &path,
+        &[
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            &format!("160000,{head},submodule"),
+        ],
+    )
+    .await
+    .unwrap();
+    assert!(
+        remove_tree(&w)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("submodules")
+    );
+    assert_eq!(
+        std::fs::read_to_string(path.join("file")).unwrap(),
+        "base\n"
+    );
+    git(&path, &["update-index", "--force-remove", "submodule"])
+        .await
+        .unwrap();
+    remove_tree(&w).await.unwrap();
+    assert!(!path.exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+/// Exceed the general Git capture cap without requiring distinct blob contents.
+fn commit_large_index(root: &Path) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let blob = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "HEAD:file"])
+        .output()
+        .unwrap();
+    assert!(blob.status.success());
+    let blob = String::from_utf8(blob.stdout).unwrap();
+    let mut input = String::new();
+    for i in 0..6000 {
+        input.push_str(&format!(
+            "100644 {}\t{i:05}-{}\n",
+            blob.trim(),
+            "x".repeat(180)
+        ));
     }
+    assert!(input.len() > 1024 * 1024);
+    let mut child = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["update-index", "--index-info"])
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    assert!(child.wait().unwrap().success());
+    assert!(
+        Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args([
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "commit",
+                "-qm",
+                "large index"
+            ])
+            .status()
+            .unwrap()
+            .success()
+    );
+}
+
+#[tokio::test]
+async fn removal_streams_large_clean_indexes_and_still_refuses_late_submodules() {
+    let root = repo();
+    let sibling = root.join("sibling");
+    std::fs::create_dir(&sibling).unwrap();
+    allocate(&root, &sibling, "sibling", "HEAD").await.unwrap();
+    commit_large_index(&root);
+    let path = root.join("large");
+    std::fs::create_dir(&path).unwrap();
+    allocate(&root, &path, "large", "HEAD").await.unwrap();
+    assert!(
+        git(&path, &["status", "--porcelain"])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    // The previous full-index capture failed even though this checkout is clean.
+    assert!(
+        git(&path, &["ls-files", "--stage", "-z"])
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("output exceeded limit")
+    );
+    let w = Worktree {
+        name: "large".into(),
+        path: path.to_string_lossy().into_owned(),
+        repository: root.join(".git").to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+    let head = git(&path, &["rev-parse", "HEAD"]).await.unwrap();
+    git(
+        &path,
+        &[
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            &format!("160000,{head},zz-last-submodule"),
+        ],
+    )
+    .await
+    .unwrap();
+    assert!(
+        remove_tree(&w)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("submodules")
+    );
+    assert!(path.join("file").exists());
+    git(
+        &path,
+        &["update-index", "--force-remove", "zz-last-submodule"],
+    )
+    .await
+    .unwrap();
+    remove_tree(&w).await.unwrap();
+    assert!(!path.exists());
+    assert_eq!(
+        std::fs::read_to_string(sibling.join("file")).unwrap(),
+        "base\n"
+    );
+    assert_eq!(
+        git(&sibling, &["rev-parse", "--abbrev-ref", "HEAD"])
+            .await
+            .unwrap(),
+        "sibling"
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -230,6 +423,113 @@ struct LifecycleFixture {
     root: PathBuf,
     manager: std::sync::Arc<crate::session::SessionRuntime>,
     worktree: Worktree,
+}
+
+#[tokio::test]
+async fn removal_blocks_optional_filters_targeting_siblings_including_attached_sessions() {
+    use crate::application::worktrees::WorktreeRequest;
+    use crate::config::SessionCfg;
+
+    for attached in [false, true] {
+        let LifecycleFixture {
+            root,
+            manager,
+            worktree,
+        } = Box::pin(lifecycle_fixture()).await;
+        let application = crate::application::Application::from_runtime(&manager);
+        let worktrees = Worktrees::new(&application);
+        let sibling = Box::pin(worktrees.create_worktree(WorktreeRequest {
+            project: "repo".into(),
+            name: "sibling".into(),
+            ..Default::default()
+        }))
+        .await
+        .unwrap();
+        if attached {
+            manager
+                .edits()
+                .add(SessionCfg {
+                    name: "attached".into(),
+                    project: "repo".into(),
+                    worktree: sibling.id.clone(),
+                    cmd: Some("true".into()),
+                    ..Default::default()
+                })
+                .await
+                .unwrap();
+        }
+        let checkout = Path::new(&worktree.path);
+        let victim = Path::new(&sibling.path).join("file");
+        let sibling_index = metadata_paths(Path::new(&sibling.path)).unwrap()[0].join("index");
+        let original_index = std::fs::read(&sibling_index).unwrap();
+        std::fs::write(root.join(".git/info/attributes"), "file filter=attack\n").unwrap();
+        // Optional failure preserves the original bytes during restricted inspection.
+        // An ordinary status really executes this same helper and alters the sibling.
+        let helper = format!("printf compromised > '{}'; cat", victim.display());
+        git(&root, &["config", "filter.attack.clean", &helper])
+            .await
+            .unwrap();
+        let invalidate = || {
+            std::fs::File::options()
+                .write(true)
+                .open(checkout.join("file"))
+                .unwrap()
+                .set_times(
+                    std::fs::FileTimes::new().set_modified(std::time::SystemTime::UNIX_EPOCH),
+                )
+                .unwrap();
+        };
+        invalidate();
+        let status = std::process::Command::new("git")
+            .arg("-C")
+            .arg(checkout)
+            .args(["status", "--porcelain"])
+            .env("GIT_OPTIONAL_LOCKS", "0")
+            .output()
+            .unwrap();
+        assert!(status.status.success());
+        assert!(status.stdout.is_empty());
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "compromised");
+        std::fs::write(&victim, "base\n").unwrap();
+        invalidate();
+
+        git(&root, &["config", "filter.attack.required", "true"])
+            .await
+            .unwrap();
+        assert!(
+            worktrees
+                .remove_worktree("repo".into(), worktree.id.clone())
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            std::fs::read_to_string(checkout.join("file")).unwrap(),
+            "base\n"
+        );
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "base\n");
+        git(&root, &["config", "filter.attack.required", "false"])
+            .await
+            .unwrap();
+        worktrees
+            .remove_worktree("repo".into(), worktree.id)
+            .await
+            .unwrap();
+        assert!(!checkout.exists());
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "base\n");
+        assert_eq!(std::fs::read(&sibling_index).unwrap(), original_index);
+        let registered = git(&root, &["worktree", "list", "--porcelain"])
+            .await
+            .unwrap();
+        assert!(!registered.contains(&format!("worktree {}\n", worktree.path)));
+        assert!(registered.contains(&format!("worktree {}\n", sibling.path)));
+        assert_eq!(
+            worktrees.worktree_list("repo").await.unwrap()[1]
+                .attachments
+                .len(),
+            usize::from(attached)
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }
 
 async fn lifecycle_fixture() -> LifecycleFixture {
@@ -406,15 +706,11 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
         .unwrap();
     assert_eq!(rows[1].branch, "switched");
     assert_eq!(rows[1].worktree.id, w.id);
-    if mismatched_proc_namespace() {
-        assert!(Path::new(&w.path).exists());
-    } else {
-        Worktrees::new(&crate::application::Application::from_runtime(&manager))
-            .remove_worktree("repo".into(), w.id)
-            .await
-            .unwrap();
-        assert!(!Path::new(&w.path).exists());
-    }
+    Worktrees::new(&crate::application::Application::from_runtime(&manager))
+        .remove_worktree("repo".into(), w.id)
+        .await
+        .unwrap();
+    assert!(!Path::new(&w.path).exists());
     assert_eq!(
         git(&root, &["rev-parse", &w.initial_branch]).await.unwrap(),
         w.base
@@ -537,15 +833,13 @@ async fn managed_worktree_branches_match_names_and_validate_before_allocation() 
     let (named, generated) = Box::pin(create_managed_worktrees(&manager, &root)).await;
     let renamed = rename_project_worktree(&manager, &root, &named).await;
 
-    if !mismatched_proc_namespace() {
-        Worktrees::new(&crate::application::Application::from_runtime(&manager))
-            .remove_worktree("renamed".into(), renamed.id.clone())
-            .await
-            .unwrap();
-        assert!(!Path::new(&renamed.path).exists());
-        assert!(root.join("file").exists());
-        assert!(Path::new(&generated.path).join("file").exists());
-    }
+    Worktrees::new(&crate::application::Application::from_runtime(&manager))
+        .remove_worktree("renamed".into(), renamed.id.clone())
+        .await
+        .unwrap();
+    assert!(!Path::new(&renamed.path).exists());
+    assert!(root.join("file").exists());
+    assert!(Path::new(&generated.path).join("file").exists());
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -685,14 +979,6 @@ async fn rename_project_worktree(
         "feature-branch"
     );
     renamed
-}
-
-// The development agent can run in a PID namespace with the host /proc mounted over it.
-// Bubblewrap cannot create nested namespaces in that environment.
-// Check this specific failure without treating unrelated removal errors as sandbox unavailability.
-fn mismatched_proc_namespace() -> bool {
-    std::fs::read_link("/proc/self")
-        .is_ok_and(|p| p.to_string_lossy() != std::process::id().to_string())
 }
 
 #[tokio::test]
@@ -912,27 +1198,11 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
         .unwrap_err();
     assert!(cache.exists());
     std::fs::write(cache.join("artifact"), "kept").unwrap();
-    match Worktrees::new(&crate::application::Application::from_runtime(&manager))
+    Worktrees::new(&crate::application::Application::from_runtime(&manager))
         .remove_worktree("repo".into(), w.id)
         .await
-    {
-        Ok(()) => assert!(!Path::new(&w.path).exists()),
-        Err(error) => {
-            // Some CI hosts cannot create Bubblewrap user namespaces.
-            assert!(
-                mismatched_proc_namespace(),
-                "unexpected removal error: {error}"
-            );
-            assert!(
-                error.to_string().contains("Creating new namespace failed"),
-                "unexpected removal error: {error}"
-            );
-            assert_eq!(
-                std::fs::read_link(Path::new(&w.path).join("target")).unwrap(),
-                cache
-            );
-        }
-    }
+        .unwrap();
+    assert!(!Path::new(&w.path).exists());
     assert_eq!(
         std::fs::read_to_string(cache.join("artifact")).unwrap(),
         "kept"
