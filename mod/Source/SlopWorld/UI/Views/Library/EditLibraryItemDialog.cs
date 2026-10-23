@@ -67,7 +67,12 @@ namespace SlopWorld
             );
         }
 
-        public static EditLibraryItemDialog New(LibraryItemKind kind) => Create(kind, null, false);
+        public static EditLibraryItemDialog New(LibraryItemKind kind, string text = "")
+        {
+            var dialog = Create(kind, null, false);
+            dialog._s.Text = text ?? "";
+            return dialog;
+        }
 
         public static EditLibraryItemDialog ForEdit(LibraryItemInfo existing)
         {

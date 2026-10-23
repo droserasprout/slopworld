@@ -10,6 +10,11 @@ Type into the terminal to interact with the running CLI. Select text and press
 Ctrl+C to copy it; without a selection, Ctrl+C interrupts the process. Ctrl+V
 pastes.
 
+To save selected text in the Library, right-click and choose **Save as**, then
+**Prompt**, **Breadcrumb**, **Shell script**, or **File action**. The creation
+dialog opens with the selection in its body. Enter a name and any required settings,
+then save.
+
 On Linux, pasting an image into a Codex agent uploads the local clipboard's PNG
 data to that session, including when the daemon is remote. Images must be at most
 20 MiB and 8192 pixels in each dimension. If the daemon reports a missing image

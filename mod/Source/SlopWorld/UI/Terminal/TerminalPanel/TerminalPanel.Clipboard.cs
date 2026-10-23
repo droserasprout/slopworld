@@ -89,6 +89,14 @@ namespace SlopWorld
                 canCut: false
             );
             SelectionCommands.AddCopy(options, selectionAvailability, CopySelection);
+            if (_state.Selection.HasSelection)
+            {
+                // Retain the displayed selection while the menu is open and live frames advance.
+                var buf = DisplayedBuf();
+                string text = buf == null ? "" : SelectionText(buf);
+                if (!string.IsNullOrEmpty(text))
+                    options.Add(new UiSubmenu("Save as", () => SaveSelectionOptions(text)));
+            }
             if (info != null)
             {
                 string name = _state.Name;
@@ -153,6 +161,25 @@ namespace SlopWorld
 
             WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
+
+        static List<FloatMenuOption> SaveSelectionOptions(string text) =>
+            new List<FloatMenuOption>
+            {
+                SaveSelectionOption("Prompt", LibraryItemKind.Prompt, text),
+                SaveSelectionOption("Breadcrumb", LibraryItemKind.Breadcrumb, text),
+                SaveSelectionOption("Shell script", LibraryItemKind.Shell, text),
+                SaveSelectionOption("File action", LibraryItemKind.FileAction, text),
+            };
+
+        static FloatMenuOption SaveSelectionOption(
+            string label,
+            LibraryItemKind kind,
+            string text
+        ) =>
+            new FloatMenuOption(
+                label,
+                () => WorkspaceWindow.OpenOverPane(EditLibraryItemDialog.New(kind, text))
+            );
 
         static List<string> AllBreadcrumbs() =>
             SessionHub

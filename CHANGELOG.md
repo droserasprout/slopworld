@@ -10,6 +10,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
+### Added
+
+- Terminal: Added "Save as" menu to create prompt, breadcrumb, shell script, or file action from selected text.
+
 ### Fixed
 
 - UI: Fixed syntax highlighting in diffs breaking after long lines.
