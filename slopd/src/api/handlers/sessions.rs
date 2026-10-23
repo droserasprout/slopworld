@@ -159,22 +159,15 @@ pub(crate) async fn stored_states(
     .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
 }
 
-pub(crate) async fn empty_trash() -> ApiResult<wire::Ack> {
-    super::ack_result(crate::application::stored_state::empty_trash().await)
+pub(crate) async fn empty_trash(State(m): State<App>) -> ApiResult<wire::Ack> {
+    super::ack_result(crate::application::stored_state::empty_trash(&m).await)
 }
 
 pub(crate) async fn delete_stored_state(
     State(m): State<App>,
     Path((kind, key)): Path<(String, String)>,
 ) -> ApiResult<wire::Ack> {
-    super::ack_result(
-        crate::application::stored_state::delete_stored_state(
-            m.config_authority.snapshot().await,
-            &kind,
-            &key,
-        )
-        .await,
-    )
+    super::ack_result(crate::application::stored_state::delete_stored_state(&m, &kind, &key).await)
 }
 
 pub(crate) async fn restore_stored_state(

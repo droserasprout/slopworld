@@ -10,13 +10,21 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
+### Security
+
+- Files: Prevent crafted filenames from executing commands through file actions.
+- Git: Prevent worktree removal from modifying sibling checkouts through repository filters.
+- API: Revoke pending WebSocket commands and updates when the root token changes.
+
 ### Added
 
 - Terminal: Added "Save as" menu to create prompt, breadcrumb, shell script, or file action from selected text.
 
 ### Fixed
 
+- Agents: Prevent creating or restoring agents with names already used by shells or other sessions.
 - Git: Added missing actions to file context menus.
+- Storage: Prevent trash cleanup from deleting private state during reset or restore.
 - UI: Fixed syntax highlighting in diffs breaking after long lines.
 
 ## [0.0.10] - 2026-10-23

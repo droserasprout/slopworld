@@ -2,7 +2,10 @@
 
 Within `slopd/src/`, `sandbox/bind/` builds mounts, `sandbox/paths.rs` guards paths,
 and `sandbox/state/` owns private storage. `application/stored_state.rs` coordinates
-inventory/trash deletion; session owns guarded reset/restore and live reconciliation.
+read-only inventory and trash deletion. Destructive administration retains an owned
+session lifecycle guard through blocking deletion, including requester cancellation;
+reset/restore and runtime expiration cleanup use that same boundary. Session owns
+live reconciliation.
 [Presets](daemon-presets.md) select access; [grants](agent-grants.md) separately select
 API authority. User guidance belongs to the [security model](../docs/src/sandbox/security.md).
 
