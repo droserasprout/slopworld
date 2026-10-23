@@ -2,7 +2,9 @@
 
 `FilesBrowser` coordinates navigation and tree input; `FilesStore` owns browse state
 and requests. `FilesViewerController` owns native reader handoffs; `FilesActions`
-shares path menus and mutations with Git and terminals. Shared trees live in
+shares path menus and mutations with Git and terminals. Files and Git reader menu
+actions share type checks and viewer callbacks in `FilesActions`; callers own
+directory/existence checks, and Git also permits editing non-text files. Shared trees live in
 `UI/Browsing/`. User procedures belong to
 [Files and search](../docs/src/workspace/files-and-search.md).
 

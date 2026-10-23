@@ -117,7 +117,7 @@ namespace SlopWorld
                 return acts;
 
             acts |= RowAct.Edit;
-            if (FilesView.IsText(node.Name) || FilesView.IsImage(node.Name))
+            if (FileTypes.CanView(node.Name))
                 acts |= RowAct.View;
             return acts;
         }
@@ -377,6 +377,12 @@ namespace SlopWorld
                 new FloatMenuOption("Copy relative path", () => Copy(node.Rel)),
             };
 
+            if (!node.IsDir)
+                opts.Insert(
+                    0,
+                    new FloatMenuOption("Focus in Files", () => FilesView.FocusPath(project, abs))
+                );
+
             FilesView.AddFileActions(opts, project, abs, node.Name);
             FilesView.AddOpenIn(opts, abs, project);
 
@@ -388,12 +394,7 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Unstage", () => Unstage(repo, node)));
 
             if (!node.IsDir && node.Status.Present)
-                opts.Add(
-                    new FloatMenuOption(
-                        "Edit",
-                        () => FilesView.EditFile(project, abs, "edit-" + node.Name)
-                    )
-                );
+                FilesView.AddReaderActions(opts, project, abs, node.Name, allowNonTextEdit: true);
 
             opts.Add(
                 new FloatMenuOption(

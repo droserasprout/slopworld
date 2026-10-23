@@ -34,7 +34,7 @@ namespace SlopWorld
             GitView.CancelPendingDiff();
             _select(ContentTreeView.SelectionKey(node.Project, node.Relative ?? ""));
             // Marked, and nobody showing it: whatever was in the pane is not about this row.
-            if (!FileTypes.IsText(node.Name) && !FileTypes.IsImage(node.Name))
+            if (!FileTypes.CanView(node.Name))
             {
                 Viewers.ReleasePreview();
                 ReleaseNativePreview();

@@ -46,43 +46,8 @@ namespace SlopWorld
 
             AddFileActions(opts, node.Project, node.Path, node.Name, rel);
 
-            if (!node.IsDir && (FileTypes.IsText(node.Name) || FileTypes.IsImage(node.Name)))
-            {
-                opts.Add(
-                    new FloatMenuOption(
-                        "View",
-                        () =>
-                            _viewer.ViewFile(
-                                node.Project,
-                                node.Path,
-                                "view-" + node.Name,
-                                line,
-                                previewRoot
-                            )
-                    )
-                );
-                if (FileTypes.IsMarkdown(node.Name))
-                    opts.Add(
-                        new FloatMenuOption(
-                            previewRoot == null ? "View in pager" : "View source",
-                            () =>
-                                _viewer.ViewSourceFile(
-                                    node.Project,
-                                    node.Path,
-                                    "view-" + node.Name,
-                                    previewRoot
-                                )
-                        )
-                    );
-                if (FileTypes.IsText(node.Name))
-                    opts.Add(
-                        new FloatMenuOption(
-                            "Edit",
-                            () =>
-                                _viewer.EditFile(node.Project, node.Path, "edit-" + node.Name, line)
-                        )
-                    );
-            }
+            if (!node.IsDir)
+                AddReaderActions(opts, node.Project, node.Path, node.Name, line, previewRoot);
 
             if (node.Depth != 0)
             {
@@ -103,6 +68,44 @@ namespace SlopWorld
             }
 
             return opts;
+        }
+
+        // Callers own directory/existence checks. Git permits editing any present file;
+        // Files limits editing to text. Scoped source views retain their captured root.
+        public void AddReaderActions(
+            List<FloatMenuOption> opts,
+            string project,
+            string path,
+            string name,
+            int line = 0,
+            string previewRoot = null,
+            bool allowNonTextEdit = false
+        )
+        {
+            bool text = FileTypes.IsText(name);
+            if (FileTypes.CanView(name))
+            {
+                opts.Add(
+                    new FloatMenuOption(
+                        "View",
+                        () => _viewer.ViewFile(project, path, "view-" + name, line, previewRoot)
+                    )
+                );
+                if (FileTypes.IsMarkdown(name))
+                    opts.Add(
+                        new FloatMenuOption(
+                            previewRoot == null ? "View in pager" : "View source",
+                            () => _viewer.ViewSourceFile(project, path, "view-" + name, previewRoot)
+                        )
+                    );
+            }
+            if (text || allowNonTextEdit)
+                opts.Add(
+                    new FloatMenuOption(
+                        "Edit",
+                        () => _viewer.EditFile(project, path, "edit-" + name, line)
+                    )
+                );
         }
 
         // Open-file rows carry reader metadata even when there is no daemon session or

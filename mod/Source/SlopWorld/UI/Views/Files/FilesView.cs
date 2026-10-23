@@ -99,6 +99,21 @@ namespace SlopWorld
         internal static List<FloatMenuOption> ReaderMenu(ReaderRow reader) =>
             Browser.Actions.ReaderMenu(reader);
 
+        internal static void AddReaderActions(
+            List<FloatMenuOption> opts,
+            string project,
+            string path,
+            string name,
+            bool allowNonTextEdit = false
+        ) =>
+            Browser.Actions.AddReaderActions(
+                opts,
+                project,
+                path,
+                name,
+                allowNonTextEdit: allowNonTextEdit
+            );
+
         public static void AddOpenIn(
             List<FloatMenuOption> opts,
             string path,

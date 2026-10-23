@@ -16,6 +16,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
+- Git: Added missing actions to file context menus.
 - UI: Fixed syntax highlighting in diffs breaking after long lines.
 
 ## [0.0.10] - 2026-10-23

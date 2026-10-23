@@ -62,6 +62,8 @@ namespace SlopWorld
             ".img",
         };
 
+        public static bool CanView(string name) => IsText(name) || IsImage(name);
+
         public static bool IsText(string name)
         {
             int dot = name.LastIndexOf('.');
