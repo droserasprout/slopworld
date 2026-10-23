@@ -100,13 +100,13 @@ and does not identify which crates are included in a particular binary.
 | httpdate | 1.0.3 | MIT OR Apache-2.0 |
 | hyper | 1.12.0 | MIT |
 | hyper-util | 0.1.21 | MIT |
-| icu_collections | 2.3.0 | Unicode-3.0 |
-| icu_locale_core | 2.3.0 | Unicode-3.0 |
-| icu_normalizer | 2.3.0 | Unicode-3.0 |
-| icu_normalizer_data | 2.3.0 | Unicode-3.0 |
-| icu_properties | 2.3.0 | Unicode-3.0 |
-| icu_properties_data | 2.3.0 | Unicode-3.0 |
-| icu_provider | 2.3.1 | Unicode-3.0 |
+| icu_collections | 2.4.0 | Unicode-3.0 |
+| icu_locale_core | 2.4.0 | Unicode-3.0 |
+| icu_normalizer | 2.4.0 | Unicode-3.0 |
+| icu_normalizer_data | 2.4.0 | Unicode-3.0 |
+| icu_properties | 2.4.0 | Unicode-3.0 |
+| icu_properties_data | 2.4.0 | Unicode-3.0 |
+| icu_provider | 2.4.0 | Unicode-3.0 |
 | idna | 1.1.0 | MIT OR Apache-2.0 |
 | idna_adapter | 1.2.2 | Apache-2.0 OR MIT |
 | image | 0.25.10 | MIT OR Apache-2.0 |
@@ -244,8 +244,8 @@ and does not identify which crates are included in a particular binary.
 | time | 0.3.55 | MIT OR Apache-2.0 |
 | time-core | 0.1.9 | MIT OR Apache-2.0 |
 | time-macros | 0.2.32 | MIT OR Apache-2.0 |
-| tinystr | 0.8.4 | Unicode-3.0 |
-| tokio | 1.54.0 | MIT |
+| tinystr | 0.8.5 | Unicode-3.0 |
+| tokio | 1.54.1 | MIT |
 | tokio-macros | 2.7.2 | MIT |
 | tokio-tungstenite | 0.24.0 | MIT |
 | toml | 0.8.23 | MIT OR Apache-2.0 |
@@ -269,7 +269,7 @@ and does not identify which crates are included in a particular binary.
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | unicode-width | 0.2.2 | MIT OR Apache-2.0 |
 | untrusted | 0.9.0 | ISC |
-| ureq | 3.4.2 | MIT OR Apache-2.0 |
+| ureq | 3.5.0 | MIT OR Apache-2.0 |
 | ureq-proto | 0.6.5 | MIT OR Apache-2.0 |
 | url | 2.5.8 | MIT OR Apache-2.0 |
 | utf-8 | 0.7.6 | MIT OR Apache-2.0 |
@@ -334,7 +334,7 @@ and does not identify which crates are included in a particular binary.
 | winnow | 0.7.15 | MIT |
 | winnow | 1.0.4 | MIT |
 | writeable | 0.6.4 | Unicode-3.0 |
-| yoke | 0.8.3 | Unicode-3.0 |
+| yoke | 0.8.4 | Unicode-3.0 |
 | yoke-derive | 0.8.4 | Unicode-3.0 |
 | zerocopy | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |
 | zerocopy-derive | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |
@@ -342,8 +342,8 @@ and does not identify which crates are included in a particular binary.
 | zerofrom-derive | 0.1.8 | Unicode-3.0 |
 | zeroize | 1.9.1 | Apache-2.0 OR MIT |
 | zerotrie | 0.2.5 | Unicode-3.0 |
-| zerovec | 0.11.8 | Unicode-3.0 |
-| zerovec-derive | 0.11.6 | Unicode-3.0 |
+| zerovec | 0.11.9 | Unicode-3.0 |
+| zerovec-derive | 0.11.7 | Unicode-3.0 |
 | zlib-rs | 0.6.8 | Zlib |
 | zmij | 1.0.23 | MIT |
 | zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib |

@@ -16,7 +16,8 @@ from tools.utils import log
 
 API_URL = 'https://api.github.com/repos/pardeike/HarmonyRimWorld/releases/latest'
 ASSET_NAME = 'HarmonyMod.zip'
-ARCHIVE_ENTRY = 'HarmonyMod/Current/Assemblies/0Harmony.dll'
+# Select the supported game version even when the archive includes newer ones.
+ARCHIVE_ENTRY = 'HarmonyMod/1.6/Assemblies/0Harmony.dll'
 
 
 def fetch_harmony(destination: Path) -> None:

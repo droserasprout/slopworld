@@ -1065,6 +1065,46 @@ fn continuous_http_audio_outlives_the_idle_timeout() {
 }
 
 #[test]
+fn playback_backpressure_and_short_network_gaps_keep_the_http_body_open() {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let address = listener.local_addr().unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let (resume_tx, resume_rx) = std::sync::mpsc::channel();
+    let server = std::thread::spawn(move || {
+        let mut socket =
+            crate::test_http::accept_request(&listener, Duration::from_secs(3)).unwrap();
+        crate::test_http::read_request(&socket, Duration::from_secs(3)).unwrap();
+        socket
+            .set_write_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        socket
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\nContent-Length: 2\r\n\r\na")
+            .unwrap();
+        resume_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+        // Cross multiple cancellation polls while staying inside the fresh idle budget.
+        std::thread::sleep(Duration::from_millis(250));
+        socket.write_all(b"b").unwrap();
+    });
+    let mut connector = StreamConnector::new_with_body_timeout(
+        &format!("http://{address}"),
+        TitleSink::new(None, 0),
+        Duration::from_millis(500),
+    );
+    let mut body = connector.connect().unwrap();
+    let mut byte = [0];
+    body.read_exact(&mut byte).unwrap();
+    assert_eq!(byte, [b'a']);
+    // A full playback buffer can stop consumption longer than the network idle limit.
+    std::thread::sleep(Duration::from_millis(750));
+    resume_tx.send(()).unwrap();
+    let result = body.read_exact(&mut byte);
+    drop(body);
+    server.join().unwrap();
+    result.expect("resuming playback must get a fresh idle budget on the same response");
+    assert_eq!(byte, [b'b']);
+}
+
+#[test]
 fn reconnect_observes_only_its_own_players_generation() {
     let control = super::Control::new();
     let generation = control.play("first");

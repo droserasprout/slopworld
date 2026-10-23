@@ -70,6 +70,15 @@ class FetchHarmonyTests(unittest.TestCase):
         self.fetch(archive_bytes())
         self.assertEqual(self.target.read_bytes(), b'new assembly')
 
+    def test_versioned_archive_installs_only_the_rimworld_16_assembly(self) -> None:
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, 'w') as archive:
+            archive.writestr('HarmonyMod/1.5/Assemblies/0Harmony.dll', b'older game')
+            archive.writestr('HarmonyMod/1.6/Assemblies/0Harmony.dll', b'supported game')
+            archive.writestr('HarmonyMod/1.7/Assemblies/0Harmony.dll', b'newer game')
+        self.fetch(output.getvalue())
+        self.assertEqual(self.target.read_bytes(), b'supported game')
+
     def test_missing_asset_and_invalid_digests_preserve_existing_installation(self) -> None:
         with self.assertRaisesRegex(ValueError, 'has no HarmonyMod.zip asset'):
             self.fetch(archive_bytes(), assets=False)

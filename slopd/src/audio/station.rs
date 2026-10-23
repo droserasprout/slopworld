@@ -361,6 +361,7 @@ impl ureq::unversioned::transport::Transport for CancelTransport {
             let sliced = ureq::unversioned::transport::NextTimeout {
                 after: remaining.min(POLL).into(),
                 reason,
+                ..timeout
             };
 
             match self.inner.await_input(sliced) {

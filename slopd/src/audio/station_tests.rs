@@ -49,6 +49,8 @@ fn interrupted_reads_retry_but_recheck_cancellation_before_retrying() {
         let result = transport.await_input(NextTimeout {
             after: std::time::Duration::from_secs(1).into(),
             reason: ureq::Timeout::RecvBody,
+            per_read: None,
+            per_write: None,
         });
         if cancel_on_interrupt {
             assert!(

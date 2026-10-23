@@ -20,7 +20,8 @@ RimWorld and Unity references come from the game installation by default, or the
 main mod project's pinned RimRef package for `just mod-build rimref`. Neither
 source may be copied into the mod. RimRef is a compile-only dependency and is not
 part of this runtime package graph. `just deps-harmony` downloads the latest RimWorld Harmony release,
-verifies its published SHA-256 digest, and atomically installs only `0Harmony.dll`.
+verifies its published SHA-256 digest, and atomically installs only the RimWorld 1.6
+`0Harmony.dll` from the versioned archive.
 Pass a destination directory as an argument to install elsewhere.
 The corresponding licenses live in `licenses/runtime/` and are staged into
 `mod/About/ThirdPartyNotices/` by `just generate-licenses`. Json.NET remains because the
