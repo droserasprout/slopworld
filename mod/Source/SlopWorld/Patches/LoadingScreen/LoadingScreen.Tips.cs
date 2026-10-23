@@ -44,7 +44,7 @@ namespace SlopWorld
             "You're going offline, internet wizard!",
             "Computer, search for teeth and plaque conspiracy.",
             "Kick-ass I-startup, superjazzed about expansion, seeks visionary dot-com expert.",
-            // ditto, S1E9: MC Pee Pants
+            // ditto, S1E9
             "Don't care if it's nutritious or FDA approved. (",
             "That fuels a giant drill, bores straight into hell. (",
             "Releasing ancient demons from their sleep-forever spell. (",
@@ -71,6 +71,17 @@ namespace SlopWorld
             "Infiltrate, embed, destroy.",
             "Look around! There is no destruction left to be done here.",
             "In this place purpose is a burden. And you, my friend, must unburden yourself.",
+            // Peepoodo & the Fuck Friends
+            "You should eat five portions of fruit and vegetables every day.",
+            "Allow me to demonstrate!",
+            "It started off with a radish, and then things just got out of hand. (",
+            "The main thing is to always find pleasure in what we do.",
+            "Dr. Pussycat!",
+            "And move your finger down so it's five centimeters away from the entrance. (",
+            "Slut-shaming is when people, usually men just like you, judge another person by how they dress. (",
+            "But that's good! Diversity makes life more interesting.",
+            "What? A foreigner in the pretty forest? No fucking way! (",
+            "Oh fuck, voices in my head! (",
             //
             // => Series
             //
@@ -336,17 +347,18 @@ namespace SlopWorld
             "Let there be meowls.",
             "Let there be cabbits.",
             "Lowkirkenuinely!",
-            "Throw me to the wolves and I'll come back pregnant.",
+            "Throw me to the wolves and I'll come back pregnant. (",
             "I'm working on my mistakes. The next one will be huge.",
             "I would love this if I was still capable of feeling anything.",
             "I do not think, therefore I do not am.",
             "You don't have to be pretty to be picture-perfect!",
             "Grandma is very proud of you.",
-            "I was there dude... and it sucked!",
+            "I was there dude... and it sucked! (",
             "I've shitted in bathrooms you wouldn't even piss in. (",
-            "The Jung's personality test classifies you as: Catastrophic Failure (1x38B) (",
+            "The Jung's personality test classifies you as: Catastrophic Failure (1x38B). (",
             "It's now safe to turn off your computer.",
             "System halted.",
+            "I have a confession. I am a Christian, but I'm gay. (",
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip). Rolled

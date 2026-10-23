@@ -10,6 +10,8 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ## [Unreleased]
 
+A highly recommended release.
+
 ### Security
 
 - Sandbox: Prevent crafted terminal input from executing tmux commands outside the sandbox.
@@ -34,6 +36,10 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Packaging: Require bat, less, micro, and tmux 3.7 or newer.
 - Settings: Adjust default audio volumes and backdrop dimming.
 - Storage: Store connection files in `endpoints/`.
+
+### Other
+
+- Performance optimizations.
 
 ## [0.0.9] - 2026-10-21
 

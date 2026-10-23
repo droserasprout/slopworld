@@ -77,6 +77,7 @@ struct RenderCache {
     row_hashes: Vec<u64>,
     activity_row_hashes: Vec<u64>,
     content_hash: u64,
+    activity_hash: u64,
     display_offset: usize,
     alt_screen: Option<bool>,
     valid: bool,
@@ -92,6 +93,7 @@ impl RenderCache {
             row_hashes: Vec::new(),
             activity_row_hashes: Vec::new(),
             content_hash: 0,
+            activity_hash: 0,
             display_offset: 0,
             alt_screen: None,
             valid: false,
@@ -190,6 +192,16 @@ impl SessionEmu {
     }
 
     pub fn feed(&mut self, bytes: &[u8]) {
+        // Only ESC can begin a private tmux title. Preserve the filtered path while a
+        // prior chunk's title/escape is pending; the VT parser keeps its own partial state.
+        if matches!(self.tmux_title, TmuxTitleState::Ground) && !bytes.contains(&0x1b) {
+            self.feed_plain(bytes);
+        } else {
+            self.feed_tmux_titles(bytes);
+        }
+    }
+
+    fn feed_tmux_titles(&mut self, bytes: &[u8]) {
         let mut plain = Vec::with_capacity(bytes.len());
         for &byte in bytes {
             let state = std::mem::replace(&mut self.tmux_title, TmuxTitleState::Ground);
@@ -571,7 +583,7 @@ impl SessionEmu {
 
         Frame {
             content_hash: self.render_cache.content_hash,
-            activity_hash: hash_rows(&self.render_cache.activity_row_hashes),
+            activity_hash: self.render_cache.activity_hash,
             lines: self.render_cache.lines.clone(),
             history: self.history_extent(),
             cx,
@@ -668,7 +680,12 @@ impl SessionEmu {
                     *cached_line = line;
                 }
             }
-            self.render_cache.content_hash = hash_rows(&self.render_cache.row_hashes);
+            // Cursor damage can inspect cells without changing a serialized row.
+            // Both aggregates still describe the retained rows in that case.
+            if serialized_rows > 0 {
+                self.render_cache.content_hash = hash_rows(&self.render_cache.row_hashes);
+                self.render_cache.activity_hash = hash_rows(&self.render_cache.activity_row_hashes);
+            }
         }
         (serialized_rows, cells_inspected)
     }
@@ -682,10 +699,12 @@ impl SessionEmu {
             row_hashes.push(hash_row(&line));
             lines.push(line);
         }
+        let activity_row_hashes: Vec<_> = grid.iter().map(|row| activity_row_hash(row)).collect();
         self.render_cache = RenderCache {
             cols: self.cols,
             rows: self.rows,
-            activity_row_hashes: grid.iter().map(|row| activity_row_hash(row)).collect(),
+            activity_hash: hash_rows(&activity_row_hashes),
+            activity_row_hashes,
             cells: grid,
             lines,
             content_hash: hash_rows(&row_hashes),

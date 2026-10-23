@@ -1,6 +1,91 @@
 use super::*;
 
 #[test]
+fn direct_feed_matches_title_filter_across_chunk_boundaries() {
+    let mut inputs = vec![
+        b"plain\ttext\r\nnext\x08!\x07".to_vec(),
+        b"\x1bkprivate title\x1b\\visible".to_vec(),
+        b"\x1bkcancelled\x18visible".to_vec(),
+        b"\x1bkcancelled\x1b\x1avisible".to_vec(),
+        b"\x1bkembedded\x1b\x1bescape\x1b\\visible".to_vec(),
+        "\x1b]2;OSC title\x07👩‍💻e\u{301}\x1b[31mstyled\x1b[0m"
+            .as_bytes()
+            .to_vec(),
+        b"\x1b]52;c;aGVsbG8=\x07\x1b[?2004h\x1b[?1002h".to_vec(),
+    ];
+    inputs.push(format!("\x1bk{}visible", "x".repeat(TMUX_TITLE_MAX + 1)).into_bytes());
+    for input in inputs {
+        for chunk_size in 1..=input.len() {
+            let mut direct = SessionEmu::new(20, 3);
+            let mut filtered = SessionEmu::new(20, 3);
+            for chunk in input.chunks(chunk_size) {
+                direct.feed(chunk);
+                filtered.feed_tmux_titles(chunk);
+                assert_same_frame(&direct.render(), &filtered.render());
+                assert_eq!(direct.take_clip(), filtered.take_clip());
+                assert_eq!(
+                    direct.bracketed_paste_enabled(),
+                    filtered.bracketed_paste_enabled()
+                );
+            }
+            direct.feed(b"");
+            filtered.feed_tmux_titles(b"");
+            assert_same_frame(&direct.render(), &filtered.render());
+        }
+    }
+}
+
+fn assert_same_frame(actual: &Frame, expected: &Frame) {
+    assert_eq!(actual.lines, expected.lines);
+    assert_eq!(actual.content_hash, expected.content_hash);
+    assert_eq!(actual.activity_hash, expected.activity_hash);
+    assert_eq!(actual.history, expected.history);
+    assert_eq!((actual.cx, actual.cy), (expected.cx, expected.cy));
+    assert_eq!(actual.cursor_shape, expected.cursor_shape);
+    assert_eq!(actual.cursor_blink, expected.cursor_blink);
+    assert_eq!(actual.app_mouse, expected.app_mouse);
+    assert_eq!(actual.app_drag, expected.app_drag);
+    assert_eq!(actual.alt_screen, expected.alt_screen);
+    assert_eq!(actual.title, expected.title);
+    assert_eq!(actual.bell, expected.bell);
+}
+
+#[test]
+fn cached_aggregate_hashes_match_current_rows_after_damage_and_invalidation() {
+    fn check(emu: &mut SessionEmu) {
+        let frame = emu.render();
+        let grid = emu.capture_visible_grid();
+        let activity: Vec<_> = grid.iter().map(|row| activity_row_hash(row)).collect();
+        assert_eq!(frame.activity_hash, hash_rows(&activity));
+        assert_eq!(frame.content_hash, benchmark_content_hash(&frame.lines));
+    }
+
+    let mut emu = SessionEmu::new(20, 3);
+    for text in [
+        "plain",
+        "",
+        "\x1b[1;2H",
+        "\x1b[31mstyled\x1b[0m",
+        "\r\none\r\ntwo\r\nthree",
+        "\x1b[?1049halternate",
+        "\x1b[?1049l",
+        "\x1b[H\x1b[48;2;30;30;30m ",
+        "\x1b[H\x1b[38;2;20;20;20m⠁",
+        "\x1b[2J",
+    ] {
+        emu.feed(text.as_bytes());
+        check(&mut emu);
+        check(&mut emu);
+    }
+    emu.scroll_snapshot(1);
+    check(&mut emu);
+    for (cols, rows) in [(10, 2), (30, 5)] {
+        emu.resize(cols, rows);
+        check(&mut emu);
+    }
+}
+
+#[test]
 fn truncated_clusters_preserve_following_standalone_emoji() {
     for marks in [handler::MAX_CELL_MARKS - 1, handler::MAX_CELL_MARKS] {
         for chunk_size in [1, 4096] {

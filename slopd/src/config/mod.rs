@@ -29,6 +29,24 @@ pub(crate) use validation::{
     validate_mount_paths, validate_project_names, validate_state_id,
 };
 
+// Keep bounded short scans allocation-free; larger snapshots amortize an index.
+const MAX_LINEAR_PROJECTS: usize = 16;
+
+/// Name resolution borrows one configuration snapshot, so its index cannot outlive the records.
+pub(crate) struct ProjectLookup<'a> {
+    config: &'a Config,
+    index: Option<std::collections::HashMap<&'a str, &'a ProjectCfg>>,
+}
+
+impl<'a> ProjectLookup<'a> {
+    pub(crate) fn get(&self, name: &str) -> Option<&'a ProjectCfg> {
+        match &self.index {
+            Some(index) => index.get(name).copied(),
+            None => self.config.project(name),
+        }
+    }
+}
+
 impl Config {
     /// Build once for whole-config comparisons instead of scanning per session.
     /// Preserve `session`'s first-match behavior for duplicate names.
@@ -46,6 +64,23 @@ impl Config {
 
     pub fn project(&self, name: &str) -> Option<&ProjectCfg> {
         self.projects.iter().find(|p| p.name == name)
+    }
+
+    /// Resolve many sessions against one snapshot without scanning projects per session.
+    /// Preserve `project`'s first-match behavior for duplicate names.
+    pub(crate) fn project_index(&self) -> std::collections::HashMap<&str, &ProjectCfg> {
+        let mut index = std::collections::HashMap::with_capacity(self.projects.len());
+        for project in &self.projects {
+            index.entry(project.name.as_str()).or_insert(project);
+        }
+        index
+    }
+
+    pub(crate) fn project_lookup(&self) -> ProjectLookup<'_> {
+        ProjectLookup {
+            config: self,
+            index: (self.projects.len() > MAX_LINEAR_PROJECTS).then(|| self.project_index()),
+        }
     }
 
     /// Return the session's project, if it exists. The caller handles a missing project.

@@ -488,6 +488,73 @@ async fn retick_moves_a_quiet_working_session_to_idle() {
 }
 
 #[tokio::test]
+async fn views_resolve_current_projects_before_temporary_fallbacks() {
+    let manager = crate::session::test_manager(Config::default());
+    manager.config_authority.write().await.projects = vec![ProjectCfg {
+        name: "repo".into(),
+        dir: "/configured".into(),
+        ..Default::default()
+    }];
+    for (name, dir) in [("repo", "/shadowed"), ("scratch", "/temporary")] {
+        manager.temp.write().await.insert(
+            name.into(),
+            ProjectCfg {
+                name: name.into(),
+                dir: dir.into(),
+                ..Default::default()
+            },
+        );
+    }
+    for name in ["repo", "scratch", "missing"] {
+        let mut row = Live::new(
+            SessionCfg {
+                name: name.into(),
+                project: name.into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        if name == "scratch" {
+            row.role = SessionRole::HostAction;
+        }
+        manager.live.write().await.insert(name.into(), row);
+    }
+    let views = manager.views().await;
+    let dirs: Vec<_> = views
+        .iter()
+        .map(|view| (view.name.as_str(), view.dir.as_str()))
+        .collect();
+    assert_eq!(
+        dirs,
+        [
+            ("missing", ""),
+            ("repo", "/configured"),
+            ("scratch", "/temporary")
+        ]
+    );
+    assert!(views[2].project.is_empty());
+
+    manager.config_authority.write().await.projects[0].dir = "/updated".into();
+    let views = manager.views().await;
+    assert_eq!(views[1].dir, "/updated");
+
+    manager
+        .config_authority
+        .write()
+        .await
+        .projects
+        .extend((0..16).map(|index| ProjectCfg {
+            name: format!("other-{index}"),
+            ..Default::default()
+        }));
+    let views = manager.views().await;
+    assert_eq!(views[0].dir, "");
+    assert_eq!(views[1].dir, "/updated");
+    assert_eq!(views[2].dir, "/temporary");
+    assert!(views[2].project.is_empty());
+}
+
+#[tokio::test]
 async fn views_keep_host_paths_and_sort_by_session_name() {
     let manager = crate::session::test_manager(Config::default());
     *manager.config_authority.write().await = Config {

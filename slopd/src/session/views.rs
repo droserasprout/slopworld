@@ -7,12 +7,15 @@ impl SessionRuntime {
     pub async fn views(&self) -> Vec<SessionView> {
         let cfg = self.config().await;
         let worktrees = self.worktree_view_index().await;
+        let projects = cfg.project_lookup();
         let live = self.live.read().await;
         let temp = self.temp.read().await;
         let mut out: Vec<SessionView> = live
             .values()
             .map(|l| {
-                let p = cfg.project_of(&l.cfg).or_else(|| temp.get(&l.cfg.project));
+                let p = projects
+                    .get(l.cfg.project.as_str())
+                    .or_else(|| temp.get(&l.cfg.project));
                 // Temporary projects supply host-shell directories without creating sidebar groups.
                 let display_project = if l.role.is_host() && temp.contains_key(&l.cfg.project) {
                     String::new()

@@ -7,6 +7,64 @@ use crate::paths::temp_dir;
 use crate::storage::workspace::{Record, Store};
 
 #[test]
+fn project_index_preserves_first_match_and_missing_names() {
+    let config = Config {
+        projects: [
+            ("repo", "first"),
+            ("other", "second"),
+            ("repo", "duplicate"),
+            ("", "unnamed"),
+        ]
+        .into_iter()
+        .map(|(name, id)| ProjectCfg {
+            name: name.into(),
+            id: id.into(),
+            ..Default::default()
+        })
+        .collect(),
+        ..Default::default()
+    };
+    let index = config.project_index();
+    for name in ["repo", "other", "missing", ""] {
+        assert_eq!(
+            index.get(name).map(|project| project.id.as_str()),
+            config.project(name).map(|project| project.id.as_str()),
+            "lookup of {name:?}"
+        );
+    }
+    assert_eq!(index["repo"].id, "first");
+    assert!(Config::default().project_index().is_empty());
+}
+
+#[test]
+fn project_lookup_matches_linear_resolution_for_small_and_indexed_snapshots() {
+    for count in [0, 1, 8, 16, 17, 64] {
+        let config = Config {
+            projects: (0..count)
+                .map(|index| ProjectCfg {
+                    name: format!("project-{}", index / 2),
+                    id: format!("id-{index}"),
+                    ..Default::default()
+                })
+                .collect(),
+            ..Default::default()
+        };
+        let lookup = config.project_lookup();
+        for name in config
+            .projects
+            .iter()
+            .map(|project| project.name.as_str())
+            .chain(["missing", ""])
+        {
+            assert_eq!(
+                lookup.get(name).map(|project| project.id.as_str()),
+                config.project(name).map(|project| project.id.as_str())
+            );
+        }
+    }
+}
+
+#[test]
 fn dns_defaults_to_resolved_and_round_trips_on_the_agent() {
     let session: SessionCfg = toml::from_str(
         "name = 'agent'\n[dns]\nmode = 'servers'\nservers = ['10.0.0.53', '10.0.0.54']",

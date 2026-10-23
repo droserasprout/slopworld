@@ -15,6 +15,7 @@ use crate::emu::{Frame, SessionEmu, benchmark_content_hash as hash_content};
 use crate::perf;
 use crate::session::ScreenView;
 
+mod lookups;
 mod storage;
 
 const COLS: u16 = 120;
@@ -29,9 +30,11 @@ pub(crate) fn run() -> Result<()> {
     println!("Timings are microseconds per operation in warmed batches. Warmup: {WARMUP}");
 
     benchmark_render_cases();
+    benchmark_plain_feed();
     benchmark_history_padding();
     benchmark_content_hash();
     benchmark_websocket_serialization();
+    lookups::run();
     storage::run()?;
 
     if let Some(line) = perf::report() {
@@ -79,6 +82,23 @@ fn benchmark_render_cases() {
         |emu, sample| emu.feed(&full_redraw(sample % 2 == 0)),
         |emu| emu.render(),
     );
+}
+
+fn benchmark_plain_feed() {
+    for size in [32, 4096] {
+        let bytes = b"abcdefghijklmnopqrstuvwxyz01234\r".repeat(size / 32);
+        let mut emu = SessionEmu::new(COLS, ROWS);
+        measure(&format!("feed plain {size} bytes"), |sample| {
+            emu.feed(black_box(&bytes));
+            sample
+        });
+        assert!(
+            emu.render()
+                .lines
+                .first()
+                .is_some_and(|line| line.contains("abcdefghijklmnopqrstuvwxyz01234"))
+        );
+    }
 }
 
 fn benchmark_history_padding() {
