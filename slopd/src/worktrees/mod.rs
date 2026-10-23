@@ -201,18 +201,61 @@ pub(crate) async fn relocate_tree(w: &Worktree, destination: &Path) -> Result<()
     Ok(())
 }
 
-/// Mount only Git metadata for linked worktrees. Mounting the main checkout would expose unrelated source files.
-pub(crate) fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
-    let dot = path.join(".git");
-    if !dot.is_file() {
+/// Authorize metadata against the registered repository immediately before mounting.
+/// Primary checkouts have no external metadata authority: their `.git` must be a
+/// real directory (or absent for non-Git projects). Never learn authority from a gitfile.
+pub(crate) fn validated_metadata_paths(
+    path: &Path,
+    repository: Option<&Path>,
+) -> Result<Vec<PathBuf>> {
+    let Some(repository) = repository else {
+        match std::fs::symlink_metadata(path.join(".git")) {
+            Ok(metadata) if metadata.file_type().is_dir() => {}
+            Ok(_) => bail!(
+                "primary checkout .git must be a directory; register linked checkouts as worktrees"
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
         return Ok(Vec::new());
+    };
+    // Records contain canonical paths. Do not let a replacement symlink redirect
+    // the authority itself to a different repository.
+    if repository.canonicalize()? != repository {
+        bail!("worktree repository identity changed");
     }
-    let text = std::fs::read_to_string(&dot)?;
-    let target = text
-        .trim()
-        .strip_prefix("gitdir: ")
-        .context("invalid .git file")?;
-    let gitdir = path.join(target).canonicalize()?;
+    let paths = metadata_paths(path)?;
+    if paths.is_empty()
+        || paths
+            .iter()
+            .any(|metadata| !metadata.starts_with(repository))
+    {
+        bail!("worktree Git metadata no longer belongs to its registered repository");
+    }
+    // Containment alone is insufficient: commondir must name the recorded root.
+    if paths.last().map(PathBuf::as_path) != Some(repository) {
+        bail!("worktree repository identity changed");
+    }
+    Ok(paths)
+}
+
+/// Parse checkout metadata without granting authority. Only validated_metadata_paths
+/// may supply sandbox mounts.
+fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
+    let dot = path.join(".git");
+    let gitdir = if dot.is_dir() {
+        dot.canonicalize()?
+    } else {
+        if !dot.is_file() {
+            return Ok(Vec::new());
+        }
+        let text = std::fs::read_to_string(&dot)?;
+        let target = text
+            .trim()
+            .strip_prefix("gitdir: ")
+            .context("invalid .git file")?;
+        path.join(target).canonicalize()?
+    };
     if !gitdir.is_dir() || !gitdir.join("HEAD").is_file() {
         bail!("linked Git directory has no HEAD");
     }

@@ -5,7 +5,10 @@ use anyhow::{Result, anyhow, bail};
 use std::path::Path;
 pub(crate) async fn resolve(store: &Store, p: &ProjectCfg, id: &str) -> Result<ProjectCfg> {
     if id.is_empty() || id == "main" {
-        return Ok(p.clone());
+        super::validated_metadata_paths(Path::new(&expand(&p.dir)), None)?;
+        let mut primary = p.clone();
+        primary.worktree_repository = None;
+        return Ok(primary);
     }
     let w = store
         .worktrees
@@ -35,11 +38,7 @@ pub(crate) async fn resolve(store: &Store, p: &ProjectCfg, id: &str) -> Result<P
     if Path::new(&common).canonicalize()? != repository {
         bail!("worktree repository identity changed");
     }
-    for metadata in crate::worktrees::metadata_paths(checkout)? {
-        if !metadata.starts_with(&repository) {
-            bail!("worktree Git metadata no longer belongs to its registered repository");
-        }
-    }
+    super::validated_metadata_paths(checkout, Some(Path::new(&w.repository)))?;
     let original = std::path::PathBuf::from(expand(&p.dir)).canonicalize()?;
     for mount in &p.mounts {
         if mount.mode == crate::config::MountMode::Cache {
@@ -67,6 +66,7 @@ pub(crate) async fn resolve(store: &Store, p: &ProjectCfg, id: &str) -> Result<P
     }
     let mut resolved = p.clone();
     resolved.dir = w.path.clone();
+    resolved.worktree_repository = Some(w.repository.clone().into());
     resolved.temp = false;
     Ok(resolved)
 }

@@ -122,7 +122,10 @@ fn resolve_mounts(
         guest_dir: dir.to_owned(),
         mode: MountMode::Rw,
     }];
-    for metadata in crate::worktrees::metadata_paths(Path::new(&dir))? {
+    for metadata in crate::worktrees::validated_metadata_paths(
+        Path::new(&dir),
+        p.worktree_repository.as_deref(),
+    )? {
         let metadata = metadata.to_string_lossy().into_owned();
         for private in presets.iter().flat_map(|preset| &preset.private) {
             let private = expand(private);

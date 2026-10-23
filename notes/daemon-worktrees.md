@@ -19,6 +19,11 @@ Project/worktree IDs are durable; branch and HEAD are state, not identity. Empty
 commit or delete checkouts. Project removal cannot discard worktree records. External
 registration captures that checkout's HEAD; removal deletes only its record.
 
+Primary checkouts require a real `.git` directory or no Git metadata. Linked
+checkouts must be registered as worktrees. Resolution carries the recorded repository
+authority into launch; sandbox construction rechecks both gitdir and commondir before
+granting writable metadata mounts. Checkout files never establish that authority.
+
 Host-mode relative caches link to stable project storage; sidecars reject these links.
 Launch verifies the link and reachable absolute source. Explicit sources do not move
 with checkouts. Interrupted allocation accepts only verified cache links as untracked

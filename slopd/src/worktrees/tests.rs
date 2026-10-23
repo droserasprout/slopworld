@@ -84,6 +84,148 @@ async fn metadata_paths_reports_unreadable_commondir() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
+fn metadata_test_session() -> crate::config::SessionCfg {
+    crate::config::SessionCfg {
+        name: "metadata-test".into(),
+        network: crate::config::NetworkMode::Host,
+        cmd: Some("/usr/bin/true".into()),
+        ..Default::default()
+    }
+}
+
+#[tokio::test]
+async fn primary_git_metadata_rejects_gitfiles_including_replaced_normal_checkout() {
+    use crate::config::{Config, ProjectCfg};
+    let root = repo();
+    let foreign = repo();
+    let linked = root.join("linked");
+    let victim = foreign.join("victim");
+    std::fs::create_dir(&linked).unwrap();
+    std::fs::create_dir(&victim).unwrap();
+    allocate(&root, &linked, "linked", "HEAD").await.unwrap();
+    allocate(&foreign, &victim, "victim", "HEAD").await.unwrap();
+    let cfg = Config::default();
+    let session = metadata_test_session();
+    let primary = ProjectCfg {
+        name: "repo".into(),
+        dir: root.to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+    // A normal primary still builds a launch, before its writable .git is replaced.
+    let resolved = resolution::resolve(&Store::default(), &primary, "main")
+        .await
+        .unwrap();
+    crate::sandbox::build_argv(&cfg, &session, &resolved).unwrap();
+    let pointer = std::fs::read(victim.join(".git")).unwrap();
+    std::fs::write(linked.join(".git"), &pointer).unwrap();
+    std::fs::rename(root.join(".git"), root.join("original-metadata")).unwrap();
+    std::fs::write(root.join(".git"), &pointer).unwrap();
+    for path in [&root, &linked] {
+        let project = ProjectCfg {
+            dir: path.to_string_lossy().into_owned(),
+            ..primary.clone()
+        };
+        for id in ["", "main"] {
+            resolution::resolve(&Store::default(), &project, id)
+                .await
+                .unwrap_err();
+        }
+        // Includes callers which bypass resolution entirely.
+        let error = crate::sandbox::build_argv(&cfg, &session, &project).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("primary checkout .git must be a directory")
+        );
+    }
+    // Earlier successful resolution cannot authorize a newly installed pointer.
+    crate::sandbox::build_argv(&cfg, &session, &resolved).unwrap_err();
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(foreign).unwrap();
+}
+
+#[tokio::test]
+async fn registered_git_metadata_revalidates_gitdir_and_common_at_mount_construction() {
+    use crate::config::{Config, ProjectCfg};
+    let root = repo();
+    let foreign = repo();
+    let linked = root.join("linked");
+    let victim = foreign.join("victim");
+    std::fs::create_dir(&linked).unwrap();
+    std::fs::create_dir(&victim).unwrap();
+    allocate(&root, &linked, "linked", "HEAD").await.unwrap();
+    allocate(&foreign, &victim, "victim", "HEAD").await.unwrap();
+    let repository = root.join(".git").canonicalize().unwrap();
+    let gitdir = metadata_paths(&linked).unwrap().remove(0);
+    let foreign_gitdir = metadata_paths(&victim).unwrap().remove(0);
+    let primary = ProjectCfg {
+        id: "project".into(),
+        name: "repo".into(),
+        dir: root.to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+    let store = Store {
+        worktrees: vec![Worktree {
+            id: "linked".into(),
+            project_id: primary.id.clone(),
+            path: linked.to_string_lossy().into_owned(),
+            repository: repository.to_string_lossy().into_owned(),
+            phase: WorktreePhase::Ready,
+            ..Default::default()
+        }],
+    };
+    let effective = resolution::resolve(&store, &primary, "linked")
+        .await
+        .unwrap();
+    let cfg = Config::default();
+    let session = metadata_test_session();
+    let argv = crate::sandbox::build_argv(&cfg, &session, &effective).unwrap();
+    for expected in [&gitdir, &repository] {
+        assert!(argv.windows(3).any(|args| args[0] == "--bind"
+            && Path::new(&args[1]) == expected
+            && args[1] == args[2]));
+    }
+    // A project's registered checkout may also be the repository's normal checkout.
+    let mut original_store = store.clone();
+    original_store.worktrees[0].path = primary.dir.clone();
+    let linked_primary = ProjectCfg {
+        dir: linked.to_string_lossy().into_owned(),
+        ..primary.clone()
+    };
+    let original = resolution::resolve(&original_store, &linked_primary, "linked")
+        .await
+        .unwrap();
+    crate::sandbox::build_argv(&cfg, &session, &original).unwrap();
+    let pointer = std::fs::read(linked.join(".git")).unwrap();
+    let common = std::fs::read(gitdir.join("commondir")).unwrap();
+    // Foreign gitdir, but the expected common repository: check both independently.
+    std::fs::write(
+        foreign_gitdir.join("commondir"),
+        repository.to_str().unwrap(),
+    )
+    .unwrap();
+    std::fs::copy(victim.join(".git"), linked.join(".git")).unwrap();
+    crate::sandbox::build_argv(&cfg, &session, &effective).unwrap_err();
+    resolution::resolve(&store, &primary, "linked")
+        .await
+        .unwrap_err();
+    // Expected gitdir, but foreign common repository.
+    std::fs::write(linked.join(".git"), pointer).unwrap();
+    std::fs::write(
+        gitdir.join("commondir"),
+        foreign.join(".git").to_str().unwrap(),
+    )
+    .unwrap();
+    crate::sandbox::build_argv(&cfg, &session, &effective).unwrap_err();
+    resolution::resolve(&store, &primary, "linked")
+        .await
+        .unwrap_err();
+    std::fs::write(gitdir.join("commondir"), common).unwrap();
+    crate::sandbox::build_argv(&cfg, &session, &effective).unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(foreign).unwrap();
+}
+
 struct LifecycleFixture {
     root: PathBuf,
     manager: std::sync::Arc<crate::session::SessionRuntime>,

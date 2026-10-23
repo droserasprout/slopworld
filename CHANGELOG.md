@@ -13,6 +13,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Security
 
 - Sandbox: Prevent crafted terminal input from executing tmux commands outside the sandbox.
+- Sandbox: Prevent crafted `.git` files from granting write access to another repository's metadata.
 
 ### Added
 

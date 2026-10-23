@@ -46,6 +46,9 @@ impl std::ops::DerefMut for Config {
 /// A mount with that directory as both source and destination changes its mode.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProjectCfg {
+    /// Launch-only authority copied from a registered Worktree, never from checkout files.
+    #[serde(skip)]
+    pub(crate) worktree_repository: Option<std::path::PathBuf>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub id: String,
     /// Empty uses `<dir>/.worktrees`; explicit roots contain project-name subdirectories.
