@@ -1,4 +1,4 @@
-//! Exercise client dispatch, saved selection shared with slopctl, and offline profile setup.
+//! Exercise client dispatch, local defaults shared with slopctl, and offline profile setup.
 #![cfg(test)]
 use std::fs;
 use std::process::Command;
@@ -48,7 +48,11 @@ fn peer_dispatch_and_path_queries_do_not_create_state() {
             .launcher(&["connect", "--help"])
             .contains("connect NAME")
     );
-    assert!(client.launcher(&["peers"]).contains("No saved peers"));
+    assert!(
+        client
+            .launcher(&["endpoints"])
+            .contains("No saved endpoints")
+    );
     assert_eq!(
         client
             .launcher(&["--endpoint", "tank", "paths", "profile"])
@@ -58,7 +62,7 @@ fn peer_dispatch_and_path_queries_do_not_create_state() {
     assert!(!client.0.exists());
     for args in [
         vec!["connect"],
-        vec!["peers", "extra"],
+        vec!["endpoints", "extra"],
         vec!["--endpoint", "tank", "connect", "other"],
     ] {
         assert!(
@@ -75,7 +79,7 @@ fn peer_dispatch_and_path_queries_do_not_create_state() {
 }
 
 #[test]
-fn clients_share_selection_while_named_and_sidecar_overrides_remain_independent() {
+fn clients_default_to_local_while_named_and_sidecar_overrides_remain_independent() {
     let client = Client::new();
     let config = client.0.join("config");
     fs::create_dir_all(config.join("endpoints")).unwrap();
@@ -85,13 +89,13 @@ fn clients_share_selection_while_named_and_sidecar_overrides_remain_independent(
     )
     .unwrap();
     fs::write(config.join("client.toml"), "endpoint = 'tank'\n").unwrap();
-    let listing = client.launcher(&["peers"]);
-    assert_eq!(listing, "* tank\thttp://tank:7717\n");
+    let listing = client.launcher(&["endpoints"]);
+    assert_eq!(listing, "tank\thttp://tank:7717\n");
     assert!(!listing.contains("secret"));
     let endpoint = client.launcher(&["paths", "endpoint"]);
     assert_eq!(
         endpoint.trim(),
-        config.join("endpoints/tank.toml").to_str().unwrap()
+        config.join("endpoints/local.toml").to_str().unwrap()
     );
     assert_eq!(
         client.output(env!("CARGO_BIN_EXE_slopctl"), &["paths", "endpoint"]),
@@ -112,7 +116,7 @@ fn clients_share_selection_while_named_and_sidecar_overrides_remain_independent(
             .unwrap()
     );
     client.launcher(&["--init-profile"]);
-    let profile = client.0.join("data/profiles/tank");
+    let profile = client.0.join("data/profiles/local");
     assert!(profile.join("slopworld.profile").exists());
     fs::write(profile.join("Config/ModsConfig.xml"), "custom mod list").unwrap();
     client.launcher(&["--init-profile"]);
@@ -135,7 +139,7 @@ mod wire {
 }
 
 #[test]
-fn connect_prompts_then_selects_the_verified_peer_without_exposing_its_key() {
+fn connect_registers_without_selecting_or_exposing_its_key() {
     use prost::Message;
     use std::io::{Read, Write};
     use std::net::TcpListener;
@@ -194,14 +198,24 @@ fn connect_prompts_then_selects_the_verified_peer_without_exposing_its_key() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(String::from_utf8_lossy(&output.stdout).contains("Selected peer tank"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Saved peer tank"));
     assert!(String::from_utf8_lossy(&output.stderr).contains("Peer key:"));
     assert!(!String::from_utf8_lossy(&output.stderr).contains("cli-private-key"));
     assert!(!String::from_utf8_lossy(&output.stdout).contains("cli-private-key"));
-    assert_eq!(client.launcher(&["peers"]), format!("* tank\t{url}\n"));
+    assert_eq!(client.launcher(&["endpoints"]), format!("tank\t{url}\n"));
+    assert!(!client.0.join("config/client.toml").exists());
+    assert!(
+        client
+            .launcher(&["paths", "endpoint"])
+            .trim()
+            .ends_with("endpoints/local.toml")
+    );
     assert_eq!(
         client
-            .output(env!("CARGO_BIN_EXE_slopctl"), &["paths", "endpoint"])
+            .output(
+                env!("CARGO_BIN_EXE_slopctl"),
+                &["--endpoint", "tank", "paths", "endpoint"]
+            )
             .trim(),
         client
             .0
@@ -209,7 +223,7 @@ fn connect_prompts_then_selects_the_verified_peer_without_exposing_its_key() {
             .to_str()
             .unwrap()
     );
-    client.launcher(&["--init-profile"]);
+    client.launcher(&["--endpoint", "tank", "--init-profile"]);
     assert!(
         client
             .0

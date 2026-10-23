@@ -20,8 +20,8 @@ mod mod_install;
 #[path = "slopworld/game_config.rs"]
 mod game_config;
 
-#[path = "slopworld/peers.rs"]
-mod peers;
+#[path = "slopworld/endpoints.rs"]
+mod endpoints;
 
 /// The launcher writes this marker for the mod to detect.
 /// Only the file's existence controls detection. Its contents explain the profile to users.
@@ -59,7 +59,7 @@ options:
   --working-dir DIR
                    working directory for the game process
   --mods DIR       mod directory to validate (required with a non-Linux game layout)
-  --endpoint NAME  use a saved connection for this launch (default selected peer, then local)
+  --endpoint NAME  use a saved connection for this launch (default local)
   --profile DIR    save data folder to use or create
                    (default $SLOPWORLD_PROFILE, then a profile for the selected connection)
   --init-profile   create or repair the profile, then exit without starting the game
@@ -72,8 +72,8 @@ options:
 
 commands:
   connect NAME [URL]
-                   verify, save, and select a peer; prompt for its key if needed
-  peers            list saved peers and mark the selected one
+                   verify and save a remote peer; prompt for its key if needed
+  endpoints        list saved endpoint names and URLs
   paths NAME       print config, data, cache, endpoint, profile, or game-log path
   mod install      install the SlopWorld mod from a source tree
   mod uninstall    remove the installed SlopWorld mod
@@ -104,15 +104,15 @@ fn run() -> Result<ExitCode, String> {
     if named_endpoint.is_some()
         && matches!(
             query_args.first().map(String::as_str),
-            Some("connect" | "peers")
+            Some("connect" | "endpoints")
         )
     {
         return Err(
-            "--endpoint applies to launches and path queries; use `connect NAME` to select a peer"
+            "--endpoint applies to launches and path queries, not peer registration or listing"
                 .into(),
         );
     }
-    if peers::try_run(&query_args, mode)? {
+    if endpoints::try_run(&query_args, mode)? {
         return Ok(ExitCode::SUCCESS);
     }
     if let Some(path) = application_paths::path_query(&query_args, mode, named_endpoint.as_deref())?

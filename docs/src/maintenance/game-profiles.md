@@ -8,23 +8,26 @@ The launcher automatically creates a RimWorld save-data folder for each named pe
 
 ```sh
 slopworld connect tank http://tank:7717
-slopworld
+slopworld --endpoint tank
 ```
 
 `connect` checks the daemon, prompts for its key with hidden input when needed, saves
-`<CONFIG>/endpoints/tank.toml`, and selects `tank` in `<CONFIG>/client.toml`. It does
-not launch the game. To switch to a saved peer, use `slopworld connect NAME`.
-`slopworld peers` lists saved names and URLs, marking the saved selection with `*`.
-Keys are never displayed. A failed verification leaves the saved connection and selection intact.
+`<CONFIG>/endpoints/tank.toml`. It does not launch the game. To launch a saved peer, use `slopworld --endpoint NAME`. Running
+`slopworld connect NAME` again verifies and refreshes its saved credentials.
+`slopworld endpoints` lists saved names and URLs.
+Keys are never displayed. A failed verification leaves the saved connection intact.
 
-The selected peer uses `<DATA>/profiles/NAME`. Without a saved selection, `local` is
-used. `slopworld --endpoint NAME` overrides the selection for one launch. Renaming a
+`local` is reserved for the daemon on this machine and cannot be registered with
+`connect`. It is the default: run `slopworld` without `--endpoint` to launch it.
+
+The selected peer uses `<DATA>/profiles/NAME`. `local` is the default.
+`slopworld --endpoint NAME` selects another endpoint for one launch. Renaming a
 peer changes its profile; changing its URL or key keeps the same profile. For an
 explicit `SLOPD_ENDPOINT` file, the filename without `.toml` supplies the profile name.
 
-`--sidecar` selects a separate catalog and selection under `<CONFIG>/sidecar/`, with
+`--sidecar` selects a separate catalog under `<CONFIG>/sidecar/`, with
 profiles under `<DATA>/sidecar/profiles/NAME`. Use `slopworld --sidecar connect NAME`
-and `slopworld --sidecar peers` to manage those peers. The [sidecar](../installation/sidecar.md)
+and `slopworld --sidecar endpoints` to manage those peers. The [sidecar](../installation/sidecar.md)
 and [macOS](../installation/macos.md) recipes select sidecar mode explicitly.
 
 `--profile DIR` overrides automatic profile selection, followed by `SLOPWORLD_PROFILE`.

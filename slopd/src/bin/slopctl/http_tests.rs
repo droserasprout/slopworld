@@ -104,8 +104,8 @@ fn assert_endpoint_case(case: &str) {
             )
             .unwrap();
             let endpoint = load_endpoint(Mode::Native, None).unwrap();
-            assert_eq!(endpoint.url, "http://tank");
-            assert_eq!(endpoint.token, "tank-token");
+            assert_eq!(endpoint.url, "http://native");
+            assert_eq!(endpoint.token, "native-token");
         }
         "named" => {
             let endpoint = load_endpoint(Mode::Native, Some("tank")).unwrap();

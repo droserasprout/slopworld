@@ -1,8 +1,8 @@
 # Configuration ownership
 
-The daemon owns machine settings and workspace records. Client selection in
-`client.toml` and saved peer credentials belong to the launcher; daemon startup
-does not read that selection. The mod owns offline profile
+The daemon owns machine settings, workspace records, and the local endpoint
+descriptor. Saved remote endpoint credentials belong to the launcher. Clients
+default to `local`; `--endpoint` selects a named endpoint for one invocation. The mod owns offline profile
 preferences and reads `endpoints/local.toml` for credentials; daemon edits go through APIs.
 [Paths](ops-paths.md) owns locations.
 

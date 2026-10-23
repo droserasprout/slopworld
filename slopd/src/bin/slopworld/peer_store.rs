@@ -1,5 +1,4 @@
-//! Private peer descriptors and atomic client-selection persistence.
-//! Publish credentials before selection so interrupted writes cannot select an absent peer.
+//! Atomic private remote peer persistence; registration never changes client selection.
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Write};
@@ -20,26 +19,13 @@ pub(super) fn load(path: &Path) -> Result<Peer, String> {
 }
 
 pub(super) fn save(config: &Path, name: &str, peer: &Peer) -> Result<(), String> {
+    if name == "local" {
+        return Err("local is owned by the daemon".into());
+    }
     let path = config.join("endpoints").join(format!("{name}.toml"));
-    // Read client settings before committing anything, retaining unrelated client fields.
-    let settings_path = config.join("client.toml");
-    let mut settings = match fs::read_to_string(&settings_path) {
-        Ok(text) => toml::from_str::<toml::Table>(&text)
-            .map_err(|_error| format!("invalid client settings: {}", settings_path.display()))?,
-        Err(error) if error.kind() == io::ErrorKind::NotFound && !settings_path.is_symlink() => {
-            toml::Table::new()
-        }
-        Err(error) => return Err(format!("reading {}: {error}", settings_path.display())),
-    };
-    settings.insert("endpoint".into(), toml::Value::String(name.into()));
     let descriptor =
         toml::to_string(peer).map_err(|_error| "encoding peer descriptor".to_owned())?;
-    let selection =
-        toml::to_string(&settings).map_err(|_error| "encoding client settings".to_owned())?;
-    // Publish the descriptor first: interruption can leave an unselected valid peer,
-    // but never selects a missing or partial credential file.
-    save_private(&path, &descriptor)?;
-    save_private(&settings_path, &selection)
+    save_private(&path, &descriptor)
 }
 
 pub(super) fn save_private(path: &Path, text: &str) -> Result<(), String> {

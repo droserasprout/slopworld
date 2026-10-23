@@ -139,11 +139,12 @@ On the client, register the daemon and enter its token at the hidden key prompt:
 
 ```sh
 slopworld connect tank http://192.168.1.10:7717
-slopworld
+slopworld --endpoint tank
 ```
 
-The client saves the connection as `endpoints/tank.toml` and automatically creates
-its separate `profiles/tank` game profile. Use `slopworld peers` to list saved peers.
+The first command saves the connection as `endpoints/tank.toml`. Launching with
+`--endpoint tank` creates its separate `profiles/tank` game profile.
+Use `slopworld endpoints` to list saved peers.
 
 ## Next steps
 

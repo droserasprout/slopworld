@@ -431,15 +431,15 @@ fn assert_named_profile_paths(root: &Path) {
     std::fs::write(root.join("config/client.toml"), "endpoint = 'tank'\n").unwrap();
     assert_eq!(
         profile_dir(None, application_paths::Mode::Native).unwrap(),
-        root.join("data/profiles/tank")
+        root.join("data/profiles/local")
     );
     assert_eq!(
         application_paths::Mode::Native
             .endpoint_path_for(None)
             .unwrap(),
-        root.join("config/endpoints/tank.toml")
+        root.join("config/endpoints/local.toml")
     );
-    // Saved client selection must not redirect the daemon's credential publication.
+    // Obsolete client settings cannot redirect the default connection.
     assert_eq!(
         application_paths::Mode::Native.endpoint_path(),
         root.join("config/endpoints/local.toml")
@@ -447,7 +447,7 @@ fn assert_named_profile_paths(root: &Path) {
     std::fs::write(root.join("config/client.toml"), "endpoint = [").unwrap();
     application_paths::Mode::Native
         .endpoint_path_for(None)
-        .unwrap_err();
+        .unwrap();
     assert_eq!(
         application_paths::Mode::Native
             .endpoint_path_for(Some("tank"))

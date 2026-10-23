@@ -23,7 +23,7 @@ options take precedence where available. Build recipe settings belong to
 | `SLOPD_CONFIG_ROOT` | Daemon, mod, launcher, CLI | Platform config directory | Configuration root for settings, catalogs, endpoint discovery, and the saved game directory.[^paths] |
 | `SLOPD_CREDITS_URL` | Daemon | `https://openrouter.ai/api/v1/credits` | OpenRouter balance endpoint. |
 | `SLOPD_DATA` | Daemon, mod, launcher, CLI | Platform data directory | Data root for workspace state, jukebox likes, and the default game profile.[^paths] |
-| `SLOPD_ENDPOINT` | Daemon, mod, launcher, `slopctl` | `<CONFIG>/endpoints/local.toml` | Explicit descriptor path; clients otherwise use their selected peer, then `endpoints/local.toml`.[^connection] |
+| `SLOPD_ENDPOINT` | Daemon, mod, launcher, `slopctl` | `<CONFIG>/endpoints/local.toml` | Explicit descriptor path; clients default to `endpoints/local.toml`.[^connection] |
 | `SLOPD_LOG` | Daemon | `slopd=info` | Tracing filter; use `slopd=debug` for more detail. |
 | `SLOPD_OPENAI_USAGE_URL` | Daemon | `https://chatgpt.com/backend-api/wham/usage` | OpenAI usage endpoint. |
 | `SLOPD_TITLE_URL` | Daemon | `https://openrouter.ai/api/v1/chat/completions` | Prompt summary endpoint. |
@@ -45,7 +45,7 @@ options take precedence where available. Build recipe settings belong to
     container paths stay fixed. See [Sidecar mode](../installation/sidecar.md).
 
 [^connection]: The daemon publishes the local descriptor; `slopworld connect` stores
-    named peers and the client selection. `--endpoint NAME` overrides environment
+    named endpoints without changing the default `local` endpoint. `--endpoint NAME` overrides environment
     connection settings for one client invocation. Otherwise, `SLOPD_URL` and
     `SLOPD_TOKEN` override the CLI connection together; they do not configure the
     daemon listener or the mod. Workers receive a scoped URL/token pair automatically.

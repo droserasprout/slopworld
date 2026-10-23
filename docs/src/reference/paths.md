@@ -23,7 +23,6 @@ On Unix, mode `0600` gives read and write access only to the owner.
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `<CONFIG>/client.toml` | `--sidecar` uses its separate config directory | Client-owned selected endpoint name. |
 | `<CONFIG>/config.toml` | under `SLOPD_CONFIG_ROOT` | Machine settings, seeded on first run. |
 | `<CONFIG>/endpoints/local.toml` | `SLOPD_ENDPOINT` | Effective local daemon URL and token while running. Mode `0600`. |
 | `<CONFIG>/endpoints/<name>.toml` | `--endpoint NAME`, then `SLOPD_ENDPOINT` | Saved peer URL and key, managed with `slopworld connect`. Mode `0600`. |

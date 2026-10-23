@@ -13,14 +13,14 @@ sandbox sets this variable to its session name.
 The [environment reference](environment.md)
 covers connection overrides and their precedence.
 
-`slopctl` uses the peer selected by `slopworld connect NAME`. Manage saved client
-connections with `slopworld connect NAME URL` and list them with `slopworld peers`.
+Use `slopctl --endpoint NAME` to select a saved peer. Manage saved client
+connections with `slopworld connect NAME URL` and list them with `slopworld endpoints`.
 See [Saves and profiles](../maintenance/game-profiles.md) for connection setup.
 
 For one command, use `slopctl --endpoint tank status`. The precedence is
-`--endpoint NAME`, paired `SLOPD_URL`/`SLOPD_TOKEN`, `SLOPD_ENDPOINT`, the saved
-selection in `<CONFIG>/client.toml`, then `endpoints/local.toml`.
-`--sidecar` uses the catalog and client selection under `<CONFIG>/sidecar/`.
+`--endpoint NAME`, paired `SLOPD_URL`/`SLOPD_TOKEN`, `SLOPD_ENDPOINT`, then
+`endpoints/local.toml`. The default `--endpoint local` can be omitted.
+`--sidecar` uses the catalog under `<CONFIG>/sidecar/`.
 `slopctl peers` continues to list live daemon sessions.
 
 Use scoped credentials for agents; see [Agent collaboration](../agents/agent-collaboration.md)

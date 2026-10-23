@@ -54,7 +54,46 @@ fn server(replies: Vec<(u16, &'static str, Vec<u8>)>) -> (String, std::thread::J
 }
 
 #[test]
-fn authenticated_connect_saves_private_peer_and_selection_and_reuses_credentials() {
+fn local_registration_preserves_daemon_and_selection() {
+    let root = root();
+    let url = "http://remote.example:7717";
+    for address in [None, Some(url)] {
+        assert!(
+            connect(&root, "local", address, || panic!("no prompt"))
+                .unwrap_err()
+                .contains("owned by the daemon")
+        );
+    }
+    assert!(!root.exists());
+    let path = root.join("endpoints/local.toml");
+    let descriptor = "url = 'http://localhost:7717'\ntoken = 'saved-secret'\n";
+    let selection = "endpoint = 'tank'\n";
+    save_private(&path, descriptor).unwrap();
+    save_private(&root.join("client.toml"), selection).unwrap();
+    for address in [None, Some(url)] {
+        assert!(connect(&root, "local", address, || panic!("no prompt")).is_err());
+    }
+    assert!(
+        store::save(
+            &root,
+            "local",
+            &Peer {
+                url: url.into(),
+                token: "replacement".into()
+            }
+        )
+        .is_err()
+    );
+    assert_eq!(fs::read_to_string(path).unwrap(), descriptor);
+    assert_eq!(
+        fs::read_to_string(root.join("client.toml")).unwrap(),
+        selection
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn authenticated_connect_saves_private_peer_without_selection_and_reuses_credentials() {
     let root = root();
     let (url, server) = server(vec![
         (401, "", vec![]),
@@ -68,10 +107,7 @@ fn authenticated_connect_saves_private_peer_and_selection_and_reuses_credentials
     })
     .unwrap();
     assert_eq!(prompts.load(Ordering::SeqCst), 1);
-    assert_eq!(
-        super::super::application_paths::selected_endpoint_in(&root.join("client.toml")).unwrap(),
-        "tank"
-    );
+    assert!(!root.join("client.toml").exists());
     let path = root.join("endpoints/tank.toml");
     assert_eq!(load(&path).unwrap().token, "saved-secret");
     #[cfg(unix)]
@@ -99,7 +135,7 @@ fn authenticated_connect_saves_private_peer_and_selection_and_reuses_credentials
     }
     server.join().unwrap();
     let listing = list(&root).unwrap();
-    assert_eq!(listing, format!("* tank\t{url}\n"));
+    assert_eq!(listing, format!("tank\t{url}\n"));
     assert!(!listing.contains("saved-secret"));
     fs::remove_dir_all(root).unwrap();
 }
@@ -159,7 +195,7 @@ fn invalid_protocol_and_redirects_do_not_prompt_or_write_files() {
 }
 
 #[test]
-fn cancelled_key_entry_and_invalid_settings_do_not_commit_a_peer() {
+fn cancelled_key_entry_does_not_save_and_registration_ignores_client_settings() {
     let root = root();
     let (url, server) = server(vec![(401, "", vec![])]);
     assert!(connect(&root, "tank", Some(&url), || Err("cancelled".into())).is_err());
@@ -168,16 +204,20 @@ fn cancelled_key_entry_and_invalid_settings_do_not_commit_a_peer() {
     fs::create_dir_all(&root).unwrap();
     fs::write(root.join("client.toml"), "broken = [").unwrap();
     let (url, server) = self::server(vec![(200, "", health())]);
-    assert!(connect(&root, "tank", Some(&url), || panic!("no prompt")).is_err());
+    connect(&root, "tank", Some(&url), || panic!("no prompt")).unwrap();
     server.join().unwrap();
-    assert!(!root.join("endpoints").exists());
+    assert!(root.join("endpoints/tank.toml").is_file());
+    assert_eq!(
+        fs::read_to_string(root.join("client.toml")).unwrap(),
+        "broken = ["
+    );
     fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
-fn valid_selection_preserves_other_settings_and_empty_lists_create_nothing() {
+fn registration_preserves_client_settings_and_empty_lists_create_nothing() {
     let root = root();
-    assert!(list(&root).unwrap().contains("No saved peers"));
+    assert!(list(&root).unwrap().contains("No saved endpoints"));
     assert!(!root.exists());
     save_private(
         &root.join("client.toml"),
@@ -190,6 +230,7 @@ fn valid_selection_preserves_other_settings_and_empty_lists_create_nothing() {
     let settings: toml::Table =
         toml::from_str(&fs::read_to_string(root.join("client.toml")).unwrap()).unwrap();
     assert_eq!(settings["other"].as_integer(), Some(42));
+    assert_eq!(settings["endpoint"].as_str(), Some("local"));
     fs::remove_dir_all(root).unwrap();
 }
 
