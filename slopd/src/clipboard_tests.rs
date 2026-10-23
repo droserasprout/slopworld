@@ -1,4 +1,5 @@
 use super::*;
+use crate::desktop::Environment;
 
 #[test]
 fn missing_only_matches_command_not_found_errors() {
@@ -84,6 +85,7 @@ async fn copy_process_receives_the_complete_text_on_stdin() {
             "test \"$(cat; printf sentinel)\" = \"$(printf 'clipboard-text\\nsentinel')\"",
         ],
         Some("clipboard-text\n"),
+        &Environment::inherited(),
     )
     .await
     .unwrap();
@@ -91,9 +93,12 @@ async fn copy_process_receives_the_complete_text_on_stdin() {
 
 #[tokio::test]
 async fn paste_process_returns_stdout_verbatim() {
-    let output = paste(&["sh", "-c", "printf 'first\\nsecond'"])
-        .await
-        .unwrap();
+    let output = paste(
+        &["sh", "-c", "printf 'first\\nsecond'"],
+        &Environment::inherited(),
+    )
+    .await
+    .unwrap();
     assert_eq!(output, "first\nsecond");
 }
 
@@ -110,24 +115,36 @@ fn clipboard_text_prefixes_are_not_treated_as_image_formats() {
 
 #[tokio::test]
 async fn paste_process_does_not_lossily_decode_binary_output() {
-    let output = paste(&["sh", "-c", "printf 'text\\377'"]).await.unwrap();
+    let output = paste(
+        &["sh", "-c", "printf 'text\\377'"],
+        &Environment::inherited(),
+    )
+    .await
+    .unwrap();
     assert!(output.is_empty());
 }
 
 #[tokio::test]
 async fn primary_process_returns_stdout_verbatim() {
-    let output = one(&["sh", "-c", "printf primary-text"], None)
-        .await
-        .unwrap();
+    let output = one(
+        &["sh", "-c", "printf primary-text"],
+        None,
+        &Environment::inherited(),
+    )
+    .await
+    .unwrap();
     assert_eq!(output, "primary-text");
 }
 
 #[tokio::test]
 async fn paste_process_reports_stderr_on_failure() {
-    let error = paste(&["sh", "-c", "printf 'clipboard unavailable' >&2; exit 7"])
-        .await
-        .unwrap_err()
-        .to_string();
+    let error = paste(
+        &["sh", "-c", "printf 'clipboard unavailable' >&2; exit 7"],
+        &Environment::inherited(),
+    )
+    .await
+    .unwrap_err()
+    .to_string();
     assert!(error.contains("clipboard unavailable"), "{error}");
 }
 

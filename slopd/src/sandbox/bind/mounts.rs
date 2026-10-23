@@ -135,13 +135,13 @@ pub(super) fn push_private_binds(
 ) -> anyhow::Result<()> {
     // Mount private copies after preset and project mounts.
     // Each copy hides earlier mounts at the same target and blocks access to the original.
-    for (copy, host) in private_bind_paths(bind.cfg, bind.s, bind.p, bind.table)? {
+    for (copy, host) in private_bind_paths(bind.s, bind.presets)? {
         push_args(a, &["--bind", &copy, &host]);
     }
 
     // Mount shared files inside private copies.
     // Bubblewrap creates the mount point without copying the host file first.
-    for path in shared_binds(bind.cfg, bind.s, bind.p, bind.table)? {
+    for path in shared_binds(bind.presets) {
         push_args(a, &["--bind", &path, &path]);
     }
 
@@ -178,6 +178,7 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
         presets,
         agent_shell,
         agent_argv,
+        environment,
     } = args;
     push_args(a, &["--setenv", "HOME", home]);
     push_args(a, &["--setenv", "SLOPWORLD_SESSION", &s.name]);
@@ -196,10 +197,10 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
     // Keep the standard host variables needed by existing configurations after --clearenv.
     // Agents need PATH to find executables.
     let mut passed: Vec<String> = vec!["LESSUTFCHARDEF".into()];
-    for (k, v) in std::env::vars() {
-        if BASE_ENV.contains(&k.as_str()) || k.starts_with("LC_") {
-            push_args(a, &["--setenv", k.as_str(), v.as_str()]);
-            passed.push(k);
+    for (k, v) in environment.text_vars() {
+        if BASE_ENV.contains(&k) || k.starts_with("LC_") {
+            push_args(a, &["--setenv", k, v]);
+            passed.push(k.to_owned());
         }
     }
 
@@ -213,8 +214,8 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
             continue;
         }
         passed.push(k.to_string());
-        if let Ok(v) = std::env::var(k) {
-            push_args(a, &["--setenv", k, &v]);
+        if let Some(v) = environment.get(k) {
+            push_args(a, &["--setenv", k, v]);
         }
     }
 

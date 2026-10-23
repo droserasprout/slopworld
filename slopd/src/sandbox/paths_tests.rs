@@ -1,4 +1,5 @@
 use super::*;
+use crate::desktop::Environment;
 use crate::sandbox::state_root;
 
 #[test]
@@ -39,9 +40,14 @@ fn bind_path_lists_reject_relative_and_protected_entries() {
                 .contains(message)
         );
     }
-    assert!(expand_bind_paths("${SLOPD_TEST_UNSET_PATHS:paths}").is_empty());
+    assert!(
+        expand_bind_paths("${SLOPD_TEST_UNSET_PATHS:paths}", &Environment::inherited()).is_empty()
+    );
     assert_eq!(
-        expand_bind_paths(root.join("literal:colon").to_str().unwrap()),
+        expand_bind_paths(
+            root.join("literal:colon").to_str().unwrap(),
+            &Environment::inherited()
+        ),
         vec![root.join("literal:colon").to_str().unwrap()]
     );
 }

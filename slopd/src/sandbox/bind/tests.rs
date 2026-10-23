@@ -1,5 +1,7 @@
 use super::*;
 use crate::config::Limits;
+use crate::desktop::Environment;
+use crate::presets::Table;
 use crate::sandbox::{
     PANE_TERM, build_argv, persistent_tmp_path, presets_for, private_path, private_resolver_path,
     validate_preset,
@@ -18,7 +20,14 @@ fn launch_plan_fixture() -> LaunchPlan {
         dir: "/tmp".into(),
         ..Default::default()
     };
-    crate::sandbox::build_plan(&cfg, &s, &p).expect("sandbox plan")
+    crate::sandbox::build_plan(
+        &cfg,
+        &s,
+        &p,
+        &crate::sandbox::presets_for(&cfg, &s, &p, &s.preset_table()).unwrap(),
+        &Environment::inherited(),
+    )
+    .expect("sandbox plan")
 }
 
 fn argv() -> Vec<String> {
@@ -238,7 +247,15 @@ fn sandbox_preserves_daemon_identity_for_account_home_lookup() {
             network,
             ..Default::default()
         };
-        let plan = crate::sandbox::build_plan(&cfg, &session, &project).unwrap();
+        let plan = crate::sandbox::build_plan(
+            &cfg,
+            &session,
+            &project,
+            &crate::sandbox::presets_for(&cfg, &session, &project, &session.preset_table())
+                .unwrap(),
+            &Environment::inherited(),
+        )
+        .unwrap();
         assert!(plan.bwrap.iter().any(|arg| arg == "--unshare-all"));
         for (flag, value) in [("--uid", &uid), ("--gid", &gid)] {
             let values: Vec<_> = plan
@@ -508,7 +525,7 @@ fn a_preset_asking_for_the_world_does_not_get_it() {
         ro: asked,
         ..Default::default()
     };
-    let out = paths(&[&preset], |pr| &pr.ro);
+    let out = paths(&[&preset], |pr| &pr.ro, &Environment::inherited());
     assert_eq!(out, vec!["/usr".to_string()], "got {out:?}");
 }
 
@@ -535,9 +552,10 @@ fn relative_preset_sources_cannot_change_meaning_in_the_project_directory() {
         dev: vec!["exposed".into()],
         ..Default::default()
     };
-    assert!(paths(&[&preset], |pr| &pr.ro).is_empty());
-    assert!(paths(&[&preset], |pr| &pr.rw).is_empty());
-    assert!(paths(&[&preset], |pr| &pr.dev).is_empty());
+    let environment = Environment::inherited();
+    assert!(paths(&[&preset], |pr| &pr.ro, &environment).is_empty());
+    assert!(paths(&[&preset], |pr| &pr.rw, &environment).is_empty());
+    assert!(paths(&[&preset], |pr| &pr.dev, &environment).is_empty());
     let session = SessionCfg {
         name: "agent".into(),
         project: "repo".into(),
@@ -661,7 +679,7 @@ fn only_a_file_is_ever_shared() {
         ..Default::default()
     };
     assert_eq!(
-        shared_binds(&Config::default(), &s, &p, &t).unwrap(),
+        shared_binds(&presets_for(&Config::default(), &s, &p, &t).unwrap()),
         vec![file],
         "the valid shared file did not get through"
     );
@@ -954,8 +972,18 @@ fn persistent_tmp_preserves_preset_sockets_and_private_overlays() {
         dir: root.to_str().unwrap().into(),
         ..Default::default()
     };
-    crate::sandbox::prepare_network(&Config::default(), &session, &project).unwrap();
-    let plan = crate::sandbox::build_plan(&Config::default(), &session, &project).unwrap();
+    let cfg = Config::default();
+    let table = session.preset_table();
+    let presets = presets_for(&cfg, &session, &project, &table).unwrap();
+    crate::sandbox::network::prepare(&cfg, &session, &project, &presets).unwrap();
+    let plan = crate::sandbox::build_plan(
+        &cfg,
+        &session,
+        &project,
+        &presets,
+        &Environment::inherited(),
+    )
+    .unwrap();
     assert_eq!(
         effective_mount(&plan.mounts, socket.to_str().unwrap()),
         Some((
@@ -1031,7 +1059,14 @@ fn workspace_and_persistent_tmp_do_not_hide_debug_sockets() {
         dir: "/tmp".into(),
         ..Default::default()
     };
-    let plan = crate::sandbox::build_plan(&cfg, &session, &project).unwrap();
+    let plan = crate::sandbox::build_plan(
+        &cfg,
+        &session,
+        &project,
+        &crate::sandbox::presets_for(&cfg, &session, &project, &session.preset_table()).unwrap(),
+        &Environment::inherited(),
+    )
+    .unwrap();
     assert_eq!(
         effective_mount(&plan.mounts, "/tmp"),
         Some((
@@ -1115,7 +1150,20 @@ fn image_import_mount_is_private_read_only_and_wins_over_project_overlays() {
         }],
         ..Default::default()
     };
-    let plan = crate::sandbox::build_plan(&Config::default(), &session, &project).unwrap();
+    let plan = crate::sandbox::build_plan(
+        &Config::default(),
+        &session,
+        &project,
+        &crate::sandbox::presets_for(
+            &Config::default(),
+            &session,
+            &project,
+            &session.preset_table(),
+        )
+        .unwrap(),
+        &Environment::inherited(),
+    )
+    .unwrap();
     let source = crate::sandbox::images::directory(&session).unwrap();
     assert_eq!(
         effective_mount(&plan.mounts, crate::sandbox::images::GUEST),

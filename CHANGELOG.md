@@ -29,11 +29,12 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
-- Eco: Mute ambient sounds while the colony is paused.
 - Files: Recognize Debian’s batcat executable.
+- Game: Mute ambient sounds while the colony is paused.
 - Jukebox: Fall back to local OST playback when daemon playback fails.
 - Jukebox: Drop the jukebox in a pod during initial cutscene.
 - Jukebox: Remove random pauses between local OST tracks.
+- Terminal: Fixed image paste failing when the daemon starts before the graphical session.
 - Terminal: On Shift+Enter send Enter in shells and multiline input in agents.
 - Terminal: Preserve control characters in keyboard input and clipboard paste on tmux 3.8.
 - UI: Fixed separator lines disappearing during pixel snapping.

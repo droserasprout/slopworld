@@ -6,19 +6,17 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::config::{Config, ProjectCfg, SessionCfg, expand};
-use crate::presets::Table;
+use crate::config::{Config, SessionCfg, expand};
+use crate::presets::SandboxPreset;
 
-use crate::sandbox::{presets_for, private_path, refused};
+use crate::sandbox::{private_path, refused};
 
 pub(super) fn private_bind_paths(
-    cfg: &Config,
     s: &SessionCfg,
-    p: &ProjectCfg,
-    t: &Table,
+    presets: &[&SandboxPreset],
 ) -> anyhow::Result<Vec<(String, String)>> {
     let mut out: Vec<(String, String)> = Vec::new();
-    for pr in presets_for(cfg, s, p, t)? {
+    for pr in presets {
         for path in &pr.private {
             let host = expand(path);
             if host.is_empty() {
@@ -33,7 +31,7 @@ pub(super) fn private_bind_paths(
             };
             // The host path or the prepared session-state copy must exist. Paths under /tmp/
             // never exist on the host (the skeleton mounts its own tmpfs there), but
-            // prepare_network creates the copy beforehand.
+            // Launch preparation creates the copy beforehand.
             if !Path::new(&host).exists() && !copy.exists() {
                 continue;
             }
@@ -49,14 +47,9 @@ pub(super) fn private_bind_paths(
 /// Returns existing regular files that presets may share read-write into private state.
 /// Refused paths and directories are excluded so shared state cannot grant execution or reach
 /// another session's secrets.
-pub(super) fn shared_binds(
-    cfg: &Config,
-    s: &SessionCfg,
-    p: &ProjectCfg,
-    t: &Table,
-) -> anyhow::Result<Vec<String>> {
+pub(super) fn shared_binds(presets: &[&SandboxPreset]) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
-    for pr in presets_for(cfg, s, p, t)? {
+    for pr in presets {
         for path in &pr.shared {
             let host = expand(path);
             if host.is_empty() || out.contains(&host) {
@@ -76,7 +69,7 @@ pub(super) fn shared_binds(
             out.push(host);
         }
     }
-    Ok(out)
+    out
 }
 
 /// The host tmux server uses the host UID in its socket directory path.
@@ -134,6 +127,7 @@ pub(super) fn resolver_target() -> Option<String> {
 pub(super) fn paths(
     presets: &[&crate::presets::SandboxPreset],
     pick: fn(&crate::presets::SandboxPreset) -> &[String],
+    environment: &crate::desktop::Environment,
 ) -> Vec<String> {
     let from_presets: Vec<String> = presets
         .iter()
@@ -142,7 +136,7 @@ pub(super) fn paths(
 
     let mut out: Vec<String> = Vec::new();
     for path in from_presets {
-        for path in super::super::paths::expand_bind_paths(&path) {
+        for path in super::super::paths::expand_bind_paths(&path, environment) {
             if path.is_empty() || out.contains(&path) {
                 continue;
             }

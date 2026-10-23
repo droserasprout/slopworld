@@ -884,9 +884,7 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
         cmd: Some("/usr/bin/true".into()),
         ..Default::default()
     };
-    let args = crate::sandbox::build_plan(&cfg, &session, &effective)
-        .unwrap()
-        .lower();
+    let args = crate::sandbox::build_argv(&cfg, &session, &effective).unwrap();
     assert!(
         args.windows(3)
             .any(|v| v[0] == "--bind" && v[1] == w.repository && v[2] == w.repository)

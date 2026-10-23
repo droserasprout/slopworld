@@ -44,9 +44,7 @@ fn caches_share_sources_across_worktrees_and_inventory_survives_removal() {
         reconcile(&p, checkout).unwrap();
         let mut effective = p.clone();
         effective.dir = checkout.to_string_lossy().into_owned();
-        let argv = super::super::build_plan(&cfg, &s, &effective)
-            .unwrap()
-            .lower();
+        let argv = super::super::build_argv(&cfg, &s, &effective).unwrap();
         for mount in &p.mounts {
             let src = source(&p, mount).unwrap();
             assert!(
@@ -258,7 +256,7 @@ fn absolute_cache_destinations_keep_direct_mounts() {
     };
     let src = source(&p, &p.mounts[0]).unwrap();
     assert!(!src.exists());
-    let argv = super::super::build_plan(&cfg, &s, &p).unwrap().lower();
+    let argv = super::super::build_argv(&cfg, &s, &p).unwrap();
     assert!(src.is_dir());
     assert!(argv.windows(3).any(|args| args[0] == "--bind"
         && args[1] == src.to_string_lossy()

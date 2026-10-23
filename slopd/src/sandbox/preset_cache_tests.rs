@@ -1,4 +1,5 @@
 use super::*;
+use crate::desktop::Environment;
 
 #[test]
 fn launch_prepares_planned_cache_after_catalog_replacement() {
@@ -37,12 +38,26 @@ fn launch_prepares_planned_cache_after_catalog_replacement() {
         ..Default::default()
     };
     // Fix the ordering explicitly: publish the new catalog only after planning.
-    let plan = crate::sandbox::build_plan(&cfg, &session, &project).unwrap();
+    let plan = crate::sandbox::build_plan(
+        &cfg,
+        &session,
+        &project,
+        &crate::sandbox::presets_for(&cfg, &session, &project, &session.preset_table()).unwrap(),
+        &Environment::inherited(),
+    )
+    .unwrap();
     assert!(!Path::new(&original).exists());
     preset.cache = vec![replacement.clone()];
     validate_and_save(&PresetDefinition::Sandbox(Box::new(preset))).unwrap();
     assert!(crate::presets::reload());
-    let next = crate::sandbox::build_plan(&cfg, &session, &project).unwrap();
+    let next = crate::sandbox::build_plan(
+        &cfg,
+        &session,
+        &project,
+        &crate::sandbox::presets_for(&cfg, &session, &project, &session.preset_table()).unwrap(),
+        &Environment::inherited(),
+    )
+    .unwrap();
     assert_eq!(next.cache_dirs, vec![replacement.clone()]);
 
     crate::sandbox::prepare_preset_caches(&plan.cache_dirs).unwrap();

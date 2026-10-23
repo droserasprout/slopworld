@@ -23,7 +23,6 @@ use crate::presets::{SandboxPreset, Table};
 pub use host::{host_argv, host_session_name, is_shell_command, shell_split};
 #[cfg(test)]
 use host::{host_command, host_shell, session_name_for};
-pub use network::prepare_network;
 pub(crate) use network::{dns_servers, private_resolver_path};
 pub(crate) use observe::inspect_session;
 pub use paths::{refused, validate_preset, validate_preset_name};
@@ -56,9 +55,30 @@ pub(crate) struct ResolvedMount {
     pub mode: MountMode,
 }
 
-/// Resolve configuration. Build the complete structured sandbox command through the bind layer.
+/// Capture desktop readiness at each launch, before selecting sockets or forwarding variables.
+pub(crate) async fn prepare_launch(
+    cfg: &Config,
+    s: &SessionCfg,
+    p: &ProjectCfg,
+) -> Result<LaunchPlan> {
+    let environment = crate::desktop::Environment::current().await;
+    let table = s.preset_table();
+    let presets = presets_with_environment(cfg, s, p, &table, &environment)?;
+    network::prepare(cfg, s, p, &presets)?;
+    let plan = build_plan(cfg, s, p, &presets, &environment)?;
+    prepare_preset_caches(&plan.cache_dirs)?;
+    Ok(plan)
+}
+
+/// Build the command from the same validated presets used to prepare its resources.
 /// The returned plan contains raw values. Do not expose it outside the daemon.
-pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<LaunchPlan> {
+pub(crate) fn build_plan(
+    cfg: &Config,
+    s: &SessionCfg,
+    p: &ProjectCfg,
+    presets: &[&SandboxPreset],
+    environment: &crate::desktop::Environment,
+) -> Result<LaunchPlan> {
     crate::config::validate_project_names(&cfg.projects)?;
     crate::config::project_name_component(&p.name)?;
     crate::config::state_id_component(&s.state_id)?;
@@ -71,12 +91,10 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         "agent command has no executable"
     );
     let dir = expand(&p.dir);
-    let table = s.preset_table();
-    let presets = presets_for(cfg, s, p, &table)?;
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
-    let mounts = resolve_mounts(cfg, p, &dir, &presets)?;
+    let mounts = resolve_mounts(cfg, p, &dir, presets)?;
 
     bind::assemble_plan(bind::BuildArgs {
         cfg,
@@ -86,10 +104,10 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         dns: &dns,
         agent_shell: &agent_shell,
         agent_argv,
-        table: &table,
-        presets: &presets,
+        presets,
         home: &home,
         mounts: &mounts,
+        environment,
     })
 }
 
@@ -279,6 +297,16 @@ pub(crate) fn presets_for<'a>(
     p: &ProjectCfg,
     t: &'a Table,
 ) -> Result<Vec<&'a SandboxPreset>> {
+    presets_with_environment(cfg, s, p, t, &crate::desktop::Environment::inherited())
+}
+
+pub(crate) fn presets_with_environment<'a>(
+    cfg: &Config,
+    s: &SessionCfg,
+    p: &ProjectCfg,
+    t: &'a Table,
+    environment: &crate::desktop::Environment,
+) -> Result<Vec<&'a SandboxPreset>> {
     let mut resolved = Vec::new();
     for name in cfg.sandbox_of(s, p) {
         let preset = t.sandbox(&name).ok_or_else(|| {
@@ -288,7 +316,7 @@ pub(crate) fn presets_for<'a>(
                 p.name
             )
         })?;
-        validate_preset_name(&name, t).with_context(|| {
+        paths::validate_name_with_environment(&name, t, environment).with_context(|| {
             format!(
                 "session {:?} in project {:?} names invalid sandbox preset {name:?}",
                 s.name, p.name

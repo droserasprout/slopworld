@@ -1,5 +1,6 @@
 use crate::agent_templates::AgentTemplateStore;
 use crate::config::{Config, ProjectCfg, SessionCfg};
+use crate::desktop::Environment;
 use crate::presets::SandboxPreset;
 
 #[tokio::test]
@@ -52,7 +53,12 @@ async fn template_creation_uses_destination_project_mounts() {
     let cfg = manager.config().await;
     let session = cfg.session("new-agent").unwrap();
     assert_eq!(session.project, "extra");
-    let plan = crate::sandbox::build_plan(&cfg, session, cfg.project("extra").unwrap()).unwrap();
+    let project = cfg.project("extra").unwrap();
+    let table = session.preset_table();
+    let presets = crate::sandbox::presets_for(&cfg, session, project, &table).unwrap();
+    let plan =
+        crate::sandbox::build_plan(&cfg, session, project, &presets, &Environment::inherited())
+            .unwrap();
     assert!(plan.mounts.windows(3).any(|args| args
         == [
             "--ro-bind",

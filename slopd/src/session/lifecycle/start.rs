@@ -4,7 +4,7 @@
 //! The plan carries the same launch inputs through each stage and its failure cleanup.
 
 use super::stop::{ReaderDisposition, finish_reader, reset_process_state, take_reader_for_abort};
-use crate::sandbox::{LaunchPlan, build_plan};
+use crate::sandbox::LaunchPlan;
 use crate::session::*;
 use anyhow::{Context, anyhow};
 
@@ -127,8 +127,9 @@ impl SessionRuntime {
             session.worker_token = Some(token);
         }
 
-        let planned =
-            build_start_plan(&cfg, &session, &project, role.is_host()).and_then(|launch| {
+        let planned = build_start_plan(&cfg, &session, &project, role.is_host())
+            .await
+            .and_then(|launch| {
                 let argv = match &launch {
                     Some(plan) => plan.lower(),
                     None => crate::sandbox::host_argv(&cfg, &session, &project)?,
@@ -366,7 +367,7 @@ pub(in crate::session) fn prepare_project_dir(project: &ProjectCfg) -> Result<St
 }
 
 /// Prepare sandbox resources and arguments; host terminals need no sandbox plan.
-fn build_start_plan(
+async fn build_start_plan(
     cfg: &Config,
     session: &SessionCfg,
     project: &ProjectCfg,
@@ -376,9 +377,7 @@ fn build_start_plan(
         return Ok(None);
     }
 
-    crate::sandbox::prepare_network(cfg, session, project)?;
-    let plan = build_plan(cfg, session, project)?;
-    crate::sandbox::prepare_preset_caches(&plan.cache_dirs)?;
+    let plan = crate::sandbox::prepare_launch(cfg, session, project).await?;
     Ok(Some(plan))
 }
 

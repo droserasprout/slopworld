@@ -3,7 +3,7 @@
 use anyhow::Result;
 
 use crate::config::{Config, DnsConfig, NetworkMode, ProjectCfg, SessionCfg};
-use crate::presets::{SandboxPreset, Table};
+use crate::presets::SandboxPreset;
 
 use super::LaunchPlan;
 use super::ResolvedMount;
@@ -30,17 +30,15 @@ pub(super) struct BuildArgs<'a> {
     pub(super) dns: &'a DnsConfig,
     pub(super) agent_shell: &'a str,
     pub(super) agent_argv: Vec<String>,
-    pub(super) table: &'a Table,
     pub(super) presets: &'a [&'a SandboxPreset],
     pub(super) home: &'a str,
     pub(super) mounts: &'a [ResolvedMount],
+    pub(super) environment: &'a crate::desktop::Environment,
 }
 
 struct BindContext<'a> {
-    cfg: &'a Config,
     s: &'a SessionCfg,
-    p: &'a ProjectCfg,
-    table: &'a Table,
+    presets: &'a [&'a SandboxPreset],
     ro: &'a [String],
     rw: &'a [String],
     dev: &'a [String],
@@ -59,18 +57,18 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
         dns,
         agent_shell,
         agent_argv,
-        table,
         presets,
         home,
         mounts,
+        environment: host_environment,
     } = args;
     // Apply global mounts before resolved presets.
     // bwrap then receives the most specific definition for each path last.
-    let ro = policy::paths(presets, |pr| &pr.ro);
-    let mut rw = policy::paths(presets, |pr| &pr.rw);
+    let ro = policy::paths(presets, |pr| &pr.ro, host_environment);
+    let mut rw = policy::paths(presets, |pr| &pr.rw, host_environment);
     let cache_dirs = super::preset_cache::paths(presets)?;
     rw.extend(cache_dirs.iter().cloned());
-    let dev = policy::paths(presets, |pr| &pr.dev);
+    let dev = policy::paths(presets, |pr| &pr.dev, host_environment);
     policy::validate_private_sources(presets, ro.iter().chain(&rw).chain(&dev))?;
     let tmux = presets.iter().any(|pr| pr.tmux);
     // A worker can use a broad preset such as slopworld-debug.
@@ -80,10 +78,8 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
 
     let resolv = mounts::resolver_bind(network, dns, &s.state_id);
     let bind = BindContext {
-        cfg,
         s,
-        p,
-        table,
+        presets,
         ro: &ro,
         rw: &rw,
         dev: &dev,
@@ -123,6 +119,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
             presets,
             agent_shell,
             agent_argv: &agent_argv,
+            environment: host_environment,
         },
     );
 
@@ -161,6 +158,7 @@ struct EnvArgs<'a> {
     presets: &'a [&'a SandboxPreset],
     agent_shell: &'a str,
     agent_argv: &'a [String],
+    environment: &'a crate::desktop::Environment,
 }
 
 #[cfg(test)]

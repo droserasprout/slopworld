@@ -1,4 +1,5 @@
 use super::*;
+use crate::desktop::Environment;
 /// A host errand runs without bwrap. Its argument list ends with the shell command.
 #[test]
 fn a_host_errand_is_not_sandboxed() {
@@ -164,7 +165,13 @@ fn persistent_tmp_is_created_under_the_agent_state() {
         ..Default::default()
     };
 
-    prepare_network(&Config::default(), &s, &p).expect("persistent tmp preparation");
+    crate::sandbox::network::prepare(
+        &Config::default(),
+        &s,
+        &p,
+        &crate::sandbox::presets_for(&Config::default(), &s, &p, &s.preset_table()).unwrap(),
+    )
+    .expect("persistent tmp preparation");
     assert!(persistent_tmp_path(&s).unwrap().is_dir());
     std::fs::remove_dir_all(state_dir(&s).unwrap()).unwrap();
 }
@@ -201,7 +208,13 @@ fn preparation_uses_captured_presets_like_the_launch_plan() {
 
     let mut cfg = Config::default();
     cfg.defaults.agent = "codex".into();
-    prepare_network(&cfg, &s, &p).expect("snapshot preparation");
+    crate::sandbox::network::prepare(
+        &cfg,
+        &s,
+        &p,
+        &crate::sandbox::presets_for(&cfg, &s, &p, &s.preset_table()).unwrap(),
+    )
+    .expect("snapshot preparation");
     let copy = private_path(&state_id, host.to_string_lossy().as_ref()).unwrap();
     assert_eq!(
         std::fs::read_to_string(copy.join("auth.json")).unwrap(),
@@ -238,11 +251,18 @@ fn agent_shell_presets_resolve_to_absolute_executables() {
 
 /// Tests inspect the generated argument list. Production startup saves and executes the same launch plan.
 pub(crate) fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
-    build_plan(cfg, s, p).map(|plan| plan.lower())
+    build_plan(
+        cfg,
+        s,
+        p,
+        &crate::sandbox::presets_for(cfg, s, p, &s.preset_table())?,
+        &Environment::inherited(),
+    )
+    .map(|plan| plan.lower())
 }
 
-#[test]
-fn nested_private_roots_fail_before_preparation_in_either_order() {
+#[tokio::test]
+async fn nested_private_roots_fail_before_preparation_in_either_order() {
     let root = std::env::temp_dir().join(format!("slopd-nested-private-{}", uuid::Uuid::new_v4()));
     let host = root.join("host");
     std::fs::create_dir_all(host.join("child")).unwrap();
@@ -281,7 +301,9 @@ fn nested_private_roots_fail_before_preparation_in_either_order() {
                 sandbox_snapshots: presets,
                 ..Default::default()
             };
-            let error = prepare_network(&Config::default(), &session, &project).unwrap_err();
+            let error = prepare_launch(&Config::default(), &session, &project)
+                .await
+                .unwrap_err();
             assert!(format!("{error:#}").contains("overlap"), "{error:#}");
             assert!(!state_dir(&session).unwrap().exists());
         }

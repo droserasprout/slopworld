@@ -13,21 +13,25 @@ use super::state_root;
 /// Ordinary binds may select a platform path list with `${VAR:paths}`.
 /// Keep entries literal, omit empty entries, and validate each path independently.
 /// Other fields retain single-path expansion because they own individual state roots.
-pub(super) fn expand_bind_paths(raw: &str) -> Vec<String> {
+pub(super) fn expand_bind_paths(
+    raw: &str,
+    environment: &crate::desktop::Environment,
+) -> Vec<String> {
     if let Some(name) = raw
         .strip_prefix("${")
         .and_then(|s| s.strip_suffix(":paths}"))
     {
-        return std::env::var_os(name)
+        return environment
+            .get_os(name)
             .map(|value| {
-                std::env::split_paths(&value)
+                std::env::split_paths(value)
                     .filter(|path| !path.as_os_str().is_empty())
                     .map(|path| path.to_string_lossy().into_owned())
                     .collect()
             })
             .unwrap_or_default();
     }
-    vec![expand(raw)]
+    vec![environment.expand(raw)]
 }
 
 /// Reject paths that expose daemon credentials, configuration, preset definitions, or private session state.
@@ -128,10 +132,11 @@ pub(super) fn validate_private_roots<'a>(roots: impl Iterator<Item = &'a String>
 /// Validate a sandbox preset before bwrap uses it or the API saves it.
 /// This check keeps safety rules consistent for API requests and manual file changes.
 pub fn validate_preset(p: &SandboxPreset, table: &Table) -> Result<()> {
-    validate_preset_fields(p, table)?;
+    let environment = crate::desktop::Environment::inherited();
+    validate_preset_fields(p, table, &environment)?;
     let mut visiting = vec![p.name.clone()];
     for required in &p.requires {
-        validate_preset_name_inner(required, table, &mut visiting)?;
+        validate_preset_name_inner(required, table, &mut visiting, &environment)?;
     }
     Ok(())
 }
@@ -140,27 +145,44 @@ pub fn validate_preset(p: &SandboxPreset, table: &Table) -> Result<()> {
 /// Reject the preset if any dependency is invalid.
 /// This prevents runtime selection from applying an incomplete set of required presets.
 pub fn validate_preset_name(name: &str, table: &Table) -> Result<()> {
-    validate_preset_name_inner(name, table, &mut Vec::new())
+    validate_name_with_environment(name, table, &crate::desktop::Environment::inherited())
 }
 
-fn validate_preset_name_inner(name: &str, table: &Table, visiting: &mut Vec<String>) -> Result<()> {
+pub(super) fn validate_name_with_environment(
+    name: &str,
+    table: &Table,
+    environment: &crate::desktop::Environment,
+) -> Result<()> {
+    validate_preset_name_inner(name, table, &mut Vec::new(), environment)
+}
+
+fn validate_preset_name_inner(
+    name: &str,
+    table: &Table,
+    visiting: &mut Vec<String>,
+    environment: &crate::desktop::Environment,
+) -> Result<()> {
     if visiting.iter().any(|seen| seen == name) {
         anyhow::bail!("Sandbox preset {name:?} has a dependency cycle.");
     }
     let p = table
         .sandbox(name)
         .ok_or_else(|| anyhow::anyhow!("Sandbox preset {name:?} does not exist."))?;
-    validate_preset_fields(p, table)?;
+    validate_preset_fields(p, table, environment)?;
     visiting.push(name.to_string());
     for required in &p.requires {
-        validate_preset_name_inner(required, table, visiting)?;
+        validate_preset_name_inner(required, table, visiting, environment)?;
     }
     visiting.pop();
     Ok(())
 }
 
-fn validate_preset_fields(p: &SandboxPreset, table: &Table) -> Result<()> {
-    validate_preset_paths(p)?;
+fn validate_preset_fields(
+    p: &SandboxPreset,
+    table: &Table,
+    environment: &crate::desktop::Environment,
+) -> Result<()> {
+    validate_preset_paths(p, environment)?;
     for required in &p.requires {
         if required == &p.name {
             anyhow::bail!("Sandbox preset {:?} cannot require itself.", p.name);
@@ -176,7 +198,10 @@ fn validate_preset_fields(p: &SandboxPreset, table: &Table) -> Result<()> {
     Ok(())
 }
 
-fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
+fn validate_preset_paths(
+    p: &SandboxPreset,
+    environment: &crate::desktop::Environment,
+) -> Result<()> {
     validate_private_roots(p.private.iter())?;
     if p.name.trim().is_empty() {
         anyhow::bail!("Enter a sandbox preset name.");
@@ -197,7 +222,7 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
     ] {
         for raw in paths {
             let expanded_paths = if matches!(kind, "read-only" | "read-write" | "device") {
-                expand_bind_paths(raw)
+                expand_bind_paths(raw, environment)
             } else {
                 vec![expand(raw)]
             };

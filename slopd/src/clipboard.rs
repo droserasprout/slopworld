@@ -123,9 +123,10 @@ pub async fn read_primary_text() -> Result<String> {
 async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> Result<String> {
     let mut last: Option<anyhow::Error> = None;
     let deadline = tokio::time::Instant::now() + FALLBACK_BUDGET;
+    let environment = crate::desktop::Environment::current().await;
     let xwayland = xwayland_clipboard(
-        &std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
-        &std::env::var("DISPLAY").unwrap_or_default(),
+        environment.get("XDG_CURRENT_DESKTOP").unwrap_or_default(),
+        environment.get("DISPLAY").unwrap_or_default(),
     );
     // Never fall back to the focus-stealing Wayland helper on this path.
     for &index in tool_order(xwayland) {
@@ -136,7 +137,7 @@ async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> 
         let Some(&program) = argv.first() else {
             continue;
         };
-        match tokio::time::timeout_at(deadline, one(argv, text)).await {
+        match tokio::time::timeout_at(deadline, one(argv, text, &environment)).await {
             Err(_) => {
                 last = Some(anyhow::anyhow!("{program} timed out"));
                 break;
@@ -158,9 +159,13 @@ async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> 
     }
 }
 
-async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
+async fn one(
+    argv: &[&str],
+    text: Option<&str>,
+    environment: &crate::desktop::Environment,
+) -> Result<String> {
     let Some(t) = text else {
-        return paste(argv).await;
+        return paste(argv, environment).await;
     };
     let (program, arguments) = argv
         .split_first()
@@ -171,6 +176,8 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
     // Do not collect output. Report failures through exit status.
     let mut child = Command::new(program)
         .args(arguments)
+        .env_clear()
+        .envs(environment.iter())
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -194,12 +201,14 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
     Ok(String::new())
 }
 
-async fn paste(argv: &[&str]) -> Result<String> {
+async fn paste(argv: &[&str], environment: &crate::desktop::Environment) -> Result<String> {
     let (program, arguments) = argv
         .split_first()
         .ok_or_else(|| anyhow::anyhow!("clipboard command has no executable"))?;
     let out = Command::new(program)
         .args(arguments)
+        .env_clear()
+        .envs(environment.iter())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

@@ -8,14 +8,17 @@ use anyhow::{Context, Result};
 use crate::config::{Config, DnsConfig, NetworkMode, ProjectCfg, SessionCfg, expand};
 
 use super::seed::seed_into;
-use super::{PRIVATE_RESOLVER, persistent_tmp_path, presets_for, private_path, state_root};
+use super::{PRIVATE_RESOLVER, persistent_tmp_path, private_path, state_root};
 
 /// Create resolver files and initialize private copies before argument construction.
 /// Keep existing private copies. Private network mode always uses a generated resolver file.
 /// Host network mode also needs this file when the configuration specifies DNS servers.
-pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
-    let t = s.preset_table();
-    let presets = presets_for(cfg, s, p, &t)?;
+pub(super) fn prepare(
+    cfg: &Config,
+    s: &SessionCfg,
+    p: &ProjectCfg,
+    presets: &[&crate::presets::SandboxPreset],
+) -> Result<()> {
     super::images::prepare(s)?;
     if s.persistent_tmp {
         let path = persistent_tmp_path(s)?;

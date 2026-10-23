@@ -16,6 +16,7 @@ Paths are relative to `slopd/src/`. Module declarations own the file inventory.
 | `agent_templates/`, `prompt/` | Portable template snapshots and prompt substitution. Application owns catalog and launch coordination; see [templates](daemon-agent-templates.md) and [library](daemon-library.md). |
 | `tasks.rs`, `tasks/`, `grant.rs` | Task policy/persistence and scoped authority. See [tasks](agent-tasks.md) and [grants](agent-grants.md). |
 | `emu/`, `tmux/` | Terminal mirror and tmux transport. See [capture](daemon-terminal-capture.md). |
+| `desktop.rs` | Current desktop environment snapshots for sandbox socket mounts, forwarded variables, and clipboard tools. |
 | `music/`, `audio/`, `jukebox.rs` | Playback transitions, audio output, and station storage. See [jukebox](mod-jukebox.md). |
 | `usage/`, `title/` | Provider polling and summary generation/cache. Application owns background publication; see [titles](agent-titles.md). |
 | `shared/`, `process.rs`, `paths.rs`, `clock.rs` | Shared wire types, bounded child execution, filesystem helpers, and epoch timestamps. Latency uses its own monotonic clock. |

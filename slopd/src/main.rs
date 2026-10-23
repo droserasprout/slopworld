@@ -9,6 +9,7 @@ mod benchmark;
 mod clipboard;
 mod clock;
 mod config;
+mod desktop;
 mod emu;
 mod endpoint;
 mod files;

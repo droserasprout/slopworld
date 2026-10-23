@@ -93,6 +93,11 @@ impl Config {
 /// Expand `~` and environment variables for bwrap. Unset variables give an empty path.
 /// This prevents `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` from becoming `/` and mounting the entire filesystem.
 pub fn expand(path: &str) -> String {
+    expand_with(path, |name| std::env::var(name).ok())
+}
+
+/// Keep expansion rules identical when launch planning uses an owned environment snapshot.
+pub(crate) fn expand_with(path: &str, lookup: impl Fn(&str) -> Option<String>) -> String {
     let path = if let Some(rest) = path.strip_prefix("~/") {
         match dirs::home_dir() {
             Some(home) => home.join(rest).to_string_lossy().into_owned(),
@@ -128,8 +133,8 @@ pub fn expand(path: &str) -> String {
         if name.is_empty() {
             out.push('$');
         } else {
-            match std::env::var(name) {
-                Ok(v) if !v.is_empty() => out.push_str(&v),
+            match lookup(name) {
+                Some(v) if !v.is_empty() => out.push_str(&v),
                 _ => return String::new(),
             }
         }

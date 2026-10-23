@@ -20,6 +20,14 @@ capabilities, private/shared files, and the private-network resolver. Image impo
 mount last and read-only; see [clipboard](daemon-clipboard.md).
 Persistent `/tmp` reapplies preset descendant binds before capabilities and private
 overlays so host display and agent sockets remain reachable.
+At each launch, `desktop.rs` refreshes desktop variables from the systemd user
+manager. Preset validation, ordinary bind expansion, and forwarded variables share
+that snapshot; presets still select access and explicit `setenv` values win.
+The launch coordinator resolves and validates presets once, then shares the selection
+with resource preparation and bind planning.
+This avoids retaining a pre-login daemon environment without requiring graphical login
+for headless startup.
+Existing processes and mount namespaces require an agent restart to gain desktop access.
 The reserved .NET CLI home receives aliases of selected NuGet mounts after its
 private overlay; sources overlapping private preset roots are rejected.
 

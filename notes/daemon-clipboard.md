@@ -5,6 +5,9 @@ Text requests select text formats and decode UTF-8. Concurrent channel requests 
 outcomes; repeated copies verify desktop contents rather than trusting cached ownership.
 On GNOME/XWayland, use the X11 bridge: a Wayland helper can steal focus during paste.
 Other desktops retain Wayland-first selection. Deadlines must fit the client timeout.
+Each operation uses `desktop.rs` to refresh the desktop environment before choosing
+and executing its tools. Neither clipboard nor sandbox planning mutates process-global
+environment; unavailable user-manager integration preserves inherited values.
 
 Desktop image paste imports a file into the current Codex run. It does not rewrite
 the clipboard. `session/capture/images.rs` admits root-authorized desktop intent;
