@@ -26,13 +26,9 @@ fn file_action_paths_are_normalized_before_checking_project_containment() {
 }
 
 #[test]
-fn file_action_paths_normalize_the_absolute_placeholder() {
+fn holding_file_actions_preserves_the_prepared_command() {
     let path = normalize_path(Path::new("/tmp/slop/../repo/file name"));
     assert_eq!(path, PathBuf::from("/tmp/repo/file name"));
-    assert_eq!(
-        normalize_action_command(&path, "du -sh {{ absolute_path }}"),
-        "du -sh '/tmp/repo/file name'"
-    );
     assert_eq!(
         crate::sandbox::shell_split(&hold_action_command("du -sh '/tmp/repo/file name'")).unwrap(),
         vec![

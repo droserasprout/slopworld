@@ -98,8 +98,8 @@ pub(crate) struct ExplicitLaunch {
     pub(crate) kind: crate::config::LibraryItemKind,
     /// A preset name or command line, interpreted as in a library entry.
     pub(crate) command: String,
-    /// Raw selected Files-sidebar path. When present, the daemon expands it and replaces the
-    /// quoted raw path in `command`, so interactive and captured file actions agree.
+    /// Selected Files-sidebar path for scope validation. The client has already prepared
+    /// and quoted `command`; the daemon must not substitute paths into it again.
     pub(crate) path: String,
     /// Keep a file-action terminal open after its command exits so short output remains visible.
     pub(crate) hold: bool,

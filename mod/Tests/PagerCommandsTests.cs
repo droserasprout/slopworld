@@ -51,6 +51,16 @@ namespace SlopWorld.Tests
 
         static void LiteralFileActionPaths()
         {
+            // The daemon's held/captured action regressions use this prepared text.
+            AssertEx.Equal(
+                "cat '/tmp/{{ absolute_path }}'\\''{{ relative_path }}$(id)' '{{ absolute_path }}'\\''{{ relative_path }}$(id)'",
+                PagerCommands.FileActionCommand(
+                    "cat {{ absolute_path }} {{ relative_path }}",
+                    "/tmp/{{ absolute_path }}'{{ relative_path }}$(id)",
+                    "{{ absolute_path }}'{{ relative_path }}$(id)"
+                ),
+                "prepared action text reaches the daemon with all filename syntax quoted"
+            );
             string path = "/repo/{{ relative_path }}'s.txt";
             string relative = "{{ absolute_path }}'s.txt";
             AssertEx.Equal(

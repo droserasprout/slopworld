@@ -1,7 +1,7 @@
 //! Resolve file-action checkout scopes and coordinate bounded host execution.
 //! Application entry points refresh configuration; files owns path and command policy.
 use crate::config::Config;
-use crate::files::actions::{absolute_path, normalize_action_command, project_action_path};
+use crate::files::actions::{absolute_path, project_action_path};
 use anyhow::{Result, anyhow, bail};
 use std::sync::Arc;
 
@@ -136,15 +136,17 @@ pub(crate) async fn file_action_command(
     host: bool,
 ) -> Result<String> {
     let cfg = config_for_action_scope(runtime, project, worktree, raw_path).await?;
-    let path = if host && project.trim().is_empty() {
-        absolute_path(raw_path)?
+    if host && project.trim().is_empty() {
+        absolute_path(raw_path)?;
     } else {
         let p = cfg
             .project(project.trim())
             .ok_or_else(|| anyhow!("Project {project:?} does not exist."))?;
-        project_action_path(p, raw_path)?
-    };
-    Ok(normalize_action_command(&path, command))
+        project_action_path(p, raw_path)?;
+    }
+    // This is prepared client command text, including quoted literal filenames.
+    // Scope validation must not substitute placeholder-looking filename contents.
+    Ok(command.to_owned())
 }
 
 impl super::worktrees::Catalog for FileActions {

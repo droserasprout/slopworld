@@ -134,11 +134,11 @@ async fn explicit_launches_reject_ambiguous_authority_before_allocation() {
 }
 
 #[tokio::test]
-async fn file_launches_quote_paths_and_keep_disposable_host_lifetime() {
+async fn file_launches_preserve_prepared_paths_and_keep_disposable_host_lifetime() {
     let manager = crate::application::test_application(crate::config::Config::default());
     let request = decode_launch(json!({
         "kind": "shell", "host": true, "path": "/tmp/a'b", "hold": true,
-        "command": "cat {{ absolute_path }}"
+        "command": "cat '/tmp/a'\\''b'"
     }));
     let plan =
         crate::application::launch::plan_explicit_launch(&FileActions::new(&manager), request)
@@ -152,4 +152,62 @@ async fn file_launches_quote_paths_and_keep_disposable_host_lifetime() {
     let argv = crate::sandbox::shell_split(plan.content.command.as_deref().unwrap()).unwrap();
     assert_eq!(&argv[..2], &["bash", "-lc"]);
     assert_eq!(argv[2], "cat '/tmp/a'\\''b'; exec \"${SHELL:-bash}\"");
+}
+
+#[tokio::test]
+async fn held_file_launches_never_resubstitute_placeholder_text_in_filenames() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    // Exact prepared text emitted by PagerCommands.FileActionCommand. The second
+    // case uses a relative-path template, and the third uses both placeholders.
+    // These commands are inspected, never executed.
+    for (path, command, arguments) in [
+        (
+            "/tmp/{{ absolute_path }}$(id)",
+            "cat '/tmp/{{ absolute_path }}$(id)'",
+            vec!["/tmp/{{ absolute_path }}$(id)"],
+        ),
+        (
+            "/tmp/{{ absolute_path }}'{{ relative_path }}$(id)",
+            "cat '{{ absolute_path }}'\\''{{ relative_path }}$(id)'",
+            vec!["{{ absolute_path }}'{{ relative_path }}$(id)"],
+        ),
+        (
+            "/tmp/{{ absolute_path }}'{{ relative_path }}$(id)",
+            "cat '/tmp/{{ absolute_path }}'\\''{{ relative_path }}$(id)' '{{ absolute_path }}'\\''{{ relative_path }}$(id)'",
+            vec![
+                "/tmp/{{ absolute_path }}'{{ relative_path }}$(id)",
+                "{{ absolute_path }}'{{ relative_path }}$(id)",
+            ],
+        ),
+    ] {
+        for hold in [false, true] {
+            let request = decode_launch(json!({
+                "kind": "shell", "host": true, "path": path, "hold": hold,
+                "command": command
+            }));
+            let plan = crate::application::launch::plan_explicit_launch(
+                &FileActions::new(&manager),
+                request,
+            )
+            .await
+            .unwrap();
+            let prepared = plan.content.command.unwrap();
+            let script = if hold {
+                let argv = crate::sandbox::shell_split(&prepared).unwrap();
+                assert_eq!(&argv[..2], &["bash", "-lc"]);
+                assert_eq!(argv.len(), 3);
+                assert_eq!(argv[2], format!("{command}; exec \"${{SHELL:-bash}}\""));
+                argv[2]
+                    .strip_suffix("; exec \"${SHELL:-bash}\"")
+                    .unwrap()
+                    .to_owned()
+            } else {
+                assert_eq!(prepared, command);
+                prepared
+            };
+            let argv = crate::sandbox::shell_split(&script).unwrap();
+            assert_eq!(argv[0], "cat");
+            assert_eq!(argv[1..], arguments);
+        }
+    }
 }

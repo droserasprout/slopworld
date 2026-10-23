@@ -98,7 +98,7 @@ async fn project_file_actions_run_on_host_without_private_state() {
 }
 
 #[test]
-fn project_file_actions_expand_and_quote_the_absolute_path() {
+fn project_file_actions_validate_paths_and_preserve_prepared_commands() {
     let cfg = Config {
         projects: vec![ProjectCfg {
             name: "repo".into(),
@@ -111,7 +111,7 @@ fn project_file_actions_expand_and_quote_the_absolute_path() {
         &cfg,
         "repo",
         "/tmp/slopworld-project/src/file name.rs",
-        "sed -n '1p' {{ absolute_path }}",
+        "sed -n '1p' '/tmp/slopworld-project/src/file name.rs'",
         false,
     )
     .unwrap();
@@ -137,6 +137,35 @@ fn project_file_actions_expand_and_quote_the_absolute_path() {
         false,
     )
     .unwrap_err();
+}
+
+#[tokio::test]
+async fn captured_file_actions_preserve_literal_template_text_and_argument_boundaries() {
+    let cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    // Prepared client command from an action with both path placeholders. It
+    // must remain unchanged even though each inserted filename contains both.
+    let path = "/tmp/{{ absolute_path }}'{{ relative_path }}$(id)";
+    let relative = "{{ absolute_path }}'{{ relative_path }}$(id)";
+    let command = "printf '%s\\n' '/tmp/{{ absolute_path }}'\\''{{ relative_path }}$(id)' '{{ absolute_path }}'\\''{{ relative_path }}$(id)'";
+    for (project, host) in [("", true), ("repo", false)] {
+        let (project, session) = resolve_file_action(&cfg, project, path, command, host).unwrap();
+        assert_eq!(session.cmd.as_deref(), Some(command));
+        let argv = crate::sandbox::host_argv(&cfg, &session, &project).unwrap();
+        assert_eq!(
+            &argv[argv.len() - 4..],
+            &["printf", "%s\\n", path, relative]
+        );
+        // Captured commands use argv directly, so $(id) is literal data here.
+        let output = execute_file_action(&cfg, &session, &project).await.unwrap();
+        assert_eq!(output, format!("{path}\n{relative}"));
+    }
 }
 
 #[tokio::test]

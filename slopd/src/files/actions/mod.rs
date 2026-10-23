@@ -1,4 +1,5 @@
-//! File-action path containment and shell command preparation; execution owns bounded host commands.
+//! File-action path containment and terminal holding; execution owns bounded host commands.
+//! Clients prepare command templates once; daemon entry points preserve prepared command text.
 pub(crate) mod execution;
 use crate::config::{ProjectCfg, expand};
 use anyhow::{Result, bail};
@@ -72,11 +73,6 @@ pub(crate) fn hold_action_command(command: &str) -> String {
         "bash -lc {}",
         shell_quote(&format!("{command}; exec \"${{SHELL:-bash}}\""))
     )
-}
-
-pub(crate) fn normalize_action_command(path: &Path, command: &str) -> String {
-    let absolute = shell_quote(&path.to_string_lossy());
-    command.replace("{{ absolute_path }}", &absolute)
 }
 
 #[cfg(test)]

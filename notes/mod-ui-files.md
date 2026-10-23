@@ -23,7 +23,9 @@ reads Git's shared status cache for Diff availability without owning Git refresh
 Bounded listings must remain visibly partial. `TerminalPathProbe` checks omitted paths
 before offering actions. Browsing applies ignore rules before the visible-entry cap.
 Non-UTF-8 names fail rather than producing lossy identities. File-action substitution
-scans only the original template, never inserted paths.
+belongs to `PagerCommands` and scans only the original template, never inserted paths.
+Both captured and terminal daemon entry points validate the selected path and preserve
+the prepared command without further template substitution.
 
 [Readers](mod-file-readers.md) owns preview/pin lifetime, [Markdown](mod-markdown.md)
 owns scoped resources, and [daemon previews](daemon-file-access.md) owns containment.

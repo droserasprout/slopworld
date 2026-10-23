@@ -1,5 +1,5 @@
 //! Non-interactive host file actions; callers supply an accepted checkout scope.
-use super::{absolute_path, normalize_action_command, project_action_path};
+use super::{absolute_path, project_action_path};
 use crate::config::{Config, ProjectCfg, SessionCfg, expand};
 use crate::process::{self, CaptureLimits};
 use anyhow::{Result, anyhow, bail};
@@ -14,25 +14,27 @@ pub(crate) fn resolve_file_action(
     command: &str,
     host: bool,
 ) -> Result<(ProjectCfg, SessionCfg)> {
-    let (p, path) = if host && project.trim().is_empty() {
-        (ProjectCfg::default(), absolute_path(raw_path)?)
+    let p = if host && project.trim().is_empty() {
+        absolute_path(raw_path)?;
+        ProjectCfg::default()
     } else {
         let p = cfg
             .project(project.trim())
             .cloned()
             .ok_or_else(|| anyhow!("Project {project:?} does not exist."))?;
-        let path = project_action_path(&p, raw_path)?;
-        (p, path)
+        project_action_path(&p, raw_path)?;
+        p
     };
     if command.trim().is_empty() {
         bail!("file action has no command");
     }
-    let command = normalize_action_command(&path, command);
+    // The client already substituted and quoted paths. Placeholder text can now be
+    // literal filename data, so never process this command as a template again.
     let s = SessionCfg {
         name: "file-action".into(),
         project: p.name.clone(),
         command: cfg.defaults.shell.clone(),
-        cmd: Some(command),
+        cmd: Some(command.to_owned()),
         ..Default::default()
     };
     Ok((p, s))

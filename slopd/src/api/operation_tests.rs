@@ -184,14 +184,15 @@ async fn explicit_saved_and_captured_actions_succeed_through_http() {
         assert!(manager.sessions.tmux.exists(name).await);
         manager.sessions.stop(name).await.unwrap();
     }
-    let file = root.join("sample");
+    let file = root.join("sample ' {{ absolute_path }}");
     std::fs::write(&file, "file-action-result").unwrap();
     let (status, output) = request(
         &app,
         "POST",
         "/api/file-action",
         json!({
-            "host":true, "path":file, "command":"cat {{ absolute_path }}"
+            "host":true, "path":file,
+            "command":format!("cat {}", shlex::try_quote(file.to_str().unwrap()).unwrap())
         }),
     )
     .await;
