@@ -81,10 +81,11 @@ namespace SlopWorld.Tests
                 using var cancel = new CancellationTokenSource();
                 try
                 {
-                    // Explicit stdin inheritance avoids the shell's /dev/null default for
-                    // background jobs. The parent exits while sleep retains the pipe ends.
+                    // Save stdin before Dash replaces it with /dev/null for background jobs;
+                    // <&0 alone would duplicate /dev/null. The parent exits while sleep
+                    // retains the pipe ends.
                     var spec = Shell(
-                        "sleep 5 <&0 & echo $! > " + pidFile + "; exit 0",
+                        "exec 3<&0; sleep 5 <&3 3<&- & echo $! > " + pidFile + "; exit 0",
                         canceled ? 10000 : 200
                     );
                     spec.InheritOutput = input;

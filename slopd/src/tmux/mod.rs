@@ -750,18 +750,20 @@ impl Tmux {
         }
         let target = format!("{name}:.0");
         let shift_enter = if keys.iter().any(|key| key == "S-Enter") {
+            // Non-UTF-8 tmux clients sanitize embedded newlines to underscores.
+            // Use a printable separator; the key mode cannot contain a colon.
             let mode = self
                 .run(&[
                     "display-message",
                     "-p",
                     "-t",
                     &target,
-                    "#{pane_key_mode}\n#{pane_current_command}",
+                    "#{pane_key_mode}:#{pane_current_command}",
                 ])
                 .await?;
             let (mode, command) = mode
                 .trim_end_matches('\n')
-                .split_once('\n')
+                .split_once(':')
                 .context("tmux Shift+Enter foreground metadata")?;
             shift_enter_key(mode, command)
         } else {
