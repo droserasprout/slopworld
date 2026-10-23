@@ -4,7 +4,7 @@
 [[sandbox]]
 name = "codex"
 description = "Private OpenAI Codex CLI state and configuration with shared credentials"
-# Codex reads the desktop clipboard for Ctrl+V image attachments in its terminal interface, add x11/wayland if needed.
+# SlopWorld uploads clipboard images from the game desktop; no sandbox display access is needed.
 requires = []
 private = ["~/.codex"]
 # Codex saves refreshed tokens in this file. Sharing it gives the host and all sandboxes the same tokens.
