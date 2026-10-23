@@ -25,6 +25,26 @@ namespace SlopWorld
 
         static void Claim(Frame frame) => Ownership.GetOrCreateValue(frame).Owned = true;
 
+        // Vanilla work givers can discover our supplied frames independently of Send.
+        // CanConstruct also runs during FinishFrame, stopping ineligible jobs from loaded saves.
+        // Select the bool overload explicitly; the WorkTypeDef overload delegates to it.
+        [HarmonyPatch(
+            typeof(GenConstruct),
+            nameof(GenConstruct.CanConstruct),
+            new[] { typeof(Thing), typeof(Pawn), typeof(bool), typeof(bool), typeof(JobDef) }
+        )]
+        public static class Patch_AgentConstructionOnly
+        {
+            static bool Prefix(Thing t, Pawn p, ref bool __result)
+            {
+                if (!Owns(t as Frame) || AgentColony.IsAgent(p))
+                    return true;
+
+                __result = false;
+                return false;
+            }
+        }
+
         [HarmonyPatch(typeof(Frame), nameof(Frame.ExposeData))]
         public static class Patch_FrameOwnership
         {

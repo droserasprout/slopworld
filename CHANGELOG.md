@@ -29,6 +29,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 - Apps: Recognize Debian’s `batcat` executable.
 - Game: Mute ambient sounds while the colony is paused.
+- Game: Player pawn avoids construction job.
 - Jukebox: Fall back to local OST playback when daemon playback fails.
 - Jukebox: Drop the jukebox in a pod during initial cutscene.
 - Jukebox: Remove random pauses between local OST tracks.
