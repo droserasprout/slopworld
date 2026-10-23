@@ -19,7 +19,8 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
-- CLI: Added `slopworld connect` and `slopworld peers` to manage saved daemon connections.
+- CLI: Added `slopctl config get` and `slopctl config set` to read and change daemon settings.
+- CLI: Added `slopworld connect` and `slopworld endpoints` to manage saved daemon connections.
 - CLI: Added automatic game profile selection for each connection.
 - Settings: Added configurable on-exit actions to the General tab.
 - UI: Added missing View and Add actions to Command palette.

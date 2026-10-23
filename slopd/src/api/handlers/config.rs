@@ -91,11 +91,7 @@ pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value
             .map(|p| p.replace("~1", ".").replace("~0", "~"))
             .collect();
         let root = parts.first().map(String::as_str);
-        let first_key = parts.get(1).map(String::as_str);
-        if parts.len() < 2
-            || !matches!(root, Some("daemon" | "defaults" | "commands"))
-            || (root == Some("daemon") && matches!(first_key, Some("bind" | "token")))
-        {
+        if parts.len() < 2 || !matches!(root, Some("daemon" | "defaults" | "commands")) {
             return Err(err(
                 StatusCode::BAD_REQUEST,
                 "This config path is not valid for editing.",

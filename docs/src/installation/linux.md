@@ -111,28 +111,15 @@ installation as above. The remote server runs `slopd` and your agents; the clien
 runs the game. This example uses SSH host `tank` and server IP `192.168.1.10`.
 Replace them with your server's hostname and reachable IP address.
 
-On the remote server, start the daemon once to create its configuration, then stop
-it before editing:
+On the remote server, start the daemon and set its listener address:
 
 ```sh
 # On remote server
 systemctl --user daemon-reload
 systemctl --user enable --now slopd.service
-systemctl --user stop slopd.service
-nano ~/.config/slopworld/config.toml
-```
 
-In the existing `[daemon]` section, set the listener address:
-
-```toml
-[daemon]
-bind = "192.168.1.10:7717"
-```
-
-Keep the other settings, including the token. Start the daemon with the new address:
-
-```sh
-systemctl --user start slopd.service
+slopctl config set daemon.bind 192.168.1.10:7717
+systemctl --user restart slopd.service
 ```
 
 On the client, register the daemon and enter its token at the hidden key prompt:

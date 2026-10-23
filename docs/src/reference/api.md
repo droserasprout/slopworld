@@ -194,8 +194,10 @@ The patch route accepts `ConfigPatch`: editable `values` and repeated leaf `path
 Only listed paths are merged and checked; omitted paths preserve existing fields.
 Explicit paths allow false, zero, and empty-list values.
 
-Map keys escape tilde as `~0` and dot as `~1`. Root, secret, unknown, and overlapping
-paths are rejected.
+Map keys escape tilde as `~0` and dot as `~1`. Root, unknown, and overlapping paths
+are rejected. Patches require the root token. Updating `daemon.bind` persists the
+address for the next daemon startup; updating `daemon.token` rotates authentication
+immediately and updates local endpoint credentials. Token reads remain redacted.
 
 Project responses include both editable `dir` and `expanded_dir`, resolved using
 the daemon's home and environment. Project messages contain the directory,

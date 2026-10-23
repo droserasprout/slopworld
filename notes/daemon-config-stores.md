@@ -22,6 +22,9 @@ Patches preserve omitted settings; replacements preserve workspace records. Neit
 accepts inline workspace membership or library items. Unknown extensions survive
 without restoring cleared known fields. The redacted-token sentinel retains the
 secret; blank tokens fail. Only an absent settings file generates a first-start token.
+Root-authenticated API patches and `slopctl config set` may update bind and token.
+Bind changes take effect on restart; token rotation applies immediately and updates
+the local endpoint descriptor while remote peer credentials remain client-owned.
 
 Transactions bind paths to normalized roots and the settings filename. Recovery
 rejects changed mappings before writing. Startup reserves configured and recovery

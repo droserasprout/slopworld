@@ -227,8 +227,6 @@ fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
         json!({"daemon":{"usage_items":{"a.b~c":{"poll":false,"interval_secs":0}},"worker_templates":[]}})
     );
     for (path, expected) in [
-        ("daemon.token", "This config path is not valid for editing."),
-        ("daemon.bind", "This config path is not valid for editing."),
         ("daemon.typo", "unknown config path: daemon.typo"),
         (
             "daemon.usage_items",
@@ -247,6 +245,68 @@ fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
         .unwrap_err();
         assert_eq!(error.error, expected, "{path}");
     }
+}
+
+#[tokio::test]
+async fn settings_patch_persists_bind_and_rotates_token_atomically() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let original = manager.config_authority.read_config().await.clone();
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    for (bind, token, expected) in [
+        ("192.168.1.10:7717", "new-root-token", StatusCode::OK),
+        ("invalid address", "another-token", StatusCode::BAD_REQUEST),
+        ("192.168.1.10:7717", "", StatusCode::BAD_REQUEST),
+    ] {
+        let body = wire::ConfigPatch {
+            paths: vec!["daemon.bind".into(), "daemon.token".into()],
+            values: Some(wire::EditableConfig {
+                daemon: Some(wire::Daemon {
+                    bind: bind.into(),
+                    token: token.into(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+        }
+        .encode_to_vec();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/api/config/patch")
+                    .header(header::CONTENT_TYPE, CONTENT_TYPE)
+                    .header(crate::shared::protocol::SESSION_HEADER, "host")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected);
+        let accepted = manager.config_authority.read_config().await.clone();
+        assert_eq!(accepted.daemon.bind, "192.168.1.10:7717");
+        assert_eq!(accepted.daemon.token, "new-root-token");
+        let saved = crate::config::Config::load(manager.sessions.cfg_path())
+            .await
+            .unwrap();
+        assert_eq!(saved.daemon.bind, accepted.daemon.bind);
+        assert_eq!(saved.daemon.token, accepted.daemon.token);
+        assert_eq!(saved.daemon.title_model, original.daemon.title_model);
+    }
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&original.daemon.token))
+            .await
+            .is_none()
+    );
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some("new-root-token"))
+            .await
+            .is_some()
+    );
 }
 
 #[tokio::test]

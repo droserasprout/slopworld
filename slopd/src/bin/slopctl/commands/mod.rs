@@ -2,6 +2,7 @@
 
 mod agent;
 mod common;
+mod config;
 mod diagnostics;
 mod task;
 mod templates;
@@ -54,6 +55,8 @@ usage:
   slopctl sandbox inspect NAME
   slopctl peers
   slopctl status
+  slopctl config get KEY
+  slopctl config set KEY VALUE
   slopctl [--sidecar] paths config|data|cache|endpoint|profile|game-log
   slopctl [--sidecar] logs [game|daemon|all] [--lines N] [--follow]
 
@@ -71,6 +74,7 @@ SLOPD_ENDPOINT selects endpoints/local.toml. SLOPD_URL and SLOPD_TOKEN override 
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
+    Config(config::ConfigArgs),
     Worktree(worktree::WorktreeArgs),
     Help {
         usage: &'static str,
@@ -132,6 +136,7 @@ pub(crate) fn command_help(command: &str) -> Option<&'static str> {
         "task" => task::TASK_USAGE,
         "peers" => diagnostics::PEERS_USAGE,
         "status" => diagnostics::STATUS_USAGE,
+        "config" => config::CONFIG_USAGE,
         "sandbox" => diagnostics::SANDBOX_USAGE,
         "logs" => LOGS_USAGE,
         _ => return None,
@@ -145,6 +150,7 @@ fn subcommand_help(command: &str, subcommand: &str) -> Option<&'static str> {
         ("template", "list") => templates::TEMPLATES_USAGE,
         ("template", "show") => templates::TEMPLATE_SHOW_USAGE,
         ("sandbox", "inspect") => diagnostics::SANDBOX_INSPECT_USAGE,
+        ("config", "get" | "set") => config::CONFIG_USAGE,
         ("task", "delegate") => task::DELEGATE_USAGE,
         ("task", "list") => task::TASK_LIST_USAGE,
         ("task", "show") => task::TASK_SHOW_USAGE,
@@ -196,6 +202,7 @@ pub(crate) fn parse_command_with_task_id(
         "logs" => Ok(Command::Logs {
             args: rest.to_vec(),
         }),
+        "config" => config::parse(args),
         "worker" => worker::parse_worker_command(args),
         "worktree" => worktree::parse_worktree(args),
         "template" => templates::parse_template_command(args),
@@ -222,6 +229,7 @@ impl Command {
         json_output: bool,
     ) -> Result<(), String> {
         match self {
+            Self::Config(args) => config::run(endpoint, session, json_output, args),
             Self::Worktree(args) => worktree::run(endpoint, session, json_output, args),
             Self::Help { usage } => {
                 print!("{usage}");

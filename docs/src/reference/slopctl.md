@@ -32,6 +32,29 @@ for permissions and [Paths and files](paths.md) for endpoint locations.
 path without contacting the daemon or creating directories. Add `--sidecar` for
 sidecar defaults. With `--json`, the result is a JSON string.
 
+## Configuration
+
+Read or change a setting on the selected running daemon with the root token:
+
+```sh
+slopctl config get daemon.bind
+slopctl config set daemon.bind 192.168.1.10:7717
+systemctl --user restart slopd.service
+```
+
+`get KEY` prints a string as plain text and other values as JSON; `--json` always
+prints JSON. Token reads remain redacted.
+`set KEY VALUE` preserves other settings and accepts individual values under
+`daemon`, `defaults`, and `commands`. Strings take literal text; booleans, numbers,
+and lists take JSON, for example `slopctl config set daemon.worker_templates '[]'`.
+Paths use dots; escape dots in map keys as `~1` and tildes as `~0`.
+
+Changing `daemon.bind` requires a daemon restart. Changing `daemon.token` takes
+effect immediately and invalidates the old token; reconnect saved remote peers
+with `slopworld connect NAME URL` and enter the new token. The daemon updates its
+local endpoint credentials automatically. With `--json`, `set` reports `saved`,
+`restart_required`, and `token_changed` without printing the value.
+
 ## Task commands
 
 Use task commands to send work, find tasks, update status, and remove tasks.
