@@ -1,4 +1,3 @@
-using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -6,41 +5,8 @@ namespace SlopWorld
 {
     // Radio owns playback and catalog state. This component owns map presence, tooltips, and input.
     // Read clicks directly because StripInteraction permits selection only for colonists.
-    public class Jukebox : MapComponent
+    public partial class Jukebox
     {
-        public Jukebox(Map map)
-            : base(map) { }
-
-        // Initial placement belongs to the player's arrival, not agent sessions.
-        public Thing ArrivalCargo() => On(map) ? null : ThingMaker.MakeThing(ModDefOf.SlopJukebox);
-
-        // Repair loaded colonies after the player lands. Never place a second box
-        // while its arrival cargo is still inside the player's pod.
-        public void EnsurePlaced(IntVec3 cell)
-        {
-            var box = ArrivalCargo();
-            if (box == null)
-                return;
-            if (!GenPlace.TryPlaceThing(box, cell, map, ThingPlaceMode.Near))
-            {
-                box.Destroy(DestroyMode.Vanish);
-                Log.Warning("[SlopWorld] Could not place the map jukebox.");
-            }
-        }
-
-        public override void FinalizeInit()
-        {
-            var boxes = map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox);
-            if (boxes.Count < 2)
-                return;
-
-            int extra = boxes.Count - 1;
-            // Remove items from the end because destruction changes the list.
-            while (boxes.Count > 1)
-                boxes[boxes.Count - 1].Destroy(DestroyMode.Vanish);
-            Log.Message($"[SlopWorld] jukebox: removed {extra} duplicate(s)");
-        }
-
         public override void MapComponentOnGUI()
         {
             // Skip map input during cutscenes, Eco rest, or terminal coverage.
@@ -90,9 +56,5 @@ namespace SlopWorld
                 Mathf.Abs(b.y - a.y)
             );
         }
-
-        // Pending pod cargo is intentionally absent until it lands on the map.
-        public static bool On(Map map) =>
-            map != null && map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox).Count > 0;
     }
 }

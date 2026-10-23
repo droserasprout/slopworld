@@ -2,14 +2,10 @@
 
 Open the map jukebox or status-bar jukebox control. The OST is a built-in source;
 **Settings > Audio > Sources** controls its visibility.
-The jukebox arrives with the player in a drop pod during the opening scene,
-even without any agents.
-If the daemon cannot open or play the OST, RimWorld plays the bundled tracks locally.
-The first launch of a new profile starts the OST with **pace**, played locally.
-Local playback advances to the next track without RimWorld's random pauses,
-just like daemon playback.
 
-## Native Linux playback
+If the daemon cannot open or play the OST, RimWorld plays the bundled tracks locally.
+
+## Internet radio
 
 <img src="../images/jukebox-menu.jpg" alt="Jukebox menu with playback controls and radio sources" align="right" width="280">
 

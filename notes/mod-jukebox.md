@@ -35,9 +35,10 @@ returning to RimWorld's usual song selection. Native playback advances after the
 music manager's update when enabled and idle, bypassing its random inter-track
 delay without interrupting active songs. The launcher's first-run signal is shared
 with initial audio preferences.
-The map component prepares jukebox cargo for the player's opening pod, independently
-of agents. Player reconciliation repairs a missing jukebox only after the player
-has landed, so pending pod cargo cannot cause duplicate placement.
+The map component owns the jukebox reference, including cargo in its separate
+opening pod. It saves that reference so player reconciliation cannot replace
+pending cargo, including after loading during arrival. Player delivery is independent
+of agents; reconciliation repairs a missing or destroyed jukebox after the player lands.
 Muting daemon streams/Spotify stops them to avoid background playback/downloads.
 Spotify requires both ncspot and audio capabilities; sidecar supplies neither and
 falls back to OST for unavailable saved selections.

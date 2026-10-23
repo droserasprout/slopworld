@@ -6,7 +6,7 @@ gates without owning phases. Restore unfinished intro gates before Eco decides t
 pause ticks. Arrivals place directly when skyfall fails or Eco rests. Menu landing
 and New colony queue `QuickStart` before setup pages enter the window stack.
 
-The intro releases the player and jukebox in one pod when agent arrivals begin,
+The intro releases the player and jukebox in separate pods when agent arrivals begin,
 even with an empty daemon. `PlayerPawn` owns the pawn reference while it is in
 transit; the initial waiting phase also holds automatic player placement so
 component update order cannot create the player before the scene starts.

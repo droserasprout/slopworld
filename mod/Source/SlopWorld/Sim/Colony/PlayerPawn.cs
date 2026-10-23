@@ -118,8 +118,7 @@ namespace SlopWorld
         {
             if (_pawn != null && !_pawn.Destroyed && !_pawn.Dead)
             {
-                // A pawn inside its incoming pod is already owned. Wait until it lands
-                // before repairing a missing jukebox, including after loading a save.
+                // A pawn inside its incoming pod is already owned.
                 if (_pawn.Spawned && _pawn.Map == map)
                     map.GetComponent<Jukebox>()?.EnsurePlaced(_pawn.Position);
                 return;
@@ -139,6 +138,7 @@ namespace SlopWorld
                 var box = map.GetComponent<Jukebox>()?.ArrivalCargo();
                 if (box != null)
                     cargo.Add(box);
+                // Each item arrives in its own pod.
                 DropPodUtility.DropThingsNear(
                     cell,
                     map,

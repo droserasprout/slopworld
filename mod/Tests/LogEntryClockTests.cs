@@ -50,6 +50,7 @@ namespace Verse
         Inactive,
         Saving,
         LoadingVars,
+        ResolvingCrossRefs,
     }
 
     public static class Scribe
