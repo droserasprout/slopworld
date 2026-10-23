@@ -8,34 +8,70 @@ namespace SlopWorld
         public const string Moderate = "moderate";
         public const string Massive = "massive";
 
-        public static string Normalize(string value) =>
-            value == Off || value == Moderate || value == Massive ? value : Mild;
-
-        public static string Label(string value) =>
-            Normalize(value) == Off ? "Off"
-            : Normalize(value) == Moderate ? "Moderate"
-            : Normalize(value) == Massive ? "Massive"
-            : "Mild";
-
         // Absolute alpha values keep tuning here, independent of renderer multipliers.
         // Equal steps above Mild keep the progression smooth for each effect.
-        public static float ScanlineOpacity(string value) =>
-            Normalize(value) == Off ? 0f
-            : Normalize(value) == Moderate ? 0.17f
-            : Normalize(value) == Massive ? 0.26f
-            : 0.08f;
+        static readonly Preset OffPreset = new Preset(
+            Off,
+            "Off",
+            scanlines: 0f,
+            corners: 0f,
+            grain: 0f
+        );
+        static readonly Preset MildPreset = new Preset(
+            Mild,
+            "Mild",
+            scanlines: 0.05f,
+            corners: 0.195f,
+            grain: 0.07f
+        );
+        static readonly Preset ModeratePreset = new Preset(
+            Moderate,
+            "Moderate",
+            scanlines: 0.135f,
+            corners: 0.32f,
+            grain: 0.115f
+        );
+        static readonly Preset MassivePreset = new Preset(
+            Massive,
+            "Massive",
+            scanlines: 0.22f,
+            corners: 0.445f,
+            grain: 0.16f
+        );
 
-        public static float CornerOpacity(string value) =>
-            Normalize(value) == Off ? 0f
-            : Normalize(value) == Moderate ? 0.32f
-            : Normalize(value) == Massive ? 0.445f
-            : 0.195f;
+        readonly struct Preset
+        {
+            internal readonly string Key;
+            internal readonly string Label;
+            internal readonly float Scanlines;
+            internal readonly float Corners;
+            internal readonly float Grain;
 
-        public static float GrainOpacity(string value) =>
-            Normalize(value) == Off ? 0f
-            : Normalize(value) == Moderate ? 37f / 255f
-            : Normalize(value) == Massive ? 49f / 255f
-            : 25f / 255f;
+            internal Preset(string key, string label, float scanlines, float corners, float grain)
+            {
+                Key = key;
+                Label = label;
+                Scanlines = scanlines;
+                Corners = corners;
+                Grain = grain;
+            }
+        }
+
+        static Preset Resolve(string value) =>
+            value == Off ? OffPreset
+            : value == Moderate ? ModeratePreset
+            : value == Massive ? MassivePreset
+            : MildPreset;
+
+        public static string Normalize(string value) => Resolve(value).Key;
+
+        public static string Label(string value) => Resolve(value).Label;
+
+        public static float ScanlineOpacity(string value) => Resolve(value).Scanlines;
+
+        public static float CornerOpacity(string value) => Resolve(value).Corners;
+
+        public static float GrainOpacity(string value) => Resolve(value).Grain;
 
         // Hardware cursors bypass the overlay. Match the average dimming of scanlines
         // covering one-third of the rows, keeping alpha intact for pointer visibility.
