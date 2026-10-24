@@ -30,6 +30,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Settings: Preserve unfinished preset text when switching between entries.
 - Storage: Prevent trash cleanup from deleting private state during reset or restore.
 - Tasks: Keep task details updated when the Tasks sidebar is hidden.
+- Terminal: Prevent flicker when scrolling horizontally in pagers.
 - Terminal: Preserve Alt in Ctrl+Alt keyboard shortcuts.
 - UI: Fixed Agents sidebar becoming empty after switching tabs.
 - UI: Fixed syntax highlighting in diffs breaking after long lines.

@@ -9,6 +9,7 @@ use tokio::time::Instant;
 
 use crate::tmux::control::parse_output;
 use anyhow::anyhow;
+use futures::FutureExt;
 
 /// Only attachment to a new startup placeholder may fail the process run.
 /// Adoption, rename, and recovery observe an independently running process.
@@ -21,11 +22,17 @@ enum Attachment {
 // Limit watched terminal redraws to roughly one per display frame.
 const FAST_TICK: Duration = Duration::from_millis(16);
 // less redraws a horizontally shifted page in several tmux output records. Give
-// the replacement rows a short quiet interval, but keep continuous output bounded.
-const REDRAW_QUIET: Duration = Duration::from_millis(3);
+// the replacement rows a full display frame of quiet: shorter gaps between
+// records under load or through a sidecar can expose the erased/partial page.
+// An absolute deadline can expire in the middle of a slow redraw. Unless a managed
+// pager finishes its prompt, quiet completes this burst.
+const REDRAW_QUIET: Duration = FAST_TICK;
+// Other terminals may stream forever after a clear; keep their frames progressing.
 const REDRAW_LIMIT: Duration = Duration::from_millis(32);
 // Capture unwatched panes less often while still tracking activity.
 const SLOW_TICK: Duration = Duration::from_millis(200);
+// Bound work before a draw even when a producer continuously fills the queue.
+const DRAW_DRAIN_LINES: usize = 256;
 
 /// Schedule output, subscription, and clipboard work on Tokio's monotonic clock.
 /// Wall-clock activity timestamps must not affect draw deadlines.
@@ -34,7 +41,18 @@ struct DrawSchedule {
     dirty: bool,
     last_drawn: Option<Instant>,
     deadline: Option<Instant>,
-    redraw_started: Option<Instant>,
+    redraw: RedrawState,
+    pager: bool,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+enum RedrawState {
+    #[default]
+    Streaming,
+    Settling {
+        started: Instant,
+    },
+    Complete,
 }
 
 // A watched clean pane may need clipboard delivery without a redraw.
@@ -48,6 +66,9 @@ enum TickAction {
 impl DrawSchedule {
     fn output(&mut self, now: Instant, watched: bool, redraw_clear: bool) {
         self.dirty = true;
+        if self.redraw == RedrawState::Complete {
+            self.redraw = RedrawState::Streaming;
+        }
         let deadline = if watched {
             self.last_drawn
                 .map_or(now + FAST_TICK, |last| (last + FAST_TICK).max(now))
@@ -56,37 +77,60 @@ impl DrawSchedule {
         } else {
             now + FAST_TICK
         };
-        // A stream of output must not postpone an already scheduled redraw.
+        // Ordinary streaming output must not postpone an already scheduled draw.
         self.deadline = Some(
             self.deadline
                 .map_or(deadline, |pending| pending.min(deadline)),
         );
         if watched {
-            if redraw_clear && self.redraw_started.is_none() {
-                self.redraw_started = Some(now);
+            if redraw_clear && !matches!(self.redraw, RedrawState::Settling { .. }) {
+                self.redraw = RedrawState::Settling { started: now };
             }
-            if let Some(started) = self.redraw_started {
-                let settled = (now + REDRAW_QUIET).min(started + REDRAW_LIMIT);
+            if let RedrawState::Settling { started } = self.redraw {
+                let settled = if self.pager {
+                    now + REDRAW_QUIET
+                } else {
+                    (now + REDRAW_QUIET).min(started + REDRAW_LIMIT)
+                };
                 self.deadline = self.deadline.map(|pending| pending.max(settled));
             }
         }
+    }
+
+    fn finish_pager_redraw(&mut self, now: Instant, watched: bool) {
+        if !self.pager || !watched {
+            return;
+        }
+        self.redraw = RedrawState::Complete;
+        // A complete page needs only the normal display beat, not a quiet
+        // interval. Continuous scrolling can therefore publish between pages.
+        self.deadline = Some(
+            self.last_drawn
+                .map_or(now, |last| (last + FAST_TICK).max(now)),
+        );
     }
 
     fn wake(&mut self, now: Instant, watched: bool) {
         if watched {
             // A subscription wake must not expose a pager's clear
             // before its replacement rows have reached the mirror.
-            self.deadline = Some(if self.dirty && self.redraw_started.is_some() {
-                self.deadline.map_or(now, |pending| pending.max(now))
-            } else {
-                now
-            });
+            self.deadline = Some(
+                if self.dirty && matches!(self.redraw, RedrawState::Settling { .. }) {
+                    self.deadline.map_or(now, |pending| pending.max(now))
+                } else {
+                    now
+                },
+            );
         } else if self.dirty {
             self.output(now, false, false);
         }
     }
 
     fn fire(&mut self, now: Instant, watched: bool) -> TickAction {
+        // Output drained by a due tick may have extended the settling deadline.
+        if self.deadline.is_some_and(|deadline| deadline > now) {
+            return TickAction::Idle;
+        }
         if !self.dirty {
             self.deadline = None;
             // A newly watched pane may already have an OSC 52 value waiting in the emulator.
@@ -102,7 +146,7 @@ impl DrawSchedule {
             self.dirty = false;
             self.last_drawn = Some(now);
             self.deadline = None;
-            self.redraw_started = None;
+            self.redraw = RedrawState::Streaming;
             TickAction::Render { clipboard: watched }
         } else {
             self.deadline = self.last_drawn.map(|last| last + SLOW_TICK);
@@ -169,10 +213,12 @@ fn handle_control_line(emu: &Mutex<SessionEmu>, line: &[u8]) -> ControlLine {
             e.feed(&bytes);
             return ControlLine::Output {
                 redraw_clear: e.take_redraw_clear(),
+                pager_prompt: e.pager_prompt(),
             };
         }
         ControlLine::Output {
             redraw_clear: false,
+            pager_prompt: false,
         }
     } else if line.starts_with(b"%exit") {
         ControlLine::Exit
@@ -189,8 +235,15 @@ fn process_control_line(
     watched: bool,
 ) -> bool {
     match handle_control_line(emu, line) {
-        ControlLine::Output { redraw_clear } => {
-            schedule.output(Instant::now(), watched, redraw_clear)
+        ControlLine::Output {
+            redraw_clear,
+            pager_prompt,
+        } => {
+            let now = Instant::now();
+            schedule.output(now, watched, redraw_clear);
+            if pager_prompt {
+                schedule.finish_pager_redraw(now, watched);
+            }
         }
         ControlLine::Exit => return false,
         ControlLine::Ignore => {}
@@ -472,7 +525,12 @@ impl SessionRuntime {
         pending: Vec<Vec<u8>>,
     ) {
         let mut watchers_changed = self.signals.watchers_changed.subscribe();
-        let mut schedule = DrawSchedule::default();
+        let mut schedule = DrawSchedule {
+            pager: self.live.read().await.get(name).is_some_and(|live| {
+                matches!(live.launch.intent.as_str(), "view" | "diff" | "search")
+            }),
+            ..Default::default()
+        };
         schedule.wake(Instant::now(), self.watched(name));
 
         // Replay handshake output before reading newer bytes from the transport.
@@ -490,6 +548,12 @@ impl SessionRuntime {
                         if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
                             break;
                         }
+                        // Capture a completed page before feeding the next clear.
+                        // Waiting for the queue to go quiet can starve repeated scrolls.
+                        if schedule.redraw == RedrawState::Complete {
+                            let action = schedule.fire(Instant::now(), self.watched(name));
+                            self.handle_control_tick(name, &emu, action).await;
+                        }
                     }
                     None => break,
                 },
@@ -499,10 +563,9 @@ impl SessionRuntime {
                         None => futures::future::pending().await,
                     }
                 } => {
-                    let watched = self.watched(name);
-                    let now = Instant::now();
-                    let action = schedule.fire(now, watched);
-                    self.handle_control_tick(name, &emu, action).await;
+                    if !self.draw_control_output(name, &emu, &mut rx, &mut schedule).await {
+                        break;
+                    }
                 },
                 _ = watchers_changed.changed() => {
                     schedule.wake(Instant::now(), self.watched(name));
@@ -518,6 +581,37 @@ impl SessionRuntime {
             tracing::warn!("control stream {name}: {error}");
         }
         self.flush_control_exit(name, &emu, &schedule).await;
+    }
+
+    async fn draw_control_output(
+        &self,
+        name: &str,
+        emu: &Mutex<SessionEmu>,
+        rx: &mut ControlLineReceiver,
+        schedule: &mut DrawSchedule,
+    ) -> bool {
+        // select! may choose an expired timer while replacement rows are ready,
+        // including lines still in the receiver's current chunk. Feed those bytes
+        // before capturing rather than publishing an avoidable partial redraw.
+        for _ in 0..DRAW_DRAIN_LINES {
+            // Preserve a complete page before feeding the next queued clear.
+            if schedule.redraw == RedrawState::Complete {
+                break;
+            }
+            match rx.recv().now_or_never() {
+                Some(Some(line)) => {
+                    if !process_control_line(emu, &line, schedule, self.watched(name)) {
+                        return false;
+                    }
+                }
+                Some(None) => return false,
+                None => break,
+            }
+        }
+        // Drained output can start or extend a redraw's settling interval.
+        let action = schedule.fire(Instant::now(), self.watched(name));
+        self.handle_control_tick(name, emu, action).await;
+        true
     }
 
     // Publication is synchronous once the reader/run identity is validated. There is

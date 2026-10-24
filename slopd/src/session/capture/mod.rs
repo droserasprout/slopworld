@@ -15,7 +15,10 @@ const CONTROL_QUEUE_CHUNK_BYTES: usize = 16 * 1024;
 const CONTROL_QUEUE_CHUNKS: usize = 256;
 
 enum ControlLine {
-    Output { redraw_clear: bool },
+    Output {
+        redraw_clear: bool,
+        pager_prompt: bool,
+    },
     Exit,
     Ignore,
 }

@@ -156,6 +156,7 @@ pub struct SessionEmu {
     render_cache: RenderCache,
     history_extent_cache: Option<u32>,
     redraw_clear: bool,
+    pager_prompt: bool,
     overflow_tail: Option<handler::OverflowTail>,
 }
 
@@ -187,6 +188,7 @@ impl SessionEmu {
             render_cache: RenderCache::new(),
             history_extent_cache: None,
             redraw_clear: false,
+            pager_prompt: false,
             overflow_tail: None,
         }
     }
@@ -271,8 +273,15 @@ impl SessionEmu {
         std::mem::take(&mut self.redraw_clear)
     }
 
+    /// less finishes a page by clearing the tail of its bottom prompt row.
+    /// Only managed pager readers may use this hint to bypass redraw settling.
+    pub(crate) fn pager_prompt(&self) -> bool {
+        self.pager_prompt
+    }
+
     fn feed_plain(&mut self, bytes: &[u8]) {
         if !bytes.is_empty() {
+            self.pager_prompt = false;
             let mut history_dirty = false;
             self.parser.advance(
                 &mut handler::Mirror {
@@ -280,6 +289,7 @@ impl SessionEmu {
                     cache: &mut self.render_cache,
                     history_dirty: &mut history_dirty,
                     redraw_clear: &mut self.redraw_clear,
+                    pager_prompt: &mut self.pager_prompt,
                     overflow_tail: &mut self.overflow_tail,
                 },
                 bytes,

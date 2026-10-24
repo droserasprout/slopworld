@@ -12,6 +12,18 @@ invalidate history; scroll snapshots cannot consume bells. Titles and newly latc
 bells publish even without changed text. Scheduling consumes dirty state; rendering
 executes the selected action. OSC 52 publication validates the reader identity and hands off to subscribed clients
 without desktop I/O; [clipboard](daemon-clipboard.md) owns the client boundary.
+Watched viewport clears settle for one display frame of quiet after the latest output.
+Managed pagers have no absolute redraw deadline, so slow split redraws retain the
+previous page while replacement rows arrive. Other terminals cap settling at 32 ms
+from the first clear, including repeated clears, so continuous output cannot freeze
+publication. Ordinary output keeps its normal draw cadence.
+Managed file, diff, and search pagers can finish settling earlier when their final
+terminal operation clears the tail of the bottom prompt row. Completed pages publish
+on the normal display beat before the next queued clear, keeping repeated scrolling
+responsive without publishing the erased page. Other terminal output retains the
+quiet-interval fallback; later operations invalidate a prompt hint.
+Before a due draw, the reader consumes a bounded batch of queued control lines,
+including lines buffered in the current transport chunk, and rechecks the deadline.
 
 The mirror bounds each cell's combining tail. Discarded scalars still advance cluster
 parsing so standalone text after an oversized cluster keeps its columns.

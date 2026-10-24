@@ -28,7 +28,8 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
         assert!(matches!(
             handle_control_line(&emu, b"%output %1 hello"),
             ControlLine::Output {
-                redraw_clear: false
+                redraw_clear: false,
+                ..
             }
         ));
         let now = Instant::now();
@@ -132,9 +133,47 @@ fn continuous_output_does_not_postpone_the_first_draw() {
 }
 
 #[test]
-fn pager_clear_waits_for_replacement_rows_without_stalling_a_stream() {
+fn non_pager_output_after_a_clear_has_a_bounded_draw_deadline() {
+    for repeated_clears in [false, true] {
+        let now = Instant::now();
+        let mut schedule = DrawSchedule::default();
+        schedule.output(now, true, true);
+        for millis in 1..=32 {
+            let received = now + Duration::from_millis(millis);
+            schedule.output(received, true, repeated_clears);
+            // Even a prompt-shaped operation cannot bypass the non-pager bound.
+            schedule.finish_pager_redraw(received, true);
+            schedule.wake(received, true);
+            assert!(schedule.deadline().unwrap() <= now + REDRAW_LIMIT);
+            assert_eq!(
+                schedule.fire(received, true),
+                if millis == 32 {
+                    TickAction::Render { clipboard: true }
+                } else {
+                    TickAction::Idle
+                }
+            );
+        }
+        // Once published, ordinary output resumes the display cadence.
+        let drawn = now + REDRAW_LIMIT;
+        for millis in 1..=16 {
+            schedule.output(drawn + Duration::from_millis(millis), true, false);
+            assert_eq!(schedule.deadline(), Some(drawn + FAST_TICK));
+        }
+        assert_eq!(
+            schedule.fire(drawn + FAST_TICK, true),
+            TickAction::Render { clipboard: true }
+        );
+    }
+}
+
+#[test]
+fn pager_clear_waits_for_quiet_even_when_replacement_exceeds_32_ms() {
     let now = Instant::now();
-    let mut schedule = DrawSchedule::default();
+    let mut schedule = DrawSchedule {
+        pager: true,
+        ..Default::default()
+    };
     schedule.output(now, true, false);
     assert_eq!(
         schedule.fire(now + FAST_TICK, true),
@@ -150,15 +189,334 @@ fn pager_clear_waits_for_replacement_rows_without_stalling_a_stream() {
     schedule.output(next, true, false);
     assert_eq!(schedule.deadline(), Some(next + REDRAW_QUIET));
 
-    for millis in 2..32 {
+    for millis in 2..80 {
         schedule.output(clear + Duration::from_millis(millis), true, false);
+        assert_eq!(
+            schedule.fire(clear + Duration::from_millis(millis), true),
+            TickAction::Idle
+        );
     }
-    assert_eq!(schedule.deadline(), Some(clear + REDRAW_LIMIT));
+    let settled = clear + Duration::from_millis(79) + REDRAW_QUIET;
+    assert_eq!(schedule.deadline(), Some(settled));
     assert_eq!(
-        schedule.fire(clear + REDRAW_LIMIT, true),
+        schedule.fire(settled, true),
         TickAction::Render { clipboard: true }
     );
     assert_eq!(schedule.deadline(), None);
+
+    // Once the burst settles, an ordinary stream keeps the normal draw beat.
+    let next = settled + Duration::from_millis(1);
+    schedule.output(next, true, false);
+    for millis in 2..16 {
+        schedule.output(settled + Duration::from_millis(millis), true, false);
+    }
+    assert_eq!(schedule.deadline(), Some(settled + FAST_TICK));
+    assert_eq!(
+        schedule.fire(settled + FAST_TICK, true),
+        TickAction::Render { clipboard: true }
+    );
+}
+
+#[test]
+fn completed_pager_pages_publish_during_continuous_scrolling() {
+    let now = Instant::now();
+    let mut schedule = DrawSchedule {
+        pager: true,
+        ..Default::default()
+    };
+    let mut frames = 0;
+    // Key repeat never leaves a 16 ms quiet interval between these pages.
+    for page in 0..20 {
+        let clear = now + Duration::from_millis(page * 8);
+        schedule.output(clear, true, true);
+        assert_eq!(schedule.fire(clear, true), TickAction::Idle);
+        let complete = clear + Duration::from_millis(4);
+        schedule.output(complete, true, false);
+        schedule.finish_pager_redraw(complete, true);
+        if matches!(schedule.fire(complete, true), TickAction::Render { .. }) {
+            frames += 1;
+        }
+    }
+    assert_eq!(frames, 10);
+}
+
+#[tokio::test]
+async fn managed_pager_control_loop_publishes_completed_pages_before_new_clears() {
+    let manager = crate::session::test_manager(Config::default());
+    let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+    let mut row = Live::new(
+        SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    row.role = SessionRole::HostAction;
+    row.launch.intent = "diff".into();
+    row.capture.emu = Some(emu.clone());
+    manager.live.write().await.insert("agent".into(), row);
+    let _watch = manager.watching("agent");
+    let mut events = manager.application.subscribe();
+    let (tx, rx) = mpsc::channel(1);
+    // Both records are already in one transport chunk. A completion must publish
+    // before queue draining can replace the page with the next erase.
+    tx.send(b"%output %1 \\033[H\\033[Jcomplete page\\033[24;1H:\\033[K\n%output %1 \\033[H\\033[Jpartial next page\n".to_vec()).await.unwrap();
+    let reader = tokio::spawn({
+        let manager = manager.clone();
+        async move {
+            manager
+                .run_control_loop("agent", emu, ControlLineReceiver::new(rx), vec![])
+                .await;
+        }
+    });
+    let screen = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let event = events.recv().await.unwrap();
+            if let Event::Screen { screen } = event.event() {
+                break screen.clone();
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert!(screen.lines[0].contains("complete page"));
+    drop(tx);
+    tokio::time::timeout(Duration::from_secs(5), reader)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn completed_pager_page_publishes_before_feeding_a_queued_clear() {
+    let manager = crate::session::test_manager(Config::default());
+    let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+    let mut row = Live::new(
+        SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    row.role = SessionRole::Agent(AgentLifetime::Temporary);
+    row.capture.emu = Some(emu.clone());
+    manager.live.write().await.insert("agent".into(), row);
+    let _watch = manager.watching("agent");
+    let mut schedule = DrawSchedule {
+        pager: true,
+        ..Default::default()
+    };
+    assert!(process_control_line(
+        &emu,
+        b"%output %1 \\033[H\\033[Jcomplete page\\033[24;1H:\\033[K",
+        &mut schedule,
+        true,
+    ));
+    assert_eq!(schedule.redraw, RedrawState::Complete);
+    let (tx, rx) = mpsc::channel(1);
+    let next = b"%output %1 \\033[H\\033[Jpartial next page";
+    tx.send([next.as_slice(), b"\n"].concat()).await.unwrap();
+    let mut rx = ControlLineReceiver::new(rx);
+    assert!(
+        manager
+            .draw_control_output("agent", &emu, &mut rx, &mut schedule)
+            .await
+    );
+    let frame = manager.screen("agent").await.unwrap();
+    assert!(frame.lines[0].contains("complete page"));
+    assert_eq!(rx.recv().await.as_deref(), Some(next.as_slice()));
+}
+
+#[test]
+fn subscription_wakes_and_repeated_clears_preserve_redraw_quiet() {
+    let now = Instant::now();
+    let mut schedule = DrawSchedule {
+        pager: true,
+        ..Default::default()
+    };
+    schedule.output(now, true, true);
+    for millis in [8, 24, 40, 56] {
+        let received = now + Duration::from_millis(millis);
+        schedule.output(received, true, true);
+        schedule.wake(received, true);
+        assert_eq!(schedule.deadline(), Some(received + REDRAW_QUIET));
+        assert_eq!(schedule.fire(received, true), TickAction::Idle);
+    }
+    let settled = schedule.deadline().unwrap();
+    assert_eq!(
+        schedule.fire(settled, true),
+        TickAction::Render { clipboard: true }
+    );
+}
+
+#[test]
+fn an_unwatched_redraw_returns_to_the_background_draw_cadence() {
+    let now = Instant::now();
+    let mut schedule = DrawSchedule::default();
+    schedule.output(now, true, false);
+    schedule.fire(now + FAST_TICK, true);
+    let clear = now + Duration::from_millis(100);
+    schedule.output(clear, true, true);
+    schedule.output(clear + Duration::from_millis(8), true, false);
+    schedule.wake(clear + Duration::from_millis(9), false);
+    let due = now + FAST_TICK + SLOW_TICK;
+    assert_eq!(
+        schedule.fire(due, false),
+        TickAction::Render { clipboard: false }
+    );
+    assert_eq!(schedule.redraw, RedrawState::Streaming);
+    assert_eq!(schedule.deadline(), None);
+}
+
+#[test]
+fn pager_redraw_keeps_the_previous_page_across_delayed_output_records() {
+    let now = Instant::now();
+    let mut schedule = DrawSchedule {
+        pager: true,
+        ..Default::default()
+    };
+    let emu = Mutex::new(SessionEmu::new(20, 3));
+    emu.lock()
+        .unwrap()
+        .feed(b"old first\r\nold second\r\nold third");
+    let previous = emu.lock().unwrap().render();
+    schedule.output(now, true, false);
+    schedule.fire(now + FAST_TICK, true);
+
+    let clear = now + Duration::from_millis(100);
+    for (millis, record) in [
+        (0, b"%output %1 \\033[H\\033[J".as_slice()),
+        (8, b"%output %1 new first".as_slice()),
+        (16, b"%output %1 \\015\\012new".as_slice()),
+        (24, b"%output %1  second".as_slice()),
+        (32, b"%output %1 \\015\\012new".as_slice()),
+        (40, b"%output %1  third".as_slice()),
+    ] {
+        let received = clear + Duration::from_millis(millis);
+        if millis > 0 {
+            // The timer must not publish the clear or a partially replaced page
+            // before the next record. No sleeps or scheduler races in this test.
+            assert!(schedule.deadline().unwrap() > received);
+            assert_eq!(schedule.fire(received, true), TickAction::Idle);
+        }
+        let ControlLine::Output { redraw_clear, .. } = handle_control_line(&emu, record) else {
+            panic!("expected pager output");
+        };
+        schedule.output(received, true, redraw_clear);
+    }
+
+    let settled = clear + Duration::from_millis(40) + REDRAW_QUIET;
+    assert_eq!(schedule.deadline(), Some(settled));
+    assert_eq!(
+        schedule.fire(settled, true),
+        TickAction::Render { clipboard: true }
+    );
+    let replacement = emu.lock().unwrap().render();
+    assert_ne!(replacement.content_hash, previous.content_hash);
+    assert!(replacement.lines[0].contains("new first"));
+    assert!(replacement.lines[1].contains("new second"));
+    assert!(replacement.lines[2].contains("new third"));
+}
+
+#[tokio::test]
+async fn expired_redraw_timer_consumes_queued_rows_before_publishing() {
+    for split_chunks in [false, true] {
+        let manager = crate::session::test_manager(Config::default());
+        let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+        let mut row = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.role = SessionRole::Agent(AgentLifetime::Temporary);
+        row.capture.emu = Some(emu.clone());
+        manager.live.write().await.insert("agent".into(), row);
+        let _watch = manager.watching("agent");
+        emu.lock().unwrap().feed(b"old first\r\nold second");
+        manager.render_and_broadcast("agent", &emu).await;
+        let mut events = manager.application.subscribe();
+
+        let mut schedule = DrawSchedule {
+            pager: true,
+            ..Default::default()
+        };
+        let clear = Instant::now() - Duration::from_millis(100);
+        emu.lock().unwrap().feed(b"\x1b[H\x1b[J");
+        schedule.output(clear, true, true);
+        assert!(schedule.deadline().unwrap() < Instant::now());
+
+        let (tx, rx) = mpsc::channel(2);
+        let first = b"%output %1 new first\n";
+        let second = b"%output %1 \\015\\012new second\n";
+        if split_chunks {
+            tx.send(first.to_vec()).await.unwrap();
+            tx.send(second.to_vec()).await.unwrap();
+        } else {
+            tx.send([first.as_slice(), second.as_slice()].concat())
+                .await
+                .unwrap();
+        }
+        // Keep the stream open so this exercises the draw timer, not exit flush.
+        let mut rx = ControlLineReceiver::new(rx);
+        assert!(
+            manager
+                .draw_control_output("agent", &emu, &mut rx, &mut schedule)
+                .await
+        );
+        // Draining newly queued rows starts a fresh quiet interval even though
+        // the original clear happened long before the timer fired.
+        assert!(schedule.dirty);
+        assert!(schedule.deadline().unwrap() > Instant::now());
+        assert!(events.try_recv().is_err());
+        let screen = manager.screen("agent").await.unwrap();
+        assert!(screen.lines[0].contains("old first"));
+        assert!(screen.lines[1].contains("old second"));
+        let action = schedule.fire(schedule.deadline().unwrap(), true);
+        manager.handle_control_tick("agent", &emu, action).await;
+        let screen = manager.screen("agent").await.unwrap();
+        assert!(screen.lines[0].contains("new first"));
+        assert!(screen.lines[1].contains("new second"));
+        let mut frames = 0;
+        while let Ok(event) = events.try_recv() {
+            if let Event::Screen { screen } = event.event() {
+                frames += 1;
+                assert!(screen.lines[0].contains("new first"));
+                assert!(screen.lines[1].contains("new second"));
+            }
+        }
+        assert_eq!(frames, 1);
+    }
+}
+
+#[tokio::test]
+async fn queued_clear_reschedules_a_due_draw_until_replacement_settles() {
+    let manager = crate::session::test_manager(Config::default());
+    let _watch = manager.watching("agent");
+    let emu = Mutex::new(SessionEmu::new(80, 24));
+    let mut schedule = DrawSchedule::default();
+    schedule.wake(Instant::now() - FAST_TICK, true);
+    let (tx, rx) = mpsc::channel(1);
+    tx.send(b"%output %1 \\033[H\\033[Jfirst row\n%output %1 \\015\\012partial".to_vec())
+        .await
+        .unwrap();
+    let mut rx = ControlLineReceiver::new(rx);
+    assert!(
+        manager
+            .draw_control_output("agent", &emu, &mut rx, &mut schedule)
+            .await
+    );
+    assert!(schedule.dirty);
+    assert!(schedule.deadline().unwrap() > Instant::now());
+    assert!(manager.screen("agent").await.is_none());
+
+    // Cancelling the nonblocking receive retains a split control record.
+    tx.send(b" row\n".to_vec()).await.unwrap();
+    assert_eq!(
+        rx.recv().await.as_deref(),
+        Some(b"%output %1 \\015\\012partial row".as_slice())
+    );
 }
 
 #[test]
@@ -167,17 +525,22 @@ fn control_reader_recognizes_a_pager_clear_split_across_output_records() {
     assert!(matches!(
         handle_control_line(&emu, b"%output %1 \\033[H\\033["),
         ControlLine::Output {
-            redraw_clear: false
+            redraw_clear: false,
+            ..
         }
     ));
     assert!(matches!(
         handle_control_line(&emu, b"%output %1 Jfirst row"),
-        ControlLine::Output { redraw_clear: true }
+        ControlLine::Output {
+            redraw_clear: true,
+            ..
+        }
     ));
     assert!(matches!(
         handle_control_line(&emu, b"%output %1 second row"),
         ControlLine::Output {
-            redraw_clear: false
+            redraw_clear: false,
+            ..
         }
     ));
 }
@@ -444,8 +807,9 @@ async fn exit_and_eof_flush_output_received_before_the_last_draw() {
         row.role = SessionRole::Agent(AgentLifetime::Temporary);
         row.capture.emu = Some(emu.clone());
         manager.live.write().await.insert("agent".into(), row);
+        let _watch = manager.watching("agent");
         let (tx, rx) = mpsc::channel(2);
-        let mut pending = vec![b"%output %1 final output".to_vec()];
+        let mut pending = vec![b"%output %1 \\033[H\\033[Jfinal output".to_vec()];
         if exit {
             pending.push(b"%exit".to_vec());
         }

@@ -1,6 +1,7 @@
 //! Preserve tmux erase and cluster semantics while bounding retained cell tails.
 
 use super::{RenderCache, SideSink};
+use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::Column;
 use alacritty_terminal::index::Line;
 use alacritty_terminal::term::Term;
@@ -25,12 +26,14 @@ pub(super) struct Mirror<'a> {
     pub cache: &'a mut RenderCache,
     pub history_dirty: &'a mut bool,
     pub redraw_clear: &'a mut bool,
+    pub pager_prompt: &'a mut bool,
     pub overflow_tail: &'a mut Option<OverflowTail>,
 }
 
 macro_rules! forward {
     ($($name:ident($($arg:ident: $ty:ty),*);)*) => {
         $(fn $name(&mut self, $($arg: $ty),*) {
+            *self.pager_prompt = false;
             self.term.$name($($arg),*);
         })*
     };
@@ -38,6 +41,7 @@ macro_rules! forward {
 
 impl Handler for Mirror<'_> {
     fn clear_screen(&mut self, mode: ClearMode) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         // less homes the cursor and uses ED 0 before redrawing horizontally scrolled
         // content. tmux may split the replacement into several %output records.
@@ -69,6 +73,7 @@ impl Handler for Mirror<'_> {
     }
 
     fn input(&mut self, c: char) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         if !self.try_input_cluster_component(c) {
             // Alacritty attaches zero-width scalars to column zero at the left
@@ -90,44 +95,65 @@ impl Handler for Mirror<'_> {
         }
     }
     fn linefeed(&mut self) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         self.term.linefeed();
     }
     fn newline(&mut self) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         self.term.newline();
     }
     fn scroll_up(&mut self, count: usize) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         self.term.scroll_up(count);
     }
     fn scroll_down(&mut self, count: usize) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         self.term.scroll_down(count);
     }
     fn insert_blank_lines(&mut self, count: usize) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         self.term.insert_blank_lines(count);
     }
     fn delete_lines(&mut self, count: usize) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         self.term.delete_lines(count);
     }
     fn reverse_index(&mut self) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         self.term.reverse_index();
     }
     fn reset_state(&mut self) {
+        *self.pager_prompt = false;
         *self.history_dirty = true;
         self.term.reset_state();
     }
     fn set_private_mode(&mut self, mode: PrivateMode) {
+        *self.pager_prompt = false;
         *self.history_dirty |= matches!(mode.raw(), 3 | 47 | 1047 | 1049);
         self.term.set_private_mode(mode);
     }
     fn unset_private_mode(&mut self, mode: PrivateMode) {
+        *self.pager_prompt = false;
         *self.history_dirty |= matches!(mode.raw(), 3 | 47 | 1047 | 1049);
         self.term.unset_private_mode(mode);
+    }
+
+    fn clear_line(&mut self, mode: LineClearMode) {
+        // The prompt is a terminal operation, not a particular prompt string.
+        // Any subsequent terminal operation invalidates this hint, including a
+        // newer clear in the same tmux record, so it cannot complete the next page.
+        let cursor = &self.term.grid().cursor;
+        *self.pager_prompt = matches!(mode, LineClearMode::Right)
+            && cursor.point.line == self.term.bottommost_line()
+            && cursor.point.column > Column(0);
+        self.term.clear_line(mode);
     }
 
     forward! {
@@ -158,7 +184,6 @@ impl Handler for Mirror<'_> {
         move_forward_tabs(count: u16);
         save_cursor_position();
         restore_cursor_position();
-        clear_line(mode: LineClearMode);
         clear_tabs(mode: TabulationClearMode);
         set_tabs(interval: u16);
         terminal_attribute(attr: Attr);

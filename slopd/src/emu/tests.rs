@@ -780,6 +780,33 @@ fn clear_viewport_preserves_existing_history_and_background() {
 }
 
 #[test]
+fn pager_prompt_hint_requires_the_last_operation_to_finish_the_bottom_row() {
+    let mut e = SessionEmu::new(20, 3);
+    e.feed(b"\x1b[H\x1b[Jfirst\r\nsecond\r\n:\x1b[K");
+    assert!(e.pager_prompt());
+
+    // A newer page in the same transport record must retire the prior hint.
+    e.feed(b"\x1b[3;1H:\x1b[K\x1b[H\x1b[Jpartial");
+    assert!(!e.pager_prompt());
+    e.feed(b"\x1b[3;1H:\x1b[K\x1b[Hchanged");
+    assert!(!e.pager_prompt());
+
+    // A split EL completes only once the VT parser has received its final byte.
+    e.feed(b"\x1b[3;1H:\x1b[");
+    assert!(!e.pager_prompt());
+    e.feed(b"K");
+    assert!(e.pager_prompt());
+
+    e.feed(b"\x1b[2;1H:\x1b[K");
+    assert!(
+        !e.pager_prompt(),
+        "clearing an ordinary row is not a prompt"
+    );
+    e.feed(b"\x1b[3;1H\x1b[K");
+    assert!(!e.pager_prompt(), "an empty bottom row is not a prompt");
+}
+
+#[test]
 fn synchronized_clear_waits_for_end_and_keeps_primary_history() {
     let mut e = SessionEmu::new(20, 2);
     e.feed(b"history\r\none\r\ntwo");
