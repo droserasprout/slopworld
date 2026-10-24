@@ -22,7 +22,8 @@ namespace SlopWorld
 
         public static void AgentShell(SessionInfo info)
         {
-            if (!string.IsNullOrEmpty(info.Project))
+            // Like resolves a saved agent; temporary errands have no config entry to clone.
+            if (!info.Ephemeral && !string.IsNullOrEmpty(info.Project))
                 SessionHub.Instance.SessionStore.Run(
                     info.Project,
                     "",

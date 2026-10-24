@@ -233,7 +233,13 @@ namespace SlopWorld
                     new FloatMenuOption("Duplicate", () => SessionActions.DuplicateAgent(info))
                 );
 
-            if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
+            if (
+                info != null
+                && !info.Ephemeral
+                && !info.Host
+                && !info.Worker
+                && !string.IsNullOrEmpty(info.Project)
+            )
                 opts.Add(new FloatMenuOption("Shell", () => SessionActions.AgentShell(info)));
 
             if (info != null && !info.Ephemeral && !info.Host)

@@ -62,6 +62,13 @@ namespace SlopWorld
                 "(no agents with a project)"
             );
 
+        // Shell clones saved agent configuration; temporary errands have no saved entry.
+        static List<SubOption> AgentsSubForShell() =>
+            AgentOptions(
+                s => !s.Ephemeral && !s.Host && !s.Worker && !string.IsNullOrEmpty(s.Project),
+                "(no saved agents with a project)"
+            );
+
         static List<SubOption> ProjectsSub()
         {
             var list = SessionHub

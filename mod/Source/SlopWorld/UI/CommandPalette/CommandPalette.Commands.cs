@@ -103,7 +103,7 @@ namespace SlopWorld
             CommandDef.ForAgent(
                 "agent.shell",
                 "Agent: Shell",
-                AgentsSubWithProject,
+                AgentsSubForShell,
                 SessionActions.AgentShell
             ),
             CommandDef.ForProject(
