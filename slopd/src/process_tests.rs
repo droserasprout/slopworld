@@ -1,6 +1,125 @@
 use super::*;
 use std::{fs, process::Command as StdCommand, time::Instant};
 
+struct DescendantFixture {
+    directory: std::path::PathBuf,
+    pid: Option<i32>,
+}
+
+impl DescendantFixture {
+    async fn spawn(leader_exits: bool) -> (Self, ChildGroup) {
+        let directory =
+            std::env::temp_dir().join(format!("slopd-process-group-{}", uuid::Uuid::new_v4()));
+        fs::create_dir(&directory).unwrap();
+        let mut command = Command::new("sh");
+        // The child announces readiness before waiting. No timeout depends on
+        // how quickly a loaded machine schedules the shell.
+        let script = if leader_exits {
+            "sh -c 'echo $$ > pid; while [ ! -f release ]; do sleep 0.01; done; echo late > wrote' & exit 0"
+        } else {
+            "sh -c 'echo $$ > pid; while [ ! -f release ]; do sleep 0.01; done; echo late > wrote'; :"
+        };
+        command.current_dir(&directory).args(["-c", script]);
+        let child = spawn_child(&mut command, false).unwrap();
+        let pid = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let Ok(pid) = fs::read_to_string(directory.join("pid"))
+                    && let Ok(pid) = pid.trim().parse()
+                {
+                    break pid;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("descendant did not start");
+        (
+            Self {
+                directory,
+                pid: Some(pid),
+            },
+            child,
+        )
+    }
+
+    async fn assert_terminated(&mut self) {
+        let pid = self.pid.unwrap();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                // Orphans may briefly remain zombies until the host init reaps them.
+                let status = fs::read_to_string(format!("/proc/{pid}/status"));
+                if status
+                    .as_ref()
+                    .is_err_and(|error| error.kind() == io::ErrorKind::NotFound)
+                    || status.as_ref().is_ok_and(|text| {
+                        text.lines()
+                            .any(|line| line.starts_with("State:") && line.contains("Z (zombie)"))
+                    })
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("descendant survived command cleanup");
+        self.pid = None;
+        fs::write(self.directory.join("release"), "go").unwrap();
+        assert!(!self.directory.join("wrote").exists());
+    }
+}
+
+impl Drop for DescendantFixture {
+    fn drop(&mut self) {
+        // Release the harmless child even when an assertion fails.
+        drop(fs::write(self.directory.join("release"), "go"));
+        if let Some(pid) = self.pid {
+            // SAFETY: this fixture owns the still-running child PID.
+            unsafe {
+                nix::libc::kill(pid, nix::libc::SIGKILL);
+            }
+        }
+        drop(fs::remove_dir_all(&self.directory));
+    }
+}
+
+#[tokio::test]
+async fn timeout_terminates_descendants_even_after_the_leader_exits() {
+    for leader_exits in [false, true] {
+        let (mut fixture, child) = DescendantFixture::spawn(leader_exits).await;
+        let error = capture_child(
+            child,
+            None,
+            Duration::from_millis(100),
+            CaptureLimits {
+                stdout: 8,
+                stderr: 8,
+            },
+        )
+        .await
+        .unwrap_err();
+        assert!(error.downcast_ref::<TimedOut>().is_some());
+        fixture.assert_terminated().await;
+    }
+}
+
+#[tokio::test]
+async fn cancellation_terminates_descendants() {
+    let (mut fixture, child) = DescendantFixture::spawn(false).await;
+    let mut capture = Box::pin(capture_child(
+        child,
+        None,
+        Duration::from_secs(30),
+        CaptureLimits {
+            stdout: 8,
+            stderr: 8,
+        },
+    ));
+    assert!(futures::poll!(capture.as_mut()).is_pending());
+    drop(capture);
+    fixture.assert_terminated().await;
+}
+
 #[tokio::test]
 async fn zero_limit_distinguishes_empty_from_discarded_output() {
     for (input, expected_truncated) in [(&b""[..], false), (&b"payload"[..], true)] {

@@ -66,8 +66,38 @@ async fn run_bounded_with_input(
     capture_child(child, input, timeout, limits).await
 }
 
-fn spawn_child(command: &mut Command, with_input: bool) -> Result<tokio::process::Child> {
-    command
+/// Keep the process group alive as an identity until cleanup or successful reaping.
+/// Dropping a canceled capture kills descendants before Tokio drops/reaps the leader.
+struct ChildGroup {
+    child: tokio::process::Child,
+    group: Option<i32>,
+}
+
+impl ChildGroup {
+    fn terminate(&mut self) {
+        if let Some(group) = self.group.take() {
+            // SAFETY: the positive ID was obtained from our child, which starts its
+            // own process group. A negative PID signals only that process group.
+            let result = unsafe { nix::libc::kill(-group, nix::libc::SIGKILL) };
+            if result != 0 {
+                let error = io::Error::last_os_error();
+                if error.raw_os_error() != Some(nix::libc::ESRCH) {
+                    tracing::warn!(%error, group, "could not terminate child process group");
+                }
+            }
+        }
+    }
+}
+
+impl Drop for ChildGroup {
+    fn drop(&mut self) {
+        self.terminate();
+    }
+}
+
+fn spawn_child(command: &mut Command, with_input: bool) -> Result<ChildGroup> {
+    let child = command
+        .process_group(0)
         .kill_on_drop(true)
         .stdin(if with_input {
             Stdio::piped()
@@ -76,22 +106,24 @@ fn spawn_child(command: &mut Command, with_input: bool) -> Result<tokio::process
         })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()
-        .map_err(anyhow::Error::from)
+        .spawn()?;
+    let group = child.id().and_then(|id| i32::try_from(id).ok());
+    Ok(ChildGroup { child, group })
 }
 
 async fn capture_child(
-    mut child: tokio::process::Child,
+    mut owned: ChildGroup,
     input: Option<&[u8]>,
     timeout: Duration,
     limits: CaptureLimits,
 ) -> Result<BoundedOutput> {
+    let child = &mut owned.child;
     let stdout = child.stdout.take().context("capturing stdout")?;
     let stderr = child.stderr.take().context("capturing stderr")?;
     let stdin = child.stdin.take();
     if input.is_some() && stdin.is_none() {
-        drop(child.kill().await);
-        drop(child.wait().await);
+        owned.terminate();
+        drop(owned.child.wait().await);
         anyhow::bail!("capturing stdin");
     }
 
@@ -107,7 +139,7 @@ async fn capture_child(
 
     let collected = tokio::time::timeout(timeout, async {
         // Stop waiting as soon as any pipe fails; the outer owner terminates and reaps.
-        let (stdout, stderr, status, ()) = tokio::try_join!(
+        let (stdout, stderr, ()) = tokio::try_join!(
             async {
                 read_bounded(stdout, limits.stdout)
                     .await
@@ -118,9 +150,11 @@ async fn capture_child(
                     .await
                     .map_err(anyhow::Error::from)
             },
-            async { child.wait().await.map_err(anyhow::Error::from) },
             write_stdin,
         )?;
+        // Do not reap the leader while descendants still hold the pipes. Keeping
+        // its PID reserved makes process-group cleanup safe even after it exits.
+        let status = child.wait().await?;
         let (stdout, stdout_truncated) = stdout;
         let (stderr, stderr_truncated) = stderr;
         Ok::<_, anyhow::Error>(BoundedOutput {
@@ -138,8 +172,11 @@ async fn capture_child(
         Err(_timeout) => Err(anyhow::Error::new(TimedOut)),
     };
     if result.is_err() {
-        drop(child.kill().await);
-        drop(child.wait().await);
+        owned.terminate();
+        drop(owned.child.wait().await);
+    } else {
+        // No await between reaping and disarming the now-reusable group identity.
+        owned.group = None;
     }
     result
 }

@@ -15,6 +15,10 @@ Parsed arguments retain their structure through styling/path substitution rather
 being rebuilt as command text. The HTTP handler selects configured or request-local
 commands.
 
+`process.rs` owns a separate process group for bounded host commands. Timeout,
+I/O failure, and request cancellation terminate that group, including child commands;
+commands that deliberately create a new session or process group escape this boundary.
+
 Previews, highlighting, and directory browsing require root capability. Omitting a
 preview root permits unscoped reads; browsing does not use preview scopes.
 [Files UI](mod-ui-files.md) owns captured roots and reader identity.
