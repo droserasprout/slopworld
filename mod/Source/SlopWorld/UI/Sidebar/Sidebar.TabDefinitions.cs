@@ -160,7 +160,8 @@ namespace SlopWorld
                     ? $"Showing {StatusFilterLabel}. Click to change the Agents filter."
                     : "All agents and shells shown. Click to filter the list.",
                 OpenAgentVisibilityMenu,
-                filter: true
+                filter: true,
+                resetFilter: () => SetStatusFilter(AgentStatusFilter.All)
             );
         }
 
@@ -189,7 +190,8 @@ namespace SlopWorld
                     ? "Dotfiles or Git-ignored files are hidden. Click to change the filters."
                     : "All files shown. Click to choose which files to show.",
                 OpenVisibilityMenu,
-                filter: true
+                filter: true,
+                resetFilter: ResetFileVisibility
             );
         }
 
@@ -235,7 +237,8 @@ namespace SlopWorld
                     ? $"Showing {LibraryView.ProjectFilterLabel} in Library. Click to change the project filter."
                     : "Library shows every project. Click to filter the list.",
                 () => LibraryView.OpenProjectFilterMenu(anchor),
-                filter: true
+                filter: true,
+                resetFilter: LibraryView.ResetProjectFilter
             );
             r.x -= TabIcon + TabGap;
         }
@@ -261,7 +264,8 @@ namespace SlopWorld
                     ? "Task filters are active. Click to change the filters."
                     : "Showing all tasks. Click to filter by status, direction, or agent.",
                 () => TasksView.OpenFilterMenu(anchor),
-                filter: true
+                filter: true,
+                resetFilter: TasksView.ResetFilters
             );
         }
 

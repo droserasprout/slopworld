@@ -28,3 +28,7 @@ merged root. Files/Git share structure; Git alone paints cached shortstat.
 `SessionStore` translates request identities; [navigation](mod-sidebar-navigation.md)
 owns history; [sidebar](mod-sidebar.md) owns visibility/hit tests.
 See `SidebarProjectStateTests` for persistence and inclusion.
+
+Middle-clicking a sidebar filter button resets its own selection to All without
+opening a menu. The global filter resets projects and checkouts; view filters reset
+agent statuses, file visibility, Library projects, or task criteria independently.

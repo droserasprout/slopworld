@@ -184,7 +184,8 @@ namespace SlopWorld
                     ? $"Showing {FilterLabel}. Click to tick another, or all of them."
                     : "Every project. Click to show only some of them.",
                 OpenFilterMenu,
-                filter: true
+                filter: true,
+                resetFilter: ResetProjectFilter
             );
         }
 
@@ -199,12 +200,29 @@ namespace SlopWorld
             string tip,
             System.Action go,
             bool onPress = true,
-            bool filter = false
+            bool filter = false,
+            Action resetFilter = null
         )
         {
             var hit = TabHitRect(r);
             if (filter)
                 UiMenu.ObserveSelectorInput();
+            if (resetFilter != null)
+            {
+                tip += " Middle-click to reset this filter.";
+                var e = Event.current;
+                if (
+                    ColonistBarStrip.Interactive
+                    && e.type == EventType.MouseDown
+                    && e.button == 2
+                    && ColonistBarStrip.MouseOver(hit)
+                )
+                {
+                    e.Use();
+                    UiMenu.CloseAll();
+                    resetFilter();
+                }
+            }
             TooltipHandler.TipRegion(hit, tip);
             if (
                 UiLayout.IconButton(

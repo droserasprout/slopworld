@@ -92,6 +92,12 @@ namespace SlopWorld
             return options;
         }
 
+        public static void ResetFilters()
+        {
+            Filters.Clear();
+            _filtersDirty = true;
+        }
+
         static void FiltersChanged()
         {
             _filtersDirty = true;

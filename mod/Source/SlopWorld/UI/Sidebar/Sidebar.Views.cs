@@ -165,6 +165,23 @@ namespace SlopWorld
             ReloadAfterVisibilityChange();
         }
 
+        static void ResetFileVisibility()
+        {
+            Settings.S.sidebarShowHidden = true;
+            Settings.S.sidebarShowGitignored = true;
+            Settings.S.Write();
+            ReloadAfterVisibilityChange();
+        }
+
+        static void ResetProjectFilter()
+        {
+            if (Filtering)
+                ToggleFilter("");
+            foreach (var project in SessionHub.Instance.Projects)
+                SidebarScopes.SelectAll(project.Name);
+            NotifyFilterChanged();
+        }
+
         static void ReloadAfterVisibilityChange()
         {
             CurrentDefinition.Refresh();

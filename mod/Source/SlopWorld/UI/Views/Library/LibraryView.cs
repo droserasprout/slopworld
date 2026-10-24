@@ -190,6 +190,12 @@ namespace SlopWorld
             return ProjectFilter.Passes(key);
         }
 
+        public static void ResetProjectFilter()
+        {
+            ProjectFilter.SelectAll();
+            ProjectFilterChanged();
+        }
+
         public static void OpenProjectFilterMenu(Rect anchor)
         {
             var options = new List<FloatMenuOption>
