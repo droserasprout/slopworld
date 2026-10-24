@@ -70,8 +70,8 @@ impl SessionRuntime {
                         task_id: l.cfg.task_id.clone(),
                         durable: l.cfg.worker && l.role.is_durable_agent(),
                     },
-                    // Legacy wire meaning: host tabs are ephemeral even when their
-                    // saved shell record retains them across stop and exit.
+                    // Ephemeral identifies non-durable-agent processes. Saved host-shell
+                    // records independently retain tabs across stop and exit.
                     ephemeral: !l.role.is_durable_agent(),
                     host: l.role.is_host(),
                     runtime: SessionRuntimeView {

@@ -458,8 +458,8 @@ impl Tmux {
         &self,
         name: &str,
     ) -> Result<Option<crate::config::SessionCfg>> {
-        // Missing metadata is distinct from a failed query: only the former may
-        // use legacy adoption without a saved temporary-agent identity.
+        // Missing metadata permits resolution through worker, host, reader, or saved
+        // session state. A failed query cannot authorize any adoption decision.
         let value = self
             .run(&["show-options", "-qv", "-t", name, TEMPORARY_AGENT_CONFIG])
             .await?;

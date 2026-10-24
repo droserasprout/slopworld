@@ -111,21 +111,21 @@ namespace SlopWorld.Tests
         }
 
         [Test]
-        public void LegacyWarningsAndWireRoundTripsPreserveSeverity()
+        public void WarningTextDoesNotChangeDeclaredSeverityAndWireRoundTripsPreserveLevels()
         {
-            var legacy = new PresetInfo { Name = "old", Escapes = "Uses a signing key" };
-            Assert.That(PresetWarnings.OwnLevel(legacy), Is.EqualTo(PresetWarningLevel.Sensitive));
+            var preset = new PresetInfo { Name = "custom", Escapes = "Uses a signing key" };
+            Assert.That(PresetWarnings.OwnLevel(preset), Is.EqualTo(PresetWarningLevel.None));
             foreach (var level in new[] { "none", "sensitive", "host_control" })
             {
-                var preset = new PresetInfo { Name = "custom", WarningLevel = level };
+                preset.WarningLevel = level;
                 Assert.That(
                     PresetInfo.FromWire(preset.Copy().ToWire()).WarningLevel,
                     Is.EqualTo(level)
                 );
             }
-            legacy.WarningLevel = "unknown-future-level";
+            preset.WarningLevel = "invalid-level";
             Assert.That(
-                PresetWarnings.OwnLevel(legacy),
+                PresetWarnings.OwnLevel(preset),
                 Is.EqualTo(PresetWarningLevel.HostControl)
             );
         }

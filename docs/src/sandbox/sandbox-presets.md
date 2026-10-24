@@ -104,8 +104,8 @@ An unmarked preset has no declared warning; this is not a guarantee of safety.
 
 Use `warning_level = "sensitive"` or `warning_level = "host_control"` and an
 `escapes` explanation in custom presets, or edit **Warning level** and **Access
-warning** in Settings. The default is `none`. Older nonempty `escapes` explanations
-still show a sensitive-access warning. The `tmux` and `daemon_config` capabilities
+warning** in Settings. The default is `none`; `escapes` supplies explanatory text
+without changing that level. The `tmux` and `daemon_config` capabilities
 always show host control, regardless of the declared warning level.
 
 For example, `aws`, `gh`, `kube`, and `psql` expose credentials and show sensitive

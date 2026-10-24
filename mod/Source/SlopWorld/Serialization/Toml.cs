@@ -131,7 +131,7 @@ namespace SlopWorld
             }
         }
 
-        // Preserve compatibility with endpoint and likes readers.
+        // Endpoint and likes readers consume scalar values as invariant strings.
         // Format values from their parsed TOML types instead of copying raw text.
         public static Dictionary<string, string> ParseFlat(string text)
         {

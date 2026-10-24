@@ -6,8 +6,7 @@ README owns the overview and is included by `docs/src/introduction.md`.
 
 Put each fact on one page; tours and FAQ link to it. FAQ questions need stable
 anchors. `SUMMARY.md` owns navigation, with directories matching its sections.
-Keep short related topics together. Include the root changelog rather than copying it,
-and preserve the old Help troubleshooting URL through `docs/book.toml`.
+Keep short related topics together. Include the root changelog rather than copying it.
 
 `docs/theme/` owns presentation and follows `mod/Themes/` palettes. Screenshots use
 right-aligned images before their text; `.screenshot-stack` groups them. Preserve PNG

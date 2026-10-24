@@ -38,16 +38,14 @@ namespace SlopWorld
                 || preset.WarningLevel == WarningValues.HostControl
             )
                 return PresetWarningLevel.HostControl;
-            // Unknown future levels must not silently lose their warning in an older client.
+            // Unrecognized severity must not silently suppress an access warning.
             if (
                 !string.IsNullOrEmpty(preset.WarningLevel)
                 && preset.WarningLevel != WarningValues.None
                 && preset.WarningLevel != WarningValues.Sensitive
             )
                 return PresetWarningLevel.HostControl;
-            return
-                preset.WarningLevel == WarningValues.Sensitive
-                || !string.IsNullOrWhiteSpace(preset.Escapes)
+            return preset.WarningLevel == WarningValues.Sensitive
                 ? PresetWarningLevel.Sensitive
                 : PresetWarningLevel.None;
         }

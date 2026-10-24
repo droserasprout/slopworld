@@ -235,12 +235,6 @@ impl Composer {
     }
 
     fn literal(&mut self, text: &str) {
-        // Older clients encode Shift+Enter as literal CSI-u.
-        if text == "\x1b[13;2u" {
-            self.text.insert(self.cursor, '\n');
-            self.cursor += 1;
-            return;
-        }
         for ch in text.chars() {
             self.text.insert(self.cursor, ch);
             self.cursor += 1;

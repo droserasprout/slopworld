@@ -36,19 +36,7 @@ impl Records {
             ensure!(store.path(id)? == path, "invalid task target");
             let raw: toml::Value = toml::from_str(&fs::read_to_string(&path)?)
                 .with_context(|| format!("decoding {}", path.display()))?;
-            let mut task: Task = raw.clone().try_into()?;
-            // Older records retained only the latest update. Seed that surviving
-            // state once; subsequent writes persist the complete accepted chain.
-            if raw.get("history").is_none()
-                && (task.status != super::Status::Queued || task.note.is_some())
-            {
-                task.history.push(super::TaskUpdate {
-                    sender: task.to.clone(),
-                    status: task.status,
-                    note: task.note.clone(),
-                    timestamp_ms: task.updated_ms,
-                });
-            }
+            let task: Task = raw.clone().try_into()?;
             ensure!(task.id == id, "task filename/content identity mismatch");
             ensure!(
                 !task.from.trim().is_empty()

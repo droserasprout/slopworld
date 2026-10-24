@@ -134,7 +134,7 @@ fn summarize_with_key(
         "model": model,
         "messages": [{"role": "user", "content": instruction}],
         // Keep enough room for a short answer even when the selected model reasons before
-        // writing it. `max_tokens` is still accepted by OpenRouter, but is deprecated.
+        // writing it.
         "max_completion_tokens": 64,
         "reasoning": {"effort": "minimal", "exclude": true},
         "temperature": 0,

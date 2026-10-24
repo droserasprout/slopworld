@@ -14,7 +14,8 @@ and admission slots before exposing completion. `MainThreadCompletions` delivers
 callbacks without loss under per-frame budgets; Root.Update pumps it before the hub.
 Old callback batches cannot spill into a new connection. Capabilities reset to unknown
 on reconnect. An explicit unavailable Landlock capability queues a one-time popup
-after loading finishes; omitted capabilities from older daemons do not warn. Local socket acceptance is not daemon acknowledgement.
+after loading finishes; unknown capability availability does not warn. Local socket
+acceptance is not daemon acknowledgement.
 
 Catalog pushes trigger authoritative HTTP reads rather than overwriting newer edits.
 `SnapshotRequest` owns refresh revision checks and waiter settlement; services publish

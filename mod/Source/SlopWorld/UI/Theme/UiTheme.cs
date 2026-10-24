@@ -270,9 +270,7 @@ namespace SlopWorld
         public const float MenuPadY = 0f;
         public const float StatusMarker = 8f;
 
-        // Single-line controls share one compact hit target. Menus, fields and small row buttons
-        // used to differ by a pixel. This was enough to make a form and the menu opened from it
-        // feel like two widget kits.
+        // Menus, fields and small row buttons share one compact single-line hit target.
         public static float CompactH => Mathf.Max(LineH + GapXS, UiMetrics.CompactMinH);
         public static float RowBtnH => CompactH;
 

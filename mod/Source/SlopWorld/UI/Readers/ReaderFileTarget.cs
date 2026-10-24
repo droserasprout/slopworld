@@ -3,7 +3,7 @@ using System;
 namespace SlopWorld
 {
     // Captures a reader's source location independently of its opaque process/header name.
-    // ReaderScope is authoritative; legacy metadata resolves its project and worktree together.
+    // ReaderScope is authoritative; requests without a scope resolve project and worktree together.
     sealed class ReaderFileTarget
     {
         public readonly string Scope;

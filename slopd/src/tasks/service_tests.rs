@@ -376,38 +376,15 @@ fn update_chain_survives_restart_status_only_updates_and_repeated_progress() {
 }
 
 #[test]
-fn old_records_preserve_the_surviving_note_once_before_new_updates() {
+fn records_require_explicit_history_even_when_no_updates_exist() {
     let mut f = Fixture::new();
-    let task = f.create("old task");
+    let task = f.create("task without updates");
     let path = f.path(&task.id);
     let mut raw: toml::Value = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(raw["history"].as_array().unwrap().len(), 0);
     raw.as_table_mut().unwrap().remove("history");
-    raw["status"] = toml::Value::String("working".into());
-    raw.as_table_mut()
-        .unwrap()
-        .insert("note".into(), toml::Value::String("surviving note".into()));
     fs::write(&path, toml::to_string(&raw).unwrap()).unwrap();
-    f.tasks = Tasks::load_records(&f.root).unwrap();
-    let old = f.tasks.get("agent", &task.id).unwrap();
-    assert_eq!(old.history.len(), 1);
-    assert_eq!(old.history[0].note, old.note);
-    assert_eq!(old.history[0].timestamp_ms, old.updated_ms);
-    f.tasks
-        .update(
-            "agent",
-            "agent",
-            &task.id,
-            Status::Done,
-            Some("finished".into()),
-        )
-        .unwrap();
-    let restored = Tasks::load_records(&f.root)
-        .unwrap()
-        .get("agent", &task.id)
-        .unwrap();
-    assert_eq!(restored.history.len(), 2);
-    assert_eq!(restored.history[0].note.as_deref(), Some("surviving note"));
-    assert_eq!(restored.history[1].note.as_deref(), Some("finished"));
+    assert!(Tasks::load_records(&f.root).is_err());
 }
 
 #[test]

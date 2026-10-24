@@ -61,29 +61,19 @@ namespace SlopWorld.Tests
             }
         }
 
-        public static void ProfilesWithoutVSyncToggleMigrateToAutoWithVSyncOff()
+        public static void MissingVSyncUsesItsDefaultWithoutChangingOtherPreferencesOrWriting()
         {
-            foreach (string mode in new[] { "sync", "limit", "auto", "unknown" })
-            {
-                var restored = ModSettings.FromToml(
-                    "displayMode = \"" + mode + "\"\nforegroundFps = 144\nsmoothScrolling = false\n"
-                );
-                AssertEx.Equal(
-                    FramePolicy.Auto,
-                    restored.displayMode,
-                    "old policy migrates to Auto"
-                );
-                AssertEx.Equal(false, restored.vsync, "old policy does not enable VSync");
-                AssertEx.Equal(144, restored.foregroundFps, "inactive limit retained");
-                AssertEx.Equal(false, restored.smoothScrolling, "unrelated preferences retained");
-                bool written = false;
-                for (int i = 0; i < 120; i++)
-                    restored.FlushIfDue(_ => written = true);
-                AssertEx.True(written, "migration queued for persistence");
-                var reloaded = ModSettings.FromToml(restored.ToToml());
-                AssertEx.Equal(FramePolicy.Auto, reloaded.displayMode, "migration persists");
-                AssertEx.Equal(false, reloaded.vsync, "migrated toggle persists");
-            }
+            var restored = ModSettings.FromToml(
+                "displayMode = \"limit\"\nforegroundFps = 144\nsmoothScrolling = false\n"
+            );
+            AssertEx.Equal(FramePolicy.Limit, restored.displayMode, "explicit FPS policy retained");
+            AssertEx.Equal(false, restored.vsync, "missing toggle uses VSync default");
+            AssertEx.Equal(144, restored.foregroundFps, "manual limit retained");
+            AssertEx.Equal(false, restored.smoothScrolling, "unrelated preferences retained");
+            bool written = false;
+            for (int i = 0; i < 120; i++)
+                restored.FlushIfDue(_ => written = true);
+            AssertEx.Equal(false, written, "reading preferences does not queue a write");
         }
 
         static void WithSettings(Action<ModSettings> action)

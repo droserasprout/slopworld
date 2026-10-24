@@ -160,14 +160,6 @@ namespace SlopWorld
             var settings = new ModSettings();
             var values = Toml.ParseFlatScalars(text);
             settings.Apply(values);
-            // Profiles missing the independent VSync toggle start with responsive defaults,
-            // including those that previously chose VSync or a manual FPS limit.
-            if (!values.ContainsKey("vsync"))
-            {
-                settings.displayMode = FramePolicy.Auto;
-                settings.vsync = false;
-                settings.MarkDirty();
-            }
             settings.Normalize();
             return settings;
         }

@@ -1,7 +1,6 @@
 # Use private state for each session, as for the Claude preset.
 # `agent/` contains model selection in `models-store.json`, trust settings, and transcripts in `sessions/`.
 # Copy the directory, then exclude transcripts.
-# Selecting individual files previously omitted model settings.
 # A new session must not inherit transcripts from the user or a previous session.
 [[sandbox]]
 name = "pi"

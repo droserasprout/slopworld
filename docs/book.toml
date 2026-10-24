@@ -18,6 +18,3 @@ default-theme = "slopworld"
 preferred-dark-theme = "slopworld"
 additional-css = ["theme/slopworld.css"]
 additional-js = ["theme/scrollbars.js"]
-
-[output.html.redirect]
-"help/troubleshooting.html" = "../resources/troubleshooting.html"

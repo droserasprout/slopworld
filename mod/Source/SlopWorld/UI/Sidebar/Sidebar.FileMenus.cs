@@ -18,7 +18,7 @@ namespace SlopWorld
                 return;
             string session = info.Name;
             var reader = FileReaders.Describe(info);
-            // Older command-classified sessions may have no file metadata or reader owner.
+            // Command-classified sessions may have no file metadata or reader owner.
             // Keep their session controls rather than offering a Close that cannot dismiss them.
             if (reader.Target == null && !reader.IsPreview)
             {

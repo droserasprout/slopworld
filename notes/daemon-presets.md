@@ -32,8 +32,9 @@ SSH presets expose files/sockets but do not override OpenSSH selection. Explicit
 `IdentityAgent` wins over `SSH_AUTH_SOCK`; selected sockets must be mounted as well
 as forwarded. See [SSH agents](../docs/src/sandbox/sandbox-presets.md#ssh-agents).
 
-Warning metadata describes access rather than gating permission. Generated tmux and
-daemon-config capabilities force host-control severity. `PresetWarnings` resolves
+Warning metadata describes access rather than gating permission. Explanatory text
+does not change the declared severity. Generated tmux and daemon-config capabilities
+force host-control severity. `PresetWarnings` resolves
 maximum severity through dependencies and template snapshots, including the implicit
 global preset. Locked rows retain warnings; editing metadata cannot downgrade root
 capabilities. Missing references remain a separate invalid state.

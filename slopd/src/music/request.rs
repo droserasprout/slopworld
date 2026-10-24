@@ -1,4 +1,4 @@
-//! Compatibility decoding for music commands. Validation produces explicit source changes.
+//! Decode music commands and validate explicit source changes.
 use anyhow::{Result, bail};
 use serde::Deserialize;
 

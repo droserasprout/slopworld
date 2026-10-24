@@ -66,7 +66,6 @@ Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
 
 Unfocused windows use 15 FPS and restore foreground pacing on focus.
 Auto uses the nearest integer refresh rate and falls back to 60 FPS if unavailable.
-Profiles without the VSync toggle migrate to Auto FPS with VSync off.
 These preferences apply live and are saved with the profile.
 [Eco mode](../workspace/gameplay.md#eco-mode) controls colony simulation separately.
 

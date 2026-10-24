@@ -53,7 +53,6 @@ pub struct Task {
     pub status: Status,
     pub note: Option<String>,
     /// Accepted updates in commit order, including status-only changes.
-    #[serde(default)]
     pub history: Vec<TaskUpdate>,
     /// Optional OpenRouter summary for the compact sidebar.
     /// The task body remains the source of truth.

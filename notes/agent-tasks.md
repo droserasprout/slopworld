@@ -20,6 +20,8 @@ Bulk changes validate the whole selection before writing, then stop at the first
 failure. Partial completion returns per-item outcomes; clients apply confirmed changes
 and can retry. Task batches are not one workspace transaction. History follows commit
 order, independently of timestamps, with sender labels captured at update time.
+Every task record requires an explicit history array, including an empty array for
+a task without updates.
 
 `application/task_summaries.rs` uses the shared [title provider](agent-titles.md) with
 separate task policy. See [workers](daemon-workers.md) for startup and failure,

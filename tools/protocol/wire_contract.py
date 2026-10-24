@@ -2,7 +2,7 @@
 
 Rust code owns daemon defaults and usage policy.
 The API exposes these values as read models.
-Generated client bindings do not include the policy. This prevents older mods from applying a stale copy.
+Generated client bindings consume daemon policy through those read models.
 """
 
 from __future__ import annotations

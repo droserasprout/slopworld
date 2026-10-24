@@ -15,7 +15,6 @@ description = "Private Claude Code state and shared credentials"
 private = ["~/.claude", "~/.claude.json", "/tmp/claude-0"]
 # Share the credential file so the host and all sessions receive refreshed tokens.
 # A private copy can become invalid when another session replaces the refresh token.
-# Previously, recovery required session deletion, which also removed its transcripts.
 #
 # This file contains no commands, unlike settings.json.
 # Sandbox writes can invalidate the user's login but cannot define a host command.

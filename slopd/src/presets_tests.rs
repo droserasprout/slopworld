@@ -384,13 +384,15 @@ fn user_files_are_direct_definitions_in_their_kind_directory() {
 }
 
 #[test]
-fn generated_host_control_cannot_be_downgraded_and_legacy_warnings_survive() {
+fn warning_text_does_not_change_declared_severity_and_capabilities_force_host_control() {
     let mut preset = SandboxPreset {
         escapes: "uses a credential".into(),
         ..Default::default()
     };
+    assert_eq!(preset.warning_level(), WarningLevel::None);
+    preset.warning_level = WarningLevel::Sensitive;
     assert_eq!(preset.warning_level(), WarningLevel::Sensitive);
-    preset.escapes.clear();
+    preset.warning_level = WarningLevel::None;
     for (tmux, daemon_config) in [(true, false), (false, true)] {
         preset.tmux = tmux;
         preset.daemon_config = daemon_config;

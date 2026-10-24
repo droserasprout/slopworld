@@ -279,7 +279,7 @@ impl SessionRuntime {
         }
         if plan.launch.is_some() {
             // Publish the import capability only for a successfully launched sandbox.
-            // This tmux session option survives daemon adoption; old panes lack it.
+            // This tmux session option preserves the capability through daemon adoption.
             if let Err(error) = self
                 .tmux
                 .set_option(

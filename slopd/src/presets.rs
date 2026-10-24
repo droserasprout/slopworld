@@ -91,7 +91,7 @@ pub struct SandboxPreset {
     /// Sharing these files permits changes to host data, but does not permit host execution.
     #[serde(default)]
     pub shared: Vec<String>,
-    /// Explain sensitive access or host control. Older declarations without a level remain warnings.
+    /// Explain the access declared by `warning_level` or generated host-control capabilities.
     #[serde(default)]
     pub escapes: String,
     #[serde(default)]
@@ -118,8 +118,6 @@ impl SandboxPreset {
     pub fn warning_level(&self) -> WarningLevel {
         if self.tmux || self.daemon_config {
             WarningLevel::HostControl
-        } else if !self.escapes.trim().is_empty() {
-            self.warning_level.max(WarningLevel::Sensitive)
         } else {
             self.warning_level
         }
