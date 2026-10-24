@@ -258,3 +258,91 @@ async fn resize_waits_for_adoption_disconnect_and_rename_attachment() {
         manager.stop("target").await.unwrap();
     }
 }
+
+#[tokio::test]
+async fn stalled_control_handshake_reaps_child_and_releases_attachment_ownership() {
+    for startup in [true, false] {
+        let socket = crate::test_support::TmuxSocket::new();
+        let manager =
+            crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+        manager
+            .tmux
+            .spawn(
+                "target",
+                "/tmp",
+                80,
+                24,
+                &["sleep".into(), "60".into()],
+                true,
+            )
+            .await
+            .unwrap();
+        let mut row = Live::new(
+            SessionCfg {
+                name: "target".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.role = SessionRole::HostShell;
+        row.process_running = true;
+        row.set_state(State::Working);
+        manager.live.write().await.insert("target".into(), row);
+        let started = manager.tmux.stall_next_attach_for_test();
+        let attach = manager.session_operation(async {
+            let terminal = manager.terminal_boundary("target").write_owned().await;
+            manager
+                .attach_reader(
+                    "target",
+                    if startup {
+                        Attachment::Startup
+                    } else {
+                        Attachment::Existing
+                    },
+                    &terminal,
+                )
+                .await
+        });
+        let (result, pid) = tokio::time::timeout(Duration::from_secs(10), async {
+            tokio::join!(attach, started)
+        })
+        .await
+        .expect("attachment failed to release its guards after timeout");
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("did not become ready")
+        );
+        let pid = i32::try_from(pid.unwrap()).unwrap();
+        // SAFETY: probe only the child returned by this test's attachment; never block.
+        let waited = unsafe { nix::libc::waitpid(pid, std::ptr::null_mut(), nix::libc::WNOHANG) };
+        assert_eq!(waited, -1, "timed-out child was not reaped");
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(nix::libc::ECHILD)
+        );
+        {
+            let live = manager.live.read().await;
+            let row = &live["target"];
+            assert!(row.capture.emu.is_none());
+            assert!(row.capture.reader_token.is_none());
+            assert!(row.capture.reader.is_none());
+            assert_eq!(row.process_running, !startup);
+        }
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            manager.session_operation(async {
+                let terminal = manager.terminal_boundary("target").write_owned().await;
+                assert!(
+                    manager
+                        .attach_reader("target", Attachment::Existing, &terminal)
+                        .await
+                        .unwrap()
+                );
+            }),
+        )
+        .await
+        .expect("retry could not acquire lifecycle or terminal ownership");
+    }
+}

@@ -539,3 +539,82 @@ async fn existing_down_agent_restores_age_and_restarts_only_working_decay() {
         assert_eq!(row.state_since, 789);
     }
 }
+
+#[tokio::test]
+async fn failed_conflicting_pane_retirement_preserves_identity_and_revokes_grants() {
+    use super::*;
+    use crate::grant::Level;
+    for host in [true, false] {
+        let socket = crate::test_support::TmuxSocket::new();
+        let cfg = Config {
+            sessions: vec![SessionCfg {
+                name: "reused".into(),
+                state_id: "1111111111111111".into(),
+                autostart: false,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let manager = crate::session::test_manager_with_socket(cfg, socket.path.clone());
+        let token = manager
+            .mint_grant("reused".into(), vec!["reused".into()], Level::Rw)
+            .await
+            .unwrap();
+        let cap = manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .unwrap();
+        manager
+            .tmux
+            .spawn(
+                "reused",
+                "/tmp",
+                80,
+                24,
+                &["sleep".into(), "60".into()],
+                host,
+            )
+            .await
+            .unwrap();
+        if !host {
+            manager
+                .tmux
+                .set_temporary_agent_config(
+                    "reused",
+                    &SessionCfg {
+                        name: "reused".into(),
+                        state_id: "2222222222222222".into(),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+        }
+        manager.tmux.fail_next_kill_for_test();
+        manager.sync_from_config().await;
+        assert!(manager.tmux.exists("reused").await);
+        assert!(!cap.is_valid());
+        assert!(!manager.cap_ok(&cap, "reused", Level::Ro).await);
+        assert!(
+            manager
+                .config_authority
+                .resolve_cap(Some(&token))
+                .await
+                .is_none()
+        );
+        {
+            let live = manager.live.read().await;
+            let row = &live["reused"];
+            assert_eq!(row.role.is_host(), host);
+            assert_ne!(row.cfg.state_id, "1111111111111111");
+            if !host {
+                assert_eq!(row.cfg.state_id, "2222222222222222");
+            }
+            assert!(row.capture.emu.is_none());
+        }
+        // The fault is one-shot: another reconciliation can retire the conflict.
+        manager.sync_from_config().await;
+        assert!(!manager.tmux.exists("reused").await);
+    }
+}

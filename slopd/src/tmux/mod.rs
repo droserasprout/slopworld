@@ -79,6 +79,10 @@ pub struct Tmux {
     rename_test: Arc<Mutex<RenameTestControls>>,
     #[cfg(test)]
     fail_start_command: Arc<std::sync::atomic::AtomicBool>,
+    #[cfg(test)]
+    fail_kill: Arc<std::sync::atomic::AtomicBool>,
+    #[cfg(test)]
+    stalled_attach: Arc<Mutex<Option<tokio::sync::oneshot::Sender<u32>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -132,6 +136,10 @@ impl Tmux {
             rename_test: Arc::default(),
             #[cfg(test)]
             fail_start_command: Arc::default(),
+            #[cfg(test)]
+            fail_kill: Arc::default(),
+            #[cfg(test)]
+            stalled_attach: Arc::default(),
         }
     }
 
@@ -606,7 +614,27 @@ impl Tmux {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn fail_next_kill_for_test(&self) {
+        self.fail_kill
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn stall_next_attach_for_test(&self) -> tokio::sync::oneshot::Receiver<u32> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        *self.stalled_attach.lock().unwrap() = Some(tx);
+        rx
+    }
+
     pub async fn kill(&self, name: &str) -> Result<()> {
+        #[cfg(test)]
+        anyhow::ensure!(
+            !self
+                .fail_kill
+                .swap(false, std::sync::atomic::Ordering::SeqCst),
+            "injected tmux kill failure"
+        );
         self.run(&["kill-session", "-t", name]).await?;
         Ok(())
     }
@@ -704,15 +732,37 @@ impl Tmux {
         };
         let pty = openpty(Some(&ws), None)?;
 
-        let child = Command::new("tmux")
+        let mut command = Command::new("tmux");
+        command
             .args(self.socket_args())
-            .args(["-C", "attach", "-t", name])
+            .args(["-C", "attach", "-t", name]);
+        // A real child retaining the PTY exercises timeout cleanup and reaping.
+        #[cfg(test)]
+        let stalled = self
+            .stalled_attach
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
+        #[cfg(test)]
+        if stalled.is_some() {
+            command = Command::new("sleep");
+            command.arg("60");
+        }
+        let child = command
             .stdin(Stdio::from(pty.slave.try_clone()?))
             .stdout(Stdio::from(pty.slave.try_clone()?))
             .stderr(Stdio::from(pty.slave))
             .kill_on_drop(true)
             .spawn()?;
 
+        #[cfg(test)]
+        if let Some(started) = stalled {
+            started
+                .send(child.id().context("stalled control child has no PID")?)
+                .map_err(|pid| {
+                    anyhow::anyhow!("stalled control test receiver dropped for child {pid}")
+                })?;
+        }
         Ok((child, std::fs::File::from(pty.master)))
     }
 

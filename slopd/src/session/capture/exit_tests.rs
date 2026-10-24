@@ -684,3 +684,97 @@ async fn disappeared_host_panes_do_not_allocate_private_storage() {
         }
     }
 }
+
+#[tokio::test]
+async fn failed_exit_evidence_write_retains_pane_and_still_fails_task() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let socket = root.join("socket");
+    let manager = crate::session::test_manager_with_socket(
+        Config::default(),
+        socket.to_string_lossy().into_owned(),
+    );
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "2147483647".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    manager.tmux.retain_exit("worker").await.unwrap();
+    let (session, task) = task_owned_session(&manager).await;
+    let exit_path = crate::sandbox::state_dir(&session)
+        .unwrap()
+        .join("exit.json");
+    let token = Arc::new(());
+    let mut live = Live::new(session, TitleCapture::default());
+    live.set_state(State::Working);
+    live.process_running = true;
+    live.capture.reader_token = Some(token.clone());
+    manager.live.write().await.insert("worker".into(), live);
+    manager
+        .tmux
+        .start_command(
+            "worker",
+            "/tmp",
+            &[
+                "bash".into(),
+                "-c".into(),
+                "printf 'fatal worker evidence'; exit 7".into(),
+            ],
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if manager.tmux.pane_exit("worker").await.unwrap().is_some() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let fault = crate::paths::fail_writes(&exit_path);
+    manager.reader_ended("worker".into(), token.clone()).await;
+    assert!(!exit_path.exists());
+    assert!(manager.tmux.exists("worker").await);
+    assert!(
+        manager
+            .tmux
+            .capture("worker", 200)
+            .await
+            .unwrap()
+            .lines
+            .iter()
+            .any(|line| line.contains("fatal worker evidence"))
+    );
+    let task = manager
+        .task_store()
+        .task_for_async(crate::tasks::HOST, &task.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(task.status, crate::tasks::Status::Failed);
+    assert!(task.note.unwrap().contains("exit status 7"));
+    assert_eq!(manager.live.read().await["worker"].state, State::Down);
+    let run_id = manager.live.read().await["worker"].run_id;
+    drop(fault);
+    // A repeated completion cannot discard the retained evidence after ownership retires.
+    manager.reader_ended("worker".into(), token).await;
+    assert!(manager.tmux.exists("worker").await);
+    assert!(!exit_path.exists());
+    assert_eq!(manager.live.read().await["worker"].run_id, run_id);
+    drop(
+        tokio::process::Command::new("tmux")
+            .args(["-S", socket.to_str().unwrap(), "kill-server"])
+            .status()
+            .await,
+    );
+}

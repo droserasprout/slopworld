@@ -176,3 +176,51 @@ fn data_store_retains_tokens_and_persists_revocation() {
     );
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn revocation_save_failure_invalidates_live_caps_and_reports_disk_cleanup() {
+    for cleanup in ["present", "absent", "blocked"] {
+        let root = crate::test_support::fixture("grant-revoke-failure");
+        let path = root.join("grants.toml");
+        let mut grants = Grants::load_data(&root).unwrap();
+        let token = grants
+            .mint_persisted(
+                grant(&["a"], Level::Rw),
+                "1111111111111111".into(),
+                BTreeMap::from([("a".into(), "2222222222222222".into())]),
+            )
+            .unwrap();
+        let cap = grants.resolve(Some(&token), "root").unwrap();
+        if cleanup != "present" {
+            fs::remove_file(&path).unwrap();
+        }
+        if cleanup == "blocked" {
+            fs::create_dir(&path).unwrap();
+        }
+        let fault = crate::paths::fail_writes(&path);
+        let error = grants.try_revoke_grantor("g").unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("injected persistence failure"));
+        assert!(!cap.is_valid());
+        assert!(!cap.allows("a", false, Level::Ro));
+        assert!(grants.resolve(Some(&token), "root").is_none());
+        assert!(!grants.try_revoke_grantor("g").unwrap());
+        drop(fault);
+        if cleanup == "blocked" {
+            assert!(message.contains("could not be cleared"));
+            assert!(Grants::load_data(&root).is_err());
+        } else {
+            assert!(message.contains(if cleanup == "present" {
+                "store cleared"
+            } else {
+                "store absent"
+            }));
+            assert!(
+                Grants::load_data(&root)
+                    .unwrap()
+                    .resolve(Some(&token), "root")
+                    .is_none()
+            );
+        }
+    }
+}

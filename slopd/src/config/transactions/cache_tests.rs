@@ -163,3 +163,42 @@ async fn config_save_failure_rolls_back_added_and_removed_links() {
     std::fs::symlink_metadata(checkout.join("new")).unwrap_err();
     assert_eq!(manager.config().await.projects[0].mounts[0].to, "old");
 }
+
+#[test]
+fn rollback_preserves_replaced_links_and_continues_after_cleanup_failures() {
+    let root = crate::test_support::fixture("transaction-cache-rollback");
+    let owned = root.join("owned");
+    let replaced = root.join("replaced");
+    let restored = root.join("restored");
+    let occupied = root.join("occupied");
+    let source = root.join("source");
+    let foreign = root.join("foreign");
+    std::os::unix::fs::symlink(&source, &owned).unwrap();
+    std::os::unix::fs::symlink(&foreign, &replaced).unwrap();
+    std::fs::write(&occupied, "preserve").unwrap();
+    let changes = LinkChanges {
+        added: vec![
+            (owned.clone(), source.clone()),
+            (replaced.clone(), source.clone()),
+        ],
+        removed: vec![
+            (restored.clone(), source.clone()),
+            (occupied.clone(), source.clone()),
+        ],
+    };
+    for _ in 0..2 {
+        let error = changes.rollback_error(anyhow::anyhow!("original save failure"));
+        let message = format!("{error:#}");
+        assert!(message.contains("original save failure"));
+        assert!(message.contains("restoring cache links also failed"));
+        assert!(message.contains("changed during rollback"));
+        assert!(message.contains(occupied.to_str().unwrap()));
+        assert_eq!(
+            std::fs::symlink_metadata(&owned).unwrap_err().kind(),
+            std::io::ErrorKind::NotFound
+        );
+        assert_eq!(std::fs::read_link(&replaced).unwrap(), foreign);
+        assert_eq!(std::fs::read_link(&restored).unwrap(), source);
+        assert_eq!(std::fs::read(&occupied).unwrap(), b"preserve");
+    }
+}
