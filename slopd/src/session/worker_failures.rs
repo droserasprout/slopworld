@@ -78,6 +78,45 @@ impl WorkerFailure {
 }
 
 impl SessionRuntime {
+    /// Startup-only recovery, after adoption and before requests can launch workers.
+    /// Read persisted tasks as one-shot workers may have no saved session at all.
+    /// A failed tmux query is not evidence of loss; leave tasks intact and retry startup.
+    pub(crate) async fn recover_missing_worker_tasks(&self) -> anyhow::Result<()> {
+        self.session_operation(async {
+            let panes = self.tmux.list_checked().await?;
+            // Task labels capture their original names. A renamed worker still
+            // owns its task through the durable session identity.
+            let surviving_tasks = {
+                let live = self.live.read().await;
+                live.iter()
+                    .filter(|(name, row)| row.cfg.worker && panes.contains(name))
+                    .map(|(_, row)| (row.cfg.state_id.clone(), row.cfg.task_id.clone()))
+                    .collect::<std::collections::HashSet<_>>()
+            };
+            let tasks = self.task_store().all_tasks_async().await?;
+            for task in tasks.into_iter().filter(|task| !task.status.is_terminal()) {
+                let Some(worker) = &task.worker else { continue };
+                if panes.contains(&worker.session)
+                    || surviving_tasks.contains(&(task.to_id.clone(), task.id.clone()))
+                {
+                    continue;
+                }
+                self.task_store()
+                    .fail_worker_async(
+                        &task.id,
+                        &task.to_id,
+                        format!(
+                            "worker session {} was lost while the daemon was offline",
+                            worker.session
+                        ),
+                    )
+                    .await?;
+            }
+            Ok(())
+        })
+        .await
+    }
+
     /// Caller retains its operation guard and validates any delayed run or reader first.
     pub(crate) async fn record_worker_failure(
         &self,

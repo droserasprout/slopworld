@@ -17,6 +17,10 @@ callers check delayed run/reader identity and capture task identity before leavi
 live state. The store preserves terminal results and detailed exit evidence across
 repeated cleanup. Lifecycle owns retention, resource cleanup, and grant revocation.
 Startup/delivery failure, stop, removal, or confirmed exit can fail unfinished work.
+After startup adoption, recovery fails unfinished worker tasks whose panes are absent
+from a successful tmux listing, including one-shot workers without saved sessions.
+Listing or persistence failure aborts startup for retry; ordinary configuration
+reconciliation must not run this check while a worker is being registered.
 
 Workers are durable by default; one-shot workers disappear on exit. Neither autostarts
 nor auto-resumes, and parent deletion does not cascade. Checkout lifetime is
