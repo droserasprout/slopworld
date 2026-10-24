@@ -56,12 +56,12 @@ namespace SlopWorld
 
                 for (int row = Mathf.Max(0, a.y); row <= Mathf.Min(rows - 1, b.y); row++)
                 {
-                    var cells = TerminalColumns.Cells(buf.Runs[row]);
-                    int lineLen = TerminalColumns.ContentColumns(cells);
+                    var geometry = TerminalSelectionGeometry.For(buf.Runs[row]);
+                    int lineLen = geometry.ContentColumns;
                     int startCol = Mathf.Max(0, row == a.y ? a.x : 0);
                     int endCol = row == b.y ? b.x + 1 : lineLen;
                     endCol = Mathf.Clamp(endCol, startCol, lineLen);
-                    TerminalColumns.ExpandWideRange(cells, ref startCol, ref endCol);
+                    geometry.ExpandWideRange(ref startCol, ref endCol);
                     endCol = Mathf.Clamp(endCol, startCol, lineLen);
 
                     float y = body.y + shift + row * ch;

@@ -16,6 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalSelectionGeometry.cs" />
     <Compile Include="../Source/SlopWorld/Patches/ColonistBar/SessionGizmoEligibility.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalFontFallbacks.cs" />
     <Compile Include="../Source/SlopWorld/UI/Fonts/FontFamilyIdentity.cs" />

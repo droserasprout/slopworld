@@ -7,6 +7,14 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return (
+                "selection geometry matches cells across overlaps and wide glyphs",
+                SelectionGeometry
+            );
+            yield return (
+                "selection geometry reuses rows without allocations",
+                SelectionGeometryReuse
+            );
             yield return ("scanner preserves columns within its buffer slice", ScanLineGeometry);
             yield return ("scanner reuses storage without allocating", ScanLineAllocations);
             yield return ("daemon markers own geometry", DaemonGeometry);
@@ -32,6 +40,76 @@ namespace SlopWorld.Tests
             foreach (var run in runs)
                 list.Add(new SgrRun { Col = run.Col, Text = run.Text });
             return list;
+        }
+
+        static void SelectionGeometry()
+        {
+            var random = new Random(7123);
+            string[] texts = { "", " ", "a b  ", "好", "😀x", "e\u0301", "👩‍💻", "   " };
+            for (int sample = 0; sample < 150; sample++)
+            {
+                var runs = new List<SgrRun>();
+                for (int i = 0; i < 6; i++)
+                    runs.Add(
+                        new SgrRun
+                        {
+                            Col = random.Next(-2, 16),
+                            Text = texts[random.Next(texts.Length)],
+                            CellWidth = random.Next(1, 8),
+                            IsCluster = random.Next(2) == 0,
+                        }
+                    );
+                var cells = TerminalColumns.Cells(runs);
+                var geometry = TerminalSelectionGeometry.For(runs);
+                AssertEx.Equal(
+                    TerminalColumns.ContentColumns(cells),
+                    geometry.ContentColumns,
+                    "trailing spaces and continuation cells"
+                );
+                for (int start = -1; start <= cells.Length + 1; start++)
+                for (int end = start; end <= cells.Length + 1; end++)
+                {
+                    int expectedStart = start,
+                        expectedEnd = end;
+                    int actualStart = start,
+                        actualEnd = end;
+                    TerminalColumns.ExpandWideRange(cells, ref expectedStart, ref expectedEnd);
+                    geometry.ExpandWideRange(ref actualStart, ref actualEnd);
+                    AssertEx.Equal(expectedStart, actualStart, "range start");
+                    AssertEx.Equal(expectedEnd, actualEnd, "range end");
+                }
+            }
+        }
+
+        static void SelectionGeometryReuse()
+        {
+            var runs = Row((0, new string('x', 160)));
+            var first = TerminalSelectionGeometry.For(runs);
+            for (int i = 0; i < 1000; i++)
+                TerminalSelectionGeometry.For(runs);
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < 1000; i++)
+            {
+                var geometry = TerminalSelectionGeometry.For(runs);
+                int start = 2,
+                    end = 100;
+                geometry.ExpandWideRange(ref start, ref end);
+            }
+            AssertEx.Equal(
+                0L,
+                GC.GetAllocatedBytesForCurrentThread() - before,
+                "warm selection allocations"
+            );
+            AssertEx.True(
+                ReferenceEquals(first, TerminalSelectionGeometry.For(runs)),
+                "same immutable row"
+            );
+            var replacement = Row((0, "short"));
+            AssertEx.Equal(
+                5,
+                TerminalSelectionGeometry.For(replacement).ContentColumns,
+                "replacement row invalidates geometry"
+            );
         }
 
         static void ScanLineGeometry()

@@ -21,6 +21,20 @@ revision: skipped predecessors or missing damage require a full repaint. Cursor 
 selection overlays must not repaint text. Theme/font, geometry, history position,
 and screen-mode changes invalidate the appropriate parsed/rendered caches.
 
+On backends with texture-copy support, each panel retains a physical-pixel crop.
+Painting uses a pooled, temporary screen-sized target so IMGUI clipping and glyph
+sampling keep their existing screen coordinates; this scratch contributes to peak
+GPU storage. Backends without copy support retain the screen-sized cache. History
+scrolls reuse matching, link-free rows only at integer physical-pixel shifts;
+exposed and boundary rows repaint. Scale, origin, surface or content mismatches
+fall back to a full repaint. Cache copy coordinates follow the same backend Y
+orientation as texture sampling.
+
+Selection painting retains byte geometry under weak immutable-row keys. Replacement
+rows invalidate that geometry without retaining sessions or games. Copying text
+still uses complete scalar strings; selection geometry preserves the same daemon
+continuation cells, overlaps and trailing-space rules.
+
 Terminal glyphs are positioned individually on the cell grid, including ASCII, so
 scaled native font advances cannot accumulate drift. Daemon clusters remain intact.
 Daemon columns own glyph widths; never reconstruct them from Unicode ranges or font

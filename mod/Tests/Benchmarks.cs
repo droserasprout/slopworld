@@ -46,12 +46,58 @@ namespace SlopWorld.Tests
             Terminal();
             ScreenIngestion();
             TerminalHotspots();
+            SelectionPainting();
             UrlScanning();
             IdleWork();
             BrowseScopes();
             EcoWork();
             GC.KeepAlive(_sink);
             return 0;
+        }
+
+        static void SelectionPainting()
+        {
+            foreach (bool unicode in new[] { false, true })
+            {
+                var rows = Enumerable
+                    .Range(0, 80)
+                    .Select(i =>
+                        Sgr.ParseLine(
+                            unicode ? new string('x', 150) + "好😀e\u0301" : new string('x', 160)
+                        )
+                    )
+                    .ToArray();
+                Compare(
+                    "selection 80x160 " + (unicode ? "mixed" : "ASCII"),
+                    () =>
+                    {
+                        int result = 0;
+                        foreach (var row in rows)
+                        {
+                            var cells = TerminalColumns.Cells(row);
+                            int length = TerminalColumns.ContentColumns(cells);
+                            int start = 1,
+                                end = length;
+                            TerminalColumns.ExpandWideRange(cells, ref start, ref end);
+                            result += end - start;
+                        }
+                        return result;
+                    },
+                    () =>
+                    {
+                        int result = 0;
+                        foreach (var row in rows)
+                        {
+                            var geometry = TerminalSelectionGeometry.For(row);
+                            int start = 1,
+                                end = geometry.ContentColumns;
+                            geometry.ExpandWideRange(ref start, ref end);
+                            result += end - start;
+                        }
+                        return result;
+                    }
+                );
+            }
         }
 
         static void BrowseScopes()

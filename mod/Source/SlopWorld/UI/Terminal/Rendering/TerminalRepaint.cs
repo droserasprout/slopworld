@@ -52,6 +52,79 @@ namespace SlopWorld
         }
     }
 
+    // Physical screen crop. Integer edges preserve the screen's glyph sampling grid.
+    internal struct TerminalCacheRegion
+    {
+        public int X,
+            Y,
+            Width,
+            Height;
+
+        public static TerminalCacheRegion Crop(
+            float left,
+            float top,
+            float right,
+            float bottom,
+            int screenWidth,
+            int screenHeight
+        )
+        {
+            int x = Math.Max(0, Math.Min(screenWidth, (int)Math.Floor(left)));
+            int y = Math.Max(0, Math.Min(screenHeight, (int)Math.Floor(top)));
+            return new TerminalCacheRegion
+            {
+                X = x,
+                Y = y,
+                Width = Math.Max(0, Math.Min(screenWidth, (int)Math.Ceiling(right)) - x),
+                Height = Math.Max(0, Math.Min(screenHeight, (int)Math.Ceiling(bottom)) - y),
+            };
+        }
+
+        public bool Matches(TerminalCacheRegion other) =>
+            X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
+
+        // Match the cache's existing sampling orientation on both GL and top-origin backends.
+        public static int TextureY(int top, int height, int textureHeight, bool startsAtTop) =>
+            startsAtTop ? top : textureHeight - top - height;
+
+        // Sparse repaint needs only this bounding strip in the screen-sized scratch.
+        // Labels clip to their row; one pixel covers unsnapped glyph bounds and snapped fills.
+        public void DamageBand(
+            TerminalCacheKey key,
+            int[] rows,
+            float scaleY,
+            float originY,
+            out int top,
+            out int height
+        )
+        {
+            int first = Height,
+                end = 0;
+            foreach (int row in rows)
+            {
+                if (row < 0 || row >= (key.Buffer.Runs?.Length ?? 0))
+                    continue;
+                double y = (key.Y - key.Lead + row * key.CellH) * scaleY + originY - Y;
+                first = Math.Min(first, Math.Max(0, (int)Math.Floor(y) - 1));
+                end = Math.Max(
+                    end,
+                    Math.Min(Height, (int)Math.Ceiling(y + key.CellH * scaleY) + 1)
+                );
+            }
+            top = first;
+            height = Math.Max(0, end - first);
+        }
+    }
+
+    internal struct TerminalScrollCopy
+    {
+        public int SourceTop,
+            DestinationTop,
+            Height,
+            FirstRow,
+            EndRow;
+    }
+
     internal struct TerminalCacheKey
     {
         public ScreenBuf Buffer;
@@ -88,7 +161,6 @@ namespace SlopWorld
     internal static class TerminalScrollReuse
     {
         // A history anchor moves old row i to new row i + (new offset - old offset).
-        // This is only an opportunity measurement: the cache still repaints the full pane.
         public static int MatchingRows(TerminalCacheKey old, TerminalCacheKey next)
         {
             var before = old.Buffer;
@@ -110,6 +182,9 @@ namespace SlopWorld
                 || after.HasLinks
                 || before.Lines == null
                 || after.Lines == null
+                || before.Cols != after.Cols
+                || before.Rows != after.Rows
+                || before.Lines.Length != after.Lines.Length
             )
                 return 0;
 
@@ -129,6 +204,57 @@ namespace SlopWorld
                 )
                     return 0;
             return count;
+        }
+
+        // Only fully available rows can skip painting. A clipped source edge must be
+        // redrawn when it moves into view, even when the corresponding text matches.
+        public static bool TryPlan(
+            TerminalCacheKey old,
+            TerminalCacheKey next,
+            float scaleY,
+            float originY,
+            TerminalCacheRegion region,
+            out TerminalScrollCopy copy
+        )
+        {
+            copy = default(TerminalScrollCopy);
+            int count = MatchingRows(old, next);
+            if (count == 0 || !PixelAligned(old.Offset, next.Offset, next.CellH, scaleY))
+                return false;
+            int delta = next.Offset - old.Offset;
+            int pixels = (int)Math.Round(delta * (double)next.CellH * scaleY);
+            int height = region.Height - Math.Abs(pixels);
+            if (pixels == 0 || height <= 0)
+                return false;
+            int destinationTop = Math.Max(0, pixels);
+            int first = Math.Max(0, delta);
+            int end = first + count;
+            double top = (next.Y - next.Lead) * scaleY + originY;
+            double rowHeight = next.CellH * scaleY;
+            // Repaint the boundary rows too: glyph overhang and clipped glyphs must
+            // not be mistaken for a complete reusable row.
+            while (
+                first < end
+                && Math.Round(top + first * rowHeight) < region.Y + destinationTop + rowHeight
+            )
+                first++;
+            while (
+                end > first
+                && Math.Round(top + end * rowHeight)
+                    > region.Y + destinationTop + height - rowHeight
+            )
+                end--;
+            if (end <= first)
+                return false;
+            copy = new TerminalScrollCopy
+            {
+                SourceTop = Math.Max(0, -pixels),
+                DestinationTop = destinationTop,
+                Height = height,
+                FirstRow = first,
+                EndRow = end,
+            };
+            return true;
         }
 
         public static bool PixelAligned(
