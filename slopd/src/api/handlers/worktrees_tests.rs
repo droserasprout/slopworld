@@ -2,6 +2,85 @@ use super::*;
 use crate::application::workers::Workers;
 
 #[tokio::test]
+async fn worker_base_preview_uses_selected_callers_distinct_worktree_head() {
+    use crate::application::worktrees::WorktreeRequest;
+    use crate::worktrees::git;
+    let (sessions, root, main) = crate::application::workers::tests::allocation_fixture();
+    let manager = crate::application::Application::from_runtime(&sessions);
+    let worktrees = Worktrees::new(&manager);
+    let caller_tree = worktrees
+        .create_worktree(WorktreeRequest {
+            project: "repo".into(),
+            name: "caller-tree".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    let caller_path = std::path::Path::new(&caller_tree.path);
+    assert!(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(caller_path)
+            .args([
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "--quiet",
+                "--allow-empty",
+                "-m",
+                "caller commit",
+            ])
+            .status()
+            .unwrap()
+            .success()
+    );
+    let main_head = git(&main, &["rev-parse", "HEAD"]).await.unwrap();
+    let caller_head = git(caller_path, &["rev-parse", "HEAD"]).await.unwrap();
+    assert_ne!(main_head, caller_head);
+    sessions
+        .register_temporary_worker(&crate::config::SessionCfg {
+            name: "caller".into(),
+            project: "repo".into(),
+            worktree: caller_tree.id,
+            ..Default::default()
+        })
+        .await;
+
+    for (caller, base, expected) in [
+        ("caller", "", &caller_head),
+        (crate::tasks::HOST, "", &main_head),
+        ("caller", "HEAD", &main_head),
+    ] {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            crate::shared::protocol::SESSION_HEADER,
+            caller.parse().unwrap(),
+        );
+        let Proto(preview) = preview_worktree(
+            State(manager.clone()),
+            Extension(Cap::Root),
+            headers,
+            Proto(wire::CreateWorktreeReq {
+                project: "repo".into(),
+                base: Some(base.into()),
+                ..Default::default()
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(&preview.commit, expected);
+        // Worker creation uses this same resolution before allocating its checkout.
+        assert_eq!(
+            preview.commit,
+            worktrees.worktree_base(caller, "repo", base).await.unwrap()
+        );
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
 async fn root_worktree_listing_does_not_require_an_agent_caller() {
     use crate::config::{Config, HostTerminalCfg, ProjectCfg};
     let manager = crate::application::test_application(Config {

@@ -12,8 +12,10 @@ access. Never upgrade while holding the gate. Retain guards through cancellation
 worker checkout rollback/handoff. Runtime reads use the accepted `WorktreeCatalog`,
 so failed saves and offline edits cannot change live decisions.
 
-Root requests use host-user authority regardless of terminal headers. Scoped callers
-retain project restrictions; host terminals cannot own [workers](daemon-workers.md).
+Root catalog requests use host-user authority regardless of terminal headers. Base
+previews use worker caller identity: a blank revision resolves the selected caller's
+HEAD, as worker spawn does. Scoped callers retain project restrictions; host terminals
+cannot own [workers](daemon-workers.md).
 Project/worktree IDs are durable; branch and HEAD are state, not identity. Empty or
 `main` selects the original checkout. Task completion, exit, and detachment never
 commit or delete checkouts. Project removal cannot discard worktree records. External

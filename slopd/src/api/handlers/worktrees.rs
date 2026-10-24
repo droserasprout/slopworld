@@ -98,7 +98,8 @@ pub(crate) async fn preview_worktree(
     headers: HeaderMap,
     Proto(q): Proto<wire::CreateWorktreeReq>,
 ) -> ApiResult<wire::WorktreeBase> {
-    let caller = worktree_principal(&cap, &headers)?;
+    // Match worker spawn: a blank base follows the selected caller's checkout.
+    let caller = super::task_principal(&cap, &headers)?;
     let project = Workers::new(&m)
         .worker_project(&caller, &q.project)
         .await
