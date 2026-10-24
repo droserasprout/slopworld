@@ -6,18 +6,18 @@ namespace SlopWorld.Tests
     {
         sealed class Panel : IWorkspacePanel
         {
-            public string PanelId { get; }
             public PanelSize MinimumSize => new PanelSize(200f, 100f);
             public UiLayoutRect Bounds;
+            readonly string _label;
             readonly List<string> _events;
 
-            public Panel(string id, List<string> events)
+            public Panel(string label, List<string> events)
             {
-                PanelId = id;
+                _label = label;
                 _events = events;
             }
 
-            void Note(string message) => _events.Add(PanelId + ":" + message);
+            void Note(string message) => _events.Add(_label + ":" + message);
 
             public void Opened() => Note("open");
 

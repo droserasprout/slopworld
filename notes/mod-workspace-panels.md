@@ -1,8 +1,9 @@
 # Workspace panel lifecycle
 
-`IWorkspacePanel` defines panel identity, minimum size, arrangement, and lifecycle,
-visibility, and focus callbacks. `IContentView` adds title and drawing; `ContentView`
-provides common bounds, visibility, and focus state.
+`IWorkspacePanel` defines minimum size, arrangement, and lifecycle, visibility, and
+focus callbacks. Panel identity is the instance reference; titles and session names
+do not identify panels. `IContentView` adds title and drawing; `ContentView` provides
+common bounds, visibility, and focus state.
 
 `WorkspacePanelOwner` hosts panes, content alone, or content covering an optional
 backing `TerminalSplit`. Hiding backing panels does not close them. `Showing`

@@ -18,7 +18,6 @@ namespace SlopWorld
     // a placement preference. A viewport smaller than it must still remain bounded.
     public interface IWorkspacePanel
     {
-        string PanelId { get; }
         PanelSize MinimumSize { get; }
         void Opened();
         void Closed();

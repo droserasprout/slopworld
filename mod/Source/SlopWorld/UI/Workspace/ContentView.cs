@@ -14,7 +14,6 @@ namespace SlopWorld
 
     public abstract class ContentView : IContentView
     {
-        public string PanelId { get; } = System.Guid.NewGuid().ToString("N");
         public virtual PanelSize MinimumSize => new PanelSize(320f, 160f);
         public UiLayoutRect Bounds { get; private set; }
         public bool Visible { get; private set; }
