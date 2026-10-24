@@ -375,7 +375,7 @@ namespace SlopWorld
             ),
             new CommandDef(
                 "view.terminal-settings",
-                "Settings: Terminal",
+                "Settings: Appearance - Terminal",
                 "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Terminal))
             ),
@@ -390,9 +390,12 @@ namespace SlopWorld
             ),
             new CommandDef(
                 "view.appearance",
-                "Settings: Appearance",
+                "Settings: Appearance - Interface",
                 "Settings",
-                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Appearance))
+                _ =>
+                    ModOptions.OpenCategory(
+                        ModOptions.CategoryFor(ModOptions.PageId.AppearanceInterface)
+                    )
             ),
             new CommandDef(
                 "view.code-settings",
@@ -408,18 +411,6 @@ namespace SlopWorld
                 "Settings: Audio",
                 "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Audio))
-            ),
-            new CommandDef(
-                "view.integrations",
-                "Settings: Integrations",
-                "Settings",
-                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Integrations))
-            ),
-            new CommandDef(
-                "view.agents",
-                "Settings: Agents",
-                "Settings",
-                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Agents))
             ),
             new CommandDef(
                 "view.credentials",
