@@ -1,6 +1,135 @@
 use super::*;
 
 #[tokio::test]
+async fn queued_gaps_preserve_order_release_lifecycle_and_reject_replaced_runs() {
+    for replace in [false, true] {
+        let (manager, rx) = queued_manager().await;
+        let (sink, mut delivered) = mpsc::unbounded_channel();
+        *manager.input_sink.lock().unwrap() = Some(sink);
+        let (identity, run) = {
+            let live = manager.live.read().await;
+            (live["target"].cfg.state_id.clone(), live["target"].run_id)
+        };
+        for command in [
+            Input::Bytes(b"first".to_vec()),
+            Input::Bytes(b" second".to_vec()),
+            Input::Gap(Duration::from_millis(30)),
+            Input::Keys {
+                keys: vec!["Enter".into()],
+                literal: false,
+            },
+        ] {
+            manager.queue_input("target", command).await;
+        }
+        let consumer =
+            SessionRuntime::run_input(Arc::downgrade(&manager), "target".into(), identity, run, rx);
+        tokio::pin!(consumer);
+        assert!(futures::poll!(consumer.as_mut()).is_pending());
+        assert!(
+            matches!(delivered.try_recv().unwrap(), Input::Bytes(bytes) if bytes == b"first second")
+        );
+        assert!(delivered.try_recv().is_err(), "Enter overtook the gap");
+        let terminal = manager
+            .terminal_boundary("target")
+            .try_write_owned()
+            .expect("gap held lifecycle lock");
+        if replace {
+            manager.live.write().await.get_mut("target").unwrap().run_id += 1;
+        }
+        drop(terminal);
+        if replace {
+            tokio::time::timeout(Duration::from_secs(1), consumer)
+                .await
+                .unwrap();
+            assert!(
+                delivered.try_recv().is_err(),
+                "replacement received old Enter"
+            );
+        } else {
+            let observe = async {
+                assert!(
+                    matches!(delivered.recv().await.unwrap(), Input::Keys { keys, literal: false } if keys == ["Enter"])
+                );
+                manager
+                    .live
+                    .write()
+                    .await
+                    .get_mut("target")
+                    .unwrap()
+                    .input
+                    .sender = None;
+            };
+            tokio::time::timeout(Duration::from_secs(1), async {
+                tokio::join!(consumer, observe);
+            })
+            .await
+            .unwrap();
+            assert!(delivered.try_recv().is_err());
+        }
+    }
+}
+
+#[tokio::test]
+async fn queued_paste_reaches_real_tmux_without_submitting_until_enter() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let root = crate::test_support::fixture("queued-paste");
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    manager.tmux.spawn("target", root.to_str().unwrap(), 80, 24,
+        &["/bin/sh".into(), "-c".into(), "stty -echo; touch ready; IFS= read -r line; printf '%s' \"$line\" > received; sleep 60".into()], true).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while !root.join("ready").exists() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let mut row = Live::new(
+        SessionCfg {
+            name: "target".into(),
+            ..Default::default()
+        },
+        TitleCapture::default(),
+    );
+    row.state = State::Working;
+    let identity = row.cfg.state_id.clone();
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    row.input.sender = Some(tx);
+    manager.live.write().await.insert("target".into(), row);
+    manager
+        .queue_paste("target", "paste λ literal $HOME".as_bytes().to_vec())
+        .await;
+    assert!(
+        manager
+            .dispatch_queued_input("target", &identity, 0, rx.recv().await.unwrap())
+            .await
+    );
+    assert!(
+        !root.join("received").exists(),
+        "paste submitted without Enter"
+    );
+    manager
+        .send_keys("target", vec!["Enter".into()], false)
+        .await;
+    assert!(
+        manager
+            .dispatch_queued_input("target", &identity, 0, rx.recv().await.unwrap())
+            .await
+    );
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if std::fs::read(root.join("received"))
+                .is_ok_and(|bytes| bytes == "paste λ literal $HOME".as_bytes())
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("queued paste did not reach the pane intact");
+}
+
+#[tokio::test]
 async fn host_refresh_preserves_queued_input() {
     let cfg = Config {
         host_terminals: vec![crate::config::HostTerminalCfg {

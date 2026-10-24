@@ -1,6 +1,119 @@
 use super::*;
 use crate::session::{AgentLifetime, SessionRole};
 
+#[tokio::test]
+async fn failed_prepared_worker_launch_cleans_created_resources_and_can_retry() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    // The prepared plan bypasses sandbox construction, but uses real panes and readers.
+    for fail_command in [false, true] {
+        let socket = crate::test_support::TmuxSocket::new();
+        let manager =
+            crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+        let session = SessionCfg {
+            name: "worker".into(),
+            worker: true,
+            parent: "parent".into(),
+            task_id: "task".into(),
+            ..Default::default()
+        };
+        let private = crate::sandbox::state_dir(&session).unwrap();
+        manager
+            .config_authority
+            .write()
+            .await
+            .sessions
+            .push(session.clone());
+        std::fs::create_dir_all(&private).unwrap();
+        let unrelated = root.join("data/sessions/unrelated");
+        std::fs::create_dir_all(&unrelated).unwrap();
+        let token = manager
+            .mint_grant(
+                "worker".into(),
+                vec!["worker".into()],
+                crate::grant::Level::Rw,
+            )
+            .await
+            .unwrap();
+        let cap = manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .unwrap();
+        let plan = || prepared_worker_plan(&session, &root);
+        let install_row = || {
+            let mut row = Live::new(session.clone(), TitleCapture::default());
+            row.role = SessionRole::Agent(AgentLifetime::Temporary);
+            row
+        };
+        if fail_command {
+            manager
+                .live
+                .write()
+                .await
+                .insert("worker".into(), install_row());
+            manager.tmux.fail_next_start_command_for_test();
+        }
+        // Without a live row, attachment declines after the placeholder is created.
+        let error = manager
+            .session_operation(async {
+                let terminal = manager.terminal_boundary("worker").write_owned().await;
+                manager.start_prepared("worker", plan(), terminal).await
+            })
+            .await
+            .unwrap_err();
+        assert!(!error.to_string().contains("secret-worker-token"));
+        assert!(error.to_string().contains(if fail_command {
+            "could not start worker"
+        } else {
+            "did not attach"
+        }));
+        assert!(!manager.tmux.exists("worker").await);
+        assert!(!cap.is_valid());
+        if fail_command {
+            assert!(!private.exists());
+        }
+        assert!(unrelated.exists());
+        // Retry takes the same operation guard as start(), excluding old reader cleanup.
+        manager
+            .session_operation(async {
+                manager
+                    .live
+                    .write()
+                    .await
+                    .insert("worker".into(), install_row());
+                let terminal = manager.terminal_boundary("worker").write_owned().await;
+                manager.start_prepared("worker", plan(), terminal).await
+            })
+            .await
+            .unwrap();
+        assert!(manager.tmux.exists("worker").await);
+        assert!(
+            manager.live.read().await["worker"]
+                .capture
+                .reader_token
+                .is_some()
+        );
+        manager.stop("worker").await.unwrap();
+        manager.cleanup_failed_start("worker", true).await;
+        assert!(!manager.tmux.exists("worker").await);
+    }
+}
+
+fn prepared_worker_plan(session: &SessionCfg, root: &std::path::Path) -> StartPlan {
+    StartPlan {
+        session: session.clone(),
+        context: LaunchContext::default(),
+        cols: 80,
+        rows: 24,
+        role: SessionRole::Agent(AgentLifetime::Temporary),
+        dir: root.to_string_lossy().into_owned(),
+        launch: None,
+        argv: vec!["sleep".into(), "60".into()],
+    }
+}
+
 fn manager_for_start() -> Arc<SessionRuntime> {
     let mut cfg = Config::default();
     cfg.daemon.token = "test-root-token".into();

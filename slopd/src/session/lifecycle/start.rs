@@ -235,6 +235,15 @@ impl SessionRuntime {
     async fn start_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         let terminal = self.terminal_boundary(name).write_owned().await;
         let plan = self.prepare_start(name).await?;
+        self.start_prepared(name, plan, terminal).await
+    }
+
+    async fn start_prepared(
+        self: &Arc<Self>,
+        name: &str,
+        plan: StartPlan,
+        terminal: tokio::sync::OwnedRwLockWriteGuard<()>,
+    ) -> Result<()> {
         if let Some(launch) = &plan.launch {
             // Save before tmux receives the command so a rejected launch remains inspectable.
             if let Err(error) = launch.save(&plan.session) {

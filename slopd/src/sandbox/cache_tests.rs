@@ -1,4 +1,72 @@
 use super::*;
+
+#[test]
+fn failed_removal_rollback_reports_both_errors_without_overwriting_new_occupants() {
+    let root = crate::test_support::fixture("cache-rollback");
+    let first = root.join("first");
+    let second = root.join("second");
+    let links = vec![
+        (first.clone(), root.join("cache-one")),
+        (second.clone(), root.join("cache-two")),
+    ];
+    std::fs::write(&second, "new occupant").unwrap();
+    for _ in 0..2 {
+        let error = rollback_removal(&links, anyhow::anyhow!("original removal failure"));
+        let message = format!("{error:#}");
+        assert!(message.contains("original removal failure"));
+        assert!(message.contains("restoring cache links also failed"));
+        assert!(message.contains(second.to_str().unwrap()));
+        assert_eq!(std::fs::read_link(&first).unwrap(), links[0].1);
+        assert_eq!(std::fs::read(&second).unwrap(), b"new occupant");
+    }
+}
+
+#[test]
+fn later_mount_conflict_restores_earlier_removals_and_preserves_cache_contents() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let checkout = root.join("repo");
+    std::fs::create_dir(&checkout).unwrap();
+    let project = ProjectCfg {
+        id: crate::storage_id::draft_identity(),
+        dir: checkout.to_string_lossy().into_owned(),
+        mounts: ["first", "second"]
+            .into_iter()
+            .map(|to| Mount {
+                to: to.into(),
+                mode: MountMode::Cache,
+                from: String::new(),
+            })
+            .collect(),
+        ..Default::default()
+    };
+    reconcile(&project, &checkout).unwrap();
+    let first_source = source(&project, &project.mounts[0]).unwrap();
+    std::fs::write(first_source.join("artifact"), "keep").unwrap();
+    let second = checkout.join("second");
+    std::fs::remove_file(&second).unwrap();
+    symlink(root.join("foreign"), &second).unwrap();
+    for _ in 0..2 {
+        let error = remove_links(&project, &checkout).unwrap_err();
+        assert!(error.to_string().contains("changed"));
+        assert_eq!(
+            std::fs::read_link(checkout.join("first")).unwrap(),
+            first_source
+        );
+        assert_eq!(
+            std::fs::read(first_source.join("artifact")).unwrap(),
+            b"keep"
+        );
+        assert_eq!(std::fs::read_link(&second).unwrap(), root.join("foreign"));
+    }
+    std::fs::remove_file(&second).unwrap();
+    reconcile(&project, &checkout).unwrap();
+    let removed = remove_links(&project, &checkout).unwrap();
+    assert_eq!(removed.len(), 2);
+    restore_links(&removed).unwrap();
+    require_links(&project, &checkout).unwrap();
+}
 use crate::config::{Config, NetworkMode, SessionCfg};
 
 #[test]

@@ -12,6 +12,139 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 #[tokio::test]
+async fn socket_breadcrumbs_require_target_write_access_and_global_commands_require_root() {
+    use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
+    use crate::shared::wire::{self, client_message::Payload as C};
+    for (cap, breadcrumb_allowed, root) in [
+        (scoped(&["target"], Level::Ro), false, false),
+        (scoped(&["other"], Level::Rw), false, false),
+        (scoped(&["target"], Level::Rw), true, false),
+        (Cap::Root, true, true),
+    ] {
+        let manager = crate::application::test_application(Config {
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                dir: "/tmp".into(),
+                ..Default::default()
+            }],
+            sessions: vec![SessionCfg {
+                name: "target".into(),
+                project: "repo".into(),
+                ..Default::default()
+            }],
+            library: vec![LibraryItemCfg {
+                name: "context".into(),
+                kind: LibraryItemKind::Breadcrumb,
+                text: "context for {{ agent }}".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let mut input = manager.sessions.terminal_input_fixture("target", 7).await;
+        let initial = manager.sessions.views().await.pop().unwrap().runtime;
+        // Keep an authorized redraw pending until its request has been observed.
+        let terminal = manager
+            .sessions
+            .terminal_input_guard("target")
+            .await
+            .unwrap();
+        let previous_audio = serde_json::to_value(manager.services.music.state().await).unwrap();
+        drive_socket_commands(
+            &manager,
+            cap,
+            [
+                C::Breadcrumb(wire::BreadcrumbReq {
+                    name: Some("target".into()),
+                    breadcrumb: Some("context".into()),
+                    ..Default::default()
+                }),
+                C::Redraw(wire::RedrawReq {
+                    cols: Some(93),
+                    rows: Some(31),
+                }),
+                C::Audio(wire::AudioRequest {
+                    volume: 0.23,
+                    ..Default::default()
+                }),
+            ],
+        )
+        .await;
+        if breadcrumb_allowed {
+            assert!(
+                matches!(input.try_recv().unwrap().command, crate::session::Input::Paste { bytes } if bytes == b"context for target")
+            );
+        }
+        assert!(input.try_recv().is_err());
+        assert_eq!(manager.sessions.redraw_running_for_test(), root);
+        let audio = serde_json::to_value(manager.services.music.state().await).unwrap();
+        if root {
+            assert!((audio["volume"].as_f64().unwrap() - 0.23).abs() < 0.0001);
+        } else {
+            assert_eq!(audio, previous_audio);
+        }
+        drop(terminal);
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while manager.sessions.redraw_running_for_test() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let view = manager.sessions.views().await.pop().unwrap();
+        assert_eq!(
+            (view.runtime.cols, view.runtime.rows),
+            if root {
+                (93, 31)
+            } else {
+                (initial.cols, initial.rows)
+            }
+        );
+    }
+}
+
+async fn drive_socket_commands(
+    manager: &App,
+    cap: Cap,
+    commands: impl IntoIterator<Item = crate::shared::wire::client_message::Payload>,
+) {
+    use futures::SinkExt;
+    use prost::Message as _;
+    let (socket, mut client, server) = raw_socket_pair().await;
+    let (tx, rx) = socket.split();
+    let mut intake = CommandIntake {
+        tx: WsTx::new(
+            tx,
+            manager,
+            &cap,
+            manager.config_authority.root_generation(),
+        ),
+        rx,
+        subs: WsSubs::default(),
+        auth_changes: manager.config_authority.auth_changes(),
+        scrolls: ScrollReplies::new(),
+    };
+    let app = manager.clone();
+    let driving = tokio::spawn(async move { intake.run(&app, &cap).await });
+    for payload in commands {
+        client
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                crate::shared::wire::ClientMessage {
+                    payload: Some(payload),
+                }
+                .encode_to_vec(),
+            ))
+            .await
+            .unwrap();
+    }
+    client.close(None).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), driving)
+        .await
+        .unwrap()
+        .unwrap();
+    server.abort();
+}
+
+#[tokio::test]
 async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change() {
     // Reject advances the process-wide playback generation. Isolate it from the
     // decoder tests, which deliberately keep a generation alive across assertions.

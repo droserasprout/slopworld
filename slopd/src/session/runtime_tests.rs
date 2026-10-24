@@ -108,6 +108,10 @@ impl Drop for TestDirectory {
 }
 
 impl SessionRuntime {
+    pub(crate) fn redraw_running_for_test(&self) -> bool {
+        self.signals.redraw.lock().unwrap().is_running()
+    }
+
     /// Hold queued input at the transport boundary for command authorization tests.
     pub(crate) async fn terminal_input_fixture(
         &self,

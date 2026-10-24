@@ -183,14 +183,18 @@ pub(crate) fn remove_links(
         Ok(())
     })();
     if let Err(error) = result {
-        return match restore_links(&links) {
-            Ok(()) => Err(error),
-            Err(rollback) => Err(anyhow::anyhow!(
-                "{error:#}; restoring cache links also failed: {rollback:#}"
-            )),
-        };
+        return Err(rollback_removal(&links, error));
     }
     Ok(links)
+}
+
+fn rollback_removal(links: &[(PathBuf, PathBuf)], error: anyhow::Error) -> anyhow::Error {
+    match restore_links(links) {
+        Ok(()) => error,
+        Err(rollback) => {
+            anyhow::anyhow!("{error:#}; restoring cache links also failed: {rollback:#}")
+        }
+    }
 }
 
 pub(crate) fn restore_links(links: &[(PathBuf, PathBuf)]) -> Result<()> {

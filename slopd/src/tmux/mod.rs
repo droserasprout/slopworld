@@ -77,6 +77,8 @@ pub struct Tmux {
     verbatim_paste: Arc<tokio::sync::OnceCell<bool>>,
     #[cfg(test)]
     rename_test: Arc<Mutex<RenameTestControls>>,
+    #[cfg(test)]
+    fail_start_command: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +130,8 @@ impl Tmux {
             verbatim_paste: Arc::default(),
             #[cfg(test)]
             rename_test: Arc::default(),
+            #[cfg(test)]
+            fail_start_command: Arc::default(),
         }
     }
 
@@ -273,11 +277,24 @@ impl Tmux {
     /// Replace the silent startup process only after the control reader is ready. The pane
     /// identity and negotiated size survive, so its first output reaches the same reader.
     pub async fn start_command(&self, name: &str, dir: &str, argv: &[String]) -> Result<()> {
+        #[cfg(test)]
+        if self
+            .fail_start_command
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
+        {
+            bail!("injected command launch failure: secret-worker-token");
+        }
         let target = format!("{name}:.0");
         let mut args = vec!["respawn-pane", "-k", "-t", &target, "-c", dir, "--"];
         args.extend(argv.iter().map(String::as_str));
         self.run(&args).await?;
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn fail_next_start_command_for_test(&self) {
+        self.fail_start_command
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Keep process status and terminal output until the reader records the exit.
