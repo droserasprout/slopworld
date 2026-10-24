@@ -8,6 +8,7 @@ use crate::worktrees::checkout::{
     validate_external_worktree,
 };
 use crate::worktrees::directories::CreatedDirectories;
+use crate::worktrees::relocation::Persistence;
 use crate::worktrees::{Store, Worktree, WorktreePhase, git};
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
@@ -45,31 +46,15 @@ pub(crate) trait Catalog: Sync {
     fn worktree_records(&self) -> Store;
 }
 
-pub(crate) trait Runtime: Catalog + crate::worktrees::relocation::Persistence {
-    fn allocate_worktree_identity(
-        &self,
-    ) -> impl std::future::Future<Output = Result<String>> + Send;
-    fn worktree_attachments(
-        &self,
-        worktree: &Worktree,
-    ) -> impl std::future::Future<Output = Vec<String>> + Send;
-    fn main_attachments(
-        &self,
-        project: &str,
-        path: &Path,
-    ) -> impl std::future::Future<Output = Vec<String>> + Send;
-    fn announce_projects(&self) -> impl std::future::Future<Output = ()> + Send;
-}
-
 /// Callers retain session and catalog guards through commit, recovery, or rollback.
-pub(crate) struct Coordinator<'a, R> {
-    runtime: &'a R,
+struct Coordinator<'a> {
+    runtime: &'a Worktrees,
 }
-impl<'a, R: Runtime> Coordinator<'a, R> {
-    pub(crate) fn new(runtime: &'a R) -> Self {
+impl<'a> Coordinator<'a> {
+    fn new(runtime: &'a Worktrees) -> Self {
         Self { runtime }
     }
-    pub(crate) async fn list(&self, project: &str) -> Result<Vec<WorktreeView>> {
+    async fn list(&self, project: &str) -> Result<Vec<WorktreeView>> {
         let cfg = self.runtime.config().await;
         let p = cfg
             .project(project)
@@ -93,9 +78,17 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
         for mut w in rows {
             let (branch, head) = crate::worktrees::inspection::inspect(&mut w).await;
             let path = Path::new(&w.path);
-            let mut attachments = self.runtime.worktree_attachments(&w).await;
+            let mut attachments = self.runtime.sessions.worktree_attachments(&w).await;
             if w.id == "main" {
-                attachments = self.runtime.main_attachments(project, path).await;
+                attachments = self
+                    .runtime
+                    .sessions
+                    .views()
+                    .await
+                    .into_iter()
+                    .filter(|s| s.project == project && Path::new(&expand(&s.dir)) == path)
+                    .map(|s| s.name)
+                    .collect();
             }
             result.push(WorktreeView {
                 worktree: w,
@@ -107,17 +100,17 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
         Ok(result)
     }
 
-    pub(crate) async fn create(&self, request: &WorktreeRequest) -> Result<Worktree> {
+    async fn create(&self, request: &WorktreeRequest) -> Result<Worktree> {
         let prepared = self.prepare_worktree(request).await?;
         self.finish_worktree_creation(prepared).await
     }
-    pub(crate) async fn remove(&self, project: &str, id: &str) -> Result<()> {
+    async fn remove(&self, project: &str, id: &str) -> Result<()> {
         let mut removal = self.prepare_worktree_removal(project, id).await?;
         removal.record_intent(self.runtime).await?;
         let result = remove_worktree_checkout(&removal.project, &removal.worktree).await;
         removal.finish(self.runtime, result).await
     }
-    pub(crate) async fn rename(&self, project: &str, id: &str, name: String) -> Result<Worktree> {
+    async fn rename(&self, project: &str, id: &str, name: String) -> Result<Worktree> {
         let cfg = self.runtime.config().await;
         let p = cfg
             .project(project)
@@ -136,7 +129,7 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
         if !old.managed || old.phase != WorktreePhase::Ready {
             bail!("only ready managed worktrees can be renamed");
         }
-        let users = self.runtime.worktree_attachments(&old).await;
+        let users = self.runtime.sessions.worktree_attachments(&old).await;
         if !users.is_empty() {
             bail!(
                 "Worktree remains attached to {}. Remove or move these sessions first.",
@@ -181,7 +174,7 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
             &["rev-parse", "--path-format=absolute", "--git-common-dir"],
         )
         .await?;
-        let id = self.runtime.allocate_worktree_identity().await?;
+        let id = self.runtime.sessions.allocate_worktree_identity().await?;
         let name = if q.name.is_empty() {
             id.get(..8).unwrap_or(&id).to_string()
         } else {
@@ -296,7 +289,11 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
             .ok_or_else(|| anyhow!("created worktree disappeared before publication"))? =
             worktree.clone();
         self.runtime.save_worktree_records(&store).await?;
-        self.runtime.announce_projects().await;
+        crate::application::projects::publish(
+            &self.runtime.config_authority,
+            &self.runtime.services,
+        )
+        .await;
         if !worktree.error.is_empty() {
             bail!(
                 "worktree {} retained after allocation failure: {}",
@@ -329,7 +326,7 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
                 worktree.error
             );
         }
-        let users = self.runtime.worktree_attachments(&worktree).await;
+        let users = self.runtime.sessions.worktree_attachments(&worktree).await;
         if !users.is_empty() {
             bail!(
                 "Worktree remains attached to {}. Remove or move these sessions first.",
@@ -344,7 +341,7 @@ impl<'a, R: Runtime> Coordinator<'a, R> {
         })
     }
 
-    pub(crate) async fn recover_worktrees(&self) -> Result<()> {
+    async fn recover_worktrees(&self) -> Result<()> {
         let mut store = self.runtime.worktree_records();
         let mut changed = false;
         for w in &mut store.worktrees {
@@ -393,12 +390,12 @@ impl WorktreeRemoval {
             .ok_or_else(|| anyhow!("no removable worktree {}", self.worktree.id))
     }
 
-    async fn record_intent(&mut self, manager: &impl Runtime) -> Result<()> {
+    async fn record_intent(&mut self, manager: &Worktrees) -> Result<()> {
         self.record_mut()?.phase = WorktreePhase::Removing;
         manager.save_worktree_records(&self.store).await
     }
 
-    async fn finish(mut self, manager: &impl Runtime, result: Result<()>) -> Result<()> {
+    async fn finish(mut self, manager: &Worktrees, result: Result<()>) -> Result<()> {
         match result {
             Ok(()) => {
                 self.store.worktrees.remove(self.index);
@@ -550,26 +547,5 @@ impl crate::application::worktrees::Catalog for Worktrees {
     }
     fn worktree_records(&self) -> Store {
         self.workspace.configuration.records.worktrees()
-    }
-}
-
-impl crate::application::worktrees::Runtime for Worktrees {
-    async fn allocate_worktree_identity(&self) -> Result<String> {
-        self.sessions.allocate_worktree_identity().await
-    }
-    async fn worktree_attachments(&self, worktree: &Worktree) -> Vec<String> {
-        self.sessions.worktree_attachments(worktree).await
-    }
-    async fn main_attachments(&self, project: &str, path: &Path) -> Vec<String> {
-        self.sessions
-            .views()
-            .await
-            .into_iter()
-            .filter(|s| s.project == project && Path::new(&expand(&s.dir)) == path)
-            .map(|s| s.name)
-            .collect()
-    }
-    async fn announce_projects(&self) {
-        crate::application::projects::publish(&self.config_authority, &self.services).await;
     }
 }

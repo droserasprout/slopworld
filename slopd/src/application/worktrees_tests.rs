@@ -30,12 +30,11 @@ async fn allocation_record_failure_removes_only_newly_created_directories() {
             ..Default::default()
         },
     };
-    Coordinator::new(&Worktrees::new(
-        &crate::application::Application::from_runtime(&manager),
-    ))
-    .finish_worktree_creation(prepared)
-    .await
-    .unwrap_err();
+    let worktrees = Worktrees::new(&crate::application::Application::from_runtime(&manager));
+    Coordinator::new(&worktrees)
+        .finish_worktree_creation(prepared)
+        .await
+        .unwrap_err();
     assert!(!parent.exists());
     assert!(manager.cfg_path().parent().unwrap().is_dir());
 }
