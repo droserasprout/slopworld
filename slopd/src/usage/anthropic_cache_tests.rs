@@ -1,4 +1,3 @@
-use super::super::providers::{ProviderCredentials, fetch_anthropic};
 use super::super::test_http::{credentials, server};
 use super::*;
 use serde_json::json;
@@ -12,13 +11,12 @@ fn anthropic_fetch_reuses_cached_success_and_shared_backoff() {
     let body = json!({"five_hour":{"utilization":42}});
     let (url, handle) = server(200, "", &body.to_string());
     crate::test_support::set_env("SLOPD_USAGE_URL", url);
-    let fetch_cached = || fetch_anthropic(ProviderCredentials::Anthropic(credentials(&creds_path)));
+    let fetch_cached = || fetch(&credentials(&creds_path));
     let first = fetch_cached().unwrap_or_else(|e| panic!("{e}"));
     handle.join().unwrap();
-    assert_eq!(first.body, body);
-    assert_eq!(first.plan.as_deref(), Some("max"));
+    assert_eq!(first, body);
     let second = fetch_cached().unwrap_or_else(|e| panic!("cache miss: {e}"));
-    assert_eq!(second.body, body);
+    assert_eq!(second, body);
     let (cache, _) = anthropic_cache_paths(&credentials(&creds_path));
     #[cfg(unix)]
     {
@@ -35,7 +33,7 @@ fn anthropic_fetch_reuses_cached_success_and_shared_backoff() {
     assert_ne!(anthropic_cache_paths(&credentials(&creds_path)).0, cache);
     assert_eq!(fetch_cached().err().unwrap().retry_after, Some(900));
     handle.join().unwrap();
-    let error = fetch_cached().err().expect("shared backoff");
+    let error = fetch_cached().expect_err("shared backoff");
     assert!(error.msg.contains("shared rate-limit backoff"));
     assert!(matches!(error.retry_after, Some(895..=900)));
     assert!(fresh_anthropic_cache(&anthropic_cache_paths(&credentials(&creds_path)).0).is_none());
@@ -89,9 +87,8 @@ fn cache_keys_separate_accounts_and_endpoints_and_lock_failure_still_fetches() {
     );
     let (cache, lock) = anthropic_cache_paths(&credentials(&one));
     std::fs::create_dir(&lock).unwrap();
-    let response = fetch_anthropic(ProviderCredentials::Anthropic(credentials(&one)))
-        .unwrap_or_else(|e| panic!("{e}"));
-    assert_eq!(response.body, json!({"ok":true}));
+    let response = fetch(&credentials(&one)).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(response, json!({"ok":true}));
     handle.join().unwrap();
     assert!(!cache.exists());
 }
@@ -149,7 +146,7 @@ fn contended_cache_defers_without_an_outbound_request() {
     let (_, lock_path) = anthropic_cache_paths(&creds);
     let held = lock_anthropic_cache(&lock_path).unwrap();
     let before = Instant::now();
-    let error = fetch(&creds).err().expect("busy cache must defer request");
+    let error = fetch(&creds).expect_err("busy cache must defer request");
     assert!(error.msg.contains("cache is busy"));
     assert!(before.elapsed() < Duration::from_secs(5));
     assert_eq!(
@@ -182,7 +179,7 @@ fn changed_credentials_at_the_same_path_cannot_reuse_success_or_backoff() {
         assert_ne!(old_lock, new_lock);
         assert!(!new_cache.to_string_lossy().contains(&changed.token));
         let response = fetch(&changed).unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(response.body, body);
+        assert_eq!(response, body);
         let request = handle.join().unwrap();
         assert_eq!(
             super::super::test_http::header(&request, "authorization").as_deref(),

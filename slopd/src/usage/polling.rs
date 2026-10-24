@@ -1,9 +1,8 @@
 //! Provider execution and credential watching; schedule owns policy, publication owns views.
 use super::Snapshot;
-use super::parsing::{parse_anthropic, parse_openai_response, parse_openrouter};
 use super::providers::{
-    FetchProvider, ParseProvider, ReadProvider, credentials_missing, fetch_anthropic, fetch_openai,
-    fetch_openrouter, read_anthropic, read_openai, read_openrouter,
+    ProviderError, ProviderPipeline, credentials_missing, poll_anthropic, poll_openai,
+    poll_openrouter,
 };
 use super::publication::{merge, report_poll};
 use super::rows::provider_enabled;
@@ -16,9 +15,7 @@ use std::{
 struct Provider {
     source: &'static str,
     poller: Poller,
-    read: ReadProvider,
-    fetch: FetchProvider,
-    parse: ParseProvider,
+    pipeline: ProviderPipeline,
 }
 
 fn preserve_parse_failure(previous: &Snapshot, parsed: Snapshot) -> Snapshot {
@@ -83,24 +80,20 @@ async fn poll_one(provider: &mut Provider, d: &crate::config::Daemon, now: Insta
     // A restored credential makes retained values visible even if the request then fails.
     prev.credentials_missing = false;
     let config = d.clone();
-    let read = provider.read;
-    let fetch = provider.fetch;
-    let parse = provider.parse;
+    let pipeline = provider.pipeline;
     let (next, asked) = settle_join(
         &provider.poller.snap,
-        tokio::task::spawn_blocking(move || match read(&config) {
-            Err(e) => {
+        tokio::task::spawn_blocking(move || match pipeline(&config) {
+            Err(ProviderError::Credentials(e)) => {
                 let mut next = Snapshot::failed(&prev, format!("{e:#}"));
                 next.credentials_missing = credentials_missing(&e);
                 (next, None)
             }
-            Ok(creds) => match fetch(creds) {
-                Err(e) => {
-                    let asked = e.retry_after;
-                    (Snapshot::failed(&prev, e), asked)
-                }
-                Ok(response) => (preserve_parse_failure(&prev, parse(response)), None),
-            },
+            Err(ProviderError::Request(e)) => {
+                let asked = e.retry_after;
+                (Snapshot::failed(&prev, e), asked)
+            }
+            Ok(parsed) => (preserve_parse_failure(&prev, parsed), None),
         })
         .await,
     );
@@ -129,23 +122,17 @@ impl UsagePollers {
                 Provider {
                     source: "anthropic",
                     poller: Poller::new("Anthropic", now),
-                    read: read_anthropic,
-                    fetch: fetch_anthropic,
-                    parse: parse_anthropic,
+                    pipeline: poll_anthropic,
                 },
                 Provider {
                     source: "openrouter",
                     poller: Poller::new("OpenRouter", now),
-                    read: read_openrouter,
-                    fetch: fetch_openrouter,
-                    parse: parse_openrouter,
+                    pipeline: poll_openrouter,
                 },
                 Provider {
                     source: "openai",
                     poller: Poller::new("OpenAI", now),
-                    read: read_openai,
-                    fetch: fetch_openai,
-                    parse: parse_openai_response,
+                    pipeline: poll_openai,
                 },
             ],
             anthropic_creds_stamp: None,

@@ -1,7 +1,6 @@
 use super::super::test_http::{credentials, header, server};
 use super::*;
 use serde_json::json;
-use std::net::TcpListener;
 use std::time::UNIX_EPOCH;
 
 #[test]
@@ -67,42 +66,6 @@ fn openrouter_keys_are_trimmed_reread_and_file_selection_overrides_environment()
 }
 
 #[test]
-fn credential_readers_select_the_configured_provider_and_path() {
-    let Some(root) = crate::test_support::isolated() else {
-        return;
-    };
-    let anthropic = root.join("claude.json");
-    let openai = root.join("openai.json");
-    let key = root.join("key");
-    std::fs::write(
-        &anthropic,
-        json!({"claudeAiOauth":{"accessToken":"anthropic", "subscriptionType":"max"}}).to_string(),
-    )
-    .unwrap();
-    std::fs::write(
-        &openai,
-        json!({"tokens":{"access_token":"openai"}}).to_string(),
-    )
-    .unwrap();
-    std::fs::write(&key, "router").unwrap();
-    let config = crate::config::Daemon {
-        claude_credentials: anthropic.to_str().unwrap().into(),
-        openai_credentials: openai.to_str().unwrap().into(),
-        openrouter_key_file: key.to_str().unwrap().into(),
-        ..Default::default()
-    };
-    assert!(
-        matches!(read_anthropic(&config).unwrap(), ProviderCredentials::Anthropic(c) if c.token == "anthropic" && c.plan == "max" && c.path == anthropic)
-    );
-    assert!(
-        matches!(read_openai(&config).unwrap(), ProviderCredentials::OpenAi(c) if c.token == "openai")
-    );
-    assert!(
-        matches!(read_openrouter(&config).unwrap(), ProviderCredentials::OpenRouter(k) if k == "router")
-    );
-}
-
-#[test]
 fn provider_requests_send_expected_headers_and_decode_json() {
     let Some(root) = crate::test_support::isolated() else {
         return;
@@ -135,10 +98,8 @@ fn provider_requests_send_expected_headers_and_decode_json() {
 
     let (url, handle) = server(200, "", &body.to_string());
     crate::test_support::set_env("SLOPD_CREDITS_URL", url);
-    let response = fetch_openrouter(ProviderCredentials::OpenRouter("router-token".into()))
-        .unwrap_or_else(|e| panic!("{e}"));
-    assert_eq!(response.body, body);
-    assert!(response.plan.is_none());
+    let response = fetch_openrouter_credits("router-token").unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(response, body);
     let request = handle.join().unwrap();
     assert_eq!(
         header(&request, "authorization").as_deref(),
@@ -153,10 +114,8 @@ fn provider_requests_send_expected_headers_and_decode_json() {
             token: "openai-token".into(),
             account_id: account.clone(),
         };
-        let response =
-            fetch_openai(ProviderCredentials::OpenAi(creds)).unwrap_or_else(|e| panic!("{e}"));
-        assert_eq!(response.body, body);
-        assert!(response.plan.is_none());
+        let response = fetch_openai_usage(&creds).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(response, body);
         let request = handle.join().unwrap();
         assert_eq!(
             header(&request, "authorization").as_deref(),
@@ -253,40 +212,6 @@ fn successful_http_status_with_invalid_json_is_a_non_rate_limit_error() {
     }
 }
 
-#[test]
-fn mismatched_credentials_are_rejected_before_any_network_request() {
-    let Some(_) = crate::test_support::isolated() else {
-        return;
-    };
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.set_nonblocking(true).unwrap();
-    let url = format!("http://{}/usage", listener.local_addr().unwrap());
-    for variable in [
-        "SLOPD_USAGE_URL",
-        "SLOPD_CREDITS_URL",
-        "SLOPD_OPENAI_USAGE_URL",
-    ] {
-        crate::test_support::set_env(variable, &url);
-    }
-    for fetcher in [fetch_anthropic as FetchProvider, fetch_openai] {
-        let error = fetcher(ProviderCredentials::OpenRouter("test".into()))
-            .err()
-            .unwrap();
-        assert!(error.msg.contains("credential mismatch"));
-        assert!(error.retry_after.is_none());
-    }
-    let error = fetch_openrouter(ProviderCredentials::OpenAi(OpenAiCreds {
-        token: "test".into(),
-        account_id: None,
-    }))
-    .err()
-    .unwrap();
-    assert!(error.msg.contains("credential mismatch"));
-    assert_eq!(
-        listener.accept().unwrap_err().kind(),
-        std::io::ErrorKind::WouldBlock
-    );
-}
 /// Credential writes can truncate the existing file when a sandbox bind mount prevents atomic replacement.
 /// A concurrent read can then encounter incomplete JSON.
 /// Retry a parse failure once to avoid reporting a temporary write as a credential error.
@@ -401,8 +326,14 @@ fn missing_credentials_are_distinct_from_invalid_or_expired_credentials() {
         openrouter_key_file: path.to_str().unwrap().into(),
         ..Default::default()
     };
-    for read in [read_anthropic as ReadProvider, read_openai, read_openrouter] {
-        let error = read(&config).err().unwrap();
+    for read in [
+        poll_anthropic as ProviderPipeline,
+        poll_openai,
+        poll_openrouter,
+    ] {
+        let ProviderError::Credentials(error) = read(&config).err().unwrap() else {
+            panic!("expected credential error")
+        };
         assert!(credentials_missing(&error));
     }
     for value in [
@@ -410,20 +341,22 @@ fn missing_credentials_are_distinct_from_invalid_or_expired_credentials() {
         json!({"claudeAiOauth":{"accessToken":"  "},"tokens":{"access_token":"  "}}),
     ] {
         std::fs::write(&path, value.to_string()).unwrap();
-        for read in [read_anthropic as ReadProvider, read_openai] {
-            assert!(credentials_missing(&read(&config).err().unwrap()));
+        for read in [poll_anthropic as ProviderPipeline, poll_openai] {
+            assert!(pipeline_credentials_missing(read, &config));
         }
     }
     std::fs::write(&path, " \n").unwrap();
     assert!(credentials_missing(
-        &read_openrouter(&config).err().unwrap()
+        &read_openrouter_key(&config.openrouter_key_file)
+            .err()
+            .unwrap()
     ));
     crate::test_support::set_env(OPENROUTER_KEY_ENV, "");
     assert!(credentials_missing(&read_openrouter_key("").unwrap_err()));
 
     std::fs::write(&path, "not json").unwrap();
-    for read in [read_anthropic as ReadProvider, read_openai] {
-        assert!(!credentials_missing(&read(&config).err().unwrap()));
+    for read in [poll_anthropic as ProviderPipeline, poll_openai] {
+        assert!(!pipeline_credentials_missing(read, &config));
     }
     std::fs::write(
         &path,
@@ -431,6 +364,112 @@ fn missing_credentials_are_distinct_from_invalid_or_expired_credentials() {
     )
     .unwrap();
     assert!(!credentials_missing(
-        &read_anthropic(&config).err().unwrap()
+        &read_anthropic_creds(&path).err().unwrap()
     ));
+}
+
+fn pipeline_credentials_missing(
+    pipeline: ProviderPipeline,
+    config: &crate::config::Daemon,
+) -> bool {
+    let ProviderError::Credentials(error) = pipeline(config).expect_err("credential failure")
+    else {
+        panic!("expected credential error")
+    };
+    credentials_missing(&error)
+}
+
+#[test]
+fn pipelines_use_configured_credentials_requests_and_matching_parsers() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let claude = root.join("claude.json");
+    let openai = root.join("openai.json");
+    let router = root.join("router.key");
+    std::fs::write(
+        &claude,
+        json!({"claudeAiOauth":{"accessToken":"claude-token","subscriptionType":"max"}})
+            .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        &openai,
+        json!({"tokens":{"access_token":"openai-token","account_id":"account-123"}}).to_string(),
+    )
+    .unwrap();
+    std::fs::write(&router, " router-token\n").unwrap();
+    let config = crate::config::Daemon {
+        claude_credentials: claude.to_str().unwrap().into(),
+        openai_credentials: openai.to_str().unwrap().into(),
+        openrouter_key_file: router.to_str().unwrap().into(),
+        ..Default::default()
+    };
+    for (pipeline, variable, body, token, key, plan) in [
+        (
+            poll_anthropic as ProviderPipeline,
+            "SLOPD_USAGE_URL",
+            json!({"five_hour":{"utilization":37}}),
+            "claude-token",
+            super::super::CLAUDE_SESSION,
+            "max",
+        ),
+        (
+            poll_openrouter,
+            "SLOPD_CREDITS_URL",
+            json!({"data":{"total_usage":20,"total_credits":100}}),
+            "router-token",
+            super::super::OPENROUTER_BALANCE,
+            "",
+        ),
+        (
+            poll_openai,
+            "SLOPD_OPENAI_USAGE_URL",
+            json!({"plan_type":"plus","rate_limit":{"primary_window":{"used_percent":37}}}),
+            "openai-token",
+            super::super::OPENAI_SESSION,
+            "plus",
+        ),
+    ] {
+        let (url, handle) = server(200, "", &body.to_string());
+        crate::test_support::set_env(variable, url);
+        let snapshot =
+            pipeline(&config).unwrap_or_else(|_| panic!("pipeline failed for {variable}"));
+        assert!(snapshot.ok, "{:?}", snapshot.error);
+        assert_eq!(snapshot.windows[0].key, key);
+        assert_eq!(snapshot.plan, plan);
+        let request = handle.join().unwrap();
+        assert_eq!(
+            header(&request, "authorization"),
+            Some(format!("Bearer {token}"))
+        );
+        if variable == "SLOPD_OPENAI_USAGE_URL" {
+            assert_eq!(
+                header(&request, "ChatGPT-Account-Id").as_deref(),
+                Some("account-123")
+            );
+        }
+
+        if variable == "SLOPD_USAGE_URL" {
+            // A cached response still uses the plan read from the current credentials.
+            std::fs::write(
+                &claude,
+                json!({"claudeAiOauth":{"accessToken":"claude-token","subscriptionType":"pro"}})
+                    .to_string(),
+            )
+            .unwrap();
+            let cached = pipeline(&config).unwrap_or_else(|_| panic!("shared cache miss"));
+            assert_eq!(cached.plan, "pro");
+            assert_eq!(cached.windows, snapshot.windows);
+        }
+
+        let (url, handle) = server(429, "Retry-After: 900\r\n", "{}");
+        crate::test_support::set_env(variable, url);
+        let ProviderError::Request(error) = pipeline(&config).expect_err("rate limit") else {
+            panic!("expected request error")
+        };
+        assert_eq!(error.retry_after, Some(900));
+        assert!(!error.msg.contains(token));
+        handle.join().unwrap();
+    }
 }

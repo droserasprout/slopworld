@@ -304,25 +304,10 @@ async fn missing_credentials_hide_rows_and_restored_credentials_recover_them() {
             interval_secs: None,
         },
     );
-    fn fetch_ok(
-        _: super::super::providers::ProviderCredentials,
-    ) -> Result<super::super::providers::ProviderResponse, super::super::providers::PollErr> {
-        Ok(super::super::providers::ProviderResponse {
-            body: serde_json::json!({"five_hour":{"utilization":37}}),
-            plan: None,
-        })
-    }
-    fn fetch_offline(
-        _: super::super::providers::ProviderCredentials,
-    ) -> Result<super::super::providers::ProviderResponse, super::super::providers::PollErr> {
-        Err(super::super::providers::PollErr::new("offline"))
-    }
     let mut provider = Provider {
         source: "anthropic",
         poller: Poller::new("Anthropic", Instant::now()),
-        read: read_anthropic,
-        fetch: fetch_ok,
-        parse: parse_anthropic,
+        pipeline: poll_anthropic,
     };
     async fn poll(provider: &mut Provider, config: &crate::config::Daemon) -> Snapshot {
         provider.poller.due = Instant::now();
@@ -341,7 +326,11 @@ async fn missing_credentials_hide_rows_and_restored_credentials_recover_them() {
 
     let credentials = r#"{"claudeAiOauth":{"accessToken":"token"}}"#;
     std::fs::write(&path, credentials).unwrap();
+    let (url, handle) =
+        super::super::test_http::server(200, "", r#"{"five_hour":{"utilization":37}}"#);
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
     let good = poll(&mut provider, &config).await;
+    handle.join().unwrap();
     assert!(good.ok);
     assert_eq!(good.windows.len(), 1);
     assert!(
@@ -356,9 +345,17 @@ async fn missing_credentials_hide_rows_and_restored_credentials_recover_them() {
     assert!(!removed.rows.iter().any(|row| row.provider == "anthropic"));
     assert_eq!(provider.poller.snap.windows, good.windows);
 
+    std::fs::write(&path, "not json").unwrap();
+    let malformed = poll(&mut provider, &config).await;
+    assert_eq!(malformed.windows, good.windows);
+    assert_eq!(malformed.failed_sources, ["anthropic"]);
+    assert!(!provider.poller.snap.credentials_missing);
+
     std::fs::write(&path, credentials).unwrap();
-    provider.fetch = fetch_offline;
+    let (url, handle) = super::super::test_http::server(500, "", "{}");
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
     let stale = poll(&mut provider, &config).await;
+    handle.join().unwrap();
     assert_eq!(stale.windows, good.windows);
     assert_eq!(stale.failed_sources, ["anthropic"]);
     assert!(
@@ -368,8 +365,26 @@ async fn missing_credentials_hide_rows_and_restored_credentials_recover_them() {
             .any(|row| row.key == CLAUDE_SESSION && row.stale)
     );
 
-    provider.fetch = fetch_ok;
+    let (url, handle) = super::super::test_http::server(200, "", r#"{"changed":true}"#);
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
+    let unrecognized = poll(&mut provider, &config).await;
+    handle.join().unwrap();
+    assert_eq!(unrecognized.windows, good.windows);
+    assert_eq!(unrecognized.failed_sources, ["anthropic"]);
+
+    let (url, handle) = super::super::test_http::server(429, "Retry-After: 900\r\n", "{}");
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
+    let before = Instant::now();
+    let limited = poll(&mut provider, &config).await;
+    handle.join().unwrap();
+    assert_eq!(limited.windows, good.windows);
+    assert!(provider.poller.due >= before + Duration::from_secs(900));
+
+    let (url, handle) =
+        super::super::test_http::server(200, "", r#"{"five_hour":{"utilization":37}}"#);
+    crate::test_support::set_env("SLOPD_USAGE_URL", url);
     let recovered = poll(&mut provider, &config).await;
+    handle.join().unwrap();
     assert!(recovered.ok);
     assert!(recovered.failed_sources.is_empty());
 }
@@ -379,7 +394,7 @@ async fn default_configuration_does_not_poll_any_provider() {
     let config = crate::config::Daemon::default();
     let mut pollers = UsagePollers::new();
     for provider in &mut pollers.providers {
-        provider.read = |_| panic!("disabled polling must not read credentials");
+        provider.pipeline = |_| panic!("disabled polling must not read credentials");
     }
     let (published, wait) = pollers.poll_once(&config).await;
     assert_eq!(wait, LOOK);

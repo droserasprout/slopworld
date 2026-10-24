@@ -1,9 +1,7 @@
 //! Shared Anthropic cache identity, bounded locking, and request deduplication.
 //! providers owns credentials and HTTP; polling owns per-daemon retry schedules.
 
-use super::providers::{
-    self, AnthropicCreds, PollErr, ProviderResponse, RATE_LIMIT_FLOOR_SECS, anthropic_usage_url,
-};
+use super::providers::{self, AnthropicCreds, PollErr, RATE_LIMIT_FLOOR_SECS, anthropic_usage_url};
 use crate::clock::unix_ms;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -161,7 +159,7 @@ fn save_anthropic_rate_limit(path: &Path, delay: u64) {
 }
 
 /// Check both cache answers together, before and after acquiring the request guard.
-fn cached_response(path: &Path, plan: &str) -> Option<Result<ProviderResponse, PollErr>> {
+fn cached_response(path: &Path) -> Option<Result<Value, PollErr>> {
     let cache = AnthropicUsageCache::read(path)?;
     if let Some(delay) = cache.retry_delay() {
         return Some(Err(PollErr {
@@ -169,32 +167,26 @@ fn cached_response(path: &Path, plan: &str) -> Option<Result<ProviderResponse, P
             retry_after: Some(delay),
         }));
     }
-    cache.fresh_body().map(|body| {
-        Ok(ProviderResponse {
-            body,
-            plan: Some(plan.into()),
-        })
-    })
+    cache.fresh_body().map(Ok)
 }
 
-pub(super) fn fetch(creds: &AnthropicCreds) -> Result<ProviderResponse, PollErr> {
+pub(super) fn fetch(creds: &AnthropicCreds) -> Result<Value, PollErr> {
     let (cache_path, lock_path) = anthropic_cache_paths(creds);
-    if let Some(answer) = cached_response(&cache_path, &creds.plan) {
+    if let Some(answer) = cached_response(&cache_path) {
         return answer;
     }
     let lock = match lock_anthropic_cache(&lock_path) {
         Ok(lock) => Some(lock),
         Err(error) if error.kind() == std::io::ErrorKind::TimedOut => {
             // A held lock means another request may still be active. Do not duplicate it.
-            return cached_response(&cache_path, &creds.plan)
-                .unwrap_or_else(|| Err(PollErr::new(error)));
+            return cached_response(&cache_path).unwrap_or_else(|| Err(PollErr::new(error)));
         }
         Err(_) => None,
     };
     if lock.is_some() {
         // Another daemon may have published while this one waited. Keep the guard
         // alive through the request and cache save, including the rate-limit path.
-        if let Some(answer) = cached_response(&cache_path, &creds.plan) {
+        if let Some(answer) = cached_response(&cache_path) {
             return answer;
         }
     }
@@ -212,10 +204,7 @@ pub(super) fn fetch(creds: &AnthropicCreds) -> Result<ProviderResponse, PollErr>
     if lock.is_some() {
         save_anthropic_cache(&cache_path, &body, None);
     }
-    Ok(ProviderResponse {
-        body,
-        plan: Some(creds.plan.clone()),
-    })
+    Ok(body)
 }
 
 #[cfg(test)]

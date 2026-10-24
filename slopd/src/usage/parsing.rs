@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use super::{
     CLAUDE_SESSION, CLAUDE_SPEND, CLAUDE_WEEK, OPENAI_SESSION, OPENAI_WEEK, OPENROUTER_BALANCE,
-    Snapshot, Unit, Window, providers::ProviderResponse,
+    Snapshot, Unit, Window,
 };
 
 pub(super) fn parse_openai(v: &Value) -> Snapshot {
@@ -56,26 +56,6 @@ pub(super) fn parse_openai(v: &Value) -> Snapshot {
         windows,
         ..Default::default()
     }
-}
-
-pub(super) fn parse_anthropic(response: ProviderResponse) -> Snapshot {
-    parse(&response.body, response.plan.unwrap_or_default())
-}
-
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "provider parser callbacks share an owned response signature"
-)]
-pub(super) fn parse_openrouter(response: ProviderResponse) -> Snapshot {
-    parse_credits(&response.body)
-}
-
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "provider parser callbacks share an owned response signature"
-)]
-pub(super) fn parse_openai_response(response: ProviderResponse) -> Snapshot {
-    parse_openai(&response.body)
 }
 
 /// Parse one monetary row. Require both figures to calculate the balance.

@@ -1,4 +1,5 @@
-//! Provider credentials and HTTP requests. anthropic_cache owns shared request coordination.
+//! Typed provider pipelines own credentials, requests, and parser selection.
+//! anthropic_cache owns shared request coordination; polling owns snapshot retention and scheduling.
 
 use crate::clock::unix_ms;
 use std::path::PathBuf;
@@ -51,14 +52,6 @@ pub(super) struct AnthropicCreds {
 pub(super) struct OpenAiCreds {
     token: String,
     account_id: Option<String>,
-}
-
-/// Provider-specific credentials passed from the credential reader to the request function.
-/// This enum lets all providers use the same polling workflow.
-pub(super) enum ProviderCredentials {
-    Anthropic(AnthropicCreds),
-    OpenRouter(String),
-    OpenAi(OpenAiCreds),
 }
 
 /// Missing credentials suppress the readout; malformed files and expired logins remain errors.
@@ -155,20 +148,6 @@ pub(super) fn read_openai_creds(path: &PathBuf) -> anyhow::Result<OpenAiCreds> {
     Ok(OpenAiCreds { token, account_id })
 }
 
-pub(super) fn read_anthropic(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
-    let path = PathBuf::from(crate::config::expand(&d.claude_credentials));
-    read_anthropic_creds(&path).map(ProviderCredentials::Anthropic)
-}
-
-pub(super) fn read_openrouter(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
-    read_openrouter_key(&d.openrouter_key_file).map(ProviderCredentials::OpenRouter)
-}
-
-pub(super) fn read_openai(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
-    let path = PathBuf::from(crate::config::expand(&d.openai_credentials));
-    read_openai_creds(&path).map(ProviderCredentials::OpenAi)
-}
-
 /// Explain why polling cannot proceed. Timestamps are epoch milliseconds. An expired access
 /// token only needs any host or agent Claude command. Claude refreshes it lazily into the
 /// shared credential file. Only an expired refresh token requires `claude auth`.
@@ -209,14 +188,46 @@ impl std::fmt::Display for PollErr {
     }
 }
 
-pub(super) struct ProviderResponse {
-    pub(super) body: Value,
-    pub(super) plan: Option<String>,
+/// Keep credential failures distinct so only absent credentials suppress the readout.
+pub(super) enum ProviderError {
+    Credentials(anyhow::Error),
+    Request(PollErr),
 }
 
-pub(super) type ReadProvider = fn(&crate::config::Daemon) -> anyhow::Result<ProviderCredentials>;
-pub(super) type FetchProvider = fn(ProviderCredentials) -> Result<ProviderResponse, PollErr>;
-pub(super) type ParseProvider = fn(ProviderResponse) -> Snapshot;
+impl From<anyhow::Error> for ProviderError {
+    fn from(error: anyhow::Error) -> Self {
+        Self::Credentials(error)
+    }
+}
+
+impl From<PollErr> for ProviderError {
+    fn from(error: PollErr) -> Self {
+        Self::Request(error)
+    }
+}
+
+/// Each callback keeps its concrete credentials through the matching request and parser.
+pub(super) type ProviderPipeline = fn(&crate::config::Daemon) -> Result<Snapshot, ProviderError>;
+
+pub(super) fn poll_anthropic(d: &crate::config::Daemon) -> Result<Snapshot, ProviderError> {
+    let path = PathBuf::from(crate::config::expand(&d.claude_credentials));
+    let creds = read_anthropic_creds(&path)?;
+    let body = super::anthropic_cache::fetch(&creds)?;
+    Ok(super::parsing::parse(&body, creds.plan))
+}
+
+pub(super) fn poll_openrouter(d: &crate::config::Daemon) -> Result<Snapshot, ProviderError> {
+    let key = read_openrouter_key(&d.openrouter_key_file)?;
+    let body = fetch_openrouter_credits(&key)?;
+    Ok(super::parsing::parse_credits(&body))
+}
+
+pub(super) fn poll_openai(d: &crate::config::Daemon) -> Result<Snapshot, ProviderError> {
+    let path = PathBuf::from(crate::config::expand(&d.openai_credentials));
+    let creds = read_openai_creds(&path)?;
+    let body = fetch_openai_usage(&creds)?;
+    Ok(super::parsing::parse_openai(&body))
+}
 
 /// What a 429 with no `Retry-After` is treated as asking for. A rate limit retried
 /// a minute later is usually just another rate limit.
@@ -332,27 +343,6 @@ pub(super) fn fetch_openai_usage(creds: &OpenAiCreds) -> Result<Value, PollErr> 
             _ => format!("OpenAI usage endpoint returned {status}"),
         },
     )
-}
-
-pub(super) fn fetch_anthropic(creds: ProviderCredentials) -> Result<ProviderResponse, PollErr> {
-    let ProviderCredentials::Anthropic(creds) = creds else {
-        return Err(PollErr::new("internal Anthropic credential mismatch"));
-    };
-    super::anthropic_cache::fetch(&creds)
-}
-
-pub(super) fn fetch_openrouter(creds: ProviderCredentials) -> Result<ProviderResponse, PollErr> {
-    let ProviderCredentials::OpenRouter(key) = creds else {
-        return Err(PollErr::new("internal OpenRouter credential mismatch"));
-    };
-    fetch_openrouter_credits(&key).map(|body| ProviderResponse { body, plan: None })
-}
-
-pub(super) fn fetch_openai(creds: ProviderCredentials) -> Result<ProviderResponse, PollErr> {
-    let ProviderCredentials::OpenAi(creds) = creds else {
-        return Err(PollErr::new("internal OpenAI credential mismatch"));
-    };
-    fetch_openai_usage(&creds).map(|body| ProviderResponse { body, plan: None })
 }
 
 /// Parse either Retry-After format. A past HTTP date gives a valid zero-second delay.
