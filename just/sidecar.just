@@ -13,6 +13,7 @@ sidecar-image: sidecar-build
 sidecar-install: sidecar-build
     mkdir -p "$BIN"
     install -m755 "$SLOPCAR" "$BIN/slopcar"
+    uv run --locked python -m tools.cli_completions install slopcar
 
 # Format launcher sources
 [group('sidecar')]

@@ -1,0 +1,352 @@
+#compdef slopcar
+
+autoload -U is-at-least
+
+_slopcar() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_slopcar_commands" \
+"*::: :->slopcar" \
+&& ret=0
+    case $state in
+    (slopcar)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopcar-command-$line[1]:"
+        case $line[1] in
+            (completions)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+':shell:(bash elvish fish powershell zsh)' \
+&& ret=0
+;;
+(paths)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:(config data cache endpoint profile game-log)' \
+&& ret=0
+;;
+(licenses)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(build)
+_arguments "${_arguments_options[@]}" : \
+'--source=[]:SOURCE:_files -/' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(start)
+_arguments "${_arguments_options[@]}" : \
+'*--workspace=[Mount an absolute workspace at the same path (repeatable)]:WORKSPACES:_files -/' \
+'*--credential-ro=[Mount a credential read-only (SOURCE=TARGET, repeatable)]:CREDENTIAL_RO:_default' \
+'*--credential-rw=[Mount a credential read-write (SOURCE=TARGET, repeatable)]:CREDENTIAL_RW:_default' \
+'--port=[Host and daemon port (default\: 7718)]:PORT:_default' \
+'--memory=[Memory ceiling (default\: 8g)]:MEMORY:_default' \
+'--cpus=[CPU ceiling (default\: 4)]:CPUS:_default' \
+'--pids-limit=[Process/thread ceiling (default\: 4096)]:PIDS:_default' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(restart)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(logs)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(shell)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(rm)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_slopcar__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopcar-help-command-$line[1]:"
+        case $line[1] in
+            (completions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(paths)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(licenses)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(build)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(start)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(restart)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(logs)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(shell)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(rm)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_slopcar_commands] )) ||
+_slopcar_commands() {
+    local commands; commands=(
+'completions:Print a shell completion script without Docker or container settings' \
+'paths:Print an application path without Docker or container settings' \
+'licenses:Show embedded dependency notices' \
+'build:Build the image from a checkout (default\: current directory)' \
+'doctor:Check nested Bubblewrap, pasta and tmux' \
+'start:Create and start, or start the existing container' \
+'stop:Stop without deleting persistent state' \
+'restart:Restart the existing container' \
+'status:Show container and health state' \
+'logs:Forward all following arguments to Docker logs; use \`help logs\` for this help' \
+'shell:Open an interactive shell' \
+'rm:Remove only the container, preserving config and data' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'slopcar commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__build_commands] )) ||
+_slopcar__subcmd__build_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar build commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__completions_commands] )) ||
+_slopcar__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar completions commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__doctor_commands] )) ||
+_slopcar__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar doctor commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help_commands] )) ||
+_slopcar__subcmd__help_commands() {
+    local commands; commands=(
+'completions:Print a shell completion script without Docker or container settings' \
+'paths:Print an application path without Docker or container settings' \
+'licenses:Show embedded dependency notices' \
+'build:Build the image from a checkout (default\: current directory)' \
+'doctor:Check nested Bubblewrap, pasta and tmux' \
+'start:Create and start, or start the existing container' \
+'stop:Stop without deleting persistent state' \
+'restart:Restart the existing container' \
+'status:Show container and health state' \
+'logs:Forward all following arguments to Docker logs; use \`help logs\` for this help' \
+'shell:Open an interactive shell' \
+'rm:Remove only the container, preserving config and data' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'slopcar help commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__build_commands] )) ||
+_slopcar__subcmd__help__subcmd__build_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help build commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__completions_commands] )) ||
+_slopcar__subcmd__help__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help completions commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__doctor_commands] )) ||
+_slopcar__subcmd__help__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help doctor commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__help_commands] )) ||
+_slopcar__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help help commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__licenses_commands] )) ||
+_slopcar__subcmd__help__subcmd__licenses_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help licenses commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__logs_commands] )) ||
+_slopcar__subcmd__help__subcmd__logs_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help logs commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__paths_commands] )) ||
+_slopcar__subcmd__help__subcmd__paths_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help paths commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__restart_commands] )) ||
+_slopcar__subcmd__help__subcmd__restart_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help restart commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__rm_commands] )) ||
+_slopcar__subcmd__help__subcmd__rm_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help rm commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__shell_commands] )) ||
+_slopcar__subcmd__help__subcmd__shell_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help shell commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__start_commands] )) ||
+_slopcar__subcmd__help__subcmd__start_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help start commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__status_commands] )) ||
+_slopcar__subcmd__help__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help status commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__help__subcmd__stop_commands] )) ||
+_slopcar__subcmd__help__subcmd__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar help stop commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__licenses_commands] )) ||
+_slopcar__subcmd__licenses_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar licenses commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__logs_commands] )) ||
+_slopcar__subcmd__logs_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar logs commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__paths_commands] )) ||
+_slopcar__subcmd__paths_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar paths commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__restart_commands] )) ||
+_slopcar__subcmd__restart_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar restart commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__rm_commands] )) ||
+_slopcar__subcmd__rm_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar rm commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__shell_commands] )) ||
+_slopcar__subcmd__shell_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar shell commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__start_commands] )) ||
+_slopcar__subcmd__start_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar start commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__status_commands] )) ||
+_slopcar__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar status commands' commands "$@"
+}
+(( $+functions[_slopcar__subcmd__stop_commands] )) ||
+_slopcar__subcmd__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopcar stop commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_slopcar" ]; then
+    _slopcar "$@"
+else
+    compdef _slopcar slopcar
+fi

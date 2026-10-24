@@ -6,6 +6,9 @@ description = "Host-side container launcher for SlopWorld"
 license = "MIT"
 
 [dependencies]
+anstream = "1"
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 anyhow = "1"
 rand = "0.8"
 tempfile = "3"

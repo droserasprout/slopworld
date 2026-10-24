@@ -1,5 +1,6 @@
 use super::*;
-use crate::commands::{command_help, parse_command};
+use crate::cli::{Command, parse_command};
+use crate::commands::RemoteCommand;
 use crate::tests::http_fixture::{serve, serve_sequence};
 
 fn words(text: &str) -> Vec<String> {
@@ -10,16 +11,16 @@ fn words(text: &str) -> Vec<String> {
 fn config_commands_require_exact_arguments_and_support_help() {
     assert_eq!(
         parse_command(&words("config get daemon.bind")),
-        Ok(Command::Config(ConfigArgs::Get {
+        Ok(Command::Remote(RemoteCommand::Config(ConfigArgs::Get {
             key: "daemon.bind".into()
-        }))
+        })))
     );
     assert_eq!(
         parse_command(&words("config set daemon.bind 192.168.1.10:7717")),
-        Ok(Command::Config(ConfigArgs::Set {
+        Ok(Command::Remote(RemoteCommand::Config(ConfigArgs::Set {
             key: "daemon.bind".into(),
             value: "192.168.1.10:7717".into()
-        }))
+        })))
     );
     for args in [
         "config",
@@ -31,14 +32,11 @@ fn config_commands_require_exact_arguments_and_support_help() {
     ] {
         assert!(parse_command(&words(args)).is_err(), "{args}");
     }
-    assert_eq!(command_help("config"), Some(CONFIG_USAGE));
     for args in ["config --help", "config get --help", "config set --help"] {
-        assert_eq!(
+        assert!(matches!(
             parse_command(&words(args)),
-            Ok(Command::Help {
-                usage: CONFIG_USAGE
-            })
-        );
+            Ok(Command::Help { .. })
+        ));
     }
 }
 

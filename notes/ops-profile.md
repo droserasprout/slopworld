@@ -1,6 +1,11 @@
 # Profiles and launch
 
 The Rust launcher owns profile seeding, locking, and game process lifetime.
+`slopworld/cli.rs` owns the Clap command tree, generated help, and completions.
+The launcher accepts only its own options and commands; it constructs the game's
+arguments from the selected profile, log path, and window settings. Local commands
+dispatch before game/profile discovery. Endpoint and mod-install modules execute
+typed requests without parsing argv.
 `slopworld/instance.rs` owns profile-keyed locks and Linux external-game detection.
 [Mod profile isolation](mod-profile.md) owns in-game gating.
 
@@ -15,6 +20,9 @@ Validate before seeding. Preserve existing mod lists unless reset is explicit; s
 lists omit `<version>` so RimWorld cannot replace them on mismatch. Reject `=` in
 resolved profile paths because the game parser splits on it. Print mode creates
 nothing.
+`profile init` and `profile reset` resolve the selected profile and hold its launcher
+lock without requiring game discovery or a live endpoint. Reset replaces only the mod
+list; normal launches preserve it. Both profile commands repair missing seeded files.
 The launcher leaves `Config/Prefs.xml` creation to RimWorld so first-run display
 detection runs. It signals a missing preferences file through the game-only
 `SLOPWORLD_INITIAL_AUDIO` environment value; the mod applies audio defaults after
@@ -32,6 +40,6 @@ and cannot be registered with `connect`.
 The shared path resolver defaults to `local`; daemon publication always uses its
 own descriptor path. Native/sidecar catalogs remain separate. Profiles follow peer names, with explicit path overrides taking
 precedence. The resolved profile owns lock identity; explicit paths can share a
-folder. Redirect Unity logs through the shared resolver unless an explicit game
-`-logFile` was supplied, and create the log parent only for normal launch.
+folder. Redirect Unity logs through the shared resolver, including
+`SLOPWORLD_GAME_LOG`, and create the log parent only for normal launch.
 [Linux window integration](ui-window-fullscreen.md) owns window behavior.

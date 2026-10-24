@@ -1,17 +1,14 @@
-use super::USAGE;
-use super::take_json_flag;
+use crate::cli::{Command, parse_command, parse_command_with_task_id};
 use crate::commands::{
-    AGENT_CREATE_USAGE, AGENT_USAGE, Command, InboxFilter, PEERS_USAGE, SANDBOX_INSPECT_USAGE,
-    SANDBOX_USAGE, SPAWN_USAGE, STATUS_USAGE, SpawnArgs, TASK_LIST_USAGE, TASK_SHOW_USAGE,
-    TASK_USAGE, TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, TEMPLATES_USAGE, UpdateAction, WORKER_USAGE,
-    command_help, parse_command, parse_command_with_task_id, run_agent_create, run_spawn,
+    InboxFilter, RemoteCommand, SpawnArgs, UpdateAction, run_agent_create, run_spawn,
     task_is_terminal, wait_for_task,
 };
 use crate::http::{Endpoint, request};
 use crate::logs::{
-    DEFAULT_LOG_LINES, LOGS_USAGE, LogSelection, LogSource, LogsOptions, clean_log_line,
-    expand_home, parse_logs_args, source_command, write_log_line,
+    DEFAULT_LOG_LINES, LogSelection, LogSource, LogsOptions, clean_log_line, expand_home,
+    parse_logs_args, source_command, write_log_line,
 };
+use crate::shared::application_paths;
 use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -28,89 +25,89 @@ use http_fixture::{serve, serve_raw};
 fn command_parser_builds_delegation_and_update_commands() {
     assert_eq!(
         parse_command(&words("task delegate agent fix the pane")),
-        Ok(Command::Delegate {
+        Ok(Command::Remote(RemoteCommand::Delegate {
             to: "agent".to_string(),
             body: "fix the pane".to_string(),
-        })
+        }))
     );
     assert_eq!(
-        parse_command(&words("task finish task-7 shipped safely")),
-        Ok(Command::Update {
+        parse_command(&words("task finish --id task-7 shipped safely")),
+        Ok(Command::Remote(RemoteCommand::Update {
             action: UpdateAction::Finish,
             id: "task-7".to_string(),
             note: Some("shipped safely".to_string()),
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words("task wait task-7")),
-        Ok(Command::Wait {
+        Ok(Command::Remote(RemoteCommand::Wait {
             id: "task-7".to_string(),
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words(
-            "worker spawn --durable --project repo --template codex inspect the build"
+            "worker spawn --project repo --template codex inspect the build"
         )),
-        Ok(Command::Spawn(SpawnArgs {
+        Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
             worktree: Default::default(),
             project: "repo".to_string(),
             template: "codex".to_string(),
             durable: true,
             body: "inspect the build".to_string(),
-        }))
+        })))
     );
     assert_eq!(
         parse_command(&words(
             "worker spawn --project repo --template codex run the checks"
         )),
-        Ok(Command::Spawn(SpawnArgs {
+        Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
             worktree: Default::default(),
             project: "repo".to_string(),
             template: "codex".to_string(),
             durable: true,
             body: "run the checks".to_string(),
-        }))
+        })))
     );
     assert_eq!(
         parse_command(&words("sandbox inspect agent")),
-        Ok(Command::SandboxInspect {
+        Ok(Command::Remote(RemoteCommand::SandboxInspect {
             name: "agent".into(),
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words(
             "agent create worker --project repo --template team-review --start"
         )),
-        Ok(Command::AgentCreate {
+        Ok(Command::Remote(RemoteCommand::AgentCreate {
             name: "worker".into(),
             project: "repo".into(),
             template: "team-review".into(),
             start: true,
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words("template show team-review")),
-        Ok(Command::TemplateShow {
+        Ok(Command::Remote(RemoteCommand::TemplateShow {
             name: "team-review".into(),
             project: None,
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words("template show team-review --project repo")),
-        Ok(Command::TemplateShow {
+        Ok(Command::Remote(RemoteCommand::TemplateShow {
             name: "team-review".into(),
             project: Some("repo".into()),
-        })
+        }))
     );
     assert_eq!(
         parse_command(&words("template list")),
-        Ok(Command::Templates { project: None })
+        Ok(Command::Remote(RemoteCommand::Templates { project: None }))
     );
     assert_eq!(
         parse_command(&words("template list --project repo")),
-        Ok(Command::Templates {
+        Ok(Command::Remote(RemoteCommand::Templates {
             project: Some("repo".into())
-        })
+        }))
     );
 }
 
@@ -146,9 +143,9 @@ fn task_commands_require_explicit_subcommands() {
     );
     assert_eq!(
         parse_command(&words("task show task-7")),
-        Ok(Command::Task {
+        Ok(Command::Remote(RemoteCommand::Task {
             id: "task-7".into()
-        })
+        }))
     );
     parse_command(&words("task task-7")).unwrap_err();
 }
@@ -158,15 +155,15 @@ fn task_commands_use_the_worker_task_id_when_id_is_omitted() {
     let task_id = Some("task-7");
     assert_eq!(
         parse_command_with_task_id(&words("task show"), task_id),
-        Ok(Command::Task {
+        Ok(Command::Remote(RemoteCommand::Task {
             id: "task-7".into()
-        })
+        }))
     );
     assert_eq!(
         parse_command_with_task_id(&words("task wait"), task_id),
-        Ok(Command::Wait {
+        Ok(Command::Remote(RemoteCommand::Wait {
             id: "task-7".into()
-        })
+        }))
     );
     for (command, action) in [
         ("task accept", UpdateAction::Accept),
@@ -176,45 +173,52 @@ fn task_commands_use_the_worker_task_id_when_id_is_omitted() {
     ] {
         assert_eq!(
             parse_command_with_task_id(&words(command), task_id),
-            Ok(Command::Update {
+            Ok(Command::Remote(RemoteCommand::Update {
                 action,
                 id: "task-7".into(),
                 note: None,
-            })
+            }))
         );
     }
     assert_eq!(
         parse_command_with_task_id(&words("task remove"), task_id),
-        Ok(Command::Remove {
+        Ok(Command::Remote(RemoteCommand::Remove {
             id: "task-7".into()
-        })
+        }))
     );
     assert_eq!(
         parse_command_with_task_id(&words("task show other-task"), task_id),
-        Ok(Command::Task {
+        Ok(Command::Remote(RemoteCommand::Task {
             id: "other-task".into()
-        })
+        }))
     );
 }
 
 #[test]
 fn command_tree_has_group_and_leaf_help() {
-    for (command, usage) in [
-        ("task", TASK_USAGE),
-        ("task list", TASK_LIST_USAGE),
-        ("task show", TASK_SHOW_USAGE),
-        ("worker", WORKER_USAGE),
-        ("worker spawn", SPAWN_USAGE),
-        ("template", TEMPLATE_USAGE),
-        ("template list", TEMPLATES_USAGE),
-        ("template show", TEMPLATE_SHOW_USAGE),
-        ("agent create", AGENT_CREATE_USAGE),
-        ("sandbox inspect", SANDBOX_INSPECT_USAGE),
+    for command in [
+        "task",
+        "task list",
+        "task show",
+        "worker",
+        "worker spawn",
+        "template",
+        "template list",
+        "template show",
+        "agent create",
+        "sandbox inspect",
+        "worktree",
+        "paths",
     ] {
-        assert_eq!(
-            parse_command(&words(&format!("{command} --help"))),
-            Ok(Command::Help { usage }),
-            "{command}"
+        let Command::Help { usage } = parse_command(&words(&format!("{command} --help"))).unwrap()
+        else {
+            panic!("missing help: {command}")
+        };
+        let usage = usage.to_string();
+        assert!(usage.contains("Usage:"), "{command}: {usage}");
+        assert!(
+            usage.contains(&format!("slopctl {command}")),
+            "{command}: {usage}"
         );
     }
 }
@@ -222,14 +226,14 @@ fn command_tree_has_group_and_leaf_help() {
 #[test]
 fn task_text_preserves_help_words_and_flags() {
     for text in ["help", "please help me", "--help", "-h"] {
-        let mut args = words("task delegate agent");
+        let mut args = words("task delegate agent --");
         args.extend(words(text));
         assert_eq!(
             parse_command(&args),
-            Ok(Command::Delegate {
+            Ok(Command::Remote(RemoteCommand::Delegate {
                 to: "agent".into(),
                 body: text.into(),
-            })
+            }))
         );
         for (command, action) in [
             ("accept", UpdateAction::Accept),
@@ -237,15 +241,15 @@ fn task_text_preserves_help_words_and_flags() {
             ("finish", UpdateAction::Finish),
             ("fail", UpdateAction::Fail),
         ] {
-            let mut args = words(&format!("task {command} task-7"));
+            let mut args = words(&format!("task {command} --id task-7 --"));
             args.extend(words(text));
             assert_eq!(
                 parse_command(&args),
-                Ok(Command::Update {
+                Ok(Command::Remote(RemoteCommand::Update {
                     action,
                     id: "task-7".into(),
                     note: Some(text.into()),
-                })
+                }))
             );
         }
     }
@@ -258,25 +262,24 @@ fn spawn_preserves_task_text_after_template_options() {
             // Check both a quoted body and a body spread over several arguments.
             for body_args in [vec![text.to_string()], words(text)] {
                 let mut args = words("worker spawn");
-                if durable {
-                    args.push("--durable".into());
-                } else {
+                if !durable {
                     args.push("--one-shot".into());
                 }
                 args.push("--project".into());
                 args.push("repo".into());
                 args.push("--template".into());
                 args.push("codex".into());
+                args.push("--".into());
                 args.extend(body_args);
                 assert_eq!(
                     parse_command(&args),
-                    Ok(Command::Spawn(SpawnArgs {
+                    Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
                         worktree: Default::default(),
                         project: "repo".into(),
                         template: "codex".into(),
                         durable,
                         body: text.into(),
-                    }))
+                    })))
                 );
             }
         }
@@ -293,15 +296,16 @@ fn spawn_delimiter_preserves_options_as_literal_task_text() {
                 "--json",
                 "--",
             ] {
-                let mut args = words(&format!(
+                let args = words(&format!(
                     "worker spawn --project repo --template review {} {} -- {body}",
-                    if durable { "--durable" } else { "--one-shot" },
+                    if durable { "" } else { "--one-shot" },
                     if json { "--json" } else { "" },
                 ));
-                assert_eq!(take_json_flag(&mut args), json);
+                let parsed = crate::cli::parse(args, None).unwrap();
+                assert_eq!(parsed.json, json);
                 assert_eq!(
-                    parse_command(&args),
-                    Ok(Command::Spawn(SpawnArgs {
+                    parsed.command,
+                    Command::Remote(RemoteCommand::Spawn(SpawnArgs {
                         worktree: Default::default(),
                         project: "repo".into(),
                         template: "review".into(),
@@ -317,25 +321,43 @@ fn spawn_delimiter_preserves_options_as_literal_task_text() {
 
 #[test]
 fn every_command_has_nested_help() {
-    let commands = [
-        ("worker", WORKER_USAGE),
-        ("template", TEMPLATE_USAGE),
-        ("agent", AGENT_USAGE),
-        ("task", TASK_USAGE),
-        ("peers", PEERS_USAGE),
-        ("status", STATUS_USAGE),
-        ("sandbox", SANDBOX_USAGE),
-        ("logs", LOGS_USAGE),
-    ];
-
-    for (command, usage) in commands {
-        assert_eq!(command_help(command), Some(usage));
-        for flag in ["-h", "--help", "help"] {
-            assert_eq!(
-                parse_command(&words(&format!("{command} {flag}"))),
-                Ok(Command::Help { usage })
+    for command in [
+        "worker", "template", "agent", "task", "peers", "status", "sandbox", "logs", "config",
+        "worktree", "paths",
+    ] {
+        for flag in ["-h", "--help"] {
+            assert!(
+                matches!(
+                    parse_command(&words(&format!("{command} {flag}"))),
+                    Ok(Command::Help { .. })
+                ),
+                "{command} {flag}"
             );
         }
+    }
+}
+
+#[test]
+fn help_subcommands_resolve_the_full_target_path() {
+    for (input, target) in [
+        ("help task", "task"),
+        ("help task wait", "task wait"),
+        ("task help wait", "task wait"),
+        ("help worker spawn", "worker spawn"),
+        ("task help finish", "task finish"),
+        ("help config set", "config set"),
+    ] {
+        let Command::Help { usage } = parse_command(&words(input)).unwrap() else {
+            panic!("missing help: {input}")
+        };
+        let usage = usage.to_string();
+        assert!(
+            usage.contains(&format!("Usage: slopctl {target} ")),
+            "{input}: {usage}"
+        );
+    }
+    for input in ["help unknown", "help task unknown", "task help unknown"] {
+        assert!(parse_command(&words(input)).is_err(), "{input}");
     }
 }
 
@@ -350,7 +372,7 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
         "host",
         true,
         &SpawnArgs {
-            worktree: Default::default(),
+            worktree: "review-checkout".into(),
             project: "repo".into(),
             template: "codex".into(),
             durable: true,
@@ -366,6 +388,13 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
     assert_eq!(body["template"], "codex");
     assert_eq!(body["durable"], true);
     assert_eq!(body["body"], "inspect the build");
+    assert_eq!(body["worktree"], "review-checkout");
+    for field in ["new_worktree", "base", "worktree_name"] {
+        assert!(
+            body.get(field).is_none(),
+            "unexpected allocation field: {field}"
+        );
+    }
 }
 
 #[test]
@@ -392,9 +421,10 @@ fn agent_create_posts_template_project_and_start_to_catalog_endpoint() {
 
 #[test]
 fn command_parser_validates_fixed_arity_and_flags() {
-    assert_eq!(
-        parse_command(&words("peers now")).unwrap_err(),
-        "unexpected argument: now\n\n".to_string() + USAGE
+    assert!(
+        parse_command(&words("peers now"))
+            .unwrap_err()
+            .contains("unexpected argument")
     );
     parse_command(&words("task")).unwrap_err();
     parse_command(&words("task prune --wat")).unwrap_err();
@@ -406,12 +436,12 @@ fn command_parser_validates_fixed_arity_and_flags() {
 }
 
 #[test]
-fn global_json_flag_is_removed_before_command_parsing() {
-    let mut args = words("--json task list --all --json");
-    assert!(take_json_flag(&mut args));
+fn global_json_flag_is_parsed_with_command_options() {
+    let parsed = crate::cli::parse(words("task list --all --json"), None).unwrap();
+    assert!(parsed.json);
     assert_eq!(
-        parse_command(&args),
-        Ok(Command::Inbox {
+        parsed.command,
+        Command::Remote(RemoteCommand::Inbox {
             filter: InboxFilter {
                 all: true,
                 sent: false,
@@ -436,9 +466,9 @@ fn logs_defaults_to_both_and_a_bounded_tail() {
 }
 
 #[test]
-fn logs_accepts_source_flags_and_follow() {
+fn logs_accepts_daemon_source_and_follow() {
     assert_eq!(
-        parse_logs_args(&words("--daemon -f --lines=37")).unwrap(),
+        parse_logs_args(&words("daemon -f --lines=37")).unwrap(),
         LogsOptions {
             mode: crate::shared::application_paths::Mode::Native,
             selection: LogSelection::One(LogSource::Daemon),
@@ -487,20 +517,17 @@ fn inbox_filters_direction_status_and_newest_first() {
     };
 
     assert_eq!(ids(InboxFilter::default()), ["other", "received", "sent"]);
-    assert_eq!(ids(InboxFilter::parse(&words("--sent")).unwrap()), ["sent"]);
+    assert_eq!(ids(parse_inbox(&words("--sent")).unwrap()), ["sent"]);
     assert_eq!(
-        ids(InboxFilter::parse(&words("--received")).unwrap()),
+        ids(parse_inbox(&words("--received")).unwrap()),
         ["received"]
     );
     assert_eq!(
-        ids(InboxFilter::parse(&words("--all --sent --received")).unwrap()),
+        ids(parse_inbox(&words("--all --sent --received")).unwrap()),
         ["other", "received", "done", "sent"]
     );
-    assert_eq!(
-        ids(InboxFilter::parse(&words("--status done")).unwrap()),
-        ["done"]
-    );
-    InboxFilter::parse(&words("--unknown")).unwrap_err();
+    assert_eq!(ids(parse_inbox(&words("--status done")).unwrap()), ["done"]);
+    parse_inbox(&words("--unknown")).unwrap_err();
 }
 
 #[test]
@@ -704,7 +731,7 @@ fn lifecycle_commands_send_the_intended_status_and_note() {
         (UpdateAction::Fail, "failed", Some("build failed")),
     ] {
         let (endpoint, server) = serve("200 OK", r#"{"task":{"id":"t1","status":"done"}}"#);
-        let result = Command::Update {
+        let result = RemoteCommand::Update {
             action,
             id: "t1".into(),
             note: note.map(str::to_owned),
@@ -723,27 +750,27 @@ fn lifecycle_commands_send_the_intended_status_and_note() {
 fn task_dispatch_uses_read_delete_and_prune_routes() {
     for (command, route, response) in [
         (
-            Command::Task { id: "t1".into() },
+            RemoteCommand::Task { id: "t1".into() },
             "GET /api/tasks/t1",
             r#"{"task":{"id":"t1","status":"done"}}"#,
         ),
         (
-            Command::Wait { id: "t1".into() },
+            RemoteCommand::Wait { id: "t1".into() },
             "GET /api/tasks/t1",
             r#"{"task":{"id":"t1","status":"canceled"}}"#,
         ),
         (
-            Command::Remove { id: "t1".into() },
+            RemoteCommand::Remove { id: "t1".into() },
             "DELETE /api/tasks/t1",
             r#"{"task":{"id":"t1","status":"done"}}"#,
         ),
         (
-            Command::Prune { all: false },
+            RemoteCommand::Prune { all: false },
             "DELETE /api/tasks",
             r#"{"removed":2}"#,
         ),
         (
-            Command::Prune { all: true },
+            RemoteCommand::Prune { all: true },
             "DELETE /api/tasks?all=true",
             r#"{"removed":3}"#,
         ),
@@ -769,12 +796,12 @@ fn template_lookup_respects_caller_scope_and_encodes_project() {
             let (endpoint, server) = serve("200 OK", r#"{"templates":[{"name":"coder"}]}"#);
             let project = Some("a & café/?".into());
             let command = if show {
-                Command::TemplateShow {
+                RemoteCommand::TemplateShow {
                     name: "coder".into(),
                     project,
                 }
             } else {
-                Command::Templates { project }
+                RemoteCommand::Templates { project }
             };
             let result = command.run(&endpoint, caller, true);
             let request = server.join().unwrap().unwrap();
@@ -788,7 +815,7 @@ fn template_lookup_respects_caller_scope_and_encodes_project() {
         }
     }
     let (endpoint, server) = serve("200 OK", r#"{"templates":[]}"#);
-    let result = Command::TemplateShow {
+    let result = RemoteCommand::TemplateShow {
         name: "missing".into(),
         project: None,
     }
@@ -800,7 +827,7 @@ fn template_lookup_respects_caller_scope_and_encodes_project() {
 #[test]
 fn command_dispatch_propagates_daemon_rejection() {
     let (endpoint, server) = serve("403 Forbidden", r#"{"error":"outside grant"}"#);
-    let result = Command::Delegate {
+    let result = RemoteCommand::Delegate {
         to: "other".into(),
         body: "do work".into(),
     }
@@ -814,45 +841,30 @@ fn command_dispatch_propagates_daemon_rejection() {
 
 #[test]
 fn construction_commands_report_missing_values_and_unknown_options() {
-    for (input, message) in [
-        ("worker spawn --project", "--project needs a value"),
-        (
-            "worker spawn --project repo --template",
-            "--template needs a value",
-        ),
-        (
-            "worker spawn --project repo work",
-            "requires --project PROJECT and --template TEMPLATE",
-        ),
-        (
-            "worker spawn --project repo --template coder",
-            "needs a task body",
-        ),
-        ("agent create", "needs a name"),
-        ("agent create worker --project", "--project needs a value"),
-        ("agent create worker --template", "--template needs a value"),
-        ("agent create worker --template coder", "needs --project"),
-        ("agent create worker --project repo", "needs --template"),
-        (
-            "agent create worker --unknown",
-            "unknown agent create option",
-        ),
-        ("agent delete worker", "needs the create subcommand"),
-        ("template show", "needs a template name"),
-        ("template show coder --project", "--project needs a value"),
-        ("template list --project", "--project needs a value"),
-        ("template show coder --unknown", "unexpected argument"),
-        (
-            "template list --project repo extra",
-            "unexpected argument: extra",
-        ),
-        ("template delete coder", "needs the list or show subcommand"),
-        ("sandbox inspect", "needs a session name"),
-        ("sandbox inspect agent extra", "unexpected argument: extra"),
-        ("sandbox delete agent", "needs the inspect subcommand"),
+    for input in [
+        "worker spawn --project",
+        "worker spawn --project repo --template",
+        "worker spawn --project repo work",
+        "worker spawn --project repo --template coder",
+        "agent create",
+        "agent create worker --project",
+        "agent create worker --template",
+        "agent create worker --template coder",
+        "agent create worker --project repo",
+        "agent create worker --unknown",
+        "agent delete worker",
+        "template show",
+        "template show coder --project",
+        "template list --project",
+        "template show coder --unknown",
+        "template list --project repo extra",
+        "template delete coder",
+        "sandbox inspect",
+        "sandbox inspect agent extra",
+        "sandbox delete agent",
     ] {
         let error = parse_command_with_task_id(&words(input), None).unwrap_err();
-        assert!(error.contains(message), "{input}: {error}");
+        assert!(error.contains("error:"), "{input}: {error}");
     }
 }
 
@@ -868,12 +880,12 @@ fn agent_create_preserves_names_and_defaults_to_stopped() {
             "--project".into(),
             "my repo".into(),
         ]),
-        Ok(Command::AgentCreate {
+        Ok(Command::Remote(RemoteCommand::AgentCreate {
             name: "review worker".into(),
             project: "my repo".into(),
             template: "team/café".into(),
             start: false,
-        })
+        }))
     );
 }
 
@@ -902,23 +914,17 @@ fn agent_creation_encodes_template_path_and_preserves_body_fields() {
 
 #[test]
 fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
-    use super::commands::WorktreeChoice;
     assert_eq!(
         parse_command(&words(
-            "worker spawn --project repo --template codex --new-worktree --base HEAD --worktree-name feature task"
+            "worker spawn --project repo --template codex --worktree feature task"
         )),
-        Ok(Command::Spawn(SpawnArgs {
+        Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
             project: "repo".into(),
             template: "codex".into(),
             durable: true,
             body: "task".into(),
-            worktree: WorktreeChoice {
-                new_worktree: true,
-                base: "HEAD".into(),
-                worktree_name: "feature".into(),
-                ..Default::default()
-            }
-        }))
+            worktree: "feature".into(),
+        })))
     );
     parse_command(&words(
         "worker spawn --project repo --template codex --worktree abc --new-worktree task",
@@ -930,18 +936,22 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
     .unwrap_err();
     assert_eq!(
         parse_command(&words("worktree remove abc --project repo")),
-        Ok(Command::Worktree(crate::commands::WorktreeArgs::Remove {
-            project: "repo".into(),
-            id: "abc".into(),
-        }))
+        Ok(Command::Remote(RemoteCommand::Worktree(
+            crate::commands::WorktreeArgs::Remove {
+                project: "repo".into(),
+                id: "abc".into(),
+            }
+        )))
     );
     assert_eq!(
         parse_command(&words("worktree rename abc --project repo --name feature")),
-        Ok(Command::Worktree(crate::commands::WorktreeArgs::Rename {
-            project: "repo".into(),
-            id: "abc".into(),
-            name: "feature".into(),
-        }))
+        Ok(Command::Remote(RemoteCommand::Worktree(
+            crate::commands::WorktreeArgs::Rename {
+                project: "repo".into(),
+                id: "abc".into(),
+                name: "feature".into(),
+            }
+        )))
     );
 }
 
@@ -964,6 +974,9 @@ fn worktree_rename_dispatches_put_with_encoded_identity_and_body() {
         None,
     )
     .unwrap();
+    let Command::Remote(command) = command else {
+        panic!("expected remote command")
+    };
     let result = command.run(&endpoint, "host", true);
     let received = server.join().unwrap().unwrap();
     result.unwrap();
@@ -975,7 +988,7 @@ fn worktree_rename_dispatches_put_with_encoded_identity_and_body() {
 #[test]
 fn sandbox_inspection_encodes_the_session_as_one_segment() {
     let (endpoint, server) = serve("200 OK", r#"{"session":"agent","host":true}"#);
-    let result = Command::SandboxInspect {
+    let result = RemoteCommand::SandboxInspect {
         name: "a/b?c#d%".into(),
     }
     .run(&endpoint, "host", true);
@@ -992,17 +1005,11 @@ fn construction_options_reject_flags_as_values_and_accept_inline_dash_values() {
                 .unwrap_err();
         }
     }
-    for flag in [
-        "--project",
-        "--template",
-        "--worktree",
-        "--base",
-        "--worktree-name",
-    ] {
-        for next in ["--one-shot", "--new-worktree", "--base", "--"] {
+    for flag in ["--project", "--template", "--worktree"] {
+        for next in ["--one-shot", "--worktree", "--"] {
             parse_command_with_task_id(
                 &words(&format!(
-                    "worker spawn --project p --template t --new-worktree {flag} {next} task"
+                    "worker spawn --project p --template t {flag} {next} task"
                 )),
                 None,
             )
@@ -1023,26 +1030,29 @@ fn construction_options_reject_flags_as_values_and_accept_inline_dash_values() {
             &words("agent create n --project=--start --template=-t"),
             None
         ),
-        Ok(Command::AgentCreate {
+        Ok(Command::Remote(RemoteCommand::AgentCreate {
             name: "n".into(),
             project: "--start".into(),
             template: "-t".into(),
             start: false
-        })
+        }))
     );
-    let command = parse_command_with_task_id(&words("worker spawn --project=-p --template=-t --new-worktree --base=-- --worktree-name=-n -- --one-shot task"), None).unwrap();
+    let command = parse_command_with_task_id(
+        &words("worker spawn --project=-p --template=-t --worktree=-n -- --one-shot task"),
+        None,
+    )
+    .unwrap();
     match command {
-        Command::Spawn(SpawnArgs {
+        Command::Remote(RemoteCommand::Spawn(SpawnArgs {
             project,
             template,
             body,
             worktree,
             ..
-        }) => {
+        })) => {
             assert_eq!(project, "-p");
             assert_eq!(template, "-t");
-            assert_eq!(worktree.base, "--");
-            assert_eq!(worktree.worktree_name, "-n");
+            assert_eq!(worktree, "-n");
             assert_eq!(body, "--one-shot task");
         }
         other => panic!("unexpected {other:?}"),
@@ -1081,11 +1091,11 @@ fn injected_task_updates_preserve_notes_and_allow_explicit_targeting() {
             )
             .unwrap();
             match parsed {
-                Command::Update {
+                Command::Remote(RemoteCommand::Update {
                     action: actual,
                     id: actual_id,
                     note: actual_note,
-                } => {
+                }) => {
                     assert_eq!(actual, action);
                     assert_eq!(actual_id, id);
                     assert_eq!(actual_note.as_deref(), note);
@@ -1103,7 +1113,7 @@ fn partial_task_prune_reports_failure_after_preserving_response_details() {
         "200 OK",
         r#"{"removed":1,"committed":["a"],"failed":[{"id":"b","error":"disk full"}],"unattempted":["c"]}"#,
     );
-    let result = Command::Prune { all: true }.run(&endpoint, "host", true);
+    let result = RemoteCommand::Prune { all: true }.run(&endpoint, "host", true);
     server.join().unwrap().unwrap();
     assert!(
         result
@@ -1166,5 +1176,136 @@ fn authenticated_requests_never_follow_redirects() {
             stop.send(()).unwrap();
             assert!(!destination.join().unwrap(), "{method} followed {status}");
         }
+    }
+}
+
+fn parse_inbox(args: &[String]) -> Result<InboxFilter, String> {
+    let mut command = words("task list");
+    command.extend_from_slice(args);
+    match parse_command(&command)? {
+        Command::Remote(RemoteCommand::Inbox { filter }) => Ok(filter),
+        _ => Err("expected inbox".into()),
+    }
+}
+
+#[test]
+fn global_options_keep_endpoint_mode_and_forwarded_text_boundaries() {
+    let parsed = crate::cli::parse(words("worker spawn --project p --template t --json --endpoint tank --sidecar fix -- --json --endpoint literal --sidecar"), None).unwrap();
+    assert!(parsed.json);
+    assert_eq!(parsed.mode, application_paths::Mode::Sidecar);
+    assert_eq!(parsed.endpoint.as_deref(), Some("tank"));
+    let Command::Remote(RemoteCommand::Spawn(args)) = parsed.command else {
+        panic!("expected spawn")
+    };
+    assert_eq!(args.body, "fix -- --json --endpoint literal --sidecar");
+    for input in [
+        "--endpoint ../outside status",
+        "--endpoint a --endpoint b status",
+        "--endpoint",
+    ] {
+        assert!(crate::cli::parse(words(input), None).is_err(), "{input}");
+    }
+}
+
+#[test]
+fn path_and_log_queries_resolve_without_loading_an_endpoint() {
+    let parsed = crate::cli::parse(
+        words("paths endpoint --sidecar --endpoint tank --json"),
+        None,
+    )
+    .unwrap();
+    assert!(parsed.json);
+    assert_eq!(parsed.endpoint.as_deref(), Some("tank"));
+    assert_eq!(parsed.mode, application_paths::Mode::Sidecar);
+    assert_eq!(
+        parsed.command,
+        Command::Paths {
+            name: "endpoint".into()
+        }
+    );
+    let parsed = crate::cli::parse(words("logs --sidecar daemon -n 1"), None).unwrap();
+    assert_eq!(
+        parsed.command,
+        Command::Logs {
+            options: LogsOptions {
+                mode: application_paths::Mode::Sidecar,
+                selection: LogSelection::One(LogSource::Daemon),
+                lines: 1,
+                follow: false,
+            }
+        }
+    );
+}
+
+#[test]
+fn version_and_help_are_successful_display_requests() {
+    let Command::Help { usage } = parse_command(&words("--version")).unwrap() else {
+        panic!("expected version")
+    };
+    assert_eq!(
+        usage.to_string(),
+        format!("slopctl {}\n", env!("SLOPWORLD_VERSION"))
+    );
+    let Command::Help { usage } = parse_command(&[]).unwrap() else {
+        panic!("expected help")
+    };
+    let usage = usage.to_string();
+    assert!(usage.contains("--endpoint"));
+    assert!(usage.contains("--json"));
+}
+
+#[test]
+fn worktree_create_defaults_omit_optional_values_but_reject_empty_options() {
+    let Command::Remote(RemoteCommand::Worktree(crate::commands::WorktreeArgs::Create {
+        name,
+        base,
+        path,
+        ..
+    })) = parse_command(&words("worktree create --project repo")).unwrap()
+    else {
+        panic!("expected create")
+    };
+    assert_eq!((name, base, path), (None, None, None));
+    for input in [
+        "worktree create --project=",
+        "worktree create --project p --name=",
+        "worker spawn --project= --template t task",
+        "agent create n --project p --template=",
+    ] {
+        assert!(parse_command(&words(input)).is_err(), "{input}");
+    }
+}
+
+#[test]
+fn injected_notes_preserve_a_literal_leading_delimiter() {
+    let command =
+        parse_command_with_task_id(&words("task progress -- -- --help"), Some("injected")).unwrap();
+    assert_eq!(
+        command,
+        Command::Remote(RemoteCommand::Update {
+            action: UpdateAction::Progress,
+            id: "injected".into(),
+            note: Some("-- --help".into())
+        })
+    );
+}
+
+#[test]
+fn config_values_preserve_negative_numbers_and_literal_flags() {
+    for text in ["-1", "--help", ""] {
+        let mut args = words("config set defaults.title_interval");
+        if text.starts_with("--") {
+            args.push("--".into());
+        }
+        args.push(text.into());
+        assert_eq!(
+            parse_command(&args),
+            Ok(Command::Remote(RemoteCommand::Config(
+                crate::commands::ConfigArgs::Set {
+                    key: "defaults.title_interval".into(),
+                    value: text.into()
+                }
+            )))
+        );
     }
 }

@@ -6,5 +6,4 @@ export MAC_GAME := env("MAC_GAME", MAC_RIMWORLD + '/Contents/MacOS/RimWorld by L
 export MAC_RESOURCES := env("MAC_RESOURCES", MAC_RIMWORLD + '/Contents/Resources')
 export MAC_MANAGED := env("MAC_MANAGED", MAC_RESOURCES + '/Data/Managed')
 export MAC_MODS := env("MAC_MODS", MAC_RIMWORLD + '/Mods')
-export MAC_GAME_ARGS := env("MAC_GAME_ARGS", '')
 

@@ -1,42 +1,11 @@
+//! Peer, status, and sanitized sandbox diagnostics for the selected caller.
+
 use super::super::HOST;
 use super::super::format::{print_json, print_status};
 use super::super::http::{Endpoint, request, status_value};
-use super::Command;
-use super::common::{arg, encode_component, only};
+use super::common::encode_component;
 use crate::shared::protocol::routes;
 use serde_json::{Value, json};
-
-pub(crate) const PEERS_USAGE: &str = "usage:
-  slopctl peers
-
-List sessions visible to the current caller, including host.
-";
-pub(crate) const STATUS_USAGE: &str = "usage:
-  slopctl status
-
-show the current caller, endpoint, daemon reachability, and pending task counts.
-";
-pub(crate) const SANDBOX_USAGE: &str = "usage:
-  slopctl sandbox inspect NAME
-
-inspect a session's sanitized sandbox launch plan and live process tree.
-";
-pub(crate) const SANDBOX_INSPECT_USAGE: &str = "usage:
-  slopctl sandbox inspect NAME
-
-show the sanitized launch plan and, when available, the live process tree for NAME.
-The saved plan remains available after a process exits or a daemon restart.
-";
-pub(super) fn parse_sandbox(args: &[String]) -> Result<Command, String> {
-    if args.get(1).map(String::as_str) != Some("inspect") {
-        return Err(format!(
-            "sandbox needs the inspect subcommand\n\n{SANDBOX_USAGE}"
-        ));
-    }
-    let name = arg(args, 2, "sandbox inspect needs a session name")?.to_string();
-    only(args, 3)?;
-    Ok(Command::SandboxInspect { name })
-}
 
 pub(super) fn run_peers(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
     let v = request(endpoint, session, "GET", routes::SESSIONS, None)?;

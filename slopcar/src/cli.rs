@@ -1,35 +1,85 @@
-//! CLI syntax only; filesystem and container validation belong to their owners.
-use anyhow::{Context, Result, bail};
+//! CLI syntax and generated help; filesystem and container validation stay with their owners.
+use anyhow::Result;
+use clap::builder::StyledStr;
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use std::{ffi::OsString, path::PathBuf};
 
-pub(crate) const HELP: &str = "usage: slopcar COMMAND [OPTIONS]
+#[derive(Debug, Parser)]
+#[command(
+    name = "slopcar",
+    styles = crate::cli_styles::styles(),
+    about = "Manage the SlopWorld Linux sidecar",
+    version,
+    after_help = "Host paths follow SLOPD_CONFIG_ROOT, SLOPD_DATA, and SLOPD_CACHE under sidecar/.\nContainer settings use SLOPCAR_IMAGE, SLOPCAR_CONTAINER, SLOPCAR_PORT,\nSLOPCAR_MEMORY, SLOPCAR_CPUS, and SLOPCAR_PIDS_LIMIT."
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<CliCommand>,
+}
 
-commands:
-  paths NAME            print config, data, cache, endpoint, profile, or game-log path
-  licenses              show embedded dependency notices
-  build [--source PATH]  build the image from a checkout (default: current directory)
-  doctor                check nested Bubblewrap, pasta and tmux
-  start [OPTIONS]       create and start, or start the existing container
-  stop                  stop without deleting persistent state
-  restart               restart the existing container
-  status                show container and health state
-  logs [DOCKER OPTIONS] show daemon logs (e.g. -f or --tail 100)
-  shell                 open an interactive shell
-  rm                    remove only the container, preserving config and data
+#[derive(Debug, Subcommand)]
+enum CliCommand {
+    /// Print a shell completion script without Docker or container settings
+    Completions {
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+    /// Print an application path without Docker or container settings
+    Paths {
+        #[arg(value_parser = ["config", "data", "cache", "endpoint", "profile", "game-log"])]
+        name: String,
+    },
+    /// Show embedded dependency notices
+    Licenses,
+    /// Build the image from a checkout (default: current directory)
+    Build {
+        #[arg(long, value_hint = clap::ValueHint::DirPath)]
+        source: Option<PathBuf>,
+    },
+    /// Check nested Bubblewrap, pasta and tmux
+    Doctor,
+    /// Create and start, or start the existing container
+    #[command(args_override_self = true)]
+    Start(StartOptions),
+    /// Stop without deleting persistent state
+    Stop,
+    /// Restart the existing container
+    Restart,
+    /// Show container and health state
+    Status,
+    /// Forward all following arguments to Docker logs; use `help logs` for this help
+    #[command(disable_help_flag = true)]
+    Logs,
+    /// Open an interactive shell
+    Shell,
+    /// Remove only the container, preserving config and data
+    Rm,
+}
 
-start options:
-  --workspace PATH      mount an absolute workspace at the same path (repeatable)
-  --credential-ro S=T   mount a credential read-only
-  --credential-rw S=T   mount a credential read-write
-  --port NUMBER         host and daemon port (default: 7718)
-  --memory SIZE         memory ceiling (default: 8g)
-  --cpus NUMBER         CPU ceiling (default: 4)
-  --pids-limit NUMBER   process/thread ceiling (default: 4096)
-
-Host paths follow SLOPD_CONFIG_ROOT, SLOPD_DATA, and SLOPD_CACHE under sidecar/.
-Container settings use SLOPCAR_IMAGE, SLOPCAR_CONTAINER, SLOPCAR_PORT,
-SLOPCAR_MEMORY, SLOPCAR_CPUS, and SLOPCAR_PIDS_LIMIT.
-";
+#[derive(Debug, clap::Args)]
+struct StartOptions {
+    /// Mount an absolute workspace at the same path (repeatable)
+    #[arg(long = "workspace", help_heading = "Mounts", value_hint = clap::ValueHint::DirPath)]
+    workspaces: Vec<PathBuf>,
+    /// Mount a credential read-only (SOURCE=TARGET, repeatable)
+    #[arg(long, help_heading = "Mounts")]
+    credential_ro: Vec<OsString>,
+    /// Mount a credential read-write (SOURCE=TARGET, repeatable)
+    #[arg(long, help_heading = "Mounts")]
+    credential_rw: Vec<OsString>,
+    /// Host and daemon port (default: 7718)
+    #[arg(long, value_parser = crate::settings::parse_port, help_heading = "Network")]
+    port: Option<u16>,
+    /// Memory ceiling (default: 8g)
+    #[arg(long, help_heading = "Resources")]
+    memory: Option<OsString>,
+    /// CPU ceiling (default: 4)
+    #[arg(long, help_heading = "Resources")]
+    cpus: Option<OsString>,
+    /// Process/thread ceiling (default: 4096)
+    #[arg(long = "pids-limit", help_heading = "Resources")]
+    pids: Option<OsString>,
+}
 
 #[derive(Default, Debug)]
 pub(crate) struct Start {
@@ -53,7 +103,8 @@ impl Start {
 
 #[derive(Debug)]
 pub(crate) enum Command {
-    Help,
+    Help(StyledStr),
+    Completions(String),
     Paths(String),
     Notices,
     Build(PathBuf),
@@ -67,78 +118,84 @@ pub(crate) enum Command {
     Remove,
 }
 
-pub(crate) fn parse(arguments: Vec<OsString>) -> Result<Command> {
-    let mut args = arguments.into_iter();
-    let name = args.next().unwrap_or_else(|| "help".into());
-    let command = match name.to_str().context("command must be UTF-8")? {
-        "help" | "-h" | "--help" => Command::Help,
-        "paths" => Command::Paths(
-            args.next()
-                .context("paths needs a name")?
-                .into_string()
-                .map_err(|_| anyhow::anyhow!("path name must be UTF-8"))?,
-        ),
-        "licenses" => Command::Notices,
-        "build" => {
-            let source = match args.next() {
-                None => std::env::current_dir()?,
-                Some(flag) if flag == "--source" => {
-                    PathBuf::from(args.next().context("--source needs a path")?)
-                }
-                Some(flag) => bail!("unknown build option: {}", flag.to_string_lossy()),
-            };
-            Command::Build(source)
+/// Docker owns every word after `logs`, including help flags and separators.
+/// Keep that opaque tail outside Clap so it cannot consume or rewrite any word.
+pub(crate) fn parse(mut arguments: Vec<OsString>) -> Result<Command> {
+    let log_options = if arguments.first().is_some_and(|word| word == "logs") {
+        arguments.split_off(1)
+    } else {
+        Vec::new()
+    };
+    let matches = match Cli::command()
+        .try_get_matches_from(std::iter::once(OsString::from("slopcar")).chain(arguments))
+    {
+        Ok(matches) => matches,
+        Err(error)
+            if matches!(
+                error.kind(),
+                clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion
+            ) =>
+        {
+            return Ok(Command::Help(error.render()));
         }
-        "doctor" => Command::Doctor,
-        "start" => {
-            let mut start = Start::default();
-            while let Some(flag) = args.next() {
-                let flag = flag.to_str().context("option must be UTF-8")?;
-                if !matches!(
-                    flag,
-                    "--workspace"
-                        | "--credential-ro"
-                        | "--credential-rw"
-                        | "--port"
-                        | "--memory"
-                        | "--cpus"
-                        | "--pids-limit"
-                ) {
-                    bail!("unknown start option: {flag}");
-                }
-                let value = args
-                    .next()
-                    .with_context(|| format!("{flag} needs a value"))?;
-                match flag {
-                    "--workspace" => start.workspaces.push(value.into()),
-                    "--credential-ro" | "--credential-rw" => {
-                        start.credentials.push((flag == "--credential-ro", value))
-                    }
-                    "--port" => {
-                        start.port = Some(crate::settings::parse_port(
-                            value.to_str().context("port must be UTF-8")?,
-                        )?)
-                    }
-                    "--memory" => start.memory = Some(value),
-                    "--cpus" => start.cpus = Some(value),
-                    "--pids-limit" => start.pids = Some(value),
-                    _ => unreachable!(),
+        Err(error) => return Err(error.into()),
+    };
+    let cli = Cli::from_arg_matches(&matches)?;
+    Ok(match cli.command {
+        None => {
+            let mut help = Cli::command().render_help();
+            help.push_str("\n");
+            Command::Help(help)
+        }
+        Some(CliCommand::Completions { shell }) => Command::Completions(
+            crate::cli_completions::render(Cli::command(), shell).map_err(anyhow::Error::msg)?,
+        ),
+        Some(CliCommand::Paths { name }) => Command::Paths(name),
+        Some(CliCommand::Licenses) => Command::Notices,
+        Some(CliCommand::Build { source }) => Command::Build(match source {
+            Some(path) => path,
+            None => std::env::current_dir()?,
+        }),
+        Some(CliCommand::Doctor) => Command::Doctor,
+        Some(CliCommand::Start(options)) => {
+            // Clap stores repeatable RO/RW values separately. Merge by argv index
+            // to retain the user's ordering across the two credential options.
+            let start = matches
+                .subcommand_matches("start")
+                .ok_or_else(|| anyhow::anyhow!("missing start arguments"))?;
+            let mut credentials = Vec::new();
+            for (name, readonly, values) in [
+                ("credential_ro", true, options.credential_ro),
+                ("credential_rw", false, options.credential_rw),
+            ] {
+                if let Some(indices) = start.indices_of(name) {
+                    credentials.extend(
+                        indices
+                            .zip(values)
+                            .map(|(index, value)| (index, readonly, value)),
+                    );
                 }
             }
-            Command::Start(start)
+            credentials.sort_by_key(|(index, _, _)| *index);
+            Command::Start(Start {
+                workspaces: options.workspaces,
+                credentials: credentials
+                    .into_iter()
+                    .map(|(_, readonly, value)| (readonly, value))
+                    .collect(),
+                port: options.port,
+                memory: options.memory,
+                cpus: options.cpus,
+                pids: options.pids,
+            })
         }
-        "stop" => Command::Stop,
-        "restart" => Command::Restart,
-        "status" => Command::Status,
-        "logs" => return Ok(Command::Logs(args.collect())),
-        "shell" => Command::Shell,
-        "rm" => Command::Remove,
-        name => bail!("unknown command: {name} (try: slopcar help)"),
-    };
-    if args.next().is_some() {
-        bail!("unexpected arguments");
-    }
-    Ok(command)
+        Some(CliCommand::Stop) => Command::Stop,
+        Some(CliCommand::Restart) => Command::Restart,
+        Some(CliCommand::Status) => Command::Status,
+        Some(CliCommand::Logs) => Command::Logs(log_options),
+        Some(CliCommand::Shell) => Command::Shell,
+        Some(CliCommand::Rm) => Command::Remove,
+    })
 }
 
 #[cfg(test)]

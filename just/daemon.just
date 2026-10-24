@@ -47,10 +47,12 @@ daemon-coverage:
 daemon-install: daemon-build
     uv run --locked python -m tools.host.install_daemon
     install -Dm755 "$RUNNER" "$BIN/slopworld"
+    uv run --locked python -m tools.cli_completions install slopctl slopworld
 
 # Remove the daemon, CLI, launcher and user service
 [group('daemon')]
 daemon-uninstall:
+    uv run --locked python -m tools.cli_completions uninstall slopctl slopworld
     -systemctl --user disable --now slopd.service
     rm -f "$UNITS/slopd.service" "$BIN/slopd" "$BIN/slopctl" "$BIN/slopworld"
     systemctl --user daemon-reload

@@ -1,5 +1,6 @@
 """Protect Debian system layout and publication when staging or tools fail."""
 
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'checkout'
     monkeypatch.setattr(debian, 'ROOT', root)
     monkeypatch.setattr(release_staging, 'ROOT', root)
+    shutil.copytree(Path(__file__).parents[2] / 'packaging/completions', root / 'packaging/completions')
     for source in ('control', 'README.Debian'):
         target = root / 'packaging/debian' / source
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -61,6 +63,9 @@ def test_package_system_paths_permissions_dependencies_and_metadata(
         assert 'passt' in control and 'tmux (>= 3.7)' in control
         for binary in release_staging.BINARIES:
             assert (staging / 'usr/bin' / binary).stat().st_mode & 0o777 == 0o755
+        assert (staging / 'usr/share/bash-completion/completions/slopctl').is_file()
+        assert (staging / 'usr/share/zsh/site-functions/_slopworld').is_file()
+        assert (staging / 'usr/share/fish/vendor_completions.d/slopctl.fish').is_file()
         unit = (staging / 'usr/lib/systemd/user/slopd.service').read_text()
         assert 'ExecStart=/usr/bin/slopd' in unit and 'KillMode=process' in unit
         mod = staging / 'usr/share/slopworld/SlopWorld'

@@ -1,10 +1,18 @@
 //! Host CLI coordination; mounts, configuration and Docker transport have separate owners.
+
+#[path = "../../slopd/src/shared/cli_completions.rs"]
+mod cli_completions;
+#[path = "../../slopd/src/shared/cli_styles.rs"]
+mod cli_styles;
 const NOTICES: &str = include_str!("../../licenses/slopcar/THIRD-PARTY-NOTICES.txt");
 
 #[path = "../../slopd/src/shared/application_paths.rs"]
-#[expect(
-    dead_code,
-    reason = "application paths are shared by different binary consumers"
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "application paths are shared by different binary consumers"
+    )
 )]
 mod application_paths;
 mod cli;
@@ -30,13 +38,21 @@ fn main() {
             print!("{NOTICES}");
             return Ok(());
         }
-        if matches!(command, cli::Command::Help) {
-            print!("{}", cli::HELP);
+        if let cli::Command::Help(text) = &command {
+            anstream::print!("{}", text.ansi());
+            return Ok(());
+        }
+        if let cli::Command::Completions(text) = &command {
+            print!("{text}");
             return Ok(());
         }
         lifecycle::run(command, &settings::Settings::load()?)
     }) {
-        eprintln!("slopcar: {error:#}");
+        if let Some(error) = error.downcast_ref::<clap::Error>() {
+            anstream::eprintln!("slopcar: {}", error.render().ansi());
+        } else {
+            eprintln!("slopcar: {error:#}");
+        }
         std::process::exit(1);
     }
 }

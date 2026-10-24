@@ -30,20 +30,12 @@ fn a_value_comes_inline_or_after() {
     );
 }
 
-/// Forward game flags with one leading hyphen without requiring a separator.
-#[test]
-fn the_games_arguments_are_passed_through() {
-    let a = parsed(&["-popupwindow", "-force-opengl"]);
-    assert_eq!(a.rest, vec!["-popupwindow", "-force-opengl"]);
-}
-
 #[test]
 fn the_window_fix_is_enabled_by_default() {
     let a = game_argv(
         Path::new("/g/RimWorldLinux"),
         Path::new("/p"),
         Path::new("/logs/Player.log"),
-        &[],
         false,
     );
     assert_eq!(
@@ -70,7 +62,6 @@ fn the_window_fix_can_be_disabled() {
             Path::new("/g/RimWorldLinux"),
             Path::new("/p"),
             Path::new("/logs/Player.log"),
-            &[],
             a.no_window_fix
         ),
         vec![
@@ -87,14 +78,6 @@ fn the_window_fix_can_be_disabled() {
 fn an_unknown_long_option_is_a_mistake_rather_than_a_game_argument() {
     let owned = vec!["--profil".to_string(), "/p".to_string()];
     parse(&owned).unwrap_err();
-}
-
-#[test]
-fn a_double_dash_ends_our_options() {
-    let a = parsed(&["--reset", "--", "--game", "-popupwindow"]);
-    assert!(a.reset);
-    assert_eq!(a.game, None);
-    assert_eq!(a.rest, vec!["--game", "-popupwindow"]);
 }
 
 #[test]
@@ -262,7 +245,6 @@ fn the_profile_rides_on_the_games_own_argument() {
         Path::new("/g/RimWorldLinux"),
         Path::new("/p"),
         Path::new("/logs/Player.log"),
-        &["-popupwindow".to_string()],
         false,
     );
     assert_eq!(
@@ -275,8 +257,7 @@ fn the_profile_rides_on_the_games_own_argument() {
             "-popupwindow",
             "-screen-fullscreen",
             "0",
-            "-force-opengl",
-            "-popupwindow"
+            "-force-opengl"
         ]
     );
 }
@@ -285,23 +266,6 @@ fn the_profile_rides_on_the_games_own_argument() {
 fn a_game_directory_without_the_binary_is_named_rather_than_skipped() {
     let e = game_dir(Some("/nowhere/at/all")).unwrap_err();
     assert!(e.contains("/nowhere/at/all"), "{e}");
-}
-
-#[test]
-fn explicit_unity_log_arguments_are_forwarded_without_a_second_log_option() {
-    for rest in [
-        vec!["-logFile".into(), "/custom/log".into()],
-        vec!["-logFile=-".into()],
-    ] {
-        let argv = game_argv(
-            Path::new("/game"),
-            Path::new("/profile"),
-            Path::new("/unused/log"),
-            &rest,
-            true,
-        );
-        assert_eq!(&argv[2..], rest.as_slice());
-    }
 }
 
 #[test]
@@ -403,8 +367,14 @@ fn assert_named_profile_paths(root: &Path) {
     let mode = application_paths::Mode::Sidecar;
     // Named connections initialize independently, even while their daemons are offline.
     for name in ["tank", "other"] {
-        let args = parsed(&["--endpoint", name, "--init-profile"]);
-        run_launcher(&args).unwrap();
+        let initialize = || {
+            run_profile(
+                cli::ProfileCommand::Init(cli::ProfileOptions::default()),
+                application_paths::Mode::Native,
+                Some(name),
+            )
+        };
+        initialize().unwrap();
         let profile = root.join("data/profiles").join(name);
         assert!(profile.join(MARKER).is_file());
         assert_eq!(
@@ -419,7 +389,7 @@ fn assert_named_profile_paths(root: &Path) {
         );
         let mods = profile.join("Config/ModsConfig.xml");
         std::fs::write(&mods, "custom mods").unwrap();
-        run_launcher(&args).unwrap();
+        initialize().unwrap();
         assert_eq!(std::fs::read_to_string(mods).unwrap(), "custom mods");
         let missing = parsed(&["--endpoint", name, "--print"]);
         assert!(
@@ -468,7 +438,7 @@ fn assert_named_profile_paths(root: &Path) {
 }
 
 #[test]
-fn print_reset_and_invalid_working_dir_preserve_profile() {
+fn print_and_invalid_working_dir_preserve_profile() {
     let root = scratch("launch-validation");
     let game = root.join("game");
     std::fs::create_dir_all(game.join("Mods/SlopWorld/About")).unwrap();
@@ -482,20 +452,12 @@ fn print_reset_and_invalid_working_dir_preserve_profile() {
     let args = || Args {
         game: Some(game.to_string_lossy().into_owned()),
         profile: Some(profile.to_string_lossy().into_owned()),
-        reset: true,
         print: true,
         ..Args::default()
     };
     std::fs::remove_file(profile.join(MARKER)).unwrap();
     run_launcher(&args()).unwrap();
     assert!(!profile.join(MARKER).exists());
-    let mut init_print = args();
-    init_print.init_profile = true;
-    assert!(
-        run_launcher(&init_print)
-            .unwrap_err()
-            .contains("cannot be combined")
-    );
     let mut absent = args();
     let absent_profile = root.join("absent-profile");
     absent.profile = Some(absent_profile.to_string_lossy().into_owned());
@@ -512,4 +474,12 @@ fn print_reset_and_invalid_working_dir_preserve_profile() {
     );
     assert_eq!(std::fs::read(&mods).unwrap(), custom);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+fn parse(args: &[String]) -> Result<Option<Args>, String> {
+    match crate::cli::parse(args.to_vec()).map_err(|error| error.to_string())? {
+        crate::cli::Command::Launch(args) => Ok(Some(args)),
+        crate::cli::Command::Display(_) => Ok(None),
+        _ => Err("expected launch".into()),
+    }
 }

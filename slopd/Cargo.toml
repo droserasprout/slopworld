@@ -6,6 +6,9 @@ description = "Session daemon for SlopWorld: tmux + bubblewrap agent sessions be
 license = "MIT"
 
 [dependencies]
+anstream = "1"
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 prost = "0.14.4"
 alacritty_terminal = "0.26"
 anyhow = "1"

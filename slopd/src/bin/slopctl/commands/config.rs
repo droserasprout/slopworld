@@ -2,47 +2,20 @@
 
 use super::super::format::print_json;
 use super::super::http::{Endpoint, request};
-use super::Command;
-use super::common::{arg, only};
 use crate::shared::protocol::routes;
 use crate::shared::wire;
 use serde_json::{Value, json};
 
-pub(crate) const CONFIG_USAGE: &str = "usage:
-  slopctl config get KEY
-  slopctl config set KEY VALUE
-
-Read or persist a setting on the selected running daemon. Requires the root token.
-KEY uses dotted paths; escape dots in map keys as ~1 and tildes as ~0.
-String settings take literal text; booleans, numbers and lists take JSON.
-Only individual values under daemon, defaults and commands can be set.
-Token reads are redacted. Setting daemon.token invalidates the old token immediately;
-saved remote peers must be reconnected with the new token.
-Setting daemon.bind takes effect after restarting the daemon.
-";
-
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, clap::Subcommand)]
 pub(crate) enum ConfigArgs {
+    /// Read one setting
     Get { key: String },
-    Set { key: String, value: String },
-}
-
-pub(super) fn parse(args: &[String]) -> Result<Command, String> {
-    let action = arg(args, 1, CONFIG_USAGE)?;
-    let key = arg(args, 2, "config needs a setting key")?.to_owned();
-    let command = match action {
-        "get" => {
-            only(args, 3)?;
-            ConfigArgs::Get { key }
-        }
-        "set" => {
-            let value = arg(args, 3, "config set needs a value")?.to_owned();
-            only(args, 4)?;
-            ConfigArgs::Set { key, value }
-        }
-        _ => return Err(CONFIG_USAGE.into()),
-    };
-    Ok(Command::Config(command))
+    /// Persist one setting
+    Set {
+        key: String,
+        #[arg(allow_hyphen_values = true)]
+        value: String,
+    },
 }
 
 fn parts(key: &str) -> Vec<String> {

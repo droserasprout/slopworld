@@ -3,6 +3,7 @@
 import hashlib
 import os
 import platform
+import shutil
 import subprocess
 import tarfile
 import zipfile
@@ -24,6 +25,7 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root.mkdir()
     monkeypatch.setattr(publish, 'ROOT', root)
     monkeypatch.setattr(staging, 'ROOT', root)
+    shutil.copytree(Path(__file__).parents[2] / 'packaging/completions', root / 'packaging/completions')
 
     def write(name: str, content: bytes = b'release input') -> Path:
         path = root / name
@@ -77,6 +79,7 @@ def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_f
         assert revision_file is not None
         assert revision_file.read() == b'a' * 40 + b'\n'
         assert f'{prefix}/licenses/dependency.txt' in archive.getnames()
+        assert f'{prefix}/share/zsh/site-functions/_slopctl' in archive.getnames()
     with zipfile.ZipFile(assets[1]) as archive:
         names = archive.namelist()
         assert archive.read('SlopWorld/About/LICENSE') == (inputs / 'LICENSE').read_bytes()

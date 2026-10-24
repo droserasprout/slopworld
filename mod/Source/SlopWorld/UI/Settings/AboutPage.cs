@@ -82,6 +82,8 @@ namespace SlopWorld
         {
             new Credit("Rust", "language", "https://www.rust-lang.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
+            new Credit("Clap", "CLI", "https://github.com/clap-rs/clap"),
+            new Credit("Anstream", "Terminal output", "https://github.com/rust-cli/anstyle"),
             new Credit(
                 "Landlock",
                 "filesystem isolation",

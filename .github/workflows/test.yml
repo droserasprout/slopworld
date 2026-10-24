@@ -129,7 +129,7 @@ jobs:
           sed -i "/^root:/s|:/root:|:$HOME:|" /etc/passwd
           apt-get update
           apt-get install -y --no-install-recommends \
-            ca-certificates curl git unzip zstd gcc libc6-dev python3 procps tmux=3.7c-1 less ripgrep bat git-delta
+            ca-certificates curl git unzip zstd gcc libc6-dev python3 procps tmux=3.7c-1 less ripgrep bat git-delta zsh
 
       - uses: actions/checkout@v5
         with:

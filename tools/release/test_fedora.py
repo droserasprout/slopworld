@@ -39,6 +39,7 @@ def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'checkout'
     monkeypatch.setattr(fedora, 'ROOT', root)
     monkeypatch.setattr(release_staging, 'ROOT', root)
+    shutil.copytree(Path(__file__).parents[2] / 'packaging/completions', root / 'packaging/completions')
     for source in ('slopworld.spec', 'README.Fedora'):
         target = root / 'packaging/fedora' / source
         target.parent.mkdir(parents=True, exist_ok=True)

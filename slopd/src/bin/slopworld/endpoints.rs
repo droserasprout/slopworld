@@ -14,44 +14,20 @@ mod store;
 use probe::{normalize_url, verify};
 use store::{Peer, load};
 
-const CONNECT_USAGE: &str = "usage: slopworld [--sidecar] connect NAME [http://HOST:PORT]\n";
+pub(super) fn register(mode: Mode, name: &str, url: Option<&str>) -> Result<(), String> {
+    connect(&mode.config_dir(), name, url, prompt::read_key)?;
+    let launch = if mode == Mode::Sidecar {
+        "slopworld --sidecar"
+    } else {
+        "slopworld"
+    };
+    println!("Saved peer {name}. Run `{launch} --endpoint {name}` to launch its profile.");
+    Ok(())
+}
 
-pub(super) fn try_run(args: &[String], mode: Mode) -> Result<bool, String> {
-    match args.first().map(String::as_str) {
-        Some("connect") => {
-            if matches!(args.get(1).map(String::as_str), Some("--help" | "-h")) {
-                print!("{CONNECT_USAGE}");
-                return Ok(true);
-            }
-            let (name, url) = match args {
-                [_, name] => (name.as_str(), None),
-                [_, name, url] => (name.as_str(), Some(url.as_str())),
-                _ => return Err(CONNECT_USAGE.trim().into()),
-            };
-            validate_endpoint_name(name)?;
-            connect(&mode.config_dir(), name, url, prompt::read_key)?;
-            let launch = if mode == Mode::Sidecar {
-                "slopworld --sidecar"
-            } else {
-                "slopworld"
-            };
-            println!("Saved peer {name}. Run `{launch} --endpoint {name}` to launch its profile.");
-            Ok(true)
-        }
-        Some("endpoints") => {
-            if args.len() == 2 && matches!(args.get(1).map(String::as_str), Some("--help" | "-h")) {
-                println!("usage: slopworld [--sidecar] endpoints");
-                return Ok(true);
-            }
-            if args.len() != 1 {
-                return Err("usage: slopworld [--sidecar] endpoints".into());
-            }
-            let listing = list(&mode.config_dir())?;
-            print!("{listing}");
-            Ok(true)
-        }
-        _ => Ok(false),
-    }
+pub(super) fn print_list(mode: Mode) -> Result<(), String> {
+    print!("{}", list(&mode.config_dir())?);
+    Ok(())
 }
 
 fn connect(

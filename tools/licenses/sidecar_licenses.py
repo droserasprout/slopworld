@@ -13,6 +13,9 @@ def find_notice(source: Path, expression: str) -> tuple[str, Path]:
     if 'MIT' in alternatives:
         license_name, marker = 'MIT', 'Permission is hereby granted'
         candidates = [source / name for name in ('LICENSE-MIT', 'LICENSE-MIT.txt', 'LICENSE-MIT.md')]
+    elif expression == 'Unicode-3.0':
+        license_name, marker = 'Unicode-3.0', 'UNICODE LICENSE V3'
+        candidates = [source / 'LICENSE-UNICODE']
     elif expression == 'MPL-2.0':
         license_name, marker = 'MPL-2.0', 'Mozilla Public License Version 2.0'
         candidates = [source / name for name in ('LICENSE', 'LICENSE.txt')]
@@ -26,6 +29,13 @@ def find_notice(source: Path, expression: str) -> tuple[str, Path]:
     if notice is None:
         raise ValueError(f'Missing full {license_name} notice for {source.name}')
     return license_name, notice
+
+
+def find_notices(source: Path, expression: str) -> list[tuple[str, Path]]:
+    # unicode-ident requires Unicode's data notice in addition to a code license.
+    if expression == '(MIT OR Apache-2.0) AND Unicode-3.0':
+        return [find_notice(source, 'MIT'), find_notice(source, 'Unicode-3.0')]
+    return [find_notice(source, expression)]
 
 
 def main() -> None:
@@ -74,17 +84,20 @@ def main() -> None:
         ),
     ]
     for package in packages:
-        # Choose MIT when offered. For MPL-2.0 dependencies, include the full
-        # license and a source download location.
-        # Unrecognized licenses and missing texts still fail generation.
+        # Reviewed alternatives choose MIT; conjunctions retain every required notice.
         source = Path(package['manifest_path']).parent
-        license_name, notice = find_notice(source, package['license'])
-        header = f'{package["name"]} {package["version"]} — {license_name}'
-        if license_name == 'MPL-2.0':
+        notices = find_notices(source, package['license'])
+        license_names = ' AND '.join(name for name, _ in notices)
+        header = f'{package["name"]} {package["version"]} — {license_names}'
+        if any(name == 'MPL-2.0' for name, _ in notices):
             header += (
                 f'\nUnmodified source: https://crates.io/api/v1/crates/{package["name"]}/{package["version"]}/download'
             )
-        body = '\n'.join(line.rstrip() for line in notice.read_text(encoding='utf-8').splitlines()).strip()
+        bodies = [
+            '\n'.join(line.rstrip() for line in notice.read_text(encoding='utf-8').splitlines()).strip()
+            for _, notice in notices
+        ]
+        body = '\n\n'.join(bodies)
         sections.append(f'{header}\n\n{body}')
     destination = ROOT / 'licenses/slopcar/THIRD-PARTY-NOTICES.txt'
     destination.parent.mkdir(parents=True, exist_ok=True)

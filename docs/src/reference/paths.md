@@ -82,8 +82,8 @@ directory stores the canonical game directory path.
 
 The launcher passes `-logFile` to Unity and creates the log directory before
 launching. `slopctl logs game` and `just logs` use the same default and environment
-override. Passing a game `-logFile` argument takes precedence for that launch; set
-`SLOPWORLD_GAME_LOG` to the same path when reading it.
+override. Set `SLOPWORLD_GAME_LOG` to select a custom path for both launching and
+reading logs.
 
 ## tmux
 

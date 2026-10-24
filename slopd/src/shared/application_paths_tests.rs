@@ -164,16 +164,6 @@ fn sidecar_paths_use_separate_subdirectories_and_common_overrides() {
 }
 
 #[test]
-fn global_flags_preserve_arguments_after_the_separator() {
-    let mut args = ["--sidecar", "logs", "--sidecar", "--", "--sidecar"]
-        .map(str::to_string)
-        .to_vec();
-    assert!(take_flag(&mut args, "--sidecar"));
-    assert_eq!(args, ["logs", "--", "--sidecar"]);
-    assert!(!take_flag(&mut args, "--sidecar"));
-}
-
-#[test]
 fn profiles_follow_connection_names_and_explicit_profiles_win() {
     for (mode, base) in [(Mode::Native, "/data"), (Mode::Sidecar, "/data/sidecar")] {
         for name in ["local", "tank", "another-host"] {
@@ -197,28 +187,4 @@ fn profiles_follow_connection_names_and_explicit_profiles_win() {
             );
         }
     }
-}
-
-#[test]
-fn endpoint_flags_reject_ambiguous_names_and_preserve_forwarded_arguments() {
-    for words in [vec!["--endpoint", "tank"], vec!["--endpoint=tank"]] {
-        let mut args = words.into_iter().map(str::to_owned).collect();
-        assert_eq!(take_endpoint(&mut args), Ok(Some("tank".into())));
-        assert!(args.is_empty());
-    }
-    for words in [
-        vec!["--endpoint"],
-        vec!["--endpoint="],
-        vec!["--endpoint", "../tank"],
-        vec!["--endpoint", "/tank"],
-        vec!["--endpoint", "tank.toml"],
-        vec!["--endpoint", "tank", "--endpoint=other"],
-    ] {
-        let mut args = words.into_iter().map(str::to_owned).collect();
-        assert!(take_endpoint(&mut args).err().is_some());
-    }
-    let mut args = vec!["--".to_owned(), "--endpoint=tank".to_owned()];
-    let original = args.clone();
-    assert_eq!(take_endpoint(&mut args), Ok(None));
-    assert_eq!(args, original);
 }

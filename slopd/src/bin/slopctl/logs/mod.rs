@@ -14,22 +14,29 @@ pub(crate) const DEFAULT_LOG_LINES: usize = 200;
 pub(crate) const MAX_LOG_LINES: usize = 100_000;
 const DAEMON_UNIT_ENV: &str = "SLOPWORLD_DAEMON_UNIT";
 
-pub(crate) const LOGS_USAGE: &str = "usage:
-  slopctl [--sidecar] logs [game|daemon|all] [--lines N] [--follow]
+#[derive(Clone, Copy, Debug, clap::Args)]
+#[group(id = "log-options", multiple = true)]
+#[command(
+    after_help = "Defaults to the last 200 lines from both sources. --json emits one object per line.\nGame: Player.log or SLOPWORLD_GAME_LOG.\nDaemon: user journal (SLOPWORLD_DAEMON_UNIT), or Docker logs in sidecar mode (SLOPCAR_CONTAINER)."
+)]
+pub(crate) struct LogsArgs {
+    /// Log source (defaults to all)
+    #[arg(value_enum)]
+    source: Option<LogName>,
+    /// Maximum recent lines per source
+    #[arg(short = 'n', long, default_value_t = DEFAULT_LOG_LINES, value_parser = parse_log_lines)]
+    lines: usize,
+    /// Keep reading appended lines
+    #[arg(short = 'f', long)]
+    follow: bool,
+}
 
-logs defaults to the last 200 lines from both the game and daemon. Output is
-plain text and can be piped to grep, head or other host tools. --json emits
-newline-delimited objects with source and line fields.
-
-  game    tails Player.log (default path, or $SLOPWORLD_GAME_LOG)
-  daemon  reads the slopd user journal, or Docker logs in sidecar mode
-          ($SLOPWORLD_DAEMON_UNIT or $SLOPCAR_CONTAINER selects the source)
-  all     reads both sources and prefixes plain-text lines with their source
-
-options:
-  -n, --lines N   maximum recent lines per source (default 200)
-  -f, --follow    keep reading appended lines
-";
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum LogName {
+    Game,
+    Daemon,
+    All,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum LogSource {
@@ -60,73 +67,37 @@ pub(crate) struct LogsOptions {
     pub(crate) follow: bool,
 }
 
-pub(crate) fn run_logs(args: &[String], json: bool, mode: Mode) -> Result<(), String> {
-    let mut options = parse_logs_args(args)?;
-    options.mode = mode;
+pub(crate) fn run_logs(options: LogsOptions, json: bool) -> Result<(), String> {
     match options.selection {
         LogSelection::One(source) => run_one_log(source, options, json),
         LogSelection::All => run_all_logs(options, json),
     }
 }
 
-pub(crate) fn parse_logs_args(args: &[String]) -> Result<LogsOptions, String> {
-    let mut selection = None;
-    let mut lines = DEFAULT_LOG_LINES;
-    let mut follow = false;
-    let mut it = args.iter();
-
-    while let Some(arg) = it.next() {
-        let (flag, inline_value) = match arg.split_once('=') {
-            Some((flag, value)) if flag == "--lines" => (flag, Some(value)),
-            _ => (arg.as_str(), None),
-        };
-
-        match flag {
-            "game" | "--game" => {
-                set_log_selection(&mut selection, LogSelection::One(LogSource::Game), "game")?
-            }
-            "daemon" | "--daemon" => set_log_selection(
-                &mut selection,
-                LogSelection::One(LogSource::Daemon),
-                "daemon",
-            )?,
-            "all" | "--all" => set_log_selection(&mut selection, LogSelection::All, "all")?,
-            "-f" | "--follow" => follow = true,
-            "-n" | "--lines" => {
-                let value = inline_value
-                    .map(str::to_string)
-                    .or_else(|| it.next().cloned())
-                    .ok_or_else(|| "--lines needs a number".to_string())?;
-                lines = parse_log_lines(&value)?;
-            }
-            "--help" | "-h" | "help" => {
-                // run() handles help before parsing. Also handle it here for independent parser calls and tests.
-                return Err(LOGS_USAGE.to_string());
-            }
-            unknown if unknown.starts_with('-') => {
-                return Err(format!("unknown logs option: {unknown}"));
-            }
-            unknown => return Err(format!("unknown logs source: {unknown}")),
+impl LogsOptions {
+    pub(crate) fn from_args(args: LogsArgs, mode: Mode) -> Self {
+        let source = args.source.unwrap_or(LogName::All);
+        Self {
+            mode,
+            lines: args.lines,
+            follow: args.follow,
+            selection: match source {
+                LogName::Game => LogSelection::One(LogSource::Game),
+                LogName::Daemon => LogSelection::One(LogSource::Daemon),
+                LogName::All => LogSelection::All,
+            },
         }
     }
-
-    Ok(LogsOptions {
-        mode: Mode::Native,
-        selection: selection.unwrap_or(LogSelection::All),
-        lines,
-        follow,
-    })
 }
 
-fn set_log_selection(
-    selected: &mut Option<LogSelection>,
-    next: LogSelection,
-    name: &str,
-) -> Result<(), String> {
-    if selected.replace(next).is_some() {
-        return Err(format!("logs source selected more than once (got {name})"));
+#[cfg(test)]
+pub(crate) fn parse_logs_args(args: &[String]) -> Result<LogsOptions, String> {
+    let mut command = vec!["logs".into()];
+    command.extend_from_slice(args);
+    match super::cli::parse_command(&command)? {
+        super::cli::Command::Logs { options } => Ok(options),
+        _ => Err("expected logs options".into()),
     }
-    Ok(())
 }
 
 fn parse_log_lines(value: &str) -> Result<usize, String> {

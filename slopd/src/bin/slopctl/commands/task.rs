@@ -1,107 +1,15 @@
+//! Task requests, inbox argument schema/filtering, and terminal-result waits.
+//! `cli` owns task subcommands and task-ID resolution.
+
 use super::super::TASK_WAIT_INTERVAL;
 use super::super::format::{emit, print_json, print_task};
 use super::super::http::{Endpoint, request};
-use super::common::{arg, only, option_value, rest, value_option};
-use super::{Command, USAGE};
 use crate::shared::protocol::{enums::task_status, routes};
 use serde_json::{Value, json};
 use std::thread;
 use std::time::{Duration, Instant};
 
 pub(crate) const TASK_ID_ENV: &str = "SLOPWORLD_TASK_ID";
-pub(crate) const DELEGATE_USAGE: &str = "usage:
-  slopctl task delegate AGENT TASK...
-
-Send TASK to AGENT.
-";
-// Keep the root and task-group command inventory identical at compile time.
-macro_rules! task_usage {
-    ($before:literal, $after:literal) => {
-        concat!(
-            $before,
-            "  slopctl task delegate AGENT TASK...
-  slopctl task list [--all] [--sent] [--received] [--status STATUS]
-  slopctl task show [ID]
-  slopctl task wait [ID]
-  slopctl task accept [ID] [NOTE...]
-  slopctl task progress [ID] [NOTE...]
-  slopctl task finish [ID] [RESULT...]
-  slopctl task fail [ID] [ERROR...]
-  slopctl task remove [ID]
-  slopctl task prune [--include-active]
-",
-            $after
-        )
-    };
-}
-pub(super) use task_usage;
-
-pub(crate) const TASK_USAGE: &str = task_usage!(
-    "usage:
-",
-    "
-Manage delegated tasks. Omit ID when SLOPWORLD_TASK_ID is set.
-For updates with an injected ID, all positional words are the note; use --id ID
-to target another task. Use -- before a note beginning with a flag.
-"
-);
-pub(crate) const TASK_LIST_USAGE: &str = "usage:
-  slopctl task list [--all] [--sent] [--received] [--status STATUS]
-
-List unfinished tasks that involve the current caller. The list shows the newest
-tasks first. Done, failed, and canceled tasks stay hidden unless you use --all
-or --status.
-
-options:
-  --all             include done, failed and canceled tasks
-  --sent            show only tasks sent by you
-  --received        show only tasks sent to you
-  --status STATUS   show only tasks with this status
-";
-pub(crate) const TASK_SHOW_USAGE: &str = "usage:
-  slopctl task show [ID]
-
-Show one task by its exact ID. Omit ID when SLOPWORLD_TASK_ID is set.
-";
-pub(crate) const WAIT_USAGE: &str = "usage:
-  slopctl task wait [ID]
-
-Wait until one task reaches a terminal state. Then show the task. The command checks
-task status internally. Do not use a status loop or a short timeout.
-The command writes status changes and a 30-second heartbeat to stderr.
-It writes the final result to stdout. Omit ID when SLOPWORLD_TASK_ID is set.
-";
-pub(crate) const ACCEPT_USAGE: &str = "usage:
-  slopctl task accept [ID] [NOTE...]
-
-Accept a queued task. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID; use --id ID to target another task.
-";
-pub(crate) const PROGRESS_USAGE: &str = "usage:
-  slopctl task progress [ID] [NOTE...]
-
-Set an accepted task to working. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID; use --id ID to target another task.
-";
-pub(crate) const FINISH_USAGE: &str = "usage:
-  slopctl task finish [ID] [RESULT...]
-
-Mark a task as done. Add an optional result. When SLOPWORLD_TASK_ID is set, omit ID; use --id ID to target another task.
-";
-pub(crate) const FAIL_USAGE: &str = "usage:
-  slopctl task fail [ID] [ERROR...]
-
-Mark a task as failed. Add an optional reason. When SLOPWORLD_TASK_ID is set, omit ID; use --id ID to target another task.
-";
-pub(crate) const REMOVE_USAGE: &str = "usage:
-  slopctl task remove [ID]
-
-Remove one task that is done, failed, or canceled. When SLOPWORLD_TASK_ID is set, omit ID.
-";
-pub(crate) const PRUNE_USAGE: &str = "usage:
-  slopctl task prune [--include-active]
-
-Remove terminal tasks that you sent or received. Add --include-active to remove every task.
-This option requires the root token.
-";
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum UpdateAction {
     Accept,
@@ -120,87 +28,6 @@ impl UpdateAction {
         }
     }
 }
-pub(super) fn parse_task_command(
-    args: &[String],
-    task_id: Option<&str>,
-) -> Result<Command, String> {
-    match args.get(1).map(String::as_str) {
-        Some("delegate") => parse_delegate(args, 2),
-        Some("list") => Ok(Command::Inbox {
-            filter: InboxFilter::parse(args.get(2..).unwrap_or_default())?,
-        }),
-        Some(action @ ("show" | "wait" | "remove")) => {
-            let id = task_id_arg(args, 2, &format!("task {action} needs a task id"), task_id)?;
-            only(args, 3)?;
-            Ok(match action {
-                "show" => Command::Task { id },
-                "wait" => Command::Wait { id },
-                _ => Command::Remove { id },
-            })
-        }
-        Some("accept") => parse_task_update(args, UpdateAction::Accept, task_id),
-        Some("progress") => parse_task_update(args, UpdateAction::Progress, task_id),
-        Some("finish") => parse_task_update(args, UpdateAction::Finish, task_id),
-        Some("fail") => parse_task_update(args, UpdateAction::Fail, task_id),
-        Some("prune") => parse_task_prune(args),
-        Some(subcommand) => Err(format!(
-            "unknown task subcommand: {subcommand}\n\n{TASK_USAGE}"
-        )),
-        None => Err(format!("task needs a subcommand\n\n{TASK_USAGE}")),
-    }
-}
-
-fn parse_delegate(args: &[String], recipient_at: usize) -> Result<Command, String> {
-    Ok(Command::Delegate {
-        to: arg(args, recipient_at, "delegate needs the agent to send to")?.to_string(),
-        body: rest(args, recipient_at + 1, "delegate needs a task body")?,
-    })
-}
-
-fn parse_task_update(
-    args: &[String],
-    action: UpdateAction,
-    task_id: Option<&str>,
-) -> Result<Command, String> {
-    let name = match &action {
-        UpdateAction::Accept => "task accept",
-        UpdateAction::Progress => "task progress",
-        UpdateAction::Finish => "task finish",
-        UpdateAction::Fail => "task fail",
-    };
-    let mut note_at = 2;
-    let (flag, inline) = args
-        .get(2)
-        .map(|arg| value_option(arg))
-        .unwrap_or(("", None));
-    let id = if flag == "--id" {
-        let id = option_value(args, &mut note_at, flag, inline)?;
-        note_at += 1;
-        id
-    } else if let Some(id) = task_id {
-        id.to_string()
-    } else {
-        note_at = 3;
-        task_id_arg(args, 2, &format!("{name} needs a task id"), None)?
-    };
-    // A delimiter also permits notes that begin with --id or a help flag.
-    if args.get(note_at).is_some_and(|arg| arg == "--") {
-        note_at += 1;
-    }
-    let note = (args.len() > note_at).then(|| args.get(note_at..).unwrap_or_default().join(" "));
-    Ok(Command::Update { action, id, note })
-}
-
-fn parse_task_prune(args: &[String]) -> Result<Command, String> {
-    let all = match args.get(2).map(String::as_str) {
-        None => false,
-        Some("--include-active") => true,
-        Some(flag) => return Err(format!("unknown flag: {flag}\n\n{TASK_USAGE}")),
-    };
-    only(args, 3)?;
-    Ok(Command::Prune { all })
-}
-
 pub(super) fn run_delegate(
     endpoint: &Endpoint,
     session: &str,
@@ -436,33 +263,19 @@ pub(crate) fn batch_succeeded(value: &Value) -> Result<(), String> {
     ))
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, clap::Args)]
 pub(crate) struct InboxFilter {
+    #[arg(long)]
     pub(crate) all: bool,
+    #[arg(long)]
     pub(crate) sent: bool,
+    #[arg(long)]
     pub(crate) received: bool,
+    #[arg(long)]
     pub(crate) status: Option<String>,
 }
 
 impl InboxFilter {
-    pub(crate) fn parse(args: &[String]) -> Result<Self, String> {
-        let mut f = Self::default();
-        let mut rest = args.iter();
-        while let Some(arg) = rest.next() {
-            match arg.as_str() {
-                "--all" => f.all = true,
-                "--sent" => f.sent = true,
-                "--received" => f.received = true,
-                "--status" => {
-                    let s = rest.next().ok_or("--status needs a value")?;
-                    f.status = Some(s.clone());
-                }
-                flag => return Err(format!("unknown flag: {flag}\n\n{USAGE}")),
-            }
-        }
-        Ok(f)
-    }
-
     fn keeps(&self, task: &Value, me: &str) -> bool {
         let status = task["status"].as_str().unwrap_or("");
         let from_me = task["from"].as_str() == Some(me);
@@ -490,20 +303,8 @@ impl InboxFilter {
     }
 }
 
-pub(super) fn task_id_from_env() -> Option<String> {
+pub(crate) fn task_id_from_env() -> Option<String> {
     std::env::var(TASK_ID_ENV)
         .ok()
         .filter(|id| !id.trim().is_empty())
-}
-
-pub(super) fn task_id_arg(
-    args: &[String],
-    at: usize,
-    missing: &str,
-    task_id: Option<&str>,
-) -> Result<String, String> {
-    args.get(at)
-        .cloned()
-        .or_else(|| task_id.map(str::to_owned))
-        .ok_or_else(|| missing.to_string())
 }

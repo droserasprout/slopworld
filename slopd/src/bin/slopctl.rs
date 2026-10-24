@@ -1,3 +1,13 @@
+//! Parse CLI requests, handle local commands, then load credentials for remote execution.
+
+#[path = "../shared/cli_completions.rs"]
+mod cli_completions;
+
+#[path = "../shared/cli_styles.rs"]
+mod cli_styles;
+
+#[path = "slopctl/cli.rs"]
+mod cli;
 #[path = "slopctl/commands/mod.rs"]
 mod commands;
 #[path = "slopctl/format.rs"]
@@ -15,9 +25,9 @@ mod test_http;
 #[path = "slopctl/tests.rs"]
 mod tests;
 
-use commands::{Command, USAGE, parse_command};
-use logs::{LOGS_USAGE, run_logs};
-use shared::application_paths::{self, Mode};
+use clap::builder::StyledStr;
+use cli::Command;
+use logs::run_logs;
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -28,54 +38,47 @@ fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("slopctl: {e}");
+            anstream::eprintln!("slopctl: {}", e.ansi());
             ExitCode::FAILURE
         }
     }
 }
 
-fn run() -> Result<(), String> {
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
-    let mode = if application_paths::take_flag(&mut args, "--sidecar") {
-        Mode::Sidecar
-    } else {
-        Mode::Native
-    };
-    let named_endpoint = application_paths::take_endpoint(&mut args)?;
-    let json = take_json_flag(&mut args);
-    if let Some(path) = application_paths::path_query(&args, mode, named_endpoint.as_deref())? {
-        if json {
-            println!(
-                "{}",
-                serde_json::to_string(&path).map_err(|error| error.to_string())?
-            );
-        } else {
-            println!("{}", path.display());
-        }
-        return Ok(());
-    }
-    let command = args.first().map(String::as_str);
-    if matches!(command, None | Some("-h" | "--help" | "help")) {
-        print!("{USAGE}");
-        return Ok(());
-    }
-    let command = parse_command(&args)?;
-    if let Command::Help { usage } = &command {
-        print!("{usage}");
-        return Ok(());
-    }
-    // Read local log files so they remain available while slopd is down.
-    // Handle this command before loading endpoints/local.toml because it does not need the endpoint token.
-    if let Command::Logs { ref args } = command {
-        if args
-            .iter()
-            .any(|a| matches!(a.as_str(), "-h" | "--help" | "help"))
-        {
-            print!("{LOGS_USAGE}");
+fn run() -> Result<(), StyledStr> {
+    let cli::Parsed {
+        command,
+        mode,
+        endpoint: named_endpoint,
+        json,
+    } = cli::parse(
+        std::env::args().skip(1).collect(),
+        commands::task_id_from_env().as_deref(),
+    )?;
+    let command = match command {
+        Command::Help { usage } => {
+            anstream::print!("{}", usage.ansi());
             return Ok(());
         }
-        return run_logs(args, json, mode);
-    }
+        Command::Completions { script } => {
+            print!("{script}");
+            return Ok(());
+        }
+        Command::Paths { name } => {
+            let path = mode.query(&name, named_endpoint.as_deref())?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string(&path).map_err(|error| error.to_string())?
+                );
+            } else {
+                println!("{}", path.display());
+            }
+            return Ok(());
+        }
+        // Local logs remain available without daemon credentials or connectivity.
+        Command::Logs { options } => return run_logs(options, json).map_err(Into::into),
+        Command::Remote(command) => command,
+    };
 
     let endpoint = http::load_endpoint(mode, named_endpoint.as_deref())?;
     // Use the host identity when SLOPWORLD_SESSION is absent or empty.
@@ -85,9 +88,5 @@ fn run() -> Result<(), String> {
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| HOST.to_string());
 
-    command.run(&endpoint, &session, json)
-}
-
-fn take_json_flag(args: &mut Vec<String>) -> bool {
-    application_paths::take_flag(args, "--json")
+    command.run(&endpoint, &session, json).map_err(Into::into)
 }

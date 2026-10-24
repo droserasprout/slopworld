@@ -9,6 +9,12 @@ support amd64/arm64, which does not itself establish platform validation.
 and exposes its commands through `just/mac.just`. Shared container tooling remains
 in `slopcar/`; its independent Rust crate owns the
 host launcher and embeds the seccomp policy; image builds still need a checkout.
+`slopcar/src/cli.rs` owns the Clap command tree and generated help. It preserves
+credential mount order across read-only/read-write options and forwards every
+argument after `logs` verbatim to Docker; use `slopcar help logs` for CLI help.
+Local help, completions, notices, and paths bypass container settings and Docker discovery.
+Mount policy and filesystem validation remain in their execution owners.
+
 Image builds are explicit. Install, doctor, and launch consume the selected
 `SLOPCAR_IMAGE` without rebuilding it, preserving user-installed agent CLIs.
 

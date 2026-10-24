@@ -48,6 +48,7 @@ prints JSON. Token reads remain redacted.
 `daemon`, `defaults`, and `commands`. Strings take literal text; booleans, numbers,
 and lists take JSON, for example `slopctl config set daemon.worker_templates '[]'`.
 Paths use dots; escape dots in map keys as `~1` and tildes as `~0`.
+Use `--` before a literal value that looks like an option.
 
 Changing `daemon.bind` requires a daemon restart. Changing `daemon.token` takes
 effect immediately and invalidates the old token; reconnect saved remote peers
@@ -69,9 +70,9 @@ slopctl task wait ID
 Recipients use this sequence:
 
 1. Read the task with `slopctl task show ID`.
-2. Accept it with `slopctl task accept ID`.
-3. Report progress with `slopctl task progress ID "note"`.
-4. Report the result with `slopctl task finish ID "result"` or `slopctl task fail ID "reason"`.
+2. Accept it with `slopctl task accept --id ID`.
+3. Report progress with `slopctl task progress --id ID "note"`.
+4. Report the result with `slopctl task finish --id ID "result"` or `slopctl task fail --id ID "reason"`.
 
 Task statuses are `queued`, `accepted`, `working`, `done`, `failed`, or `canceled`.
 A task is terminal when its status is `done`, `failed`, or `canceled`.
@@ -86,13 +87,22 @@ terminal tasks.
 It also removes unfinished tasks.
 CLI help lists the current filters and options.
 
-When `SLOPWORLD_TASK_ID` is set, you may omit `ID` from task lifecycle commands.
-For `accept`, `progress`, `finish`, and `fail`, positional words become the note; use
-`--id ID` to target another task explicitly. For example, `slopctl task progress Reviewing the code`
+For `accept`, `progress`, `finish`, and `fail`, select the task with `--id ID` or
+let `SLOPWORLD_TASK_ID` supply it. Positional words always become the note.
+For example, `slopctl task progress Reviewing the code`
 updates the injected task, while `slopctl task progress --id other-task Reviewing the code`
-updates `other-task`. Use `--` before a note beginning with `--id` or a help flag.
-Without an injected ID, updates also accept the positional `ID NOTE...` form.
-Read, wait, and remove commands continue to accept an explicit positional ID.
+updates `other-task`. Without either source of task identity, the update fails.
+Read, wait, and remove commands take a positional ID, which may be omitted when
+`SLOPWORLD_TASK_ID` is set.
+
+Put options before task text or notes. Once text starts, all following words are
+literal, including `--json`, `--endpoint`, `--sidecar`, and `--help`.
+Insert `--` before text whose first word looks like an option:
+
+```sh
+slopctl --json task delegate AGENT "Investigate --sidecar behavior"
+slopctl task progress --id ID -- --help is now working
+```
 
 `slopctl task list` shows unfinished tasks that you sent or received, newest first.
 `wait` blocks until `done`, `failed`, or `canceled`, then prints the final task.
@@ -102,7 +112,7 @@ Stdout (including `--json`) contains only the final task result.
 
 The following are abbreviated examples; CLI help lists all options.
 
-`slopctl worker spawn [--one-shot | --durable] --project PROJECT --template TEMPLATE "task description"` creates the
+`slopctl worker spawn [--one-shot] --project PROJECT --template TEMPLATE "task description"` creates the
 task and child session in one daemon operation.
 The worker uses the selected template.
 
@@ -116,8 +126,18 @@ Agent, worker, and worktree value options accept `--option=VALUE` for values beg
 with a dash. A separate value must not be another option.
 
 Insert `--` before task text that has an option as its first item.
-For example, `slopctl worker spawn --project repo --template review -- --durable` sends the literal task
-`--durable`.
+For example, `slopctl worker spawn --project repo --template review -- --help` sends the literal task
+`--help`.
+
+To give a worker a separate checkout, create it first and pass the returned ID:
+
+```sh
+slopctl worktree create --project repo --name review --base HEAD
+slopctl worker spawn --project repo --template review --worktree ID "Review the changes"
+```
+
+`worktree create` owns checkout creation options. `worker spawn --worktree ID`
+selects an existing checkout; omitting it uses the project's main checkout.
 
 The worker receives its exact task ID in `SLOPWORLD_TASK_ID`, and `slopctl` uses it when a lifecycle
 command omits `ID`. Workers are persistent by default.
@@ -164,3 +184,31 @@ default to `<CACHE>/sidecar/Player.log`.
 Every command accepts `--json` to print newline-delimited JSON instead of formatted text.
 The JSON represents the result, such as a filtered task list, name list, or status object.
 The structured output shape varies by command.
+
+## Shell completions
+
+`slopctl`, `slopworld`, and `slopcar` print shell completion scripts without
+contacting the daemon, loading a game profile, or discovering Docker:
+
+```sh
+slopctl completions bash
+slopworld completions zsh
+slopcar completions fish
+```
+
+Native Linux packages install Bash, Zsh, and Fish completions for `slopctl` and
+`slopworld` under `/usr/share`. Source installation with `just daemon-install`
+or `just sidecar-install` installs the corresponding scripts under
+`${XDG_DATA_HOME:-$HOME/.local/share}`. Bash needs bash-completion enabled.
+For Zsh source installs, put the directory on `fpath` before `compinit` in `.zshrc`:
+
+```zsh
+fpath=("${XDG_DATA_HOME:-$HOME/.local/share}/zsh/site-functions" $fpath)
+autoload -Uz compinit
+compinit
+```
+
+For a single Bash session, run `source <(slopctl completions bash)`.
+Completions include command names, flags, enum values, and file/directory hints;
+they do not query live tasks, templates, or endpoint names.
+Use `-h` for concise help and `--help` for detailed help.

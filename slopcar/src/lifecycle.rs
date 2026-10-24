@@ -1,6 +1,6 @@
 //! Container lifecycle and security policy; persistence and mount checks stay with their owners.
 use crate::{
-    cli::{Command, HELP, Start},
+    cli::{Command, Start},
     config,
     docker::Docker,
     mounts,
@@ -83,13 +83,17 @@ fn run_with(
     docker: &Docker,
     identity: fn() -> Result<(u32, u32)>,
 ) -> Result<()> {
-    if matches!(command, Command::Help) {
-        print!("{HELP}");
+    if let Command::Help(text) = &command {
+        anstream::print!("{}", text.ansi());
+        return Ok(());
+    }
+    if let Command::Completions(text) = &command {
+        print!("{text}");
         return Ok(());
     }
     docker.ready()?;
     match command {
-        Command::Help => {}
+        Command::Help(_) | Command::Completions(_) => {}
         Command::Paths(name) => println!(
             "{}",
             crate::application_paths::Mode::Sidecar

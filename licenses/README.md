@@ -11,6 +11,7 @@ metadata; it does not include their full license texts or notices.
 
 | Component | License | Full text | Attribution and use |
 | --- | --- | --- | --- |
+| [Clap](https://github.com/clap-rs/clap) and its additional dependencies | MIT (selected where dual-licensed) | [License texts](clap/README.md) | `slopctl` argument parsing, help, and diagnostics. |
 | [globset](https://github.com/BurntSushi/ripgrep/tree/master/crates/globset) | MIT (selected from Unlicense OR MIT) | [License](globset/LICENSE-MIT) | Andrew Gallant; daemon search path filters. |
 | [bstr](https://github.com/BurntSushi/bstr) | MIT (selected from MIT OR Apache-2.0) | [License](bstr/LICENSE-MIT) | Andrew Gallant; byte-string support for globset. |
 | RimWorld Tame designator | RimWorld EULA | [License](rimworld/EULA.txt) | Ludeon Studios Inc.; `UI/Designators/Tame` from RimWorld 1.6, mirrored, scaled, and rotated for the documentation cursors. |

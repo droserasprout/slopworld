@@ -184,6 +184,37 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
             self.assertNotIn('image build', result.stderr)
             self.assertNotIn('build --source', result.stderr)
 
+    def test_macos_profile_initialization_uses_the_profile_command(self) -> None:
+        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'PROFILE=/game profile', 'mac-profile')
+        (call,) = self.calls('runner')
+        self.assertEqual(call['args'], ['--sidecar', 'profile', 'init', '--profile', '/game profile'])
+
+    def test_macos_launch_uses_only_launcher_options(self) -> None:
+        self.env.update(
+            MAC_GAME='/game bundle/executable',
+            MAC_RESOURCES='/game bundle/resources',
+            MAC_MODS='/game bundle/mods',
+            PROFILE='/game profile',
+            MAC_GAME_ARGS='-screen-width 1200',
+        )
+        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'mac-run')
+        (launcher,) = self.calls('runner')
+        self.assertEqual(
+            launcher['args'],
+            [
+                '--sidecar',
+                '--game-exe',
+                '/game bundle/executable',
+                '--working-dir',
+                '/game bundle/resources',
+                '--mods',
+                '/game bundle/mods',
+                '--profile',
+                '/game profile',
+                '--no-window-fix',
+            ],
+        )
+
     def test_release_build_uses_environment_and_command_override(self) -> None:
         self.env['BUILD'] = 'debug'
         self.run_recipe('BUILD=release', 'daemon-build')
@@ -257,7 +288,13 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.run_recipe('generate-all')
         modules = [call['args'][call['args'].index('-m') + 1] for call in self.calls('uv')]
         self.assertEqual(modules[-1], 'tools.licenses.stage_licenses')
-        self.assertEqual(self.calls('cargo'), [])
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual([call['tool'] for call in calls[:3]], ['cargo', 'cargo', 'uv'])
+        self.assertEqual(modules[0], 'tools.cli_completions')
+        self.assertEqual(
+            [(Path(call['cwd']).name, call['args']) for call in self.calls('cargo')],
+            [('slopd', ['build', '--quiet', '--locked']), ('slopcar', ['build', '--quiet', '--locked'])],
+        )
         self.assertEqual(self.calls('dotnet'), [])
         self.assertIn('tools.licenses.sidecar_licenses', modules)
         for module in ('emoji', 'emoji_atlas', 'fileicons'):

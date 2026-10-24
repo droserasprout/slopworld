@@ -38,5 +38,11 @@ cp -a "%{_sourcedir}/payload/." "%{buildroot}/"
 /usr/share/applications/slopworld.desktop
 /usr/share/icons/hicolor/128x128/apps/slopworld.png
 /usr/share/slopworld
+/usr/share/bash-completion/completions/slopctl
+/usr/share/bash-completion/completions/slopworld
+/usr/share/zsh/site-functions/_slopctl
+/usr/share/zsh/site-functions/_slopworld
+/usr/share/fish/vendor_completions.d/slopctl.fish
+/usr/share/fish/vendor_completions.d/slopworld.fish
 %doc /usr/share/doc/slopworld
 %license /usr/share/licenses/slopworld

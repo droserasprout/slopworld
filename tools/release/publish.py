@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from tools import ROOT
+from tools import cli_completions
 from tools.release import changelog
 from tools.release import container
 from tools.release import gates
@@ -41,6 +42,7 @@ def package(output: Path, revision: str, version: str, *, notes: str, native_pac
         for source_name in ('slopd/slopd.service', 'packaging/slopworld.desktop', 'LICENSE'):
             staging.copy_file(ROOT / source_name, daemon / Path(source_name).name)
         shutil.copytree(ROOT / 'licenses', daemon / 'licenses')
+        cli_completions.stage(ROOT / 'packaging/completions', daemon / 'share', ('slopctl', 'slopworld'))
         staging.metadata(daemon, revision, version)
 
         mod = workspace / 'SlopWorld'

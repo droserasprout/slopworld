@@ -16,6 +16,13 @@ belongs to each crate's manifest; `clippy.toml` owns thresholds and test allowan
 `mac/` owns native macOS workflows; `slopcar/` owns containers. Mod builds do not
 build Rust, so install/launch recipes must declare their launcher dependency.
 
+Shell completion scripts in `packaging/completions/` are generated from the three
+client command trees by `just generate-completions`. `tools/cli_completions.py` owns
+shell install paths; source installs and release staging consume those scripts.
+CLI integration tests check that packaged scripts match the current trees.
+Python tooling tests exercise Zsh tab completion when Zsh is installed; tooling CI
+includes it.
+
 Ordinary builds consume committed generated files. Regeneration is explicit and
 writes only changed bytes. `generate-all` consumes reviewed locks and stages licenses
 last; dependency updates are separate. See [runtime packages](../mod/Dependencies/README.md)

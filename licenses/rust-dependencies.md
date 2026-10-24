@@ -16,6 +16,11 @@ and does not identify which crates are included in a particular binary.
 | alacritty_terminal | 0.26.0 | Apache-2.0 |
 | alsa | 0.11.0 | Apache-2.0/MIT |
 | alsa-sys | 0.4.0 | MIT |
+| anstream | 1.0.0 | MIT OR Apache-2.0 |
+| anstyle | 1.0.14 | MIT OR Apache-2.0 |
+| anstyle-parse | 1.0.0 | MIT OR Apache-2.0 |
+| anstyle-query | 1.1.5 | MIT OR Apache-2.0 |
+| anstyle-wincon | 3.0.11 | MIT OR Apache-2.0 |
 | anyhow | 1.0.104 | MIT OR Apache-2.0 |
 | arrayvec | 0.7.8 | MIT OR Apache-2.0 |
 | async-trait | 0.1.92 | MIT OR Apache-2.0 |
@@ -39,7 +44,13 @@ and does not identify which crates are included in a particular binary.
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
+| clap | 4.6.7 | MIT OR Apache-2.0 |
+| clap_builder | 4.6.7 | MIT OR Apache-2.0 |
+| clap_complete | 4.6.11 | MIT OR Apache-2.0 |
+| clap_derive | 4.6.7 | MIT OR Apache-2.0 |
+| clap_lex | 1.1.1 | MIT OR Apache-2.0 |
 | color_quant | 1.1.0 | MIT |
+| colorchoice | 1.0.5 | MIT OR Apache-2.0 |
 | combine | 4.6.9 | MIT |
 | concurrent-queue | 2.5.0 | Apache-2.0 OR MIT |
 | cookie | 0.18.2 | MIT OR Apache-2.0 |
@@ -112,6 +123,7 @@ and does not identify which crates are included in a particular binary.
 | image | 0.25.10 | MIT OR Apache-2.0 |
 | image-webp | 0.2.4 | MIT OR Apache-2.0 |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT |
+| is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |
 | itertools | 0.14.0 | MIT OR Apache-2.0 |
 | itoa | 1.0.18 | MIT OR Apache-2.0 |
 | jni | 0.21.1 | MIT/Apache-2.0 |
@@ -162,6 +174,7 @@ and does not identify which crates are included in a particular binary.
 | objc2-encode | 4.1.0 | MIT |
 | objc2-foundation | 0.3.2 | MIT |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 |
+| once_cell_polyfill | 1.70.2 | MIT OR Apache-2.0 |
 | option-ext | 0.2.0 | MPL-2.0 |
 | parking_lot | 0.12.5 | MIT OR Apache-2.0 |
 | parking_lot_core | 0.9.12 | MIT OR Apache-2.0 |
@@ -223,6 +236,7 @@ and does not identify which crates are included in a particular binary.
 | smallvec | 1.16.4 | MIT OR Apache-2.0 |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 |
+| strsim | 0.11.1 | MIT |
 | subtle | 2.6.1 | BSD-3-Clause |
 | symphonia | 0.5.5 | MPL-2.0 |
 | symphonia-bundle-mp3 | 0.5.5 | MPL-2.0 |
@@ -275,6 +289,7 @@ and does not identify which crates are included in a particular binary.
 | utf-8 | 0.7.6 | MIT OR Apache-2.0 |
 | utf8-zero | 0.8.1 | MIT OR Apache-2.0 |
 | utf8_iter | 1.0.4 | Apache-2.0 OR MIT |
+| utf8parse | 0.2.2 | Apache-2.0 OR MIT |
 | uuid | 1.29.0 | Apache-2.0 OR MIT |
 | valuable | 0.1.1 | MIT |
 | version_check | 0.9.5 | MIT/Apache-2.0 |

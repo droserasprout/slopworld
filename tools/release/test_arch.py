@@ -65,6 +65,7 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     root.mkdir()
     monkeypatch.setattr(arch, 'ROOT', root)
     monkeypatch.setattr(staging, 'ROOT', root)
+    shutil.copytree(Path(__file__).parents[2] / 'packaging/completions', root / 'packaging/completions')
     for relative in (
         'packaging/arch/PKGBUILD.local',
         'packaging/arch/slopworld.install',

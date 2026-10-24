@@ -1,4 +1,4 @@
-use super::{Args, MOD_DIRS, MOD_NAME, USAGE, ensure_non_overlapping, install, parse, try_run};
+use super::{Args, MOD_DIRS, MOD_NAME, ensure_non_overlapping, install};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -84,16 +84,6 @@ fn config_save_failure_reports_that_the_mod_was_installed() {
     );
     assert!(mods.join(MOD_NAME).join("About/About.xml").is_file());
     fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn command_dispatch_is_opt_in() {
-    assert_eq!(try_run(&args(&["--help"])).unwrap(), None);
-    assert_eq!(
-        try_run(&args(&["mod", "--help"])).unwrap(),
-        Some(USAGE.to_string())
-    );
-    try_run(&args(&["mod", "unknown"])).unwrap_err();
 }
 
 #[test]
@@ -319,4 +309,38 @@ fn explicit_mod_directory_keeps_its_custom_basename() {
     }
     parse(&args(&["--mods", "/custom", "--game", "/game"]), true).unwrap_err();
     fs::remove_dir_all(root).unwrap();
+}
+
+fn parse(args: &[String], install: bool) -> Result<Args, String> {
+    let mut words = vec![
+        "mod".into(),
+        if install { "install" } else { "uninstall" }.into(),
+    ];
+    words.extend_from_slice(args);
+    match crate::cli::parse(words).map_err(|error| error.to_string())? {
+        crate::cli::Command::Local {
+            command: crate::cli::LocalCommand::Mod { command },
+            ..
+        } => match command {
+            crate::cli::ModCommand::Install {
+                source,
+                destination,
+            } => Ok(Args {
+                source,
+                ..destination
+            }),
+            crate::cli::ModCommand::Uninstall(args) => Ok(args),
+        },
+        _ => Err("expected mod command".into()),
+    }
+}
+
+fn try_run(args: &[String]) -> Result<String, String> {
+    match crate::cli::parse(args.to_vec()).map_err(|error| error.to_string())? {
+        crate::cli::Command::Local {
+            command: crate::cli::LocalCommand::Mod { command },
+            ..
+        } => super::run(command),
+        _ => Err("expected mod command".into()),
+    }
 }

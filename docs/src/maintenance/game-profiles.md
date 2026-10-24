@@ -42,21 +42,25 @@ ambience at 0%, and UI at 30%. Existing preferences are preserved.
 Create the profile marker and missing mod list without opening the game:
 
 ```sh
-slopworld --endpoint tank --init-profile
+slopworld profile init --endpoint tank
 ```
 
 Existing settings and mod choices are preserved. With `--sidecar`, initialization
 sets the sidecar UI default only when `Config/SlopWorld.toml` is missing.
+The command works without an installed game or a running daemon. Add
+`--profile DIR` after `init` to initialize an explicit save-data folder.
 
 ## Mod list reset
 
-To replace `Config/ModsConfig.xml`, add `--reset`:
+To replace `Config/ModsConfig.xml`, run:
 
 ```sh
-slopworld --endpoint tank --init-profile --reset
+slopworld profile reset --endpoint tank
 ```
 
-This discards the existing mod list; it does not reset saves or the whole profile.
+This discards the existing mod list and restores Core and SlopWorld. Saves and other
+settings are preserved, and the game is not launched. Add `--profile DIR` after
+`reset` to select an explicit folder.
 
 ## Troubleshooting
 

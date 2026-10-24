@@ -207,38 +207,6 @@ fn expand_home(path: PathBuf, lookup: impl Fn(&'static str) -> Option<OsString>)
         .unwrap_or(path)
 }
 
-pub(crate) fn path_query(
-    args: &[String],
-    mode: Mode,
-    endpoint: Option<&str>,
-) -> Result<Option<PathBuf>, String> {
-    if args.first().map(String::as_str) != Some("paths") {
-        return Ok(None);
-    }
-    let [_, name] = args else {
-        return Err("usage: paths config|data|cache|endpoint|profile|game-log".into());
-    };
-    mode.query(name, endpoint).map(Some)
-}
-
-/// Global flags are recognized only before the argument separator.
-pub(crate) fn take_flag(args: &mut Vec<String>, flag: &str) -> bool {
-    let mut selected = false;
-    let mut options = true;
-    args.retain(|arg| {
-        if arg == "--" {
-            options = false;
-        }
-        if options && arg == flag {
-            selected = true;
-            false
-        } else {
-            true
-        }
-    });
-    selected
-}
-
 #[cfg(test)]
 #[path = "application_paths_tests.rs"]
 mod tests;
@@ -253,36 +221,4 @@ pub(crate) fn validate_endpoint_name(name: &str) -> Result<(), String> {
         return Err("endpoint name must contain only letters, digits, '-' or '_'".into());
     }
     Ok(())
-}
-
-/// Consume a global named connection before dispatch; never consume forwarded arguments.
-pub(crate) fn take_endpoint(args: &mut Vec<String>) -> Result<Option<String>, String> {
-    let mut selected = None;
-    let mut index = 0;
-    while let Some(arg) = args.get(index) {
-        if arg == "--" {
-            break;
-        }
-        let value = if arg == "--endpoint" {
-            args.remove(index);
-            if index == args.len() {
-                return Err("--endpoint wants a connection name".into());
-            }
-            Some(args.remove(index))
-        } else if let Some(value) = arg.strip_prefix("--endpoint=") {
-            let value = value.to_owned();
-            args.remove(index);
-            Some(value)
-        } else {
-            index += 1;
-            None
-        };
-        if let Some(value) = value {
-            validate_endpoint_name(&value)?;
-            if selected.replace(value).is_some() {
-                return Err("--endpoint may only be supplied once".into());
-            }
-        }
-    }
-    Ok(selected)
 }

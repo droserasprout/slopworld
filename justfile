@@ -16,6 +16,11 @@ build: daemon-build mod-build
 [group('Build and run')]
 install: daemon-install install-mod
 
+# Install Bash, Zsh and Fish completions for all clients into user data directories
+[group('Build and run')]
+install-completions:
+    uv run --locked python -m tools.cli_completions install slopctl slopworld slopcar
+
 # Remove ordinary build and coverage output
 [group('Build and run')]
 clean: sidecar-clean daemon-clean mod-clean clean-coverage

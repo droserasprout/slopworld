@@ -16,71 +16,30 @@ const MOD_DIRS: &[&str] = &[
     "Assemblies",
 ];
 
-const USAGE: &str = "slopworld mod - install or remove the SlopWorld mod
+use super::cli::{ModCommand, ModOptions as Args};
 
-usage:
-  slopworld mod install [--source MOD_SOURCE] [--game GAME | --mods MODS]
-  slopworld mod uninstall [--game GAME | --mods MODS]
-
-Installation defaults to /usr/share/slopworld/SlopWorld as the source.
-The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
-~/Documents/RimWorld.app; on Linux it uses the launcher defaults ($SLOPWORLD_GAME,
-game.toml, usual locations). --game selects the directory containing Mods; --mods selects the exact mod directory.
-The installer writes to GAME/Mods/SlopWorld. It replaces existing content only
-after it completes a new copy in a temporary sibling directory.
-";
-
-const INSTALL_USAGE: &str = "usage:
-  slopworld mod install [--source MOD_SOURCE] [--game GAME | --mods MODS]
-
-Installation defaults to /usr/share/slopworld/SlopWorld as the source.
-The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
-~/Documents/RimWorld.app; on Linux it uses the launcher defaults ($SLOPWORLD_GAME,
-game.toml, usual locations). --game selects the directory containing Mods; --mods selects the exact mod directory.
-The installer writes to GAME/Mods/SlopWorld. It replaces existing content only
-after it completes a new copy in a temporary sibling directory.
-";
-
-const UNINSTALL_USAGE: &str = "usage:
-  slopworld mod uninstall [--game GAME | --mods MODS]
-
-Removes only GAME/Mods/SlopWorld.
-The game defaults to $RIMWORLD, then on macOS $MAC_RIMWORLD or
-~/Documents/RimWorld.app; on Linux it uses the launcher defaults ($SLOPWORLD_GAME,
-game.toml, usual locations).
-";
-
-pub(crate) fn try_run(args: &[String]) -> Result<Option<String>, String> {
-    if args.first().map(String::as_str) != Some("mod") {
-        return Ok(None);
-    }
-
-    match args.get(1).map(String::as_str) {
-        None | Some("-h") | Some("--help") | Some("help") => Ok(Some(USAGE.to_string())),
-        Some("install") => run_install(args.get(2..).unwrap_or_default()),
-        Some("uninstall") => run_uninstall(args.get(2..).unwrap_or_default()),
-        Some(command) => Err(format!("unknown mod command {command}\n\n{USAGE}")),
+pub(super) fn run(command: ModCommand) -> Result<String, String> {
+    match command {
+        ModCommand::Install {
+            source,
+            destination,
+        } => run_install(&Args {
+            source,
+            ..destination
+        }),
+        ModCommand::Uninstall(args) => run_uninstall(&args),
     }
 }
 
-fn run_install(args: &[String]) -> Result<Option<String>, String> {
-    let args = parse(args, true)?;
-    if args.help {
-        return Ok(Some(INSTALL_USAGE.to_string()));
-    }
-
-    let mods = game_mods(&args)?;
+fn run_install(args: &Args) -> Result<String, String> {
+    let mods = game_mods(args)?;
     let source = safe_directory(
         args.source
             .as_deref()
             .unwrap_or_else(|| Path::new(DEFAULT_SOURCE)),
         "mod source directory",
     )?;
-    Ok(Some(install_and_remember(
-        &source,
-        &mods,
-        super::game_config::config_path,
-    )?))
+    install_and_remember(&source, &mods, super::game_config::config_path)
 }
 
 fn game_mods(args: &Args) -> Result<PathBuf, String> {
@@ -147,64 +106,11 @@ fn install_and_remember(
     Ok(message)
 }
 
-fn run_uninstall(args: &[String]) -> Result<Option<String>, String> {
-    let args = parse(args, false)?;
-    if args.help {
-        return Ok(Some(UNINSTALL_USAGE.to_string()));
-    }
-
-    let mods = game_mods(&args)?;
+fn run_uninstall(args: &Args) -> Result<String, String> {
+    let mods = game_mods(args)?;
     let destination = mods.join(MOD_NAME);
     remove_existing(&destination)?;
-    Ok(Some(format!("removed {}\n", destination.display())))
-}
-
-#[derive(Debug, Default, PartialEq, Eq)]
-struct Args {
-    source: Option<PathBuf>,
-    game: Option<PathBuf>,
-    mods: Option<PathBuf>,
-    help: bool,
-}
-
-fn parse(args: &[String], allow_source: bool) -> Result<Args, String> {
-    let mut out = Args::default();
-    let mut it = args.iter();
-    while let Some(arg) = it.next() {
-        match arg.as_str() {
-            "-h" | "--help" => out.help = true,
-            "--source" if allow_source => out.source = Some(next_path(&mut it, "--source")?),
-            "--mods" => out.mods = Some(next_path(&mut it, "--mods")?),
-            value if value.starts_with("--mods=") => {
-                out.mods = Some(PathBuf::from(
-                    value.strip_prefix("--mods=").unwrap_or_default(),
-                ));
-            }
-            "--game" => out.game = Some(next_path(&mut it, "--game")?),
-            value if allow_source && value.starts_with("--source=") => {
-                out.source = Some(PathBuf::from(
-                    value.strip_prefix("--source=").unwrap_or_default(),
-                ));
-            }
-            value if value.starts_with("--game=") => {
-                out.game = Some(PathBuf::from(
-                    value.strip_prefix("--game=").unwrap_or_default(),
-                ));
-            }
-            value if value.starts_with('-') => return Err(format!("unknown option {value}")),
-            value => return Err(format!("unexpected argument {value}")),
-        }
-    }
-    if out.game.is_some() && out.mods.is_some() {
-        return Err("use only one of --game or --mods".into());
-    }
-    Ok(out)
-}
-
-fn next_path<'a>(it: &mut impl Iterator<Item = &'a String>, flag: &str) -> Result<PathBuf, String> {
-    it.next()
-        .map(PathBuf::from)
-        .ok_or_else(|| format!("{flag} wants a path after it"))
+    Ok(format!("removed {}\n", destination.display()))
 }
 
 fn safe_directory(path: &Path, label: &str) -> Result<PathBuf, String> {

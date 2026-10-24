@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 
 from tools import ROOT
+from tools import cli_completions
 from tools.utils import run
 
 BINARIES = ('slopd', 'slopctl', 'slopworld')
@@ -60,6 +61,7 @@ def stage_system(payload: Path, binary_dir: Path) -> None:
         target = payload / 'usr/bin' / binary
         copy_file(binary_dir / binary, target)
         target.chmod(0o755)
+    cli_completions.stage(ROOT / 'packaging/completions', payload / 'usr/share', ('slopctl', 'slopworld'))
     unit = payload / 'usr/lib/systemd/user/slopd.service'
     copy_file(ROOT / 'slopd/slopd.service', unit)
     unit.write_text(unit.read_text().replace('%h/.local/bin/slopd', '/usr/bin/slopd'))

@@ -6,6 +6,9 @@ mod api;
 mod application;
 mod audio;
 mod benchmark;
+mod cli;
+#[path = "shared/cli_styles.rs"]
+mod cli_styles;
 mod clock;
 mod config;
 mod desktop;
@@ -53,15 +56,13 @@ use axum::middleware::{self, Next};
 use axum::response::IntoResponse;
 
 use crate::config::Config;
+use clap::Parser;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args: Vec<_> = std::env::args().skip(1).collect();
-    anyhow::ensure!(
-        args.is_empty() || args == ["--perf-bench"],
-        "unsupported daemon arguments; run slopd without arguments"
-    );
-    if args == ["--perf-bench"] {
+    // Local CLI exits and benchmarks must precede configuration and service startup.
+    let args = cli::Args::parse();
+    if args.perf_bench {
         return benchmark::run();
     }
 

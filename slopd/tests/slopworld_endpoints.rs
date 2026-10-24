@@ -43,11 +43,7 @@ impl Drop for Client {
 #[test]
 fn peer_dispatch_and_path_queries_do_not_create_state() {
     let client = Client::new();
-    assert!(
-        client
-            .launcher(&["connect", "--help"])
-            .contains("connect NAME")
-    );
+    assert!(client.launcher(&["connect", "--help"]).contains("<NAME>"));
     assert!(
         client
             .launcher(&["endpoints"])
@@ -115,11 +111,11 @@ fn clients_default_to_local_while_named_and_sidecar_overrides_remain_independent
             .to_str()
             .unwrap()
     );
-    client.launcher(&["--init-profile"]);
+    client.launcher(&["profile", "init"]);
     let profile = client.0.join("data/profiles/local");
     assert!(profile.join("slopworld.profile").exists());
     fs::write(profile.join("Config/ModsConfig.xml"), "custom mod list").unwrap();
-    client.launcher(&["--init-profile"]);
+    client.launcher(&["profile", "init"]);
     assert_eq!(
         fs::read_to_string(profile.join("Config/ModsConfig.xml")).unwrap(),
         "custom mod list"
@@ -223,11 +219,100 @@ fn connect_registers_without_selecting_or_exposing_its_key() {
             .to_str()
             .unwrap()
     );
-    client.launcher(&["--endpoint", "tank", "--init-profile"]);
+    client.launcher(&["--endpoint", "tank", "profile", "init"]);
     assert!(
         client
             .0
             .join("data/profiles/tank/slopworld.profile")
             .is_file()
     );
+}
+
+#[test]
+fn completions_are_offline_and_match_packaged_scripts() {
+    let client = Client::new();
+    for (name, executable) in [
+        ("slopctl", env!("CARGO_BIN_EXE_slopctl")),
+        ("slopworld", env!("CARGO_BIN_EXE_slopworld")),
+    ] {
+        for (shell, directory, filename) in [
+            ("bash", "bash-completion/completions", name.to_string()),
+            ("zsh", "zsh/site-functions", format!("_{name}")),
+            ("fish", "fish/vendor_completions.d", format!("{name}.fish")),
+        ] {
+            let generated = client.output(executable, &["completions", shell]);
+            let packaged = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../packaging/completions")
+                .join(directory)
+                .join(filename);
+            assert_eq!(generated, fs::read_to_string(packaged).unwrap());
+        }
+    }
+    assert!(!client.0.exists());
+}
+
+#[test]
+fn profile_commands_work_offline_and_reset_only_the_mod_list() {
+    for sidecar in [false, true] {
+        let client = Client::new();
+        let profile = client.0.join("custom profile");
+        let run = |action| {
+            let mut command = client.command(env!("CARGO_BIN_EXE_slopworld"));
+            command.env("SLOPWORLD_GAME", client.0.join("missing-game"));
+            if sidecar {
+                command.arg("--sidecar");
+            }
+            let output = command
+                .args(["profile", action, "--endpoint", "offline", "--profile"])
+                .arg(&profile)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        run("init");
+        let mods = profile.join("Config/ModsConfig.xml");
+        let initial_mods = fs::read(&mods).unwrap();
+        let prefs = profile.join("Config/Prefs.xml");
+        let settings = profile.join("Config/SlopWorld.toml");
+        assert_eq!(settings.exists(), sidecar);
+        let save = profile.join("Saves/colony.rws");
+        fs::create_dir_all(save.parent().unwrap()).unwrap();
+        for path in [&mods, &prefs, &settings, &save] {
+            fs::write(path, "custom contents").unwrap();
+        }
+        fs::remove_file(profile.join("slopworld.profile")).unwrap();
+        run("init");
+        assert!(profile.join("slopworld.profile").is_file());
+        assert_eq!(fs::read_to_string(&mods).unwrap(), "custom contents");
+        for _ in 0..2 {
+            run("reset");
+            assert_eq!(fs::read(&mods).unwrap(), initial_mods);
+            for path in [&prefs, &settings, &save] {
+                assert_eq!(fs::read_to_string(path).unwrap(), "custom contents");
+            }
+        }
+        assert!(!client.0.join("config").exists());
+        assert!(!client.0.join("data").exists());
+    }
+}
+
+#[test]
+fn invalid_profile_commands_create_no_state() {
+    let client = Client::new();
+    for action in ["init", "reset"] {
+        let profile = client.0.join("invalid=profile");
+        let output = client
+            .command(env!("CARGO_BIN_EXE_slopworld"))
+            .args(["profile", action, "--profile"])
+            .arg(&profile)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("contains '='"));
+        assert!(!client.0.exists());
+    }
 }

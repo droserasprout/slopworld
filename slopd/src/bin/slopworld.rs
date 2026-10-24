@@ -2,6 +2,13 @@
 //! Keeping the launcher process lets slopd track its argv[0] and lifetime.
 //! Replacing the launcher with the game would prevent restart detection and could allow a second game process.
 
+#[path = "../shared/cli_completions.rs"]
+mod cli_completions;
+
+#[path = "../shared/cli_styles.rs"]
+mod cli_styles;
+
+use clap::builder::StyledStr;
 use std::ffi::OsStr;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -22,6 +29,10 @@ mod game_config;
 
 #[path = "slopworld/endpoints.rs"]
 mod endpoints;
+
+#[path = "slopworld/cli.rs"]
+mod cli;
+use cli::LaunchArgs as Args;
 
 /// The launcher writes this marker for the mod to detect.
 /// Only the file's existence controls detection. Its contents explain the profile to users.
@@ -48,97 +59,50 @@ const EXE: &str = "RimWorldLinux";
 /// Unity's Linux fullscreen mode can freeze during Alt+Tab.
 const DEFAULT_GAME_ARGS: &[&str] = &["-popupwindow", "-screen-fullscreen", "0", "-force-opengl"];
 
-const USAGE: &str = "\
-slopworld - launch RimWorld into the SlopWorld profile
-
-usage: slopworld [options] [-- ] [game args...]
-
-options:
-  --game DIR       RimWorld install (default $SLOPWORLD_GAME, game.toml, then usual places)
-  --game-exe FILE  explicit game executable (for native macOS app bundles)
-  --working-dir DIR
-                   working directory for the game process
-  --mods DIR       mod directory to validate (required with a non-Linux game layout)
-  --endpoint NAME  use a saved connection for this launch (default local)
-  --profile DIR    save data folder to use or create
-                   (default $SLOPWORLD_PROFILE, then a profile for the selected connection)
-  --init-profile   create or repair the profile, then exit without starting the game
-  --sidecar        use the sidecar endpoint, profile, game log, and UI defaults
-  --reset          rewrite the profile's mod list, discarding what is there
-  --version        print the embedded SlopWorld version
-  --print          print the argv this would run, and run nothing
-  --no-window-fix  omit SlopWorld's default X11/OpenGL window arguments
-  -h, --help       this
-
-commands:
-  connect NAME [URL]
-                   verify and save a remote peer; prompt for its key if needed
-  endpoints        list saved endpoint names and URLs
-  paths NAME       print config, data, cache, endpoint, profile, or game-log path
-  mod install      install the SlopWorld mod from a source tree
-  mod uninstall    remove the installed SlopWorld mod
-
-Anything else is passed to the game. A `--` ends our options for good, for a game
-argument that looks like one of ours.
-";
-
 fn main() -> ExitCode {
     match run() {
         Ok(code) => code,
         Err(e) => {
-            eprintln!("slopworld: {e}");
+            anstream::eprintln!("slopworld: {}", e.ansi());
             ExitCode::FAILURE
         }
     }
 }
 
-fn run() -> Result<ExitCode, String> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let mut query_args = args.clone();
-    let mode = if application_paths::take_flag(&mut query_args, "--sidecar") {
-        application_paths::Mode::Sidecar
-    } else {
-        application_paths::Mode::Native
-    };
-    let named_endpoint = application_paths::take_endpoint(&mut query_args)?;
-    if named_endpoint.is_some()
-        && matches!(
-            query_args.first().map(String::as_str),
-            Some("connect" | "endpoints")
-        )
-    {
-        return Err(
-            "--endpoint applies to launches and path queries, not peer registration or listing"
-                .into(),
-        );
-    }
-    if endpoints::try_run(&query_args, mode)? {
-        return Ok(ExitCode::SUCCESS);
-    }
-    if let Some(path) = application_paths::path_query(&query_args, mode, named_endpoint.as_deref())?
-    {
-        println!("{}", path.display());
-        return Ok(ExitCode::SUCCESS);
-    }
-    if let Some(message) = mod_install::try_run(&args)? {
-        if !message.is_empty() {
-            print!("{message}");
-            if !message.ends_with('\n') {
-                println!();
-            }
+fn run() -> Result<ExitCode, StyledStr> {
+    let args = match cli::parse(std::env::args().skip(1).collect())? {
+        cli::Command::Display(text) => {
+            anstream::print!("{}", text.ansi());
+            return Ok(ExitCode::SUCCESS);
         }
-        return Ok(ExitCode::SUCCESS);
-    }
-    if args.len() == 1 && args.first().is_some_and(|arg| arg == "--version") {
-        println!("{}", env!("SLOPWORLD_VERSION"));
-        return Ok(ExitCode::SUCCESS);
-    }
-    let Some(args) = parse(&args)? else {
-        print!("{USAGE}");
-        return Ok(ExitCode::SUCCESS);
+        cli::Command::Launch(args) => args,
+        cli::Command::Local {
+            command,
+            mode,
+            endpoint,
+        } => {
+            match command {
+                cli::LocalCommand::Completions { shell } => {
+                    print!("{}", cli::completion_script(shell)?)
+                }
+                cli::LocalCommand::Connect { name, url } => {
+                    endpoints::register(mode, &name, url.as_deref())?
+                }
+                cli::LocalCommand::Endpoints => endpoints::print_list(mode)?,
+                cli::LocalCommand::Paths { name } => println!(
+                    "{}",
+                    mode.query(name.as_str(), endpoint.as_deref())?.display()
+                ),
+                cli::LocalCommand::Mod { command } => print!("{}", mod_install::run(command)?),
+                cli::LocalCommand::Profile { command } => {
+                    run_profile(command, mode, endpoint.as_deref())?
+                }
+            }
+            return Ok(ExitCode::SUCCESS);
+        }
     };
 
-    run_launcher(&args)
+    run_launcher(&args).map_err(Into::into)
 }
 
 fn run_launcher(args: &Args) -> Result<ExitCode, String> {
@@ -149,25 +113,6 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     };
     let endpoint = mode.endpoint_path_for(args.endpoint.as_deref())?;
     let profile = profile_dir_for(args.profile.as_deref(), mode, &endpoint)?;
-
-    // The game expects exactly one `=` in this argument.
-    // An additional `=` in the path prevents the game from using the requested profile.
-    if profile.to_string_lossy().contains('=') {
-        return Err(format!(
-            "the profile path contains '=', which the game's own -savedatafolder cannot carry: {}",
-            profile.display()
-        ));
-    }
-
-    if args.init_profile && args.print {
-        return Err("--print and --init-profile cannot be combined".into());
-    }
-    if args.init_profile {
-        let _instance = InstanceLock::acquire(&launcher_lock_path(&profile))?;
-        seed(&profile, args.reset, args.sidecar)?;
-        println!("slopworld: profile initialized: {}", profile.display());
-        return Ok(ExitCode::SUCCESS);
-    }
 
     let working_dir = validate_working_dir(args.working_dir.as_deref())?;
     if !endpoint.is_file() && !args.print {
@@ -206,7 +151,7 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     let log = mode.game_log_path();
     let log = PathBuf::from(expand(&log.to_string_lossy()));
     let log = std::path::absolute(&log).map_err(|e| format!("resolving {}: {e}", log.display()))?;
-    let argv = game_argv(&executable, &profile, &log, &args.rest, args.no_window_fix);
+    let argv = game_argv(&executable, &profile, &log, args.no_window_fix);
     if args.print {
         for arg in &argv {
             println!("{arg}");
@@ -221,10 +166,8 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
             "The game is already running as PID {pid}. Refusing to launch a second copy."
         ));
     }
-    seed(&profile, args.reset, args.sidecar || sidecar.is_some())?;
-    if !has_game_log_arg(&args.rest)
-        && let Some(parent) = log.parent()
-    {
+    seed(&profile, false, args.sidecar || sidecar.is_some())?;
+    if let Some(parent) = log.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("creating log directory {}: {e}", parent.display()))?;
     }
@@ -248,6 +191,28 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
         Some(c) => ExitCode::from(u8::try_from(c.clamp(0, 255)).unwrap_or(u8::MAX)),
         None => ExitCode::FAILURE,
     })
+}
+
+fn run_profile(
+    command: cli::ProfileCommand,
+    mode: application_paths::Mode,
+    endpoint: Option<&str>,
+) -> Result<(), String> {
+    let (options, reset) = match command {
+        cli::ProfileCommand::Init(options) => (options, false),
+        cli::ProfileCommand::Reset(options) => (options, true),
+    };
+    let endpoint = mode.endpoint_path_for(endpoint)?;
+    let profile = profile_dir_for(options.profile.as_deref(), mode, &endpoint)?;
+    let _instance = InstanceLock::acquire(&launcher_lock_path(&profile))?;
+    seed(&profile, reset, mode == application_paths::Mode::Sidecar)?;
+    let action = if reset {
+        "mod list reset"
+    } else {
+        "initialized"
+    };
+    println!("slopworld: profile {action}: {}", profile.display());
+    Ok(())
 }
 
 /// Resolve environment paths before handing control to the game process.
@@ -300,73 +265,6 @@ fn validate_working_dir(path: Option<&str>) -> Result<Option<PathBuf>, String> {
         Ok(path)
     })
     .transpose()
-}
-
-#[derive(Debug, Default, PartialEq)]
-struct Args {
-    game: Option<String>,
-    game_exe: Option<String>,
-    working_dir: Option<String>,
-    mods: Option<String>,
-    profile: Option<String>,
-    endpoint: Option<String>,
-    init_profile: bool,
-    sidecar: bool,
-    reset: bool,
-    print: bool,
-    no_window_fix: bool,
-    /// Game arguments to forward without changes.
-    rest: Vec<String>,
-}
-
-/// Return `Ok(None)` for a help request.
-/// Reject unknown options with two leading hyphens to detect incorrect launcher options.
-/// Put game arguments with two leading hyphens after `--` to forward them.
-fn parse(args: &[String]) -> Result<Option<Args>, String> {
-    let mut args = args.to_vec();
-    let mut out = Args {
-        endpoint: application_paths::take_endpoint(&mut args)?,
-        ..Args::default()
-    };
-    let mut it = args.iter();
-    while let Some(a) = it.next() {
-        let (flag, inline) = match a.split_once('=') {
-            Some((f, v)) if f.starts_with("--") => (f, Some(v.to_string())),
-            _ => (a.as_str(), None),
-        };
-        // A value given inline or as the next word, whichever the caller used.
-        let value = |it: &mut std::slice::Iter<String>| match inline.clone() {
-            Some(v) => Ok(v),
-            None => it
-                .next()
-                .cloned()
-                .ok_or_else(|| format!("{flag} wants a path after it")),
-        };
-        match flag {
-            "-h" | "--help" => return Ok(None),
-            "--game" => out.game = Some(value(&mut it)?),
-            "--game-exe" => out.game_exe = Some(value(&mut it)?),
-            "--working-dir" => out.working_dir = Some(value(&mut it)?),
-            "--mods" => out.mods = Some(value(&mut it)?),
-            "--profile" => out.profile = Some(value(&mut it)?),
-            "--init-profile" => out.init_profile = true,
-            "--sidecar" => out.sidecar = true,
-            "--reset" => out.reset = true,
-            "--print" => out.print = true,
-            "--no-window-fix" => out.no_window_fix = true,
-            "--" => {
-                out.rest.extend(it.cloned());
-                break;
-            }
-            _ if a.starts_with("--") => {
-                return Err(format!(
-                    "unknown option {a} (a game argument that looks like one goes after --)"
-                ));
-            }
-            _ => out.rest.push(a.clone()),
-        }
-    }
-    Ok(Some(out))
 }
 
 /// Check explicit and saved game directories before standard Linux installation paths.
@@ -448,7 +346,16 @@ fn profile_dir_for(
         None => mode.profile_path_for_endpoint(endpoint),
     };
     let path = PathBuf::from(expand(&path.to_string_lossy()));
-    std::path::absolute(&path).map_err(|e| format!("resolving {}: {e}", path.display()))
+    let path =
+        std::path::absolute(&path).map_err(|e| format!("resolving {}: {e}", path.display()))?;
+    // Unity splits -savedatafolder on `=`, so such a profile could never be launched.
+    if path.to_string_lossy().contains('=') {
+        return Err(format!(
+            "the profile path contains '=', which the game's own -savedatafolder cannot carry: {}",
+            path.display()
+        ));
+    }
+    Ok(path)
 }
 
 struct SidecarPaths {
@@ -478,8 +385,8 @@ fn sidecar_paths_from(endpoint: &Path) -> Result<SidecarPaths, String> {
     Ok(SidecarPaths { endpoint })
 }
 
-/// Create missing profile files. Preserve existing files unless `--reset` requests replacement of the mod list.
-/// Restore a missing marker with or without `--reset`.
+/// Create missing profile files; only profile reset replaces an existing mod list.
+/// Restore a missing marker during both initialization and reset.
 fn seed(profile: &Path, reset: bool, sidecar: bool) -> Result<(), String> {
     let config = profile.join("Config");
     std::fs::create_dir_all(&config).map_err(|e| format!("creating {}: {e}", config.display()))?;
@@ -535,30 +442,17 @@ fn mods_config_xml() -> String {
     s
 }
 
-fn game_argv(
-    executable: &Path,
-    profile: &Path,
-    log: &Path,
-    rest: &[String],
-    no_window_fix: bool,
-) -> Vec<String> {
+fn game_argv(executable: &Path, profile: &Path, log: &Path, no_window_fix: bool) -> Vec<String> {
     let mut argv = vec![
         executable.to_string_lossy().into_owned(),
         format!("-savedatafolder={}", profile.display()),
+        "-logFile".to_string(),
+        log.to_string_lossy().into_owned(),
     ];
-    if !has_game_log_arg(rest) {
-        argv.extend(["-logFile".to_string(), log.to_string_lossy().into_owned()]);
-    }
     if !no_window_fix {
         argv.extend(DEFAULT_GAME_ARGS.iter().map(|arg| (*arg).to_string()));
     }
-    argv.extend(rest.iter().cloned());
     argv
-}
-
-fn has_game_log_arg(rest: &[String]) -> bool {
-    rest.iter()
-        .any(|arg| arg == "-logFile" || arg.starts_with("-logFile="))
 }
 
 fn option_env_nonempty(key: &str) -> Option<String> {

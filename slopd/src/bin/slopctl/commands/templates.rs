@@ -1,63 +1,11 @@
+//! Accessible template catalog requests and presentation; the daemon owns visibility.
+
 use super::super::HOST;
 use super::super::format::print_json;
 use super::super::http::{Endpoint, request};
-use super::Command;
-use super::common::{arg, encode_component, only};
+use super::common::encode_component;
 use crate::shared::protocol::routes;
 use serde_json::{Value, json};
-
-pub(crate) const TEMPLATES_USAGE: &str = "usage:
-  slopctl template list [--project PROJECT]
-
-List agent templates. Root callers see the complete catalog. Agents see only
-templates that worker policy enables for their project. For a root caller, --project
-selects the worker project.
-";
-pub(crate) const TEMPLATE_USAGE: &str = "usage:
-  slopctl template list [--project PROJECT]
-  slopctl template show NAME [--project PROJECT]
-
-discover and inspect agent templates. Use `template list` or `template show`.
-";
-pub(crate) const TEMPLATE_SHOW_USAGE: &str = "usage:
-  slopctl template show NAME [--project PROJECT]
-
-Show one agent template. Agent callers may inspect only templates enabled for
-worker spawning. For a root caller, --project selects the worker project.
-";
-pub(super) fn parse_template_command(args: &[String]) -> Result<Command, String> {
-    if args.get(1).map(String::as_str) != Some("show") {
-        if args.get(1).map(String::as_str) == Some("list") {
-            let project = optional_project(args, 2, TEMPLATES_USAGE)?;
-            return Ok(Command::Templates { project });
-        }
-        return Err(format!(
-            "template needs the list or show subcommand\n\n{TEMPLATE_USAGE}"
-        ));
-    }
-    let name = arg(args, 2, "template show needs a template name")?.to_string();
-    let project = optional_project(args, 3, TEMPLATE_SHOW_USAGE)?;
-    Ok(Command::TemplateShow { name, project })
-}
-
-fn optional_project(
-    args: &[String],
-    at: usize,
-    usage: &'static str,
-) -> Result<Option<String>, String> {
-    match args.get(at).map(String::as_str) {
-        None => Ok(None),
-        Some("--project") => {
-            let project = args
-                .get(at + 1)
-                .ok_or_else(|| format!("--project needs a value\n\n{usage}"))?
-                .clone();
-            only(args, at + 2)?;
-            Ok(Some(project))
-        }
-        Some(flag) => Err(format!("unexpected argument: {flag}\n\n{usage}")),
-    }
-}
 
 fn template_catalog_path(session: &str, project: Option<&str>) -> String {
     let path = if session == HOST {

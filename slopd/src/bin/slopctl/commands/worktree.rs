@@ -1,84 +1,40 @@
-//! Worktree command parsing and execution use action-specific owned arguments.
+//! Worktree argument definitions and requests; the daemon owns checkout mutation policy.
 
 use super::super::format::print_json;
 use super::super::http::{Endpoint, request};
-use super::Command;
-use super::common::{encode_component, option_value, value_option};
+use super::common::encode_component;
 use crate::shared::protocol::routes;
 use serde_json::{Value, json};
 
-pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree rename ID --project PROJECT --name NAME\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to rename or remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\nUse --option=VALUE for option values beginning with a dash.\n";
-pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {
-    let action = args.get(1).ok_or(WORKTREE_USAGE)?.clone();
-    if !["list", "create", "remove", "rename"].contains(&action.as_str()) {
-        return Err(WORKTREE_USAGE.into());
-    }
-    let mut project = String::new();
-    let mut name = String::new();
-    let mut base = String::new();
-    let mut path = String::new();
-    let mut id = String::new();
-    let mut i = 2;
-    if action == "remove" || action == "rename" {
-        id = args
-            .get(i)
-            .filter(|id| !id.starts_with('-') && !id.is_empty())
-            .ok_or(WORKTREE_USAGE)?
-            .clone();
-        i += 1;
-    }
-    while let Some(option) = args.get(i) {
-        let (flag, inline) = value_option(option);
-        let allowed = flag == "--project"
-            || (flag == "--name" && matches!(action.as_str(), "create" | "rename"))
-            || (matches!(flag, "--base" | "--path") && action == "create");
-        if !allowed {
-            return Err(WORKTREE_USAGE.into());
-        }
-        let value = option_value(args, &mut i, flag, inline)?;
-        i += 1;
-        match flag {
-            "--project" => project = value,
-            "--name" => name = value,
-            "--base" => base = value,
-            _ => path = value,
-        }
-    }
-    if project.is_empty() || (action == "rename" && name.is_empty()) {
-        return Err(WORKTREE_USAGE.into());
-    }
-    let args = match action.as_str() {
-        "list" => WorktreeArgs::List { project },
-        "create" => WorktreeArgs::Create {
-            project,
-            name,
-            base,
-            path,
-        },
-        "rename" => WorktreeArgs::Rename { project, id, name },
-        "remove" => WorktreeArgs::Remove { project, id },
-        _ => return Err(WORKTREE_USAGE.into()),
-    };
-    Ok(Command::Worktree(args))
-}
-
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, clap::Subcommand)]
 pub(crate) enum WorktreeArgs {
+    /// List registered worktrees
     List {
+        #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
         project: String,
     },
+    /// Allocate a worktree or register an existing checkout
     Create {
+        #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
         project: String,
-        name: String,
-        base: String,
-        path: String,
+        #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
+        name: Option<String>,
+        #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
+        base: Option<String>,
+        #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
+        path: Option<String>,
     },
+    /// Rename a registered worktree (requires the root token)
     Rename {
+        #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
         project: String,
         id: String,
+        #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
         name: String,
     },
+    /// Remove a managed worktree or unregister an external checkout, keeping its files
     Remove {
+        #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
         project: String,
         id: String,
     },
@@ -111,7 +67,9 @@ pub(super) fn run(
             path,
         } => (
             "POST",
-            Some(json!({"project":project,"name":name,"base":base,"path":path})),
+            Some(
+                json!({"project":project,"name":name.unwrap_or_default(),"base":base.unwrap_or_default(),"path":path.unwrap_or_default()}),
+            ),
         ),
         WorktreeArgs::Remove { .. } => ("DELETE", None),
         WorktreeArgs::Rename { name, .. } => ("PUT", Some(json!({"name":name}))),

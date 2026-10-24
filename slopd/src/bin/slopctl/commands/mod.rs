@@ -1,4 +1,5 @@
-//! CLI dispatch and help selection; command modules own argument policy and execution.
+//! Remote execution requests and dispatch. Command modules may own reusable Clap
+//! argument schemas; `cli` owns the command tree, help, and task ID resolution.
 
 mod agent;
 mod common;
@@ -10,78 +11,23 @@ mod worker;
 mod worktree;
 
 use super::http::Endpoint;
-use super::logs::{LOGS_USAGE, run_logs};
 
+#[cfg(test)]
+pub(crate) use agent::run_agent_create;
+pub(crate) use config::ConfigArgs;
+pub(crate) use task::task_id_from_env;
 pub(crate) use task::{InboxFilter, UpdateAction};
+#[cfg(test)]
+pub(crate) use task::{task_is_terminal, wait_for_task};
 pub(crate) use worker::SpawnArgs;
 #[cfg(test)]
-pub(crate) use worker::WorktreeChoice;
-#[cfg(test)]
+pub(crate) use worker::run_spawn;
 pub(crate) use worktree::WorktreeArgs;
 
-#[cfg(test)]
-pub(crate) use agent::{AGENT_CREATE_USAGE, AGENT_USAGE, run_agent_create};
-#[cfg(test)]
-pub(crate) use diagnostics::{
-    PEERS_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE, STATUS_USAGE, peer_names,
-};
-#[cfg(test)]
-pub(crate) use task::{
-    TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE, task_is_terminal, wait_for_task,
-};
-#[cfg(test)]
-pub(crate) use templates::{TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, TEMPLATES_USAGE};
-#[cfg(test)]
-pub(crate) use worker::{SPAWN_USAGE, WORKER_USAGE, run_spawn};
-
-pub(crate) const USAGE: &str = task::task_usage!("slopctl - delegate work and inspect SlopWorld diagnostics
-
-common delegation flow:
-  slopctl task delegate AGENT TASK...  # create a task and keep its ID
-  slopctl task wait ID                # block for its terminal result
-
-The task wait command polls until the task reaches a terminal state. It has no
-short timeout. Do not poll task, inbox, or status while it waits.
-
-usage:
-", "  slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
-  slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
-  slopctl template list [--project PROJECT]
-  slopctl template show NAME [--project PROJECT]
-  slopctl worktree list --project PROJECT
-  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path CHECKOUT]
-  slopctl worktree remove ID --project PROJECT
-  slopctl worktree rename ID --project PROJECT --name NAME
-  slopctl sandbox inspect NAME
-  slopctl peers
-  slopctl status
-  slopctl config get KEY
-  slopctl config set KEY VALUE
-  slopctl [--sidecar] paths config|data|cache|endpoint|profile|game-log
-  slopctl [--sidecar] logs [game|daemon|all] [--lines N] [--follow]
-
-Use --json anywhere to print JSON instead of human-readable output.
-Use --sidecar to select the sidecar endpoint and log sources.
-Use --endpoint NAME to select endpoints/NAME.toml and its automatic game profile.
-Connection precedence: --endpoint, SLOPD_URL/SLOPD_TOKEN, SLOPD_ENDPOINT, local.
-Manage client peers with `slopworld connect NAME [URL]` and `slopworld endpoints`.
-
-SLOPWORLD_SESSION identifies the caller. It defaults to `host`, the user at the
-keyboard. The daemon accepts `host` only with the root token. When
-SLOPWORLD_TASK_ID is set, omit IDs from task lifecycle commands.
-SLOPD_ENDPOINT selects endpoints/local.toml. SLOPD_URL and SLOPD_TOKEN override it.
-");
-
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Command {
+pub(crate) enum RemoteCommand {
     Config(config::ConfigArgs),
     Worktree(worktree::WorktreeArgs),
-    Help {
-        usage: &'static str,
-    },
-    Logs {
-        args: Vec<String>,
-    },
     Delegate {
         to: String,
         body: String,
@@ -127,101 +73,7 @@ pub(crate) enum Command {
     },
 }
 
-pub(crate) fn command_help(command: &str) -> Option<&'static str> {
-    Some(match command {
-        "worker" => worker::WORKER_USAGE,
-        "worktree" => worktree::WORKTREE_USAGE,
-        "template" => templates::TEMPLATE_USAGE,
-        "agent" => agent::AGENT_USAGE,
-        "task" => task::TASK_USAGE,
-        "peers" => diagnostics::PEERS_USAGE,
-        "status" => diagnostics::STATUS_USAGE,
-        "config" => config::CONFIG_USAGE,
-        "sandbox" => diagnostics::SANDBOX_USAGE,
-        "logs" => LOGS_USAGE,
-        _ => return None,
-    })
-}
-
-fn subcommand_help(command: &str, subcommand: &str) -> Option<&'static str> {
-    Some(match (command, subcommand) {
-        ("worker", "spawn") => worker::SPAWN_USAGE,
-        ("agent", "create") => agent::AGENT_CREATE_USAGE,
-        ("template", "list") => templates::TEMPLATES_USAGE,
-        ("template", "show") => templates::TEMPLATE_SHOW_USAGE,
-        ("sandbox", "inspect") => diagnostics::SANDBOX_INSPECT_USAGE,
-        ("config", "get" | "set") => config::CONFIG_USAGE,
-        ("task", "delegate") => task::DELEGATE_USAGE,
-        ("task", "list") => task::TASK_LIST_USAGE,
-        ("task", "show") => task::TASK_SHOW_USAGE,
-        ("task", "wait") => task::WAIT_USAGE,
-        ("task", "accept") => task::ACCEPT_USAGE,
-        ("task", "progress") => task::PROGRESS_USAGE,
-        ("task", "finish") => task::FINISH_USAGE,
-        ("task", "fail") => task::FAIL_USAGE,
-        ("task", "remove") => task::REMOVE_USAGE,
-        ("task", "prune") => task::PRUNE_USAGE,
-        _ => return None,
-    })
-}
-
-fn has_help(args: &[String]) -> bool {
-    matches!(
-        args.first().map(String::as_str),
-        Some("-h" | "--help" | "help")
-    )
-}
-
-pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
-    let task_id = task::task_id_from_env();
-    parse_command_with_task_id(args, task_id.as_deref())
-}
-
-pub(crate) fn parse_command_with_task_id(
-    args: &[String],
-    task_id: Option<&str>,
-) -> Result<Command, String> {
-    let command = args
-        .first()
-        .map(String::as_str)
-        .ok_or_else(|| format!("missing command\n\n{USAGE}"))?;
-    let rest = args.get(1..).unwrap_or_default();
-    if has_help(rest)
-        && let Some(usage) = command_help(command)
-    {
-        return Ok(Command::Help { usage });
-    }
-    // Only the first argument after a known command can select help. Later help
-    // words belong to positional arguments or task text, including after `--`.
-    if has_help(args.get(2..).unwrap_or_default())
-        && let Some(usage) = rest.first().and_then(|sub| subcommand_help(command, sub))
-    {
-        return Ok(Command::Help { usage });
-    }
-    match command {
-        "logs" => Ok(Command::Logs {
-            args: rest.to_vec(),
-        }),
-        "config" => config::parse(args),
-        "worker" => worker::parse_worker_command(args),
-        "worktree" => worktree::parse_worktree(args),
-        "template" => templates::parse_template_command(args),
-        "agent" => agent::parse_agent_command(args),
-        "task" => task::parse_task_command(args, task_id),
-        "peers" => {
-            common::only(args, 1)?;
-            Ok(Command::Peers)
-        }
-        "status" => {
-            common::only(args, 1)?;
-            Ok(Command::Status)
-        }
-        "sandbox" => diagnostics::parse_sandbox(args),
-        command => Err(format!("unknown command: {command}\n\n{USAGE}")),
-    }
-}
-
-impl Command {
+impl RemoteCommand {
     pub(crate) fn run(
         self,
         endpoint: &Endpoint,
@@ -231,15 +83,6 @@ impl Command {
         match self {
             Self::Config(args) => config::run(endpoint, session, json_output, args),
             Self::Worktree(args) => worktree::run(endpoint, session, json_output, args),
-            Self::Help { usage } => {
-                print!("{usage}");
-                Ok(())
-            }
-            Self::Logs { args } => run_logs(
-                &args,
-                json_output,
-                crate::shared::application_paths::Mode::Native,
-            ),
             Self::Delegate { to, body } => {
                 task::run_delegate(endpoint, session, json_output, &to, &body)
             }
@@ -289,3 +132,6 @@ impl Command {
         }
     }
 }
+
+#[cfg(test)]
+pub(crate) use diagnostics::peer_names;

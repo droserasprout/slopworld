@@ -1,0 +1,233 @@
+#compdef slopworld
+
+autoload -U is-at-least
+
+_slopworld() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'--game=[RimWorld install (default\: SLOPWORLD_GAME, game.toml, usual locations)]:GAME:_files -/' \
+'--game-exe=[Explicit executable for native macOS app bundles]:GAME_EXE:_files' \
+'--working-dir=[Working directory for the game process]:WORKING_DIR:_files -/' \
+'--mods=[Mod directory to validate for a non-Linux game layout]:MODS:_files -/' \
+'--profile=[Save data folder (default\: SLOPWORLD_PROFILE, selected connection profile)]:PROFILE:_files -/' \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'--print[Print game argv without launching or creating files]' \
+'--no-window-fix[Omit default X11/OpenGL window arguments]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_slopworld_commands" \
+"*::: :->slopworld" \
+&& ret=0
+    case $state in
+    (slopworld)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopworld-command-$line[1]:"
+        case $line[1] in
+            (completions)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':shell:(bash elvish fish powershell zsh)' \
+&& ret=0
+;;
+(connect)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:_default' \
+'::url:_default' \
+&& ret=0
+;;
+(endpoints)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(paths)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:(config data cache endpoint profile game-log)' \
+&& ret=0
+;;
+(profile)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_slopworld__subcmd__profile_commands" \
+"*::: :->profile" \
+&& ret=0
+
+    case $state in
+    (profile)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopworld-profile-command-$line[1]:"
+        case $line[1] in
+            (init)
+_arguments "${_arguments_options[@]}" : \
+'--profile=[Save data folder (default\: SLOPWORLD_PROFILE, selected connection profile)]:PROFILE:_files -/' \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(reset)
+_arguments "${_arguments_options[@]}" : \
+'--profile=[Save data folder (default\: SLOPWORLD_PROFILE, selected connection profile)]:PROFILE:_files -/' \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(mod)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_slopworld__subcmd__mod_commands" \
+"*::: :->mod" \
+&& ret=0
+
+    case $state in
+    (mod)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopworld-mod-command-$line[1]:"
+        case $line[1] in
+            (install)
+_arguments "${_arguments_options[@]}" : \
+'--source=[]:SOURCE:_files -/' \
+'(--mods)--game=[Directory containing Mods]:GAME:_files -/' \
+'--mods=[Exact Mods directory]:MODS:_files -/' \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(uninstall)
+_arguments "${_arguments_options[@]}" : \
+'(--mods)--game=[Directory containing Mods]:GAME:_files -/' \
+'--mods=[Exact Mods directory]:MODS:_files -/' \
+'--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
+'--sidecar[Use sidecar paths and UI defaults]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_slopworld_commands] )) ||
+_slopworld_commands() {
+    local commands; commands=(
+'completions:Print a shell completion script without loading game or profile state' \
+'connect:Verify and save a remote peer; prompt for its key if needed' \
+'endpoints:List saved endpoint names and URLs' \
+'paths:Print an application path without contacting the daemon' \
+'profile:Initialize or reset a profile without starting the game' \
+'mod:Install or remove the SlopWorld mod' \
+    )
+    _describe -t commands 'slopworld commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__completions_commands] )) ||
+_slopworld__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopworld completions commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__connect_commands] )) ||
+_slopworld__subcmd__connect_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopworld connect commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__endpoints_commands] )) ||
+_slopworld__subcmd__endpoints_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopworld endpoints commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__mod_commands] )) ||
+_slopworld__subcmd__mod_commands() {
+    local commands; commands=(
+'install:Atomically replace the mod after copying to a temporary sibling directory' \
+'uninstall:Remove only the SlopWorld directory inside Mods' \
+    )
+    _describe -t commands 'slopworld mod commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__mod__subcmd__install_commands] )) ||
+_slopworld__subcmd__mod__subcmd__install_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopworld mod install commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__mod__subcmd__uninstall_commands] )) ||
+_slopworld__subcmd__mod__subcmd__uninstall_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopworld mod uninstall commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__paths_commands] )) ||
+_slopworld__subcmd__paths_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopworld paths commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__profile_commands] )) ||
+_slopworld__subcmd__profile_commands() {
+    local commands; commands=(
+'init:Create missing profile files, preserving existing settings and mod choices' \
+'reset:Replace the mod list, preserving saves and other settings' \
+    )
+    _describe -t commands 'slopworld profile commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__profile__subcmd__init_commands] )) ||
+_slopworld__subcmd__profile__subcmd__init_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopworld profile init commands' commands "$@"
+}
+(( $+functions[_slopworld__subcmd__profile__subcmd__reset_commands] )) ||
+_slopworld__subcmd__profile__subcmd__reset_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopworld profile reset commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_slopworld" ]; then
+    _slopworld "$@"
+else
+    compdef _slopworld slopworld
+fi
