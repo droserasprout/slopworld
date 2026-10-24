@@ -5,12 +5,11 @@ using Verse;
 namespace SlopWorld
 {
     // Owns scrolling and measured listing height for settings with a preview. Pages retain
-    // their fields, preview renderer, overlays, and apply policy; SettingsPreviewLayout owns geometry.
+    // their fields, preview renderer, overlays, and apply policy; SettingsPreviewGeometry owns placement.
     public sealed class SettingsPreviewForm
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly ContentHeight _height;
-        readonly SettingsPreviewLayout _layout = new SettingsPreviewLayout();
         readonly UiScrollbarReservation _reservation;
 
         public SettingsPreviewForm(
@@ -26,57 +25,67 @@ namespace SlopWorld
             Rect inner,
             float previewHeight,
             Action<Listing_Standard> fields,
-            Action<Rect, Rect> preview,
-            int contentRevision = 0
+            Action<Rect, Rect> preview
         )
         {
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
                 float formHeight = _height.BeginFrame(Time.frameCount);
-                float blockHeight = UiTheme.RowH + UiTheme.GapXS + previewHeight;
                 // Pin the preview while at least one form row fits. Short windows scroll
                 // the form and preview together, within the body's existing footer boundary.
-                bool stacked = inner.height < UiTheme.RowH + UiTheme.GapM + blockHeight;
+                bool stacked = SettingsPreviewGeometry.ShouldStack(
+                    inner.height,
+                    UiTheme.RowH,
+                    previewHeight,
+                    UiTheme.RowH,
+                    UiTheme.GapXS,
+                    UiTheme.GapM
+                );
                 if (stacked)
                 {
+                    float blockHeight = UiTheme.RowH + UiTheme.GapXS + previewHeight;
                     var geometry = UiScrollBody.Measure(
                         inner,
                         formHeight + UiTheme.GapM + blockHeight,
                         _reservation
                     );
-                    _layout.Arrange(
+                    var layout = SettingsPreviewGeometry.Arrange(
                         geometry.ContentWidth,
                         inner.height,
                         true,
                         formHeight,
                         previewHeight,
-                        contentRevision
+                        UiTheme.RowH,
+                        UiTheme.GapXS,
+                        UiTheme.GapM
                     );
                     using (_scroll.Scope(inner, geometry.View))
                     {
-                        DrawFields(UiRect.ToRect(_layout.Form), fields);
+                        DrawFields(UiRect.ToRect(layout.Form), fields);
                         preview(
-                            UiRect.ToRect(_layout.PreviewCaption),
-                            UiRect.ToRect(_layout.Preview)
+                            UiRect.ToRect(layout.PreviewCaption),
+                            UiRect.ToRect(layout.Preview)
                         );
                     }
                 }
                 else
                 {
-                    _layout.Arrange(
+                    var layout = SettingsPreviewGeometry.Arrange(
                         inner.width,
                         inner.height,
                         false,
                         formHeight,
                         previewHeight,
-                        contentRevision
+                        UiTheme.RowH,
+                        UiTheme.GapXS,
+                        UiTheme.GapM
                     );
-                    var form = Place(inner, _layout.Form);
+                    var form = Place(inner, layout.Form);
                     var geometry = UiScrollBody.Measure(form, formHeight, _reservation);
                     using (_scroll.Scope(form, geometry.View))
                         DrawFields(geometry.View, fields);
-                    preview(Place(inner, _layout.PreviewCaption), Place(inner, _layout.Preview));
+                    preview(Place(inner, layout.PreviewCaption), Place(inner, layout.Preview));
                 }
             }
         }

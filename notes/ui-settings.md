@@ -29,7 +29,9 @@ Failure preserves navigation; unknown sizes are not zero. Selection follows stab
 kind/key. Shallow scans skip purging; the manager purges before measured scans, while
 sandbox inventory never deletes. See `BinaryDiscoveryTests` and `StorageLoadStateTests`.
 
-`SettingsLayout` owns page geometry. Measurement cannot invoke controls or setters.
+`SettingsLayout` owns page geometry. `SettingsPreviewGeometry` owns the pure placement
+for pinned and stacked settings previews; the form owns scrolling and measured content
+height. Measurement cannot invoke controls or setters.
 `OptionsView.Band` owns the shared width cap and side margins for workspace and
 main-menu Settings, including the category rail.
 [Chrome](mod-ui-chrome.md), [focus](ui-focus.md), and [dialogs](mod-ui-windows.md) own

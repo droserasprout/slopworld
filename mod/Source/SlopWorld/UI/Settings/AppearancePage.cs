@@ -19,7 +19,6 @@ namespace SlopWorld
             UiScrollbarReservation.WhenNeeded
         );
         bool _pickingCursor;
-        int _contentRevision;
 
         public void Load() { }
 
@@ -41,8 +40,7 @@ namespace SlopWorld
                 SettingsPageLayout.BodyWithoutFooter(rect),
                 PreviewHeight(),
                 DrawFields,
-                DrawPreviewBlock,
-                _contentRevision
+                DrawPreviewBlock
             );
 
             if (_pickingCursor)
@@ -148,7 +146,6 @@ namespace SlopWorld
                             S.uiFontName = "";
                             UiFont.Apply();
                             S.MarkDirty();
-                            _contentRevision++;
                         }
                     ),
                 };
@@ -160,7 +157,6 @@ namespace SlopWorld
                             S.uiFontName = name;
                             UiFont.Apply();
                             S.MarkDirty();
-                            _contentRevision++;
                         }
                     )
                 );
@@ -188,7 +184,6 @@ namespace SlopWorld
                 S.uiFontSize = size;
                 UiFont.Apply();
                 S.MarkDirty();
-                _contentRevision++;
             }
 
             if (S.uiFontSize == 0)
@@ -222,7 +217,6 @@ namespace SlopWorld
                 InstalledFonts.Rescan();
                 UiFont.Apply();
                 _fontOptions = null;
-                _contentRevision++;
             }
             l.Gap(UiTheme.GapM);
         }
