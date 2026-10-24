@@ -17,7 +17,7 @@ The tabs appear in this order:
 - **Tasks** shows the global task mailbox. Click to read a dialogue, Ctrl+click to
   select rows, or Shift+click for a range. Context menus offer task actions; see
   [Agent collaboration](../agents/agent-collaboration.md).
-- **Library** stores templates, prompts, shell commands, breadcrumbs, and file
+- **Library** stores templates, prompts, shell scripts, breadcrumbs, and file
   actions, plus project, worktree, and preset entries. It has its own project filter;
   see [Library items and errands](../workspace/library.md).
 

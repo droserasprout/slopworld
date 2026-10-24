@@ -49,7 +49,7 @@ namespace SlopWorld
         {
             public const string Templates = "Agent templates";
             public const string Prompts = "Prompts";
-            public const string Shell = "Shell commands";
+            public const string Shell = "Shell scripts";
             public const string Breadcrumbs = "Breadcrumbs";
             public const string FileActions = "File actions";
             public const string Projects = "Projects";
