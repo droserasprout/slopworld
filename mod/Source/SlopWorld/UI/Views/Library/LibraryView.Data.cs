@@ -125,17 +125,9 @@ namespace SlopWorld
 
         static Row FindSelectedRow()
         {
-            if (
-                !Selection.Reconcile(
-                    Sections.SelectMany(section => section.Rows).Select(row => row.Key)
-                )
-            )
-                return null;
-            foreach (var section in Sections)
-            foreach (var row in section.Rows)
-                if (row.Key == Selection.Key)
-                    return row;
-
+            if (Selection.Key != null && RowsByKey.TryGetValue(Selection.Key, out var row))
+                return row;
+            Selection.ClearAction();
             return null;
         }
 

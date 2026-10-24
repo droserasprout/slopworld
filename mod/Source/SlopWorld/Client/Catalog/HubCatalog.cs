@@ -27,6 +27,9 @@ namespace SlopWorld
         readonly SnapshotRequest _presets;
         readonly SnapshotRequest _templates;
 
+        // Changes only when a winning snapshot is published, not when a read starts.
+        public int Revision { get; private set; }
+
         public int ProjectsRevision => _projects.Revision;
         public int TemplatesRevision => _templates.Revision;
         public string SettingsRevision =>
@@ -52,11 +55,17 @@ namespace SlopWorld
 
         public void ApplyLibrary(Wire.LibraryReply ev) => RefreshLibrary();
 
-        void SetProjects(Wire.ProjectsReply j) =>
+        void SetProjects(Wire.ProjectsReply j)
+        {
             Projects = j.Projects.Select(ProjectInfo.FromWire).ToList();
+            Revision++;
+        }
 
-        void SetLibrary(Wire.LibraryReply j) =>
+        void SetLibrary(Wire.LibraryReply j)
+        {
             Library = j.Library.Select(LibraryItemInfo.FromWire).ToList();
+            Revision++;
+        }
 
         public ProjectInfo Project(string name) => Projects.FirstOrDefault(p => p.Name == name);
 
@@ -106,6 +115,7 @@ namespace SlopWorld
                 {
                     Presets = j.Presets.Select(PresetInfo.FromWire).ToList();
                     Commands = j.Commands.Select(CommandInfo.FromWire).ToList();
+                    Revision++;
                 },
                 fail,
                 ok
@@ -117,6 +127,7 @@ namespace SlopWorld
                 j =>
                 {
                     Templates = j.Templates.Select(AgentTemplateInfo.FromWire).ToList();
+                    Revision++;
                 },
                 fail,
                 loaded

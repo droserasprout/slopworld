@@ -18,7 +18,7 @@ namespace SlopWorld
         static float CellX => UiTheme.GapS;
         const float ArrowW = UiTheme.DisclosureW;
 
-        // The text that drives the rows, snapshotted once per frame so size and draw agree.
+        // Filtered items belong to the cached catalog model, independently of draw geometry.
         static List<LibraryItemInfo> _items = new List<LibraryItemInfo>();
 
         static readonly Dictionary<LibraryItemInfo, AgentTemplateInfo> Templates =
@@ -265,6 +265,7 @@ namespace SlopWorld
 
         static void ProjectFilterChanged()
         {
+            _projectFilterRevision++;
             Worktrees.Invalidate();
             ClearActionSelection();
             _scroll.JumpTo(Vector2.zero);

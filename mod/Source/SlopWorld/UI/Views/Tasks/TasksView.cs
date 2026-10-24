@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -20,10 +19,10 @@ namespace SlopWorld
 
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly List<Line> Lines = new List<Line>();
-        static readonly List<TaskInfo> VisibleTasks = new List<TaskInfo>();
+        static readonly TaskBoardRows Rows = new TaskBoardRows();
+        static List<TaskInfo> VisibleTasks => Rows.Visible;
         static readonly HashSet<string> SelectedIds = new HashSet<string>();
         static Rect _body;
-        static List<TaskInfo> _taskSnapshot;
         static bool _filtersDirty = true;
         static string _selectionAnchorId;
 
@@ -51,8 +50,6 @@ namespace SlopWorld
 
             var hub = SessionHub.Instance;
             var allTasks = hub.Tasks;
-            if (!SmoothScroll.WheelOnly)
-                PruneSelection(allTasks);
             var tasks = Filtered(allTasks);
             if (tasks.Count == 0)
             {
@@ -108,9 +105,9 @@ namespace SlopWorld
 
         static void DrawHeader(Rect r, List<TaskInfo> tasks, int total)
         {
-            int incoming = tasks.Count(t => t.Incoming && !t.Terminal);
-            int sent = tasks.Count(t => t.Outgoing && !t.Terminal);
-            int peer = tasks.Count(t => !t.Incoming && !t.Outgoing && !t.Terminal);
+            int incoming = Rows.Incoming;
+            int sent = Rows.Outgoing;
+            int peer = Rows.Peer;
             string count = Filtering
                 ? tasks.Count + " of " + total
                 : total.ToString(CultureInfo.CurrentCulture);

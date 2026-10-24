@@ -17,43 +17,8 @@ namespace SlopWorld
             using (FieldLifetimeScope.Push(_fieldLifetime))
             using (WidgetState.Save())
             {
-                // Global definitions stay available while project-specific entries follow
-                // the Library's own filter. Builtins remain in their attached menus.
-                _items = SessionHub
-                    .Instance.Library.Where(s =>
-                        !s.Builtin && (string.IsNullOrEmpty(s.Project) || PassesProject(s.Project))
-                    )
-                    .ToList();
-                Templates.Clear();
-                foreach (var template in SessionHub.Instance.Templates)
-                {
-                    var row = new LibraryItemInfo
-                    {
-                        Name = template.Name,
-                        Project = "",
-                        Text = template.Description,
-                    };
-                    Templates[row] = template;
-                    _items.Add(row);
-                }
                 DrawTools(body);
-                _items = _items
-                    .Where(item =>
-                        (_kind.Length == 0 || GroupKey(item) == _kind)
-                        && (
-                            item.Name.IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0
-                            || (item.Text ?? "").IndexOf(_query, StringComparison.OrdinalIgnoreCase)
-                                >= 0
-                        )
-                    )
-                    .ToList();
-                var projects = SessionHub
-                    .Instance.Projects.Where(project => PassesProject(project.Name))
-                    .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-                if (MainCategoryEnabled(Category.Worktrees))
-                    Worktrees.Update(projects, SessionHub.Instance.ProjectsRevision);
-                BuildSections(projects);
+                EnsureRows();
                 var selected = FindSelectedRow();
                 float top = body.y + 2f * (UiTheme.FieldH + Pad) + Pad;
                 string error =
@@ -256,13 +221,23 @@ namespace SlopWorld
             float start = y;
             bool folded = Folded.Contains(section.Key);
             var headRect = new Rect(0f, y, view.width, HeadH);
-            y += DrawHeading(view, headRect, section.Key, section.Key, section.Rows.Count, folded);
+            if (VisibleRows.Intersects(y, HeadH, _scroll.Position.y, _list.height))
+                DrawHeading(view, headRect, section.Key, section.Key, section.Rows.Count, folded);
+            y += HeadH;
             if (!folded)
-                foreach (var rowData in section.Rows)
-                {
-                    var row = new Rect(0f, y, view.width, RowH);
-                    y += DrawRow(view, row, rowData);
-                }
+            {
+                VisibleRows.Uniform(
+                    section.Rows.Count,
+                    RowH,
+                    _scroll.Position.y - y,
+                    _list.height,
+                    out int first,
+                    out int end
+                );
+                for (int i = first; i < end; i++)
+                    DrawRow(view, new Rect(0f, y + i * RowH, view.width, RowH), section.Rows[i]);
+                y += section.Rows.Count * RowH;
+            }
             return y - start;
         }
 

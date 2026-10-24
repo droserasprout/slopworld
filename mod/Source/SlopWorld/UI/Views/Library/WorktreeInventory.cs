@@ -11,6 +11,7 @@ namespace SlopWorld
         readonly OperationGate _operations = new OperationGate();
         readonly Action<string, Action<Wire.WorktreesReply>, Action<string>> _request;
         string _requestKey;
+        internal int Revision { get; private set; }
         internal readonly Dictionary<string, List<WorktreeEntry>> WorktreesByProject =
             new Dictionary<string, List<WorktreeEntry>>();
         internal readonly Dictionary<string, string> WorktreeErrors =
@@ -25,6 +26,7 @@ namespace SlopWorld
 
         internal void Invalidate()
         {
+            Revision++;
             _requestKey = null;
             _operations.Invalidate();
         }
@@ -48,6 +50,7 @@ namespace SlopWorld
                 return;
 
             _requestKey = key;
+            Revision++;
             // Retain each project's last successful rows while refreshing or after a failure.
             var live = new HashSet<string>(projects.Select(project => project.Name));
             foreach (
@@ -76,11 +79,15 @@ namespace SlopWorld
                             .OrderBy(row => row.Tree.Id == "main" ? 0 : 1)
                             .ThenBy(row => row.Tree.Name, StringComparer.OrdinalIgnoreCase)
                             .ToList();
+                        Revision++;
                     },
                     error =>
                     {
                         if (_operations.IsCurrent(generation))
+                        {
                             WorktreeErrors[name] = name + ": " + error;
+                            Revision++;
+                        }
                     }
                 );
             }

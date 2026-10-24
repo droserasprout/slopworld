@@ -21,6 +21,27 @@ namespace SlopWorld.Tests
                 }
             );
 
+        public static void PublishedRevisionIgnoresPendingFailedAndStaleReads()
+        {
+            for (int catalog = 0; catalog < 3; catalog++)
+            {
+                using var fixture = new Fixture();
+                fixture.Refresh(catalog);
+                fixture.Refresh(catalog);
+                AssertEx.Equal(0, fixture.Hub.Revision, "pending reads preserve view");
+                fixture.Requests[0].Ok(Snapshot("stale", catalog));
+                AssertEx.Equal(0, fixture.Hub.Revision, "stale snapshot preserves view");
+                fixture.Requests[1].Ok(Snapshot("winner", catalog));
+                AssertEx.Equal(1, fixture.Hub.Revision, "winning snapshot invalidates view");
+                fixture.Refresh(catalog);
+                fixture.Requests[2].Fail("offline");
+                AssertEx.Equal(1, fixture.Hub.Revision, "failed read retains view");
+                fixture.Hub.RefreshTemplates();
+                fixture.Requests[3].Ok(JVal.Parse("{}"));
+                AssertEx.Equal(2, fixture.Hub.Revision, "template publication invalidates view");
+            }
+        }
+
         public static void SupersededRefreshesWaitForWinningSuccessOrFailure()
         {
             var requests = DaemonClient.Requests;

@@ -52,6 +52,31 @@ namespace SlopWorld.Tests
                 },
             };
 
+        public static void ViewRevisionTracksRetryRepliesAndRemovalButNotUnchangedReads()
+        {
+            var f = new Fixture();
+            f.Inventory.Update(Projects(), 1);
+            int revision = f.Inventory.Revision;
+            f.Inventory.Update(Projects(), 1);
+            Assert.That(f.Inventory.Revision, Is.EqualTo(revision));
+            f.Requests[0].Ok(Reply());
+            Assert.That(f.Inventory.Revision, Is.GreaterThan(revision));
+            revision = f.Inventory.Revision;
+            f.Inventory.Invalidate();
+            Assert.That(f.Inventory.Revision, Is.GreaterThan(revision));
+            revision = f.Inventory.Revision;
+            f.Requests[0].Fail("stale");
+            Assert.That(f.Inventory.Revision, Is.EqualTo(revision));
+            f.Inventory.Update(Projects(), 1);
+            revision = f.Inventory.Revision;
+            f.Requests[1].Fail("offline");
+            Assert.That(f.Inventory.Revision, Is.GreaterThan(revision));
+            revision = f.Inventory.Revision;
+            f.Inventory.Update(new List<ProjectInfo>(), 1);
+            Assert.That(f.Inventory.Revision, Is.GreaterThan(revision));
+            Assert.That(f.Inventory.WorktreesByProject, Is.Empty);
+        }
+
         public static void DaemonMainCheckoutSortsFirstAndUnchangedInventorySharesRequests()
         {
             var f = new Fixture();

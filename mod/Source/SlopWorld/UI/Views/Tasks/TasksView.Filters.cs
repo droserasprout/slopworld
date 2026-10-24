@@ -10,16 +10,9 @@ namespace SlopWorld
     {
         static List<TaskInfo> Filtered(List<TaskInfo> allTasks)
         {
-            if (ReferenceEquals(_taskSnapshot, allTasks) && !_filtersDirty)
-                return VisibleTasks;
-
-            // TaskStore publishes a replacement list for every mutation and refresh.
-            _taskSnapshot = allTasks;
+            if (Rows.Update(allTasks, Filters, _filtersDirty))
+                PruneSelection();
             _filtersDirty = false;
-            VisibleTasks.Clear();
-            foreach (var task in allTasks)
-                if (Filters.Matches(task))
-                    VisibleTasks.Add(task);
             return VisibleTasks;
         }
 

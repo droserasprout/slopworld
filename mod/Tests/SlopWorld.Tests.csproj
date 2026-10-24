@@ -44,6 +44,7 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryProjectFilter.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/FilterSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Tasks/TaskFilters.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Tasks/TaskBoardRows.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowTarget.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />

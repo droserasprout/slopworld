@@ -32,7 +32,12 @@ choice. [Readers](mod-file-readers.md) owns the inventory and lifecycle.
 
 Rows and keyboard cycling apply both project and checkout filters, caching scope
 revision. Empty checkout IDs mean main; identity does not wait for descriptors.
-The task board reads `TaskStore` snapshots; [tasks](agent-tasks.md) owns semantics.
+The task board retains filtered rows, direction counts, and live selection membership
+until `TaskStore` replaces its snapshot or filters change; [tasks](agent-tasks.md) owns
+semantics. Library rows follow published catalog and worktree revisions plus their own
+filters. Both lists submit only viewport rows; scrolling and folding do not rebuild
+the Library model. Catalog publication must advance `HubCatalog.Revision`, and accepted
+worktree replies or explicit retries must advance `WorktreeInventory.Revision`.
 
 Worker launch opens the terminal after session refresh. The hub returns detached
 identity rather than having the dialog resolve mutable catalogs. Base previews reject

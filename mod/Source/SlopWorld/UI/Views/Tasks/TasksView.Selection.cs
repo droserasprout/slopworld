@@ -107,11 +107,9 @@ namespace SlopWorld
             }
         }
 
-        static void PruneSelection(List<TaskInfo> tasks)
+        static void PruneSelection()
         {
-            var live = new HashSet<string>(
-                tasks.Where(task => task != null).Select(task => task.Id)
-            );
+            var live = Rows.LiveIds;
             SelectedIds.RemoveWhere(id => !live.Contains(id));
             if (_selectionAnchorId != null && !live.Contains(_selectionAnchorId))
                 _selectionAnchorId = null;
