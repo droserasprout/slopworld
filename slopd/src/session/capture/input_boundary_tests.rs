@@ -21,7 +21,8 @@ async fn host_refresh_preserves_queued_input() {
         (row.cfg.state_id.clone(), row.run_id)
     };
     manager.upsert_host_terminals(&cfg).await;
-    tx.send(Input::Bytes(b"must arrive".to_vec())).unwrap();
+    tx.send(QueuedInput::new(Input::Bytes(b"must arrive".to_vec())))
+        .unwrap();
     let consumer =
         SessionRuntime::run_input(Arc::downgrade(&manager), "shell".into(), identity, run, rx);
     tokio::pin!(consumer);
@@ -30,7 +31,7 @@ async fn host_refresh_preserves_queued_input() {
     assert!(matches!(delivered.try_recv(), Ok(Input::Bytes(bytes)) if bytes == b"must arrive"));
 }
 
-async fn queued_manager() -> (Arc<SessionRuntime>, mpsc::UnboundedReceiver<Input>) {
+async fn queued_manager() -> (Arc<SessionRuntime>, mpsc::UnboundedReceiver<QueuedInput>) {
     let manager = crate::session::test_manager_with_socket(
         Config::default(),
         format!("slopd-input-{}", uuid::Uuid::new_v4()),
@@ -56,7 +57,7 @@ async fn paste_queues_for_a_live_session_without_listing_tmux_sessions() {
     manager.paste("target", "hello λ").await.unwrap();
 
     assert!(
-        matches!(rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == "hello λ".as_bytes())
+        matches!(rx.try_recv().unwrap().command, Input::Paste { bytes } if bytes == "hello λ".as_bytes())
     );
 }
 
@@ -74,7 +75,7 @@ async fn paste_queues_after_reader_attachment_before_first_frame() {
 
     manager.paste("target", "early").await.unwrap();
 
-    assert!(matches!(rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == b"early"));
+    assert!(matches!(rx.try_recv().unwrap().command, Input::Paste { bytes } if bytes == b"early"));
 }
 
 #[tokio::test]
@@ -84,7 +85,7 @@ async fn ordinary_enter_and_literal_keys_pass_through_without_injected_input() {
         let keys = vec!["Left".into(), "Enter".into(), "Right".into()];
         manager.send_keys("target", keys.clone(), literal).await;
         assert!(
-            matches!(rx.try_recv().unwrap(), Input::Keys { keys: actual, literal: mode }
+            matches!(rx.try_recv().unwrap().command, Input::Keys { keys: actual, literal: mode }
             if actual == keys && mode == literal)
         );
         assert!(rx.try_recv().is_err());
@@ -115,7 +116,7 @@ async fn mouse_input_requires_reporting_and_repeats_at_least_once() {
     emu.lock().unwrap().feed(b"\x1b[?1000h\x1b[?1006h");
     for count in [0, 1, 3] {
         manager.send_mouse("target", event(), count).await;
-        assert!(matches!(rx.try_recv().unwrap(), Input::Bytes(bytes)
+        assert!(matches!(rx.try_recv().unwrap().command, Input::Bytes(bytes)
                 if bytes == b"\x1b[<0;4;3M".repeat(usize::from(count.max(1)))));
     }
     assert!(rx.try_recv().is_err());
@@ -190,10 +191,10 @@ async fn stale_input_queues_exit_without_draining_into_replacements() {
         }
         live.input.sender = Some(tx.clone());
         manager.live.write().await.insert("target".into(), live);
-        tx.send(Input::Keys {
+        tx.send(QueuedInput::new(Input::Keys {
             keys: vec!["Enter".into()],
             literal: false,
-        })
+        }))
         .unwrap();
         tokio::time::timeout(
             Duration::from_secs(1),
@@ -215,7 +216,12 @@ async fn stale_input_queues_exit_without_draining_into_replacements() {
         };
         assert!(
             manager
-                .dispatch_queued_input("target", &identity, run, Input::Bytes(b"current".to_vec()))
+                .dispatch_queued_input(
+                    "target",
+                    &identity,
+                    run,
+                    QueuedInput::new(Input::Bytes(b"current".to_vec())),
+                )
                 .await
         );
         assert!(matches!(received.try_recv().unwrap(), Input::Bytes(bytes) if bytes == b"current"));
@@ -285,7 +291,12 @@ async fn target_lifecycle_blocks_input_and_rechecks_the_run_before_delivery() {
     let identity = manager.live.read().await["target"].cfg.state_id.clone();
     let lifecycle = manager.terminal_boundary("target").write_owned().await;
     let admission = manager.terminal_input_guard("target");
-    let dispatch = manager.dispatch_queued_input("target", &identity, 0, Input::Bytes(vec![1]));
+    let dispatch = manager.dispatch_queued_input(
+        "target",
+        &identity,
+        0,
+        QueuedInput::new(Input::Bytes(vec![1])),
+    );
     tokio::pin!(admission, dispatch);
     assert!(futures::poll!(admission.as_mut()).is_pending());
     assert!(futures::poll!(dispatch.as_mut()).is_pending());
@@ -325,7 +336,7 @@ async fn benchmark_mixed_input_dispatch() {
     );
     let tmux = Tmux::new(&socket_owner.path);
     for label in ["mixed", "keys"] {
-        let events = (0..600)
+        let events: Vec<Input> = (0..600)
             .map(|index| {
                 if label == "mixed" && index % 3 != 2 {
                     Input::Bytes(b"\x1b[<64;10;10M".to_vec())
@@ -339,13 +350,13 @@ async fn benchmark_mixed_input_dispatch() {
             .collect();
         // Give the batcher the entire workload at once: this is its best-case
         // command reduction, not a recreation of arrival/frame scheduling.
-        let batch = merge_input(events);
+        let batch = merge_input(events.into_iter().map(QueuedInput::new).collect());
         let commands = batch.len();
         let start = std::time::Instant::now();
         for item in batch {
             // Use the production tmux operations, but propagate failures instead
             // of reporting rejected commands as successful throughput.
-            match item {
+            match item.command {
                 Input::Bytes(bytes) => tmux.send_bytes("sink", &bytes).await.unwrap(),
                 Input::Keys { keys, literal } => {
                     tmux.send_keys("sink", &keys, literal).await.unwrap()
@@ -611,13 +622,23 @@ async fn teardown_rejects_queued_input_even_when_run_identity_is_unchanged() {
     };
     assert!(
         !manager
-            .dispatch_queued_input("target", &identity, run, Input::Bytes(vec![1]))
+            .dispatch_queued_input(
+                "target",
+                &identity,
+                run,
+                QueuedInput::new(Input::Bytes(vec![1])),
+            )
             .await
     );
     manager.live.write().await.remove("target");
     assert!(
         !manager
-            .dispatch_queued_input("target", &identity, run, Input::Bytes(vec![2]))
+            .dispatch_queued_input(
+                "target",
+                &identity,
+                run,
+                QueuedInput::new(Input::Bytes(vec![2])),
+            )
             .await
     );
     assert!(delivered.try_recv().is_err());

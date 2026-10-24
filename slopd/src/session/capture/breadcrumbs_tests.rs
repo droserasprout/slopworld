@@ -1,6 +1,6 @@
 use super::*;
 
-async fn fixture() -> (Arc<SessionRuntime>, mpsc::UnboundedReceiver<Input>) {
+async fn fixture() -> (Arc<SessionRuntime>, mpsc::UnboundedReceiver<QueuedInput>) {
     let session = SessionCfg {
         name: "agent".into(),
         project: "repo".into(),
@@ -32,8 +32,10 @@ async fn explicit_breadcrumb_renders_context_and_tips_without_submitting() {
         .paste_breadcrumb("agent", "context", vec!["first".into(), "second".into()])
         .await
         .unwrap();
-    assert!(matches!(rx.try_recv().unwrap(), Input::Paste { bytes }
-        if bytes == b"agent in repo at /tmp/project using codex --yolo\nfirst / second"));
+    assert!(
+        matches!(rx.try_recv().unwrap().command, Input::Paste { bytes }
+        if bytes == b"agent in repo at /tmp/project using codex --yolo\nfirst / second")
+    );
     assert!(
         rx.try_recv().is_err(),
         "manual breadcrumb paste must not add Enter or a delay"

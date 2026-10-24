@@ -5,7 +5,7 @@ struct Fixture {
     manager: Arc<SessionRuntime>,
     session: SessionCfg,
     bytes: Vec<u8>,
-    rx: mpsc::UnboundedReceiver<Input>,
+    rx: mpsc::UnboundedReceiver<QueuedInput>,
     _socket: crate::test_support::TmuxSocket,
 }
 
@@ -107,7 +107,7 @@ async fn uploaded_image_requires_current_run_and_mount_then_pastes_staged_bytes(
         .paste_uploaded_image(name, bytes.clone(), Some(7))
         .await
         .unwrap();
-    let Input::Paste { bytes: path } = fixture.rx.try_recv().unwrap() else {
+    let Input::Paste { bytes: path } = fixture.rx.try_recv().unwrap().command else {
         panic!("expected image path")
     };
     let path = String::from_utf8(path).unwrap();
@@ -140,10 +140,10 @@ async fn imported_image_pastes_guest_path_in_order_and_follows_private_state_cle
         .send_keys(&fixture.session.name, vec!["Enter".into()], false)
         .await;
     assert!(matches!(
-        fixture.rx.try_recv().unwrap(),
+        fixture.rx.try_recv().unwrap().command,
         Input::Keys { literal: true, .. }
     ));
-    let Input::Paste { bytes } = fixture.rx.try_recv().unwrap() else {
+    let Input::Paste { bytes } = fixture.rx.try_recv().unwrap().command else {
         panic!("expected image path paste");
     };
     let guest = String::from_utf8(bytes).unwrap();
@@ -153,7 +153,7 @@ async fn imported_image_pastes_guest_path_in_order_and_follows_private_state_cle
         .join(std::path::Path::new(&guest).file_name().unwrap());
     assert_eq!(std::fs::read(file).unwrap(), fixture.bytes.clone());
     assert!(matches!(
-        fixture.rx.try_recv().unwrap(),
+        fixture.rx.try_recv().unwrap().command,
         Input::Keys { literal: false, .. }
     ));
     let state = crate::sandbox::state_dir(&fixture.session).unwrap();

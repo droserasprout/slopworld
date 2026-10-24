@@ -113,7 +113,7 @@ impl SessionRuntime {
         &self,
         name: &str,
         run_id: u64,
-    ) -> mpsc::UnboundedReceiver<Input> {
+    ) -> mpsc::UnboundedReceiver<QueuedInput> {
         let (tx, rx) = mpsc::unbounded_channel();
         let mut live = Live::new(
             SessionCfg {

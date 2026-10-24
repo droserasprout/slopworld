@@ -1141,11 +1141,11 @@ async fn terminal_commands_require_write_scope_and_current_run() {
         for run in [Some(7), None] {
             assert!(handle_client_msg(keys(run), &manager, &cap, &socket.tx, &subs).await);
             assert!(
-                matches!(input.try_recv().unwrap(), Input::Keys { keys, literal: true } if keys == ["hello"])
+                matches!(input.try_recv().unwrap().command, Input::Keys { keys, literal: true } if keys == ["hello"])
             );
             assert!(handle_client_msg(paste(run), &manager, &cap, &socket.tx, &subs).await);
             assert!(
-                matches!(input.try_recv().unwrap(), Input::Paste { bytes } if bytes == "paste λ".as_bytes())
+                matches!(input.try_recv().unwrap().command, Input::Paste { bytes } if bytes == "paste λ".as_bytes())
             );
         }
     }
@@ -1160,7 +1160,7 @@ async fn terminal_commands_require_write_scope_and_current_run() {
         );
         assert!(handle_client_msg(paste, &manager, &cap, &socket.tx, &subs).await);
         assert!(
-            matches!(input.try_recv().unwrap(), Input::Paste { bytes } if bytes == uri.as_bytes())
+            matches!(input.try_recv().unwrap().command, Input::Paste { bytes } if bytes == uri.as_bytes())
         );
     }
     // Image uploads never fall through to literal text, including unauthorized
@@ -1217,7 +1217,7 @@ async fn mouse_and_resize_commands_enforce_scope_before_changing_terminal() {
     assert!(input.try_recv().is_err());
     assert!(handle_client_msg(mouse("press"), &manager, &rw, &socket.tx, &subs).await);
     assert!(
-        matches!(input.try_recv().unwrap(), Input::Bytes(bytes) if bytes == b"\x1b[<0;4;3M".repeat(2))
+        matches!(input.try_recv().unwrap().command, Input::Bytes(bytes) if bytes == b"\x1b[<0;4;3M".repeat(2))
     );
     assert!(handle_client_msg(resize(), &manager, &rw, &socket.tx, &subs).await);
     let view = manager.sessions.views().await.pop().unwrap();
@@ -1383,7 +1383,7 @@ async fn root_commands_queued_behind_rotation_have_no_effect() {
         .await
         .unwrap();
     assert!(
-        matches!(input.try_recv().unwrap(), crate::session::Input::Paste { bytes } if bytes == b"context")
+        matches!(input.try_recv().unwrap().command, crate::session::Input::Paste { bytes } if bytes == b"context")
     );
     let socket = socket_pair_for(&manager).await;
     let subs = WsSubs::default();

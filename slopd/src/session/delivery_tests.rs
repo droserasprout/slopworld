@@ -23,7 +23,7 @@ fn auto_resume_types_the_command_and_two_enters_in_order() {
 
 async fn delivery_fixture() -> (
     std::sync::Arc<SessionRuntime>,
-    tokio::sync::mpsc::UnboundedReceiver<Input>,
+    tokio::sync::mpsc::UnboundedReceiver<QueuedInput>,
 ) {
     use crate::session::{Live, TitleCapture};
     let manager = crate::session::test_manager(Config::default());
@@ -53,24 +53,24 @@ async fn delivery_fixture() -> (
 }
 
 async fn assert_prompt_submission(
-    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Input>,
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<QueuedInput>,
     expected: &str,
 ) {
     let paste = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
         .await
         .unwrap()
         .unwrap();
-    assert!(matches!(paste, Input::Paste { bytes } if bytes == expected.as_bytes()));
+    assert!(matches!(paste.command, Input::Paste { bytes } if bytes == expected.as_bytes()));
     let delay = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
         .await
         .unwrap()
         .unwrap();
-    assert!(matches!(delay, Input::Gap(duration) if duration == super::DELIVERY_ENTER_GAP));
+    assert!(matches!(delay.command, Input::Gap(duration) if duration == super::DELIVERY_ENTER_GAP));
     let enter = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
         .await
         .unwrap()
         .unwrap();
-    assert!(matches!(enter, Input::Keys { keys, literal: false } if keys == ["Enter"]));
+    assert!(matches!(enter.command, Input::Keys { keys, literal: false } if keys == ["Enter"]));
     assert!(rx.try_recv().is_err(), "delivery must submit exactly once");
 }
 
@@ -390,13 +390,13 @@ async fn queued_auto_resume_submits_current_run_and_publishes_completion() {
         actual.push(input);
     }
     assert_eq!(actual.len(), 5);
-    assert!(matches!(&actual[0], Input::Bytes(bytes) if bytes == b"/resume"));
+    assert!(matches!(&actual[0].command, Input::Bytes(bytes) if bytes == b"/resume"));
     for index in [1, 3] {
-        assert!(matches!(&actual[index], Input::Gap(gap) if *gap == ENTER_GAP));
+        assert!(matches!(&actual[index].command, Input::Gap(gap) if *gap == ENTER_GAP));
     }
     for index in [2, 4] {
         assert!(
-            matches!(&actual[index], Input::Keys { keys, literal: false } if keys == &["Enter"])
+            matches!(&actual[index].command, Input::Keys { keys, literal: false } if keys == &["Enter"])
         );
     }
 }

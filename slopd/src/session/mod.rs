@@ -69,8 +69,8 @@ pub use view::{
 };
 
 use crate::emu::strip_sgr;
-pub(crate) use input::Input;
 use input::merge_input;
+pub(crate) use input::{Input, QueuedInput};
 use title::{TitleAction, TitleCapture, TitleRequest, TitleSettings};
 pub(crate) use validation::check_name;
 pub(crate) use validation::name_slug;
@@ -147,7 +147,7 @@ struct LiveCapture {
 /// Queued input and startup sequencing for the current process.
 #[derive(Default)]
 struct LiveInput {
-    sender: Option<mpsc::UnboundedSender<Input>>,
+    sender: Option<mpsc::UnboundedSender<QueuedInput>>,
     traces: crate::latency::Pending,
     // Keep user keystrokes behind the pending startup auto-resume sequence.
     auto_resume_pending: bool,

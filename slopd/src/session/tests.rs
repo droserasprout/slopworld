@@ -4,20 +4,25 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::{
-    INPUT_BATCH, Input, Live, LiveCapture, LiveInput, State, TitleCapture, check_name, free_name,
-    free_project_name, merge_input, slug, strip_sgr,
+    INPUT_BATCH, Input, Live, LiveCapture, LiveInput, QueuedInput, State, TitleCapture, check_name,
+    free_name, free_project_name, merge_input, slug, strip_sgr,
 };
 use crate::config::{Config, ProjectCfg, SessionCfg};
 
 #[test]
 fn merges_a_run_of_mouse_reports() {
-    let batch = merge_input(vec![
-        Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
-        Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
-        Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
-    ]);
+    let batch = merge_input(
+        vec![
+            Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
+            Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
+            Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
+        ]
+        .into_iter()
+        .map(QueuedInput::new)
+        .collect(),
+    );
     assert_eq!(batch.len(), 1);
-    match &batch[0] {
+    match &batch[0].command {
         Input::Bytes(b) => assert_eq!(b, &b"\x1b[<64;1;1M".repeat(3)),
         _ => panic!("wrong kind"),
     }
@@ -26,18 +31,18 @@ fn merges_a_run_of_mouse_reports() {
 #[test]
 fn stops_merging_at_the_command_ceiling() {
     let items: Vec<Input> = (0..600).map(|_| Input::Bytes(vec![b'x'; 2])).collect();
-    let batch = merge_input(items);
+    let batch = merge_input(items.into_iter().map(QueuedInput::new).collect());
     assert!(batch.len() > 1, "1200 bytes must not become one command");
     let bytes: Vec<_> = batch
         .iter()
-        .flat_map(|item| match item {
+        .flat_map(|item| match &item.command {
             Input::Bytes(bytes) => bytes.clone(),
             _ => panic!("wrong kind"),
         })
         .collect();
     assert_eq!(bytes, vec![b'x'; 1200]);
     for item in &batch {
-        match item {
+        match &item.command {
             Input::Bytes(b) => assert!(b.len() <= INPUT_BATCH),
             _ => panic!("wrong kind"),
         }
@@ -46,48 +51,60 @@ fn stops_merging_at_the_command_ceiling() {
 
 #[test]
 fn a_paste_is_never_merged_and_never_reordered() {
-    let batch = merge_input(vec![
-        Input::Bytes(b"ab".to_vec()),
-        Input::Paste {
-            bytes: b"hello".to_vec(),
-        },
-        Input::Bytes(b"cd".to_vec()),
-        Input::Keys {
-            keys: vec!["Enter".into()],
-            literal: false,
-        },
-    ]);
+    let batch = merge_input(
+        vec![
+            Input::Bytes(b"ab".to_vec()),
+            Input::Paste {
+                bytes: b"hello".to_vec(),
+            },
+            Input::Bytes(b"cd".to_vec()),
+            Input::Keys {
+                keys: vec!["Enter".into()],
+                literal: false,
+            },
+        ]
+        .into_iter()
+        .map(QueuedInput::new)
+        .collect(),
+    );
     assert_eq!(batch.len(), 4);
     assert!(matches!(
-        &batch[1],
+        &batch[1].command,
         Input::Paste {
             bytes
         } if bytes == b"hello"
     ));
-    assert!(matches!(&batch[0], Input::Bytes(bytes) if bytes == b"ab"));
-    assert!(matches!(&batch[2], Input::Bytes(bytes) if bytes == b"cd"));
-    assert!(matches!(&batch[3], Input::Keys { keys, literal: false } if keys == &["Enter"]));
+    assert!(matches!(&batch[0].command, Input::Bytes(bytes) if bytes == b"ab"));
+    assert!(matches!(&batch[2].command, Input::Bytes(bytes) if bytes == b"cd"));
+    assert!(
+        matches!(&batch[3].command, Input::Keys { keys, literal: false } if keys == &["Enter"])
+    );
 }
 
 #[test]
 fn literal_and_named_keys_do_not_share_a_command() {
-    let batch = merge_input(vec![
-        Input::Keys {
-            keys: vec!["Up".into()],
-            literal: false,
-        },
-        Input::Keys {
-            keys: vec!["Down".into()],
-            literal: false,
-        },
-        Input::Keys {
-            keys: vec!["hi".into()],
-            literal: true,
-        },
-    ]);
+    let batch = merge_input(
+        vec![
+            Input::Keys {
+                keys: vec!["Up".into()],
+                literal: false,
+            },
+            Input::Keys {
+                keys: vec!["Down".into()],
+                literal: false,
+            },
+            Input::Keys {
+                keys: vec!["hi".into()],
+                literal: true,
+            },
+        ]
+        .into_iter()
+        .map(QueuedInput::new)
+        .collect(),
+    );
     assert_eq!(batch.len(), 2);
-    assert!(matches!(&batch[1], Input::Keys { keys, literal: true } if keys == &["hi"]));
-    match &batch[0] {
+    assert!(matches!(&batch[1].command, Input::Keys { keys, literal: true } if keys == &["hi"]));
+    match &batch[0].command {
         Input::Keys { keys, literal } => {
             assert_eq!(keys, &["Up".to_string(), "Down".to_string()]);
             assert!(!literal);
@@ -222,25 +239,22 @@ fn input_tracing_preserves_merging_and_each_request_identity() {
     let first = Arc::new(crate::latency::InputTrace::new("a", 1));
     let second = Arc::new(crate::latency::InputTrace::new("b", 2));
     let result = merge_input(vec![
-        Input::Bytes(vec![1]),
-        Input::Traced(Box::new(Input::Bytes(vec![2])), vec![first.clone()]),
-        Input::Traced(Box::new(Input::Bytes(vec![3])), vec![second.clone()]),
-        Input::Bytes(vec![4]),
-        Input::Gap(std::time::Duration::from_millis(1)),
-        Input::Bytes(vec![5]),
+        QueuedInput::new(Input::Bytes(vec![1])),
+        QueuedInput::traced(Input::Bytes(vec![2]), first.clone()),
+        QueuedInput::traced(Input::Bytes(vec![3]), second.clone()),
+        QueuedInput::new(Input::Bytes(vec![4])),
+        QueuedInput::new(Input::Gap(std::time::Duration::from_millis(1))),
+        QueuedInput::new(Input::Bytes(vec![5])),
     ]);
     assert_eq!(result.len(), 3);
-    let Input::Traced(item, traces) = &result[0] else {
-        panic!("missing trace")
-    };
-    assert!(matches!(item.as_ref(), Input::Bytes(bytes) if bytes == &[1, 2, 3, 4]));
-    assert_eq!(traces.len(), 2);
-    assert!(Arc::ptr_eq(&traces[0], &first));
-    assert!(Arc::ptr_eq(&traces[1], &second));
+    assert!(matches!(&result[0].command, Input::Bytes(bytes) if bytes == &[1, 2, 3, 4]));
+    assert_eq!(result[0].traces.len(), 2);
+    assert!(Arc::ptr_eq(&result[0].traces[0], &first));
+    assert!(Arc::ptr_eq(&result[0].traces[1], &second));
     assert!(
-        matches!(result[1], Input::Gap(duration) if duration == std::time::Duration::from_millis(1))
+        matches!(&result[1].command, Input::Gap(duration) if *duration == std::time::Duration::from_millis(1))
     );
-    assert!(matches!(&result[2], Input::Bytes(bytes) if bytes == &[5]));
+    assert!(matches!(&result[2].command, Input::Bytes(bytes) if bytes == &[5]));
 }
 
 #[test]

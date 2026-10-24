@@ -33,12 +33,12 @@ impl SessionRuntime {
     pub(crate) async fn queue_input(self: &Arc<Self>, name: &str, item: Input) {
         let trace = current_input_trace();
         // Gaps delay delivery but are not themselves terminal input.
-        let item = match &trace {
-            Some(trace) if !matches!(item, Input::Gap(_)) => {
-                Input::Traced(Box::new(item), vec![trace.clone()])
-            }
-            _ => item,
-        };
+        let mut item = QueuedInput::new(item);
+        if let Some(trace) = &trace
+            && !matches!(&item.command, Input::Gap(_))
+        {
+            item.traces.push(trace.clone());
+        }
         let (spawn_rx, unsent, tracked) = {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
@@ -92,7 +92,7 @@ impl SessionRuntime {
         name: String,
         identity: String,
         run_id: u64,
-        mut rx: mpsc::UnboundedReceiver<Input>,
+        mut rx: mpsc::UnboundedReceiver<QueuedInput>,
     ) {
         while let Some(first) = rx.recv().await {
             let mut batch = vec![first];
@@ -102,9 +102,9 @@ impl SessionRuntime {
             // Merge only what is already queued; never wait to fill a batch.
             let batch = merge_input(batch);
             for item in batch {
-                if let Input::Gap(delay) = item {
+                if let Input::Gap(delay) = &item.command {
                     // Pauses preserve queue order without holding the session boundary.
-                    tokio::time::sleep(delay).await;
+                    tokio::time::sleep(*delay).await;
                     continue;
                 }
                 let Some(manager) = manager.upgrade() else {
@@ -126,7 +126,7 @@ impl SessionRuntime {
         name: &str,
         identity: &str,
         run_id: u64,
-        item: Input,
+        item: QueuedInput,
     ) -> bool {
         let _terminal = self.terminal_boundary(name).read_owned().await;
         // A stopped or replaced run must not receive its predecessor's queued input.
@@ -137,36 +137,27 @@ impl SessionRuntime {
         }
         #[cfg(test)]
         if let Some(sink) = self.input_sink.lock().unwrap().as_ref() {
-            sink.send(item).unwrap();
+            sink.send(item.command).unwrap();
             return true;
         }
         Self::send_input(&self.tmux, name, item).await;
         true
     }
 
-    pub(crate) async fn send_input(tmux: &Tmux, name: &str, mut item: Input) {
-        let mut traces = Vec::new();
-        let (what, res) = loop {
-            match item {
-                Input::Traced(inner, mut nested) => {
-                    for trace in &nested {
-                        trace.dispatch();
-                    }
-                    traces.append(&mut nested);
-                    item = *inner;
-                }
-                Input::Keys { keys, literal } => {
-                    break ("keys", tmux.send_keys(name, &keys, literal).await);
-                }
-                Input::Bytes(b) => break ("bytes", tmux.send_bytes(name, &b).await),
-                Input::Paste { bytes } => break ("paste", tmux.paste_bytes(name, &bytes).await),
-                Input::Gap(d) => {
-                    tokio::time::sleep(d).await;
-                    return;
-                }
+    pub(crate) async fn send_input(tmux: &Tmux, name: &str, item: QueuedInput) {
+        for trace in &item.traces {
+            trace.dispatch();
+        }
+        let (what, res) = match item.command {
+            Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
+            Input::Bytes(bytes) => ("bytes", tmux.send_bytes(name, &bytes).await),
+            Input::Paste { bytes } => ("paste", tmux.paste_bytes(name, &bytes).await),
+            Input::Gap(delay) => {
+                tokio::time::sleep(delay).await;
+                return;
             }
         };
-        for trace in traces {
+        for trace in item.traces {
             trace.done(res.is_ok());
         }
         if let Err(e) = res {
