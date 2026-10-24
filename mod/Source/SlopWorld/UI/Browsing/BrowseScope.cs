@@ -67,12 +67,14 @@ namespace SlopWorld
         public BrowseScopeChoices(string saved) =>
             _exceptions = new HashSet<string>((saved ?? "").Split('\n').Where(s => s.Length > 0));
 
-        public bool Chosen(BrowseScope scope)
+        public bool Chosen(BrowseScope scope) => Chosen(scope.ProjectId, scope.Worktree);
+
+        public bool Chosen(string projectId, string worktree)
         {
-            if (AllChosen(scope.ProjectId))
+            if (AllChosen(projectId))
                 return true;
-            bool enabledByDefault = scope.Worktree == "main";
-            bool hasOverride = _exceptions.Contains(scope.Key);
+            bool enabledByDefault = worktree == "main";
+            bool hasOverride = _exceptions.Contains(BrowseScope.Identity(projectId, worktree));
             return hasOverride ? !enabledByDefault : enabledByDefault;
         }
 

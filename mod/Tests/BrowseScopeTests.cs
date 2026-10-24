@@ -83,6 +83,65 @@ namespace SlopWorld.Tests
                 Path = path ?? "/p/" + worktree,
             };
 
+        public static void SleepingSchedulerSkipsCatalogTraversalAndInvalidationWakesIt()
+        {
+            int visibilityChecks = 0;
+            float now = 0;
+            int requests = 0;
+            var projects = new[]
+            {
+                new ProjectInfo
+                {
+                    Id = "p-id",
+                    Name = "p",
+                    Dir = "/p",
+                },
+            };
+            var catalog = new BrowseScopeCatalog(
+                name =>
+                {
+                    visibilityChecks++;
+                    return true;
+                },
+                () => now,
+                (name, done) =>
+                {
+                    requests++;
+                    done(new List<BrowseScope> { Scope() }, null);
+                }
+            );
+            catalog.Update(projects, 0, "", "", true);
+            // Establish the next deadline after the synchronous completion.
+            catalog.Update(projects, 0, "", "", true);
+            int checks = visibilityChecks;
+            for (int i = 0; i < 100; i++)
+                catalog.Update(projects, 0, "", "", true);
+            Assert.That(visibilityChecks, Is.EqualTo(checks));
+            Assert.That(requests, Is.EqualTo(1));
+            catalog.Invalidate();
+            catalog.Update(projects, 0, "", "", true);
+            Assert.That(requests, Is.EqualTo(2));
+            now = 5;
+            catalog.Update(projects, 0, "", "", true);
+            Assert.That(requests, Is.EqualTo(3));
+        }
+
+        public static void SessionProjectIndexTracksRenamesAndRemovals()
+        {
+            var f = new Fixture { Saved = BrowseScope.Identity("p-id", "main") };
+            f.Update();
+            Assert.That(f.Catalog.SessionChosen("p", ""), Is.False);
+            f.Projects[0].Name = "renamed";
+            f.ProjectsRevision++;
+            f.Update();
+            Assert.That(f.Catalog.SessionChosen("p", ""), Is.True);
+            Assert.That(f.Catalog.SessionChosen("renamed", ""), Is.False);
+            f.Projects.Clear();
+            f.ProjectsRevision++;
+            f.Update();
+            Assert.That(f.Catalog.SessionChosen("renamed", ""), Is.True);
+        }
+
         public static void SessionFilteringFollowsCheckoutChoicesWithoutWaitingForDescriptors()
         {
             var f = new Fixture();

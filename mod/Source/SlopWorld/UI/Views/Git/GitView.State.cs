@@ -250,13 +250,21 @@ namespace SlopWorld
         // Files also consumes this cache for its Diff actions.
         public static void Entered() => Refresh();
 
+        static int _pollScopesRevision = -1;
+        static List<string> _pollScopes = new List<string>();
+
         internal static void RefreshIfDue()
         {
             if (!SessionHub.Instance.Online)
                 return;
-            Store.RefreshIfDue(
-                SidebarScopes.EnabledScopes().Select(s => s.Key).Where(ScopeUnfolded)
-            );
+            int revision = SidebarScopes.Revision;
+            if (_pollScopesRevision != revision)
+            {
+                _pollScopes = SidebarScopes.EnabledScopes().Select(s => s.Key).ToList();
+                _pollScopesRevision = revision;
+            }
+            // Folding is live navigation state, independent of catalog membership.
+            Store.RefreshIfDue(_pollScopes.Where(ScopeUnfolded));
         }
 
         static Repo Get(string project) => Store.Get(SidebarScopes.Key(project));

@@ -20,6 +20,9 @@ namespace SlopWorld
         }
 
         readonly Dictionary<string, Catalog> _catalogs = new Dictionary<string, Catalog>();
+        readonly Dictionary<string, string> _projectIds = new Dictionary<string, string>();
+        float _nextSchedule;
+        bool _includeHidden;
         readonly Dictionary<string, BrowseScope> _scopes = new Dictionary<string, BrowseScope>();
         readonly Func<string, bool> _passes;
         readonly Func<float> _now;
@@ -68,16 +71,9 @@ namespace SlopWorld
         {
             if (!_passes(project))
                 return false;
-            var catalog = _catalogs.FirstOrDefault(pair => pair.Value.Name == project);
-            if (catalog.Value == null)
+            if (project == null || !_projectIds.TryGetValue(project, out var projectId))
                 return true;
-            return _choices.Chosen(
-                new BrowseScope
-                {
-                    ProjectId = catalog.Key,
-                    Worktree = string.IsNullOrEmpty(worktree) ? "main" : worktree,
-                }
-            );
+            return _choices.Chosen(projectId, string.IsNullOrEmpty(worktree) ? "main" : worktree);
         }
 
         public bool Chosen(BrowseScope scope) => _choices.Chosen(scope);
@@ -191,6 +187,7 @@ namespace SlopWorld
 
         public void Invalidate()
         {
+            _nextSchedule = 0;
             foreach (var c in _catalogs.Values)
             {
                 c.Next = 0;
@@ -230,7 +227,10 @@ namespace SlopWorld
                     changed = true;
                 }
                 if (changed)
+                {
+                    _nextSchedule = 0;
                     Bump();
+                }
                 if (online)
                     ScheduleLoads(includeHidden);
             }
@@ -244,6 +244,10 @@ namespace SlopWorld
         {
             _projects = projectRevision;
             var list = projects.ToList();
+            _projectIds.Clear();
+            foreach (var project in list)
+                if (project.Name != null && !_projectIds.ContainsKey(project.Name))
+                    _projectIds.Add(project.Name, BrowseScope.ProjectIdOf(project));
             var ids = new HashSet<string>(list.Select(BrowseScope.ProjectIdOf));
             foreach (var id in _catalogs.Keys.Where(k => !ids.Contains(k)).ToList())
                 _catalogs.Remove(id);
@@ -294,6 +298,21 @@ namespace SlopWorld
 
         void ScheduleLoads(bool includeHidden)
         {
+            // Reads may reach this scheduler once per sidebar row. Retain the earliest
+            // eligible deadline so unchanged reads neither scan nor sort the catalog.
+            if (_includeHidden != includeHidden)
+            {
+                _includeHidden = includeHidden;
+                _nextSchedule = 0;
+            }
+            if (_inFlight >= 2 || _now() < _nextSchedule)
+                return;
+            _nextSchedule = float.PositiveInfinity;
+            foreach (var c in _catalogs.Values)
+                if (!c.Loading && (includeHidden || _passes(c.Name)))
+                    _nextSchedule = Math.Min(_nextSchedule, c.Next);
+            if (_now() < _nextSchedule)
+                return;
             foreach (var entry in _catalogs.OrderBy(e => e.Value.Next).ToList())
             {
                 var c = entry.Value;
@@ -321,6 +340,7 @@ namespace SlopWorld
 
         void Complete(string id, Catalog c, int token, List<BrowseScope> reply, string error)
         {
+            _nextSchedule = 0;
             _inFlight--;
             c.Loading = false;
             if (

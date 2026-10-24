@@ -4,6 +4,11 @@
 `SidebarScopes` adapts/persists it. Project-name filtering and checkout selection are
 independent. Committed identities may arrive before descriptors.
 
+Catalog scheduling retains the next eligible refresh deadline; completion, invalidation,
+project/filter changes, and hidden-project demand must wake it. Session filtering uses
+an index rebuilt with the project revision. Git polling retains enabled checkout keys
+by catalog revision while checking fold state live.
+
 All is a mode that includes future entries. Deselecting one entry materializes the
 remaining selection; explicit empty selection must stay distinct from All. Unknown
 saved project keys match nothing. Hidden projects retain checkout choices under stable

@@ -48,9 +48,66 @@ namespace SlopWorld.Tests
             TerminalHotspots();
             UrlScanning();
             IdleWork();
+            BrowseScopes();
             EcoWork();
             GC.KeepAlive(_sink);
             return 0;
+        }
+
+        static void BrowseScopes()
+        {
+            var projects = Enumerable
+                .Range(0, 20)
+                .Select(i => new ProjectInfo
+                {
+                    Id = "project-" + i,
+                    Name = "project-" + i,
+                    Dir = "/project-" + i,
+                })
+                .ToList();
+            var catalog = new BrowseScopeCatalog(
+                _ => true,
+                () => 1f,
+                (name, done) =>
+                    done(
+                        new List<BrowseScope>
+                        {
+                            new BrowseScope
+                            {
+                                Worktree = "main",
+                                Name = "Main",
+                                Path = "/" + name,
+                                Phase = "ready",
+                            },
+                        },
+                        null
+                    )
+            );
+            catalog.Update(projects, 1, "", "", true);
+            var sessionProjects = Enumerable
+                .Range(0, 100)
+                .Select(i => projects[i % projects.Count].Name)
+                .ToArray();
+            Measure(
+                "scope idle updates 100 reads / 20 projects",
+                () =>
+                {
+                    for (int i = 0; i < 100; i++)
+                        catalog.Update(projects, 1, "", "", true);
+                    return catalog.Revision;
+                }
+            );
+            Measure(
+                "scope selection 100 sessions / 20 projects",
+                () =>
+                {
+                    int chosen = 0;
+                    foreach (var project in sessionProjects)
+                        if (catalog.SessionChosen(project, "main"))
+                            chosen++;
+                    return chosen;
+                }
+            );
         }
 
         static void ScreenIngestion()
