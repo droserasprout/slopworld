@@ -66,6 +66,23 @@ async fn scroll_cache_reuses_frames_but_echoes_each_request() {
 }
 
 #[tokio::test]
+async fn history_view_hides_cursor_and_does_not_consume_a_pending_bell() {
+    let manager = fixture(b"one\r\ntwo\r\nthree\r\nfour\r\nfive").await;
+    let emu = manager.live.read().await["agent"]
+        .capture
+        .emu
+        .clone()
+        .unwrap();
+    emu.lock().unwrap().feed(b"\x07");
+
+    let history = manager.scroll_capture("agent", 1, 51).await.unwrap();
+    assert_eq!((history.cx, history.cy), (0, history.rows));
+    assert_eq!((history.cursor_shape, history.cursor_blink), (0, false));
+    assert!(!history.app_mouse && !history.app_drag && !history.alt_screen);
+    assert!(emu.lock().unwrap().render().bell);
+}
+
+#[tokio::test]
 async fn changed_offset_sequence_and_dimensions_invalidate_cached_scroll() {
     let m = fixture(b"one\r\ntwo\r\nthree\r\nfour\r\nfive").await;
     let first = m.scroll_capture("agent", 1, 1).await.unwrap();

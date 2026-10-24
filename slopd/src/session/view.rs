@@ -176,6 +176,42 @@ impl ScreenView {
             lines: frame.lines,
         }
     }
+
+    /// Build a history reply directly from serialized rows; history has no live cursor or modes.
+    pub(crate) fn from_history(
+        args: FrameViewArgs<'_>,
+        title: String,
+        lines: Vec<Arc<str>>,
+    ) -> Self {
+        let FrameViewArgs {
+            name,
+            seq,
+            cols,
+            rows,
+            off,
+            history,
+            request_id,
+        } = args;
+        Self {
+            input_timings: Vec::new(),
+            name: name.to_string(),
+            seq,
+            cols,
+            rows,
+            cx: 0,
+            cy: rows,
+            off,
+            history,
+            cursor_shape: 0,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title,
+            request_id,
+            lines,
+        }
+    }
 }
 
 #[cfg(test)]

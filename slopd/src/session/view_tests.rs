@@ -45,6 +45,34 @@ fn frame_metadata_is_preserved_on_the_wire_view() {
 }
 
 #[test]
+fn history_view_uses_hidden_cursor_and_default_live_modes() {
+    let view = ScreenView::from_history(
+        FrameViewArgs {
+            name: "agent",
+            seq: 11,
+            cols: 120,
+            rows: 40,
+            off: 9,
+            history: 91,
+            request_id: 23,
+        },
+        "editor".into(),
+        vec!["one".into(), "two".into()],
+    );
+    assert_eq!(view.name, "agent");
+    assert_eq!((view.seq, view.cols, view.rows), (11, 120, 40));
+    assert_eq!((view.cx, view.cy, view.off), (0, 40, 9));
+    assert_eq!((view.history, view.request_id), (91, 23));
+    assert_eq!((view.cursor_shape, view.cursor_blink), (0, false));
+    assert!(!view.app_mouse && !view.app_drag && !view.alt_screen);
+    assert_eq!(view.title, "editor");
+    assert_eq!(
+        view.lines.iter().map(AsRef::as_ref).collect::<Vec<&str>>(),
+        ["one", "two"]
+    );
+}
+
+#[test]
 fn shared_rows_keep_the_existing_json_shape() {
     let frame = Frame {
         lines: vec!["one".into(), "two".into()],

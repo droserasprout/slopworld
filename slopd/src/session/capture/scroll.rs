@@ -93,8 +93,7 @@ impl SessionRuntime {
             view.request_id = request_id;
             return Some(view);
         }
-        let frame = crate::emu::SessionEmu::frame_from_grid(&grid, cols, rows, title);
-        let view = ScreenView::from_frame(
+        let view = ScreenView::from_history(
             FrameViewArgs {
                 name,
                 seq,
@@ -104,7 +103,8 @@ impl SessionRuntime {
                 history,
                 request_id,
             },
-            frame,
+            title,
+            crate::emu::serialize_grid_rows(&grid),
         );
 
         // Output can commit while this snapshot waits for the live lock. Its

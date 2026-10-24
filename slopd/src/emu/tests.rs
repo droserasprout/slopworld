@@ -909,9 +909,9 @@ fn resizing_an_initial_capture_preserves_real_history() {
     assert_eq!(e.render().history, 1);
 
     e.resize(20, rows - 1);
-    let (grid, offset, history, title) = e.scroll_snapshot(2);
+    let (grid, offset, history, _title) = e.scroll_snapshot(2);
     assert_eq!((offset, history), (2, 2));
-    let frame = SessionEmu::frame_from_grid(&grid, 20, rows - 1, title);
-    assert!(frame.lines[0].contains("line-0"));
-    assert!(frame.lines[1].contains("line-1"));
+    let lines = crate::emu::serialize_grid_rows(&grid);
+    assert!(lines[0].contains("line-0"));
+    assert!(lines[1].contains("line-1"));
 }

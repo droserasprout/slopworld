@@ -474,33 +474,6 @@ impl SessionEmu {
         (grid, achieved, history, title)
     }
 
-    /// Build a scrollback frame from a grid captured by `scroll_snapshot`.
-    /// Run outside the emulator lock. Hide the cursor in the history view.
-    pub fn frame_from_grid(grid: &[Vec<Slot>], _cols: u16, rows: u16, title: String) -> Frame {
-        let lines: Vec<Arc<str>> = grid.iter().map(|r| Arc::from(serialize_row(r))).collect();
-        let row_hashes = lines.iter().map(hash_row).collect::<Vec<_>>();
-        Frame {
-            content_hash: hash_rows(&row_hashes),
-            activity_hash: hash_rows(
-                &grid
-                    .iter()
-                    .map(|row| activity_row_hash(row))
-                    .collect::<Vec<_>>(),
-            ),
-            lines,
-            history: 0,
-            cx: 0,
-            cy: rows,
-            cursor_shape: 0,
-            cursor_blink: false,
-            app_mouse: false,
-            app_drag: false,
-            alt_screen: false,
-            title,
-            bell: false,
-        }
-    }
-
     fn capture_visible_grid(&self) -> Vec<Vec<Slot>> {
         let cols = self.cols as usize;
         let rows = self.rows as usize;
@@ -725,6 +698,13 @@ impl SessionEmu {
         };
         self.rows as u64
     }
+}
+
+/// Serialize captured rows for a history reply without calculating live-frame hashes.
+pub(crate) fn serialize_grid_rows(grid: &[Vec<Slot>]) -> Vec<Arc<str>> {
+    grid.iter()
+        .map(|row| Arc::from(serialize_row(row)))
+        .collect()
 }
 
 enum Damage {
