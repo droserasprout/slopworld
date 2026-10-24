@@ -158,8 +158,8 @@ namespace SlopWorld
         static float NavigationIcon =>
             Mathf.Min(
                 TabIcon,
-                (Width - 2f * CellX - (SidebarTabCatalog.Order.Count + 1) * TabGap)
-                    / (SidebarTabCatalog.Order.Count + 2)
+                (Width - 2f * CellX - (TabRegistry.Definitions.Count + 1) * TabGap)
+                    / (TabRegistry.Definitions.Count + 2)
             );
 
         // Keep project menus anchored below the navigation row across repeated selections.

@@ -1,7 +1,8 @@
 # Sidebar navigation
 
-`SidebarTabCatalog` owns order, stable persisted IDs, and capabilities;
-`SidebarTabRegistry` owns lookup; `Sidebar` supplies game-bound handlers. Persist IDs,
+`SidebarTabRegistry` owns the fixed six-tab catalog, navigation/cleanup order, stable
+persisted IDs, capabilities, and lookup. Each `SidebarTabDefinition` holds its callbacks;
+`Sidebar` binds game-owned behavior. Persist IDs,
 never enum positions/rows. Unknown tabs fall back to Agents.
 
 Every tab reserves its action row so switching keeps body height stable. Drawing,

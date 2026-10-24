@@ -7,112 +7,99 @@ namespace SlopWorld
 {
     public static partial class Sidebar
     {
-        static readonly SidebarTabRegistry TabRegistry = BuildTabRegistry();
+        static readonly SidebarTabRegistry TabRegistry = new SidebarTabRegistry(ConfigureTab);
 
         static SidebarTabDefinition CurrentDefinition =>
             TabRegistry.FromPersisted(Settings.SidebarTab);
 
-        static SidebarTabRegistry BuildTabRegistry() =>
-            SidebarTabCatalog.CreateRegistry(HandlersFor);
-
-        static SidebarTabHandlers HandlersFor(SidebarTab tab)
+        static void ConfigureTab(SidebarTabDefinition definition)
         {
-            switch (tab)
+            switch (definition.Tab)
             {
                 case SidebarTab.Agents:
-                    return new SidebarTabHandlers
-                    {
-                        Draw = DrawAgentTab,
-                        Click = Menus,
-                        DrawActions = DrawAgentActions,
-                        Refresh = () => SessionHub.Instance.SessionStore.Refresh(),
-                        SetAllFolds = SetAgentFolds,
-                        AllFolded = AllAgentsFolded,
-                    };
+                    definition.Draw = DrawAgentTab;
+                    definition.Click = Menus;
+                    definition.DrawActions = DrawAgentActions;
+                    definition.Refresh = () => SessionHub.Instance.SessionStore.Refresh();
+                    definition.SetAllFolds = SetAgentFolds;
+                    definition.AllFolded = AllAgentsFolded;
+                    break;
                 case SidebarTab.Files:
-                    return new SidebarTabHandlers
+                    definition.Draw = DrawFilesView;
+                    definition.Click = ClickFilesView;
+                    definition.DrawActions = DrawFilesActions;
+                    definition.Refresh = FilesView.Reload;
+                    definition.SetAllFolds = FilesView.SetAllFolded;
+                    definition.AllFolded = () => FilesView.AllFolded;
+                    definition.Close = () =>
                     {
-                        Draw = DrawFilesView,
-                        Click = ClickFilesView,
-                        DrawActions = DrawFilesActions,
-                        Refresh = FilesView.Reload,
-                        SetAllFolds = FilesView.SetAllFolded,
-                        AllFolded = () => FilesView.AllFolded,
-                        Close = () =>
-                        {
-                            EndFilesDivider();
-                            GitView.CancelPendingDiff();
-                            FilesView.ClearFocus();
-                        },
-                        Entered = () =>
-                        {
-                            FilesView.Entered();
-                            GitView.Entered();
-                        },
-                        Reselected = () =>
-                        {
-                            FilesView.Entered();
-                            GitView.Refresh();
-                        },
+                        EndFilesDivider();
+                        GitView.CancelPendingDiff();
+                        FilesView.ClearFocus();
                     };
+                    definition.Entered = () =>
+                    {
+                        FilesView.Entered();
+                        GitView.Entered();
+                    };
+                    definition.Reselected = () =>
+                    {
+                        FilesView.Entered();
+                        GitView.Refresh();
+                    };
+                    break;
                 case SidebarTab.Git:
-                    return new SidebarTabHandlers
+                    definition.Draw = DrawGitView;
+                    definition.Click = ClickGitView;
+                    definition.DrawActions = DrawGitActions;
+                    definition.Refresh = GitView.Refresh;
+                    definition.FilterChanged = GitView.Refresh;
+                    definition.SetAllFolds = GitView.SetAllFolded;
+                    definition.AllFolded = () => GitView.AllFolded;
+                    definition.Close = () =>
                     {
-                        Draw = DrawGitView,
-                        Click = ClickGitView,
-                        DrawActions = DrawGitActions,
-                        Refresh = GitView.Refresh,
-                        FilterChanged = GitView.Refresh,
-                        SetAllFolds = GitView.SetAllFolded,
-                        AllFolded = () => GitView.AllFolded,
-                        Close = () =>
-                        {
-                            EndFilesDivider();
-                            GitView.CancelPendingDiff();
-                        },
-                        Entered = GitView.Refresh,
-                        Reselected = GitView.Refresh,
+                        EndFilesDivider();
+                        GitView.CancelPendingDiff();
                     };
+                    definition.Entered = GitView.Refresh;
+                    definition.Reselected = GitView.Refresh;
+                    break;
                 case SidebarTab.Search:
-                    return new SidebarTabHandlers
-                    {
-                        Draw = () => SearchView.Draw(Body),
-                        Click = SearchView.Clicks,
-                        DrawActions = DrawSearchActions,
-                        Refresh = SearchView.Search,
-                        SetAllFolds = SearchView.SetAllFolded,
-                        AllFolded = () => SearchView.AllFolded,
-                        FilterChanged = SidebarScopes.Update,
-                        Close = SearchView.Closed,
-                        Entered = SearchView.Entered,
-                    };
+                    definition.Draw = () => SearchView.Draw(Body);
+                    definition.Click = SearchView.Clicks;
+                    definition.DrawActions = DrawSearchActions;
+                    definition.Refresh = SearchView.Search;
+                    definition.SetAllFolds = SearchView.SetAllFolded;
+                    definition.AllFolded = () => SearchView.AllFolded;
+                    definition.FilterChanged = SidebarScopes.Update;
+                    definition.Close = SearchView.Closed;
+                    definition.Entered = SearchView.Entered;
+                    break;
                 case SidebarTab.Tasks:
-                    return new SidebarTabHandlers
-                    {
-                        Draw = () => TasksView.Draw(Body),
-                        Click = TasksView.Clicks,
-                        DrawActions = DrawTasksActions,
-                        Refresh = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
-                        Entered = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
-                        Reselected = () =>
-                            SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
-                    };
+                    definition.Draw = () => TasksView.Draw(Body);
+                    definition.Click = TasksView.Clicks;
+                    definition.DrawActions = DrawTasksActions;
+                    definition.Refresh = () =>
+                        SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail);
+                    definition.Entered = () =>
+                        SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail);
+                    definition.Reselected = () =>
+                        SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail);
+                    break;
                 case SidebarTab.Library:
-                    return new SidebarTabHandlers
-                    {
-                        Draw = () => LibraryView.Draw(Body),
-                        Click = LibraryView.Clicks,
-                        Close = LibraryView.Closed,
-                        DrawActions = DrawLibraryActions,
-                        Refresh = RefreshLibrary,
-                        Reselected = RefreshLibrary,
-                        // Fetch on entry as well, including when socket updates are unavailable.
-                        Entered = () => LibraryView.Refresh(),
-                        SetAllFolds = LibraryView.SetAllFolded,
-                        AllFolded = () => LibraryView.AllFolded,
-                    };
+                    definition.Draw = () => LibraryView.Draw(Body);
+                    definition.Click = LibraryView.Clicks;
+                    definition.Close = LibraryView.Closed;
+                    definition.DrawActions = DrawLibraryActions;
+                    definition.Refresh = RefreshLibrary;
+                    definition.Reselected = RefreshLibrary;
+                    // Fetch on entry as well, including when socket updates are unavailable.
+                    definition.Entered = () => LibraryView.Refresh();
+                    definition.SetAllFolds = LibraryView.SetAllFolded;
+                    definition.AllFolded = () => LibraryView.AllFolded;
+                    break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(tab));
+                    throw new ArgumentOutOfRangeException(nameof(definition));
             }
         }
 

@@ -7,56 +7,15 @@ namespace SlopWorld.Tests
 {
     static class SidebarRegistryTests
     {
-        static SidebarTabDefinition Definition(
-            SidebarTab tab,
-            string name,
-            SidebarTabHandlers handlers = null
-        ) =>
-            new SidebarTabDefinition(
-                tab,
-                name,
-                "icon",
-                null,
-                true,
-                false,
-                true,
-                handlers ?? new SidebarTabHandlers()
-            );
-
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            foreach (bool explicitNull in new[] { false, true })
-                yield return (
-                    $"sidebar handlers tolerate {(explicitNull ? "explicit null" : "default")} callbacks",
-                    () => OptionalHandlers(explicitNull)
-                );
-            foreach (
-                string kind in new[]
-                {
-                    "null",
-                    "empty",
-                    "null-entry",
-                    "duplicate-tab",
-                    "duplicate-name",
-                    "missing-agents",
-                }
-            )
-                yield return ($"sidebar registry rejects {kind}", () => InvalidRegistry(kind));
+            yield return ("unbound tabs have safe default callbacks", OptionalCallbacks);
+            yield return ("callbacks bind once in fixed navigation order", BindCallbacks);
         }
 
-        static void OptionalHandlers(bool explicitNull)
+        static void OptionalCallbacks()
         {
-            var handlers = new SidebarTabHandlers();
-            if (explicitNull)
-            {
-                handlers.Draw = handlers.Click = handlers.Refresh = handlers.FilterChanged = null;
-                handlers.Close = handlers.Entered = handlers.Reselected = null;
-                handlers.DrawActions = null;
-                handlers.SetAllFolds = null;
-                handlers.AllFolded = null;
-            }
-            var tab = Definition(SidebarTab.Agents, "agents", handlers);
-            Assert.DoesNotThrow(() =>
+            foreach (var tab in new SidebarTabRegistry().Definitions)
             {
                 tab.Draw();
                 tab.Click();
@@ -68,155 +27,84 @@ namespace SlopWorld.Tests
                 tab.Close();
                 tab.Entered();
                 tab.Reselected();
-            });
-            Assert.That(tab.AllFolded(), Is.False);
-            Assert.That(tab.Tooltip, Is.Empty);
-            Assert.That(tab.IconKey, Is.EqualTo("icon"));
-            Assert.That(tab.HasActions && tab.CanToggleDotfiles, Is.True);
-            Assert.That(tab.CanFold, Is.False);
-        }
-
-        static void InvalidRegistry(string kind)
-        {
-            var agents = Definition(SidebarTab.Agents, "agents");
-            SidebarTabDefinition[] definitions;
-            switch (kind)
-            {
-                case "null":
-                    definitions = null;
-                    break;
-                case "empty":
-                    definitions = Array.Empty<SidebarTabDefinition>();
-                    break;
-                case "null-entry":
-                    definitions = new[] { agents, null };
-                    break;
-                case "duplicate-tab":
-                    definitions = new[] { agents, Definition(SidebarTab.Agents, "different") };
-                    break;
-                case "duplicate-name":
-                    definitions = new[] { agents, Definition(SidebarTab.Files, "agents") };
-                    break;
-                default:
-                    definitions = new[] { Definition(SidebarTab.Files, "files") };
-                    break;
+                Assert.That(tab.AllFolded(), Is.False);
             }
-            var error = Assert.Throws<ArgumentException>(() => new SidebarTabRegistry(definitions));
-            Assert.That(error.ParamName, Is.EqualTo("definitions"));
         }
 
-        public static void RegistryCopiesInputAndUsesExactPersistedNames()
+        static void BindCallbacks()
         {
-            var agents = Definition(SidebarTab.Agents, "agents");
-            var files = Definition(SidebarTab.Files, "files");
-            var input = new[] { agents, files };
-            var registry = new SidebarTabRegistry(input);
-            input[0] = files;
+            var bound = new List<SidebarTabDefinition>();
+            var registry = new SidebarTabRegistry(bound.Add);
+            Assert.That(bound, Is.EqualTo(registry.Definitions));
+            foreach (var definition in bound)
+                Assert.That(registry.For(definition.Tab), Is.SameAs(definition));
+        }
+
+        public static void FixedCatalogUsesExactPersistedNames()
+        {
+            var registry = new SidebarTabRegistry();
+            var agents = registry.For(SidebarTab.Agents);
+            var files = registry.For(SidebarTab.Files);
+            var expected = new[] { "agents", "files", "git", "search", "tasks", "library" };
             Assert.That(
-                registry.Definitions.ToArray(),
-                Is.EqualTo(new[] { agents, files }),
-                "caller array mutation cannot reorder navigation"
+                registry.Definitions.Select(tab => tab.PersistedName),
+                Is.EqualTo(expected)
             );
-            Assert.That(registry.Definitions, Is.Not.InstanceOf<SidebarTabDefinition[]>());
             var exposed = (IList<SidebarTabDefinition>)registry.Definitions;
             Assert.Throws<NotSupportedException>(() => exposed[0] = files);
             Assert.That(
-                registry.Definitions.ToArray(),
-                Is.EqualTo(new[] { agents, files }),
-                "rejected mutation leaves navigation order intact"
+                registry.Definitions.Select(tab => tab.PersistedName),
+                Is.EqualTo(expected)
             );
-            Assert.That(registry.For(SidebarTab.Agents), Is.SameAs(agents));
             Assert.That(registry.FromPersisted("files"), Is.SameAs(files));
-            foreach (string name in new[] { null, "", "FILES", "unknown" })
+            Assert.That(registry.For((SidebarTab)(-1)), Is.SameAs(agents));
+            foreach (string name in new[] { null, "", "FILES", "unknown", " files", "files " })
                 Assert.That(registry.FromPersisted(name), Is.SameAs(agents));
         }
 
-        public static void DefinitionRequiresStableIdentityAndHandlers()
+        public static void FixedCatalogCapabilities()
         {
-            foreach (string empty in new[] { null, "" })
+            var registry = new SidebarTabRegistry();
+            foreach (var tab in registry.Definitions)
             {
-                Assert.That(
-                    Assert
-                        .Throws<ArgumentException>(() =>
-                            new SidebarTabDefinition(
-                                SidebarTab.Agents,
-                                empty,
-                                "icon",
-                                "",
-                                false,
-                                false,
-                                false,
-                                new SidebarTabHandlers()
-                            )
-                        )
-                        .ParamName,
-                    Is.EqualTo("persistedName")
-                );
-                Assert.That(
-                    Assert
-                        .Throws<ArgumentException>(() =>
-                            new SidebarTabDefinition(
-                                SidebarTab.Agents,
-                                "agents",
-                                empty,
-                                "",
-                                false,
-                                false,
-                                false,
-                                new SidebarTabHandlers()
-                            )
-                        )
-                        .ParamName,
-                    Is.EqualTo("iconKey")
-                );
+                Assert.That(tab.IconKey, Is.EqualTo(tab.PersistedName));
+                Assert.That(tab.Tooltip, Is.Not.Empty);
+                Assert.That(tab.HasActions, Is.True);
+                Assert.That(tab.CanFold, Is.EqualTo(tab.Tab != SidebarTab.Tasks));
+                Assert.That(tab.CanToggleDotfiles, Is.EqualTo(tab.Tab == SidebarTab.Files));
             }
-            Assert.Throws<ArgumentNullException>(() =>
-                new SidebarTabDefinition(
-                    SidebarTab.Agents,
-                    "agents",
-                    "icon",
-                    "",
-                    false,
-                    false,
-                    false,
-                    null
-                )
-            );
         }
 
         public static void DefinitionDispatchesSuppliedHandlersAndFoldState()
         {
             var calls = new List<string>();
             bool folded = false;
-            var tab = Definition(
-                SidebarTab.Files,
-                "files",
-                new SidebarTabHandlers
-                {
-                    Draw = () => calls.Add("draw"),
-                    Click = () => calls.Add("click"),
-                    DrawActions = _ => calls.Add("actions"),
-                    Refresh = () => calls.Add("refresh"),
-                    FilterChanged = () => calls.Add("filter"),
-                    SetAllFolds = value => folded = value,
-                    AllFolded = () => folded,
-                    Close = () => calls.Add("close"),
-                    Entered = () => calls.Add("enter"),
-                    Reselected = () => calls.Add("reselect"),
-                }
-            );
-            tab.Draw();
-            tab.Click();
-            tab.DrawActions(default);
-            tab.Refresh();
-            tab.FilterChanged();
-            tab.SetAllFolds(true);
-            Assert.That(tab.AllFolded(), Is.True);
-            tab.SetAllFolds(false);
-            Assert.That(tab.AllFolded(), Is.False);
-            tab.Close();
-            tab.Entered();
-            tab.Reselected();
+            var registry = new SidebarTabRegistry(tab =>
+            {
+                tab.Draw = () => calls.Add("draw");
+                tab.Click = () => calls.Add("click");
+                tab.DrawActions = _ => calls.Add("actions");
+                tab.Refresh = () => calls.Add("refresh");
+                tab.FilterChanged = () => calls.Add("filter");
+                tab.SetAllFolds = value => folded = value;
+                tab.AllFolded = () => folded;
+                tab.Close = () => calls.Add("close");
+                tab.Entered = () => calls.Add("enter");
+                tab.Reselected = () => calls.Add("reselect");
+            });
+            var definition = registry.For(SidebarTab.Files);
+            definition.Draw();
+            definition.Click();
+            definition.DrawActions(default);
+            definition.Refresh();
+            definition.FilterChanged();
+            definition.SetAllFolds(true);
+            Assert.That(definition.AllFolded(), Is.True);
+            definition.SetAllFolds(false);
+            Assert.That(definition.AllFolded(), Is.False);
+            definition.Close();
+            definition.Entered();
+            definition.Reselected();
             Assert.That(
                 calls,
                 Is.EqualTo(

@@ -69,54 +69,50 @@ namespace SlopWorld.Tests
         {
             var events = new List<string>();
             var registry = NewRegistry(events);
-
-            bool switched = SidebarTabActivation.Activate(
-                registry.For(SidebarTab.Agents),
-                registry.For(SidebarTab.Git),
-                registry.Definitions,
-                () => events.Add("menus"),
-                () => events.Add("persist")
-            );
-            AssertEx.True(switched, "different tab switches");
-            AssertEx.Equal(
-                "menus,close-agents,close-files,close-search,close-tasks,close-library,persist,entered-git",
-                string.Join(",", events.ToArray()),
-                "switch order closes menus first"
-            );
-
-            events.Clear();
-            switched = SidebarTabActivation.Activate(
-                registry.For(SidebarTab.Git),
-                registry.For(SidebarTab.Git),
-                registry.Definitions,
-                () => events.Add("menus"),
-                () => events.Add("persist")
-            );
-            AssertEx.False(switched, "same tab is a reselection");
-            AssertEx.Equal(
-                "menus,reselected-git",
-                string.Join(",", events.ToArray()),
-                "reselection skips switch cleanup and persistence"
-            );
+            foreach (var current in registry.Definitions)
+            foreach (var target in registry.Definitions)
+            {
+                events.Clear();
+                bool switched = SidebarTabActivation.Activate(
+                    current,
+                    target,
+                    registry.Definitions,
+                    () => events.Add("menus"),
+                    () => events.Add("persist")
+                );
+                bool reselected = current.Tab == target.Tab;
+                AssertEx.Equal(!reselected, switched, "only a different tab switches");
+                var expected = new List<string> { "menus" };
+                if (reselected)
+                    expected.Add("reselected-" + target.PersistedName);
+                else
+                {
+                    foreach (var definition in registry.Definitions)
+                        if (definition.Tab != target.Tab)
+                            expected.Add("close-" + definition.PersistedName);
+                    expected.Add("persist");
+                    expected.Add("entered-" + target.PersistedName);
+                }
+                AssertEx.Equal(
+                    string.Join(",", expected),
+                    string.Join(",", events),
+                    current.PersistedName
+                        + " to "
+                        + target.PersistedName
+                        + " preserves activation order"
+                );
+            }
         }
 
         static SidebarTabRegistry NewRegistry(List<string> events = null) =>
-            SidebarTabCatalog.CreateRegistry(tab =>
+            new SidebarTabRegistry(definition =>
             {
-                string name = SidebarTabCatalog
-                    .Definition(tab, new SidebarTabHandlers())
-                    .PersistedName;
-                return new SidebarTabHandlers
-                {
-                    Close =
-                        events == null ? (Action)(() => { }) : () => events.Add("close-" + name),
-                    Entered =
-                        events == null ? (Action)(() => { }) : () => events.Add("entered-" + name),
-                    Reselected =
-                        events == null
-                            ? (Action)(() => { })
-                            : () => events.Add("reselected-" + name),
-                };
+                if (events == null)
+                    return;
+                string name = definition.PersistedName;
+                definition.Close = () => events.Add("close-" + name);
+                definition.Entered = () => events.Add("entered-" + name);
+                definition.Reselected = () => events.Add("reselected-" + name);
             });
     }
 }
