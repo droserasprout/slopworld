@@ -323,3 +323,59 @@ fn feeder_delivers_next_playlist_track_after_a_short_first_track() {
     assert_eq!(first.unwrap(), vec![0.25; 3]);
     assert!(!second.unwrap().is_empty());
 }
+
+#[test]
+fn retirement_during_output_io_discards_ring_and_releases_gated_feeder() {
+    struct RetiringOutput {
+        title: TitleSink,
+        replace: bool,
+        during_append: bool,
+        ring: std::sync::Mutex<Option<Box<dyn Source + Send>>>,
+    }
+    impl RetiringOutput {
+        fn retire(&self) {
+            if self.replace {
+                self.title.current_generation.fetch_add(1, Ordering::SeqCst);
+            } else {
+                self.title.cancel();
+            }
+        }
+    }
+    impl AudioOutput for RetiringOutput {
+        fn set_volume(&self, _: f32) {}
+        fn append(&self, source: Box<dyn Source + Send>) {
+            *self.ring.lock().unwrap() = Some(source);
+            if self.during_append {
+                self.retire();
+            }
+        }
+        fn play(&self) {
+            if !self.during_append {
+                self.retire();
+            }
+        }
+    }
+    for replace in [false, true] {
+        for during_append in [false, true] {
+            let opened = candidate();
+            let output = RetiringOutput {
+                title: opened.title.clone(),
+                replace,
+                during_append,
+                ring: std::sync::Mutex::new(None),
+            };
+            let (done_tx, done_rx) = std::sync::mpsc::channel();
+            let result = commit_with_spawn(opened, &output, 0.5, |feed| {
+                std::thread::spawn(move || {
+                    feed();
+                    done_tx.send(()).unwrap();
+                });
+                Ok(())
+            })
+            .unwrap();
+            assert!(result.is_none());
+            done_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            assert_eq!(output.ring.lock().unwrap().as_mut().unwrap().next(), None);
+        }
+    }
+}

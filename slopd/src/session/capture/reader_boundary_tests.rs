@@ -346,3 +346,93 @@ async fn stalled_control_handshake_reaps_child_and_releases_attachment_ownership
         .expect("retry could not acquire lifecycle or terminal ownership");
     }
 }
+
+#[tokio::test]
+async fn early_control_failure_and_aborted_reader_release_ownership_for_retry() {
+    for (startup, abort) in [(true, false), (true, true), (false, false), (false, true)] {
+        let socket = crate::test_support::TmuxSocket::new();
+        let manager =
+            crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+        manager
+            .tmux
+            .spawn(
+                "target",
+                "/tmp",
+                80,
+                24,
+                &["sleep".into(), "60".into()],
+                true,
+            )
+            .await
+            .unwrap();
+        let mut row = Live::new(
+            SessionCfg {
+                name: "target".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.role = SessionRole::HostShell;
+        row.process_running = true;
+        row.set_state(State::Working);
+        manager.live.write().await.insert("target".into(), row);
+        for _ in 0..2 {
+            let started = if abort {
+                Some(manager.tmux.stall_next_attach_for_test())
+            } else {
+                manager.tmux.fail_next_attach_for_test();
+                None
+            };
+            let attach = manager.session_operation(async {
+                let terminal = manager.terminal_boundary("target").write_owned().await;
+                manager
+                    .attach_reader(
+                        "target",
+                        if startup {
+                            Attachment::Startup
+                        } else {
+                            Attachment::Existing
+                        },
+                        &terminal,
+                    )
+                    .await
+            });
+            let interrupt = async {
+                if let Some(started) = started {
+                    started.await.unwrap();
+                    let live = manager.live.read().await;
+                    live["target"].capture.reader.as_ref().unwrap().abort();
+                }
+            };
+            let (result, ()) = tokio::time::timeout(Duration::from_secs(5), async {
+                tokio::join!(attach, interrupt)
+            })
+            .await
+            .expect("reader failure retained lifecycle ownership");
+            let error = result.unwrap_err().to_string();
+            if abort {
+                assert!(error.contains("exited before attach"), "{error}");
+            } else {
+                assert!(error.contains("control attach target"), "{error}");
+                assert!(!error.contains("secret arguments"));
+            }
+            let live = manager.live.read().await;
+            let row = &live["target"];
+            assert!(row.capture.emu.is_none());
+            assert!(row.capture.reader_token.is_none());
+            assert!(row.capture.reader.is_none());
+            assert_eq!(row.process_running, !startup);
+        }
+        tokio::time::timeout(Duration::from_secs(5), manager.spawn_reader("target"))
+            .await
+            .expect("retry could not acquire ownership")
+            .unwrap();
+        assert!(
+            manager.live.read().await["target"]
+                .capture
+                .reader_token
+                .is_some()
+        );
+        manager.stop("target").await.unwrap();
+    }
+}

@@ -38,3 +38,7 @@ pub(crate) async fn ncspot(
         .map_err(|e| super::super::err(axum::http::StatusCode::INTERNAL_SERVER_ERROR, e))?;
     reply(json!({"ok": true, "session": session}))
 }
+
+#[cfg(test)]
+#[path = "system_tests.rs"]
+mod tests;

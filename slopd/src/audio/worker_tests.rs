@@ -300,3 +300,68 @@ fn stale_stop_does_not_cancel_recovery_for_the_current_request() {
     assert!(worker.recovery.retry.is_some());
     assert_eq!(worker.recovery.recoveries, 1);
 }
+
+#[test]
+fn replacement_during_output_commit_cancels_candidate_without_publishing_stale_state() {
+    struct ReplacingOutput {
+        control: Arc<Control>,
+        state: Arc<Mutex<AudioState>>,
+        ring: Mutex<Option<Box<dyn rodio::Source + Send>>>,
+    }
+    impl AudioOutput for ReplacingOutput {
+        fn set_volume(&self, _: f32) {}
+        fn append(&self, source: Box<dyn rodio::Source + Send>) {
+            *self.ring.lock().unwrap() = Some(source);
+        }
+        fn play(&self) {
+            let (source, generation) = self.control.snapshot();
+            // Change source identity at the output boundary without changing the
+            // generation: publication must validate both, then cancel the ring.
+            self.control
+                .publish_current(
+                    &self.state,
+                    generation,
+                    SourceRequirement::Exact(source.as_deref().unwrap()),
+                    |request, current| {
+                        request.source = Some("replacement".into());
+                        current.source = Some("replacement".into());
+                        current.title = Some("replacement title".into());
+                        current.playing = false;
+                    },
+                )
+                .unwrap();
+        }
+    }
+    let (mut worker, _rx, _) = recovering_worker();
+    let (source, generation) = worker.control.snapshot();
+    let source = source.unwrap();
+    let title = station::TitleSink::pending_for(
+        Some(worker.state.clone()),
+        generation,
+        worker.control.clone(),
+    );
+    let cancel = title.cancelled.clone();
+    let opened = playback::open(&source, title).unwrap();
+    worker.pending = Some(PendingOpen {
+        source: source.clone(),
+        generation,
+        cancel: cancel.clone(),
+    });
+    worker.active_generation = None;
+    worker.active_cancel = None;
+    worker.output = Some(Box::new(ReplacingOutput {
+        control: worker.control.clone(),
+        state: worker.state.clone(),
+        ring: Mutex::new(None),
+    }));
+    worker.opened(&source, generation, &cancel, Ok(opened), None);
+    assert!(cancel.load(Ordering::Acquire));
+    assert!(worker.pending.is_none());
+    assert!(worker.active_generation.is_none());
+    assert!(worker.active_cancel.is_none());
+    let state = worker.state.lock().unwrap();
+    assert_eq!(state.source.as_deref(), Some("replacement"));
+    assert_eq!(state.title.as_deref(), Some("replacement title"));
+    assert!(!state.playing);
+    assert!(state.error.is_none());
+}

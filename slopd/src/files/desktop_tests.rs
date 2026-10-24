@@ -225,3 +225,106 @@ fn xdg_precedence_and_sorted_mime_fallback_preserve_gio_order() {
     );
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test]
+async fn discovery_runs_gio_with_literal_arguments_and_propagates_failures() {
+    use std::os::unix::fs::PermissionsExt;
+    let Some(root) = crate::test_support::isolated_with_env(|command, root| {
+        command
+            .env("PATH", root.join("bin"))
+            .env("XDG_DATA_HOME", root.join("data"))
+            .env("XDG_DATA_DIRS", root.join("empty"));
+    }) else {
+        return;
+    };
+    std::fs::create_dir_all(root.join("bin")).unwrap();
+    std::fs::create_dir_all(root.join("data/applications")).unwrap();
+    let desktop = root.join("data/applications/editor.desktop");
+    std::fs::write(
+        &desktop,
+        "[Desktop Entry]\nType=Application\nName=Fixture Editor\nMimeType=text/plain;\n",
+    )
+    .unwrap();
+    let gio = root.join("bin/gio");
+    std::fs::write(
+        &gio,
+        r#"#!/bin/sh
+printf '%s\n' "$@" >> "$SLOPD_TEST_ROOT/arguments"
+case "$1" in
+info)
+    case "$4" in
+        */missing) printf 'name: missing\n';;
+        */failure) printf 'fixture failure\n' >&2; exit 7;;
+        *) printf 'standard::content-type: text/plain\n';;
+    esac;;
+mime) printf 'Default application for text/plain: editor.desktop\n';;
+*) exit 8;;
+esac
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&gio, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let path = root.join("literal ' ; file");
+    std::fs::write(&path, "fixture").unwrap();
+    let apps = super::open_apps(path.to_str().unwrap()).await.unwrap();
+    assert_eq!(apps.len(), 1);
+    assert_eq!(apps[0].name, "Fixture Editor");
+    assert_eq!(apps[0].desktop_file.as_deref(), desktop.to_str());
+    assert_eq!(
+        std::fs::read_to_string(root.join("arguments")).unwrap(),
+        format!(
+            "info\n--attributes=standard::content-type\n--\n{}\nmime\ntext/plain\n",
+            path.display()
+        )
+    );
+    for (name, expected) in [
+        ("missing", "did not report a content type"),
+        ("failure", "gio failed: fixture failure"),
+    ] {
+        std::fs::write(root.join(name), "fixture").unwrap();
+        let error = super::open_apps(root.join(name).to_str().unwrap())
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains(expected), "{error:#}");
+    }
+    std::fs::remove_file(gio).unwrap();
+    super::open_apps(path.to_str().unwrap()).await.unwrap_err();
+}
+
+#[tokio::test]
+async fn desktop_command_timeout_kills_and_reaps_the_child() {
+    let root = crate::test_support::fixture("desktop-timeout");
+    let pid_file = root.join("pid");
+    let error = super::command_output(
+        "/bin/sh",
+        &[
+            "-c",
+            "echo $$ > \"$1\"; exec /bin/sleep 60",
+            "fixture",
+            pid_file.to_str().unwrap(),
+        ],
+    )
+    .await
+    .unwrap_err();
+    assert!(error.to_string().contains("desktop command timed out"));
+    let pid: i32 = std::fs::read_to_string(pid_file)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            // SAFETY: signal zero only probes this fixture's child.
+            if unsafe { nix::libc::kill(pid, 0) } == -1 {
+                assert_eq!(
+                    std::io::Error::last_os_error().raw_os_error(),
+                    Some(nix::libc::ESRCH)
+                );
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("timed-out desktop child was not reaped");
+}

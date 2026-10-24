@@ -83,6 +83,8 @@ pub struct Tmux {
     fail_kill: Arc<std::sync::atomic::AtomicBool>,
     #[cfg(test)]
     stalled_attach: Arc<Mutex<Option<tokio::sync::oneshot::Sender<u32>>>>,
+    #[cfg(test)]
+    fail_attach: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[derive(Debug, Clone)]
@@ -140,6 +142,8 @@ impl Tmux {
             fail_kill: Arc::default(),
             #[cfg(test)]
             stalled_attach: Arc::default(),
+            #[cfg(test)]
+            fail_attach: Arc::default(),
         }
     }
 
@@ -627,6 +631,12 @@ impl Tmux {
         rx
     }
 
+    #[cfg(test)]
+    pub(crate) fn fail_next_attach_for_test(&self) {
+        self.fail_attach
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
     pub async fn kill(&self, name: &str) -> Result<()> {
         #[cfg(test)]
         anyhow::ensure!(
@@ -722,6 +732,13 @@ impl Tmux {
         cols: u16,
         rows: u16,
     ) -> Result<(Child, std::fs::File)> {
+        #[cfg(test)]
+        anyhow::ensure!(
+            !self
+                .fail_attach
+                .swap(false, std::sync::atomic::Ordering::SeqCst),
+            "injected control attach failure with secret arguments"
+        );
         use nix::pty::{Winsize, openpty};
 
         let ws = Winsize {
