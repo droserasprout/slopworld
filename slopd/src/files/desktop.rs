@@ -70,14 +70,17 @@ fn content_type(info: &str) -> Result<String> {
 // A single filesystem snapshot supplies association names, launch paths and fallback
 // enumeration. Roots retain XDG precedence; within a root direct IDs win collisions.
 struct DesktopDiscovery {
-    files: HashMap<String, PathBuf>,
-    entries: HashMap<String, DesktopEntry>,
+    files: HashMap<String, DesktopFile>,
+}
+
+struct DesktopFile {
+    path: PathBuf,
+    entry: Option<DesktopEntry>,
 }
 impl DesktopDiscovery {
     fn load(roots: &[PathBuf]) -> Self {
         let mut discovery = Self {
             files: HashMap::new(),
-            entries: HashMap::new(),
         };
         for root in roots {
             let applications = root.join("applications");
@@ -92,10 +95,9 @@ impl DesktopDiscovery {
                 if discovery.files.contains_key(&id) {
                     continue;
                 }
-                if let Some(entry) = parse_desktop_entry(&id, &path) {
-                    discovery.entries.insert(id.clone(), entry);
-                }
-                discovery.files.insert(id, path);
+                // Hidden or unparseable winners still reserve their IDs.
+                let entry = parse_desktop_entry(&path);
+                discovery.files.insert(id, DesktopFile { path, entry });
             }
         }
         discovery
@@ -104,8 +106,9 @@ impl DesktopDiscovery {
         DesktopApp {
             id: id.to_owned(),
             name: self
-                .entries
+                .files
                 .get(id)
+                .and_then(|file| file.entry.as_ref())
                 .map(|entry| entry.name.clone())
                 .unwrap_or_else(|| {
                     id.strip_suffix(".desktop")
@@ -115,7 +118,7 @@ impl DesktopDiscovery {
             desktop_file: self
                 .files
                 .get(id)
-                .map(|path| path.to_string_lossy().into_owned()),
+                .map(|file| file.path.to_string_lossy().into_owned()),
         }
     }
     fn desktop_apps(&self, associations: &str) -> Vec<DesktopApp> {
@@ -138,11 +141,15 @@ impl DesktopDiscovery {
     fn associated_apps(&self, mime: &str, associations: &str) -> Vec<DesktopApp> {
         let mut apps = self.desktop_apps(associations);
         let mut seen: HashSet<_> = apps.iter().map(|app| app.id.clone()).collect();
-        let mut entries: Vec<_> = self.entries.values().collect();
-        entries.sort_by_key(|entry| (entry.name.to_lowercase(), entry.id.clone()));
-        for entry in entries {
-            if entry.supports(mime) && seen.insert(entry.id.clone()) {
-                apps.push(self.app(&entry.id));
+        let mut entries: Vec<_> = self
+            .files
+            .iter()
+            .filter_map(|(id, file)| file.entry.as_ref().map(|entry| (id, entry)))
+            .collect();
+        entries.sort_by_key(|(id, entry)| (entry.name.to_lowercase(), *id));
+        for (id, entry) in entries {
+            if entry.supports(mime) && seen.insert(id.clone()) {
+                apps.push(self.app(id));
             }
         }
         apps
@@ -170,7 +177,6 @@ fn desktop_id(line: &str) -> Option<&str> {
 
 #[derive(Debug)]
 struct DesktopEntry {
-    id: String,
     name: String,
     mime_types: HashSet<String>,
 }
@@ -192,7 +198,10 @@ fn desktop_file_path_in(id: &str, roots: &[PathBuf]) -> Option<PathBuf> {
     {
         return None;
     }
-    DesktopDiscovery::load(roots).files.get(id).cloned()
+    DesktopDiscovery::load(roots)
+        .files
+        .get(id)
+        .map(|file| file.path.clone())
 }
 
 fn desktop_search_paths() -> Vec<PathBuf> {
@@ -246,7 +255,7 @@ fn desktop_file_id(relative: &Path) -> String {
         .join("-")
 }
 
-fn parse_desktop_entry(id: &str, path: &Path) -> Option<DesktopEntry> {
+fn parse_desktop_entry(path: &Path) -> Option<DesktopEntry> {
     let text = std::fs::read_to_string(path).ok()?;
     let mut in_entry = false;
     let mut name = None;
@@ -298,11 +307,7 @@ fn parse_desktop_entry(id: &str, path: &Path) -> Option<DesktopEntry> {
     if name.is_empty() {
         return None;
     }
-    Some(DesktopEntry {
-        id: id.to_string(),
-        name,
-        mime_types,
-    })
+    Some(DesktopEntry { name, mime_types })
 }
 
 fn desktop_bool(value: &str) -> bool {

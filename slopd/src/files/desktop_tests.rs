@@ -39,7 +39,7 @@ fn text_types_include_plain_text_handlers() {
         "[Desktop Entry]\nType=Application\nName=Editor\nMimeType=text/plain;\n",
     )
     .unwrap();
-    let entry = parse_desktop_entry("editor.desktop", &path).unwrap();
+    let entry = parse_desktop_entry(&path).unwrap();
     assert!(entry.supports("text/x-toml"));
     assert!(!entry.supports("image/png"));
     drop(std::fs::remove_file(path));
@@ -135,6 +135,93 @@ fn direct_desktop_ids_win_nested_collisions_within_each_xdg_root() {
     assert_eq!(
         desktop_file_path_in("nested-editor.desktop", std::slice::from_ref(&root)),
         Some(direct)
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn hidden_and_unparseable_winners_reserve_ids_across_roots_and_nested_collisions() {
+    let root = tempfile_path("desktop-reserved-ids");
+    let preferred = root.join("preferred");
+    let fallback = root.join("fallback");
+    let apps = preferred.join("applications");
+    std::fs::create_dir_all(apps.join("nested")).unwrap();
+    std::fs::create_dir_all(fallback.join("applications")).unwrap();
+    let roots = [preferred, fallback.clone()];
+
+    for (id, contents) in [
+        (
+            "nested-hidden.desktop",
+            b"[Desktop Entry]\nName=Hidden\nHidden=true\nMimeType=text/plain;\n".as_slice(),
+        ),
+        ("nested-unparseable.desktop", b"\xff".as_slice()),
+    ] {
+        let winner = apps.join(id);
+        std::fs::write(&winner, contents).unwrap();
+        let nested = id.strip_prefix("nested-").unwrap();
+        for loser in [
+            apps.join("nested").join(nested),
+            fallback.join("applications").join(id),
+        ] {
+            std::fs::write(
+                loser,
+                "[Desktop Entry]\nName=Shadowed\nMimeType=text/plain;\n",
+            )
+            .unwrap();
+        }
+
+        let discovery = super::DesktopDiscovery::load(&roots);
+        assert!(discovery.associated_apps("text/plain", "").is_empty());
+        let associated = discovery.associated_apps("text/plain", id);
+        assert_eq!(associated.len(), 1);
+        assert_eq!(associated[0].id, id);
+        assert_eq!(
+            associated[0].name,
+            id.trim_end_matches(".desktop").replace('-', " ")
+        );
+        assert_eq!(associated[0].desktop_file.as_deref(), winner.to_str());
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn xdg_precedence_and_sorted_mime_fallback_preserve_gio_order() {
+    let root = tempfile_path("desktop-fallback-order");
+    let preferred = root.join("preferred");
+    let fallback = root.join("fallback");
+    for data_root in [&preferred, &fallback] {
+        std::fs::create_dir_all(data_root.join("applications/nested")).unwrap();
+    }
+    for (data_root, relative, name) in [
+        (&preferred, "nested/editor.desktop", "Preferred"),
+        (&fallback, "nested-editor.desktop", "Shadowed"),
+        (&fallback, "z.desktop", "alpha"),
+        (&fallback, "a.desktop", "Alpha"),
+        (&fallback, "gio.desktop", "Zulu"),
+    ] {
+        std::fs::write(
+            data_root.join("applications").join(relative),
+            format!("[Desktop Entry]\nName={name}\nMimeType=text/plain;\n"),
+        )
+        .unwrap();
+    }
+    let discovery = super::DesktopDiscovery::load(&[preferred.clone(), fallback]);
+    let apps = discovery.associated_apps("text/x-toml", "gio.desktop\ngio.desktop");
+    assert_eq!(
+        apps.iter().map(|app| app.id.as_str()).collect::<Vec<_>>(),
+        [
+            "gio.desktop",
+            "a.desktop",
+            "z.desktop",
+            "nested-editor.desktop"
+        ]
+    );
+    assert_eq!(apps[3].name, "Preferred");
+    assert_eq!(
+        apps[3].desktop_file.as_deref(),
+        preferred
+            .join("applications/nested/editor.desktop")
+            .to_str()
     );
     std::fs::remove_dir_all(root).unwrap();
 }
