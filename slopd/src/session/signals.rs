@@ -127,6 +127,11 @@ impl SessionRuntime {
             .map(|w| w.contains_key(name))
             .unwrap_or(true)
     }
+
+    #[cfg(test)]
+    pub(crate) fn watched_for_test(&self, name: &str) -> bool {
+        self.watched(name)
+    }
 }
 
 #[cfg(test)]

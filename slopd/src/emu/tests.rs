@@ -915,3 +915,51 @@ fn resizing_an_initial_capture_preserves_real_history() {
     assert!(lines[0].contains("line-0"));
     assert!(lines[1].contains("line-1"));
 }
+
+#[test]
+fn structural_terminal_operations_refresh_cached_rows_and_history() {
+    let cases: &[(&str, &[u8], [&str; 3], u32)] = &[
+        ("scroll up", b"\x1b[S", ["two", "three", ""], 2),
+        ("scroll down", b"\x1b[T", ["", "one", "two"], 1),
+        ("insert line", b"\x1b[L", ["", "one", "two"], 1),
+        ("delete line", b"\x1b[2;1H\x1b[M", ["one", "three", ""], 1),
+        ("reverse index", b"\x1bM", ["", "one", "two"], 1),
+        ("next line", b"\x1b[3;1H\x1bE", ["two", "three", ""], 2),
+        ("reset", b"\x1bc", ["", "", ""], 0),
+    ];
+    for (name, sequence, expected, history) in cases {
+        let mut emu = SessionEmu::new(20, 3);
+        emu.feed(b"old\r\none\r\ntwo\r\nthree\x1b[H");
+        assert_eq!(emu.render().history, 1);
+        assert_eq!(emu.history_extent_cache, Some(1));
+        emu.feed(sequence);
+        let frame = emu.render();
+        let rows: Vec<_> = frame.lines.iter().map(|row| strip_sgr(row)).collect();
+        assert_eq!(rows, expected, "{name}");
+        assert_eq!(frame.history, *history, "{name}");
+        let (_, _, snapshot_history, _) = emu.scroll_snapshot(100);
+        assert_eq!(snapshot_history, *history, "{name}");
+        assert_same_frame(&emu.render(), &frame);
+    }
+}
+
+#[test]
+fn structural_terminal_operations_retire_a_completed_pager_prompt() {
+    for sequence in [
+        b"\n".as_slice(),
+        b"\x1bE",
+        b"\x1b[S",
+        b"\x1b[T",
+        b"\x1b[L",
+        b"\x1b[M",
+        b"\x1bM",
+        b"\x1bc",
+    ] {
+        let mut emu = SessionEmu::new(20, 3);
+        emu.feed(b"first\r\nsecond\r\n:\x1b[K");
+        assert!(emu.pager_prompt());
+        emu.render();
+        emu.feed(sequence);
+        assert!(!emu.pager_prompt(), "{sequence:?}");
+    }
+}

@@ -158,3 +158,88 @@ async fn assert_registration(root: &Path, first: &str) {
     assert!(registered.contains(&format!("worktree {}\n", root.join(first).display())));
     assert!(registered.contains(&format!("worktree {}\n", root.join("second").display())));
 }
+
+#[tokio::test]
+async fn repair_failure_after_move_restores_files_and_registration_but_retains_intent() {
+    failed_repair(super::super::RepairFailure::AfterMove).await;
+}
+
+#[tokio::test]
+async fn repair_failure_cannot_overwrite_a_recreated_source_directory() {
+    failed_repair(super::super::RepairFailure::RestoreDirectory).await;
+}
+
+#[tokio::test]
+async fn failed_original_registration_repair_preserves_files_and_recovery_intent() {
+    failed_repair(super::super::RepairFailure::RestoreRegistration).await;
+}
+
+async fn failed_repair(failure: super::super::RepairFailure) {
+    use super::super::RepairFailure;
+    let root = super::super::tests::repo();
+    let manager = crate::session::test_manager(Config::default());
+    let app = Application::from_runtime(&manager);
+    let owner = Worktrees::new(&app);
+    let (original, moves) = checkouts(&root).await;
+    manager.save_worktrees(&original).await.unwrap();
+    let mut plan = Relocations::new(original, moves).unwrap();
+    plan.repair_failure = Some(failure);
+    let error = format!("{:#}", plan.execute_pending(&owner).await.unwrap_err());
+    let expected = match failure {
+        RepairFailure::AfterMove => "injected repair failure after move",
+        RepairFailure::RestoreDirectory => "restoring checkout after failed Git repair",
+        RepairFailure::RestoreRegistration => "repairing original Git worktree after failed move",
+    };
+    assert!(error.contains(expected), "{error}");
+    let retained = if matches!(failure, RepairFailure::RestoreDirectory) {
+        assert_eq!(
+            std::fs::read_to_string(root.join("first/sentinel")).unwrap(),
+            "do not overwrite"
+        );
+        "moved-first"
+    } else {
+        assert!(!root.join("moved-first").exists());
+        "first"
+    };
+    assert_eq!(
+        std::fs::read_to_string(root.join(retained).join("uncommitted")).unwrap(),
+        "first"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("second/uncommitted")).unwrap(),
+        "second"
+    );
+    let registration = std::fs::read_to_string(root.join(".git/worktrees/first/gitdir")).unwrap();
+    let registered = if matches!(failure, RepairFailure::AfterMove) {
+        "first"
+    } else {
+        "moved-first"
+    };
+    assert_eq!(
+        registration.trim(),
+        root.join(registered).join(".git").to_str().unwrap()
+    );
+    if !matches!(failure, RepairFailure::RestoreRegistration) {
+        assert_registration(&root, retained).await;
+    }
+    // Recovery must not guess which side of an interrupted repair is authoritative.
+    for _ in 0..2 {
+        owner.recover_worktrees().await.unwrap();
+        let pending =
+            workspace::Store::<Worktree>::load(&manager.workspace.configuration.records.binding)
+                .await
+                .unwrap()
+                .ordered();
+        for tree in pending {
+            assert_eq!(tree.phase, WorktreePhase::Relocating);
+            let intent = tree.relocation.unwrap();
+            assert_eq!(intent.source, root.join(&tree.name).to_string_lossy());
+            assert_eq!(
+                intent.destination,
+                root.join(format!("moved-{}", tree.name)).to_string_lossy()
+            );
+        }
+        assert!(root.join(retained).join("uncommitted").exists());
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}

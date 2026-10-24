@@ -19,6 +19,8 @@ pub(crate) struct Relocations {
     completed: usize,
     #[cfg(test)]
     after_first_move: Option<Box<dyn FnOnce() + Send + Sync>>,
+    #[cfg(test)]
+    repair_failure: Option<super::RepairFailure>,
 }
 
 impl Relocations {
@@ -38,6 +40,8 @@ impl Relocations {
             completed: 0,
             #[cfg(test)]
             after_first_move: None,
+            #[cfg(test)]
+            repair_failure: None,
         })
     }
 
@@ -75,7 +79,14 @@ impl Relocations {
                 .worktrees
                 .get(*index)
                 .ok_or_else(|| anyhow!("relocation source disappeared from the catalog"))?;
-            if let Err(error) = relocate_tree(source, Path::new(&destination.path)).await {
+            let moved = super::relocate_tree_inner(
+                source,
+                Path::new(&destination.path),
+                #[cfg(test)]
+                self.repair_failure.take(),
+            )
+            .await;
+            if let Err(error) = moved {
                 // The failed move can itself need manual recovery if Git repair and its rollback fail.
                 // Restore earlier successful moves but retain intent for the whole batch.
                 return match self.restore_completed().await {

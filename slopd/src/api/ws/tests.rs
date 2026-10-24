@@ -1768,3 +1768,133 @@ async fn root_revocation_retains_admitted_command_and_its_guard_until_completion
             .expect("completed command retained its guard"),
     );
 }
+
+async fn live_intake_socket() -> (App, ClientSocket, JoinHandle<()>, JoinHandle<()>) {
+    let manager = crate::application::test_application(crate::config::Config {
+        sessions: vec![crate::config::SessionCfg {
+            name: "pager".into(),
+            autostart: false,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    manager.sessions.sync_from_config().await;
+    let mut emu = crate::emu::SessionEmu::new(80, 24);
+    emu.feed(b"ready");
+    manager.sessions.apply_frame("pager", emu.render()).await;
+    let (socket, mut client, server) = raw_socket_pair().await;
+    let running = manager.clone();
+    let driving = tokio::spawn(async move {
+        let generation = running.config_authority.auth_generation();
+        let root = running.config_authority.root_generation();
+        ws_run(socket, running, Cap::Root, generation, root).await;
+    });
+    // The final initial catalog is the marker for completed socket initialization.
+    loop {
+        if matches!(
+            receive(&mut client).await,
+            crate::shared::wire::event::Payload::Jukebox(_)
+        ) {
+            break;
+        }
+    }
+    (manager, client, server, driving)
+}
+
+async fn send_wire_command(
+    client: &mut ClientSocket,
+    payload: crate::shared::wire::client_message::Payload,
+) {
+    use futures::SinkExt;
+    use prost::Message as _;
+    client
+        .send(tokio_tungstenite::tungstenite::Message::Binary(
+            crate::shared::wire::ClientMessage {
+                payload: Some(payload),
+            }
+            .encode_to_vec(),
+        ))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn malformed_frames_do_not_prevent_a_later_valid_socket_command() {
+    use crate::shared::wire::{self, client_message::Payload as C, event::Payload as E};
+    use futures::SinkExt;
+    use tokio_tungstenite::tungstenite::Message as M;
+    let (_manager, mut client, server, driving) = live_intake_socket().await;
+    for frame in [
+        M::Text("not protobuf".into()),
+        M::Binary(vec![0xff]),
+        M::Binary(vec![]),
+    ] {
+        client.send(frame).await.unwrap();
+    }
+    send_wire_command(
+        &mut client,
+        C::Sub(wire::NameReq {
+            name: Some("pager".into()),
+        }),
+    )
+    .await;
+    assert!(matches!(receive(&mut client).await, E::Screen(s) if s.name == "pager"));
+    client.close(None).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), driving)
+        .await
+        .unwrap()
+        .unwrap();
+    server.abort();
+}
+
+#[tokio::test]
+async fn scroll_overload_closes_the_socket_and_releases_its_subscription() {
+    use crate::shared::wire::{self, client_message::Payload as C, event::Payload as E};
+    let (manager, mut client, server, driving) = live_intake_socket().await;
+    send_wire_command(
+        &mut client,
+        C::Sub(wire::NameReq {
+            name: Some("pager".into()),
+        }),
+    )
+    .await;
+    assert!(matches!(receive(&mut client).await, E::Screen(s) if s.name == "pager"));
+    assert!(manager.sessions.watched_for_test("pager"));
+    // Every capture must wait for this boundary, so none can free a queue slot.
+    let boundary = manager.sessions.terminal_boundary("pager");
+    let terminal = boundary.clone().write_owned().await;
+    for id in 1..=5 {
+        send_wire_command(
+            &mut client,
+            C::Scroll(wire::ScrollReq {
+                name: Some("pager".into()),
+                off: Some(1),
+                request_id: Some(id),
+            }),
+        )
+        .await;
+    }
+    tokio::time::timeout(Duration::from_secs(2), driving)
+        .await
+        .expect("overloaded receive loop did not terminate")
+        .unwrap();
+    assert!(!manager.sessions.watched_for_test("pager"));
+    let closed = tokio::time::timeout(Duration::from_secs(2), client.next())
+        .await
+        .unwrap();
+    assert!(matches!(
+        closed,
+        None | Some(Err(_)) | Some(Ok(tokio_tungstenite::tungstenite::Message::Close(_)))
+    ));
+    // Cancelled capture tasks must release their queued read-lock futures while
+    // the writer is still held; otherwise they could run after socket teardown.
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while Arc::strong_count(&boundary) != 2 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("socket teardown retained pending capture tasks");
+    drop(terminal);
+    server.abort();
+}

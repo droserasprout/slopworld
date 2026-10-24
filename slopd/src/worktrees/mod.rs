@@ -172,6 +172,28 @@ pub(crate) fn project_root(project: &crate::config::ProjectCfg) -> PathBuf {
 /// Rename the checkout on disk, then repair Git's linked-worktree pointers.
 /// A failed repair puts the directory back at its original path.
 pub(crate) async fn relocate_tree(w: &Worktree, destination: &Path) -> Result<()> {
+    relocate_tree_inner(
+        w,
+        destination,
+        #[cfg(test)]
+        None,
+    )
+    .await
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy)]
+enum RepairFailure {
+    AfterMove,
+    RestoreDirectory,
+    RestoreRegistration,
+}
+
+async fn relocate_tree_inner(
+    w: &Worktree,
+    destination: &Path,
+    #[cfg(test)] failure: Option<RepairFailure>,
+) -> Result<()> {
     let source = Path::new(&w.path);
     let destination_arg = destination.to_str().context("non-UTF-8 worktree path")?;
     if !std::fs::symlink_metadata(source)?.file_type().is_dir() || source.canonicalize()? != source
@@ -197,10 +219,29 @@ pub(crate) async fn relocate_tree(w: &Worktree, destination: &Path) -> Result<()
         &[&repo, destination],
     )
     .await;
+    // Inject after real repair so rollback must undo partially committed Git metadata.
+    #[cfg(test)]
+    let repair = if let Some(failure) = failure {
+        repair?;
+        if matches!(failure, RepairFailure::RestoreDirectory) {
+            std::fs::create_dir(source)?;
+            std::fs::write(source.join("sentinel"), "do not overwrite")?;
+        }
+        Err(anyhow::anyhow!("injected repair failure after move"))
+    } else {
+        repair
+    };
     if let Err(error) = repair {
         std::fs::rename(destination, source)
             .context("restoring checkout after failed Git repair")?;
-        git_command(&repo, &["worktree", "repair", &w.path], &[&repo, source])
+        let restore = async {
+            #[cfg(test)]
+            if matches!(failure, Some(RepairFailure::RestoreRegistration)) {
+                bail!("injected original registration repair failure");
+            }
+            git_command(&repo, &["worktree", "repair", &w.path], &[&repo, source]).await
+        };
+        restore
             .await
             .context("repairing original Git worktree after failed move")?;
         return Err(error);
