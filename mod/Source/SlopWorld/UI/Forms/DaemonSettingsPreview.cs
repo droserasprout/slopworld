@@ -7,8 +7,8 @@ namespace SlopWorld
     // failed requests require an explicit retry rather than an HTTP request every frame.
     public sealed class DaemonSettingsPreview
     {
-        readonly AsyncLoadState<SandboxPreviewData> _load =
-            new AsyncLoadState<SandboxPreviewData>();
+        readonly AsyncLoadState<Wire.SettingsPreview> _load =
+            new AsyncLoadState<Wire.SettingsPreview>();
 
         readonly struct PreviewKey : IEquatable<PreviewKey>
         {
@@ -59,7 +59,7 @@ namespace SlopWorld
                         DaemonClient.Post<Wire.SettingsPreview>(
                             WireProtocol.Routes.SettingsPreview,
                             body,
-                            response => ok(SandboxPreviewData.FromWire(response)),
+                            ok,
                             fail
                         )
                 );

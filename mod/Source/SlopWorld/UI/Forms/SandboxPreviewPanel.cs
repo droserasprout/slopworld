@@ -1,48 +1,13 @@
-using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // A daemon-resolved settings projection. The same renderer serves every editor.
-    public sealed class SandboxPreviewData
-    {
-        public string Title = "";
-        public string Subtitle = "";
-        public List<string> Notes = new List<string>();
-        public List<SandboxPreviewField> Fields = new List<SandboxPreviewField>();
-
-        public static SandboxPreviewData FromWire(Wire.SettingsPreview value) =>
-            new SandboxPreviewData
-            {
-                Title = value.Title,
-                Subtitle = value.Subtitle,
-                Notes = value.Notes.ToList(),
-                Fields = value
-                    .Fields.Select(field => new SandboxPreviewField(
-                        field.Label,
-                        field.Values.ToList()
-                    ))
-                    .ToList(),
-            };
-    }
-
-    public sealed class SandboxPreviewField
-    {
-        public readonly string Label;
-        public readonly List<string> Values;
-
-        public SandboxPreviewField(string label, List<string> values)
-        {
-            Label = label;
-            Values = values ?? new List<string>();
-        }
-    }
-
+    // The same renderer serves every editor's daemon-resolved settings preview.
     public static class SandboxPreviewPanel
     {
-        public static void Draw(Rect outer, ref SmoothScroll scroll, SandboxPreviewData data)
+        public static void Draw(Rect outer, ref SmoothScroll scroll, Wire.SettingsPreview data)
         {
             Slab.Box(outer, UiTheme.Well, UiTheme.Edge);
             var pad = outer.ContractedBy(UiTheme.GapS);
@@ -78,7 +43,7 @@ namespace SlopWorld
             }
         }
 
-        static float Height(SandboxPreviewData data, float width)
+        static float Height(Wire.SettingsPreview data, float width)
         {
             float y = 0f;
             y += UiText.PlainStatusLabelHeight(data.Title, width) + UiTheme.GapXS;
@@ -103,7 +68,7 @@ namespace SlopWorld
             return y + UiTheme.GapM;
         }
 
-        static float Field(float width, float y, SandboxPreviewField field)
+        static float Field(float width, float y, Wire.PreviewField field)
         {
             UiLayout.SectionHeading(new Rect(0f, y, width, UiTheme.RowH), field.Label);
             y += UiTheme.RowH + UiTheme.GapXS;
