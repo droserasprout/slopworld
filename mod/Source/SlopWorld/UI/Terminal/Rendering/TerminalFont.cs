@@ -131,6 +131,5 @@ namespace SlopWorld
         }
 
         static List<string> ScanMono() => new List<string>(NativeFonts.Names(monospaced: true));
-
     }
 }

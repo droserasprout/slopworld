@@ -3,9 +3,9 @@
 The Rust launcher owns profile seeding, locking, and game process lifetime.
 `slopworld/cli.rs` owns the Clap command tree, generated help, and completions.
 The launcher accepts only its own options and commands; it constructs the game's
-arguments from the selected profile, log path, and window settings. Local commands
-dispatch before game/profile discovery. Endpoint and mod-install modules execute
-typed requests without parsing argv.
+arguments from the selected profile and disables the separate game file logger.
+Local commands dispatch before game/profile discovery. Endpoint and mod-install
+modules execute typed requests without parsing argv.
 `slopworld/instance.rs` owns profile-keyed locks and Linux external-game detection.
 [Mod profile isolation](mod-profile.md) owns in-game gating.
 
@@ -45,6 +45,7 @@ it on each launch, and pass `-NoFileLog` to disable Waylith's separate logger.
 Prepare the log only after profile validation and locking during normal launch.
 [Linux window integration](ui-window-fullscreen.md) owns window behavior.
 
-Linux launches set `FORCE_X11=1` for Waylith's GLFW initialization. Native X11 and
-XWayland windows share the mod's EWMH fullscreen and decoration handling; native
-Wayland windows do not expose that boundary. The renderer uses the game's Vulkan backend.
+Linux launches set `FORCE_X11=1` for Waylith's GLFW initialization unless
+`--no-window-fix` is selected. Native X11 and XWayland windows share the mod's EWMH
+fullscreen and decoration handling; native Wayland windows do not expose that
+boundary. The renderer uses the game's Vulkan backend.

@@ -33,7 +33,7 @@ fn a_value_comes_inline_or_after() {
 #[test]
 fn launch_arguments_select_the_profile_and_console_log() {
     assert_eq!(
-        game_argv(Path::new("/g/RimWorld"), Path::new("/p"), false),
+        game_argv(Path::new("/g/RimWorld"), Path::new("/p")),
         vec!["/g/RimWorld", "-savedatafolder=/p", "-NoFileLog"]
     );
 }
@@ -206,18 +206,10 @@ fn a_missing_marker_is_put_back() {
 
 #[test]
 fn the_profile_rides_on_the_games_own_argument() {
-    let argv = game_argv(
-        Path::new("/g/RimWorld"),
-        Path::new("/p"),
-        false,
-    );
+    let argv = game_argv(Path::new("/g/RimWorld"), Path::new("/p"));
     assert_eq!(
         argv,
-        vec![
-            "/g/RimWorld",
-            "-savedatafolder=/p",
-            "-NoFileLog"
-        ]
+        vec!["/g/RimWorld", "-savedatafolder=/p", "-NoFileLog"]
     );
 }
 
@@ -473,7 +465,7 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
 #[test]
 fn linux_launch_selects_x11_for_window_manager_fullscreen() {
     let mut command = Command::new("/g/RimWorld");
-    configure_game_window(&mut command);
+    configure_game_window(&mut command, false);
     let selected = command.get_envs().find(|(key, _)| *key == "FORCE_X11");
     if cfg!(target_os = "linux") {
         assert_eq!(
@@ -483,4 +475,12 @@ fn linux_launch_selects_x11_for_window_manager_fullscreen() {
     } else {
         assert_eq!(selected, None);
     }
+}
+
+#[test]
+fn the_window_fix_can_be_disabled() {
+    let args = parsed(&["--no-window-fix"]);
+    let mut command = Command::new("/g/RimWorld");
+    configure_game_window(&mut command, args.no_window_fix);
+    assert!(!command.get_envs().any(|(key, _)| key == "FORCE_X11"));
 }

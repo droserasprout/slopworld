@@ -23,7 +23,7 @@ _slopworld() {
 '--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
 '--sidecar[Use sidecar paths and UI defaults]' \
 '--print[Print game argv without launching or creating files]' \
-'--no-window-fix[Omit default X11/OpenGL window arguments]' \
+'--no-window-fix[Omit the default X11 window override]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \

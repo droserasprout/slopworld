@@ -139,7 +139,7 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     let installed = mods.join("SlopWorld/About/About.xml");
     if !installed.is_file() {
         return Err(format!(
-            "SlopWorld is missing from this game's mod directory: {}. Run `just install mod`.",
+            "SlopWorld is missing from this game's mod directory: {}. Run `just install-mod`.",
             installed.display()
         ));
     }
@@ -147,7 +147,7 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
     let log = mode.game_log_path();
     let log = PathBuf::from(expand(&log.to_string_lossy()));
     let log = std::path::absolute(&log).map_err(|e| format!("resolving {}: {e}", log.display()))?;
-    let argv = game_argv(&executable, &profile, args.no_window_fix);
+    let argv = game_argv(&executable, &profile);
     if args.print {
         for arg in &argv {
             println!("{arg}");
@@ -173,6 +173,7 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
         .map(|paths| paths.endpoint.as_path())
         .unwrap_or(&endpoint);
     configure_game_environment(&mut command, &profile, endpoint, working_dir.as_deref())?;
+    configure_game_window(&mut command, args.no_window_fix);
     configure_game_log(&mut command, &log)?;
     let status = command
         .args(argv.get(1..).unwrap_or_default())
@@ -225,7 +226,6 @@ fn configure_game_environment(
             "1"
         },
     );
-    configure_game_window(command);
     // Pass the same resolved roots to the mod, including platform defaults and
     // absolute paths so a different game working directory cannot relocate them.
     for (variable, root) in [
@@ -436,19 +436,18 @@ fn mods_config_xml() -> String {
     s
 }
 
-fn game_argv(executable: &Path, profile: &Path, _no_window_fix: bool) -> Vec<String> {
-    let argv = vec![
+fn game_argv(executable: &Path, profile: &Path) -> Vec<String> {
+    vec![
         executable.to_string_lossy().into_owned(),
         format!("-savedatafolder={}", profile.display()),
         "-NoFileLog".to_string(),
-    ];
-    argv
+    ]
 }
 
 /// The mod owns Linux fullscreen through X11/EWMH, including on Wayland desktops.
 /// Waylith reads FORCE_X11 before initializing GLFW and creating the game window.
-fn configure_game_window(command: &mut Command) {
-    if cfg!(target_os = "linux") {
+fn configure_game_window(command: &mut Command, no_window_fix: bool) {
+    if cfg!(target_os = "linux") && !no_window_fix {
         command.env("FORCE_X11", "1");
     }
 }

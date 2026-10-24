@@ -46,7 +46,7 @@ pub(super) struct LaunchArgs {
     /// Print game argv without launching or creating files
     #[arg(long, help_heading = "Game")]
     pub print: bool,
-    /// Omit default X11/OpenGL window arguments
+    /// Omit the default X11 window override
     #[arg(long, help_heading = "Game")]
     pub no_window_fix: bool,
 }

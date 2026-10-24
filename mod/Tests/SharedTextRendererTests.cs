@@ -46,8 +46,8 @@ namespace SlopWorld.Tests
             var red = new Color(1f, 0.1f, 0.2f, 0.8f);
             var blue = new Color(0.2f, 0.3f, 1f, 0.6f);
             var style = new GUIStyle();
-            var plain = InlineTextLayout.Cells("a", 1, 6f, TextSpriteCatalog.Shared, c => true);
-            var mixed = InlineTextLayout.Cells("a😀b", 4, 6f, TextSpriteCatalog.Shared, c => true);
+            var plain = InlineTextLayout.Cells("a", 1, 6f, TextSpriteCatalog.Shared);
+            var mixed = InlineTextLayout.Cells("a😀b", 4, 6f, TextSpriteCatalog.Shared);
             var bounds = new Rect(0, 0, 30, 14);
             try
             {

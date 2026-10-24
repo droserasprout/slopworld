@@ -32,7 +32,7 @@ complete -c slopworld -n "__fish_slopworld_needs_command" -l profile -d 'Save da
 complete -c slopworld -n "__fish_slopworld_needs_command" -l endpoint -d 'Saved connection (default: local)' -r
 complete -c slopworld -n "__fish_slopworld_needs_command" -l sidecar -d 'Use sidecar paths and UI defaults'
 complete -c slopworld -n "__fish_slopworld_needs_command" -l print -d 'Print game argv without launching or creating files'
-complete -c slopworld -n "__fish_slopworld_needs_command" -l no-window-fix -d 'Omit default X11/OpenGL window arguments'
+complete -c slopworld -n "__fish_slopworld_needs_command" -l no-window-fix -d 'Omit the default X11 window override'
 complete -c slopworld -n "__fish_slopworld_needs_command" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c slopworld -n "__fish_slopworld_needs_command" -s V -l version -d 'Print version'
 complete -c slopworld -n "__fish_slopworld_needs_command" -f -a "completions" -d 'Print a shell completion script without loading game or profile state'
