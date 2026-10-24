@@ -16,7 +16,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use futures::StreamExt;
-use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore, broadcast};
+use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
 
 use crate::application::AuthChange;
@@ -67,29 +67,27 @@ type WsSubs = Arc<Mutex<HashMap<String, WatchGuard>>>;
 
 /// Owns bounded scroll captures and their ordered replies for one connection.
 struct ScrollReplies {
-    slots: Arc<Semaphore>,
     pending: VecDeque<PendingScroll>,
 }
+
+const MAX_PENDING_SCROLLS: usize = 4;
 
 struct PendingScroll {
     capture: JoinHandle<Option<ScreenView>>,
     ready: Option<Arc<EventMessage>>,
-    // A completed capture still owns its slot until its reply is sent or skipped.
-    _permit: OwnedSemaphorePermit,
 }
 
 impl ScrollReplies {
     fn new() -> Self {
         Self {
-            slots: Arc::new(Semaphore::new(4)),
             pending: VecDeque::new(),
         }
     }
 
     fn enqueue(&mut self, req: ScrollReq, m: &App, cap: &Cap, tx: &WsTx) -> bool {
-        let Ok(permit) = self.slots.clone().try_acquire_owned() else {
+        if self.pending.len() >= MAX_PENDING_SCROLLS {
             return false;
-        };
+        }
         let manager = m.clone();
         let cap = cap.clone();
         let tx = tx.clone();
@@ -114,7 +112,6 @@ impl ScrollReplies {
         self.pending.push_back(PendingScroll {
             capture,
             ready: None,
-            _permit: permit,
         });
         true
     }

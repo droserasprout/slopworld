@@ -660,11 +660,9 @@ async fn scroll_replies_keep_request_order_and_skip_missing_or_cancelled_capture
             Some(screen("a", 2))
         }),
     ] {
-        let permit = scrolls.slots.clone().try_acquire_owned().unwrap();
         scrolls.pending.push_back(PendingScroll {
             capture,
             ready: None,
-            _permit: permit,
         });
     }
     let tx = socket.tx.clone();
@@ -692,25 +690,21 @@ async fn scroll_replies_keep_request_order_and_skip_missing_or_cancelled_capture
     grant
         .revoked
         .store(true, std::sync::atomic::Ordering::Release);
-    let permit = scrolls.slots.clone().try_acquire_owned().unwrap();
     scrolls.pending.push_back(PendingScroll {
         capture: tokio::spawn(async { Some(screen("a", 3)) }),
         ready: None,
-        _permit: permit,
     });
     assert!(!scrolls.send_next(&socket.tx, &cap).await);
 }
 
 #[tokio::test]
-async fn cancelled_scroll_send_keeps_ready_reply_and_slot() {
+async fn cancelled_scroll_send_keeps_ready_reply_in_pending_queue() {
     use crate::shared::wire::event::Payload as P;
     let mut socket = socket_pair().await;
     let mut scrolls = ScrollReplies::new();
-    let permit = scrolls.slots.clone().try_acquire_owned().unwrap();
     scrolls.pending.push_back(PendingScroll {
         capture: tokio::spawn(async { Some(screen("a", 7)) }),
         ready: None,
-        _permit: permit,
     });
     let writer = socket.tx.lock().await;
     tokio::time::timeout(
@@ -720,37 +714,58 @@ async fn cancelled_scroll_send_keeps_ready_reply_and_slot() {
     .await
     .expect_err("writer should hold the reply");
     assert!(scrolls.pending.front().unwrap().ready.is_some());
-    assert_eq!(scrolls.slots.available_permits(), 3);
+    assert_eq!(scrolls.pending.len(), 1);
     drop(writer);
     assert!(scrolls.send_next(&socket.tx, &Cap::Root).await);
     assert!(matches!(receive(&mut socket.client).await, P::Screen(s) if s.seq == 7));
-    assert_eq!(scrolls.slots.available_permits(), 4);
+    assert!(scrolls.pending.is_empty());
 }
 
 #[tokio::test]
 async fn scroll_admission_counts_completed_replies_until_delivery() {
-    let socket = socket_pair().await;
+    let mut socket = socket_pair().await;
     let manager = crate::application::test_application(crate::config::Config::default());
     let mut scrolls = ScrollReplies::new();
-    for id in 0..4 {
-        assert!(scrolls.enqueue(
-            ScrollReq {
-                name: "missing".into(),
-                off: 0,
-                request_id: id,
-            },
-            &manager,
-            &Cap::Root,
-            &socket.tx
-        ));
+    for seq in 1..=4 {
+        scrolls.pending.push_back(PendingScroll {
+            capture: tokio::spawn(async move { Some(screen("a", seq)) }),
+            ready: None,
+        });
     }
-    tokio::task::yield_now().await;
-    assert_eq!(scrolls.slots.available_permits(), 0);
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while scrolls
+            .pending
+            .iter()
+            .any(|pending| !pending.capture.is_finished())
+        {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(scrolls.pending.len(), 4);
     assert!(!scrolls.enqueue(
         ScrollReq {
             name: "missing".into(),
             off: 0,
             request_id: 5,
+        },
+        &manager,
+        &Cap::Root,
+        &socket.tx
+    ));
+    assert_eq!(scrolls.pending.len(), 4);
+
+    assert!(scrolls.send_next(&socket.tx, &Cap::Root).await);
+    assert!(
+        matches!(receive(&mut socket.client).await, crate::shared::wire::event::Payload::Screen(s) if s.seq == 1)
+    );
+    assert_eq!(scrolls.pending.len(), 3);
+    assert!(scrolls.enqueue(
+        ScrollReq {
+            name: "missing".into(),
+            off: 0,
+            request_id: 6,
         },
         &manager,
         &Cap::Root,
@@ -764,11 +779,9 @@ async fn dropping_scroll_replies_cancels_pending_captures() {
     let mut scrolls = ScrollReplies::new();
     let task = tokio::spawn(std::future::pending::<Option<ScreenView>>());
     let handle = task.abort_handle();
-    let permit = scrolls.slots.clone().try_acquire_owned().unwrap();
     scrolls.pending.push_back(PendingScroll {
         capture: task,
         ready: None,
-        _permit: permit,
     });
     drop(scrolls);
     tokio::time::timeout(Duration::from_secs(2), async {
@@ -979,14 +992,12 @@ async fn panel_switch_and_unsubscribe_overtake_an_unfinished_history_capture() {
     let subs: WsSubs = Default::default();
     let mut scrolls = ScrollReplies::new();
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
-    let permit = scrolls.slots.clone().try_acquire_owned().unwrap();
     scrolls.pending.push_back(PendingScroll {
         capture: tokio::spawn(async move {
             wait.await.unwrap();
             Some(screen("pager", 17))
         }),
         ready: None,
-        _permit: permit,
     });
     let mut intake = CommandIntake {
         tx: WsTx::new(
