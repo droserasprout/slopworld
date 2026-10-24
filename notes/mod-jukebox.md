@@ -19,7 +19,13 @@ after adoption. Tmux markers identify managed players and preserve applied volum
 Daemon audio tries preferred ALSA devices then default, excluding null sinks and
 repeated IDs. Backend failure retires the device and restarts the source after bounded
 backoff; stop/replacement cancels delayed recovery. Reopening restarts files/reconnects
-stations. CPAL handles ordinary underruns. Each player has its own generation shared
+stations. CPAL handles ordinary underruns. Audio handoff uses preallocated atomic sample
+blocks: steady-state callbacks must not allocate, free, lock, or wake the feeder.
+Each fixed-format run gets a separate mixer input, so converter buffers are created
+on the worker rather than rebuilt at callback span boundaries.
+The worker logs aggregated output underruns and source starvation separately. The
+packaged Ananicy rule keeps the daemon at nice 0 because audio shares its process.
+Each player has its own generation shared
 by feeders, title sinks, and reconnects; one player cannot retire another's work.
 
 Station network idle timeouts apply per input wait. Live responses have no overall

@@ -110,6 +110,9 @@ impl AudioWorker {
     /// Output lifetime is independent of source generation. Retire the broken device even if
     /// stop/replacement has already changed the request; restart only the latest requested source.
     fn check_output(&mut self, now: Instant) {
+        if let Some(output) = self.output.as_ref() {
+            output.report_underruns();
+        }
         if self.output.as_ref().is_some_and(|output| output.failed()) {
             if let Some(cancel) = self.active_cancel.take() {
                 cancel.store(true, Ordering::Release);

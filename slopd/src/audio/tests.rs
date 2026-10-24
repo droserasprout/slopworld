@@ -1,3 +1,4 @@
+use super::queue::{CHUNK, channel as sync_channel};
 use super::test_support::{FakeOutputFactory, FakeOutputState, ring};
 use super::{
     AudioState, CONNECT, Feed, Icy, NULL_PCM, OutputFactory, Playlist, RING, Reconnect, Ring,
@@ -11,7 +12,6 @@ use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -69,7 +69,7 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
         ChannelCount::new(2).unwrap(),
         SampleRate::new(44100).unwrap(),
     );
-    let player = rodio::Player::connect_new(&mixer);
+    let volume = Arc::new(std::sync::atomic::AtomicU32::new(1.0f32.to_bits()));
 
     // Start with stereo to detect accidental reuse of the first source's channel count.
     // Include sample rates below, above, and equal to the mixer rate.
@@ -82,21 +82,7 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
     ];
 
     for (channels, rate) in stations {
-        let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
-        player.append(Ring {
-            rx,
-            held: Vec::new(),
-            at: 0,
-            channels: ChannelCount::new(channels).unwrap(),
-            rate: SampleRate::new(rate).unwrap(),
-            current_generation: Arc::new(AtomicU64::new(0)),
-            generation: 0,
-            cancelled: Arc::new(AtomicBool::new(false)),
-            ready: Arc::new(AtomicBool::new(true)),
-            finished: Arc::new(AtomicBool::new(false)),
-            queued: Arc::new(AtomicUsize::new(0)),
-            prefill_samples: 1,
-        });
+        let (mut tx, rx) = sync_channel(RING);
 
         // Start the ramp at FLOOR to distinguish its first sample from initial mixer silence.
         // Sample values indicate position, increasing from FLOOR toward 1.0.
@@ -109,12 +95,34 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
                         / Sample::from(u16::try_from(N).unwrap()));
             ramp.extend(std::iter::repeat_n(at, channels as usize));
         }
-        tx.send(ramp).unwrap();
-        // Close the sender so the player can advance to the next station.
+        tx.send(&ramp).unwrap();
+        mixer.add(super::output_source::OutputSource::new(
+            Box::new(Ring {
+                rx,
+                held: [0.0; CHUNK],
+                held_len: 0,
+                underruns: Arc::new(AtomicUsize::new(0)),
+                at: 0,
+                channels: ChannelCount::new(channels).unwrap(),
+                rate: SampleRate::new(rate).unwrap(),
+                current_generation: Arc::new(AtomicU64::new(0)),
+                generation: 0,
+                cancelled: Arc::new(AtomicBool::new(false)),
+                ready: Arc::new(AtomicBool::new(true)),
+                finished: Arc::new(AtomicBool::new(false)),
+                queued: Arc::new(AtomicUsize::new(0)),
+                prefill_samples: 1,
+            }),
+            volume.clone(),
+        ));
+        // Close the sender so this mixer input ends before the next station.
         drop(tx);
 
         // Read enough samples to consume this station and trailing converter output.
-        let got: Vec<Sample> = (&mut out).take(N * 8).collect();
+        // CPAL keeps requesting samples when an empty mixer returns None.
+        let got: Vec<Sample> = std::iter::repeat_with(|| out.next().unwrap_or(0.0))
+            .take(N * 8)
+            .collect();
 
         // Measure the distance between the 25% and 75% positions on the ramp.
         // This measures half the station without including initial silence or trailing converter output.
@@ -143,8 +151,8 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
 /// This replaces `Player::clear`.
 #[test]
 fn a_superseded_ring_ends() {
-    let (tx, mut r) = ring();
-    tx.send(vec![1.0, 1.0]).unwrap();
+    let (mut tx, mut r) = ring();
+    tx.send(&[1.0, 1.0]).unwrap();
     assert_eq!(r.next(), Some(1.0));
     // Select an older generation with wrapping subtraction because the current generation can be zero.
     r.generation = r.generation.wrapping_sub(1);
@@ -153,8 +161,8 @@ fn a_superseded_ring_ends() {
 
 #[test]
 fn ring_hands_over_what_it_is_given() {
-    let (tx, mut r) = ring();
-    tx.send(vec![0.25, -0.5]).unwrap();
+    let (mut tx, mut r) = ring();
+    tx.send(&[0.25, -0.5]).unwrap();
     assert_eq!(r.next(), Some(0.25));
     assert_eq!(r.next(), Some(-0.5));
 }
@@ -170,9 +178,9 @@ fn an_empty_ring_is_silence_and_not_the_end() {
 
 #[test]
 fn ring_does_not_consume_until_prefill_is_ready() {
-    let (tx, mut r) = ring();
+    let (mut tx, mut r) = ring();
     r.ready.store(false, Ordering::Release);
-    tx.send(vec![0.75]).unwrap();
+    tx.send(&[0.75]).unwrap();
 
     assert_eq!(r.next(), Some(0.0));
     r.ready.store(true, Ordering::Release);
@@ -181,32 +189,30 @@ fn ring_does_not_consume_until_prefill_is_ready() {
 
 #[test]
 fn queued_prefill_releases_playback_at_the_threshold() {
-    let (tx, rx) = sync_channel(2);
+    let (mut tx, mut rx) = sync_channel(2);
     let ready = AtomicBool::new(false);
     let queued = AtomicUsize::new(0);
     let generation = 0u64;
 
     assert!(enqueue_chunk(
-        &tx,
-        vec![0.1; 4],
+        &mut tx,
+        &[0.1; 4],
         &ready,
         &queued,
         5,
-        generation,
-        &AtomicU64::new(0),
+        &TitleSink::pending(None, generation),
     ));
     assert!(!ready.load(Ordering::Acquire));
     assert!(enqueue_chunk(
-        &tx,
-        vec![0.2; 1],
+        &mut tx,
+        &[0.2; 1],
         &ready,
         &queued,
         5,
-        generation,
-        &AtomicU64::new(0),
+        &TitleSink::pending(None, generation),
     ));
     assert!(ready.load(Ordering::Acquire));
-    assert_eq!(rx.try_iter().flatten().count(), 5);
+    assert_eq!(rx.drain_chunks().into_iter().flatten().count(), 5);
 }
 
 #[test]
@@ -277,13 +283,15 @@ fn cancelling_a_withheld_header_releases_the_loopback_connection() {
 
 #[test]
 fn an_underrun_rebuilds_headroom_before_resuming() {
-    let (tx, rx) = sync_channel(4);
+    let (mut tx, rx) = sync_channel(4);
     let ready = Arc::new(AtomicBool::new(true));
     let queued = Arc::new(AtomicUsize::new(0));
     let generation = 0u64;
     let mut ring = Ring {
         rx,
-        held: Vec::new(),
+        held: [0.0; CHUNK],
+        held_len: 0,
+        underruns: Arc::new(AtomicUsize::new(0)),
         at: 0,
         channels: ChannelCount::new(1).unwrap(),
         rate: SampleRate::new(5).unwrap(),
@@ -297,36 +305,33 @@ fn an_underrun_rebuilds_headroom_before_resuming() {
     };
 
     assert!(enqueue_chunk(
-        &tx,
-        vec![0.1],
+        &mut tx,
+        &[0.1],
         &ready,
         &queued,
         5,
-        generation,
-        &AtomicU64::new(0),
+        &TitleSink::pending(None, generation),
     ));
     assert_eq!(ring.next(), Some(0.1));
     assert_eq!(ring.next(), Some(0.0));
     assert!(!ready.load(Ordering::Acquire));
 
     assert!(enqueue_chunk(
-        &tx,
-        vec![0.2; 4],
+        &mut tx,
+        &[0.2; 4],
         &ready,
         &queued,
         5,
-        generation,
-        &AtomicU64::new(0),
+        &TitleSink::pending(None, generation),
     ));
     assert_eq!(ring.next(), Some(0.0));
     assert!(enqueue_chunk(
-        &tx,
-        vec![0.3],
+        &mut tx,
+        &[0.3],
         &ready,
         &queued,
         5,
-        generation,
-        &AtomicU64::new(0),
+        &TitleSink::pending(None, generation),
     ));
     assert!(ready.load(Ordering::Acquire));
     assert_eq!(ring.next(), Some(0.2));
@@ -635,8 +640,8 @@ fn a_dropped_feeder_ends_the_source() {
 /// Play buffered samples before ending a source whose feeder has disconnected.
 #[test]
 fn held_samples_outlive_the_feeder() {
-    let (tx, mut r) = ring();
-    tx.send(vec![1.0]).unwrap();
+    let (mut tx, mut r) = ring();
+    tx.send(&[1.0]).unwrap();
     drop(tx);
     assert_eq!(r.next(), Some(1.0));
     assert_eq!(r.next(), None);
@@ -872,32 +877,25 @@ fn live_feed_reads_but_never_seeks() {
 
 #[test]
 fn enqueue_stops_for_a_missing_consumer_or_superseded_full_ring() {
-    let (tx, rx) = sync_channel(1);
+    let (mut tx, rx) = sync_channel(1);
     drop(rx);
     let ready = AtomicBool::new(false);
     let queued = AtomicUsize::new(0);
     assert!(!enqueue_chunk(
-        &tx,
-        vec![0.1, 0.2],
+        &mut tx,
+        &[0.1, 0.2],
         &ready,
         &queued,
         2,
-        0,
-        &AtomicU64::new(0),
+        &TitleSink::pending(None, 0),
     ));
     assert_eq!(queued.load(Ordering::Acquire), 0);
 
-    let (tx, _rx) = sync_channel(1);
-    tx.send(vec![1.0]).unwrap();
-    assert!(!enqueue_chunk(
-        &tx,
-        vec![0.3],
-        &ready,
-        &queued,
-        2,
-        u64::MAX,
-        &AtomicU64::new(0),
-    ));
+    let (mut tx, _rx) = sync_channel(1);
+    tx.send(&[1.0]).unwrap();
+    let stale = TitleSink::pending(None, u64::MAX);
+    stale.current_generation.store(0, Ordering::SeqCst);
+    assert!(!enqueue_chunk(&mut tx, &[0.3], &ready, &queued, 2, &stale,));
     assert_eq!(queued.load(Ordering::Acquire), 0);
 }
 

@@ -3,13 +3,13 @@ use crate::audio::test_support::ring;
 
 #[test]
 fn feeder_completion_survives_a_delayed_underrun_reset() {
-    let (tx, mut ring) = ring();
+    let (mut tx, mut ring) = ring();
     assert_eq!(
-        ring.rx.try_recv().unwrap_err(),
+        ring.rx.try_recv(&mut [0.0; CHUNK]).unwrap_err(),
         std::sync::mpsc::TryRecvError::Empty
     );
     // Force the ordering that lost ReadyOnDrop's readiness: Empty, feeder exit, reset.
-    tx.send(vec![0.4, 0.8]).unwrap();
+    tx.send(&[0.4, 0.8]).unwrap();
     drop(tx);
     drop(FinishedOnDrop(ring.finished.clone()));
     ring.prefill_samples = 100;

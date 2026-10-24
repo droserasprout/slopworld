@@ -2,20 +2,22 @@
 
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::mpsc::{SyncSender, sync_channel};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::sync::mpsc::sync_channel;
 
 use anyhow::{Context, Result, anyhow};
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
-use rodio::{Sample, Source, cpal};
+use rodio::{Source, cpal};
 
 use super::REOPEN_PAUSE;
-use super::ring::{FinishedOnDrop, RING, Ring, enqueue_chunk};
+use super::health::OutputHealth;
+use super::output_source::OutputSource;
+use super::queue::{self, CHUNK, Producer, RING};
+use super::ring::{FinishedOnDrop, Ring, enqueue_chunk};
 use super::station::{
     AudioFormat, Playlist, TitleSink, local_title, next_playlist_source, open_file, open_source,
 };
 
-const CHUNK: usize = 4096;
 const PREFILL_SECS: usize = 1;
 
 /// ALSA PCM devices for sound servers, in preference order.
@@ -32,6 +34,10 @@ pub(crate) trait AudioOutput: Send + Sync {
     fn append(&self, source: Box<dyn Source + Send>);
     fn set_volume(&self, volume: f32);
     fn play(&self);
+    fn source_underruns(&self) -> Arc<AtomicUsize> {
+        Arc::new(AtomicUsize::new(0))
+    }
+    fn report_underruns(&self) {}
     /// Backend failures require a fresh device; ordinary recovered xruns do not.
     fn failed(&self) -> bool {
         false
@@ -46,38 +52,46 @@ pub(crate) struct RodioOutputFactory;
 
 impl OutputFactory for RodioOutputFactory {
     fn open(&self) -> Result<Box<dyn AudioOutput>> {
-        let failed = Arc::new(AtomicBool::new(false));
-        let (sink, player) = open_device_with_health(&failed)?;
+        let health = Arc::new(OutputHealth::new());
+        let sink = open_device_with_health(&health)?;
         Ok(Box::new(RodioOutput {
             _sink: sink,
-            player,
-            failed,
+            volume: Arc::new(AtomicU32::new(1.0f32.to_bits())),
+            health,
         }))
     }
 }
 
 struct RodioOutput {
     _sink: rodio::MixerDeviceSink,
-    player: rodio::Player,
-    failed: Arc<AtomicBool>,
+    volume: Arc<AtomicU32>,
+    health: Arc<OutputHealth>,
 }
 
 impl AudioOutput for RodioOutput {
+    fn source_underruns(&self) -> Arc<AtomicUsize> {
+        self.health.source_underruns.clone()
+    }
+
+    fn report_underruns(&self) {
+        self.health.report();
+    }
+
     fn failed(&self) -> bool {
-        self.failed.load(Ordering::Acquire)
+        self.health.failed.load(Ordering::Acquire)
     }
 
     fn append(&self, source: Box<dyn Source + Send>) {
-        self.player.append(source);
+        self._sink
+            .mixer()
+            .add(OutputSource::new(source, self.volume.clone()));
     }
 
     fn set_volume(&self, volume: f32) {
-        self.player.set_volume(volume);
+        self.volume.store(volume.to_bits(), Ordering::Relaxed);
     }
 
-    fn play(&self) {
-        self.player.play();
-    }
+    fn play(&self) {}
 }
 
 /// Return the ALSA PCM ID, such as `pipewire`, `pulse`, `default`, or `null`.
@@ -92,13 +106,11 @@ pub(crate) fn pcm_id(device: &cpal::Device) -> String {
 /// Prefer named server PCMs because `open_default_sink` can select `null`.
 /// Reject `null` because it discards audio.
 #[cfg(test)]
-pub(crate) fn open_device() -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
-    open_device_with_health(&Arc::new(AtomicBool::new(false)))
+pub(crate) fn open_device() -> Result<rodio::MixerDeviceSink> {
+    open_device_with_health(&Arc::new(OutputHealth::new()))
 }
 
-fn open_device_with_health(
-    failed: &Arc<AtomicBool>,
-) -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
+fn open_device_with_health(health: &Arc<OutputHealth>) -> Result<rodio::MixerDeviceSink> {
     let host = cpal::default_host();
 
     let named: Vec<(String, cpal::Device)> = host
@@ -116,11 +128,11 @@ fn open_device_with_health(
                 .map(|device| (pcm_id(&device), device))
         },
         |device| {
-            let failed = failed.clone();
+            let health = health.clone();
             rodio::DeviceSinkBuilder::from_device(device)
                 .and_then(|b| {
                     b.with_error_callback(move |error| {
-                        record_output_error(&failed, &error);
+                        health.record(&error);
                     })
                     .open_stream()
                 })
@@ -129,8 +141,7 @@ fn open_device_with_health(
     )?;
 
     tracing::info!("audio: output device {id:?}");
-    let player = rodio::Player::connect_new(sink.mixer());
-    Ok((sink, player))
+    Ok(sink)
 }
 
 /// Enumeration only identifies candidates; a device is usable only after its stream opens.
@@ -161,15 +172,6 @@ fn open_first_available<D, O>(
         ));
     }
     Err(anyhow!("opening output devices: {}", failures.join("; ")))
-}
-
-/// CPAL recovers ordinary xruns itself. POLLERR can instead spin without invoking the
-/// sample callback. Latch failure without logging or messaging on this callback thread;
-/// the worker owns disposal and reopening, including when many errors arrive together.
-fn record_output_error(failed: &AtomicBool, error: &cpal::StreamError) {
-    if !matches!(error, cpal::StreamError::BufferUnderrun) {
-        failed.store(true, Ordering::Release);
-    }
 }
 
 /// The result of source opening and decoder probing. It contains no output-side effects: the
@@ -260,7 +262,7 @@ fn commit_with_spawn(
         return Ok(None);
     }
 
-    let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
+    let (tx, rx) = queue::channel(RING);
     let ready = Arc::new(AtomicBool::new(false));
     let queued = Arc::new(AtomicUsize::new(0));
     let prefill_samples =
@@ -268,7 +270,9 @@ fn commit_with_spawn(
     let finished = Arc::new(AtomicBool::new(false));
     let ring = Ring {
         rx,
-        held: Vec::new(),
+        held: [0.0; CHUNK],
+        held_len: 0,
+        underruns: output.source_underruns(),
         at: 0,
         channels: format.channels,
         rate: format.rate,
@@ -328,7 +332,7 @@ struct FeedArgs {
     source: String,
     playlist: Option<Playlist>,
     format: AudioFormat,
-    tx: SyncSender<Vec<Sample>>,
+    tx: Producer,
     generation: u64,
     title: TitleSink,
     ready: Arc<AtomicBool>,
@@ -355,6 +359,10 @@ fn feed(args: FeedArgs) {
     clippy::expect_used,
     reason = "the playlist branch is entered only when a playlist is present"
 )]
+#[expect(
+    clippy::indexing_slicing,
+    reason = "len advances to CHUNK then resets; the final tail is bounded by CHUNK"
+)]
 fn feed_with_reopen(
     args: FeedArgs,
     mut reopen: impl FnMut(&str, &TitleSink) -> Option<Result<Box<dyn Source + Send>>>,
@@ -364,7 +372,7 @@ fn feed_with_reopen(
         source,
         mut playlist,
         format,
-        tx,
+        mut tx,
         generation,
         title,
         ready,
@@ -422,43 +430,36 @@ fn feed_with_reopen(
             }
         };
 
-        let mut chunk = Vec::with_capacity(CHUNK);
+        let mut chunk = [0.0; CHUNK];
+        let mut len = 0;
         for sample in decoded {
             if title.cancelled.load(Ordering::Acquire)
                 || generation != title.current_generation.load(Ordering::SeqCst)
             {
                 return;
             }
-            chunk.push(sample);
-            if chunk.len() < CHUNK {
+            chunk[len] = sample;
+            len += 1;
+            if len < CHUNK {
                 continue;
             }
             // Wait when the ring buffer is full to limit downloads to the playback rate.
-            let full = std::mem::replace(&mut chunk, Vec::with_capacity(CHUNK));
-            if !enqueue_chunk(
-                &tx,
-                full,
-                &ready,
-                &queued,
-                prefill_samples,
-                generation,
-                &title.current_generation,
-            ) {
+            if !enqueue_chunk(&mut tx, &chunk, &ready, &queued, prefill_samples, &title) {
                 return;
             }
+            len = 0;
         }
 
         // A dropped connection or a short local file can end between chunk boundaries. Keep
         // the tail instead of throwing it away before the reconnect or playlist handoff.
-        if !chunk.is_empty()
+        if len > 0
             && !enqueue_chunk(
-                &tx,
-                chunk,
+                &mut tx,
+                &chunk[..len],
                 &ready,
                 &queued,
                 prefill_samples,
-                generation,
-                &title.current_generation,
+                &title,
             )
         {
             return;

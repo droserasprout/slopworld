@@ -1,43 +1,43 @@
 //! Callback-safe sample delivery, prefill pacing, and terminal feeder completion.
 
+use super::queue::{CHUNK, Consumer, Producer, SendError};
+use super::title::TitleSink;
 use rodio::{ChannelCount, Sample, SampleRate, Source};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::{Receiver, SyncSender, TryRecvError, TrySendError};
+use std::sync::mpsc::TryRecvError;
 use std::time::Duration;
 
 use super::QUEUE_POLL;
 
-pub(crate) const RING: usize = 256;
 const SPAN: usize = 8192;
 
-pub(crate) fn enqueue_chunk(
-    tx: &SyncSender<Vec<Sample>>,
-    chunk: Vec<Sample>,
+pub(super) fn enqueue_chunk(
+    tx: &mut Producer,
+    chunk: &[Sample],
     ready: &AtomicBool,
     queued: &AtomicUsize,
     prefill_samples: usize,
-    generation: u64,
-    current_generation: &AtomicU64,
+    title: &TitleSink,
 ) -> bool {
     let len = chunk.len();
-    let mut chunk = chunk;
     loop {
+        if title.cancelled.load(Ordering::Acquire)
+            || title.generation != title.current_generation.load(Ordering::SeqCst)
+        {
+            return false;
+        }
         // Publish the count before the chunk: an active consumer may receive immediately after a
         // successful send. Failed sends roll it back before retrying.
         queued.fetch_add(len, Ordering::AcqRel);
         match tx.try_send(chunk) {
             Ok(()) => break,
-            Err(TrySendError::Disconnected(_)) => {
+            Err(SendError::Disconnected | SendError::InvalidBlock) => {
                 queued.fetch_sub(len, Ordering::AcqRel);
                 return false;
             }
-            Err(TrySendError::Full(returned)) => {
+            Err(SendError::Full) => {
                 queued.fetch_sub(len, Ordering::AcqRel);
-                if generation != current_generation.load(Ordering::SeqCst) {
-                    return false;
-                }
-                chunk = returned;
                 std::thread::sleep(QUEUE_POLL);
             }
         }
@@ -59,25 +59,27 @@ impl Drop for FinishedOnDrop {
 
 /// Supply decoded samples to the audio callback.
 /// Return silence when the ring buffer is empty so network delays do not block the callback.
-pub(crate) struct Ring {
-    pub(crate) rx: Receiver<Vec<Sample>>,
-    pub(crate) held: Vec<Sample>,
-    pub(crate) at: usize,
-    pub(crate) channels: ChannelCount,
-    pub(crate) rate: SampleRate,
+pub(super) struct Ring {
+    pub(super) rx: Consumer,
+    pub(super) held: [Sample; CHUNK],
+    pub(super) held_len: usize,
+    pub(super) underruns: Arc<AtomicUsize>,
+    pub(super) at: usize,
+    pub(super) channels: ChannelCount,
+    pub(super) rate: SampleRate,
     /// The source generation for this run.
-    /// A generation change ends this source so the player advances to the next source.
-    pub(crate) generation: u64,
-    pub(crate) current_generation: Arc<AtomicU64>,
-    pub(crate) cancelled: Arc<AtomicBool>,
+    /// A generation change retires this mixer input.
+    pub(super) generation: u64,
+    pub(super) current_generation: Arc<AtomicU64>,
+    pub(super) cancelled: Arc<AtomicBool>,
     /// Playback waits here while the feeder builds a small amount of live headroom.
-    pub(crate) ready: Arc<AtomicBool>,
+    pub(super) ready: Arc<AtomicBool>,
     /// Completion is terminal and must survive underrun readiness resets.
-    pub(crate) finished: Arc<AtomicBool>,
+    pub(super) finished: Arc<AtomicBool>,
     /// Samples still in the channel, excluding `held`. Used only at chunk boundaries so the audio
     /// callback does not perform an atomic operation per sample.
-    pub(crate) queued: Arc<AtomicUsize>,
-    pub(crate) prefill_samples: usize,
+    pub(super) queued: Arc<AtomicUsize>,
+    pub(super) prefill_samples: usize,
 }
 
 impl Ring {
@@ -93,8 +95,7 @@ impl Iterator for Ring {
     type Item = Sample;
 
     fn next(&mut self) -> Option<Sample> {
-        // Superseded, or stopped. This is the retirement `Player::clear` could not do:
-        // clear pauses the player and blocks on a source that never ends.
+        // Retire at the callback boundary so a stopped or superseded run cannot keep playing.
         if self.generation != self.current_generation.load(Ordering::SeqCst)
             || self.cancelled.load(Ordering::Acquire)
         {
@@ -103,10 +104,9 @@ impl Iterator for Ring {
         if !self.ready.load(Ordering::Acquire) && !self.finished.load(Ordering::Acquire) {
             return Some(0.0);
         }
-        if self.at >= self.held.len() {
-            match self.rx.try_recv() {
-                Ok(next) => {
-                    let len = next.len();
+        if self.at >= self.held_len {
+            match self.rx.try_recv(&mut self.held) {
+                Ok(len) => {
                     // Direct test senders do not publish a count. Production always does. Keep
                     // the accounting saturating without adding work to every sample callback.
                     match self
@@ -116,7 +116,7 @@ impl Iterator for Ring {
                         }) {
                         Ok(_) | Err(_) => {}
                     }
-                    self.held = next;
+                    self.held_len = len;
                     self.at = 0;
                 }
                 // The buffer is empty, but the feeder remains active.
@@ -124,6 +124,7 @@ impl Iterator for Ring {
                 Err(TryRecvError::Empty) => {
                     // Restore the initial buffer level before resuming playback.
                     // Otherwise, a long reconnection can cause repeated buffer underruns.
+                    self.underruns.fetch_add(1, Ordering::Relaxed);
                     self.rebuffer();
                     return Some(0.0);
                 }
@@ -139,10 +140,8 @@ impl Iterator for Ring {
 }
 
 impl Source for Ring {
-    /// Return a finite span aligned to complete audio frames.
-    /// Rodio rebuilds channel and sample-rate converters only at span boundaries.
-    /// None would preserve the first station's format and play later streams at incorrect speeds.
-    /// Frame alignment preserves channel positions. SPAN remains below rodio's 32768-sample limit.
+    /// Keep generic concatenation frame-aligned and below Rodio's 32768-sample span limit.
+    /// Production wraps each fixed-format run in OutputSource, which disables span rebuilding.
     fn current_span_len(&self) -> Option<usize> {
         let channels = self.channels.get() as usize;
         Some(SPAN.div_ceil(channels) * channels)

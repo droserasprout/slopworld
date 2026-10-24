@@ -1,2 +1,2 @@
-# Keep daemon work below interactive tasks without starving jukebox playback.
-{ "name": "slopd", "type": "Service", "sched": "normal" }
+# Audio callbacks share this process with daemon work; do not lower its CPU priority.
+{ "name": "slopd", "type": "Service", "nice": 0, "sched": "normal" }

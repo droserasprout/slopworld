@@ -1,10 +1,11 @@
 //! Game-free output and ring fixtures shared by the audio owner tests.
 
 use super::playback::{AudioOutput, OutputFactory};
-use super::ring::{RING, Ring};
+use super::queue::{self, CHUNK, Consumer, Producer, RING, SendError};
+use super::ring::Ring;
 use rodio::{ChannelCount, Sample, SampleRate, Source};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::{SyncSender, sync_channel};
+use std::sync::mpsc::{RecvTimeoutError, TryRecvError};
 use std::sync::{Arc, Mutex};
 
 pub(super) struct FakeOutputState {
@@ -36,13 +37,15 @@ impl AudioOutput for FakeOutput {
     fn play(&self) {}
 }
 
-pub(super) fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
-    let (tx, rx) = sync_channel(RING);
+pub(super) fn ring() -> (Producer, Ring) {
+    let (tx, rx) = queue::channel(RING);
     (
         tx,
         Ring {
             rx,
-            held: Vec::new(),
+            held: [0.0; CHUNK],
+            held_len: 0,
+            underruns: Arc::new(AtomicUsize::new(0)),
             at: 0,
             channels: ChannelCount::new(2).unwrap(),
             rate: SampleRate::new(44100).unwrap(),
@@ -56,4 +59,44 @@ pub(super) fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
             prefill_samples: 1,
         },
     )
+}
+
+// Convenience adapters allocate only in tests; production handoff uses caller-owned arrays.
+impl Producer {
+    pub(super) fn send(&mut self, samples: &[Sample]) -> Result<(), SendError> {
+        for chunk in samples.chunks(CHUNK) {
+            self.try_send(chunk)?;
+        }
+        Ok(())
+    }
+}
+
+impl Consumer {
+    pub(super) fn drain_chunks(&mut self) -> Vec<Vec<Sample>> {
+        let mut result = Vec::new();
+        let mut samples = [0.0; CHUNK];
+        while let Ok(len) = self.try_recv(&mut samples) {
+            result.push(samples[..len].to_vec());
+        }
+        result
+    }
+
+    pub(super) fn recv_timeout(
+        &mut self,
+        timeout: std::time::Duration,
+    ) -> Result<Vec<Sample>, RecvTimeoutError> {
+        let deadline = std::time::Instant::now() + timeout;
+        let mut samples = [0.0; CHUNK];
+        loop {
+            match self.try_recv(&mut samples) {
+                Ok(len) => return Ok(samples[..len].to_vec()),
+                Err(TryRecvError::Disconnected) => return Err(RecvTimeoutError::Disconnected),
+                Err(TryRecvError::Empty) => {}
+            }
+            if std::time::Instant::now() >= deadline {
+                return Err(RecvTimeoutError::Timeout);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
 }

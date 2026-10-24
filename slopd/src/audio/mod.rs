@@ -10,7 +10,10 @@ use std::time::Duration;
 use serde::Serialize;
 
 mod control;
+mod health;
+mod output_source;
 mod playback;
+mod queue;
 mod ring;
 mod station;
 #[cfg(test)]
@@ -233,7 +236,9 @@ fn wait_for_retry(
 #[cfg(test)]
 pub(crate) use playback::{NULL_PCM, SERVER_PCMS, open_device, pcm_id};
 #[cfg(test)]
-pub(crate) use ring::{RING, Ring, enqueue_chunk};
+use queue::RING;
+#[cfg(test)]
+use ring::{Ring, enqueue_chunk};
 #[cfg(test)]
 pub(crate) use station::{
     Feed, Icy, Playlist, Reconnect, StreamBody, StreamConnector, local_title, stream_title,
@@ -249,3 +254,6 @@ mod tests;
 
 #[cfg(test)]
 mod orchestration_tests;
+
+#[cfg(test)]
+mod allocation_tests;

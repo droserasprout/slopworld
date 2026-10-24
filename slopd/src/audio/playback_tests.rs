@@ -51,21 +51,19 @@ fn cancellation_during_startup_discards_the_gated_feeder() {
 
 #[test]
 fn backend_failure_is_latched_but_recoverable_underruns_do_not_retire_output() {
-    let failed = AtomicBool::new(false);
-    record_output_error(&failed, &cpal::StreamError::BufferUnderrun);
-    assert!(!failed.load(Ordering::Acquire));
+    let health = OutputHealth::new();
+    health.record(&cpal::StreamError::BufferUnderrun);
+    assert!(!health.failed.load(Ordering::Acquire));
     for _ in 0..100 {
-        record_output_error(
-            &failed,
-            &cpal::StreamError::BackendSpecific {
-                err: cpal::BackendSpecificError {
-                    description: "POLLERR".into(),
-                },
+        health.record(&cpal::StreamError::BackendSpecific {
+            err: cpal::BackendSpecificError {
+                description: "POLLERR".into(),
             },
-        );
+        });
     }
-    record_output_error(&failed, &cpal::StreamError::BufferUnderrun);
-    assert!(failed.load(Ordering::Acquire));
+    health.record(&cpal::StreamError::BufferUnderrun);
+    assert!(health.failed.load(Ordering::Acquire));
+    assert_eq!(health.backend_underruns.load(Ordering::Relaxed), 2);
 }
 
 #[test]
@@ -190,8 +188,8 @@ fn samples(data: Vec<f32>, rate: u32) -> Box<dyn Source + Send> {
 fn feed_fixture(
     first: Box<dyn Source + Send>,
     title: TitleSink,
-) -> (FeedArgs, std::sync::mpsc::Receiver<Vec<f32>>) {
-    let (tx, rx) = sync_channel(16);
+) -> (FeedArgs, crate::audio::queue::Consumer) {
+    let (tx, rx) = queue::channel(16);
     let format = AudioFormat {
         channels: first.channels(),
         rate: first.sample_rate(),
@@ -214,7 +212,7 @@ fn feed_fixture(
 
 #[test]
 fn feeder_preserves_short_tails_across_reopen_errors_and_format_changes() {
-    let (args, rx) = feed_fixture(
+    let (args, mut rx) = feed_fixture(
         samples(vec![0.25; CHUNK + 3], 8000),
         TitleSink::pending(None, 0),
     );
@@ -230,7 +228,7 @@ fn feeder_preserves_short_tails_across_reopen_errors_and_format_changes() {
         }
     });
     assert_eq!(attempts, 4);
-    let chunks: Vec<_> = rx.into_iter().collect();
+    let chunks = rx.drain_chunks();
     assert_eq!(
         chunks.iter().map(Vec::len).collect::<Vec<_>>(),
         [CHUNK, 3, 5]
@@ -244,7 +242,7 @@ fn feeder_preserves_short_tails_across_reopen_errors_and_format_changes() {
 fn cancellation_or_replacement_during_reopen_prevents_new_samples() {
     for replace in [false, true] {
         let title = TitleSink::pending(None, 0);
-        let (args, rx) = feed_fixture(samples(vec![0.25; 3], 8000), title);
+        let (args, mut rx) = feed_fixture(samples(vec![0.25; 3], 8000), title);
         let mut attempts = 0;
         feed_with_reopen(args, |_, title| {
             attempts += 1;
@@ -256,7 +254,7 @@ fn cancellation_or_replacement_during_reopen_prevents_new_samples() {
             Some(Ok(samples(vec![0.9; 7], 8000)))
         });
         assert_eq!(attempts, 1);
-        assert_eq!(rx.into_iter().collect::<Vec<_>>(), vec![vec![0.25; 3]]);
+        assert_eq!(rx.drain_chunks(), vec![vec![0.25; 3]]);
     }
 }
 
@@ -269,7 +267,7 @@ fn feeder_advances_playlist_then_finishes_when_no_playable_tracks_remain() {
         rate: decoded.sample_rate(),
     };
     let title = TitleSink::pending(None, 0);
-    let (mut args, rx) = feed_fixture(
+    let (mut args, mut rx) = feed_fixture(
         Box::new(rodio::buffer::SamplesBuffer::new(
             format.channels,
             format.rate,
@@ -287,7 +285,7 @@ fn feeder_advances_playlist_then_finishes_when_no_playable_tracks_remain() {
     feed_with_reopen(args, |_, _| {
         panic!("playlist must not use station recovery")
     });
-    assert_eq!(rx.into_iter().collect::<Vec<_>>(), vec![vec![0.25; 3]]);
+    assert_eq!(rx.drain_chunks(), vec![vec![0.25; 3]]);
 }
 
 #[test]
@@ -299,7 +297,7 @@ fn feeder_delivers_next_playlist_track_after_a_short_first_track() {
         rate: decoded.sample_rate(),
     };
     let title = TitleSink::pending(None, 0);
-    let (mut args, rx) = feed_fixture(
+    let (mut args, mut rx) = feed_fixture(
         Box::new(rodio::buffer::SamplesBuffer::new(
             format.channels,
             format.rate,
