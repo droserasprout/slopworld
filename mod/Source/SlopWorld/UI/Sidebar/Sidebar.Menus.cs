@@ -38,6 +38,11 @@ namespace SlopWorld
                     (selected & AgentStatusFilter.Down) != 0,
                     () => ToggleAgentStatus(AgentStatusFilter.Down)
                 ),
+                UiLayout.MenuToggle(
+                    "Shells",
+                    (selected & AgentStatusFilter.Shells) != 0,
+                    () => ToggleAgentStatus(AgentStatusFilter.Shells)
+                ),
             };
             WorkspaceWindow.OpenOverPane(
                 UiSelector.Menu(opts, _agentVisibilityRect, matchWidth: false)

@@ -10,7 +10,8 @@ input, and tooltips share full-height targets; targets exclude the resize grip.
 Navigation/folds/filter menus activate on press, refresh actions on release.
 
 `AgentStatusSelection` shares sidebar/palette filtering. Explicit none remains
-distinct from All. `SidebarViewHistory` stores semantic locations, distinguishing
+distinct from All. Shells selects host and non-worker temporary terminal rows independently
+of Active/Idle/Down; workers retain agent-status filtering. `SidebarViewHistory` stores semantic locations, distinguishing
 templates from ordinary library items even with matching names. Resolve against the
 current catalog; stale targets may select a tab without a row.
 

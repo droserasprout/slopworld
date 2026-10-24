@@ -59,7 +59,7 @@ namespace SlopWorld
                     locs[i] = Parked;
                     continue;
                 }
-                if (!PassesStatus(info.State))
+                if (!PassesStatus(info))
                 {
                     locs[i] = Parked;
                     continue;
@@ -101,7 +101,7 @@ namespace SlopWorld
             {
                 if (s.Worker)
                 {
-                    if (!SidebarScopes.SessionChosen(s) || !PassesStatus(s.State))
+                    if (!SidebarScopes.SessionChosen(s) || !PassesStatus(s))
                         continue;
                     // A child is nested only when its explicit parent has a visible normal row.
                     // Missing parents are surfaced at the top instead of being silently lost.
@@ -126,7 +126,7 @@ namespace SlopWorld
                     (!s.Ephemeral && !s.Host)
                     || IsRouted(s)
                     || !SidebarScopes.SessionChosen(s)
-                    || !PassesStatus(s.State)
+                    || !PassesStatus(s)
                 )
                     continue;
                 if (string.IsNullOrEmpty(s.Project))

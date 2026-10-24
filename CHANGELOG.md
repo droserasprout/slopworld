@@ -17,6 +17,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Fixed
 
 - General: Fixed HTTPS support in launcher and mod.
+- UI: Added Shells to the Agents sidebar and Command palette filters.
 
 ### Changed
 

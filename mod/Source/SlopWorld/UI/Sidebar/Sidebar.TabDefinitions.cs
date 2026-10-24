@@ -157,8 +157,8 @@ namespace SlopWorld
                 Icons.Filter,
                 StatusFiltering,
                 StatusFiltering
-                    ? $"Showing {StatusFilterLabel} agents. Click to change the status filter."
-                    : "All agents shown. Click to choose agent statuses.",
+                    ? $"Showing {StatusFilterLabel}. Click to change the Agents filter."
+                    : "All agents and shells shown. Click to filter the list.",
                 OpenAgentVisibilityMenu,
                 filter: true
             );

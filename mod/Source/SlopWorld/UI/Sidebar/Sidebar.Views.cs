@@ -227,24 +227,8 @@ namespace SlopWorld
 
         public static string StatusFilterLabel => StatusFilter.ToString();
 
-        public static bool PassesStatus(AgentState state)
-        {
-            var filter = StatusFilter;
-            if (filter == AgentStatusFilter.All)
-                return true;
-
-            switch (state)
-            {
-                case AgentState.Working:
-                    return (filter & AgentStatusFilter.Active) != 0;
-                case AgentState.Idle:
-                    return (filter & AgentStatusFilter.Idle) != 0;
-                case AgentState.Down:
-                    return (filter & AgentStatusFilter.Down) != 0;
-                default:
-                    return false;
-            }
-        }
+        public static bool PassesStatus(SessionInfo session) =>
+            AgentStatusSelection.Matches(StatusFilter, session);
 
         public static void SetStatusFilter(AgentStatusFilter filter)
         {
@@ -458,7 +442,7 @@ namespace SlopWorld
                         && !row.Ghost
                         && !row.Worker
                         && info != null
-                        && PassesStatus(info.State)
+                        && PassesStatus(info)
                     )
                         order.Add(row.Session);
                 }
@@ -480,7 +464,7 @@ namespace SlopWorld
                         && !info.Worker
                         && !IsRouted(info)
                         && SidebarScopes.SessionChosen(info)
-                        && PassesStatus(info.State)
+                        && PassesStatus(info)
                     )
                         agents.Add(info);
                 }
@@ -493,7 +477,7 @@ namespace SlopWorld
             foreach (var row in Layout.Rows)
             {
                 var info = row.Session == null ? null : SnapshotGet(row.Session);
-                if (row.Session != null && info != null && PassesStatus(info.State))
+                if (row.Session != null && info != null && PassesStatus(info))
                     order.Add(row.Session);
             }
             return order;

@@ -311,6 +311,12 @@ namespace SlopWorld
                     Value = "down",
                     Checked = (Sidebar.StatusFilter & AgentStatusFilter.Down) != 0,
                 },
+                new SubOption
+                {
+                    Label = "Shells",
+                    Value = "shells",
+                    Checked = (Sidebar.StatusFilter & AgentStatusFilter.Shells) != 0,
+                },
             };
 
         static void SetAgentStatusFromPalette(string value)
@@ -332,6 +338,9 @@ namespace SlopWorld
                     break;
                 case "down":
                     status = AgentStatusFilter.Down;
+                    break;
+                case "shells":
+                    status = AgentStatusFilter.Shells;
                     break;
                 default:
                     return;
