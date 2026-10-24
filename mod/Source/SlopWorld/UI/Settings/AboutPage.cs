@@ -84,12 +84,6 @@ namespace SlopWorld
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
             new Credit("Clap", "CLI", "https://github.com/clap-rs/clap"),
             new Credit(
-                "Landlock",
-                "filesystem isolation",
-                "https://github.com/landlock-lsm/rust-landlock"
-            ),
-            new Credit("ring", "cryptography", "https://github.com/briansmith/ring"),
-            new Credit(
                 "HTTP libraries",
                 "HTTP/WebSockets",
                 new[]
@@ -101,6 +95,21 @@ namespace SlopWorld
                     new CreditLink("url", "https://github.com/servo/rust-url"),
                 }
             ),
+            new Credit(
+                "rand / tempfile",
+                "sidecar support",
+                new[]
+                {
+                    new CreditLink("rand", "https://github.com/rust-random/rand"),
+                    new CreditLink("tempfile", "https://github.com/Stebalien/tempfile"),
+                }
+            ),
+            new Credit(
+                "Landlock",
+                "filesystem isolation",
+                "https://github.com/landlock-lsm/rust-landlock"
+            ),
+            new Credit("ring", "cryptography", "https://github.com/briansmith/ring"),
             new Credit(
                 "Alacritty / unicode-width / anstyle",
                 "terminal",
@@ -121,15 +130,6 @@ namespace SlopWorld
                     new CreditLink("TOML", "https://github.com/toml-rs/toml"),
                     new CreditLink("toml_edit", "https://github.com/toml-rs/toml"),
                     new CreditLink("JSON", "https://github.com/serde-rs/json"),
-                }
-            ),
-            new Credit(
-                "rand / tempfile",
-                "sidecar support",
-                new[]
-                {
-                    new CreditLink("rand", "https://github.com/rust-random/rand"),
-                    new CreditLink("tempfile", "https://github.com/Stebalien/tempfile"),
                 }
             ),
             new Credit("prost", "Protocol Buffers", "https://github.com/tokio-rs/prost"),
