@@ -93,6 +93,7 @@ namespace SlopWorld
     {
         public string Text;
         public StringBuilder TextBuilder;
+        public InlineTextLayout Sprites;
         public InlineRun Run;
         public GUIStyle Style;
         public float Width;

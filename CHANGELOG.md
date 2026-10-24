@@ -33,6 +33,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Terminal: Prevent flicker when scrolling horizontally in pagers.
 - Terminal: Preserve Alt in Ctrl+Alt keyboard shortcuts.
 - UI: Fixed Agents sidebar becoming empty after switching tabs.
+- UI: Fixed missing emojis in Markdown previews.
 - UI: Fixed syntax highlighting in diffs breaking after long lines.
 - Workers: Use the selected agent's checkout when no base revision is specified.
 

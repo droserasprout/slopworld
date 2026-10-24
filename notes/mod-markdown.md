@@ -20,3 +20,8 @@ Preserve literal code whitespace through parsing and copy. Ordinary source newli
 become spaces; explicit breaks retain line boundaries. Floats belong to block flow;
 quotes/lists contain their own, while slabs clear outer floats. Record line insets so
 wrapping, drawing, selection, copy, and link hit testing share reflowed geometry.
+
+Text pieces use the shared emoji atlas for catalog sequences. Sprite advances follow
+line height; measurement, wrapping, drawing, and selection share that geometry.
+Match catalog keys before Unicode text elements so joined emoji stay intact on Mono.
+Clipboard text retains the original Unicode sequences.

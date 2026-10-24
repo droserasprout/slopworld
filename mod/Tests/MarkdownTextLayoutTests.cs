@@ -79,6 +79,67 @@ namespace SlopWorld.Tests
             );
         }
 
+        public static void EmojiSequencesUseAtlasGeometryAndSurviveNarrowWrapping()
+        {
+            var styles = new StyleSet();
+            foreach (string emoji in new[] { "😀", "❤️", "👩🏽‍💻", "🇺🇾", "1️⃣" })
+            foreach (bool code in new[] { false, true })
+            foreach (int heading in new[] { 0, 1, 6 })
+            {
+                var run = new InlineRun
+                {
+                    Text = emoji,
+                    Code = code,
+                    InlineCode = code,
+                };
+                var layout = Layout(styles);
+                var wrapped = layout.Wrap(new List<InlineRun> { run }, 1f, heading);
+                Assert.That(wrapped.Lines.Count, Is.EqualTo(1), emoji);
+                var piece = wrapped.Lines.Single().Pieces.Single();
+                var span = piece.Sprites.Spans.Single();
+                Assert.That(span.Text, Is.EqualTo(emoji));
+                Assert.That(span.Sprite, Is.GreaterThanOrEqualTo(0));
+                Assert.That(span.Width, Is.EqualTo(piece.Style.lineHeight));
+                Assert.That(
+                    piece.Width,
+                    Is.EqualTo(span.Width + piece.PaddingLeft + piece.PaddingRight)
+                );
+                Assert.That(Copy(wrapped), Is.EqualTo(emoji));
+                var metrics = layout.Measure(new List<InlineRun> { run }, heading);
+                Assert.That(metrics.MinimumWidth, Is.EqualTo(piece.Width));
+                Assert.That(metrics.PreferredWidth, Is.EqualTo(piece.Width));
+            }
+        }
+
+        public static void MixedEmojiSelectionUsesPaintedEdgesAndWholeSequenceBoundaries()
+        {
+            const string emoji = "👩🏽‍💻";
+            var styles = new StyleSet();
+            var wrapped = Layout(styles)
+                .Wrap(new List<InlineRun> { new InlineRun { Text = "a" + emoji + "b" } }, 1000f, 0);
+            var selection = new MarkdownSelection();
+            selection.AttachStyles(styles);
+            var lines = new List<SelectionLine>();
+            MarkdownSelectionText.CollectText(lines, wrapped, 0f, 0f);
+            var line = lines.Single();
+            typeof(MarkdownSelection)
+                .GetMethod(
+                    "EnsureEdges",
+                    System.Reflection.BindingFlags.Instance
+                        | System.Reflection.BindingFlags.NonPublic
+                )
+                .Invoke(selection, new object[] { line });
+            Assert.That(
+                line.Boundaries,
+                Is.EqualTo(new[] { 0, 1, 1 + emoji.Length, 2 + emoji.Length })
+            );
+            float start = styles.MeasureChar(styles.Normal, 'a');
+            Assert.That(line.Edges[1], Is.EqualTo(start));
+            Assert.That(line.Edges[1 + emoji.Length], Is.EqualTo(start + styles.Normal.lineHeight));
+            Assert.That(line.Edges.Last(), Is.EqualTo(wrapped.Width));
+            Assert.That(Copy(wrapped), Is.EqualTo("a" + emoji + "b"));
+        }
+
         static void LongWord(int length)
         {
             var styles = new StyleSet();

@@ -50,10 +50,8 @@ namespace SlopWorld
                 string text = run.Text ?? "";
                 if (run.Code)
                 {
-                    var elements = StringInfo.GetTextElementEnumerator(text);
-                    while (elements.MoveNext())
+                    foreach (string element in Elements(text))
                     {
-                        string element = elements.GetTextElement();
                         if (element != "\n" && element != "\r" && element != "\r\n")
                             minimum = Mathf.Max(
                                 minimum,
@@ -169,10 +167,13 @@ namespace SlopWorld
             {
                 foreach (var piece in item.Pieces)
                 {
-                    if (piece.TextBuilder == null)
-                        continue;
-                    piece.Text = piece.TextBuilder.ToString();
-                    piece.TextBuilder = null;
+                    if (piece.TextBuilder != null)
+                    {
+                        piece.Text = piece.TextBuilder.ToString();
+                        piece.TextBuilder = null;
+                    }
+                    if (!piece.Run.IsImage && !piece.Run.IsTask)
+                        piece.Sprites = SpriteLayout(piece.Style, piece.Text);
                 }
                 item.LogicalOffset = logicalOffset;
                 item.LogicalLength = 0;
@@ -299,10 +300,8 @@ namespace SlopWorld
             Func<float, Vector2> flow
         )
         {
-            var elements = StringInfo.GetTextElementEnumerator(text);
-            while (elements.MoveNext())
+            foreach (string value in Elements(text))
             {
-                string value = elements.GetTextElement();
                 float charWidth = MeasureChunk(style, value);
                 float addedWidth = AddedWidth(line, run, style, charWidth);
                 if (
@@ -343,10 +342,37 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(text))
                 return 0f;
+            var sprites = SpriteLayout(style, text);
+            if (sprites != null)
+                return sprites.Width;
             if (text.Length == 1)
                 return _styles.MeasureChar(style, text[0]);
             return text.Length > 128 ? MeasureCharacters(style, text) : Measure(style, text);
         }
+
+        // Match packaged sequences before StringInfo: Unity's Mono may split joined
+        // emoji into separate elements. Wrapping must keep each atlas key intact.
+        internal static IEnumerable<string> Elements(string text)
+        {
+            for (int i = 0; i < text.Length; )
+            {
+                string element = TextSpriteCatalog.Shared.Match(text, i, out int length, out _)
+                    ? text.Substring(i, length)
+                    : StringInfo.GetNextTextElement(text, i);
+                yield return element;
+                i += element.Length;
+            }
+        }
+
+        static InlineTextLayout SpriteLayout(GUIStyle style, string text) =>
+            TextSpriteCatalog.Shared.Contains(text ?? "")
+                ? InlineTextLayout.Proportional(
+                    text,
+                    TextSpriteCatalog.Shared,
+                    style.lineHeight,
+                    value => Measure(style, value)
+                )
+                : null;
 
         float MeasureCharacters(GUIStyle style, string text)
         {

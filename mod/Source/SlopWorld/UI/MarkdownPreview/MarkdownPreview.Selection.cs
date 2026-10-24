@@ -88,10 +88,39 @@ namespace SlopWorld
                     continue;
                 }
                 at += piece.PaddingLeft;
-                for (int i = 0; i < piece.Text.Length; i++)
+                if (piece.Sprites != null)
                 {
-                    at += _styles.MeasureChar(piece.Style, piece.Text[i]);
-                    line.Edges.Add(at);
+                    foreach (var span in piece.Sprites.Spans)
+                    {
+                        if (span.Sprite >= 0)
+                        {
+                            for (int i = 1; i < span.Text.Length; i++)
+                                line.Edges.Add(at);
+                            at += span.Width;
+                            line.Edges.Add(at);
+                        }
+                        else
+                        {
+                            for (int i = 1; i <= span.Text.Length; i++)
+                                line.Edges.Add(
+                                    at
+                                        + piece
+                                            .Style.CalcSize(
+                                                new GUIContent(span.Text.Substring(0, i))
+                                            )
+                                            .x
+                                );
+                            at += span.Width;
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < piece.Text.Length; i++)
+                    {
+                        at += _styles.MeasureChar(piece.Style, piece.Text[i]);
+                        line.Edges.Add(at);
+                    }
                 }
                 at += piece.PaddingRight;
             }

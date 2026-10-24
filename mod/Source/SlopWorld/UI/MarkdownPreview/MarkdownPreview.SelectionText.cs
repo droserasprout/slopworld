@@ -82,6 +82,14 @@ namespace SlopWorld
                 chars.Append(piece.Text);
             }
             output.Text = chars.ToString();
+            var boundaries = new List<int> { 0 };
+            int offset = 0;
+            foreach (string element in MarkdownTextLayout.Elements(output.Text))
+            {
+                offset += element.Length;
+                boundaries.Add(offset);
+            }
+            output.Boundaries = boundaries.ToArray();
             target.Add(output);
         }
 

@@ -349,7 +349,10 @@ namespace SlopWorld
                         : piece.Run.Code ? UiTheme.Lead
                         : heading ? UiTheme.Lead
                         : UiTheme.Name;
-                    GUI.Label(rect, piece.Text, piece.Style);
+                    if (piece.Sprites != null)
+                        SharedTextRenderer.Draw(piece.Sprites, rect, piece.Height, piece.Style);
+                    else
+                        GUI.Label(rect, piece.Text, piece.Style);
                     if (piece.Run.Link != null || piece.Run.LocalLink != null)
                     {
                         var linkRect = new Rect(at, pieceY, piece.Width, piece.Height);
