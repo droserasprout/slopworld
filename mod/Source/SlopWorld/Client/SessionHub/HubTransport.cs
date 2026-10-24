@@ -209,7 +209,8 @@ namespace SlopWorld
                         connection.Host,
                         connection.Port,
                         WireProtocol.WsPath,
-                        connection.Token
+                        connection.Token,
+                        useTls: connection.UseTls
                     )
                 )
                     result.Error = result.Socket.LastError ?? "connection failed";

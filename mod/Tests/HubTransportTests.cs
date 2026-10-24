@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Google.Protobuf;
 using NUnit.Framework;
@@ -21,6 +22,7 @@ namespace SlopWorld.Tests
                 Path,
                 Token;
             public int Port;
+            public bool UseTls;
 
             public Socket(bool connects = true, string error = null)
             {
@@ -33,9 +35,11 @@ namespace SlopWorld.Tests
                 int port,
                 string path,
                 string token,
-                int timeoutMs = 3000
+                int timeoutMs = 3000,
+                bool useTls = false
             )
             {
+                UseTls = useTls;
                 Host = host;
                 Port = port;
                 Path = path;
@@ -111,6 +115,29 @@ namespace SlopWorld.Tests
                 Hub.Disconnect();
                 Settings.S.autoConnect = _autoConnect;
                 UnityEngine.Time.realtimeSinceStartup = _time;
+            }
+        }
+
+        public static void HttpsEndpointEnablesTlsForWebSocket()
+        {
+            string path = System.IO.Path.GetTempFileName();
+            string previous = System.Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");
+            try
+            {
+                File.WriteAllText(path, "url = 'https://peer.example:9443'\ntoken = 'secret'\n");
+                System.Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", path);
+                var socket = new Socket();
+                using var env = new Environment(socket);
+                env.Connect();
+                Assert.That(socket.UseTls, Is.True);
+                Assert.That(socket.Host, Is.EqualTo("peer.example"));
+                Assert.That(socket.Port, Is.EqualTo(9443));
+                Assert.That(socket.Token, Is.EqualTo("secret"));
+            }
+            finally
+            {
+                System.Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", previous);
+                File.Delete(path);
             }
         }
 
@@ -325,6 +352,7 @@ namespace SlopWorld.Tests
             var endpoint = Settings.Connection;
             Assert.That(old.Host, Is.EqualTo(endpoint.Host));
             Assert.That(old.Port, Is.EqualTo(endpoint.Port));
+            Assert.That(old.UseTls, Is.EqualTo(endpoint.UseTls));
             Assert.That(old.Token, Is.EqualTo(endpoint.Token));
             Assert.That(old.Path, Is.EqualTo(WireProtocol.WsPath));
             env.Hub.Send(message);

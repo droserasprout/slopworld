@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,6 +60,58 @@ namespace SlopWorld.Tests
                 socket.Dispose();
                 Assert.That(server.Wait(10000), Is.True, "peer task terminates");
             }
+        }
+
+        public static void TlsRejectsUntrustedPeerBeforeSendingCredentials()
+        {
+            using var key = RSA.Create(2048);
+            var request = new CertificateRequest(
+                "CN=localhost",
+                key,
+                HashAlgorithmName.SHA256,
+                RSASignaturePadding.Pkcs1
+            );
+            using var certificate = request.CreateSelfSigned(
+                DateTimeOffset.UtcNow.AddMinutes(-1),
+                DateTimeOffset.UtcNow.AddMinutes(5)
+            );
+            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            using var cancellation = new CancellationTokenSource(10000);
+            var server = Task.Run(async () =>
+            {
+                using var client = await listener.AcceptTcpClientAsync(cancellation.Token);
+                using var stream = new SslStream(client.GetStream(), false);
+                try
+                {
+                    await stream.AuthenticateAsServerAsync(
+                        new SslServerAuthenticationOptions { ServerCertificate = certificate },
+                        cancellation.Token
+                    );
+                    var bytes = new byte[1];
+                    Assert.That(
+                        await stream.ReadAsync(bytes.AsMemory(), cancellation.Token),
+                        Is.Zero,
+                        "untrusted peer receives no HTTP request or credentials"
+                    );
+                }
+                catch (AuthenticationException) { }
+                catch (IOException) { }
+            });
+            using var socket = new MiniWebSocket();
+            Assert.That(
+                socket.Connect(
+                    "localhost",
+                    ((IPEndPoint)listener.LocalEndpoint).Port,
+                    WireProtocol.WsPath,
+                    "secret",
+                    useTls: true
+                ),
+                Is.False
+            );
+            Assert.That(socket.Connected, Is.False);
+            Assert.That(socket.LastError, Is.Not.Null.And.Not.Empty);
+            Assert.That(server.Wait(10000), Is.True, "TLS peer terminates");
         }
 
         static string ReadHeader(NetworkStream stream)

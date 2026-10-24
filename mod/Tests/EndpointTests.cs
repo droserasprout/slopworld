@@ -44,6 +44,37 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void ResolvesHttpsDescriptors()
+        {
+            string path = TemporaryPath();
+            string previous = Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");
+            try
+            {
+                Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", path);
+                foreach (var port in new[] { "", ":9443" })
+                {
+                    File.WriteAllText(
+                        path,
+                        $"url = \"https://example.test{port}\"\ntoken = \"secret\"\n"
+                    );
+                    var connection = Endpoint.Resolve();
+                    AssertEx.Equal(true, connection.UseTls, "HTTPS enables TLS");
+                    AssertEx.Equal(port == "" ? 443 : 9443, connection.Port, "HTTPS port");
+                    AssertEx.Equal(
+                        $"https://example.test:{connection.Port}",
+                        connection.BaseUrl,
+                        "HTTPS base URL"
+                    );
+                    AssertEx.Equal("secret", connection.Token, "HTTPS token");
+                }
+            }
+            finally
+            {
+                RestoreEndpoint(previous);
+                File.Delete(path);
+            }
+        }
+
         static void FallsBackForMissingOrInvalidDescriptors()
         {
             string path = TemporaryPath();
@@ -53,8 +84,8 @@ namespace SlopWorld.Tests
                 Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", path);
                 AssertFallback(Endpoint.Resolve(), "missing descriptor");
 
-                File.WriteAllText(path, "url = \"https://example.test:9443\"\ntoken = \"bad\"\n");
-                AssertFallback(Endpoint.Resolve(), "non-http descriptor");
+                File.WriteAllText(path, "url = \"ftp://example.test:9443\"\ntoken = \"bad\"\n");
+                AssertFallback(Endpoint.Resolve(), "unsupported scheme");
             }
             finally
             {

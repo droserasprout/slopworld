@@ -27,7 +27,8 @@ namespace SlopWorld.Tests
                 int port,
                 string path,
                 string token,
-                int timeoutMs = 3000
+                int timeoutMs = 3000,
+                bool useTls = false
             )
             {
                 Connected = _result;

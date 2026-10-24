@@ -83,7 +83,6 @@ namespace SlopWorld
             new Credit("Rust", "language", "https://www.rust-lang.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
             new Credit("Clap", "CLI", "https://github.com/clap-rs/clap"),
-            new Credit("Anstream", "Terminal output", "https://github.com/rust-cli/anstyle"),
             new Credit(
                 "Landlock",
                 "filesystem isolation",
@@ -103,12 +102,13 @@ namespace SlopWorld
                 }
             ),
             new Credit(
-                "Alacritty / unicode-width",
+                "Alacritty / unicode-width / anstyle",
                 "terminal",
                 new[]
                 {
                     new CreditLink("Alacritty", "https://alacritty.org/"),
                     new CreditLink("unicode-width", "https://github.com/unicode-rs/unicode-width"),
+                    new CreditLink("anstyle", "https://github.com/rust-cli/anstyle"),
                 }
             ),
             new Credit("image", "image decoding", "https://github.com/image-rs/image"),

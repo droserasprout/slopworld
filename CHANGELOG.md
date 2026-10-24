@@ -8,6 +8,26 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## [Unreleased]
+
+### Added
+
+- CLI: Added shell completions for `slopctl`, `slopworld`, and `slopcar`.
+
+### Fixed
+
+- General: Fixed HTTPS support in launcher and mod.
+
+### Changed
+
+- CLI: Replaced profile flags with `slopworld profile init` and `slopworld profile reset`.
+- CLI: Task updates now require `--id ID` or the injected task ID.
+- CLI: Create worker checkouts with `worktree create` before selecting them with `worker spawn --worktree`.
+
+### Removed
+
+- CLI: Removed game argument forwarding from `slopworld`.
+
 ## [0.0.11] - 2026-10-24
 
 ### Security

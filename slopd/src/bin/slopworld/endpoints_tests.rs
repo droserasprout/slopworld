@@ -244,8 +244,20 @@ fn peer_urls_match_the_mod_transport_and_never_embed_credentials() {
         normalize_url("http://[::1]:7717").unwrap(),
         "http://[::1]:7717"
     );
+    for (input, expected) in [
+        ("https://example.test", "https://example.test"),
+        ("https://example.test:443/", "https://example.test"),
+        ("https://example.test:9443/", "https://example.test:9443"),
+        ("https://[::1]:9443/", "https://[::1]:9443"),
+    ] {
+        assert_eq!(normalize_url(input).unwrap(), expected);
+    }
     for url in [
-        "https://example.test",
+        "ftp://example.test",
+        "https://user:secret@example.test",
+        "https://example.test/path",
+        "https://example.test/?key=secret",
+        "https://example.test/#fragment",
         "http://user:key@example.test",
         "http://example.test/path",
         "http://example.test/?key=secret",

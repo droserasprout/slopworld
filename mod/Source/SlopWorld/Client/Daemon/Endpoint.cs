@@ -8,16 +8,18 @@ namespace SlopWorld
         public readonly string Host;
         public readonly int Port;
         public readonly string Token;
+        public readonly bool UseTls;
 
-        public ConnectionInfo(string host, int port, string token)
+        public ConnectionInfo(string host, int port, string token, bool useTls = false)
         {
             Host = (host ?? "").Trim('[', ']');
             Port = port;
             Token = token ?? "";
+            UseTls = useTls;
         }
 
         public string BaseUrl =>
-            $"http://{(Host.IndexOf(':') >= 0 ? "[" + Host + "]" : Host)}:{Port}";
+            $"{(UseTls ? "https" : "http")}://{(Host.IndexOf(':') >= 0 ? "[" + Host + "]" : Host)}:{Port}";
     }
 
     // The daemon owns the live endpoint. The mod discovers its address and token from
@@ -36,12 +38,20 @@ namespace SlopWorld
                 var value = Toml.ParseFlat(text);
                 var uri = new Uri(value["url"], UriKind.Absolute);
                 if (
-                    !string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase)
+                    (
+                        !string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase)
+                    )
                     || uri.Port <= 0
                 )
                     return Fallback();
 
-                return new ConnectionInfo(uri.Host, uri.Port, value["token"]);
+                return new ConnectionInfo(
+                    uri.Host,
+                    uri.Port,
+                    value["token"],
+                    uri.Scheme == "https"
+                );
             }
             catch
             {

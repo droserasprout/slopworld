@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -16,7 +17,14 @@ namespace SlopWorld
         bool Connected { get; }
         string LastError { get; }
         IncomingMessageQueue Incoming { get; }
-        bool Connect(string host, int port, string path, string token, int timeoutMs = 3000);
+        bool Connect(
+            string host,
+            int port,
+            string path,
+            string token,
+            int timeoutMs = 3000,
+            bool useTls = false
+        );
         bool SendBinary(byte[] text);
     }
 
@@ -40,7 +48,7 @@ namespace SlopWorld
         IncomingMessageQueue IHubSocket.Incoming => Incoming;
 
         TcpClient _tcp;
-        NetworkStream _net;
+        Stream _net;
         Thread _reader;
         Thread _writer;
         volatile bool _closing;
@@ -48,7 +56,14 @@ namespace SlopWorld
         readonly AutoResetEvent _sendSignal = new AutoResetEvent(false);
         readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
 
-        public bool Connect(string host, int port, string path, string token, int timeoutMs = 3000)
+        public bool Connect(
+            string host,
+            int port,
+            string path,
+            string token,
+            int timeoutMs = 3000,
+            bool useTls = false
+        )
         {
             try
             {
@@ -64,11 +79,21 @@ namespace SlopWorld
                 }
                 _tcp.EndConnect(ar);
                 // ConnectTimeout covers only the TCP handshake.
-                // The HTTP upgrade also runs synchronously on Unity's main thread.
+                // TLS authentication and the HTTP upgrade run on the connection worker.
                 // Limit its socket waits so an unresponsive server cannot block the game indefinitely.
                 _tcp.ReceiveTimeout = timeoutMs;
                 _tcp.SendTimeout = timeoutMs;
                 _net = _tcp.GetStream();
+                if (useTls)
+                {
+                    // Authenticate the endpoint hostname with platform certificate validation
+                    // before sending the upgrade request or its token.
+                    var tls = new SslStream(_net, false);
+                    _net = tls;
+                    tls.ReadTimeout = timeoutMs;
+                    tls.WriteTimeout = timeoutMs;
+                    tls.AuthenticateAsClient(host);
+                }
 
                 var keyBytes = new byte[16];
                 _rng.GetBytes(keyBytes);
@@ -105,7 +130,7 @@ namespace SlopWorld
                 // An established WebSocket can remain idle indefinitely.
                 // Let the background reader wait without reconnecting because of inactivity.
                 // Keep the socket send timeout for queued frames.
-                _tcp.ReceiveTimeout = 0;
+                _net.ReadTimeout = Timeout.Infinite;
                 _connected = true;
                 _writer = new Thread(WriteLoop)
                 {
