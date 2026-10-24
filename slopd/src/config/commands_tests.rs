@@ -1,6 +1,20 @@
 use super::*;
 
 #[test]
+fn automatic_pager_prefers_moor_and_preserves_explicit_commands() {
+    for command in ["moor", "moor --shift=4", "/opt/moor --no-linenumbers"] {
+        assert_eq!(resolve_pager_with(command, |_| true), command);
+        assert_eq!(resolve_pager_with(command, |_| false), command);
+    }
+    assert_eq!(resolve_pager_with("auto", |name| name == "moor"), "moor");
+    assert_eq!(resolve_pager_with("auto", |_| true), "moor");
+    assert_eq!(
+        resolve_highlighter_with("auto", |_| true),
+        "bat --color=always --style=plain --paging=never"
+    );
+}
+
+#[test]
 fn explicit_bat_resolves_the_host_alias_without_rewriting_arguments() {
     let debian = |name: &str| name == "batcat";
     for (command, expected) in [

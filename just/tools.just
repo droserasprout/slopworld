@@ -38,6 +38,12 @@ tools-coverage:
 tools-test-pager:
     uv run --locked python -m tools.terminal.pager_geometry
 
+# Compare installed diff pagers in an isolated tmux server
+[positional-arguments]
+[group('tools')]
+tools-bench-pagers *args:
+    uv run --locked python -m tools.terminal.pager_compare "$@"
+
 # Print required and optional host tools
 [group('tools')]
 tools-check-requirements:

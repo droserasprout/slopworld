@@ -192,6 +192,8 @@ namespace SlopWorld
                     );
                 case "less":
                     return Options(command, "-+N -S " + LessScrollOptions);
+                case "moor":
+                    return Options(command, "--no-linenumbers " + MoorOptions);
                 default:
                     return command;
             }
@@ -215,6 +217,11 @@ namespace SlopWorld
                     );
                 case "less":
                     return Options(command, (lineNumbers ? "-N" : "-+N") + " " + LessScrollOptions);
+                case "moor":
+                    return Options(
+                        command,
+                        "--no-linenumbers=" + (lineNumbers ? "false" : "true") + " " + MoorOptions
+                    );
                 default:
                     return command;
             }
@@ -222,6 +229,10 @@ namespace SlopWorld
 
         static string Options(string command, string options) =>
             InsertOptions(command, options, "{file}");
+
+        // The terminal translates both wheel axes into arrows when mouse reporting
+        // is disabled. Moor's mouse mode otherwise bypasses that horizontal path.
+        const string MoorOptions = "--shift=1 --terminal-fg --lang=text --mousemode=select";
 
         static string BatOptions(string command, string options)
         {
@@ -281,8 +292,27 @@ namespace SlopWorld
                 + git;
         }
 
-        public static bool IsPagerCommand(string pager, string command) =>
-            CommandExecutable(command, allowEnv: true) == Executable(pager, "less");
+        public static bool IsPagerCommand(string pager, string command)
+        {
+            string executable = Executable(pager, "less");
+            if (CommandExecutable(command, allowEnv: true) == executable)
+                return true;
+            // Our preprocessing shell passes the pager as positional arguments,
+            // keeping arbitrary filenames and configured commands out of shell syntax.
+            var words = Words(command);
+            int at = 0;
+            if (words.Count > 0 && words[0].Value == "env")
+            {
+                at++;
+                while (at < words.Count && words[at].Value.IndexOf('=') > 0)
+                    at++;
+            }
+            return words.Count > at + 4
+                && words[at].Value == "sh"
+                && words[at + 1].Value == "-c"
+                && words[at + 3].Value == "slopworld-pager"
+                && words[at + 4].Value == executable;
+        }
 
         public static bool IsEditorCommand(string editor, string command) =>
             CommandExecutable(command, allowEnv: false) == Executable(editor, "micro");
@@ -326,6 +356,8 @@ namespace SlopWorld
             long line = 0
         )
         {
+            if (Path.GetFileName(Executable(pager)) == "moor")
+                return MoorCommand(pager, highlighter, file, line);
             string environment = LessEnv(highlighter);
             // bat opens the file and starts less itself. Its argv cannot contain less's
             // +LINE selector; pass that selector to the child pager through LESS instead.
@@ -342,6 +374,43 @@ namespace SlopWorld
                 line = 0;
             }
             return "env " + environment + " " + FileCommand(pager, "less", file, line);
+        }
+
+        static string MoorCommand(string pager, string highlighter, string file, long line)
+        {
+            string h = (highlighter ?? "").Trim();
+            if (h.Length == 0)
+            {
+                if (line > 0 && !pager.Contains("{line}"))
+                    pager = Options(pager, "+" + line.ToString(CultureInfo.InvariantCulture));
+                return FileCommand(pager, "moor", file, pager.Contains("{line}") ? line : 0);
+            }
+
+            // Moor has no LESSOPEN. Stream the configured highlighter directly;
+            // positional arguments preserve quoting and the pager's +LINE support.
+            if (!h.Contains("%s"))
+                h += " %s";
+            h = h.Replace("%s", Quote(file));
+            // Piped input must not reopen the source file or receive an option terminator.
+            string command = pager
+                .Replace("{file}", "")
+                .Replace("{line}", (line < 1 ? 1 : line).ToString(CultureInfo.InvariantCulture))
+                .Trim();
+            if (line > 0 && !pager.Contains("{line}"))
+                command = Options(command, "+" + line.ToString(CultureInfo.InvariantCulture));
+            var words = Words(command);
+            if (
+                words.Count > 0
+                && !words[words.Count - 1].Quoted
+                && words[words.Count - 1].Value == "--"
+            )
+                command = command.Substring(0, words[words.Count - 1].Start).TrimEnd();
+            return "env PAGER_LABEL="
+                + Quote(file)
+                + " sh -c "
+                + Quote(h + " | exec \"$@\"")
+                + " slopworld-pager "
+                + command;
         }
 
         // micro's +LINE selector follows the file. FileCommand puts a pager's selector before

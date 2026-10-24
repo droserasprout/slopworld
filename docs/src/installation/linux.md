@@ -69,6 +69,7 @@ on Debian and Fedora). Install the tools for the features you use:
 
 | Feature | Arch | Debian/Ubuntu | Fedora |
 | --- | --- | --- | --- |
+| Preferred pager | `moor` | `moor` | not packaged |
 | Alternative highlighters | `highlight`, `python-pygments` | `highlight`, `python3-pygments` | `highlight`, `python3-pygments` |
 | Desktop application associations | `glib2` | `libglib2.0-bin` | `glib2` |
 | Native Open With chooser | `python-gobject`, `gtk3` | `python3-gi`, `gir1.2-gtk-3.0` | `python3-gobject`, `gtk3` |

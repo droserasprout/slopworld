@@ -96,6 +96,7 @@ pub fn whereis() -> Vec<BinaryLocation> {
         "opencode",
         "pi",
         "less",
+        "moor",
         "delta",
         "more",
         "bat",

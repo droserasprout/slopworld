@@ -18,15 +18,16 @@ depends=('alsa-lib' 'bash' 'bat' 'bubblewrap' 'git' 'less' 'micro' 'passt' 'ripg
 makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv')
 optdepends=(
   'glib2: desktop application associations and portal access'
-  'gtk3: native Open With chooser (with python-gobject)'
+  'gtk3: native Open With chooser'
   'highlight: alternative syntax highlighter'
-  'ncspot: Spotify playback (requires Spotify Premium)'
+  'moor: recommended pager'
+  'ncspot: Spotify playback'
   'procps-ng: fallback process inspection'
-  'python-gobject: native Open With chooser (with gtk3)'
+  'python-gobject: native Open With chooser'
   'python-pygments: alternative syntax highlighter'
   'songrec: jukebox song recognition'
-  'xdg-desktop-portal: Open With fallback (requires a desktop portal backend)'
-  'xsel: clipboard and PRIMARY selection under X11 and GNOME/XWayland (fallback)'
+  'xdg-desktop-portal: Open With fallback'
+  'xsel: clipboard and PRIMARY selection (fallback)'
 )
 provides=('slopd')
 conflicts=('slopworld-git')

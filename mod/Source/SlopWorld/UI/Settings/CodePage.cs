@@ -385,6 +385,7 @@ namespace SlopWorld
             new List<CommandChoice>
             {
                 new CommandChoice("Auto", "auto"),
+                new CommandChoice("moor", "moor"),
                 new CommandChoice("less", "less"),
                 new CommandChoice("bat", "bat --paging=always"),
                 new CommandChoice("more", "more"),

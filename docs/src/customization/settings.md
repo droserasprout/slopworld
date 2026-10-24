@@ -81,10 +81,13 @@ These preferences apply live and are saved with the profile.
 
 Under **Appearance > Code**, **Auto** selects tools installed on the daemon host:
 
-- Pager: bat → less → more.
+- Pager: moor → bat → less → more.
 - Highlighter: bat → Pygments → highlight → plain text.
 
 Explicit tools and custom commands stay fixed. **Off** disables highlighting.
+Moor is optional and preferred by Auto when installed on the daemon host. It preserves diff
+backgrounds during horizontal scrolling. File views stream the selected highlighter
+into moor and retain source numbering and line navigation.
 When Auto selects bat as the pager, bat uses less or more to page its output;
 without either, it prints directly. Save and restart active readers after a change.
 

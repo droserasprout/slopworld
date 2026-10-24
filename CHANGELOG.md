@@ -18,6 +18,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
+- Settings: Added `moor` pager support (best performance, but not packaged in Debian/Fedora).
 - Terminal: Added "Save as" menu to create prompt, breadcrumb, shell script, or file action from selected text.
 
 ### Fixed

@@ -27,9 +27,13 @@ def parse_capture(output: str) -> list[list[Cell]]:
     rows: list[list[Cell]] = []
     for line in output.splitlines():
         cells: list[Cell] = []
-        for match in re.finditer(r'\x1b\[([0-9;]*)m|([^\x1b]+)', line):
+        # tmux -e can include OSC 8 link metadata. It occupies no grid cells and
+        # must not be mistaken for visible text or affect the active SGR colors.
+        for match in re.finditer(r'\x1b\[([0-9;]*)m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|([^\x1b]+)', line):
             if match[2] is not None:
                 cells.extend(Cell(char, background, foreground) for char in match[2])
+                continue
+            if match[1] is None:
                 continue
             codes = [int(code or 0) for code in match[1].split(';')]
             at = 0
@@ -205,6 +209,36 @@ def main() -> None:
                 print('Bat line navigation passed')
             else:
                 print('SKIP: bat line navigation requires bat or batcat')
+            if shutil.which('moor'):
+                # Match MoorCommand's positional pager handoff: moor does not
+                # consume LESSOPEN, so the configured highlighter streams to stdin.
+                tmux(
+                    'new-session',
+                    '-d',
+                    '-s',
+                    'moor-line',
+                    '-x',
+                    '80',
+                    '-y',
+                    '12',
+                    'env PAGER_LABEL='
+                    + shlex.quote(str(long))
+                    + ' sh -c '
+                    + shlex.quote(shlex.quote(str(preprocessor)) + ' ' + shlex.quote(str(long)) + ' | exec "$@"')
+                    + ' slopworld-pager moor --no-linenumbers=true --shift=1 --terminal-fg --lang=text --mousemode=select +19',
+                )
+                wait_for('moor-line', 'line 19')
+                assert (
+                    tmux(
+                        'display-message',
+                        '-p',
+                        '-t',
+                        'moor-line:',
+                        '#{mouse_any_flag}#{mouse_button_flag}#{mouse_standard_flag}',
+                    ).strip()
+                    == '000'
+                ), 'moor must leave wheel translation to the client'
+                print('Moor preprocessed source line navigation passed')
             if bat and shutil.which('delta'):
                 diff = root / 'diff.patch'
                 diff.write_text(
@@ -258,6 +292,46 @@ def main() -> None:
                     column = ''.join(cell.text for cell in row).index('struct')
                     assert row[column].foreground == (35,), (name, row)
                 print('Diff backgrounds and long-line syntax passed')
+                if shutil.which('moor'):
+                    tmux(
+                        'new-session',
+                        '-d',
+                        '-s',
+                        'moor-diff',
+                        '-x',
+                        '80',
+                        '-y',
+                        '24',
+                        'env COLORTERM=truecolor DELTA_PAGER='
+                        + shlex.quote('moor --no-linenumbers --shift=1 --terminal-fg --lang=text --mousemode=select')
+                        + ' delta --no-gitconfig --paging=always --syntax-theme=ansi'
+                        + ' --max-line-length=0 --max-syntax-highlighting-length=0'
+                        + ' --minus-style="syntax #3f0001" --plus-style="syntax #002800" < '
+                        + shlex.quote(str(diff)),
+                    )
+                    initial = parse_capture('\n'.join(wait_for('moor-diff', 'let value_5', styled=True)))
+                    short_index = next(
+                        i for i, row in enumerate(initial) if 'let short' in ''.join(cell.text for cell in row)
+                    )
+                    removed_index = next(
+                        i for i, row in enumerate(initial) if 'let old' in ''.join(cell.text for cell in row)
+                    )
+                    tmux('send-keys', '-t', 'moor-diff:', *(['Right'] * 30))
+                    deadline = time.monotonic() + 5
+                    while True:
+                        shifted = parse_capture(tmux('capture-pane', '-p', '-e', '-N', '-t', 'moor-diff:'))
+                        if 'let short' not in ''.join(cell.text for cell in shifted[short_index]):
+                            break
+                        assert time.monotonic() < deadline, 'moor did not scroll horizontally'
+                        time.sleep(0.05)
+                    for index, color in [
+                        (removed_index, (63, 0, 1)),
+                        (short_index, (0, 40, 0)),
+                        (short_index + 1, (0, 40, 0)),
+                    ]:
+                        row = shifted[index]
+                        assert len(row) == 80 and all(cell.background == color for cell in row[1:]), row
+                    print('Moor retains horizontally hidden diff backgrounds')
             else:
                 print('SKIP: diff backgrounds and long-line syntax require bat/batcat and delta')
         finally:

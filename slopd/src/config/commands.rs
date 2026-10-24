@@ -44,6 +44,9 @@ fn resolve_pager_with(command: &str, available: impl Fn(&str) -> bool) -> String
     if command.trim() != AUTO {
         return resolve_bat(command, available);
     }
+    if available("moor") {
+        return "moor".into();
+    }
     if let Some(bat) = ["bat", "batcat"].into_iter().find(|name| available(name)) {
         // Bat still needs a child pager. Never force less when only more is installed.
         if available("less") {

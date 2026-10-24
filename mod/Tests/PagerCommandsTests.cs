@@ -22,6 +22,69 @@ namespace SlopWorld.Tests
             yield return ("diff pager overrides replace safely", DiffPager);
             yield return ("line numbers belong to source views", LineNumbers);
             yield return ("Debian batcat preserves bat reader behavior", DebianBatcat);
+            yield return ("moor preserves highlighting and reader navigation", Moor);
+        }
+
+        static void Moor()
+        {
+            const string pager = "'/opt/my tools/moor' -- {file}";
+            AssertEx.Equal(
+                "'/opt/my tools/moor' --no-linenumbers --shift=1 --terminal-fg --lang=text --mousemode=select --",
+                PagerCommands.PipePager(pager),
+                "delta owns numbering and highlighting"
+            );
+            string numbered = PagerCommands.FilePager(pager, true);
+            AssertEx.True(
+                numbered.Contains("--mousemode=select"),
+                "both wheel axes use terminal arrow translation"
+            );
+            AssertEx.True(numbered.Contains("--no-linenumbers=false"), "source numbers on");
+            AssertEx.True(
+                PagerCommands.FilePager(pager, false).Contains("--no-linenumbers=true"),
+                "source numbers off"
+            );
+            AssertEx.Equal(
+                "moor +19 -- '/f'",
+                PagerCommands.PagerCommand("moor", "", "/f", 19),
+                "plain source line navigation"
+            );
+            AssertEx.Equal(
+                "'/opt/my tools/moor' +19 -- '/f'",
+                PagerCommands.PagerCommand(pager, "", "/f", 19),
+                "plain source templates retain line navigation"
+            );
+            string launch = PagerCommands.PagerCommand(
+                numbered,
+                "bat --paging=never -- %s",
+                "/a ' file",
+                19
+            );
+            var words = PagerCommands.Words(launch);
+            AssertEx.Equal("PAGER_LABEL=/a ' file", words[1].Value, "source label remains literal");
+            AssertEx.Equal("sh", words[2].Value, "explicit preprocessing shell");
+            AssertEx.Equal(
+                "bat --paging=never -- " + PagerCommands.Quote("/a ' file") + " | exec \"$@\"",
+                words[4].Value,
+                "highlighter receives the quoted source once"
+            );
+            AssertEx.True(
+                launch.EndsWith(" +19", StringComparison.Ordinal),
+                "line target reaches piped pager"
+            );
+            AssertEx.True(
+                PagerCommands.IsPagerCommand(pager, launch),
+                "preprocessed source is a reader"
+            );
+            AssertEx.False(
+                PagerCommands.IsPagerCommand("less", launch),
+                "another pager is not matched"
+            );
+            AssertEx.True(
+                PagerCommands
+                    .PagerCommand("moor", "highlight", "/f")
+                    .Contains(PagerCommands.Quote("highlight '/f' | exec \"$@\"")),
+                "placeholderless highlighter receives its source"
+            );
         }
 
         static void DebianBatcat()

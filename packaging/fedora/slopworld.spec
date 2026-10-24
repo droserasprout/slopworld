@@ -17,7 +17,7 @@ License: MIT
 URL: https://github.com/droserasprout/slopworld
 ExclusiveArch: x86_64 aarch64
 Requires: bash, bat, bubblewrap, git, less, micro, passt, ripgrep, systemd, tmux >= 3.7, xclip
-Suggests: glib2, gtk3, highlight, procps-ng, python3-gobject, python3-pygments, xdg-desktop-portal, xsel
+Suggests: glib2, gtk3, highlight, moor, procps-ng, python3-gobject, python3-pygments, xdg-desktop-portal, xsel
 Provides: slopd = %{version}-%{release}
 
 %description

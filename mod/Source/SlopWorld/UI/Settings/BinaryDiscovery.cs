@@ -221,6 +221,7 @@ namespace SlopWorld
             new BinarySpec("Agent CLIs", "opencode", "OpenCode agent", ProbeKind.DaemonPath),
             new BinarySpec("Agent CLIs", "pi", "Pi agent", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "less", "default pager", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "moor", "optional pager", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "delta", "Git diff pager", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "more", "alternate pager", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "bat", "pager/highlighter", ProbeKind.DaemonPath),
