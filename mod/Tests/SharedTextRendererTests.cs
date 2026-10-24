@@ -25,24 +25,27 @@ namespace SlopWorld.Tests
             GUI.FailSprite = false;
         }
 
-        public static void PlainTerminalRunUsesLabelClippingWithoutGroup()
+        public static void PlainTerminalRunUsesScalarColumnsAndGroupClip()
         {
             Reset(null);
             var style = new GUIStyle { clipping = TextClipping.Overflow };
-            var layout = InlineTextLayout.Cells("abc", 3, 6f, TextSpriteCatalog.Shared, c => true);
+            var layout = InlineTextLayout.Cells("abc", 3, 6f, TextSpriteCatalog.Shared);
             var bounds = new Rect(10, 20, 24, 12);
             SharedTextRenderer.DrawTerminalRun(layout, bounds, 12f, style, 6f);
-            AssertEx.Equal(0, GUI.TextGroups.Count, "single plain span skips the group");
-            AssertEx.Equal(bounds, GUI.TextLabels[0].Box, "label retains the old clip bounds");
+            AssertEx.Equal(1, GUI.TextGroups.Count, "scalar spans share the terminal clip group");
+            AssertEx.Equal(3, GUI.TextLabels.Count, "each scalar is drawn at its own column");
+            AssertEx.Equal(new Rect(0, 0, 12, 12), GUI.TextLabels[0].Box, "first scalar bounds");
+            AssertEx.Equal(new Rect(6, 0, 12, 12), GUI.TextLabels[1].Box, "second scalar bounds");
+            AssertEx.Equal(new Rect(12, 0, 12, 12), GUI.TextLabels[2].Box, "third scalar bounds");
             AssertEx.Equal(
-                TextClipping.Clip,
+                TextClipping.Overflow,
                 GUI.LabelClippings[0],
-                "text clips within those bounds"
+                "scalar text keeps the shared style clipping"
             );
             AssertEx.Equal(TextClipping.Overflow, style.clipping, "shared style is restored");
 
             Reset(new Texture2D());
-            var sprite = InlineTextLayout.Cells("😀", 2, 6f, TextSpriteCatalog.Shared, c => true);
+            var sprite = InlineTextLayout.Cells("😀", 2, 6f, TextSpriteCatalog.Shared);
             SharedTextRenderer.DrawTerminalRun(sprite, bounds, 12f, style, 6f);
             AssertEx.Equal(1, GUI.TextGroups.Count, "sprites retain the group clip");
         }
@@ -111,7 +114,7 @@ namespace SlopWorld.Tests
             Reset(new Texture2D());
             var font = new Font();
             var style = new GUIStyle { font = font };
-            var layout = InlineTextLayout.Cells("😀", 2, 6f, TextSpriteCatalog.Shared, c => true);
+            var layout = InlineTextLayout.Cells("😀", 2, 6f, TextSpriteCatalog.Shared);
             var old = GUI.color;
             var tint = new Color(0.2f, 0.3f, 0.4f, 0.5f);
             try

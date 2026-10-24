@@ -317,14 +317,7 @@ namespace SlopWorld
             {
                 var plainLayout = cluster
                     ? InlineTextLayout.CellCluster(text, columns, cw, TextSpriteCatalog.Shared)
-                    : InlineTextLayout.Cells(
-                        text,
-                        columns,
-                        cw,
-                        TextSpriteCatalog.Shared,
-                        TerminalFont.FitsCell,
-                        groupPlain: false
-                    );
+                    : InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared);
                 SharedTextRenderer.DrawTerminalRun(
                     plainLayout,
                     new Rect(x, y, plainLayout.Width + cw, ch),
@@ -338,14 +331,7 @@ namespace SlopWorld
             long layoutStarted = PerfTrace.Start();
             var layout = cluster
                 ? InlineTextLayout.CellCluster(text, columns, cw, TextSpriteCatalog.Shared)
-                : InlineTextLayout.Cells(
-                    text,
-                    columns,
-                    cw,
-                    TextSpriteCatalog.Shared,
-                    TerminalFont.FitsCell,
-                    groupPlain: false
-                );
+                : InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared);
             PerfTrace.End("terminal-text-layout", layoutStarted, 1);
             long drawStarted = PerfTrace.Start();
             SharedTextRenderer.DrawTerminalRun(

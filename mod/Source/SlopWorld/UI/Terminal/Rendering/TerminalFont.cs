@@ -47,9 +47,6 @@ namespace SlopWorld
         static List<string> _mono;
         static int _catalogRevision = -1;
 
-        // Per-char verdicts from CalcSize, which is far too slow to run per frame.
-        static readonly Dictionary<char, bool> _fits = new Dictionary<char, bool>();
-
         public static float CellW { get; private set; }
         public static float CellH { get; private set; }
         public static int Rev
@@ -86,7 +83,6 @@ namespace SlopWorld
             _rev++;
             _style = null;
             _fontless = false;
-            _fits.Clear();
         }
 
         public static GUIStyle Style
@@ -104,8 +100,6 @@ namespace SlopWorld
                     && (_font != null || _fontless)
                 )
                     return _style;
-                _fits.Clear();
-
                 _size = Mathf.Clamp(Settings.FontSize, 8, 28);
                 _name = Settings.FontName;
 
@@ -161,7 +155,6 @@ namespace SlopWorld
         static void OnTextureRebuilt(Font font)
         {
             _rev++;
-            _fits.Clear();
         }
 
         static string[] Chain(string name) =>
@@ -218,25 +211,6 @@ namespace SlopWorld
             found.Sort(System.StringComparer.OrdinalIgnoreCase);
             Log.Message($"[SlopWorld] mono faces: {found.Count} of {names.Count}");
             return found;
-        }
-
-        // ASCII always does. A symbol from a fallback face carries that face's advance,
-        // and a glyph nobody has advances not at all - either would drag the rest of the
-        // row off the grid.
-        public static bool FitsCell(char c)
-        {
-            if (c >= ' ' && c <= '~')
-                return true;
-
-            var style = Style;
-            bool fits;
-            if (_fits.TryGetValue(c, out fits))
-                return fits;
-
-            float w = style.CalcSize(new GUIContent(c.ToString())).x;
-            fits = Mathf.Abs(w - CellW) < 0.5f;
-            _fits[c] = fits;
-            return fits;
         }
     }
 }

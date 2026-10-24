@@ -156,35 +156,12 @@ namespace SlopWorld
             string text,
             int columns,
             float cellWidth,
-            TextSpriteCatalog catalog,
-            Func<char, bool> fitsCell,
-            bool groupPlain = true
+            TextSpriteCatalog catalog
         )
         {
             text = text ?? "";
-            // Full terminal paints revisit many ordinary rows. A printable ASCII
-            // row cannot contain a keycap's combining mark. Keep it as one font
-            // span without allocating tokens or probing the sprite trie.
-            if (
-                groupPlain
-                && text.Length > 0
-                && columns == text.Length
-                && !catalog.HasPrintableAsciiOnlyKey
-            )
-            {
-                int i = 0;
-                while (i < text.Length && text[i] >= ' ' && text[i] <= '~' && fitsCell(text[i]))
-                    i++;
-                if (i == text.Length)
-                    return new InlineTextLayout(
-                        new[] { new Span(text, -1, 0f, text.Length * cellWidth) },
-                        columns * cellWidth
-                    );
-            }
             var spans = new List<Span>();
-            int col = 0,
-                plainStart = 0,
-                plainCol = 0;
+            int col = 0;
             for (int i = 0; i < text.Length; )
             {
                 bool sprite = catalog.Match(text, i, out int length, out int slot);
@@ -194,39 +171,12 @@ namespace SlopWorld
                 // Only the final scalar may own a continuation cell. Give its token the
                 // remaining daemon columns rather than guessing width from Unicode or artwork.
                 int width = i + length == text.Length ? columns - col : count;
-                if (groupPlain && !sprite && length == 1 && width == 1 && fitsCell(text[i]))
-                {
-                    i++;
-                    col++;
-                    continue;
-                }
-
-                if (i > plainStart)
-                    spans.Add(
-                        new Span(
-                            text.Substring(plainStart, i - plainStart),
-                            -1,
-                            plainCol * cellWidth,
-                            (col - plainCol) * cellWidth
-                        )
-                    );
                 spans.Add(
                     new Span(text.Substring(i, length), slot, col * cellWidth, width * cellWidth)
                 );
                 i += length;
                 col += width;
-                plainStart = i;
-                plainCol = col;
             }
-            if (plainStart < text.Length)
-                spans.Add(
-                    new Span(
-                        text.Substring(plainStart),
-                        -1,
-                        plainCol * cellWidth,
-                        (col - plainCol) * cellWidth
-                    )
-                );
             return new InlineTextLayout(spans, columns * cellWidth);
         }
 

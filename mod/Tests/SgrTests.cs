@@ -285,8 +285,7 @@ namespace SlopWorld.Tests
                     runs[0].Text,
                     runs[0].Columns,
                     7f,
-                    TextSpriteCatalog.Shared,
-                    _ => true
+                    TextSpriteCatalog.Shared
                 );
                 AssertEx.True(
                     layout.Spans[0].Sprite >= 0,

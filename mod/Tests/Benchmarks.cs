@@ -96,17 +96,11 @@ namespace SlopWorld.Tests
             var asciiKeyCatalog = new TextSpriteCatalog(new[] { "~sprite" });
             Measure(
                 "terminal cell layout plain 120 reference",
-                () =>
-                    InlineTextLayout
-                        .Cells(plain, 120, 8f, asciiKeyCatalog, c => c >= ' ' && c <= '~')
-                        .Spans.Length
+                () => InlineTextLayout.Cells(plain, 120, 8f, asciiKeyCatalog).Spans.Length
             );
             Measure(
                 "terminal cell layout plain 120 columns",
-                () =>
-                    InlineTextLayout
-                        .Cells(plain, 120, 8f, TextSpriteCatalog.Shared, c => c >= ' ' && c <= '~')
-                        .Spans.Length
+                () => InlineTextLayout.Cells(plain, 120, 8f, TextSpriteCatalog.Shared).Spans.Length
             );
 
             foreach (int rows in new[] { 34, 200 })
