@@ -38,6 +38,35 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void LandlockAvailabilityPreservesUnknownAndExplicitResults()
+        {
+            var previous = DaemonCapabilities.Current;
+            try
+            {
+                Assert.That(
+                    DaemonCapabilities.FromWire(new Wire.Capabilities()).LandlockAvailable,
+                    Is.Null
+                );
+                Assert.That(
+                    DaemonCapabilities
+                        .FromWire(new Wire.Capabilities { LandlockAvailable = false })
+                        .LandlockAvailable,
+                    Is.False
+                );
+                Assert.That(
+                    DaemonCapabilities
+                        .FromWire(new Wire.Capabilities { LandlockAvailable = true })
+                        .LandlockAvailable,
+                    Is.True
+                );
+                Assert.That(DaemonCapabilities.Reset().LandlockAvailable, Is.Null);
+            }
+            finally
+            {
+                DaemonCapabilities.Current = previous;
+            }
+        }
+
         static void DefaultsToNative()
         {
             var caps = new DaemonCapabilities();

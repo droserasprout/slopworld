@@ -24,6 +24,7 @@ namespace SlopWorld
         internal TerminalIO Terminal => _terminal;
         internal AudioBus Audio => _audio;
         int _connectionGeneration;
+        bool _landlockWarningShown;
 
         // Refresh host-application defaults on connection and after settings saves.
         // Settings pages can update these values before the daemon responds.
@@ -109,9 +110,36 @@ namespace SlopWorld
         public void Update()
         {
             _transport.Update();
+            ShowLandlockWarning();
             // TaskStore also retains demand from open task readers, independently of the sidebar.
             _tasks.Update(Sidebar.TasksVisible);
             PerfTraceReport.Report();
+        }
+
+        void ShowLandlockWarning()
+        {
+            if (
+                _landlockWarningShown
+                || Capabilities.LandlockAvailable != false
+                || Verse.LongEventHandler.AnyEventNowOrWaiting
+                || Verse.Find.WindowStack == null
+            )
+                return;
+
+            Verse.Find.WindowStack.Add(
+                AlertDialog.Create(
+                    "Landlock unavailable",
+                    "The daemon cannot enforce Landlock ABI v3 filesystem protection. "
+                        + "Creating, moving, and removing managed worktrees may fail. "
+                        + "Other agent sessions can still run.\n\n"
+                        + "Use a Linux kernel with Landlock ABI v3 enabled (normally Linux 6.2 or newer). "
+                        + "For sidecar deployments, check the Docker host or VM kernel and container security policy. "
+                        + "Restart the daemon after fixing this.",
+                    "OK",
+                    null
+                )
+            );
+            _landlockWarningShown = true;
         }
 
         // ---- terminal I/O --------------------------------------------------------------

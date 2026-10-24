@@ -11,6 +11,7 @@ namespace SlopWorld
         public static DaemonCapabilities Reset() => Current = new DaemonCapabilities();
 
         public bool Known;
+        public bool? LandlockAvailable;
         public string Runtime = "native";
         public bool AudioPlayback = true;
         public bool Ncspot = true;
@@ -30,6 +31,7 @@ namespace SlopWorld
             return Current = new DaemonCapabilities
             {
                 Known = true,
+                LandlockAvailable = j.HasLandlockAvailable ? (bool?)j.LandlockAvailable : null,
                 Runtime = j.Runtime,
                 AudioPlayback = j.AudioPlayback,
                 Ncspot = j.Ncspot,

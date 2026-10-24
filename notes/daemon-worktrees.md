@@ -44,3 +44,7 @@ changes together or reverse movement. Failed reversal retains pending intent for
 manual inspection, never a ready record for an unverified path. Final cache
 reconciliation uses prepared checkout paths. User procedures belong to
 [Project worktrees](../docs/src/workspace/project-worktrees.md).
+
+Host Git mutations require Landlock ABI v3. Runtime capabilities probe the same
+policy in a disposable child once per daemon lifetime; the mod warns when unavailable.
+The probe never restricts daemon threads, and mutation enforcement remains mandatory.

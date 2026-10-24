@@ -317,6 +317,7 @@ message Capabilities {
   bool host_terminals_are_container = 7;
   TerminalCapabilities terminal = 8;
   bool ncspot = 9;
+  optional bool landlock_available = 10;
 }
 
 message TerminalCapabilities {

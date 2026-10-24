@@ -4,6 +4,16 @@ use std::io;
 use std::path::Path;
 use std::process::Command;
 
+/// Probe the same policy in a disposable child; never restrict a daemon thread.
+/// Cache for this daemon lifetime, including container seccomp/LSM restrictions.
+pub(crate) fn available() -> bool {
+    static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *AVAILABLE.get_or_init(|| {
+        let mut command = Command::new("/bin/true");
+        restrict(&mut command, &[]).is_ok() && command.status().is_ok_and(|status| status.success())
+    })
+}
+
 #[cfg(target_os = "linux")]
 fn restrict_child(ruleset_fd: std::os::fd::RawFd) -> io::Result<()> {
     // SAFETY: prctl changes only this child process's state before exec.

@@ -8,7 +8,7 @@ pub(crate) mod directories;
 pub(crate) mod inspection;
 pub(crate) mod relocation;
 pub(crate) mod resolution;
-mod write_guard;
+pub(crate) mod write_guard;
 
 /// Lifecycle values retain their existing spelling in storage and client views.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
