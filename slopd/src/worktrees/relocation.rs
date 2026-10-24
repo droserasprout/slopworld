@@ -17,6 +17,8 @@ pub(crate) struct Relocations {
     candidate: Store,
     moves: Vec<(usize, Worktree)>,
     completed: usize,
+    #[cfg(test)]
+    after_first_move: Option<Box<dyn FnOnce() + Send + Sync>>,
 }
 
 impl Relocations {
@@ -34,6 +36,8 @@ impl Relocations {
             candidate,
             moves,
             completed: 0,
+            #[cfg(test)]
+            after_first_move: None,
         })
     }
 
@@ -80,6 +84,10 @@ impl Relocations {
                 };
             }
             self.completed += 1;
+            #[cfg(test)]
+            if let Some(after_move) = self.after_first_move.take() {
+                after_move();
+            }
         }
         Ok(())
     }
@@ -138,3 +146,7 @@ impl Relocations {
         owner.save_worktree_records(&self.original).await
     }
 }
+
+#[cfg(test)]
+#[path = "relocation_tests.rs"]
+mod tests;

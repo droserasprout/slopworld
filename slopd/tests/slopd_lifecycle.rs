@@ -7,6 +7,9 @@ use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
+#[path = "support/daemon_recovery.rs"]
+mod recovery;
+
 struct Daemon {
     root: PathBuf,
     address: SocketAddr,
@@ -35,8 +38,8 @@ impl Daemon {
 
     fn tmux(&self, args: &[&str]) -> std::process::Output {
         Command::new("tmux")
-            .arg("-S")
-            .arg(self.root.join("tmux"))
+            .env("TMUX_TMPDIR", &self.root)
+            .args(["-L", "lifecycle"])
             .args(args)
             .output()
             .unwrap()
@@ -51,7 +54,8 @@ impl Daemon {
                 .env("SLOPD_DATA", self.root.join("data"))
                 .env("SLOPD_CACHE", self.root.join("cache"))
                 .env("SLOPD_ENDPOINT", self.endpoint())
-                .env("SLOPD_TMUX_SOCKET", self.root.join("tmux"))
+                .env("TMUX_TMPDIR", &self.root)
+                .env("SLOPD_TMUX_SOCKET", "lifecycle")
                 .env_remove("SLOPD_RUNTIME")
                 .env_remove("OPENROUTER_API_KEY")
                 .env("NO_PROXY", "*")
@@ -220,6 +224,12 @@ fn lifecycle_occupied_listener_fails_without_publishing_discovery_or_starting_tm
         daemon.logs()
     );
     assert!(!daemon.endpoint().exists());
-    assert!(!daemon.root.join("tmux").exists());
+    assert!(!fs::read_dir(&daemon.root).unwrap().any(|entry| {
+        entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with("tmux-")
+    }));
     assert!(!daemon.root.join("data").exists());
 }

@@ -2,7 +2,7 @@ use super::*;
 use crate::application::projects::Projects;
 use crate::application::worktrees::Worktrees;
 
-fn repo() -> PathBuf {
+pub(super) fn repo() -> PathBuf {
     let path = std::env::temp_dir().join(format!("slop-worktree-test-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&path).unwrap();
     let status = std::process::Command::new("git")

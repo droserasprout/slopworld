@@ -39,6 +39,9 @@ Keep Cargo targets separate per checkout; shared fingerprints can reuse another
 checkout's artifacts. Coverage retains instrumented dependencies while cleaning
 workspace artifacts. Configure compiler flags before CI cache setup, and let
 `cargo-llvm-cov` select matching LLVM tools unless explicitly overridden.
+Filtered Rust coverage excludes Git's seccomp setup in `git/exec.rs`: its pre-exec
+child counters do not survive exec. Child-process enforcement tests still run, and
+the raw report retains the file.
 
 The mod project owns game references. Never ship game DLLs: keep `Private=false`.
 Pinned RimRef selects explicit references with `UseRimRef=true` and shares the game

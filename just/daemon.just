@@ -25,7 +25,9 @@ daemon-test *args:
     cd slopd && cargo test --quiet "$@"
 
 # Native llvm-cov scope excludes adjacent test modules and generated files.
-rust_coverage_exclude := '/tests/|/benches/|/benchmark/|/(tests|test_support|test_http|http_fixture|benchmark|[^/]*_tests)\.rs$|/shared/(http_wire|protocol)\.rs$|/target/|/rustc[^/]*/library/'
+# Git seccomp setup runs after fork and before exec, which discards its coverage counters.
+# git/exec_tests.rs checks enforcement in the child; retain setup in the raw report only.
+rust_coverage_exclude := '/tests/|/benches/|/benchmark/|/(tests|test_support|test_http|http_fixture|benchmark|[^/]*_tests)\.rs$|/shared/(http_wire|protocol)\.rs$|/git/exec\.rs$|/target/|/rustc[^/]*/library/'
 
 # Collect Rust coverage
 [group('daemon')]
