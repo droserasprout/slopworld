@@ -215,6 +215,7 @@
     <Compile Include="../Source/SlopWorld/UI/Sidebar/AgentStatusSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarProjectState.cs" Link="Source/UI/Sidebar/SidebarProjectState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarAgentRows.cs" Link="Source/UI/Sidebar/SidebarAgentRows.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/Sidebar.LayoutState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarTitleCache.cs" Link="Source/UI/Sidebar/SidebarTitleCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarTab.cs" Link="Source/UI/Sidebar/SidebarTab.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarTabDefinition.cs" Link="Source/UI/Sidebar/SidebarTabDefinition.cs" />

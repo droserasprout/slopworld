@@ -39,6 +39,7 @@ namespace SlopWorld
             public float AgentContentH;
             public float LastScale;
 
+            bool _valid;
             long _sessionsVersion = -1;
             int _projectsRevision = -1;
             int _projectStateRevision = -1;
@@ -71,7 +72,8 @@ namespace SlopWorld
             )
             {
                 if (
-                    _sessionsVersion != sessionsVersion
+                    !_valid
+                    || _sessionsVersion != sessionsVersion
                     || _projectsRevision != projectsRevision
                     || _projectStateRevision != projectStateRevision
                     || _entryCount != count
@@ -133,6 +135,7 @@ namespace SlopWorld
                 _workspaceRevision = workspaceRevision;
                 _pager = pager;
                 _editor = editor;
+                _valid = true;
             }
 
             public void RestoreLocations(List<Vector2> locs, int count)
@@ -143,6 +146,8 @@ namespace SlopWorld
 
             public void BeginFrame()
             {
+                // Cleared output cannot be reused, even when there are no pawn inputs.
+                _valid = false;
                 Rows.Clear();
                 Heads.Clear();
                 Faces.Clear();
