@@ -480,3 +480,62 @@ async fn malformed_temporary_identity_is_not_adopted_or_deleted() {
         assert!(manager.tmux.exists("temporary").await);
     }
 }
+
+#[tokio::test]
+async fn existing_down_agent_restores_age_and_restarts_only_working_decay() {
+    use super::*;
+    let manager = crate::session::test_manager(Config::default());
+    for state in [State::Working, State::Idle] {
+        let mut row = Live::new(SessionCfg::default(), TitleCapture::default());
+        row.role = SessionRole::Agent(AgentLifetime::Durable);
+        row.state = State::Down;
+        let now = tokio::time::Instant::now();
+        manager.restore_activity(
+            &mut row,
+            Some(crate::activity::Activity {
+                state,
+                state_since: 123,
+            }),
+        );
+        assert_eq!(row.state, state);
+        assert_eq!(row.state_since, 123);
+        if state == State::Working {
+            assert!(row.last_change > 123);
+            assert!(row.activity_at.unwrap() >= now);
+            assert!(row.activity_at.unwrap() <= tokio::time::Instant::now());
+        } else {
+            assert_eq!(row.last_change, 0);
+            assert_eq!(row.activity_at, None);
+        }
+        let activity_at = row.activity_at;
+        manager.restore_activity(
+            &mut row,
+            Some(crate::activity::Activity {
+                state: State::Idle,
+                state_since: 456,
+            }),
+        );
+        assert_eq!(row.state, state);
+        assert_eq!(row.state_since, 123);
+        assert_eq!(row.activity_at, activity_at);
+    }
+    for role in [
+        SessionRole::HostShell,
+        SessionRole::HostAction,
+        SessionRole::Agent(AgentLifetime::Temporary),
+    ] {
+        let mut row = Live::new(SessionCfg::default(), TitleCapture::default());
+        row.role = role;
+        row.state = State::Down;
+        row.state_since = 789;
+        manager.restore_activity(
+            &mut row,
+            Some(crate::activity::Activity {
+                state: State::Working,
+                state_since: 123,
+            }),
+        );
+        assert_eq!(row.state, State::Down);
+        assert_eq!(row.state_since, 789);
+    }
+}

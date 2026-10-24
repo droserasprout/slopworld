@@ -1261,3 +1261,55 @@ fn preset_aliases_cannot_expose_private_originals() {
     }
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn nuget_alias_is_mounted_after_its_private_cli_home_overlay() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let home = root.join("home");
+    let source = home.join(".nuget/packages");
+    std::fs::create_dir_all(&source).unwrap();
+    let preset = SandboxPreset {
+        private: vec!["/tmp/slopworld-dotnet-cli".into()],
+        setenv: [("DOTNET_CLI_HOME".into(), "/tmp/slopworld-dotnet-cli".into())].into(),
+        rw: vec![source.to_string_lossy().into_owned()],
+        ..Default::default()
+    };
+    let session = SessionCfg {
+        state_id: uuid::Uuid::new_v4().to_string(),
+        ..Default::default()
+    };
+    let plan = assemble_plan(BuildArgs {
+        cfg: &Config::default(),
+        s: &session,
+        p: &ProjectCfg::default(),
+        network: NetworkMode::default(),
+        dns: &DnsConfig::default(),
+        agent_shell: "/bin/sh",
+        agent_argv: vec!["true".into()],
+        presets: &[&preset],
+        home: home.to_str().unwrap(),
+        mounts: &[],
+        environment: &Environment::inherited(),
+    })
+    .unwrap();
+    let overlay = plan
+        .mounts
+        .windows(3)
+        .position(|w| w[0] == "--bind" && w[2] == "/tmp/slopworld-dotnet-cli")
+        .unwrap();
+    let alias = plan
+        .mounts
+        .windows(3)
+        .position(|w| {
+            w[0] == "--bind"
+                && w[1] == source.to_str().unwrap()
+                && w[2] == "/tmp/slopworld-dotnet-cli/.nuget/packages"
+        })
+        .unwrap();
+    assert!(
+        alias > overlay,
+        "private overlay must not hide selected NuGet sources"
+    );
+}

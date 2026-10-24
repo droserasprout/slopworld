@@ -359,3 +359,90 @@ fn saved_executable_compares_after_reload_without_exposing_it() {
     }
     std::fs::remove_dir_all(directory).unwrap();
 }
+
+#[tokio::test]
+async fn live_inspection_redacts_arguments_and_becomes_unavailable_after_exit() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = Tmux::new(&socket.path);
+    let session = SessionCfg {
+        name: "inspect-live".into(),
+        state_id: uuid::Uuid::new_v4().to_string(),
+        ..Default::default()
+    };
+    let directory = super::super::state_dir(&session).unwrap();
+    std::fs::create_dir_all(&directory).unwrap();
+    let mut saved = plan(vec![]);
+    saved.command = vec!["sh".into()];
+    std::fs::write(
+        directory.join("launch-plan.json"),
+        serde_json::to_string(&saved).unwrap(),
+    )
+    .unwrap();
+    let ready = directory.join("ready");
+    let command = format!(
+        "exec /bin/sh -c 'touch {}; while :; do sleep 1; done' --token inspection-secret",
+        ready.display()
+    );
+    let output = std::process::Command::new("tmux")
+        .args([
+            "-S",
+            &socket.path,
+            "-f",
+            "/dev/null",
+            "new-session",
+            "-d",
+            "-s",
+            &session.name,
+            &command,
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !ready.exists() {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "pane failed to start"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let view = inspect_session(&tmux, &session.name, &session, false)
+        .await
+        .unwrap();
+    assert_eq!(view["live"]["status"], "live");
+    assert_eq!(view["live"]["source"], "proc");
+    assert_eq!(view["comparison"], "compatible");
+    assert!(!view["live"]["processes"].as_array().unwrap().is_empty());
+    assert!(!view.to_string().contains("inspection-secret"));
+    assert!(
+        std::process::Command::new("tmux")
+            .args(["-S", &socket.path, "kill-session", "-t", &session.name])
+            .status()
+            .unwrap()
+            .success()
+    );
+    let gone = inspect_session(&tmux, &session.name, &session, false)
+        .await
+        .unwrap();
+    assert_eq!(gone["live"]["status"], "not-running");
+    assert_eq!(gone["comparison"], "unavailable");
+    assert!(!gone["plan"].is_null());
+}
+
+#[tokio::test]
+async fn process_observation_falls_back_without_inventing_a_vanished_root() {
+    assert!(observe_tree(u32::MAX, None).await.is_none());
+    let processes = ps_tree(std::process::id()).await.unwrap();
+    assert!(
+        processes
+            .iter()
+            .any(|process| process.pid == std::process::id())
+    );
+}

@@ -72,3 +72,7 @@ pub(super) fn push_nuget_binds(
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "dotnet_tests.rs"]
+mod tests;
