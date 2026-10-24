@@ -4,6 +4,8 @@
 retains gestures across passes; `Patches/Sidebar/` integrates Harmony, while colonist
 bar dispatch stays in `Patches/ColonistBar/`. [Navigation](mod-sidebar-navigation.md)
 owns tabs/history; [browse scopes](mod-ui-browse-scopes.md) owns filters.
+Ordinary Edit actions in sidebar menus and session gizmos exclude host, ephemeral,
+and worker sessions; worker identity belongs to its task.
 
 Vanilla supplies pawn identities; the sidebar sorts indices and assigns geometry.
 Hiding it suppresses portraits and hit tests. Check for a live world during teardown.

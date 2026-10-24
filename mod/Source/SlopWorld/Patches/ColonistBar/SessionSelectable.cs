@@ -103,7 +103,8 @@ namespace SlopWorld
                 yield break;
             }
 
-            yield return BuildEditGizmo();
+            if (SessionGizmoEligibility.CanEdit(info))
+                yield return BuildEditGizmo();
             yield return BuildLabelGizmo(info.Label);
 
             if (!string.IsNullOrEmpty(info.Project))
