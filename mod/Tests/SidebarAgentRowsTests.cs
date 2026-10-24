@@ -6,6 +6,38 @@ namespace SlopWorld.Tests
 {
     static class SidebarAgentRowsTests
     {
+        public static void EmptyBucketsArePrunedAndLiveStorageIsRetained()
+        {
+            var live = new List<int> { 1 };
+            var buckets = new Dictionary<string, List<int>>
+            {
+                ["live"] = live,
+                ["gone"] = new List<int>(),
+            };
+            var scratch = new List<string>();
+            buckets = SidebarAgentRows.PruneEmpty(buckets, scratch);
+            buckets = SidebarAgentRows.PruneEmpty(buckets, scratch);
+            Assert.That(buckets.Count, Is.EqualTo(1));
+            Assert.That(buckets["live"], Is.SameAs(live));
+            live.Clear();
+            buckets = SidebarAgentRows.PruneEmpty(buckets, scratch);
+            Assert.That(buckets, Is.Empty);
+            Assert.That(scratch, Is.Empty);
+        }
+
+        public static void ChurnCompactsBucketsWithoutChangingLiveLists()
+        {
+            var live = new List<int> { 1 };
+            var buckets = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < 100; i++)
+                buckets["gone" + i] = new List<int>();
+            buckets["LIVE"] = live;
+            var compacted = SidebarAgentRows.PruneEmpty(buckets, new List<string>());
+            Assert.That(compacted, Is.Not.SameAs(buckets));
+            Assert.That(compacted.Count, Is.EqualTo(1));
+            Assert.That(compacted["live"], Is.SameAs(live));
+        }
+
         public static void WorkerCountsUseParentProjectsAndActualLists()
         {
             var parents = new Dictionary<string, SessionInfo>

@@ -12,7 +12,9 @@ Hiding it suppresses portraits and hit tests. Check for a live world during tear
 Park folded/filtered entries offscreen, and retain screen-space positions for external
 hit tests after restoring vanilla geometry. Nested swaps and exceptions must restore
 the right state. The back pass precedes vanilla input; the front adds labels/actions.
-Indicators do not change vanilla idle classification.
+Indicators do not change vanilla idle classification. Layout rebuilds retain live
+bucket lists, prune empty buckets, and compact dictionaries after substantial churn.
+Visible-parent and project-order membership use sets owned by that layout.
 
 Freeze split geometry per frame so both draw passes and hit tests agree. Sidebar
 insets must also reach vanilla buttons, inspect panes, gizmos, and colonist hit tests;

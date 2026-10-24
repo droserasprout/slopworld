@@ -14,6 +14,12 @@ namespace SlopWorld
             CountAgents();
             BucketEntries(entries, locs, count);
             BucketRuntimeSessions();
+            Layout.Buckets = SidebarAgentRows.PruneEmpty(Layout.Buckets, Layout.StaleKeys);
+            Layout.Ghosts = SidebarAgentRows.PruneEmpty(Layout.Ghosts, Layout.StaleKeys);
+            Layout.WorkersByParentSession = SidebarAgentRows.PruneEmpty(
+                Layout.WorkersByParentSession,
+                Layout.StaleKeys
+            );
             OrderBuckets();
         }
 
@@ -77,6 +83,7 @@ namespace SlopWorld
                     Layout.Buckets[key] = list = new List<int>();
                 list.Add(i);
                 Layout.Named[i] = session;
+                Layout.VisibleSessions.Add(session);
             }
 
             // Vanilla's entry order is only refreshed when the colony reconciles. A rename,
@@ -103,7 +110,7 @@ namespace SlopWorld
                         parent != null
                         && !parent.Worker
                         && SidebarScopes.SessionChosen(parent)
-                        && Layout.Named.ContainsValue(parent.Name);
+                        && Layout.VisibleSessions.Contains(parent.Name);
                     if (!parentVisible)
                     {
                         Layout.TopWorkers.Add(s);
@@ -137,13 +144,13 @@ namespace SlopWorld
         static void OrderBuckets()
         {
             foreach (var kv in Layout.Buckets)
-                if (kv.Value.Count > 0)
+                if (kv.Value.Count > 0 && Layout.OrderKeys.Add(kv.Key))
                     Layout.Order.Add(kv.Key);
             foreach (var kv in Layout.Ghosts)
-                if (kv.Value.Count > 0 && !Layout.Order.Contains(kv.Key))
+                if (kv.Value.Count > 0 && Layout.OrderKeys.Add(kv.Key))
                     Layout.Order.Add(kv.Key);
             foreach (var p in SessionHub.Instance.Projects)
-                if (!Layout.Order.Contains(p.Name) && Passes(p.Name))
+                if (Passes(p.Name) && Layout.OrderKeys.Add(p.Name))
                     Layout.Order.Add(p.Name);
 
             Layout.Order.Sort(

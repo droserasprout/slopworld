@@ -29,6 +29,25 @@ namespace SlopWorld
             }
         }
 
+        // Reuse live bucket storage, but release identities no longer present in a rebuild.
+        internal static Dictionary<string, List<T>> PruneEmpty<T>(
+            Dictionary<string, List<T>> buckets,
+            List<string> stale
+        )
+        {
+            stale.Clear();
+            foreach (var pair in buckets)
+                if (pair.Value.Count == 0)
+                    stale.Add(pair.Key);
+            foreach (string key in stale)
+                buckets.Remove(key);
+            bool compact = stale.Count > 32 && stale.Count > buckets.Count;
+            stale.Clear();
+            // Dictionary enumeration traverses removed slots too. Rebuild after substantial
+            // churn so the cost and retained capacity follow the live inventory.
+            return compact ? new Dictionary<string, List<T>>(buckets, buckets.Comparer) : buckets;
+        }
+
         internal static List<string> OrderAgents(
             List<SessionInfo> agents,
             Comparison<string> compareNames

@@ -15,8 +15,10 @@ namespace SlopWorld
             public readonly List<Head> Heads = new List<Head>();
             public readonly Dictionary<Pawn, Rect> Faces = new Dictionary<Pawn, Rect>();
 
-            public readonly Dictionary<string, List<int>> Buckets =
-                new Dictionary<string, List<int>>();
+            public Dictionary<string, List<int>> Buckets = new Dictionary<string, List<int>>();
+            public readonly HashSet<string> VisibleSessions = new HashSet<string>();
+            public readonly HashSet<string> OrderKeys = new HashSet<string>();
+            public readonly List<string> StaleKeys = new List<string>();
             public readonly List<string> Order = new List<string>();
             public readonly Dictionary<int, string> Named = new Dictionary<int, string>();
             public readonly List<Pawn> EntryPawns = new List<Pawn>();
@@ -26,10 +28,10 @@ namespace SlopWorld
             public readonly Dictionary<string, int> WorkerCountsByProject =
                 new Dictionary<string, int>();
 
-            public readonly Dictionary<string, List<SessionInfo>> Ghosts =
+            public Dictionary<string, List<SessionInfo>> Ghosts =
                 new Dictionary<string, List<SessionInfo>>();
             public readonly List<SessionInfo> TopGhosts = new List<SessionInfo>();
-            public readonly Dictionary<string, List<SessionInfo>> WorkersByParentSession =
+            public Dictionary<string, List<SessionInfo>> WorkersByParentSession =
                 new Dictionary<string, List<SessionInfo>>();
             public readonly List<SessionInfo> TopWorkers = new List<SessionInfo>();
 
@@ -165,6 +167,8 @@ namespace SlopWorld
                 WorkerCountsByProject.Clear();
                 Order.Clear();
                 Named.Clear();
+                VisibleSessions.Clear();
+                OrderKeys.Clear();
                 TopGhosts.Clear();
                 TopWorkers.Clear();
                 EntryPawns.Clear();

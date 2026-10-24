@@ -3,7 +3,10 @@
 `TerminalRenderer` coordinates painting; `TerminalPanel.Cache` owns panel textures
 and repaint lifetime. `TerminalRunCache` and `Sgr` own parsed rows; `TerminalTheme`
 and `TerminalFont` supply cache revisions. Parsed link decoration belongs to
-`TerminalAutolinks`, with URL recognition in `UrlScan`.
+`TerminalAutolinks`, with URL recognition in `UrlScan`. The bounded parsed-row cache
+uses FIFO eviction; retained live frames reuse link-candidate transitions per row. Candidate scratch
+belongs to the parser, not shared frame snapshots; transitions preserve delimiters
+split across physical rows.
 
 `TerminalFontFallbacks` expands family priorities from the installed font catalog
 owned by `InstalledFonts`. Catalog revisions invalidate the active terminal font,

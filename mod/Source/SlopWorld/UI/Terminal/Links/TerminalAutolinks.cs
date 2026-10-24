@@ -162,50 +162,66 @@ namespace SlopWorld
                 return false;
 
             int matched = 0;
-            const string needle = "://";
             foreach (string line in lines)
+                if (ScanCandidate(line, ref matched))
+                    return true;
+            return false;
+        }
+
+        // Summarize all possible incoming delimiter states. Row boundaries preserve partial
+        // delimiters, while escape payloads remain local to each physical source row.
+        internal static byte CandidateTransitions(string line)
+        {
+            int packed = 0;
+            for (int state = 0; state < 3; state++)
             {
-                if (line == null)
-                    continue;
-                for (int i = 0; i < line.Length; i++)
+                int matched = state;
+                if (ScanCandidate(line, ref matched))
+                    matched = 3;
+                packed |= matched << (state * 2);
+            }
+            return (byte)packed;
+        }
+
+        static bool ScanCandidate(string line, ref int matched)
+        {
+            if (line == null)
+                return false;
+            const string needle = "://";
+            for (int i = 0; i < line.Length; i++)
+            {
+                char c = line[i];
+                if (c == '\x1b')
                 {
-                    char c = line[i];
-                    if (c == '\x1b')
+                    if (i + 1 < line.Length && line[i + 1] == '[')
                     {
-                        // Escape payloads cannot contribute visible URL characters.
-                        if (i + 1 < line.Length && line[i + 1] == '[')
-                        {
-                            i += 2;
-                            while (i < line.Length && !(line[i] >= '@' && line[i] <= '~'))
-                                i++;
-                            // CHA can overwrite intervening text and join a visible delimiter.
-                            // Let the decoded column grid decide whether it is a URL.
-                            if (i < line.Length && line[i] == 'G')
-                                return true;
-                        }
-                        else if (i + 1 < line.Length && line[i + 1] == ']')
-                        {
-                            i += 2;
-                            while (
-                                i < line.Length
-                                && line[i] != '\x07'
-                                && !(
-                                    line[i] == '\x1b' && i + 1 < line.Length && line[i + 1] == '\\'
-                                )
-                            )
-                                i++;
-                            if (i < line.Length && line[i] == '\x1b')
-                                i++;
-                        }
-                        continue;
+                        i += 2;
+                        while (i < line.Length && !(line[i] >= '@' && line[i] <= '~'))
+                            i++;
+                        // Column overwrite can assemble a delimiter from separated text.
+                        if (i < line.Length && line[i] == 'G')
+                            return true;
                     }
-                    matched =
-                        c == needle[matched] ? matched + 1
-                        : c == needle[0] ? 1
-                        : 0;
-                    if (matched == needle.Length)
-                        return true;
+                    else if (i + 1 < line.Length && line[i + 1] == ']')
+                    {
+                        i += 2;
+                        while (
+                            i < line.Length
+                            && line[i] != '\x07'
+                            && !(line[i] == '\x1b' && i + 1 < line.Length && line[i + 1] == '\\')
+                        )
+                            i++;
+                        if (i < line.Length && line[i] == '\x1b')
+                            i++;
+                    }
+                    continue;
                 }
+                matched =
+                    c == needle[matched] ? matched + 1
+                    : c == needle[0] ? 1
+                    : 0;
+                if (matched == needle.Length)
+                    return true;
             }
             return false;
         }

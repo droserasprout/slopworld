@@ -12,6 +12,117 @@ namespace SlopWorld.Tests
             yield return ("preserves explicit hyperlink metadata", PreservesExplicitHyperlink);
         }
 
+        public static void CandidateTransitionsPreserveBoundariesAndEscapes()
+        {
+            var samples = new[]
+            {
+                "",
+                "plain",
+                ":",
+                "/",
+                "//",
+                "https:",
+                "\x1b[31m/",
+                "\x1b]8;;https://hidden\x07",
+                "\x1b[7G",
+                ":://",
+            };
+            foreach (string left in samples)
+            foreach (string right in samples)
+            {
+                int state = TerminalAutolinks.CandidateTransitions(left) & 3;
+                if (state != 3)
+                    state = (TerminalAutolinks.CandidateTransitions(right) >> (state * 2)) & 3;
+                if (TerminalAutolinks.MayContainLink(new[] { left, right }))
+                    AssertEx.Equal(3, state, "cached transitions cannot reject a candidate");
+            }
+        }
+
+        public static void CandidateCacheHandlesReplacementAndRemovedLinks()
+        {
+            var cache = new TerminalRunCache();
+            var screen = new ScreenBuf
+            {
+                Lines = new[] { "plain", "text" },
+                Cols = 6,
+                Rows = 2,
+            };
+            cache.Parse(screen, 1, 1, out _, out _);
+            screen.RunsRev = 1;
+            var snapshot = screen.Snapshot();
+            void Replace(string[] lines)
+            {
+                screen.Lines = lines;
+                screen.Runs = new List<SgrRun>[lines.Length];
+                screen.LinksKnown = false;
+                cache.Parse(screen, 1, 1, out _, out _);
+                screen.RunsRev = 1;
+            }
+            Replace(new[] { "https:", "//host" });
+            AssertEx.Equal(
+                "https://host",
+                screen.Runs[0][0].Url,
+                "changed rows join across boundary"
+            );
+            Replace(new[] { "plain", "text" });
+            AssertEx.True(screen.Runs[0][0].Url == null, "removed link does not survive reuse");
+            Replace(new string[] { null, null });
+            Replace(new[] { "https:", "//host" });
+            AssertEx.Equal(
+                "https://host",
+                screen.Runs[0][0].Url,
+                "null rows preserve incoming delimiter state"
+            );
+            cache.Parse(snapshot, 1, 1, out _, out _);
+            AssertEx.True(snapshot.Runs[0][0].Url == null, "retained snapshot is unaffected");
+            screen.Cols = 12;
+            Replace(new[] { "https://host" });
+            AssertEx.Equal(
+                "https://host",
+                screen.Runs[0][0].Url,
+                "shape changes reset candidate scratch"
+            );
+        }
+
+        public static void SparseCandidateCacheTracksWrappedDelimiterEdits()
+        {
+            var cache = new TerminalRunCache();
+            var screen = new ScreenBuf
+            {
+                Lines = new[] { "https:", "plain", "", "" },
+                Cols = 6,
+                Rows = 4,
+            };
+            cache.Parse(screen, 1, 1, out _, out _);
+            screen.RunsRev = 1;
+            foreach (string text in new[] { "//host", "plain", "//host" })
+            {
+                screen.Lines = (string[])screen.Lines.Clone();
+                screen.Lines[1] = text;
+                screen.Runs = (List<SgrRun>[])screen.Runs.Clone();
+                screen.Runs[1] = null;
+                screen.LinksKnown = false;
+                cache.Parse(screen, 1, 1, out _, out _);
+                AssertEx.Equal(
+                    text == "plain" ? null : "https://host",
+                    screen.Runs[0][0].Url,
+                    "sparse edits update neighboring wrapped link metadata"
+                );
+            }
+        }
+
+        public static void RowCacheEvictsOldestWithoutDiscardingRecentRows()
+        {
+            var cache = new TerminalRunCache();
+            for (int i = 0; i < 2049; i++)
+                cache.Parse(new[] { "row " + i }, 80, 1, 1, out _, out _);
+            AssertEx.Equal(2048, cache.Count, "cache stays bounded");
+            cache.Parse(new[] { "row 2047" }, 80, 1, 1, out int hits, out _);
+            AssertEx.Equal(1, hits, "recent rows survive capacity rollover");
+            cache.Parse(new[] { "row 0" }, 80, 1, 1, out _, out int misses);
+            AssertEx.Equal(1, misses, "oldest row is evicted");
+        }
+
         public static void LinksAfterColumnOverwrite()
         {
             var cache = new TerminalRunCache();
