@@ -374,3 +374,122 @@ async fn project_reference_commit_rejects_library_edits_without_writing_records(
         );
     }
 }
+
+#[tokio::test]
+async fn library_only_commit_rejects_stale_revisions_before_prepare_and_commit() {
+    for edit_after_prepare in [false, true] {
+        let f = Fixture::new(Config {
+            library: vec![crate::config::LibraryItemCfg {
+                name: "review".into(),
+                host: true,
+                text: "Accepted instructions".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let before = f.config().await;
+        let stamp = f.owner.library_revision.lock().unwrap().clone();
+        let library_path = f.owner.records.binding.config.join("prompts/review.toml");
+        let mut external = before.library[0].clone();
+        external.text = "External instructions".into();
+        let external_bytes = toml::to_string(&external).unwrap();
+        if !edit_after_prepare {
+            std::fs::write(&library_path, &external_bytes).unwrap();
+        }
+        let prepared = f
+            .owner
+            .prepare(&f.runtime, ConfigMutation::Library, |cfg| {
+                cfg.library[0].text = "Candidate instructions".into();
+                Ok(((), true))
+            })
+            .await;
+        let error = if edit_after_prepare {
+            let ((), prepared) = prepared.unwrap();
+            std::fs::write(&library_path, &external_bytes).unwrap();
+            f.owner
+                .commit(&f.runtime, prepared.unwrap())
+                .await
+                .unwrap_err()
+        } else {
+            prepared.err().expect("stale catalog must fail preparation")
+        };
+        let expected = if edit_after_prepare {
+            "library changed while preparing"
+        } else {
+            "library changed since acceptance"
+        };
+        assert!(error.to_string().contains(expected), "{error:#}");
+        assert_eq!(
+            std::fs::read_to_string(&library_path).unwrap(),
+            external_bytes
+        );
+        assert_eq!(f.config().await.library[0].text, before.library[0].text);
+        assert_eq!(f.runtime.publications.load(Ordering::Acquire), 0);
+        assert_eq!(*f.owner.library_revision.lock().unwrap(), stamp);
+        assert!(!f.owner.records.binding.journal().unwrap().exists());
+        drop(f.owner.persist.try_lock().unwrap());
+
+        assert!(f.owner.reload(&f.runtime).await);
+        f.update_cfg(ConfigMutation::Library, |cfg| {
+            cfg.library[0].text = "Retried instructions".into();
+            Ok(())
+        })
+        .await
+        .unwrap();
+        assert_eq!(f.config().await.library[0].text, "Retried instructions");
+        assert!(f.owner.library_is_current());
+    }
+}
+
+#[tokio::test]
+async fn library_only_preparation_cannot_commit_a_project_relocation() {
+    let f = Fixture::new(agent_config());
+    let before = f.config().await;
+    let agent_path = f
+        .owner
+        .records
+        .binding
+        .data
+        .join("agents")
+        .join(format!("{}.toml", before.sessions[0].state_id));
+    let agent_bytes = std::fs::read(&agent_path).unwrap();
+    let ((), prepared) = f
+        .owner
+        .prepare(&f.runtime, ConfigMutation::Library, |cfg| {
+            cfg.library.push(crate::config::LibraryItemCfg {
+                name: "review".into(),
+                host: true,
+                text: "Review instructions".into(),
+                ..Default::default()
+            });
+            Ok(((), true))
+        })
+        .await
+        .unwrap();
+    let error = f
+        .owner
+        .commit_project_relocation(
+            &f.runtime,
+            prepared.unwrap(),
+            &crate::worktrees::Store::default(),
+        )
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("relocation requires workspace record owner")
+    );
+    assert_eq!(std::fs::read(&agent_path).unwrap(), agent_bytes);
+    assert!(f.config().await.library.is_empty());
+    assert!(
+        Config::load_library_for(&f.cfg_path)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(f.owner.records.worktrees().worktrees.is_empty());
+    assert_eq!(f.runtime.publications.load(Ordering::Acquire), 0);
+    assert!(!f.owner.records.binding.journal().unwrap().exists());
+    drop(f.owner.persist.try_lock().unwrap());
+}

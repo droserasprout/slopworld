@@ -120,11 +120,7 @@ impl Transactions {
         mut prepared: PreparedConfigChange,
         store: &crate::worktrees::Store,
     ) -> Result<()> {
-        if let backend::PreparedDisk::Records(plan) = &mut prepared.disk {
-            plan.attach_worktrees(&store.worktrees)?;
-        } else {
-            bail!("relocation requires workspace record owner");
-        }
+        prepared.disk.attach_worktrees(&store.worktrees)?;
         prepared.worktrees = Some(store.clone());
         self.commit(runtime, prepared).await
     }
