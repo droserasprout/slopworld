@@ -17,6 +17,7 @@ async fn request(app: &Router, method: &str, path: &str, value: Value) -> (Statu
                 .method(method)
                 .uri(path)
                 .header("content-type", crate::api::protobuf::CONTENT_TYPE)
+                .header(crate::shared::protocol::SESSION_HEADER, crate::tasks::HOST)
                 .body(Body::from(body))
                 .unwrap(),
         )
