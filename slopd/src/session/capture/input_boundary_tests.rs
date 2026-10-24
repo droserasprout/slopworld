@@ -643,3 +643,60 @@ async fn teardown_rejects_queued_input_even_when_run_identity_is_unchanged() {
     );
     assert!(delivered.try_recv().is_err());
 }
+
+#[tokio::test]
+async fn redraw_bursts_apply_final_geometry_and_restart_after_a_disappearing_pane() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    for name in ["target", "removed"] {
+        let mut row = Live::new(
+            SessionCfg {
+                name: name.into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.state = State::Working;
+        manager.live.write().await.insert(name.into(), row);
+        manager
+            .tmux
+            .spawn(name, "/tmp", 120, 34, &["sleep".into(), "60".into()], true)
+            .await
+            .unwrap();
+    }
+    // Hold both per-pane boundaries until the first pass has selected its panes.
+    let target = manager.terminal_boundary("target").write_owned().await;
+    let removed = manager.terminal_boundary("removed").write_owned().await;
+    manager.request_redraw(Some((90, 30)));
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while manager.signals.redraw_nudge.available_permits() != 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    manager.request_redraw(Some((100, 40)));
+    manager.request_redraw(Some((110, 45)));
+    manager.request_redraw(None);
+    manager.live.write().await.remove("removed");
+    manager.tmux.kill("removed").await.unwrap();
+    drop(removed);
+    drop(target);
+    wait_for_redraw(&manager).await;
+    assert_eq!(manager.size_of("target").await, Some((110, 45)));
+    assert_eq!(manager.tmux.size("target").await, Some((110, 45)));
+    assert!(manager.size_of("removed").await.is_none());
+    manager.request_redraw(Some((95, 35)));
+    wait_for_redraw(&manager).await;
+    assert_eq!(manager.tmux.size("target").await, Some((95, 35)));
+}
+
+async fn wait_for_redraw(manager: &SessionRuntime) {
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while manager.signals.redraw.lock().unwrap().is_running() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("redraw did not finish");
+}

@@ -14,6 +14,11 @@ pub(crate) struct RedrawQueue {
 }
 
 impl RedrawQueue {
+    #[cfg(test)]
+    pub(crate) fn is_running(&self) -> bool {
+        self.running
+    }
+
     pub(crate) fn request(&mut self, shape: Option<(u16, u16)>) -> bool {
         // A mode-only refresh must not erase an already requested geometry.
         self.pending = Some(shape.or(self.pending.flatten()));

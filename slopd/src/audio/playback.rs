@@ -338,11 +338,27 @@ struct FeedArgs {
 /// Decode audio into the ring buffer until the source ends.
 /// Repeat files, advance through randomized directory playlists, and reconnect interrupted stations.
 /// Retry until a new run replaces this run or the ring consumer closes.
+fn feed(args: FeedArgs) {
+    feed_with_reopen(args, |source, title| {
+        super::wait_for_retry(
+            REOPEN_PAUSE,
+            title.generation,
+            &title.current_generation,
+            Some(&title.cancelled),
+        )
+        .then(|| open_source(source, title))
+    });
+}
+
+// Keep retry timing and source opening injectable while testing the real feeder loop.
 #[expect(
     clippy::expect_used,
     reason = "the playlist branch is entered only when a playlist is present"
 )]
-fn feed(args: FeedArgs) {
+fn feed_with_reopen(
+    args: FeedArgs,
+    mut reopen: impl FnMut(&str, &TitleSink) -> Option<Result<Box<dyn Source + Send>>>,
+) {
     let FeedArgs {
         first,
         source,
@@ -384,15 +400,10 @@ fn feed(args: FeedArgs) {
                 // Reaching here means the decoder itself stopped, so do not rebuild it in a
                 // tight loop and repeatedly play a relay's connection-opening buffer.
                 tracing::warn!("Audio decoder for {source} ended. Rebuilding after a pause.");
-                if !super::wait_for_retry(
-                    REOPEN_PAUSE,
-                    generation,
-                    &title.current_generation,
-                    Some(&title.cancelled),
-                ) {
+                let Some(reopened) = reopen(&source, &title) else {
                     return;
-                }
-                match open_source(&source, &title) {
+                };
+                match reopened {
                     Ok(d) if d.channels() == format.channels && d.sample_rate() == format.rate => d,
                     Ok(_) => {
                         // Keep the ring alive while a station changes encoders or a local file

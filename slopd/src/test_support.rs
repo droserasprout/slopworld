@@ -140,3 +140,23 @@ pub(crate) fn fixture(tag: &str) -> Fixture {
     std::fs::create_dir(&dir).unwrap();
     Fixture(dir)
 }
+
+// Keep real persistence, Git, tmux and reader attachment. Replace only the final
+// sandbox executable so these orchestration tests need no agent or nested sandbox.
+pub(crate) fn isolated_worker_runtime() -> Option<std::path::PathBuf> {
+    crate::test_support::isolated_with_env(|command, root| {
+        use std::os::unix::fs::PermissionsExt;
+        let bin = root.join("bin");
+        std::fs::create_dir(&bin).unwrap();
+        let executable = bin.join("bwrap");
+        std::fs::write(
+            &executable,
+            "#!/bin/sh\nfor arg do\n  if [ \"$arg\" = /usr/bin/git ]; then exec /usr/bin/bwrap \"$@\"; fi\ndone\nprintf '\\033[?2004hready> '\nexec /bin/sleep 60\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut paths = vec![bin];
+        paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+        command.env("PATH", std::env::join_paths(paths).unwrap());
+    })
+}

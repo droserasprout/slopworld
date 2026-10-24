@@ -553,3 +553,136 @@ async fn mailbox_task(
         )
         .await
 }
+
+#[tokio::test]
+async fn worker_checkout_options_are_rejected_without_creating_tasks() {
+    for (new_worktree, worktree, base, name, message) in [
+        (true, "existing", "", "", "Choose an existing worktree"),
+        (false, "", "HEAD", "", "Set new_worktree"),
+        (false, "", "", "branch", "Set new_worktree"),
+    ] {
+        let manager = crate::application::test_application(crate::config::Config::default());
+        let result = spawn_worker(
+            State(manager.clone()),
+            Extension(Cap::Root),
+            caller(crate::tasks::HOST),
+            Proto(wire::SpawnWorkerReq {
+                template: Some("review".into()),
+                body: Some("inspect".into()),
+                new_worktree: Some(new_worktree),
+                worktree: Some(worktree.into()),
+                base: Some(base.into()),
+                worktree_name: Some(name.into()),
+                ..Default::default()
+            }),
+        )
+        .await;
+        let Err((status, Proto(error))) = result else {
+            panic!("invalid options accepted")
+        };
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(error.error.contains(message), "{}", error.error);
+        assert!(
+            manager
+                .sessions
+                .task_store()
+                .all_tasks_async()
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+}
+
+#[tokio::test]
+async fn worker_api_maps_checkouts_and_returns_committed_identity() {
+    let Some(_) = crate::test_support::isolated_worker_runtime() else {
+        return;
+    };
+    for durable in [false, true] {
+        let (runtime, root, _) = crate::application::workers::tests::allocation_fixture();
+        runtime.application.templates.store_for_test().write().await.templates = vec![serde_json::from_value(serde_json::json!({
+            "name": "review", "defaults": { "cmd": "/bin/sleep 60", "network": "host", "persistent_tmp": false }
+        })).unwrap()];
+        runtime
+            .config_authority
+            .write()
+            .await
+            .daemon
+            .instructions
+            .worker_prompt
+            .clear();
+        let manager = crate::application::Application::from_runtime(&runtime);
+        let existing = crate::application::worktrees::Worktrees::new(&manager)
+            .create_worktree(crate::application::worktrees::WorktreeRequest {
+                project: "repo".into(),
+                name: "existing".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        for new_worktree in [false, true] {
+            let Proto(reply) = spawn_worker(
+                State(manager.clone()),
+                Extension(Cap::Root),
+                caller(crate::tasks::HOST),
+                Proto(wire::SpawnWorkerReq {
+                    template: Some("review".into()),
+                    project: Some("repo".into()),
+                    body: Some("inspect API wiring".into()),
+                    durable: Some(durable),
+                    new_worktree: Some(new_worktree),
+                    worktree: Some(if new_worktree {
+                        String::new()
+                    } else {
+                        existing.id.clone()
+                    }),
+                    base: Some(if new_worktree {
+                        "HEAD".into()
+                    } else {
+                        String::new()
+                    }),
+                    worktree_name: Some(if new_worktree {
+                        "api-checkout".into()
+                    } else {
+                        String::new()
+                    }),
+                }),
+            )
+            .await
+            .unwrap();
+            let worker = reply.worker.unwrap();
+            let task = reply.task.unwrap();
+            assert_eq!(worker.name, worker.session);
+            assert_eq!(worker.parent, crate::tasks::HOST);
+            assert_eq!(worker.durable, durable);
+            let session = runtime.session_cfg(&worker.session).await.unwrap();
+            assert_eq!(session.task_id, task.id);
+            let tasks = runtime.task_store().all_tasks_async().await.unwrap();
+            assert_eq!(
+                tasks.iter().find(|row| row.id == task.id).unwrap().body,
+                "inspect API wiring"
+            );
+            let records = runtime.worktree_records();
+            let checkout = records
+                .worktrees
+                .iter()
+                .find(|row| row.id == session.worktree)
+                .unwrap();
+            assert_eq!(
+                checkout.name,
+                if new_worktree {
+                    "api-checkout"
+                } else {
+                    "existing"
+                }
+            );
+            if !new_worktree {
+                assert_eq!(checkout.id, existing.id);
+            }
+            assert!(runtime.tmux.exists(&worker.session).await);
+            runtime.stop(&worker.session).await.unwrap();
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}

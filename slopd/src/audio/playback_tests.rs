@@ -178,3 +178,148 @@ fn committed_ring_and_feeder_retire_only_with_their_own_player() {
     // Release the accepted feeder after retirement; it must finish without decoding.
     feeder.unwrap()();
 }
+
+fn samples(data: Vec<f32>, rate: u32) -> Box<dyn Source + Send> {
+    Box::new(rodio::buffer::SamplesBuffer::new(
+        rodio::ChannelCount::new(1).unwrap(),
+        rodio::SampleRate::new(rate).unwrap(),
+        data,
+    ))
+}
+
+fn feed_fixture(
+    first: Box<dyn Source + Send>,
+    title: TitleSink,
+) -> (FeedArgs, std::sync::mpsc::Receiver<Vec<f32>>) {
+    let (tx, rx) = sync_channel(16);
+    let format = AudioFormat {
+        channels: first.channels(),
+        rate: first.sample_rate(),
+    };
+    (
+        FeedArgs {
+            first,
+            source: "test source".into(),
+            playlist: None,
+            format,
+            tx,
+            generation: title.generation,
+            title,
+            ready: Arc::new(AtomicBool::new(false)),
+            queued: Arc::new(AtomicUsize::new(0)),
+        },
+        rx,
+    )
+}
+
+#[test]
+fn feeder_preserves_short_tails_across_reopen_errors_and_format_changes() {
+    let (args, rx) = feed_fixture(
+        samples(vec![0.25; CHUNK + 3], 8000),
+        TitleSink::pending(None, 0),
+    );
+    let mut attempts = 0;
+    feed_with_reopen(args, |_, _| {
+        attempts += 1;
+        match attempts {
+            1 => Some(Err(anyhow!("temporarily unavailable"))),
+            2 => Some(Ok(samples(vec![0.9; 7], 16000))),
+            3 => Some(Ok(samples(vec![0.5; 5], 8000))),
+            4 => None,
+            _ => panic!("retry loop did not terminate"),
+        }
+    });
+    assert_eq!(attempts, 4);
+    let chunks: Vec<_> = rx.into_iter().collect();
+    assert_eq!(
+        chunks.iter().map(Vec::len).collect::<Vec<_>>(),
+        [CHUNK, 3, 5]
+    );
+    assert_eq!(chunks[0], vec![0.25; CHUNK]);
+    assert_eq!(chunks[1], vec![0.25; 3]);
+    assert_eq!(chunks[2], vec![0.5; 5]);
+}
+
+#[test]
+fn cancellation_or_replacement_during_reopen_prevents_new_samples() {
+    for replace in [false, true] {
+        let title = TitleSink::pending(None, 0);
+        let (args, rx) = feed_fixture(samples(vec![0.25; 3], 8000), title);
+        let mut attempts = 0;
+        feed_with_reopen(args, |_, title| {
+            attempts += 1;
+            if replace {
+                title.current_generation.fetch_add(1, Ordering::SeqCst);
+            } else {
+                title.cancel();
+            }
+            Some(Ok(samples(vec![0.9; 7], 8000)))
+        });
+        assert_eq!(attempts, 1);
+        assert_eq!(rx.into_iter().collect::<Vec<_>>(), vec![vec![0.25; 3]]);
+    }
+}
+
+#[test]
+fn feeder_advances_playlist_then_finishes_when_no_playable_tracks_remain() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/silent.ogg");
+    let decoded = open_file(&path).unwrap();
+    let format = AudioFormat {
+        channels: decoded.channels(),
+        rate: decoded.sample_rate(),
+    };
+    let title = TitleSink::pending(None, 0);
+    let (mut args, rx) = feed_fixture(
+        Box::new(rodio::buffer::SamplesBuffer::new(
+            format.channels,
+            format.rate,
+            vec![0.25; 3],
+        )),
+        title,
+    );
+    // A different format is skipped; the exhausted playlist must end, not reopen as a station.
+    args.playlist = Some(Playlist {
+        files: vec![path.with_extension("missing"), path],
+        next: 0,
+        last: None,
+    });
+    args.format.rate = rodio::SampleRate::new(format.rate.get() + 1).unwrap();
+    feed_with_reopen(args, |_, _| {
+        panic!("playlist must not use station recovery")
+    });
+    assert_eq!(rx.into_iter().collect::<Vec<_>>(), vec![vec![0.25; 3]]);
+}
+
+#[test]
+fn feeder_delivers_next_playlist_track_after_a_short_first_track() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/silent.ogg");
+    let decoded = open_file(&path).unwrap();
+    let format = AudioFormat {
+        channels: decoded.channels(),
+        rate: decoded.sample_rate(),
+    };
+    let title = TitleSink::pending(None, 0);
+    let (mut args, rx) = feed_fixture(
+        Box::new(rodio::buffer::SamplesBuffer::new(
+            format.channels,
+            format.rate,
+            vec![0.25; 3],
+        )),
+        title.clone(),
+    );
+    args.playlist = Some(Playlist {
+        files: vec![path],
+        next: 0,
+        last: None,
+    });
+    let feeder = std::thread::spawn(move || {
+        feed_with_reopen(args, |_, _| panic!("playlist must not reopen as a station"))
+    });
+    let first = rx.recv_timeout(Duration::from_secs(2));
+    let second = rx.recv_timeout(Duration::from_secs(2));
+    title.cancel();
+    drop(rx);
+    feeder.join().unwrap();
+    assert_eq!(first.unwrap(), vec![0.25; 3]);
+    assert!(!second.unwrap().is_empty());
+}

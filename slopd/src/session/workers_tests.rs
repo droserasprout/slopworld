@@ -469,25 +469,7 @@ async fn new_checkout_preflight_rejects_invalid_workers_without_allocating() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
-// Keep real persistence, Git, tmux and reader attachment. Replace only the final
-// sandbox executable so these orchestration tests need no agent or nested sandbox.
-fn isolated_worker_runtime() -> Option<PathBuf> {
-    crate::test_support::isolated_with_env(|command, root| {
-        use std::os::unix::fs::PermissionsExt;
-        let bin = root.join("bin");
-        std::fs::create_dir(&bin).unwrap();
-        let executable = bin.join("bwrap");
-        std::fs::write(
-            &executable,
-            "#!/bin/sh\nfor arg do\n  if [ \"$arg\" = /usr/bin/git ]; then exec /usr/bin/bwrap \"$@\"; fi\ndone\nprintf '\\033[?2004hready> '\nexec /bin/sleep 60\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let mut paths = vec![bin];
-        paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
-        command.env("PATH", std::env::join_paths(paths).unwrap());
-    })
-}
+use crate::test_support::isolated_worker_runtime;
 
 async fn worker_runtime_fixture() -> (Arc<SessionRuntime>, PathBuf) {
     let (manager, root, _) = allocation_fixture();

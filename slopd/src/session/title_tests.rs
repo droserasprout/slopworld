@@ -296,3 +296,30 @@ fn editing_boundaries_preserve_the_prompt() {
     c.literal("uncertain");
     assert!(c.key("Enter").is_none());
 }
+
+#[test]
+fn word_edits_capture_exactly_the_submitted_unicode_prompt() {
+    for (text, keys, expected) in [
+        ("αβ  café 世界", vec!["C-Left", "C-w"], "αβ  世界"),
+        ("αβ  café 世界", vec!["Home", "M-f", "C-DC"], "αβ 世界"),
+        ("αβ  café 世界", vec!["M-b", "C-u"], "世界"),
+        ("αβ  café 世界", vec!["C-Left", "C-k"], "αβ  café"),
+        ("αβ  café 世界", vec!["Home", "C-w", "C-u"], "αβ  café 世界"),
+        ("αβ  café 世界", vec!["M-Left", "M-DC"], "αβ  café"),
+        (
+            "αβ  café 世界",
+            vec!["Home", "C-Right", "M-Right", "DC"],
+            "αβ  café世界",
+        ),
+    ] {
+        let mut composer = Composer::ready();
+        composer.literal(text);
+        for key in &keys {
+            assert!(composer.key(key).is_none());
+        }
+        assert!(
+            matches!(composer.key("Enter"), Some(Submission::Prompt(prompt)) if prompt == expected),
+            "{keys:?}: expected {expected:?}"
+        );
+    }
+}
