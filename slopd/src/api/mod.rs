@@ -108,3 +108,6 @@ mod request_tests;
 
 #[cfg(test)]
 mod operation_tests;
+
+#[cfg(test)]
+mod storage_tests;
