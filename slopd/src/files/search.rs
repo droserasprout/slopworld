@@ -318,7 +318,6 @@ pub(crate) async fn search(
     dir: &std::path::Path,
     q: &SearchOptions,
 ) -> anyhow::Result<SearchResult> {
-    use tokio::io::BufReader;
     if q.q.is_empty() {
         bail!("A search query is required.");
     }
@@ -328,68 +327,62 @@ pub(crate) async fn search(
     let mut child = build_rg_command(dir, q)
         .spawn()
         .map_err(|error| anyhow::anyhow!("The daemon could not start ripgrep: {error}"))?;
-    let Some(stdout) = child.stdout.take() else {
-        stop_search_child(&mut child).await;
-        return Err(MissingOutput.into());
-    };
-    let mut reader = BufReader::new(stdout);
-    let mut matches = Vec::new();
-    let mut truncated = false;
-    let mut included_file = true;
+    collect_search_output(&mut child, include.as_ref(), limit).await
+}
 
-    loop {
-        let record = match read_search_record(&mut reader, SEARCH_RECORD_LIMIT).await {
-            Ok(record) => record,
-            Err(error) => {
-                stop_search_child(&mut child).await;
-                return Err(error.into());
-            }
-        };
-        let Some(record) = record else {
-            break;
-        };
-        let record = match record {
-            SearchRecord::Line(record) => record,
-            SearchRecord::TooLarge if !included_file => {
-                if let Err(error) = discard_search_record(&mut reader).await {
-                    stop_search_child(&mut child).await;
-                    return Err(error.into());
+/// Every early scan exit stops and reaps the child before returning. Only a fully
+/// drained stdout may wait for normal completion; cancellation uses kill_on_drop.
+async fn collect_search_output(
+    child: &mut tokio::process::Child,
+    include: Option<&globset::GlobSet>,
+    limit: usize,
+) -> anyhow::Result<SearchResult> {
+    use tokio::io::BufReader;
+
+    let result: anyhow::Result<SearchResult> = async {
+        let stdout = child.stdout.take().ok_or(MissingOutput)?;
+        let mut reader = BufReader::new(stdout);
+        let mut matches = Vec::new();
+        let mut truncated = false;
+        let mut included_file = true;
+
+        while let Some(record) = read_search_record(&mut reader, SEARCH_RECORD_LIMIT).await? {
+            let record = match record {
+                SearchRecord::Line(record) => record,
+                SearchRecord::TooLarge if !included_file => {
+                    discard_search_record(&mut reader).await?;
+                    continue;
                 }
+                SearchRecord::TooLarge => {
+                    // Return the useful prefix and mark the unprocessed search incomplete.
+                    truncated = true;
+                    break;
+                }
+            };
+            let Some(matched) = decode_event(&record, include, &mut included_file)? else {
                 continue;
-            }
-            SearchRecord::TooLarge => {
-                // Return the useful prefix and report that the unprocessed search is incomplete.
+            };
+            // One extra matching row proves truncation; exactly limit rows may be complete.
+            if matches.len() >= limit {
                 truncated = true;
-                stop_search_child(&mut child).await;
                 break;
             }
-        };
-        let matched = match decode_event(&record, include.as_ref(), &mut included_file) {
-            Ok(Some(matched)) => matched,
-            Ok(None) => continue,
-            Err(error) => {
-                stop_search_child(&mut child).await;
-                return Err(error);
-            }
-        };
-        if matches.len() >= limit {
-            truncated = true;
-            stop_search_child(&mut child).await;
-            break;
+            matches.push(matched);
         }
-
-        matches.push(matched);
+        Ok(SearchResult { matches, truncated })
     }
+    .await;
 
-    if !truncated {
+    if result.as_ref().map_or(true, |result| result.truncated) {
+        stop_search_child(child).await;
+    } else {
         let status = child.wait().await?;
         // ripgrep uses 1 for a clean search with no matches.
         if !status.success() && status.code() != Some(1) {
             bail!("Ripgrep exited with status {status}.");
         }
     }
-
-    Ok(SearchResult { matches, truncated })
+    result
 }
 
 #[cfg(test)]
