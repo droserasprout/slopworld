@@ -60,15 +60,23 @@ namespace SlopWorld
             a is object[] aa && b is object[] bb ? aa.SequenceEqual(bb) : Equals(a, b);
 
         public static object ValueAt(IMessage message, string path) =>
-            Leaves(message).TryGetValue(path, out var v) ? v : null;
+            ValueAtFromLeaves(Leaves(message), path);
+
+        public static object ValueAtFromLeaves(Dictionary<string, object> leaves, string path) =>
+            leaves.TryGetValue(path, out var value) ? value : null;
 
         public static Dictionary<string, object> Changes(IMessage current, IMessage baseline)
         {
-            var before = Leaves(baseline);
-            return Leaves(current)
-                .Where(p => !before.TryGetValue(p.Key, out var old) || !Equal(p.Value, old))
-                .ToDictionary(p => p.Key, p => p.Value);
+            return ChangesFromLeaves(Leaves(current), Leaves(baseline));
         }
+
+        public static Dictionary<string, object> ChangesFromLeaves(
+            Dictionary<string, object> current,
+            Dictionary<string, object> baseline
+        ) =>
+            current
+                .Where(p => !baseline.TryGetValue(p.Key, out var old) || !Equal(p.Value, old))
+                .ToDictionary(p => p.Key, p => p.Value);
 
         public static Wire.EditableConfig Apply(
             Wire.EditableConfig source,

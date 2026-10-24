@@ -179,14 +179,22 @@ namespace SlopWorld
             var oldBaseline = Baseline ?? Config.Snapshot();
             var oldRemote = RemoteBaseline ?? oldBaseline;
             var serverValue = server.Snapshot();
-            var dirty = ProtoFields.Changes(Config.Snapshot(), oldBaseline);
+            var currentLeaves = ProtoFields.Leaves(Config.Snapshot());
+            var oldBaselineLeaves = ProtoFields.Leaves(oldBaseline);
+            var serverLeaves = ProtoFields.Leaves(serverValue);
+            Dictionary<string, object> oldRemoteLeaves = null;
+            if (oldRemote != null)
+                oldRemoteLeaves = ReferenceEquals(oldRemote, oldBaseline)
+                    ? oldBaselineLeaves
+                    : ProtoFields.Leaves(oldRemote);
+            var dirty = ProtoFields.ChangesFromLeaves(currentLeaves, oldBaselineLeaves);
 
             Conflicts.Clear();
             foreach (var pair in dirty)
                 if (
                     !ProtoFields.Equal(
-                        ProtoFields.ValueAt(oldBaseline, pair.Key),
-                        ProtoFields.ValueAt(serverValue, pair.Key)
+                        ProtoFields.ValueAtFromLeaves(oldBaselineLeaves, pair.Key),
+                        ProtoFields.ValueAtFromLeaves(serverLeaves, pair.Key)
                     )
                 )
                     Conflicts.Add(pair.Key);
@@ -196,13 +204,16 @@ namespace SlopWorld
             // Keep the old baseline only for fields that the player is editing.
             var mergedBaseline = ProtoFields.Apply(
                 serverValue,
-                dirty.Keys.ToDictionary(k => k, k => ProtoFields.ValueAt(oldBaseline, k))
+                dirty.Keys.ToDictionary(
+                    k => k,
+                    k => ProtoFields.ValueAtFromLeaves(oldBaselineLeaves, k)
+                )
             );
             Config = DaemonConfig.FromSnapshot(merged);
             Config.CopyMetadataFrom(server);
             Baseline = mergedBaseline;
             RemoteBaseline = serverValue.Clone();
-            MergeTexts(serverValue, oldRemote);
+            MergeTexts(serverLeaves, oldRemoteLeaves, _fields, Conflicts);
             Error = null;
         }
 
@@ -235,10 +246,11 @@ namespace SlopWorld
             var metadata = Config;
             Config = DaemonConfig.FromSnapshot(RemoteBaseline);
             Config.CopyMetadataFrom(metadata);
+            var remoteLeaves = ProtoFields.Leaves(RemoteBaseline);
             foreach (var state in _fields.Values)
             {
                 state.Text = ValueText(
-                    ValueAt(RemoteBaseline, state.Path),
+                    ProtoFields.ValueAtFromLeaves(remoteLeaves, state.Path),
                     state.RemoteBaseline,
                     state.ZeroMeansBlank
                 );
@@ -290,8 +302,8 @@ namespace SlopWorld
         }
 
         static void MergeTexts(
-            Wire.EditableConfig server,
-            Wire.EditableConfig remoteBaseline,
+            Dictionary<string, object> serverLeaves,
+            Dictionary<string, object> remoteLeaves,
             Dictionary<string, DaemonConfigFieldState> fields,
             HashSet<string> conflicts
         )
@@ -300,15 +312,15 @@ namespace SlopWorld
             {
                 bool dirty = state.IsDirty;
                 string serverText = ValueText(
-                    ValueAt(server, state.Path),
+                    ProtoFields.ValueAtFromLeaves(serverLeaves, state.Path),
                     "",
                     state.ZeroMeansBlank
                 );
                 string remoteText =
-                    remoteBaseline == null
+                    remoteLeaves == null
                         ? state.RemoteBaseline
                         : ValueText(
-                            ValueAt(remoteBaseline, state.Path),
+                            ProtoFields.ValueAtFromLeaves(remoteLeaves, state.Path),
                             state.RemoteBaseline,
                             state.ZeroMeansBlank
                         );
@@ -324,12 +336,6 @@ namespace SlopWorld
                 state.RemoteBaseline = serverText;
             }
         }
-
-        void MergeTexts(Wire.EditableConfig server, Wire.EditableConfig remoteBaseline) =>
-            MergeTexts(server, remoteBaseline, _fields, Conflicts);
-
-        static object ValueAt(Wire.EditableConfig value, string path) =>
-            ProtoFields.ValueAt(value, path);
 
         static string ValueText(object value, string fallback, bool zeroMeansBlank = false)
         {
