@@ -115,6 +115,63 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void ControlLettersRetainAltWithoutAddingShift()
+        {
+            foreach (bool altScreen in new[] { false, true })
+            foreach (bool alt in new[] { false, true })
+            foreach (bool shift in new[] { false, true })
+                for (int letter = 0; letter < 26; letter++)
+                {
+                    var e = new Event
+                    {
+                        keyCode = (KeyCode)((int)KeyCode.A + letter),
+                        control = true,
+                        alt = alt,
+                        shift = shift,
+                    };
+                    string expected =
+                        e.keyCode == KeyCode.V
+                            ? null
+                            : (alt ? "C-M-" : "C-") + (char)('a' + letter);
+                    Assert.That(TerminalInputController.MapKey(e, altScreen), Is.EqualTo(expected));
+                }
+        }
+
+        public static void ControlPunctuationRetainsAltWithoutAddingShift()
+        {
+            var keys = new[]
+            {
+                (KeyCode.Space, "@"),
+                (KeyCode.At, "@"),
+                (KeyCode.LeftBracket, "["),
+                (KeyCode.Backslash, "\\"),
+                (KeyCode.RightBracket, "]"),
+                (KeyCode.Caret, "^"),
+                (KeyCode.Underscore, "_"),
+                (KeyCode.Alpha2, "@"),
+                (KeyCode.Alpha6, "^"),
+                (KeyCode.Minus, "_"),
+            };
+            foreach (bool altScreen in new[] { false, true })
+            foreach (bool alt in new[] { false, true })
+            foreach (bool shift in new[] { false, true })
+            foreach (var (key, character) in keys)
+            {
+                var e = new Event
+                {
+                    keyCode = key,
+                    control = true,
+                    alt = alt,
+                    shift = shift,
+                };
+                bool requiresShift =
+                    key == KeyCode.Alpha2 || key == KeyCode.Alpha6 || key == KeyCode.Minus;
+                string expected =
+                    requiresShift && !shift ? null : (alt ? "C-M-" : "C-") + character;
+                Assert.That(TerminalInputController.MapKey(e, altScreen), Is.EqualTo(expected));
+            }
+        }
+
         public static void RetainsControlCharactersAndNavigationPolicy()
         {
             var e = new Event

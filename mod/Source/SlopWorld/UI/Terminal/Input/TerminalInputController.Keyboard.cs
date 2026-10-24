@@ -36,6 +36,8 @@ namespace SlopWorld
                 mod += "C-";
             if (e.alt)
                 mod += "M-";
+            // Character shortcuts retain Ctrl/Alt but use their unshifted identity.
+            string characterMod = mod;
             bool functionKey = e.keyCode >= KeyCode.F1 && e.keyCode <= KeyCode.F12;
             if (e.shift && altScreen && !functionKey)
                 mod += "S-";
@@ -111,28 +113,28 @@ namespace SlopWorld
                 {
                     case KeyCode.Space:
                     case KeyCode.At:
-                        return "C-@";
+                        return characterMod + "@";
                     case KeyCode.LeftBracket:
-                        return "C-[";
+                        return characterMod + "[";
                     case KeyCode.Backslash:
-                        return "C-\\";
+                        return characterMod + "\\";
                     case KeyCode.RightBracket:
-                        return "C-]";
+                        return characterMod + "]";
                     case KeyCode.Caret:
-                        return "C-^";
+                        return characterMod + "^";
                     case KeyCode.Underscore:
-                        return "C-_";
+                        return characterMod + "_";
                     case KeyCode.Alpha2:
                         if (e.shift)
-                            return "C-@";
+                            return characterMod + "@";
                         break;
                     case KeyCode.Alpha6:
                         if (e.shift)
-                            return "C-^";
+                            return characterMod + "^";
                         break;
                     case KeyCode.Minus:
                         if (e.shift)
-                            return "C-_";
+                            return characterMod + "_";
                         break;
                 }
             }
@@ -140,12 +142,10 @@ namespace SlopWorld
             if (e.keyCode >= KeyCode.A && e.keyCode <= KeyCode.Z)
             {
                 char c = (char)('a' + (e.keyCode - KeyCode.A));
-                if (e.control)
-                    return "C-" + c;
-                if (e.alt)
+                if (e.control || e.alt)
                     // Alt letters use their unshifted identity, including Shift
                     // passthrough for workspace navigation on A/S/Z/X.
-                    return "M-" + c;
+                    return characterMod + c;
             }
 
             return null;
