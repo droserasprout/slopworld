@@ -109,6 +109,7 @@ namespace SlopWorld
         public void Update()
         {
             _transport.Update();
+            // TaskStore also retains demand from open task readers, independently of the sidebar.
             _tasks.Update(Sidebar.TasksVisible);
             PerfTraceReport.Report();
         }

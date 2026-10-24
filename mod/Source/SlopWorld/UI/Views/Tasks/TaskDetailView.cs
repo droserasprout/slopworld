@@ -17,6 +17,7 @@ namespace SlopWorld
 
         readonly string _taskId;
         TaskInfo _task;
+        IDisposable _pollingDemand;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly TaskTextSelection _selection = new TaskTextSelection();
         readonly MouseClickSequence _selectionClicks = new MouseClickSequence();
@@ -88,10 +89,15 @@ namespace SlopWorld
 
         public override string Title => "Task " + (_taskId ?? "");
 
-        public override void Opened() { }
+        public override void Opened()
+        {
+            _pollingDemand ??= SessionHub.Instance.TaskStore.OpenReader();
+        }
 
         public override void Closed()
         {
+            _pollingDemand?.Dispose();
+            _pollingDemand = null;
             _scroll.JumpTo(Vector2.zero);
             ClearSelection();
         }

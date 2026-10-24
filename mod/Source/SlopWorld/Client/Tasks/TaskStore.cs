@@ -5,8 +5,8 @@ using System.Linq;
 namespace SlopWorld
 {
     // Host task board backed by HTTP requests.
-    // The daemon has no task socket event, so poll periodically for the sidebar badge.
-    // Refresh immediately when the tab opens.
+    // The daemon has no task socket event, so poll while the board or a reader needs data.
+    // Reader lifetimes provide demand; this store owns the polling deadline.
     sealed class TaskStore
     {
         public List<TaskInfo> Tasks = new List<TaskInfo>();
@@ -14,6 +14,7 @@ namespace SlopWorld
         bool _loading;
         double _nextPoll;
         int _refreshSerial;
+        int _openReaders;
 
         // The runtime supplies monotonic seconds; polling policy has no game clock.
         readonly Func<double> _now;
@@ -33,11 +34,32 @@ namespace SlopWorld
 
         public int OpenTasks => Tasks.Count(t => !t.Terminal);
 
+        public IDisposable OpenReader()
+        {
+            _openReaders++;
+            return new ReaderDemand(this);
+        }
+
+        sealed class ReaderDemand : IDisposable
+        {
+            TaskStore _owner;
+
+            public ReaderDemand(TaskStore owner) => _owner = owner;
+
+            public void Dispose()
+            {
+                if (_owner == null)
+                    return;
+                _owner._openReaders--;
+                _owner = null;
+            }
+        }
+
         public void Update(bool needsData)
         {
             // Poll visible task data during WebSocket reconnection because HTTP is independent.
             // Use monotonic time for this local deadline.
-            if (!needsData || _loading || _now() < _nextPoll)
+            if ((!needsData && _openReaders == 0) || _loading || _now() < _nextPoll)
                 return;
             Refresh();
         }

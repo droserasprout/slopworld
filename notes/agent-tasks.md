@@ -25,3 +25,7 @@ order, independently of timestamps, with sender labels captured at update time.
 separate task policy. See [workers](daemon-workers.md) for startup and failure,
 [sidebar](mod-sidebar.md) for the board, and [slopctl](../docs/src/reference/slopctl.md)
 for commands.
+
+The mod's `TaskStore` owns HTTP polling deadlines. The visible sidebar board and
+open task readers independently demand polling; readers release their registration
+on close or replacement, so hiding or switching the sidebar cannot freeze a reader.

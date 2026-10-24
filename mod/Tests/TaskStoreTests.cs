@@ -157,6 +157,48 @@ namespace SlopWorld.Tests
             Assert.That(DaemonClient.Requests.Count, Is.EqualTo(2));
         }
 
+        public static void OpenReadersKeepPollingUntilLastReaderCloses()
+        {
+            DaemonClient.Requests.Clear();
+            double now = 100;
+            var store = new TaskStore(() => now, _ => { });
+            var first = store.OpenReader();
+            var second = store.OpenReader();
+            store.Update(false);
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1), "reader without sidebar");
+            store.Update(false);
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1), "one refresh in flight");
+            DaemonClient.Requests[0].Ok(Tasks(Task("task", 1)));
+
+            first.Dispose();
+            first.Dispose();
+            now = 109;
+            store.Update(false);
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1), "reader respects deadline");
+            now = 110;
+            store.Update(false);
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(2), "remaining reader still polls");
+            second.Dispose();
+            DaemonClient.Requests[1].Ok(Tasks(Task("task", 2)));
+            Assert.That(store.Tasks.Single().UpdatedMs, Is.EqualTo(2));
+
+            now = 120;
+            store.Update(false);
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(2), "last reader released demand");
+            store.Update(true);
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(3), "sidebar still polls");
+            DaemonClient.Requests[2].Ok(Tasks());
+
+            now = 130;
+            using (store.OpenReader())
+                store.Update(false);
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(4), "reader can reopen");
+            DaemonClient.Requests[3].Ok(Tasks());
+            now = 140;
+            store.Update(false);
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(4), "reopened reader cleaned up");
+        }
+
         public static void MutationInvalidatesPendingRefreshAndPreservesNewerTask()
         {
             DaemonClient.Requests.Clear();
