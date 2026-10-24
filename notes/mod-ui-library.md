@@ -13,6 +13,9 @@ Settings.
 changes invalidate delayed replies; failure retains successful rows. The daemon
 supplies Main and readiness state. Shared root-only transport does not imply shared
 filter or selection lifetime with the sidebar.
+Worktree mutation callbacks invalidate Library's inventory when the request settles,
+including failures that may have changed daemon state, so an earlier refresh cannot
+keep a removed checkout or an old name.
 
 Editors use `DialogSubmitState` for save admission/retry, disabling fields while saving.
 Placeholders never become editable values. See [daemon library](daemon-library.md),

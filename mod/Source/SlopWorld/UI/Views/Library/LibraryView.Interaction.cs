@@ -205,7 +205,6 @@ namespace SlopWorld
                         + "It unregisters unmanaged files without deleting them.",
                     () =>
                     {
-                        Worktrees.Invalidate();
                         DaemonClient.Send<Wire.Ack>(
                             "DELETE",
                             WireProtocol.Routes.Worktrees
@@ -214,8 +213,12 @@ namespace SlopWorld
                                 + "?project="
                                 + Uri.EscapeDataString(entry.Project),
                             null,
-                            _ => { },
-                            UiLayout.Fail,
+                            _ => InvalidateWorktrees(),
+                            error =>
+                            {
+                                InvalidateWorktrees();
+                                UiLayout.Fail(error);
+                            },
                             TaskInfo.Host,
                             60000
                         );

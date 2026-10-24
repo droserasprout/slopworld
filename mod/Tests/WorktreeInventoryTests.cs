@@ -111,5 +111,38 @@ namespace SlopWorld.Tests
             f.Requests[1].Ok(Reply("/new"));
             Assert.That(f.Inventory.WorktreesByProject["p"][0].Tree.Path, Is.EqualTo("/new"));
         }
+
+        public static void SettledMutationsRefreshRowsAndRejectPreMutationReplies()
+        {
+            foreach (bool removed in new[] { false, true })
+            {
+                var f = new Fixture();
+                f.Inventory.Update(Projects(), 1);
+                f.Requests[0].Ok(Reply());
+                // A refresh may begin while the daemon is still mutating the checkout.
+                f.Inventory.Invalidate();
+                f.Inventory.Update(Projects(), 1);
+
+                // Mutation completion invalidates even when projects/revision stay unchanged.
+                f.Inventory.Invalidate();
+                f.Inventory.Update(Projects(), 1);
+                Assert.That(f.Requests.Count, Is.EqualTo(3));
+                var settled = Reply();
+                if (removed)
+                    settled.Worktrees.RemoveAt(0);
+                else
+                    settled.Worktrees[0].Name = "renamed";
+                f.Requests[2].Ok(settled);
+                f.Requests[1].Ok(Reply());
+                f.Requests[1].Fail("late pre-mutation error");
+
+                var rows = f.Inventory.WorktreesByProject["p"];
+                Assert.That(
+                    rows.Select(row => row.Tree.Name),
+                    Is.EqualTo(removed ? new[] { "main" } : new[] { "main", "renamed" })
+                );
+                Assert.That(f.Inventory.WorktreeErrors, Is.Empty);
+            }
+        }
     }
 }

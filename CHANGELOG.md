@@ -12,9 +12,9 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Security
 
+- API: Revoke pending WebSocket commands and updates when the root token changes.
 - Files: Prevent crafted filenames from executing commands through file actions.
 - Git: Prevent worktree removal from modifying sibling checkouts through repository filters.
-- API: Revoke pending WebSocket commands and updates when the root token changes.
 
 ### Added
 
@@ -22,10 +22,18 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Fixed
 
+- Agents: Hide unsupported Edit and Shell actions for workers and temporary agents.
 - Agents: Prevent creating or restoring agents with names already used by shells or other sessions.
+- Game: Prevent player shortcuts from consuming number keys in dialogs.
 - Git: Added missing actions to file context menus.
+- Library: Refresh worktrees after renaming or removing them.
+- Settings: Preserve unfinished preset text when switching between entries.
 - Storage: Prevent trash cleanup from deleting private state during reset or restore.
+- Tasks: Keep task details updated when the Tasks sidebar is hidden.
+- Terminal: Preserve Alt in Ctrl+Alt keyboard shortcuts.
+- UI: Fixed Agents sidebar becoming empty after switching tabs.
 - UI: Fixed syntax highlighting in diffs breaking after long lines.
+- Workers: Use the selected agent's checkout when no base revision is specified.
 
 ## [0.0.10] - 2026-10-23
 

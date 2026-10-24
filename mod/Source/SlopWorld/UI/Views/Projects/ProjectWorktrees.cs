@@ -177,8 +177,16 @@ namespace SlopWorld
                     + "?project="
                     + Uri.EscapeDataString(_project),
                 null,
-                _ => Refresh(),
-                Fail,
+                _ =>
+                {
+                    LibraryView.InvalidateWorktrees();
+                    Refresh();
+                },
+                error =>
+                {
+                    LibraryView.InvalidateWorktrees();
+                    Fail(error);
+                },
                 TaskInfo.Host,
                 60000
             );
@@ -322,6 +330,7 @@ namespace SlopWorld
                 request,
                 tree =>
                 {
+                    LibraryView.InvalidateWorktrees();
                     if (_mode != Mode.Rename)
                         SidebarScopes.IncludeWorktree(_project, tree.Id);
                     _busy = false;
@@ -330,6 +339,7 @@ namespace SlopWorld
                 },
                 error =>
                 {
+                    LibraryView.InvalidateWorktrees();
                     _busy = false;
                     _error = error;
                 },

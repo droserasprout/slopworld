@@ -82,6 +82,9 @@ namespace SlopWorld
         static readonly WorktreeInventory Worktrees = new WorktreeInventory(
             (project, ok, fail) => WorktreeRequests.Load(project, ok, fail, 60000)
         );
+
+        internal static void InvalidateWorktrees() => Worktrees.Invalidate();
+
         static string _catalogError;
         static string _query = "";
         static string _kind = "";
