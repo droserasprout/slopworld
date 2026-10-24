@@ -79,6 +79,13 @@ namespace SlopWorld
                 return;
             if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null)
                 return;
+            // Game components receive keys before dialogs can consume them.
+            // Pawn shortcuts belong to the map only while no window or field owns input.
+            if (
+                Find.WindowStack?.AnyWindowAbsorbingAllInput == true
+                || GUIUtility.keyboardControl != 0
+            )
+                return;
 
             var e = Event.current;
             if (e.type != EventType.KeyDown)
