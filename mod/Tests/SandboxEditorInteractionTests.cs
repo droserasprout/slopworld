@@ -499,6 +499,102 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(appDraft, page.TestSelectedCommand, "app reselection retains draft");
             });
 
+        public static void PresetRawDraftsSurviveSelectionChanges() =>
+            Run(() =>
+            {
+                var first = new PresetInfo { Name = "first", Source = "user" };
+                var second = new PresetInfo { Name = "second", Source = "user" };
+                SessionHub.Instance.Presets.Add(first);
+                SessionHub.Instance.Presets.Add(second);
+                var page = new SandboxPage();
+                foreach (string name in new[] { "first", "second", "first", "second" })
+                {
+                    EditorTrace.PickRow = name;
+                    page.TestPresetList(300);
+                    var draft = page.TestSelectedPreset;
+                    page.TestPresetHost(draft, 300);
+                    string paths = " /" + name + " \n\n  \n";
+                    string environment = "VALUE=" + name + " \nFOO\n\n";
+                    if (draft.Ro.Count == 0)
+                    {
+                        EditorTrace.Edits["preset.ro"] = paths;
+                        EditorTrace.Edits["preset.setenv"] = environment;
+                        page.TestPresetHost(draft, 300);
+                        EditorTrace.Edits.Clear();
+                        page.TestPresetHost(draft, 300);
+                    }
+                    AssertEx.Equal(
+                        paths,
+                        EditorTrace.FieldValues["preset.ro"],
+                        "raw list for " + name
+                    );
+                    AssertEx.Equal(
+                        environment,
+                        EditorTrace.FieldValues["preset.setenv"],
+                        "unfinished environment for " + name
+                    );
+                    AssertEx.Sequence(new[] { "/" + name }, draft.Ro, "normalized path projection");
+                    AssertEx.False(draft.Setenv.ContainsKey("FOO"), "unfinished row stays raw");
+                }
+                AssertEx.Equal(0, first.Ro.Count, "catalog list remains unchanged");
+                AssertEx.Equal(0, second.Setenv.Count, "catalog environment remains unchanged");
+            });
+
+        public static void PresetRawDraftsFollowIdentityAndExplicitReset() =>
+            Run(() =>
+            {
+                var page = new SandboxPage();
+                var preset = new PresetInfo { Name = "sample", Source = "user" };
+                const string paths = " /raw \n\n";
+                const string environment = "KEY=value \nFOO\n";
+                EditorTrace.Edits["preset.ro"] = paths;
+                EditorTrace.Edits["preset.setenv"] = environment;
+                page.TestPresetHost(preset, 300);
+                EditorTrace.Edits.Clear();
+                preset.Name = "renamed";
+                page.TestPresetHost(preset, 300);
+                AssertEx.Equal(
+                    paths,
+                    EditorTrace.FieldValues["preset.ro"],
+                    "rename keeps raw list"
+                );
+                AssertEx.Equal(
+                    environment,
+                    EditorTrace.FieldValues["preset.setenv"],
+                    "rename keeps unfinished environment"
+                );
+                var replacement = preset.Copy();
+                page.TestPresetHost(replacement, 300);
+                AssertEx.Equal(
+                    "/raw",
+                    EditorTrace.FieldValues["preset.ro"],
+                    "replacement uses its list"
+                );
+                AssertEx.Equal(
+                    "KEY=value ",
+                    EditorTrace.FieldValues["preset.setenv"],
+                    "replacement uses its environment"
+                );
+                page.TestPresetHost(preset, 300);
+                AssertEx.Equal(
+                    paths,
+                    EditorTrace.FieldValues["preset.ro"],
+                    "old identity retains raw list"
+                );
+                page.TestClearRawDrafts();
+                page.TestPresetHost(preset, 300);
+                AssertEx.Equal(
+                    "/raw",
+                    EditorTrace.FieldValues["preset.ro"],
+                    "explicit reset rebuilds list"
+                );
+                AssertEx.Equal(
+                    "KEY=value ",
+                    EditorTrace.FieldValues["preset.setenv"],
+                    "explicit reset rebuilds environment"
+                );
+            });
+
         public static void EnvironmentEditsPreserveLiteralValues() =>
             Run(() =>
             {

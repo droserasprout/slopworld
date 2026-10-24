@@ -365,8 +365,8 @@ namespace SlopWorld
                 48f,
                 v =>
                 {
-                    _setenvText = v;
-                    ParseSetenv(p);
+                    _setenvDrafts[p] = v;
+                    ParseSetenv(p, v);
                 },
                 draw
             );
@@ -397,13 +397,13 @@ namespace SlopWorld
             return EditorList(view, y, "Shared files", "preset.shared", p.Shared, editable, draw);
         }
 
-        string _setenvText;
-        PresetInfo _setenvOwner;
+        readonly Dictionary<PresetInfo, string> _setenvDrafts =
+            new Dictionary<PresetInfo, string>();
 
-        void ParseSetenv(PresetInfo p)
+        static void ParseSetenv(PresetInfo p, string text)
         {
             p.Setenv.Clear();
-            foreach (var rawLine in (_setenvText ?? "").Split('\n'))
+            foreach (var rawLine in (text ?? "").Split('\n'))
             {
                 // Remove the CRLF delimiter, preserving whitespace in the value.
                 string line = rawLine.EndsWith("\r", StringComparison.Ordinal)
@@ -420,15 +420,14 @@ namespace SlopWorld
 
         string SetenvLines(PresetInfo p)
         {
-            if (_setenvOwner != p)
+            if (!_setenvDrafts.TryGetValue(p, out var text))
             {
-                _setenvOwner = p;
-                _setenvText = string.Join(
+                _setenvDrafts[p] = text = string.Join(
                     "\n",
                     p.Setenv.Select(x => x.Key + "=" + x.Value).ToArray()
                 );
             }
-            return _setenvText ?? "";
+            return text;
         }
 
         void DrawCommandEditor(Rect r) =>
@@ -628,13 +627,17 @@ namespace SlopWorld
 
         void BindAreas(object owner)
         {
-            // Names remain editable while creating an entry; only a different draft
-            // should replace its raw text and retained field geometry.
+            // Geometry follows the selected editor; raw documents follow their draft identities.
             if (ReferenceEquals(_areaOwner, owner))
                 return;
             _areaOwner = owner;
             _areas.Clear();
+        }
+
+        void ClearRawDrafts()
+        {
             _listDrafts.Clear();
+            _setenvDrafts.Clear();
         }
 
         float EditorArea(
@@ -687,17 +690,16 @@ namespace SlopWorld
         // is a normalized projection, never the source for the next native editor pass.
         sealed class ListDraft
         {
-            public readonly List<string> Items;
             public string Text;
 
             public ListDraft(List<string> items)
             {
-                Items = items;
                 Text = DaemonConfig.Lines(items);
             }
         }
 
-        readonly Dictionary<string, ListDraft> _listDrafts = new Dictionary<string, ListDraft>();
+        readonly Dictionary<List<string>, ListDraft> _listDrafts =
+            new Dictionary<List<string>, ListDraft>();
 
         float EditorList(
             Rect view,
@@ -709,10 +711,10 @@ namespace SlopWorld
             bool draw
         )
         {
-            if (!_listDrafts.TryGetValue(name, out var draft) || draft.Items != items)
+            if (!_listDrafts.TryGetValue(items, out var draft))
             {
                 draft = new ListDraft(items);
-                _listDrafts[name] = draft;
+                _listDrafts[items] = draft;
             }
             return EditorArea(
                 view,

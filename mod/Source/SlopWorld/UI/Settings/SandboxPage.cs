@@ -52,6 +52,7 @@ namespace SlopWorld
                     // Catalog completion publishes the winning revision before rebinding selection.
                     _presetDrafts.Clear();
                     _commandDrafts.Clear();
+                    ClearRawDrafts();
                     RebindSelection();
                     ApplyPendingSelection();
                     ApplyDeferredCreation();
@@ -155,8 +156,6 @@ namespace SlopWorld
             _preset = new PresetInfo { Name = name, Source = "user" };
             _command = null;
             _newEntry = true;
-            _setenvOwner = null;
-            _setenvText = "";
             _error = null;
         }
 

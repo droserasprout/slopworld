@@ -351,6 +351,8 @@ namespace SlopWorld
 
         public void TestFooter() => DoFooter(new Rect(0, 0, 200, 30));
 
+        public void TestClearRawDrafts() => ClearRawDrafts();
+
         public float TestPreset(PresetInfo p, float width, bool draw, bool isNew = false)
         {
             _newEntry = isNew;
