@@ -22,7 +22,7 @@ namespace SlopWorld
                 if (!string.IsNullOrEmpty(version))
                     return version;
             }
-            return "0.0.11";
+            return "0.0.12";
         }
 
         public ModEntry(ModContentPack content)

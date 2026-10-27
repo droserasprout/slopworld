@@ -1280,6 +1280,10 @@ fn nuget_alias_is_mounted_after_its_private_cli_home_overlay() {
         state_id: uuid::Uuid::new_v4().to_string(),
         ..Default::default()
     };
+    // Launch preparation creates this copy before mount assembly. Do not depend
+    // on the reserved CLI home already existing on the host running the test.
+    let copy = private_path(&session.state_id, "/tmp/slopworld-dotnet-cli").unwrap();
+    std::fs::create_dir_all(&copy).unwrap();
     let plan = assemble_plan(BuildArgs {
         cfg: &Config::default(),
         s: &session,
@@ -1297,8 +1301,12 @@ fn nuget_alias_is_mounted_after_its_private_cli_home_overlay() {
     let overlay = plan
         .mounts
         .windows(3)
-        .position(|w| w[0] == "--bind" && w[2] == "/tmp/slopworld-dotnet-cli")
-        .unwrap();
+        .position(|w| {
+            w[0] == "--bind"
+                && w[1] == copy.to_str().unwrap()
+                && w[2] == "/tmp/slopworld-dotnet-cli"
+        })
+        .expect("prepared private CLI home must be mounted");
     let alias = plan
         .mounts
         .windows(3)
@@ -1307,7 +1315,7 @@ fn nuget_alias_is_mounted_after_its_private_cli_home_overlay() {
                 && w[1] == source.to_str().unwrap()
                 && w[2] == "/tmp/slopworld-dotnet-cli/.nuget/packages"
         })
-        .unwrap();
+        .expect("selected NuGet source must be aliased inside the private CLI home");
     assert!(
         alias > overlay,
         "private overlay must not hide selected NuGet sources"

@@ -8,11 +8,11 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
-## [Unreleased]
+## [0.0.12] - 2026-10-27
 
 ### Added
 
-- CLI: Added shell completions for `slopctl`, `slopworld`, and `slopcar`.
+- CLI: Added colors and shell completions for `slopctl`, `slopworld`, and `slopcar`.
 
 ### Fixed
 
@@ -332,7 +332,8 @@ Initial release 🐈
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.11...HEAD
+[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.12...HEAD
+[0.0.12]: https://github.com/droserasprout/slopworld/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/droserasprout/slopworld/compare/v0.0.10...v0.0.11
 [0.0.10]: https://github.com/droserasprout/slopworld/compare/v0.0.9...v0.0.10
 [0.0.9]: https://github.com/droserasprout/slopworld/compare/v0.0.8...v0.0.9

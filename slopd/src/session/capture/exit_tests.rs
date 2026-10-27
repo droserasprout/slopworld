@@ -463,6 +463,18 @@ async fn adoption_finalizes_a_pane_that_exited_without_a_reader() {
     let Some(_root) = crate::test_support::isolated() else {
         return;
     };
+    assert_adoption_finalizes_exited_pane(false).await;
+}
+
+#[tokio::test]
+async fn maintenance_finalizes_an_exited_pane_after_adoption_attach_fails() {
+    let Some(_root) = crate::test_support::isolated() else {
+        return;
+    };
+    assert_adoption_finalizes_exited_pane(true).await;
+}
+
+async fn assert_adoption_finalizes_exited_pane(fail_attach: bool) {
     let socket = crate::test_support::TmuxSocket::new();
     let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
     let (session, task) = task_owned_session(&manager).await;
@@ -520,12 +532,23 @@ async fn adoption_finalizes_a_pane_that_exited_without_a_reader() {
     .unwrap();
 
     // No reader was present for the death hook. Exercise the actual adoption
-    // entry point, which must discover the exit after its control handshake.
+    // entry point, including maintenance recovery if attachment fails.
+    if fail_attach {
+        manager.tmux.fail_next_attach_for_test();
+    }
     manager
         .session_operation(manager.adopt_orphans(&Config::default()))
         .await;
+    if fail_attach {
+        let live = manager.live.read().await;
+        assert_eq!(live["worker"].state, State::Working);
+        assert!(live["worker"].capture.retry_at.is_some());
+    }
+    // This fixture has no daemon maintenance loop. Drive retries here so a
+    // transient attachment/status failure cannot strand the retained pane.
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
+            manager.retick().await;
             if manager.live.read().await["worker"].state == State::Down {
                 break;
             }
