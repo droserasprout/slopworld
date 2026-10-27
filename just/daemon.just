@@ -42,7 +42,7 @@ daemon-coverage:
     cargo llvm-cov --locked --no-report
     cargo llvm-cov report --cobertura --output-path "$output/rust.cobertura.xml"
     cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --cobertura --output-path "$output/rust.filtered.cobertura.xml"
-    cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --fail-under-lines 92.68 > "$output/rust.files.txt"
+    cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --fail-under-lines 92.68 | tee "$output/rust.files.txt"
 
 # Install the daemon, CLI, launcher and user service
 [group('daemon')]

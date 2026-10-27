@@ -316,6 +316,7 @@ async fn timeout_kills_and_reaps_the_child() {
     .unwrap_err();
 
     assert!(error.downcast_ref::<TimedOut>().is_some());
+    assert_eq!(error.to_string(), "process timed out");
     assert!(started.elapsed() < Duration::from_secs(2));
 
     let alive = StdCommand::new("kill")
@@ -326,6 +327,40 @@ async fn timeout_kills_and_reaps_the_child() {
         .success();
     drop(fs::remove_file(&marker));
     assert!(!alive, "timed-out child was not killed and reaped");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn missing_stdin_terminates_and_reaps_the_child() {
+    let mut command = Command::new("sh");
+    command.args(["-c", "while :; do :; done"]);
+    let child = spawn_child(&mut command, false).unwrap();
+    let pid = child.child.id().unwrap();
+    let error = tokio::time::timeout(
+        Duration::from_secs(5),
+        capture_child(
+            child,
+            Some(b"input"),
+            Duration::from_secs(10),
+            CaptureLimits {
+                stdout: 8,
+                stderr: 8,
+            },
+        ),
+    )
+    .await
+    .expect("missing stdin must trigger immediate cleanup")
+    .unwrap_err();
+    assert_eq!(error.to_string(), "capturing stdin");
+    assert!(
+        !StdCommand::new("kill")
+            .args(["-0", &pid.to_string()])
+            .stderr(Stdio::null())
+            .status()
+            .unwrap()
+            .success(),
+        "child must be terminated and reaped before returning the error"
+    );
 }
 
 #[cfg(unix)]
