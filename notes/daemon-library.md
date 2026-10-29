@@ -22,6 +22,10 @@ Breadcrumbs are manual; launch callers compose errand/worker prompts before deli
 before delivery; timeout withholds input. Temporary errands disappear on stop/exit
 and clean private state. Reader handles are opaque and reserved against configured
 and live names under the session boundary. Labels and intent are separate metadata.
+Codex startup delivery also requires a visible cursor on its composer row: startup
+banners can enable bracketed paste before the composer accepts input. Readiness is
+checked again at admission; successful terminal submission is not a task acceptance
+acknowledgement.
 [Saved host tabs](daemon-host-terminals.md) have a different persistence contract.
 
 [Configuration stores](daemon-config-stores.md) owns revision checks and recovery.

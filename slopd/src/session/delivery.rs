@@ -35,6 +35,7 @@ struct DeliveryTarget {
     identity: String,
     run_id: u64,
     requires_paste_mode: bool,
+    requires_codex_composer: bool,
 }
 
 impl DeliveryTarget {
@@ -43,13 +44,24 @@ impl DeliveryTarget {
     }
 
     fn input_ready(&self, live: &Live) -> bool {
-        !self.requires_paste_mode
+        let paste_ready = !self.requires_paste_mode
             || live
                 .capture
                 .emu
                 .as_ref()
                 .and_then(|emu| emu.lock().ok().map(|emu| emu.bracketed_paste_enabled()))
-                .unwrap_or(false)
+                .unwrap_or(false);
+        // Codex enables paste while its startup UI is still consuming input.
+        // A quiet banner is not its composer: require the visible cursor on the
+        // composer row, and recheck this at admission after waiting on locks.
+        let composer_ready = !self.requires_codex_composer
+            || live.screen.as_ref().is_some_and(|screen| {
+                screen
+                    .lines
+                    .get(usize::from(screen.cy))
+                    .is_some_and(|line| strip_sgr(line).trim_start().starts_with('›'))
+            });
+        paste_ready && composer_ready
     }
 }
 
@@ -61,6 +73,15 @@ impl SessionRuntime {
             name: name.to_string(),
             identity: live.cfg.state_id.clone(),
             run_id: live.run_id,
+            requires_codex_composer: !live.role.is_host()
+                && crate::sandbox::shell_split(&cfg.command_of(&live.cfg))
+                    .ok()
+                    .and_then(|argv| argv.into_iter().next())
+                    .is_some_and(|exe| {
+                        Path::new(&exe)
+                            .file_name()
+                            .is_some_and(|name| name == "codex")
+                    }),
             requires_paste_mode: !live.role.is_host()
                 && live.cfg.command_snapshot.as_ref().map_or_else(
                     || {

@@ -31,6 +31,7 @@ async fn delivery_fixture() -> (
     let mut live = Live::new(
         SessionCfg {
             name: "worker".into(),
+            cmd: Some("test-agent".into()),
             ..Default::default()
         },
         TitleCapture::default(),
@@ -82,6 +83,70 @@ async fn worker_bootstrap_is_pasted_intact_then_submitted_once() {
         .deliver(&manager.delivery_target("worker").await.unwrap(), prompt)
         .await;
     assert_prompt_submission(&mut rx, prompt).await;
+}
+
+#[tokio::test]
+async fn codex_startup_banner_with_paste_enabled_waits_for_the_composer() {
+    let (manager, mut rx) = delivery_fixture().await;
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("worker")
+        .unwrap()
+        .cfg
+        .cmd = Some("/usr/bin/codex --no-daemon".into());
+    let target = manager.delivery_target("worker").await.unwrap();
+    assert!(target.requires_codex_composer);
+    let emu = manager.live.read().await["worker"]
+        .capture
+        .emu
+        .clone()
+        .unwrap();
+    let frame = {
+        let mut emu = emu.lock().unwrap();
+        emu.feed(b"\x1b[2J\x1b[HUpdate available!\r\nStarting...");
+        emu.render()
+    };
+    manager.apply_frame("worker", frame).await;
+    assert_eq!(
+        manager
+            .wait_ready_until(
+                &target,
+                tokio::time::Instant::now() + Duration::from_millis(850)
+            )
+            .await,
+        Ready::Timeout
+    );
+    assert!(rx.try_recv().is_err());
+    let frame = {
+        let mut emu = emu.lock().unwrap();
+        emu.feed("\x1b[2J\x1b[H› Ask Codex to do anything\r\x1b[3G".as_bytes());
+        emu.render()
+    };
+    manager.apply_frame("worker", frame).await;
+    manager.deliver(&target, "Read your task").await;
+    assert_prompt_submission(&mut rx, "Read your task").await;
+    // A dialog or hidden cursor between readiness and admission must defer input.
+    for sequence in ["\r\nChoose an option", "\x1b[H\x1b[?25l"] {
+        let frame = {
+            let mut emu = emu.lock().unwrap();
+            emu.feed(sequence.as_bytes());
+            emu.render()
+        };
+        manager.apply_frame("worker", frame).await;
+        assert_eq!(
+            manager
+                .admit_delivery(
+                    &target,
+                    Some("not ready"),
+                    tokio::time::Instant::now() + READY_TIMEOUT
+                )
+                .await,
+            Admission::Retry
+        );
+        assert!(rx.try_recv().is_err());
+    }
 }
 
 #[tokio::test]
