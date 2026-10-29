@@ -177,3 +177,73 @@ async fn only_root_rotation_advances_the_root_credential_generation() {
         Some(Cap::Root)
     ));
 }
+
+#[tokio::test]
+async fn relationship_roles_follow_stable_identity_and_keep_manual_grants_independent() {
+    use crate::config::WorkerAccess;
+    let mut cfg = config();
+    cfg.sessions[0].state_id = "1111111111111111".into();
+    cfg.sessions[1].worker = true;
+    cfg.sessions[1].parent = "grantor".into();
+    cfg.sessions[1].parent_id = "1111111111111111".into();
+    let manager = test_manager(cfg);
+    let cap = Cap::Scoped(crate::grant::Grant {
+        grantor: "grantor".into(),
+        sessions: ["grantor".into()].into(),
+        level: Level::Rw,
+        revoked: Default::default(),
+    });
+    for bits in 0..16 {
+        let role = WorkerAccess {
+            followup: bits & 1 != 0,
+            cancel: bits & 2 != 0,
+            terminal: bits & 4 != 0,
+            lifecycle: bits & 8 != 0,
+        };
+        manager.config_authority.write().await.sessions[1].parent_access = role;
+        assert_eq!(manager.worker_access(&cap, "target").await, Some(role));
+        assert!(manager.worker_diagnostics_ok(&cap, "target").await);
+        assert_eq!(
+            manager.terminal_cap_ok(&cap, "target", Level::Rw).await,
+            role.terminal
+        );
+        assert_eq!(
+            manager.worker_lifecycle_ok(&cap, "target").await,
+            role.lifecycle
+        );
+        assert!(
+            !manager.cap_ok(&cap, "target", Level::Rw).await,
+            "relationship is not a generic write grant"
+        );
+        assert!(!manager.terminal_cap_ok(&cap, "unrelated", Level::Ro).await);
+    }
+    // Renaming preserves the relationship; replacing a parent at the same name does not.
+    manager.config_authority.write().await.sessions[0].name = "renamed".into();
+    let mut renamed = cap.clone();
+    if let Cap::Scoped(grant) = &mut renamed {
+        grant.grantor = "renamed".into();
+    }
+    assert_eq!(
+        manager.worker_access(&renamed, "target").await,
+        Some(WorkerAccess::all())
+    );
+    manager.config_authority.write().await.sessions[0].state_id = "2222222222222222".into();
+    assert_eq!(manager.worker_access(&renamed, "target").await, None);
+    // A manual read grant remains a read grant, even without relationship authority.
+    if let Cap::Scoped(grant) = &mut renamed {
+        grant.sessions.insert("target".into());
+        grant.level = Level::Ro;
+    }
+    assert!(manager.terminal_cap_ok(&renamed, "target", Level::Ro).await);
+    assert!(!manager.terminal_cap_ok(&renamed, "target", Level::Rw).await);
+    manager.config_authority.write().await.sessions[1]
+        .parent_id
+        .clear();
+    assert_eq!(manager.worker_access(&renamed, "target").await, None);
+    if let Cap::Scoped(grant) = &renamed {
+        grant
+            .revoked
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
+    assert!(!manager.worker_diagnostics_ok(&renamed, "target").await);
+}

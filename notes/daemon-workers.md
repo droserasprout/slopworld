@@ -37,3 +37,26 @@ after disconnect.
 See [redeploy](daemon-redeploy.md) for adoption, [sidebar](mod-sidebar.md) for hierarchy,
 [Workers settings](../docs/src/customization/settings.md#workers) for prompt policy,
 and [slopctl](../docs/src/reference/slopctl.md) for commands.
+
+`config/worker_policy.rs` owns portable delegation settings. The daemon allowlist,
+maximum access, and recursion ceiling constrain spawn; the caller and template may
+narrow them. Spawn captures the parent state ID, relationship access, and child policy.
+Policy edits do not rewrite existing relationships. Recovery retains captured IDs;
+legacy workers without one cannot gain authority through a name-only edit.
+Stored named permission bundles decode to independent flags without widening access;
+saving emits only the flag representation. This also applies to template snapshots.
+
+`session/caps.rs` resolves direct relationships by stable identity. All parents can read diagnostics. Follow-ups, task cancellation, terminal input,
+and stop/restart each have an independent permission. Terminal frames require
+terminal permission; lifecycle permission does not imply it. None grants generic
+file/configuration authority. Manual grants remain
+independent. `api/ws/outbound.rs` rechecks current relationship access at serialized
+publication, including buffered and scroll frames on existing connections.
+
+The root-only relationship editor persists durable workers through configuration and
+one-shot workers through their credential-free tmux snapshot. Edits compare the
+worker task ID so a stale editor cannot modify a replacement with the same name. Follow-ups retain an
+owned exclusive session boundary through audit and admission, serializing cancellation,
+relationship edits, and run replacement. Delivery rejects shells, requires agent
+readiness, and rechecks foreground command before queued paste and Enter. Submission
+is recorded in task history without claiming acceptance or changing the task result.

@@ -127,7 +127,15 @@ pub struct SessionCfg {
     #[serde(default)]
     pub auto_resume: bool,
 
+    /// Portable policy affects future workers only.
+    #[serde(default)]
+    pub workers: super::WorkerPolicy,
+
     // Worker identity, set only by delegated-task creation.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub parent_id: String,
+    #[serde(default, skip_serializing_if = "super::WorkerAccess::is_default")]
+    pub parent_access: super::WorkerAccess,
     /// Ordinary session creation clears worker metadata.
     #[serde(default, skip_serializing_if = "is_false")]
     pub worker: bool,
@@ -193,6 +201,9 @@ impl Default for SessionCfg {
             limits: Limits::default(),
             autostart: false,
             auto_resume: false,
+            workers: super::WorkerPolicy::default(),
+            parent_id: String::new(),
+            parent_access: super::WorkerAccess::default(),
             worker: false,
             parent: String::new(),
             task_id: String::new(),

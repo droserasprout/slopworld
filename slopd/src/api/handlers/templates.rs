@@ -67,11 +67,17 @@ pub(crate) async fn list_spawnable_templates(
             .await
             .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
         let enabled = Workers::new(&m).worker_template_names().await;
+        let policy = m
+            .sessions
+            .session_cfg(&caller)
+            .await
+            .map(|s| s.workers)
+            .unwrap_or_default();
         return reply(json!({
             "templates": m.services.templates.list()
                 .await
                 .into_iter()
-                .filter(|template| enabled.contains(&template.name))
+                .filter(|template| enabled.contains(&template.name) && policy.allows(&template.name))
                 .collect::<Vec<_>>(),
             "project": project,
         }));

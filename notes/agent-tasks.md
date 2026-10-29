@@ -2,7 +2,8 @@
 
 `tasks/service.rs` owns policy and participant authority; `tasks/io.rs` owns serialized
 persistence and accepted state. Session/API adapters resolve callers. Sandboxes use
-APIs, never task files. Arrival does not wake an agent, and reads do not consume tasks.
+APIs, never task files. Arrival does not wake an agent, and reads do not consume tasks. Explicit worker
+follow-ups use the worker delivery path, with audit notes that preserve task status.
 
 Authority follows stable session IDs: rename preserves it, replacement under the same
 name does not. It is separate from [terminal grants](agent-grants.md). Participants
@@ -31,3 +32,8 @@ for commands.
 The mod's `TaskStore` owns HTTP polling deadlines. The visible sidebar board and
 open task readers independently demand polling; readers release their registration
 on close or replacement, so hiding or switching the sidebar cannot freeze a reader.
+
+Supervised cancellation carries a checked selection into the task store. It applies
+only to the sender's worker tasks and may cancel working tasks; ordinary recipient
+cancellation retains its queued/accepted policy. Cancellation preserves the latest
+result note and prevents subsequent recipient updates. It does not stop the process.

@@ -465,3 +465,141 @@ async fn queued_auto_resume_submits_current_run_and_publishes_completion() {
         );
     }
 }
+
+#[tokio::test]
+async fn followups_reject_shell_templates_hosts_and_control_sequences_before_queueing() {
+    let (manager, mut rx) = delivery_fixture().await;
+    {
+        let mut live = manager.live.write().await;
+        let worker = live.get_mut("worker").unwrap();
+        worker.cfg.worker = true;
+        worker.state = State::Idle;
+        worker.cfg.command_snapshot = Some(crate::presets::CommandPreset {
+            name: "captured-shell".into(),
+            kind: crate::presets::CommandKind::Shell,
+            cmd: "test-agent".into(),
+            ..Default::default()
+        });
+    }
+    let error = manager
+        .followup_delivery("worker", "hello\nrm -rf fake")
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("shell template"), "{error}");
+    {
+        let mut live = manager.live.write().await;
+        let worker = live.get_mut("worker").unwrap();
+        worker.cfg.command_snapshot = None;
+        worker.cfg.cmd = Some("/bin/bash".into());
+    }
+    assert!(
+        manager
+            .followup_delivery("worker", "hello")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("shell workers")
+    );
+    assert!(
+        manager
+            .followup_delivery("worker", "\u{1b}[200~")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("control")
+    );
+    manager.live.write().await.get_mut("worker").unwrap().state = State::Down;
+    assert!(
+        manager
+            .followup_delivery("worker", "hello")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("live task worker")
+    );
+    {
+        let mut live = manager.live.write().await;
+        let worker = live.get_mut("worker").unwrap();
+        worker.state = State::Idle;
+        worker.role = SessionRole::HostShell;
+    }
+    assert!(
+        manager
+            .followup_delivery("worker", "hello")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("live task worker")
+    );
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn followup_submits_guarded_paste_and_enter_to_a_live_agent() {
+    let (manager, mut rx) = delivery_fixture().await;
+    {
+        let mut live = manager.live.write().await;
+        let worker = live.get_mut("worker").unwrap();
+        worker.cfg.worker = true;
+        worker.state = State::Idle;
+    }
+    let root = manager.cfg_path().parent().unwrap();
+    let script = r#"import os, pathlib, tty
+root = pathlib.Path('.')
+tty.setraw(0)
+os.write(1, b'\x1b[?2004hready> ')
+(root / 'followup-ready').write_text('ready')
+data = bytearray()
+while not data.endswith(b'\r'):
+    data.extend(os.read(0, 65536))
+(root / 'followup-received').write_bytes(data)
+import time
+time.sleep(60)
+"#;
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            root.to_str().unwrap(),
+            80,
+            24,
+            &["python3".into(), "-c".into(), script.into()],
+            false,
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !root.join("followup-ready").exists() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    manager
+        .followup_delivery("worker", "Check the tests λ")
+        .await
+        .unwrap();
+    let paste = rx.recv().await.unwrap();
+    assert!(
+        matches!(&paste.command, Input::AgentPaste { bytes } if String::from_utf8_lossy(bytes).contains("Check the tests λ"))
+    );
+    SessionRuntime::send_input(&manager.tmux, "worker", paste).await;
+    let gap = rx.recv().await.unwrap();
+    assert!(matches!(&gap.command, Input::Gap(_)));
+    SessionRuntime::send_input(&manager.tmux, "worker", gap).await;
+    let enter = rx.recv().await.unwrap();
+    assert!(matches!(&enter.command, Input::AgentEnter));
+    SessionRuntime::send_input(&manager.tmux, "worker", enter).await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !root.join("followup-received").exists() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let received = std::fs::read(root.join("followup-received")).unwrap();
+    let expected =
+        "\u{1b}[200~Follow-up from your supervising agent:\nCheck the tests λ\u{1b}[201~\r";
+    assert_eq!(received, expected.as_bytes());
+    assert!(rx.try_recv().is_err());
+}

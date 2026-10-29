@@ -19,6 +19,9 @@ message Daemon {
   string task_summaries = 13;
   Instructions instructions = 14;
   repeated string worker_templates = 15;
+  reserved 17;
+  WorkerAccess worker_access = 19;
+  optional bool worker_recursive = 18;
 }
 
 message Instructions {
@@ -70,6 +73,32 @@ message Project {
   optional string worktree_root = 7;
 }
 
+message WorkerAccess {
+  optional bool followup = 1;
+  optional bool cancel = 2;
+  optional bool terminal = 3;
+  optional bool lifecycle = 4;
+}
+
+message WorkerAccessReq {
+  reserved 1;
+  WorkerAccess access = 4;
+  WorkerPolicy workers = 2;
+  string task_id = 3;
+}
+message WorkerFollowupReq {
+  string body = 1;
+}
+
+message WorkerPolicy {
+  optional bool enabled = 1;
+  repeated string templates = 2;
+  optional bool all_templates = 3;
+  reserved 4;
+  WorkerAccess access = 6;
+  optional bool recursive = 5;
+}
+
 message SessionConfig {
   optional string name = 1;
   optional string label = 2;
@@ -91,6 +120,7 @@ message SessionConfig {
   optional string task_id = 18;
   optional string worktree = 19;
   optional string args = 20;
+  WorkerPolicy workers = 21;
 }
 
 message HostTerminalCfg {
@@ -146,13 +176,17 @@ message SessionLaunchView {
   bool autostart = 11;
   bool auto_resume = 12;
   optional string args = 13;
+  WorkerPolicy workers = 14;
 }
 
 message SessionWorkerView {
+  bool parent_bound = 6;
   bool enabled = 1;
   string parent = 2;
   string task_id = 3;
   bool durable = 4;
+  reserved 5;
+  WorkerAccess access = 7;
 }
 
 message SessionReaderView {
@@ -261,6 +295,7 @@ message AgentTemplateDefaults {
   optional bool autostart = 9;
   optional bool auto_resume = 10;
   optional string args = 11;
+  WorkerPolicy workers = 12;
 }
 
 message UsageWindow {

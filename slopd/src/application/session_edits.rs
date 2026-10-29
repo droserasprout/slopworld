@@ -63,6 +63,8 @@ impl SessionEdits {
                 // Ignore hierarchy fields supplied through the ordinary session editor.
                 s.worker = false;
                 s.parent.clear();
+                s.parent_id.clear();
+                s.parent_access = Default::default();
                 s.task_id.clear();
                 // Clients cannot select an agent's persistent state identity.
                 // Generate a new key even if the request supplies an old one.
@@ -179,6 +181,8 @@ impl SessionEdits {
                 // write model intentionally does not expose these fields.
                 s.worker = previous.worker;
                 s.parent = previous.parent;
+                s.parent_id = previous.parent_id;
+                s.parent_access = previous.parent_access;
                 s.task_id = previous.task_id;
                 // Preserve the agent's private state identity during all edits, including renames.
                 // The protocol does not expose this field and must not permit changes to it.

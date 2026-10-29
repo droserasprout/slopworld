@@ -22,6 +22,20 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
+            WorkerPermissionFields.Draw(
+                l,
+                "Permissions available for new workers",
+                _cfg.WorkerAccess
+            );
+            _cfg.WorkerRecursive = UiControls.Checkbox(
+                l,
+                "Permit agents to enable further worker delegation",
+                _cfg.WorkerRecursive
+            );
+            UiLayout.Note(
+                l,
+                "These limits apply at spawn. Existing relationship access is edited on each worker's Workers tab."
+            );
             UiLayout.SectionHeading(l, "Templates");
             UiLayout.Note(
                 l,

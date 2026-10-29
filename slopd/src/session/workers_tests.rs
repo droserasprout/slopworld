@@ -244,6 +244,7 @@ async fn durable_worker_parent_survives_a_daemon_restart() {
         sessions: vec![
             SessionCfg {
                 name: "caller".into(),
+                state_id: "1111111111111111".into(),
                 project: "repo".into(),
                 ..Default::default()
             },
@@ -252,6 +253,7 @@ async fn durable_worker_parent_survives_a_daemon_restart() {
                 project: "repo".into(),
                 worker: true,
                 parent: "caller".into(),
+                parent_id: "1111111111111111".into(),
                 task_id: "task-7".into(),
                 ..Default::default()
             },

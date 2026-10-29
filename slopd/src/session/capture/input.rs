@@ -152,6 +152,22 @@ impl SessionRuntime {
             Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
             Input::Bytes(bytes) => ("bytes", tmux.send_bytes(name, &bytes).await),
             Input::Paste { bytes } => ("paste", tmux.paste_bytes(name, &bytes).await),
+            Input::AgentPaste { bytes } => (
+                "worker follow-up",
+                async {
+                    tmux.require_agent_input(name).await?;
+                    tmux.paste_bytes(name, &bytes).await
+                }
+                .await,
+            ),
+            Input::AgentEnter => (
+                "worker follow-up submit",
+                async {
+                    tmux.require_agent_input(name).await?;
+                    tmux.send_keys(name, &["Enter".into()], false).await
+                }
+                .await,
+            ),
             Input::Gap(delay) => {
                 tokio::time::sleep(delay).await;
                 return;

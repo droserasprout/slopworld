@@ -25,6 +25,19 @@ impl SessionRuntime {
         self.live.write().await.insert(session.name.clone(), live);
     }
 
+    pub(crate) async fn set_temporary_worker_access(&self, session: &SessionCfg) -> Result<()> {
+        self.tmux.set_worker_config(&session.name, session).await?;
+        if let Some(live) = self.live.write().await.get_mut(&session.name) {
+            anyhow::ensure!(
+                live.cfg.state_id == session.state_id,
+                "Worker identity changed"
+            );
+            live.cfg.parent_access = session.parent_access;
+            live.cfg.workers = session.workers.clone();
+        }
+        Ok(())
+    }
+
     async fn fresh_worker_name(&self, owner: &str) -> String {
         let base = format!("{owner}-worker");
         let cfg = self.config().await;
@@ -57,6 +70,8 @@ impl SessionRuntime {
             match self.session_cfg(caller).await {
                 Some(session) => workers::Caller::Agent {
                     project: session.project,
+                    identity: session.state_id,
+                    policy: session.workers,
                 },
                 None => workers::Caller::Missing,
             }

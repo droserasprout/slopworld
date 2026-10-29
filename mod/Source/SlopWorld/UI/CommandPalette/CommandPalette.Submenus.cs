@@ -42,7 +42,7 @@ namespace SlopWorld
             AgentOptions(s => !s.Ephemeral && !s.Host, "(no agents)");
 
         static List<SubOption> AgentsSubEditable() =>
-            AgentOptions(s => !s.Ephemeral && !s.Host && !s.Worker, "(no editable agents)");
+            AgentOptions(s => (!s.Ephemeral || s.Worker) && !s.Host, "(no editable agents)");
 
         static List<SubOption> AgentsSubWithPawn()
         {

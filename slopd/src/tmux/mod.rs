@@ -500,6 +500,25 @@ impl Tmux {
 
     /// The process tmux created for pane zero. A missing pane is a live-state observation, not a
     /// successful launch, so callers keep the saved plan and report the observation as unknown.
+    /// Follow-up input must never be consumed by a shell after an agent exits.
+    pub(crate) async fn require_agent_input(&self, name: &str) -> Result<()> {
+        let target = format!("{name}:.0");
+        let value = self
+            .run(&[
+                "display-message",
+                "-p",
+                "-t",
+                &target,
+                "#{pane_dead}|#{pane_current_command}",
+            ])
+            .await?;
+        anyhow::ensure!(
+            agent_input_active(&value),
+            "Worker is not running an interactive agent; follow-up withheld"
+        );
+        Ok(())
+    }
+
     pub async fn pane_pid(&self, name: &str) -> Option<u32> {
         self.run(&[
             "display-message",
@@ -1030,3 +1049,9 @@ fn parse_length_framed_field(input: &str) -> Option<(Option<String>, &str)> {
 
 #[cfg(test)]
 mod tests;
+
+fn agent_input_active(value: &str) -> bool {
+    value.trim().split_once('|').is_some_and(|(dead, command)| {
+        dead == "0" && !command.is_empty() && !crate::sandbox::is_shell_command(command)
+    })
+}

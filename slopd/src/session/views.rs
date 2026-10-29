@@ -49,6 +49,7 @@ impl SessionRuntime {
                             .unwrap_or_else(|| p.map(|p| p.dir.clone()).unwrap_or_default())
                     },
                     launch: SessionLaunchView {
+                        workers: l.cfg.workers.clone(),
                         command: l.cfg.command.clone(),
                         command_preset: cfg.command_name(&l.cfg),
                         cmd: l.cfg.cmd.clone(),
@@ -65,8 +66,10 @@ impl SessionRuntime {
                         auto_resume: l.cfg.auto_resume && !l.cfg.worker,
                     },
                     worker: SessionWorkerView {
+                        parent_bound: !l.cfg.parent_id.is_empty(),
+                        access: l.cfg.parent_access,
                         enabled: l.cfg.worker,
-                        parent: l.cfg.parent.clone(),
+                        parent: parent_name(&l.cfg, &live),
                         task_id: l.cfg.task_id.clone(),
                         durable: l.cfg.worker && l.role.is_durable_agent(),
                     },
@@ -106,5 +109,19 @@ impl SessionRuntime {
         self.emit(Event::Sessions {
             sessions: self.views().await,
         });
+    }
+}
+
+/// Presentation follows stable identity too, so a reused name cannot acquire a sidebar child.
+fn parent_name(session: &SessionCfg, live: &HashMap<String, Live>) -> String {
+    if session.parent_id == crate::tasks::HOST {
+        crate::tasks::HOST.into()
+    } else if !session.parent_id.is_empty() {
+        live.values()
+            .find(|parent| !parent.role.is_host() && parent.cfg.state_id == session.parent_id)
+            .map(|parent| parent.cfg.name.clone())
+            .unwrap_or_else(|| format!("{} (unavailable)", session.parent))
+    } else {
+        String::new()
     }
 }

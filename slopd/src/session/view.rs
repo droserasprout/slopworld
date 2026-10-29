@@ -63,6 +63,7 @@ pub struct SessionRuntimeView {
 /// Command selection and effective settings for launching the session.
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionLaunchView {
+    pub workers: crate::config::WorkerPolicy,
     // Configured command selection and resolved preset.
     pub command: String,
     /// Resolved preset; empty for a custom command without a preset sandbox.
@@ -87,6 +88,8 @@ pub struct SessionLaunchView {
 /// Explicit task hierarchy and worker persistence.
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionWorkerView {
+    pub parent_bound: bool,
+    pub access: crate::config::WorkerAccess,
     /// Task-owned child; clients must not infer this from names or presets.
     pub enabled: bool,
     pub parent: String,

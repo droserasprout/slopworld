@@ -448,3 +448,73 @@ fn cancel_and_worker_failure_append_once_without_repeating_the_latest_note() {
     assert_eq!(failed.history[1].status, Status::Failed);
     assert_eq!(failed.history[1].note.as_deref(), Some("exited"));
 }
+
+#[test]
+fn supervised_cancellation_is_scoped_and_followup_history_preserves_result_and_status() {
+    let mut f = Fixture::new();
+    let task = f
+        .tasks
+        .create_worker(
+            "parent".into(),
+            "worker".into(),
+            "work".into(),
+            "parent".into(),
+            true,
+        )
+        .unwrap();
+    f.tasks
+        .update(
+            "worker",
+            "worker",
+            &task.id,
+            Status::Working,
+            Some("progress".into()),
+        )
+        .unwrap();
+    f.tasks
+        .followup_note(&task.id, "parent", "Follow-up requested: verify".into())
+        .unwrap();
+    let updated = f.tasks.get("parent", &task.id).unwrap();
+    assert_eq!(updated.status, Status::Working);
+    assert_eq!(updated.note.as_deref(), Some("progress"));
+    assert_eq!(updated.history.last().unwrap().sender, "parent");
+    f.tasks
+        .cancel_many("parent", "parent", std::slice::from_ref(&task.id), false)
+        .unwrap_err();
+    f.tasks
+        .cancel_supervised(
+            "stranger",
+            "stranger",
+            std::slice::from_ref(&task.id),
+            false,
+            std::slice::from_ref(&task.id),
+        )
+        .unwrap_err();
+    let result = f
+        .tasks
+        .cancel_supervised(
+            "parent",
+            "parent",
+            std::slice::from_ref(&task.id),
+            false,
+            std::slice::from_ref(&task.id),
+        )
+        .unwrap();
+    assert_eq!(result.committed.as_slice(), std::slice::from_ref(&task.id));
+    assert_eq!(result.tasks[0].note.as_deref(), Some("progress"));
+    assert_eq!(result.tasks[0].history.last().unwrap().sender, "parent");
+    f.tasks
+        .update("worker", "worker", &task.id, Status::Done, None)
+        .unwrap_err();
+    let again = f
+        .tasks
+        .cancel_supervised(
+            "parent",
+            "parent",
+            std::slice::from_ref(&task.id),
+            false,
+            std::slice::from_ref(&task.id),
+        )
+        .unwrap();
+    assert_eq!(again.unchanged, [task.id]);
+}

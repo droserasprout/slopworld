@@ -119,6 +119,18 @@ http:
       path: "/api/tasks"
       methods: [GET, POST, DELETE]
       scope: scoped
+    worker_access:
+      protobuf:
+        PUT: [WorkerAccessReq, Ack]
+      path: "/api/sessions/:name/worker-access"
+      methods: [PUT]
+      scope: root
+    task_followup:
+      protobuf:
+        POST: [WorkerFollowupReq, Ack]
+      path: "/api/tasks/:id/followup"
+      methods: [POST]
+      scope: scoped
     tasks_cancel:
       protobuf:
         POST: [RemoveTasksReq, TaskBatchResult]

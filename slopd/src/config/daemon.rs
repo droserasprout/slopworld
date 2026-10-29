@@ -71,6 +71,10 @@ pub struct Daemon {
     /// Allowed worker templates; catalog edits do not alter existing workers.
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub worker_templates: BTreeSet<String>,
+    #[serde(default = "default_worker_access")]
+    pub worker_access: super::WorkerAccess,
+    #[serde(default = "super::yes")]
+    pub worker_recursive: bool,
 }
 
 /// Settings for the prompt delivered to a new task worker.
@@ -143,6 +147,10 @@ fn default_pi_title_policy() -> TitlePolicy {
     TitlePolicy::Always
 }
 
+fn default_worker_access() -> super::WorkerAccess {
+    super::WorkerAccess::all()
+}
+
 impl Default for Daemon {
     fn default() -> Self {
         Self {
@@ -161,6 +169,8 @@ impl Default for Daemon {
             task_summaries: TitlePolicy::Never,
             instructions: InstructionsCfg::default(),
             worker_templates: BTreeSet::new(),
+            worker_access: default_worker_access(),
+            worker_recursive: true,
         }
     }
 }

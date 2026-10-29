@@ -28,6 +28,8 @@ namespace SlopWorld
             public const string Template = "/api/templates/:name";
             public const string TemplateCreate = "/api/templates/:name/create";
             public const string Tasks = "/api/tasks";
+            public const string WorkerAccess = "/api/sessions/:name/worker-access";
+            public const string TaskFollowup = "/api/tasks/:id/followup";
             public const string TasksCancel = "/api/tasks/cancel";
             public const string TasksRemove = "/api/tasks/remove";
             public const string Task = "/api/tasks/:id";

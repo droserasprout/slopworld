@@ -34,6 +34,9 @@ pub(super) const AGENT: &[&str] = &[
     "limits",
     "autostart",
     "auto_resume",
+    "workers",
+    "parent_id",
+    "parent_access",
     "worker",
     "parent",
     "task_id",
@@ -69,6 +72,13 @@ const SANDBOX: &[&str] = &[
 ];
 const LIMITS: &[&str] = &["memory_mb", "pids", "nofile", "cpu_pct"];
 const DNS: &[&str] = &["mode", "servers"];
+const WORKERS: &[&str] = &[
+    "enabled",
+    "templates",
+    "all_templates",
+    "access",
+    "recursive",
+];
 
 pub(super) fn decode(raw: &toml::Value) -> Result<SessionCfg> {
     let mut modeled = raw.clone();
@@ -76,6 +86,7 @@ pub(super) fn decode(raw: &toml::Value) -> Result<SessionCfg> {
     // them as extensions without interpreting them as current policy.
     for (field, keys) in [
         ("limits", LIMITS),
+        ("workers", WORKERS),
         ("dns", DNS),
         ("command_snapshot", COMMAND),
     ] {
@@ -102,6 +113,7 @@ pub(super) fn prepare(
     let mut new = super::document::prepare(value, order, old, AGENT)?;
     for (field, keys) in [
         ("limits", LIMITS),
+        ("workers", WORKERS),
         ("dns", DNS),
         ("command_snapshot", COMMAND),
     ] {

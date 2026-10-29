@@ -31,6 +31,7 @@ use super::{App, err, presented_token};
 struct WsTx {
     sink: Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>,
     authority: Arc<crate::application::ConfigAuthority>,
+    sessions: Arc<crate::session::SessionRuntime>,
     root_generation: Option<u64>,
 }
 
@@ -44,6 +45,7 @@ impl WsTx {
         Self {
             sink: Arc::new(Mutex::new(sink)),
             authority: m.config_authority.clone(),
+            sessions: m.sessions.clone(),
             root_generation: cap.may_create().then_some(root_generation),
         }
     }
@@ -93,7 +95,11 @@ impl ScrollReplies {
         let tx = tx.clone();
         let capture = tokio::spawn(async move {
             let operation = async {
-                if !tx.is_valid(&cap) || !manager.sessions.cap_ok(&cap, &req.name, Level::Ro).await
+                if !tx.is_valid(&cap)
+                    || !manager
+                        .sessions
+                        .terminal_cap_ok(&cap, &req.name, Level::Ro)
+                        .await
                 {
                     return None;
                 }

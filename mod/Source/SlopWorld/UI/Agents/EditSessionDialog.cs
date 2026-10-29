@@ -14,6 +14,7 @@ namespace SlopWorld
             General,
             Sandbox,
             ResourceLimits,
+            Workers,
             Preview,
         }
 
@@ -25,6 +26,7 @@ namespace SlopWorld
         readonly ScrollableListing _generalListing = new ScrollableListing(320f);
         readonly ScrollableListing _sandboxListing = new ScrollableListing(480f);
         readonly ScrollableListing _limitsListing = new ScrollableListing(320f);
+        readonly ScrollableListing _workersListing = new ScrollableListing(480f);
         const float PresetsH = 240f;
         Tab _tab;
         string _templateName;
@@ -66,6 +68,8 @@ namespace SlopWorld
                 : existing == null ? EditIdentity.ForNew()
                 : EditIdentity.ForEdit(existing.Name);
             _s = CreateDraft(existing, project, copy);
+            if (_s.Worker)
+                _tab = Tab.Workers;
 
             if (existing != null && !copy)
             {
@@ -115,6 +119,7 @@ namespace SlopWorld
 
         static void RefreshCatalogs()
         {
+            SessionHub.Instance.RefreshConfig();
             SessionHub.Instance.Catalog.RefreshProjects();
             // Both tables are files the daemon reads, so they are asked for on every open
             // rather than once per process.
@@ -157,7 +162,12 @@ namespace SlopWorld
                         })
                     ),
                     Agent = existing.Agent,
-                    Worker = existing.Worker,
+                    Worker = !copy && existing.Worker,
+                    Workers = existing.Workers.Clone(),
+                    Parent = copy ? "" : existing.Parent,
+                    ParentAccess = existing.ParentAccess.Clone(),
+                    TaskId = copy ? "" : existing.TaskId,
+                    ParentBound = existing.ParentBound,
                     Autostart = existing.Autostart,
                     AutoResume = existing.AutoResume,
                 };
@@ -208,6 +218,9 @@ namespace SlopWorld
                     case Tab.ResourceLimits:
                         _limitsListing.Draw(body, DrawLimits);
                         break;
+                    case Tab.Workers:
+                        _workersListing.Draw(body, DrawWorkers);
+                        break;
                     case Tab.Preview:
                         DrawSettingsPreview(body);
                         break;
@@ -230,6 +243,7 @@ namespace SlopWorld
             if (
                 !EditingTemplate
                 && !_identity.IsNew
+                && !_s.Worker
                 && foot.Left("Reset private state", UiTheme.Btn.Danger)
             )
                 Find.WindowStack.Add(SessionActions.ResetState(_identity.OriginalName));
@@ -242,7 +256,11 @@ namespace SlopWorld
                 Find.WindowStack.Add(new SaveAgentTemplateDialog(_identity.OriginalName));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost))
                 Close();
-            bool save = foot.Right("Save", UiTheme.Btn.Primary, !_templateBusy && !_saving);
+            bool save = foot.Right(
+                "Save",
+                UiTheme.Btn.Primary,
+                !_templateBusy && !_saving && (!_s.Worker || _s.ParentBound)
+            );
             if (!string.IsNullOrEmpty(_error))
             {
                 GUI.color = UiTheme.Bad;
@@ -256,13 +274,16 @@ namespace SlopWorld
         void DrawRail(Rect r) =>
             UiLayout.DrawRail(
                 r,
-                new[]
-                {
-                    ("General", Tab.General),
-                    ("Sandbox", Tab.Sandbox),
-                    ("Resource limits", Tab.ResourceLimits),
-                    ("Preview", Tab.Preview),
-                },
+                _s.Worker
+                    ? new[] { ("Workers", Tab.Workers) }
+                    : new[]
+                    {
+                        ("General", Tab.General),
+                        ("Sandbox", Tab.Sandbox),
+                        ("Resource limits", Tab.ResourceLimits),
+                        ("Workers", Tab.Workers),
+                        ("Preview", Tab.Preview),
+                    },
                 ref _tab
             );
 
@@ -271,6 +292,31 @@ namespace SlopWorld
             if (_templateBusy || _saving)
                 return;
             _error = null;
+            if (_s.Worker)
+            {
+                if (!_s.ParentBound)
+                {
+                    _error =
+                        "Legacy worker has no captured parent identity. Spawn a new worker to establish access.";
+                    return;
+                }
+                _saving = true;
+                DaemonClient.Put(
+                    WireProtocol.Routes.WorkerAccess.Replace(
+                        ":name",
+                        Uri.EscapeDataString(_identity.OriginalName)
+                    ),
+                    new Wire.WorkerAccessReq
+                    {
+                        Access = _s.ParentAccess.Clone(),
+                        TaskId = _s.TaskId,
+                        Workers = _s.Workers.Clone(),
+                    },
+                    _ => Close(),
+                    SaveFailed
+                );
+                return;
+            }
             if (
                 string.IsNullOrWhiteSpace(_s.Name)
                 || (!EditingTemplate && string.IsNullOrEmpty(_s.Project))

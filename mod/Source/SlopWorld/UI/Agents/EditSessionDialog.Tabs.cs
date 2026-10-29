@@ -98,7 +98,18 @@ namespace SlopWorld
                 projectOptions.Add(
                     new SelectorOption(
                         "Create new project",
-                        () => Find.WindowStack.Add(new EditProjectDialog(null))
+                        () =>
+                            WorkspaceWindow.OpenOverPane(
+                                new EditProjectDialog(
+                                    null,
+                                    name =>
+                                    {
+                                        _s.Project = name;
+                                        _s.Worktree = "";
+                                        RefreshWorktreeChoices();
+                                    }
+                                )
+                            )
                     )
                 );
                 UiControls.Select(

@@ -92,6 +92,7 @@ impl Cap {
 
     /// Check whether a list can show `session` to this holder.
     /// Lists exclude session names when the grant does not permit read access.
+    #[cfg(test)]
     pub fn can_see(&self, session: &str, is_host: bool) -> bool {
         self.allows(session, is_host, Level::Ro)
     }

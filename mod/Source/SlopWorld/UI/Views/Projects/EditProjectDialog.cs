@@ -21,6 +21,7 @@ namespace SlopWorld
 
         readonly EditIdentity _identity;
         readonly ProjectInfo _p;
+        readonly Action<string> _onSaved;
 
         readonly SmoothScroll _mountsScroll = new SmoothScroll();
         readonly ScrollableListing _generalListing = new ScrollableListing(320f);
@@ -30,6 +31,12 @@ namespace SlopWorld
 
         public EditProjectDialog(ProjectInfo existing)
             : this(existing, false) { }
+
+        public EditProjectDialog(ProjectInfo existing, Action<string> onSaved)
+            : this(existing, false)
+        {
+            _onSaved = onSaved;
+        }
 
         public static EditProjectDialog ForWorktrees(ProjectInfo existing) =>
             new EditProjectDialog(existing, false, Tab.Worktrees);
@@ -330,6 +337,7 @@ namespace SlopWorld
                     if (_identity.IsNew)
                         Sidebar.IncludeProject(submittedName);
                     Close();
+                    _onSaved?.Invoke(submittedName);
                 },
                 fail: error =>
                 {

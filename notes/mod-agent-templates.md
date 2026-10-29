@@ -12,3 +12,8 @@ unsaved editor fields; workers cannot be captured. Failed saves retain drafts.
 GET revisions reject stale replies; there is no pushed template-snapshot handler.
 See [daemon templates](daemon-agent-templates.md) for contracts and
 [Configuring agents](../docs/src/agents/configuring-agents.md) for editing.
+
+The shared Workers tab owns a deep-copied portable policy in agent/template drafts.
+Worker editors also expose captured relationship access through a separate root-only
+endpoint; they cannot rename or replace worker launch settings. Legacy unbound workers
+show their settings but reject saves instead of inferring a parent from its name.

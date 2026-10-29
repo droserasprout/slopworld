@@ -23,6 +23,7 @@ fn template() -> AgentTemplate {
         version: 0,
         description: "Review changes".into(),
         defaults: AgentTemplateDefaults {
+            workers: Default::default(),
             command: Some(command()),
             cmd: None,
             args: None,
@@ -356,4 +357,42 @@ async fn uncommitted_catalog_files_are_not_loaded() {
     std::fs::write(root.join(".index.toml"), "next_version=1\n").unwrap();
     AgentTemplateStore::load(&root).await.unwrap_err();
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn portable_worker_policy_copies_without_relationship_identity() {
+    let mut source = SessionCfg {
+        name: "source".into(),
+        worker: true,
+        parent: "parent".into(),
+        parent_id: "stable-parent".into(),
+        ..Default::default()
+    };
+    source.workers.enabled = false;
+    source.workers.all_templates = false;
+    source.workers.templates.insert("review".into());
+    source.workers.access = crate::config::WorkerAccess::none();
+    let template = AgentTemplate::capture(
+        "policy".into(),
+        String::new(),
+        &source,
+        &ProjectCfg::default(),
+        &Config::default(),
+    )
+    .unwrap();
+    let encoded = toml::to_string(&template).unwrap();
+    let restored: AgentTemplate = toml::from_str(&encoded).unwrap();
+    let child = restored.instantiate("copy".into(), "repo".into());
+    assert_eq!(child.workers, source.workers);
+    assert!(child.parent_id.is_empty());
+    assert!(!child.worker);
+    let mut overrides = child.clone();
+    overrides.workers.enabled = true;
+    let mut edited = child;
+    restored.apply_overrides(&mut edited, &overrides);
+    assert!(edited.workers.enabled);
+    assert!(
+        !restored.defaults.workers.enabled,
+        "template is a copy, not a live reference"
+    );
 }

@@ -686,3 +686,165 @@ async fn worker_api_maps_checkouts_and_returns_committed_identity() {
         std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[tokio::test]
+async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient_updates() {
+    use crate::config::{Config, SessionCfg, WorkerAccess};
+    use crate::tasks::{Status, WorkerTask};
+    for bits in 0..16 {
+        let access = WorkerAccess {
+            followup: bits & 1 != 0,
+            cancel: bits & 2 != 0,
+            terminal: bits & 4 != 0,
+            lifecycle: bits & 8 != 0,
+        };
+        let manager = crate::application::test_application(Config {
+            sessions: vec![
+                SessionCfg {
+                    name: "parent".into(),
+                    ..Default::default()
+                },
+                SessionCfg {
+                    name: "worker".into(),
+                    worker: true,
+                    parent_access: access,
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        });
+        let parent = manager.sessions.task_participant("parent").await.unwrap();
+        let worker = manager.sessions.task_participant("worker").await.unwrap();
+        let parent_id = parent.identity.clone();
+        let worker_id = worker.identity.clone();
+        let task = manager
+            .sessions
+            .create_task_owned(
+                parent,
+                worker,
+                "work".into(),
+                Some(WorkerTask {
+                    session: "worker".into(),
+                    parent: "parent".into(),
+                    durable: true,
+                }),
+            )
+            .await
+            .unwrap();
+        {
+            let mut cfg = manager.config_authority.write().await;
+            cfg.sessions[1].parent_id = parent_id;
+            cfg.sessions[1].task_id = task.id.clone();
+        }
+        manager.sessions.sync_from_config().await;
+        manager
+            .sessions
+            .task_store()
+            .update_task_async(
+                &worker_id,
+                "worker",
+                &task.id,
+                Status::Working,
+                Some("progress".into()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            require_worker_permission(
+                &manager,
+                &scoped("parent"),
+                &task.from_id,
+                &task.id,
+                WorkerPermission::Followup
+            )
+            .await
+            .is_ok(),
+            access.followup
+        );
+        let result = cancel_tasks(
+            State(manager.clone()),
+            Extension(scoped("parent")),
+            caller("parent"),
+            Proto(wire::RemoveTasksReq {
+                ids: vec![task.id.clone()],
+            }),
+        )
+        .await;
+        if !access.cancel {
+            assert_eq!(result.unwrap_err().0, StatusCode::FORBIDDEN);
+        } else {
+            let result = result.unwrap().0;
+            assert_eq!(result.tasks[0].status, "canceled");
+            assert_eq!(result.tasks[0].note.as_deref(), Some("progress"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn relationship_edits_persist_without_changing_parent_policy_and_reject_legacy_binding() {
+    use crate::config::{Config, SessionCfg, WorkerAccess};
+    let manager = crate::application::test_application(Config {
+        sessions: vec![
+            SessionCfg {
+                name: "parent".into(),
+                state_id: "1111111111111111".into(),
+                ..Default::default()
+            },
+            SessionCfg {
+                name: "child".into(),
+                task_id: "child-task".into(),
+                worker: true,
+                parent_id: "1111111111111111".into(),
+                ..Default::default()
+            },
+            SessionCfg {
+                name: "legacy".into(),
+                worker: true,
+                parent: "parent".into(),
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    });
+    let workers = Workers::new(&manager);
+    assert!(
+        workers
+            .set_access("child", "previous-task", WorkerAccess::all(), None)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("relationship changed")
+    );
+    workers
+        .set_access("child", "child-task", WorkerAccess::none(), None)
+        .await
+        .unwrap();
+    let cfg = crate::config::Config::load(manager.sessions.cfg_path())
+        .await
+        .unwrap();
+    assert_eq!(
+        cfg.session("child").unwrap().parent_access,
+        WorkerAccess::none()
+    );
+    assert_eq!(
+        cfg.session("parent").unwrap().workers.access,
+        WorkerAccess::default()
+    );
+    assert!(
+        workers
+            .set_access("legacy", "legacy-task", WorkerAccess::all(), None)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("no captured parent identity")
+    );
+    assert!(
+        manager
+            .sessions
+            .session_cfg("legacy")
+            .await
+            .unwrap()
+            .parent_id
+            .is_empty()
+    );
+}

@@ -36,6 +36,7 @@ struct DeliveryTarget {
     run_id: u64,
     requires_paste_mode: bool,
     requires_codex_composer: bool,
+    followup: bool,
 }
 
 impl DeliveryTarget {
@@ -71,6 +72,7 @@ impl SessionRuntime {
         let cfg = self.config().await;
         self.live.read().await.get(name).map(|live| DeliveryTarget {
             name: name.to_string(),
+            followup: false,
             identity: live.cfg.state_id.clone(),
             run_id: live.run_id,
             requires_codex_composer: !live.role.is_host()
@@ -96,6 +98,57 @@ impl SessionRuntime {
                     |command| command.kind != crate::presets::CommandKind::Shell,
                 ),
         })
+    }
+
+    /// Explicit follow-ups wake the current worker without exposing raw terminal input.
+    /// Reject control characters and shell destinations; readiness and the input queue retain run identity.
+    pub(crate) async fn followup_delivery(self: &Arc<Self>, name: &str, text: &str) -> Result<()> {
+        anyhow::ensure!(!text.trim().is_empty(), "Follow-up text cannot be empty.");
+        anyhow::ensure!(
+            !text
+                .chars()
+                .any(|c| c.is_control() && c != '\n' && c != '\t'),
+            "Follow-up contains terminal control characters."
+        );
+        let cfg = self.config().await;
+        let live = self.live.read().await;
+        let current = live.get(name).context("Worker is not running")?;
+        let executable = crate::sandbox::shell_split(&cfg.command_of(&current.cfg))?
+            .into_iter()
+            .next()
+            .unwrap_or_default();
+        anyhow::ensure!(
+            current.cfg.worker && !current.role.is_host() && current.state != State::Down,
+            "Follow-ups require a live task worker"
+        );
+        anyhow::ensure!(
+            !crate::sandbox::is_shell_command(&executable),
+            "Follow-ups cannot be sent to shell workers"
+        );
+        drop(live);
+        let mut target = self
+            .delivery_target(name)
+            .await
+            .context("Worker is not running")?;
+        anyhow::ensure!(
+            target.requires_paste_mode,
+            "Follow-ups cannot be sent to shell templates"
+        );
+        self.tmux.require_agent_input(name).await?;
+        target.followup = true;
+        let prompt = format!("Follow-up from your supervising agent:\n{text}");
+        match self
+            .submit_when_ready(
+                &target,
+                Some(&prompt),
+                tokio::time::Instant::now() + READY_TIMEOUT,
+            )
+            .await
+        {
+            Ready::Settled => Ok(()),
+            Ready::Timeout => bail!("Worker was not ready; follow-up was not delivered."),
+            Ready::Gone => bail!("Worker stopped or restarted; follow-up was not delivered."),
+        }
     }
 
     pub(crate) async fn queue_delivery(self: &Arc<Self>, name: &str, text: String) {
@@ -192,6 +245,22 @@ impl SessionRuntime {
                 return Admission::Retry;
             }
             if let Some(text) = prompt {
+                if target.followup {
+                    if self.tmux.require_agent_input(&target.name).await.is_err() {
+                        return Admission::Gone;
+                    }
+                    self.queue_input(
+                        &target.name,
+                        Input::AgentPaste {
+                            bytes: text.as_bytes().to_vec(),
+                        },
+                    )
+                    .await;
+                    self.queue_input(&target.name, Input::Gap(DELIVERY_ENTER_GAP))
+                        .await;
+                    self.queue_input(&target.name, Input::AgentEnter).await;
+                    return Admission::Submitted;
+                }
                 if self.paste(&target.name, text).await.is_err() {
                     return Admission::Retry;
                 }

@@ -45,7 +45,7 @@ impl Daemon {
         )
         .unwrap();
         fs::write(self.root.join(format!("data/agents/{STATE_ID}.toml")), format!(
-            "storage_order = 1\nname = '{WORKER}'\nstate_id = '{STATE_ID}'\nproject = 'repo'\ncmd = 'sh'\nworker = true\nparent = 'parent'\ntask_id = 'recovery-task'\n"
+            "storage_order = 1\nname = '{WORKER}'\nstate_id = '{STATE_ID}'\nproject = 'repo'\ncmd = 'sh'\nworker = true\nparent = 'parent'\nparent_id = '3333333333333333'\nparent_access = {{ followup = true, cancel = true, terminal = true, lifecycle = true }}\ntask_id = 'recovery-task'\n"
         )).unwrap();
         // Seed a surviving worker directly so this test needs neither a sandbox nor an agent CLI.
         // It still passes through full startup adoption before each daemon replacement.
@@ -86,7 +86,8 @@ impl Daemon {
         assert!(!view.host && !view.ephemeral);
         assert_eq!(view.project, "repo");
         let worker = view.worker.unwrap();
-        assert!(worker.enabled && worker.durable);
+        assert!(worker.enabled && worker.durable && worker.parent_bound);
+        assert!(worker.access.as_ref().unwrap().terminal.unwrap());
         assert_eq!(worker.parent, "parent");
         assert_eq!(worker.task_id, "recovery-task");
         assert!(view.runtime.unwrap().alive, "{}", self.logs());

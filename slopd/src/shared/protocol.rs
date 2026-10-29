@@ -28,6 +28,8 @@ pub(crate) mod routes {
     pub(crate) const TEMPLATE: &str = "/api/templates/:name";
     pub(crate) const TEMPLATE_CREATE: &str = "/api/templates/:name/create";
     pub(crate) const TASKS: &str = "/api/tasks";
+    pub(crate) const WORKER_ACCESS: &str = "/api/sessions/:name/worker-access";
+    pub(crate) const TASK_FOLLOWUP: &str = "/api/tasks/:id/followup";
     pub(crate) const TASKS_CANCEL: &str = "/api/tasks/cancel";
     pub(crate) const TASKS_REMOVE: &str = "/api/tasks/remove";
     pub(crate) const TASK: &str = "/api/tasks/:id";

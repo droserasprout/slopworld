@@ -436,6 +436,27 @@ _arguments "${_arguments_options[@]}" : \
 '*::note -- Note text, including all following words and flags:_default' \
 && ret=0
 ;;
+(followup)
+_arguments "${_arguments_options[@]}" : \
+'--id=[Task ID (default\: SLOPWORLD_TASK_ID)]:ID:_default' \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'*::note -- Note text, including all following words and flags:_default' \
+&& ret=0
+;;
+(cancel)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::id:_default' \
+&& ret=0
+;;
 (remove)
 _arguments "${_arguments_options[@]}" : \
 '--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
@@ -497,6 +518,14 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (fail)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(followup)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(cancel)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -843,6 +872,14 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(followup)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(cancel)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (remove)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -1128,6 +1165,8 @@ _slopctl__subcmd__help__subcmd__task_commands() {
 'progress:Set an accepted task to working, with an optional note' \
 'finish:Mark a task done, with an optional result' \
 'fail:Mark a task failed, with an optional reason' \
+'followup:Send a follow-up prompt to the current worker run (requires follow-up permission)' \
+'cancel:Cancel a task without stopping its worker' \
 'remove:Remove one terminal task' \
 'prune:Remove terminal tasks sent or received by the caller' \
     )
@@ -1137,6 +1176,11 @@ _slopctl__subcmd__help__subcmd__task_commands() {
 _slopctl__subcmd__help__subcmd__task__subcmd__accept_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help task accept commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__task__subcmd__cancel_commands] )) ||
+_slopctl__subcmd__help__subcmd__task__subcmd__cancel_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help task cancel commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__help__subcmd__task__subcmd__delegate_commands] )) ||
 _slopctl__subcmd__help__subcmd__task__subcmd__delegate_commands() {
@@ -1152,6 +1196,11 @@ _slopctl__subcmd__help__subcmd__task__subcmd__fail_commands() {
 _slopctl__subcmd__help__subcmd__task__subcmd__finish_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help task finish commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__task__subcmd__followup_commands] )) ||
+_slopctl__subcmd__help__subcmd__task__subcmd__followup_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help task followup commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__help__subcmd__task__subcmd__list_commands] )) ||
 _slopctl__subcmd__help__subcmd__task__subcmd__list_commands() {
@@ -1305,6 +1354,8 @@ _slopctl__subcmd__task_commands() {
 'progress:Set an accepted task to working, with an optional note' \
 'finish:Mark a task done, with an optional result' \
 'fail:Mark a task failed, with an optional reason' \
+'followup:Send a follow-up prompt to the current worker run (requires follow-up permission)' \
+'cancel:Cancel a task without stopping its worker' \
 'remove:Remove one terminal task' \
 'prune:Remove terminal tasks sent or received by the caller' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -1315,6 +1366,11 @@ _slopctl__subcmd__task_commands() {
 _slopctl__subcmd__task__subcmd__accept_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl task accept commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__task__subcmd__cancel_commands] )) ||
+_slopctl__subcmd__task__subcmd__cancel_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl task cancel commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__task__subcmd__delegate_commands] )) ||
 _slopctl__subcmd__task__subcmd__delegate_commands() {
@@ -1331,6 +1387,11 @@ _slopctl__subcmd__task__subcmd__finish_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl task finish commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__task__subcmd__followup_commands] )) ||
+_slopctl__subcmd__task__subcmd__followup_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl task followup commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__task__subcmd__help_commands] )) ||
 _slopctl__subcmd__task__subcmd__help_commands() {
     local commands; commands=(
@@ -1342,6 +1403,8 @@ _slopctl__subcmd__task__subcmd__help_commands() {
 'progress:Set an accepted task to working, with an optional note' \
 'finish:Mark a task done, with an optional result' \
 'fail:Mark a task failed, with an optional reason' \
+'followup:Send a follow-up prompt to the current worker run (requires follow-up permission)' \
+'cancel:Cancel a task without stopping its worker' \
 'remove:Remove one terminal task' \
 'prune:Remove terminal tasks sent or received by the caller' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -1352,6 +1415,11 @@ _slopctl__subcmd__task__subcmd__help_commands() {
 _slopctl__subcmd__task__subcmd__help__subcmd__accept_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl task help accept commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__task__subcmd__help__subcmd__cancel_commands] )) ||
+_slopctl__subcmd__task__subcmd__help__subcmd__cancel_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl task help cancel commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__task__subcmd__help__subcmd__delegate_commands] )) ||
 _slopctl__subcmd__task__subcmd__help__subcmd__delegate_commands() {
@@ -1367,6 +1435,11 @@ _slopctl__subcmd__task__subcmd__help__subcmd__fail_commands() {
 _slopctl__subcmd__task__subcmd__help__subcmd__finish_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl task help finish commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__task__subcmd__help__subcmd__followup_commands] )) ||
+_slopctl__subcmd__task__subcmd__help__subcmd__followup_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl task help followup commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__task__subcmd__help__subcmd__help_commands] )) ||
 _slopctl__subcmd__task__subcmd__help__subcmd__help_commands() {

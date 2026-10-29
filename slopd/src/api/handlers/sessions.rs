@@ -26,7 +26,7 @@ pub(crate) async fn list(
 ) -> ApiResult<wire::SessionsReply> {
     let mut sessions = Vec::new();
     for session in m.sessions.views().await {
-        if m.sessions.cap_ok(&cap, &session.name, Level::Ro).await {
+        if m.sessions.worker_diagnostics_ok(&cap, &session.name).await {
             sessions.push(session);
         }
     }
@@ -38,7 +38,9 @@ pub(crate) async fn one(
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::SessionView> {
-    super::guard(&m, &cap, &name, Level::Ro).await?;
+    if !m.sessions.worker_diagnostics_ok(&cap, &name).await {
+        return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
+    }
     m.sessions
         .views()
         .await
@@ -68,7 +70,9 @@ pub(crate) async fn sandbox(
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::SandboxReport> {
-    super::guard(&m, &cap, &name, Level::Ro).await?;
+    if !m.sessions.worker_diagnostics_ok(&cap, &name).await {
+        return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
+    }
     if !m.sessions.session_known(&name).await {
         return Err(err(
             StatusCode::NOT_FOUND,
@@ -108,31 +112,45 @@ pub(crate) async fn destroy(
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
-    super::guard(&m, &cap, &name, Level::Rw).await?;
+    if !cap.allows(&name, m.sessions.is_host(&name).await, Level::Rw) {
+        return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
+    }
     super::ack_result(SessionEdits::new(&m).remove(&name).await)
 }
 
 macro_rules! session_action {
     ($($action:ident),+ $(,)?) => {
         $(pub(crate) async fn $action(
-            State(m): State<App>,
-            Extension(cap): Extension<Cap>,
-            Path(name): Path<String>,
+            State(m): State<App>, Extension(cap): Extension<Cap>, Path(name): Path<String>,
         ) -> ApiResult {
-            super::guard(&m, &cap, &name, Level::Rw).await?;
+            if !m.sessions.worker_lifecycle_ok(&cap, &name).await {
+                return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
+            }
             super::ack_result(m.sessions.$action(&name).await)
         })+
     };
 }
 
-session_action!(start, stop, restart);
+session_action!(stop, restart);
+pub(crate) async fn start(
+    State(m): State<App>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    if !cap.allows(&name, m.sessions.is_host(&name).await, Level::Rw) {
+        return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
+    }
+    super::ack_result(m.sessions.start(&name).await)
+}
 
 pub(crate) async fn reset_state(
     State(m): State<App>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult {
-    super::guard(&m, &cap, &name, Level::Rw).await?;
+    if !cap.allows(&name, m.sessions.is_host(&name).await, Level::Rw) {
+        return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
+    }
     super::ack_result(SessionEdits::new(&m).reset_state(&name).await)
 }
 
@@ -188,7 +206,9 @@ pub(crate) async fn set_label(
     Proto(q): Proto<wire::LabelReq>,
 ) -> ApiResult<wire::Ack> {
     let q: super::super::types::LabelReq = domain(q)?;
-    super::guard(&m, &cap, &name, Level::Rw).await?;
+    if !cap.allows(&name, m.sessions.is_host(&name).await, Level::Rw) {
+        return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
+    }
     super::ack_result(SessionEdits::new(&m).set_label(&name, q.label).await)
 }
 
@@ -198,7 +218,9 @@ pub(crate) async fn set_reader_pinned(
     Path(name): Path<String>,
     Proto(q): Proto<wire::ReaderPinnedReq>,
 ) -> ApiResult<wire::Ack> {
-    super::guard(&m, &cap, &name, Level::Rw).await?;
+    if !cap.allows(&name, m.sessions.is_host(&name).await, Level::Rw) {
+        return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
+    }
     super::ack_result(m.sessions.set_reader_pinned(&name, q.pinned).await)
 }
 

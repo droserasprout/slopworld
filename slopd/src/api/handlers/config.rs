@@ -32,6 +32,19 @@ pub(crate) async fn get_config(State(m): State<App>) -> ApiResult<wire::ConfigRe
     for host in &mut values.host_terminals {
         host.id.clear();
     }
+    let mut values =
+        serde_json::to_value(values).map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    if let Some(sessions) = values
+        .get_mut("session")
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        for session in sessions {
+            if let Some(session) = session.as_object_mut() {
+                session.remove("parent_id");
+                session.remove("parent_access");
+            }
+        }
+    }
     reply(json!({
         "path": m.workspace.settings_path(),
         "text": redacted_text,

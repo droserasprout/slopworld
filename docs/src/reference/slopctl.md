@@ -78,6 +78,13 @@ Task statuses are `queued`, `accepted`, `working`, `done`, `failed`, or `cancele
 A task is terminal when its status is `done`, `failed`, or `canceled`.
 
 Use `slopctl task list` to find work.
+Use `slopctl task followup --id ID "message"` to submit an explicit follow-up to a
+running interactive worker. The parent must have follow-up permission. The request
+and submission outcome appear in task history without changing its status. It does
+not start stopped workers or deliver to shells.
+Use `slopctl task cancel ID` to cancel a task. Parents with task cancellation permission can cancel their unfinished
+worker tasks, including working tasks; ordinary recipients can cancel queued or
+accepted tasks. Cancellation does not stop the worker process.
 Use `slopctl task remove ID` to remove a terminal task.
 Use `slopctl task prune` to remove multiple terminal tasks. If a disk operation fails,
 completed removals remain committed. The result reports committed, failed, and
@@ -87,12 +94,12 @@ terminal tasks.
 It also removes unfinished tasks.
 CLI help lists the current filters and options.
 
-For `accept`, `progress`, `finish`, and `fail`, select the task with `--id ID` or
+For `accept`, `progress`, `finish`, `fail`, and `followup`, select the task with `--id ID` or
 let `SLOPWORLD_TASK_ID` supply it. Positional words always become the note.
 For example, `slopctl task progress Reviewing the code`
 updates the injected task, while `slopctl task progress --id other-task Reviewing the code`
 updates `other-task`. Without either source of task identity, the update fails.
-Read, wait, and remove commands take a positional ID, which may be omitted when
+Read, wait, cancel, and remove commands take a positional ID, which may be omitted when
 `SLOPWORLD_TASK_ID` is set.
 
 Put options before task text or notes. Once text starts, all following words are

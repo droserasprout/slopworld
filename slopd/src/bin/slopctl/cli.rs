@@ -199,6 +199,10 @@ enum TaskCommand {
     Finish(TaskUpdate),
     /// Mark a task failed, with an optional reason
     Fail(TaskUpdate),
+    /// Send a follow-up prompt to the current worker run (requires follow-up permission)
+    Followup(TaskUpdate),
+    /// Cancel a task without stopping its worker
+    Cancel { id: Option<String> },
     /// Remove one terminal task
     Remove { id: Option<String> },
     /// Remove terminal tasks sent or received by the caller
@@ -345,6 +349,13 @@ impl TaskCommand {
             Self::Delegate { agent, task } => RemoteCommand::Delegate {
                 to: agent,
                 body: task.join(" "),
+            },
+            Self::Followup(args) => RemoteCommand::Followup {
+                id: id(args.id, "followup")?,
+                body: args.note.join(" "),
+            },
+            Self::Cancel { id: value } => RemoteCommand::Cancel {
+                id: id(value, "cancel")?,
             },
             Self::List(filter) => RemoteCommand::Inbox { filter },
             Self::Show { id: value } => RemoteCommand::Task {

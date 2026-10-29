@@ -292,6 +292,9 @@ pub(crate) async fn update_task(
 ) -> ApiResult<wire::TaskResult> {
     let q: UpdateTaskReq = domain(q)?;
     let who = task_participant(&m, &cap, &headers).await?;
+    if q.status == crate::tasks::Status::Canceled {
+        require_worker_permission(&m, &cap, &who.identity, &id, WorkerPermission::Cancel).await?;
+    }
     let task = m
         .sessions
         .task_store()
@@ -325,6 +328,150 @@ pub(crate) async fn prune_tasks(
     Ok(Proto(batch_view(removed, true)))
 }
 
+enum WorkerPermission {
+    Followup,
+    Cancel,
+}
+
+/// Task participation and each worker action permission are checked independently.
+async fn require_worker_permission(
+    m: &App,
+    cap: &Cap,
+    who: &str,
+    id: &str,
+    permission: WorkerPermission,
+) -> Result<(), ApiError> {
+    if cap.may_create() {
+        return Ok(());
+    }
+    if let Some(task) = m
+        .sessions
+        .task_store()
+        .task_for_async(who, id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
+        && task.worker.is_some()
+        && task.from_id == who
+    {
+        let target = m
+            .sessions
+            .views()
+            .await
+            .into_iter()
+            .find(|view| view.worker.task_id == id);
+        let access = match target {
+            Some(target) => m.sessions.worker_access(cap, &target.name).await,
+            None => None,
+        };
+        if !access.is_some_and(|access| match permission {
+            WorkerPermission::Followup => access.followup,
+            WorkerPermission::Cancel => access.cancel,
+        }) {
+            return Err(err(
+                StatusCode::FORBIDDEN,
+                "The parent does not have permission for this worker action.",
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) async fn followup_task(
+    State(m): State<App>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Proto(q): Proto<wire::WorkerFollowupReq>,
+) -> ApiResult {
+    let who = task_identity(&m, &cap, &headers).await?;
+    let task = m
+        .sessions
+        .task_store()
+        .task_for_async(&who, &id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "Task is unavailable."))?;
+    if task.worker.is_none() || (!cap.may_create() && task.from_id != who) {
+        return Err(err(
+            StatusCode::FORBIDDEN,
+            "Only a worker's parent can send a follow-up.",
+        ));
+    }
+    if task.status == crate::tasks::Status::Canceled {
+        return Err(err(StatusCode::BAD_REQUEST, "Task is canceled."));
+    }
+    require_worker_permission(&m, &cap, &who, &id, WorkerPermission::Followup).await?;
+    let target = m
+        .sessions
+        .views()
+        .await
+        .into_iter()
+        .find(|view| view.worker.task_id == id)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "Worker no longer exists."))?;
+    let cfg = m
+        .sessions
+        .session_cfg(&target.name)
+        .await
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "Worker no longer exists."))?;
+    if cfg.state_id != task.to_id {
+        return Err(err(StatusCode::FORBIDDEN, "Worker identity changed."));
+    }
+    let sessions = m.sessions.clone();
+    let sender = task_principal(&cap, &headers)?;
+    super::ack_result(
+        m.sessions
+            .owned_session_operation(async move {
+                let (audit_id, audit_sender, body) = (id.clone(), sender.clone(), q.body.clone());
+                sessions
+                    .task_store()
+                    .run(move |tasks| {
+                        tasks.followup_note(
+                            &audit_id,
+                            &audit_sender,
+                            format!("Follow-up requested: {body}"),
+                        )
+                    })
+                    .await?;
+                let result = sessions.followup_delivery(&target.name, &q.body).await;
+                let outcome = match &result {
+                    Ok(()) => {
+                        "Follow-up submitted to the worker's current run; task status unchanged."
+                            .to_owned()
+                    }
+                    Err(error) => format!("Follow-up not delivered: {error:#}"),
+                };
+                sessions
+                    .task_store()
+                    .run(move |tasks| tasks.followup_note(&id, &sender, outcome))
+                    .await
+                    .map_err(|error| {
+                        anyhow::anyhow!(
+                            "Follow-up delivery completed, but saving its outcome failed: {error:#}"
+                        )
+                    })?;
+                result
+            })
+            .await,
+    )
+}
+
+pub(crate) async fn set_worker_access(
+    State(m): State<App>,
+    Path(name): Path<String>,
+    Proto(q): Proto<wire::WorkerAccessReq>,
+) -> ApiResult {
+    let access = domain(
+        q.access
+            .ok_or_else(|| err(StatusCode::BAD_REQUEST, "Worker permissions are required."))?,
+    )?;
+    let policy = q.workers.map(domain).transpose()?;
+    super::ack_result(
+        Workers::new(&m)
+            .set_access(&name, &q.task_id, access, policy)
+            .await,
+    )
+}
+
 pub(crate) async fn cancel_tasks(
     State(m): State<App>,
     Extension(cap): Extension<Cap>,
@@ -333,12 +480,26 @@ pub(crate) async fn cancel_tasks(
 ) -> ApiResult<wire::TaskBatchResult> {
     let q: RemoveTasksReq = domain(q)?;
     let who = task_participant(&m, &cap, &headers).await?;
-    let tasks = m
-        .sessions
-        .task_store()
-        .cancel_tasks_async(&who.identity, &who.name, &q.ids, cap.may_create())
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let mut supervised = Vec::new();
+    for id in &q.ids {
+        require_worker_permission(&m, &cap, &who.identity, id, WorkerPermission::Cancel).await?;
+        if !cap.may_create() {
+            supervised.push(id.clone());
+        }
+    }
+    let (identity, sender, ids, force) = (who.identity, who.name, q.ids, cap.may_create());
+    let tasks = if supervised.is_empty() {
+        m.sessions
+            .task_store()
+            .cancel_tasks_async(&identity, &sender, &ids, force)
+            .await
+    } else {
+        m.sessions
+            .task_store()
+            .run(move |tasks| tasks.cancel_supervised(&identity, &sender, &ids, force, &supervised))
+            .await
+    }
+    .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(batch_view(tasks, false)))
 }
 

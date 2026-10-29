@@ -33,7 +33,11 @@ pub(crate) struct WorkerRequest {
 /// Runtime facts captured by the session owner under its operation boundary.
 pub(crate) enum Caller {
     Root,
-    Agent { project: String },
+    Agent {
+        project: String,
+        identity: String,
+        policy: crate::config::WorkerPolicy,
+    },
     HostTerminal,
     Missing,
 }
@@ -58,7 +62,7 @@ pub(crate) fn project(
         Caller::HostTerminal => {
             bail!("A host terminal cannot own a worker. Choose an agent caller.")
         }
-        Caller::Agent { project } => {
+        Caller::Agent { project, .. } => {
             let project = project.trim();
             if project.is_empty() {
                 bail!("caller {caller} has no project context");
@@ -100,9 +104,16 @@ pub(crate) fn template(
         Caller::HostTerminal => {
             bail!("A host terminal cannot own a worker. Choose an agent caller.")
         }
-        Caller::Agent { project: own } => {
+        Caller::Agent {
+            project: own,
+            policy,
+            ..
+        } => {
             if own.trim() != project {
                 bail!("Caller {caller} cannot use project {project}.");
+            }
+            if !policy.allows(requested) {
+                bail!("This agent cannot spawn workers from template {requested}.");
             }
             if !cfg.daemon.worker_templates.contains(requested) {
                 bail!("Worker policy does not allow agent template {requested}.");
@@ -139,8 +150,38 @@ pub(crate) fn prepare(
     }
     let project = project(cfg, &caller, context, &requested)?;
     let template = template(cfg, &caller, context, &project, name.trim(), templates)?;
-    let session =
+    let mut session =
         worker_session_from_template(&template, "worker-validation".into(), &project, &caller);
+    if let Caller::Agent {
+        identity, policy, ..
+    } = context
+    {
+        session.parent_id = identity.clone();
+        session.parent_access = policy.access.intersect(cfg.daemon.worker_access);
+        session.workers.enabled &= policy.recursive && cfg.daemon.worker_recursive;
+        session.workers.access = session
+            .workers
+            .access
+            .intersect(policy.access)
+            .intersect(cfg.daemon.worker_access);
+        session.workers.recursive &= policy.recursive && cfg.daemon.worker_recursive;
+        if !policy.all_templates {
+            session.workers.templates = if session.workers.all_templates {
+                policy.templates.clone()
+            } else {
+                session
+                    .workers
+                    .templates
+                    .intersection(&policy.templates)
+                    .cloned()
+                    .collect()
+            };
+            session.workers.all_templates = false;
+        }
+    } else {
+        session.parent_id = crate::tasks::HOST.into();
+        session.workers.enabled = false;
+    }
     let p = cfg
         .project(&project)
         .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
@@ -440,6 +481,66 @@ impl Workers {
             task,
             session: session.name,
         })
+    }
+
+    pub(crate) async fn set_access(
+        &self,
+        name: &str,
+        expected_task: &str,
+        access: crate::config::WorkerAccess,
+        policy: Option<crate::config::WorkerPolicy>,
+    ) -> Result<()> {
+        let owner = self.clone();
+        let name = name.to_owned();
+        let expected_task = expected_task.to_owned();
+        self.sessions
+            .owned_session_operation(async move {
+                let mut session = owner
+                    .sessions
+                    .session_cfg(&name)
+                    .await
+                    .context("Worker no longer exists")?;
+                anyhow::ensure!(session.worker, "Session is not a worker");
+                anyhow::ensure!(
+                    !session.parent_id.is_empty(),
+                    "This legacy worker has no captured parent identity. Spawn a new worker to establish a relationship; access cannot be assigned by name."
+                );
+                anyhow::ensure!(
+                    !expected_task.is_empty() && session.task_id == expected_task,
+                    "Worker relationship changed. Reload the worker before editing access."
+                );
+                session.parent_access = access;
+                if let Some(policy) = policy {
+                    session.workers = policy;
+                }
+                if owner
+                    .configuration()
+                    .config()
+                    .await
+                    .session(&name)
+                    .is_some()
+                {
+                    owner
+                        .configuration()
+                        .update_cfg(ConfigMutation::Agents, |cfg| {
+                            let saved = cfg
+                                .sessions
+                                .iter_mut()
+                                .find(|s| s.state_id == session.state_id)
+                                .context("Worker identity changed")?;
+                            saved.parent_access = access;
+                            saved.workers = session.workers.clone();
+                            Ok(())
+                        })
+                        .await?;
+                    owner.sessions.sync_from_config().await;
+                } else {
+                    owner.sessions.set_temporary_worker_access(&session).await?;
+                }
+                owner.sessions.announce_sessions().await;
+                Ok(())
+            })
+            .await
     }
 
     pub(crate) async fn worker_project(&self, caller: &str, requested: &str) -> Result<String> {

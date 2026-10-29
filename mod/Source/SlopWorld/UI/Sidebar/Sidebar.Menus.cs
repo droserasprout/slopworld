@@ -225,7 +225,7 @@ namespace SlopWorld
                     )
                 );
 
-            if (info != null && !info.Ephemeral && !info.Host && !info.Worker)
+            if (info != null && (!info.Ephemeral || info.Worker) && !info.Host)
                 opts.Add(
                     new FloatMenuOption(
                         "Edit",

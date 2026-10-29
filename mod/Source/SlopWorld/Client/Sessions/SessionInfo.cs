@@ -57,6 +57,40 @@ namespace SlopWorld
 
         // Worker metadata from the task. The wire response explicitly identifies the parent.
         // Do not infer parent relationships from names or projects.
+        public Wire.WorkerPolicy Workers = WorkerPolicyDefaults();
+        public bool ParentBound;
+        public Wire.WorkerAccess ParentAccess = WorkerAccessDefaults();
+
+        public static Wire.WorkerAccess WorkerAccessDefaults(
+            Wire.WorkerAccess source = null,
+            bool all = false
+        )
+        {
+            var value = source?.Clone() ?? new Wire.WorkerAccess();
+            if (!value.HasFollowup)
+                value.Followup = true;
+            if (!value.HasCancel)
+                value.Cancel = true;
+            if (!value.HasTerminal)
+                value.Terminal = all && source == null;
+            if (!value.HasLifecycle)
+                value.Lifecycle = all && source == null;
+            return value;
+        }
+
+        public static Wire.WorkerPolicy WorkerPolicyDefaults(Wire.WorkerPolicy source = null)
+        {
+            var value = source?.Clone() ?? new Wire.WorkerPolicy();
+            if (!value.HasEnabled)
+                value.Enabled = true;
+            if (!value.HasAllTemplates)
+                value.AllTemplates = true;
+            value.Access = WorkerAccessDefaults(value.Access);
+            if (!value.HasRecursive)
+                value.Recursive = false;
+            return value;
+        }
+
         public bool Worker;
         public string Parent = "";
         public string TaskId = "";
@@ -149,6 +183,7 @@ namespace SlopWorld
                 Limits = Limits.ToWire(),
                 Autostart = Autostart,
                 AutoResume = AutoResume,
+                Workers = Workers.Clone(),
             };
             if (!string.IsNullOrWhiteSpace(Cmd))
                 value.Cmd = Cmd;

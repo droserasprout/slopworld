@@ -618,3 +618,33 @@ async fn failed_conflicting_pane_retirement_preserves_identity_and_revokes_grant
         assert!(!manager.tmux.exists("reused").await);
     }
 }
+
+#[test]
+fn temporary_worker_recovery_keeps_captured_relationship_and_delegation_policy() {
+    let mut child = SessionCfg {
+        name: "child".into(),
+        state_id: "2222222222222222".into(),
+        worker: true,
+        parent: "parent".into(),
+        parent_id: "1111111111111111".into(),
+        parent_access: crate::config::WorkerAccess::none(),
+        ..Default::default()
+    };
+    child.workers.enabled = false;
+    let snapshot: SessionCfg =
+        serde_json::from_str(&serde_json::to_string(&child).unwrap()).unwrap();
+    let metadata = crate::tmux::WorkerMetadata {
+        session: Some(Box::new(snapshot)),
+        parent: "parent".into(),
+        task_id: "task".into(),
+        durable: false,
+        state_id: Some(child.state_id.clone()),
+        project: None,
+        worktree: None,
+    };
+    let recovered = recovered_worker_cfg(&Config::default(), "child", &metadata).unwrap();
+    assert_eq!(recovered.parent_id, child.parent_id);
+    assert_eq!(recovered.parent_access, child.parent_access);
+    assert_eq!(recovered.workers, child.workers);
+    assert!(recovered.daemon_token.is_none());
+}

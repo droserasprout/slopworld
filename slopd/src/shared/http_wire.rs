@@ -49,6 +49,8 @@ enum RequestKind {
     SpawnWorkerReq,
     Station,
     UpdateTaskReq,
+    WorkerAccessReq,
+    WorkerFollowupReq,
 }
 #[derive(Clone, Copy)]
 enum ResponseKind {
@@ -222,6 +224,16 @@ const ROUTES: &[Route] = &[
         Req::CreateAgentTemplateReq,
         Resp::SessionResult,
     ),
+    (
+        "PUT /api/sessions/:name/worker-access",
+        Req::WorkerAccessReq,
+        Resp::Ack,
+    ),
+    (
+        "POST /api/tasks/:id/followup",
+        Req::WorkerFollowupReq,
+        Resp::Ack,
+    ),
     ("GET /api/tasks/:id", Req::Empty, Resp::TaskResult),
     ("POST /api/tasks/:id", Req::UpdateTaskReq, Resp::TaskResult),
     ("DELETE /api/tasks/:id", Req::Empty, Resp::TaskResult),
@@ -302,6 +314,8 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         RequestKind::SpawnWorkerReq => encode_wire::<wire::SpawnWorkerReq>(value),
         RequestKind::Station => encode_wire::<wire::Station>(value),
         RequestKind::UpdateTaskReq => encode_wire::<wire::UpdateTaskReq>(value),
+        RequestKind::WorkerAccessReq => encode_wire::<wire::WorkerAccessReq>(value),
+        RequestKind::WorkerFollowupReq => encode_wire::<wire::WorkerFollowupReq>(value),
     }
 }
 pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow::Result<Value> {
@@ -441,6 +455,12 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
         RequestKind::UpdateTaskReq => {
             Ok(serde_json::to_value(wire::UpdateTaskReq::decode(value)?)?)
         }
+        RequestKind::WorkerAccessReq => {
+            Ok(serde_json::to_value(wire::WorkerAccessReq::decode(value)?)?)
+        }
+        RequestKind::WorkerFollowupReq => Ok(serde_json::to_value(
+            wire::WorkerFollowupReq::decode(value)?,
+        )?),
     }
 }
 #[cfg(test)]

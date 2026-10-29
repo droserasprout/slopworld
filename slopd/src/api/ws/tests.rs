@@ -1,5 +1,8 @@
 use super::commands::handle_audio;
-use super::outbound::scope_event;
+async fn scope_event(cap: &Cap, event: Arc<EventMessage>) -> Option<Arc<EventMessage>> {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    super::outbound::scope_live_event(&manager.sessions, cap, event).await
+}
 use super::*;
 use crate::api::types::{AudioReq, AudioSelection};
 use crate::grant::Grant;
@@ -212,6 +215,7 @@ fn view(name: &str) -> SessionView {
         project: String::new(),
         dir: String::new(),
         launch: SessionLaunchView {
+            workers: Default::default(),
             command: String::new(),
             command_preset: String::new(),
             cmd: None,
@@ -227,6 +231,8 @@ fn view(name: &str) -> SessionView {
             auto_resume: false,
         },
         worker: SessionWorkerView {
+            parent_bound: false,
+            access: Default::default(),
             enabled: false,
             parent: String::new(),
             task_id: String::new(),
@@ -262,12 +268,10 @@ fn session_groups_match_wire_schema() {
     session.launch.persistent_tmp = true;
     session.launch.autostart = true;
     session.launch.auto_resume = true;
-    session.worker = SessionWorkerView {
-        enabled: true,
-        parent: "parent".into(),
-        task_id: "task-7".into(),
-        durable: true,
-    };
+    session.worker.enabled = true;
+    session.worker.parent = "parent".into();
+    session.worker.task_id = "task-7".into();
+    session.worker.durable = true;
     session.reader = SessionReaderView {
         path: "/tmp/file.rs".into(),
         key: "file-key".into(),
@@ -381,13 +385,17 @@ fn names(ev: &EventMessage) -> Vec<String> {
 }
 
 /// Root is the mod: every event reaches it, and a session list is handed on whole.
-#[test]
-fn root_sees_every_event_unfiltered() {
+#[tokio::test]
+async fn root_sees_every_event_unfiltered() {
     let sessions = message(Event::Sessions {
         sessions: vec![view("a"), view("b")],
     });
     assert_eq!(
-        names(&scope_event(&Cap::Root, sessions).expect("root keeps the event")),
+        names(
+            &scope_event(&Cap::Root, sessions)
+                .await
+                .expect("root keeps the event")
+        ),
         vec!["a".to_string(), "b".to_string()]
     );
 
@@ -403,14 +411,14 @@ fn root_sees_every_event_unfiltered() {
             jukebox: Default::default(),
         }),
     ] {
-        assert!(scope_event(&Cap::Root, ev).is_some());
+        assert!(scope_event(&Cap::Root, ev).await.is_some());
     }
 }
 
 /// A scoped grant's session list is cut down to the names it may see. The rest never
 /// reach the socket, so the holder does not even learn they exist.
-#[test]
-fn a_scoped_grant_sees_only_the_sessions_it_names() {
+#[tokio::test]
+async fn a_scoped_grant_sees_only_the_sessions_it_names() {
     let cap = scoped(&["a", "c", "host"], Level::Ro);
     let mut host = view("host");
     host.host = true;
@@ -418,26 +426,30 @@ fn a_scoped_grant_sees_only_the_sessions_it_names() {
         sessions: vec![view("a"), view("b"), view("c"), view("d"), host],
     });
     assert_eq!(
-        names(&scope_event(&cap, ev).expect("a filtered list is still an event")),
+        names(
+            &scope_event(&cap, ev)
+                .await
+                .expect("a filtered list is still an event")
+        ),
         vec!["a".to_string(), "c".to_string()]
     );
 }
 
 /// A grant that names nothing present gets an empty list rather than nothing at all - the
 /// socket still hears that a sessions update happened.
-#[test]
-fn a_scoped_grant_with_no_matches_gets_an_empty_list() {
+#[tokio::test]
+async fn a_scoped_grant_with_no_matches_gets_an_empty_list() {
     let cap = scoped(&["x"], Level::Rw);
     let ev = message(Event::Sessions {
         sessions: vec![view("a"), view("b")],
     });
-    assert!(names(&scope_event(&cap, ev).expect("still an event")).is_empty());
+    assert!(names(&scope_event(&cap, ev).await.expect("still an event")).is_empty());
 }
 
 /// The grant subscribes to a session's screen and must keep receiving it. Screens are the
 /// one non-session category a scoped socket is allowed to see.
-#[test]
-fn screens_require_a_live_grant_for_the_named_session() {
+#[tokio::test]
+async fn screens_require_a_live_grant_for_the_named_session() {
     let cap = scoped(&["a"], Level::Ro);
     let screen = ScreenView {
         input_timings: Vec::new(),
@@ -459,21 +471,25 @@ fn screens_require_a_live_grant_for_the_named_session() {
         lines: Vec::new(),
     };
     let event = message(Event::Screen { screen });
-    assert!(scope_event(&cap, event.clone()).is_some());
-    assert!(scope_event(&scoped(&["other"], Level::Ro), event.clone()).is_none());
+    assert!(scope_event(&cap, event.clone()).await.is_some());
+    assert!(
+        scope_event(&scoped(&["other"], Level::Ro), event.clone())
+            .await
+            .is_none()
+    );
     let Cap::Scoped(grant) = cap.clone() else {
         panic!("test capability must be scoped")
     };
     let mut grants = crate::grant::Grants::default();
     grants.mint(grant);
     grants.invalidate_session("a");
-    assert!(scope_event(&cap, event).is_none());
+    assert!(scope_event(&cap, event).await.is_none());
 }
 
 /// Everything that is neither a session nor a screen - projects, library, usage, audio,
 /// the jukebox catalog - is host-wide state a scoped grant has no business seeing.
-#[test]
-fn a_scoped_grant_is_denied_host_wide_categories() {
+#[tokio::test]
+async fn a_scoped_grant_is_denied_host_wide_categories() {
     let cap = scoped(&["a"], Level::Ro);
     let denied = [
         message(Event::Clipboard {
@@ -498,7 +514,7 @@ fn a_scoped_grant_is_denied_host_wide_categories() {
         }),
     ];
     for ev in denied {
-        assert!(scope_event(&cap, ev).is_none());
+        assert!(scope_event(&cap, ev).await.is_none());
     }
 }
 
@@ -1897,4 +1913,77 @@ async fn scroll_overload_closes_the_socket_and_releases_its_subscription() {
     .expect("socket teardown retained pending capture tasks");
     drop(terminal);
     server.abort();
+}
+
+#[tokio::test]
+async fn open_socket_filters_terminal_events_after_relationship_downgrade_and_replacement() {
+    use crate::config::{Config, SessionCfg, WorkerAccess};
+    use crate::shared::wire::event::Payload as P;
+    let manager = crate::application::test_application(Config {
+        sessions: vec![
+            SessionCfg {
+                name: "parent".into(),
+                state_id: "1111111111111111".into(),
+                ..Default::default()
+            },
+            SessionCfg {
+                name: "worker".into(),
+                worker: true,
+                parent: "parent".into(),
+                parent_id: "1111111111111111".into(),
+                parent_access: WorkerAccess {
+                    terminal: true,
+                    ..WorkerAccess::none()
+                },
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    });
+    let cap = Cap::Scoped(Grant {
+        grantor: "parent".into(),
+        sessions: Default::default(),
+        level: Level::Rw,
+        revoked: Default::default(),
+    });
+    let mut socket = socket_pair_for(&manager).await;
+    let event = message(Event::Screen {
+        screen: screen("worker", 1),
+    });
+    send(&socket.tx, &cap, &event).await.unwrap();
+    assert!(matches!(receive(&mut socket.client).await, P::Screen(s) if s.name == "worker"));
+    for role in [
+        WorkerAccess {
+            lifecycle: true,
+            ..WorkerAccess::default()
+        },
+        WorkerAccess::none(),
+    ] {
+        manager.config_authority.write().await.sessions[1].parent_access = role;
+        // Simulate a frame retained before the downgrade; final publication rechecks it.
+        send(&socket.tx, &cap, &event).await.unwrap();
+        let views = message(Event::Sessions {
+            sessions: vec![view("worker"), view("stranger")],
+        });
+        send(&socket.tx, &cap, &views).await.unwrap();
+        let P::Sessions(visible) = receive(&mut socket.client).await else {
+            panic!("terminal frame leaked after downgrade")
+        };
+        assert_eq!(visible.sessions.len(), 1);
+        assert_eq!(visible.sessions[0].name, "worker");
+    }
+    manager.config_authority.write().await.sessions[0].state_id = "2222222222222222".into();
+    send(
+        &socket.tx,
+        &cap,
+        &message(Event::Sessions {
+            sessions: vec![view("worker")],
+        }),
+    )
+    .await
+    .unwrap();
+    let P::Sessions(visible) = receive(&mut socket.client).await else {
+        panic!("expected filtered list")
+    };
+    assert!(visible.sessions.is_empty());
 }

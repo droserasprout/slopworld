@@ -9,6 +9,8 @@ mod daemon;
 pub(crate) mod fixtures;
 mod library;
 mod model;
+mod worker_policy;
+pub use worker_policy::{WorkerAccess, WorkerPolicy};
 mod persistence;
 mod resolution;
 mod sandbox;

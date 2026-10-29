@@ -10,6 +10,9 @@ pub(crate) enum Input {
     Bytes(Vec<u8>),
     // Keep the paste intact. tmux adds paste markers only when the receiving application requests them.
     Paste { bytes: Vec<u8> },
+    // Follow-up input rechecks the live foreground command at consumption, including after the gap.
+    AgentPaste { bytes: Vec<u8> },
+    AgentEnter,
     // Executed by the single consumer, preserving the pause relative to queued input.
     Gap(Duration),
 }

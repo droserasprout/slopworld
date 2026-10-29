@@ -957,3 +957,21 @@ async fn worker_configuration_metadata_round_trips_without_credentials() {
             .contains("never-persist")
     );
 }
+
+#[test]
+fn followup_foreground_rejects_shells_dead_panes_and_missing_metadata() {
+    for value in [
+        "0|bash",
+        "0|/bin/zsh",
+        "0|-fish",
+        "1|codex",
+        "",
+        "0|",
+        "missing|codex",
+    ] {
+        assert!(!super::agent_input_active(value), "{value}");
+    }
+    for value in ["0|codex\n", "0|claude", "0|node"] {
+        assert!(super::agent_input_active(value), "{value}");
+    }
+}

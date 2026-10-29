@@ -41,6 +41,37 @@ This example creates a persistent worker so you can inspect its terminal afterwa
 The worker prompt can refer to `$SLOPWORLD_TASK_ID`. It is separate from the
 prompt used when creating an agent.
 
+### Parent-worker access
+
+Open **Edit agent > Workers** to enable delegation, narrow the allowed templates,
+choose access to new workers, and allow further delegation. The daemon's Worker
+settings provide the ceiling. Templates save these choices; workers copy them once.
+Further delegation is disabled by default.
+
+Parents always read task progress, results, and startup diagnostics. Four independent
+checkboxes control additional permissions:
+
+- **Send follow-up instructions** (enabled by default).
+- **Cancel tasks** (enabled by default).
+- **Type in the terminal** (disabled by default).
+- **Stop and restart workers** (disabled by default).
+
+Each permission can be enabled without enabling the others. Daemon settings can
+limit each permission for newly created workers.
+
+Change an existing relationship in the child worker's **Workers** tab, which shows
+**What [parent] can do** and its captured permissions. Parent policy edits affect future workers
+only. Relationships follow stable identities through renames and never attach to a
+replacement with the same name. Legacy workers without a captured parent identity
+must be replaced by a newly spawned worker before relationship access can be edited.
+Manual grants remain independent; host access remains root-only.
+
+A parent with **Send follow-up instructions** enabled can send `slopctl task followup --id ID "Check the tests"`
+to wake a running interactive worker. The daemon waits for readiness and records the
+request and submission outcome in task history. Submission does not accept or reopen
+the task. Follow-ups are rejected for canceled tasks, stopped workers, and shell
+workers. Use a new worker when the process has exited.
+
 ### Cleanup and retries
 
 A persistent worker remains available after its process exits. Remove it when
@@ -64,7 +95,8 @@ commands, statuses, and lifecycle.
 
 Tasks are shared by sender and recipient. Only the recipient can update an
 uncanceled task. The root token can cancel queued or accepted tasks through the
-task board or API; `slopctl task` has no cancel subcommand. Participants can remove
+task board, API, or `slopctl task cancel ID`. Parents with **Cancel tasks** enabled can also cancel their
+working worker tasks. Cancellation does not stop the worker process. Participants can remove
 terminal tasks; root can also remove unfinished tasks. Only root can send as `host`.
 
 Task details and `slopctl task show ID` retain the original assignment and every
@@ -90,8 +122,13 @@ allowed by daemon policy. See [Worker configuration](configuring-agents.md#worke
 ### Credentials and connectivity
 
 For a manually created grant, follow the [CLI connection instructions](../reference/slopctl.md#connection)
-with the scoped token. Workers receive their connection credentials automatically;
-see [Using slopctl](../reference/slopctl.md) for spawning them.
+with the scoped token. Every newly launched agent receives `SLOPD_URL` and
+`SLOPD_TOKEN` automatically, with read-write access to its own session. It can use
+task mailboxes and spawn workers from allowed templates in its own project.
+Terminal input and stop/restart require their respective relationship permissions.
+Access to unrelated existing terminals requires an additional grant. Host terminals
+remain root-only. Agents already running need a fresh launch to receive credentials;
+replacing only the daemon preserves credentials already delivered to surviving agents.
 Keep root credentials private, as explained in the [Security model](../sandbox/security.md).
 
 Agents and workers need network access to the daemon API to use grants and tasks.
@@ -102,5 +139,8 @@ Agents and workers need network access to the daemon API to use grants and tasks
 
 Grants survive daemon restarts when their participants keep the same identities.
 They are revoked when a grantor or target is renamed, removed, or replaced.
+Automatic launch credentials are also revoked on stop, exit, or failed launch;
+a fresh launch receives a new token. Manual grants for ordinary agents survive
+stop/start. Worker cleanup revokes its task authority.
 The daemon checks token permissions on every request. See
 [Paths and files](../reference/paths.md) for grant storage.

@@ -139,6 +139,8 @@ fn project_policy_rejects_missing_host_and_unscoped_callers() {
         (Caller::HostTerminal, "repo", "host terminal"),
         (
             Caller::Agent {
+                identity: "parent-id".into(),
+                policy: Default::default(),
                 project: " ".into(),
             },
             "repo",
@@ -148,6 +150,8 @@ fn project_policy_rejects_missing_host_and_unscoped_callers() {
         (Caller::Root, "absent", "no such worker project"),
         (
             Caller::Agent {
+                identity: "parent-id".into(),
+                policy: Default::default(),
                 project: "other".into(),
             },
             "repo",
@@ -162,6 +166,8 @@ fn project_policy_rejects_missing_host_and_unscoped_callers() {
             &cfg,
             "caller",
             &Caller::Agent {
+                identity: "parent-id".into(),
+                policy: Default::default(),
                 project: " repo ".into()
             },
             " "
@@ -182,6 +188,8 @@ fn template_policy_checks_identity_scope_and_exact_allowlist_before_lookup() {
         (Caller::HostTerminal, "review", "host terminal"),
         (
             Caller::Agent {
+                identity: "parent-id".into(),
+                policy: Default::default(),
                 project: "other".into(),
             },
             "review",
@@ -189,6 +197,8 @@ fn template_policy_checks_identity_scope_and_exact_allowlist_before_lookup() {
         ),
         (
             Caller::Agent {
+                identity: "parent-id".into(),
+                policy: Default::default(),
                 project: "repo".into(),
             },
             "team-review",
@@ -403,4 +413,78 @@ async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
         .unwrap();
     assert!(!listed.contains(checkout.to_str().unwrap()));
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default() {
+    use crate::config::{ProjectCfg, WorkerAccess, WorkerPolicy};
+    let mut cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    cfg.daemon.worker_templates = ["review".into()].into();
+    cfg.daemon.worker_access = WorkerAccess::default();
+    let templates = vec![template("review")];
+    let prepare_with = |policy: WorkerPolicy| {
+        prepare(
+            &cfg,
+            &Caller::Agent {
+                project: "repo".into(),
+                identity: "stable-parent".into(),
+                policy,
+            },
+            &templates,
+            WorkerRequest {
+                caller: "parent".into(),
+                project: "repo".into(),
+                template: "review".into(),
+                body: "review".into(),
+                durable: true,
+                checkout: WorkerCheckout::Existing(String::new()),
+            },
+        )
+    };
+    let first = prepare_with(WorkerPolicy::default()).unwrap().session;
+    assert_eq!(first.parent_id, "stable-parent");
+    assert_eq!(first.parent_access, WorkerAccess::default());
+    assert!(!first.workers.enabled);
+    let policy = WorkerPolicy {
+        recursive: true,
+        access: WorkerAccess::all(),
+        all_templates: false,
+        templates: ["review".into()].into(),
+        ..Default::default()
+    };
+    let second = prepare_with(policy.clone()).unwrap().session;
+    assert!(second.workers.enabled);
+    assert_eq!(
+        second.parent_access,
+        WorkerAccess::default(),
+        "daemon ceiling"
+    );
+    assert_eq!(second.workers.access, WorkerAccess::default());
+    assert!(!second.workers.all_templates);
+    assert_eq!(second.workers.templates, policy.templates);
+    assert!(
+        !first.workers.enabled,
+        "later policy cannot rewrite an existing relationship"
+    );
+    assert!(
+        prepare_with(WorkerPolicy {
+            enabled: false,
+            ..policy.clone()
+        })
+        .is_err()
+    );
+    assert!(
+        prepare_with(WorkerPolicy {
+            templates: Default::default(),
+            ..policy
+        })
+        .is_err()
+    );
 }

@@ -266,6 +266,21 @@ impl Tasks {
         task.record_update(sender.into(), status, note);
         self.persist(task, order)
     }
+    pub(crate) fn followup_note(&mut self, id: &str, sender: &str, note: String) -> Result<()> {
+        let entry = self.by_id.get(id).context("Task no longer exists")?;
+        ensure!(
+            entry.task.worker.is_some(),
+            "Follow-ups require a worker task"
+        );
+        let order = entry.order;
+        let mut task = entry.task.clone();
+        let result = task.note.clone();
+        task.record_update(sender.into(), task.status, Some(note));
+        task.note = result;
+        self.persist(task, order)?;
+        Ok(())
+    }
+
     pub(crate) fn stamp(&self, task: &Task) -> Option<TaskStamp> {
         self.by_id
             .get(&task.id)
@@ -353,7 +368,17 @@ impl Tasks {
         ids: &[String],
         force: bool,
     ) -> Result<BatchResult> {
-        self.batch(who, ids, force, Some(sender))
+        self.batch(who, ids, force, Some(sender), &[])
+    }
+    pub(crate) fn cancel_supervised(
+        &mut self,
+        who: &str,
+        sender: &str,
+        ids: &[String],
+        force: bool,
+        supervised: &[String],
+    ) -> Result<BatchResult> {
+        self.batch(who, ids, force, Some(sender), supervised)
     }
     pub(crate) fn remove_many(
         &mut self,
@@ -361,7 +386,7 @@ impl Tasks {
         ids: &[String],
         force: bool,
     ) -> Result<BatchResult> {
-        self.batch(who, ids, force, None)
+        self.batch(who, ids, force, None, &[])
     }
     pub(crate) fn prune(&mut self, who: &str, all: bool) -> Result<BatchResult> {
         let ids = self
@@ -373,7 +398,7 @@ impl Tasks {
             })
             .cloned()
             .collect::<Vec<_>>();
-        self.batch(who, &ids, all, None)
+        self.batch(who, &ids, all, None, &[])
     }
     fn batch(
         &mut self,
@@ -381,6 +406,7 @@ impl Tasks {
         ids: &[String],
         force: bool,
         cancel_sender: Option<&str>,
+        supervised: &[String],
     ) -> Result<BatchResult> {
         let cancel = cancel_sender.is_some();
         let mut selected = ids
@@ -398,15 +424,19 @@ impl Tasks {
             };
             let task = &entry.task;
             if cancel {
+                let supervising =
+                    task.worker.is_some() && task.from_id == who && supervised.contains(id);
                 ensure!(
-                    force || task.recipient_is(who),
+                    force || supervising || task.recipient_is(who),
                     "Only the recipient can cancel task {id}."
                 );
                 ensure!(
-                    matches!(
-                        task.status,
-                        Status::Queued | Status::Accepted | Status::Canceled
-                    ),
+                    ((supervising || (force && task.worker.is_some()))
+                        && !task.status.is_terminal())
+                        || matches!(
+                            task.status,
+                            Status::Queued | Status::Accepted | Status::Canceled
+                        ),
                     "Cancel task {id} only when it is queued or accepted."
                 );
             } else {

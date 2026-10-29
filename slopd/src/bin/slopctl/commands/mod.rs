@@ -60,6 +60,13 @@ pub(crate) enum RemoteCommand {
         id: String,
         note: Option<String>,
     },
+    Followup {
+        id: String,
+        body: String,
+    },
+    Cancel {
+        id: String,
+    },
     Remove {
         id: String,
     },
@@ -122,6 +129,10 @@ impl RemoteCommand {
                 &id,
                 note.as_deref(),
             ),
+            Self::Followup { id, body } => {
+                task::run_followup(endpoint, session, json_output, &id, &body)
+            }
+            Self::Cancel { id } => task::run_cancel(endpoint, session, json_output, &id),
             Self::Remove { id } => task::run_remove(endpoint, session, json_output, &id),
             Self::Prune { all } => task::run_prune(endpoint, session, json_output, all),
             Self::Peers => diagnostics::run_peers(endpoint, session, json_output),

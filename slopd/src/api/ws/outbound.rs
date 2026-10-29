@@ -18,52 +18,59 @@ use super::{WatchGuard, WsSubs, WsTx};
 use crate::application::{Event, EventMessage};
 use crate::grant::Cap;
 
-/// Filter events by socket capability. Root receives all events.
-/// Scoped grants receive permitted sessions and screens.
-/// Exclude projects, library, usage, audio, and jukebox catalog data from scoped connections.
-pub(super) fn scope_event(cap: &Cap, ev: Arc<EventMessage>) -> Option<Arc<EventMessage>> {
+/// Relationship access is read from current runtime state, never cached on a socket.
+pub(super) async fn scope_live_event(
+    sessions: &crate::session::SessionRuntime,
+    cap: &Cap,
+    ev: Arc<EventMessage>,
+) -> Option<Arc<EventMessage>> {
     if !cap.is_valid() {
         return None;
     }
-    match cap {
-        Cap::Root => Some(ev),
-        Cap::Scoped(_) => match ev.event() {
-            Event::Sessions { sessions } => Some(EventMessage::new(Event::Sessions {
-                sessions: sessions
-                    .iter()
-                    .filter(|s| cap.can_see(&s.name, s.host))
-                    .cloned()
-                    .collect(),
-            })),
-            Event::Screen { screen } => cap.can_see(&screen.name, false).then_some(ev),
-            Event::Clipboard { .. }
-            | Event::Capabilities { .. }
-            | Event::Projects { .. }
-            | Event::Library { .. }
-            | Event::Usage { .. }
-            | Event::Audio { .. }
-            | Event::Jukebox { .. } => None,
-        },
+    if cap.may_create() {
+        return Some(ev);
+    }
+    match ev.event() {
+        Event::Sessions { sessions: views } => {
+            let mut visible = Vec::new();
+            for view in views {
+                if !view.host && sessions.worker_diagnostics_ok(cap, &view.name).await {
+                    visible.push(view.clone());
+                }
+            }
+            Some(EventMessage::new(Event::Sessions { sessions: visible }))
+        }
+        Event::Screen { screen } => sessions
+            .terminal_cap_ok(cap, &screen.name, crate::grant::Level::Ro)
+            .await
+            .then_some(ev),
+        _ => None,
     }
 }
 
 /// Seed state that may not broadcast again until it changes, using the live event scope filter.
 pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &App, cap: &Cap) -> bool {
-    if let Some(ev) = scope_event(
+    if let Some(ev) = scope_live_event(
+        &m.sessions,
         cap,
         EventMessage::new(Event::Capabilities {
             capabilities: crate::runtime::capabilities(),
         }),
-    ) && send(tx, cap, &ev).await.is_err()
+    )
+    .await
+        && send(tx, cap, &ev).await.is_err()
     {
         return false;
     }
-    if let Some(ev) = scope_event(
+    if let Some(ev) = scope_live_event(
+        &m.sessions,
         cap,
         EventMessage::new(Event::Sessions {
             sessions: m.sessions.views().await,
         }),
-    ) && send(tx, cap, &ev).await.is_err()
+    )
+    .await
+        && send(tx, cap, &ev).await.is_err()
     {
         return false;
     }
@@ -185,7 +192,7 @@ async fn pump_frames(
             event = events.recv() => match event {
                 Ok(event) => {
                     // Filter before retaining payloads in this connection's pending frames.
-                    let Some(event) = scope_event(cap, event) else { continue };
+                    let Some(event) = scope_live_event(&tx.sessions, cap, event).await else { continue };
                     if let Event::Screen { screen } = event.event() {
                         let name = screen.name.clone();
                         if !subs.lock().await.get(&name).is_some_and(WatchGuard::is_current) {
@@ -233,41 +240,61 @@ pub(super) async fn send_authorized(
 ) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
     let started = crate::perf::enabled().then(std::time::Instant::now);
-    let mut bytes = ev
-        .encoded()
-        .map_err(|e| axum::Error::new(std::io::Error::other(e)))?
-        .to_vec();
-    let mut writer = tx.lock().await;
-    if !tx.is_valid(cap) {
-        return Err(axum::Error::new(std::io::Error::other(
-            "capability revoked",
-        )));
-    }
-    if let Event::Screen { screen } = ev.event()
-        && !screen.input_timings.is_empty()
-    {
-        use prost::Message as _;
-        let mut message = ev
-            .event()
-            .to_protobuf()
-            .map_err(|e| axum::Error::new(std::io::Error::other(e.to_string())))?;
-        if let Some(crate::shared::wire::event::Payload::Screen(s)) = &mut message.payload {
-            let at = crate::latency::now();
-            for t in &mut s.input_timings {
-                t.send_us = at;
-            }
+    let operation = async {
+        let mut writer = tx.lock().await;
+        if !tx.is_valid(cap) {
+            return Err(axum::Error::new(std::io::Error::other(
+                "capability revoked",
+            )));
         }
-        bytes = message.encode_to_vec();
+
+        let scoped;
+        let ev = if cap.may_create() {
+            ev
+        } else {
+            let Some(filtered) =
+                scope_live_event(&tx.sessions, cap, EventMessage::new(ev.event().clone())).await
+            else {
+                return Ok(());
+            };
+            scoped = filtered;
+            scoped.as_ref()
+        };
+        let mut bytes = ev
+            .encoded()
+            .map_err(|e| axum::Error::new(std::io::Error::other(e)))?
+            .to_vec();
+        if let Event::Screen { screen } = ev.event()
+            && !screen.input_timings.is_empty()
+        {
+            use prost::Message as _;
+            let mut message = ev
+                .event()
+                .to_protobuf()
+                .map_err(|e| axum::Error::new(std::io::Error::other(e.to_string())))?;
+            if let Some(crate::shared::wire::event::Payload::Screen(s)) = &mut message.payload {
+                let at = crate::latency::now();
+                for t in &mut s.input_timings {
+                    t.send_us = at;
+                }
+            }
+            bytes = message.encode_to_vec();
+        }
+        crate::perf::count("websocket-bytes", bytes.len() as u64);
+        let result = writer.send(Message::Binary(bytes)).await;
+        if let Some(started) = started {
+            tracing::debug!(
+                target: "slopd::perf",
+                lane = "websocket-send",
+                elapsed_us = crate::clock::duration_us(started.elapsed()),
+                "websocket event sent"
+            );
+        }
+        result
+    };
+    if cap.may_create() {
+        operation.await
+    } else {
+        tx.sessions.session_read_operation(operation).await
     }
-    crate::perf::count("websocket-bytes", bytes.len() as u64);
-    let result = writer.send(Message::Binary(bytes)).await;
-    if let Some(started) = started {
-        tracing::debug!(
-            target: "slopd::perf",
-            lane = "websocket-send",
-            elapsed_us = crate::clock::duration_us(started.elapsed()),
-            "websocket event sent"
-        );
-    }
-    result
 }

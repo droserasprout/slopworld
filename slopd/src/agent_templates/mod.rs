@@ -61,6 +61,8 @@ pub(crate) struct AgentTemplate {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplateDefaults {
+    #[serde(default)]
+    pub(crate) workers: crate::config::WorkerPolicy,
     /// Complete command preset definition, if the source used a preset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) command: Option<CommandPreset>,
@@ -331,6 +333,7 @@ impl AgentTemplate {
             version: 0,
             description,
             defaults: AgentTemplateDefaults {
+                workers: source.workers.clone(),
                 command,
                 cmd: source.cmd.clone(),
                 args: source.args.clone(),
@@ -354,6 +357,7 @@ impl AgentTemplate {
         SessionCfg {
             name,
             project,
+            workers: defaults.workers.clone(),
             command: defaults
                 .command
                 .as_ref()
@@ -380,6 +384,7 @@ impl AgentTemplate {
     pub(crate) fn apply_overrides(&self, session: &mut SessionCfg, overrides: &SessionCfg) {
         let previous = session.clone();
 
+        session.workers = overrides.workers.clone();
         session.command = overrides.command.clone();
         session.cmd = overrides.cmd.clone();
         session.args = overrides.args.clone();

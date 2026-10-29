@@ -36,6 +36,7 @@ fn scoped_routes(m: App) -> Router<App> {
         .route(routes::SESSION_STATE_RESET, post(reset_state))
         .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
         .route(routes::WORKERS, post(spawn_worker))
+        .route(routes::TASK_FOLLOWUP, post(followup_task))
         .layer(middleware::from_fn_with_state(m, scoped_request))
 }
 
@@ -80,6 +81,7 @@ fn shared_routes(m: App) -> Router<App> {
 fn root_routes(m: App) -> Router<App> {
     // Host controls and configuration default to root-only access.
     Router::new()
+        .route(routes::WORKER_ACCESS, put(set_worker_access))
         .route(
             routes::WORKTREE,
             delete(remove_worktree).put(rename_worktree),

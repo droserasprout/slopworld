@@ -90,6 +90,7 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `POST` | `/api/sessions/:name/start` | `scoped` | `Empty` | `Ack` |
 | `POST` | `/api/sessions/:name/state/reset` | `scoped` | `Empty` | `Ack` |
 | `POST` | `/api/sessions/:name/stop` | `scoped` | `Empty` | `Ack` |
+| `PUT` | `/api/sessions/:name/worker-access` | `root-only` | `WorkerAccessReq` | `Ack` |
 
 ## Projects and worktrees
 
@@ -117,6 +118,7 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `DELETE` | `/api/tasks/:id` | `scoped` | `Empty` | `TaskResult` |
 | `GET` | `/api/tasks/:id` | `scoped` | `Empty` | `TaskResult` |
 | `POST` | `/api/tasks/:id` | `scoped` | `UpdateTaskReq` | `TaskResult` |
+| `POST` | `/api/tasks/:id/followup` | `scoped` | `WorkerFollowupReq` | `Ack` |
 | `POST` | `/api/tasks/cancel` | `scoped` | `RemoveTasksReq` | `TaskBatchResult` |
 | `POST` | `/api/tasks/remove` | `scoped` | `RemoveTasksReq` | `TaskBatchResult` |
 | `POST` | `/api/workers` | `scoped` | `SpawnWorkerReq` | `WorkerResult` |

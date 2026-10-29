@@ -180,6 +180,40 @@ pub(super) fn run_update(
     Ok(())
 }
 
+pub(super) fn run_followup(
+    endpoint: &Endpoint,
+    session: &str,
+    json_output: bool,
+    id: &str,
+    body: &str,
+) -> Result<(), String> {
+    let value = request(
+        endpoint,
+        session,
+        "POST",
+        &routes::TASK_FOLLOWUP.replace(":id", id),
+        Some(json!({"body": body})),
+    )?;
+    emit(&value, json_output);
+    Ok(())
+}
+pub(super) fn run_cancel(
+    endpoint: &Endpoint,
+    session: &str,
+    json_output: bool,
+    id: &str,
+) -> Result<(), String> {
+    let value = request(
+        endpoint,
+        session,
+        "POST",
+        routes::TASKS_CANCEL,
+        Some(json!({"ids": [id]})),
+    )?;
+    emit(&value, json_output);
+    batch_succeeded(&value)
+}
+
 pub(super) fn run_remove(
     endpoint: &Endpoint,
     session: &str,

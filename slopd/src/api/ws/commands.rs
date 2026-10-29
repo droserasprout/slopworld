@@ -163,7 +163,7 @@ async fn handle_sub(
     admitted: &AtomicBool,
 ) -> bool {
     let snapshot = async {
-        if !tx.is_valid(cap) || !m.sessions.cap_ok(cap, &name, Level::Ro).await {
+        if !tx.is_valid(cap) || !m.sessions.terminal_cap_ok(cap, &name, Level::Ro).await {
             return None;
         }
         admitted.store(true, Ordering::Relaxed);
@@ -195,7 +195,7 @@ async fn handle_unsub(name: String, subs: &WsSubs) {
 }
 
 async fn handle_keys(req: KeysReq, m: &App, cap: &Cap) {
-    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
+    if !m.sessions.terminal_cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     if let Some(run_id) = req.run_id
@@ -207,7 +207,7 @@ async fn handle_keys(req: KeysReq, m: &App, cap: &Cap) {
 }
 
 async fn handle_resize(req: ResizeReq, m: &App, cap: &Cap) {
-    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
+    if !m.sessions.terminal_cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     if let Err(e) = m.sessions.resize(&req.name, req.cols, req.rows).await {
@@ -216,7 +216,7 @@ async fn handle_resize(req: ResizeReq, m: &App, cap: &Cap) {
 }
 
 async fn handle_mouse(req: MouseReq, m: &App, cap: &Cap) {
-    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
+    if !m.sessions.terminal_cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     let Some(action) = crate::emu::MouseAction::parse(&req.action) else {
@@ -233,7 +233,7 @@ async fn handle_mouse(req: MouseReq, m: &App, cap: &Cap) {
 }
 
 async fn handle_paste(req: PasteReq, m: &App, cap: &Cap) {
-    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
+    if !m.sessions.terminal_cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     if let Some(run_id) = req.run_id
@@ -258,7 +258,7 @@ async fn handle_paste(req: PasteReq, m: &App, cap: &Cap) {
 }
 
 async fn handle_breadcrumb(req: BreadcrumbReq, m: &App, cap: &Cap) {
-    if !m.sessions.cap_ok(cap, &req.name, Level::Rw).await {
+    if !m.sessions.terminal_cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     if let Err(e) = m
