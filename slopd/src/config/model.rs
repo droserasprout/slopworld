@@ -135,9 +135,9 @@ pub struct SessionCfg {
     pub parent: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub task_id: String,
-    /// Per-run worker credential; never persisted or exposed in session views.
+    /// Per-run scoped daemon credential; never persisted or exposed in session views.
     #[serde(skip)]
-    pub(crate) worker_token: Option<String>,
+    pub(crate) daemon_token: Option<String>,
 }
 
 /// Persistent host shell, restored independently of agent sessions.
@@ -196,7 +196,7 @@ impl Default for SessionCfg {
             worker: false,
             parent: String::new(),
             task_id: String::new(),
-            worker_token: None,
+            daemon_token: None,
         }
     }
 }
@@ -224,7 +224,7 @@ impl std::fmt::Debug for SessionCfg {
             .field("worker", &self.worker)
             .field("parent", &self.parent)
             .field("task_id", &self.task_id)
-            .field("worker_token", &super::TOKEN_REDACTED)
+            .field("daemon_token", &super::TOKEN_REDACTED)
             .finish()
     }
 }

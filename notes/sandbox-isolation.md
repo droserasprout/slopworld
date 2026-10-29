@@ -7,7 +7,10 @@ session lifecycle guard through blocking deletion, including requester cancellat
 reset/restore and runtime expiration cleanup use that same boundary. Session owns
 live reconciliation.
 [Presets](daemon-presets.md) select access; [grants](agent-grants.md) separately select
-API authority. User guidance belongs to the [security model](../docs/src/sandbox/security.md).
+API authority. Every non-host launch receives self-scoped daemon credentials after
+preset environment values, so presets cannot override that injected authority.
+Network policy still controls reachability; disconnected ordinary agents may launch.
+User guidance belongs to the [security model](../docs/src/sandbox/security.md).
 
 Bubblewrap retains the daemon's numeric UID/GID so passwd-based home lookups match
 mounted user files. Host root stays unmapped for non-root daemons. System SSH includes

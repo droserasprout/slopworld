@@ -182,7 +182,7 @@ pub(crate) fn worker_session_from_template(
     session.task_id.clear();
     session.autostart = false;
     session.auto_resume = false;
-    session.worker_token = None;
+    session.daemon_token = None;
     session
 }
 

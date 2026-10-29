@@ -3,7 +3,7 @@
 //! Keep raw arguments in the plan until the daemon starts the session.
 //! Logs, API responses, and saved files use the redacted view.
 //! The view removes known secrets and sensitive values.
-//! After a restart, structural rules still hide worker tokens that the daemon no longer knows.
+//! After a restart, structural rules still hide agent tokens that the daemon no longer knows.
 
 use std::path::Path;
 
@@ -38,7 +38,7 @@ pub(crate) struct LaunchPlan {
 }
 
 /// Define the fields for saved plans and API responses.
-/// The strings are sanitized before storage. A saved file cannot reveal a worker token after restart.
+/// The strings are sanitized before storage. A saved file cannot reveal an agent token after restart.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct PlanView {
     pub(crate) version: u8,

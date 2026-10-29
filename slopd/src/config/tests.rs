@@ -685,7 +685,7 @@ fn diagnostic_formatting_redacts_credentials_without_changing_serialization() {
     let mut cfg = Config::default();
     cfg.daemon.token = "root-secret".into();
     cfg.sessions.push(SessionCfg {
-        worker_token: Some("worker-secret".into()),
+        daemon_token: Some("worker-secret".into()),
         ..Default::default()
     });
     for text in [

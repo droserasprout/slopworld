@@ -53,7 +53,7 @@ impl SessionRuntime {
                 session.name.clone_from(&name);
                 session.autostart = false;
                 session.auto_resume = false;
-                session.worker_token = None;
+                session.daemon_token = None;
             }
             session
         } else {
@@ -423,7 +423,7 @@ pub(in crate::session) fn recovered_worker_cfg(
     session.task_id = metadata.task_id.clone();
     session.autostart = false;
     session.auto_resume = false;
-    session.worker_token = None;
+    session.daemon_token = None;
     Some(session)
 }
 

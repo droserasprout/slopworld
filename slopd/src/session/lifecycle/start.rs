@@ -56,7 +56,7 @@ impl SessionRuntime {
         Ok((session, project))
     }
 
-    /// Resolve launch inputs, preparing directories and worker credentials for this attempt.
+    /// Resolve launch inputs, preparing directories and agent credentials for this attempt.
     async fn prepare_start(&self, name: &str) -> Result<StartPlan> {
         let cfg = self.config().await;
         let (mut session, project) = self.resolve_target(&cfg, name).await?;
@@ -114,18 +114,18 @@ impl SessionRuntime {
             bail!("The working directory is not a directory: {dir}.");
         }
 
-        // Mint worker authority before building arguments; revoke it if planning fails.
-        if session.worker {
-            let token = self
-                .mint_grant(
-                    session.name.clone(),
-                    vec![session.name.clone()],
-                    crate::grant::Level::Rw,
-                )
-                .await
-                .context("minting worker task credential")?;
-            session.worker_token = Some(token);
-        }
+        // A launch receives self-scoped authority. Persist it for surviving panes,
+        // and replace only earlier automatic grants, never manually issued authority.
+        session.daemon_token = if role.is_host() {
+            None
+        } else {
+            Some(
+                self.config_authority
+                    .mint_launch_grant(&session.name, &session.state_id)
+                    .await
+                    .context("minting agent daemon credential")?,
+            )
+        };
 
         let planned = build_start_plan(&cfg, &session, &project, role.is_host())
             .await
@@ -139,9 +139,8 @@ impl SessionRuntime {
         let (launch, argv) = match planned {
             Ok(planned) => planned,
             Err(error) => {
-                if session.worker {
-                    self.invalidate_session(&session.name).await;
-                }
+                self.revoke_failed_start_grants(&session.name, session.worker)
+                    .await;
                 return Err(error);
             }
         };
@@ -281,8 +280,11 @@ impl SessionRuntime {
         }
         if let Err(error) = self.tmux.start_command(name, &plan.dir, &plan.argv).await {
             self.cleanup_failed_start(name, plan.is_worker()).await;
-            if plan.is_worker() {
-                return Err(anyhow!("could not start worker session {name}"));
+            if !plan.role.is_host() {
+                return Err(anyhow!(
+                    "could not start {} session {name}",
+                    if plan.is_worker() { "worker" } else { "agent" }
+                ));
             }
             return Err(error.context(format!("starting session {name} command")));
         }
@@ -331,7 +333,15 @@ impl SessionRuntime {
         run_id
     }
 
-    /// Remove the failed pane, worker authority, and temporary sandbox state.
+    async fn revoke_failed_start_grants(&self, name: &str, worker: bool) {
+        if worker {
+            self.invalidate_session(name).await;
+        } else if let Err(error) = self.config_authority.revoke_launch_grants(name).await {
+            tracing::error!("revoking failed launch credential for {name}: {error:#}");
+        }
+    }
+
+    /// Remove the failed pane, launch authority, and temporary sandbox state.
     async fn cleanup_failed_start(&self, name: &str, worker: bool) {
         let ephemeral = self
             .live
@@ -345,9 +355,7 @@ impl SessionRuntime {
         {
             tracing::warn!("could not clean up failed start {name}: {cleanup:#}");
         }
-        if worker {
-            self.invalidate_session(name).await;
-        }
+        self.revoke_failed_start_grants(name, worker).await;
         if let Some(session) = ephemeral
             && let Err(error) = crate::sandbox::remove_ephemeral_state(&session)
         {

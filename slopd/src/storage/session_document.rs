@@ -45,6 +45,7 @@ pub(super) const AGENT: &[&str] = &[
     "reader_pinned",
     "reader_line",
     "worker_token",
+    "daemon_token",
 ];
 const COMMAND: &[&str] = &["name", "kind", "description", "cmd", "sandbox"];
 const SANDBOX: &[&str] = &[

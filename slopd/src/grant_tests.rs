@@ -224,3 +224,48 @@ fn revocation_save_failure_invalidates_live_caps_and_reports_disk_cleanup() {
         }
     }
 }
+
+#[test]
+fn launch_grants_survive_recovery_but_revoke_separately_from_manual_grants() {
+    let root = crate::test_support::fixture("launch-grants");
+    let mut grants = Grants::load_data(&root).unwrap();
+    let manual = grants
+        .mint_persisted(
+            grant(&["g"], Level::Rw),
+            "identity".into(),
+            [("g".into(), "identity".into())].into(),
+        )
+        .unwrap();
+    let automatic = grants.mint_launch("g", "identity").unwrap();
+    let mut recovered = Grants::load_data(&root).unwrap();
+    recovered
+        .prune_stale(&[("g".into(), "identity".into())].into(), &HashSet::new())
+        .unwrap();
+    let cap = recovered.resolve(Some(&automatic), "root").unwrap();
+    assert!(cap.allows("g", false, Level::Rw));
+    assert!(!cap.allows("other", false, Level::Ro));
+    assert!(!cap.allows("g", true, Level::Rw));
+    assert!(!cap.may_create());
+    assert!(recovered.revoke_launch("g").unwrap());
+    assert!(!cap.is_valid());
+    assert!(!recovered.revoke_launch("g").unwrap());
+    let mut recovered = Grants::load_data(&root).unwrap();
+    assert!(recovered.resolve(Some(&automatic), "root").is_none());
+    assert!(recovered.resolve(Some(&manual), "root").is_some());
+    let absent = recovered.mint_launch("g", "identity").unwrap();
+    recovered
+        .prune_absent_launches(&["g".into()].into())
+        .unwrap();
+    assert!(recovered.resolve(Some(&absent), "root").is_some());
+    recovered.prune_absent_launches(&HashSet::new()).unwrap();
+    assert!(recovered.resolve(Some(&absent), "root").is_none());
+    assert!(recovered.resolve(Some(&manual), "root").is_some());
+    let replaced = recovered.mint_launch("g", "identity").unwrap();
+    recovered
+        .prune_stale(
+            &[("g".into(), "replacement".into())].into(),
+            &HashSet::new(),
+        )
+        .unwrap();
+    assert!(recovered.resolve(Some(&replaced), "root").is_none());
+}

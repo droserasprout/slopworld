@@ -137,7 +137,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
         command: agent_argv,
         known_secrets: [
             cfg.daemon.token.clone(),
-            s.worker_token.clone().unwrap_or_default(),
+            s.daemon_token.clone().unwrap_or_default(),
         ]
         .into_iter()
         .filter(|secret| !secret.is_empty())

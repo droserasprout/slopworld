@@ -108,6 +108,35 @@ impl ConfigAuthority {
             .await
             .mint_persisted(grant, grantor_state_id, session_state_ids)
     }
+    /// Lifecycle supplies a non-host identity under the session operation guard.
+    pub(crate) async fn mint_launch_grant(&self, name: &str, state_id: &str) -> Result<String> {
+        anyhow::ensure!(
+            !state_id.is_empty(),
+            "launch credential requires a stable identity"
+        );
+        self.revoke_launch_grants(name).await?;
+        self.grants.write().await.mint_launch(name, state_id)
+    }
+
+    pub(crate) async fn revoke_launch_grants(&self, name: &str) -> Result<()> {
+        let mut grants = self.grants.write().await;
+        let count = grants.count();
+        let result = grants.revoke_launch(name);
+        let changed = grants.count() < count;
+        drop(grants);
+        if changed {
+            self.invalidate_auth(AuthChange::GrantsRevoked);
+        }
+        result.map(|_| ())
+    }
+
+    pub(crate) async fn prune_absent_launch_grants(
+        &self,
+        panes: &std::collections::HashSet<String>,
+    ) -> Result<bool> {
+        self.grants.write().await.prune_absent_launches(panes)
+    }
+
     /// Startup only, after session adoption and before client admission.
     pub(crate) async fn prune_stale_grants(
         &self,

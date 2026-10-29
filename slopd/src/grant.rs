@@ -104,6 +104,8 @@ impl Cap {
 
 #[derive(Debug, Clone)]
 struct Entry {
+    /// Automatic process authority; manual grants retain their independent lifetime.
+    launch: bool,
     grant: Grant,
     /// Stable agent identities prevent grants from attaching to reused session names after a daemon restart.
     /// Host terminals have no persistent state ID and leave this field empty.
@@ -119,6 +121,8 @@ struct File {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct StoredGrant {
+    #[serde(default)]
+    launch: bool,
     token: String,
     grantor: String,
     #[serde(default)]
@@ -211,6 +215,7 @@ impl Grants {
                 bail!("invalid grant scope in {}", path.display());
             }
             let entry = Entry {
+                launch: stored.launch,
                 grant: Grant {
                     grantor: stored.grantor,
                     sessions,
@@ -252,7 +257,7 @@ impl Grants {
     /// Create an in-memory grant for callers that do not own a persistent store.
     #[cfg(test)]
     pub fn mint(&mut self, grant: Grant) -> String {
-        self.mint_with_identity(grant, String::new(), BTreeMap::new())
+        self.mint_with_identity(grant, String::new(), BTreeMap::new(), false)
             .expect("in-memory grant cannot fail to persist")
     }
 
@@ -265,7 +270,30 @@ impl Grants {
         grantor_state_id: String,
         session_state_ids: BTreeMap<String, String>,
     ) -> Result<String> {
-        self.mint_with_identity(grant, grantor_state_id, session_state_ids)
+        self.mint_with_identity(grant, grantor_state_id, session_state_ids, false)
+    }
+
+    /// Automatic authority belongs to one launch, independently of manual grants.
+    pub(crate) fn mint_launch(&mut self, name: &str, state_id: &str) -> Result<String> {
+        self.mint_with_identity(
+            Grant {
+                grantor: name.into(),
+                sessions: [name.into()].into(),
+                level: Level::Rw,
+                revoked: Default::default(),
+            },
+            state_id.into(),
+            [(name.into(), state_id.into())].into(),
+            true,
+        )
+    }
+
+    pub(crate) fn revoke_launch(&mut self, name: &str) -> Result<bool> {
+        self.revoke_matching(|entry| entry.launch && entry.grant.grantor == name)
+    }
+
+    pub(crate) fn prune_absent_launches(&mut self, panes: &HashSet<String>) -> Result<bool> {
+        self.revoke_matching(|entry| entry.launch && !panes.contains(&entry.grant.grantor))
     }
 
     fn mint_with_identity(
@@ -273,6 +301,7 @@ impl Grants {
         grant: Grant,
         grantor_state_id: String,
         session_state_ids: BTreeMap<String, String>,
+        launch: bool,
     ) -> Result<String> {
         let token = loop {
             let token = gen_token().context(GrantPersistence)?;
@@ -283,6 +312,7 @@ impl Grants {
         self.by_token.insert(
             token.clone(),
             Entry {
+                launch,
                 grant,
                 grantor_state_id,
                 session_state_ids,
@@ -391,6 +421,7 @@ impl Grants {
                 let mut sessions: Vec<String> = entry.grant.sessions.iter().cloned().collect();
                 sessions.sort();
                 StoredGrant {
+                    launch: entry.launch,
                     token: token.clone(),
                     grantor: entry.grant.grantor.clone(),
                     grantor_state_id: entry.grantor_state_id.clone(),

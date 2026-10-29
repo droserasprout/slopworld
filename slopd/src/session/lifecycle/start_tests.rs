@@ -271,6 +271,8 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
     manager.live.write().await.insert("agent".into(), live);
     let plan = manager.prepare_start("agent").await.unwrap();
     assert!(plan.role.is_host());
+    assert!(plan.session.daemon_token.is_none());
+    assert_eq!(manager.config_authority.grant_count().await, 0);
     assert!(!plan.is_worker());
     assert!(plan.launch.is_none());
     assert_eq!((plan.cols, plan.rows), (101, 37));
@@ -644,4 +646,163 @@ async fn temporary_agent_adoption_preserves_configuration_and_cleans_original_st
     recovered.stop(&session.name).await.unwrap();
     assert!(!private.exists());
     assert!(unrelated.exists());
+}
+
+#[tokio::test]
+async fn ordinary_launch_failure_revokes_only_automatic_authority_and_retry_rotates_it() {
+    let manager = manager_for_start();
+    let session = manager.config().await.sessions[0].clone();
+    let manual = manager
+        .mint_grant(
+            "agent".into(),
+            vec!["agent".into()],
+            crate::grant::Level::Rw,
+        )
+        .await
+        .unwrap();
+    let old = manager
+        .config_authority
+        .mint_launch_grant("agent", &session.state_id)
+        .await
+        .unwrap();
+    let cap = manager
+        .config_authority
+        .resolve_cap(Some(&old))
+        .await
+        .unwrap();
+    let new = manager
+        .config_authority
+        .mint_launch_grant("agent", &session.state_id)
+        .await
+        .unwrap();
+    assert!(!cap.is_valid());
+    assert_ne!(old, new);
+    manager.cleanup_failed_start("agent", false).await;
+    manager.cleanup_failed_start("agent", false).await;
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&new))
+            .await
+            .is_none()
+    );
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&manual))
+            .await
+            .is_some()
+    );
+    // A sandbox planning error follows the same targeted rollback.
+    manager.config_authority.write().await.sessions[0].sandbox = vec!["missing-preset".into()];
+    assert!(manager.prepare_start("agent").await.is_err());
+    assert_eq!(manager.config_authority.grant_count().await, 1);
+    assert!(
+        manager
+            .config_authority
+            .resolve_cap(Some(&manual))
+            .await
+            .is_some()
+    );
+}
+
+#[tokio::test]
+async fn ordinary_preparation_injects_self_credentials_and_redacts_diagnostics() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let project = root.join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    let manager = manager_for_start();
+    {
+        let mut cfg = manager.config_authority.write().await;
+        cfg.projects[0].dir = project.to_string_lossy().into_owned();
+        cfg.sessions[0].sandbox.clear();
+        cfg.sessions[0].command = "bash".into();
+        cfg.sessions[0].network = NetworkMode::None;
+    }
+    let plan = manager.prepare_start("agent").await.unwrap();
+    assert!(!plan.session.worker);
+    let token = plan.session.daemon_token.as_deref().unwrap();
+    let cap = manager
+        .config_authority
+        .resolve_cap(Some(token))
+        .await
+        .unwrap();
+    assert!(cap.allows("agent", false, crate::grant::Level::Rw));
+    assert!(!cap.allows("other", false, crate::grant::Level::Ro));
+    assert!(
+        plan.argv
+            .windows(3)
+            .any(|w| w[0] == "--setenv" && w[1] == "SLOPD_TOKEN" && w[2] == token)
+    );
+    assert!(!format!("{:?}", plan.session).contains(token));
+    assert!(!plan.launch.as_ref().unwrap().render_human().contains(token));
+    manager.cleanup_failed_start("agent", false).await;
+    assert!(!cap.is_valid());
+}
+
+#[tokio::test]
+async fn ordinary_command_failure_redacts_errors_and_stop_revokes_only_launch_grants() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let mut cfg = Config::default();
+    let session = SessionCfg {
+        name: "agent".into(),
+        ..Default::default()
+    };
+    cfg.sessions.push(session.clone());
+    let manager = crate::session::test_manager_with_socket(cfg, socket.path.clone());
+    let manual = manager
+        .mint_grant(
+            "agent".into(),
+            vec!["agent".into()],
+            crate::grant::Level::Rw,
+        )
+        .await
+        .unwrap();
+    for fail in [true, false] {
+        let token = manager
+            .config_authority
+            .mint_launch_grant("agent", &session.state_id)
+            .await
+            .unwrap();
+        let cap = manager
+            .config_authority
+            .resolve_cap(Some(&token))
+            .await
+            .unwrap();
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(session.clone(), TitleCapture::default()),
+        );
+        let mut plan = prepared_worker_plan(&session, std::path::Path::new("/tmp"));
+        plan.role = SessionRole::Agent(AgentLifetime::Durable);
+        if fail {
+            manager.tmux.fail_next_start_command_for_test();
+        }
+        let result = manager
+            .session_operation(async {
+                let terminal = manager.terminal_boundary("agent").write_owned().await;
+                manager.start_prepared("agent", plan, terminal).await
+            })
+            .await;
+        if fail {
+            let error = result.unwrap_err();
+            assert_eq!(error.to_string(), "could not start agent session agent");
+            assert!(!format!("{error:#}").contains("secret-worker-token"));
+        } else {
+            result.unwrap();
+            assert!(cap.is_valid());
+            manager.stop("agent").await.unwrap();
+        }
+        assert!(!cap.is_valid());
+        assert!(
+            manager
+                .config_authority
+                .resolve_cap(Some(&manual))
+                .await
+                .is_some()
+        );
+        assert!(!manager.tmux.exists("agent").await);
+    }
 }

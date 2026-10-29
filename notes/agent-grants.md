@@ -27,7 +27,14 @@ completion and cleanup.
 The CLI refuses HTTP redirects so bearer headers cannot reach another endpoint.
 
 Removal, rename, or identity replacement revokes grants owned by or targeting that
-session, including their other targets. Stop/start preserves ordinary grants.
+session, including their other targets. Stop/start preserves manually issued ordinary grants.
+Every non-host launch receives an automatic self-scoped rw grant. The persisted
+launch marker separates its revocation from manual authority: stop/exit and failed
+launch revoke it, and a fresh launch replaces any leftover automatic grant. Adoption
+keeps the surviving process credential valid for the same identity; startup also
+prunes automatic grants for panes absent from a successful tmux listing. Runtime
+credentials never enter saved agent records or tmux snapshots; sandbox diagnostics
+redact them. Workers retain their broader task-lifetime revocation policy.
 Restart restores grants only for the same grantor/target identities and prunes stale
 entries. New tokens require secure randomness; there is no predictable fallback.
 

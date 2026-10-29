@@ -243,8 +243,8 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
         push_args(a, &["--setenv", "SLOPWORLD_PI_TITLES", "never"]);
     }
 
-    if let Some(token) = s.worker_token.as_deref() {
-        // Set the worker token after preset values so a preset cannot replace it with the root token.
+    if let Some(token) = s.daemon_token.as_deref() {
+        // Set the agent token after preset values so a preset cannot replace it with the root token.
         // This also removes the need to mount endpoints/local.toml, which contains the root token.
         let url = crate::endpoint::url_for(&cfg.daemon.bind);
         push_args(a, &["--setenv", "SLOPD_URL", &url]);

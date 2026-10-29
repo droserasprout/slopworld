@@ -46,7 +46,7 @@ fn template_instantiation_mints_fresh_session_identity() {
     assert_ne!(first.state_id, second.state_id);
     assert_eq!(first.name, "one");
     assert_eq!(first.project, "repo");
-    assert!(first.worker_token.is_none());
+    assert!(first.daemon_token.is_none());
 }
 
 #[test]

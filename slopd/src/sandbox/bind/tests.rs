@@ -486,7 +486,7 @@ fn worker_identity_is_exported_to_the_sandbox() {
         sandbox: Vec::new(),
         worker: true,
         task_id: "task-7".into(),
-        worker_token: Some("worker-secret".into()),
+        daemon_token: Some("worker-secret".into()),
         ..Default::default()
     };
     let p = ProjectCfg {

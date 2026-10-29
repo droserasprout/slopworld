@@ -72,6 +72,20 @@ impl SessionRuntime {
     }
 
     pub(crate) async fn prune_stale_grants(&self) {
+        // A process may disappear while the daemon is down. Only a successful tmux
+        // listing proves absence; failed inspection must not revoke surviving panes.
+        match self.tmux.list_checked().await {
+            Ok(panes) => {
+                if let Err(error) = self
+                    .config_authority
+                    .prune_absent_launch_grants(&panes.into_iter().collect())
+                    .await
+                {
+                    tracing::error!("could not prune absent launch grants: {error:#}");
+                }
+            }
+            Err(error) => tracing::error!("could not inspect panes for launch grants: {error:#}"),
+        }
         // Prune credentials against the reconciled session identities.
         let (state_ids, host_sessions) = {
             let live = self.live.read().await;

@@ -937,7 +937,7 @@ async fn worker_configuration_metadata_round_trips_without_credentials() {
         name: "worker".into(),
         command: "own-command".into(),
         sandbox: vec!["own-preset".into()],
-        worker_token: Some("never-persist".into()),
+        daemon_token: Some("never-persist".into()),
         ..Default::default()
     };
     tmux.set_worker_config("worker", &session).await.unwrap();
@@ -948,7 +948,7 @@ async fn worker_configuration_metadata_round_trips_without_credentials() {
     let recovered = metadata.session.unwrap();
     assert_eq!(recovered.command, session.command);
     assert_eq!(recovered.sandbox, session.sandbox);
-    assert!(recovered.worker_token.is_none());
+    assert!(recovered.daemon_token.is_none());
     assert!(
         !tmux
             .option("worker", "@slopworld-worker-config")

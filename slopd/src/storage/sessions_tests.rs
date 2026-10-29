@@ -154,7 +154,8 @@ async fn edits_clear_known_fields_keep_extensions_and_leave_siblings_untouched()
     table.insert("label".into(), "old label".into());
     table.insert("persistent_tmp".into(), false.into());
     table.insert("extension".into(), "keep".into());
-    table.insert("worker_token".into(), "never-persist".into());
+    table.insert("worker_token".into(), "legacy-secret".into());
+    table.insert("daemon_token".into(), "never-persist".into());
     table.insert("reader_key".into(), "never-persist".into());
     raw["dns"]
         .as_table_mut()
@@ -177,7 +178,13 @@ async fn edits_clear_known_fields_keep_extensions_and_leave_siblings_untouched()
     f.change(|s| s[0] = updated).await.unwrap();
     let raw: toml::Value =
         toml::from_str(&tokio::fs::read_to_string(&path).await.unwrap()).unwrap();
-    for removed in ["label", "persistent_tmp", "worker_token", "reader_key"] {
+    for removed in [
+        "label",
+        "persistent_tmp",
+        "worker_token",
+        "daemon_token",
+        "reader_key",
+    ] {
         assert!(raw.get(removed).is_none(), "{removed}");
     }
     assert_eq!(raw["extension"].as_str(), Some("keep"));
@@ -207,7 +214,7 @@ async fn captured_snapshots_worker_linkage_and_startup_fields_survive_edit() {
     value.worktree = "tree".into();
     value.autostart = true;
     value.auto_resume = true;
-    value.worker_token = Some("secret".into());
+    value.daemon_token = Some("secret".into());
     value.command_snapshot = Some(crate::presets::CommandPreset {
         name: "tool".into(),
         cmd: "tool --fixed".into(),
@@ -222,7 +229,7 @@ async fn captured_snapshots_worker_linkage_and_startup_fields_survive_edit() {
     let path = f.path(FIRST);
     let mut raw: toml::Value =
         toml::from_str(&tokio::fs::read_to_string(&path).await.unwrap()).unwrap();
-    assert!(raw.get("worker_token").is_none());
+    assert!(raw.get("daemon_token").is_none());
     raw["command_snapshot"]
         .as_table_mut()
         .unwrap()
