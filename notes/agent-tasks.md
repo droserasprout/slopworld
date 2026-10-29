@@ -33,6 +33,20 @@ The mod's `TaskStore` owns HTTP polling deadlines. The visible sidebar board and
 open task readers independently demand polling; readers release their registration
 on close or replacement, so hiding or switching the sidebar cannot freeze a reader.
 
+`application/planner/` owns the manual todo.txt backlog and one-shot dispatch reservations.
+The mod's Planner view retains endpoint-scoped drafts; saves compare document revisions.
+Only root may read or mutate the Planner API. Agents update existing Tasks, whose status
+is projected into Planner items without rewriting user text. Provider calls run outside
+session admission; execution rechecks document revision and root generation under an
+owned session operation. A durable reservation precedes worker startup, so cancellation,
+restart, and task pruning cannot silently retry an item. See [Planner](../docs/src/customization/settings.md#planner).
+
+The Planner's `TodoText` projection owns task-field edits, completion dates, filtering,
+and sorting. It retains unrelated line content and opaque metadata; source mode is the
+explicit escape hatch for raw edits. The view acquires a TaskStore reader demand for
+worker progress and releases it on close. Drafts and asynchronous callbacks are scoped
+to the endpoint; task selection retires text-field lifetimes.
+
 Supervised cancellation carries a checked selection into the task store. It applies
 only to the sender's worker tasks and may cancel working tasks; ordinary recipient
 cancellation retains its queued/accepted policy. Cancellation preserves the latest

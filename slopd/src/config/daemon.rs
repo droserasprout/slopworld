@@ -64,6 +64,10 @@ pub struct Daemon {
     #[serde(default)]
     pub task_summaries: TitlePolicy,
 
+    /// Manual todo.txt planning and execution prompts.
+    #[serde(default)]
+    pub planner: PlannerSettings,
+
     // Delegated workers.
     /// Instructions delivered to newly spawned workers.
     #[serde(default)]
@@ -167,6 +171,7 @@ impl Default for Daemon {
             title_min_chars: default_title_min_chars(),
             pi_titles: default_pi_title_policy(),
             task_summaries: TitlePolicy::Never,
+            planner: PlannerSettings::default(),
             instructions: InstructionsCfg::default(),
             worker_templates: BTreeSet::new(),
             worker_access: default_worker_access(),
@@ -269,5 +274,25 @@ impl std::fmt::Debug for Daemon {
             .field("instructions", &self.instructions)
             .field("worker_templates", &self.worker_templates)
             .finish()
+    }
+}
+
+/// Planner policy is separate from short session title generation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlannerSettings {
+    pub model: String,
+    pub summarize_prompt: String,
+    pub plan_prompt: String,
+    pub execute_prompt: String,
+}
+impl Default for PlannerSettings {
+    fn default() -> Self {
+        Self {
+            model: DEFAULT_TITLE_MODEL.into(),
+            summarize_prompt: "Summarize this todo.txt backlog. Highlight priorities, projects, deadlines and blockers. Do not rewrite tasks or claim work was performed.".into(),
+            plan_prompt: "Propose a concrete implementation plan for this todo.txt backlog. Respect priorities, dates and constraints. Identify dependencies and questions. Do not execute work or rewrite the backlog.".into(),
+            execute_prompt: "Prepare a precise work order for a coding agent for this single todo.txt item. Preserve the user's scope and constraints. Include acceptance checks. Do not claim execution or add unrelated work. Return only the work order.".into(),
+        }
     }
 }

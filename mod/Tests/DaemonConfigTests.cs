@@ -37,6 +37,30 @@ namespace SlopWorld.Tests
             yield return ("uses daemon factory metadata when available", UsesFactoryMetadata);
         }
 
+        public static void PlannerSettingsSurviveSnapshotsWithoutSharingMutablePrompts()
+        {
+            var wire = new Wire.Config
+            {
+                Daemon = new Wire.Daemon
+                {
+                    Planner = new Wire.PlannerSettings
+                    {
+                        Model = "test/model",
+                        SummarizePrompt = "Summary",
+                        PlanPrompt = "Plan",
+                        ExecutePrompt = "Work order",
+                    },
+                },
+            };
+            var config = DaemonConfig.FromWire(wire);
+            var snapshot = config.Snapshot();
+            config.Planner.PlanPrompt = "Changed";
+            Assert.That(snapshot.Daemon.Planner.PlanPrompt, Is.EqualTo("Plan"));
+            Assert.That(wire.Daemon.Planner.PlanPrompt, Is.EqualTo("Plan"));
+            var restored = DaemonConfig.FromSnapshot(snapshot);
+            Assert.That(restored.Planner, Is.EqualTo(wire.Daemon.Planner));
+        }
+
         static void PortableBatChoices()
         {
             var config = new DaemonConfig

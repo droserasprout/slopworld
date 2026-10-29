@@ -41,6 +41,7 @@ namespace SlopWorld
             Keyboard,
             RimWorld,
             About,
+            Planner,
         }
 
         sealed class TabSpec
@@ -156,6 +157,14 @@ namespace SlopWorld
                 "Summaries",
                 null,
                 () => new SummariesPage(),
+                PageId.Agents
+            ),
+            new TabSpec(
+                PageId.Planner,
+                "SlopWorld_Planner",
+                "Planner",
+                null,
+                () => new PlannerPage(),
                 PageId.Agents
             ),
             new TabSpec(

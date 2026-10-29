@@ -5,6 +5,19 @@ http:
     token: x-slop-token
     session: x-slop-session
   routes:
+    planner:
+      protobuf:
+        GET: [Empty, PlannerDocument]
+        PUT: [PlannerSaveReq, PlannerDocument]
+      path: "/api/planner"
+      methods: [GET, PUT]
+      scope: root
+    planner_action:
+      protobuf:
+        POST: [PlannerActionReq, PlannerActionReply]
+      path: "/api/planner/action"
+      methods: [POST]
+      scope: root
     health:
       protobuf:
         GET: [Empty, Health]

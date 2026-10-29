@@ -120,6 +120,51 @@ Edit the initial worker prompt on the same page, then save. New workers receive
 that prompt; existing workers keep their saved settings. See
 [Agent collaboration](../agents/agent-collaboration.md) for delegation and reporting.
 
+## Planner
+
+The checklist button beside Settings on the right of the status bar opens **Planner**.
+Use **Add a task** for quick entry, check a task to complete it, and select a row to
+edit its title, priority, due date, projects, or contexts. Quick-add and checkboxes save
+immediately; the details pane has **Save task** and **Discard edits**. Delete removes
+only the TODO entry, keeping any linked worker task.
+
+The list offers My tasks, Today (including overdue), Upcoming, Overdue, Completed, and
+All tasks. Search matches titles, projects, and contexts. Sort by due date, priority,
+or title. Project lists appear on the left; smaller windows use filter menus and open
+task details separately. Worker status updates while Planner is open.
+
+The daemon stores `TODO.txt` in its application data directory (normally
+`~/.local/share/slopworld/`). **Source** opens the underlying
+[todo.txt text](https://github.com/todotxt/todo.txt) for advanced editing. Unknown metadata
+and worker links survive task-field edits. Drafts survive view changes within the mod
+session; save before quitting. External changes cause a save conflict: copy your draft
+from Source before discarding it and refreshing.
+
+**Summarize** and **Plan** send the saved backlog to OpenRouter and display the response.
+For **Execute**, select a saved, incomplete task and choose a project and worker template
+under **Agent** in its details.
+OpenRouter prepares a work order, then the daemon creates a durable worker and Task.
+**Open worker task** shows progress and results; **Refresh** reloads external TODO edits.
+Execution uses the project's main checkout. Worker configuration, including its model,
+comes from the selected template.
+
+Under **Settings > Agents > Planner**, edit the OpenRouter model and the three prompts.
+The initial model matches the daemon's default summary model. The actions use the shared
+OpenRouter credential configuration under **Integrations > Credentials**.
+Only clicking an action sends text; no action runs when opening the editor.
+
+This proof of concept supports manual execution. Due dates and recurrence metadata are
+preserved but do not schedule work. Plans are advisory and are not automatically split
+into tasks or fed into Execute. Summary and plan output lasts only for the mod session.
+Documents are limited to 64 KiB.
+
+Saving adds a stable `sw-id:` to each task. Dispatch adds `sw-task:`; leave these fields
+intact. Agents report status through Tasks and cannot edit the Planner document through
+its API. Worker completion does not automatically mark the user's line with `x`.
+Each item can be dispatched once. If startup is interrupted, `sw-task:pending` prevents
+a duplicate launch. Inspect Tasks before retrying; to retry deliberately, create a new
+line without the `sw-id:` and `sw-task:` fields, then save.
+
 ## Configuration file
 
 Use the palette's **Configuration: Edit config.toml** action for machine settings,

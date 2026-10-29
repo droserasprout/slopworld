@@ -34,6 +34,8 @@ enum RequestKind {
     HighlightReq,
     LabelReq,
     LibraryItem,
+    PlannerActionReq,
+    PlannerSaveReq,
     PresetRequest,
     Project,
     ProjectPreviewReq,
@@ -71,6 +73,8 @@ enum ResponseKind {
     LibraryReply,
     OutputResult,
     PathResult,
+    PlannerActionReply,
+    PlannerDocument,
     PresetsReply,
     Project,
     ProjectPreviewResult,
@@ -99,6 +103,17 @@ use RequestKind as Req;
 use ResponseKind as Resp;
 type Route = (&'static str, RequestKind, ResponseKind);
 const ROUTES: &[Route] = &[
+    ("GET /api/planner", Req::Empty, Resp::PlannerDocument),
+    (
+        "PUT /api/planner",
+        Req::PlannerSaveReq,
+        Resp::PlannerDocument,
+    ),
+    (
+        "POST /api/planner/action",
+        Req::PlannerActionReq,
+        Resp::PlannerActionReply,
+    ),
     ("GET /api/health", Req::Empty, Resp::Health),
     ("GET /api/sessions", Req::Empty, Resp::SessionsReply),
     ("POST /api/sessions", Req::SessionConfig, Resp::Ack),
@@ -299,6 +314,8 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         RequestKind::HighlightReq => encode_wire::<wire::HighlightReq>(value),
         RequestKind::LabelReq => encode_wire::<wire::LabelReq>(value),
         RequestKind::LibraryItem => encode_wire::<wire::LibraryItem>(value),
+        RequestKind::PlannerActionReq => encode_wire::<wire::PlannerActionReq>(value),
+        RequestKind::PlannerSaveReq => encode_wire::<wire::PlannerSaveReq>(value),
         RequestKind::PresetRequest => encode_wire::<wire::PresetRequest>(value),
         RequestKind::Project => encode_wire::<wire::Project>(value),
         RequestKind::ProjectPreviewReq => encode_wire::<wire::ProjectPreviewReq>(value),
@@ -344,6 +361,12 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
         ResponseKind::LibraryReply => Ok(serde_json::to_value(wire::LibraryReply::decode(value)?)?),
         ResponseKind::OutputResult => Ok(serde_json::to_value(wire::OutputResult::decode(value)?)?),
         ResponseKind::PathResult => Ok(serde_json::to_value(wire::PathResult::decode(value)?)?),
+        ResponseKind::PlannerActionReply => Ok(serde_json::to_value(
+            wire::PlannerActionReply::decode(value)?,
+        )?),
+        ResponseKind::PlannerDocument => {
+            Ok(serde_json::to_value(wire::PlannerDocument::decode(value)?)?)
+        }
         ResponseKind::PresetsReply => Ok(serde_json::to_value(wire::PresetsReply::decode(value)?)?),
         ResponseKind::Project => Ok(serde_json::to_value(wire::Project::decode(value)?)?),
         ResponseKind::ProjectPreviewResult => Ok(serde_json::to_value(
@@ -420,6 +443,12 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
         RequestKind::HighlightReq => Ok(serde_json::to_value(wire::HighlightReq::decode(value)?)?),
         RequestKind::LabelReq => Ok(serde_json::to_value(wire::LabelReq::decode(value)?)?),
         RequestKind::LibraryItem => Ok(serde_json::to_value(wire::LibraryItem::decode(value)?)?),
+        RequestKind::PlannerActionReq => Ok(serde_json::to_value(wire::PlannerActionReq::decode(
+            value,
+        )?)?),
+        RequestKind::PlannerSaveReq => {
+            Ok(serde_json::to_value(wire::PlannerSaveReq::decode(value)?)?)
+        }
         RequestKind::PresetRequest => {
             Ok(serde_json::to_value(wire::PresetRequest::decode(value)?)?)
         }
@@ -484,6 +513,8 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
         ResponseKind::LibraryReply => encode_wire::<wire::LibraryReply>(value),
         ResponseKind::OutputResult => encode_wire::<wire::OutputResult>(value),
         ResponseKind::PathResult => encode_wire::<wire::PathResult>(value),
+        ResponseKind::PlannerActionReply => encode_wire::<wire::PlannerActionReply>(value),
+        ResponseKind::PlannerDocument => encode_wire::<wire::PlannerDocument>(value),
         ResponseKind::PresetsReply => encode_wire::<wire::PresetsReply>(value),
         ResponseKind::Project => encode_wire::<wire::Project>(value),
         ResponseKind::ProjectPreviewResult => encode_wire::<wire::ProjectPreviewResult>(value),

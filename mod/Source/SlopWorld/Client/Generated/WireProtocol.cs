@@ -10,6 +10,8 @@ namespace SlopWorld
 
         internal static class Routes
         {
+            public const string Planner = "/api/planner";
+            public const string PlannerAction = "/api/planner/action";
             public const string Health = "/api/health";
             public const string Sessions = "/api/sessions";
             public const string Session = "/api/sessions/:name";

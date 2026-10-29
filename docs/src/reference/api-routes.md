@@ -21,6 +21,9 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `DELETE` | `/api/jukebox/presets/:id` | `root-only` | `Empty` | `Ack` |
 | `PUT` | `/api/jukebox/presets/:id` | `root-only` | `Station` | `Ack` |
 | `POST` | `/api/ncspot` | `root-only` | `RedrawReq` | `SessionResult` |
+| `GET` | `/api/planner` | `root-only` | `Empty` | `PlannerDocument` |
+| `PUT` | `/api/planner` | `root-only` | `PlannerSaveReq` | `PlannerDocument` |
+| `POST` | `/api/planner/action` | `root-only` | `PlannerActionReq` | `PlannerActionReply` |
 | `GET` | `/api/usage` | `root-only` | `Empty` | `UsageSnapshot` |
 | `GET` | `/api/whereis` | `root-only` | `Empty` | `WhereIsReply` |
 

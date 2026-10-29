@@ -37,6 +37,8 @@ namespace SlopWorld
         struct DoorLayout
         {
             public Rect Config;
+            public Rect Planner;
+            public bool HasPlanner;
             public Rect Jukebox;
             public Rect Core;
             public bool HasConfig;
@@ -173,6 +175,8 @@ namespace SlopWorld
         static float Doors(Rect r, bool live)
         {
             PrepareDoors(r);
+            if (_doors.HasPlanner)
+                Door(_doors.Planner, Icons.Tasks, "Planner · TODO.txt", PlannerView.Open, live);
             if (_doors.HasConfig)
                 Door(_doors.Config, Icons.Config, "Settings", ModOptions.Toggle, live);
             if (_doors.HasCore)
@@ -206,6 +210,7 @@ namespace SlopWorld
             float x = r.xMax;
             _doors = new DoorLayout();
             _doors.HasConfig = TrySlot(r, ref x, out _doors.Config);
+            _doors.HasPlanner = TrySlot(r, ref x, out _doors.Planner);
 
             if (showCore && CoreTip.On(map) && TrySlot(r, ref x, out _doors.Core))
             {

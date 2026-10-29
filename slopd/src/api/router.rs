@@ -18,7 +18,31 @@ pub(crate) fn router(m: App) -> Router {
         .merge(shared_routes(m.clone()))
         .merge(snapshot_routes(m.clone()))
         .merge(root_routes(m.clone()))
+        .merge(root_provider_routes())
         .with_state(m)
+}
+
+// Provider requests are root-only but do not hold lifecycle admission during network I/O.
+// The planner revalidates credentials under admission before dispatching a worker.
+fn root_provider_routes() -> Router<App> {
+    Router::new()
+        .route(routes::PLANNER_ACTION, post(planner_action))
+        .layer(middleware::from_fn(require_provider_root))
+}
+async fn require_provider_root(
+    Extension(cap): Extension<Cap>,
+    req: Request,
+    next: Next,
+) -> Response {
+    if cap.may_create() {
+        next.run(req).await
+    } else {
+        err(
+            StatusCode::FORBIDDEN,
+            "Only the root token can access this route.",
+        )
+        .into_response()
+    }
 }
 
 fn scoped_routes(m: App) -> Router<App> {
@@ -82,6 +106,7 @@ fn root_routes(m: App) -> Router<App> {
     // Host controls and configuration default to root-only access.
     Router::new()
         .route(routes::WORKER_ACCESS, put(set_worker_access))
+        .route(routes::PLANNER, get(get_planner).put(save_planner))
         .route(
             routes::WORKTREE,
             delete(remove_worktree).put(rename_worktree),

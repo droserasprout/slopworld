@@ -19,6 +19,7 @@ message Daemon {
   string task_summaries = 13;
   Instructions instructions = 14;
   repeated string worker_templates = 15;
+  PlannerSettings planner = 16;
   reserved 17;
   WorkerAccess worker_access = 19;
   optional bool worker_recursive = 18;
@@ -994,4 +995,40 @@ message TaskBatchResult {
   repeated string unattempted = 5;
   repeated Task tasks = 6;
   uint64 removed = 7;
+}
+
+// Planner prompts are daemon settings; worker launch configuration comes from templates.
+message PlannerSettings {
+  string model = 1;
+  string summarize_prompt = 2;
+  string plan_prompt = 3;
+  string execute_prompt = 4;
+}
+message PlannerDocument {
+  string text = 1;
+  string revision = 2;
+  string path = 3;
+  repeated PlannerItem items = 4;
+}
+message PlannerItem {
+  uint32 line = 1;
+  string id = 2;
+  string text = 3;
+  string task_id = 4;
+  string status = 5;
+}
+message PlannerSaveReq {
+  string text = 1;
+  string revision = 2;
+}
+message PlannerActionReq {
+  string action = 1;
+  string revision = 2;
+  uint32 line = 3;
+  string project = 4;
+  string template = 5;
+}
+message PlannerActionReply {
+  string output = 1;
+  string task_id = 2;
 }
