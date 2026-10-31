@@ -52,6 +52,8 @@ Execute settlement requires document reconciliation before another mutation; fai
 startup can already have persisted a reservation or Task. Both read and save replies
 project live worker links and status without rewriting the document. Worker policy is
 validated before provider I/O and rechecked at dispatch commit.
+Planner selection retains the catalog project ID; action submission resolves its current
+name for the worker API, whose project references are name-based.
 
 Supervised cancellation carries a checked selection into the task store. It applies
 only to the sender's worker tasks and may cancel working tasks; ordinary recipient

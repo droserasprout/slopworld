@@ -281,6 +281,15 @@ namespace SlopWorld
 
         void Run(string action)
         {
+            // Selection follows stable catalog IDs; worker requests use project names.
+            string project =
+                SessionHub.Instance.Projects.FirstOrDefault(value => value.Id == _project)?.Name
+                ?? "";
+            if (action == "execute" && project.Length == 0)
+            {
+                _error = "The selected project is unavailable. Choose a project before executing.";
+                return;
+            }
             int generation = Begin();
             DaemonClient.Send<Wire.PlannerActionReply>(
                 "POST",
@@ -290,7 +299,7 @@ namespace SlopWorld
                     Action = action,
                     Revision = _document.Revision,
                     Line = _selected?.Line ?? 0,
-                    Project = _project,
+                    Project = project,
                     Template = _template,
                 },
                 value =>

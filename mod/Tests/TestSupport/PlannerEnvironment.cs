@@ -50,6 +50,8 @@ namespace SlopWorld
         internal string ErrorTest => _error;
         internal string PriorityTest => _draft.Priority;
 
+        internal void ProjectTest(string id) => _project = id;
+
         internal Action PriorityEditTest(string value) =>
             EditSelected(() => _draft.Priority = value);
 

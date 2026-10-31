@@ -13,11 +13,38 @@ namespace SlopWorld.Tests
             SessionHub.Instance = new SessionHub();
             TaskDetailView.Shown = null;
             var view = PlannerView.CreateTest(DaemonClient.BaseUrl);
+            SessionHub.Instance.Projects.Add(
+                new ProjectInfo { Id = "stable-project-id", Name = "repo" }
+            );
+            view.ProjectTest("stable-project-id");
             view.Opened();
             DaemonClient
                 .Requests.Last()
                 .Reply(new Wire.PlannerDocument { Text = "Task", Revision = "r1" });
             return view;
+        }
+
+        public static void ExecuteResolvesStableProjectIdToCurrentName()
+        {
+            var view = Loaded();
+            SessionHub.Instance.Projects.Single(project => project.Id == "stable-project-id").Name =
+                "renamed-repo";
+            view.RunTest("execute");
+            var request = (Wire.PlannerActionReq)DaemonClient.Requests.Last().Body;
+            Assert.That(request.Project, Is.EqualTo("renamed-repo"));
+            view.Closed();
+        }
+
+        public static void ExecuteRejectsRemovedProjectWithoutSendingRequest()
+        {
+            var view = Loaded();
+            SessionHub.Instance.Projects.Clear();
+            int requests = DaemonClient.Requests.Count;
+            view.RunTest("execute");
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+            Assert.That(view.ErrorTest, Does.Contain("project is unavailable"));
+            Assert.That(view.ReadyTest, Is.True);
+            view.Closed();
         }
 
         public static void ClosingDuringSaveRetainsAcceptedRevisionAndPreventsAnotherLoad()

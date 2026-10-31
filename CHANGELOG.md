@@ -12,14 +12,15 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
+- CLI: Added `task followup` to send additional instructions to running workers.
 - Planner: Added a todo.txt backlog with AI summaries, planning, and worker dispatch.
 - Workers: Added per-agent delegation policies and separate follow-up, cancellation, terminal, and lifecycle permissions.
-- CLI: Added follow-up messages to running workers.
-
+  
 ### Fixed
 
 - Agents: Provide self-scoped daemon credentials for each launch.
 - Agents: Wait for the Codex composer before submitting startup prompts.
+- Terminal: Fix semicolon recovery for non-US keyboard layouts
 
 ## [0.0.12] - 2026-10-27
 
