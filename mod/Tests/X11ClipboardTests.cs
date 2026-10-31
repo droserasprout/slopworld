@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using NUnit.Framework;
 
@@ -85,6 +86,126 @@ namespace SlopWorld.Tests
                 paste();
                 copy();
                 Assert.That(received, Is.EqualTo(bytes));
+            }
+        }
+
+        public static void EncodedLocalImageLinkUploadsBytesBeforeQueuedCopy()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            string path = Path.Combine(directory, "Telegram Desktop", "чат_ларнаа", "photo.jpg");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            try
+            {
+                byte[] bytes = { 255, 216, 255, 0, 128 };
+                File.WriteAllBytes(path, bytes);
+                using var completions = new BlockingCollection<Action>();
+                var runner = new Runner(
+                    new ProcessRun
+                    {
+                        Started = true,
+                        StandardOutput = new Uri(path).AbsoluteUri + "\r\n",
+                    },
+                    new ProcessRun { Started = true }
+                );
+                var clipboard = new X11Clipboard(runner, completions.Add);
+                byte[] received = null;
+                clipboard.ReadPaste(
+                    _ => Assert.Fail("expected image"),
+                    value => received = value,
+                    e => Assert.Fail(e)
+                );
+                clipboard.Copy("later", false, () => { }, e => Assert.Fail(e));
+                Assert.That(completions.TryTake(out var paste, 5000), Is.True);
+                Assert.That(completions.TryTake(out var copy, 5000), Is.True);
+                File.Delete(path);
+                paste();
+                copy();
+                Assert.That(received, Is.EqualTo(bytes));
+                Assert.That(runner.Specs.Count, Is.EqualTo(2));
+                Assert.That(runner.Specs[1].StandardInput, Is.EqualTo("later"));
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        public static void ImageLinksRemainLiteralOutsideImagePasteAndForNonlocalText()
+        {
+            foreach (
+                string value in new[]
+                {
+                    "file:///tmp/photo.jpg",
+                    "file://remote/tmp/photo.jpg",
+                    "https://example.com/photo.jpg",
+                    "look at file:///tmp/photo.jpg",
+                    "file:///tmp/photo.txt",
+                    "file:///tmp/a.jpg\nfile:///tmp/b.jpg",
+                }
+            )
+            {
+                using var completions = new BlockingCollection<Action>();
+                var runner = new Runner(new ProcessRun { Started = true, StandardOutput = value });
+                var clipboard = new X11Clipboard(runner, completions.Add);
+                string received = null;
+                clipboard.ReadPaste(
+                    text => received = text,
+                    value == "file:///tmp/photo.jpg" ? null : _ => Assert.Fail("unexpected image"),
+                    e => Assert.Fail(e)
+                );
+                Assert.That(completions.TryTake(out var complete, 5000), Is.True);
+                complete();
+                Assert.That(received, Is.EqualTo(value));
+                Assert.That(runner.Specs.Count, Is.EqualTo(1));
+            }
+        }
+
+        public static void UnreadableOrOversizedImageLinkFailsAndLaterPasteRecovers()
+        {
+            string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".jpg");
+            try
+            {
+                foreach (bool oversized in new[] { false, true })
+                {
+                    if (oversized)
+                    {
+                        using var file = File.Create(path);
+                        file.SetLength(20 * 1024 * 1024 + 1);
+                    }
+                    using var completions = new BlockingCollection<Action>();
+                    var runner = new Runner(
+                        new ProcessRun
+                        {
+                            Started = true,
+                            StandardOutput = new Uri(path).AbsoluteUri,
+                        },
+                        new ProcessRun { Started = true, StandardOutput = "next paste" }
+                    );
+                    var clipboard = new X11Clipboard(runner, completions.Add);
+                    string error = null,
+                        received = null;
+                    clipboard.ReadPaste(
+                        _ => Assert.Fail("unexpected text"),
+                        _ => Assert.Fail("unexpected image"),
+                        e => error = e
+                    );
+                    clipboard.ReadPaste(
+                        text => received = text,
+                        _ => Assert.Fail("unexpected image"),
+                        e => Assert.Fail(e)
+                    );
+                    for (int i = 0; i < 2; i++)
+                    {
+                        Assert.That(completions.TryTake(out var complete, 5000), Is.True);
+                        complete();
+                    }
+                    Assert.That(error, Is.Not.Null.And.Not.Empty);
+                    Assert.That(received, Is.EqualTo("next paste"));
+                }
+            }
+            finally
+            {
+                File.Delete(path);
             }
         }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -41,7 +42,13 @@ namespace SlopWorld
                         value = Run(null, false);
                     }
                     catch when (image != null) { }
-                    if (!string.IsNullOrEmpty(value) || image == null)
+                    string imagePath = image == null ? null : LocalImagePath(value);
+                    if (imagePath != null)
+                    {
+                        byte[] bytes = ReadImageFile(imagePath);
+                        _complete(() => image(bytes));
+                    }
+                    else if (!string.IsNullOrEmpty(value) || image == null)
                         _complete(() => text(value));
                     else
                     {
@@ -55,6 +62,64 @@ namespace SlopWorld
                     _complete(() => fail?.Invoke(error));
                 }
             });
+        }
+
+        // Resolve only a standalone local file URI, on the desktop that owns the
+        // clipboard. Ordinary text/PRIMARY and host shells never enter this path.
+        static string LocalImagePath(string text)
+        {
+            string value = text?.Trim();
+            if (
+                string.IsNullOrEmpty(value)
+                || !value.StartsWith("file://", StringComparison.OrdinalIgnoreCase)
+                || value.IndexOf('\r') >= 0
+                || value.IndexOf('\n') >= 0
+                || !Uri.TryCreate(value, UriKind.Absolute, out var uri)
+                || !uri.IsFile
+                || (uri.Host.Length != 0 && uri.Host != "localhost")
+                || uri.Query.Length != 0
+                || uri.Fragment.Length != 0
+            )
+                return null;
+            string path = uri.LocalPath;
+            switch (Path.GetExtension(path).ToLowerInvariant())
+            {
+                case ".png":
+                case ".jpg":
+                case ".jpeg":
+                case ".gif":
+                case ".webp":
+                    return path;
+                default:
+                    return null;
+            }
+        }
+
+        static byte[] ReadImageFile(string path)
+        {
+            // Bound allocation and reads even if the file grows after opening.
+            // The daemon validates the actual format and decoded dimensions.
+            const int limit = 20 * 1024 * 1024;
+            using (var file = File.OpenRead(path))
+            {
+                long length = file.Length;
+                if (length == 0 || length > limit)
+                    throw new InvalidOperationException(
+                        "Image file must be between 1 byte and 20 MiB."
+                    );
+                byte[] bytes = new byte[(int)length];
+                int offset = 0;
+                while (offset < bytes.Length)
+                {
+                    int count = file.Read(bytes, offset, bytes.Length - offset);
+                    if (count == 0)
+                        throw new IOException("Image file changed while reading.");
+                    offset += count;
+                }
+                if (file.ReadByte() != -1)
+                    throw new IOException("Image file changed while reading.");
+                return bytes;
+            }
         }
 
         byte[] ReadImage()

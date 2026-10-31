@@ -11,9 +11,11 @@ Only ordinary text reads fall back
 to Unity's buffer. Linux Codex panes handle empty or failed text reads by reading
 the local PNG clipboard target within the same serialized operation, then uploading
 its bytes. Later local copies cannot overtake that fallback. This avoids consulting stale
-Unity text or forwarding Ctrl+V to a remote clipboard. Client clipboard text is
-pasted as text, without daemon-side file import intent: a client path need not
-exist on a remote daemon.
+Unity text or forwarding Ctrl+V to a remote clipboard. Linux Codex pastes also
+recognize standalone local image file URIs, decode their
+paths on the game desktop, and upload bounded file bytes through the same image
+transport. Other text stays literal; PRIMARY and host panes never import files.
+A client path need not exist on a remote daemon.
 
 Application OSC 52 writes publish `clipboard` events with the session name and run
 ID. Only root clients with a current subscription receive them. Publication validates
