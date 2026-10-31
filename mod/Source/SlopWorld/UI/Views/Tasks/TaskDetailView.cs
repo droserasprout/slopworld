@@ -190,12 +190,7 @@ namespace SlopWorld
             )
                 TaskActions.OpenMenu(_task);
 
-            if (
-                (
-                    _task.Status == DelegatedTaskStatus.Queued
-                    || _task.Status == DelegatedTaskStatus.Accepted
-                ) && foot.Left("Cancel", UiTheme.Btn.Danger)
-            )
+            if (_task.CanCancel && foot.Left("Cancel", UiTheme.Btn.Danger))
                 TaskActions.CancelTask(_task);
             else if (_task.Terminal && foot.Left("Remove", UiTheme.Btn.Danger))
                 TaskActions.RemoveTask(_task);

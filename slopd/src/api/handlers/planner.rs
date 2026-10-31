@@ -29,6 +29,7 @@ pub(crate) async fn save_planner(
     Proto(request): Proto<wire::PlannerSaveReq>,
 ) -> ApiResult<wire::PlannerDocument> {
     let sessions = app.sessions.clone();
+    let tasks = sessions.task_store();
     let document = sessions
         .owned_session_operation(async move {
             app.services
@@ -38,7 +39,11 @@ pub(crate) async fn save_planner(
         })
         .await
         .map_err(|e| err(StatusCode::CONFLICT, e))?;
-    reply(document)
+    let tasks = tasks
+        .all_tasks_async()
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    reply(document.with_tasks(&tasks))
 }
 
 pub(crate) async fn planner_action(

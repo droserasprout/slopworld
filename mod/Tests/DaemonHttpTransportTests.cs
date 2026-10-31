@@ -135,6 +135,43 @@ namespace SlopWorld.Tests
             await WithFullPool(peer, transport);
         }
 
+        [Test]
+        public async Task QueuedPlannerMutationRetainsItsEndpointAndCredentials()
+        {
+            using var first = new Peer();
+            using var second = new Peer();
+            using var transport = new ClientEndpoint(first.Connection);
+            Task<Wire.Empty> queued = null;
+            Task server = null;
+            await WithFullPool(
+                first,
+                transport,
+                () =>
+                {
+                    // All permits are held, so this mutation cannot reach either peer yet.
+                    queued = transport.Send<Wire.Empty>(
+                        "PUT",
+                        "/api/planner",
+                        new Wire.PlannerSaveReq { Text = "Keep this on the first daemon" },
+                        null,
+                        5000
+                    );
+                    transport.Set(
+                        new ConnectionInfo("127.0.0.1", second.Connection.Port, "other-secret")
+                    );
+                    server = first.Serve(Array.Empty<byte>());
+                }
+            );
+            await queued;
+            await server;
+            Assert.That(first.Header, Does.StartWith("PUT /api/planner "));
+            Assert.That(
+                first.Header,
+                Does.Contain(WireProtocol.TokenHeader + ": secret").IgnoreCase
+            );
+            Assert.That(second.Accepted.Task.IsCompleted, Is.False);
+        }
+
         // Admission is observed at the peer; held responses keep every permit occupied.
         // Repeating this after failure proves all eight permits can be acquired again.
         static async Task WithFullPool(Peer peer, ClientEndpoint transport, Action whileHeld = null)

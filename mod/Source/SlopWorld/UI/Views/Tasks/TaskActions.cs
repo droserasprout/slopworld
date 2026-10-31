@@ -15,13 +15,7 @@ namespace SlopWorld
 
             var selected = TasksView.SelectionFor(task);
             var cancelable = selected
-                .Where(candidate =>
-                    candidate != null
-                    && (
-                        candidate.Status == DelegatedTaskStatus.Queued
-                        || candidate.Status == DelegatedTaskStatus.Accepted
-                    )
-                )
+                .Where(candidate => candidate != null && candidate.CanCancel)
                 .ToList();
             var removable = selected
                 .Where(candidate => candidate != null && candidate.Terminal)
@@ -96,13 +90,7 @@ namespace SlopWorld
 
         public static void CancelTask(TaskInfo task, Action<TaskInfo> updated = null)
         {
-            if (
-                task == null
-                || (
-                    task.Status != DelegatedTaskStatus.Queued
-                    && task.Status != DelegatedTaskStatus.Accepted
-                )
-            )
+            if (task == null || !task.CanCancel)
                 return;
             CancelTasks(new List<TaskInfo> { task }, updated);
         }
@@ -117,6 +105,9 @@ namespace SlopWorld
                     ? $"Cancel task '{tasks[0].Id}'? The daemon will cancel it for both participants."
                     : $"Cancel {tasks.Count} selected tasks? "
                         + "The daemon will cancel them for both participants.";
+            if (tasks.Any(task => task.Worker))
+                prompt +=
+                    " Canceling a worker task prevents further task updates but does not stop its process.";
             WorkspaceWindow.OpenOverPane(
                 ConfirmDialog.Create(
                     prompt,

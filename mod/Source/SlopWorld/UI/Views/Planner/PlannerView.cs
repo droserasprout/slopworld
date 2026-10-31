@@ -33,17 +33,23 @@ namespace SlopWorld
             _open,
             _source,
             _assistant,
-            _detailOpen;
-        int _generation;
+            _detailOpen,
+            _refreshAfterExecute,
+            _needsRefresh;
+        int _generation,
+            _presentation;
         readonly SmoothScroll _listScroll = new SmoothScroll();
         readonly ScrollableListing _navigation = new ScrollableListing();
         readonly ScrollableListing _details = new ScrollableListing();
         bool DraftDirty => _selected != null && _draft != null && _draft.Changed(_selected);
         bool Dirty => _document != null && (_text != _document.Text || DraftDirty);
-        bool Ready => !_busy && _document != null;
+        bool Ready => !_busy && _document != null && !_needsRefresh;
 
-        bool Current(int generation) =>
-            _open && _generation == generation && _endpoint == DaemonClient.BaseUrl;
+        // Requests belong to the cached endpoint draft, not the visible window. Closing
+        // must not discard a committed save or permit a second action while one is pending.
+        bool Current(int generation) => _generation == generation;
+
+        bool IsOpenEndpoint => _open && _endpoint == DaemonClient.BaseUrl;
 
         public override string Title => "Planner";
         public override PanelSize MinimumSize => new PanelSize(580f, 420f);
@@ -67,7 +73,7 @@ namespace SlopWorld
             _pollingDemand ??= SessionHub.Instance.TaskStore.OpenReader();
             _fields = new FieldLifetime();
             SessionHub.Instance.Catalog.RefreshTemplates();
-            if (_document == null)
+            if (_document == null && !_busy)
                 Load();
         }
 
@@ -76,8 +82,7 @@ namespace SlopWorld
             _open = false;
             _pollingDemand?.Dispose();
             _pollingDemand = null;
-            _generation++;
-            _busy = false;
+            _presentation++;
             _fields.Cancel();
         }
 
@@ -115,6 +120,24 @@ namespace SlopWorld
             _draft = entry == null ? null : new TodoDraft(entry);
         }
 
+        Action EditSelected(Action edit)
+        {
+            var draft = _draft;
+            int generation = _generation,
+                presentation = _presentation;
+            return () =>
+            {
+                if (
+                    IsOpenEndpoint
+                    && Ready
+                    && Current(generation)
+                    && presentation == _presentation
+                    && ReferenceEquals(_draft, draft)
+                )
+                    edit();
+            };
+        }
+
         void Select(TodoEntry entry)
         {
             if (_selected?.Key == entry.Key)
@@ -145,21 +168,26 @@ namespace SlopWorld
 
         void Accept(Wire.PlannerDocument document)
         {
+            _needsRefresh = false;
             _document = document;
             _text = document.Text;
             Rebuild();
             _busy = false;
         }
 
-        void Load()
+        void Load(bool preserveError = false)
         {
+            string previousError = preserveError ? _error : null;
             int generation = Begin();
             DaemonClient.Get<Wire.PlannerDocument>(
                 WireProtocol.Routes.Planner,
                 value =>
                 {
                     if (Current(generation))
+                    {
                         Accept(value);
+                        _error = previousError;
+                    }
                 },
                 error => Failed(generation, error)
             );
@@ -273,9 +301,18 @@ namespace SlopWorld
                     _assistant = true;
                     _detailOpen = true;
                     _busy = false;
-                    Load();
+                    _source = false;
+                    _needsRefresh = _refreshAfterExecute = action == "execute";
                 },
-                error => Failed(generation, error),
+                error =>
+                {
+                    if (!Current(generation))
+                        return;
+                    Failed(generation, error);
+                    // Startup can fail after reserving the line or creating a Task.
+                    // Reconcile its durable identity before offering Execute again.
+                    _needsRefresh = _refreshAfterExecute = action == "execute";
+                },
                 timeoutMs: 120000
             );
         }
@@ -298,6 +335,7 @@ namespace SlopWorld
 
         void OpenTask(string id)
         {
+            int presentation = _presentation;
             int generation = Begin();
             DaemonClient.Get<Wire.TaskResult>(
                 WireProtocol.Routes.Tasks + "/" + Uri.EscapeDataString(id),
@@ -306,7 +344,7 @@ namespace SlopWorld
                     if (!Current(generation))
                         return;
                     _busy = false;
-                    if (value.Task != null)
+                    if (IsOpenEndpoint && presentation == _presentation && value.Task != null)
                         TaskDetailView.Open(TaskInfo.FromWire(value.Task));
                 },
                 error => Failed(generation, error),
@@ -335,6 +373,11 @@ namespace SlopWorld
                         "Endpoint changed. Reopen Planner for the current daemon."
                     );
                     return;
+                }
+                if (_refreshAfterExecute && !_busy && !Dirty)
+                {
+                    _refreshAfterExecute = false;
+                    Load(preserveError: true);
                 }
                 DrawBoard(body.ContractedBy(UiTheme.GapM));
             }

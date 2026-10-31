@@ -56,6 +56,9 @@ namespace SlopWorld
             // Other routes leave a null name, which can cause PerfTrace.End to fail before the caller's callback runs.
             string trace = TraceName(path);
             long started = trace == null ? 0L : PerfTrace.Start();
+            // Capture authority before queueing: a profile switch while waiting for a
+            // slot must never redirect an already submitted mutation.
+            var connection = Endpoint.Resolve();
             ThreadPool.QueueUserWorkItem(async _ =>
             {
                 Action completion = null;
@@ -68,7 +71,6 @@ namespace SlopWorld
                     {
                         await Requests.WaitAsync(deadline.Token).ConfigureAwait(false);
                         acquired = true;
-                        var connection = Endpoint.Resolve();
                         req = (HttpWebRequest)WebRequest.Create(connection.BaseUrl + path);
                         // Sidebar refreshes send requests for multiple projects.
                         // The default connection limit can delay status reads behind two slow workspace requests.

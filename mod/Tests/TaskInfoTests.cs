@@ -5,6 +5,26 @@ namespace SlopWorld.Tests
 {
     static class TaskInfoTests
     {
+        public static void WorkingWorkerTasksCanBeCanceledWithoutBroadeningOrdinaryTaskPolicy()
+        {
+            foreach (DelegatedTaskStatus status in Enum.GetValues(typeof(DelegatedTaskStatus)))
+            {
+                var ordinary = new TaskInfo { Status = status };
+                var worker = new TaskInfo { Status = status, WorkerSession = "worker" };
+                NUnit.Framework.Assert.That(
+                    ordinary.CanCancel,
+                    NUnit.Framework.Is.EqualTo(
+                        status == DelegatedTaskStatus.Queued
+                            || status == DelegatedTaskStatus.Accepted
+                    )
+                );
+                NUnit.Framework.Assert.That(
+                    worker.CanCancel,
+                    NUnit.Framework.Is.EqualTo(!worker.Terminal)
+                );
+            }
+        }
+
         public static void SummaryDoesNotSplitSurrogatePair()
         {
             var task = new TaskInfo

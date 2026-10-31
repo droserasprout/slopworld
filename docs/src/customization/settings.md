@@ -131,7 +131,8 @@ only the TODO entry, keeping any linked worker task.
 The list offers My tasks, Today (including overdue), Upcoming, Overdue, Completed, and
 All tasks. Search matches titles, projects, and contexts. Sort by due date, priority,
 or title. Project lists appear on the left; smaller windows use filter menus and open
-task details separately. Worker status updates while Planner is open.
+task details separately. Worker status and the latest progress note update while Planner
+is open.
 
 The daemon stores `TODO.txt` in its application data directory (normally
 `~/.local/share/slopworld/`). **Source** opens the underlying
@@ -156,11 +157,16 @@ Only clicking an action sends text; no action runs when opening the editor.
 This proof of concept supports manual execution. Due dates and recurrence metadata are
 preserved but do not schedule work. Plans are advisory and are not automatically split
 into tasks or fed into Execute. Summary and plan output lasts only for the mod session.
+Closing Planner keeps an in-flight action running and retains its result for that endpoint when you return.
+After Execute succeeds or fails, Planner refreshes the saved dispatch state before
+enabling further edits or execution. If that refresh fails, use **Refresh** to retry.
 Documents are limited to 64 KiB.
 
 Saving adds a stable `sw-id:` to each task. Dispatch adds `sw-task:`; leave these fields
 intact. Agents report status through Tasks and cannot edit the Planner document through
 its API. Worker completion does not automatically mark the user's line with `x`.
+To cancel an unfinished worker task, choose **Open worker task > Cancel**. Cancellation
+prevents further task updates; it does not stop the worker process or erase the TODO entry.
 Each item can be dispatched once. If startup is interrupted, `sw-task:pending` prevents
 a duplicate launch. Inspect Tasks before retrying; to retry deliberately, create a new
 line without the `sw-id:` and `sw-task:` fields, then save.

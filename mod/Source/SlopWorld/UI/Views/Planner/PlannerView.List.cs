@@ -39,7 +39,7 @@ namespace SlopWorld
                 UiControls.Button(
                     new Rect(x, r.y, 90f, h),
                     Dirty ? "Save changes" : "Refresh",
-                    on: Ready
+                    on: !_busy && _document != null
                 )
             )
             {

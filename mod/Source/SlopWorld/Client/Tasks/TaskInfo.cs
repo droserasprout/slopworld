@@ -51,6 +51,13 @@ namespace SlopWorld
             || Status == DelegatedTaskStatus.Failed
             || Status == DelegatedTaskStatus.Canceled;
 
+        // The host operator can cancel working worker tasks. Ordinary mailbox tasks
+        // retain the daemon's queued/accepted cancellation policy.
+        public bool CanCancel =>
+            Status == DelegatedTaskStatus.Queued
+            || Status == DelegatedTaskStatus.Accepted
+            || (Worker && !Terminal);
+
         public bool Incoming => To == Host;
         public bool Outgoing => From == Host;
 

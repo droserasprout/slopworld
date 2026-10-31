@@ -277,10 +277,10 @@ namespace SlopWorld
                 && (
                     Date(first).HasValue
                     || (
-                        !draft.Completed
-                        && draft.Priority.Length == 0
-                        && (first == "x" || Regex.IsMatch(first, @"^\([A-Z]\)$"))
+                        (draft.Completed || draft.Priority.Length == 0)
+                        && Regex.IsMatch(first, @"^\([A-Z]\)$")
                     )
+                    || (!draft.Completed && draft.Priority.Length == 0 && first == "x")
                 );
             bool prefixChanged =
                 titleNeedsDate
@@ -323,7 +323,7 @@ namespace SlopWorld
             foreach (var pair in changes)
                 if (!written.Contains(pair.Key) && pair.Value.Length > 0)
                     text.Append(' ').Append(pair.Value);
-            return Replace(document, entry, text.ToString().TrimEnd());
+            return Replace(document, entry, text.ToString());
         }
 
         internal static string Replace(string document, TodoEntry entry, string replacement)

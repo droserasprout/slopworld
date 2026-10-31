@@ -10,7 +10,9 @@ authenticates the endpoint hostname before sending credentials.
 `DaemonClient` is the static facade; `DaemonHttpTransport` owns admission, deadlines,
 protocol I/O, and completions. The facade retains one transport for the host lifetime;
 other owners must settle callbacks before disposing theirs. Release request resources
-and admission slots before exposing completion. `MainThreadCompletions` delivers
+and admission slots before exposing completion. Capture the endpoint and credential
+snapshot when submitting a request, before background admission: queued mutations
+must not follow a later endpoint switch. `MainThreadCompletions` delivers
 callbacks without loss under per-frame budgets; Root.Update pumps it before the hub.
 Old callback batches cannot spill into a new connection. Capabilities reset to unknown
 on reconnect. An explicit unavailable Landlock capability queues a one-time popup

@@ -141,6 +141,9 @@ namespace SlopWorld
             if (taskId.Length > 0)
             {
                 UiLayout.Note(l, "Worker status: " + (linked?.Status ?? "unavailable"));
+                var task = SessionHub.Instance.Tasks.FirstOrDefault(value => value.Id == taskId);
+                if (!string.IsNullOrWhiteSpace(task?.Note))
+                    UiLayout.Note(l, task.Note);
                 if (
                     taskId != "pending"
                     && UiControls.Button(l.GetRect(UiTheme.FieldH), "Open worker task", on: Ready)
@@ -168,7 +171,7 @@ namespace SlopWorld
                             SessionHub
                                 .Instance.Projects.Select(project => new FloatMenuOption(
                                     project.Name,
-                                    () => _project = project.Id
+                                    EditSelected(() => _project = project.Id)
                                 ))
                                 .ToList()
                     );
@@ -181,7 +184,7 @@ namespace SlopWorld
                             SessionHub
                                 .Instance.Templates.Select(template => new FloatMenuOption(
                                     template.DisplayLabel,
-                                    () => _template = template.Name
+                                    EditSelected(() => _template = template.Name)
                                 ))
                                 .ToList()
                     );
@@ -218,6 +221,7 @@ namespace SlopWorld
             {
                 string selected = _selected.Key;
                 int generation = _generation;
+                int presentation = _presentation;
                 Find.WindowStack.Add(
                     ConfirmDialog.Create(
                         "Delete “"
@@ -227,6 +231,8 @@ namespace SlopWorld
                         {
                             if (
                                 Current(generation)
+                                && IsOpenEndpoint
+                                && presentation == _presentation
                                 && _selected?.Key == selected
                                 && Ready
                                 && !Dirty
@@ -249,13 +255,16 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("None", () => _draft.Priority = ""),
+                new FloatMenuOption("None", EditSelected(() => _draft.Priority = "")),
             };
             for (char letter = 'A'; letter <= 'Z'; letter++)
             {
                 string value = letter.ToString();
                 options.Add(
-                    new FloatMenuOption(value + PriorityLabel(value), () => _draft.Priority = value)
+                    new FloatMenuOption(
+                        value + PriorityLabel(value),
+                        EditSelected(() => _draft.Priority = value)
+                    )
                 );
             }
             return options;

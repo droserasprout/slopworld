@@ -201,6 +201,38 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void CompletingLiteralPriorityTitleDoesNotTurnItIntoMetadata()
+        {
+            const string original = "  (A) is a label sw-task:pending";
+            var entry = TodoText.Parse(original).Single();
+            string edited = TodoText.Update(
+                original,
+                entry,
+                new TodoDraft(entry) { Completed = true },
+                Today
+            );
+            var completed = TodoText.Parse(edited).Single();
+            Assert.That(completed.Title, Is.EqualTo("(A) is a label"));
+            Assert.That(completed.Priority, Is.Empty);
+            Assert.That(completed.Completed, Is.True);
+            Assert.That(completed.TaskId, Is.EqualTo("pending"));
+        }
+
+        public static void EditingAFieldPreservesTrailingUserWhitespace()
+        {
+            const string original = "Task due:2026-11-01 custom:keep \t  \r\nOther\n";
+            var entry = TodoText.Parse(original).First();
+            Assert.That(
+                TodoText.Update(
+                    original,
+                    entry,
+                    new TodoDraft(entry) { Due = "2026-11-02" },
+                    Today
+                ),
+                Is.EqualTo(original.Replace("2026-11-01", "2026-11-02"))
+            );
+        }
+
         public static void DateAndPrioritySortingAreIndependentOfFileOrder()
         {
             var entries = TodoText.Parse(
