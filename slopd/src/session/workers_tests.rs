@@ -439,6 +439,7 @@ async fn new_checkout_preflight_rejects_invalid_workers_without_allocating() {
     ] {
         let error = Workers::new(&crate::application::Application::from_runtime(&manager))
             .create_worker(WorkerRequest {
+                name: String::new(),
                 caller: crate::tasks::HOST.into(),
                 project: "repo".into(),
                 template: selected.into(),
@@ -500,6 +501,7 @@ async fn worker_runtime_fixture() -> (Arc<SessionRuntime>, PathBuf) {
 
 fn worker_request(durable: bool, checkout: WorkerCheckout) -> WorkerRequest {
     WorkerRequest {
+        name: String::new(),
         caller: crate::tasks::HOST.into(),
         project: "repo".into(),
         template: "review".into(),
@@ -756,4 +758,94 @@ async fn worker_registration_failure_fails_task_and_rolls_back_new_checkout() {
     assert!(!checkout.exists());
     drop(fault);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn automatic_worker_names_use_project_for_host_and_caller_for_agents() {
+    let manager = crate::session::test_manager(Config::default());
+    manager
+        .session_operation(async {
+            let _spawn = manager.worker_registration_guard().await;
+            let mut session = SessionCfg {
+                project: "slopworld.dev tools".into(),
+                ..Default::default()
+            };
+            manager
+                .allocate_worker_identity(&mut session, crate::tasks::HOST, "")
+                .await
+                .unwrap();
+            assert_eq!(session.name, "slopworld-dev-tools-worker");
+            manager.live.write().await.insert(
+                session.name.clone(),
+                Live::new(session.clone(), TitleCapture::default()),
+            );
+            manager
+                .allocate_worker_identity(&mut session, crate::tasks::HOST, "")
+                .await
+                .unwrap();
+            assert_eq!(session.name, "slopworld-dev-tools-worker-2");
+            manager
+                .allocate_worker_identity(&mut session, "reviewer", "")
+                .await
+                .unwrap();
+            assert_eq!(session.name, "reviewer-worker");
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn custom_worker_names_are_exact_and_reject_every_occupied_namespace() {
+    let manager = crate::session::test_manager(Config {
+        sessions: vec![SessionCfg {
+            name: "saved".into(),
+            ..Default::default()
+        }],
+        host_terminals: vec![crate::config::HostTerminalCfg {
+            name: "shell".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    manager.live.write().await.insert(
+        "running".into(),
+        Live::new(SessionCfg::default(), TitleCapture::default()),
+    );
+    manager
+        .session_operation(async {
+            let _spawn = manager.worker_registration_guard().await;
+            let mut session = SessionCfg {
+                project: "repo".into(),
+                ..Default::default()
+            };
+            for name in ["saved", "shell", "running", crate::tasks::HOST] {
+                let error = manager
+                    .allocate_worker_identity(&mut session, crate::tasks::HOST, name)
+                    .await
+                    .unwrap_err();
+                assert!(error.to_string().contains("already in use"), "{error}");
+            }
+            for name in ["two words", "with:colon", "with.period"] {
+                assert!(
+                    manager
+                        .allocate_worker_identity(&mut session, crate::tasks::HOST, name)
+                        .await
+                        .is_err()
+                );
+            }
+            manager
+                .allocate_worker_identity(&mut session, crate::tasks::HOST, "build-review")
+                .await
+                .unwrap();
+            assert_eq!(session.name, "build-review");
+            assert_eq!(session.project, "repo");
+            assert!(
+                manager
+                    .task_store()
+                    .all_tasks_async()
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+        })
+        .await;
 }

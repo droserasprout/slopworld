@@ -65,7 +65,10 @@ namespace SlopWorld
             Assert.That(Matches(), Is.False, "first Agents placement must build");
             layout.Rows.Add(new Row());
             layout.Heads.Add(new Head());
-            layout.TopWorkers.Add(new SessionInfo { Name = "worker" });
+            layout.WorkersByProject["project"] = new List<SessionInfo>
+            {
+                new SessionInfo { Name = "worker" },
+            };
             layout.AgentContentH = 900f;
             layout.LastScale = 1f;
             Remember();
@@ -75,7 +78,7 @@ namespace SlopWorld
             layout.BeginFrame();
             Assert.That(layout.Rows.Count, Is.Zero);
             Assert.That(layout.Heads.Count, Is.Zero);
-            Assert.That(layout.TopWorkers.Count, Is.Zero);
+            Assert.That(layout.WorkersByProject["project"], Is.Empty);
             Assert.That(layout.AgentContentH, Is.Zero);
             Assert.That(Matches(), Is.False, "returning to Agents must rebuild cleared output");
             layout.BeginFrame();

@@ -630,6 +630,7 @@ async fn worker_api_maps_checkouts_and_returns_committed_identity() {
                     template: Some("review".into()),
                     project: Some("repo".into()),
                     body: Some("inspect API wiring".into()),
+                    name: new_worktree.then(|| "custom-review".into()),
                     durable: Some(durable),
                     new_worktree: Some(new_worktree),
                     worktree: Some(if new_worktree {
@@ -654,6 +655,14 @@ async fn worker_api_maps_checkouts_and_returns_committed_identity() {
             let worker = reply.worker.unwrap();
             let task = reply.task.unwrap();
             assert_eq!(worker.name, worker.session);
+            assert_eq!(
+                worker.name,
+                if new_worktree {
+                    "custom-review"
+                } else {
+                    "repo-worker"
+                }
+            );
             assert_eq!(worker.parent, crate::tasks::HOST);
             assert_eq!(worker.durable, durable);
             let session = runtime.session_cfg(&worker.session).await.unwrap();

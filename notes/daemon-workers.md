@@ -22,6 +22,12 @@ from a successful tmux listing, including one-shot workers without saved session
 Listing or persistence failure aborts startup for retry; ordinary configuration
 reconciliation must not run this check while a worker is being registered.
 
+Worker names are allocated under the registration guard before task creation. Automatic
+names use the project for host-owned workers and the caller for agent-owned workers,
+with numeric suffixes across live sessions, saved agents, and host tabs. An optional
+custom name must be valid and unused; collisions fail rather than changing it.
+Names do not determine project membership or parent authority.
+
 Workers are durable by default; one-shot workers disappear on exit. Neither autostarts
 nor auto-resumes, and parent deletion does not cascade. Checkout lifetime is
 [independent](daemon-worktrees.md). Configured prompts are delivered asynchronously

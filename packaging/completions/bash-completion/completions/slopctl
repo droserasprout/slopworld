@@ -1890,12 +1890,16 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__worker__subcmd__spawn)
-            opts="-h --project --template --one-shot --worktree --json --sidecar --endpoint --help"
+            opts="-h --name --project --template --one-shot --worktree --json --sidecar --endpoint --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --project)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

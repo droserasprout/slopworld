@@ -182,8 +182,6 @@ namespace SlopWorld
         {
             float width = Width;
             float y = Pad;
-            foreach (var w in Layout.TopWorkers)
-                y = WorkerRow(w, width, y, 0);
             foreach (var g in Layout.TopGhosts)
                 y = GhostRow(g, width, y);
 
@@ -227,6 +225,9 @@ namespace SlopWorld
                 return y;
             }
 
+            if (Layout.WorkersByProject.TryGetValue(key, out var workers))
+                foreach (var worker in workers)
+                    y = WorkerRow(worker, width, y, 0);
             foreach (var g in ghosts)
                 y = GhostRow(g, width, y);
             foreach (int i in bucket)
@@ -323,7 +324,10 @@ namespace SlopWorld
 
         static float GhostRoom()
         {
-            float h = Layout.TopGhosts.Count * GhostH + Layout.TopWorkers.Count * WorkerH;
+            float h = Layout.TopGhosts.Count * GhostH;
+            foreach (var kv in Layout.WorkersByProject)
+                if (!Folded.Contains(kv.Key))
+                    h += kv.Value.Count * WorkerH;
             foreach (var kv in Layout.Ghosts)
                 if (!Folded.Contains(kv.Key))
                     h += kv.Value.Count * GhostH;

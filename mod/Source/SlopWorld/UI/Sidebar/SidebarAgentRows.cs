@@ -11,6 +11,23 @@ namespace SlopWorld
         internal static string ProjectKey(SessionInfo info) =>
             string.IsNullOrEmpty(info.Project) ? Loose : info.Project;
 
+        // Visible normal parents own nesting; all other workers belong to their own project.
+        internal static void BucketWorker(
+            SessionInfo worker,
+            SessionInfo parent,
+            HashSet<string> visibleSessions,
+            Dictionary<string, List<SessionInfo>> byParent,
+            Dictionary<string, List<SessionInfo>> byProject
+        )
+        {
+            bool nested = parent != null && !parent.Worker && visibleSessions.Contains(parent.Name);
+            var buckets = nested ? byParent : byProject;
+            string key = nested ? worker.Parent : ProjectKey(worker);
+            if (!buckets.TryGetValue(key, out var rows))
+                buckets[key] = rows = new List<SessionInfo>();
+            rows.Add(worker);
+        }
+
         internal static void CountWorkersByProject(
             Dictionary<string, List<SessionInfo>> workersByParentSession,
             Func<string, SessionInfo> parentSession,

@@ -49,6 +49,7 @@ fn command_parser_builds_delegation_and_update_commands() {
             "worker spawn --project repo --template codex inspect the build"
         )),
         Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+            name: Default::default(),
             worktree: Default::default(),
             project: "repo".to_string(),
             template: "codex".to_string(),
@@ -61,6 +62,7 @@ fn command_parser_builds_delegation_and_update_commands() {
             "worker spawn --project repo --template codex run the checks"
         )),
         Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+            name: Default::default(),
             worktree: Default::default(),
             project: "repo".to_string(),
             template: "codex".to_string(),
@@ -274,6 +276,7 @@ fn spawn_preserves_task_text_after_template_options() {
                 assert_eq!(
                     parse_command(&args),
                     Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+                        name: Default::default(),
                         worktree: Default::default(),
                         project: "repo".into(),
                         template: "codex".into(),
@@ -306,6 +309,7 @@ fn spawn_delimiter_preserves_options_as_literal_task_text() {
                 assert_eq!(
                     parsed.command,
                     Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+                        name: Default::default(),
                         worktree: Default::default(),
                         project: "repo".into(),
                         template: "review".into(),
@@ -372,6 +376,7 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
         "host",
         true,
         &SpawnArgs {
+            name: "build-review".into(),
             worktree: "review-checkout".into(),
             project: "repo".into(),
             template: "codex".into(),
@@ -384,6 +389,7 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
     assert!(request.starts_with("POST /api/workers HTTP/1.1\r\n"));
     let body = request.split("\r\n\r\n").nth(1).unwrap();
     let body: Value = serde_json::from_str(body).unwrap();
+    assert_eq!(body["name"], "build-review");
     assert_eq!(body["project"], "repo");
     assert_eq!(body["template"], "codex");
     assert_eq!(body["durable"], true);
@@ -919,6 +925,7 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
             "worker spawn --project repo --template codex --worktree feature task"
         )),
         Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+            name: Default::default(),
             project: "repo".into(),
             template: "codex".into(),
             durable: true,
@@ -1308,4 +1315,17 @@ fn config_values_preserve_negative_numbers_and_literal_flags() {
             )))
         );
     }
+}
+
+#[test]
+fn worker_spawn_accepts_custom_name_before_task_text() {
+    let parsed = parse_command(&words(
+        "worker spawn --name review-build --project repo --template review inspect this",
+    ))
+    .unwrap();
+    let Command::Remote(RemoteCommand::Spawn(args)) = parsed else {
+        panic!("expected worker spawn");
+    };
+    assert_eq!(args.name, "review-build");
+    assert_eq!(args.body, "inspect this");
 }

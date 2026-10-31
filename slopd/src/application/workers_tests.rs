@@ -439,6 +439,7 @@ fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default
             },
             &templates,
             WorkerRequest {
+                name: String::new(),
                 caller: "parent".into(),
                 project: "repo".into(),
                 template: "review".into(),

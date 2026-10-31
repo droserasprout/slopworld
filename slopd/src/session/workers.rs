@@ -12,8 +12,31 @@ impl SessionRuntime {
         &self,
         session: &mut SessionCfg,
         caller: &str,
+        requested_name: &str,
     ) -> Result<()> {
-        session.name = self.fresh_worker_name(caller).await;
+        session.name = if requested_name.is_empty() {
+            let prefix = if caller == crate::tasks::HOST {
+                super::validation::name_slug(&session.project, "project")
+            } else {
+                caller.to_owned()
+            };
+            self.fresh_worker_name(&prefix).await
+        } else {
+            check_name(requested_name)?;
+            let cfg = self.config().await;
+            let live = self.live.read().await;
+            if live.contains_key(requested_name)
+                || cfg.session(requested_name).is_some()
+                || cfg
+                    .host_terminals
+                    .iter()
+                    .any(|tab| tab.name == requested_name)
+                || requested_name == crate::tasks::HOST
+            {
+                bail!("Worker name {requested_name:?} is already in use. Choose another name.");
+            }
+            requested_name.to_owned()
+        };
         session.state_id = self.allocate_agent_identity().await?;
         Ok(())
     }

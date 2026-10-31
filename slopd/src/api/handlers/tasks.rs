@@ -175,6 +175,7 @@ pub(crate) async fn spawn_worker(
     let q: SpawnWorkerReq = super::super::parse_owned(
         domain(value)?,
         &[
+            "name",
             "project",
             "template",
             "body",
@@ -209,6 +210,7 @@ pub(crate) async fn spawn_worker(
     let worker = Workers::new(&m)
         .create_worker(crate::application::workers::WorkerRequest {
             caller: from.clone(),
+            name: q.name,
             project: q.project,
             template: q.template,
             body: q.body,

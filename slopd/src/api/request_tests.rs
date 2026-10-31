@@ -22,14 +22,17 @@ fn worker_requests_default_durable_but_allow_explicit_one_shot() {
     .unwrap();
     let request: types::SpawnWorkerReq = serde_json::from_value(value).unwrap();
     assert!(request.durable);
+    assert!(request.name.is_empty());
     let one_shot: serde_json::Value = protobuf::domain(crate::shared::wire::SpawnWorkerReq {
         project: Some("repo".into()),
         template: Some("review".into()),
         body: Some("task".into()),
         durable: Some(false),
+        name: Some("build-review".into()),
         ..Default::default()
     })
     .unwrap();
     let request: types::SpawnWorkerReq = serde_json::from_value(one_shot).unwrap();
     assert!(!request.durable);
+    assert_eq!(request.name, "build-review");
 }

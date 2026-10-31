@@ -60,6 +60,7 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (spawn)
 _arguments "${_arguments_options[@]}" : \
+'--name=[Exact worker name; omitted names are generated from the project or caller]:NAME:_default' \
 '--project=[Project that owns the agent]:PROJECT:_default' \
 '--template=[Agent template name]:TEMPLATE:_default' \
 '--worktree=[Attach an existing worktree]:WORKTREE:_default' \

@@ -231,11 +231,13 @@ namespace SlopWorld
             bool durable,
             Action<WorkerSpawnResult> started,
             Action<string> fail,
-            WorkerWorktreeOptions worktree = null
+            WorkerWorktreeOptions worktree = null,
+            string name = null
         )
         {
             var request = new Wire.SpawnWorkerReq
             {
+                Name = name ?? "",
                 Project = project ?? "",
                 Template = template ?? "",
                 Body = body ?? "",

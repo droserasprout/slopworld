@@ -8,6 +8,7 @@ use serde_json::json;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct SpawnArgs {
+    pub(crate) name: String,
     pub(crate) project: String,
     pub(crate) template: String,
     pub(crate) durable: bool,
@@ -27,6 +28,7 @@ pub(crate) fn run_spawn(
         "POST",
         routes::WORKERS,
         Some(json!({
+            "name": args.name,
             "project": args.project,
             "template": args.template,
             "body": args.body,

@@ -12,6 +12,9 @@ pub(crate) struct CreateTaskReq {
 
 #[derive(Deserialize)]
 pub(crate) struct SpawnWorkerReq {
+    /// Optional exact session name; empty selects automatic naming.
+    #[serde(default)]
+    pub(crate) name: String,
     /// The project context for the new worker. Scoped callers may use only their own project.
     #[serde(default)]
     pub(crate) project: String,

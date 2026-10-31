@@ -22,6 +22,7 @@ pub(crate) enum WorkerCheckout {
 }
 
 pub(crate) struct WorkerRequest {
+    pub name: String,
     pub caller: String,
     pub project: String,
     pub template: String,
@@ -43,6 +44,7 @@ pub(crate) enum Caller {
 }
 
 pub(crate) struct PreparedWorker {
+    pub name: String,
     pub session: SessionCfg,
     pub caller: String,
     pub body: String,
@@ -134,6 +136,7 @@ pub(crate) fn prepare(
     request: WorkerRequest,
 ) -> Result<PreparedWorker> {
     let WorkerRequest {
+        name: requested_name,
         caller,
         project: requested,
         template: name,
@@ -143,6 +146,10 @@ pub(crate) fn prepare(
     } = request;
     if body.trim().is_empty() {
         bail!("Worker task text cannot be empty.");
+    }
+    let requested_name = requested_name.trim().to_owned();
+    if !requested_name.is_empty() {
+        crate::session::check_name(&requested_name)?;
     }
     let caller = caller.trim().to_owned();
     if caller.is_empty() {
@@ -200,6 +207,7 @@ pub(crate) fn prepare(
     }
     crate::runtime::validate_limits(&session.limits)?;
     Ok(PreparedWorker {
+        name: requested_name,
         session,
         caller,
         body,
@@ -328,6 +336,7 @@ impl Workers {
         durable: bool,
     ) -> Result<WorkerSpawn> {
         self.create_worker(WorkerRequest {
+            name: String::new(),
             caller,
             project,
             template,
@@ -353,6 +362,7 @@ impl Workers {
         let context = self.sessions.worker_caller(caller).await;
         let templates = self.services.templates.list().await;
         let PreparedWorker {
+            name,
             mut session,
             caller,
             body,
@@ -402,7 +412,7 @@ impl Workers {
             .sessions
             .owned_session_operation(Box::pin(async move {
                 manager
-                    .commit_worker(session, caller, body, durable, cfg)
+                    .commit_worker(session, caller, name, body, durable, cfg)
                     .await
             }))
             .await;
@@ -422,6 +432,7 @@ impl Workers {
         &self,
         mut session: SessionCfg,
         caller: String,
+        name: String,
         body: String,
         durable: bool,
         cfg: Config,
@@ -429,7 +440,7 @@ impl Workers {
         let sessions = &self.sessions;
         let _spawn = sessions.worker_registration_guard().await;
         sessions
-            .allocate_worker_identity(&mut session, &caller)
+            .allocate_worker_identity(&mut session, &caller, &name)
             .await?;
         let task = sessions
             .create_task_owned(

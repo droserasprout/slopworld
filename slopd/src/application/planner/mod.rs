@@ -141,6 +141,7 @@ async fn dispatch(
 
 fn worker_request(request: &Action, body: String) -> WorkerRequest {
     WorkerRequest {
+        name: String::new(),
         caller: crate::tasks::HOST.into(),
         project: request.project.clone(),
         template: request.template.clone(),

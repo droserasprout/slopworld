@@ -22,7 +22,7 @@ changing drawing alone leaves invisible targets. Internal split changes must not
 resize terminals. The tab and open-files pane scroll independently.
 
 Worker hierarchy comes from daemon metadata; missing/filtered parents leave children
-at top level. Host, temporary, and worker rows do not count as ordinary project agents.
+at the top level of their own project group, including project folding and row sizing. Host, temporary, and worker rows do not count as ordinary project agents.
 Rename handoffs preserve membership until HTTP and WebSocket agree. Expand truncated
 host cwd labels only when their suffix matches `Dir`; preserve application/fixed titles.
 

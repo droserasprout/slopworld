@@ -87,9 +87,13 @@ Ordinary `paste` and `keys` may include `run_id` to discard input for a replaced
 ### Workers
 
 `POST /api/workers` creates a task-owned child and returns task and worker IDs.
-Fields are `project`, `template`, `body`, `durable`, `worktree`, `new_worktree`,
+Fields are `name`, `project`, `template`, `body`, `durable`, `worktree`, `new_worktree`,
 `base`, and `worktree_name`. Root may select any template; scoped callers must
 use their own project and an allowed template.
+
+Omit `name` or leave it empty for automatic naming: `<project>-worker` for the
+host, `<caller>-worker` for agents, with numeric suffixes when needed. An explicit
+name must be valid and unused; duplicate names fail without creating a task.
 
 Workers receive the template's captured settings and fresh private state. The
 caller determines task and sidebar parentage only.

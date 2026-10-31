@@ -33,7 +33,8 @@ namespace SlopWorld
             public readonly List<SessionInfo> TopGhosts = new List<SessionInfo>();
             public Dictionary<string, List<SessionInfo>> WorkersByParentSession =
                 new Dictionary<string, List<SessionInfo>>();
-            public readonly List<SessionInfo> TopWorkers = new List<SessionInfo>();
+            public Dictionary<string, List<SessionInfo>> WorkersByProject =
+                new Dictionary<string, List<SessionInfo>>();
 
             public readonly List<Row> ViewRows = new List<Row>();
             public readonly List<SessionInfo> Routed = new List<SessionInfo>();
@@ -170,7 +171,8 @@ namespace SlopWorld
                 VisibleSessions.Clear();
                 OrderKeys.Clear();
                 TopGhosts.Clear();
-                TopWorkers.Clear();
+                foreach (var list in WorkersByProject.Values)
+                    list.Clear();
                 EntryPawns.Clear();
                 PlacedLocations.Clear();
 

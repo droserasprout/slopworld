@@ -19,6 +19,7 @@ namespace SlopWorld
         string _caller;
         string _template;
         string _body = "";
+        string _name = "";
         string _error;
         bool _durable = true;
         bool _sending;
@@ -65,7 +66,7 @@ namespace SlopWorld
             );
         }
 
-        public override Vector2 InitialSize => new Vector2(680f, 740f);
+        public override Vector2 InitialSize => new Vector2(680f, 800f);
 
         protected override Vector2 MinimumSize => InitialSize;
 
@@ -140,6 +141,17 @@ namespace SlopWorld
             );
 
             y = templateRect.yMax + UiTheme.GapM;
+            UiText.RowLabel(
+                new Rect(rect.x, y, rect.width, UiTheme.LineH),
+                "Worker name (blank chooses automatically)"
+            );
+            y += UiTheme.LineH;
+            _name = UiText.Field(
+                new Rect(rect.x, y, rect.width, UiTheme.CompactH),
+                "spawn-worker.name",
+                _name
+            );
+            y += UiTheme.CompactH + UiTheme.GapS;
             y = DrawWorktreeFields(rect, y);
             GUI.color = UiTheme.Name;
             UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Task");
@@ -380,7 +392,8 @@ namespace SlopWorld
                     NewWorktree = submittedNewWorktree,
                     BaseRevision = _basePreview.Commit,
                     WorktreeName = _worktreeName,
-                }
+                },
+                _name.Trim()
             );
         }
     }

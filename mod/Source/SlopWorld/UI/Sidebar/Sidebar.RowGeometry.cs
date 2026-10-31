@@ -20,6 +20,10 @@ namespace SlopWorld
                 Layout.WorkersByParentSession,
                 Layout.StaleKeys
             );
+            Layout.WorkersByProject = SidebarAgentRows.PruneEmpty(
+                Layout.WorkersByProject,
+                Layout.StaleKeys
+            );
             OrderBuckets();
         }
 
@@ -103,23 +107,13 @@ namespace SlopWorld
                 {
                     if (!SidebarScopes.SessionChosen(s) || !PassesStatus(s))
                         continue;
-                    // A child is nested only when its explicit parent has a visible normal row.
-                    // Missing parents are surfaced at the top instead of being silently lost.
-                    var parent = SnapshotGet(s.Parent);
-                    bool parentVisible =
-                        parent != null
-                        && !parent.Worker
-                        && SidebarScopes.SessionChosen(parent)
-                        && Layout.VisibleSessions.Contains(parent.Name);
-                    if (!parentVisible)
-                    {
-                        Layout.TopWorkers.Add(s);
-                        continue;
-                    }
-                    if (!Layout.WorkersByParentSession.TryGetValue(s.Parent, out var children))
-                        Layout.WorkersByParentSession[s.Parent] = children =
-                            new List<SessionInfo>();
-                    children.Add(s);
+                    SidebarAgentRows.BucketWorker(
+                        s,
+                        SnapshotGet(s.Parent),
+                        Layout.VisibleSessions,
+                        Layout.WorkersByParentSession,
+                        Layout.WorkersByProject
+                    );
                     continue;
                 }
                 if (
@@ -149,6 +143,9 @@ namespace SlopWorld
             foreach (var kv in Layout.Ghosts)
                 if (kv.Value.Count > 0 && Layout.OrderKeys.Add(kv.Key))
                     Layout.Order.Add(kv.Key);
+            foreach (var kv in Layout.WorkersByProject)
+                if (kv.Value.Count > 0 && Layout.OrderKeys.Add(kv.Key))
+                    Layout.Order.Add(kv.Key);
             foreach (var p in SessionHub.Instance.Projects)
                 if (Passes(p.Name) && Layout.OrderKeys.Add(p.Name))
                     Layout.Order.Add(p.Name);
@@ -168,7 +165,8 @@ namespace SlopWorld
             );
 
             Layout.TopGhosts.Sort(ByName);
-            Layout.TopWorkers.Sort(ByName);
+            foreach (var list in Layout.WorkersByProject.Values)
+                list.Sort(ByName);
             foreach (var list in Layout.Ghosts.Values)
                 list.Sort(ByName);
             foreach (var list in Layout.WorkersByParentSession.Values)

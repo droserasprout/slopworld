@@ -38,6 +38,59 @@ namespace SlopWorld.Tests
             Assert.That(compacted["live"], Is.SameAs(live));
         }
 
+        public static void WorkersWithoutVisibleParentsUseTheirOwnProject()
+        {
+            var byParent = new Dictionary<string, List<SessionInfo>>();
+            var byProject = new Dictionary<string, List<SessionInfo>>();
+            var visible = new HashSet<string> { "agent", "worker-parent" };
+            var planner = new SessionInfo
+            {
+                Name = "host-worker",
+                Parent = "host",
+                Project = "slopworld",
+            };
+            var filtered = new SessionInfo
+            {
+                Name = "filtered-worker",
+                Parent = "filtered",
+                Project = "slopworld",
+            };
+            SidebarAgentRows.BucketWorker(planner, null, visible, byParent, byProject);
+            SidebarAgentRows.BucketWorker(
+                filtered,
+                new SessionInfo { Name = "filtered", Project = "other" },
+                visible,
+                byParent,
+                byProject
+            );
+            Assert.That(byParent, Is.Empty);
+            Assert.That(byProject["slopworld"], Is.EqualTo(new[] { planner, filtered }));
+
+            // Restoring the parent's row moves its child back beneath it on the next rebuild.
+            byProject["slopworld"].Clear();
+            visible.Add("filtered");
+            SidebarAgentRows.BucketWorker(
+                filtered,
+                new SessionInfo { Name = "filtered", Project = "slopworld" },
+                visible,
+                byParent,
+                byProject
+            );
+            Assert.That(byParent["filtered"], Is.EqualTo(new[] { filtered }));
+            Assert.That(byProject["slopworld"], Is.Empty);
+
+            var loose = new SessionInfo { Name = "loose-worker", Parent = "worker-parent" };
+            SidebarAgentRows.BucketWorker(
+                loose,
+                new SessionInfo { Name = "worker-parent", Worker = true },
+                visible,
+                byParent,
+                byProject
+            );
+            Assert.That(byProject[SidebarAgentRows.Loose], Is.EqualTo(new[] { loose }));
+            Assert.That(byParent.ContainsKey("worker-parent"), Is.False);
+        }
+
         public static void WorkerCountsUseParentProjectsAndActualLists()
         {
             var parents = new Dictionary<string, SessionInfo>

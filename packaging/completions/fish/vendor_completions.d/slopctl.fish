@@ -52,6 +52,7 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and not __fish_s
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and not __fish_seen_subcommand_from spawn help" -s h -l help -d 'Print help'
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and not __fish_seen_subcommand_from spawn help" -f -a "spawn" -d 'Spawn a worker and deliver TASK; its worktree remains until removed'
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and not __fish_seen_subcommand_from spawn help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -l name -d 'Exact worker name; omitted names are generated from the project or caller' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -l project -d 'Project that owns the agent' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -l template -d 'Agent template name' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -l worktree -d 'Attach an existing worktree' -r

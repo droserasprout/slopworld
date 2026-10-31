@@ -118,6 +118,9 @@ enum WorkerCommand {
 
 #[derive(Debug, Args)]
 struct SpawnOptions {
+    /// Exact worker name; omitted names are generated from the project or caller
+    #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
+    name: Option<String>,
     #[command(flatten)]
     template: RequiredTemplate,
     /// Remove the worker session on exit
@@ -293,6 +296,7 @@ impl CliCommand {
                 });
             }
             Self::Worker(WorkerCommand::Spawn(args)) => RemoteCommand::Spawn(SpawnArgs {
+                name: args.name.unwrap_or_default(),
                 project: args.template.project,
                 template: args.template.template,
                 durable: !args.one_shot,
