@@ -25,6 +25,8 @@ Native fields receive keys inside the callback. Shift bypasses Alt
 navigation; terminal encoding forwards the unshifted Alt letter/digit.
 Ctrl+Alt letters and control punctuation retain both modifiers; Shift does not add
 a separate modifier to these character shortcuts. Ctrl+V remains reserved for paste.
+Semicolon recovery uses layout-resolved text only. Physical punctuation keys must
+wait for character events so non-US layouts do not gain extra ASCII punctuation.
 
 Each panel negotiates its own bounds using the same snapped cell advance for drawing
 and hits. Refresh cannot pass one pane's geometry to another. Client allocation limits

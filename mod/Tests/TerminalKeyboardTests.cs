@@ -5,6 +5,35 @@ namespace SlopWorld.Tests
 {
     static class TerminalKeyboardTests
     {
+        public static void SemicolonRecoveryRequiresLayoutResolvedSemicolons()
+        {
+            foreach (string text in new[] { null, "", "ж", "Ж", "é", "ö", "я", ":" })
+                Assert.That(TerminalInputController.CountSemicolonInput(text, false), Is.Zero);
+
+            Assert.That(TerminalInputController.CountSemicolonInput(";", false), Is.EqualTo(1));
+            Assert.That(TerminalInputController.CountSemicolonInput("ж;é;", false), Is.EqualTo(2));
+            Assert.That(TerminalInputController.CountSemicolonInput(";", true), Is.Zero);
+        }
+
+        public static void PhysicalPunctuationWaitsForLayoutResolvedCharacterEvents()
+        {
+            foreach (var key in new[] { KeyCode.Semicolon, KeyCode.Colon })
+            foreach (char character in new[] { '\0', 'ж', 'Ж', ';', ':', 'é' })
+            foreach (bool shift in new[] { false, true })
+                Assert.That(
+                    TerminalInputController.MapKey(
+                        new Event
+                        {
+                            keyCode = key,
+                            character = character,
+                            shift = shift,
+                        },
+                        false
+                    ),
+                    Is.Null
+                );
+        }
+
         public static void ShiftEnterRemainsADistinctKeyOnBothScreensAndKeypads()
         {
             foreach (var key in new[] { KeyCode.Return, KeyCode.KeypadEnter })

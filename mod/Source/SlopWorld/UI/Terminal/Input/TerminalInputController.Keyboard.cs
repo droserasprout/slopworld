@@ -5,6 +5,18 @@ namespace SlopWorld
     // Terminal key encoding. Workspace shortcuts are consumed before this stage.
     sealed partial class TerminalInputController
     {
+        // Semicolon recovery must use text, never a physical key's US-layout identity.
+        internal static int CountSemicolonInput(string input, bool shift)
+        {
+            if (shift || string.IsNullOrEmpty(input))
+                return 0;
+            int count = 0;
+            foreach (char c in input)
+                if (c == ';')
+                    count++;
+            return count;
+        }
+
         internal static bool TryFileWalkDirection(Event e, out int dir)
         {
             dir = 0;

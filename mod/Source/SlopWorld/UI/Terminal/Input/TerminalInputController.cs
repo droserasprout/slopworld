@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -53,8 +52,6 @@ namespace SlopWorld
                 { KeyCode.F12, ForwardMappedKey },
                 { KeyCode.C, HandleControlC },
                 { KeyCode.V, HandleControlV },
-                { KeyCode.Semicolon, HandleSemicolonKey },
-                { KeyCode.Colon, HandleSemicolonKey },
                 { KeyCode.Space, ForwardMappedKey },
                 { KeyCode.At, ForwardMappedKey },
                 { KeyCode.LeftBracket, ForwardMappedKey },
@@ -97,11 +94,7 @@ namespace SlopWorld
             var e = Event.current;
             // WindowStack can consume the semicolon before the window draws. Replay that character only.
             // Do not replay other Used events.
-            if (
-                e.type == EventType.Used
-                && e.rawType == EventType.KeyDown
-                && (e.character == ';' || IsSemicolonKey(e.keyCode))
-            )
+            if (e.type == EventType.Used && e.rawType == EventType.KeyDown && e.character == ';')
             {
                 HandleKey(e);
                 return;
@@ -438,22 +431,6 @@ namespace SlopWorld
             return true;
         }
 
-        internal bool HandleSemicolonKey(Event e)
-        {
-            // Some backends omit the character-only event. Keep the shifted character before this handler consumes the key.
-            if (e.character != '\0')
-                return false;
-            if (e.shift)
-            {
-                _panel.JumpToLive();
-                _panel.Literal.Append(':');
-            }
-            else
-                AppendSemicolon();
-            e.Use();
-            return true;
-        }
-
         internal bool ForwardMappedKey(Event e)
         {
             var keyScreen = SessionHub.Instance.Screen(_panel.SessionName);
@@ -479,18 +456,15 @@ namespace SlopWorld
             )
                 return;
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            string input = Input.inputString;
-            int count = shift || string.IsNullOrEmpty(input) ? 0 : input.Count(c => c == ';');
-            bool physical = !shift && Input.GetKeyDown(KeyCode.Semicolon);
-            if (count == 0 && !physical)
+            // The physical semicolon key produces ж on a Russian layout. Recover only
+            // layout-resolved semicolons; other text arrives through normal character events.
+            int count = CountSemicolonInput(Input.inputString, shift);
+            if (count == 0)
                 return;
 
             _panel.JumpToLive();
             _panel.Flush();
-            SessionHub.Instance.Terminal.Paste(
-                _panel.SessionName,
-                new string(';', count > 0 ? count : 1)
-            );
+            SessionHub.Instance.Terminal.Paste(_panel.SessionName, new string(';', count));
             _panel.SemicolonFrame = Time.frameCount;
         }
 
@@ -503,9 +477,6 @@ namespace SlopWorld
             SessionHub.Instance.Terminal.Paste(_panel.SessionName, ";");
             _panel.SemicolonFrame = Time.frameCount;
         }
-
-        internal static bool IsSemicolonKey(KeyCode key) =>
-            key == KeyCode.Semicolon || key == KeyCode.Colon;
 
         // Ignore slots past the end of the portrait list. Show stopped agents with their action controls.
         // Require an explicit action to start an agent.

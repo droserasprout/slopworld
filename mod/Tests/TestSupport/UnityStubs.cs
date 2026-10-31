@@ -266,6 +266,7 @@ namespace UnityEngine
         Backslash,
         Backspace,
         Caret,
+        Colon,
         Delete,
         DownArrow,
         End,
@@ -281,6 +282,7 @@ namespace UnityEngine
         Return,
         RightArrow,
         RightBracket,
+        Semicolon,
         Space,
         Tab,
         Underscore,
@@ -294,6 +296,7 @@ namespace UnityEngine
         public void Use() => type = EventType.Used;
 
         public KeyCode keyCode;
+        public char character;
         public bool control,
             alt,
             shift;
@@ -317,6 +320,7 @@ namespace UnityEngine
 
         public void CopyFrom(Event e)
         {
+            character = e.character;
             button = e.button;
             clickCount = e.clickCount;
             mousePosition = e.mousePosition;
