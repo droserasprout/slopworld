@@ -51,12 +51,16 @@ and stop/restart each have an independent permission. Terminal frames require
 terminal permission; lifecycle permission does not imply it. None grants generic
 file/configuration authority. Manual grants remain
 independent. `api/ws/outbound.rs` rechecks current relationship access at serialized
-publication, including buffered and scroll frames on existing connections.
+publication, including buffered and scroll frames on existing connections. Writer contention
+waits outside session admission; socket sends have a one-second deadline so stalled
+clients cannot indefinitely block lifecycle changes or revocation.
 
 The root-only relationship editor persists durable workers through configuration and
 one-shot workers through their credential-free tmux snapshot. Edits compare the
-worker task ID so a stale editor cannot modify a replacement with the same name. Follow-ups retain an
-owned exclusive session boundary through audit and admission, serializing cancellation,
-relationship edits, and run replacement. Delivery rejects shells, requires agent
+worker task ID so a stale editor cannot modify a replacement with the same name. Follow-ups
+prepare a run-bound destination under session admission, then wait for readiness without
+the boundary. Commit revalidates credentials, participation, cancellation, relationship
+permissions, and run identity. An owned exclusive boundary spans audit and submission;
+lost readiness fails without waiting under admission. Delivery rejects shells, requires agent
 readiness, and rechecks foreground command before queued paste and Enter. Submission
 is recorded in task history without claiming acceptance or changing the task result.

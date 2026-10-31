@@ -240,8 +240,9 @@ pub(super) async fn send_authorized(
 ) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
     let started = crate::perf::enabled().then(std::time::Instant::now);
+    // Writer contention must not retain global session admission.
+    let mut writer = tx.lock().await;
     let operation = async {
-        let mut writer = tx.lock().await;
         if !tx.is_valid(cap) {
             return Err(axum::Error::new(std::io::Error::other(
                 "capability revoked",
@@ -281,7 +282,17 @@ pub(super) async fn send_authorized(
             bytes = message.encode_to_vec();
         }
         crate::perf::count("websocket-bytes", bytes.len() as u64);
-        let result = writer.send(Message::Binary(bytes)).await;
+        // Preserve authorization through publication, but evict a stalled peer
+        // before its backpressure can indefinitely prevent lifecycle or revocation.
+        let result =
+            tokio::time::timeout(Duration::from_secs(1), writer.send(Message::Binary(bytes)))
+                .await
+                .map_err(|_elapsed| {
+                    axum::Error::new(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "websocket send timed out",
+                    ))
+                })?;
         if let Some(started) = started {
             tracing::debug!(
                 target: "slopd::perf",

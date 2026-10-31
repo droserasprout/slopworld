@@ -30,7 +30,7 @@ enum Admission {
 
 /// An owned destination for delayed input. Names alone can identify a replacement run.
 #[derive(Clone)]
-struct DeliveryTarget {
+pub(crate) struct DeliveryTarget {
     name: String,
     identity: String,
     run_id: u64,
@@ -102,7 +102,7 @@ impl SessionRuntime {
 
     /// Explicit follow-ups wake the current worker without exposing raw terminal input.
     /// Reject control characters and shell destinations; readiness and the input queue retain run identity.
-    pub(crate) async fn followup_delivery(self: &Arc<Self>, name: &str, text: &str) -> Result<()> {
+    pub(crate) async fn prepare_followup(&self, name: &str, text: &str) -> Result<DeliveryTarget> {
         anyhow::ensure!(!text.trim().is_empty(), "Follow-up text cannot be empty.");
         anyhow::ensure!(
             !text
@@ -136,19 +136,50 @@ impl SessionRuntime {
         );
         self.tmux.require_agent_input(name).await?;
         target.followup = true;
-        let prompt = format!("Follow-up from your supervising agent:\n{text}");
+        Ok(target)
+    }
+
+    /// Wait without session admission: the worker may need the API to become ready.
+    pub(crate) async fn wait_followup(&self, target: &DeliveryTarget) -> Result<()> {
         match self
-            .submit_when_ready(
-                &target,
-                Some(&prompt),
-                tokio::time::Instant::now() + READY_TIMEOUT,
-            )
+            .wait_ready_until(target, tokio::time::Instant::now() + READY_TIMEOUT)
             .await
         {
             Ready::Settled => Ok(()),
             Ready::Timeout => bail!("Worker was not ready; follow-up was not delivered."),
             Ready::Gone => bail!("Worker stopped or restarted; follow-up was not delivered."),
         }
+    }
+
+    /// Caller revalidates authority and task state under exclusive admission. Do not
+    /// wait again here if readiness was lost while acquiring that boundary.
+    pub(crate) async fn submit_followup(
+        self: &Arc<Self>,
+        target: &DeliveryTarget,
+        text: &str,
+    ) -> Result<()> {
+        let prompt = format!("Follow-up from your supervising agent:\n{text}");
+        match self
+            .admit_delivery(
+                target,
+                Some(&prompt),
+                tokio::time::Instant::now() + READY_TIMEOUT,
+            )
+            .await
+        {
+            Admission::Submitted => Ok(()),
+            Admission::Gone => bail!("Worker stopped or restarted; follow-up was not delivered."),
+            Admission::Retry | Admission::Timeout => {
+                bail!("Worker was not ready; follow-up was not delivered.")
+            }
+        }
+    }
+
+    #[cfg(test)]
+    async fn followup_delivery(self: &Arc<Self>, name: &str, text: &str) -> Result<()> {
+        let target = self.prepare_followup(name, text).await?;
+        self.wait_followup(&target).await?;
+        self.submit_followup(&target, text).await
     }
 
     pub(crate) async fn queue_delivery(self: &Arc<Self>, name: &str, text: String) {

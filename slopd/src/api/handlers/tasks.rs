@@ -2,6 +2,7 @@
 use crate::api::protobuf::{ApiError, Proto, domain};
 use crate::application::workers::Workers;
 use crate::shared::wire;
+use anyhow::Context;
 
 use axum::Extension;
 use axum::extract::{Path, Query, State};
@@ -376,18 +377,17 @@ async fn require_worker_permission(
     Ok(())
 }
 
-pub(crate) async fn followup_task(
-    State(m): State<App>,
-    Extension(cap): Extension<Cap>,
-    headers: HeaderMap,
-    Path(id): Path<String>,
-    Proto(q): Proto<wire::WorkerFollowupReq>,
-) -> ApiResult {
-    let who = task_identity(&m, &cap, &headers).await?;
+async fn followup_target(
+    m: &App,
+    cap: &Cap,
+    headers: &HeaderMap,
+    id: &str,
+) -> Result<String, ApiError> {
+    let who = task_identity(m, cap, headers).await?;
     let task = m
         .sessions
         .task_store()
-        .task_for_async(&who, &id)
+        .task_for_async(&who, id)
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "Task is unavailable."))?;
@@ -400,7 +400,7 @@ pub(crate) async fn followup_task(
     if task.status == crate::tasks::Status::Canceled {
         return Err(err(StatusCode::BAD_REQUEST, "Task is canceled."));
     }
-    require_worker_permission(&m, &cap, &who, &id, WorkerPermission::Followup).await?;
+    require_worker_permission(m, cap, &who, id, WorkerPermission::Followup).await?;
     let target = m
         .sessions
         .views()
@@ -416,43 +416,86 @@ pub(crate) async fn followup_task(
     if cfg.state_id != task.to_id {
         return Err(err(StatusCode::FORBIDDEN, "Worker identity changed."));
     }
-    let sessions = m.sessions.clone();
-    let sender = task_principal(&cap, &headers)?;
-    super::ack_result(
-        m.sessions
-            .owned_session_operation(async move {
-                let (audit_id, audit_sender, body) = (id.clone(), sender.clone(), q.body.clone());
-                sessions
-                    .task_store()
-                    .run(move |tasks| {
-                        tasks.followup_note(
-                            &audit_id,
-                            &audit_sender,
-                            format!("Follow-up requested: {body}"),
-                        )
+    Ok(target.name)
+}
+
+pub(crate) async fn followup_task(
+    State(m): State<App>,
+    Extension(cap): Extension<Cap>,
+    generation: Option<Extension<crate::api::RootGeneration>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Proto(q): Proto<wire::WorkerFollowupReq>,
+) -> ApiResult {
+    let validate_credentials = || {
+        if !cap.is_valid()
+            || (cap.may_create()
+                && generation
+                    .as_ref()
+                    .is_none_or(|g| g.0.0 != m.config_authority.root_generation()))
+        {
+            Err(err(StatusCode::UNAUTHORIZED, "capability revoked"))
+        } else {
+            Ok(())
+        }
+    };
+    let target = crate::application::Configuration::new(&m)
+        .session_request(async {
+            validate_credentials()?;
+            let name = followup_target(&m, &cap, &headers, &id).await?;
+            m.sessions
+                .prepare_followup(&name, &q.body)
+                .await
+                .map_err(|e| err(StatusCode::BAD_REQUEST, e))
+        })
+        .await?;
+    m.sessions
+        .wait_followup(&target)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    crate::application::Configuration::new(&m)
+        .session_request(async {
+            validate_credentials()?;
+            followup_target(&m, &cap, &headers, &id).await?;
+            let sessions = m.sessions.clone();
+            let sender = task_principal(&cap, &headers)?;
+            super::ack_result(
+                m.sessions
+                    .owned_session_operation(async move {
+                        let (audit_id, audit_sender, body) =
+                            (id.clone(), sender.clone(), q.body.clone());
+                        sessions
+                            .task_store()
+                            .run(move |tasks| {
+                                tasks.followup_note(
+                                    &audit_id,
+                                    &audit_sender,
+                                    format!("Follow-up requested: {body}"),
+                                )
+                            })
+                            .await?;
+                        let result = sessions.submit_followup(&target, &q.body).await;
+                        let outcome = followup_outcome(&result);
+                        let saved = sessions
+                            .task_store()
+                            .run(move |tasks| tasks.followup_note(&id, &sender, outcome))
+                            .await;
+                        saved.context(
+                            "Follow-up delivery completed, but saving its outcome failed",
+                        )?;
+                        result
                     })
-                    .await?;
-                let result = sessions.followup_delivery(&target.name, &q.body).await;
-                let outcome = match &result {
-                    Ok(()) => {
-                        "Follow-up submitted to the worker's current run; task status unchanged."
-                            .to_owned()
-                    }
-                    Err(error) => format!("Follow-up not delivered: {error:#}"),
-                };
-                sessions
-                    .task_store()
-                    .run(move |tasks| tasks.followup_note(&id, &sender, outcome))
-                    .await
-                    .map_err(|error| {
-                        anyhow::anyhow!(
-                            "Follow-up delivery completed, but saving its outcome failed: {error:#}"
-                        )
-                    })?;
-                result
-            })
-            .await,
-    )
+                    .await,
+            )
+        })
+        .await
+}
+
+fn followup_outcome(result: &anyhow::Result<()>) -> String {
+    match result {
+        Ok(()) => "Follow-up submitted to the worker's current run; task status unchanged.".into(),
+        Err(error) => format!("Follow-up not delivered: {error:#}"),
+    }
 }
 
 pub(crate) async fn set_worker_access(

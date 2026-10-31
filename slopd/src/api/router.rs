@@ -19,6 +19,8 @@ pub(crate) fn router(m: App) -> Router {
         .merge(snapshot_routes(m.clone()))
         .merge(root_routes(m.clone()))
         .merge(root_provider_routes())
+        // Follow-ups own separate prepare and commit admission around readiness.
+        .route(routes::TASK_FOLLOWUP, post(followup_task))
         .with_state(m)
 }
 
@@ -60,7 +62,6 @@ fn scoped_routes(m: App) -> Router<App> {
         .route(routes::SESSION_STATE_RESET, post(reset_state))
         .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
         .route(routes::WORKERS, post(spawn_worker))
-        .route(routes::TASK_FOLLOWUP, post(followup_task))
         .layer(middleware::from_fn_with_state(m, scoped_request))
 }
 

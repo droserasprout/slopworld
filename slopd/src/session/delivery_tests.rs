@@ -603,3 +603,40 @@ time.sleep(60)
     assert_eq!(received, expected.as_bytes());
     assert!(rx.try_recv().is_err());
 }
+
+#[tokio::test]
+async fn followup_wait_allows_lifecycle_and_rejects_a_replaced_run() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let target = manager.delivery_target("worker").await.unwrap();
+    manager.live.write().await.get_mut("worker").unwrap().screen = None;
+    let waiting = manager.wait_followup(&target);
+    tokio::pin!(waiting);
+    assert!(futures::poll!(waiting.as_mut()).is_pending());
+    tokio::time::timeout(
+        Duration::from_secs(1),
+        manager.session_operation(async {
+            manager.live.write().await.get_mut("worker").unwrap().run_id += 1;
+        }),
+    )
+    .await
+    .expect("readiness wait blocked lifecycle");
+    assert!(waiting.await.unwrap_err().to_string().contains("restarted"));
+    assert!(manager.submit_followup(&target, "stale").await.is_err());
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn followup_commit_does_not_wait_when_readiness_is_lost() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let mut target = manager.delivery_target("worker").await.unwrap();
+    target.requires_codex_composer = true;
+    target.followup = true;
+    let result = tokio::time::timeout(
+        Duration::from_millis(100),
+        manager.session_operation(manager.submit_followup(&target, "retry later")),
+    )
+    .await
+    .expect("commit waited for readiness under admission");
+    assert!(result.unwrap_err().to_string().contains("not ready"));
+    assert!(rx.try_recv().is_err());
+}

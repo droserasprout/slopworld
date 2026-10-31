@@ -761,6 +761,12 @@ async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient
             .is_ok(),
             access.followup
         );
+        assert_eq!(
+            followup_target(&manager, &scoped("parent"), &caller("parent"), &task.id)
+                .await
+                .is_ok(),
+            access.followup
+        );
         let result = cancel_tasks(
             State(manager.clone()),
             Extension(scoped("parent")),
@@ -776,6 +782,11 @@ async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient
             let result = result.unwrap().0;
             assert_eq!(result.tasks[0].status, "canceled");
             assert_eq!(result.tasks[0].note.as_deref(), Some("progress"));
+            let rejected =
+                followup_target(&manager, &scoped("parent"), &caller("parent"), &task.id)
+                    .await
+                    .unwrap_err();
+            assert_eq!(rejected.0, StatusCode::BAD_REQUEST);
         }
     }
 }
@@ -847,4 +858,28 @@ async fn relationship_edits_persist_without_changing_parent_policy_and_reject_le
             .parent_id
             .is_empty()
     );
+}
+
+#[tokio::test]
+async fn followup_rejects_missing_or_stale_root_generation_before_preparing_delivery() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    for generation in [
+        None,
+        Some(Extension(crate::api::RootGeneration(
+            manager.config_authority.root_generation().wrapping_add(1),
+        ))),
+    ] {
+        let result = followup_task(
+            State(manager.clone()),
+            Extension(Cap::Root),
+            generation,
+            caller(crate::tasks::HOST),
+            Path("missing".into()),
+            Proto(wire::WorkerFollowupReq {
+                body: "hello".into(),
+            }),
+        )
+        .await;
+        assert_eq!(result.unwrap_err().0, StatusCode::UNAUTHORIZED);
+    }
 }

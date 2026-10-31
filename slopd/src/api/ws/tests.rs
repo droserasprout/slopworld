@@ -1987,3 +1987,49 @@ async fn open_socket_filters_terminal_events_after_relationship_downgrade_and_re
     };
     assert!(visible.sessions.is_empty());
 }
+
+#[tokio::test]
+async fn scoped_writer_contention_does_not_hold_session_admission() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let socket = socket_pair_for(&manager).await;
+    let writer = socket.tx.lock().await;
+    let cap = scoped(&["worker"], Level::Ro);
+    let event = message(Event::Screen {
+        screen: screen("worker", 1),
+    });
+    let sending = super::outbound::send_authorized(&socket.tx, &cap, &event);
+    tokio::pin!(sending);
+    assert!(futures::poll!(sending.as_mut()).is_pending());
+    tokio::time::timeout(
+        Duration::from_secs(1),
+        manager.sessions.session_operation(async {}),
+    )
+    .await
+    .expect("writer contention blocked lifecycle");
+    drop(writer);
+    sending.await.unwrap();
+}
+
+#[tokio::test]
+async fn stalled_scoped_socket_releases_session_admission_after_send_deadline() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let socket = socket_pair_for(&manager).await;
+    let cap = scoped(&["worker"], Level::Ro);
+    let mut frame = screen("worker", 1);
+    // Exceed the loopback socket buffers while the peer deliberately never reads.
+    frame.lines = vec!["x".repeat(16 * 1024 * 1024).into()];
+    let event = message(Event::Screen { screen: frame });
+    let sending = super::outbound::send_authorized(&socket.tx, &cap, &event);
+    tokio::pin!(sending);
+    assert!(futures::poll!(sending.as_mut()).is_pending());
+    let result = tokio::time::timeout(Duration::from_secs(3), &mut sending)
+        .await
+        .unwrap();
+    assert!(result.unwrap_err().to_string().contains("timed out"));
+    tokio::time::timeout(
+        Duration::from_secs(1),
+        manager.sessions.session_operation(async {}),
+    )
+    .await
+    .expect("send timeout retained session admission");
+}
