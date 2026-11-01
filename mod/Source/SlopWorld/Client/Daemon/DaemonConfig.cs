@@ -203,9 +203,6 @@ namespace SlopWorld
 
         // Settings > Agents > Workers stores the selected qualified template identities.
         // The daemon uses them as policy, not as part of templates or saved agent settings.
-        public Wire.WorkerAccess WorkerAccess = SessionInfo.WorkerAccessDefaults(all: true);
-        public bool WorkerRecursive = true;
-        public List<string> WorkerTemplates = new List<string>();
 
         // Agent and Shell name command presets. AgentShell is the shell advertised inside
         // sandboxed agent sessions. It is separate from the shell errand preset.
@@ -294,9 +291,6 @@ namespace SlopWorld
                 PiTitles = d.PiTitles,
                 TaskSummaries = d.TaskSummaries,
                 WorkerPrompt = i.WorkerPrompt,
-                WorkerTemplates = d.WorkerTemplates.ToList(),
-                WorkerAccess = SessionInfo.WorkerAccessDefaults(d.WorkerAccess, all: true),
-                WorkerRecursive = !d.HasWorkerRecursive || d.WorkerRecursive,
 
                 Agent = f.Agent,
                 AgentShell = f.AgentShell,
@@ -364,12 +358,6 @@ namespace SlopWorld
                 TitleMinChars = checked((ulong)TitleMinChars),
                 PiTitles = PiTitles,
                 TaskSummaries = TaskSummaries,
-                WorkerAccess = WorkerAccess.Clone(),
-                WorkerRecursive = WorkerRecursive,
-                WorkerTemplates =
-                {
-                    WorkerTemplates.Distinct().OrderBy(v => v, StringComparer.Ordinal),
-                },
                 Instructions = new Wire.Instructions { WorkerPrompt = WorkerPrompt },
             };
             foreach (var pair in UsageItems)

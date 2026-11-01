@@ -7,7 +7,6 @@ use axum::body::Body;
 use axum::http::Request;
 use futures::{SinkExt, StreamExt};
 use prost::Message;
-use std::collections::BTreeSet;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::ServiceExt;
 
@@ -309,7 +308,6 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
         settings: crate::config::Settings {
             daemon: Daemon {
                 token: "root-secret".into(),
-                worker_templates: BTreeSet::from(["review".to_string()]),
                 ..Default::default()
             },
             ..Default::default()
@@ -323,6 +321,12 @@ async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
         sessions: vec![SessionCfg {
             name: "caller".into(),
             project: "repo".into(),
+            workers: crate::config::WorkerPolicy {
+                enabled: true,
+                all_templates: false,
+                templates: ["review".into()].into(),
+                ..Default::default()
+            },
             ..Default::default()
         }],
         ..Default::default()

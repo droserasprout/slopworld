@@ -61,10 +61,7 @@ namespace SlopWorld
         public bool ParentBound;
         public Wire.WorkerAccess ParentAccess = WorkerAccessDefaults();
 
-        public static Wire.WorkerAccess WorkerAccessDefaults(
-            Wire.WorkerAccess source = null,
-            bool all = false
-        )
+        public static Wire.WorkerAccess WorkerAccessDefaults(Wire.WorkerAccess source = null)
         {
             var value = source?.Clone() ?? new Wire.WorkerAccess();
             if (!value.HasFollowup)
@@ -72,9 +69,9 @@ namespace SlopWorld
             if (!value.HasCancel)
                 value.Cancel = true;
             if (!value.HasTerminal)
-                value.Terminal = all && source == null;
+                value.Terminal = false;
             if (!value.HasLifecycle)
-                value.Lifecycle = all && source == null;
+                value.Lifecycle = false;
             return value;
         }
 
@@ -82,7 +79,7 @@ namespace SlopWorld
         {
             var value = source?.Clone() ?? new Wire.WorkerPolicy();
             if (!value.HasEnabled)
-                value.Enabled = true;
+                value.Enabled = false;
             if (!value.HasAllTemplates)
                 value.AllTemplates = true;
             value.Access = WorkerAccessDefaults(value.Access);

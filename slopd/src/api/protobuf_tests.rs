@@ -201,10 +201,7 @@ async fn binary_requests_preserve_defaults_and_reject_wrong_media_and_malformed_
 #[test]
 fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
     let mut values = wire::EditableConfig::default();
-    let mut daemon = wire::Daemon {
-        worker_templates: vec![],
-        ..Default::default()
-    };
+    let mut daemon = wire::Daemon::default();
     daemon.usage_items.insert(
         "a.b~c".into(),
         wire::UsageItem {
@@ -218,13 +215,13 @@ fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
         paths: vec![
             "daemon.usage_items.a~1b~0c.poll".into(),
             "daemon.usage_items.a~1b~0c.interval_secs".into(),
-            "daemon.worker_templates".into(),
+            "daemon.title_model".into(),
         ],
     })
     .unwrap();
     assert_eq!(
         patch,
-        json!({"daemon":{"usage_items":{"a.b~c":{"poll":false,"interval_secs":0}},"worker_templates":[]}})
+        json!({"daemon":{"usage_items":{"a.b~c":{"poll":false,"interval_secs":0}},"title_model":""}})
     );
     for (path, expected) in [
         ("daemon.typo", "unknown config path: daemon.typo"),

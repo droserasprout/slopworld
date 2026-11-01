@@ -58,7 +58,7 @@ and the daemon's current resolver. Blank limits mean no cap; set limits to posit
 whole numbers. **Daemon default** uses the daemon's default command;
 **Custom command** specifies a command line.
 
-For worker templates and their allowlist, see
+For per-agent delegation and worker templates, see
 [Worker settings](../customization/settings.md) and [Agent collaboration](agent-collaboration.md).
 
 ## Preview and restart
@@ -82,5 +82,7 @@ Choose network and DNS in the agent editor. See
 
 ## Workers {#workers}
 
-Configure template access in [Worker settings](../customization/settings.md). Workers
-use the same agent settings and need daemon API access for tasks.
+Configure delegation and allowed templates in **Edit agent > Workers**, or save
+those choices in a template. Delegation is disabled by default. The global
+[Worker settings](../customization/settings.md#workers) customize the initial prompt.
+Workers use the same agent settings and need daemon API access for tasks.

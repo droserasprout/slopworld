@@ -253,25 +253,33 @@ async fn duplicate_is_independent_and_missing_sources_are_rejected() {
     .await
     .unwrap()
     .0;
-    assert!(spawnable.templates.is_empty());
+    assert_eq!(spawnable.templates.len(), 1);
+    assert_eq!(spawnable.templates[0].name, "original");
 }
 #[tokio::test]
 async fn spawnable_catalog_filters_policy_and_enforces_agent_project() {
     use crate::config::{ProjectCfg, SessionCfg};
     use crate::grant::{Grant, Level};
-    let mut cfg = Config::default();
-    cfg.daemon.worker_templates.insert("enabled".into());
-    cfg.projects = ["own", "other"]
-        .into_iter()
-        .map(|name| ProjectCfg {
-            name: name.into(),
-            dir: std::env::temp_dir().to_string_lossy().into_owned(),
-            ..Default::default()
-        })
-        .collect();
+    let mut cfg = Config {
+        projects: ["own", "other"]
+            .into_iter()
+            .map(|name| ProjectCfg {
+                name: name.into(),
+                dir: std::env::temp_dir().to_string_lossy().into_owned(),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    };
     cfg.sessions.push(SessionCfg {
         name: "caller".into(),
         project: "own".into(),
+        workers: crate::config::WorkerPolicy {
+            enabled: true,
+            all_templates: false,
+            templates: ["enabled".into()].into(),
+            ..Default::default()
+        },
         ..Default::default()
     });
     let m = crate::application::test_application(cfg);
@@ -316,6 +324,22 @@ async fn spawnable_catalog_filters_policy_and_enforces_agent_project() {
         .0,
         StatusCode::BAD_REQUEST
     );
+    for project in ["", "other"] {
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("x-slop-session", "host".parse().unwrap());
+        let root_spawnable = list_spawnable_templates(
+            State(m.clone()),
+            Extension(Cap::Root),
+            headers,
+            Query(SpawnableTemplatesQuery {
+                project: project.into(),
+            }),
+        )
+        .await
+        .unwrap()
+        .0;
+        assert_eq!(root_spawnable.templates.len(), 2);
+    }
     let root_catalog = list_templates(
         State(m),
         Extension(Cap::Root),

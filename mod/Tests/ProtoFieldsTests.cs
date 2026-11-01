@@ -20,7 +20,6 @@ namespace SlopWorld.Tests
                     [path + ".interval_secs"] = 0UL,
                     ["daemon.instructions.worker_prompt"] = "prompt",
                     ["commands.pager"] = "less",
-                    ["daemon.worker_templates"] = new object[] { "one", "two" },
                 }
             );
             Assert.That(source.Daemon, Is.Null, "apply does not mutate baseline");
@@ -33,7 +32,6 @@ namespace SlopWorld.Tests
             );
             Assert.That(changed.Daemon.Instructions.WorkerPrompt, Is.EqualTo("prompt"));
             Assert.That(changed.Commands.Pager, Is.EqualTo("less"));
-            Assert.That(changed.Daemon.WorkerTemplates, Is.EqualTo(new[] { "one", "two" }));
             Assert.That(ProtoFields.ValueAt(changed, path + ".interval_secs"), Is.EqualTo(0UL));
             Assert.That(ProtoFields.ValueAt(changed, "absent"), Is.Null);
             Assert.That(ProtoFields.Leaves(null), Is.Empty);
@@ -43,11 +41,7 @@ namespace SlopWorld.Tests
         {
             var source = new Wire.EditableConfig
             {
-                Daemon = new Wire.Daemon
-                {
-                    TitleModel = "model",
-                    WorkerTemplates = { "old", "extra" },
-                },
+                Daemon = new Wire.Daemon { TitleModel = "model" },
             };
             source.Daemon.UsageItems["provider"] = new Wire.UsageItem
             {
@@ -59,17 +53,14 @@ namespace SlopWorld.Tests
                 new Dictionary<string, object>
                 {
                     ["daemon.title_model"] = "",
-                    ["daemon.worker_templates"] = Array.Empty<object>(),
                     ["daemon.usage_items.provider.interval_secs"] = null,
                     ["daemon.usage_items.provider.poll"] = false,
                 }
             );
             Assert.That(changed.Daemon.TitleModel, Is.Empty);
-            Assert.That(changed.Daemon.WorkerTemplates, Is.Empty);
             Assert.That(changed.Daemon.UsageItems["provider"].HasIntervalSecs, Is.False);
             Assert.That(changed.Daemon.UsageItems["provider"].Poll, Is.False);
             Assert.That(source.Daemon.TitleModel, Is.EqualTo("model"));
-            Assert.That(source.Daemon.WorkerTemplates, Is.EqualTo(new[] { "old", "extra" }));
             Assert.That(source.Daemon.UsageItems["provider"].IntervalSecs, Is.EqualTo(30UL));
             var changes = ProtoFields.Changes(changed, source);
             Assert.That(
@@ -78,17 +69,32 @@ namespace SlopWorld.Tests
                     new[]
                     {
                         "daemon.title_model",
-                        "daemon.worker_templates",
                         "daemon.usage_items.provider.interval_secs",
                         "daemon.usage_items.provider.poll",
                     }
                 )
             );
             Assert.That(changes["daemon.usage_items.provider.interval_secs"], Is.Null);
+            var policy = new Wire.WorkerPolicy { Templates = { "review", "build" } };
+            var snapshot = ProtoFields.Leaves(policy);
             Assert.That(
-                ProtoFields.Changes(source.Clone(), source),
+                ProtoFields.Changes(policy.Clone(), policy),
                 Is.Empty,
                 "repeated values compare by contents"
+            );
+            policy.Templates.Clear();
+            Assert.That(
+                (object[])snapshot["templates"],
+                Is.EqualTo(new[] { "review", "build" }),
+                "repeated snapshots remain independent"
+            );
+            Assert.That(
+                (object[])
+                    ProtoFields.ChangesFromLeaves(ProtoFields.Leaves(policy), snapshot)[
+                        "templates"
+                    ],
+                Is.Empty,
+                "cleared lists are changed leaves"
             );
         }
 

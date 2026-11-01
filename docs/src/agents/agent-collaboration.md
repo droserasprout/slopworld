@@ -13,8 +13,8 @@ This example creates a persistent worker so you can inspect its terminal afterwa
 
 1. Save a working agent as a template using **Save as template**, or create one
    in Library. See [Configuration and templates](configuring-agents.md#templates).
-2. If an agent will spawn workers, add the template under
-   **Settings > Agents > Workers**. The host can use any catalog template;
+2. If an agent will spawn workers, enable delegation and choose allowed templates
+   in **Edit agent > Workers**. The host can use any catalog template;
    scoped agents can use only allowed templates in their own project.
 
 ### Assignment and reporting
@@ -44,20 +44,20 @@ prompt used when creating an agent.
 ### Parent-worker access
 
 Open **Edit agent > Workers** to enable delegation, narrow the allowed templates,
-choose access to new workers, and allow further delegation. The daemon's Worker
-settings provide the ceiling. Templates save these choices; workers copy them once.
-Further delegation is disabled by default.
+choose access to new workers, and allow further delegation. Templates save these
+choices; workers copy them once and inherit restrictions from their parent and template.
+Delegation and further delegation are disabled by default.
 
 Parents always read task progress, results, and startup diagnostics. Four independent
 checkboxes control additional permissions:
 
-- **Send follow-up instructions** (enabled by default).
+- **Send follow-ups** (enabled by default).
 - **Cancel tasks** (enabled by default).
-- **Type in the terminal** (disabled by default).
-- **Stop and restart workers** (disabled by default).
+- **Type in terminal** (disabled by default).
+- **Stop or restart workers** (disabled by default).
 
-Each permission can be enabled without enabling the others. Daemon settings can
-limit each permission for newly created workers.
+Each permission can be enabled without enabling the others. A child's delegation
+policy cannot exceed its parent's permissions or allowed template selection.
 
 Change an existing relationship in the child worker's **Workers** tab, which shows
 **What [parent] can do** and its captured permissions. Parent policy edits affect future workers
@@ -66,7 +66,7 @@ replacement with the same name. Legacy workers without a captured parent identit
 must be replaced by a newly spawned worker before relationship access can be edited.
 Manual grants remain independent; host access remains root-only.
 
-A parent with **Send follow-up instructions** enabled can send `slopctl task followup --id ID "Check the tests"`
+A parent with **Send follow-ups** enabled can send `slopctl task followup --id ID "Check the tests"`
 to wake a running interactive worker. The daemon waits for readiness and records the
 request and submission outcome in task history. Submission does not accept or reopen
 the task. Follow-ups are rejected for canceled tasks, stopped workers, and shell
@@ -117,7 +117,7 @@ For batch cancellation and removal failure behavior, see
 Only the root token can create grants or create agents directly. See the
 [API reference](../reference/api.md) for creating grants.
 Scoped agents can spawn workers only in their own project and from templates
-allowed by daemon policy. See [Worker configuration](configuring-agents.md#workers).
+allowed by their own delegation policy. See [Worker configuration](configuring-agents.md#workers).
 
 ### Credentials and connectivity
 

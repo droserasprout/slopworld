@@ -1,7 +1,7 @@
 //! Daemon services, launch defaults, and host application settings.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// Default HTTP listener address.
 pub const DEFAULT_BIND: &str = "127.0.0.1:7717";
@@ -72,13 +72,6 @@ pub struct Daemon {
     /// Instructions delivered to newly spawned workers.
     #[serde(default)]
     pub instructions: InstructionsCfg,
-    /// Allowed worker templates; catalog edits do not alter existing workers.
-    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
-    pub worker_templates: BTreeSet<String>,
-    #[serde(default = "default_worker_access")]
-    pub worker_access: super::WorkerAccess,
-    #[serde(default = "super::yes")]
-    pub worker_recursive: bool,
 }
 
 /// Settings for the prompt delivered to a new task worker.
@@ -151,10 +144,6 @@ fn default_pi_title_policy() -> TitlePolicy {
     TitlePolicy::Always
 }
 
-fn default_worker_access() -> super::WorkerAccess {
-    super::WorkerAccess::all()
-}
-
 impl Default for Daemon {
     fn default() -> Self {
         Self {
@@ -173,9 +162,6 @@ impl Default for Daemon {
             task_summaries: TitlePolicy::Never,
             planner: PlannerSettings::default(),
             instructions: InstructionsCfg::default(),
-            worker_templates: BTreeSet::new(),
-            worker_access: default_worker_access(),
-            worker_recursive: true,
         }
     }
 }
@@ -272,7 +258,6 @@ impl std::fmt::Debug for Daemon {
             .field("pi_titles", &self.pi_titles)
             .field("task_summaries", &self.task_summaries)
             .field("instructions", &self.instructions)
-            .field("worker_templates", &self.worker_templates)
             .finish()
     }
 }

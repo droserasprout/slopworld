@@ -64,15 +64,14 @@ fn root_replacement_retains_workspace_and_redacted_secret() {
 #[test]
 fn patch_preserves_omission_and_applies_explicit_empty_false_and_zero() {
     let old = workspace();
-    let text = "[daemon]\nbind = '127.0.0.1:7717'\ntoken = 'secret'\ntitle_min_chars = 9\nworker_templates = ['review']\n[daemon.usage_items.claude]\npoll = true\n[extension]\nkeep = 'yes'\nflag = true\ncount = 5\nitems = ['a']\n";
+    let text = "[daemon]\nbind = '127.0.0.1:7717'\ntoken = 'secret'\ntitle_min_chars = 9\n[daemon.usage_items.claude]\npoll = true\n[extension]\nkeep = 'yes'\nflag = true\ncount = 5\nitems = ['a']\n";
     let patch =
-        toml::from_str("[daemon]\ntoken = ''\ntitle_min_chars = 0\nworker_templates = []\n[daemon.usage_items.claude]\npoll = false\n[extension]\nflag = false\ncount = 0\nitems = []\n")
+        toml::from_str("[daemon]\ntoken = ''\ntitle_min_chars = 0\n[daemon.usage_items.claude]\npoll = false\n[extension]\nflag = false\ncount = 0\nitems = []\n")
             .unwrap();
     let prepared = document::patch(&old, text, patch).unwrap();
     let raw: toml::Value = toml::from_str(&prepared.text).unwrap();
     assert_eq!(prepared.candidate.daemon.token, "");
     assert_eq!(prepared.candidate.daemon.title_min_chars, 0);
-    assert!(prepared.candidate.daemon.worker_templates.is_empty());
     assert!(!prepared.candidate.daemon.usage_items["claude"].poll);
     assert_eq!(raw["extension"]["keep"].as_str(), Some("yes"));
     assert_eq!(raw["extension"]["flag"].as_bool(), Some(false));

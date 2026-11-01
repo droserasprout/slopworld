@@ -22,14 +22,13 @@ fn template(name: &str) -> AgentTemplate {
 
 #[test]
 fn worker_policy_round_trips_exact_template_names() {
-    let mut config = Config::default();
-    config.daemon.worker_templates =
-        BTreeSet::from(["review".to_string(), "team-review".to_string()]);
-    let loaded: Config = toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
-    assert_eq!(
-        loaded.daemon.worker_templates,
-        config.daemon.worker_templates
-    );
+    let config = crate::config::WorkerPolicy {
+        templates: BTreeSet::from(["review".to_string(), "team-review".to_string()]),
+        ..Default::default()
+    };
+    let loaded: crate::config::WorkerPolicy =
+        toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
+    assert_eq!(loaded.templates, config.templates);
 }
 
 #[test]
@@ -179,8 +178,6 @@ fn project_policy_rejects_missing_host_and_unscoped_callers() {
 
 #[test]
 fn template_policy_checks_identity_scope_and_exact_allowlist_before_lookup() {
-    let mut cfg = Config::default();
-    cfg.daemon.worker_templates.insert("review".into());
     let templates = vec![template("review"), template("team-review")];
     for (context, requested, expected) in [
         (Caller::Root, "", "needs a template"),
@@ -202,25 +199,17 @@ fn template_policy_checks_identity_scope_and_exact_allowlist_before_lookup() {
                 project: "repo".into(),
             },
             "team-review",
-            "does not allow",
+            "cannot spawn workers",
         ),
         (Caller::Root, "deleted", "no such agent template"),
     ] {
-        let error =
-            super::template(&cfg, "caller", &context, "repo", requested, &templates).unwrap_err();
+        let error = super::template("caller", &context, "repo", requested, &templates).unwrap_err();
         assert!(error.to_string().contains(expected), "{error:#}");
     }
     assert_eq!(
-        super::template(
-            &cfg,
-            "caller",
-            &Caller::Root,
-            "repo",
-            "team-review",
-            &templates
-        )
-        .unwrap()
-        .name,
+        super::template("caller", &Caller::Root, "repo", "team-review", &templates)
+            .unwrap()
+            .name,
         "team-review"
     );
 }
@@ -418,7 +407,7 @@ async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
 #[test]
 fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default() {
     use crate::config::{ProjectCfg, WorkerAccess, WorkerPolicy};
-    let mut cfg = Config {
+    let cfg = Config {
         projects: vec![ProjectCfg {
             name: "repo".into(),
             dir: "/tmp".into(),
@@ -426,9 +415,9 @@ fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default
         }],
         ..Default::default()
     };
-    cfg.daemon.worker_templates = ["review".into()].into();
-    cfg.daemon.worker_access = WorkerAccess::default();
-    let templates = vec![template("review")];
+    let mut worker_template = template("review");
+    worker_template.defaults.workers.enabled = true;
+    let templates = vec![worker_template];
     let prepare_with = |policy: WorkerPolicy| {
         prepare(
             &cfg,
@@ -449,23 +438,28 @@ fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default
             },
         )
     };
-    let first = prepare_with(WorkerPolicy::default()).unwrap().session;
+    let first = prepare_with(WorkerPolicy {
+        enabled: true,
+        ..Default::default()
+    })
+    .unwrap()
+    .session;
     assert_eq!(first.parent_id, "stable-parent");
     assert_eq!(first.parent_access, WorkerAccess::default());
     assert!(!first.workers.enabled);
     let policy = WorkerPolicy {
+        enabled: true,
         recursive: true,
         access: WorkerAccess::all(),
         all_templates: false,
         templates: ["review".into()].into(),
-        ..Default::default()
     };
     let second = prepare_with(policy.clone()).unwrap().session;
     assert!(second.workers.enabled);
     assert_eq!(
         second.parent_access,
-        WorkerAccess::default(),
-        "daemon ceiling"
+        WorkerAccess::all(),
+        "parent controls relationship access"
     );
     assert_eq!(second.workers.access, WorkerAccess::default());
     assert!(!second.workers.all_templates);

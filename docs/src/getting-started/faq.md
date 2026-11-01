@@ -156,9 +156,9 @@ See [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
 
 ### I have created an agent template, but agents can't spawn it as a worker
 
-Go to **Settings > Agents > Workers** to configure the templates available to agents.
-
-This is a precaution to prevent agents from escalating privileges with less sandboxed workers spawned from templates.
+Open **Edit agent > Workers**, enable **Allow spawning workers**, and
+choose which templates it may use. Delegation is disabled by default. These choices
+can also be saved in an agent template.
 
 ### How to send F-key or Alt combo to the terminal process bypassing SlopWorld shortcuts?
 

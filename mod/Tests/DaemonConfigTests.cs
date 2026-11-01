@@ -260,28 +260,15 @@ namespace SlopWorld.Tests
 
         static void StructuredPatchSnapshots()
         {
-            var config = new DaemonConfig
-            {
-                WorkerTemplates = new List<string> { "zeta", "alpha", "zeta" },
-            };
+            var config = new DaemonConfig();
+            config.Planner.Model = "original";
             var baseline = config.Snapshot();
-            AssertEx.Equal(
-                "alpha",
-                ProtobufFixtures.Json(baseline)["daemon"]["worker_templates"][0].AsString(),
-                "worker templates are sorted in the projection"
-            );
-            AssertEx.Equal(
-                2,
-                ProtobufFixtures.Json(baseline)["daemon"]["worker_templates"].Count,
-                "worker templates are deduplicated in the projection"
-            );
-
-            config.WorkerTemplates[0] = "changed";
+            config.Planner.Model = "changed";
             config.TitleModel = "new-model";
             AssertEx.Equal(
-                "alpha",
-                ProtobufFixtures.Json(baseline)["daemon"]["worker_templates"][0].AsString(),
-                "baseline is independent of later list edits"
+                "original",
+                baseline.Daemon.Planner.Model,
+                "baseline is independent of later nested edits"
             );
             var patch = ProtobufFixtures.PatchJson(config.ToPatch(baseline));
             AssertEx.Equal(
@@ -291,8 +278,8 @@ namespace SlopWorld.Tests
             );
             AssertEx.Equal(
                 "changed",
-                patch["daemon"]["worker_templates"][1].AsString(),
-                "later structured edits are diffed from the independent baseline"
+                patch["daemon"]["planner"]["model"].AsString(),
+                "nested edits are diffed from the independent baseline"
             );
         }
 

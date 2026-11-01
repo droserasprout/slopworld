@@ -42,7 +42,7 @@ fn config_commands_require_exact_arguments_and_support_help() {
 
 #[test]
 fn patches_select_only_one_leaf_and_preserve_literal_strings_and_empty_values() {
-    let values = json!({"daemon": {"token": "<redacted>", "bind": "local", "worker_templates": ["old"],
+    let values = json!({"daemon": {"token": "<redacted>", "bind": "local",
         "usage_items": {"a.b~c": {"poll": true, "interval_secs": 12}}}});
     for (key, text, expected) in [
         ("daemon.token", "false", json!("false")),
@@ -51,7 +51,7 @@ fn patches_select_only_one_leaf_and_preserve_literal_strings_and_empty_values() 
             "192.168.1.10:7717",
             json!("192.168.1.10:7717"),
         ),
-        ("daemon.worker_templates", "[]", json!([])),
+        ("daemon.instructions.worker_prompt", "", json!("")),
         ("daemon.usage_items.a~1b~0c.poll", "false", json!(false)),
         ("daemon.usage_items.a~1b~0c.interval_secs", "0", json!(0)),
         ("daemon.usage_items.new.poll", "false", json!(false)),
@@ -69,8 +69,8 @@ fn patches_select_only_one_leaf_and_preserve_literal_strings_and_empty_values() 
         ("daemon", "{}"),
         ("metadata.defaults", "x"),
         ("daemon.usage_items", "{}"),
-        ("daemon.worker_templates", "oops"),
-        ("daemon.worker_templates", "null"),
+        ("daemon.usage_poll_secs", "oops"),
+        ("daemon.usage_poll_secs", "null"),
     ] {
         assert!(patch(&values, key, text).is_err(), "{key}");
     }

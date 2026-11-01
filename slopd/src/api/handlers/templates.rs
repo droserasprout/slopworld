@@ -49,9 +49,9 @@ pub(crate) async fn list_templates(
     reply(json!({ "templates": templates, "project": project }))
 }
 
-/// Scoped discovery exposes only definitions explicitly enabled by the root worker policy. A
+/// Scoped discovery exposes only definitions allowed by the calling agent policy. A
 /// caller's project is the default context. Root callers may provide one or omit it to inspect
-/// the complete enabled catalog. The response uses the same template shape as the root catalog
+/// the complete catalog. The response uses the same template shape as the root catalog
 /// so agents and the CLI cannot grow a second definition parser.
 pub(crate) async fn list_spawnable_templates(
     State(m): State<App>,
@@ -66,7 +66,6 @@ pub(crate) async fn list_spawnable_templates(
             .worker_project(&caller, project)
             .await
             .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
-        let enabled = Workers::new(&m).worker_template_names().await;
         let policy = m
             .sessions
             .session_cfg(&caller)
@@ -77,20 +76,13 @@ pub(crate) async fn list_spawnable_templates(
             "templates": m.services.templates.list()
                 .await
                 .into_iter()
-                .filter(|template| enabled.contains(&template.name) && policy.allows(&template.name))
+                .filter(|template| caller == crate::tasks::HOST || policy.allows(&template.name))
                 .collect::<Vec<_>>(),
             "project": project,
         }));
     }
 
-    let enabled = Workers::new(&m).worker_template_names().await;
-    reply(json!({
-        "templates": m.services.templates.list()
-            .await
-            .into_iter()
-            .filter(|template| enabled.contains(&template.name))
-            .collect::<Vec<_>>(),
-    }))
+    reply(json!({ "templates": m.services.templates.list().await }))
 }
 
 pub(crate) async fn save_template(

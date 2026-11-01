@@ -14,6 +14,8 @@ See [daemon templates](daemon-agent-templates.md) for contracts and
 [Configuring agents](../docs/src/agents/configuring-agents.md) for editing.
 
 The shared Workers tab owns a deep-copied portable policy in agent/template drafts.
+Delegation defaults off; its template picker uses the full catalog. Settings > Agents >
+Workers owns only the global initial prompt.
 Worker editors also expose captured relationship access through a separate root-only
 endpoint; they cannot rename or replace worker launch settings. Legacy unbound workers
 show their settings but reject saves instead of inferring a parent from its name.

@@ -45,8 +45,8 @@ systemctl --user restart slopd.service
 `get KEY` prints a string as plain text and other values as JSON; `--json` always
 prints JSON. Token reads remain redacted.
 `set KEY VALUE` preserves other settings and accepts individual values under
-`daemon`, `defaults`, and `commands`. Strings take literal text; booleans, numbers,
-and lists take JSON, for example `slopctl config set daemon.worker_templates '[]'`.
+`daemon`, `defaults`, and `commands`. Strings take literal text; booleans and numbers
+take JSON, for example `slopctl config set daemon.usage_items.claude.poll true`.
 Paths use dots; escape dots in map keys as `~1` and tildes as `~0`.
 Use `--` before a literal value that looks like an option.
 

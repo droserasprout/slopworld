@@ -107,17 +107,16 @@ reset private state, restore trash, or delete unused state. See
 
 ## Workers
 
-Open **Settings > Agents > Workers** to choose which templates agents may use
-when spawning workers. This page also sets maximum access for new parent-worker
-relationships and whether agents may enable further delegation. New templates start
-outside the allowlist. The user can
-choose any catalog template from the Worker menu.
+Open **Settings > Agents > Workers** to customize the shared initial worker prompt.
 
-Use **Edit agent > Workers** to narrow delegation and set independent follow-up, task cancellation,
-terminal input, and stop/restart permissions for future workers. Templates retain these settings.
-Existing relationship access is edited separately on the child worker's Workers tab.
+Use **Edit agent > Workers** to enable delegation, choose allowed templates, and set
+independent follow-up, task cancellation, terminal input, and stop/restart permissions
+for future workers. Delegation and further delegation are disabled by default.
+Templates retain these settings; child workers inherit restrictions from their parent
+and template. Existing relationship access is edited separately on the child worker's
+Workers tab.
 
-Edit the initial worker prompt on the same page, then save. New workers receive
+Edit the initial worker prompt in Settings, then save. New workers receive
 that prompt; existing workers keep their saved settings. See
 [Agent collaboration](../agents/agent-collaboration.md) for delegation and reporting.
 

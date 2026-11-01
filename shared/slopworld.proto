@@ -18,11 +18,8 @@ message Daemon {
   string pi_titles = 12;
   string task_summaries = 13;
   Instructions instructions = 14;
-  repeated string worker_templates = 15;
   PlannerSettings planner = 16;
-  reserved 17;
-  WorkerAccess worker_access = 19;
-  optional bool worker_recursive = 18;
+  reserved 15, 17, 18, 19;
 }
 
 message Instructions {

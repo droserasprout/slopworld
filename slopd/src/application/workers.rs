@@ -90,7 +90,6 @@ pub(crate) fn project(
 }
 
 pub(crate) fn template(
-    cfg: &Config,
     caller: &str,
     context: &Caller,
     project: &str,
@@ -116,9 +115,6 @@ pub(crate) fn template(
             }
             if !policy.allows(requested) {
                 bail!("This agent cannot spawn workers from template {requested}.");
-            }
-            if !cfg.daemon.worker_templates.contains(requested) {
-                bail!("Worker policy does not allow agent template {requested}.");
             }
         }
     }
@@ -156,7 +152,7 @@ pub(crate) fn prepare(
         bail!("a worker needs a caller identity");
     }
     let project = project(cfg, &caller, context, &requested)?;
-    let template = template(cfg, &caller, context, &project, name.trim(), templates)?;
+    let template = template(&caller, context, &project, name.trim(), templates)?;
     let mut session =
         worker_session_from_template(&template, "worker-validation".into(), &project, &caller);
     if let Caller::Agent {
@@ -164,14 +160,10 @@ pub(crate) fn prepare(
     } = context
     {
         session.parent_id = identity.clone();
-        session.parent_access = policy.access.intersect(cfg.daemon.worker_access);
-        session.workers.enabled &= policy.recursive && cfg.daemon.worker_recursive;
-        session.workers.access = session
-            .workers
-            .access
-            .intersect(policy.access)
-            .intersect(cfg.daemon.worker_access);
-        session.workers.recursive &= policy.recursive && cfg.daemon.worker_recursive;
+        session.parent_access = policy.access;
+        session.workers.enabled &= policy.recursive;
+        session.workers.access = session.workers.access.intersect(policy.access);
+        session.workers.recursive &= policy.recursive;
         if !policy.all_templates {
             session.workers.templates = if session.workers.all_templates {
                 policy.templates.clone()
@@ -561,15 +553,6 @@ impl Workers {
             &self.sessions.worker_caller(caller).await,
             requested,
         )
-    }
-
-    pub(crate) async fn worker_template_names(&self) -> std::collections::BTreeSet<String> {
-        self.configuration()
-            .config()
-            .await
-            .daemon
-            .worker_templates
-            .clone()
     }
 }
 

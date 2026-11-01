@@ -42,15 +42,10 @@ namespace SlopWorld.Tests
             AssertEx.Equal(2, form.Workers.Templates.Count, "request owns its selection");
             var defaults = SessionInfo.WorkerPolicyDefaults(new Wire.WorkerPolicy());
             AssertEx.True(
-                defaults.Enabled && defaults.AllTemplates,
-                "legacy ordinary agents retain delegation"
+                !defaults.Enabled && defaults.AllTemplates,
+                "delegation requires explicit permission"
             );
-            var ceiling = SessionInfo.WorkerAccessDefaults(all: true);
-            AssertEx.Equal(true, ceiling.Terminal, "absent daemon ceiling permits terminal");
-            var explicitEmpty = SessionInfo.WorkerAccessDefaults(
-                new Wire.WorkerAccess(),
-                all: true
-            );
+            var explicitEmpty = SessionInfo.WorkerAccessDefaults(new Wire.WorkerAccess());
             AssertEx.Equal(
                 false,
                 explicitEmpty.Terminal,

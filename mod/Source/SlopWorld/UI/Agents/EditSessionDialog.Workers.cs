@@ -27,7 +27,7 @@ namespace SlopWorld
                 if (!_s.ParentBound)
                     UiLayout.Note(
                         l,
-                        "This legacy worker has no captured parent identity. Its settings are shown for inspection; spawn a new worker to establish editable relationship access."
+                        "This worker has no saved parent identity. Spawn a new worker to edit its permissions."
                     );
                 WorkerPermissionFields.Draw(
                     l,
@@ -36,33 +36,28 @@ namespace SlopWorld
                         + " can do",
                     _s.ParentAccess
                 );
-                UiLayout.Note(
-                    l,
-                    "Save changes access for this existing relationship only. It does not change the parent's policy for new workers."
-                );
+                UiLayout.Note(l, "Applies to this worker only.");
             }
             var policy = _s.Workers;
-            policy.Enabled = UiControls.Checkbox(
-                l,
-                "Allow this agent to spawn workers",
-                policy.Enabled
-            );
-            UiLayout.Note(
-                l,
-                "These settings apply to newly created workers only. Edit an existing worker's Workers tab to change its relationship access."
-            );
-            var allowed = SessionHub.Instance.Config.WorkerTemplates;
+            policy.Enabled = UiControls.Checkbox(l, "Allow spawning workers", policy.Enabled);
+            UiLayout.Note(l, "Applies to new workers. Edit existing workers separately.");
+            UiLayout.SectionHeading(l, "Templates");
+            var allowed = SessionHub.Instance.Templates.Select(t => t.Name).ToList();
             policy.AllTemplates = UiControls.Checkbox(
                 l,
-                "Use all templates allowed by daemon policy",
-                policy.AllTemplates
+                "All templates",
+                policy.AllTemplates,
+                locked: !policy.Enabled
             );
-            foreach (
-                var template in SessionHub.Instance.Templates.Where(t => allowed.Contains(t.Name))
-            )
+            foreach (var template in SessionHub.Instance.Templates)
             {
                 bool selected = policy.AllTemplates || policy.Templates.Contains(template.Name);
-                bool next = UiControls.Checkbox(l, template.DisplayLabel, selected);
+                bool next = UiControls.Checkbox(
+                    l,
+                    template.DisplayLabel,
+                    selected,
+                    locked: !policy.Enabled
+                );
                 if (next == selected)
                     continue;
                 if (policy.AllTemplates)
@@ -77,25 +72,16 @@ namespace SlopWorld
                     policy.Templates.Remove(template.Name);
             }
             if (allowed.Count == 0)
-                UiLayout.Note(l, "Daemon policy currently allows no worker templates.");
-            WorkerPermissionFields.Draw(
-                l,
-                "Access to new workers",
-                policy.Access,
-                SessionHub.Instance.Config.WorkerAccess
-            );
+                UiLayout.Note(l, "No templates. Create one in Library.");
+            WorkerPermissionFields.Draw(l, "Permissions", policy.Access, locked: !policy.Enabled);
             UiLayout.SectionHeading(l, "Advanced");
-            if (!SessionHub.Instance.Config.WorkerRecursive)
-                UiLayout.Note(l, "Daemon policy currently disables further worker delegation.");
             policy.Recursive = UiControls.Checkbox(
                 l,
-                "Allow workers to delegate further",
-                policy.Recursive
+                "Allow workers to spawn workers",
+                policy.Recursive,
+                locked: !policy.Enabled
             );
-            UiLayout.Note(
-                l,
-                "Worker templates may narrow delegation further. Daemon policy always limits available templates."
-            );
+            UiLayout.Note(l, "Workers use the stricter limits of their parent and template.");
         }
     }
 }

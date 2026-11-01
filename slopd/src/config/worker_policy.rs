@@ -110,7 +110,7 @@ pub struct WorkerPolicy {
 impl Default for WorkerPolicy {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             templates: BTreeSet::new(),
             all_templates: true,
             access: WorkerAccess::default(),

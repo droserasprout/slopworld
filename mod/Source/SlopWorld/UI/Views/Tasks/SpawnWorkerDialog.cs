@@ -33,7 +33,6 @@ namespace SlopWorld
         public SpawnWorkerDialog(string caller, string project)
         {
             resizeable = true;
-            SessionHub.Instance.RefreshConfig(UiLayout.Fail);
             _fixedCaller = caller;
             _project = project ?? "";
             if (WorktreeChoices.TryGetValue(ChoiceKey, out var choice))
@@ -303,12 +302,19 @@ namespace SlopWorld
 
         IEnumerable<AgentTemplateInfo> AvailableTemplates()
         {
+            var policy = SessionHub
+                .Instance.Sessions.FirstOrDefault(s => s.Name == _caller)
+                ?.Workers;
             return SessionHub
                 .Instance.Templates.Where(template =>
                     template != null
                     && (
                         _caller == TaskInfo.Host
-                        || SessionHub.Instance.Config.WorkerTemplates.Contains(template.Name)
+                        || (
+                            policy != null
+                            && policy.Enabled
+                            && (policy.AllTemplates || policy.Templates.Contains(template.Name))
+                        )
                     )
                 )
                 .OrderBy(template => template.Name, StringComparer.OrdinalIgnoreCase);

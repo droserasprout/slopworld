@@ -1,66 +1,38 @@
-using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // The same independent permissions edit daemon limits, portable policy and existing relationships.
+    // Independent permissions for portable policy and existing relationships.
     static class WorkerPermissionFields
     {
         public static void Draw(
             Listing_Standard l,
             string heading,
             Wire.WorkerAccess value,
-            Wire.WorkerAccess ceiling = null
+            bool locked = false
         )
         {
             UiLayout.SectionHeading(l, heading);
-            UiLayout.Note(
+            UiLayout.Note(l, "The parent can always read progress, results, and diagnostics.");
+            value.Followup = UiControls.Checkbox(
                 l,
-                "Read progress, results, and diagnostics — always available to the parent."
-            );
-            value.Followup = Field(
-                l,
-                "Send follow-up instructions",
+                "Send follow-ups",
                 value.Followup,
-                ceiling == null || ceiling.Followup
+                locked: locked
             );
-            value.Cancel = Field(
+            value.Cancel = UiControls.Checkbox(l, "Cancel tasks", value.Cancel, locked: locked);
+            value.Terminal = UiControls.Checkbox(
                 l,
-                "Cancel tasks",
-                value.Cancel,
-                ceiling == null || ceiling.Cancel
-            );
-            value.Terminal = Field(
-                l,
-                "Type in the terminal",
+                "Type in terminal",
                 value.Terminal,
-                ceiling == null || ceiling.Terminal
+                locked: locked
             );
-            value.Lifecycle = Field(
+            value.Lifecycle = UiControls.Checkbox(
                 l,
-                "Stop and restart workers",
+                "Stop or restart workers",
                 value.Lifecycle,
-                ceiling == null || ceiling.Lifecycle
+                locked: locked
             );
-            if (
-                ceiling != null
-                && (!ceiling.Followup || !ceiling.Cancel || !ceiling.Terminal || !ceiling.Lifecycle)
-            )
-                UiLayout.Note(l, "Disabled permissions are not allowed by daemon settings.");
-        }
-
-        static bool Field(Listing_Standard l, string label, bool value, bool allowed)
-        {
-            bool enabled = GUI.enabled;
-            GUI.enabled = enabled && allowed;
-            try
-            {
-                return UiControls.Checkbox(l, label, value && allowed) && allowed;
-            }
-            finally
-            {
-                GUI.enabled = enabled;
-            }
         }
     }
 }

@@ -6,7 +6,6 @@ use crate::application::workers::{WorkerCheckout, WorkerRequest, worker_session_
 use crate::application::worktrees::WorktreeRequest;
 use crate::application::worktrees::Worktrees;
 use crate::config::{Config, Daemon, Limits, ProjectCfg, SessionCfg};
-use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 fn template(name: &str) -> AgentTemplate {
@@ -30,13 +29,6 @@ fn template(name: &str) -> AgentTemplate {
 #[tokio::test]
 async fn worker_policy_keeps_template_names_distinct() {
     let manager = crate::session::test_manager(Config {
-        settings: crate::config::Settings {
-            daemon: Daemon {
-                worker_templates: BTreeSet::from(["team-review".to_string()]),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
         projects: vec![ProjectCfg {
             name: "repo".into(),
             dir: "/tmp".into(),
@@ -45,6 +37,12 @@ async fn worker_policy_keeps_template_names_distinct() {
         sessions: vec![SessionCfg {
             name: "caller".into(),
             project: "repo".into(),
+            workers: crate::config::WorkerPolicy {
+                enabled: true,
+                all_templates: false,
+                templates: ["team-review".into()].into(),
+                ..Default::default()
+            },
             ..Default::default()
         }],
         ..Default::default()
@@ -78,7 +76,7 @@ async fn worker_policy_keeps_template_names_distinct() {
         .await
         .unwrap_err()
         .to_string();
-    assert!(error.contains("Worker policy does not allow"), "{error}");
+    assert!(error.contains("cannot spawn workers"), "{error}");
 
     manager
         .application
@@ -95,13 +93,6 @@ async fn worker_policy_keeps_template_names_distinct() {
         .to_string();
     assert!(error.contains("no such agent template"), "{error}");
 
-    manager
-        .config_authority
-        .write()
-        .await
-        .daemon
-        .worker_templates
-        .clear();
     assert_eq!(
         manager
             .spawnable_worker_template(crate::tasks::HOST, "repo", "review")
@@ -115,7 +106,7 @@ async fn worker_policy_keeps_template_names_distinct() {
         .await
         .unwrap_err()
         .to_string();
-    assert!(error.contains("Worker policy does not allow"), "{error}");
+    assert!(error.contains("cannot spawn workers"), "{error}");
 }
 
 #[tokio::test]
@@ -187,13 +178,7 @@ async fn worker_names_are_explicitly_coined_without_name_inference() {
 
 #[tokio::test]
 async fn invalid_worker_template_is_rejected_before_task_creation() {
-    let mut daemon = Daemon::default();
-    daemon.worker_templates.insert("missing".into());
     let manager = crate::session::test_manager(Config {
-        settings: crate::config::Settings {
-            daemon,
-            ..Default::default()
-        },
         projects: vec![ProjectCfg {
             name: "repo".into(),
             dir: "/tmp".into(),

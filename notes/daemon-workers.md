@@ -8,7 +8,7 @@ startup, and cleanup, including after requester cancellation.
 
 Templates supply copied configuration/snapshots. Workers receive fresh private
 identity and scoped grants; the caller supplies parent/task ownership. Root may use
-any registered project and template; scoped callers use enabled templates in their
+any registered project and template; scoped callers use templates allowed by their agent policy in their
 own project. Host terminals cannot own workers. See [templates](daemon-agent-templates.md)
 and [grants](agent-grants.md).
 
@@ -44,9 +44,11 @@ See [redeploy](daemon-redeploy.md) for adoption, [sidebar](mod-sidebar.md) for h
 [Workers settings](../docs/src/customization/settings.md#workers) for prompt policy,
 and [slopctl](../docs/src/reference/slopctl.md) for commands.
 
-`config/worker_policy.rs` owns portable delegation settings. The daemon allowlist,
-maximum access, and recursion ceiling constrain spawn; the caller and template may
-narrow them. Spawn captures the parent state ID, relationship access, and child policy.
+`config/worker_policy.rs` owns portable delegation settings. Delegation is opt-in
+per agent or template. The caller's policy controls spawn and relationship access;
+the child template may narrow inherited delegation, permissions, and template selection.
+The daemon owns only the shared initial worker prompt. Spawn captures the parent
+state ID, relationship access, and child policy.
 Policy edits do not rewrite existing relationships. Recovery retains captured IDs;
 legacy workers without one cannot gain authority through a name-only edit.
 Stored named permission bundles decode to independent flags without widening access;

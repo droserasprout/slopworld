@@ -77,7 +77,6 @@ impl SessionRuntime {
         requested: &str,
     ) -> Result<crate::agent_templates::AgentTemplate> {
         crate::application::workers::template(
-            &self.config().await,
             caller,
             &self.worker_caller(caller).await,
             project,

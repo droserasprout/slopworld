@@ -1,69 +1,20 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // The daemon owns the worker prompt and template allowlist.
+    // The daemon owns the shared prompt delivered to new workers.
     public sealed class WorkersPage : DaemonConfigPage
     {
         readonly UiAreaResize _promptResize = new UiAreaResize(180f);
         protected override bool ShowEditButton => true;
         protected override string SavedMessage => "Worker settings saved.";
 
-        protected override void AfterLoad()
-        {
-            // Reload templates when this page opens or reloads.
-            // New templates start outside the worker allowlist.
-            SessionHub.Instance.Catalog.RefreshTemplates();
-        }
-
         protected override void DrawFields(Listing_Standard l)
         {
-            WorkerPermissionFields.Draw(
-                l,
-                "Permissions available for new workers",
-                _cfg.WorkerAccess
-            );
-            _cfg.WorkerRecursive = UiControls.Checkbox(
-                l,
-                "Permit agents to enable further worker delegation",
-                _cfg.WorkerRecursive
-            );
             UiLayout.Note(
                 l,
-                "These limits apply at spawn. Existing relationship access is edited on each worker's Workers tab."
+                "Configure delegation permissions in each agent or template’s Workers tab."
             );
-            UiLayout.SectionHeading(l, "Templates");
-            UiLayout.Note(
-                l,
-                "Selected templates are available to agents that create task workers."
-            );
-
-            var templates = SessionHub
-                .Instance.Templates.Where(template => template != null)
-                .OrderBy(template => template.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (templates.Count == 0)
-            {
-                UiLayout.Note(l, "No agent templates are available. Create one in Library.");
-            }
-            foreach (var template in templates)
-            {
-                bool selected = _cfg.WorkerTemplates.Contains(template.Name);
-                string tip = "";
-                bool next = UiControls.Checkbox(l, template.DisplayLabel, selected, tip);
-                if (next == selected)
-                    continue;
-                if (next)
-                    _cfg.WorkerTemplates.Add(template.Name);
-                else
-                    _cfg.WorkerTemplates.RemoveAll(name => name == template.Name);
-            }
-
-            l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Instructions");
             UiLayout.Note(
                 l,
