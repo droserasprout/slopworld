@@ -1,16 +1,20 @@
-# Keep the SDK read-only. Install and update toolchains on the host.
+# Keep the SDK and NDK read-only. Install and update toolchains on the host.
 # Builds write their output in the project.
 # Give each session private Gradle and Android state to protect host initialization scripts, caches, and device keys.
 [[sandbox]]
 name = "android-dev"
-description = "Read-only Android SDK and private Gradle and Android state"
+description = "Read-only Android SDK and NDK and private Gradle and Android state"
 ro = [
     "$ANDROID_HOME",
     "$ANDROID_SDK_ROOT",
+    "$ANDROID_NDK_HOME",
+    "$ANDROID_NDK_ROOT",
+    "$NDK_HOME",
+    "/opt/android-sdk",
     "~/Android/Sdk",
     "~/Android/sdk",
     "~/.local/share/android-sdk",
     "$JAVA_HOME",
 ]
 private = ["~/.android", "~/.gradle"]
-env = ["ANDROID_HOME", "ANDROID_SDK_ROOT", "JAVA_HOME"]
+env = ["ANDROID_HOME", "ANDROID_SDK_ROOT", "ANDROID_NDK_HOME", "ANDROID_NDK_ROOT", "NDK_HOME", "JAVA_HOME"]
