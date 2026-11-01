@@ -141,7 +141,7 @@ Daemon coverage clears workspace artifacts and profile data while retaining comp
 Run `just devloop` to select a Git worktree, reinstall, and launch the game.
 After each game exit:
 
-- Press Enter to rebuild the previous selection.
+- Press Enter or wait 10 seconds to rebuild the previous selection.
 - Enter a number to select a different checkout.
 - Enter `q` to exit.
 

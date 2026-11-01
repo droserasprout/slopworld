@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef>
+    <defName>SlopPlannerBench</defName>
+    <label>planner</label>
+    <description>Plan your next move. Click to open Planner.</description>
+    <thingClass>Building</thingClass>
+    <category>Building</category>
+    <altitudeLayer>Building</altitudeLayer>
+    <passability>Standable</passability>
+    <size>(1,1)</size>
+    <rotatable>false</rotatable>
+    <selectable>false</selectable>
+    <useHitPoints>false</useHitPoints>
+    <statBases>
+      <Flammability>0</Flammability>
+    </statBases>
+    <building>
+      <isEdifice>false</isEdifice>
+      <claimable>false</claimable>
+    </building>
+    <graphicData>
+      <texPath>Things/Building/Joy/ChessTable</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <color>(133,97,67)</color>
+      <drawSize>(1,1)</drawSize>
+      <shadowData>
+        <volume>(0.65,0.25,0.6)</volume>
+        <offset>(0,0,-0.15)</offset>
+      </shadowData>
+    </graphicData>
+  </ThingDef>
+
+</Defs>

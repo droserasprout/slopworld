@@ -9,6 +9,74 @@ namespace SlopWorld.Tests
         static readonly DateTime Today = new DateTime(2026, 10, 28);
         const string Id = "9fd724f8-7d06-4d31-9a78-a158f402d03e";
 
+        public static void ContextFiltersMatchWholeTagsAndCombineWithProjectAndStatus()
+        {
+            var entries = TodoText.Parse(
+                "Fix +app @coding @home\nOther +app @coding-extra\nElse +other @coding\nx Done +app @coding"
+            );
+            var matches = entries
+                .Where(entry =>
+                    TodoText.Matches(entry, TodoFilter.Active, "app", "", Today, "coding")
+                )
+                .ToList();
+            Assert.That(matches.Count, Is.EqualTo(1));
+            Assert.That(matches[0].Title, Is.EqualTo("Fix"));
+            Assert.That(
+                TodoText.Matches(matches[0], TodoFilter.Active, "app", "", Today, "home"),
+                Is.True
+            );
+        }
+
+        public static void QuickAddRetainsTheSelectedContext()
+        {
+            var entry = TodoText.Parse(TodoText.Add("", "Fix", "app", Today, "coding")).Single();
+            Assert.That(entry.Contexts, Is.EqualTo("coding"));
+            Assert.That(entry.Projects, Is.EqualTo("app"));
+        }
+
+        public static void QuickAddParsesProjectAndContextTagsFromUnicodeTitle()
+        {
+            var entry = TodoText
+                .Parse(TodoText.Add("", "Выгрузить выписки из IBKR +citizenship @life", "", Today))
+                .Single();
+            Assert.That(entry.Title, Is.EqualTo("Выгрузить выписки из IBKR"));
+            Assert.That(entry.Projects, Is.EqualTo("citizenship"));
+            Assert.That(entry.Contexts, Is.EqualTo("life"));
+            Assert.That(entry.Created, Is.EqualTo(TodoText.Stamp(Today)));
+        }
+
+        public static void QuickAddMergesTagsWithFiltersWithoutDuplicates()
+        {
+            var entry = TodoText
+                .Parse(
+                    TodoText.Add(
+                        "",
+                        "Task +app +stable-project-id @life @home",
+                        "app",
+                        Today,
+                        "life"
+                    )
+                )
+                .Single();
+            Assert.That(entry.Projects, Is.EqualTo("app stable-project-id"));
+            Assert.That(entry.Contexts, Is.EqualTo("life home"));
+        }
+
+        public static void QuickAddStillRejectsMetadataLineBreaksAndMissingTitles()
+        {
+            foreach (
+                string input in new[]
+                {
+                    "Task sw-task:other",
+                    "Task\nAnother",
+                    "Task\rAnother",
+                    "+app @life",
+                    "Task +bad:name",
+                }
+            )
+                Assert.Throws<ArgumentException>(() => TodoText.Add("", input, "", Today));
+        }
+
         public static void PrefixFieldsOnlyApplyAtTheStartOfTheLine()
         {
             foreach (

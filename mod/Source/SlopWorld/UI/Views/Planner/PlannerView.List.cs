@@ -16,9 +16,25 @@ namespace SlopWorld
         void DrawBoard(Rect r)
         {
             float h = UiTheme.FieldH,
-                gap = UiTheme.GapS;
-            var title = new Rect(r.x, r.y, Mathf.Max(80f, r.width - 455f), h);
+                gap = UiTheme.GapS,
+                door = TopBar.H;
+            var title = new Rect(r.x, r.y, Mathf.Max(80f, r.width - 455f - door - gap), h);
             UiText.RowLabel(title, "Planner", TextAnchor.MiddleLeft);
+            var settings = new Rect(r.xMax - 450f - door - gap, r.y + (h - door) / 2f, door, door);
+            TooltipHandler.TipRegion(settings, "Settings · Agents · Planner");
+            if (
+                UiLayout.IconButton(
+                    settings,
+                    TopBar.DoorIconRect(settings),
+                    Icons.Config,
+                    UiTheme.Off
+                )
+            )
+            {
+                UiMenu.CloseAll();
+                ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Planner));
+                return;
+            }
             float x = r.xMax - 450f;
             if (UiControls.Button(new Rect(x, r.y, 90f, h), "Summarize", on: Ready && !Dirty))
                 Run("summarize");
@@ -97,14 +113,15 @@ namespace SlopWorld
                 content.xMin = navigation.xMax + gap;
             }
             Rect details = default;
-            if (wide)
+            bool showDetails = wide && _detailOpen;
+            if (showDetails)
             {
                 float detailW = Mathf.Clamp(content.width * 0.39f, 305f, 400f);
                 details = new Rect(content.xMax - detailW, content.y, detailW, content.height);
                 content.xMax = details.x - gap;
             }
             DrawTaskList(content, rail);
-            if (wide)
+            if (showDetails)
                 DrawDetails(details, false);
         }
 
@@ -127,12 +144,15 @@ namespace SlopWorld
                                 row,
                                 FilterName(filter),
                                 count,
-                                _filter == filter && _projectFilter.Length == 0
+                                _filter == filter
+                                    && _projectFilter.Length == 0
+                                    && _contextFilter.Length == 0
                             )
                         )
                         {
                             _filter = filter;
                             _projectFilter = "";
+                            _contextFilter = "";
                             _listScroll.JumpTo(Vector2.zero);
                         }
                     }
@@ -151,21 +171,49 @@ namespace SlopWorld
                         if (
                             NavRow(
                                 listing.GetRect(UiTheme.RowH),
-                                project,
+                                "+" + project,
                                 count,
                                 _projectFilter == project
                             )
                         )
-                        {
-                            _projectFilter = project;
-                            _filter = TodoFilter.Active;
-                            _listScroll.JumpTo(Vector2.zero);
-                        }
+                            FocusTagFilter(project: project);
                     }
                     if (_entries.All(entry => entry.Projects.Length == 0))
                         UiLayout.Note(listing, "Add projects in task details.");
+                    listing.Gap(UiTheme.GapL);
+                    UiLayout.SectionHeading(listing, "CONTEXTS");
+                    foreach (
+                        string context in _entries
+                            .SelectMany(entry => TodoText.Words(entry.Contexts))
+                            .Distinct()
+                            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                    )
+                    {
+                        int count = _entries.Count(entry =>
+                            !entry.Completed && TodoText.Words(entry.Contexts).Contains(context)
+                        );
+                        if (
+                            NavRow(
+                                listing.GetRect(UiTheme.RowH),
+                                "@" + context,
+                                count,
+                                _contextFilter == context
+                            )
+                        )
+                            FocusTagFilter(context: context);
+                    }
+                    if (_entries.All(entry => entry.Contexts.Length == 0))
+                        UiLayout.Note(listing, "Add contexts in task details.");
                 }
             );
+        }
+
+        void FocusTagFilter(string project = "", string context = "")
+        {
+            _projectFilter = project;
+            _contextFilter = context;
+            _filter = TodoFilter.Active;
+            _listScroll.JumpTo(Vector2.zero);
         }
 
         static bool NavRow(Rect rect, string name, int count, bool selected)
@@ -192,7 +240,10 @@ namespace SlopWorld
             float h = UiTheme.FieldH,
                 gap = UiTheme.GapS,
                 y = rect.y;
-            string heading = _projectFilter.Length == 0 ? FilterName(_filter) : _projectFilter;
+            string heading =
+                _contextFilter.Length > 0 ? "@" + _contextFilter
+                : _projectFilter.Length > 0 ? "+" + _projectFilter
+                : FilterName(_filter);
             UiText.RowLabel(new Rect(rect.x, y, Mathf.Max(80f, rect.width - 125f), h), heading);
             UiSelector.DrawInline(
                 new Rect(rect.xMax - 120f, y, 120f, h),
@@ -220,7 +271,7 @@ namespace SlopWorld
                 );
                 UiSelector.DrawInline(
                     new Rect(rect.x + rect.width / 2, y, rect.width / 2, h),
-                    _projectFilter.Length == 0 ? "All projects" : _projectFilter,
+                    _projectFilter.Length == 0 ? "All projects" : "+" + _projectFilter,
                     () =>
                         new[] { new FloatMenuOption("All projects", () => _projectFilter = "") }
                             .Concat(
@@ -228,8 +279,26 @@ namespace SlopWorld
                                     .SelectMany(entry => TodoText.Words(entry.Projects))
                                     .Distinct()
                                     .Select(project => new FloatMenuOption(
-                                        project,
+                                        "+" + project,
                                         () => _projectFilter = project
+                                    ))
+                            )
+                            .ToList()
+                );
+                y += h + gap;
+                UiSelector.DrawInline(
+                    new Rect(rect.x, y, rect.width, h),
+                    _contextFilter.Length == 0 ? "All contexts" : "@" + _contextFilter,
+                    () =>
+                        new[] { new FloatMenuOption("All contexts", () => _contextFilter = "") }
+                            .Concat(
+                                _entries
+                                    .SelectMany(entry => TodoText.Words(entry.Contexts))
+                                    .Distinct()
+                                    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                                    .Select(context => new FloatMenuOption(
+                                        "@" + context,
+                                        () => _contextFilter = context
                                     ))
                             )
                             .ToList()
@@ -279,7 +348,14 @@ namespace SlopWorld
             var entries = TodoText
                 .Sort(
                     _entries.Where(entry =>
-                        TodoText.Matches(entry, _filter, _projectFilter, _search, DateTime.Today)
+                        TodoText.Matches(
+                            entry,
+                            _filter,
+                            _projectFilter,
+                            _search,
+                            DateTime.Today,
+                            _contextFilter
+                        )
                     ),
                     _sort
                 )
@@ -398,10 +474,19 @@ namespace SlopWorld
                 );
             if (entry.Priority.Length > 0)
                 Chip(ref x, y, row.xMax, "Priority " + entry.Priority, tint);
+            bool tagPressed = false;
             foreach (var project in TodoText.Words(entry.Projects))
-                Chip(ref x, y, row.xMax, project, UiTheme.Info);
+                if (Chip(ref x, y, row.xMax, "+" + project, UiTheme.Info, clickable: true))
+                {
+                    FocusTagFilter(project: project);
+                    tagPressed = true;
+                }
             foreach (var context in TodoText.Words(entry.Contexts))
-                Chip(ref x, y, row.xMax, "@" + context, UiTheme.Dim);
+                if (Chip(ref x, y, row.xMax, "@" + context, UiTheme.Dim, clickable: true))
+                {
+                    FocusTagFilter(context: context);
+                    tagPressed = true;
+                }
             var linked = Linked(entry);
             if (!string.IsNullOrEmpty(linked?.TaskId))
                 Chip(
@@ -414,7 +499,8 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             Slab.Hairline(new Rect(left, row.yMax - 1f, row.xMax - left, 1f), UiTheme.Edge);
             if (
-                UiControls.NavigationPress(
+                !tagPressed
+                && UiControls.NavigationPress(
                     new Rect(left, row.y, row.xMax - left, row.height),
                     Ready
                 )
@@ -422,17 +508,28 @@ namespace SlopWorld
                 Select(entry);
         }
 
-        static void Chip(ref float x, float y, float right, string text, Color color)
+        static bool Chip(
+            ref float x,
+            float y,
+            float right,
+            string text,
+            Color color,
+            bool clickable = false
+        )
         {
             float width = UiTheme.Wide(text) + 10f;
             if (x + width > right - UiTheme.GapS)
-                return;
+                return false;
             var rect = new Rect(x, y, width, UiTheme.TinyRowH);
-            Slab.Box(rect, UiTheme.Panel, UiTheme.Edge);
-            GUI.color = color;
+            bool hovered = clickable && Mouse.IsOver(rect);
+            Slab.Box(rect, hovered ? UiTheme.Well : UiTheme.Panel, UiTheme.Edge);
+            GUI.color = hovered ? UiTheme.Lead : color;
             UiText.RowLabel(rect.ContractedBy(4f, 0f), text);
             GUI.color = Color.white;
             x += width + UiTheme.GapXS;
+            if (clickable)
+                TooltipHandler.TipRegion(rect, "Filter tasks by " + text);
+            return clickable && UiControls.NavigationPress(rect);
         }
     }
 }

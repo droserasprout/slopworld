@@ -202,6 +202,12 @@ namespace SlopWorld
                 Sidebar.ToggleOpenFiles();
                 return true;
             }
+            if (Bound(ModDefOf.SlopTogglePlanner, e))
+            {
+                UiMenu.CloseAll();
+                PlannerView.Toggle();
+                return true;
+            }
             if (Bound(ModDefOf.SlopQuickTerminal, e))
             {
                 // Use the same toggle as WorkspaceHotkeys. Settings views share this window, so F12 must reveal the terminal.

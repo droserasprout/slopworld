@@ -127,7 +127,10 @@ namespace SlopWorld
             {
                 // A pawn inside its incoming pod is already owned.
                 if (_pawn.Spawned && _pawn.Map == map)
+                {
                     map.GetComponent<Jukebox>()?.EnsurePlaced(_pawn.Position);
+                    map.GetComponent<PlannerBench>()?.EnsureArrived(_pawn.Position);
+                }
                 return;
             }
             _pawn = Spawn(map, dropPod);
@@ -145,25 +148,18 @@ namespace SlopWorld
                 var box = map.GetComponent<Jukebox>()?.ArrivalCargo();
                 if (box != null)
                     cargo.Add(box);
+                var bench = map.GetComponent<PlannerBench>()?.ArrivalCargo();
+                if (bench != null)
+                    cargo.Add(bench);
                 // Each item arrives in its own pod.
-                DropPodUtility.DropThingsNear(
-                    cell,
-                    map,
-                    cargo,
-                    openDelay: PodOpenDelay,
-                    canInstaDropDuringInit: false,
-                    leaveSlag: false,
-                    canRoofPunch: true,
-                    forbid: false,
-                    allowFogged: true,
-                    faction: Faction.OfPlayer
-                );
-                Log.Message("[SlopWorld] player and jukebox are on their way down");
+                ArrivalDrops.Drop(cell, map, cargo, PodOpenDelay);
+                Log.Message("[SlopWorld] player, jukebox, and planner are on their way down");
                 return pawn;
             }
 
             GenSpawn.Spawn(pawn, cell, map);
             map.GetComponent<Jukebox>()?.EnsurePlaced(cell);
+            map.GetComponent<PlannerBench>()?.EnsureArrived(cell);
             Log.Message("[SlopWorld] player pawn spawned");
             return pawn;
         }

@@ -36,6 +36,15 @@ namespace SlopWorld
             Showing = view;
         }
 
+        public static void ToggleContent<T>(System.Func<T> make)
+            where T : class, IContentView
+        {
+            if (ShowingAs<T>() != null)
+                Showing = null;
+            else
+                OpenContent(make());
+        }
+
         public void Leave()
         {
             Showing = null;

@@ -6,10 +6,18 @@ gates without owning phases. Restore unfinished intro gates before Eco decides t
 pause ticks. Arrivals place directly when skyfall fails or Eco rests. Menu landing
 and New colony queue `QuickStart` before setup pages enter the window stack.
 
-The intro releases the player and jukebox in separate pods when agent arrivals begin,
+The intro releases the player, jukebox, and Planner chess table in separate pods when agent arrivals begin,
 even with an empty daemon. `PlayerPawn` owns the pawn reference while it is in
 transit; the initial waiting phase also holds automatic player placement so
 component update order cannot create the player before the scene starts.
+`PlannerBench` retains pending cargo identity across saves and delivers a missing bench
+to existing colonies. Its map click and top-bar building icon open Planner.
+Settings opens from the top-bar gear and has no map object. `SettingsHeater` and
+its ThingDef remain only for save compatibility; load cleanup removes landed and
+pending heaters.
+`ArrivalDrops` spreads workspace pods within five cells of the arrival anchor, preferring
+four-cell separation from each other and landed workspace objects. Constrained terrain
+relaxes spacing, with vanilla placement as the fallback when no nearby cell is valid.
 `Pets` sends the starting cat in a separate pod at the same arrival boundary.
 It removes remaining colony animals before delivery. The saved intro phase prevents
 repeated delivery after saving and loading a pending pod.

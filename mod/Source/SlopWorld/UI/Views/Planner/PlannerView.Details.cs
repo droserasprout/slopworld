@@ -15,6 +15,15 @@ namespace SlopWorld
             float h = UiTheme.FieldH,
                 gap = UiTheme.GapS;
             var header = new Rect(inner.x, inner.y, inner.width, h);
+            var close = new Rect(header.xMax - h, header.y, h, h);
+            TooltipHandler.TipRegion(close, "Close task details");
+            if (UiLayout.IconButton(close, Icons.Cross))
+            {
+                _detailOpen = false;
+                UiMenu.CloseAll();
+                return;
+            }
+            header.xMax = close.x - gap;
             if (narrow)
             {
                 if (
@@ -104,11 +113,9 @@ namespace SlopWorld
                 );
             }
             l.Gap(UiTheme.GapM);
-            l.Label("Projects");
-            _draft.Projects = UiControls.Field(l, key + ".projects", _draft.Projects, on: Ready);
-            l.Label("Contexts");
-            _draft.Contexts = UiControls.Field(l, key + ".contexts", _draft.Contexts, on: Ready);
-            UiLayout.Note(l, "Separate names with spaces. Projects become lists on the left.");
+            DrawTagSelector(l, true);
+            DrawTagSelector(l, false);
+            UiLayout.Note(l, "Select projects and contexts, or type a new name and press Enter.");
             UiLayout.Validation(l, _draft.Error);
             var actions = l.GetRect(UiTheme.FieldH);
             float half = (actions.width - UiTheme.GapS) / 2;
@@ -243,6 +250,102 @@ namespace SlopWorld
                     )
                 );
             }
+        }
+
+        void DrawTagSelector(Listing_Standard listing, bool projects)
+        {
+            listing.Label(projects ? "Projects" : "Contexts");
+            using (WidgetState.Save())
+            {
+                GUI.enabled = Ready;
+                var box = listing.GetRect(UiTheme.FieldH);
+                string value = projects ? _draft.Projects : _draft.Contexts;
+                string prefix = projects ? "+" : "@";
+                if (
+                    UiControls.SelectInline(
+                        box,
+                        value.Length == 0
+                            ? projects
+                                ? "Choose projects…"
+                                : "Choose contexts…"
+                            : string.Join(", ", TodoText.Words(value).Select(name => prefix + name))
+                    )
+                )
+                    OpenTagMenu(UiSelector.ScreenBox(box), projects);
+            }
+        }
+
+        void OpenTagMenu(Rect anchor, bool projects)
+        {
+            var selected = new HashSet<string>(
+                TodoText.Words(projects ? _draft.Projects : _draft.Contexts)
+            );
+            var names = _entries
+                .SelectMany(entry => TodoText.Words(projects ? entry.Projects : entry.Contexts))
+                .Concat(
+                    projects
+                        ? SessionHub.Instance.Projects.Select(project => project.Name)
+                        : Enumerable.Empty<string>()
+                )
+                .Concat(selected)
+                .Where(name => !string.IsNullOrWhiteSpace(name) && !name.Any(char.IsWhiteSpace))
+                .Distinct()
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
+            var options = names
+                .Select(name =>
+                    UiLayout.MenuToggle(
+                        (projects ? "+" : "@") + name,
+                        selected.Contains(name),
+                        EditSelected(() =>
+                        {
+                            SetTag(name, projects, !selected.Contains(name));
+                            OpenTagMenu(anchor, projects);
+                        })
+                    )
+                )
+                .ToList();
+            // Bind submission to this draft before the menu starts accepting text.
+            string newName = "";
+            var add = EditSelected(() =>
+            {
+                SetTag(newName, projects, true);
+                OpenTagMenu(anchor, projects);
+            });
+            options.Add(
+                new UiMenuInput(
+                    "New",
+                    name =>
+                    {
+                        if (name.Length == 0)
+                            return "Enter a name.";
+                        return
+                            name.Any(char.IsWhiteSpace)
+                            || name.Contains(":")
+                            || name[0] == '+'
+                            || name[0] == '@'
+                            ? "Use one name without spaces, +, @ or colons."
+                            : null;
+                    },
+                    name =>
+                    {
+                        newName = name;
+                        add();
+                    }
+                )
+            );
+            Find.WindowStack.Add(UiSelector.Menu(options, anchor));
+        }
+
+        void SetTag(string name, bool projects, bool selected)
+        {
+            var values = TodoText.Words(projects ? _draft.Projects : _draft.Contexts).ToList();
+            values.RemoveAll(value => value == name);
+            if (selected)
+                values.Add(name);
+            if (projects)
+                _draft.Projects = string.Join(" ", values);
+            else
+                _draft.Contexts = string.Join(" ", values);
         }
 
         static string PriorityLabel(string priority) =>

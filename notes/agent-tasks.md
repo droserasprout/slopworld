@@ -43,7 +43,10 @@ restart, and task pruning cannot silently retry an item. See [Planner](../docs/s
 
 The Planner's `TodoText` projection owns task-field edits, completion dates, filtering,
 and sorting. It retains unrelated line content and opaque metadata; source mode is the
-explicit escape hatch for raw edits. The view acquires a TaskStore reader demand for
+explicit escape hatch for raw edits. Planner navigation exposes projects and contexts;
+quick-add parses inline `+project` and `@context` tags and merges them with the selected
+filters without duplicates.
+The view acquires a TaskStore reader demand for
 worker progress and releases it on close. Drafts and asynchronous callbacks are scoped
 to the endpoint; task selection retires text-field lifetimes. In-flight requests belong
 to the cached endpoint draft and settle even when the view closes. Window navigation

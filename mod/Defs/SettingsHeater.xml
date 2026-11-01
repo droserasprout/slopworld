@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Retained to deserialize old saves; SettingsHeater removes these on load. -->
+  <ThingDef>
+    <defName>SlopSettingsHeater</defName>
+    <label>settings heater</label>
+    <description>Retired Settings object.</description>
+    <thingClass>Building</thingClass>
+    <category>Building</category>
+    <altitudeLayer>Building</altitudeLayer>
+    <passability>Standable</passability>
+    <size>(1,1)</size>
+    <rotatable>false</rotatable>
+    <selectable>false</selectable>
+    <useHitPoints>false</useHitPoints>
+    <statBases>
+      <Flammability>0</Flammability>
+    </statBases>
+    <building>
+      <isEdifice>false</isEdifice>
+      <claimable>false</claimable>
+    </building>
+    <graphicData>
+      <texPath>Things/Building/Misc/TempControl/Heater</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(1,1)</drawSize>
+      <shadowData>
+        <volume>(0.5,0.3,0.7)</volume>
+      </shadowData>
+    </graphicData>
+  </ThingDef>
+
+</Defs>

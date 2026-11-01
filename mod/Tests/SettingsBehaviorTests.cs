@@ -356,6 +356,11 @@ namespace SlopWorld.Tests
                         v => settings.statusbarJukebox = v,
                         () => Settings.StatusbarJukebox
                     ),
+                    (
+                        "statusbarPlanner",
+                        v => settings.statusbarPlanner = v,
+                        () => Settings.StatusbarPlanner
+                    ),
                     ("statusbarGM", v => settings.statusbarGM = v, () => Settings.StatusbarGM),
                     (
                         "statusbarAgentIndicators",

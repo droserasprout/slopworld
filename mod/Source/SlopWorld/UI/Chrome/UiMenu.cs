@@ -32,6 +32,7 @@ namespace SlopWorld
 
         readonly List<FloatMenuOption> _options;
         readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly FieldLifetime _fields = new FieldLifetime();
         readonly MenuRowGeometry _rows = new MenuRowGeometry();
         int _measuredCount = -1;
         float _measuredRowHeight;
@@ -142,6 +143,22 @@ namespace SlopWorld
         // Callers that replace the screen explicitly close the whole chain rather than
         // leaving a menu owned by the old focus standing behind it.
         public static void CloseAll() => Sweep(null);
+
+        internal static bool BlocksScrollBehind()
+        {
+            var stack = Find.WindowStack;
+            if (stack == null)
+                return false;
+
+            var pointer = UI.GUIToScreenPoint(Event.current.mousePosition);
+            for (int i = stack.Count - 1; i >= 0; i--)
+            {
+                var menu = stack[i] as UiMenu;
+                if (menu != null && menu.windowRect.Contains(pointer))
+                    return stack.currentlyDrawnWindow != menu;
+            }
+            return false;
+        }
 
         public static bool IsSelectorOpenAt(Vector2 at)
         {
@@ -321,6 +338,7 @@ namespace SlopWorld
                     && ReferenceEquals(_dispatchedEvent, Event.current)
                 )
                     return;
+                using (FieldLifetimeScope.Push(_fields))
                 using (WidgetState.Save())
                     DrawContents(rect);
             }
@@ -483,6 +501,18 @@ namespace SlopWorld
         // True if this row took the press.
         bool Row(Rect r, FloatMenuOption o, int i, bool hot, bool scrolls)
         {
+            if (o is UiMenuInput input)
+            {
+                input.Draw(
+                    new Rect(
+                        r.x + PadX,
+                        r.y,
+                        r.width - PadX * 2f - (scrolls ? UiTheme.ScrollHitW : 0f),
+                        r.height
+                    )
+                );
+                return false;
+            }
             if (o is SeparatorOption)
             {
                 Slab.Hairline(
@@ -652,6 +682,7 @@ namespace SlopWorld
         // with it, and the parent is told so its row stops reading as open.
         public override void PostClose()
         {
+            _fields.Cancel();
             var e = Event.current;
             if (
                 _selector

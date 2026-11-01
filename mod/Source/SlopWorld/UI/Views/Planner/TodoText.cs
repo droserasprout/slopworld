@@ -345,12 +345,45 @@ namespace SlopWorld
             return document.Substring(0, start) + replacement + document.Substring(bodyEnd);
         }
 
-        internal static string Add(string document, string title, string project, DateTime today)
+        internal static string Add(
+            string document,
+            string title,
+            string project,
+            DateTime today,
+            string context = ""
+        )
         {
+            // Quick entry accepts tags, while the detail title remains title-only. Reject
+            // line breaks before tokenizing so pasting cannot silently create another task.
+            if (title.IndexOf('\r') >= 0 || title.IndexOf('\n') >= 0)
+                throw new ArgumentException("A task title must fit on one line.");
+            var words = Words(title);
             var draft = new TodoDraft(ParseLine("New task", 0))
             {
-                Title = title,
-                Projects = project,
+                Title = string.Join(
+                    " ",
+                    words.Where(word => Field(word) != "projects" && Field(word) != "contexts")
+                ),
+                Projects = string.Join(
+                    " ",
+                    Words(project)
+                        .Concat(
+                            words
+                                .Where(word => Field(word) == "projects")
+                                .Select(word => word.Substring(1))
+                        )
+                        .Distinct()
+                ),
+                Contexts = string.Join(
+                    " ",
+                    Words(context)
+                        .Concat(
+                            words
+                                .Where(word => Field(word) == "contexts")
+                                .Select(word => word.Substring(1))
+                        )
+                        .Distinct()
+                ),
             };
             if (draft.Error != null)
                 throw new ArgumentException(draft.Error);
@@ -363,8 +396,9 @@ namespace SlopWorld
                 + prefix
                 + Stamp(today)
                 + " "
-                + title.Trim()
-                + string.Concat(Words(project).Select(word => " +" + word))
+                + draft.Title
+                + string.Concat(Words(draft.Projects).Select(word => " +" + word))
+                + string.Concat(Words(draft.Contexts).Select(word => " @" + word))
                 + newline;
         }
 
@@ -373,9 +407,12 @@ namespace SlopWorld
             TodoFilter filter,
             string project,
             string search,
-            DateTime today
+            DateTime today,
+            string context = ""
         )
         {
+            if (context.Length > 0 && !Words(entry.Contexts).Contains(context))
+                return false;
             if (project.Length > 0 && !Words(entry.Projects).Contains(project))
                 return false;
             if (

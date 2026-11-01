@@ -2,11 +2,13 @@
 
 import os
 import re
+import select as io_select
 import signal
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
+from typing import TextIO
 
 from tools.utils import log
 from tools.utils import run
@@ -41,6 +43,12 @@ def select(choice: str, worktrees: list[Worktree], current: Path) -> Path:
     raise ValueError('Choose a listed number.')
 
 
+def read_choice(terminal: TextIO, timeout: float = 10) -> str:
+    """An idle prompt accepts the current checkout; EOF still exits the loop."""
+    ready, _, _ = io_select.select([terminal], [], [], timeout)
+    return terminal.readline() if ready else '\n'
+
+
 def main() -> None:
     just = os.environ['JUST_CMD']
     repository = run(
@@ -67,8 +75,13 @@ def main() -> None:
                 raise ValueError('No worktrees available.')
             for index, worktree in enumerate(worktrees, 1):
                 log(f'{index}) {worktree.label}  {worktree.path}', file=terminal_output)
-            print(f'Enter: {current}; number: switch; q: quit > ', end='', file=terminal_output, flush=True)
-            line = terminal_input.readline()
+            print(
+                f'Enter or wait 10s: {current}; number: switch; q: quit > ',
+                end='',
+                file=terminal_output,
+                flush=True,
+            )
+            line = read_choice(terminal_input)
             if not line or line.rstrip('\n') == 'q':
                 return
             try:

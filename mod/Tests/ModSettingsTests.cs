@@ -39,6 +39,7 @@ namespace SlopWorld.Tests
                     "Visual effects default to Mild"
                 );
                 AssertEx.Equal(true, settings.autoConnect, "missing file default");
+                AssertEx.Equal(true, settings.statusbarPlanner, "planner visibility defaults on");
                 AssertEx.Equal(true, settings.statusbarUsage, "usage visibility defaults on");
                 AssertEx.Equal(DateFormat.YearFirst, settings.dateFormat, "date format default");
                 AssertEx.Equal(210f, settings.sidebarWidth, "width default");
@@ -68,7 +69,7 @@ namespace SlopWorld.Tests
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
                 AssertEx.Equal(
-                    54,
+                    55,
                     Toml.ParseFlat(saved).Count,
                     "persisted key count excludes runtime state"
                 );

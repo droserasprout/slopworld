@@ -129,6 +129,13 @@
     <defaultKeyCodeA>F9</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <KeyBindingDef>
+    <defName>SlopTogglePlanner</defName>
+    <label>Open/close planner</label>
+    <category>SlopInterface</category>
+    <defaultKeyCodeA>F10</defaultKeyCodeA>
+  </KeyBindingDef>
+
   <!-- F11 toggles the window-manager fullscreen state. -->
   <KeyBindingDef>
     <defName>SlopToggleFullscreen</defName>

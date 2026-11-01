@@ -1,7 +1,8 @@
 # Settings
 
-Open Settings with the gear icon in the top bar or the **Settings** command in the
-palette. Settings opens as tabs over the terminal pane.
+Open Settings with the heater icon in the top bar, the Settings heater on the map,
+or the **Settings** command in the palette. The heater arrives in its own drop pod,
+including in existing colonies. Settings opens as tabs over the terminal pane.
 
 ## Find a setting
 
@@ -122,15 +123,20 @@ that prompt; existing workers keep their saved settings. See
 
 ## Planner
 
-The checklist button beside Settings on the right of the status bar opens **Planner**.
+The chess table button beside Settings on the right of the status bar opens **Planner**.
+You can also click the Planner chess table on the map; it arrives in its own drop pod.
 Use **Add a task** for quick entry, check a task to complete it, and select a row to
 edit its title, priority, due date, projects, or contexts. Quick-add and checkboxes save
 immediately; the details pane has **Save task** and **Discard edits**. Delete removes
 only the TODO entry, keeping any linked worker task.
 
+The gear button opens **Settings > Agents > Planner**. Close task details with the
+cross button; unsaved edits remain when you reopen the task. The **Projects** dropdown
+lets you check multiple existing TODO projects or configured projects.
+
 The list offers My tasks, Today (including overdue), Upcoming, Overdue, Completed, and
 All tasks. Search matches titles, projects, and contexts. Sort by due date, priority,
-or title. Project lists appear on the left; smaller windows use filter menus and open
+or title. Projects (`+project`) and contexts (`@context`) appear on the left; smaller windows use filter menus and open
 task details separately. Worker status and the latest progress note update while Planner
 is open.
 

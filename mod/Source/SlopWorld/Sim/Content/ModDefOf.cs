@@ -45,6 +45,9 @@ namespace SlopWorld
         /// F9: show or hide open files independently of the selected sidebar tab.
         public static KeyBindingDef SlopToggleOpenFiles;
 
+        /// F10: opens and closes the planner.
+        public static KeyBindingDef SlopTogglePlanner;
+
         /// Toggles the window-manager fullscreen state.
         public static KeyBindingDef SlopToggleFullscreen;
 
@@ -92,6 +95,10 @@ namespace SlopWorld
 
         /// The radio set that comes down with the first clanker.
         public static ThingDef SlopJukebox;
+
+        public static ThingDef SlopPlannerBench;
+
+        public static ThingDef SlopSettingsHeater;
 
         /// The player pawn's fireball projectile.
         public static ThingDef SlopFireball;

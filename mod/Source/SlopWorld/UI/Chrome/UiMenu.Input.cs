@@ -19,6 +19,14 @@ namespace SlopWorld
         Event _dispatchedEvent;
         int _dispatchedFrame = -1;
 
+        UiMenuInput FocusedInput()
+        {
+            foreach (var option in _options)
+                if (option is UiMenuInput input && input.Focused)
+                    return input;
+            return null;
+        }
+
         // Keyboard navigation belongs to the menu rather than the control that opened it.
         // Use rawType because an absorbing window may consume event.type before this body
         // runs. Unhandled keys still dismiss the menu and remain unused, so a global shortcut
@@ -56,6 +64,9 @@ namespace SlopWorld
                 return false;
 
             var e = Event.current;
+            // Editing keys belong to the inline field, not menu navigation/dismissal.
+            if (FocusedInput() != null)
+                return false;
             if (e == null || e.rawType != EventType.KeyDown || e.keyCode == KeyCode.None)
                 return false;
             // A modifier on its own is somebody reaching for a chord, not a key.
@@ -215,6 +226,12 @@ namespace SlopWorld
             if (!IsSelectable(_selected))
                 return;
 
+            if (_options[_selected] is UiMenuInput input)
+            {
+                input.Focus();
+                return;
+            }
+
             var sub = _options[_selected] as UiSubmenu;
             if (sub != null)
             {
@@ -244,6 +261,13 @@ namespace SlopWorld
             }
             _acceptEvent = Event.current;
             _acceptFrame = Time.frameCount;
+            var input = FocusedInput();
+            if (input != null)
+            {
+                Event.current.Use();
+                input.Submit();
+                return;
+            }
             EnsureSelection();
             Event.current.Use();
             ActivateSelection();

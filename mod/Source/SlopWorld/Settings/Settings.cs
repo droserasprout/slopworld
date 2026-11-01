@@ -46,6 +46,7 @@ namespace SlopWorld
         public static string TimeFormat => SlopWorld.TimeFormat.Normalize(S.timeFormat);
         public static string DateFormat => SlopWorld.DateFormat.Normalize(S.dateFormat);
         public static bool StatusbarClock => StatusbarClockPosition != StatusbarClockMode.Hidden;
+        public static bool StatusbarPlanner => S.statusbarPlanner;
         public static bool StatusbarJukebox => S.statusbarJukebox;
         public static bool StatusbarGM => S.statusbarGM;
         public static bool StatusbarAgentIndicators => S.statusbarAgentIndicators;

@@ -53,7 +53,8 @@ namespace SlopWorld
         static Rect _doorsRect;
         static Map _doorsMap;
         static bool _doorsShowJukebox,
-            _doorsShowCore;
+            _doorsShowCore,
+            _doorsShowPlanner;
         static bool _doorsReady;
 
         public static Rect Rect => WorkspaceLayout.Current.TopBar;
@@ -176,9 +177,15 @@ namespace SlopWorld
         {
             PrepareDoors(r);
             if (_doors.HasPlanner)
-                Door(_doors.Planner, Icons.Tasks, "Planner · TODO.txt", PlannerView.Open, live);
+                Thing(
+                    _doors.Planner,
+                    ModDefOf.SlopPlannerBench,
+                    new TipSignal("Planner · TODO.txt"),
+                    PlannerView.Toggle,
+                    live
+                );
             if (_doors.HasConfig)
-                Door(_doors.Config, Icons.Config, "Settings", ModOptions.Toggle, live);
+                SettingsButton(_doors.Config, live);
             if (_doors.HasCore)
                 Thing(_doors.Core, ModDefOf.Ship_ComputerCore, default, CoreTip.OpenMenu, live);
             if (_doors.HasJukebox)
@@ -195,6 +202,7 @@ namespace SlopWorld
         static void PrepareDoors(Rect r)
         {
             var map = Find.CurrentMap;
+            bool showPlanner = Settings.StatusbarPlanner;
             bool showJukebox = Settings.StatusbarJukebox;
             bool showCore = Settings.StatusbarGM;
             if (
@@ -203,6 +211,7 @@ namespace SlopWorld
                 && _doorsRect == r
                 && _doorsMap == map
                 && _doorsShowJukebox == showJukebox
+                && _doorsShowPlanner == showPlanner
                 && _doorsShowCore == showCore
             )
                 return;
@@ -210,7 +219,7 @@ namespace SlopWorld
             float x = r.xMax;
             _doors = new DoorLayout();
             _doors.HasConfig = TrySlot(r, ref x, out _doors.Config);
-            _doors.HasPlanner = TrySlot(r, ref x, out _doors.Planner);
+            _doors.HasPlanner = showPlanner && TrySlot(r, ref x, out _doors.Planner);
 
             if (showCore && CoreTip.On(map) && TrySlot(r, ref x, out _doors.Core))
             {
@@ -229,6 +238,7 @@ namespace SlopWorld
             _doorsMap = map;
             _doorsShowJukebox = showJukebox;
             _doorsShowCore = showCore;
+            _doorsShowPlanner = showPlanner;
             _doorsReady = true;
         }
 
@@ -245,27 +255,23 @@ namespace SlopWorld
         }
 
         // Full-height targets keep the shared glyph size centered inside their hover face.
-        static Rect DoorIconRect(Rect slot) =>
+        internal static Rect DoorIconRect(Rect slot) =>
             new Rect(slot.center.x - IconW / 2f, slot.center.y - IconW / 2f, IconW, IconW);
 
-        // Keep map-layer hit testing while sharing the standard icon button styling.
-        static void Door(Rect r, Texture2D icon, string tip, System.Action go, bool live)
+        static void SettingsButton(Rect rect, bool live)
         {
-            TooltipHandler.TipRegion(r, tip);
-
-            bool over = ColonistBarStrip.Hover(r);
-            bool repaint = Event.current != null && Event.current.type == EventType.Repaint;
-
-            var was = GUI.color;
-            if (repaint)
+            TooltipHandler.TipRegion(rect, "Settings");
+            bool over = ColonistBarStrip.Hover(rect);
+            if (Event.current.type == EventType.Repaint)
             {
-                UiLayout.IconButtonBackground(r, over, over && Input.GetMouseButton(0));
-                GUI.color = over ? UiTheme.Lead : UiTheme.Off;
-                GUI.DrawTexture(DoorIconRect(r), icon);
-                GUI.color = was;
+                using (WidgetState.Save())
+                {
+                    GUI.color = Color.white;
+                    UiLayout.IconButtonBackground(rect, over, over && Input.GetMouseButton(0));
+                    GUI.DrawTexture(DoorIconRect(rect), Icons.Gear);
+                }
             }
-
-            Press(over, go, live);
+            Press(over, ModOptions.Toggle, live);
         }
 
         // ThingIcon supplies its own tint. This method adds hover, input, and optional tips.

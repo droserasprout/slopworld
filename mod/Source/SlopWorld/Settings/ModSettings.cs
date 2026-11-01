@@ -122,6 +122,7 @@ namespace SlopWorld
         public string statusbarClockPosition = StatusbarClockMode.Right;
         public string timeFormat = TimeFormat.TwentyFourHour;
         public string dateFormat = DateFormat.YearFirst;
+        public bool statusbarPlanner = true;
         public bool statusbarJukebox = true;
         public bool statusbarGM = true;
 
@@ -249,6 +250,7 @@ namespace SlopWorld
             ),
             Field("timeFormat", (ModSettings s) => ref s.timeFormat, Text, String),
             Field("dateFormat", (ModSettings s) => ref s.dateFormat, Text, String),
+            Field("statusbarPlanner", (ModSettings s) => ref s.statusbarPlanner, Bool, String),
             Field("statusbarJukebox", (ModSettings s) => ref s.statusbarJukebox, Bool, String),
             Field("statusbarGM", (ModSettings s) => ref s.statusbarGM, Bool, String),
             Field(

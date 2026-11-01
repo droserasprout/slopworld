@@ -20,6 +20,9 @@ same-type windows, so each menu level needs a separate instance; submenu openers
 non-null action to remain enabled.
 Selector width measurement includes menu checkbox columns and submenu arrows, so
 matching the popup to its source control does not truncate those rows.
+`UiMenuInput` supplies inline creation fields. Focused fields retain editing keys;
+menu accept dispatch submits them on Enter. Features own validation and draft guards,
+while the menu cancels field lifetime on closure.
 Font menus use `FontFamilyIdentity` to group patched faces with their installed
 original family, sharing alias identity with terminal fallback selection. Menu
 grouping preserves each face's installed name for selection and persistence.

@@ -9,6 +9,8 @@ identical viewport clipping for drawing and hit testing. Drag owners respect
 `hotControl`. Wheel-only passes may reuse measured extents; resize requires fresh
 measurement. `ContentHeight` publishes shared listing measurements on the next
 frame so input and repaint use consistent geometry.
+Open `UiMenu` bounds reserve wheel and native touchpad input for the topmost menu
+under the pointer, including padding and menus whose options fit without scrolling.
 
 Files/Git trees, Search results, Library lists, and open editor/viewer rows reserve
 only the scrollbar rail's horizontal inset for painting. The scrollbar retains its

@@ -1,10 +1,26 @@
 """Worktree selection supports unusual names and rejects ambiguous input."""
 
+import os
 from pathlib import Path
 
 import pytest
 
 from tools.host import devloop
+
+
+def test_idle_prompt_accepts_current_checkout() -> None:
+    reader, writer = os.pipe()
+    with os.fdopen(reader) as terminal, os.fdopen(writer, 'w'):
+        assert devloop.read_choice(terminal, timeout=0) == '\n'
+
+
+@pytest.mark.parametrize('line', ['2\n', 'q\n', '\n', ''])
+def test_prompt_preserves_selection_quit_and_eof(line: str) -> None:
+    reader, writer = os.pipe()
+    with os.fdopen(reader) as terminal:
+        with os.fdopen(writer, 'w') as source:
+            source.write(line)
+        assert devloop.read_choice(terminal, timeout=0) == line
 
 
 def test_nul_records_preserve_spaces_newlines_and_detached_heads() -> None:

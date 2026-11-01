@@ -311,7 +311,7 @@ namespace SlopWorld
             if (Held)
                 return;
 
-            // The player and jukebox arrive even when the daemon has no agents.
+            // The player and workspace objects arrive even when the daemon has no agents.
             PlayerPawn.Current?.Arrive(map);
             Pets.Arrive(map);
             AgentsHeld = false; // the reconcile may drop the agents in now

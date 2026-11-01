@@ -26,7 +26,8 @@ namespace SlopWorld
             _template = "";
         string _quickAdd = "",
             _search = "",
-            _projectFilter = "";
+            _projectFilter = "",
+            _contextFilter = "";
         TodoFilter _filter = TodoFilter.Active;
         TodoSort _sort = TodoSort.Due;
         bool _busy,
@@ -59,12 +60,16 @@ namespace SlopWorld
             _endpoint = endpoint;
         }
 
-        public static void Open()
+        public static void Toggle() => WorkspaceWindow.ToggleContent(CurrentView);
+
+        public static void Open() => WorkspaceWindow.OpenContent(CurrentView());
+
+        static PlannerView CurrentView()
         {
             string endpoint = DaemonClient.BaseUrl;
             if (!Views.TryGetValue(endpoint, out var view))
                 Views[endpoint] = view = new PlannerView(endpoint);
-            WorkspaceWindow.OpenContent(view);
+            return view;
         }
 
         public override void Opened()
@@ -231,7 +236,13 @@ namespace SlopWorld
         {
             try
             {
-                _text = TodoText.Add(_text, _quickAdd, _projectFilter, DateTime.Today);
+                _text = TodoText.Add(
+                    _text,
+                    _quickAdd,
+                    _projectFilter,
+                    DateTime.Today,
+                    _contextFilter
+                );
                 Rebuild();
                 Select(_entries.Last());
                 _quickAdd = "";

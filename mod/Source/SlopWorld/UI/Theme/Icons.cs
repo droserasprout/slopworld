@@ -23,8 +23,7 @@ namespace SlopWorld
 
         public static Texture2D Gear => Get("gear");
 
-        // The top bar's config door is the same cog as the options row's. One glyph, two
-        // names, because the two call sites are not about the same thing.
+        // Settings shortcuts and the top bar share the cog.
         public static Texture2D Config => Gear;
 
         public static Texture2D Shield => Get("shield");

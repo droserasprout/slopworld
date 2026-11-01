@@ -10,20 +10,26 @@ namespace Verse
 
     public sealed class ListerThings
     {
-        readonly List<Thing> _boxes = new List<Thing>();
+        readonly Dictionary<object, List<Thing>> _things = new Dictionary<object, List<Thing>>();
 
-        public List<Thing> ThingsOfDef(object def) => _boxes;
+        public List<Thing> ThingsOfDef(object def)
+        {
+            if (!_things.TryGetValue(def, out var things))
+                _things[def] = things = new List<Thing>();
+            return things;
+        }
     }
 
     public sealed class Thing
     {
         public bool Destroyed;
         public Map Map;
+        public object Def;
 
         public void Destroy(DestroyMode mode)
         {
             Destroyed = true;
-            Map?.listerThings.ThingsOfDef(null).Remove(this);
+            Map?.listerThings.ThingsOfDef(Def).Remove(this);
         }
     }
 
@@ -39,7 +45,7 @@ namespace Verse
 
     public static class ThingMaker
     {
-        public static Thing MakeThing(object def) => new Thing();
+        public static Thing MakeThing(object def) => new Thing { Def = def };
     }
 
     public static class GenPlace
@@ -51,7 +57,7 @@ namespace Verse
             if (Fail)
                 return false;
             box.Map = map;
-            map.listerThings.ThingsOfDef(null).Add(box);
+            map.listerThings.ThingsOfDef(box.Def).Add(box);
             return true;
         }
     }
@@ -76,5 +82,7 @@ namespace SlopWorld
     static class ModDefOf
     {
         public static readonly object SlopJukebox = new object();
+        public static readonly object SlopPlannerBench = new object();
+        public static readonly object SlopSettingsHeater = new object();
     }
 }

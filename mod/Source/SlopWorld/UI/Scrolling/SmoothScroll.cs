@@ -140,10 +140,17 @@ namespace SlopWorld
             _pos.x = Mathf.Clamp(_pos.x, 0f, max.x);
             _pos.y = Mathf.Clamp(_pos.y, 0f, max.y);
 
-            _preciseInput = preciseInput;
-            if (_preciseInput)
-                ClaimPrecise(outer, max);
-            ClaimWheel(outer, max);
+            // Windows underneath menus draw first. Reject their claims before either
+            // native touchpad samples or wheel packets can move the covered content.
+            // This also reserves non-scrolling menus and their padding for the menu.
+            bool blocked = UiMenu.BlocksScrollBehind();
+            _preciseInput = preciseInput && !blocked;
+            if (!blocked)
+            {
+                if (_preciseInput)
+                    ClaimPrecise(outer, max);
+                ClaimWheel(outer, max);
+            }
 
             _outer = outer;
             _max = max;
