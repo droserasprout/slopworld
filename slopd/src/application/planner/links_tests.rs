@@ -138,3 +138,91 @@ async fn live_task_status_is_projected_without_changing_stored_link_revisions() 
     assert_eq!(revisions[0], revisions[1]);
     assert_eq!(tokio::fs::read_to_string(path).await.unwrap(), before);
 }
+
+#[tokio::test]
+async fn invalid_links_never_replace_accepted_associations_and_corruption_is_reported() {
+    let fixture = Fixture::new();
+    let store = Store::new(fixture.root.join("TODO.txt"));
+    let document = store.save("Review".into(), revision("")).await.unwrap();
+    let id = &document.items[0].id;
+    let task = worker("task-1", id);
+    let tasks = [task];
+    store.link_worker(id, &tasks[0], &[]).await.unwrap();
+    let projected = store
+        .project_links(store.read().await.unwrap(), &tasks)
+        .await
+        .unwrap();
+    let expected = &projected.items[0].links_revision;
+    let link = projected.items[0].links[0].reference.clone();
+    let path = store.links_path(id).unwrap();
+    let original = tokio::fs::read_to_string(&path).await.unwrap();
+    for links in [
+        vec![link.clone(), link.clone()],
+        vec![LinkReference {
+            id: "missing".into(),
+            ..link.clone()
+        }],
+        vec![LinkReference {
+            label: "x".repeat(65536),
+            ..link
+        }],
+    ] {
+        store
+            .save_links(id, links, expected, &tasks, &[])
+            .await
+            .unwrap_err();
+        assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), original);
+    }
+    for corrupt in ["invalid json".into(), " ".repeat(65537)] {
+        tokio::fs::write(&path, corrupt).await.unwrap();
+        store
+            .project_links(store.read().await.unwrap(), &tasks)
+            .await
+            .unwrap_err();
+    }
+    tokio::fs::write(&path, &original).await.unwrap();
+    assert_eq!(
+        store.project_links(document, &tasks).await.unwrap().items[0]
+            .links
+            .len(),
+        2
+    );
+}
+
+#[tokio::test]
+async fn completed_rows_and_missing_legacy_tasks_project_without_mutating_backlog() {
+    let fixture = Fixture::new();
+    let store = Store::new(fixture.root.join("TODO.txt"));
+    let document = store
+        .save(
+            "x Finished sw-task:missing\nUnfinished".into(),
+            revision(""),
+        )
+        .await
+        .unwrap();
+    let projected = store
+        .project_links(store.read().await.unwrap(), &[])
+        .await
+        .unwrap();
+    assert_eq!(projected.text, document.text);
+    assert_eq!(projected.items[0].status, "complete");
+    assert_eq!(projected.items[0].links[0].status, "unavailable");
+    assert_eq!(projected.items[0].links[0].reference.id, "missing");
+    assert!(projected.items[1].status.is_empty());
+    store
+        .save_links(
+            &projected.items[0].id,
+            vec![],
+            &projected.items[0].links_revision,
+            &[],
+            &[],
+        )
+        .await
+        .unwrap();
+    let reread = store
+        .project_links(store.read().await.unwrap(), &[])
+        .await
+        .unwrap();
+    assert!(reread.items[0].links.is_empty());
+    assert_eq!(reread.text, document.text);
+}

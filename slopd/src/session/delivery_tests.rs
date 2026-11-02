@@ -563,15 +563,57 @@ async fn followups_reject_shell_templates_hosts_and_control_sequences_before_que
     assert!(rx.try_recv().is_err());
 }
 
-#[tokio::test]
-async fn followup_submits_guarded_paste_and_enter_to_a_live_agent() {
-    let (manager, mut rx) = delivery_fixture().await;
+async fn task_worker_delivery_fixture() -> (
+    std::sync::Arc<SessionRuntime>,
+    tokio::sync::mpsc::UnboundedReceiver<QueuedInput>,
+    crate::tasks::Task,
+) {
+    let (manager, rx) = delivery_fixture_config(Config {
+        sessions: vec![SessionCfg {
+            name: "worker".into(),
+            cmd: Some("test-agent".into()),
+            worker: true,
+            ..Default::default()
+        }],
+        ..Default::default()
+    })
+    .await;
+    let sender = manager.task_participant(crate::tasks::HOST).await.unwrap();
+    let recipient = manager.task_participant("worker").await.unwrap();
+    let task = manager
+        .create_task_owned(
+            sender,
+            recipient,
+            "Initial work".into(),
+            Some(crate::tasks::WorkerTask {
+                session: "worker".into(),
+                parent: crate::tasks::HOST.into(),
+                durable: true,
+            }),
+        )
+        .await
+        .unwrap();
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("worker")
+        .unwrap()
+        .cfg
+        .task_id = task.id.clone();
     {
         let mut live = manager.live.write().await;
         let worker = live.get_mut("worker").unwrap();
         worker.cfg.worker = true;
         worker.state = State::Idle;
     }
+    (manager, rx, task)
+}
+
+#[tokio::test]
+async fn followup_submits_guarded_paste_and_enter_and_audits_without_changing_task_status() {
+    let (manager, mut rx, task) = task_worker_delivery_fixture().await;
+    let app = crate::application::Application::from_runtime(&manager);
     let root = manager.cfg_path().parent().unwrap();
     let script = r#"import os, pathlib, tty
 root = pathlib.Path('.')
@@ -604,10 +646,37 @@ time.sleep(60)
     })
     .await
     .unwrap();
-    manager
-        .followup_delivery("worker", "Check the tests λ")
-        .await
-        .unwrap();
+    crate::application::worker_tasks::followup(
+        &app,
+        &crate::grant::Cap::Root,
+        Some(app.config_authority.root_generation()),
+        Some(crate::tasks::HOST.into()),
+        task.id.clone(),
+        "Check the tests λ".into(),
+    )
+    .await
+    .unwrap();
+    let audited = manager.task_store().all_tasks_async().await.unwrap();
+    assert_eq!(audited[0].status, task.status);
+    assert_eq!(audited[0].note, task.note);
+    assert_eq!(audited[0].history.len(), task.history.len() + 2);
+    let history = &audited[0].history[task.history.len()..];
+    assert_eq!(
+        history[0].note.as_deref(),
+        Some("Follow-up requested: Check the tests λ")
+    );
+    assert!(
+        history[1]
+            .note
+            .as_deref()
+            .unwrap()
+            .starts_with("Follow-up submitted")
+    );
+    assert!(
+        history
+            .iter()
+            .all(|entry| entry.sender == crate::tasks::HOST && entry.status == task.status)
+    );
     let paste = rx.recv().await.unwrap();
     assert!(
         matches!(&paste.command, Input::AgentPaste { bytes } if String::from_utf8_lossy(bytes).contains("Check the tests λ"))

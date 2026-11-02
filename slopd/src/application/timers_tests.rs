@@ -341,3 +341,168 @@ async fn failed_worker_and_shell_actions_consume_one_shot_and_allow_later_timers
             .all(|r| r.at == 1001)
     );
 }
+
+#[tokio::test]
+async fn prompt_actions_resolve_stable_identity_and_target_each_agent_once() {
+    let app = crate::application::test_application(crate::config::Config {
+        projects: vec![crate::config::ProjectCfg {
+            name: "repo".into(),
+            dir: std::env::temp_dir().to_string_lossy().into(),
+            ..Default::default()
+        }],
+        library: vec![crate::config::LibraryItemCfg {
+            name: "Review".into(),
+            kind: LibraryItemKind::Prompt,
+            text: "Review the project".into(),
+            ..Default::default()
+        }],
+        sessions: vec![crate::config::SessionCfg {
+            name: "renamed".into(),
+            project: "repo".into(),
+            state_id: "0123456789abcdef".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    let cfg = Configuration::new(&app).config().await;
+    let mut targeted = HashSet::new();
+    let mut timer = timer_config("active", "1s").library[0]
+        .timer
+        .clone()
+        .unwrap();
+    assert_eq!(
+        actions::execute(&cfg, &app, &mut targeted, &timer)
+            .await
+            .unwrap(),
+        "Skipped: busy, down or not ready"
+    );
+    assert_eq!(
+        actions::execute(&cfg, &app, &mut targeted, &timer)
+            .await
+            .unwrap(),
+        "Skipped: another Timer targeted this agent"
+    );
+    timer.target = "renamed".into();
+    assert_eq!(
+        actions::execute(&cfg, &app, &mut targeted, &timer)
+            .await
+            .unwrap(),
+        "Skipped: target missing"
+    );
+    timer.action = "unknown".into();
+    assert!(
+        actions::execute(&cfg, &app, &mut targeted, &timer)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("Choose a Timer action")
+    );
+}
+
+#[tokio::test]
+async fn status_projection_distinguishes_activation_waiting_elapsed_disabled_and_invalid() {
+    let fixture = super::super::test_support::Fixture::new();
+    let timers = Timers::new(fixture.root.join("timers.json"));
+    let cfg = timer_config("active", "1s");
+    let app = crate::application::test_application(cfg.clone());
+    let mut items = cfg.library.clone();
+    timers.decorate(&mut items).await;
+    assert_eq!(items[0].timer_status.as_ref().unwrap().state, "Activating");
+    timers.tick_at(&app.sessions, &app, 1000, 0).await.unwrap();
+    timers.decorate(&mut items).await;
+    let waiting = items[0].timer_status.as_ref().unwrap();
+    assert_eq!(waiting.state, "Waiting");
+    assert!(waiting.next_at > 0);
+    assert_eq!(waiting.outcome, "No attempts yet");
+    timers.tick_at(&app.sessions, &app, 1001, 1).await.unwrap();
+    timers.decorate(&mut items).await;
+    let elapsed = items[0].timer_status.as_ref().unwrap();
+    assert_eq!(elapsed.state, "Elapsed");
+    assert_eq!(elapsed.next_at, 0);
+    assert_eq!(elapsed.last_at, 1001);
+    assert_eq!(elapsed.outcome, "Skipped: target missing");
+    items[0].timer.as_mut().unwrap().enabled = false;
+    timers.decorate(&mut items).await;
+    assert_eq!(items[0].timer_status.as_ref().unwrap().state, "Disabled");
+    items[0].timer.as_mut().unwrap().enabled = true;
+    items[0].timer.as_mut().unwrap().schedule = "invalid".into();
+    timers.decorate(&mut items).await;
+    let invalid = items[0].timer_status.as_ref().unwrap();
+    assert_eq!(invalid.state, "Invalid");
+    assert!(invalid.outcome.starts_with("Invalid:"));
+    items[0].timer = None;
+    items[0].timer_status = None;
+    timers.decorate(&mut items).await;
+    assert!(items[0].timer_status.is_none());
+    assert!(cfg.library[0].timer_status.is_none());
+}
+
+#[tokio::test]
+async fn worker_and_shell_actions_launch_selected_library_content() {
+    let Some(_) = crate::test_support::isolated_worker_runtime() else {
+        return;
+    };
+    let (runtime, root, _) = crate::application::workers::tests::allocation_fixture();
+    runtime.application.templates.store_for_test().write().await.templates = vec![serde_json::from_value(serde_json::json!({
+        "name": "review", "defaults": { "cmd": "/bin/sleep 60", "network": "host", "persistent_tmp": false }
+    })).unwrap()];
+    runtime
+        .config_authority
+        .write()
+        .await
+        .daemon
+        .instructions
+        .worker_prompt
+        .clear();
+    let app = crate::application::Application::from_runtime(&runtime);
+    let mut cfg = Configuration::new(&app).config().await;
+    cfg.library = vec![
+        crate::config::LibraryItemCfg {
+            name: "Review".into(),
+            kind: LibraryItemKind::Prompt,
+            text: "Inspect the project".into(),
+            ..Default::default()
+        },
+        crate::config::LibraryItemCfg {
+            name: "Wait".into(),
+            kind: LibraryItemKind::Shell,
+            text: "sleep 60".into(),
+            host: true,
+            project: "repo".into(),
+            ..Default::default()
+        },
+    ];
+    for item in cfg.library.clone() {
+        crate::application::library::Library::new(&app)
+            .add_library_item(item)
+            .await
+            .unwrap();
+    }
+    let mut timer = TimerCfg {
+        action: "worker".into(),
+        prompt: "Review".into(),
+        project: "repo".into(),
+        template: "review".into(),
+        ..Default::default()
+    };
+    let result = actions::execute(&cfg, &app, &mut HashSet::new(), &timer)
+        .await
+        .unwrap();
+    let name = result.strip_prefix("Worker created: ").unwrap();
+    assert!(runtime.tmux.exists(name).await);
+    let tasks = runtime.task_store().all_tasks_async().await.unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].body, "Inspect the project");
+    assert!(!tasks[0].worker.as_ref().unwrap().durable);
+    assert_eq!(tasks[0].from, crate::tasks::HOST);
+    runtime.stop(name).await.unwrap();
+    timer.action = "shell".into();
+    timer.shell = "Wait".into();
+    let result = actions::execute(&cfg, &app, &mut HashSet::new(), &timer)
+        .await
+        .unwrap();
+    let name = result.strip_prefix("Shell started: ").unwrap();
+    assert!(runtime.tmux.exists(name).await);
+    runtime.stop(name).await.unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
