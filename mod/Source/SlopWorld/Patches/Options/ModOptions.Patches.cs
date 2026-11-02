@@ -203,15 +203,6 @@ namespace SlopWorld
             GUIUtility.hotControl = _railControl;
         }
 
-        // Use mod colors for selected rows and rows under the pointer.
-        static void CategoryRow(Rect r, bool selected)
-        {
-            if (selected)
-                Slab.GrainedFill(r, UiTheme.Sel);
-            else if (Mouse.IsOver(r))
-                Slab.GrainedFill(r, UiTheme.Hover);
-        }
-
         static void Select(Dialog_Options dlg, OptionCategoryDef category)
         {
             dlg.selectedCategory = category;
@@ -295,7 +286,7 @@ namespace SlopWorld
             {
                 Text.Font = GameFont.Small;
 
-                CategoryRow(row, instance.selectedCategory == optionCategory);
+                RowChrome.Category(row, instance.selectedCategory == optionCategory);
                 if (UiButtons.NavigationPress(row))
                 {
                     var target = Target(tab);

@@ -213,8 +213,7 @@ namespace SlopWorld
 
         static bool NavRow(Rect rect, string name, int count, bool selected)
         {
-            if (selected)
-                Slab.Fill(rect, UiTheme.Well);
+            RowChrome.Category(rect, selected);
             GUI.color = selected ? UiTheme.Lead : UiTheme.Name;
             UiText.FadedRowLabel(
                 new Rect(rect.x + 5f, rect.y, rect.width - 36f, rect.height),

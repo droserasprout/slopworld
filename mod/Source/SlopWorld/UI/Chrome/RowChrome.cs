@@ -21,6 +21,15 @@ namespace SlopWorld
     // popovers and other window-local controls must request Local deliberately.
     public static class RowChrome
     {
+        // Category rails keep the selected background when the pointer crosses it.
+        public static void Category(Rect rect, bool selected)
+        {
+            if (selected)
+                Slab.GrainedFill(rect, UiTheme.Sel);
+            else if (Mouse.IsOver(rect))
+                Slab.GrainedFill(rect, UiTheme.Hover);
+        }
+
         // The host supplies overlay input policy. Window-local controls keep their native
         // hit test; shared rows do not need to know which map or workspace owns them.
         public static System.Func<Rect, bool> OverlayHitTest { get; set; } = Mouse.IsOver;
