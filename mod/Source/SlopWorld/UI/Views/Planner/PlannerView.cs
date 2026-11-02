@@ -161,25 +161,38 @@ namespace SlopWorld
             _detailOpen = true;
         }
 
-        void Accept(Wire.PlannerDocument document)
+        void Accept(Wire.PlannerDocument document, bool discard = false)
         {
+            // A refresh can change link metadata without changing the todo text.
+            // Keep the existing rows, field lifetime and selection until text changes.
+            bool rebuild = _document == null || _text != document.Text || discard;
             _document = document;
             _text = document.Text;
-            Rebuild();
+            if (rebuild)
+                Rebuild();
             _busy = false;
         }
 
         void Load()
         {
-            int generation = Begin();
+            if (_busy)
+                return;
+            // Only the initial load needs a loading presentation. Refreshing an existing
+            // document must not disable/repaint its fields or replace its status text.
+            bool initial = _document == null;
+            int generation = initial ? Begin() : ++_generation;
             DaemonClient.Get<Wire.PlannerDocument>(
                 WireProtocol.Routes.Planner,
                 value =>
                 {
-                    if (Current(generation))
-                    {
-                        Accept(value);
-                    }
+                    if (!Current(generation))
+                        return;
+                    // Editing remains available during refresh. Keep local drafts and their
+                    // original revision so a subsequent save still detects external changes.
+                    if (!initial && Dirty)
+                        return;
+                    _error = null;
+                    Accept(value);
                 },
                 error => Failed(generation, error)
             );
@@ -238,7 +251,7 @@ namespace SlopWorld
                 draft.Error = null;
             }
             _error = null;
-            Accept(_document);
+            Accept(_document, discard: true);
         }
 
         void Add()

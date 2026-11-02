@@ -24,6 +24,61 @@ namespace SlopWorld.Tests
             return view;
         }
 
+        public static void UnchangedRefreshRetainsFieldsAndPublishesLinkChanges()
+        {
+            var view = Loaded();
+            view.SelectTest(0);
+            var draft = view.DraftIdentityTest;
+            var fields = view.FieldsIdentityTest;
+            var document = view.DocumentTest;
+            view.LoadTest();
+            Assert.That(view.BusyTest, Is.False);
+            Assert.That(view.ReadyTest, Is.True);
+            Assert.That(view.DocumentTest, Is.SameAs(document));
+            Assert.That(view.DraftIdentityTest, Is.SameAs(draft));
+            var refreshed = document.Clone();
+            refreshed.Items.Add(new Wire.PlannerItem { Id = "linked" });
+            DaemonClient.Requests.Last().Reply(refreshed);
+            Assert.That(view.DraftIdentityTest, Is.SameAs(draft));
+            Assert.That(view.FieldsIdentityTest, Is.SameAs(fields));
+            Assert.That(view.DocumentTest.Items.Single().Id, Is.EqualTo("linked"));
+            view.LoadTest();
+            DaemonClient.Requests.Last().Fail("Offline");
+            Assert.That(view.DraftIdentityTest, Is.SameAs(draft));
+            Assert.That(view.FieldsIdentityTest, Is.SameAs(fields));
+            view.LoadTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDocument { Text = "Changed", Revision = "r2" });
+            Assert.That(view.DraftIdentityTest, Is.Not.SameAs(draft));
+            Assert.That(view.TextTest, Is.EqualTo("Changed"));
+            view.Closed();
+        }
+
+        public static void BackgroundRefreshDoesNotOverwriteNewEditsOrANewerSave()
+        {
+            var view = Loaded();
+            view.SelectTest(0);
+            view.LoadTest();
+            var refresh = DaemonClient.Requests.Last();
+            view.PriorityEditTest("A")();
+            refresh.Reply(new Wire.PlannerDocument { Text = "External edit", Revision = "r2" });
+            Assert.That(view.PriorityTest, Is.EqualTo("A"));
+            Assert.That(view.DocumentTest.Revision, Is.EqualTo("r1"));
+            view.DiscardTest();
+            view.LoadTest();
+            refresh = DaemonClient.Requests.Last();
+            view.SaveTest("Local edit");
+            var save = DaemonClient.Requests.Last();
+            refresh.Reply(new Wire.PlannerDocument { Text = "External edit", Revision = "r2" });
+            Assert.That(view.BusyTest, Is.True);
+            Assert.That(view.TextTest, Is.EqualTo("Local edit"));
+            save.Reply(new Wire.PlannerDocument { Text = "Local edit", Revision = "r3" });
+            Assert.That(view.DocumentTest.Revision, Is.EqualTo("r3"));
+            Assert.That(view.ReadyTest, Is.True);
+            view.Closed();
+        }
+
         public static void ClosingDuringSaveRetainsAcceptedRevisionAndPreventsAnotherLoad()
         {
             var view = Loaded();

@@ -338,11 +338,37 @@ namespace SlopWorld
                     );
                     return;
                 }
+                bool planner = view is PlannerView;
+                bool settings = view is OptionsView;
+                if (planner || settings)
+                {
+                    float viewIconW = ReaderRowChrome.IconW;
+                    float inset = viewIconW + UiTheme.GapXS;
+                    float width = Mathf.Min(r.width, inset + UiTheme.Wide(view.Title));
+                    float left = centered ? r.center.x - width / 2f : r.x;
+                    var icon = new Rect(
+                        left,
+                        r.y + (r.height - viewIconW) / 2f,
+                        viewIconW,
+                        viewIconW
+                    );
+                    GUI.color = Color.white;
+                    if (planner)
+                        Widgets.ThingIcon(icon, ModDefOf.SlopPlannerBench);
+                    else
+                    {
+                        GUI.color = UiTheme.Lead;
+                        GUI.DrawTexture(icon, Icons.Config);
+                    }
+                    r = new Rect(left + inset, r.y, Mathf.Max(0f, width - inset), r.height);
+                }
                 GUI.color = UiTheme.Lead;
                 UiText.RowLabel(
                     r,
                     view.Title,
-                    centered ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft
+                    centered && !planner && !settings
+                        ? TextAnchor.MiddleCenter
+                        : TextAnchor.MiddleLeft
                 );
                 GUI.color = Color.white;
                 return;

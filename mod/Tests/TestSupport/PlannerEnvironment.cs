@@ -49,6 +49,8 @@ namespace SlopWorld
         internal static PlannerView CreateTest(string endpoint) => new PlannerView(endpoint);
 
         internal bool BusyTest => _busy;
+        internal object DraftIdentityTest => _draft;
+        internal object FieldsIdentityTest => _fields;
         internal bool ReadyTest => Ready;
         internal string TextTest => _text;
         internal string ErrorTest => _error;

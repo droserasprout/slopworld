@@ -67,7 +67,10 @@ under the backlog gate and checks its own content revision. Task edits/completio
 sidecars; deletion retains them for recovery. Description drafts and in-flight replies
 belong to endpoint/task identity, independently of selection. Planner Save writes the
 backlog and then dirty descriptions, retaining failed drafts and accepted revisions
-for retry. Discard restores both from their last accepted values.
+for retry. Discard restores both from their last accepted values. Refresh retains
+visible rows and field state when task text is unchanged, while updating link metadata.
+Background refresh leaves controls enabled; replies cannot overwrite edits made while
+the request was pending or supersede a newer save.
 
 Supervised cancellation carries a checked selection into the task store. It applies
 only to the sender's worker tasks and may cancel working tasks; ordinary recipient

@@ -22,8 +22,6 @@ namespace SlopWorld
             float separatorWidth = UiTheme.Wide("|") + UiTheme.GapXS * 2f;
             float switcherWidth = tasksWidth + separatorWidth + rawWidth;
             float x = r.xMax - 195f - gap - switcherWidth;
-            var title = new Rect(r.x, r.y, Mathf.Max(80f, x - r.x - gap), h);
-            UiText.RowLabel(title, "Planner", TextAnchor.MiddleLeft);
             using (WidgetState.Save())
             {
                 GUI.enabled = Ready;
