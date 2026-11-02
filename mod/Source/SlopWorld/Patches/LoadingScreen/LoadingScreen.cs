@@ -13,6 +13,7 @@ namespace SlopWorld
     {
         const float WordsPerSecond = 75f;
         const int MaxWordsPerFrame = 48;
+        const float ScrollHalfStepSeconds = 0.06f;
 
         // Keep the stream in the dark area beside the planet in the final background
         // frames, independent of resolution and UI scale.
@@ -153,6 +154,7 @@ namespace SlopWorld
         static string _painted = string.Empty;
         static float _wordBudget;
         static float _lastAdvancedAt = -1f;
+        static float _scrollStartedAt = -1f;
         static bool _modeKnown;
         static bool _grandma;
         static bool _loadingSession;
@@ -197,7 +199,7 @@ namespace SlopWorld
                         StringSplitOptions.RemoveEmptyEntries
                     );
                     float x = 0f;
-                    float y = lineAt * lineHeight;
+                    float y = (lineAt - (_scrollStartedAt >= 0f ? 0.5f : 0f)) * lineHeight;
                     for (int i = 0; i < words.Length; i++)
                     {
                         string word = words[i];
@@ -228,6 +230,7 @@ namespace SlopWorld
             _painted = string.Empty;
             _wordBudget = 0f;
             _lastAdvancedAt = -1f;
+            _scrollStartedAt = -1f;
         }
 
         // One loading screen can move through several QueuedLongEvent objects. Keep one stream
@@ -275,7 +278,9 @@ namespace SlopWorld
             if (Stream.Count < Lines)
                 return;
 
-            Stream.RemoveAt(0);
+            // Keep the outgoing row for the clipped half-line step. Advance removes it
+            // after the hold, completing the second half without losing visible glyphs.
+            _scrollStartedAt = Time.realtimeSinceStartup;
         }
 
         static void AppendToken(string token, float width)
@@ -322,6 +327,7 @@ namespace SlopWorld
 
         static void ReflowStream(float width)
         {
+            _scrollStartedAt = -1f;
             var reflowed = new List<string>();
             foreach (string oldLine in Stream)
             {
@@ -414,16 +420,31 @@ namespace SlopWorld
                 _lastAdvancedAt = now;
             }
 
+            // Bound catch-up during the half-step hold or a stalled loading frame.
+            _wordBudget = Mathf.Min(_wordBudget, frameLimit);
+            if (_scrollStartedAt >= 0f)
+            {
+                if (now - _scrollStartedAt < ScrollHalfStepSeconds)
+                    return;
+                Stream.RemoveAt(0);
+                _scrollStartedAt = -1f;
+                _painted = JoinStream();
+                // Paint the completed step before another overflowing row can start.
+                return;
+            }
+
             int count = Mathf.Min(frameLimit, Mathf.FloorToInt(_wordBudget));
             if (count <= 0)
                 return;
-            _wordBudget -= count;
 
             for (int i = 0; i < count; i++)
             {
                 if (_tokenAt >= Tokens.Count)
                     LoadTip(width);
                 AppendToken(Tokens[_tokenAt++], width);
+                _wordBudget -= 1f;
+                if (_scrollStartedAt >= 0f)
+                    break;
             }
             _painted = JoinStream();
         }

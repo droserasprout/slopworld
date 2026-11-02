@@ -53,6 +53,7 @@ namespace SlopWorld
         int _wave;
         float _from;
         float _to;
+        float _fadeStartedAt = -1f;
 
         // AutoSaver uses this flag to suspend saves.
         // Patch_AutoResume uses it to leave the menu available for the next colony.
@@ -169,6 +170,37 @@ namespace SlopWorld
             }
         }
 
+        internal void DrawFade()
+        {
+            if (_fadeStartedAt < 0f || Event.current.type != EventType.Repaint)
+                return;
+
+            // Keep drawing at full opacity after Leave queues the loading screen.
+            // This component disappears with the old game; the next colony starts clear.
+            float alpha = Mathf.Clamp01(
+                (Time.realtimeSinceStartup - _fadeStartedAt) / (WaveSeconds + SettleSeconds)
+            );
+            var matrix = GUI.matrix;
+            var color = GUI.color;
+            int depth = GUI.depth;
+            try
+            {
+                UI.ApplyUIScale();
+                GUI.color = Color.white;
+                GUI.depth = -9999;
+                Widgets.DrawBoxSolid(
+                    new Rect(0f, 0f, UI.screenWidth, UI.screenHeight),
+                    new Color(0f, 0f, 0f, alpha)
+                );
+            }
+            finally
+            {
+                GUI.matrix = matrix;
+                GUI.color = color;
+                GUI.depth = depth;
+            }
+        }
+
         // Divide the radius equally between waves.
         // Later waves cover more area in the same time.
         void Wake()
@@ -180,6 +212,8 @@ namespace SlopWorld
             }
 
             _wave++;
+            if (_wave == Waves)
+                _fadeStartedAt = Time.realtimeSinceStartup;
             _from = _front;
             _to = Reach(_map, _origin) * _wave / Waves;
             Go(Phase.Wave, WaveSeconds);

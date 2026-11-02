@@ -253,12 +253,21 @@ namespace SlopWorld
                 new FloatMenuOption("Advice", AdviceAction),
                 new FloatMenuOption("Keyboard shortcuts", ShortcutHelpView.Toggle),
             };
-            // Gentle and Eco modes hide this option.
-            if (!Settings.GrandmaMode && !Settings.EcoMode)
-                options.Add(new FloatMenuOption("Kill something", KillAction));
+            // Grandma mode omits violence; Eco keeps unavailable actions discoverable.
+            if (!Settings.GrandmaMode)
+                options.Add(
+                    new FloatMenuOption(
+                        "Kill something",
+                        Settings.EcoMode ? null : (System.Action)KillAction
+                    )
+                );
             options.Add(new FloatMenuOption("New looks", NewLookAction));
-            if (!Settings.EcoMode)
-                options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
+            options.Add(
+                new FloatMenuOption(
+                    "Next planet",
+                    Settings.EcoMode ? null : (System.Action)NextPlanet.Begin
+                )
+            );
             options.Add(new FloatMenuOption("Quit", QuitInterceptor.Request));
 
             // OpenOverPane rather than a plain Add. The status bar is drawn over a terminal as well

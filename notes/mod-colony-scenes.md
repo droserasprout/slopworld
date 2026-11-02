@@ -5,6 +5,11 @@
 gates without owning phases. Restore unfinished intro gates before Eco decides to
 pause ticks. Arrivals place directly when skyfall fails or Eco rests. Menu landing
 and New colony queue `QuickStart` before setup pages enter the window stack.
+Departure fades to black over the final wave and settling phase (3.2 seconds).
+The old game's component holds the fade until its loading handoff; fade state is
+not carried into the new colony.
+`Patches/Chrome/NextPlanetFade` draws after the root GUI pass so pawn labels fade
+with the map, and yields to long-event loading screens.
 
 The intro releases the player, jukebox, and Planner chess table in separate pods when agent arrivals begin,
 even with an empty daemon. `PlayerPawn` owns the pawn reference while it is in

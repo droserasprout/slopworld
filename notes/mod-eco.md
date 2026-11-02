@@ -4,6 +4,8 @@
 ticks while agent processes and transport continue. Keep the predicate shared so
 patches cannot disagree on pause/resume. Reconciliation and saving belong to
 [simulation](mod-sim.md).
+The GM menu keeps Eco-unavailable actions visible but disabled. Grandma mode
+still omits the violent action.
 
 Hidden-board drawing and map input are suppressed while sidebar and selection UI
 remain available. Individual weather, label, overlay, and camera paths need their
