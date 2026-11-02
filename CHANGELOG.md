@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
-## [Unreleased]
+## [0.0.13] - 2026-11-02
 
 ### Added
 
@@ -28,6 +28,7 @@ Expect any imaginable incompatibilities until 0.1.0.
 - CLI: Use `SLOPWORLD_PROJECT` when `--project` is omitted.
 - Git: Stop polling directories confirmed to be outside a repository.
 - Sandbox: Fixed Android preset NDK paths and environment.
+- Sandbox: Fixed OpenCode preset paths.
 - Terminal: Fixed regression in pasting local image file URIs into Codex.
 - Terminal: Fixed semicolon recovery for non-US keyboard layouts.
 - Workers: Keep workers without a visible parent in their project group.
@@ -363,7 +364,8 @@ Initial release 🐈
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.12...HEAD
+[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.13...HEAD
+[0.0.13]: https://github.com/droserasprout/slopworld/compare/v0.0.12...v0.0.13
 [0.0.12]: https://github.com/droserasprout/slopworld/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/droserasprout/slopworld/compare/v0.0.10...v0.0.11
 [0.0.10]: https://github.com/droserasprout/slopworld/compare/v0.0.9...v0.0.10

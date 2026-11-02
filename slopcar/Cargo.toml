@@ -1,6 +1,6 @@
 [package]
 name = "slopcar"
-version = "0.0.12"
+version = "0.0.13"
 edition = "2024"
 description = "Host-side container launcher for SlopWorld"
 license = "MIT"
