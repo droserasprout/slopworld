@@ -120,6 +120,7 @@ namespace SlopWorld
         public bool statusbarUsage = true;
         public string statusbarSummaryPosition = StatusbarSummaryMode.Left;
         public string statusbarClockPosition = StatusbarClockMode.Right;
+        public string timeZone = TimeZonePreference.Auto;
         public string timeFormat = TimeFormat.TwentyFourHour;
         public string dateFormat = DateFormat.YearFirst;
         public bool statusbarPlanner = true;
@@ -248,6 +249,7 @@ namespace SlopWorld
                 Text,
                 String
             ),
+            Field("timeZone", (ModSettings s) => ref s.timeZone, Text, String),
             Field("timeFormat", (ModSettings s) => ref s.timeFormat, Text, String),
             Field("dateFormat", (ModSettings s) => ref s.dateFormat, Text, String),
             Field("statusbarPlanner", (ModSettings s) => ref s.statusbarPlanner, Bool, String),

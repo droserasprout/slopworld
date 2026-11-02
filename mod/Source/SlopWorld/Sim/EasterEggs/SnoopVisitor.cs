@@ -55,7 +55,7 @@ namespace SlopWorld
                 return;
             }
 
-            var now = DateTime.Now;
+            var now = Settings.Now;
             long today = now.Ticks / TimeSpan.TicksPerDay;
             double mins = now.TimeOfDay.TotalMinutes;
 

@@ -35,22 +35,20 @@ namespace SlopWorld
                     if (item.TimerStatus.LastAt > 0)
                         lines.Add(
                             "Last: "
-                                + DateTimeOffset
-                                    .FromUnixTimeSeconds((long)item.TimerStatus.LastAt)
-                                    .UtcDateTime.ToString(
-                                        "u",
-                                        System.Globalization.CultureInfo.InvariantCulture
-                                    )
+                                + Settings.TimeStamp(
+                                    DateTimeOffset
+                                        .FromUnixTimeSeconds((long)item.TimerStatus.LastAt)
+                                        .UtcDateTime
+                                )
                         );
                     if (item.TimerStatus.NextAt > 0)
                         lines.Add(
                             "Next: "
-                                + DateTimeOffset
-                                    .FromUnixTimeSeconds((long)item.TimerStatus.NextAt)
-                                    .UtcDateTime.ToString(
-                                        "u",
-                                        System.Globalization.CultureInfo.InvariantCulture
-                                    )
+                                + Settings.TimeStamp(
+                                    DateTimeOffset
+                                        .FromUnixTimeSeconds((long)item.TimerStatus.NextAt)
+                                        .UtcDateTime
+                                )
                         );
                 }
             }

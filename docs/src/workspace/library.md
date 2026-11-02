@@ -95,7 +95,7 @@ for the same agent can submit at most one prompt per minute. Prompt edits affect
 occurrence; Timers do not copy text. A missing Prompt or target withholds delivery.
 
 Renaming an agent preserves its Timers; deleting and recreating it with the same name
-does not. Timer details show the last attempt, its outcome, and the next occurrence in UTC.
+does not. Timer details show the last attempt, its outcome, and the next occurrence in your selected time zone.
 Submission means the input was queued, not accepted by the agent. Interrupted attempts
 are not retried.
 

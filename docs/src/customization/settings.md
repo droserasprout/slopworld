@@ -93,9 +93,12 @@ without either, it prints directly. Save and restart active readers after a chan
 ## Date and time
 
 Under **General > Locale**, choose `YYYY-MM-DD` (default), `DD/MM/YYYY`, or
-`MM/DD/YYYY`, and a 24-hour or 12-hour time display. These preferences apply live
-to the clock tooltip, task timestamps, jukebox history, and game build date,
-and are saved with the profile.
+`MM/DD/YYYY`, a 24-hour or 12-hour time display, and a time zone. **Auto** uses
+the game desktop’s zone, even with a remote daemon. Choose a named zone to override it.
+Changes apply live to clocks and timestamps and are saved with the profile.
+Date formatting also applies to the game build date. The time zone also sets Planner’s Today and overdue
+calculations and the colony clock. Due dates remain calendar dates. Timer schedules
+still use UTC; their last and next occurrence timestamps use the selected zone.
 
 ## Storage
 

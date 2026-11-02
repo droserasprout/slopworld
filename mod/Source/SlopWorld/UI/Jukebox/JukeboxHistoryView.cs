@@ -377,8 +377,7 @@ namespace SlopWorld
             return string.Join("\n", lines.ToArray());
         }
 
-        // Read timestamps as UTC ISO 8601. Show them in local time so a browsing player
-        // sees familiar wall-clock values. Show unparseable timestamps as tidied strings.
+        // Parse UTC ISO 8601; preserve unparseable timestamps as tidied strings.
         static string DisplayAt(string at)
         {
             if (string.IsNullOrEmpty(at))
@@ -392,7 +391,7 @@ namespace SlopWorld
                 )
             )
             {
-                var local = utc.ToLocalTime();
+                var local = Settings.InTimeZone(utc);
                 return DateFormat.Short(local, Settings.DateFormat)
                     + " "
                     + TimeFormat.Short(local, Settings.TimeFormat);

@@ -144,6 +144,15 @@ namespace SlopWorld
 
             UiControls.Select(
                 l,
+                "Time zone",
+                TimeZonePreference.Label(s.timeZone),
+                TimeZoneOptions(),
+                out _,
+                "Auto uses this computer's time zone, even with a remote daemon."
+            );
+
+            UiControls.Select(
+                l,
                 "Time format",
                 TimeFormat.Label(s.timeFormat),
                 new[]
@@ -191,6 +200,41 @@ namespace SlopWorld
         {
             var settings = ModEntry.Instance.settings;
             settings.dateFormat = format;
+            settings.MarkDirty();
+        }
+
+        static readonly Lazy<TimeZoneInfo[]> TimeZones = new Lazy<TimeZoneInfo[]>(() =>
+            TimeZoneInfo.GetSystemTimeZones().OrderBy(zone => zone.Id).ToArray()
+        );
+
+        static System.Collections.Generic.IEnumerable<FloatMenuOption> TimeZoneOptions()
+        {
+            yield return new FloatMenuOption(
+                TimeZonePreference.Label(TimeZonePreference.Auto),
+                () => SetTimeZone(TimeZonePreference.Auto)
+            );
+            yield return new FloatMenuOption("UTC", () => SetTimeZone("UTC"));
+            foreach (
+                var group in TimeZones
+                    .Value.Where(zone => zone.Id != "UTC")
+                    .GroupBy(zone => zone.Id.Contains("/") ? zone.Id.Split('/')[0] : "Other")
+            )
+                yield return new UiSubmenu(
+                    group.Key,
+                    () =>
+                        group
+                            .Select(zone => new FloatMenuOption(
+                                zone.Id,
+                                () => SetTimeZone(zone.Id)
+                            ))
+                            .ToList()
+                );
+        }
+
+        static void SetTimeZone(string zone)
+        {
+            var settings = ModEntry.Instance.settings;
+            settings.timeZone = zone;
             settings.MarkDirty();
         }
 

@@ -203,7 +203,7 @@ namespace SlopWorld
                 return true;
             try
             {
-                _text = TodoText.Update(_text, _selected, _draft, DateTime.Today);
+                _text = TodoText.Update(_text, _selected, _draft, Settings.Today);
                 Rebuild();
                 return true;
             }
@@ -265,7 +265,7 @@ namespace SlopWorld
                     _text,
                     _quickAdd,
                     _projectFilter,
-                    DateTime.Today,
+                    Settings.Today,
                     _contextFilter
                 );
                 Rebuild();
@@ -289,7 +289,7 @@ namespace SlopWorld
             try
             {
                 var draft = new TodoDraft(entry) { Completed = !entry.Completed };
-                _text = TodoText.Update(_text, entry, draft, DateTime.Today);
+                _text = TodoText.Update(_text, entry, draft, Settings.Today);
                 Rebuild();
                 Save();
             }

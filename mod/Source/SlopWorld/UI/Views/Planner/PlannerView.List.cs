@@ -133,7 +133,7 @@ namespace SlopWorld
                     foreach (TodoFilter filter in Enum.GetValues(typeof(TodoFilter)))
                     {
                         int count = _entries.Count(entry =>
-                            TodoText.Matches(entry, filter, "", "", DateTime.Today)
+                            TodoText.Matches(entry, filter, "", "", Settings.Today)
                         );
                         var row = listing.GetRect(UiTheme.RowH);
                         if (
@@ -349,7 +349,7 @@ namespace SlopWorld
                             _filter,
                             _projectFilter,
                             _search,
-                            DateTime.Today,
+                            Settings.Today,
                             _contextFilter
                         )
                     ),
@@ -375,7 +375,7 @@ namespace SlopWorld
             float total = 0;
             foreach (var entry in entries)
             {
-                string group = _sort == TodoSort.Due ? TodoText.Group(entry, DateTime.Today) : null;
+                string group = _sort == TodoSort.Due ? TodoText.Group(entry, Settings.Today) : null;
                 if (group != last)
                 {
                     rows.Add((null, group, total));
@@ -465,8 +465,8 @@ namespace SlopWorld
                     ref x,
                     y,
                     row.xMax,
-                    entry.DueDate == DateTime.Today ? "Today" : entry.Due,
-                    entry.DueDate < DateTime.Today && !entry.Completed ? UiTheme.Bad : UiTheme.Dim
+                    entry.DueDate == Settings.Today ? "Today" : entry.Due,
+                    entry.DueDate < Settings.Today && !entry.Completed ? UiTheme.Bad : UiTheme.Dim
                 );
             if (entry.Priority.Length > 0)
                 Chip(ref x, y, row.xMax, "Priority " + entry.Priority, tint);

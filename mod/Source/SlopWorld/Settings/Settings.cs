@@ -43,6 +43,21 @@ namespace SlopWorld
             StatusbarSummaryMode.Normalize(S.statusbarSummaryPosition);
         public static string StatusbarClockPosition =>
             StatusbarClockMode.Normalize(S.statusbarClockPosition);
+        public static string TimeZone => S.timeZone;
+        public static System.DateTime Now => InTimeZone(System.DateTime.UtcNow);
+        public static System.DateTime Today => Now.Date;
+
+        public static System.DateTime InTimeZone(System.DateTime utc) =>
+            TimeZonePreference.Convert(utc, TimeZone);
+
+        public static string TimeStamp(System.DateTime utc)
+        {
+            var local = InTimeZone(utc);
+            return SlopWorld.DateFormat.Short(local, DateFormat)
+                + " "
+                + SlopWorld.TimeFormat.Long(local, TimeFormat);
+        }
+
         public static string TimeFormat => SlopWorld.TimeFormat.Normalize(S.timeFormat);
         public static string DateFormat => SlopWorld.DateFormat.Normalize(S.dateFormat);
         public static bool StatusbarClock => StatusbarClockPosition != StatusbarClockMode.Hidden;

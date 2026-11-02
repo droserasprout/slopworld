@@ -295,7 +295,7 @@ namespace SlopWorld
             if (milliseconds <= 0)
                 return "unknown time";
             var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            var local = epoch.AddMilliseconds(milliseconds).ToLocalTime();
+            var local = Settings.InTimeZone(epoch.AddMilliseconds(milliseconds));
             return DateFormat.Short(local, Settings.DateFormat)
                 + " "
                 + TimeFormat.Long(local, Settings.TimeFormat)

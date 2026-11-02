@@ -17,7 +17,7 @@ namespace SlopWorld
         // Save the epoch so loading a colony does not reset its date and season.
         long _epoch;
 
-        // Cache the solar tick for one real second to limit DateTime.Now calls.
+        // Cache the solar tick for one real second to limit Settings.Now calls.
         // Each frame computes gameStartAbsTick from the cached solar tick minus the current TicksGame.
         PeriodicWork _solarRecalc;
         int? _cachedSolar;
@@ -118,8 +118,8 @@ namespace SlopWorld
             if (longitude == null)
                 return null;
 
-            // Use local time to include the machine's time zone and daylight-saving adjustment.
-            DateTime now = DateTime.Now;
+            // Match the profile clock, including daylight-saving adjustments.
+            DateTime now = Settings.Now;
             long today = now.Ticks / TimeSpan.TicksPerDay;
             if (_epoch == 0)
                 _epoch = today;

@@ -77,7 +77,7 @@ namespace SlopWorld
                         on: Ready
                     )
                 )
-                    _draft.Due = i == 0 ? "" : TodoText.Stamp(DateTime.Today.AddDays(days[i]));
+                    _draft.Due = i == 0 ? "" : TodoText.Stamp(Settings.Today.AddDays(days[i]));
             UiLayout.Note(l, "YYYY-MM-DD. Dates organize your list.");
             l.Gap(UiTheme.GapM);
             l.Label("Priority");

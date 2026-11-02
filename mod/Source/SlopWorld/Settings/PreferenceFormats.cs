@@ -79,6 +79,49 @@ namespace SlopWorld
             date.ToString(Normalize(format), CultureInfo.InvariantCulture);
     }
 
+    // Profile wall time; wire timestamps and elapsed-time clocks remain UTC.
+    public static class TimeZonePreference
+    {
+        public const string Auto = "auto";
+        static string _cachedId;
+        static TimeZoneInfo _cachedZone;
+
+        public static TimeZoneInfo Resolve(string id)
+        {
+            if (string.IsNullOrEmpty(id) || id == Auto)
+                return TimeZoneInfo.Local;
+            if (_cachedId == id)
+                return _cachedZone;
+            TimeZoneInfo zone;
+            try
+            {
+                zone = TimeZoneInfo.FindSystemTimeZoneById(id);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                zone = TimeZoneInfo.Local;
+            }
+            catch (InvalidTimeZoneException)
+            {
+                zone = TimeZoneInfo.Local;
+            }
+            _cachedId = id;
+            _cachedZone = zone;
+            return zone;
+        }
+
+        public static DateTime Convert(DateTime utc, string id) =>
+            TimeZoneInfo.ConvertTimeFromUtc(utc, Resolve(id));
+
+        public static string Label(string id)
+        {
+            var zone = Resolve(id);
+            if (string.IsNullOrEmpty(id) || id == Auto)
+                return "Auto (" + zone.Id + ")";
+            return zone.Id == id ? id : id + " (unavailable; using " + zone.Id + ")";
+        }
+    }
+
     // The meme choice changes only the displayed label; temperatures still follow game preferences.
     public static class TemperatureUnit
     {

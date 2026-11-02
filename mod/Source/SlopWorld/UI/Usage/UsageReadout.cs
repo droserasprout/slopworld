@@ -27,8 +27,8 @@ namespace SlopWorld
         internal static DateTime ClockNow()
         {
             if (ClockSample.Due(Time.realtimeSinceStartupAsDouble, 1.0))
-                _clockNow = DateTime.Now;
-            return _clockNow;
+                _clockNow = DateTime.UtcNow;
+            return Settings.InTimeZone(_clockNow);
         }
 
         public static float ClockWidth(DateTime now)
