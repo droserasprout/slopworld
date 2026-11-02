@@ -1,15 +1,20 @@
-# Mount OpenCode configuration read-only to prevent sandbox changes from defining commands for host OpenCode.
+# Copy OpenCode configuration privately: its background server writes service.json here.
+# Sandbox configuration changes must not define commands for host OpenCode.
 # Give each session private copies of credentials and state.
 # Give each session a private cache to prevent corruption from concurrent writes by multiple agents.
 [[sandbox]]
 name = "opencode"
-description = "Read-only OpenCode configuration and private credentials, state, and cache"
-ro = ["~/.config/opencode"]
+description = "Private OpenCode configuration, credentials, state, and cache"
 private = [
+    "~/.config/opencode",
     "~/.local/share/opencode",
     "~/.local/state/opencode",
     "~/.cache/opencode",
 ]
+# Preserve configured plugins and other configuration subdirectories.
+seed = ["~/.config/opencode"]
+# Each agent starts its own server rather than adopting a host server descriptor.
+skip = ["~/.config/opencode/service.json"]
 env = [
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_BASE_URL",

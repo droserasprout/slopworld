@@ -6,6 +6,10 @@ implicit global preset. Project mounts are separate. Sandbox validation rejects 
 API responses explicitly project fields; schema additions do not extend them automatically.
 Test preset parsing and sandbox mechanisms, not the contents of individual shipped TOML presets.
 
+OpenCode configuration is private and writable because its background server writes
+`service.json` there. Seed configuration subdirectories but exclude the host server
+descriptor so each agent starts its own server.
+
 `slopworld-dev` supplies read-only game inputs and shared compiler caches. Rustup
 needs writable download/staging paths as well as toolchains/update hashes; otherwise
 the read-only parent blocks installation. `slopworld-debug` adds writable installation
