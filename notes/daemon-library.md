@@ -18,7 +18,11 @@ reusable text for startup and Timers. File actions execute on
 the daemon host through `files/actions/`, independently of agent prompts.
 All Prompts are available in the terminal Prompts menu, startup, and Timers.
 Execution settings optionally enable errands; text-only Prompts need no project.
-`prompt/` owns substitution: inserted values are literal and never scanned again.
+`config/library.rs` owns the directory classification shared by catalog discovery and
+storage target admission, including Timers.
+`prompt/` owns Library lookup and contextual composition for manual, startup, and
+scheduled input: inserted values are literal and never scanned again. Session adapters
+resolve the target project/worktree before composition; automated input has no client tips.
 Manual insertion does not submit; launch callers compose errand/worker prompts before delivery.
 
 `session/delivery.rs` owns readiness and ordered prompt input. Creation may return

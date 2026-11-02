@@ -100,20 +100,15 @@ impl Timers {
                     let outcome = if let Some(target) = target {
                         if !targeted.insert(target.state_id.clone()) {
                             "Skipped: another Timer targeted this agent".into()
-                        } else if let Some(prompt) = cfg
-                            .library_item(&timer.prompt)
-                            .filter(|p| p.kind == LibraryItemKind::Prompt)
-                        {
+                        } else {
                             match sessions
-                                .submit_scheduled(&target.name, &target.state_id, &prompt.text)
+                                .submit_scheduled_prompt(&cfg, target, &timer.prompt)
                                 .await
                             {
                                 Ok(true) => "Submitted".into(),
                                 Ok(false) => "Skipped: busy, down or not ready".into(),
                                 Err(e) => format!("Withheld: {e:#}"),
                             }
-                        } else {
-                            "Skipped: Prompt is missing".into()
                         }
                     } else {
                         "Skipped: target missing".into()

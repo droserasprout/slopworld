@@ -68,7 +68,10 @@ clients cannot indefinitely block lifecycle changes or revocation.
 
 The root-only relationship editor persists durable workers through configuration and
 one-shot workers through their credential-free tmux snapshot. Edits compare the
-worker task ID so a stale editor cannot modify a replacement with the same name. Follow-ups
+worker task ID so a stale editor cannot modify a replacement with the same name.
+`application/worker_tasks.rs` owns follow-up and cancellation authorization, destination
+planning, and follow-up audit coordination. HTTP maps operation failures to responses;
+session supplies live identity and delivery, and the task store owns mutation policy. Follow-ups
 prepare a run-bound destination under session admission, then wait for readiness without
 the boundary. Commit revalidates credentials, participation, cancellation, relationship
 permissions, and run identity. An owned exclusive boundary spans audit and submission;

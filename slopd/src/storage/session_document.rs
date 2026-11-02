@@ -34,6 +34,7 @@ pub(super) const AGENT: &[&str] = &[
     "limits",
     "autostart",
     "auto_resume",
+    "initial_prompt",
     "workers",
     "parent_id",
     "parent_access",

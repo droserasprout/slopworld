@@ -18,6 +18,14 @@ pub enum LibraryItemKind {
 }
 
 impl LibraryItemKind {
+    pub(crate) const ALL: [Self; 4] = [Self::Prompt, Self::FileAction, Self::Timer, Self::Shell];
+
+    pub(crate) fn from_config_dir(directory: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|kind| kind.config_dir() == directory)
+    }
+
     pub fn config_dir(self) -> &'static str {
         match self {
             Self::Prompt => "prompts",

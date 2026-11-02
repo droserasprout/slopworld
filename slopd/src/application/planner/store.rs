@@ -4,7 +4,7 @@ mod descriptions;
 #[path = "links.rs"]
 mod links;
 use anyhow::{Context, Result, bail};
-pub(crate) use links::Link;
+pub(crate) use links::{Link, LinkKind, LinkReference};
 use serde::Serialize;
 use std::{collections::HashSet, path::PathBuf};
 use tokio::{io::AsyncReadExt, sync::Mutex};

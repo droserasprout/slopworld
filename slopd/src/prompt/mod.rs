@@ -1,4 +1,7 @@
-//! Values shared by library prompts.
+//! Library prompt lookup and contextual composition shared by manual and automated input.
+
+use crate::config::Config;
+use anyhow::{Result, anyhow};
 
 mod template;
 use rand::seq::IteratorRandom;
@@ -48,6 +51,33 @@ pub(crate) fn render_prompt_with(
 
 pub(crate) fn render_prompt(text: &str, random_tips: &[String]) -> String {
     render_prompt_with(text, random_tips, None)
+}
+
+/// Compose a selected prompt from the caller's resolved session/project snapshot.
+pub(crate) fn prepare_prompt(
+    cfg: &Config,
+    s: &crate::config::SessionCfg,
+    p: &crate::config::ProjectCfg,
+    prompt: &str,
+    random_tips: &[String],
+) -> Result<String> {
+    let b = cfg
+        .library_item(prompt)
+        .filter(|b| b.kind == crate::config::LibraryItemKind::Prompt)
+        .ok_or_else(|| anyhow!("no such prompt: {prompt}"))?;
+    let command = cfg.command_of(s);
+    let directory = crate::config::expand(&p.dir);
+    let vars = crate::prompt::PromptVars {
+        agent: &s.name,
+        project: &p.name,
+        directory: &directory,
+        command: &command,
+    };
+    Ok(crate::prompt::render_prompt_with(
+        &b.text,
+        random_tips,
+        Some(&vars),
+    ))
 }
 
 #[cfg(test)]

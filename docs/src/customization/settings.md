@@ -1,8 +1,7 @@
 # Settings
 
-Open Settings with the heater icon in the top bar, the Settings heater on the map,
-or the **Settings** command in the palette. The heater arrives in its own drop pod,
-including in existing colonies. Settings opens as tabs over the terminal pane.
+Open Settings with the gear icon in the top bar or the **Settings** command in the
+palette. Settings opens as tabs over the terminal pane.
 
 ## Find a setting
 

@@ -88,6 +88,10 @@ namespace SlopWorld
 
         internal void SaveDescriptionTest() => Save();
 
+        internal void ReloadDescriptionTest() => ReloadDescription();
+
+        internal string DescriptionRevisionTest => SelectedDescription.Revision;
+
         internal void RemoveLinkTest(int index) => RemoveLink(Linked(_selected).Links[index]);
 
         internal void AddLinkTest(string kind, string id) => AddLink(kind, id, id);

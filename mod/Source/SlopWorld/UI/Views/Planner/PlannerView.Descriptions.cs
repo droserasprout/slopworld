@@ -11,11 +11,44 @@ namespace SlopWorld
         sealed class DescriptionDraft
         {
             public string Text = "";
-            public string Saved = "";
-            public string Revision;
-            public string Error;
-            public bool Busy;
+            public string Saved { get; private set; } = "";
+            public string Revision { get; private set; }
+            public string Error { get; private set; }
+            public bool Busy { get; private set; }
             public bool Dirty => Text != Saved;
+
+            public bool Begin()
+            {
+                if (Busy)
+                    return false;
+                Busy = true;
+                Error = null;
+                return true;
+            }
+
+            public void Accept(Wire.PlannerDescription value, bool reading)
+            {
+                // Reload rebases a local draft onto the latest accepted revision. Clean
+                // drafts follow remote text; dirty drafts remain available for save/discard.
+                if (!reading || !Dirty)
+                    Text = value.Text;
+                Saved = value.Text;
+                Revision = value.Revision;
+                Busy = false;
+                Error = null;
+            }
+
+            public void Fail(string error)
+            {
+                Busy = false;
+                Error = error;
+            }
+
+            public void Discard()
+            {
+                Text = Saved;
+                Error = null;
+            }
         }
 
         readonly Dictionary<string, DescriptionDraft> _descriptions =
@@ -39,16 +72,22 @@ namespace SlopWorld
             LoadDescription(id, draft);
         }
 
+        void ReloadDescription()
+        {
+            var draft = SelectedDescription;
+            if (!IsOpenEndpoint || !Ready || draft == null)
+                return;
+            LoadDescription(_selected.Id, draft);
+        }
+
         void LoadDescription(string id, DescriptionDraft draft)
         {
-            if (draft.Busy || !IsOpenEndpoint)
+            if (!IsOpenEndpoint || !draft.Begin())
                 return;
-            draft.Busy = true;
-            draft.Error = null;
             DaemonClient.Get<Wire.PlannerDescription>(
                 DescriptionRoute(id),
-                value => AcceptDescription(draft, value),
-                error => DescriptionFailed(draft, error)
+                value => draft.Accept(value, reading: true),
+                error => draft.Fail(error)
             );
         }
 
@@ -70,36 +109,21 @@ namespace SlopWorld
                 Failed(generation, "Description is still loading. Try saving again.");
                 return;
             }
-            draft.Busy = true;
-            draft.Error = null;
+            draft.Begin();
             DaemonClient.Put<Wire.PlannerDescription>(
                 DescriptionRoute(pending.Key),
                 new Wire.PlannerSaveReq { Text = draft.Text, Revision = draft.Revision },
                 value =>
                 {
-                    AcceptDescription(draft, value);
+                    draft.Accept(value, reading: false);
                     SaveDescriptions(generation);
                 },
                 error =>
                 {
-                    DescriptionFailed(draft, error);
+                    draft.Fail(error);
                     Failed(generation, "Description was not saved: " + error);
                 }
             );
-        }
-
-        static void AcceptDescription(DescriptionDraft draft, Wire.PlannerDescription value)
-        {
-            draft.Text = draft.Saved = value.Text;
-            draft.Revision = value.Revision;
-            draft.Busy = false;
-            draft.Error = null;
-        }
-
-        static void DescriptionFailed(DescriptionDraft draft, string error)
-        {
-            draft.Busy = false;
-            draft.Error = error;
         }
     }
 }

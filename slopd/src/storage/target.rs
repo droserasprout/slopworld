@@ -87,13 +87,11 @@ impl Target {
     fn allowed(&self, parts: &[Option<&str>]) -> bool {
         match (self, parts) {
             (Self::Config(_), [Some("projects"), Some(name)]) => opaque_file(name),
-            (
-                Self::Config(_),
-                [
-                    Some("prompts" | "file_actions" | "shell_scripts"),
-                    Some(name),
-                ],
-            ) => catalog_file(name),
+            (Self::Config(_), [Some(directory), Some(name)])
+                if crate::config::LibraryItemKind::from_config_dir(directory).is_some() =>
+            {
+                catalog_file(name)
+            }
             (Self::Data(_), [Some("agents" | "host_shells" | "worktrees"), Some(name)]) => {
                 opaque_file(name)
             }

@@ -2035,3 +2035,50 @@ async fn stalled_scoped_socket_releases_session_admission_after_send_deadline() 
     .await
     .expect("send timeout retained session admission");
 }
+
+// Pump-only tests deliberately retain their own socket owner.
+fn spawn_frame_pump(
+    events: broadcast::Receiver<Arc<EventMessage>>,
+    tx: WsTx,
+    subs: WsSubs,
+    cap: Cap,
+) -> JoinHandle<()> {
+    tokio::spawn(run_frame_pump(events, tx, subs, cap))
+}
+
+#[tokio::test]
+async fn frame_pump_timeout_closes_socket_and_releases_subscription() {
+    use crate::shared::wire::{self, client_message::Payload as C, event::Payload as E};
+    let (manager, mut client, server, driving) = live_intake_socket().await;
+    send_wire_command(
+        &mut client,
+        C::Sub(wire::NameReq {
+            name: Some("pager".into()),
+        }),
+    )
+    .await;
+    assert!(matches!(receive(&mut client).await, E::Screen(s) if s.name == "pager"));
+    assert!(manager.sessions.watched_for_test("pager"));
+
+    // Keep the peer connected but stop reading. This live frame exceeds loopback
+    // buffers, forcing the pump's send deadline rather than client-side closure.
+    let mut frame = screen("pager", 2);
+    frame.lines = vec!["x".repeat(16 * 1024 * 1024).into()];
+    manager.services.emit(Event::Screen { screen: frame });
+    tokio::time::timeout(Duration::from_secs(5), driving)
+        .await
+        .expect("frame pump timeout left socket intake alive")
+        .unwrap();
+    assert!(!manager.sessions.watched_for_test("pager"));
+    // Drain any bytes already buffered before teardown and observe transport EOF.
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while let Some(Ok(message)) = client.next().await {
+            if matches!(message, tokio_tungstenite::tungstenite::Message::Close(_)) {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("frame pump timeout left the transport open");
+    server.abort();
+}

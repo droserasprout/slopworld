@@ -1,8 +1,8 @@
 //! HTTP handlers for task mailboxes and worker creation.
 use crate::api::protobuf::{ApiError, Proto, domain};
+use crate::application::worker_tasks;
 use crate::application::workers::Workers;
 use crate::shared::wire;
-use anyhow::Context;
 
 use axum::Extension;
 use axum::extract::{Path, Query, State};
@@ -80,32 +80,11 @@ pub(crate) fn task_principal(
     cap: &Cap,
     headers: &HeaderMap,
 ) -> Result<String, crate::api::protobuf::ApiError> {
-    let who = cap
-        .principal()
-        .map(str::to_string)
-        .or_else(|| {
-            headers
-                .get(SESSION_HEADER)
-                .and_then(|v| v.to_str().ok())
-                .map(str::to_string)
-        })
-        .filter(|s| !s.trim().is_empty())
-        .ok_or_else(|| {
-            err(
-                StatusCode::BAD_REQUEST,
-                format!("Set the {SESSION_HEADER} header for this root task request."),
-            )
-        })?;
-    // The root token represents the user at the keyboard.
-    // A grant uses its grantor's session name as the caller identity.
-    // A session named `host` cannot use the host identity through a grant.
-    if who == crate::tasks::HOST && !cap.may_create() {
-        return Err(err(
-            StatusCode::FORBIDDEN,
-            "Only the root token can use the host identity.",
-        ));
-    }
-    Ok(who)
+    worker_tasks::principal(
+        cap,
+        headers.get(SESSION_HEADER).and_then(|v| v.to_str().ok()),
+    )
+    .map_err(operation_error)
 }
 
 /// A task endpoint can be a live session or `host`.
@@ -308,15 +287,9 @@ pub(crate) async fn update_task(
 ) -> ApiResult<wire::TaskResult> {
     let q: UpdateTaskReq = domain(q)?;
     let who = task_participant(&m, &cap, &headers).await?;
-    if q.status == crate::tasks::Status::Canceled {
-        require_worker_permission(&m, &cap, &who.identity, &id, WorkerPermission::Cancel).await?;
-    }
-    let task = m
-        .sessions
-        .task_store()
-        .update_task_async(&who.identity, &who.name, &id, q.status, q.note)
+    let task = worker_tasks::update(&m, &cap, who, &id, q.status, q.note)
         .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+        .map_err(operation_error)?;
     Ok(Proto(wire::TaskResult {
         task: Some(task_view(task)),
     }))
@@ -344,94 +317,16 @@ pub(crate) async fn prune_tasks(
     Ok(Proto(batch_view(removed, true)))
 }
 
-enum WorkerPermission {
-    Followup,
-    Cancel,
-}
-
-/// Task participation and each worker action permission are checked independently.
-async fn require_worker_permission(
-    m: &App,
-    cap: &Cap,
-    who: &str,
-    id: &str,
-    permission: WorkerPermission,
-) -> Result<(), ApiError> {
-    if cap.may_create() {
-        return Ok(());
-    }
-    if let Some(task) = m
-        .sessions
-        .task_store()
-        .task_for_async(who, id)
-        .await
-        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
-        && task.worker.is_some()
-        && task.from_id == who
-    {
-        let target = m
-            .sessions
-            .views()
-            .await
-            .into_iter()
-            .find(|view| view.worker.task_id == id);
-        let access = match target {
-            Some(target) => m.sessions.worker_access(cap, &target.name).await,
-            None => None,
-        };
-        if !access.is_some_and(|access| match permission {
-            WorkerPermission::Followup => access.followup,
-            WorkerPermission::Cancel => access.cancel,
-        }) {
-            return Err(err(
-                StatusCode::FORBIDDEN,
-                "The parent does not have permission for this worker action.",
-            ));
-        }
-    }
-    Ok(())
-}
-
-async fn followup_target(
-    m: &App,
-    cap: &Cap,
-    headers: &HeaderMap,
-    id: &str,
-) -> Result<String, ApiError> {
-    let who = task_identity(m, cap, headers).await?;
-    let task = m
-        .sessions
-        .task_store()
-        .task_for_async(&who, id)
-        .await
-        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, "Task is unavailable."))?;
-    if task.worker.is_none() || (!cap.may_create() && task.from_id != who) {
-        return Err(err(
-            StatusCode::FORBIDDEN,
-            "Only a worker's parent can send a follow-up.",
-        ));
-    }
-    if task.status == crate::tasks::Status::Canceled {
-        return Err(err(StatusCode::BAD_REQUEST, "Task is canceled."));
-    }
-    require_worker_permission(m, cap, &who, id, WorkerPermission::Followup).await?;
-    let target = m
-        .sessions
-        .views()
-        .await
-        .into_iter()
-        .find(|view| view.worker.task_id == id)
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, "Worker no longer exists."))?;
-    let cfg = m
-        .sessions
-        .session_cfg(&target.name)
-        .await
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, "Worker no longer exists."))?;
-    if cfg.state_id != task.to_id {
-        return Err(err(StatusCode::FORBIDDEN, "Worker identity changed."));
-    }
-    Ok(target.name)
+fn operation_error(error: worker_tasks::OperationError) -> ApiError {
+    use worker_tasks::Failure;
+    let status = match error.failure {
+        Failure::Invalid => StatusCode::BAD_REQUEST,
+        Failure::Forbidden => StatusCode::FORBIDDEN,
+        Failure::Missing => StatusCode::NOT_FOUND,
+        Failure::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+        Failure::Unauthorized => StatusCode::UNAUTHORIZED,
+    };
+    err(status, error.message)
 }
 
 pub(crate) async fn followup_task(
@@ -442,75 +337,20 @@ pub(crate) async fn followup_task(
     Path(id): Path<String>,
     Proto(q): Proto<wire::WorkerFollowupReq>,
 ) -> ApiResult {
-    let validate_credentials = || {
-        if !cap.is_valid()
-            || (cap.may_create()
-                && generation
-                    .as_ref()
-                    .is_none_or(|g| g.0.0 != m.config_authority.root_generation()))
-        {
-            Err(err(StatusCode::UNAUTHORIZED, "capability revoked"))
-        } else {
-            Ok(())
-        }
-    };
-    let target = crate::application::Configuration::new(&m)
-        .session_request(async {
-            validate_credentials()?;
-            let name = followup_target(&m, &cap, &headers, &id).await?;
-            m.sessions
-                .prepare_followup(&name, &q.body)
-                .await
-                .map_err(|e| err(StatusCode::BAD_REQUEST, e))
-        })
-        .await?;
-    m.sessions
-        .wait_followup(&target)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    crate::application::Configuration::new(&m)
-        .session_request(async {
-            validate_credentials()?;
-            followup_target(&m, &cap, &headers, &id).await?;
-            let sessions = m.sessions.clone();
-            let sender = task_principal(&cap, &headers)?;
-            super::ack_result(
-                m.sessions
-                    .owned_session_operation(async move {
-                        let (audit_id, audit_sender, body) =
-                            (id.clone(), sender.clone(), q.body.clone());
-                        sessions
-                            .task_store()
-                            .run(move |tasks| {
-                                tasks.followup_note(
-                                    &audit_id,
-                                    &audit_sender,
-                                    format!("Follow-up requested: {body}"),
-                                )
-                            })
-                            .await?;
-                        let result = sessions.submit_followup(&target, &q.body).await;
-                        let outcome = followup_outcome(&result);
-                        let saved = sessions
-                            .task_store()
-                            .run(move |tasks| tasks.followup_note(&id, &sender, outcome))
-                            .await;
-                        saved.context(
-                            "Follow-up delivery completed, but saving its outcome failed",
-                        )?;
-                        result
-                    })
-                    .await,
-            )
-        })
-        .await
-}
-
-fn followup_outcome(result: &anyhow::Result<()>) -> String {
-    match result {
-        Ok(()) => "Follow-up submitted to the worker's current run; task status unchanged.".into(),
-        Err(error) => format!("Follow-up not delivered: {error:#}"),
-    }
+    worker_tasks::followup(
+        &m,
+        &cap,
+        generation.map(|g| g.0.0),
+        headers
+            .get(SESSION_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned),
+        id,
+        q.body,
+    )
+    .await
+    .map_err(operation_error)?;
+    Ok(Proto(wire::Ack { ok: true }))
 }
 
 pub(crate) async fn set_worker_access(
@@ -538,26 +378,9 @@ pub(crate) async fn cancel_tasks(
 ) -> ApiResult<wire::TaskBatchResult> {
     let q: RemoveTasksReq = domain(q)?;
     let who = task_participant(&m, &cap, &headers).await?;
-    let mut supervised = Vec::new();
-    for id in &q.ids {
-        require_worker_permission(&m, &cap, &who.identity, id, WorkerPermission::Cancel).await?;
-        if !cap.may_create() {
-            supervised.push(id.clone());
-        }
-    }
-    let (identity, sender, ids, force) = (who.identity, who.name, q.ids, cap.may_create());
-    let tasks = if supervised.is_empty() {
-        m.sessions
-            .task_store()
-            .cancel_tasks_async(&identity, &sender, &ids, force)
-            .await
-    } else {
-        m.sessions
-            .task_store()
-            .run(move |tasks| tasks.cancel_supervised(&identity, &sender, &ids, force, &supervised))
-            .await
-    }
-    .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let tasks = worker_tasks::cancel(&m, &cap, who, q.ids)
+        .await
+        .map_err(operation_error)?;
     Ok(Proto(batch_view(tasks, false)))
 }
 

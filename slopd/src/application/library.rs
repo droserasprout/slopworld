@@ -173,32 +173,7 @@ impl Services {
     }
 }
 
-/// Compose a selected prompt from the caller's resolved session/project snapshot.
-pub(crate) fn prepare_prompt(
-    cfg: &Config,
-    s: &crate::config::SessionCfg,
-    p: &crate::config::ProjectCfg,
-    prompt: &str,
-    random_tips: &[String],
-) -> Result<String> {
-    let b = cfg
-        .library_item(prompt)
-        .filter(|b| b.kind == crate::config::LibraryItemKind::Prompt)
-        .ok_or_else(|| anyhow!("no such prompt: {prompt}"))?;
-    let command = cfg.command_of(s);
-    let directory = crate::config::expand(&p.dir);
-    let vars = crate::prompt::PromptVars {
-        agent: &s.name,
-        project: &p.name,
-        directory: &directory,
-        command: &command,
-    };
-    Ok(crate::prompt::render_prompt_with(
-        &b.text,
-        random_tips,
-        Some(&vars),
-    ))
-}
+pub(crate) use crate::prompt::prepare_prompt;
 
 #[cfg(test)]
 #[path = "library_tests.rs"]

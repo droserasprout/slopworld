@@ -171,6 +171,16 @@ namespace SlopWorld
                 on: Ready && !draft.Busy && draft.Revision != null
             );
             UiLayout.Validation(l, draft.Error);
+            if (
+                UiControls.Button(
+                    l.GetRect(UiTheme.FieldH),
+                    "Reload description",
+                    on: Ready && !draft.Busy
+                )
+            )
+                ReloadDescription();
+            if (draft.Dirty)
+                UiLayout.Note(l, "Reload keeps your draft and updates the revision used by Save.");
             UiLayout.Note(
                 l,
                 draft.Busy ? "Working…"

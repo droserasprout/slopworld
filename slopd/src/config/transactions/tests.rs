@@ -493,3 +493,88 @@ async fn library_only_preparation_cannot_commit_a_project_relocation() {
     assert!(!f.owner.records.binding.journal().unwrap().exists());
     drop(f.owner.persist.try_lock().unwrap());
 }
+
+#[tokio::test]
+async fn timer_catalog_create_edit_prompt_mutation_and_delete_persist() {
+    use crate::application::library::LibraryMutation;
+    use crate::config::{LibraryItemCfg, LibraryItemKind, TimerCfg};
+    let f = Fixture::new(Config::default());
+    let prompt = LibraryItemCfg {
+        name: "Review".into(),
+        text: "Review the project".into(),
+        ..Default::default()
+    };
+    let mut timer = LibraryItemCfg {
+        name: "Daily review".into(),
+        kind: LibraryItemKind::Timer,
+        timer: Some(TimerCfg {
+            enabled: false,
+            schedule: "0 12 * * *".into(),
+            prompt: "Review".into(),
+            target: "0123456789abcdef".into(),
+        }),
+        ..Default::default()
+    };
+    for mutation in [
+        LibraryMutation::Add(prompt.clone()),
+        LibraryMutation::Add(timer.clone()),
+    ] {
+        f.update_cfg(ConfigMutation::Library, |cfg| mutation.apply(cfg))
+            .await
+            .unwrap();
+    }
+    let timer_path = f
+        .cfg_path
+        .parent()
+        .unwrap()
+        .join("timers/Daily review.toml");
+    assert!(timer_path.exists());
+    let loaded = Config::load_library_for(&f.cfg_path).await.unwrap();
+    assert_eq!(
+        serde_json::to_value(loaded.iter().find(|i| i.name == timer.name).unwrap()).unwrap(),
+        serde_json::to_value(&timer).unwrap()
+    );
+
+    timer.timer.as_mut().unwrap().schedule = "30 9 * * *".into();
+    let edited_prompt = LibraryItemCfg {
+        text: "Updated instructions".into(),
+        ..prompt
+    };
+    for mutation in [
+        LibraryMutation::Replace {
+            name: timer.name.clone(),
+            item: timer.clone(),
+        },
+        LibraryMutation::Replace {
+            name: edited_prompt.name.clone(),
+            item: edited_prompt.clone(),
+        },
+    ] {
+        f.update_cfg(ConfigMutation::Library, |cfg| mutation.apply(cfg))
+            .await
+            .unwrap();
+    }
+    let loaded = Config::load_library_for(&f.cfg_path).await.unwrap();
+    assert_eq!(
+        serde_json::to_value(loaded.iter().find(|i| i.name == timer.name).unwrap()).unwrap(),
+        serde_json::to_value(&timer).unwrap()
+    );
+    assert_eq!(
+        loaded
+            .iter()
+            .find(|i| i.name == edited_prompt.name)
+            .unwrap()
+            .text,
+        edited_prompt.text
+    );
+    f.update_cfg(ConfigMutation::Library, |cfg| {
+        LibraryMutation::Remove(timer.name.clone()).apply(cfg)
+    })
+    .await
+    .unwrap();
+    assert!(!timer_path.exists());
+    let loaded = Config::load_library_for(&f.cfg_path).await.unwrap();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].name, edited_prompt.name);
+    assert_eq!(loaded[0].text, edited_prompt.text);
+}

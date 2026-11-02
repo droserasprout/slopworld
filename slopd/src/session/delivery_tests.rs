@@ -713,7 +713,26 @@ async fn scheduled_delivery_rejects_busy_stale_shell_and_resume_pending_targets(
 
 #[tokio::test]
 async fn scheduled_prompt_submits_once_and_reserves_the_idle_turn() {
-    let (manager, mut rx) = delivery_fixture().await;
+    let (manager, mut rx) = delivery_fixture_config(Config {
+        sessions: vec![SessionCfg {
+            name: "worker".into(),
+            project: "repo".into(),
+            cmd: Some("test-agent".into()),
+            ..Default::default()
+        }],
+        projects: vec![crate::config::ProjectCfg {
+            name: "repo".into(),
+            dir: "/resolved/{{ agent }}".into(),
+            ..Default::default()
+        }],
+        library: vec![crate::config::LibraryItemCfg {
+            name: "Review".into(),
+            text: "{{ agent }}|{{ project }}|{{ directory }}|{{ command }}".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    })
+    .await;
     let identity = manager.session_cfg("worker").await.unwrap().state_id;
     manager.live.write().await.get_mut("worker").unwrap().state = State::Idle;
     let root = manager.cfg_path().parent().unwrap();
@@ -743,7 +762,11 @@ async fn scheduled_prompt_submits_once_and_reserves_the_idle_turn() {
     .unwrap();
     assert!(
         manager
-            .submit_scheduled("worker", &identity, "Review λ")
+            .submit_scheduled_prompt(
+                &manager.config().await,
+                &manager.session_cfg("worker").await.unwrap(),
+                "Review"
+            )
             .await
             .unwrap()
     );
@@ -754,7 +777,7 @@ async fn scheduled_prompt_submits_once_and_reserves_the_idle_turn() {
             .unwrap()
     );
     assert!(
-        matches!(rx.recv().await.unwrap().command, Input::AgentPaste { bytes } if bytes == "Review λ".as_bytes())
+        matches!(rx.recv().await.unwrap().command, Input::AgentPaste { bytes } if bytes == "worker|repo|/resolved/{{ agent }}|test-agent".as_bytes())
     );
     assert!(matches!(rx.recv().await.unwrap().command, Input::Gap(_)));
     assert!(matches!(
@@ -771,13 +794,19 @@ async fn initial_library_prompt_waits_until_prior_queue_input_is_consumed() {
     let (manager, mut rx) = delivery_fixture_config(Config {
         sessions: vec![SessionCfg {
             name: "worker".into(),
+            project: "repo".into(),
             cmd: Some("test-agent".into()),
             initial_prompt: "Startup instructions".into(),
             ..Default::default()
         }],
+        projects: vec![crate::config::ProjectCfg {
+            name: "repo".into(),
+            dir: "/resolved/{{ agent }}".into(),
+            ..Default::default()
+        }],
         library: vec![crate::config::LibraryItemCfg {
             name: "Startup instructions".into(),
-            text: "Custom initial instructions".into(),
+            text: "{{ agent }}|{{ project }}|{{ directory }}|{{ command }}".into(),
             ..Default::default()
         }],
         ..Default::default()
@@ -795,7 +824,7 @@ async fn initial_library_prompt_waits_until_prior_queue_input_is_consumed() {
     };
     assert!(rx.try_recv().is_err());
     done.send(()).unwrap();
-    assert_prompt_submission(&mut rx, "Custom initial instructions").await;
+    assert_prompt_submission(&mut rx, "worker|repo|/resolved/{{ agent }}|test-agent").await;
     pending.await.unwrap();
 }
 

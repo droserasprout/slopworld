@@ -55,7 +55,9 @@ has a separate lifetime, so a late task-reader response cannot reopen a closed v
 Both read and save replies project live worker links and status without rewriting the document.
 
 Planner links live in `planner/links/<sw-id>.json` under the daemon data root, with
-independent revision checks. An explicit empty list suppresses inferred `sw-task:` and
+independent revision checks. Stored links contain typed association identities and fallback
+labels; task status is projected from the Task store and never persisted with the links.
+An explicit empty list suppresses inferred `sw-task:` and
 worker-body associations. Worker links store private state IDs; client navigation resolves
 the current session by ID. Removing links never mutates Tasks or worker processes.
 Planner worker spawning commits both links after Task creation and before registration/
@@ -67,7 +69,10 @@ under the backlog gate and checks its own content revision. Task edits/completio
 sidecars; deletion retains them for recovery. Description drafts and in-flight replies
 belong to endpoint/task identity, independently of selection. Planner Save writes the
 backlog and then dirty descriptions, retaining failed drafts and accepted revisions
-for retry. Discard restores both from their last accepted values. Refresh retains
+for retry. Reload description retries failed reads and adopts remote text for clean drafts;
+for dirty drafts it preserves local text while updating the accepted text and revision
+used by Save or Discard. Description request state owns these transitions independently
+of rendering. Discard restores both from their last accepted values. Refresh retains
 visible rows and field state when task text is unchanged, while updating link metadata.
 Background refresh leaves controls enabled; replies cannot overwrite edits made while
 the request was pending or supersede a newer save.

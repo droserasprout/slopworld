@@ -143,6 +143,87 @@ namespace SlopWorld.Tests
             view.Closed();
         }
 
+        static PlannerView DescriptionTask()
+        {
+            var view = Loaded();
+            view.LoadTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDocument { Text = "Task sw-id:first", Revision = "r2" });
+            view.SelectTest(0);
+            return view;
+        }
+
+        public static void FailedDescriptionReadCanRetryAndCleanReloadAdoptsRemoteText()
+        {
+            var view = DescriptionTask();
+            DaemonClient.Requests.Last().Fail("Offline");
+            Assert.That(view.DescriptionRevisionTest, Is.Null);
+            Assert.That(view.DescriptionBusyTest, Is.False);
+            view.ReloadDescriptionTest();
+            var retry = DaemonClient.Requests.Last();
+            int count = DaemonClient.Requests.Count;
+            view.ReloadDescriptionTest();
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(count));
+            Assert.That(view.DescriptionBusyTest, Is.True);
+            retry.Reply(new Wire.PlannerDescription { Text = "Recovered", Revision = "d1" });
+            Assert.That(view.DescriptionTest, Is.EqualTo("Recovered"));
+            Assert.That(view.DescriptionErrorTest, Is.Null);
+            view.ReloadDescriptionTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "External edit", Revision = "d2" });
+            Assert.That(view.DescriptionTest, Is.EqualTo("External edit"));
+            Assert.That(view.DescriptionDirtyTest, Is.False);
+            Assert.That(view.DescriptionRevisionTest, Is.EqualTo("d2"));
+            view.Closed();
+            count = DaemonClient.Requests.Count;
+            view.ReloadDescriptionTest();
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(count));
+            view.Opened();
+            DaemonClient.BaseUrl = "http://another-endpoint";
+            view.ReloadDescriptionTest();
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(count));
+            view.Closed();
+        }
+
+        public static void ConflictedDescriptionReloadPreservesDraftAndResavesLatestRevision()
+        {
+            var view = DescriptionTask();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Original", Revision = "d1" });
+            view.DescriptionTest = "My draft";
+            view.SaveDescriptionTest();
+            DaemonClient.Requests.Last().Fail("Description changed");
+            view.ReloadDescriptionTest();
+            DaemonClient.Requests.Last().Fail("Offline");
+            Assert.That(view.DescriptionTest, Is.EqualTo("My draft"));
+            Assert.That(view.DescriptionRevisionTest, Is.EqualTo("d1"));
+            view.ReloadDescriptionTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "External edit", Revision = "d2" });
+            Assert.That(view.DescriptionTest, Is.EqualTo("My draft"));
+            Assert.That(view.DescriptionDirtyTest, Is.True);
+            Assert.That(view.DescriptionRevisionTest, Is.EqualTo("d2"));
+            view.DiscardTest();
+            Assert.That(view.DescriptionTest, Is.EqualTo("External edit"));
+            view.DescriptionTest = "My draft";
+            view.SaveDescriptionTest();
+            var save = DaemonClient.Requests.Last();
+            var body = (Wire.PlannerSaveReq)save.Body;
+            Assert.That(body.Revision, Is.EqualTo("d2"));
+            Assert.That(body.Text, Is.EqualTo("My draft"));
+            int count = DaemonClient.Requests.Count;
+            view.ReloadDescriptionTest();
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(count));
+            save.Reply(new Wire.PlannerDescription { Text = "My draft", Revision = "d3" });
+            Assert.That(view.DescriptionDirtyTest, Is.False);
+            Assert.That(view.DescriptionRevisionTest, Is.EqualTo("d3"));
+            view.Closed();
+        }
+
         public static void DescriptionRepliesAndDraftsRemainBoundToTheirTask()
         {
             var view = Loaded();

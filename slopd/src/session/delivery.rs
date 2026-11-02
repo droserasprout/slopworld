@@ -1,8 +1,8 @@
 //! Delayed terminal input: run identity, readiness, ordered submission, and auto-resume.
-//! Callers compose prompts; capture/input owns the queue and execution of admitted input.
+//! Resolves automated Library context for prompt composition; worker/errand callers
+//! supply composed text. Capture/input owns the queue and execution of admitted input.
 
 use super::*;
-use crate::config::LibraryItemKind;
 use crate::session::input::ENTER_GAP;
 
 // Stop waiting for a startup prompt after this interval.
@@ -104,7 +104,7 @@ impl SessionRuntime {
     }
 
     /// Caller holds exclusive session admission through its persisted occurrence claim.
-    pub(crate) async fn submit_scheduled(
+    async fn submit_scheduled(
         self: &Arc<Self>,
         name: &str,
         identity: &str,
@@ -475,24 +475,40 @@ impl SessionRuntime {
         {
             return;
         }
-        let mut text = String::new();
-        if !session.initial_prompt.is_empty() {
-            match cfg
-                .library_item(&session.initial_prompt)
-                .filter(|p| p.kind == LibraryItemKind::Prompt)
-            {
-                Some(prompt) => {
-                    if !text.is_empty() {
-                        text.push_str("\n\n");
-                    }
-                    text.push_str(&prompt.text);
-                }
-                None => tracing::warn!(session = %target.name, "initial Library Prompt is missing"),
+        match self
+            .prepare_automated_prompt(&cfg, session, &session.initial_prompt)
+            .await
+        {
+            Ok(text) if !text.is_empty() => self.deliver(target, &text).await,
+            Ok(_) => {}
+            Err(error) => {
+                tracing::warn!(session = %target.name, %error, "initial Library Prompt withheld")
             }
         }
-        if !text.is_empty() {
-            self.deliver(target, &text).await;
-        }
+    }
+
+    async fn prepare_automated_prompt(
+        &self,
+        cfg: &Config,
+        session: &SessionCfg,
+        prompt: &str,
+    ) -> Result<String> {
+        let project = self
+            .project_for(cfg, session)
+            .await
+            .context("Prompt target has no configured project")?;
+        crate::prompt::prepare_prompt(cfg, session, &project, prompt, &[])
+    }
+
+    pub(crate) async fn submit_scheduled_prompt(
+        self: &Arc<Self>,
+        cfg: &Config,
+        session: &SessionCfg,
+        prompt: &str,
+    ) -> Result<bool> {
+        let text = self.prepare_automated_prompt(cfg, session, prompt).await?;
+        self.submit_scheduled(&session.name, &session.state_id, &text)
+            .await
     }
 
     async fn delivery_fence(

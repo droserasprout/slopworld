@@ -10,7 +10,6 @@ use std::time::Duration;
 use axum::extract::ws::Message;
 use futures::SinkExt;
 use tokio::sync::broadcast;
-use tokio::task::JoinHandle;
 use tokio::time::{Instant, sleep_until};
 
 use super::super::App;
@@ -167,17 +166,15 @@ impl PendingFrames {
 }
 
 /// Coalesce live screens per pane; flush them before forwarding each control event.
-pub(super) fn spawn_frame_pump(
+pub(super) async fn run_frame_pump(
     events: broadcast::Receiver<Arc<EventMessage>>,
     tx: WsTx,
     subs: WsSubs,
     cap: Cap,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
-        if let Err(error) = pump_frames(events, &tx, &subs, &cap).await {
-            tracing::debug!("frame pump ended: {error}");
-        }
-    })
+) {
+    if let Err(error) = pump_frames(events, &tx, &subs, &cap).await {
+        tracing::debug!("frame pump ended: {error}");
+    }
 }
 
 async fn pump_frames(

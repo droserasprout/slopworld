@@ -71,6 +71,54 @@ fn shell(id: &str, name: &str) -> HostTerminalCfg {
 }
 
 #[tokio::test]
+async fn initial_prompt_edits_and_clearing_survive_reload() {
+    let mut f = Fixture::<SessionCfg>::new();
+    f.change(|rows| rows.push(agent(FIRST, "agent")))
+        .await
+        .unwrap();
+    for prompt in ["Review", "Plan", ""] {
+        f.change(|rows| rows[0].initial_prompt = prompt.into())
+            .await
+            .unwrap();
+        f.reload().await.unwrap();
+        assert_eq!(f.value(FIRST).initial_prompt, prompt);
+    }
+}
+
+#[test]
+fn serialized_agent_fields_are_owned_by_the_record_schema() {
+    // Populate optional fields too: treating a modeled field as an extension
+    // silently restores its old value on the next edit.
+    let value = SessionCfg {
+        worktree: "tree".into(),
+        label: Some("label".into()),
+        cmd: Some("tool".into()),
+        args: Some("--flag".into()),
+        command_snapshot: Some(Default::default()),
+        sandbox: vec!["policy".into()],
+        sandbox_snapshots: vec![Default::default()],
+        persistent_tmp: true,
+        limits: crate::config::Limits {
+            memory_mb: Some(256),
+            ..Default::default()
+        },
+        parent_id: SECOND.into(),
+        parent_access: crate::config::WorkerAccess::all(),
+        worker: true,
+        parent: "parent".into(),
+        task_id: "task".into(),
+        ..agent(FIRST, "agent")
+    };
+    let raw = toml::Value::try_from(value).unwrap();
+    for key in raw.as_table().unwrap().keys() {
+        assert!(
+            super::super::session_document::AGENT.contains(&key.as_str()),
+            "unowned agent field: {key}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn snapshot_cache_and_warning_level_survive_restart() {
     let mut f = Fixture::<SessionCfg>::new();
     let mut value = agent(FIRST, "agent");

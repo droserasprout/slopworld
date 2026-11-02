@@ -824,19 +824,7 @@ async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient
             .await
             .unwrap();
         assert_eq!(
-            require_worker_permission(
-                &manager,
-                &scoped("parent"),
-                &task.from_id,
-                &task.id,
-                WorkerPermission::Followup
-            )
-            .await
-            .is_ok(),
-            access.followup
-        );
-        assert_eq!(
-            followup_target(&manager, &scoped("parent"), &caller("parent"), &task.id)
+            worker_tasks::followup_target(&manager, &scoped("parent"), "parent", &task.id)
                 .await
                 .is_ok(),
             access.followup
@@ -857,10 +845,10 @@ async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient
             assert_eq!(result.tasks[0].status, "canceled");
             assert_eq!(result.tasks[0].note.as_deref(), Some("progress"));
             let rejected =
-                followup_target(&manager, &scoped("parent"), &caller("parent"), &task.id)
+                worker_tasks::followup_target(&manager, &scoped("parent"), "parent", &task.id)
                     .await
                     .unwrap_err();
-            assert_eq!(rejected.0, StatusCode::BAD_REQUEST);
+            assert_eq!(operation_error(rejected).0, StatusCode::BAD_REQUEST);
         }
     }
 }
@@ -956,4 +944,81 @@ async fn followup_rejects_missing_or_stale_root_generation_before_preparing_deli
         .await;
         assert_eq!(result.unwrap_err().0, StatusCode::UNAUTHORIZED);
     }
+}
+
+#[tokio::test]
+async fn followup_destination_preserves_identity_and_missing_worker_errors() {
+    use crate::config::{Config, SessionCfg, WorkerAccess};
+    use crate::tasks::WorkerTask;
+    let bits = 15;
+    let access = WorkerAccess {
+        followup: bits & 1 != 0,
+        cancel: bits & 2 != 0,
+        terminal: bits & 4 != 0,
+        lifecycle: bits & 8 != 0,
+    };
+    let manager = crate::application::test_application(Config {
+        sessions: vec![
+            SessionCfg {
+                name: "parent".into(),
+                ..Default::default()
+            },
+            SessionCfg {
+                name: "worker".into(),
+                worker: true,
+                parent_access: access,
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    });
+    let parent = manager.sessions.task_participant("parent").await.unwrap();
+    let worker = manager.sessions.task_participant("worker").await.unwrap();
+    let parent_id = parent.identity.clone();
+    let task = manager
+        .sessions
+        .create_task_owned(
+            parent,
+            worker,
+            "work".into(),
+            Some(WorkerTask {
+                session: "worker".into(),
+                parent: "parent".into(),
+                durable: true,
+            }),
+        )
+        .await
+        .unwrap();
+    {
+        let mut cfg = manager.config_authority.write().await;
+        cfg.sessions[1].parent_id = parent_id;
+        cfg.sessions[1].task_id = task.id.clone();
+    }
+    manager.sessions.sync_from_config().await;
+    {
+        let mut cfg = manager.config_authority.write().await;
+        cfg.sessions[1].state_id = "replacement-worker".into();
+    }
+    manager.sessions.sync_from_config().await;
+    let changed = worker_tasks::followup_target(&manager, &Cap::Root, "parent", &task.id)
+        .await
+        .unwrap_err();
+    assert_eq!(changed.message, "Worker identity changed.");
+    assert_eq!(operation_error(changed).0, StatusCode::FORBIDDEN);
+    {
+        let mut cfg = manager.config_authority.write().await;
+        cfg.sessions[1].task_id.clear();
+    }
+    manager.sessions.sync_from_config().await;
+    // Scoped parents lose permission before missing-destination details are exposed.
+    let scoped_error =
+        worker_tasks::followup_target(&manager, &scoped("parent"), "parent", &task.id)
+            .await
+            .unwrap_err();
+    assert_eq!(operation_error(scoped_error).0, StatusCode::FORBIDDEN);
+    let root_error = worker_tasks::followup_target(&manager, &Cap::Root, "parent", &task.id)
+        .await
+        .unwrap_err();
+    assert_eq!(root_error.message, "Worker no longer exists.");
+    assert_eq!(operation_error(root_error).0, StatusCode::NOT_FOUND);
 }

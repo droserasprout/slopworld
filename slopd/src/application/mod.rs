@@ -11,6 +11,7 @@ pub(crate) use state::Application;
 pub(crate) use state::{test_application, test_application_with_socket};
 pub(crate) mod catalogs;
 pub(crate) mod file_actions;
+pub(crate) mod worker_tasks;
 pub(crate) mod workers;
 pub(crate) mod worktrees;
 pub(crate) use agent_templates::{AgentTemplates, TemplateCatalog, TemplatePersistence};

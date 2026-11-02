@@ -60,8 +60,8 @@ async fn planner_links_commit_before_failed_start_and_link_failure_withholds_reg
             if fail_links { 0 } else { 2 }
         );
         if !fail_links {
-            assert_eq!(projected.items[0].links[0].id, tasks[0].id);
-            assert_eq!(projected.items[0].links[1].id, tasks[0].to_id);
+            assert_eq!(projected.items[0].links[0].reference.id, tasks[0].id);
+            assert_eq!(projected.items[0].links[1].reference.id, tasks[0].to_id);
         }
         assert!(app.sessions.views().await.is_empty());
     }

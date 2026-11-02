@@ -246,10 +246,7 @@ namespace SlopWorld
             if (!Ready || !IsOpenEndpoint)
                 return;
             foreach (var draft in _descriptions.Values)
-            {
-                draft.Text = draft.Saved;
-                draft.Error = null;
-            }
+                draft.Discard();
             _error = null;
             Accept(_document, discard: true);
         }

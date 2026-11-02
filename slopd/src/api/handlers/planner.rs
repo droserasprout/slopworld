@@ -109,13 +109,14 @@ pub(crate) async fn save_planner_links(
             let links = request
                 .links
                 .into_iter()
-                .map(|link| crate::application::planner::Link {
-                    kind: link.kind,
-                    id: link.id,
-                    label: link.label,
-                    status: String::new(),
+                .map(|link| {
+                    Ok(crate::application::planner::LinkReference {
+                        kind: crate::application::planner::LinkKind::parse(&link.kind)?,
+                        id: link.id,
+                        label: link.label,
+                    })
                 })
-                .collect();
+                .collect::<anyhow::Result<Vec<_>>>()?;
             let document = app
                 .services
                 .planner

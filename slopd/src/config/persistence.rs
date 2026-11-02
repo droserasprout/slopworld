@@ -41,15 +41,10 @@ impl Config {
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
             .unwrap_or_else(|| Path::new("."));
-        [
-            LibraryItemKind::Prompt,
-            LibraryItemKind::FileAction,
-            LibraryItemKind::Timer,
-            LibraryItemKind::Shell,
-        ]
-        .into_iter()
-        .map(|kind| (kind, root.join(kind.config_dir())))
-        .collect()
+        LibraryItemKind::ALL
+            .into_iter()
+            .map(|kind| (kind, root.join(kind.config_dir())))
+            .collect()
     }
 
     pub(crate) async fn load_library_for(path: &Path) -> Result<Vec<LibraryItemCfg>> {

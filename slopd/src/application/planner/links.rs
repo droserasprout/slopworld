@@ -2,18 +2,41 @@
 //! legacy task markers. Worker links use stable identities, never session names.
 use super::{Document, Item, Store, items, marker, revision};
 use crate::tasks::Task;
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::io::AsyncReadExt;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum LinkKind {
+    Task,
+    Worker,
+}
+
+impl LinkKind {
+    pub(crate) fn parse(value: &str) -> Result<Self> {
+        match value {
+            "task" => Ok(Self::Task),
+            "worker" => Ok(Self::Worker),
+            _ => bail!("Unknown Planner link kind."),
+        }
+    }
+}
+
+/// Persisted association and its fallback label; live status belongs to projection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct Link {
-    pub kind: String,
+pub(crate) struct LinkReference {
+    pub kind: LinkKind,
     pub id: String,
     #[serde(default)]
     pub label: String,
-    #[serde(default)]
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct Link {
+    #[serde(flatten)]
+    pub reference: LinkReference,
     pub status: String,
 }
 
@@ -41,7 +64,11 @@ impl Store {
             .context("Planner task no longer exists. Refresh the backlog.")
     }
 
-    async fn load_links(&self, item: &Item, tasks: &[Task]) -> Result<(Vec<Link>, String)> {
+    async fn load_links(
+        &self,
+        item: &Item,
+        tasks: &[Task],
+    ) -> Result<(Vec<LinkReference>, String)> {
         let path = self.links_path(&item.id)?;
         let text = match tokio::fs::File::open(path).await {
             Ok(file) => {
@@ -68,11 +95,10 @@ impl Store {
                 }
                 // Retain a missing legacy reference so the operator can remove it.
                 if links.is_empty() && !item.task_id.is_empty() {
-                    links.push(Link {
-                        kind: "task".into(),
+                    links.push(LinkReference {
+                        kind: LinkKind::Task,
                         id: item.task_id.clone(),
                         label: item.task_id.clone(),
-                        status: "unavailable".into(),
                     });
                 }
                 let revision = revision(&serde_json::to_string(&links)?);
@@ -81,7 +107,7 @@ impl Store {
         }
     }
 
-    async fn write_links(&self, id: &str, links: &[Link]) -> Result<()> {
+    async fn write_links(&self, id: &str, links: &[LinkReference]) -> Result<()> {
         let text = serde_json::to_string(links)?;
         ensure!(text.len() <= 65536, "Planner links exceed 64 KiB.");
         crate::paths::write_atomic_async(&self.links_path(id)?, &text, Some(0o600)).await
@@ -90,7 +116,7 @@ impl Store {
     pub(crate) async fn save_links(
         &self,
         id: &str,
-        links: Vec<Link>,
+        links: Vec<LinkReference>,
         expected: &str,
         tasks: &[Task],
         workers: &[String],
@@ -105,10 +131,6 @@ impl Store {
         let mut unique = std::collections::HashSet::new();
         for link in &links {
             ensure!(
-                matches!(link.kind.as_str(), "task" | "worker"),
-                "Unknown Planner link kind."
-            );
-            ensure!(
                 unique.insert((&link.kind, &link.id)),
                 "Duplicate Planner link."
             );
@@ -116,8 +138,8 @@ impl Store {
                 previous
                     .iter()
                     .any(|old| old.kind == link.kind && old.id == link.id)
-                    || (link.kind == "worker" && workers.contains(&link.id))
-                    || tasks.iter().any(|task| if link.kind == "task" {
+                    || (link.kind == LinkKind::Worker && workers.contains(&link.id))
+                    || tasks.iter().any(|task| if link.kind == LinkKind::Task {
                         task.id == link.id
                     } else {
                         task.worker.is_some() && task.to_id == link.id
@@ -147,15 +169,7 @@ impl Store {
             if item.id.is_empty() {
                 continue;
             }
-            let (mut links, revision) = self.load_links(item, tasks).await?;
-            for link in &mut links {
-                if link.kind == "task" {
-                    link.status = tasks.iter().find(|task| task.id == link.id).map_or_else(
-                        || "unavailable".into(),
-                        |task| format!("{:?}", task.status).to_lowercase(),
-                    );
-                }
-            }
+            let (links, revision) = self.load_links(item, tasks).await?;
             // Task outcomes belong to links, not the user's Planner completion state.
             item.task_id.clear();
             item.status = if item.text.starts_with("x ") {
@@ -164,29 +178,43 @@ impl Store {
                 ""
             }
             .into();
-            item.links = links;
+            item.links = links
+                .into_iter()
+                .map(|reference| {
+                    let status = match reference.kind {
+                        LinkKind::Task => tasks
+                            .iter()
+                            .find(|task| task.id == reference.id)
+                            .map_or_else(
+                                || "unavailable".into(),
+                                |task| format!("{:?}", task.status).to_lowercase(),
+                            ),
+                        LinkKind::Worker => String::new(),
+                    };
+                    Link { reference, status }
+                })
+                .collect();
             item.links_revision = revision;
         }
         Ok(document)
     }
 }
 
-fn append_worker(links: &mut Vec<Link>, task: &Task) {
-    let mut add = |kind: &str, id: &str, label: &str| {
+fn append_worker(links: &mut Vec<LinkReference>, task: &Task) {
+    let mut add = |kind: LinkKind, id: &str, label: &str| {
         if !links.iter().any(|link| link.kind == kind && link.id == id) {
-            links.push(Link {
-                kind: kind.into(),
+            links.push(LinkReference {
+                kind,
                 id: id.into(),
                 label: label.into(),
-                status: String::new(),
             });
         }
     };
-    add("task", &task.id, &task.id);
+    add(LinkKind::Task, &task.id, &task.id);
     if let Some(worker) = &task.worker
         && !task.to_id.is_empty()
     {
-        add("worker", &task.to_id, &worker.session);
+        add(LinkKind::Worker, &task.to_id, &worker.session);
     }
 }
 

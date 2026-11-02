@@ -5,7 +5,7 @@ mod commands;
 mod outbound;
 
 use commands::handle_client_msg;
-use outbound::{send, send_initial_snapshot, spawn_frame_pump};
+use outbound::{run_frame_pump, send, send_initial_snapshot};
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
@@ -231,7 +231,7 @@ async fn ws_run(socket: WebSocket, m: App, cap: Cap, generation: u64, root_gener
         return;
     }
 
-    let pump = spawn_frame_pump(events, tx.clone(), subs.clone(), cap.clone());
+    let pump = run_frame_pump(events, tx.clone(), subs.clone(), cap.clone());
     let mut intake = CommandIntake {
         tx,
         rx,
@@ -239,12 +239,16 @@ async fn ws_run(socket: WebSocket, m: App, cap: Cap, generation: u64, root_gener
         auth_changes,
         scrolls: ScrollReplies::new(),
     };
-    intake.run(&m, &cap).await;
-
-    // Clear subscriptions immediately because the frame task also owns this Arc.
-    // Aborting the task does not guarantee immediate release of its watch guards.
+    // Both halves belong to this connection. A failed/stalled writer must stop
+    // intake too, otherwise the peer retains an open socket with no live updates.
+    tokio::select! {
+        () = pump => {},
+        () = intake.run(&m, &cap) => {},
+    }
+    // The losing future has been dropped before releasing connection resources.
+    // Dropping intake also cancels pending scroll captures and releases the socket.
+    drop(intake);
     subs.lock().await.clear();
-    pump.abort();
 }
 
 /// Initialization has no committed effects, so revocation can cancel stalled reads/writes.
