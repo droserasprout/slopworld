@@ -312,5 +312,35 @@ namespace SlopWorld.Tests
             Assert.That(repo.Root, Is.Null);
             Assert.That(repo.CountsComplete, Is.False);
         }
+
+        public static void NonRepositoryStopsPollingButExplicitRefreshCanDiscoverRepository()
+        {
+            var f = new Fixture();
+            f.Store.RefreshIfDue(new[] { "p" });
+            f.Requests[0].Ok(new Wire.GitResult { Repo = false });
+            int changes = 0;
+            f.Store.Changed += () => changes++;
+            f.Now = 60;
+            f.Store.RefreshIfDue(new[] { "p" });
+            f.Store.RefreshIfDue(new[] { "p" });
+            Assert.That(f.Requests.Count, Is.EqualTo(1));
+            f.Store.Fetch("p");
+            Assert.That(changes, Is.Zero, "cached non-repository does not flash loading");
+            f.Requests[1].Ok(Status());
+            Assert.That(f.Store.Known("p"), Is.Not.Null);
+        }
+
+        public static void DirectoryChangeResumesPollingAfterNonRepository()
+        {
+            var f = new Fixture();
+            f.Store.Fetch("p");
+            f.Requests[0].Ok(new Wire.GitResult { Repo = false });
+            f.Directory = "/new";
+            f.Store.RefreshIfDue(new[] { "p" });
+            Assert.That(f.Requests.Count, Is.EqualTo(2));
+            Assert.That(f.Requests[1].Url, Does.Contain("%2Fnew"));
+            f.Requests[1].Ok(Status());
+            Assert.That(f.Store.Known("p"), Is.Not.Null);
+        }
     }
 }

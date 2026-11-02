@@ -61,6 +61,10 @@ namespace SlopWorld
             foreach (var key in scopes)
             {
                 var repo = Get(key);
+                // A confirmed non-repository stays cached until an explicit refresh or
+                // directory change. Transport failures still retry on the normal cadence.
+                if (repo.Asked && !repo.IsRepo && repo.Error == null)
+                    continue;
                 if (!repo.Loading && _now() >= repo.NextRefresh)
                     Fetch(key);
             }
@@ -148,7 +152,7 @@ namespace SlopWorld
             }
             if (!repo.Refreshes.Request(refreshed))
                 return;
-            bool showLoading = repo.Tree == null;
+            bool showLoading = !repo.Asked;
             bool clearError = repo.Error != null;
             repo.Error = null;
             if (showLoading || clearError)

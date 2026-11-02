@@ -1,5 +1,9 @@
 # Sidebar integration
 
+Git caches confirmed non-repository results without periodic polling. Refreshing or
+reopening the tab checks them again; changing a scope's directory discards the old
+result. Transport failures remain eligible for automatic retry.
+
 `UI/Sidebar/` owns grouped layout and open-files split geometry. `SidebarInteraction`
 retains gestures across passes; `Patches/Sidebar/` integrates Harmony, while colonist
 bar dispatch stays in `Patches/ColonistBar/`. [Navigation](mod-sidebar-navigation.md)

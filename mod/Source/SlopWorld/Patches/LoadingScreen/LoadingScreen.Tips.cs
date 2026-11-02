@@ -359,6 +359,7 @@ namespace SlopWorld
             "It's now safe to turn off your computer.",
             "System halted.",
             "I have a confession. I am a Christian, but I'm gay. (",
+            "I reject your reality and substitute my own.",
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip). Rolled

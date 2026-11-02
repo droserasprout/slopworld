@@ -12,7 +12,7 @@ namespace SlopWorld
     {
         static string BodyNote(Repo repo)
         {
-            if (repo.Loading && repo.Tree == null)
+            if (repo.Loading && !repo.Asked)
                 return "Loading Git status";
             if (repo.Error != null)
                 return repo.Error;
