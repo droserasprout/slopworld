@@ -21,6 +21,7 @@ slopcar/*
 shared/*
 !shared/slopworld.proto
 !shared/magic-8-ball.txt
+!shared/loading-tips.txt
 
 !LICENSE
 !licenses/

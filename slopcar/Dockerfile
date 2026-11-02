@@ -16,6 +16,7 @@ RUN mkdir src \
     && rm -rf src
 COPY shared/slopworld.proto /build/shared/slopworld.proto
 COPY shared/magic-8-ball.txt /build/shared/magic-8-ball.txt
+COPY shared/loading-tips.txt /build/shared/loading-tips.txt
 COPY slopd/build.rs ./build.rs
 COPY slopd/src ./src
 COPY slopd/presets ./presets
