@@ -61,7 +61,7 @@ Catalogs arrive on connect and again when changed.
 | `keys`, `mouse` | Send keyboard or mouse input. |
 | `resize`, `scroll` | Negotiate terminal size or request scrollback. |
 | `paste` | Paste literal text or upload image bytes; see [Clipboard](#clipboard). |
-| `breadcrumb` | Insert saved guidance. |
+| `paste_prompt` | Expand a saved Prompt in the target session context and paste without submitting. |
 | `audio` | Set `volume` and optionally select `station`, `stream`, `file`, `ncspot`, or `stop: true`. An absent selection changes volume only. |
 
 ### Audio state

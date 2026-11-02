@@ -34,7 +34,7 @@ pub(super) fn decode(bytes: &[u8]) -> anyhow::Result<ClientMsg> {
                 run_id: v.run_id,
                 image_data: v.image_data,
             }),
-            P::Breadcrumb(v) => ClientMsg::Breadcrumb(convert(v)?),
+            P::PastePrompt(v) => ClientMsg::PastePrompt(convert(v)?),
             P::Audio(v) => ClientMsg::Audio(AudioReq {
                 volume: v.volume,
                 selection: match v.change {

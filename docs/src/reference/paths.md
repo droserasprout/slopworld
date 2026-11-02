@@ -33,7 +33,6 @@ Task and Worker associations live in `<DATA>/planner/links/<sw-id>.json`, also m
 | `<CONFIG>/endpoints/<name>.toml` | `--endpoint NAME`, then `SLOPD_ENDPOINT` | Saved peer URL and key, managed with `slopworld connect`. Mode `0600`. |
 | `<CONFIG>/projects/<id>.toml` | under `SLOPD_CONFIG_ROOT` | Project definitions. |
 | `<CONFIG>/prompts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal prompt library items, one definition per file. |
-| `<CONFIG>/breadcrumbs/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal breadcrumb library items, one definition per file. |
 | `<CONFIG>/file_actions/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal file-action library items, one definition per file. |
 | `<CONFIG>/shell_scripts/<name>.toml` | under `SLOPD_CONFIG_ROOT` | Personal shell-script library items, one definition per file. |
 | `<CONFIG>/agent_templates/` | under `SLOPD_CONFIG_ROOT` | Personal agent templates; copy the entire directory for backup. |

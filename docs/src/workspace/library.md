@@ -1,7 +1,7 @@
 # Library items and errands
 
 Use the Library to save prompts and commands you run repeatedly. Errands open
-temporary sessions; breadcrumbs insert text into an existing terminal; file
+temporary sessions; prompts can also insert text into an existing terminal; file
 actions run against a selected path. Timers send an existing Prompt to a durable agent on a schedule.
 
 ## Prompt errands
@@ -16,7 +16,7 @@ that prompt. Read its response there. Set **Where it runs** to **Ask me every ti
 to reuse one entry across projects.
 
 Prompts can also use **Run using > Reusable text only**. These are editable text definitions
-for Timers and agent startup, without a temporary-agent Run action.
+for the terminal Prompts menu, Timers and agent startup, without a temporary-agent Run action.
 
 ## Shell errands
 
@@ -46,15 +46,15 @@ Each run copies the current template once and gets a fresh private identity.
 Later template edits or deletion do not change an existing errand. Errands do
 not autostart or auto-resume.
 
-## Breadcrumbs
+## Prompts in terminals
 
-Create a breadcrumb named `Review instructions` with text such as:
+Create a prompt with **Run using > Reusable text only** named `Review instructions` with text such as:
 
 > Review the changes for correctness and missing tests. Report findings with file paths.
 
-Save it, open an agent terminal, and insert the breadcrumb from the terminal's
-context menu. It supplies reusable text to the current terminal rather than
-creating an errand.
+Save it, open an agent terminal, and choose it under **Prompts** in the terminal's
+context menu. This pastes the text without pressing Enter, so you can edit it before
+submitting. All prompts appear here, including prompts configured to run as errands.
 
 ## File actions
 

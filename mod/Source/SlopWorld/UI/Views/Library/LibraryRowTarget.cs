@@ -85,7 +85,7 @@ namespace SlopWorld
                     : "Edit";
                 string secondaryLabel =
                     runnable ? "Edit"
-                    : _item.Kind == LibraryItemKind.Breadcrumb ? "Copy text"
+                    : _item.Kind == LibraryItemKind.Prompt ? "Copy text"
                     : null;
                 Action secondary =
                     secondaryLabel == null

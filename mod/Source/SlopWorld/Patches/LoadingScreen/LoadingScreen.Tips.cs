@@ -379,7 +379,7 @@ namespace SlopWorld
         }
 
         // RandomTips draws without replacement. Twelve covers the shipped five-tip
-        // breadcrumb and prompts containing several `{{ random_tip }}` mentions.
+        // prompt and prompts containing several `{{ random_tip }}` mentions.
         public const int TipBatch = 12;
 
         public static List<string> RandomTips(int n)

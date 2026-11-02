@@ -102,7 +102,7 @@ namespace SlopWorld
             public const string Scroll = "scroll";
             public const string Mouse = "mouse";
             public const string Paste = "paste";
-            public const string Breadcrumb = "breadcrumb";
+            public const string PastePrompt = "paste_prompt";
             public const string Audio = "audio";
         }
 
@@ -137,7 +137,6 @@ namespace SlopWorld
         {
             public const string Prompt = "prompt";
             public const string Shell = "shell";
-            public const string Breadcrumb = "breadcrumb";
             public const string Fa = "fa";
             public const string Timer = "timer";
         }

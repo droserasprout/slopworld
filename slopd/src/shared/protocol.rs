@@ -100,7 +100,7 @@ pub(crate) mod messages {
     pub(crate) const SCROLL: &str = "scroll";
     pub(crate) const MOUSE: &str = "mouse";
     pub(crate) const PASTE: &str = "paste";
-    pub(crate) const BREADCRUMB: &str = "breadcrumb";
+    pub(crate) const PASTE_PROMPT: &str = "paste_prompt";
     pub(crate) const AUDIO: &str = "audio";
 }
 
@@ -127,7 +127,6 @@ pub(crate) mod enums {
     pub(crate) mod library_kind {
         pub(crate) const PROMPT: &str = "prompt";
         pub(crate) const SHELL: &str = "shell";
-        pub(crate) const BREADCRUMB: &str = "breadcrumb";
         pub(crate) const FA: &str = "fa";
         pub(crate) const TIMER: &str = "timer";
     }

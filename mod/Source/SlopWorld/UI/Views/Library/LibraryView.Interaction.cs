@@ -103,7 +103,7 @@ namespace SlopWorld
         {
             var opts = new List<FloatMenuOption>();
 
-            // Run is the reason ordinary runnable items exist. Breadcrumbs are definitions only.
+            // Prompts without execution settings are reusable text.
             if (Runnable(s))
                 opts.Add(new FloatMenuOption("Run", () => Run(s)));
 

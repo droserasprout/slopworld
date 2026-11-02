@@ -340,7 +340,7 @@ impl Config {
                 format!("Start with daemon: {}", s.autostart),
                 format!("Auto-resume: {}", s.auto_resume),
                 format!("Persistent /tmp: {}", s.persistent_tmp),
-                "Library breadcrumbs are inserted manually from the terminal context menu".into(),
+                "Library prompts are inserted manually from the terminal context menu".into(),
             ],
         );
         Self::preview_field(

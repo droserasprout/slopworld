@@ -32,7 +32,7 @@ suppressing partial-game saves and menu controls. Wait for an idle entry window 
 to show the notice. New colony starts directly; it neither retries older saves nor
 deletes the failed one.
 
-`UI/Colony/CoreTip` owns hints/advice. Advice and daemon Magic 8 Ball breadcrumbs
+`UI/Colony/CoreTip` owns hints/advice. Advice and daemon Magic 8 Ball prompts
 share `shared/magic-8-ball.txt`. Departure bypasses plague fire containment and removes
 all blueprints/frames, including those outside Worksite ownership. See
 [simulation](mod-sim.md) and [Worksite](mod-worksite.md).

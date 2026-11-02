@@ -116,9 +116,9 @@ struct FrameDelta {
     bell: bool,
 }
 
-mod breadcrumbs;
 mod frame;
 mod input;
+mod prompts;
 mod reader;
 mod scroll;
 pub(super) use scroll::CachedScroll;

@@ -43,7 +43,6 @@ impl Config {
             .unwrap_or_else(|| Path::new("."));
         [
             LibraryItemKind::Prompt,
-            LibraryItemKind::Breadcrumb,
             LibraryItemKind::FileAction,
             LibraryItemKind::Timer,
             LibraryItemKind::Shell,

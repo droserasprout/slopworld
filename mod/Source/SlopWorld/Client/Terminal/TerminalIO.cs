@@ -163,14 +163,14 @@ namespace SlopWorld
                 }
             );
 
-        public void PasteBreadcrumb(string name, string breadcrumb, List<string> randomTips) =>
+        public void PastePrompt(string name, string prompt, List<string> randomTips) =>
             _send(
                 new Wire.ClientMessage
                 {
-                    Breadcrumb = new Wire.BreadcrumbReq
+                    PastePrompt = new Wire.PastePromptReq
                     {
                         Name = name,
-                        Breadcrumb = breadcrumb,
+                        Prompt = prompt,
                         RandomTips = { randomTips ?? Enumerable.Empty<string>() },
                     },
                 }

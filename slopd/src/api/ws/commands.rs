@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::super::App;
 use super::super::types::{
-    AudioReq, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
+    AudioReq, ClientMsg, KeysReq, MouseReq, PastePromptReq, PasteReq, ResizeReq,
 };
 use super::{WsSubs, WsTx, send};
 
@@ -95,7 +95,7 @@ pub(super) async fn dispatch_client_msg(
             | ClientMsg::Resize(_)
             | ClientMsg::Mouse(_)
             | ClientMsg::Paste(_)
-            | ClientMsg::Breadcrumb(_)
+            | ClientMsg::PastePrompt(_)
     );
     let operation = async {
         // This future starts only after the global or per-terminal guard is held.
@@ -113,7 +113,7 @@ pub(super) async fn dispatch_client_msg(
             ClientMsg::Sub { .. } | ClientMsg::Scroll(_) => {}
             ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
             ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
-            ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
+            ClientMsg::PastePrompt(req) => handle_prompt(req, m, cap).await,
             ClientMsg::Audio(req) => {
                 if let Some(audio) = handle_audio(req, m, cap).await {
                     // The game may already be closing its read side after sending Stop.
@@ -257,16 +257,16 @@ async fn handle_paste(req: PasteReq, m: &App, cap: &Cap) {
     }
 }
 
-async fn handle_breadcrumb(req: BreadcrumbReq, m: &App, cap: &Cap) {
+async fn handle_prompt(req: PastePromptReq, m: &App, cap: &Cap) {
     if !m.sessions.terminal_cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
     if let Err(e) = m
         .sessions
-        .paste_breadcrumb(&req.name, &req.breadcrumb, req.random_tips)
+        .paste_prompt(&req.name, &req.prompt, req.random_tips)
         .await
     {
-        tracing::warn!("breadcrumb to {}: {e:#}", req.name);
+        tracing::warn!("prompt to {}: {e:#}", req.name);
     }
 }
 

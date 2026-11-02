@@ -15,9 +15,11 @@ Validation precedes allocation. File-action scope belongs to
 Editing supplied entries creates user overrides; deleting one reveals the supplied entry.
 Runnable items require an explicit host or template choice. Prompts without one are
 reusable text for startup and Timers. File actions execute on
-the daemon host through `files/actions/`, independently of agent breadcrumbs.
+the daemon host through `files/actions/`, independently of agent prompts.
+All Prompts are available in the terminal Prompts menu, startup, and Timers.
+Execution settings optionally enable errands; text-only Prompts need no project.
 `prompt/` owns substitution: inserted values are literal and never scanned again.
-Breadcrumbs are manual; launch callers compose errand/worker prompts before delivery.
+Manual insertion does not submit; launch callers compose errand/worker prompts before delivery.
 
 `session/delivery.rs` owns readiness and ordered prompt input. Creation may return
 before delivery; timeout withholds input. Temporary errands disappear on stop/exit

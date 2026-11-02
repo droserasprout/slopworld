@@ -456,7 +456,7 @@ websocket:
     - scroll
     - mouse
     - paste
-    - breadcrumb
+    - paste_prompt
     - audio
 
 enums:
@@ -464,7 +464,7 @@ enums:
   network_mode: [none, private, host]
   mount_mode: [ro, rw, cache]
   dns_mode: [resolved, servers]
-  library_kind: [prompt, shell, breadcrumb, fa, timer]
+  library_kind: [prompt, shell, fa, timer]
   library_link: [project, temp, ask]
   file_action_mode: [ask, show_result, open_terminal, nothing]
   task_status: [queued, accepted, working, done, failed, canceled]

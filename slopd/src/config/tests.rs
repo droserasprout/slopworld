@@ -484,9 +484,9 @@ fn persistent_tmp_is_an_opt_in_session_setting() {
     assert!(toml::from_str::<SessionCfg>(&text).unwrap().persistent_tmp);
 }
 
-/// Supplied breadcrumbs remain available without becoming user configuration.
+/// Supplied prompts remain available without becoming user configuration.
 #[test]
-fn shipped_breadcrumbs_are_offered_but_never_written_down() {
+fn shipped_prompts_are_offered_but_never_written_down() {
     let cfg = Config::default();
     assert!(cfg.library.is_empty());
 
@@ -501,7 +501,7 @@ fn shipped_breadcrumbs_are_offered_but_never_written_down() {
         .candidate;
     for name in ["Useful tips", "Magic 8 Ball"] {
         let item = cfg.library_item(name).expect("shipped with the daemon");
-        assert_eq!(item.kind, LibraryItemKind::Breadcrumb);
+        assert_eq!(item.kind, LibraryItemKind::Prompt);
         assert!(item.builtin);
         assert!(cfg.is_builtin_library_item(name));
         assert!(!text.contains(name));
@@ -522,7 +522,7 @@ fn a_written_entry_shadows_the_builtin_it_is_named_after() {
         let mut cfg = Config::default();
         cfg.library.push(LibraryItemCfg {
             name: name.into(),
-            kind: LibraryItemKind::Breadcrumb,
+            kind: LibraryItemKind::Prompt,
             text: "mine".into(),
             ..Default::default()
         });

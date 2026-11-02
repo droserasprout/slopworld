@@ -79,7 +79,7 @@ fn reader_metadata_round_trip_preserves_context_and_uses_current_session_identit
 }
 
 /// Permit only prompt and shell library items as agent errands.
-/// Reject breadcrumb and file-action items.
+/// Reject definitions that cannot launch agent errands.
 #[test]
 fn only_runnable_library_pass_the_errand_guard() {
     let sc = |kind| LaunchContent {
@@ -89,6 +89,5 @@ fn only_runnable_library_pass_the_errand_guard() {
     };
     sc(LibraryItemKind::Prompt).validate().unwrap();
     sc(LibraryItemKind::Shell).validate().unwrap();
-    assert!(sc(LibraryItemKind::Breadcrumb).validate().is_err());
     assert!(sc(LibraryItemKind::FileAction).validate().is_err());
 }

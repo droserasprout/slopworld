@@ -90,7 +90,7 @@ impl Target {
             (
                 Self::Config(_),
                 [
-                    Some("prompts" | "breadcrumbs" | "file_actions" | "shell_scripts"),
+                    Some("prompts" | "file_actions" | "shell_scripts"),
                     Some(name),
                 ],
             ) => catalog_file(name),

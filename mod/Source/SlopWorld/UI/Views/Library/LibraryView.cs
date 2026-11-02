@@ -50,7 +50,6 @@ namespace SlopWorld
             public const string Templates = "Agent templates";
             public const string Prompts = "Prompts";
             public const string Shell = "Shell scripts";
-            public const string Breadcrumbs = "Breadcrumbs";
             public const string FileActions = "File actions";
             public const string Timers = "Timers";
             public const string Projects = "Projects";
@@ -63,7 +62,6 @@ namespace SlopWorld
                 Templates,
                 Prompts,
                 Shell,
-                Breadcrumbs,
                 FileActions,
                 Timers,
                 Projects,
@@ -99,7 +97,6 @@ namespace SlopWorld
         static string GroupKey(LibraryItemInfo item) =>
             Templates.ContainsKey(item) ? Category.Templates
             : item.Kind == LibraryItemKind.Shell ? Category.Shell
-            : item.Kind == LibraryItemKind.Breadcrumb ? Category.Breadcrumbs
             : item.Kind == LibraryItemKind.Timer ? Category.Timers
             : item.Kind == LibraryItemKind.FileAction ? Category.FileActions
             : Category.Prompts;

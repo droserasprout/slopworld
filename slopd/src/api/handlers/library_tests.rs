@@ -9,7 +9,7 @@ fn proto<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Proto<T> {
 #[tokio::test]
 async fn library_crud_preserves_content_and_rejects_invalid_updates() {
     let m = crate::application::test_application(Config::default());
-    let item = json!({"name":"test-note", "kind":"breadcrumb", "link":"project", "text":"remember this", "builtin":true});
+    let item = json!({"name":"test-note", "kind":"prompt", "link":"project", "text":"remember this", "builtin":true});
     assert!(
         create_library_item(State(m.clone()), proto(item.clone()))
             .await
@@ -28,7 +28,7 @@ async fn library_crud_preserves_content_and_rejects_invalid_updates() {
         update_library_item(
             State(m.clone()),
             Path("test-note".into()),
-            proto(json!({"name":"test-note","kind":"breadcrumb","link":"project","text":""}))
+            proto(json!({"name":"test-note","kind":"prompt","link":"project","text":""}))
         )
         .await
         .unwrap_err()
@@ -47,9 +47,7 @@ async fn library_crud_preserves_content_and_rejects_invalid_updates() {
         update_library_item(
             State(m.clone()),
             Path("test-note".into()),
-            proto(
-                json!({"name":"renamed-note","kind":"breadcrumb","link":"project","text":"updated"})
-            )
+            proto(json!({"name":"renamed-note","kind":"prompt","link":"project","text":"updated"}))
         )
         .await
         .unwrap()

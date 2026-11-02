@@ -32,7 +32,7 @@ namespace SlopWorld
 
         // The daemon supplies this entry without saving it in config.toml.
         // Editing creates an override; deleting the override restores the supplied default.
-        // Omit them from the library table but include them in breadcrumb lists.
+        // Omit them from the library table but include them in prompt lists.
         public bool Builtin;
         public Wire.TimerConfig Timer;
         public Wire.TimerStatus TimerStatus;
@@ -43,7 +43,6 @@ namespace SlopWorld
                 Name = j.Name,
                 Kind =
                     j.Kind == WireProtocol.LibraryKind.Shell ? LibraryItemKind.Shell
-                    : j.Kind == WireProtocol.LibraryKind.Breadcrumb ? LibraryItemKind.Breadcrumb
                     : j.Kind == WireProtocol.LibraryKind.Fa ? LibraryItemKind.FileAction
                     : j.Kind == WireProtocol.LibraryKind.Timer ? LibraryItemKind.Timer
                     : LibraryItemKind.Prompt,
@@ -80,7 +79,6 @@ namespace SlopWorld
 
         static string KindName(LibraryItemKind k) =>
             k == LibraryItemKind.Shell ? WireProtocol.LibraryKind.Shell
-            : k == LibraryItemKind.Breadcrumb ? WireProtocol.LibraryKind.Breadcrumb
             : k == LibraryItemKind.FileAction ? WireProtocol.LibraryKind.Fa
             : k == LibraryItemKind.Timer ? WireProtocol.LibraryKind.Timer
             : WireProtocol.LibraryKind.Prompt;

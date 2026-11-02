@@ -18,7 +18,7 @@ run or newer frame.
 
 Wire projection belongs to [protocol](protocol-wire.md), accepted config to
 [stores](daemon-config-stores.md), host recovery to [host tabs](daemon-host-terminals.md),
-worker/task consequences to [workers](daemon-workers.md), prompt/breadcrumb delivery
+worker/task consequences to [workers](daemon-workers.md), prompt delivery
 to [library](daemon-library.md), and process survival to [redeploy](daemon-redeploy.md).
 
 Existing tmux activity metadata takes precedence over disk fallback on adoption.

@@ -11,7 +11,7 @@ async fn fixture() -> (Arc<SessionRuntime>, mpsc::UnboundedReceiver<QueuedInput>
         projects: vec![ProjectCfg { name: "repo".into(), dir: "/tmp/project".into(), ..Default::default() }],
         sessions: vec![session.clone()],
         library: vec![LibraryItemCfg {
-            name: "context".into(), kind: LibraryItemKind::Breadcrumb,
+            name: "context".into(), kind: LibraryItemKind::Prompt,
             text: "{{ agent }} in {{ project }} at {{ directory }} using {{ command }}\n{{ random_tip }} / {{ random_tip }}".into(),
             ..Default::default()
         }],
@@ -26,10 +26,10 @@ async fn fixture() -> (Arc<SessionRuntime>, mpsc::UnboundedReceiver<QueuedInput>
 }
 
 #[tokio::test]
-async fn explicit_breadcrumb_renders_context_and_tips_without_submitting() {
+async fn explicit_prompt_renders_context_and_tips_without_submitting() {
     let (manager, mut rx) = fixture().await;
     manager
-        .paste_breadcrumb("agent", "context", vec!["first".into(), "second".into()])
+        .paste_prompt("agent", "context", vec!["first".into(), "second".into()])
         .await
         .unwrap();
     assert!(
@@ -38,37 +38,37 @@ async fn explicit_breadcrumb_renders_context_and_tips_without_submitting() {
     );
     assert!(
         rx.try_recv().is_err(),
-        "manual breadcrumb paste must not add Enter or a delay"
+        "manual prompt paste must not add Enter or a delay"
     );
 }
 
 #[tokio::test]
-async fn invalid_or_stopped_breadcrumb_target_queues_nothing() {
+async fn invalid_or_stopped_prompt_target_queues_nothing() {
     let (manager, mut rx) = fixture().await;
     assert!(
         manager
-            .paste_breadcrumb("missing", "context", vec![])
+            .paste_prompt("missing", "context", vec![])
             .await
             .is_err()
     );
     assert!(
         manager
-            .paste_breadcrumb("agent", "missing", vec![])
+            .paste_prompt("agent", "missing", vec![])
+            .await
+            .is_err()
+    );
+    manager.config_authority.write().await.library[0].kind = LibraryItemKind::Shell;
+    assert!(
+        manager
+            .paste_prompt("agent", "context", vec![])
             .await
             .is_err()
     );
     manager.config_authority.write().await.library[0].kind = LibraryItemKind::Prompt;
-    assert!(
-        manager
-            .paste_breadcrumb("agent", "context", vec![])
-            .await
-            .is_err()
-    );
-    manager.config_authority.write().await.library[0].kind = LibraryItemKind::Breadcrumb;
     manager.live.write().await.get_mut("agent").unwrap().state = State::Down;
     assert!(
         manager
-            .paste_breadcrumb("agent", "context", vec![])
+            .paste_prompt("agent", "context", vec![])
             .await
             .is_err()
     );

@@ -1,4 +1,4 @@
-//! Resolve live context and admit explicitly selected breadcrumbs without submission.
+//! Resolve live context and admit explicitly selected prompts without submission.
 //! Application library owns lookup and rendering.
 //! Terminal admission and delivery remain in input.rs.
 
@@ -6,11 +6,11 @@ use super::*;
 use anyhow::anyhow;
 
 impl SessionRuntime {
-    /// Render a breadcrumb and paste it into this agent without submitting.
-    pub async fn paste_breadcrumb(
+    /// Render a prompt and paste it into this agent without submitting.
+    pub async fn paste_prompt(
         self: &Arc<Self>,
         name: &str,
-        breadcrumb: &str,
+        prompt: &str,
         random_tips: Vec<String>,
     ) -> Result<()> {
         let cfg = self.config().await;
@@ -22,13 +22,7 @@ impl SessionRuntime {
             .project_for(&cfg, &s)
             .await
             .ok_or_else(|| anyhow!("session {name} has no configured project"))?;
-        let text = crate::application::library::prepare_breadcrumb(
-            &cfg,
-            &s,
-            &p,
-            breadcrumb,
-            &random_tips,
-        )?;
+        let text = crate::application::library::prepare_prompt(&cfg, &s, &p, prompt, &random_tips)?;
         drop(cfg);
         self.ensure_paste_ready(name).await?;
         self.queue_paste(name, text.into_bytes()).await;
@@ -37,5 +31,5 @@ impl SessionRuntime {
 }
 
 #[cfg(test)]
-#[path = "breadcrumbs_tests.rs"]
+#[path = "prompts_tests.rs"]
 mod tests;

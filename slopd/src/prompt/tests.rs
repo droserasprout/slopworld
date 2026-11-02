@@ -50,7 +50,7 @@ fn a_template_with_nothing_to_fill_it_is_left_alone() {
 }
 
 #[test]
-fn breadcrumb_context_variables_render_and_unknown_variables_survive() {
+fn prompt_context_variables_render_and_unknown_variables_survive() {
     let vars = PromptVars {
         agent: "Ada",
         project: "slopworld",

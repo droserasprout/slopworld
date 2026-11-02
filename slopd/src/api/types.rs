@@ -347,7 +347,7 @@ pub(crate) enum ClientMsg {
     Scroll(ScrollReq),
     Mouse(MouseReq),
     Paste(PasteReq),
-    Breadcrumb(BreadcrumbReq),
+    PastePrompt(PastePromptReq),
     Audio(AudioReq),
 }
 
@@ -368,9 +368,9 @@ pub(crate) struct PasteReq {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct BreadcrumbReq {
+pub(crate) struct PastePromptReq {
     pub(crate) name: String,
-    pub(crate) breadcrumb: String,
+    pub(crate) prompt: String,
     #[serde(default)]
     pub(crate) random_tips: Vec<String>,
 }

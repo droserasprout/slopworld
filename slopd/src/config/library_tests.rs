@@ -6,7 +6,6 @@ fn every_library_kind_requires_a_nonblank_name() {
     for kind in [
         LibraryItemKind::Prompt,
         LibraryItemKind::Shell,
-        LibraryItemKind::Breadcrumb,
         LibraryItemKind::FileAction,
     ] {
         let item = LibraryItemCfg {
@@ -22,19 +21,25 @@ fn every_library_kind_requires_a_nonblank_name() {
 }
 
 #[test]
-fn breadcrumbs_require_text_but_no_execution_context() {
+fn prompts_require_text_but_no_execution_context() {
     let mut item = LibraryItemCfg {
         name: "guidance".into(),
-        kind: LibraryItemKind::Breadcrumb,
+        kind: LibraryItemKind::Prompt,
         text: "Read the project instructions".into(),
         ..Default::default()
     };
     let cfg = Config::default();
     check_library_item(&cfg, &item).unwrap();
+    item.host = true;
+    assert_eq!(
+        check_library_item(&cfg, &item).unwrap_err().to_string(),
+        "Choose a project for library item \"guidance\"."
+    );
+    item.host = false;
     item.text = " \n\t".into();
     assert_eq!(
         check_library_item(&cfg, &item).unwrap_err().to_string(),
-        "Enter text for breadcrumb \"guidance\"."
+        "Enter text for library item \"guidance\"."
     );
 }
 
@@ -95,6 +100,7 @@ fn deferred_library_destinations_allow_no_project_but_reject_unknown_projects() 
         let mut item = LibraryItemCfg {
             name: "review".into(),
             link,
+            host: true,
             text: "Review the changes".into(),
             ..Default::default()
         };

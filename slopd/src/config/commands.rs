@@ -112,11 +112,7 @@ impl super::Config {
                 self.defaults.shell.trim().to_string(),
                 line.map(str::to_string),
             ),
-            (
-                LibraryItemKind::Breadcrumb | LibraryItemKind::FileAction | LibraryItemKind::Timer,
-                _,
-                _,
-            ) => (String::new(), None),
+            (LibraryItemKind::FileAction | LibraryItemKind::Timer, _, _) => (String::new(), None),
         };
         SessionCfg {
             name,

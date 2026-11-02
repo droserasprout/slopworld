@@ -73,7 +73,7 @@ namespace SlopWorld
             else if (item.Kind == LibraryItemKind.FileAction && !template)
                 lines.Add("Host · " + EditLibraryItemDialog.FileActionModeLabel(item.Mode));
             else if (
-                item.Kind == LibraryItemKind.Breadcrumb
+                item.Kind == LibraryItemKind.Prompt
                 && !template
                 && !string.IsNullOrEmpty(item.Project)
             )

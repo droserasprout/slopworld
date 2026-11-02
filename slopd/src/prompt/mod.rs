@@ -1,4 +1,4 @@
-//! Values shared by library prompts and breadcrumbs.
+//! Values shared by library prompts.
 
 mod template;
 use rand::seq::IteratorRandom;

@@ -11,7 +11,7 @@ Ctrl+C to copy it; without a selection, Ctrl+C interrupts the process. Ctrl+V
 pastes.
 
 To save selected text in the Library, right-click and choose **Save as**, then
-**Prompt**, **Breadcrumb**, **Shell script**, or **File action**. The creation
+**Prompt**, **Shell script**, or **File action**. The creation
 dialog opens with the selection in its body. Enter a name and any required settings,
 then save.
 

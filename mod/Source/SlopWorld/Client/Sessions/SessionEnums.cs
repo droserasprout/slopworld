@@ -13,7 +13,6 @@ namespace SlopWorld
     {
         Prompt,
         Shell,
-        Breadcrumb,
         FileAction,
         Timer,
     }

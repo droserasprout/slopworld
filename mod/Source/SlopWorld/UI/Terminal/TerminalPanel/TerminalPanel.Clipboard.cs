@@ -121,10 +121,10 @@ namespace SlopWorld
                     PasteClipboard();
                 }
             );
-            var breadcrumbs = AllBreadcrumbs();
-            var breadcrumbMenu = new UiSubmenu("Breadcrumbs", () => BreadcrumbOptions(breadcrumbs));
-            breadcrumbMenu.Disabled = info == null || !info.Alive || breadcrumbs.Count == 0;
-            options.Add(breadcrumbMenu);
+            var prompts = AllPrompts();
+            var promptMenu = new UiSubmenu("Prompts", () => PromptOptions(prompts));
+            promptMenu.Disabled = info == null || !info.Alive || prompts.Count == 0;
+            options.Add(promptMenu);
             SelectionCommands.AddSelectAll(options, selectionAvailability, SelectAll);
             options.Add(
                 new UiSubmenu(
@@ -166,7 +166,6 @@ namespace SlopWorld
             new List<FloatMenuOption>
             {
                 SaveSelectionOption("Prompt", LibraryItemKind.Prompt, text),
-                SaveSelectionOption("Breadcrumb", LibraryItemKind.Breadcrumb, text),
                 SaveSelectionOption("Shell script", LibraryItemKind.Shell, text),
                 SaveSelectionOption("File action", LibraryItemKind.FileAction, text),
             };
@@ -181,15 +180,15 @@ namespace SlopWorld
                 () => WorkspaceWindow.OpenOverPane(EditLibraryItemDialog.New(kind, text))
             );
 
-        static List<string> AllBreadcrumbs() =>
+        static List<string> AllPrompts() =>
             SessionHub
                 .Instance.Library.Where(s =>
-                    s.Kind == LibraryItemKind.Breadcrumb && (!s.Builtin || !Settings.GrandmaMode)
+                    s.Kind == LibraryItemKind.Prompt && (!s.Builtin || !Settings.GrandmaMode)
                 )
                 .Select(s => s.Name)
                 .ToList();
 
-        List<FloatMenuOption> BreadcrumbOptions(List<string> names)
+        List<FloatMenuOption> PromptOptions(List<string> names)
         {
             var options = new List<FloatMenuOption>();
             foreach (string name in names)
@@ -201,7 +200,7 @@ namespace SlopWorld
                         () =>
                         {
                             JumpToLive();
-                            SessionHub.Instance.Terminal.PasteBreadcrumb(
+                            SessionHub.Instance.Terminal.PastePrompt(
                                 _state.Name,
                                 picked,
                                 Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch)

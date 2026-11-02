@@ -115,7 +115,7 @@ namespace SlopWorld
                         "library",
                         "library",
                         "Library: manage saved items, projects, worktrees, and presets. "
-                            + "Saved items include templates, prompts, commands, breadcrumbs, and file actions.",
+                            + "Saved items include templates, prompts, commands, and file actions.",
                         hasActions: true,
                         canFold: true,
                         canToggleDotfiles: false

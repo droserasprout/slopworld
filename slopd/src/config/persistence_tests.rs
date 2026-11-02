@@ -97,7 +97,7 @@ async fn library_load_rejects_invalid_catalog_files_with_path_context() {
     for (text, expected) in [
         ("not valid TOML", "parsing library item"),
         (
-            "name = 'entry'\nlink = 'project'\nkind = 'breadcrumb'",
+            "name = 'entry'\nlink = 'project'\nkind = 'shell'",
             "belongs in",
         ),
         ("name = 'different'\nlink = 'project'", "expected \"entry\""),
@@ -119,8 +119,8 @@ async fn library_load_rejects_duplicate_names_across_kinds() {
         .await;
     fixture
         .write(
-            "breadcrumbs/shared.toml",
-            "name = 'shared'\nlink = 'project'\nkind = 'breadcrumb'",
+            "shell_scripts/shared.toml",
+            "name = 'shared'\nlink = 'project'\nkind = 'shell'",
         )
         .await;
     let error = load_library(&fixture.dirs()).await.unwrap_err();
@@ -147,7 +147,7 @@ async fn invalid_library_saves_leave_existing_catalog_files_untouched() {
         vec![
             item.clone(),
             LibraryItemCfg {
-                kind: LibraryItemKind::Breadcrumb,
+                kind: LibraryItemKind::Shell,
                 ..item
             },
         ],
@@ -160,7 +160,7 @@ async fn invalid_library_saves_leave_existing_catalog_files_untouched() {
             original
         );
         assert!(!fixture.0.join("prompts/duplicate.toml").exists());
-        assert!(!fixture.0.join("breadcrumbs/duplicate.toml").exists());
+        assert!(!fixture.0.join("shell_scripts/duplicate.toml").exists());
         assert!(!fixture.0.join("escape.toml").exists());
     }
 }
@@ -209,7 +209,7 @@ async fn library_save_moves_kinds_and_removes_stale_toml_only() {
     fixture.write("prompts/notes.txt", "keep me").await;
     let item = LibraryItemCfg {
         name: "moved".into(),
-        kind: LibraryItemKind::Breadcrumb,
+        kind: LibraryItemKind::Shell,
         text: "updated".into(),
         ..Default::default()
     };
@@ -225,12 +225,12 @@ async fn library_save_moves_kinds_and_removes_stale_toml_only() {
     let loaded = load_library(&fixture.dirs()).await.unwrap();
     assert_eq!(loaded.len(), 1);
     assert_eq!(loaded[0].name, "moved");
-    assert_eq!(loaded[0].kind, LibraryItemKind::Breadcrumb);
+    assert_eq!(loaded[0].kind, LibraryItemKind::Shell);
     assert_eq!(loaded[0].text, "updated");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let metadata = std::fs::metadata(fixture.0.join("breadcrumbs/moved.toml")).unwrap();
+        let metadata = std::fs::metadata(fixture.0.join("shell_scripts/moved.toml")).unwrap();
         assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
     }
 }
@@ -339,7 +339,7 @@ async fn library_items_round_trip_as_one_file_each() {
     });
     cfg.library.push(LibraryItemCfg {
         name: "tips".into(),
-        kind: LibraryItemKind::Breadcrumb,
+        kind: LibraryItemKind::Prompt,
         text: "remember the tests".into(),
         ..Default::default()
     });
@@ -356,7 +356,7 @@ async fn library_items_round_trip_as_one_file_each() {
     let item_path = root.join("prompts/review diff.toml");
     assert!(item_path.is_file());
     assert!(root.join("shell_scripts/run tests.toml").is_file());
-    assert!(root.join("breadcrumbs/tips.toml").is_file());
+    assert!(root.join("prompts/tips.toml").is_file());
     assert!(root.join("file_actions/show size.toml").is_file());
     let loaded = Config::load(&path).await.unwrap();
     assert_eq!(loaded.library.len(), cfg.library.len());

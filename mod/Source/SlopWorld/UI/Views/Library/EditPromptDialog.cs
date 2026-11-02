@@ -24,7 +24,7 @@ namespace SlopWorld
             {
                 DrawExplanation(
                     listing,
-                    "Reusable text for agent startup and Timers. Choose Host or a template to also run it as an errand."
+                    "Reusable text for the terminal Prompts menu, agent startup and Timers. Choose Host or a template to also run it as an errand."
                 );
                 return;
             }

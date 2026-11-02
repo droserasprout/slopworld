@@ -2,7 +2,7 @@
 //!
 //! Store templates separately from `config.toml`. A template contains portable settings for agent creation.
 //! Each configured session owns snapshots copied from its template.
-//! Later changes to templates, command presets, sandbox presets, or breadcrumbs do not change existing agents.
+//! Later changes to templates, command presets, sandbox presets, or prompts do not change existing agents.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

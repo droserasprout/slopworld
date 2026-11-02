@@ -102,7 +102,6 @@ namespace SlopWorld
                     () => WorkspaceWindow.OpenOverPane(EditSessionDialog.EditTemplate())
                 ),
                 LibraryItem("Prompt", LibraryItemKind.Prompt),
-                LibraryItem("Breadcrumb", LibraryItemKind.Breadcrumb),
                 LibraryItem("Shell script", LibraryItemKind.Shell),
                 LibraryItem("File action", LibraryItemKind.FileAction),
                 LibraryItem("Timer", LibraryItemKind.Timer),

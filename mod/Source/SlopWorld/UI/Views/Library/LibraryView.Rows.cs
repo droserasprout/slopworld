@@ -44,7 +44,6 @@ namespace SlopWorld
                 isTemplate ? Icons.Agents
                 : item.Kind == LibraryItemKind.Shell ? Icons.Terminal
                 : item.Kind == LibraryItemKind.FileAction ? Icons.Files
-                : item.Kind == LibraryItemKind.Breadcrumb ? Icons.Keyboard
                 : Icons.Library;
             return new Row(
                 target,

@@ -173,18 +173,18 @@ impl Services {
     }
 }
 
-/// Compose a selected breadcrumb from the caller's resolved session/project snapshot.
-pub(crate) fn prepare_breadcrumb(
+/// Compose a selected prompt from the caller's resolved session/project snapshot.
+pub(crate) fn prepare_prompt(
     cfg: &Config,
     s: &crate::config::SessionCfg,
     p: &crate::config::ProjectCfg,
-    breadcrumb: &str,
+    prompt: &str,
     random_tips: &[String],
 ) -> Result<String> {
     let b = cfg
-        .library_item(breadcrumb)
-        .filter(|b| b.kind == crate::config::LibraryItemKind::Breadcrumb)
-        .ok_or_else(|| anyhow!("no such breadcrumb: {breadcrumb}"))?;
+        .library_item(prompt)
+        .filter(|b| b.kind == crate::config::LibraryItemKind::Prompt)
+        .ok_or_else(|| anyhow!("no such prompt: {prompt}"))?;
     let command = cfg.command_of(s);
     let directory = crate::config::expand(&p.dir);
     let vars = crate::prompt::PromptVars {

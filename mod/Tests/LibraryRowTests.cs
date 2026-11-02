@@ -224,7 +224,7 @@ namespace SlopWorld.Tests
         [TestCase(LibraryItemKind.Shell, LibraryItemLink.Project, "Run", "Edit", "Run")]
         [TestCase(LibraryItemKind.Prompt, LibraryItemLink.Ask, "Choose a project", "Edit", "Run")]
         [TestCase(LibraryItemKind.Shell, LibraryItemLink.Ask, "Choose a project", "Edit", "Run")]
-        [TestCase(LibraryItemKind.Breadcrumb, LibraryItemLink.Project, "Edit", "Copy text", "Edit")]
+        [TestCase(LibraryItemKind.Prompt, LibraryItemLink.Project, "Edit", "Copy text", "Edit")]
         [TestCase(LibraryItemKind.FileAction, LibraryItemLink.Project, "Edit", null, "Edit")]
         public void ItemDetailsOfferOnlyApplicableActions(
             LibraryItemKind kind,
@@ -236,7 +236,7 @@ namespace SlopWorld.Tests
         {
             var item = new LibraryItemInfo
             {
-                Host = true,
+                Host = primary != "Edit",
                 Name = "selected",
                 Kind = kind,
                 Link = link,
@@ -256,9 +256,7 @@ namespace SlopWorld.Tests
                 actions.Secondary();
                 Assert.That(
                     effects.Calls[1],
-                    Is.EqualTo(
-                        ((object)item, (kind == LibraryItemKind.Breadcrumb ? "CopyText" : "Edit"))
-                    )
+                    Is.EqualTo(((object)item, (secondary == "Copy text" ? "CopyText" : "Edit")))
                 );
             }
             actions.More();

@@ -43,12 +43,9 @@ namespace SlopWorld
                     "library"
                 );
 
-            // Breadcrumbs and file actions do not choose a runnable project. Keep the wire
+            // File actions do not choose a runnable project. Keep the wire
             // shape explicit for new records while preserving all values when editing/copying.
-            if (
-                existing == null
-                && (kind == LibraryItemKind.Breadcrumb || kind == LibraryItemKind.FileAction)
-            )
+            if (existing == null && kind == LibraryItemKind.FileAction)
             {
                 _s.Link = LibraryItemLink.Project;
                 _s.Project = "";
@@ -100,8 +97,6 @@ namespace SlopWorld
                     return new EditPromptDialog(existing, copy);
                 case LibraryItemKind.Shell:
                     return new EditShellDialog(existing, copy);
-                case LibraryItemKind.Breadcrumb:
-                    return new EditBreadcrumbDialog(existing, copy);
                 case LibraryItemKind.Timer:
                     return new EditTimerDialog(existing, copy);
                 case LibraryItemKind.FileAction:
@@ -438,7 +433,7 @@ namespace SlopWorld
                 return;
             }
             if (
-                (Kind == LibraryItemKind.Prompt || Kind == LibraryItemKind.Shell)
+                _s.Runnable
                 && _s.Link == LibraryItemLink.Project
                 && string.IsNullOrEmpty((_s.Project ?? "").Trim())
             )

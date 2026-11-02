@@ -15,10 +15,10 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 #[tokio::test]
-async fn socket_breadcrumbs_require_target_write_access_and_global_commands_require_root() {
+async fn socket_prompts_require_target_write_access_and_global_commands_require_root() {
     use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
     use crate::shared::wire::{self, client_message::Payload as C};
-    for (cap, breadcrumb_allowed, root) in [
+    for (cap, prompt_allowed, root) in [
         (scoped(&["target"], Level::Ro), false, false),
         (scoped(&["other"], Level::Rw), false, false),
         (scoped(&["target"], Level::Rw), true, false),
@@ -37,7 +37,7 @@ async fn socket_breadcrumbs_require_target_write_access_and_global_commands_requ
             }],
             library: vec![LibraryItemCfg {
                 name: "context".into(),
-                kind: LibraryItemKind::Breadcrumb,
+                kind: LibraryItemKind::Prompt,
                 text: "context for {{ agent }}".into(),
                 ..Default::default()
             }],
@@ -56,9 +56,9 @@ async fn socket_breadcrumbs_require_target_write_access_and_global_commands_requ
             &manager,
             cap,
             [
-                C::Breadcrumb(wire::BreadcrumbReq {
+                C::PastePrompt(wire::PastePromptReq {
                     name: Some("target".into()),
-                    breadcrumb: Some("context".into()),
+                    prompt: Some("context".into()),
                     ..Default::default()
                 }),
                 C::Redraw(wire::RedrawReq {
@@ -72,7 +72,7 @@ async fn socket_breadcrumbs_require_target_write_access_and_global_commands_requ
             ],
         )
         .await;
-        if breadcrumb_allowed {
+        if prompt_allowed {
             assert!(
                 matches!(input.try_recv().unwrap().command, crate::session::Input::Paste { bytes } if bytes == b"context for target")
             );
@@ -1506,7 +1506,7 @@ async fn rotate_root(manager: &App) {
 
 #[tokio::test]
 async fn root_commands_queued_behind_rotation_have_no_effect() {
-    use crate::api::types::BreadcrumbReq;
+    use crate::api::types::PastePromptReq;
     use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg};
     let manager = crate::application::test_application(Config {
         sessions: vec![crate::config::SessionCfg {
@@ -1521,7 +1521,7 @@ async fn root_commands_queued_behind_rotation_have_no_effect() {
         }],
         library: vec![LibraryItemCfg {
             name: "context".into(),
-            kind: LibraryItemKind::Breadcrumb,
+            kind: LibraryItemKind::Prompt,
             text: "context".into(),
             ..Default::default()
         }],
@@ -1530,7 +1530,7 @@ async fn root_commands_queued_behind_rotation_have_no_effect() {
     let mut input = manager.sessions.terminal_input_fixture("target", 7).await;
     manager
         .sessions
-        .paste_breadcrumb("target", "context", vec![])
+        .paste_prompt("target", "context", vec![])
         .await
         .unwrap();
     assert!(
@@ -1557,10 +1557,10 @@ async fn root_commands_queued_behind_rotation_have_no_effect() {
         &subs,
         &admitted,
     );
-    let breadcrumb = super::commands::dispatch_client_msg(
-        ClientMsg::Breadcrumb(BreadcrumbReq {
+    let prompt = super::commands::dispatch_client_msg(
+        ClientMsg::PastePrompt(PastePromptReq {
             name: "target".into(),
-            breadcrumb: "context".into(),
+            prompt: "context".into(),
             random_tips: vec![],
         }),
         &manager,
@@ -1569,13 +1569,13 @@ async fn root_commands_queued_behind_rotation_have_no_effect() {
         &subs,
         &admitted,
     );
-    tokio::pin!(audio, breadcrumb);
+    tokio::pin!(audio, prompt);
     assert!(futures::poll!(audio.as_mut()).is_pending());
-    assert!(futures::poll!(breadcrumb.as_mut()).is_pending());
+    assert!(futures::poll!(prompt.as_mut()).is_pending());
     rotate_root(&manager).await;
     drop(transaction);
     assert!(!audio.await);
-    assert!(!breadcrumb.await);
+    assert!(!prompt.await);
     assert!(input.try_recv().is_err());
     assert_eq!(manager.services.music.state().await.volume, volume);
 }

@@ -4,7 +4,7 @@ use crate::config::LibraryItemKind;
 fn item(name: &str) -> LibraryItemCfg {
     LibraryItemCfg {
         name: name.into(),
-        kind: LibraryItemKind::Breadcrumb,
+        kind: LibraryItemKind::Prompt,
         text: "Review the change".into(),
         ..Default::default()
     }
@@ -66,10 +66,10 @@ fn duplicate_and_conflicting_renames_leave_catalog_unchanged() {
 }
 
 #[test]
-fn breadcrumb_preparation_uses_resolved_context_and_preserves_literal_replacements() {
+fn prompt_preparation_uses_resolved_context_and_preserves_literal_replacements() {
     let cfg = Config {
         library: vec![LibraryItemCfg {
-            name: "context".into(), kind: LibraryItemKind::Breadcrumb,
+            name: "context".into(), kind: LibraryItemKind::Prompt,
             text: "{{ agent }}|{{ project }}|{{ directory }}|{{ command }}|{{ random_tip }}|{{ random_tip }}".into(),
             ..Default::default()
         }],
@@ -86,7 +86,7 @@ fn breadcrumb_preparation_uses_resolved_context_and_preserves_literal_replacemen
         ..Default::default()
     };
     assert_eq!(
-        prepare_breadcrumb(
+        prepare_prompt(
             &cfg,
             &session,
             &project,
@@ -96,10 +96,10 @@ fn breadcrumb_preparation_uses_resolved_context_and_preserves_literal_replacemen
         .unwrap(),
         "agent|repo|/resolved/worktree|codex --yolo|{{ agent }}|second"
     );
-    prepare_breadcrumb(&cfg, &session, &project, "missing", &[]).unwrap_err();
+    prepare_prompt(&cfg, &session, &project, "missing", &[]).unwrap_err();
     let mut wrong_kind = cfg;
-    wrong_kind.library[0].kind = LibraryItemKind::Prompt;
-    prepare_breadcrumb(&wrong_kind, &session, &project, "context", &[]).unwrap_err();
+    wrong_kind.library[0].kind = LibraryItemKind::Shell;
+    prepare_prompt(&wrong_kind, &session, &project, "context", &[]).unwrap_err();
 }
 
 #[test]

@@ -589,9 +589,9 @@ message PasteReq {
   optional bytes image_data = 6;
 }
 
-message BreadcrumbReq {
+message PastePromptReq {
   optional string name = 1;
-  optional string breadcrumb = 2;
+  optional string prompt = 2;
   repeated string random_tips = 3;
 }
 
@@ -936,7 +936,7 @@ message ClientMessage {
     ScrollReq scroll = 6;
     MouseReq mouse = 7;
     PasteReq paste = 8;
-    BreadcrumbReq breadcrumb = 9;
+    PastePromptReq paste_prompt = 9;
     AudioRequest audio = 10;
   }
 }

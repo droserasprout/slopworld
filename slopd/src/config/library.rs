@@ -11,8 +11,6 @@ pub enum LibraryItemKind {
     Prompt,
     /// Handed to an interactive shell inside the project's sandbox.
     Shell,
-    /// Reusable guidance inserted into a prompt by the user.
-    Breadcrumb,
     /// A command offered for the selected path in the Files sidebar.
     FileAction,
     /// Scheduled Prompt delivery to a durable agent.
@@ -24,7 +22,6 @@ impl LibraryItemKind {
         match self {
             Self::Prompt => "prompts",
             Self::Shell => "shell_scripts",
-            Self::Breadcrumb => "breadcrumbs",
             Self::FileAction => "file_actions",
             Self::Timer => "timers",
         }
@@ -35,7 +32,6 @@ crate::wire_enum!(LibraryItemKind, {
     LibraryItemKind::Timer => crate::shared::protocol::enums::library_kind::TIMER,
     LibraryItemKind::Prompt => crate::shared::protocol::enums::library_kind::PROMPT,
     LibraryItemKind::Shell => crate::shared::protocol::enums::library_kind::SHELL,
-    LibraryItemKind::Breadcrumb => crate::shared::protocol::enums::library_kind::BREADCRUMB,
     LibraryItemKind::FileAction => crate::shared::protocol::enums::library_kind::FA,
 });
 
@@ -74,7 +70,7 @@ crate::wire_enum!(FileActionMode, {
     FileActionMode::Nothing => crate::shared::protocol::enums::file_action_mode::NOTHING,
 });
 
-/// Reusable prompt, breadcrumb, shell command, or file action.
+/// Reusable prompt, shell command, or file action.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LibraryItemCfg {
     // Display identity and workspace selection.
@@ -140,7 +136,7 @@ pub fn builtin_library_items() -> &'static [LibraryItemCfg] {
         vec![
             LibraryItemCfg {
                 name: "Useful tips".into(),
-                kind: LibraryItemKind::Breadcrumb,
+                kind: LibraryItemKind::Prompt,
                 text: "{{ random_tip }} {{ random_tip }} {{ random_tip }} \
                        {{ random_tip }} {{ random_tip }}"
                     .into(),
@@ -149,7 +145,7 @@ pub fn builtin_library_items() -> &'static [LibraryItemCfg] {
             },
             LibraryItemCfg {
                 name: "Magic 8 Ball".into(),
-                kind: LibraryItemKind::Breadcrumb,
+                kind: LibraryItemKind::Prompt,
                 text: "{{ magic_8_ball }}".into(),
                 builtin: true,
                 ..Default::default()
@@ -215,12 +211,6 @@ pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()
         sc.timer.is_none(),
         "Only Timer items may contain timer settings."
     );
-    if sc.kind == LibraryItemKind::Breadcrumb {
-        if sc.text.trim().is_empty() {
-            bail!("Enter text for breadcrumb {:?}.", sc.name);
-        }
-        return Ok(());
-    }
     if sc.host && !sc.agent_template.trim().is_empty() {
         bail!(
             "Choose either Host or an agent template for library item {:?}.",
@@ -242,7 +232,9 @@ pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()
         }
         return Ok(());
     }
-    if sc.link == LibraryItemLink::Project && sc.project.trim().is_empty() {
+    let reusable_prompt =
+        sc.kind == LibraryItemKind::Prompt && !sc.host && sc.agent_template.trim().is_empty();
+    if !reusable_prompt && sc.link == LibraryItemLink::Project && sc.project.trim().is_empty() {
         bail!("Choose a project for library item {:?}.", sc.name);
     }
     if !sc.project.trim().is_empty() && cfg.project(&sc.project).is_none() {
