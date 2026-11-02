@@ -296,6 +296,8 @@ async fn nested_private_roots_fail_before_preparation_in_either_order() {
             }
             let session = SessionCfg {
                 name: "nested".into(),
+                // Keep host agent configuration out of the overlap check.
+                command: "bash".into(),
                 state_id: uuid::Uuid::new_v4().to_string(),
                 sandbox: presets.iter().map(|preset| preset.name.clone()).collect(),
                 sandbox_snapshots: presets,
