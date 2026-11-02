@@ -24,6 +24,131 @@ namespace SlopWorld.Tests
             return view;
         }
 
+        public static void DocumentOwnerKeepsSaveActiveWhilePublishingBacklogAndDescriptionStages()
+        {
+            DaemonClient.Requests.Clear();
+            DaemonClient.BaseUrl = "http://planner-owner-test";
+            var state = new PlannerDocumentState(DaemonClient.BaseUrl);
+            state.Load(() => false);
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDocument { Text = "Task sw-id:first", Revision = "r1" });
+            state.EnsureDescription("first");
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Original", Revision = "d1" });
+            state.Description("first").Text = "Description draft";
+            state.Text = "Edited task sw-id:first";
+            state.Parse();
+            state.Save();
+            Assert.That(state.Stage, Is.EqualTo(PlannerDocumentState.RequestStage.SavingBacklog));
+            // ID assignment or daemon normalization can rebuild rows at this boundary.
+            // Subscribers must never observe an idle gap in the joint save.
+            bool published = false;
+            state.Rebuilt += () =>
+            {
+                published = true;
+                Assert.That(state.Busy, Is.True);
+                Assert.That(
+                    state.Stage,
+                    Is.EqualTo(PlannerDocumentState.RequestStage.SavingBacklog)
+                );
+                int requests = DaemonClient.Requests.Count;
+                state.Save();
+                Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+            };
+            DaemonClient
+                .Requests.Last()
+                .Reply(
+                    new Wire.PlannerDocument
+                    {
+                        Text = "Normalized task sw-id:first",
+                        Revision = "r2",
+                    }
+                );
+            Assert.That(published, Is.True);
+            Assert.That(
+                state.Stage,
+                Is.EqualTo(PlannerDocumentState.RequestStage.SavingDescriptions)
+            );
+            DaemonClient.Requests.Last().Fail("Conflict");
+            Assert.That(state.Stage, Is.EqualTo(PlannerDocumentState.RequestStage.Idle));
+            Assert.That(state.Document.Revision, Is.EqualTo("r2"));
+            Assert.That(state.Description("first").Revision, Is.EqualTo("d1"));
+            Assert.That(state.Description("first").Dirty, Is.True);
+            state.Save();
+            Assert.That(
+                state.Stage,
+                Is.EqualTo(PlannerDocumentState.RequestStage.SavingDescriptions)
+            );
+            var retry = DaemonClient.Requests.Last();
+            Assert.That(((Wire.PlannerSaveReq)retry.Body).Revision, Is.EqualTo("d1"));
+            retry.Reply(
+                new Wire.PlannerDescription { Text = "Description draft", Revision = "d2" }
+            );
+            Assert.That(state.Stage, Is.EqualTo(PlannerDocumentState.RequestStage.Idle));
+            Assert.That(state.Dirty, Is.False);
+        }
+
+        public static void DescriptionBatchRetryKeepsEachAcceptedRevisionAndSkipsCommittedDrafts()
+        {
+            var view = DescriptionTask();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "First", Revision = "d1" });
+            view.LoadTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(
+                    new Wire.PlannerDocument
+                    {
+                        Text = "Task sw-id:first\nSecond sw-id:second",
+                        Revision = "r3",
+                    }
+                );
+            view.SelectTest(1);
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Second", Revision = "d2" });
+            view.DescriptionTest = "Edited second";
+            view.SelectTest(0);
+            view.DescriptionTest = "Edited first";
+            view.SaveDescriptionTest();
+            var first = DaemonClient.Requests.Last();
+            var firstBody = (Wire.PlannerSaveReq)first.Body;
+            first.Reply(
+                new Wire.PlannerDescription { Text = firstBody.Text, Revision = "accepted" }
+            );
+            var second = DaemonClient.Requests.Last();
+            Assert.That(second, Is.Not.SameAs(first));
+            var secondBody = (Wire.PlannerSaveReq)second.Body;
+            second.Fail("Offline");
+            // Select the committed draft while retrying the other task's description.
+            int committed = firstBody.Text == "Edited first" ? 0 : 1;
+            view.SelectTest(committed);
+            Assert.That(view.DescriptionRevisionTest, Is.EqualTo("accepted"));
+            Assert.That(view.DescriptionDirtyTest, Is.False);
+            view.SaveDescriptionTest();
+            var retry = DaemonClient.Requests.Last();
+            Assert.That(((Wire.PlannerSaveReq)retry.Body).Text, Is.EqualTo(secondBody.Text));
+            Assert.That(
+                ((Wire.PlannerSaveReq)retry.Body).Revision,
+                Is.EqualTo(secondBody.Revision)
+            );
+            int requests = DaemonClient.Requests.Count;
+            view.Closed();
+            retry.Reply(
+                new Wire.PlannerDescription { Text = secondBody.Text, Revision = "recovered" }
+            );
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+            Assert.That(view.BusyTest, Is.False);
+            Assert.That(view.DirtyTest, Is.False);
+            view.Opened();
+            view.SelectTest(1 - committed);
+            Assert.That(view.DescriptionRevisionTest, Is.EqualTo("recovered"));
+            view.Closed();
+        }
+
         public static void ImportedRowsCanSaveWithoutUnrelatedEdits()
         {
             var view = Loaded();

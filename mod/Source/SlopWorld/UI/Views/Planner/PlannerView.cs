@@ -6,60 +6,44 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Endpoint-scoped task drafts survive view changes. Persistence and worker status
-    // stay in the daemon; TodoText owns edits to the user's fields only.
+    // Owns Planner presentation and the selected row editor. Endpoint documents,
+    // persistent drafts, and request settlement belong to PlannerDocumentState.
     public sealed partial class PlannerView : ContentView
     {
         static readonly Dictionary<string, PlannerView> Views =
             new Dictionary<string, PlannerView>();
-        readonly string _endpoint;
+        readonly PlannerDocumentState _state;
         FieldLifetime _fields = new FieldLifetime();
-        Wire.PlannerDocument _document;
         IDisposable _pollingDemand;
-        List<TodoEntry> _entries = new List<TodoEntry>();
         TodoEntry _selected;
         TodoDraft _draft;
-        string _text = "",
-            _error;
         string _quickAdd = "",
             _search = "",
             _projectFilter = "",
             _contextFilter = "";
         TodoFilter _filter = TodoFilter.Active;
         TodoSort _sort = TodoSort.Due;
-        bool _busy,
-            _open,
+        bool _open,
             _source,
             _detailOpen;
-        int _generation,
-            _presentation;
+        int _presentation;
         readonly SmoothScroll _listScroll = new SmoothScroll();
         readonly ScrollableListing _navigation = new ScrollableListing();
         readonly ScrollableListing _details = new ScrollableListing();
         bool DraftDirty => _selected != null && _draft != null && _draft.Changed(_selected);
-        bool Dirty =>
-            _document != null
-            && (
-                _text != _document.Text
-                || DraftDirty
-                || _descriptions.Values.Any(draft => draft.Dirty)
-            );
-        bool NeedsIds => _entries.Any(entry => string.IsNullOrEmpty(entry.Id));
-        bool CanSave => Dirty || NeedsIds;
-        bool Ready => !_busy && _document != null;
+        bool Dirty => _state.Dirty || (_state.Document != null && DraftDirty);
+        bool CanSave => Dirty || _state.NeedsIds;
+        bool Ready => _state.Ready;
 
-        // Requests belong to the cached endpoint draft, not the visible window. Closing
-        // must not discard a committed save or permit a second action while one is pending.
-        bool Current(int generation) => _generation == generation;
-
-        bool IsOpenEndpoint => _open && _endpoint == DaemonClient.BaseUrl;
+        bool IsOpenEndpoint => _open && _state.Endpoint == DaemonClient.BaseUrl;
 
         public override string Title => "Planner";
         public override PanelSize MinimumSize => new PanelSize(580f, 420f);
 
         PlannerView(string endpoint)
         {
-            _endpoint = endpoint;
+            _state = new PlannerDocumentState(endpoint);
+            _state.Rebuilt += () => RestoreSelection();
         }
 
         public static void Toggle() => WorkspaceWindow.ToggleContent(CurrentView);
@@ -80,7 +64,7 @@ namespace SlopWorld
             _pollingDemand ??= SessionHub.Instance.TaskStore.OpenReader();
             _fields = new FieldLifetime();
             EnsureDescription();
-            if (_document == null && !_busy)
+            if (_state.Document == null && !_state.Busy)
                 Load();
         }
 
@@ -93,29 +77,19 @@ namespace SlopWorld
             _fields.Cancel();
         }
 
-        int Begin()
-        {
-            _busy = true;
-            _error = null;
-            return ++_generation;
-        }
-
-        void Failed(int generation, string error)
-        {
-            if (!Current(generation))
-                return;
-            _busy = false;
-            _error = error;
-        }
-
         void Rebuild(string key = null)
+        {
+            _state.Parse();
+            RestoreSelection(key);
+        }
+
+        void RestoreSelection(string key = null)
         {
             key = key ?? _selected?.Key;
             uint? line = _selected?.Line;
-            _entries = TodoText.Parse(_text);
             var selected =
-                _entries.FirstOrDefault(entry => entry.Key == key)
-                ?? _entries.FirstOrDefault(entry => entry.Line == line);
+                _state.Entries.FirstOrDefault(entry => entry.Key == key)
+                ?? _state.Entries.FirstOrDefault(entry => entry.Line == line);
             SetSelection(selected);
         }
 
@@ -131,14 +105,14 @@ namespace SlopWorld
         Action EditSelected(Action edit)
         {
             var draft = _draft;
-            int generation = _generation,
+            int generation = _state.Generation,
                 presentation = _presentation;
             return () =>
             {
                 if (
                     IsOpenEndpoint
                     && Ready
-                    && Current(generation)
+                    && _state.Current(generation)
                     && presentation == _presentation
                     && ReferenceEquals(_draft, draft)
                 )
@@ -155,46 +129,12 @@ namespace SlopWorld
             }
             if (DraftDirty)
             {
-                _error = "Save or discard the task you're editing first.";
+                _state.Error = "Save or discard the task you're editing first.";
                 return;
             }
             SetSelection(entry);
-            _error = null;
+            _state.Error = null;
             _detailOpen = true;
-        }
-
-        void Accept(Wire.PlannerDocument document, bool discard = false)
-        {
-            // Link-only refreshes must preserve rows, selection, and field lifetime.
-            bool rebuild = _document == null || _text != document.Text || discard;
-            _document = document;
-            _text = document.Text;
-            if (rebuild)
-                Rebuild();
-            _busy = false;
-        }
-
-        void Load()
-        {
-            if (_busy)
-                return;
-            // Background refresh must leave editing enabled.
-            bool initial = _document == null;
-            int generation = initial ? Begin() : ++_generation;
-            DaemonClient.Get<Wire.PlannerDocument>(
-                WireProtocol.Routes.Planner,
-                value =>
-                {
-                    if (!Current(generation))
-                        return;
-                    // Keep edits made during refresh and their revision for conflict detection.
-                    if (!initial && Dirty)
-                        return;
-                    _error = null;
-                    Accept(value);
-                },
-                error => Failed(generation, error)
-            );
         }
 
         bool ApplyDraft()
@@ -203,79 +143,51 @@ namespace SlopWorld
                 return true;
             try
             {
-                _text = TodoText.Update(_text, _selected, _draft, Settings.Today);
+                _state.Text = TodoText.Update(_state.Text, _selected, _draft, Settings.Today);
                 Rebuild();
                 return true;
             }
             catch (Exception error)
             {
-                _error = error.Message;
+                _state.Error = error.Message;
                 return false;
             }
         }
 
+        void Load() => _state.Load(() => DraftDirty);
+
         void Save()
         {
-            if (!IsOpenEndpoint || !Ready || !ApplyDraft())
-                return;
-            var ids = new HashSet<string>(TodoText.Parse(_text).Select(entry => entry.Id));
-            if (_descriptions.Any(pair => pair.Value.Dirty && !ids.Contains(pair.Key)))
-            {
-                _error =
-                    "Restore the removed task and save or discard its description before deleting it.";
-                return;
-            }
-            int generation = Begin();
-            if (_text == _document.Text && !NeedsIds)
-            {
-                SaveDescriptions(generation);
-                return;
-            }
-            DaemonClient.Put<Wire.PlannerDocument>(
-                WireProtocol.Routes.Planner,
-                new Wire.PlannerSaveReq { Text = _text, Revision = _document.Revision },
-                value =>
-                {
-                    if (Current(generation))
-                    {
-                        Accept(value);
-                        _busy = true;
-                        SaveDescriptions(generation);
-                    }
-                },
-                error => Failed(generation, error)
-            );
+            if (IsOpenEndpoint && Ready && ApplyDraft())
+                _state.Save();
         }
 
         void Discard()
         {
             if (!Ready || !IsOpenEndpoint)
                 return;
-            foreach (var draft in _descriptions.Values)
-                draft.Discard();
-            _error = null;
-            Accept(_document, discard: true);
+            _state.Discard();
         }
 
         void Add()
         {
             try
             {
-                _text = TodoText.Add(
-                    _text,
+                _state.Text = TodoText.Add(
+                    _state.Text,
                     _quickAdd,
                     _projectFilter,
                     Settings.Today,
                     _contextFilter
                 );
                 Rebuild();
-                Select(_entries.Last());
+                Select(_state.Entries.Last());
                 _quickAdd = "";
                 Save();
             }
             catch (Exception error)
             {
-                _error = error.Message;
+                _state.Error = error.Message;
             }
         }
 
@@ -283,19 +195,19 @@ namespace SlopWorld
         {
             if (DraftDirty)
             {
-                _error = "Save or discard the task you're editing first.";
+                _state.Error = "Save or discard the task you're editing first.";
                 return;
             }
             try
             {
                 var draft = new TodoDraft(entry) { Completed = !entry.Completed };
-                _text = TodoText.Update(_text, entry, draft, Settings.Today);
+                _state.Text = TodoText.Update(_state.Text, entry, draft, Settings.Today);
                 Rebuild();
                 Save();
             }
             catch (Exception error)
             {
-                _error = error.Message;
+                _state.Error = error.Message;
             }
         }
 
@@ -303,7 +215,7 @@ namespace SlopWorld
         {
             try
             {
-                _text = TodoText.Replace(_text, _selected, "");
+                _state.Text = TodoText.Replace(_state.Text, _selected, "");
                 SetSelection(null);
                 Rebuild();
                 _detailOpen = false;
@@ -311,7 +223,7 @@ namespace SlopWorld
             }
             catch (Exception error)
             {
-                _error = error.Message;
+                _state.Error = error.Message;
             }
         }
 
@@ -319,7 +231,7 @@ namespace SlopWorld
         {
             if (entry == null)
                 return null;
-            var linked = _document?.Items.FirstOrDefault(item =>
+            var linked = _state.Document?.Items.FirstOrDefault(item =>
                 item.Id.Length > 0 ? item.Id == entry.Id : item.Line == entry.Line
             );
             if (linked != null)
@@ -339,25 +251,19 @@ namespace SlopWorld
         void OpenTask(string id)
         {
             int presentation = _presentation;
-            int generation = Begin();
-            DaemonClient.Get<Wire.TaskResult>(
-                WireProtocol.Routes.Tasks + "/" + Uri.EscapeDataString(id),
-                value =>
+            _state.LoadTask(
+                id,
+                task =>
                 {
-                    if (!Current(generation))
-                        return;
-                    _busy = false;
-                    if (IsOpenEndpoint && presentation == _presentation && value.Task != null)
+                    if (IsOpenEndpoint && presentation == _presentation)
                     {
-                        var task = TaskInfo.FromWire(value.Task);
-                        // The reader follows the shared board snapshot. Seed it before
-                        // opening when this link arrived ahead of the next task poll.
-                        SessionHub.Instance.TaskStore.Add(task);
-                        TaskDetailView.Open(task, this);
+                        // Seed the shared board before opening a link that arrived
+                        // ahead of its next poll.
+                        var info = TaskInfo.FromWire(task);
+                        SessionHub.Instance.TaskStore.Add(info);
+                        TaskDetailView.Open(info, this);
                     }
-                },
-                error => Failed(generation, error),
-                session: TaskInfo.Host
+                }
             );
         }
 
@@ -375,7 +281,7 @@ namespace SlopWorld
             using (WidgetState.Save())
             using (FieldLifetimeScope.Push(_fields))
             {
-                if (_endpoint != DaemonClient.BaseUrl)
+                if (_state.Endpoint != DaemonClient.BaseUrl)
                 {
                     UiText.RowLabel(
                         body,

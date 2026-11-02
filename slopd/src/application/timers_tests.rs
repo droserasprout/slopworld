@@ -95,7 +95,7 @@ async fn calendar_restart_clock_rollback_and_missed_minutes_do_not_replay_claims
     );
 }
 
-fn timer_config(trigger: &str, schedule: &str) -> crate::config::Config {
+pub(super) fn timer_config(trigger: &str, schedule: &str) -> crate::config::Config {
     crate::config::Config {
         library: vec![crate::config::LibraryItemCfg {
             name: "Timer".into(),
@@ -248,6 +248,34 @@ fn disabling_editing_and_removing_rearm_or_retire_activation() {
     cfg.library.clear();
     runtime.reconcile(&cfg, 8, 8);
     assert!(runtime.activations.is_empty());
+}
+
+#[tokio::test]
+async fn failed_claim_write_preserves_deadline_and_retries_same_tick() {
+    let fixture = super::super::test_support::Fixture::new();
+    let timers = Timers::new(fixture.root.join("timers.json"));
+    let app = crate::application::test_application(timer_config("interval", "10s"));
+    timers.tick_at(&app.sessions, &app, 1000, 0).await.unwrap();
+    let failure = crate::paths::fail_writes(&timers.records.path);
+    let error = timers
+        .tick_at(&app.sessions, &app, 1010, 10)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("injected persistence failure"));
+    assert!(timers.records.load().await.unwrap().is_empty());
+    {
+        let runtime = timers.runtime.lock().await;
+        assert_eq!(runtime.activations["Timer"].next, Some(10));
+        assert_eq!(runtime.checked, Some((1000, 0)));
+    }
+    drop(failure);
+    assert!(timers.tick_at(&app.sessions, &app, 1010, 10).await.unwrap());
+    assert_eq!(
+        timers.runtime.lock().await.activations["Timer"].next,
+        Some(20)
+    );
+    assert_eq!(timers.records.load().await.unwrap()["Timer"].at, 1010);
+    assert!(!timers.tick_at(&app.sessions, &app, 1010, 10).await.unwrap());
 }
 
 #[tokio::test]

@@ -14,19 +14,7 @@ namespace SlopWorld
             var selected = Linked(_selected);
             if (!IsOpenEndpoint || !Ready || Dirty || selected == null || selected.Id.Length == 0)
                 return;
-            var request = new Wire.PlannerLinksReq { Revision = selected.LinksRevision };
-            request.Links.AddRange(links.Select(link => link.Clone()));
-            int generation = Begin();
-            DaemonClient.Put<Wire.PlannerDocument>(
-                WireProtocol.Routes.PlannerLinks.Replace(":id", Uri.EscapeDataString(selected.Id)),
-                request,
-                value =>
-                {
-                    if (Current(generation))
-                        Accept(value);
-                },
-                error => Failed(generation, error)
-            );
+            _state.SaveLinks(selected, links);
         }
 
         void RemoveLink(Wire.PlannerLink link)
@@ -62,7 +50,7 @@ namespace SlopWorld
         {
             // The launch may commit links even when process startup fails. Refresh only
             // this endpoint, preserving any backlog edits made while the dialog was open.
-            if (_endpoint == DaemonClient.BaseUrl && !Dirty && !_busy)
+            if (_state.Endpoint == DaemonClient.BaseUrl && !Dirty && !_state.Busy)
                 Load();
         }
     }

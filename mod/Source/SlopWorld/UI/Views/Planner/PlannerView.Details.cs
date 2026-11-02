@@ -129,7 +129,7 @@ namespace SlopWorld
             )
             {
                 string selected = _selected.Key;
-                int generation = _generation;
+                int generation = _state.Generation;
                 int presentation = _presentation;
                 Find.WindowStack.Add(
                     ConfirmDialog.Create(
@@ -139,7 +139,7 @@ namespace SlopWorld
                         () =>
                         {
                             if (
-                                Current(generation)
+                                _state.Current(generation)
                                 && IsOpenEndpoint
                                 && presentation == _presentation
                                 && _selected?.Key == selected
@@ -224,8 +224,10 @@ namespace SlopWorld
             var selected = new HashSet<string>(
                 TodoText.Words(projects ? _draft.Projects : _draft.Contexts)
             );
-            var names = _entries
-                .SelectMany(entry => TodoText.Words(projects ? entry.Projects : entry.Contexts))
+            var names = _state
+                .Entries.SelectMany(entry =>
+                    TodoText.Words(projects ? entry.Projects : entry.Contexts)
+                )
                 .Concat(
                     projects
                         ? SessionHub.Instance.Projects.Select(project => project.Name)

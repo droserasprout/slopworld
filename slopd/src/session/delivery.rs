@@ -29,6 +29,23 @@ enum Admission {
     Timeout,
 }
 
+/// Submission policy belongs to the request, never to its reusable destination.
+/// Startup prompts participate in title capture; later prompts use guarded agent
+/// input. Scheduled prompts additionally reserve the current idle turn.
+#[derive(Clone, Copy)]
+enum DeliveryIntent<'a> {
+    StartupPrompt(&'a str),
+    Followup(&'a str),
+    ScheduledPrompt(&'a str),
+    AutoResume,
+}
+
+impl DeliveryIntent<'_> {
+    fn requires_idle_turn(self) -> bool {
+        matches!(self, Self::ScheduledPrompt(_))
+    }
+}
+
 /// An owned destination for delayed input. Names alone can identify a replacement run.
 #[derive(Clone)]
 pub(crate) struct DeliveryTarget {
@@ -37,8 +54,6 @@ pub(crate) struct DeliveryTarget {
     run_id: u64,
     requires_paste_mode: bool,
     requires_codex_composer: bool,
-    followup: bool,
-    idle_only: bool,
 }
 
 impl DeliveryTarget {
@@ -74,8 +89,6 @@ impl SessionRuntime {
         let cfg = self.config().await;
         self.live.read().await.get(name).map(|live| DeliveryTarget {
             name: name.to_string(),
-            followup: false,
-            idle_only: false,
             identity: live.cfg.state_id.clone(),
             run_id: live.run_id,
             requires_codex_composer: !live.role.is_host()
@@ -117,7 +130,7 @@ impl SessionRuntime {
                     .any(|c| c.is_control() && c != '\n' && c != '\t'),
             "Invalid scheduled Prompt text."
         );
-        let Some(mut target) = self.delivery_target(name).await else {
+        let Some(target) = self.delivery_target(name).await else {
             return Ok(false);
         };
         if target.identity != identity || !target.requires_paste_mode {
@@ -135,12 +148,10 @@ impl SessionRuntime {
                 return Ok(false);
             }
         }
-        target.followup = true;
-        target.idle_only = true;
         Ok(matches!(
             self.admit_delivery(
                 &target,
-                Some(text),
+                DeliveryIntent::ScheduledPrompt(text),
                 tokio::time::Instant::now() + READY_TIMEOUT
             )
             .await,
@@ -174,7 +185,7 @@ impl SessionRuntime {
             "Follow-ups cannot be sent to shell workers"
         );
         drop(live);
-        let mut target = self
+        let target = self
             .delivery_target(name)
             .await
             .context("Worker is not running")?;
@@ -183,7 +194,6 @@ impl SessionRuntime {
             "Follow-ups cannot be sent to shell templates"
         );
         self.tmux.require_agent_input(name).await?;
-        target.followup = true;
         Ok(target)
     }
 
@@ -210,7 +220,7 @@ impl SessionRuntime {
         match self
             .admit_delivery(
                 target,
-                Some(&prompt),
+                DeliveryIntent::Followup(&prompt),
                 tokio::time::Instant::now() + READY_TIMEOUT,
             )
             .await
@@ -250,7 +260,8 @@ impl SessionRuntime {
         deadline: tokio::time::Instant,
     ) {
         if matches!(
-            self.submit_when_ready(target, Some(text), deadline).await,
+            self.submit_when_ready(target, DeliveryIntent::StartupPrompt(text), deadline)
+                .await,
             Ready::Timeout
         ) {
             tracing::warn!(session = %target.name, "startup input withheld: readiness timed out");
@@ -263,7 +274,7 @@ impl SessionRuntime {
     async fn submit_when_ready(
         self: &Arc<Self>,
         target: &DeliveryTarget,
-        prompt: Option<&str>,
+        intent: DeliveryIntent<'_>,
         deadline: tokio::time::Instant,
     ) -> Ready {
         loop {
@@ -271,7 +282,7 @@ impl SessionRuntime {
                 Ready::Settled => {}
                 outcome => return outcome,
             }
-            match self.admit_delivery(target, prompt, deadline).await {
+            match self.admit_delivery(target, intent, deadline).await {
                 Admission::Submitted => return Ready::Settled,
                 Admission::Gone => return Ready::Gone,
                 Admission::Timeout => return Ready::Timeout,
@@ -303,7 +314,7 @@ impl SessionRuntime {
     async fn admit_delivery(
         self: &Arc<Self>,
         target: &DeliveryTarget,
-        prompt: Option<&str>,
+        intent: DeliveryIntent<'_>,
         deadline: tokio::time::Instant,
     ) -> Admission {
         self.session_read_operation(async {
@@ -316,7 +327,7 @@ impl SessionRuntime {
                 if tokio::time::Instant::now() >= deadline {
                     return Admission::Timeout;
                 }
-                if (target.idle_only
+                if (intent.requires_idle_turn()
                     && (current.state != State::Idle || current.input.auto_resume_pending))
                     || !target.input_ready(current)
                 {
@@ -326,12 +337,12 @@ impl SessionRuntime {
             if self.ensure_paste_ready(&target.name).await.is_err() {
                 return Admission::Retry;
             }
-            if let Some(text) = prompt {
-                if target.followup {
+            match intent {
+                DeliveryIntent::Followup(text) | DeliveryIntent::ScheduledPrompt(text) => {
                     if self.tmux.require_agent_input(&target.name).await.is_err() {
                         return Admission::Gone;
                     }
-                    if target.idle_only
+                    if intent.requires_idle_turn()
                         && let Err(outcome) = self.reserve_idle_turn(target).await
                     {
                         return outcome;
@@ -346,27 +357,29 @@ impl SessionRuntime {
                     self.queue_input(&target.name, Input::Gap(DELIVERY_ENTER_GAP))
                         .await;
                     self.queue_input(&target.name, Input::AgentEnter).await;
-                    return Admission::Submitted;
                 }
-                if self.paste(&target.name, text).await.is_err() {
-                    return Admission::Retry;
-                }
-                let enter = vec!["Enter".into()];
-                self.capture_title_keys(&target.name, &enter, false).await;
-                self.queue_input(&target.name, Input::Gap(DELIVERY_ENTER_GAP))
+                DeliveryIntent::StartupPrompt(text) => {
+                    if self.paste(&target.name, text).await.is_err() {
+                        return Admission::Retry;
+                    }
+                    let enter = vec!["Enter".into()];
+                    self.capture_title_keys(&target.name, &enter, false).await;
+                    self.queue_input(&target.name, Input::Gap(DELIVERY_ENTER_GAP))
+                        .await;
+                    self.queue_input(
+                        &target.name,
+                        Input::Keys {
+                            keys: enter,
+                            literal: false,
+                        },
+                    )
                     .await;
-                self.queue_input(
-                    &target.name,
-                    Input::Keys {
-                        keys: enter,
-                        literal: false,
-                    },
-                )
-                .await;
-            } else {
-                // Auto-resume is startup control, excluded from title capture.
-                for input in auto_resume_inputs() {
-                    self.queue_input(&target.name, input).await;
+                }
+                DeliveryIntent::AutoResume => {
+                    // Auto-resume is startup control, excluded from title capture.
+                    for input in auto_resume_inputs() {
+                        self.queue_input(&target.name, input).await;
+                    }
                 }
             }
             Admission::Submitted
@@ -417,7 +430,9 @@ impl SessionRuntime {
         target: &DeliveryTarget,
         deadline: tokio::time::Instant,
     ) {
-        let submitted = self.submit_when_ready(target, None, deadline).await;
+        let submitted = self
+            .submit_when_ready(target, DeliveryIntent::AutoResume, deadline)
+            .await;
         let consumed = submitted == Ready::Settled && self.delivery_fence(target, deadline).await;
         if consumed && self.wait_ready_until(target, deadline).await == Ready::Settled {
             self.deliver_initial(target).await;

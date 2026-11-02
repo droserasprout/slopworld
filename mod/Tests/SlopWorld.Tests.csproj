@@ -49,6 +49,7 @@
     <Compile Include="../Source/SlopWorld/UI/Chrome/FilterSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Tasks/TaskFilters.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Planner/TodoText.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Planner/PlannerDocumentState*.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Planner/PlannerView.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Planner/PlannerView.Descriptions.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Planner/PlannerView.Links.cs" />

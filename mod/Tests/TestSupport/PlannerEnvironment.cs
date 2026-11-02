@@ -48,24 +48,24 @@ namespace SlopWorld
     {
         internal static PlannerView CreateTest(string endpoint) => new PlannerView(endpoint);
 
-        internal bool BusyTest => _busy;
+        internal bool BusyTest => _state.Busy;
         internal object DraftIdentityTest => _draft;
         internal object FieldsIdentityTest => _fields;
         internal bool ReadyTest => Ready;
-        internal string TextTest => _text;
-        internal string ErrorTest => _error;
+        internal string TextTest => _state.Text;
+        internal string ErrorTest => _state.Error;
         internal string PriorityTest => _draft.Priority;
 
         internal Action PriorityEditTest(string value) =>
             EditSelected(() => _draft.Priority = value);
 
-        internal void SelectTest(int index) => Select(_entries[index]);
+        internal void SelectTest(int index) => Select(_state.Entries[index]);
 
-        internal Wire.PlannerDocument DocumentTest => _document;
+        internal Wire.PlannerDocument DocumentTest => _state.Document;
 
         internal void SaveTest(string text)
         {
-            _text = text;
+            _state.Text = text;
             Save();
         }
 

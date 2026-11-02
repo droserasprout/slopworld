@@ -50,9 +50,9 @@ namespace SlopWorld
                 UiControls.Button(
                     new Rect(x, r.y, 90f, h),
                     Dirty ? "Save changes"
-                        : NeedsIds ? "Save tasks"
+                        : _state.NeedsIds ? "Save tasks"
                         : "Refresh",
-                    on: !_busy && _document != null
+                    on: !_state.Busy && _state.Document != null
                 )
             )
             {
@@ -65,35 +65,40 @@ namespace SlopWorld
             if (UiControls.Button(new Rect(x, r.y, 100f, h), "Discard", on: Ready && Dirty))
                 Discard();
             float top = r.y + h + gap;
-            string status = _busy
+            string status = _state.Busy
                 ? "Working…"
-                : _error
+                : _state.Error
                     ?? (
                         Dirty
                             ? "Unsaved changes"
                             : "Saved · "
-                                + _entries.Count(entry => !entry.Completed)
+                                + _state.Entries.Count(entry => !entry.Completed)
                                 + " active tasks"
                     );
             var footer = new Rect(r.x, r.yMax - h, r.width, h);
-            GUI.color = _error == null ? UiTheme.Dim : UiTheme.Bad;
+            GUI.color = _state.Error == null ? UiTheme.Dim : UiTheme.Bad;
             UiText.FadedRowLabel(footer, status);
             GUI.color = Color.white;
-            TooltipHandler.TipRegion(footer, _error ?? _document?.Path ?? "");
+            TooltipHandler.TipRegion(footer, _state.Error ?? _state.Document?.Path ?? "");
             var content = new Rect(r.x, top, r.width, Mathf.Max(0f, footer.y - top - gap));
-            if (_document == null)
+            if (_state.Document == null)
             {
                 UiText.RowLabel(
                     content,
-                    _busy ? "Loading tasks…" : "Could not load tasks. Use Refresh to try again."
+                    _state.Busy
+                        ? "Loading tasks…"
+                        : "Could not load tasks. Use Refresh to try again."
                 );
-                if (!_busy && UiControls.Button(new Rect(content.x, content.y, 120f, h), "Retry"))
+                if (
+                    !_state.Busy
+                    && UiControls.Button(new Rect(content.x, content.y, 120f, h), "Retry")
+                )
                     Load();
                 return;
             }
             if (_source)
             {
-                _text = UiText.Area(content, "planner.source", _text, on: Ready);
+                _state.Text = UiText.Area(content, "planner.source", _state.Text, on: Ready);
                 return;
             }
             bool wide = content.width >= 980f;
@@ -132,7 +137,7 @@ namespace SlopWorld
                     UiLayout.SectionHeading(listing, "TASKS");
                     foreach (TodoFilter filter in Enum.GetValues(typeof(TodoFilter)))
                     {
-                        int count = _entries.Count(entry =>
+                        int count = _state.Entries.Count(entry =>
                             TodoText.Matches(entry, filter, "", "", Settings.Today)
                         );
                         var row = listing.GetRect(UiTheme.RowH);
@@ -156,13 +161,13 @@ namespace SlopWorld
                     listing.Gap(UiTheme.GapL);
                     UiLayout.SectionHeading(listing, "PROJECTS");
                     foreach (
-                        string project in _entries
-                            .SelectMany(entry => TodoText.Words(entry.Projects))
+                        string project in _state
+                            .Entries.SelectMany(entry => TodoText.Words(entry.Projects))
                             .Distinct()
                             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                     )
                     {
-                        int count = _entries.Count(entry =>
+                        int count = _state.Entries.Count(entry =>
                             !entry.Completed && TodoText.Words(entry.Projects).Contains(project)
                         );
                         if (
@@ -175,18 +180,18 @@ namespace SlopWorld
                         )
                             FocusTagFilter(project: project);
                     }
-                    if (_entries.All(entry => entry.Projects.Length == 0))
+                    if (_state.Entries.All(entry => entry.Projects.Length == 0))
                         UiLayout.Note(listing, "Add projects in task details.");
                     listing.Gap(UiTheme.GapL);
                     UiLayout.SectionHeading(listing, "CONTEXTS");
                     foreach (
-                        string context in _entries
-                            .SelectMany(entry => TodoText.Words(entry.Contexts))
+                        string context in _state
+                            .Entries.SelectMany(entry => TodoText.Words(entry.Contexts))
                             .Distinct()
                             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                     )
                     {
-                        int count = _entries.Count(entry =>
+                        int count = _state.Entries.Count(entry =>
                             !entry.Completed && TodoText.Words(entry.Contexts).Contains(context)
                         );
                         if (
@@ -199,7 +204,7 @@ namespace SlopWorld
                         )
                             FocusTagFilter(context: context);
                     }
-                    if (_entries.All(entry => entry.Contexts.Length == 0))
+                    if (_state.Entries.All(entry => entry.Contexts.Length == 0))
                         UiLayout.Note(listing, "Add contexts in task details.");
                 }
             );
@@ -271,8 +276,8 @@ namespace SlopWorld
                     () =>
                         new[] { new FloatMenuOption("All projects", () => _projectFilter = "") }
                             .Concat(
-                                _entries
-                                    .SelectMany(entry => TodoText.Words(entry.Projects))
+                                _state
+                                    .Entries.SelectMany(entry => TodoText.Words(entry.Projects))
                                     .Distinct()
                                     .Select(project => new FloatMenuOption(
                                         "+" + project,
@@ -288,8 +293,8 @@ namespace SlopWorld
                     () =>
                         new[] { new FloatMenuOption("All contexts", () => _contextFilter = "") }
                             .Concat(
-                                _entries
-                                    .SelectMany(entry => TodoText.Words(entry.Contexts))
+                                _state
+                                    .Entries.SelectMany(entry => TodoText.Words(entry.Contexts))
                                     .Distinct()
                                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                                     .Select(context => new FloatMenuOption(
@@ -343,7 +348,7 @@ namespace SlopWorld
             var frame = new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y));
             var entries = TodoText
                 .Sort(
-                    _entries.Where(entry =>
+                    _state.Entries.Where(entry =>
                         TodoText.Matches(
                             entry,
                             _filter,
@@ -361,7 +366,7 @@ namespace SlopWorld
                 GUI.color = UiTheme.Dim;
                 UiText.RowLabel(
                     new Rect(frame.x, frame.y + gap, frame.width, h),
-                    _entries.Count == 0
+                    _state.Entries.Count == 0
                         ? "A clear place to start. Add your first task above."
                         : "No tasks match this view."
                 );

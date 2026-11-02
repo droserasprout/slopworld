@@ -36,7 +36,9 @@ open task readers independently demand polling; readers release their registrati
 on close or replacement, so hiding or switching the sidebar cannot freeze a reader.
 
 `application/planner/` owns the manual todo.txt backlog and explicit Task/Worker links.
-The mod's Planner view retains endpoint-scoped drafts; saves compare document revisions.
+The mod's `PlannerDocumentState` owns endpoint-scoped backlog and description drafts,
+revisions, and request settlement; saves compare document revisions. `PlannerView` owns
+selection, its row field editor, polling demand, and window presentation.
 Only root may read or mutate the Planner API. Agents update existing Tasks, whose status
 is projected on links independently of Planner completion.
 See [Planner](../docs/src/customization/settings.md#planner).

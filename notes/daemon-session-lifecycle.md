@@ -37,3 +37,10 @@ unknown commands start fresh. Discovery is bounded and ignores symlinks. Deliver
 for queued resume input to drain, then checks readiness with a deadline; timeout dismisses
 the picker for the same run, releases startup input, and records a warning. A queue fence
 alone is not evidence that a conversation resumed.
+
+`session/delivery.rs` keeps captured destination identity and readiness separate from
+submission intent. Startup prompts capture titles; follow-ups and scheduled prompts
+use guarded agent paste/Enter, with scheduled prompts reserving an idle turn.
+Auto-resume is explicit startup control and does not enter title capture. Readiness
+waits run outside session admission; admission rechecks the run and readiness before
+queueing the complete sequence under the operation guard.

@@ -44,8 +44,10 @@ library revision checks. User procedures belong to
 
 `config/timer_trigger.rs` owns trigger validation, named-zone calendar calculation,
 and duration parsing.
-`application/timers.rs` coordinates claims and delivery. Its `runtime` module owns
-activation anchors, `records` owns durable claims, and `status` owns read-only views.
+`application/timers.rs` coordinates claims and delivery. Its `planning` module
+purely determines occurrence eligibility, claim identity and watermark, deadline
+advancement, and action snapshots. `runtime` owns activation anchors, `records` owns
+durable claims, and `status` owns read-only views.
 Maintenance checks timers without a game client. Configuration
 commit/reload reconciles activation while retaining the session operation guard, so
 rapid disable/enable edits cannot disappear between checks. The lock order is session

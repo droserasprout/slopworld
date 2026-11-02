@@ -149,7 +149,7 @@ async fn codex_startup_banner_with_paste_enabled_waits_for_the_composer() {
             manager
                 .admit_delivery(
                     &target,
-                    Some("not ready"),
+                    DeliveryIntent::StartupPrompt("not ready"),
                     tokio::time::Instant::now() + READY_TIMEOUT
                 )
                 .await,
@@ -218,14 +218,19 @@ async fn delayed_prompts_reject_restart_and_replacement_during_readiness() {
 }
 
 #[tokio::test]
-async fn prompt_and_auto_resume_recheck_ownership_after_waiting_for_admission() {
-    for prompt in [Some("stale"), None] {
+async fn every_delivery_intent_rechecks_ownership_after_waiting_for_admission() {
+    for intent in [
+        DeliveryIntent::StartupPrompt("stale"),
+        DeliveryIntent::Followup("stale"),
+        DeliveryIntent::ScheduledPrompt("stale"),
+        DeliveryIntent::AutoResume,
+    ] {
         let (manager, mut rx) = delivery_fixture().await;
         let target = manager.delivery_target("worker").await.unwrap();
         let guard = manager.session_boundary.write().await;
         let mut admission = Box::pin(manager.admit_delivery(
             &target,
-            prompt,
+            intent,
             tokio::time::Instant::now() + super::READY_TIMEOUT,
         ));
         assert!(futures::poll!(admission.as_mut()).is_pending());
@@ -286,7 +291,7 @@ async fn paste_mode_is_rechecked_when_startup_input_is_admitted() {
     manager
         .admit_delivery(
             &target,
-            Some("no longer ready"),
+            DeliveryIntent::StartupPrompt("no longer ready"),
             tokio::time::Instant::now() + super::READY_TIMEOUT,
         )
         .await;
@@ -386,8 +391,11 @@ async fn delivery_retries_readiness_lost_while_waiting_for_admission() {
         let target = manager.delivery_target("worker").await.unwrap();
         let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
         let guard = manager.session_boundary.write().await;
-        let mut delivery =
-            Box::pin(manager.submit_when_ready(&target, Some("retry prompt"), deadline));
+        let mut delivery = Box::pin(manager.submit_when_ready(
+            &target,
+            DeliveryIntent::StartupPrompt("retry prompt"),
+            deadline,
+        ));
         // Polling explicitly keeps delivery suspended until the screen has settled;
         // the next poll reaches admission and blocks on the boundary we own.
         assert!(futures::poll!(delivery.as_mut()).is_pending());
@@ -419,8 +427,11 @@ async fn admission_does_not_submit_after_its_deadline() {
     let (manager, mut rx) = delivery_fixture().await;
     let target = manager.delivery_target("worker").await.unwrap();
     let guard = manager.session_boundary.write().await;
-    let mut admission =
-        Box::pin(manager.admit_delivery(&target, Some("expired"), tokio::time::Instant::now()));
+    let mut admission = Box::pin(manager.admit_delivery(
+        &target,
+        DeliveryIntent::StartupPrompt("expired"),
+        tokio::time::Instant::now(),
+    ));
     assert!(futures::poll!(admission.as_mut()).is_pending());
     drop(guard);
     assert_eq!(admission.await, super::Admission::Timeout);
@@ -648,7 +659,6 @@ async fn followup_commit_does_not_wait_when_readiness_is_lost() {
     let (manager, mut rx) = delivery_fixture().await;
     let mut target = manager.delivery_target("worker").await.unwrap();
     target.requires_codex_composer = true;
-    target.followup = true;
     let result = tokio::time::timeout(
         Duration::from_millis(100),
         manager.session_operation(manager.submit_followup(&target, "retry later")),
@@ -880,4 +890,32 @@ async fn stalled_resume_dismisses_picker_and_releases_input_before_deadline() {
     let input = rx.try_recv().unwrap();
     assert!(matches!(input.command, Input::Keys { keys, literal: false } if keys == ["Escape"]));
     assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn scheduled_admission_rechecks_idle_turn_after_waiting_for_the_boundary() {
+    for resume_pending in [false, true] {
+        let (manager, mut rx) = delivery_fixture().await;
+        manager.live.write().await.get_mut("worker").unwrap().state = State::Idle;
+        let target = manager.delivery_target("worker").await.unwrap();
+        let guard = manager.session_boundary.write().await;
+        let mut admission = Box::pin(manager.admit_delivery(
+            &target,
+            DeliveryIntent::ScheduledPrompt("too late"),
+            tokio::time::Instant::now() + READY_TIMEOUT,
+        ));
+        assert!(futures::poll!(admission.as_mut()).is_pending());
+        {
+            let mut live = manager.live.write().await;
+            let current = live.get_mut("worker").unwrap();
+            if resume_pending {
+                current.input.auto_resume_pending = true;
+            } else {
+                current.state = State::Working;
+            }
+        }
+        drop(guard);
+        assert_eq!(admission.await, Admission::Retry);
+        assert!(rx.try_recv().is_err());
+    }
 }
