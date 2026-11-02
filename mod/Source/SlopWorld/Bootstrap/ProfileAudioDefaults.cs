@@ -16,7 +16,7 @@ namespace SlopWorld
                 return;
 
             Prefs.VolumeMaster = 0.8f;
-            Prefs.VolumeGame = 1f;
+            Prefs.VolumeGame = 0.3f;
             Prefs.VolumeMusic = 0.8f;
             Prefs.VolumeAmbient = 0f;
             Prefs.VolumeUI = 0.3f;

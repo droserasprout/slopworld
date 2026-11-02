@@ -3,7 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Owns Eco's world-space projection and reusable rendering resources.
+    // Owns the world-space backdrop for Eco and exposed map edges, with reusable rendering resources.
     // MenuBackground owns frame lifetime; MenuBackgroundLayers owns blend and GUI offsets.
     internal static class EcoBackdrop
     {

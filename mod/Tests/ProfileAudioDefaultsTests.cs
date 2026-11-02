@@ -23,7 +23,7 @@ namespace SlopWorld.Tests
                 ProfileAudioDefaults.Apply();
                 Assert.That(Prefs.UIScale, Is.EqualTo(2f));
                 Assert.That(Prefs.VolumeMaster, Is.EqualTo(0.8f));
-                Assert.That(Prefs.VolumeGame, Is.EqualTo(1f));
+                Assert.That(Prefs.VolumeGame, Is.EqualTo(0.3f));
                 Assert.That(Prefs.VolumeMusic, Is.EqualTo(0.8f));
                 Assert.That(Prefs.VolumeAmbient, Is.EqualTo(0f));
                 Assert.That(Prefs.VolumeUI, Is.EqualTo(0.3f));

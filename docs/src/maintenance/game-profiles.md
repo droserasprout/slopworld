@@ -34,7 +34,7 @@ and [macOS](../installation/macos.md) recipes select sidecar mode explicitly.
 Explicit paths can share a folder. Profile paths cannot contain `=`.
 See [Paths and files](../reference/paths.md) for locations and overrides.
 
-New profiles start with master volume at 80%, game at 100%, music at 80%,
+New profiles start with master volume at 80%, game at 30%, music at 80%,
 ambience at 0%, and UI at 30%. Existing preferences are preserved.
 
 ## Profile initialization and repair

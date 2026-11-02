@@ -14,14 +14,12 @@ namespace SlopWorld
         // Hide map decorations during cutscenes and Eco rest.
         public static bool Bare => Cutscene.Playing || Resting;
 
-        // Draw loading screen frames in world space as the Eco background.
+        // Share the animated background between Eco and the exposed area outside the map.
         [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
         public static class Patch_Board
         {
             static void Postfix(Map __instance)
             {
-                if (!Resting)
-                    return;
                 // MapUpdate runs for each loaded map. Draw a background only for the displayed map.
                 if (__instance != Find.CurrentMap)
                     return;
@@ -41,11 +39,11 @@ namespace SlopWorld
             static bool Prefix() => !Resting;
         }
 
-        // Hide map edge geometry while Eco or an opaque terminal covers the map.
+        // The shared backdrop replaces the opaque grey geometry outside the map.
         [HarmonyPatch(typeof(MapEdgeClipDrawer), nameof(MapEdgeClipDrawer.DrawClippers))]
         public static class Patch_Clippers
         {
-            static bool Prefix() => !Resting && !WorkspaceWindow.Covering;
+            static bool Prefix() => false;
         }
 
         // Weather draws through CameraDriver.OnPreCull, outside PaneOverDraw checks.
