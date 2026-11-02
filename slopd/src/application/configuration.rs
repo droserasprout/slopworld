@@ -90,7 +90,13 @@ impl Configuration {
                     .workspace
                     .configuration
                     .commit(&manager.runtime(), prepared)
-                    .await
+                    .await?;
+                manager
+                    .services
+                    .timers
+                    .reconcile(&manager.config().await)
+                    .await;
+                Ok(())
             }))
             .await
     }
@@ -148,6 +154,11 @@ impl Configuration {
                 {
                     return false;
                 }
+                manager
+                    .services
+                    .timers
+                    .reconcile(&manager.config().await)
+                    .await;
                 manager
                     .services
                     .announce_library(manager.config().await)

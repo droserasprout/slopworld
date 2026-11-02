@@ -18,6 +18,7 @@ pub struct WorkerSpawn {
 struct WorkerCommitContext {
     config: Config,
     planner_id: String,
+    prompt: Option<String>,
 }
 
 /// Checkout selection is exclusive by construction; HTTP decodes its request flags.
@@ -359,7 +360,17 @@ impl Workers {
         planner_id: String,
     ) -> Result<WorkerSpawn> {
         self.configuration()
-            .session_request(self.create_worker_inner(request, planner_id))
+            .session_request(self.create_worker_inner(request, planner_id, None))
+            .await
+    }
+
+    pub(crate) async fn create_prompt_worker(
+        &self,
+        request: WorkerRequest,
+        prompt: String,
+    ) -> Result<WorkerSpawn> {
+        self.configuration()
+            .session_request(self.create_worker_inner(request, String::new(), Some(prompt)))
             .await
     }
 
@@ -367,6 +378,7 @@ impl Workers {
         &self,
         request: WorkerRequest,
         planner_id: String,
+        prompt: Option<String>,
     ) -> Result<WorkerSpawn> {
         if !planner_id.is_empty() {
             anyhow::ensure!(
@@ -439,6 +451,7 @@ impl Workers {
                         WorkerCommitContext {
                             config: cfg,
                             planner_id,
+                            prompt,
                         },
                     )
                     .await
@@ -470,6 +483,15 @@ impl Workers {
         sessions
             .allocate_worker_identity(&mut session, &caller, &name)
             .await?;
+        let body = if let Some(prompt) = &context.prompt {
+            let project = context
+                .config
+                .project(&session.project)
+                .context("Worker project disappeared")?;
+            crate::prompt::prepare_prompt(&context.config, &session, project, prompt, &[])?
+        } else {
+            body
+        };
         let task = sessions
             .create_task_owned(
                 sessions.task_participant(&caller).await?,

@@ -4,7 +4,7 @@ use crate::config::Config;
 use anyhow::{Result, anyhow};
 
 mod template;
-use rand::seq::IteratorRandom;
+use rand::seq::{IteratorRandom, SliceRandom};
 use std::{iter::Cycle, slice::Iter};
 
 const MAGIC_8_BALL_ANSWERS: &str = include_str!("../../../shared/magic-8-ball.txt");
@@ -16,7 +16,8 @@ pub(crate) struct PromptVars<'a> {
     pub(crate) command: &'a str,
 }
 
-/// Tips are selected by the client; each occurrence advances through that list.
+/// Client-selected tips take precedence; unattended renders shuffle the shared catalog.
+/// Each occurrence advances through that list.
 struct PromptContext<'a> {
     vars: Option<&'a PromptVars<'a>>,
     tips: Cycle<Iter<'a, String>>,
@@ -41,6 +42,22 @@ pub(crate) fn render_prompt_with(
     random_tips: &[String],
     vars: Option<&PromptVars>,
 ) -> String {
+    // Without a client Grandma preference, fallback draws use unmarked tips.
+    let mut fallback = Vec::new();
+    let random_tips = if random_tips.is_empty() && text.contains("random_tip") {
+        fallback.extend(
+            include_str!("../../../shared/loading-tips.txt")
+                .lines()
+                .filter(|line| {
+                    !line.trim().is_empty() && !line.starts_with('#') && !line.ends_with(" (")
+                })
+                .map(str::to_owned),
+        );
+        fallback.shuffle(&mut rand::thread_rng());
+        &fallback
+    } else {
+        random_tips
+    };
     // Restart the sequence for each render and wrap when placeholders outnumber tips.
     let mut context = PromptContext {
         vars,

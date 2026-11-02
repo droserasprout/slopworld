@@ -50,6 +50,7 @@ enum RequestKind {
     SettingsPreviewRequest,
     SpawnWorkerReq,
     Station,
+    TimerConfig,
     UpdateTaskReq,
     WorkerAccessReq,
     WorkerFollowupReq,
@@ -92,6 +93,7 @@ enum ResponseKind {
     TemplateResult,
     TemplatesReply,
     TextResult,
+    TimerPreview,
     UsageSnapshot,
     WhereIsReply,
     WorkerResult,
@@ -152,6 +154,11 @@ const ROUTES: &[Route] = &[
     ),
     ("GET /api/library", Req::Empty, Resp::LibraryReply),
     ("POST /api/library", Req::LibraryItem, Resp::Ack),
+    (
+        "POST /api/timers/preview",
+        Req::TimerConfig,
+        Resp::TimerPreview,
+    ),
     ("POST /api/run", Req::RunReq, Resp::SessionResult),
     ("GET /api/worktrees", Req::Empty, Resp::WorktreesReply),
     (
@@ -267,6 +274,7 @@ const ROUTES: &[Route] = &[
     ("DELETE /api/projects/:name", Req::Empty, Resp::Ack),
     ("PUT /api/library/:name", Req::LibraryItem, Resp::Ack),
     ("DELETE /api/library/:name", Req::Empty, Resp::Ack),
+    ("POST /api/timers/:name/run", Req::Empty, Resp::Ack),
     (
         "POST /api/library/:name/run",
         Req::RunWhere,
@@ -340,6 +348,7 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         RequestKind::SettingsPreviewRequest => encode_wire::<wire::SettingsPreviewRequest>(value),
         RequestKind::SpawnWorkerReq => encode_wire::<wire::SpawnWorkerReq>(value),
         RequestKind::Station => encode_wire::<wire::Station>(value),
+        RequestKind::TimerConfig => encode_wire::<wire::TimerConfig>(value),
         RequestKind::UpdateTaskReq => encode_wire::<wire::UpdateTaskReq>(value),
         RequestKind::WorkerAccessReq => encode_wire::<wire::WorkerAccessReq>(value),
         RequestKind::WorkerFollowupReq => encode_wire::<wire::WorkerFollowupReq>(value),
@@ -412,6 +421,7 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
             Ok(serde_json::to_value(wire::TemplatesReply::decode(value)?)?)
         }
         ResponseKind::TextResult => Ok(serde_json::to_value(wire::TextResult::decode(value)?)?),
+        ResponseKind::TimerPreview => Ok(serde_json::to_value(wire::TimerPreview::decode(value)?)?),
         ResponseKind::UsageSnapshot => {
             Ok(serde_json::to_value(wire::UsageSnapshot::decode(value)?)?)
         }
@@ -491,6 +501,7 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
             Ok(serde_json::to_value(wire::SpawnWorkerReq::decode(value)?)?)
         }
         RequestKind::Station => Ok(serde_json::to_value(wire::Station::decode(value)?)?),
+        RequestKind::TimerConfig => Ok(serde_json::to_value(wire::TimerConfig::decode(value)?)?),
         RequestKind::UpdateTaskReq => {
             Ok(serde_json::to_value(wire::UpdateTaskReq::decode(value)?)?)
         }
@@ -542,6 +553,7 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
         ResponseKind::TemplateResult => encode_wire::<wire::TemplateResult>(value),
         ResponseKind::TemplatesReply => encode_wire::<wire::TemplatesReply>(value),
         ResponseKind::TextResult => encode_wire::<wire::TextResult>(value),
+        ResponseKind::TimerPreview => encode_wire::<wire::TimerPreview>(value),
         ResponseKind::UsageSnapshot => encode_wire::<wire::UsageSnapshot>(value),
         ResponseKind::WhereIsReply => encode_wire::<wire::WhereIsReply>(value),
         ResponseKind::WorkerResult => encode_wire::<wire::WorkerResult>(value),

@@ -41,6 +41,7 @@ async fn planner_links_commit_before_failed_start_and_link_failure_withholds_reg
                         WorkerCommitContext {
                             config: Config::default(),
                             planner_id: id,
+                            prompt: None,
                         },
                     )
                     .await
@@ -547,4 +548,52 @@ fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default
         })
         .is_err()
     );
+}
+
+#[tokio::test]
+async fn timer_worker_task_renders_prompt_with_allocated_identity_before_startup() {
+    let app = crate::application::test_application(Config::default());
+    let workers = Workers::new(&app);
+    let config = Config {
+        projects: vec![crate::config::ProjectCfg {
+            name: "repo".into(),
+            dir: "/repo".into(),
+            ..Default::default()
+        }],
+        library: vec![crate::config::LibraryItemCfg {
+            name: "Review".into(),
+            text: "Review {{ project }} in {{ directory }} as {{ agent }}".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let session =
+        worker_session_from_template(&template("review"), "".into(), "repo", crate::tasks::HOST);
+    // The accepted runtime lacks the project, forcing startup failure after task commit.
+    app.sessions
+        .owned_session_operation(async move {
+            workers
+                .commit_worker(
+                    session,
+                    crate::tasks::HOST.into(),
+                    String::new(),
+                    "unused".into(),
+                    false,
+                    WorkerCommitContext {
+                        config,
+                        planner_id: String::new(),
+                        prompt: Some("Review".into()),
+                    },
+                )
+                .await
+        })
+        .await
+        .unwrap_err();
+    let tasks = app.sessions.task_store().all_tasks_async().await.unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(
+        tasks[0].body,
+        format!("Review repo in /repo as {}", tasks[0].to)
+    );
+    assert_eq!(tasks[0].status, crate::tasks::Status::Failed);
 }

@@ -89,6 +89,27 @@ namespace SlopWorld.Tests
         }
 
         [Test]
+        public void TimerRunsWithoutProjectSelectionAndKeepsEditingAvailable()
+        {
+            var item = new LibraryItemInfo
+            {
+                Name = "Review",
+                Kind = LibraryItemKind.Timer,
+                Link = LibraryItemLink.Ask,
+            };
+            var effects = new Effects();
+            var actions = new Item(item).DetailsActions(effects);
+            Assert.That(actions.PrimaryLabel, Is.EqualTo("Run now"));
+            Assert.That(actions.SecondaryLabel, Is.EqualTo("Edit"));
+            actions.Primary();
+            actions.Secondary();
+            Assert.That(
+                effects.Calls,
+                Is.EqualTo(new[] { ((object)item, "Run"), ((object)item, "Edit") })
+            );
+        }
+
+        [Test]
         public void IdenticalNamesKeepCatalogAndCheckoutSelectionsDistinct()
         {
             var keys = Enumerable.Range(0, 6).Select(kind => Target(kind).Key).ToList();

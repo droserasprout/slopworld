@@ -20,6 +20,31 @@ impl Library {
         }
     }
 
+    pub(crate) async fn run_timer(application: &super::Application, name: String) -> Result<()> {
+        let app = application.clone();
+        application
+            .sessions
+            .owned_session_operation(async move {
+                let configuration = super::Configuration::new(&app);
+                app.services
+                    .timers
+                    .run_now(&app.sessions, &app, &name)
+                    .await?;
+                app.services
+                    .announce_library(configuration.config().await)
+                    .await;
+                Ok(())
+            })
+            .await
+    }
+
+    pub(crate) fn preview_timer(
+        application: &super::Application,
+        timer: &crate::config::TimerCfg,
+    ) -> Result<Vec<u64>> {
+        application.services.timers.preview(timer)
+    }
+
     pub(crate) async fn library(&self) -> Vec<LibraryItemCfg> {
         self.services
             .library(self.configuration.config().await)

@@ -8,15 +8,16 @@ impl Services {
     pub(crate) fn spawn_maintenance(
         self: &Arc<Self>,
         sessions: Arc<SessionRuntime>,
-        configuration: Configuration,
+        app: super::Application,
     ) -> tokio::task::JoinHandle<()> {
         let services = self.clone();
+        let configuration = Configuration::new(&app);
         tokio::spawn(async move {
             loop {
                 let delay = services.maintenance_delay(&sessions).await;
                 let wake = sessions.maintenance_wake();
                 tokio::select! {
-                    () = tokio::time::sleep(delay) => services.maintain(&sessions, &configuration).await,
+                    () = tokio::time::sleep(delay) => services.maintain(&sessions, &configuration, &app).await,
                     () = wake.notified() => {}
                 }
             }
@@ -69,12 +70,17 @@ impl Services {
         let now = unix_ms();
         Duration::from_millis(self.catalogs.deadline(now).saturating_sub(now))
             .min(sessions.maintenance_delay().await)
-            .min(Duration::from_millis(60_000 - now % 60_000))
+            .min(Duration::from_millis(1000 - now % 1000))
     }
-    async fn maintain(&self, sessions: &Arc<SessionRuntime>, configuration: &Configuration) {
+    async fn maintain(
+        &self,
+        sessions: &Arc<SessionRuntime>,
+        configuration: &Configuration,
+        app: &super::Application,
+    ) {
         self.reload_if_due(sessions, configuration).await;
         sessions.retick().await;
-        match self.timers.tick(sessions, configuration).await {
+        match self.timers.tick(sessions, app).await {
             Ok(true) => self.announce_library(configuration.config().await).await,
             Ok(false) => {}
             Err(error) => tracing::warn!("timer maintenance failed: {error:#}"),

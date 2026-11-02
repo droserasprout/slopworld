@@ -25,13 +25,21 @@ namespace SlopWorld
                 lines.Add(
                     (item.Timer.Enabled ? "Enabled" : "Paused")
                         + " · "
+                        + EditTimerDialog.TriggerLabel(item.Timer.Trigger)
+                        + " · "
                         + item.Timer.Schedule
-                        + " UTC"
+                        + (item.Timer.Trigger == "calendar" ? " " + item.Timer.Timezone : "")
                 );
-                lines.Add("Prompt: " + item.Timer.Prompt);
+                lines.Add(
+                    EditTimerDialog.ActionLabel(item.Timer.Action)
+                        + ": "
+                        + (item.Timer.Action == "shell" ? item.Timer.Shell : item.Timer.Prompt)
+                );
+                if (item.Timer.Action == "worker")
+                    lines.Add(item.Timer.Template + " · " + item.Timer.Project);
                 if (item.TimerStatus != null)
                 {
-                    lines.Add(item.TimerStatus.Outcome);
+                    lines.Add(item.TimerStatus.State + " · " + item.TimerStatus.Outcome);
                     if (item.TimerStatus.LastAt > 0)
                         lines.Add(
                             "Last: "

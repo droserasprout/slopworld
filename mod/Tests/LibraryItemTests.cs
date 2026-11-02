@@ -25,7 +25,13 @@ namespace SlopWorld.Tests
                 Timer = new Wire.TimerConfig
                 {
                     Enabled = true,
-                    Schedule = "*/15 * * * *",
+                    Schedule = "Mon..Fri 09:00",
+                    Trigger = "calendar",
+                    Action = "worker",
+                    Template = "Reviewer",
+                    Project = "repo",
+                    Shell = "Cleanup",
+                    Timezone = "America/Montevideo",
                     Target = "0123456789abcdef",
                     Prompt = "Review prompt",
                 },
@@ -50,6 +56,16 @@ namespace SlopWorld.Tests
                 "read-only status is not submitted with edits"
             );
             AssertEx.Equal("Submitted", item.TimerStatus.Outcome, "status remains visible");
+            AssertEx.Equal("worker", item.ToWire().Timer.Action, "action survives save");
+            AssertEx.Equal("Reviewer", item.Copy().Timer.Template, "template survives copying");
+            AssertEx.Equal("repo", item.ToWire().Timer.Project, "worker project survives save");
+            AssertEx.Equal("Cleanup", item.Copy().Timer.Shell, "shell reference survives copying");
+            AssertEx.Equal("calendar", item.ToWire().Timer.Trigger, "trigger survives save");
+            AssertEx.Equal(
+                "America/Montevideo",
+                item.Copy().Timer.Timezone,
+                "named zone survives copying"
+            );
         }
 
         static void ErrandExecution()

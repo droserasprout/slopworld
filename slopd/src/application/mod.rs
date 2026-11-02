@@ -73,7 +73,7 @@ impl Services {
         )));
         let mut services = Self::new(tasks, cache, tmux, 256, templates);
         services.planner = planner::Store::new(data.join("TODO.txt"));
-        services.timers = timers::Timers::new(data.join("timer-occurrences.json"));
+        services.timers = timers::Timers::new(data.join("timer-state.json"));
         services.catalogs = catalogs::CatalogState::load();
         Ok(Arc::new(services))
     }
@@ -90,7 +90,7 @@ impl Services {
             tasks,
             title_cache,
             planner: planner::Store::new(crate::paths::data_root().join("TODO.txt")),
-            timers: timers::Timers::new(crate::paths::data_root().join("timer-occurrences.json")),
+            timers: timers::Timers::new(crate::paths::data_root().join("timer-state.json")),
             catalogs: catalogs::CatalogState::new(None, None),
             library: LibraryCatalog::default(),
             templates,

@@ -138,8 +138,7 @@ async fn main() -> Result<()> {
     // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;
 
-    let poller =
-        services.spawn_maintenance(m.sessions.clone(), application::Configuration::new(&m));
+    let poller = services.spawn_maintenance(m.sessions.clone(), m.clone());
 
     // Spawn even when disabled so polling can be enabled without a restart.
     let usage = services.spawn_usage_poll(config_authority.daemon_settings());

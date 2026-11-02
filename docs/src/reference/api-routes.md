@@ -26,6 +26,8 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `GET` | `/api/planner/items/:id/description` | `root-only` | `Empty` | `PlannerDescription` |
 | `PUT` | `/api/planner/items/:id/description` | `root-only` | `PlannerSaveReq` | `PlannerDescription` |
 | `PUT` | `/api/planner/items/:id/links` | `root-only` | `PlannerLinksReq` | `PlannerDocument` |
+| `POST` | `/api/timers/:name/run` | `root-only` | `Empty` | `Ack` |
+| `POST` | `/api/timers/preview` | `root-only` | `TimerConfig` | `TimerPreview` |
 | `GET` | `/api/usage` | `root-only` | `Empty` | `UsageSnapshot` |
 | `GET` | `/api/whereis` | `root-only` | `Empty` | `WhereIsReply` |
 

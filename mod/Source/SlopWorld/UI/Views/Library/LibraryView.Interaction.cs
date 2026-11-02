@@ -103,6 +103,16 @@ namespace SlopWorld
         {
             var opts = new List<FloatMenuOption>();
 
+            if (s.Kind == LibraryItemKind.Timer && s.Timer != null)
+            {
+                opts.Add(new FloatMenuOption("Run now", () => LibraryActions.Run(s)));
+                opts.Add(
+                    new FloatMenuOption(
+                        s.Timer.Enabled ? "Disable" : "Enable",
+                        () => LibraryActions.ToggleTimer(s)
+                    )
+                );
+            }
             // Prompts without execution settings are reusable text.
             if (Runnable(s))
                 opts.Add(new FloatMenuOption("Run", () => Run(s)));

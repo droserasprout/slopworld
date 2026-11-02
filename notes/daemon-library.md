@@ -23,7 +23,9 @@ transaction writes canonical prompt files and retires legacy files in the same j
 duplicate names fail validation without overwriting either entry.
 `prompt/` owns Library lookup and contextual composition for manual, startup, and
 scheduled input: inserted values are literal and never scanned again. Session adapters
-resolve the target project/worktree before composition; automated input has no client tips.
+resolve the target project/worktree before composition. Without client-supplied tips,
+`random_tip` draws without replacement from the unmarked entries in the shared
+`loading-tips.txt` catalog, including timer delivery and worker task composition.
 Manual insertion does not submit; launch callers compose errand/worker prompts before delivery.
 
 `session/delivery.rs` owns readiness and ordered prompt input. Creation may return
@@ -40,11 +42,30 @@ renames update library references in the shared journaled transaction, retaining
 library revision checks. User procedures belong to
 [Library items and errands](../docs/src/workspace/library.md).
 
-`config/timer_schedule.rs` owns UTC cron validation. `application/timers.rs` owns durable
-occurrence claims and diagnostics; maintenance drives it without a game client. Timers
-reference live Library Prompts and stable session identities, with an explicitly selected
-durable agent target. Claims precede input, missed ticks do not accumulate, and uncertain
-submissions are not replayed. Session admission freezes catalog and lifecycle identity
-through claims; `session/delivery.rs` rechecks idle/readiness and uses guarded agent input.
-Timer status is a read-only projection, not persisted Library configuration.
-Invalid schedules from disk edits are logged and skipped without blocking other Timers.
+`config/timer_trigger.rs` owns trigger validation, named-zone calendar calculation,
+and duration parsing.
+`application/timers.rs` coordinates claims and delivery. Its `runtime` module owns
+activation anchors, `records` owns durable claims, and `status` owns read-only views.
+Maintenance checks timers without a game client. Configuration
+commit/reload reconciles activation while retaining the session operation guard, so
+rapid disable/enable edits cannot disappear between checks. The lock order is session
+operation, then timer runtime gate; status projection takes only the timer gate.
+
+Timers dispatch Prompt, Worker, and Shell actions through `timers/actions.rs`.
+Prompt actions reference stable durable-agent identities; Worker actions use the
+worker owner to create host-owned one-shot tasks from templates and live Library
+Prompts. Shell actions use the launch owner and the Library item's saved location
+and execution settings. Timer worker project references participate in project
+rename/removal transactions. Admission freezes catalog and lifecycle identity through claim and execution; `session/delivery.rs`
+rechecks readiness and uses guarded input. Claims precede action execution, missed ticks do not
+accumulate, and uncertain actions are not replayed. Manual activation shares the
+claim path without consuming the scheduled deadline. Relative timers re-arm on daemon
+restart; calendar claims retain their wall-time watermark. The runtime gate is released
+before action execution because worker/launch commits can reconcile timer activation;
+the session operation remains held. Runtime status never enters Library configuration. Invalid disk schedules are skipped without blocking other Timers.
+
+The mod resolves its existing time-zone preference to an explicit zone when creating a
+calendar timer; daemon scheduling never depends on client display preferences. Named
+zones use Jiff and the daemon's zone database, with a bundled fallback for minimal
+sidecar images. Calendar DST gaps skip; folds use the
+earlier instant once. Preview is daemon-owned and has no activation or persistence effects.

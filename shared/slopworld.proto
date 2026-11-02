@@ -131,10 +131,15 @@ message HostTerminalCfg {
   bool autostart = 5;
 }
 
+message TimerPreview {
+  repeated uint64 next_at = 1;
+}
+
 message TimerStatus {
   uint64 last_at = 1;
   uint64 next_at = 2;
   string outcome = 3;
+  string state = 4;
 }
 
 message TimerConfig {
@@ -142,6 +147,12 @@ message TimerConfig {
   string schedule = 2;
   string target = 3;
   string prompt = 4;
+  string trigger = 5;
+  string timezone = 6;
+  string action = 7;
+  string template = 8;
+  string project = 9;
+  string shell = 10;
 }
 
 message LibraryItem {

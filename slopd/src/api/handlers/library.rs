@@ -122,3 +122,20 @@ pub(crate) async fn run_library_item(
 #[cfg(test)]
 #[path = "library_tests.rs"]
 mod tests;
+
+pub(crate) async fn preview_timer(
+    State(m): State<App>,
+    Proto(value): Proto<wire::TimerConfig>,
+) -> ApiResult<wire::TimerPreview> {
+    let timer: crate::config::TimerCfg = domain(value)?;
+    let next = Library::preview_timer(&m, &timer)
+        .map_err(|error| err(axum::http::StatusCode::BAD_REQUEST, error))?;
+    reply(json!({ "next_at": next }))
+}
+
+pub(crate) async fn run_timer(
+    State(m): State<App>,
+    Path(name): Path<String>,
+) -> ApiResult<wire::Ack> {
+    super::ack_result(Library::run_timer(&m, name).await)
+}

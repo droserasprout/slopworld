@@ -55,28 +55,12 @@ class TextSpriteMetadataTests(unittest.TestCase):
         self.assertIn('1️⃣', keys)
 
     def test_loading_tips_use_ascii_glyphs(self) -> None:
-        path = ROOT / 'mod/Source/SlopWorld/Patches/LoadingScreen/LoadingScreen.Tips.cs'
-        source = path.read_text(encoding='utf-8')
-        lines = source.splitlines()
-        start = next(i for i, line in enumerate(lines) if 'static readonly List<string> Tips' in line)
-        for offset, line in enumerate(lines[start + 1 :], start + 2):
-            if line.strip() == '};':
-                break
-            stripped = line.strip()
-            if not stripped or stripped == '{' or stripped.startswith('//'):
-                continue
-            match = re.match(r'\s*"((?:\\.|[^"\\])*)"\s*,?\s*(?://.*)?$', line)
-            assert match is not None, f'unrecognized loading tip literal at {path}:{offset}'
-            literal = match.group(1)
-            unsupported = {char for char in literal if ord(char) > 127}
-            escaped_values = r'(?:u([0-9a-fA-F]{4})|U([0-9a-fA-F]{8})|x([0-9a-fA-F]{1,4}))'
-            for escaped in re.finditer(r'(\\+)' + escaped_values, literal):
-                if len(escaped.group(1)) % 2 == 0:
-                    continue
-                codepoint = int(next(value for value in escaped.groups()[1:] if value), 16)
-                if codepoint > 127:
-                    unsupported.add(f'\\u{codepoint:04X}')
-            self.assertFalse(unsupported, f'non-ASCII loading tip at {path}:{offset}: {sorted(unsupported)!r}')
+        path = ROOT / 'shared/loading-tips.txt'
+        tips = [line for line in path.read_text(encoding='utf-8').splitlines() if line and not line.startswith('#')]
+        self.assertTrue(tips)
+        for line in tips:
+            unsupported = {char for char in line if ord(char) > 127}
+            self.assertFalse(unsupported, f'non-ASCII loading tip: {line!r}')
 
 
 if __name__ == '__main__':

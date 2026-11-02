@@ -10,6 +10,16 @@ namespace SlopWorld
     {
         public static void Run(LibraryItemInfo item, string project = null, bool temp = false)
         {
+            if (item.Kind == LibraryItemKind.Timer)
+            {
+                DaemonClient.Post(
+                    WireProtocol.Routes.TimerRun.Replace(":name", HubWire.Esc(item.Name)),
+                    null,
+                    _ => SessionHub.Instance.Catalog.RefreshLibrary(),
+                    UiLayout.Fail
+                );
+                return;
+            }
             if (!item.Runnable)
                 return;
             if (item.Link == LibraryItemLink.Ask && project == null && !temp)
@@ -43,6 +53,19 @@ namespace SlopWorld
                 )
             );
             return options;
+        }
+
+        public static void ToggleTimer(LibraryItemInfo item)
+        {
+            var updated = item.Copy();
+            updated.Timer.Enabled = !updated.Timer.Enabled;
+            SessionHub.Instance.Catalog.SaveLibraryItem(
+                updated,
+                false,
+                item.Name,
+                null,
+                UiLayout.Fail
+            );
         }
 
         public static void Edit(LibraryItemInfo item) =>

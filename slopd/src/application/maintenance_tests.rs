@@ -30,7 +30,7 @@ async fn maintenance_reloads_library_and_accepts_shutdown() {
     std::fs::write(prompts.join("new.toml"), "name = 'new'\nlink = 'project'").unwrap();
     let poller = app
         .services
-        .spawn_maintenance(app.sessions.clone(), Configuration::new(&app));
+        .spawn_maintenance(app.sessions.clone(), app.clone());
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             let event = events.recv().await.unwrap();

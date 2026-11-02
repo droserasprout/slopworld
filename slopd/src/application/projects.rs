@@ -111,6 +111,15 @@ impl ProjectReplacement {
             {
                 item.project = renamed.clone();
             }
+            for timer in cfg
+                .library
+                .iter_mut()
+                .filter_map(|item| item.timer.as_mut())
+            {
+                if timer.action == "worker" && timer.project == self.name {
+                    timer.project = renamed.clone();
+                }
+            }
             for session in cfg.sessions.iter_mut().filter(|s| s.project == self.name) {
                 session.project = renamed.clone();
             }
@@ -150,7 +159,13 @@ pub(crate) fn remove(cfg: &mut Config, name: &str) -> Result<()> {
     let library_users: Vec<&str> = cfg
         .library
         .iter()
-        .filter(|item| item.project == name)
+        .filter(|item| {
+            item.project == name
+                || item
+                    .timer
+                    .as_ref()
+                    .is_some_and(|t| t.action == "worker" && t.project == name)
+        })
         .map(|item| item.name.as_str())
         .collect();
     if !library_users.is_empty() {

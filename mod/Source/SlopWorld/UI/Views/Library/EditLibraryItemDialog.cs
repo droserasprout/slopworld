@@ -16,6 +16,7 @@ namespace SlopWorld
         protected readonly EditIdentity _identity;
         protected readonly LibraryItemInfo _s;
         protected readonly LibraryItemKind Kind;
+        internal Action<string> Saved { get; set; }
 
         // Asked for rather than assumed: `[defaults] shell` is a per-machine answer and
         // this dialog would otherwise print somebody else's.
@@ -498,7 +499,11 @@ namespace SlopWorld
                             );
                         }
                     ),
-                () => Close()
+                () =>
+                {
+                    Close();
+                    Saved?.Invoke(_s.Name);
+                }
             );
         }
     }

@@ -509,9 +509,13 @@ async fn timer_catalog_create_edit_prompt_mutation_and_delete_persist() {
         kind: LibraryItemKind::Timer,
         timer: Some(TimerCfg {
             enabled: false,
-            schedule: "0 12 * * *".into(),
+            action: "prompt".into(),
+            trigger: "calendar".into(),
+            schedule: "12:00".into(),
+            timezone: "UTC".into(),
             prompt: "Review".into(),
             target: "0123456789abcdef".into(),
+            ..Default::default()
         }),
         ..Default::default()
     };
@@ -535,7 +539,7 @@ async fn timer_catalog_create_edit_prompt_mutation_and_delete_persist() {
         serde_json::to_value(&timer).unwrap()
     );
 
-    timer.timer.as_mut().unwrap().schedule = "30 9 * * *".into();
+    timer.timer.as_mut().unwrap().schedule = "09:30".into();
     let edited_prompt = LibraryItemCfg {
         text: "Updated instructions".into(),
         ..prompt

@@ -43,6 +43,8 @@ namespace SlopWorld
             public const string Project = "/api/projects/:name";
             public const string Library = "/api/library";
             public const string LibraryItem = "/api/library/:name";
+            public const string TimerPreview = "/api/timers/preview";
+            public const string TimerRun = "/api/timers/:name/run";
             public const string LibraryItemRun = "/api/library/:name/run";
             public const string Run = "/api/run";
             public const string Worktrees = "/api/worktrees";

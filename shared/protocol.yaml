@@ -218,6 +218,18 @@ http:
       path: "/api/library/:name"
       methods: [PUT, DELETE]
       scope: root
+    timer_preview:
+      protobuf:
+        POST: [TimerConfig, TimerPreview]
+      path: "/api/timers/preview"
+      methods: [POST]
+      scope: root
+    timer_run:
+      protobuf:
+        POST: [Empty, Ack]
+      path: "/api/timers/:name/run"
+      methods: [POST]
+      scope: root
     library_item_run:
       protobuf:
         POST: [RunWhere, SessionResult]

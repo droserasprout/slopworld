@@ -189,3 +189,55 @@ async fn preview_formats_a_path_without_creating_a_temporary_project() {
         }
     }
 }
+
+#[tokio::test]
+async fn timer_preview_validates_named_zones_and_run_now_reports_status() {
+    let m = crate::application::test_application(Config::default());
+    let timer = json!({"action":"prompt", "trigger":"calendar", "schedule":"Mon..Fri 09:00", "timezone":"America/Montevideo", "prompt":"Useful tips", "target":"0123456789abcdef"});
+    let preview = preview_timer(State(m.clone()), proto(timer.clone()))
+        .await
+        .unwrap()
+        .0;
+    assert_eq!(preview.next_at.len(), 3);
+    assert!(preview.next_at.windows(2).all(|pair| pair[0] < pair[1]));
+    let mut invalid = timer.clone();
+    invalid["timezone"] = json!("auto");
+    assert_eq!(
+        preview_timer(State(m.clone()), proto(invalid))
+            .await
+            .unwrap_err()
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    create_library_item(
+        State(m.clone()),
+        proto(json!({"name":"Review timer", "kind":"timer", "link":"project", "timer":timer})),
+    )
+    .await
+    .unwrap();
+    assert!(
+        run_timer(State(m.clone()), Path("Review timer".into()))
+            .await
+            .unwrap()
+            .0
+            .ok
+    );
+    let reply = list_library(State(m.clone())).await.unwrap().0;
+    let item = reply
+        .library
+        .iter()
+        .find(|i| i.name.as_deref() == Some("Review timer"))
+        .unwrap();
+    assert!(!item.timer.as_ref().unwrap().enabled);
+    let status = item.timer_status.as_ref().unwrap();
+    assert_eq!(status.state, "Disabled");
+    assert_eq!(status.outcome, "Skipped: target missing");
+    assert!(status.last_at > 0);
+    assert_eq!(
+        run_timer(State(m), Path("Useful tips".into()))
+            .await
+            .unwrap_err()
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+}

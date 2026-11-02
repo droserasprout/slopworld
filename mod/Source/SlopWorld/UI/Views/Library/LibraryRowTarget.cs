@@ -79,6 +79,14 @@ namespace SlopWorld
 
             internal override Actions DetailsActions(IEffects effects)
             {
+                if (_item.Kind == LibraryItemKind.Timer)
+                    return new Actions(
+                        "Run now",
+                        () => effects.Run(_item),
+                        "Edit",
+                        () => effects.Edit(_item),
+                        () => OpenMenu(effects)
+                    );
                 bool runnable = _item.Runnable;
                 string primaryLabel = runnable
                     ? (_item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run")

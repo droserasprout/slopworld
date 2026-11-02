@@ -140,6 +140,7 @@ namespace SlopWorld
                 "support",
                 new[]
                 {
+                    new CreditLink("jiff", "https://github.com/BurntSushi/jiff"),
                     new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
                     new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
                     new CreditLink("nix", "https://github.com/nix-rust/nix"),

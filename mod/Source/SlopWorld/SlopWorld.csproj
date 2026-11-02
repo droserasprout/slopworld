@@ -27,6 +27,7 @@
   <!-- Keep one lock graph for local and CI builds. Select only the references
        below; never import or copy RimRef's other assemblies into the mod. -->
   <ItemGroup>
+    <EmbeddedResource Include="../../../shared/loading-tips.txt" LogicalName="SlopWorld.LoadingTips" />
     <PackageReference Include="Krafs.Rimworld.Ref" Version="[1.6.4850]"
                       GeneratePathProperty="true" ExcludeAssets="all" PrivateAssets="all" />
   </ItemGroup>

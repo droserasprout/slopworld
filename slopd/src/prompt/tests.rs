@@ -36,9 +36,9 @@ fn every_tip_mention_is_its_own_draw() {
 }
 
 #[test]
-fn a_template_with_nothing_to_fill_it_is_left_alone() {
+fn unknown_and_unclosed_placeholders_are_left_alone() {
     let text = "- {{ random_tip }} and {{ whatever }}";
-    assert_eq!(render_prompt(text, &[]), text);
+    assert_eq!(render_prompt("{{ whatever }}", &[]), "{{ whatever }}");
 
     let tips = vec!["a tip".to_string()];
     assert_eq!(render_prompt(text, &tips), "- a tip and {{ whatever }}");
@@ -65,4 +65,26 @@ fn prompt_context_variables_render_and_unknown_variables_survive() {
         ),
         "Ada in slopworld at /src/slopworld via codex; {{ later }}"
     );
+}
+
+#[test]
+fn unattended_prompts_resolve_distinct_tips_from_the_shared_catalog() {
+    let cfg = Config::default();
+    let session = crate::config::SessionCfg::default();
+    let project = crate::config::ProjectCfg::default();
+    let rendered = prepare_prompt(&cfg, &session, &project, "Useful tips", &[]).unwrap();
+    assert!(!rendered.contains("{{"));
+    let text = ["{{ random_tip }}"; 5].join("\n");
+    let rendered = render_prompt(&text, &[]);
+    let tips: std::collections::HashSet<_> = rendered.lines().collect();
+    assert_eq!(tips.len(), 5);
+    for tip in tips {
+        assert!(
+            include_str!("../../../shared/loading-tips.txt")
+                .lines()
+                .any(|line| line == tip)
+        );
+        assert!(!tip.ends_with(" ("));
+        assert!(!tip.starts_with('#'));
+    }
 }

@@ -168,9 +168,12 @@ fn timers_require_an_explicit_agent_identity() {
         kind: LibraryItemKind::Timer,
         timer: Some(TimerCfg {
             enabled: true,
-            schedule: "*/15 * * * *".into(),
+            action: "prompt".into(),
+            trigger: "interval".into(),
+            schedule: "15min".into(),
             target: String::new(),
             prompt: "Review".into(),
+            ..Default::default()
         }),
         ..Default::default()
     };
@@ -180,4 +183,75 @@ fn timers_require_an_explicit_agent_identity() {
     );
     item.timer.as_mut().unwrap().target = "0123456789abcdef".into();
     check_library_item(&cfg, &item).unwrap();
+}
+
+#[test]
+fn timer_actions_require_their_own_inputs_and_unattended_shell_location() {
+    let mut cfg = Config {
+        projects: vec![super::super::ProjectCfg {
+            name: "repo".into(),
+            dir: "/repo".into(),
+            ..Default::default()
+        }],
+        library: vec![
+            LibraryItemCfg {
+                name: "Review".into(),
+                text: "Review changes".into(),
+                ..Default::default()
+            },
+            LibraryItemCfg {
+                name: "Cleanup".into(),
+                kind: LibraryItemKind::Shell,
+                text: "true".into(),
+                host: true,
+                link: LibraryItemLink::Temp,
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    };
+    let mut item = LibraryItemCfg {
+        name: "Timer".into(),
+        kind: LibraryItemKind::Timer,
+        timer: Some(TimerCfg {
+            trigger: "interval".into(),
+            schedule: "1h".into(),
+            action: "worker".into(),
+            template: "Reviewer".into(),
+            project: "repo".into(),
+            prompt: "Review".into(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    check_library_item(&cfg, &item).unwrap();
+    item.timer.as_mut().unwrap().project.clear();
+    assert!(
+        check_library_item(&cfg, &item)
+            .unwrap_err()
+            .to_string()
+            .contains("project")
+    );
+    let timer = item.timer.as_mut().unwrap();
+    timer.action = "shell".into();
+    timer.prompt.clear();
+    timer.template.clear();
+    timer.shell = "Cleanup".into();
+    check_library_item(&cfg, &item).unwrap();
+    cfg.library[1].link = LibraryItemLink::Ask;
+    assert!(
+        check_library_item(&cfg, &item)
+            .unwrap_err()
+            .to_string()
+            .contains("saved location")
+    );
+    item.timer.as_mut().unwrap().shell = "Review".into();
+    assert!(check_library_item(&cfg, &item).is_err());
+    item.timer.as_mut().unwrap().action = "unknown".into();
+    assert!(
+        check_library_item(&cfg, &item)
+            .unwrap_err()
+            .to_string()
+            .contains("Timer action")
+    );
 }

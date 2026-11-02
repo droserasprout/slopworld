@@ -162,3 +162,44 @@ fn replacement_rejects_collisions_and_replaced_source_identity() {
     assert_eq!(cfg.projects[0].name, "old");
     assert_eq!(cfg.projects[0].id, "replacement");
 }
+
+#[test]
+fn worker_timer_project_references_follow_renames_and_block_removal() {
+    let project = ProjectCfg {
+        name: "repo".into(),
+        dir: "/repo".into(),
+        ..Default::default()
+    };
+    let mut cfg = Config {
+        projects: vec![project.clone()],
+        library: vec![crate::config::LibraryItemCfg {
+            name: "Review timer".into(),
+            kind: crate::config::LibraryItemKind::Timer,
+            timer: Some(crate::config::TimerCfg {
+                action: "worker".into(),
+                project: "repo".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    assert!(
+        remove(&mut cfg, "repo")
+            .unwrap_err()
+            .to_string()
+            .contains("Review timer")
+    );
+    let renamed = ProjectCfg {
+        name: "renamed".into(),
+        ..project
+    };
+    ProjectReplacement::prepare(&cfg, "repo", renamed)
+        .unwrap()
+        .apply(&mut cfg)
+        .unwrap();
+    assert_eq!(cfg.library[0].timer.as_ref().unwrap().project, "renamed");
+    assert!(remove(&mut cfg, "renamed").is_err());
+    cfg.library.clear();
+    remove(&mut cfg, "renamed").unwrap();
+}

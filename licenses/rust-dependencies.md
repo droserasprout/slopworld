@@ -65,6 +65,9 @@ and does not identify which crates are included in a particular binary.
 | cursor-icon | 1.2.0 | MIT OR Apache-2.0 OR Zlib |
 | dasp_sample | 0.11.0 | MIT OR Apache-2.0 |
 | data-encoding | 2.11.1 | MIT |
+| defmt | 1.2.0 | MIT OR Apache-2.0 |
+| defmt-macros | 1.2.0 | MIT OR Apache-2.0 |
+| defmt-parser | 1.1.0 | MIT OR Apache-2.0 |
 | deranged | 0.5.9 | MIT OR Apache-2.0 |
 | digest | 0.10.7 | MIT OR Apache-2.0 |
 | dirs | 5.0.1 | MIT OR Apache-2.0 |
@@ -126,6 +129,11 @@ and does not identify which crates are included in a particular binary.
 | is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |
 | itertools | 0.14.0 | MIT OR Apache-2.0 |
 | itoa | 1.0.18 | MIT OR Apache-2.0 |
+| jiff | 0.2.38 | Unlicense OR MIT |
+| jiff-core | 0.1.1 | Unlicense OR MIT |
+| jiff-static | 0.2.38 | Unlicense OR MIT |
+| jiff-tzdb | 0.1.9 | Unlicense OR MIT |
+| jiff-tzdb-platform | 0.1.3 | Unlicense OR MIT |
 | jni | 0.21.1 | MIT/Apache-2.0 |
 | jni-sys | 0.3.1 | MIT OR Apache-2.0 |
 | jni-sys | 0.4.1 | MIT OR Apache-2.0 |
@@ -185,6 +193,8 @@ and does not identify which crates are included in a particular binary.
 | pkg-config | 0.3.34 | MIT OR Apache-2.0 |
 | png | 0.18.1 | MIT OR Apache-2.0 |
 | polling | 3.11.0 | Apache-2.0 OR MIT |
+| portable-atomic | 1.15.0 | Apache-2.0 OR MIT |
+| portable-atomic-util | 0.2.8 | Apache-2.0 OR MIT |
 | potential_utf | 0.1.6 | Unicode-3.0 |
 | powerfmt | 0.2.1 | MIT OR Apache-2.0 |
 | ppv-lite86 | 0.2.21 | MIT OR Apache-2.0 |

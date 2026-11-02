@@ -2,7 +2,7 @@
 
 Use the Library to save prompts and commands you run repeatedly. Errands open
 temporary sessions; prompts can also insert text into an existing terminal; file
-actions run against a selected path. Timers send an existing Prompt to a durable agent on a schedule.
+actions run against a selected path. Timers send prompts, create workers, or run shell scripts on a schedule.
 
 ## Prompt errands
 
@@ -83,21 +83,65 @@ Manage [command presets](command-presets.md) in **Settings > Commands**.
 
 ## Timers
 
-Create **+ > Library > Timer**, enable it, choose a target agent and a Library Prompt,
-and enter a five-field UTC cron expression. `*/15 * * * *` checks every fifteen minutes;
-`0 9 * * 1-5` checks at 09:00 UTC on weekdays. Fields support numbers, `*`, ranges,
-comma-separated lists and positive steps. Weekdays use 0 for Sunday through 6 for Saturday.
-When both day-of-month and weekday are restricted, either can match.
+Create **+ > Library > Timer** and choose an **Action**:
 
-The daemon schedules Timers independently of the game. Busy, stopped, shell and unready
-targets are skipped. Missed occurrences are not replayed after downtime. Multiple Timers
-for the same agent can submit at most one prompt per minute. Prompt edits affect the next
-occurrence; Timers do not copy text. A missing Prompt or target withholds delivery.
+| Action | Settings |
+| --- | --- |
+| **Prompt** | A running agent and a Library Prompt to send |
+| **Worker** | An agent template, project, and Library Prompt for the task |
+| **Shell script** | A shell script from the Library |
 
-Renaming an agent preserves its Timers; deleting and recreating it with the same name
-does not. Timer details show the last attempt, its outcome, and the next occurrence in your selected time zone.
-Submission means the input was queued, not accepted by the agent. Interrupted attempts
-are not retried.
+Timer prompts resolve `{{ random_tip }}` from the shared loading-tip catalog even
+while the game is closed. These unattended draws use unmarked tips.
 
-Edit a supplied Library item to create a personal override. Deleting that override restores
-the supplied default. To pause a supplied Timer, disable it instead of deleting its override.
+Worker actions create a new one-shot, host-owned worker for each occurrence. The
+selected Prompt supplies its task, with placeholders resolved for the new worker.
+Shell actions use the selected item's execution settings and saved project or
+temporary location. Set a saved location on scripts configured to **Ask** before
+using them with a Timer.
+
+Select **When**:
+
+| Trigger | Schedule |
+| --- | --- |
+| **Calendar** | Daily or selected weekdays at a named-zone local time |
+| **After daemon startup** | Once, a duration after slopd starts |
+| **After activation** | Once, a duration after enabling the timer |
+| **Repeat interval** | Repeatedly, a duration after activation and each interval boundary |
+
+Durations accept `s`, `min`, `h`, and `d`, including combinations such as `1h 30min`.
+Use a duration between one second and 366 days. The first interval occurs after a
+full duration. Activation delays and intervals restart when you enable or change
+the Timer, or restart the daemon. A startup timer enabled after its startup deadline
+runs on the next scheduler check. One-shot timers remain enabled with status **Elapsed**
+after their attempt; disable and enable them to arm them again.
+
+For a Calendar timer, enter `*` for every day, `Mon..Fri` for weekdays, or a list
+such as `Mon,Wed,Fri`, and a 24-hour time such as `09:00`. The time zone defaults to
+your Settings selection, resolving Auto to your computer's named zone. The timer
+saves that explicit zone, including its daylight-saving rules, so a remote daemon
+or later Settings changes cannot shift the schedule. A nonexistent local time during
+a daylight-saving transition is skipped; a repeated time fires only at its earlier
+instant. **Preview schedule** shows upcoming triggers as if activated now, displayed
+in your Settings time zone. It does not save or run the Timer.
+
+Enable the Timer to schedule it. Its Library menu offers **Enable**, **Disable**, and
+**Run now**. Run now executes the action even when disabled and leaves the scheduled
+deadline unchanged. Details show whether the timer is Waiting, Elapsed, Disabled,
+Activating, or Invalid, plus its last attempt, outcome, and next occurrence.
+
+The daemon schedules Timers independently of the game, checking at approximately
+one-second resolution. Calendar schedules use wall time; delays and intervals use
+elapsed monotonic time, unaffected by system clock corrections. Prompt actions skip
+busy, stopped, shell, and unready targets. Missed calendar minutes are not replayed after downtime;
+relative timers start fresh after daemon restart. A delayed interval check makes at
+most one attempt and preserves its original cadence. Multiple Timers due in one
+scheduler pass submit at most one prompt to the same agent.
+
+Prompt and shell script edits affect the next occurrence without restarting the Timer;
+Timers reference live Library items. Missing prompts, templates, scripts, projects, or
+targets withhold the action. Renaming an agent preserves its Timers; deleting and recreating it with the same name does not. Submission means
+the input was queued, not accepted by the agent. Uncertain actions are not retried.
+
+Edit a supplied Library item to create a personal override. Deleting that override
+restores the supplied default. To pause a supplied Timer, disable it instead.

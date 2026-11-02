@@ -43,6 +43,8 @@ pub(crate) mod routes {
     pub(crate) const PROJECT: &str = "/api/projects/:name";
     pub(crate) const LIBRARY: &str = "/api/library";
     pub(crate) const LIBRARY_ITEM: &str = "/api/library/:name";
+    pub(crate) const TIMER_PREVIEW: &str = "/api/timers/preview";
+    pub(crate) const TIMER_RUN: &str = "/api/timers/:name/run";
     pub(crate) const LIBRARY_ITEM_RUN: &str = "/api/library/:name/run";
     pub(crate) const RUN: &str = "/api/run";
     pub(crate) const WORKTREES: &str = "/api/worktrees";

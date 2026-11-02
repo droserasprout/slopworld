@@ -119,6 +119,8 @@ fn root_routes(m: App) -> Router<App> {
             put(update_library_item).delete(destroy_library_item),
         )
         .route(routes::LIBRARY_ITEM_RUN, post(run_library_item))
+        .route(routes::TIMER_PREVIEW, post(preview_timer))
+        .route(routes::TIMER_RUN, post(run_timer))
         .route(routes::RUN, post(run))
         .route(routes::FILE_ACTION, post(file_action))
         .route(routes::OPEN_APPS, get(open_apps))

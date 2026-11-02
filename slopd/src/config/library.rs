@@ -123,18 +123,30 @@ pub struct TimerStatus {
     pub last_at: u64,
     pub next_at: u64,
     pub outcome: String,
+    pub state: String,
 }
 
-/// UTC cron schedules are evaluated by the daemon, independently of game time.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Trigger policy is evaluated by the daemon, independently of game time.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimerCfg {
     #[serde(default)]
     pub enabled: bool,
     pub schedule: String,
+    pub trigger: String,
+    #[serde(default)]
+    pub timezone: String,
     /// Stable identity of the selected durable agent.
     #[serde(default)]
     pub target: String,
+    #[serde(default)]
     pub prompt: String,
+    pub action: String,
+    #[serde(default)]
+    pub template: String,
+    #[serde(default)]
+    pub project: String,
+    #[serde(default)]
+    pub shell: String,
 }
 
 /// Supplied entries are merged after user entries, which may override them by name.
@@ -205,14 +217,41 @@ pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()
             .timer
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Timer settings are required."))?;
-        super::timer_schedule::Schedule::parse(&timer.schedule)?;
-        anyhow::ensure!(!timer.target.is_empty(), "Choose a target agent.");
-        super::validate_state_id(&timer.target)?;
-        anyhow::ensure!(
-            cfg.library_item(&timer.prompt)
-                .is_some_and(|p| p.kind == LibraryItemKind::Prompt),
-            "Choose an existing Library Prompt."
-        );
+        super::timer_trigger::Trigger::parse(timer)?;
+        match timer.action.as_str() {
+            "prompt" => {
+                anyhow::ensure!(!timer.target.is_empty(), "Choose a target agent.");
+                super::validate_state_id(&timer.target)?;
+                check_timer_prompt(cfg, timer)?;
+            }
+            "worker" => {
+                anyhow::ensure!(
+                    !timer.template.trim().is_empty(),
+                    "Choose an agent template."
+                );
+                anyhow::ensure!(
+                    cfg.project(&timer.project).is_some(),
+                    "Choose an existing project."
+                );
+                check_timer_prompt(cfg, timer)?;
+            }
+            "shell" => {
+                let shell = cfg
+                    .library_item(&timer.shell)
+                    .filter(|item| item.kind == LibraryItemKind::Shell)
+                    .ok_or_else(|| anyhow::anyhow!("Choose an existing Library shell script."))?;
+                anyhow::ensure!(
+                    shell.link != LibraryItemLink::Ask,
+                    "Choose a saved location for the shell script."
+                );
+                check_library_item(cfg, &shell)?;
+                anyhow::ensure!(
+                    shell.host || !shell.agent_template.trim().is_empty(),
+                    "Choose Host or an agent template for the shell script."
+                );
+            }
+            _ => bail!("Choose a Timer action: Prompt, Worker, or Shell script."),
+        }
         return Ok(());
     }
     anyhow::ensure!(
@@ -251,6 +290,15 @@ pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()
     if sc.text.trim().is_empty() {
         bail!("Enter text for library item {:?}.", sc.name);
     }
+    Ok(())
+}
+
+fn check_timer_prompt(cfg: &Config, timer: &TimerCfg) -> Result<()> {
+    anyhow::ensure!(
+        cfg.library_item(&timer.prompt)
+            .is_some_and(|p| p.kind == LibraryItemKind::Prompt),
+        "Choose an existing Library Prompt."
+    );
     Ok(())
 }
 
