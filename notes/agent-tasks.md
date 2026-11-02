@@ -74,6 +74,10 @@ for dirty drafts it preserves local text while updating the accepted text and re
 used by Save or Discard. Description request state owns these transitions independently
 of rendering. Discard restores both from their last accepted values. Refresh retains
 visible rows and field state when task text is unchanged, while updating link metadata.
+A chained save stops before sending another description if the current endpoint changes;
+accepted replies still settle their captured drafts. Backlog saves reject removing rows
+with dirty descriptions, preserving recoverable drafts. Imported rows without stable IDs
+offer Save tasks even before content edits, so the daemon can assign their identities.
 Background refresh leaves controls enabled; replies cannot overwrite edits made while
 the request was pending or supersede a newer save.
 

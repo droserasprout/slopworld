@@ -44,6 +44,12 @@ impl Config {
         LibraryItemKind::ALL
             .into_iter()
             .map(|kind| (kind, root.join(kind.config_dir())))
+            // Read legacy guidance as Prompts. Canonical directories come first so
+            // the next catalog transaction writes prompts and retires breadcrumbs.
+            .chain(std::iter::once((
+                LibraryItemKind::Prompt,
+                root.join("breadcrumbs"),
+            )))
             .collect()
     }
 

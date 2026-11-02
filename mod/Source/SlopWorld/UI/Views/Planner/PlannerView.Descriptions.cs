@@ -109,6 +109,16 @@ namespace SlopWorld
                 Failed(generation, "Description is still loading. Try saving again.");
                 return;
             }
+            // Closing the view permits settlement, but another endpoint must never
+            // receive a continuation containing this endpoint's private draft.
+            if (_endpoint != DaemonClient.BaseUrl)
+            {
+                Failed(
+                    generation,
+                    "Endpoint changed. Return to this daemon to save the remaining descriptions."
+                );
+                return;
+            }
             draft.Begin();
             DaemonClient.Put<Wire.PlannerDescription>(
                 DescriptionRoute(pending.Key),

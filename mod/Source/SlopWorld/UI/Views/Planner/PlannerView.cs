@@ -44,6 +44,8 @@ namespace SlopWorld
                 || DraftDirty
                 || _descriptions.Values.Any(draft => draft.Dirty)
             );
+        bool NeedsIds => _entries.Any(entry => string.IsNullOrEmpty(entry.Id));
+        bool CanSave => Dirty || NeedsIds;
         bool Ready => !_busy && _document != null;
 
         // Requests belong to the cached endpoint draft, not the visible window. Closing
@@ -219,8 +221,15 @@ namespace SlopWorld
         {
             if (!IsOpenEndpoint || !Ready || !ApplyDraft())
                 return;
+            var ids = new HashSet<string>(TodoText.Parse(_text).Select(entry => entry.Id));
+            if (_descriptions.Any(pair => pair.Value.Dirty && !ids.Contains(pair.Key)))
+            {
+                _error =
+                    "Restore the removed task and save or discard its description before deleting it.";
+                return;
+            }
             int generation = Begin();
-            if (_text == _document.Text)
+            if (_text == _document.Text && !NeedsIds)
             {
                 SaveDescriptions(generation);
                 return;

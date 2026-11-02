@@ -55,7 +55,19 @@ pub(super) async fn load_library(
         let text = tokio::fs::read_to_string(&path)
             .await
             .with_context(|| format!("reading library item {}", path.display()))?;
-        let mut item: LibraryItemCfg = toml::from_str(&text)
+        let mut document: toml::Value = toml::from_str(&text)
+            .with_context(|| format!("parsing library item {}", path.display()))?;
+        if path
+            .parent()
+            .and_then(Path::file_name)
+            .is_some_and(|name| name == "breadcrumbs")
+            && let Some(kind) = document.get_mut("kind")
+            && kind.as_str() == Some("breadcrumb")
+        {
+            *kind = toml::Value::String("prompt".into());
+        }
+        let mut item: LibraryItemCfg = document
+            .try_into()
             .with_context(|| format!("parsing library item {}", path.display()))?;
         item.builtin = false;
         if item.kind != kind {

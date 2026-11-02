@@ -13,6 +13,7 @@ use super::{WsSubs, WsTx, send};
 
 /// Handle one client message. Ignore unauthorized messages without a response.
 /// A failed direct response indicates a closed socket and tells the caller to stop reading.
+#[cfg(test)]
 pub(super) async fn handle_client_msg(
     cm: ClientMsg,
     m: &App,
@@ -20,13 +21,29 @@ pub(super) async fn handle_client_msg(
     tx: &WsTx,
     subs: &WsSubs,
 ) -> bool {
+    handle_client_msg_until(cm, m, cap, tx, subs, std::future::pending()).await
+}
+
+pub(super) async fn handle_client_msg_until(
+    cm: ClientMsg,
+    m: &App,
+    cap: &Cap,
+    tx: &WsTx,
+    subs: &WsSubs,
+    disconnected: impl std::future::Future<Output = ()>,
+) -> bool {
     let admitted = AtomicBool::new(false);
     let mut changes = m.config_authority.auth_changes();
     let dispatch = dispatch_client_msg(cm, m, cap, tx, subs, &admitted);
     tokio::pin!(dispatch);
     tokio::select! {
         biased;
-        _ = super::auth_invalidated(&mut changes, cap) => {
+        () = async {
+            tokio::select! {
+                _ = super::auth_invalidated(&mut changes, cap) => {},
+                () = disconnected => {},
+            }
+        } => {
             // Waiting for admission is disposable. Once admitted, keep the future
             // and its guards alive through effects and their owned cleanup.
             if admitted.load(Ordering::Relaxed) { dispatch.await } else { false }

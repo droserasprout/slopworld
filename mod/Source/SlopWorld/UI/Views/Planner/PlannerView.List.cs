@@ -49,12 +49,14 @@ namespace SlopWorld
             if (
                 UiControls.Button(
                     new Rect(x, r.y, 90f, h),
-                    Dirty ? "Save changes" : "Refresh",
+                    Dirty ? "Save changes"
+                        : NeedsIds ? "Save tasks"
+                        : "Refresh",
                     on: !_busy && _document != null
                 )
             )
             {
-                if (Dirty)
+                if (CanSave)
                     Save();
                 else
                     Load();

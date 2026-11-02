@@ -19,7 +19,10 @@ the daemon host through `files/actions/`, independently of agent prompts.
 All Prompts are available in the terminal Prompts menu, startup, and Timers.
 Execution settings optionally enable errands; text-only Prompts need no project.
 `config/library.rs` owns the directory classification shared by catalog discovery and
-storage target admission, including Timers.
+storage target admission, including Timers. Catalog discovery also reads legacy
+`breadcrumbs/` entries as Prompts and watches their revisions. The next Library
+transaction writes canonical prompt files and retires legacy files in the same journal;
+duplicate names fail validation without overwriting either entry.
 `prompt/` owns Library lookup and contextual composition for manual, startup, and
 scheduled input: inserted values are literal and never scanned again. Session adapters
 resolve the target project/worktree before composition; automated input has no client tips.

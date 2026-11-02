@@ -105,7 +105,7 @@ namespace SlopWorld
                     new Rect(actions.x, actions.y, half, actions.height),
                     "Save changes",
                     UiControls.Btn.Primary,
-                    on: Ready && Dirty && _draft.Error == null
+                    on: Ready && CanSave && _draft.Error == null
                 )
             )
                 Save();

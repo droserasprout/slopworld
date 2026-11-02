@@ -127,7 +127,10 @@ async fn drive_socket_commands(
         scrolls: ScrollReplies::new(),
     };
     let app = manager.clone();
-    let driving = tokio::spawn(async move { intake.run(&app, &cap).await });
+    let driving = tokio::spawn(async move {
+        let (_closed, mut closing) = tokio::sync::watch::channel(false);
+        intake.run(&app, &cap, &mut closing).await
+    });
     for payload in commands {
         client
             .send(tokio_tungstenite::tungstenite::Message::Binary(
@@ -1162,7 +1165,10 @@ async fn panel_switch_and_unsubscribe_overtake_an_unfinished_history_capture() {
         auth_changes: manager.config_authority.auth_changes(),
         scrolls,
     };
-    let driving = tokio::spawn(async move { intake.run(&manager, &Cap::Root).await });
+    let driving = tokio::spawn(async move {
+        let (_closed, mut closing) = tokio::sync::watch::channel(false);
+        intake.run(&manager, &Cap::Root, &mut closing).await
+    });
     for command in [
         C::Sub(wire::NameReq {
             name: Some("pager".into()),
@@ -1419,7 +1425,10 @@ async fn deleted_sessions_release_socket_subscriptions_without_unsubscribe() {
         scrolls: ScrollReplies::new(),
     };
     let running_manager = manager.clone();
-    let driving = tokio::spawn(async move { intake.run(&running_manager, &Cap::Root).await });
+    let driving = tokio::spawn(async move {
+        let (_closed, mut closing) = tokio::sync::watch::channel(false);
+        intake.run(&running_manager, &Cap::Root, &mut closing).await
+    });
     for name in &names {
         manager.sessions.forget(name).await;
     }
@@ -2081,4 +2090,100 @@ async fn frame_pump_timeout_closes_socket_and_releases_subscription() {
     .await
     .expect("frame pump timeout left the transport open");
     server.abort();
+}
+
+#[tokio::test]
+async fn connection_shutdown_preserves_admitted_command_until_cleanup() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    manager.sessions.terminal_input_fixture("target", 7).await;
+    let socket = socket_pair_for(&manager).await;
+    let subs = WsSubs::default();
+    let subscriptions = subs.lock().await;
+    let terminal = manager.sessions.terminal_boundary("target");
+    let (closed, mut closing) = tokio::sync::watch::channel(false);
+    let (finish_pump, pump_finished) = tokio::sync::oneshot::channel::<()>();
+    let intake = async {
+        assert!(
+            handle_client_msg_until(
+                ClientMsg::Sub {
+                    name: "target".into()
+                },
+                &manager,
+                &Cap::Root,
+                &socket.tx,
+                &subs,
+                connection_closed(&mut closing),
+            )
+            .await
+        );
+    };
+    let driving = drive_connection(
+        async {
+            pump_finished.await.unwrap();
+        },
+        intake,
+        closed,
+    );
+    tokio::pin!(driving);
+    assert!(futures::poll!(driving.as_mut()).is_pending());
+    terminal
+        .try_write()
+        .expect_err("subscription must already be admitted");
+    finish_pump.send(()).unwrap();
+    assert!(futures::poll!(driving.as_mut()).is_pending());
+    terminal
+        .try_write()
+        .expect_err("shutdown released the admitted guard");
+    drop(subscriptions);
+    driving.await;
+    assert!(
+        subs.lock().await.contains_key("target"),
+        "shutdown cancelled admitted work"
+    );
+    drop(
+        terminal
+            .try_write()
+            .expect("completed work retained its guard"),
+    );
+}
+
+#[tokio::test]
+async fn connection_shutdown_cancels_commands_still_waiting_for_admission() {
+    let manager = crate::application::test_application(crate::config::Config::default());
+    manager.sessions.terminal_input_fixture("target", 7).await;
+    let socket = socket_pair_for(&manager).await;
+    let subs = WsSubs::default();
+    let terminal = manager.sessions.terminal_boundary("target");
+    let _blocked = terminal.write().await;
+    let (closed, mut closing) = tokio::sync::watch::channel(false);
+    let (finish_pump, pump_finished) = tokio::sync::oneshot::channel::<()>();
+    let intake = async {
+        assert!(
+            !handle_client_msg_until(
+                ClientMsg::Sub {
+                    name: "target".into()
+                },
+                &manager,
+                &Cap::Root,
+                &socket.tx,
+                &subs,
+                connection_closed(&mut closing),
+            )
+            .await
+        );
+    };
+    let driving = drive_connection(
+        async {
+            pump_finished.await.unwrap();
+        },
+        intake,
+        closed,
+    );
+    tokio::pin!(driving);
+    assert!(futures::poll!(driving.as_mut()).is_pending());
+    finish_pump.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(1), driving)
+        .await
+        .unwrap();
+    assert!(subs.lock().await.is_empty());
 }

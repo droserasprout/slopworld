@@ -402,3 +402,59 @@ value = "custom"
     assert!(value.get("extension").is_none());
     assert!(!toml::to_string(&cfg).unwrap().contains("extension"));
 }
+
+#[tokio::test]
+async fn legacy_breadcrumbs_load_as_prompts_and_catalog_save_retires_them() {
+    let fixture = LibraryFixture::new();
+    let original =
+        "name = 'guidance'\nkind = 'breadcrumb'\nlink = 'project'\ntext = 'Keep my instructions'";
+    fixture.write("breadcrumbs/guidance.toml", original).await;
+    let before = crate::config::catalog::revision(&fixture.0.join("config.toml")).unwrap();
+    assert_eq!(before.len(), 1);
+    let mut loaded = load_library(&fixture.dirs()).await.unwrap();
+    assert_eq!(loaded[0].kind, LibraryItemKind::Prompt);
+    assert_eq!(loaded[0].text, "Keep my instructions");
+    assert_eq!(
+        tokio::fs::read_to_string(fixture.0.join("breadcrumbs/guidance.toml"))
+            .await
+            .unwrap(),
+        original
+    );
+    loaded[0].text = "Edited guidance".into();
+    save_library(&fixture.dirs(), &loaded).await.unwrap();
+    assert!(!fixture.0.join("breadcrumbs/guidance.toml").exists());
+    assert!(fixture.0.join("prompts/guidance.toml").exists());
+    let reloaded = load_library(&fixture.dirs()).await.unwrap();
+    assert_eq!(reloaded.len(), 1);
+    assert_eq!(reloaded[0].text, "Edited guidance");
+    save_library(&fixture.dirs(), &[]).await.unwrap();
+    assert!(load_library(&fixture.dirs()).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn legacy_breadcrumb_collision_fails_without_overwriting_either_file() {
+    let fixture = LibraryFixture::new();
+    let legacy = "name = 'shared'\nkind = 'breadcrumb'\nlink = 'project'\ntext = 'Old guidance'";
+    let prompt = "name = 'shared'\nkind = 'prompt'\nlink = 'project'\ntext = 'New prompt'";
+    fixture.write("breadcrumbs/shared.toml", legacy).await;
+    fixture.write("prompts/shared.toml", prompt).await;
+    assert!(
+        load_library(&fixture.dirs())
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("only once")
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(fixture.0.join("breadcrumbs/shared.toml"))
+            .await
+            .unwrap(),
+        legacy
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(fixture.0.join("prompts/shared.toml"))
+            .await
+            .unwrap(),
+        prompt
+    );
+}

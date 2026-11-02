@@ -17,7 +17,9 @@ recovery fields must not leak into responses.
 to Protobuf. Application services do not own transport or lifecycle policy. Live screens
 may coalesce; replies/control events retain ordering. History capture must not block
 input or panel switching. The WebSocket connection owns both intake and outbound
-pumping; completion of either releases the socket and terminal subscriptions. Send
+pumping. Writer completion stops new intake and cancels commands waiting for admission;
+admitted commands retain their guards through effects and cleanup before the socket and
+terminal subscriptions are released. Send
 timeout/failure and broadcast lag close the socket so reconnect restores catalogs
 as well as terminal state. [Client ownership](mod-client.md) covers handoffs.
 Deleting or renaming a session retires its watch generation and wakes socket intake to release

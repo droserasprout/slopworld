@@ -24,6 +24,114 @@ namespace SlopWorld.Tests
             return view;
         }
 
+        public static void ImportedRowsCanSaveWithoutUnrelatedEdits()
+        {
+            var view = Loaded();
+            Assert.That(view.DirtyTest, Is.False);
+            Assert.That(view.CanSaveTest, Is.True);
+            view.SaveTest(view.TextTest);
+            var save = DaemonClient.Requests.Last();
+            Assert.That(((Wire.PlannerSaveReq)save.Body).Text, Is.EqualTo("Task"));
+            save.Reply(new Wire.PlannerDocument { Text = "Task sw-id:first", Revision = "r2" });
+            Assert.That(view.CanSaveTest, Is.False);
+            view.SelectTest(0);
+            Assert.That(DaemonClient.Requests.Last(), Is.Not.SameAs(save));
+            view.Closed();
+        }
+
+        public static void EndpointChangeStopsChainedSaveAndRetainsRemainingDraft()
+        {
+            var view = DescriptionTask();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Original", Revision = "d1" });
+            view.DescriptionTest = "Private draft";
+            view.SaveTest("Edited sw-id:first");
+            var save = DaemonClient.Requests.Last();
+            int requests = DaemonClient.Requests.Count;
+            DaemonClient.BaseUrl = "http://other-daemon";
+            save.Reply(new Wire.PlannerDocument { Text = "Edited sw-id:first", Revision = "r3" });
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+            Assert.That(view.BusyTest, Is.False);
+            Assert.That(view.DescriptionTest, Is.EqualTo("Private draft"));
+            Assert.That(view.DescriptionDirtyTest, Is.True);
+            Assert.That(view.DocumentTest.Revision, Is.EqualTo("r3"));
+            DaemonClient.BaseUrl = "http://planner-test";
+            view.SaveDescriptionTest();
+            view.Closed();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Private draft", Revision = "d2" });
+            Assert.That(view.DirtyTest, Is.False);
+            Assert.That(view.BusyTest, Is.False);
+        }
+
+        public static void EndpointChangeBetweenDescriptionsDoesNotSendTheNextDraft()
+        {
+            var view = DescriptionTask();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "First", Revision = "d1" });
+            view.LoadTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(
+                    new Wire.PlannerDocument
+                    {
+                        Text = "Task sw-id:first\nSecond sw-id:second",
+                        Revision = "r3",
+                    }
+                );
+            view.SelectTest(1);
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Second", Revision = "d2" });
+            view.DescriptionTest = "Edited second";
+            view.SelectTest(0);
+            view.DescriptionTest = "Edited first";
+            view.SaveDescriptionTest();
+            var firstSave = DaemonClient.Requests.Last();
+            int requests = DaemonClient.Requests.Count;
+            DaemonClient.BaseUrl = "http://other-daemon";
+            firstSave.Reply(
+                new Wire.PlannerDescription
+                {
+                    Text = ((Wire.PlannerSaveReq)firstSave.Body).Text,
+                    Revision = "d3",
+                }
+            );
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+            Assert.That(view.BusyTest, Is.False);
+            Assert.That(view.DirtyTest, Is.True);
+            view.Closed();
+        }
+
+        public static void DeletingARowWithADirtyDescriptionRejectsBeforeWriting()
+        {
+            var view = DescriptionTask();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Original", Revision = "d1" });
+            view.DescriptionTest = "Keep this draft";
+            int requests = DaemonClient.Requests.Count;
+            view.SaveTest("");
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+            Assert.That(view.ErrorTest, Does.Contain("Restore"));
+            Assert.That(view.BusyTest, Is.False);
+            Assert.That(view.DocumentTest.Text, Is.EqualTo("Task sw-id:first"));
+            Assert.That(view.DescriptionTest, Is.EqualTo("Keep this draft"));
+            view.SaveTest("Task sw-id:first");
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Keep this draft", Revision = "d2" });
+            view.SaveTest("");
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDocument { Text = "", Revision = "r3" });
+            Assert.That(view.DirtyTest, Is.False);
+            view.Closed();
+        }
+
         public static void UnchangedRefreshRetainsFieldsAndPublishesLinkChanges()
         {
             var view = Loaded();

@@ -4,7 +4,9 @@
 mod commands;
 mod outbound;
 
+#[cfg(test)]
 use commands::handle_client_msg;
+use commands::handle_client_msg_until;
 use outbound::{run_frame_pump, send, send_initial_snapshot};
 
 use std::collections::{HashMap, VecDeque};
@@ -239,16 +241,32 @@ async fn ws_run(socket: WebSocket, m: App, cap: Cap, generation: u64, root_gener
         auth_changes,
         scrolls: ScrollReplies::new(),
     };
-    // Both halves belong to this connection. A failed/stalled writer must stop
-    // intake too, otherwise the peer retains an open socket with no live updates.
-    tokio::select! {
-        () = pump => {},
-        () = intake.run(&m, &cap) => {},
-    }
-    // The losing future has been dropped before releasing connection resources.
-    // Dropping intake also cancels pending scroll captures and releases the socket.
+    let (closed, mut closing) = tokio::sync::watch::channel(false);
+    drive_connection(pump, intake.run(&m, &cap, &mut closing), closed).await;
+    // Intake has settled its admitted command. Release captures and subscriptions.
     drop(intake);
     subs.lock().await.clear();
+}
+
+/// Writer failure stops new intake, but admitted mutations retain their guards
+/// through commit and cleanup. Only commands still waiting for admission are dropped.
+async fn drive_connection(
+    pump: impl std::future::Future<Output = ()>,
+    intake: impl std::future::Future<Output = ()>,
+    closed: tokio::sync::watch::Sender<bool>,
+) {
+    tokio::pin!(intake);
+    tokio::select! {
+        () = pump => {
+            closed.send_replace(true);
+            intake.await;
+        }
+        () = &mut intake => {}
+    }
+}
+
+async fn connection_closed(closing: &mut tokio::sync::watch::Receiver<bool>) {
+    drop(closing.wait_for(|closed| *closed).await);
 }
 
 /// Initialization has no committed effects, so revocation can cancel stalled reads/writes.
@@ -276,13 +294,14 @@ struct CommandIntake {
 }
 
 impl CommandIntake {
-    async fn run(&mut self, m: &App, cap: &Cap) {
+    async fn run(&mut self, m: &App, cap: &Cap, closing: &mut tokio::sync::watch::Receiver<bool>) {
         let mut watch_changes = m.sessions.watch_changes();
         // Include removals that happened before this receiver was installed.
         self.subs.lock().await.retain(|_, guard| guard.is_current());
         loop {
             tokio::select! {
                 biased;
+                () = connection_closed(closing) => break,
                 invalidated = auth_invalidated(&mut self.auth_changes, cap) => {
                     if invalidated { break; }
                 }
@@ -312,7 +331,7 @@ impl CommandIntake {
                     }
                     // History replies carry their session and request identity. Keep
                     // their FIFO order, but never put panel switches or input behind them.
-                    if !Box::pin(handle_client_msg(cm, m, cap, &self.tx, &self.subs)).await { break; }
+                    if !Box::pin(handle_client_msg_until(cm, m, cap, &self.tx, &self.subs, connection_closed(closing))).await { break; }
                 }
             }
         }

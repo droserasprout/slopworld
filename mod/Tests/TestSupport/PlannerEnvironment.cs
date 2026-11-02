@@ -74,6 +74,7 @@ namespace SlopWorld
         internal void DiscardTest() => Discard();
 
         internal bool DirtyTest => Dirty;
+        internal bool CanSaveTest => CanSave;
 
         internal void OpenTaskTest(string id) => OpenTask(id);
 
