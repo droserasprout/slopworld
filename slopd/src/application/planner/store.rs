@@ -1,5 +1,10 @@
 //! Serialized, revision-checked TODO.txt persistence. Unknown text survives round trips.
+#[path = "descriptions.rs"]
+mod descriptions;
+#[path = "links.rs"]
+mod links;
 use anyhow::{Context, Result, bail};
+pub(crate) use links::Link;
 use serde::Serialize;
 use std::{collections::HashSet, path::PathBuf};
 use tokio::{io::AsyncReadExt, sync::Mutex};
@@ -7,7 +12,7 @@ use tokio::{io::AsyncReadExt, sync::Mutex};
 pub(crate) const MAX_BYTES: usize = 64 * 1024;
 pub(crate) struct Store {
     path: PathBuf,
-    pub(super) gate: Mutex<()>,
+    gate: Mutex<()>,
 }
 #[derive(Debug, Serialize)]
 pub(crate) struct Document {
@@ -23,6 +28,8 @@ pub(crate) struct Item {
     pub text: String,
     pub task_id: String,
     pub status: String,
+    pub links: Vec<Link>,
+    pub links_revision: String,
 }
 impl Store {
     pub(crate) fn new(path: PathBuf) -> Self {
@@ -51,7 +58,7 @@ impl Store {
             path: self.path.to_string_lossy().into(),
         })
     }
-    pub(super) async fn read_text(&self) -> Result<String> {
+    async fn read_text(&self) -> Result<String> {
         let file = match tokio::fs::File::open(&self.path).await {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(String::new()),
@@ -64,7 +71,7 @@ impl Store {
         validate_size(&text)?;
         Ok(text)
     }
-    pub(super) async fn write_text(&self, text: &str) -> Result<()> {
+    async fn write_text(&self, text: &str) -> Result<()> {
         validate_size(text)?;
         crate::paths::write_atomic_async(&self.path, text, Some(0o600)).await
     }
@@ -85,9 +92,9 @@ fn revision(text: &str) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
-pub(super) fn check_revision(text: &str, expected: &str) -> Result<()> {
+fn check_revision(text: &str, expected: &str) -> Result<()> {
     if revision(text) != expected {
-        bail!("TODO.txt changed. Copy your draft, then reload before saving or executing.");
+        bail!("TODO.txt changed. Copy your draft, then reload before saving.");
     }
     Ok(())
 }
@@ -121,6 +128,8 @@ fn items(text: &str) -> Result<Vec<Item>> {
                 id: id.into(),
                 text: text.into(),
                 task_id: field(text, "sw-task:")?.into(),
+                links: Vec::new(),
+                links_revision: String::new(),
                 status: if text.starts_with("x ") {
                     "complete"
                 } else {
@@ -145,76 +154,8 @@ fn assign_ids(text: &str) -> Result<String> {
     validate_size(&output)?;
     Ok(output)
 }
-pub(super) fn selected(text: &str, line: u32) -> Result<Item> {
-    let item = items(text)?
-        .into_iter()
-        .find(|item| item.line == line)
-        .context("Select a task line.")?;
-    if item.text.starts_with("x ") {
-        bail!("Completed TODO items cannot be executed.");
-    }
-    if item.id.is_empty() {
-        bail!("Save the document before executing.");
-    }
-    Ok(item)
-}
-pub(super) fn link(text: &str, line: u32, task: &str) -> Result<String> {
-    let mut output = String::new();
-    for (index, segment) in text.split_inclusive('\n').enumerate() {
-        if index != line as usize {
-            output.push_str(segment);
-            continue;
-        }
-        let body = segment.trim_end_matches(['\r', '\n']);
-        let old = field(body, "sw-task:")?;
-        if old.is_empty() {
-            output.push_str(body);
-            output.push_str(&format!(" sw-task:{task}"));
-        } else {
-            let token = format!("sw-task:{old}");
-            let start = body
-                .match_indices(&token)
-                .find(|(start, _)| {
-                    body.get(..*start).is_some_and(|prefix| {
-                        prefix.is_empty() || prefix.ends_with(char::is_whitespace)
-                    })
-                })
-                .map(|(start, _)| start)
-                .context("Missing task metadata")?;
-            output.push_str(body.get(..start).context("Invalid metadata offset")?);
-            output.push_str(&format!("sw-task:{task}"));
-            output.push_str(
-                body.get(start + token.len()..)
-                    .context("Invalid metadata end")?,
-            );
-        }
-        output.push_str(segment.get(body.len()..).unwrap_or_default());
-    }
-    validate_size(&output)?;
-    Ok(output)
-}
-pub(super) fn marker(id: &str) -> String {
+fn marker(id: &str) -> String {
     format!("SlopWorld TODO item: {id}")
-}
-impl Document {
-    pub(crate) fn with_tasks(mut self, tasks: &[crate::tasks::Task]) -> Self {
-        for item in &mut self.items {
-            let marker = format!("{}\n", marker(&item.id));
-            let task = tasks.iter().find(|task| {
-                task.from == crate::tasks::HOST
-                    && task.worker.is_some()
-                    && (task.id == item.task_id
-                        || (!item.id.is_empty() && task.body.starts_with(&marker)))
-            });
-            if let Some(task) = task {
-                item.task_id = task.id.clone();
-                item.status = format!("{:?}", task.status).to_lowercase();
-            } else if !item.task_id.is_empty() {
-                item.status = "dispatch reserved; inspect Tasks (no automatic retry)".into();
-            }
-        }
-        self
-    }
 }
 #[cfg(test)]
 #[path = "store_tests.rs"]

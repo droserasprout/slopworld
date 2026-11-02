@@ -15,6 +15,8 @@ namespace SlopWorld
         string ChoiceKey => DaemonClient.BaseUrl + "\n" + _project;
         readonly string _fixedCaller;
         readonly string _project;
+        readonly string _plannerId;
+        readonly Action _settled;
         readonly List<SessionInfo> _agents;
         string _caller;
         string _template;
@@ -30,11 +32,20 @@ namespace SlopWorld
         string _worktreeName = "";
         readonly WorkerBasePreviewState _basePreview = new WorkerBasePreviewState();
 
-        public SpawnWorkerDialog(string caller, string project)
+        public SpawnWorkerDialog(
+            string caller,
+            string project,
+            string body = "",
+            string plannerId = "",
+            Action settled = null
+        )
         {
             resizeable = true;
             _fixedCaller = caller;
             _project = project ?? "";
+            _body = body ?? "";
+            _plannerId = plannerId;
+            _settled = settled;
             if (WorktreeChoices.TryGetValue(ChoiceKey, out var choice))
             {
                 _worktree = choice.Worktree;
@@ -381,6 +392,7 @@ namespace SlopWorld
                 _durable,
                 worker =>
                 {
+                    _settled?.Invoke();
                     if (submittedNewWorktree)
                         SidebarScopes.IncludeWorktree(worker.Project, worker.Worktree);
                     WorktreeChoices[ChoiceKey] = (submittedWorktree, submittedNewWorktree);
@@ -389,6 +401,7 @@ namespace SlopWorld
                 },
                 error =>
                 {
+                    _settled?.Invoke();
                     _sending = false;
                     _error = error;
                 },
@@ -399,7 +412,8 @@ namespace SlopWorld
                     BaseRevision = _basePreview.Commit,
                     WorktreeName = _worktreeName,
                 },
-                _name.Trim()
+                _name.Trim(),
+                _plannerId
             );
         }
     }

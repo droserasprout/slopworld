@@ -85,6 +85,10 @@ impl TaskIo {
         let (who, id) = (who.to_owned(), id.to_owned());
         self.run(move |tasks| Ok(tasks.get(&who, &id))).await
     }
+    pub(crate) async fn task_any_async(self, id: &str) -> Result<Option<Task>> {
+        let id = id.to_owned();
+        self.run(move |tasks| Ok(tasks.get_any(&id))).await
+    }
     pub(crate) async fn participant_identities_async(
         self,
     ) -> Result<std::collections::HashSet<String>> {

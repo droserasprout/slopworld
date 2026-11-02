@@ -89,6 +89,8 @@ pub(crate) struct AgentTemplateDefaults {
     pub(crate) autostart: Option<bool>,
     #[serde(default)]
     pub(crate) auto_resume: Option<bool>,
+    #[serde(default)]
+    pub(crate) initial_prompt: String,
 }
 
 fn first_version() -> u64 {
@@ -345,6 +347,7 @@ impl AgentTemplate {
                 limits: source.limits,
                 autostart: Some(source.autostart),
                 auto_resume: Some(source.auto_resume),
+                initial_prompt: source.initial_prompt.clone(),
             },
         };
         validate_definition(&template)?;
@@ -358,6 +361,7 @@ impl AgentTemplate {
             name,
             project,
             workers: defaults.workers.clone(),
+            initial_prompt: defaults.initial_prompt.clone(),
             command: defaults
                 .command
                 .as_ref()
@@ -396,6 +400,7 @@ impl AgentTemplate {
         session.limits = overrides.limits;
         session.autostart = overrides.autostart;
         session.auto_resume = overrides.auto_resume;
+        session.initial_prompt = overrides.initial_prompt.clone();
 
         session.preserve_selected_snapshots(&previous);
     }

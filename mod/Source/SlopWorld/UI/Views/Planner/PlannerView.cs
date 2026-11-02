@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Endpoint-scoped task drafts survive view changes. Persistence and worker dispatch
+    // Endpoint-scoped task drafts survive view changes. Persistence and worker status
     // stay in the daemon; TodoText owns edits to the user's fields only.
     public sealed partial class PlannerView : ContentView
     {
@@ -20,10 +20,7 @@ namespace SlopWorld
         TodoEntry _selected;
         TodoDraft _draft;
         string _text = "",
-            _output = "",
-            _error,
-            _project = "",
-            _template = "";
+            _error;
         string _quickAdd = "",
             _search = "",
             _projectFilter = "",
@@ -33,18 +30,21 @@ namespace SlopWorld
         bool _busy,
             _open,
             _source,
-            _assistant,
-            _detailOpen,
-            _refreshAfterExecute,
-            _needsRefresh;
+            _detailOpen;
         int _generation,
             _presentation;
         readonly SmoothScroll _listScroll = new SmoothScroll();
         readonly ScrollableListing _navigation = new ScrollableListing();
         readonly ScrollableListing _details = new ScrollableListing();
         bool DraftDirty => _selected != null && _draft != null && _draft.Changed(_selected);
-        bool Dirty => _document != null && (_text != _document.Text || DraftDirty);
-        bool Ready => !_busy && _document != null && !_needsRefresh;
+        bool Dirty =>
+            _document != null
+            && (
+                _text != _document.Text
+                || DraftDirty
+                || _descriptions.Values.Any(draft => draft.Dirty)
+            );
+        bool Ready => !_busy && _document != null;
 
         // Requests belong to the cached endpoint draft, not the visible window. Closing
         // must not discard a committed save or permit a second action while one is pending.
@@ -77,7 +77,7 @@ namespace SlopWorld
             _open = true;
             _pollingDemand ??= SessionHub.Instance.TaskStore.OpenReader();
             _fields = new FieldLifetime();
-            SessionHub.Instance.Catalog.RefreshTemplates();
+            EnsureDescription();
             if (_document == null && !_busy)
                 Load();
         }
@@ -123,6 +123,7 @@ namespace SlopWorld
             _fields = new FieldLifetime();
             _selected = entry;
             _draft = entry == null ? null : new TodoDraft(entry);
+            EnsureDescription();
         }
 
         Action EditSelected(Action edit)
@@ -156,33 +157,20 @@ namespace SlopWorld
                 return;
             }
             SetSelection(entry);
-            if (_project.Length == 0)
-                _project =
-                    SessionHub
-                        .Instance.Projects.FirstOrDefault(project =>
-                            TodoText
-                                .Words(entry.Projects)
-                                .Any(name => name == project.Name || name == project.Id)
-                        )
-                        ?.Id
-                    ?? "";
             _error = null;
-            _assistant = false;
             _detailOpen = true;
         }
 
         void Accept(Wire.PlannerDocument document)
         {
-            _needsRefresh = false;
             _document = document;
             _text = document.Text;
             Rebuild();
             _busy = false;
         }
 
-        void Load(bool preserveError = false)
+        void Load()
         {
-            string previousError = preserveError ? _error : null;
             int generation = Begin();
             DaemonClient.Get<Wire.PlannerDocument>(
                 WireProtocol.Routes.Planner,
@@ -191,7 +179,6 @@ namespace SlopWorld
                     if (Current(generation))
                     {
                         Accept(value);
-                        _error = previousError;
                     }
                 },
                 error => Failed(generation, error)
@@ -217,19 +204,41 @@ namespace SlopWorld
 
         void Save()
         {
-            if (!ApplyDraft())
+            if (!IsOpenEndpoint || !Ready || !ApplyDraft())
                 return;
             int generation = Begin();
+            if (_text == _document.Text)
+            {
+                SaveDescriptions(generation);
+                return;
+            }
             DaemonClient.Put<Wire.PlannerDocument>(
                 WireProtocol.Routes.Planner,
                 new Wire.PlannerSaveReq { Text = _text, Revision = _document.Revision },
                 value =>
                 {
                     if (Current(generation))
+                    {
                         Accept(value);
+                        _busy = true;
+                        SaveDescriptions(generation);
+                    }
                 },
                 error => Failed(generation, error)
             );
+        }
+
+        void Discard()
+        {
+            if (!Ready || !IsOpenEndpoint)
+                return;
+            foreach (var draft in _descriptions.Values)
+            {
+                draft.Text = draft.Saved;
+                draft.Error = null;
+            }
+            _error = null;
+            Accept(_document);
         }
 
         void Add()
@@ -290,65 +299,23 @@ namespace SlopWorld
             }
         }
 
-        void Run(string action)
-        {
-            // Selection follows stable catalog IDs; worker requests use project names.
-            string project =
-                SessionHub.Instance.Projects.FirstOrDefault(value => value.Id == _project)?.Name
-                ?? "";
-            if (action == "execute" && project.Length == 0)
-            {
-                _error = "The selected project is unavailable. Choose a project before executing.";
-                return;
-            }
-            int generation = Begin();
-            DaemonClient.Send<Wire.PlannerActionReply>(
-                "POST",
-                WireProtocol.Routes.PlannerAction,
-                new Wire.PlannerActionReq
-                {
-                    Action = action,
-                    Revision = _document.Revision,
-                    Line = _selected?.Line ?? 0,
-                    Project = project,
-                    Template = _template,
-                },
-                value =>
-                {
-                    if (!Current(generation))
-                        return;
-                    _output = value.Output;
-                    _assistant = true;
-                    _detailOpen = true;
-                    _busy = false;
-                    _source = false;
-                    _needsRefresh = _refreshAfterExecute = action == "execute";
-                },
-                error =>
-                {
-                    if (!Current(generation))
-                        return;
-                    Failed(generation, error);
-                    // Startup can fail after reserving the line or creating a Task.
-                    // Reconcile its durable identity before offering Execute again.
-                    _needsRefresh = _refreshAfterExecute = action == "execute";
-                },
-                timeoutMs: 120000
-            );
-        }
-
         Wire.PlannerItem Linked(TodoEntry entry)
         {
+            if (entry == null)
+                return null;
             var linked = _document?.Items.FirstOrDefault(item =>
                 item.Id.Length > 0 ? item.Id == entry.Id : item.Line == entry.Line
             );
             if (linked != null)
             {
-                var task = SessionHub.Instance.Tasks.FirstOrDefault(value =>
-                    value.Id == linked.TaskId
-                );
-                if (task != null)
-                    linked.Status = TaskInfo.StatusText(task.Status);
+                foreach (var link in linked.Links.Where(value => value.Kind == "task"))
+                {
+                    var task = SessionHub.Instance.Tasks.FirstOrDefault(value =>
+                        value.Id == link.Id
+                    );
+                    if (task != null)
+                        link.Status = TaskInfo.StatusText(task.Status);
+                }
             }
             return linked;
         }
@@ -365,7 +332,13 @@ namespace SlopWorld
                         return;
                     _busy = false;
                     if (IsOpenEndpoint && presentation == _presentation && value.Task != null)
-                        TaskDetailView.Open(TaskInfo.FromWire(value.Task));
+                    {
+                        var task = TaskInfo.FromWire(value.Task);
+                        // The reader follows the shared board snapshot. Seed it before
+                        // opening when this link arrived ahead of the next task poll.
+                        SessionHub.Instance.TaskStore.Add(task);
+                        TaskDetailView.Open(task, this);
+                    }
                 },
                 error => Failed(generation, error),
                 session: TaskInfo.Host
@@ -393,11 +366,6 @@ namespace SlopWorld
                         "Endpoint changed. Reopen Planner for the current daemon."
                     );
                     return;
-                }
-                if (_refreshAfterExecute && !_busy && !Dirty)
-                {
-                    _refreshAfterExecute = false;
-                    Load(preserveError: true);
                 }
                 DrawBoard(body.ContractedBy(UiTheme.GapM));
             }

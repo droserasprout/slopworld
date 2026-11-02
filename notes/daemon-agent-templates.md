@@ -25,3 +25,6 @@ interrupted first save; loading never scans direct files.
 See [API](../docs/src/reference/api.md#agent-templates), [worker visibility](daemon-workers.md),
 [mod editors](mod-agent-templates.md), and
 [Configuring agents](../docs/src/agents/configuring-agents.md).
+
+Initial Library Prompt names are portable settings; worker creation clears them.
+Content is resolved at process startup after auto-resume, rather than snapshotted.

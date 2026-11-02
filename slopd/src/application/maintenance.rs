@@ -69,10 +69,16 @@ impl Services {
         let now = unix_ms();
         Duration::from_millis(self.catalogs.deadline(now).saturating_sub(now))
             .min(sessions.maintenance_delay().await)
+            .min(Duration::from_millis(60_000 - now % 60_000))
     }
     async fn maintain(&self, sessions: &Arc<SessionRuntime>, configuration: &Configuration) {
         self.reload_if_due(sessions, configuration).await;
         sessions.retick().await;
+        match self.timers.tick(sessions, configuration).await {
+            Ok(true) => self.announce_library(configuration.config().await).await,
+            Ok(false) => {}
+            Err(error) => tracing::warn!("timer maintenance failed: {error:#}"),
+        }
     }
 }
 

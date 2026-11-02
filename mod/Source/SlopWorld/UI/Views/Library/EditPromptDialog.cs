@@ -8,16 +8,28 @@ namespace SlopWorld
             : this(existing, false) { }
 
         internal EditPromptDialog(LibraryItemInfo existing, bool copy)
-            : base(existing, copy, LibraryItemKind.Prompt) { }
+            : base(existing, copy, LibraryItemKind.Prompt)
+        {
+            if (existing == null)
+                _s.Link = LibraryItemLink.Ask;
+        }
 
         protected override string TitleNoun => "prompt";
         protected override string TextHeading => "Prompt";
 
         protected override void DrawKindFields(Listing_Standard listing)
         {
+            DrawExecution(listing);
+            if (!_s.Runnable)
+            {
+                DrawExplanation(
+                    listing,
+                    "Reusable text for agent startup and Timers. Choose Host or a template to also run it as an errand."
+                );
+                return;
+            }
             DrawRunLocation(listing);
             DrawProject(listing);
-            DrawExecution(listing);
             DrawExplanation(listing, RunExplanation);
             DrawCommand(
                 listing,

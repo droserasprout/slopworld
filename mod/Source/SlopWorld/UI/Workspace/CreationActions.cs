@@ -105,6 +105,7 @@ namespace SlopWorld
                 LibraryItem("Breadcrumb", LibraryItemKind.Breadcrumb),
                 LibraryItem("Shell script", LibraryItemKind.Shell),
                 LibraryItem("File action", LibraryItemKind.FileAction),
+                LibraryItem("Timer", LibraryItemKind.Timer),
             };
 
         static Entry LibraryItem(string label, LibraryItemKind kind) =>

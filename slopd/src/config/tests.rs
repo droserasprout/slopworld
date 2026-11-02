@@ -444,6 +444,8 @@ fn library_round_trip_through_toml() {
         builtin: false,
         host: true,
         agent_template: String::new(),
+        timer: None,
+        timer_status: None,
     });
 
     let sc: LibraryItemCfg =

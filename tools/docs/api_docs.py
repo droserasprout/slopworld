@@ -110,13 +110,13 @@ def api_routes(files: dict[Path, str] | None = None) -> list[Route]:
             family = functions[-1].group(1) if functions else None
             if family not in {
                 'root_routes',
-                'root_provider_routes',
+                'followup_routes',
                 'scoped_routes',
                 'shared_routes',
                 'snapshot_routes',
             }:
                 raise ValueError(f'unknown API route family: {family}')
-            scope = 'root-only' if family in {'root_routes', 'root_provider_routes'} else 'scoped'
+            scope = 'root-only' if family == 'root_routes' else 'scoped'
             for method_match in method_pattern.finditer(body):
                 routes.append(
                     Route(

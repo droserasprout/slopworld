@@ -135,7 +135,7 @@ with a dash. A separate value must not be another option.
 Insert `--` before task text that has an option as its first item.
 Use `--name NAME` before the task text to choose an exact worker name. Names must
 be unused and contain no whitespace, colon, or period. If omitted, host-owned
-workers (including Planner workers) use `<project>-worker`; agent-owned workers use
+workers use `<project>-worker`; agent-owned workers use
 `<caller>-worker`. Generated project prefixes are normalized for session names,
 and collisions receive `-2`, `-3`, and so on. Names stay fixed after creation;
 project membership and parent relationships are independent of the name.

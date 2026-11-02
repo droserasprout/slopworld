@@ -9,9 +9,7 @@ namespace SlopWorld
 {
     public static partial class LibraryView
     {
-        static bool Runnable(LibraryItemInfo item) =>
-            !Templates.ContainsKey(item)
-            && (item.Kind == LibraryItemKind.Prompt || item.Kind == LibraryItemKind.Shell);
+        static bool Runnable(LibraryItemInfo item) => !Templates.ContainsKey(item) && item.Runnable;
 
         static List<string> ItemSummary(LibraryItemInfo item)
         {
@@ -22,6 +20,40 @@ namespace SlopWorld
                 item.Name,
                 template ? "Agent template" : KindName(item.Kind),
             };
+            if (item.Kind == LibraryItemKind.Timer && item.Timer != null)
+            {
+                lines.Add(
+                    (item.Timer.Enabled ? "Enabled" : "Paused")
+                        + " · "
+                        + item.Timer.Schedule
+                        + " UTC"
+                );
+                lines.Add("Prompt: " + item.Timer.Prompt);
+                if (item.TimerStatus != null)
+                {
+                    lines.Add(item.TimerStatus.Outcome);
+                    if (item.TimerStatus.LastAt > 0)
+                        lines.Add(
+                            "Last: "
+                                + DateTimeOffset
+                                    .FromUnixTimeSeconds((long)item.TimerStatus.LastAt)
+                                    .UtcDateTime.ToString(
+                                        "u",
+                                        System.Globalization.CultureInfo.InvariantCulture
+                                    )
+                        );
+                    if (item.TimerStatus.NextAt > 0)
+                        lines.Add(
+                            "Next: "
+                                + DateTimeOffset
+                                    .FromUnixTimeSeconds((long)item.TimerStatus.NextAt)
+                                    .UtcDateTime.ToString(
+                                        "u",
+                                        System.Globalization.CultureInfo.InvariantCulture
+                                    )
+                        );
+                }
+            }
             if (runnable)
             {
                 lines.Add(

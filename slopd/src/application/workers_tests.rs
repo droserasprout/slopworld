@@ -2,6 +2,71 @@ use super::*;
 use crate::config::{DnsConfig, Limits};
 use std::collections::BTreeSet;
 
+#[tokio::test]
+async fn planner_links_commit_before_failed_start_and_link_failure_withholds_registration() {
+    for fail_links in [false, true] {
+        let mut fixture = super::super::test_support::Fixture::new();
+        Arc::get_mut(&mut fixture.services).unwrap().planner =
+            crate::application::planner::Store::new(fixture.root.join("TODO.txt"));
+        let store = &fixture.services.planner;
+        let empty = store.read().await.unwrap();
+        let document = store
+            .save("Implement".into(), empty.revision)
+            .await
+            .unwrap();
+        let id = document.items[0].id.clone();
+        let fault = fail_links.then(|| {
+            crate::paths::fail_writes(&fixture.root.join(format!("planner/links/{id}.json")))
+        });
+        let app = crate::application::test_application(Config::default());
+        let mut workers = Workers::new(&app);
+        workers.services = fixture.services.clone();
+        // Missing project forces startup failure before launching any process.
+        let session = worker_session_from_template(
+            &template("review"),
+            "".into(),
+            "missing",
+            crate::tasks::HOST,
+        );
+        let result = app
+            .sessions
+            .owned_session_operation(async move {
+                workers
+                    .commit_worker(
+                        session,
+                        crate::tasks::HOST.into(),
+                        String::new(),
+                        "Work".into(),
+                        false,
+                        WorkerCommitContext {
+                            config: Config::default(),
+                            planner_id: id,
+                        },
+                    )
+                    .await
+            })
+            .await;
+        result.unwrap_err();
+        let tasks = app.sessions.task_store().all_tasks_async().await.unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].status, crate::tasks::Status::Failed);
+        drop(fault);
+        let projected = store
+            .project_links(store.read().await.unwrap(), &tasks)
+            .await
+            .unwrap();
+        assert_eq!(
+            projected.items[0].links.len(),
+            if fail_links { 0 } else { 2 }
+        );
+        if !fail_links {
+            assert_eq!(projected.items[0].links[0].id, tasks[0].id);
+            assert_eq!(projected.items[0].links[1].id, tasks[0].to_id);
+        }
+        assert!(app.sessions.views().await.is_empty());
+    }
+}
+
 fn template(name: &str) -> AgentTemplate {
     serde_json::from_value(serde_json::json!({
         "name": name,

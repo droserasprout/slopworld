@@ -36,32 +36,11 @@ namespace SlopWorld
                     _detailOpen = false;
             }
             else
-                UiText.RowLabel(
-                    new Rect(header.x, header.y, header.width - 100f, h),
-                    _assistant ? "Assistant" : "Task details"
-                );
-            if (
-                _output.Length > 0
-                && UiControls.Button(
-                    new Rect(header.xMax - 95f, header.y, 95f, h),
-                    _assistant ? "Task details" : "Assistant",
-                    UiControls.Btn.Ghost
-                )
-            )
-                _assistant = !_assistant;
+                UiText.RowLabel(header, "Task details");
             inner.yMin = header.yMax + gap;
-            if (_assistant)
-            {
-                UiText.Area(inner, "planner.result", _output, on: false);
-                return;
-            }
             if (_selected == null)
             {
-                UiText.PlainStatusLabel(
-                    inner,
-                    "Select a task to edit its details or send it to an agent.",
-                    UiTheme.Dim
-                );
+                UiText.PlainStatusLabel(inner, "Select a task to edit its details.", UiTheme.Dim);
                 return;
             }
             _details.Draw(inner, DrawTaskFields);
@@ -72,8 +51,10 @@ namespace SlopWorld
             // Controls are named by stable task identity so delayed text input cannot target
             // a different task after selecting a new row.
             string key = "planner.task." + _selected.Key;
-            l.Label("Task");
             _draft.Title = UiControls.Area(l, 76f, key + ".title", _draft.Title, on: Ready);
+            l.Gap(UiTheme.GapS);
+            DrawDescription(l);
+            l.Gap(UiTheme.GapM);
             _draft.Completed = UiControls.Checkbox(
                 l.GetRect(UiTheme.RowH),
                 "Completed",
@@ -98,7 +79,7 @@ namespace SlopWorld
                     )
                 )
                     _draft.Due = i == 0 ? "" : TodoText.Stamp(DateTime.Today.AddDays(days[i]));
-            UiLayout.Note(l, "YYYY-MM-DD. Dates organize your list; execution is manual.");
+            UiLayout.Note(l, "YYYY-MM-DD. Dates organize your list.");
             l.Gap(UiTheme.GapM);
             l.Label("Priority");
             using (WidgetState.Save())
@@ -122,7 +103,7 @@ namespace SlopWorld
             if (
                 UiControls.Button(
                     new Rect(actions.x, actions.y, half, actions.height),
-                    "Save task",
+                    "Save changes",
                     UiControls.Btn.Primary,
                     on: Ready && Dirty && _draft.Error == null
                 )
@@ -132,90 +113,12 @@ namespace SlopWorld
                 UiControls.Button(
                     new Rect(actions.x + half + UiTheme.GapS, actions.y, half, actions.height),
                     "Discard edits",
-                    on: Ready && DraftDirty
+                    on: Ready && Dirty
                 )
             )
-            {
-                _draft = new TodoDraft(_selected);
-                _error = null;
-            }
+                Discard();
             l.Gap(UiTheme.GapL);
-            UiLayout.SectionHeading(l, "AGENT");
-            var linked = Linked(_selected);
-            string taskId = !string.IsNullOrEmpty(linked?.TaskId)
-                ? linked.TaskId
-                : _selected.TaskId;
-            if (taskId.Length > 0)
-            {
-                UiLayout.Note(l, "Worker status: " + (linked?.Status ?? "unavailable"));
-                var task = SessionHub.Instance.Tasks.FirstOrDefault(value => value.Id == taskId);
-                if (!string.IsNullOrWhiteSpace(task?.Note))
-                    UiLayout.Note(l, task.Note);
-                if (
-                    taskId != "pending"
-                    && UiControls.Button(l.GetRect(UiTheme.FieldH), "Open worker task", on: Ready)
-                )
-                    OpenTask(taskId);
-                if (taskId == "pending")
-                    UiLayout.Note(
-                        l,
-                        "Dispatch is reserved. Refresh and inspect Tasks before retrying."
-                    );
-            }
-            else
-            {
-                l.Label("Project checkout");
-                using (WidgetState.Save())
-                {
-                    GUI.enabled = Ready;
-                    UiSelector.DrawInline(
-                        l.GetRect(UiTheme.FieldH),
-                        SessionHub
-                            .Instance.Projects.FirstOrDefault(project => project.Id == _project)
-                            ?.Name
-                            ?? "Choose project…",
-                        () =>
-                            SessionHub
-                                .Instance.Projects.Select(project => new FloatMenuOption(
-                                    project.Name,
-                                    EditSelected(() => _project = project.Id)
-                                ))
-                                .ToList()
-                    );
-                    l.Gap(UiTheme.GapS);
-                    l.Label("Worker template");
-                    UiSelector.DrawInline(
-                        l.GetRect(UiTheme.FieldH),
-                        _template.Length == 0 ? "Choose template…" : _template,
-                        () =>
-                            SessionHub
-                                .Instance.Templates.Select(template => new FloatMenuOption(
-                                    template.DisplayLabel,
-                                    EditSelected(() => _template = template.Name)
-                                ))
-                                .ToList()
-                    );
-                }
-                l.Gap(UiTheme.GapS);
-                if (
-                    UiControls.Button(
-                        l.GetRect(UiTheme.FieldH),
-                        "Execute",
-                        UiControls.Btn.Primary,
-                        on: Ready
-                            && !Dirty
-                            && !_selected.Completed
-                            && _selected.Id.Length > 0
-                            && _project.Length > 0
-                            && _template.Length > 0
-                    )
-                )
-                    Run("execute");
-                UiLayout.Note(
-                    l,
-                    "Prepare a work order and start a worker in the project's main checkout."
-                );
-            }
+            DrawLinks(l);
             l.Gap(UiTheme.GapL);
             if (
                 UiControls.Button(
@@ -233,7 +136,7 @@ namespace SlopWorld
                     ConfirmDialog.Create(
                         "Delete “"
                             + _selected.Title
-                            + "”? This removes the TODO entry. Any linked worker task is kept.",
+                            + "”? This removes the TODO entry. Its description and any linked worker task are kept.",
                         () =>
                         {
                             if (
@@ -250,6 +153,38 @@ namespace SlopWorld
                     )
                 );
             }
+        }
+
+        void DrawDescription(Listing_Standard l)
+        {
+            var draft = SelectedDescription;
+            if (draft == null)
+            {
+                UiLayout.Note(l, "Save the task before adding a description.");
+                return;
+            }
+            draft.Text = UiControls.Area(
+                l,
+                240f,
+                "planner.description." + _selected.Id,
+                draft.Text,
+                on: Ready && !draft.Busy && draft.Revision != null
+            );
+            UiLayout.Validation(l, draft.Error);
+            UiLayout.Note(
+                l,
+                draft.Busy ? "Working…"
+                    : draft.Dirty ? "Unsaved description"
+                    : ""
+            );
+            if (
+                UiControls.Button(
+                    l.GetRect(UiTheme.FieldH),
+                    "Preview",
+                    on: Ready && !draft.Busy && draft.Text.Length > 0
+                )
+            )
+                WorkspaceWindow.OpenContent(new MarkdownPreview(draft.Text, _selected.Title), this);
         }
 
         void DrawTagSelector(Listing_Standard listing, bool projects)

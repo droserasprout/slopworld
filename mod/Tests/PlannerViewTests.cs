@@ -12,39 +12,16 @@ namespace SlopWorld.Tests
             DaemonClient.BaseUrl = "http://planner-test";
             SessionHub.Instance = new SessionHub();
             TaskDetailView.Shown = null;
+            TaskDetailView.ReturnTo = null;
             var view = PlannerView.CreateTest(DaemonClient.BaseUrl);
             SessionHub.Instance.Projects.Add(
                 new ProjectInfo { Id = "stable-project-id", Name = "repo" }
             );
-            view.ProjectTest("stable-project-id");
             view.Opened();
             DaemonClient
                 .Requests.Last()
                 .Reply(new Wire.PlannerDocument { Text = "Task", Revision = "r1" });
             return view;
-        }
-
-        public static void ExecuteResolvesStableProjectIdToCurrentName()
-        {
-            var view = Loaded();
-            SessionHub.Instance.Projects.Single(project => project.Id == "stable-project-id").Name =
-                "renamed-repo";
-            view.RunTest("execute");
-            var request = (Wire.PlannerActionReq)DaemonClient.Requests.Last().Body;
-            Assert.That(request.Project, Is.EqualTo("renamed-repo"));
-            view.Closed();
-        }
-
-        public static void ExecuteRejectsRemovedProjectWithoutSendingRequest()
-        {
-            var view = Loaded();
-            SessionHub.Instance.Projects.Clear();
-            int requests = DaemonClient.Requests.Count;
-            view.RunTest("execute");
-            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
-            Assert.That(view.ErrorTest, Does.Contain("project is unavailable"));
-            Assert.That(view.ReadyTest, Is.True);
-            view.Closed();
         }
 
         public static void ClosingDuringSaveRetainsAcceptedRevisionAndPreventsAnotherLoad()
@@ -61,57 +38,6 @@ namespace SlopWorld.Tests
             Assert.That(view.TextTest, Is.EqualTo("Edited task sw-id:saved"));
             Assert.That(view.DocumentTest.Revision, Is.EqualTo("r2"));
             Assert.That(view.ReadyTest, Is.True);
-            view.Closed();
-        }
-
-        public static void ClosedSummarySettlesWithoutReloadingOrTouchingAnotherEndpoint()
-        {
-            var view = Loaded();
-            view.RunTest("summarize");
-            var action = DaemonClient.Requests.Last();
-            view.Closed();
-            DaemonClient.BaseUrl = "http://other-daemon";
-            int requests = DaemonClient.Requests.Count;
-            action.Reply(new Wire.PlannerActionReply { Output = "Saved summary" });
-            Assert.That(view.OutputTest, Is.EqualTo("Saved summary"));
-            Assert.That(view.TextTest, Is.EqualTo("Task"));
-            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
-            DaemonClient.BaseUrl = "http://planner-test";
-            view.Opened();
-            Assert.That(view.ReadyTest, Is.True);
-            view.Closed();
-        }
-
-        public static void FailedDispatchRequiresReconciliationAndRetainsStartupError()
-        {
-            var view = Loaded();
-            view.RunTest("execute");
-            DaemonClient.Requests.Last().Fail("Worker startup failed");
-            Assert.That(view.ReadyTest, Is.False);
-            view.Draw(new Rect(0, 0, 800, 600));
-            var reload = DaemonClient.Requests.Last();
-            Assert.That(reload.Method, Is.EqualTo("GET"));
-            reload.Fail("Offline");
-            Assert.That(view.ReadyTest, Is.False);
-            view.LoadTest();
-            DaemonClient
-                .Requests.Last()
-                .Reply(new Wire.PlannerDocument { Text = "Task sw-task:pending", Revision = "r2" });
-            Assert.That(view.ReadyTest, Is.True);
-            Assert.That(view.TextTest, Does.Contain("sw-task:pending"));
-            view.Closed();
-        }
-
-        public static void SuccessfulReconciliationPreservesTheDispatchFailureExplanation()
-        {
-            var view = Loaded();
-            view.RunTest("execute");
-            DaemonClient.Requests.Last().Fail("Worker startup failed");
-            view.Draw(new Rect(0, 0, 800, 600));
-            DaemonClient
-                .Requests.Last()
-                .Reply(new Wire.PlannerDocument { Text = "Task sw-task:pending", Revision = "r2" });
-            Assert.That(view.ErrorTest, Is.EqualTo("Worker startup failed"));
             view.Closed();
         }
 
@@ -159,6 +85,197 @@ namespace SlopWorld.Tests
             task.Reply(new Wire.TaskResult { Task = new Wire.Task { Id = "task" } });
             Assert.That(TaskDetailView.Shown, Is.Null);
             Assert.That(view.BusyTest, Is.False);
+            view.Closed();
+        }
+
+        public static void DescriptionRepliesAndDraftsRemainBoundToTheirTask()
+        {
+            var view = Loaded();
+            view.LoadTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(
+                    new Wire.PlannerDocument
+                    {
+                        Text = "First sw-id:first\nSecond sw-id:second",
+                        Revision = "r2",
+                    }
+                );
+            view.SelectTest(0);
+            var first = DaemonClient.Requests.Last();
+            view.SelectTest(1);
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Second", Revision = "d2" });
+            first.Reply(new Wire.PlannerDescription { Text = "First", Revision = "d1" });
+            Assert.That(view.DescriptionTest, Is.EqualTo("Second"));
+            view.DescriptionTest = "Unsaved second";
+            view.SelectTest(0);
+            Assert.That(view.DescriptionTest, Is.EqualTo("First"));
+            view.SelectTest(1);
+            Assert.That(view.DescriptionTest, Is.EqualTo("Unsaved second"));
+            Assert.That(view.DescriptionDirtyTest, Is.True);
+            view.Closed();
+        }
+
+        public static void RemovingLinksUsesTheirRevisionAndSettlesAfterClose()
+        {
+            var view = Loaded();
+            view.LoadTest();
+            var item = new Wire.PlannerItem { Id = "first", LinksRevision = "links-r1" };
+            item.Links.Add(
+                new Wire.PlannerLink
+                {
+                    Kind = "task",
+                    Id = "failed-task",
+                    Status = "failed",
+                }
+            );
+            item.Links.Add(new Wire.PlannerLink { Kind = "worker", Id = "stable-worker" });
+            var document = new Wire.PlannerDocument { Text = "Task sw-id:first", Revision = "r2" };
+            document.Items.Add(item);
+            DaemonClient.Requests.Last().Reply(document);
+            view.SelectTest(0);
+            view.RemoveLinkTest(0);
+            var request = DaemonClient.Requests.Last();
+            var body = (Wire.PlannerLinksReq)request.Body;
+            Assert.That(body.Revision, Is.EqualTo("links-r1"));
+            Assert.That(body.Links.Count, Is.EqualTo(1));
+            Assert.That(body.Links[0].Id, Is.EqualTo("stable-worker"));
+            view.Closed();
+            var updated = document.Clone();
+            updated.Items[0].Links.RemoveAt(0);
+            updated.Items[0].LinksRevision = "links-r2";
+            request.Reply(updated);
+            view.Opened();
+            Assert.That(view.DocumentTest.Items[0].Links.Count, Is.EqualTo(1));
+            Assert.That(view.BusyTest, Is.False);
+            view.AddLinkTest("worker", "stable-worker");
+            Assert.That(DaemonClient.Requests.Last(), Is.SameAs(request));
+            DaemonClient.BaseUrl = "http://another-endpoint";
+            view.RemoveLinkTest(0);
+            Assert.That(DaemonClient.Requests.Last(), Is.SameAs(request));
+            view.Closed();
+        }
+
+        public static void WorkerLinksFollowIdentityAcrossRenameAndRejectNameReuse()
+        {
+            var renamed = new SessionInfo
+            {
+                Name = "renamed-worker",
+                StateId = "original",
+                Worker = true,
+            };
+            var replacement = new SessionInfo
+            {
+                Name = "worker",
+                StateId = "replacement",
+                Worker = true,
+            };
+            Assert.That(
+                PlannerView.LinkedWorker(new[] { replacement, renamed }, "original"),
+                Is.SameAs(renamed)
+            );
+            Assert.That(PlannerView.LinkedWorker(new[] { replacement }, "original"), Is.Null);
+        }
+
+        public static void OpeningALinkSeedsTheTaskReaderBeforeTheNextBoardPoll()
+        {
+            var view = Loaded();
+            view.OpenTaskTest("agent-task");
+            var request = DaemonClient.Requests.Last();
+            Assert.That(request.Session, Is.EqualTo(TaskInfo.Host));
+            request.Reply(
+                new Wire.TaskResult
+                {
+                    Task = new Wire.Task
+                    {
+                        Id = "agent-task",
+                        From = "alice",
+                        To = "bob",
+                        Body = "Work",
+                    },
+                }
+            );
+            Assert.That(TaskDetailView.Shown.Id, Is.EqualTo("agent-task"));
+            Assert.That(TaskDetailView.ReturnTo, Is.SameAs(view));
+            Assert.That(SessionHub.Instance.Tasks.Single().Id, Is.EqualTo("agent-task"));
+            view.Closed();
+        }
+
+        public static void JointSaveRetainsFailedDescriptionAndDiscardRestoresBothFields()
+        {
+            var view = Loaded();
+            view.LoadTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDocument { Text = "Task sw-id:first", Revision = "r2" });
+            view.SelectTest(0);
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Original", Revision = "d1" });
+            view.DescriptionTest = "Edited description";
+            view.SaveTest("Edited task sw-id:first");
+            var taskSave = DaemonClient.Requests.Last();
+            taskSave.Reply(
+                new Wire.PlannerDocument { Text = "Edited task sw-id:first", Revision = "r3" }
+            );
+            Assert.That(view.BusyTest, Is.True);
+            var descriptionSave = DaemonClient.Requests.Last();
+            Assert.That(
+                ((Wire.PlannerSaveReq)descriptionSave.Body).Text,
+                Is.EqualTo("Edited description")
+            );
+            descriptionSave.Fail("Conflict");
+            Assert.That(view.DocumentTest.Revision, Is.EqualTo("r3"));
+            Assert.That(view.DescriptionTest, Is.EqualTo("Edited description"));
+            Assert.That(view.DirtyTest, Is.True);
+            view.SaveDescriptionTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(
+                    new Wire.PlannerDescription { Text = "Edited description", Revision = "d2" }
+                );
+            Assert.That(view.DirtyTest, Is.False);
+            view.PriorityEditTest("A")();
+            view.DescriptionTest = "Discard this";
+            view.DiscardTest();
+            Assert.That(view.PriorityTest, Is.Empty);
+            Assert.That(view.DescriptionTest, Is.EqualTo("Edited description"));
+            Assert.That(view.DirtyTest, Is.False);
+            view.Closed();
+        }
+
+        public static void DescriptionSaveSettlesAfterCloseAndErrorsPreserveDraft()
+        {
+            var view = Loaded();
+            view.LoadTest();
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDocument { Text = "Task sw-id:first", Revision = "r2" });
+            view.SelectTest(0);
+            DaemonClient
+                .Requests.Last()
+                .Reply(new Wire.PlannerDescription { Text = "Original", Revision = "d1" });
+            view.DescriptionTest = "Edited";
+            view.SaveDescriptionTest();
+            var save = DaemonClient.Requests.Last();
+            view.Closed();
+            Assert.That(view.DescriptionBusyTest, Is.True);
+            save.Reply(new Wire.PlannerDescription { Text = "Edited", Revision = "d2" });
+            view.Opened();
+            Assert.That(view.DescriptionTest, Is.EqualTo("Edited"));
+            Assert.That(view.DescriptionDirtyTest, Is.False);
+            view.DescriptionTest = "Conflict draft";
+            view.SaveDescriptionTest();
+            DaemonClient.Requests.Last().Fail("Description changed");
+            Assert.That(view.DescriptionTest, Is.EqualTo("Conflict draft"));
+            Assert.That(view.DescriptionErrorTest, Is.EqualTo("Description changed"));
+            Assert.That(view.DescriptionBusyTest, Is.False);
+            DaemonClient.BaseUrl = "http://another-endpoint";
+            int requests = DaemonClient.Requests.Count;
+            view.SaveDescriptionTest();
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
             view.Closed();
         }
     }

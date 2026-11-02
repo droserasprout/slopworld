@@ -10,7 +10,7 @@ namespace SlopWorld
     {
         public static void Run(LibraryItemInfo item, string project = null, bool temp = false)
         {
-            if (item.Kind != LibraryItemKind.Prompt && item.Kind != LibraryItemKind.Shell)
+            if (!item.Runnable)
                 return;
             if (item.Link == LibraryItemLink.Ask && project == null && !temp)
             {

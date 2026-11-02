@@ -16,12 +16,13 @@ def test_unknown_route_family_fails() -> None:
         api_routes({ROOT / 'slopd/src/api/router.rs': 'fn new_routes() { router.route("/api/new", get(handler)) }'})
 
 
-def test_provider_routes_remain_documented_as_root_only() -> None:
+@pytest.mark.parametrize(
+    ('family', 'scope'),
+    [('root_routes', 'root-only'), ('scoped_routes', 'scoped'), ('followup_routes', 'scoped')],
+)
+def test_route_families_retain_explicit_access_labels(family: str, scope: str) -> None:
     routes = api_routes(
-        {
-            ROOT
-            / 'slopd/src/api/router.rs': 'fn root_provider_routes() { router.route("/api/planner/action", post(planner_action)) }'
-        }
+        {ROOT / 'slopd/src/api/router.rs': f'fn {family}() {{ router.route("/api/example", post(handler)) }}'}
     )
     assert len(routes) == 1
-    assert routes[0].scope == 'root-only'
+    assert routes[0].scope == scope

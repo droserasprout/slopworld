@@ -12,6 +12,9 @@ any registered project and template; scoped callers use templates allowed by the
 own project. Host terminals cannot own workers. See [templates](daemon-agent-templates.md)
 and [grants](agent-grants.md).
 
+Root spawns with a Planner item ID persist its Task and Worker links before registration;
+link-write failure fails the Task and withholds startup. Planner owns link storage and removal.
+
 Tasks persist before startup. `session/worker_failures.rs` owns failure policy;
 callers check delayed run/reader identity and capture task identity before leaving
 live state. The store preserves terminal results and detailed exit evidence across

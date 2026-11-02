@@ -18,7 +18,8 @@ message Daemon {
   string pi_titles = 12;
   string task_summaries = 13;
   Instructions instructions = 14;
-  PlannerSettings planner = 16;
+  reserved 16;
+  reserved "planner";
   reserved 15, 17, 18, 19;
 }
 
@@ -119,6 +120,7 @@ message SessionConfig {
   optional string worktree = 19;
   optional string args = 20;
   WorkerPolicy workers = 21;
+  string initial_prompt = 23;
 }
 
 message HostTerminalCfg {
@@ -127,6 +129,19 @@ message HostTerminalCfg {
   string project = 3;
   string path = 4;
   bool autostart = 5;
+}
+
+message TimerStatus {
+  uint64 last_at = 1;
+  uint64 next_at = 2;
+  string outcome = 3;
+}
+
+message TimerConfig {
+  bool enabled = 1;
+  string schedule = 2;
+  string target = 3;
+  string prompt = 4;
 }
 
 message LibraryItem {
@@ -140,6 +155,8 @@ message LibraryItem {
   optional string agent_template = 8;
   optional string mode = 9;
   optional bool builtin = 10;
+  TimerConfig timer = 11;
+  TimerStatus timer_status = 12;
 }
 
 message SessionView {
@@ -175,6 +192,8 @@ message SessionLaunchView {
   bool auto_resume = 12;
   optional string args = 13;
   WorkerPolicy workers = 14;
+  string initial_prompt = 16;
+  string state_id = 17;
 }
 
 message SessionWorkerView {
@@ -294,6 +313,7 @@ message AgentTemplateDefaults {
   optional bool auto_resume = 10;
   optional string args = 11;
   WorkerPolicy workers = 12;
+  string initial_prompt = 14;
 }
 
 message UsageWindow {
@@ -426,6 +446,7 @@ message CreateTaskReq {
 }
 
 message SpawnWorkerReq {
+  string planner_id = 10;
   optional string project = 1;
   optional string template = 2;
   optional string body = 3;
@@ -995,13 +1016,6 @@ message TaskBatchResult {
   uint64 removed = 7;
 }
 
-// Planner prompts are daemon settings; worker launch configuration comes from templates.
-message PlannerSettings {
-  string model = 1;
-  string summarize_prompt = 2;
-  string plan_prompt = 3;
-  string execute_prompt = 4;
-}
 message PlannerDocument {
   string text = 1;
   string revision = 2;
@@ -1014,19 +1028,24 @@ message PlannerItem {
   string text = 3;
   string task_id = 4;
   string status = 5;
+  repeated PlannerLink links = 6;
+  string links_revision = 7;
+}
+message PlannerLink {
+  string kind = 1;
+  string id = 2;
+  string label = 3;
+  string status = 4;
+}
+message PlannerLinksReq {
+  repeated PlannerLink links = 1;
+  string revision = 2;
 }
 message PlannerSaveReq {
   string text = 1;
   string revision = 2;
 }
-message PlannerActionReq {
-  string action = 1;
+message PlannerDescription {
+  string text = 1;
   string revision = 2;
-  uint32 line = 3;
-  string project = 4;
-  string template = 5;
-}
-message PlannerActionReply {
-  string output = 1;
-  string task_id = 2;
 }

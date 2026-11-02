@@ -4,6 +4,13 @@ namespace SlopWorld
     // Store the definition independently of existing agents so deleting an agent does not invalidate the errand.
     public class LibraryItemInfo
     {
+        public bool Runnable =>
+            Kind == LibraryItemKind.Shell
+            || (
+                Kind == LibraryItemKind.Prompt
+                && (Host || !string.IsNullOrWhiteSpace(AgentTemplate))
+            );
+
         public string Name = "";
         public LibraryItemKind Kind = LibraryItemKind.Prompt;
         public LibraryItemLink Link = LibraryItemLink.Project;
@@ -24,9 +31,11 @@ namespace SlopWorld
         public FileActionMode Mode = FileActionMode.Ask;
 
         // The daemon supplies this entry without saving it in config.toml.
-        // Built-in entries do not permit editing or deletion.
+        // Editing creates an override; deleting the override restores the supplied default.
         // Omit them from the library table but include them in breadcrumb lists.
         public bool Builtin;
+        public Wire.TimerConfig Timer;
+        public Wire.TimerStatus TimerStatus;
 
         public static LibraryItemInfo FromWire(Wire.LibraryItem j) =>
             new LibraryItemInfo
@@ -36,6 +45,7 @@ namespace SlopWorld
                     j.Kind == WireProtocol.LibraryKind.Shell ? LibraryItemKind.Shell
                     : j.Kind == WireProtocol.LibraryKind.Breadcrumb ? LibraryItemKind.Breadcrumb
                     : j.Kind == WireProtocol.LibraryKind.Fa ? LibraryItemKind.FileAction
+                    : j.Kind == WireProtocol.LibraryKind.Timer ? LibraryItemKind.Timer
                     : LibraryItemKind.Prompt,
                 Link = ParseLink(j.Link),
                 Project = j.Project,
@@ -45,6 +55,8 @@ namespace SlopWorld
                 AgentTemplate = j.AgentTemplate,
                 Mode = FileActionModeText.Parse(j.Mode),
                 Builtin = j.Builtin,
+                Timer = j.Timer?.Clone(),
+                TimerStatus = j.TimerStatus?.Clone(),
             };
 
         // Use Project for unknown link values to tolerate differences between client and daemon versions.
@@ -70,6 +82,7 @@ namespace SlopWorld
             k == LibraryItemKind.Shell ? WireProtocol.LibraryKind.Shell
             : k == LibraryItemKind.Breadcrumb ? WireProtocol.LibraryKind.Breadcrumb
             : k == LibraryItemKind.FileAction ? WireProtocol.LibraryKind.Fa
+            : k == LibraryItemKind.Timer ? WireProtocol.LibraryKind.Timer
             : WireProtocol.LibraryKind.Prompt;
 
         public Wire.LibraryItem ToWire()
@@ -84,6 +97,7 @@ namespace SlopWorld
                 Host = Host,
                 AgentTemplate = AgentTemplate,
                 Mode = FileActionModeText.Name(Mode),
+                Timer = Timer?.Clone(),
             };
             if (!string.IsNullOrWhiteSpace(Command))
                 value.Command = Command;
@@ -103,6 +117,8 @@ namespace SlopWorld
                 AgentTemplate = AgentTemplate,
                 Mode = Mode,
                 Builtin = Builtin,
+                TimerStatus = TimerStatus?.Clone(),
+                Timer = Timer?.Clone(),
             };
     }
 }

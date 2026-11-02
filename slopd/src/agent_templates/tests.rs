@@ -35,6 +35,7 @@ fn template() -> AgentTemplate {
             limits: Limits::default(),
             autostart: Some(false),
             auto_resume: Some(false),
+            initial_prompt: String::new(),
         },
     }
 }

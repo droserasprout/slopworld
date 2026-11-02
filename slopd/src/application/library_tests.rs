@@ -101,3 +101,12 @@ fn breadcrumb_preparation_uses_resolved_context_and_preserves_literal_replacemen
     wrong_kind.library[0].kind = LibraryItemKind::Prompt;
     prepare_breadcrumb(&wrong_kind, &session, &project, "context", &[]).unwrap_err();
 }
+
+#[test]
+fn planner_does_not_add_special_library_content() {
+    assert!(
+        !crate::config::builtin_library_items()
+            .iter()
+            .any(|item| item.name.starts_with("Planner"))
+    );
+}

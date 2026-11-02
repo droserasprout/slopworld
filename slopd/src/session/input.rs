@@ -15,6 +15,8 @@ pub(crate) enum Input {
     AgentEnter,
     // Executed by the single consumer, preserving the pause relative to queued input.
     Gap(Duration),
+    // Completes only after all previous input has passed the run-identity check.
+    Fence(tokio::sync::oneshot::Sender<()>),
 }
 
 /// A flat command and the traces that belong to the terminal send it represents.

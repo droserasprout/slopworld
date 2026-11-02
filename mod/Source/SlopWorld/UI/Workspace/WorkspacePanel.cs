@@ -33,6 +33,10 @@ namespace SlopWorld
     {
         public T Backing { get; private set; }
         public T Content { get; private set; }
+
+        // Explicit drill-down navigation retains a closed view to reopen on return.
+        // Ordinary replacement clears it; it is not another active panel slot.
+        public T ReturnContent { get; private set; }
         public T Active => Content ?? Backing;
 
         // Host focus persists while focus transfers between retained panels.
@@ -57,7 +61,7 @@ namespace SlopWorld
                 Show(Active);
         }
 
-        public void SetContent(T panel)
+        public void SetContent(T panel, T returnTo = null)
         {
             if (panel != null && ReferenceEquals(Backing, panel))
                 throw new ArgumentException(
@@ -66,6 +70,7 @@ namespace SlopWorld
                 );
             if (ReferenceEquals(Content, panel))
                 return;
+            ReturnContent = panel != null && ReferenceEquals(Content, returnTo) ? returnTo : null;
             Hide(Active);
             Content?.Closed();
             Content = panel;
@@ -88,7 +93,7 @@ namespace SlopWorld
             Hide(Active);
             Content?.Closed();
             Backing?.Closed();
-            Content = Backing = null;
+            Content = Backing = ReturnContent = null;
             Focused = false;
         }
 

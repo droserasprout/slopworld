@@ -72,7 +72,7 @@ namespace SlopWorld.Tests
             switch (kind)
             {
                 case 0:
-                    return new Item(new LibraryItemInfo { Name = "same" });
+                    return new Item(new LibraryItemInfo { Name = "same", Host = true });
                 case 1:
                     return new Template(new AgentTemplateInfo { Name = "same" });
                 case 2:
@@ -236,6 +236,7 @@ namespace SlopWorld.Tests
         {
             var item = new LibraryItemInfo
             {
+                Host = true,
                 Name = "selected",
                 Kind = kind,
                 Link = link,

@@ -84,7 +84,7 @@ namespace SlopWorld
                 if (WorkspaceWindow.Showing != null)
                 {
                     bool hasPane = WorkspaceWindow.HasBackingPane;
-                    open.Leave();
+                    open.Leave(false);
                     if (hasPane)
                         return;
                 }

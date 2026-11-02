@@ -68,7 +68,10 @@ Save your changes, then restart the agent to apply command, sandbox, network,
 DNS, limit, or mount changes.
 
 **Auto-resume last conversation** applies only to a fresh process. A daemon restart
-that adopts an existing terminal does not submit the resume command again.
+that adopts an existing terminal does not submit the resume command again. Codex, Claude,
+and Pi resume only when nonempty transcripts exist in their private state. Empty or deleted
+history starts fresh; unrecognized commands also start fresh. A stalled resume has a bounded
+wait, dismisses its picker, releases input, and logs a diagnostic.
 
 ## Private state
 

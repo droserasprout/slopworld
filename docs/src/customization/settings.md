@@ -126,11 +126,25 @@ The chess table button beside Settings on the right of the status bar opens **Pl
 You can also click the Planner chess table on the map; it arrives in its own drop pod.
 Use **Add a task** for quick entry, check a task to complete it, and select a row to
 edit its title, priority, due date, projects, or contexts. Quick-add and checkboxes save
-immediately; the details pane has **Save task** and **Discard edits**. Delete removes
+immediately; the details pane has **Save changes** and **Discard edits**. Delete removes
 only the TODO entry, keeping any linked worker task.
 
-The gear button opens **Settings > Agents > Planner**. Close task details with the
-cross button; unsaved edits remain when you reopen the task. The **Projects** dropdown
+Use the Markdown field directly beneath the task title for long notes, checklists, and code blocks.
+**Save changes** saves the task and all edited descriptions. **Discard** restores both
+to their last saved values. Failed description saves retain their drafts for retry.
+**Preview** renders the current
+draft. **Reload description** reads external edits. On a conflict, copy your draft before
+discarding edits and reloading. Description drafts survive task and view changes within
+the mod session; save before quitting.
+
+Descriptions are limited to 1 MiB and stored as
+`planner/descriptions/<sw-id>.md` beneath the daemon data root, alongside `TODO.txt`.
+The task line stays ordinary todo.txt with its existing `sw-id:`. Renaming, moving, or
+completing a task preserves its description. Deleting a task retains the Markdown file;
+restoring the same `sw-id:` reconnects it. Copying a task line requires a new ID and does
+not copy its separate description file.
+
+Close task details with the cross button; unsaved edits remain when you reopen the task. The **Projects** dropdown
 lets you check multiple existing TODO projects or configured projects.
 
 The list offers My tasks, Today (including overdue), Upcoming, Overdue, Completed, and
@@ -140,41 +154,34 @@ task details separately. Worker status and the latest progress note update while
 is open.
 
 The daemon stores `TODO.txt` in its application data directory (normally
-`~/.local/share/slopworld/`). **Source** opens the underlying
+`~/.local/share/slopworld/`). The **Tasks | Raw** switcher opens the task list or underlying
 [todo.txt text](https://github.com/todotxt/todo.txt) for advanced editing. Unknown metadata
 and worker links survive task-field edits. Drafts survive view changes within the mod
 session; save before quitting. External changes cause a save conflict: copy your draft
-from Source before discarding it and refreshing.
+from Raw before discarding it and refreshing.
 
-**Summarize** and **Plan** send the saved backlog to OpenRouter and display the response.
-For **Execute**, select a saved, incomplete task and choose a project and worker template
-under **Agent** in its details.
-OpenRouter prepares a work order, then the daemon creates a durable worker and Task.
-**Open worker task** shows progress and results; **Refresh** reloads external TODO edits.
-Execution uses the project's main checkout. Worker configuration, including its model,
-comes from the selected template.
+**Links** in task details lists associated Tasks and Workers. Click a Task link to open
+its details or a Worker link to focus its terminal. **Link Task…** and **Link Worker…**
+attach existing items. Each link has **Remove**; this only removes the association and
+never deletes, cancels, or stops the linked item. Removed links stay removed after refresh.
+Task outcomes such as Failed belong to the linked Task, while the Planner checkbox
+controls whether the backlog item is complete.
 
-Under **Settings > Agents > Planner**, edit the OpenRouter model and the three prompts.
-The initial model matches the daemon's default summary model. The actions use the shared
-OpenRouter credential configuration under **Integrations > Credentials**.
-Only clicking an action sends text; no action runs when opening the editor.
+**Spawn worker…** lets you choose a project and opens the worker dialog with the task
+title and saved Markdown description. Spawning links both the new Task and Worker,
+including when worker startup fails. You can remove old links and spawn another attempt.
+Save task and description edits before spawning. Links are stored separately at
+`planner/links/<sw-id>.json` under the daemon data root.
 
-This proof of concept supports manual execution. Due dates and recurrence metadata are
-preserved but do not schedule work. Plans are advisory and are not automatically split
-into tasks or fed into Execute. Summary and plan output lasts only for the mod session.
-Closing Planner keeps an in-flight action running and retains its result for that endpoint when you return.
-After Execute succeeds or fails, Planner refreshes the saved dispatch state before
-enabling further edits or execution. If that refresh fails, use **Refresh** to retry.
-Documents are limited to 64 KiB.
+**Refresh** reloads external TODO edits and links. Due dates and recurrence metadata organize the backlog; they do not
+schedule work. Documents are limited to 64 KiB.
 
-Saving adds a stable `sw-id:` to each task. Dispatch adds `sw-task:`; leave these fields
-intact. Agents report status through Tasks and cannot edit the Planner document through
+Saving adds a stable `sw-id:` to each task. Preserve this and any existing `sw-task:`
+metadata. Agents report status through Tasks and cannot edit the Planner document through
 its API. Worker completion does not automatically mark the user's line with `x`.
-To cancel an unfinished worker task, choose **Open worker task > Cancel**. Cancellation
-prevents further task updates; it does not stop the worker process or erase the TODO entry.
-Each item can be dispatched once. If startup is interrupted, `sw-task:pending` prevents
-a duplicate launch. Inspect Tasks before retrying; to retry deliberately, create a new
-line without the `sw-id:` and `sw-task:` fields, then save.
+To cancel an unfinished linked worker task, click its Task link and choose **Cancel**.
+Cancellation prevents further task updates; it does not stop the worker process or erase
+the TODO entry.
 
 ## Configuration file
 

@@ -50,6 +50,8 @@ namespace SlopWorld
         public List<MountEntry> Mounts = new List<MountEntry>();
         public bool Autostart;
         public bool AutoResume;
+        public string InitialPrompt = "";
+        public string StateId = "";
 
         // Read-only status: startup auto-resume is pending or active.
         // Queue keyboard input after the auto-resume sequence.
@@ -180,6 +182,7 @@ namespace SlopWorld
                 Limits = Limits.ToWire(),
                 Autostart = Autostart,
                 AutoResume = AutoResume,
+                InitialPrompt = InitialPrompt,
                 Workers = Workers.Clone(),
             };
             if (!string.IsNullOrWhiteSpace(Cmd))

@@ -102,6 +102,8 @@ namespace SlopWorld
                     return new EditShellDialog(existing, copy);
                 case LibraryItemKind.Breadcrumb:
                     return new EditBreadcrumbDialog(existing, copy);
+                case LibraryItemKind.Timer:
+                    return new EditTimerDialog(existing, copy);
                 case LibraryItemKind.FileAction:
                     return new EditFileActionDialog(existing, copy);
                 default:
@@ -154,7 +156,7 @@ namespace SlopWorld
 
         void DrawName(Listing_Standard l)
         {
-            l.Label("Name (also what the temporary colonist is called)");
+            l.Label("Name");
             _s.Name = UiControls.Field(l, "library.name", _s.Name, on: !_submit.Pending);
         }
 
@@ -203,6 +205,21 @@ namespace SlopWorld
                     }
                 ),
             };
+            if (Kind == LibraryItemKind.Prompt)
+                options.Insert(
+                    0,
+                    new SelectorOption(
+                        "Reusable text only",
+                        () =>
+                        {
+                            _s.Host = false;
+                            _s.AgentTemplate = "";
+                            _s.Link = LibraryItemLink.Ask;
+                            _s.Project = "";
+                            _s.Command = "";
+                        }
+                    )
+                );
             options.AddRange(
                 SessionHub.Instance.Catalog.Templates.Select(t => new SelectorOption(
                     "Agent template: " + t.Name,
@@ -215,7 +232,12 @@ namespace SlopWorld
             );
             string label =
                 _s.Host ? "Host"
-                : string.IsNullOrEmpty(_s.AgentTemplate) ? "Select Host or an agent template"
+                : string.IsNullOrEmpty(_s.AgentTemplate)
+                    ? (
+                        Kind == LibraryItemKind.Prompt
+                            ? "Reusable text only"
+                            : "Select Host or an agent template"
+                    )
                 : "Agent template: " + _s.AgentTemplate;
             UiControls.Select(l, "Run using", label, options, out _);
         }
@@ -267,7 +289,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH), TextHeading);
             y += UiTheme.RowH + UiTheme.GapXS;
 
-            if (Kind != LibraryItemKind.FileAction)
+            if (Kind != LibraryItemKind.FileAction && Kind != LibraryItemKind.Timer)
             {
                 var area = new Rect(
                     rect.x,
@@ -429,7 +451,7 @@ namespace SlopWorld
                 return;
             }
             if (
-                (Kind == LibraryItemKind.Prompt || Kind == LibraryItemKind.Shell)
+                Kind == LibraryItemKind.Shell
                 && !_s.Host
                 && string.IsNullOrWhiteSpace(_s.AgentTemplate)
             )
@@ -449,7 +471,11 @@ namespace SlopWorld
                 );
                 return;
             }
-            if (Kind != LibraryItemKind.FileAction && string.IsNullOrEmpty((_s.Text ?? "").Trim()))
+            if (
+                Kind != LibraryItemKind.FileAction
+                && Kind != LibraryItemKind.Timer
+                && string.IsNullOrEmpty((_s.Text ?? "").Trim())
+            )
             {
                 Messages.Message(
                     "SlopWorld: a library entry needs something to send.",

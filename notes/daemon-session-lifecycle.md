@@ -30,3 +30,10 @@ Identity/grants, terminal input, and persistence have separate boundaries so unr
 lifecycle work need not block root input. Scoped work retains authorization; delayed
 input checks run identity. See [stores](daemon-config-stores.md),
 [capture](daemon-terminal-capture.md), and [redeploy](daemon-redeploy.md).
+
+`session/lifecycle/resume.rs` gates automatic `/resume` on nonempty private transcript
+files for supported commands (Codex, Claude, Pi). Missing, empty, or deleted history and
+unknown commands start fresh. Discovery is bounded and ignores symlinks. Delivery waits
+for queued resume input to drain, then checks readiness with a deadline; timeout dismisses
+the picker for the same run, releases startup input, and records a warning. A queue fence
+alone is not evidence that a conversation resumed.

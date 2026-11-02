@@ -236,6 +236,10 @@ impl Tasks {
             .filter(|task| task.visible_to(who))
             .cloned()
     }
+    /// Operator lookup; transport must establish root authority before calling.
+    pub(crate) fn get_any(&self, id: &str) -> Option<Task> {
+        self.by_id.get(id).map(|entry| entry.task.clone())
+    }
     pub(crate) fn participant_identities(&self) -> HashSet<String> {
         self.by_id
             .values()

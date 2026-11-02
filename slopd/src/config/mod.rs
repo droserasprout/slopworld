@@ -9,6 +9,7 @@ mod daemon;
 pub(crate) mod fixtures;
 mod library;
 mod model;
+pub(crate) mod timer_schedule;
 mod worker_policy;
 pub use worker_policy::{WorkerAccess, WorkerPolicy};
 mod persistence;

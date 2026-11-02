@@ -229,6 +229,8 @@ fn view(name: &str) -> SessionView {
             mounts: Vec::new(),
             autostart: false,
             auto_resume: false,
+            initial_prompt: String::new(),
+            state_id: String::new(),
         },
         worker: SessionWorkerView {
             parent_bound: false,

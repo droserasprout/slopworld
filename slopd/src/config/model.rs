@@ -126,6 +126,9 @@ pub struct SessionCfg {
     /// After a fresh process reaches its first settled prompt, select its latest conversation.
     #[serde(default)]
     pub auto_resume: bool,
+    /// Library Prompt resolved when a new process starts.
+    #[serde(default)]
+    pub initial_prompt: String,
 
     /// Portable policy affects future workers only.
     #[serde(default)]
@@ -201,6 +204,7 @@ impl Default for SessionCfg {
             limits: Limits::default(),
             autostart: false,
             auto_resume: false,
+            initial_prompt: String::new(),
             workers: super::WorkerPolicy::default(),
             parent_id: String::new(),
             parent_access: super::WorkerAccess::default(),

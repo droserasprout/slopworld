@@ -5,18 +5,25 @@ http:
     token: x-slop-token
     session: x-slop-session
   routes:
+    planner_links:
+      protobuf:
+        PUT: [PlannerLinksReq, PlannerDocument]
+      path: "/api/planner/items/:id/links"
+      methods: [PUT]
+      scope: root
+    planner_description:
+      protobuf:
+        GET: [Empty, PlannerDescription]
+        PUT: [PlannerSaveReq, PlannerDescription]
+      path: "/api/planner/items/:id/description"
+      methods: [GET, PUT]
+      scope: root
     planner:
       protobuf:
         GET: [Empty, PlannerDocument]
         PUT: [PlannerSaveReq, PlannerDocument]
       path: "/api/planner"
       methods: [GET, PUT]
-      scope: root
-    planner_action:
-      protobuf:
-        POST: [PlannerActionReq, PlannerActionReply]
-      path: "/api/planner/action"
-      methods: [POST]
       scope: root
     health:
       protobuf:
@@ -457,7 +464,7 @@ enums:
   network_mode: [none, private, host]
   mount_mode: [ro, rw, cache]
   dns_mode: [resolved, servers]
-  library_kind: [prompt, shell, breadcrumb, fa]
+  library_kind: [prompt, shell, breadcrumb, fa, timer]
   library_link: [project, temp, ask]
   file_action_mode: [ask, show_result, open_terminal, nothing]
   task_status: [queued, accepted, working, done, failed, canceled]

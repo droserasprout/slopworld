@@ -79,8 +79,7 @@ namespace SlopWorld
 
             internal override Actions DetailsActions(IEffects effects)
             {
-                bool runnable =
-                    _item.Kind == LibraryItemKind.Prompt || _item.Kind == LibraryItemKind.Shell;
+                bool runnable = _item.Runnable;
                 string primaryLabel = runnable
                     ? (_item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run")
                     : "Edit";

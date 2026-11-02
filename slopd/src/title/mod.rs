@@ -12,9 +12,7 @@ const MAX_TITLE_CHARS: usize = 60;
 const REQUEST_ATTEMPTS: usize = 2;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 mod cache;
-mod completion;
 pub use cache::{SummaryCache, cache_path};
-pub(crate) use completion::complete_async;
 
 #[derive(Clone)]
 pub(crate) struct SummaryInput {

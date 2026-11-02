@@ -59,12 +59,12 @@ namespace SlopWorld
             _taskId = task?.Id;
         }
 
-        public static void Open(TaskInfo task)
+        public static void Open(TaskInfo task, IContentView returnTo = null)
         {
             if (task == null)
                 return;
             Sidebar.RememberTask(task.Id);
-            Open(task, false);
+            Open(task, false, returnTo);
         }
 
         internal static bool FocusLocation(string id)
@@ -78,13 +78,13 @@ namespace SlopWorld
             return true;
         }
 
-        static void Open(TaskInfo task, bool remember)
+        static void Open(TaskInfo task, bool remember, IContentView returnTo = null)
         {
             if (task == null)
                 return;
             if (remember)
                 Sidebar.RememberTask(task.Id);
-            WorkspaceWindow.OpenContent(new TaskDetailView(task));
+            WorkspaceWindow.OpenContent(new TaskDetailView(task), returnTo);
         }
 
         public override string Title => "Task " + (_taskId ?? "");

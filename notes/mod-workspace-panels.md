@@ -10,6 +10,11 @@ backing `TerminalSplit`. Hiding backing panels does not close them. `Showing`
 identifies covering content and is null for a visible pane or absent host. A panel
 cannot occupy both workspace slots or both split children.
 
+Explicit drill-down content can name its current origin as a return target. The origin
+closes normally and reopens as the same instance on Escape/Close; ordinary navigation
+and host teardown clear the target. Planner Task links use this to retain selection and
+drafts. F12 continues to return directly to the backing terminal rather than drill-down content.
+
 The host handles global shortcuts before drawing content; hidden terminals do not
 receive the content view's remaining keys. Keyboard navigation between panels is
 currently unimplemented. Terminal focus and per-pane sizing belong to

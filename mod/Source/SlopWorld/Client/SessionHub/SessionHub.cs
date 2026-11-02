@@ -232,7 +232,8 @@ namespace SlopWorld
             Action<WorkerSpawnResult> started,
             Action<string> fail,
             WorkerWorktreeOptions worktree = null,
-            string name = null
+            string name = null,
+            string plannerId = null
         )
         {
             var request = new Wire.SpawnWorkerReq
@@ -242,6 +243,7 @@ namespace SlopWorld
                 Template = template ?? "",
                 Body = body ?? "",
                 Durable = durable,
+                PlannerId = plannerId ?? "",
             };
             (worktree ?? new WorkerWorktreeOptions()).ApplyTo(request);
             DaemonClient.Send<Wire.WorkerResult>(

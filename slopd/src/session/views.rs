@@ -64,6 +64,8 @@ impl SessionRuntime {
                         // Tasks own worker lifetimes independently of launch flags.
                         autostart: l.cfg.autostart && !l.cfg.worker,
                         auto_resume: l.cfg.auto_resume && !l.cfg.worker,
+                        initial_prompt: l.cfg.initial_prompt.clone(),
+                        state_id: l.cfg.state_id.clone(),
                     },
                     worker: SessionWorkerView {
                         parent_bound: !l.cfg.parent_id.is_empty(),

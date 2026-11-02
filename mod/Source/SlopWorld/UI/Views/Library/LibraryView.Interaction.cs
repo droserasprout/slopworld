@@ -104,7 +104,7 @@ namespace SlopWorld
             var opts = new List<FloatMenuOption>();
 
             // Run is the reason ordinary runnable items exist. Breadcrumbs are definitions only.
-            if (s.Kind != LibraryItemKind.Breadcrumb && s.Kind != LibraryItemKind.FileAction)
+            if (Runnable(s))
                 opts.Add(new FloatMenuOption("Run", () => Run(s)));
 
             if (Runnable(s) && s.Link == LibraryItemLink.Ask)
@@ -116,7 +116,8 @@ namespace SlopWorld
             var duplicate = new FloatMenuOption("Duplicate", () => LibraryActions.Duplicate(s));
             opts.Add(duplicate);
 
-            opts.Add(new FloatMenuOption("Delete", () => LibraryActions.Remove(s)));
+            if (!s.Builtin)
+                opts.Add(new FloatMenuOption("Delete", () => LibraryActions.Remove(s)));
 
             WorkspaceWindow.OpenOverPane(new UiMenu(opts));
         }

@@ -15,6 +15,11 @@ pub struct WorkerSpawn {
     pub session: String,
 }
 
+struct WorkerCommitContext {
+    config: Config,
+    planner_id: String,
+}
+
 /// Checkout selection is exclusive by construction; HTTP decodes its request flags.
 pub(crate) enum WorkerCheckout {
     Existing(String),
@@ -219,6 +224,7 @@ pub(crate) fn worker_session_from_template(
 ) -> SessionCfg {
     let mut session = template.instantiate(name, project.to_string());
     session.worker = true;
+    session.initial_prompt.clear();
     session.parent = owner_name.to_string();
     session.task_id.clear();
     session.autostart = false;
@@ -342,13 +348,33 @@ impl Workers {
     /// Validate and allocate under one accepted configuration and identity boundary.
     /// Abandoned allocation rolls back; once startup begins its owned operation finishes
     /// commit or failure cleanup even if the requesting transport disappears.
+    #[cfg(test)]
     pub(crate) async fn create_worker(&self, request: WorkerRequest) -> Result<WorkerSpawn> {
+        self.create_linked_worker(request, String::new()).await
+    }
+
+    pub(crate) async fn create_linked_worker(
+        &self,
+        request: WorkerRequest,
+        planner_id: String,
+    ) -> Result<WorkerSpawn> {
         self.configuration()
-            .session_request(self.create_worker_inner(request))
+            .session_request(self.create_worker_inner(request, planner_id))
             .await
     }
 
-    async fn create_worker_inner(&self, request: WorkerRequest) -> Result<WorkerSpawn> {
+    async fn create_worker_inner(
+        &self,
+        request: WorkerRequest,
+        planner_id: String,
+    ) -> Result<WorkerSpawn> {
+        if !planner_id.is_empty() {
+            anyhow::ensure!(
+                request.caller == crate::tasks::HOST,
+                "Planner workers must be host-owned."
+            );
+            self.services.planner.require_item(&planner_id).await?;
+        }
         let cfg = self.configuration().config().await;
         let caller = request.caller.trim();
         let context = self.sessions.worker_caller(caller).await;
@@ -404,7 +430,17 @@ impl Workers {
             .sessions
             .owned_session_operation(Box::pin(async move {
                 manager
-                    .commit_worker(session, caller, name, body, durable, cfg)
+                    .commit_worker(
+                        session,
+                        caller,
+                        name,
+                        body,
+                        durable,
+                        WorkerCommitContext {
+                            config: cfg,
+                            planner_id,
+                        },
+                    )
                     .await
             }))
             .await;
@@ -427,7 +463,7 @@ impl Workers {
         name: String,
         body: String,
         durable: bool,
-        cfg: Config,
+        context: WorkerCommitContext,
     ) -> Result<WorkerSpawn> {
         let sessions = &self.sessions;
         let _spawn = sessions.worker_registration_guard().await;
@@ -452,6 +488,29 @@ impl Workers {
         self.services
             .spawn_task_summary(self.config_authority.daemon_settings(), task.clone());
         session.task_id = task.id.clone();
+
+        // Persist both associations before startup so failures remain inspectable.
+        if !context.planner_id.is_empty() {
+            let result = async {
+                let tasks = sessions.task_store().all_tasks_async().await?;
+                self.services
+                    .planner
+                    .link_worker(&context.planner_id, &task, &tasks)
+                    .await
+            }
+            .await;
+            if let Err(error) = result {
+                sessions
+                    .record_worker_failure(
+                        &session,
+                        crate::session::WorkerFailureCause::RegistrationFailed(format!(
+                            "Planner links: {error:#}"
+                        )),
+                    )
+                    .await;
+                return Err(error);
+            }
+        }
 
         if let Err(error) = self.register_task_worker(&session, durable).await {
             sessions
@@ -478,7 +537,10 @@ impl Workers {
 
         sessions.announce_sessions().await;
         sessions
-            .queue_delivery(&session.name, cfg.daemon.instructions.worker_prompt.clone())
+            .queue_delivery(
+                &session.name,
+                context.config.daemon.instructions.worker_prompt.clone(),
+            )
             .await;
         Ok(WorkerSpawn {
             task,

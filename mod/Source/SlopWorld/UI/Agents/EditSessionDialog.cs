@@ -170,6 +170,7 @@ namespace SlopWorld
                     ParentBound = existing.ParentBound,
                     Autostart = existing.Autostart,
                     AutoResume = existing.AutoResume,
+                    InitialPrompt = existing.InitialPrompt,
                 };
         }
 

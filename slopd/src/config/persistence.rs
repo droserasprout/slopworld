@@ -45,6 +45,7 @@ impl Config {
             LibraryItemKind::Prompt,
             LibraryItemKind::Breadcrumb,
             LibraryItemKind::FileAction,
+            LibraryItemKind::Timer,
             LibraryItemKind::Shell,
         ]
         .into_iter()

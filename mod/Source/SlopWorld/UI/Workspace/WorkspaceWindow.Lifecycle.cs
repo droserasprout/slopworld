@@ -30,7 +30,7 @@ namespace SlopWorld
         // Open the requested content view.
         // If a pane is open, keep it behind the content so Leave can restore it.
         // If no pane is open, show only the content view, such as the map options menu.
-        public static void OpenContent(IContentView view)
+        public static void OpenContent(IContentView view, IContentView returnTo = null)
         {
             if (view == null || Find.WindowStack == null)
                 return;
@@ -38,7 +38,7 @@ namespace SlopWorld
             var existing = Find.WindowStack.WindowOfType<WorkspaceWindow>();
             if (existing != null)
             {
-                existing.SetContent(view);
+                existing.SetContent(view, returnTo);
                 return;
             }
 
@@ -125,21 +125,27 @@ namespace SlopWorld
             OpenContent(make());
         }
 
-        void SetContent(IContentView view)
+        void SetContent(IContentView view, IContentView returnTo = null)
         {
             if (_content == view)
                 return;
             _fieldLifetime.Cancel();
             _fieldLifetime = new FieldLifetime();
-            _panels.SetContent(view);
+            _panels.SetContent(view, returnTo);
         }
 
-        // Out of the content and back to what is behind it: the pane it was opened over, or
-        // the map when there was none. The chrome exists to show something.
-        public void Leave()
+        // Linked readers return to their explicit origin before the backing pane or map.
+        public void Leave() => Leave(true);
+
+        internal void Leave(bool restoreContent)
         {
             if (_content == null)
                 return;
+            if (restoreContent && _panels.ReturnContent is IContentView previous)
+            {
+                SetContent(previous);
+                return;
+            }
             SetContent(null);
             if (_name == null)
                 Close();

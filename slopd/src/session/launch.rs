@@ -126,7 +126,9 @@ impl LaunchContent {
     pub(crate) fn validate(&self) -> anyhow::Result<()> {
         if matches!(
             self.kind,
-            crate::config::LibraryItemKind::Breadcrumb | crate::config::LibraryItemKind::FileAction
+            crate::config::LibraryItemKind::Breadcrumb
+                | crate::config::LibraryItemKind::FileAction
+                | crate::config::LibraryItemKind::Timer
         ) {
             anyhow::bail!(
                 "library item {} is not runnable as an agent errand",

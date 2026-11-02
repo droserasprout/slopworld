@@ -146,3 +146,32 @@ fn an_entry_must_have_something_to_send() {
     };
     check_library_item(&cfg, &fine).unwrap();
 }
+
+#[test]
+fn timers_require_an_explicit_agent_identity() {
+    let cfg = Config {
+        library: vec![LibraryItemCfg {
+            name: "Review".into(),
+            text: "Review progress".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mut item = LibraryItemCfg {
+        name: "Scheduled review".into(),
+        kind: LibraryItemKind::Timer,
+        timer: Some(TimerCfg {
+            enabled: true,
+            schedule: "*/15 * * * *".into(),
+            target: String::new(),
+            prompt: "Review".into(),
+        }),
+        ..Default::default()
+    };
+    assert_eq!(
+        check_library_item(&cfg, &item).unwrap_err().to_string(),
+        "Choose a target agent."
+    );
+    item.timer.as_mut().unwrap().target = "0123456789abcdef".into();
+    check_library_item(&cfg, &item).unwrap();
+}

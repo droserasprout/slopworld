@@ -27,6 +27,8 @@ namespace SlopWorld
                 Mounts = MountEntry.ListFromWire(j.Launch.Mounts),
                 Autostart = j.Launch.Autostart,
                 AutoResume = j.Launch.AutoResume,
+                InitialPrompt = j.Launch.InitialPrompt,
+                StateId = j.Launch.StateId,
                 AutoResumePending = j.Runtime.AutoResumePending,
                 Workers = WorkerPolicyDefaults(j.Launch.Workers),
                 ParentAccess = WorkerAccessDefaults(j.Worker.Access),

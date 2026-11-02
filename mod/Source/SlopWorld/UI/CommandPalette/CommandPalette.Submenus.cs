@@ -141,9 +141,7 @@ namespace SlopWorld
         static List<SubOption> LibraryItemsSub()
         {
             var list = SessionHub
-                .Instance.Library.Where(s =>
-                    s.Kind != LibraryItemKind.Breadcrumb && s.Kind != LibraryItemKind.FileAction
-                )
+                .Instance.Library.Where(s => s.Runnable)
                 .Select(s => new SubOption
                 {
                     Label = $"{s.Name}  ({s.Kind.ToString().ToLowerInvariant()})",

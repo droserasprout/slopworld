@@ -12,6 +12,8 @@ pub(crate) struct CreateTaskReq {
 
 #[derive(Deserialize)]
 pub(crate) struct SpawnWorkerReq {
+    #[serde(default)]
+    pub(crate) planner_id: String,
     /// Optional exact session name; empty selects automatic naming.
     #[serde(default)]
     pub(crate) name: String,

@@ -37,30 +37,6 @@ namespace SlopWorld.Tests
             yield return ("uses daemon factory metadata when available", UsesFactoryMetadata);
         }
 
-        public static void PlannerSettingsSurviveSnapshotsWithoutSharingMutablePrompts()
-        {
-            var wire = new Wire.Config
-            {
-                Daemon = new Wire.Daemon
-                {
-                    Planner = new Wire.PlannerSettings
-                    {
-                        Model = "test/model",
-                        SummarizePrompt = "Summary",
-                        PlanPrompt = "Plan",
-                        ExecutePrompt = "Work order",
-                    },
-                },
-            };
-            var config = DaemonConfig.FromWire(wire);
-            var snapshot = config.Snapshot();
-            config.Planner.PlanPrompt = "Changed";
-            Assert.That(snapshot.Daemon.Planner.PlanPrompt, Is.EqualTo("Plan"));
-            Assert.That(wire.Daemon.Planner.PlanPrompt, Is.EqualTo("Plan"));
-            var restored = DaemonConfig.FromSnapshot(snapshot);
-            Assert.That(restored.Planner, Is.EqualTo(wire.Daemon.Planner));
-        }
-
         static void PortableBatChoices()
         {
             var config = new DaemonConfig
@@ -261,13 +237,13 @@ namespace SlopWorld.Tests
         static void StructuredPatchSnapshots()
         {
             var config = new DaemonConfig();
-            config.Planner.Model = "original";
+            config.WorkerPrompt = "original";
             var baseline = config.Snapshot();
-            config.Planner.Model = "changed";
+            config.WorkerPrompt = "changed";
             config.TitleModel = "new-model";
             AssertEx.Equal(
                 "original",
-                baseline.Daemon.Planner.Model,
+                baseline.Daemon.Instructions.WorkerPrompt,
                 "baseline is independent of later nested edits"
             );
             var patch = ProtobufFixtures.PatchJson(config.ToPatch(baseline));
@@ -278,7 +254,7 @@ namespace SlopWorld.Tests
             );
             AssertEx.Equal(
                 "changed",
-                patch["daemon"]["planner"]["model"].AsString(),
+                patch["daemon"]["instructions"]["worker_prompt"].AsString(),
                 "nested edits are diffed from the independent baseline"
             );
         }

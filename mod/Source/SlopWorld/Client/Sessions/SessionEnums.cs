@@ -15,6 +15,7 @@ namespace SlopWorld
         Shell,
         Breadcrumb,
         FileAction,
+        Timer,
     }
 
     public enum FileActionMode

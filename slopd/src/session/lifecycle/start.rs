@@ -74,6 +74,12 @@ impl SessionRuntime {
                 bail!("Worker {name} needs network access to use the task API.");
             }
         }
+        // New or cleared private state has no conversation to select. Do not open
+        // an empty picker; never infer history from directory/process existence.
+        if session.auto_resume && !super::resume::has_history(&cfg.command_of(&session), &session) {
+            session.auto_resume = false;
+            tracing::info!(session = %name, "starting fresh: no supported saved conversation found");
+        }
         // Reuse terminal dimensions and a valid remembered host directory.
         let (cols, rows, role, host_path, context) = match self.live.read().await.get(name) {
             Some(live) => {
@@ -262,7 +268,12 @@ impl SessionRuntime {
         self.clear_activity(name).await;
         let auto_resume_pending =
             !plan.role.is_host() && plan.session.auto_resume && !plan.is_worker();
-        let run_id = self.reset_live_for_start(name, auto_resume_pending).await;
+        let run_id = self
+            .reset_live_for_start(
+                name,
+                auto_resume_pending || !plan.session.initial_prompt.is_empty(),
+            )
+            .await;
 
         // Attachment must succeed before the real command can produce output.
         match self.start_reader(name, &terminal).await {
@@ -305,6 +316,8 @@ impl SessionRuntime {
         }
         if auto_resume_pending {
             self.queue_auto_resume(name, run_id).await;
+        } else {
+            self.queue_initial(name).await;
         }
         Ok(())
     }

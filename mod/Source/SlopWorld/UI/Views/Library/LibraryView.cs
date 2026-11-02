@@ -52,6 +52,7 @@ namespace SlopWorld
             public const string Shell = "Shell scripts";
             public const string Breadcrumbs = "Breadcrumbs";
             public const string FileActions = "File actions";
+            public const string Timers = "Timers";
             public const string Projects = "Projects";
             public const string Worktrees = "Worktrees";
             public const string SandboxPresets = "Sandbox presets";
@@ -64,6 +65,7 @@ namespace SlopWorld
                 Shell,
                 Breadcrumbs,
                 FileActions,
+                Timers,
                 Projects,
                 Worktrees,
                 SandboxPresets,
@@ -98,6 +100,7 @@ namespace SlopWorld
             Templates.ContainsKey(item) ? Category.Templates
             : item.Kind == LibraryItemKind.Shell ? Category.Shell
             : item.Kind == LibraryItemKind.Breadcrumb ? Category.Breadcrumbs
+            : item.Kind == LibraryItemKind.Timer ? Category.Timers
             : item.Kind == LibraryItemKind.FileAction ? Category.FileActions
             : Category.Prompts;
 
@@ -256,9 +259,7 @@ namespace SlopWorld
         {
             bool exists = template
                 ? SessionHub.Instance.Templates.Any(candidate => candidate.Name == name)
-                : SessionHub.Instance.Library.Any(candidate =>
-                    candidate.Name == name && !candidate.Builtin
-                );
+                : SessionHub.Instance.Library.Any(candidate => candidate.Name == name);
             if (!exists)
                 return false;
             Selection.Focus((template ? "template:" : "item:") + name);

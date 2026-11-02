@@ -9,6 +9,9 @@ Authority follows stable session IDs: rename preserves it, replacement under the
 name does not. It is separate from [terminal grants](agent-grants.md). Participants
 can remove terminal tasks; root can remove unfinished work. Removal deletes the
 shared record and history for both sides. IDs remain reserved until daemon exit.
+Root requests using the host identity can read any individual Task, matching the
+operator's all-Tasks list. Scoped callers and root requests acting as an agent retain
+participant visibility; this read policy does not change mutation authority.
 
 Application and runtime share one store. Its I/O worker retains the authorization
 lease through disk writes and publication after requester cancellation. Failed writes
@@ -33,13 +36,11 @@ The mod's `TaskStore` owns HTTP polling deadlines. The visible sidebar board and
 open task readers independently demand polling; readers release their registration
 on close or replacement, so hiding or switching the sidebar cannot freeze a reader.
 
-`application/planner/` owns the manual todo.txt backlog and one-shot dispatch reservations.
+`application/planner/` owns the manual todo.txt backlog and explicit Task/Worker links.
 The mod's Planner view retains endpoint-scoped drafts; saves compare document revisions.
 Only root may read or mutate the Planner API. Agents update existing Tasks, whose status
-is projected into Planner items without rewriting user text. Provider calls run outside
-session admission; execution rechecks document revision and root generation under an
-owned session operation. A durable reservation precedes worker startup, so cancellation,
-restart, and task pruning cannot silently retry an item. See [Planner](../docs/src/customization/settings.md#planner).
+is projected on links independently of Planner completion.
+See [Planner](../docs/src/customization/settings.md#planner).
 
 The Planner's `TodoText` projection owns task-field edits, completion dates, filtering,
 and sorting. It retains unrelated line content and opaque metadata; source mode is the
@@ -51,12 +52,22 @@ worker progress and releases it on close. Drafts and asynchronous callbacks are 
 to the endpoint; task selection retires text-field lifetimes. In-flight requests belong
 to the cached endpoint draft and settle even when the view closes. Window navigation
 has a separate lifetime, so a late task-reader response cannot reopen a closed view.
-Execute settlement requires document reconciliation before another mutation; failed
-startup can already have persisted a reservation or Task. Both read and save replies
-project live worker links and status without rewriting the document. Worker policy is
-validated before provider I/O and rechecked at dispatch commit.
-Planner selection retains the catalog project ID; action submission resolves its current
-name for the worker API, whose project references are name-based.
+Both read and save replies project live worker links and status without rewriting the document.
+
+Planner links live in `planner/links/<sw-id>.json` under the daemon data root, with
+independent revision checks. An explicit empty list suppresses inferred `sw-task:` and
+worker-body associations. Worker links store private state IDs; client navigation resolves
+the current session by ID. Removing links never mutates Tasks or worker processes.
+Planner worker spawning commits both links after Task creation and before registration/
+startup, under the owned session boundary, so failed startup remains inspectable.
+
+Planner Markdown descriptions live under the daemon data root in
+`planner/descriptions/<sw-id>.md`. The description store validates saved task membership
+under the backlog gate and checks its own content revision. Task edits/completion preserve
+sidecars; deletion retains them for recovery. Description drafts and in-flight replies
+belong to endpoint/task identity, independently of selection. Planner Save writes the
+backlog and then dirty descriptions, retaining failed drafts and accepted revisions
+for retry. Discard restores both from their last accepted values.
 
 Supervised cancellation carries a checked selection into the task store. It applies
 only to the sender's worker tasks and may cancel working tasks; ordinary recipient

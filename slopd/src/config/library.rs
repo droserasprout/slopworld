@@ -15,6 +15,8 @@ pub enum LibraryItemKind {
     Breadcrumb,
     /// A command offered for the selected path in the Files sidebar.
     FileAction,
+    /// Scheduled Prompt delivery to a durable agent.
+    Timer,
 }
 
 impl LibraryItemKind {
@@ -24,11 +26,13 @@ impl LibraryItemKind {
             Self::Shell => "shell_scripts",
             Self::Breadcrumb => "breadcrumbs",
             Self::FileAction => "file_actions",
+            Self::Timer => "timers",
         }
     }
 }
 
 crate::wire_enum!(LibraryItemKind, {
+    LibraryItemKind::Timer => crate::shared::protocol::enums::library_kind::TIMER,
     LibraryItemKind::Prompt => crate::shared::protocol::enums::library_kind::PROMPT,
     LibraryItemKind::Shell => crate::shared::protocol::enums::library_kind::SHELL,
     LibraryItemKind::Breadcrumb => crate::shared::protocol::enums::library_kind::BREADCRUMB,
@@ -101,9 +105,32 @@ pub struct LibraryItemCfg {
     /// `ask` prompts for an action on each invocation.
     #[serde(default, skip_serializing_if = "is_file_action_mode_default")]
     pub mode: FileActionMode,
-    /// Supplied by the daemon; clients cannot edit these entries.
+    /// Supplied default; editing creates a personal override.
     #[serde(default, skip_serializing_if = "is_false")]
     pub builtin: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timer: Option<TimerCfg>,
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub timer_status: Option<TimerStatus>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TimerStatus {
+    pub last_at: u64,
+    pub next_at: u64,
+    pub outcome: String,
+}
+
+/// UTC cron schedules are evaluated by the daemon, independently of game time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimerCfg {
+    #[serde(default)]
+    pub enabled: bool,
+    pub schedule: String,
+    /// Stable identity of the selected durable agent.
+    #[serde(default)]
+    pub target: String,
+    pub prompt: String,
 }
 
 /// Supplied entries are merged after user entries, which may override them by name.
@@ -158,7 +185,7 @@ impl Config {
     }
 
     /// Check whether this name identifies a built-in entry without a file override.
-    /// Clients cannot edit or delete these entries.
+    /// Editing creates an override; deleting an override reveals the default.
     pub fn is_builtin_library_item(&self, name: &str) -> bool {
         !self.library.iter().any(|s| s.name == name)
             && builtin_library_items().iter().any(|b| b.name == name)
@@ -169,6 +196,25 @@ pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()
     if sc.name.trim().is_empty() {
         bail!("Enter a name for the library item.");
     }
+    if sc.kind == LibraryItemKind::Timer {
+        let timer = sc
+            .timer
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Timer settings are required."))?;
+        super::timer_schedule::Schedule::parse(&timer.schedule)?;
+        anyhow::ensure!(!timer.target.is_empty(), "Choose a target agent.");
+        super::validate_state_id(&timer.target)?;
+        anyhow::ensure!(
+            cfg.library_item(&timer.prompt)
+                .is_some_and(|p| p.kind == LibraryItemKind::Prompt),
+            "Choose an existing Library Prompt."
+        );
+        return Ok(());
+    }
+    anyhow::ensure!(
+        sc.timer.is_none(),
+        "Only Timer items may contain timer settings."
+    );
     if sc.kind == LibraryItemKind::Breadcrumb {
         if sc.text.trim().is_empty() {
             bail!("Enter text for breadcrumb {:?}.", sc.name);

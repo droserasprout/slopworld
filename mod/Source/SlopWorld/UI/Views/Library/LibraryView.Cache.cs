@@ -38,10 +38,10 @@ namespace SlopWorld
             // Release the previous index before allocating replacement rows.
             RowsByKey.Clear();
             // Global definitions stay available while project-specific entries follow
-            // the Library's own filter. Builtins remain in their attached menus.
+            // the Library's own filter. Supplied entries can be edited as personal overrides.
             _items = SessionHub
                 .Instance.Library.Where(s =>
-                    !s.Builtin && (string.IsNullOrEmpty(s.Project) || PassesProject(s.Project))
+                    (string.IsNullOrEmpty(s.Project) || PassesProject(s.Project))
                 )
                 .ToList();
             Templates.Clear();

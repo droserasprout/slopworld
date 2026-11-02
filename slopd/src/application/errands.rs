@@ -77,6 +77,7 @@ pub(crate) fn build_session(
     };
     session.autostart = false;
     session.auto_resume = false;
+    session.initial_prompt.clear();
     // Session name normalization replaces a file extension's dot with a dash for tmux.
     // Preserve the original tab label in temporary session metadata.
     // The client can then display the exact filename supplied by Files.

@@ -33,6 +33,7 @@ namespace SlopWorld
         public SessionLimits Limits;
         public bool Autostart;
         public bool AutoResume;
+        public string InitialPrompt = "";
         public Wire.WorkerPolicy Workers = SessionInfo.WorkerPolicyDefaults();
 
         // Keep complete daemon snapshots alongside the editor fields.
@@ -64,6 +65,7 @@ namespace SlopWorld
                 Limits = SessionLimits.FromWire(d.Limits),
                 Autostart = d.Autostart,
                 AutoResume = d.AutoResume,
+                InitialPrompt = d.InitialPrompt,
                 Workers = SessionInfo.WorkerPolicyDefaults(d.Workers),
                 DefaultsSnapshot = d.Clone(),
             };
@@ -95,6 +97,7 @@ namespace SlopWorld
                 Limits = Limits,
                 Autostart = Autostart,
                 AutoResume = AutoResume,
+                InitialPrompt = InitialPrompt,
                 Workers = Workers.Clone(),
                 DefaultsSnapshot = DefaultsSnapshot.Clone(),
             };
@@ -158,6 +161,7 @@ namespace SlopWorld
             d.Dns = DnsSpecified ? form.Dns.ToWire() : null;
             d.Limits = form.Limits.ToWire();
             d.Workers = form.Workers.Clone();
+            d.InitialPrompt = form.InitialPrompt;
             return new Wire.AgentTemplate
             {
                 Name = Name,
@@ -210,6 +214,7 @@ namespace SlopWorld
             s.Limits = Limits;
             s.Autostart = Autostart;
             s.AutoResume = AutoResume;
+            s.InitialPrompt = InitialPrompt;
             s.Workers = Workers.Clone();
         }
     }

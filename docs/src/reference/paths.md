@@ -19,6 +19,11 @@ private session state lives under `<DATA>/sessions`. Endpoint discovery and laun
 follow these roots unless their explicit overrides below select another path.
 On Unix, mode `0600` gives read and write access only to the owner.
 
+Planner stores its backlog at `<DATA>/TODO.txt` and Markdown descriptions at
+`<DATA>/planner/descriptions/<sw-id>.md`. Description files remain after task deletion
+and use mode `0600`.
+Task and Worker associations live in `<DATA>/planner/links/<sw-id>.json`, also mode `0600`.
+
 ## Daemon configuration
 
 | Path | Override | Description |

@@ -182,7 +182,17 @@ namespace SlopWorld
                 "Auto-resume last conversation",
                 _s.AutoResume,
                 value => _s.AutoResume = value,
-                "After startup settles, send /resume and choose the latest conversation."
+                "Resume saved private conversations for Codex, Claude or Pi. Empty history starts fresh."
+            );
+            UiControls.Select(
+                l,
+                "Initial Library Prompt",
+                string.IsNullOrEmpty(_s.InitialPrompt) ? "None" : _s.InitialPrompt,
+                SessionHub
+                    .Instance.Library.Where(p => p.Kind == LibraryItemKind.Prompt)
+                    .Select(p => new SelectorOption(p.Name, () => _s.InitialPrompt = p.Name))
+                    .Concat(new[] { new SelectorOption("None", () => _s.InitialPrompt = "") }),
+                out _
             );
             _s.PersistentTmp = RecipeFlag(
                 l,

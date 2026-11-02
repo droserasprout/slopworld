@@ -12,8 +12,9 @@ guard. `application/errands.rs` owns copied settings and executable/label policy
 Validation precedes allocation. File-action scope belongs to
 `application/file_actions.rs`; planning must not allocate sessions.
 
-User items shadow supplied entries; deleting one reveals the supplied entry.
-Runnable items require an explicit host or template choice. File actions execute on
+Editing supplied entries creates user overrides; deleting one reveals the supplied entry.
+Runnable items require an explicit host or template choice. Prompts without one are
+reusable text for startup and Timers. File actions execute on
 the daemon host through `files/actions/`, independently of agent breadcrumbs.
 `prompt/` owns substitution: inserted values are literal and never scanned again.
 Breadcrumbs are manual; launch callers compose errand/worker prompts before delivery.
@@ -33,3 +34,14 @@ Ordinary library operations exclude root settings and workspace records. Project
 renames update library references in the shared journaled transaction, retaining
 library revision checks. User procedures belong to
 [Library items and errands](../docs/src/workspace/library.md).
+
+`config/timer_schedule.rs` owns UTC cron validation. `application/timers.rs` owns durable
+occurrence claims and diagnostics; maintenance drives it without a game client. Timers
+reference live Library Prompts and stable session identities, with an explicitly selected
+durable agent target. Claims precede input, missed ticks do not accumulate, and uncertain
+submissions are not replayed. Session admission freezes catalog and lifecycle identity
+through claims; `session/delivery.rs` rechecks idle/readiness and uses guarded agent input.
+Timer status is a read-only projection, not persisted Library configuration.
+Invalid schedules introduced by disk edits are logged and skipped independently so
+they cannot block other Timers. Stepped calendar wildcards retain cron's wildcard
+day-matching semantics.

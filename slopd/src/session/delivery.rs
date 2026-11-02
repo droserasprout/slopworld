@@ -2,6 +2,7 @@
 //! Callers compose prompts; capture/input owns the queue and execution of admitted input.
 
 use super::*;
+use crate::config::LibraryItemKind;
 use crate::session::input::ENTER_GAP;
 
 // Stop waiting for a startup prompt after this interval.
@@ -37,6 +38,7 @@ pub(crate) struct DeliveryTarget {
     requires_paste_mode: bool,
     requires_codex_composer: bool,
     followup: bool,
+    idle_only: bool,
 }
 
 impl DeliveryTarget {
@@ -73,6 +75,7 @@ impl SessionRuntime {
         self.live.read().await.get(name).map(|live| DeliveryTarget {
             name: name.to_string(),
             followup: false,
+            idle_only: false,
             identity: live.cfg.state_id.clone(),
             run_id: live.run_id,
             requires_codex_composer: !live.role.is_host()
@@ -98,6 +101,51 @@ impl SessionRuntime {
                     |command| command.kind != crate::presets::CommandKind::Shell,
                 ),
         })
+    }
+
+    /// Caller holds exclusive session admission through its persisted occurrence claim.
+    pub(crate) async fn submit_scheduled(
+        self: &Arc<Self>,
+        name: &str,
+        identity: &str,
+        text: &str,
+    ) -> Result<bool> {
+        anyhow::ensure!(
+            !text.trim().is_empty()
+                && !text
+                    .chars()
+                    .any(|c| c.is_control() && c != '\n' && c != '\t'),
+            "Invalid scheduled Prompt text."
+        );
+        let Some(mut target) = self.delivery_target(name).await else {
+            return Ok(false);
+        };
+        if target.identity != identity || !target.requires_paste_mode {
+            return Ok(false);
+        }
+        {
+            let live = self.live.read().await;
+            if !live.get(name).is_some_and(|l| {
+                l.state == State::Idle
+                    && !l.role.is_host()
+                    && !l.cfg.worker
+                    && !l.input.auto_resume_pending
+                    && target.matches(l)
+            }) {
+                return Ok(false);
+            }
+        }
+        target.followup = true;
+        target.idle_only = true;
+        Ok(matches!(
+            self.admit_delivery(
+                &target,
+                Some(text),
+                tokio::time::Instant::now() + READY_TIMEOUT
+            )
+            .await,
+            Admission::Submitted
+        ))
     }
 
     /// Explicit follow-ups wake the current worker without exposing raw terminal input.
@@ -268,7 +316,10 @@ impl SessionRuntime {
                 if tokio::time::Instant::now() >= deadline {
                     return Admission::Timeout;
                 }
-                if !target.input_ready(current) {
+                if (target.idle_only
+                    && (current.state != State::Idle || current.input.auto_resume_pending))
+                    || !target.input_ready(current)
+                {
                     return Admission::Retry;
                 }
             }
@@ -279,6 +330,11 @@ impl SessionRuntime {
                 if target.followup {
                     if self.tmux.require_agent_input(&target.name).await.is_err() {
                         return Admission::Gone;
+                    }
+                    if target.idle_only
+                        && let Err(outcome) = self.reserve_idle_turn(target).await
+                    {
+                        return outcome;
                     }
                     self.queue_input(
                         &target.name,
@@ -318,6 +374,28 @@ impl SessionRuntime {
         .await
     }
 
+    async fn reserve_idle_turn(
+        &self,
+        target: &DeliveryTarget,
+    ) -> std::result::Result<(), Admission> {
+        let mut live = self.live.write().await;
+        let Some(current) = live.get_mut(&target.name).filter(|l| target.matches(l)) else {
+            return Err(Admission::Gone);
+        };
+        if current.state != State::Idle
+            || current.input.auto_resume_pending
+            || !target.input_ready(current)
+        {
+            return Err(Admission::Retry);
+        }
+        // Reserve this turn before enqueueing. Idle decay must not admit another
+        // scheduled request during the paste/Enter gap.
+        current.activity_at = Some(tokio::time::Instant::now());
+        current.last_change = crate::clock::unix_ms();
+        current.set_state(State::Working);
+        Ok(())
+    }
+
     pub(super) async fn queue_auto_resume(self: &Arc<Self>, name: &str, run_id: u64) {
         if let Some(target) = self
             .delivery_target(name)
@@ -330,9 +408,115 @@ impl SessionRuntime {
     }
 
     async fn auto_resume(self: &Arc<Self>, target: &DeliveryTarget) {
-        self.submit_when_ready(target, None, tokio::time::Instant::now() + READY_TIMEOUT)
+        self.resume_until(target, tokio::time::Instant::now() + READY_TIMEOUT)
             .await;
+    }
+
+    async fn resume_until(
+        self: &Arc<Self>,
+        target: &DeliveryTarget,
+        deadline: tokio::time::Instant,
+    ) {
+        let submitted = self.submit_when_ready(target, None, deadline).await;
+        let consumed = submitted == Ready::Settled && self.delivery_fence(target, deadline).await;
+        if consumed && self.wait_ready_until(target, deadline).await == Ready::Settled {
+            self.deliver_initial(target).await;
+        } else {
+            // A stale/empty picker must not leave startup input locked forever.
+            // Dismiss only this run; never send Enter again or replay a prompt.
+            self.session_read_operation(async {
+                if submitted == Ready::Settled
+                    && self
+                        .live
+                        .read()
+                        .await
+                        .get(&target.name)
+                        .is_some_and(|l| target.matches(l))
+                {
+                    self.queue_input(
+                        &target.name,
+                        Input::Keys {
+                            keys: vec!["Escape".into()],
+                            literal: false,
+                        },
+                    )
+                    .await;
+                }
+            })
+            .await;
+            tracing::warn!(session = %target.name, "auto-resume did not reach the composer; released input (an opened picker is dismissed)");
+        }
         self.finish_auto_resume(target).await;
+    }
+
+    pub(super) async fn queue_initial(self: &Arc<Self>, name: &str) {
+        if let Some(target) = self.delivery_target(name).await {
+            let manager = self.clone();
+            tokio::spawn(async move {
+                manager.deliver_initial(&target).await;
+                manager.finish_auto_resume(&target).await;
+            });
+        }
+    }
+
+    async fn deliver_initial(self: &Arc<Self>, target: &DeliveryTarget) {
+        let cfg = self.config().await;
+        let Some(session) = cfg
+            .session(&target.name)
+            .filter(|s| s.state_id == target.identity)
+        else {
+            return;
+        };
+        if session.initial_prompt.is_empty()
+            || !target.requires_paste_mode
+            || !self
+                .delivery_fence(target, tokio::time::Instant::now() + READY_TIMEOUT)
+                .await
+        {
+            return;
+        }
+        let mut text = String::new();
+        if !session.initial_prompt.is_empty() {
+            match cfg
+                .library_item(&session.initial_prompt)
+                .filter(|p| p.kind == LibraryItemKind::Prompt)
+            {
+                Some(prompt) => {
+                    if !text.is_empty() {
+                        text.push_str("\n\n");
+                    }
+                    text.push_str(&prompt.text);
+                }
+                None => tracing::warn!(session = %target.name, "initial Library Prompt is missing"),
+            }
+        }
+        if !text.is_empty() {
+            self.deliver(target, &text).await;
+        }
+    }
+
+    async fn delivery_fence(
+        self: &Arc<Self>,
+        target: &DeliveryTarget,
+        deadline: tokio::time::Instant,
+    ) -> bool {
+        let (done, received) = tokio::sync::oneshot::channel();
+        self.session_read_operation(async {
+            if self
+                .live
+                .read()
+                .await
+                .get(&target.name)
+                .is_some_and(|l| target.matches(l))
+            {
+                self.queue_input(&target.name, Input::Fence(done)).await;
+            }
+        })
+        .await;
+        matches!(
+            tokio::time::timeout_at(deadline, received).await,
+            Ok(Ok(()))
+        )
     }
 
     async fn finish_auto_resume(&self, target: &DeliveryTarget) {

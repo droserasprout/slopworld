@@ -10,6 +10,10 @@ const INDEX_FILE: &str = ".index.toml";
 struct TemplateIndex {
     next_version: u64,
     generation: String,
+    // Older catalogs recorded bundled-template seeding here. Accept the marker
+    // without re-seeding or carrying it into newly committed generations.
+    #[serde(default, rename = "supplied_version", skip_serializing)]
+    _supplied_version: Option<u64>,
 }
 
 impl AgentTemplateStore {
@@ -105,6 +109,7 @@ impl AgentTemplateStore {
             let index = TemplateIndex {
                 next_version: self.next_version,
                 generation,
+                _supplied_version: None,
             };
             // This rename is the sole commit point. Until then loading uses the
             // previous generation, or an empty catalog before the first commit.
@@ -123,3 +128,7 @@ impl AgentTemplateStore {
         staged
     }
 }
+
+#[cfg(test)]
+#[path = "persistence_tests.rs"]
+mod tests;

@@ -10,8 +10,9 @@ pub(crate) const SESSION_HEADER: &str = "x-slop-session";
 pub(crate) const WS_PATH: &str = "/ws";
 
 pub(crate) mod routes {
+    pub(crate) const PLANNER_LINKS: &str = "/api/planner/items/:id/links";
+    pub(crate) const PLANNER_DESCRIPTION: &str = "/api/planner/items/:id/description";
     pub(crate) const PLANNER: &str = "/api/planner";
-    pub(crate) const PLANNER_ACTION: &str = "/api/planner/action";
     pub(crate) const HEALTH: &str = "/api/health";
     pub(crate) const SESSIONS: &str = "/api/sessions";
     pub(crate) const SESSION: &str = "/api/sessions/:name";
@@ -128,6 +129,7 @@ pub(crate) mod enums {
         pub(crate) const SHELL: &str = "shell";
         pub(crate) const BREADCRUMB: &str = "breadcrumb";
         pub(crate) const FA: &str = "fa";
+        pub(crate) const TIMER: &str = "timer";
     }
     pub(crate) mod library_link {
         pub(crate) const PROJECT: &str = "project";

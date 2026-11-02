@@ -25,17 +25,27 @@ async fn delivery_fixture() -> (
     std::sync::Arc<SessionRuntime>,
     tokio::sync::mpsc::UnboundedReceiver<QueuedInput>,
 ) {
+    delivery_fixture_config(Config::default()).await
+}
+
+async fn delivery_fixture_config(
+    cfg: Config,
+) -> (
+    std::sync::Arc<SessionRuntime>,
+    tokio::sync::mpsc::UnboundedReceiver<QueuedInput>,
+) {
     use crate::session::{Live, TitleCapture};
-    let manager = crate::session::test_manager(Config::default());
-    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    let mut live = Live::new(
-        SessionCfg {
+    let session = cfg
+        .session("worker")
+        .cloned()
+        .unwrap_or_else(|| SessionCfg {
             name: "worker".into(),
             cmd: Some("test-agent".into()),
             ..Default::default()
-        },
-        TitleCapture::default(),
-    );
+        });
+    let manager = crate::session::test_manager(cfg);
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut live = Live::new(session, TitleCapture::default());
     live.role = SessionRole::Agent(AgentLifetime::Temporary);
     live.input.sender = Some(tx);
     manager.live.write().await.insert("worker".into(), live);
@@ -436,6 +446,17 @@ async fn queued_auto_resume_submits_current_run_and_publishes_completion() {
             .auto_resume_pending
     );
     manager.queue_auto_resume("worker", run_id).await;
+    let consumer = tokio::spawn(async move {
+        let mut actual = Vec::new();
+        while let Some(input) = rx.recv().await {
+            if let Input::Fence(done) = input.command {
+                done.send(()).unwrap();
+                break;
+            }
+            actual.push(input);
+        }
+        actual
+    });
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             if matches!(events.recv().await.unwrap().event(), Event::Sessions { .. }) {
@@ -450,10 +471,7 @@ async fn queued_auto_resume_submits_current_run_and_publishes_completion() {
             .input
             .auto_resume_pending
     );
-    let mut actual = Vec::new();
-    while let Ok(input) = rx.try_recv() {
-        actual.push(input);
-    }
+    let actual = consumer.await.unwrap();
     assert_eq!(actual.len(), 5);
     assert!(matches!(&actual[0].command, Input::Bytes(bytes) if bytes == b"/resume"));
     for index in [1, 3] {
@@ -638,5 +656,199 @@ async fn followup_commit_does_not_wait_when_readiness_is_lost() {
     .await
     .expect("commit waited for readiness under admission");
     assert!(result.unwrap_err().to_string().contains("not ready"));
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn scheduled_delivery_rejects_busy_stale_shell_and_resume_pending_targets() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let identity = manager.session_cfg("worker").await.unwrap().state_id;
+    for state in [State::Down, State::Working] {
+        manager.live.write().await.get_mut("worker").unwrap().state = state;
+        assert!(
+            !manager
+                .submit_scheduled("worker", &identity, "Review")
+                .await
+                .unwrap()
+        );
+    }
+    manager.live.write().await.get_mut("worker").unwrap().state = State::Idle;
+    assert!(
+        !manager
+            .submit_scheduled("worker", "replacement", "Review")
+            .await
+            .unwrap()
+    );
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("worker")
+        .unwrap()
+        .input
+        .auto_resume_pending = true;
+    assert!(
+        !manager
+            .submit_scheduled("worker", &identity, "Review")
+            .await
+            .unwrap()
+    );
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("worker")
+        .unwrap()
+        .input
+        .auto_resume_pending = false;
+    manager.live.write().await.get_mut("worker").unwrap().role = SessionRole::HostShell;
+    assert!(
+        !manager
+            .submit_scheduled("worker", &identity, "Review")
+            .await
+            .unwrap()
+    );
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn scheduled_prompt_submits_once_and_reserves_the_idle_turn() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let identity = manager.session_cfg("worker").await.unwrap().state_id;
+    manager.live.write().await.get_mut("worker").unwrap().state = State::Idle;
+    let root = manager.cfg_path().parent().unwrap();
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            root.to_str().unwrap(),
+            80,
+            24,
+            &[
+                "python3".into(),
+                "-c".into(),
+                "import pathlib,time; pathlib.Path('scheduled-ready').touch(); time.sleep(60)"
+                    .into(),
+            ],
+            false,
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !root.join("scheduled-ready").exists() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        manager
+            .submit_scheduled("worker", &identity, "Review λ")
+            .await
+            .unwrap()
+    );
+    assert!(
+        !manager
+            .submit_scheduled("worker", &identity, "Duplicate")
+            .await
+            .unwrap()
+    );
+    assert!(
+        matches!(rx.recv().await.unwrap().command, Input::AgentPaste { bytes } if bytes == "Review λ".as_bytes())
+    );
+    assert!(matches!(rx.recv().await.unwrap().command, Input::Gap(_)));
+    assert!(matches!(
+        rx.recv().await.unwrap().command,
+        Input::AgentEnter
+    ));
+    assert!(rx.try_recv().is_err());
+    assert_eq!(manager.live.read().await["worker"].state, State::Working);
+    assert!(manager.live.read().await["worker"].activity_at.is_some());
+}
+
+#[tokio::test]
+async fn initial_library_prompt_waits_until_prior_queue_input_is_consumed() {
+    let (manager, mut rx) = delivery_fixture_config(Config {
+        sessions: vec![SessionCfg {
+            name: "worker".into(),
+            cmd: Some("test-agent".into()),
+            initial_prompt: "Startup instructions".into(),
+            ..Default::default()
+        }],
+        library: vec![crate::config::LibraryItemCfg {
+            name: "Startup instructions".into(),
+            text: "Custom initial instructions".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    })
+    .await;
+    let target = manager.delivery_target("worker").await.unwrap();
+    let pending = {
+        let manager = manager.clone();
+        tokio::spawn(async move {
+            manager.deliver_initial(&target).await;
+        })
+    };
+    let Input::Fence(done) = rx.recv().await.unwrap().command else {
+        panic!("initial delivery must first wait for the queue");
+    };
+    assert!(rx.try_recv().is_err());
+    done.send(()).unwrap();
+    assert_prompt_submission(&mut rx, "Custom initial instructions").await;
+    pending.await.unwrap();
+}
+
+#[tokio::test]
+async fn stalled_resume_dismisses_picker_and_releases_input_before_deadline() {
+    let (manager, mut rx) = delivery_fixture().await;
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("worker")
+        .unwrap()
+        .input
+        .auto_resume_pending = true;
+    let target = manager.delivery_target("worker").await.unwrap();
+    let producer = manager.clone();
+    let task = tokio::spawn(async move {
+        producer
+            .resume_until(
+                &target,
+                tokio::time::Instant::now() + Duration::from_secs(2),
+            )
+            .await;
+    });
+    loop {
+        let input = tokio::time::timeout(Duration::from_secs(3), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        if let Input::Fence(done) = input.command {
+            // The picker consumed input but never returned to an input-ready composer.
+            manager.live.read().await["worker"]
+                .capture
+                .emu
+                .as_ref()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .feed(b"\x1b[?2004l");
+            done.send(()).unwrap();
+            break;
+        }
+    }
+    tokio::time::timeout(Duration::from_secs(3), task)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        !manager.live.read().await["worker"]
+            .input
+            .auto_resume_pending
+    );
+    let input = rx.try_recv().unwrap();
+    assert!(matches!(input.command, Input::Keys { keys, literal: false } if keys == ["Escape"]));
     assert!(rx.try_recv().is_err());
 }

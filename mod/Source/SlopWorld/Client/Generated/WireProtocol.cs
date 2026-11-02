@@ -10,8 +10,9 @@ namespace SlopWorld
 
         internal static class Routes
         {
+            public const string PlannerLinks = "/api/planner/items/:id/links";
+            public const string PlannerDescription = "/api/planner/items/:id/description";
             public const string Planner = "/api/planner";
-            public const string PlannerAction = "/api/planner/action";
             public const string Health = "/api/health";
             public const string Sessions = "/api/sessions";
             public const string Session = "/api/sessions/:name";
@@ -138,6 +139,7 @@ namespace SlopWorld
             public const string Shell = "shell";
             public const string Breadcrumb = "breadcrumb";
             public const string Fa = "fa";
+            public const string Timer = "timer";
         }
 
         internal static class LibraryLink

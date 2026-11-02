@@ -184,9 +184,16 @@ pub(crate) async fn spawn_worker(
             "new_worktree",
             "base",
             "worktree_name",
+            "planner_id",
         ],
     )?;
     let from = task_principal(&cap, &headers)?;
+    if !q.planner_id.is_empty() && !matches!(cap, Cap::Root) {
+        return Err(err(
+            StatusCode::FORBIDDEN,
+            "Only root can link Planner items.",
+        ));
+    }
     let checkout = if q.new_worktree {
         if !q.worktree.is_empty() {
             return Err(err(
@@ -208,15 +215,18 @@ pub(crate) async fn spawn_worker(
         crate::application::workers::WorkerCheckout::Existing(q.worktree)
     };
     let worker = Workers::new(&m)
-        .create_worker(crate::application::workers::WorkerRequest {
-            caller: from.clone(),
-            name: q.name,
-            project: q.project,
-            template: q.template,
-            body: q.body,
-            durable: q.durable,
-            checkout,
-        })
+        .create_linked_worker(
+            crate::application::workers::WorkerRequest {
+                caller: from.clone(),
+                name: q.name,
+                project: q.project,
+                template: q.template,
+                body: q.body,
+                durable: q.durable,
+                checkout,
+            },
+            q.planner_id,
+        )
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(wire::WorkerResult {
@@ -268,11 +278,14 @@ pub(crate) async fn one_task(
     Path(id): Path<String>,
 ) -> ApiResult<wire::TaskResult> {
     let who = task_identity(&m, &cap, &headers).await?;
-    m.sessions
-        .task_store()
-        .task_for_async(&who, &id)
-        .await
-        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
+    // The operator can already list every task. Opening one from Planner or the
+    // host task board must use the same visibility, including agent-to-agent work.
+    let task = if matches!(cap, Cap::Root) && who == crate::tasks::HOST {
+        m.sessions.task_store().task_any_async(&id).await
+    } else {
+        m.sessions.task_store().task_for_async(&who, &id).await
+    };
+    task.map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?
         .map(|task| {
             Proto(wire::TaskResult {
                 task: Some(task_view(task)),

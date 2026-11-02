@@ -16,41 +16,38 @@ namespace SlopWorld
         void DrawBoard(Rect r)
         {
             float h = UiTheme.FieldH,
-                gap = UiTheme.GapS,
-                door = TopBar.H;
-            var title = new Rect(r.x, r.y, Mathf.Max(80f, r.width - 455f - door - gap), h);
+                gap = UiTheme.GapS;
+            float tasksWidth = UiTheme.Wide("Tasks") + UiTheme.GapXS * 2f;
+            float rawWidth = UiTheme.Wide("Raw") + UiTheme.GapXS * 2f;
+            float separatorWidth = UiTheme.Wide("|") + UiTheme.GapXS * 2f;
+            float switcherWidth = tasksWidth + separatorWidth + rawWidth;
+            float x = r.xMax - 195f - gap - switcherWidth;
+            var title = new Rect(r.x, r.y, Mathf.Max(80f, x - r.x - gap), h);
             UiText.RowLabel(title, "Planner", TextAnchor.MiddleLeft);
-            var settings = new Rect(r.xMax - 450f - door - gap, r.y + (h - door) / 2f, door, door);
-            TooltipHandler.TipRegion(settings, "Settings · Agents · Planner");
-            if (
-                UiLayout.IconButton(
-                    settings,
-                    TopBar.DoorIconRect(settings),
-                    Icons.Config,
-                    UiTheme.Off
-                )
-            )
+            using (WidgetState.Save())
             {
-                UiMenu.CloseAll();
-                ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Planner));
-                return;
+                GUI.enabled = Ready;
+                bool tasks = ToggleCell.DrawText(
+                    new Rect(x, r.y, tasksWidth, h),
+                    "Tasks",
+                    !_source,
+                    "Show the task list"
+                );
+                x += tasksWidth;
+                GUI.color = UiTheme.Dim;
+                UiText.RowLabel(new Rect(x, r.y, separatorWidth, h), "|", TextAnchor.MiddleCenter);
+                GUI.color = Color.white;
+                x += separatorWidth;
+                bool raw = ToggleCell.DrawText(
+                    new Rect(x, r.y, rawWidth, h),
+                    "Raw",
+                    _source,
+                    "Edit the raw todo.txt text"
+                );
+                if (Ready && ((_source && tasks) || (!_source && raw)))
+                    ToggleSource();
+                x += rawWidth + gap;
             }
-            float x = r.xMax - 450f;
-            if (UiControls.Button(new Rect(x, r.y, 90f, h), "Summarize", on: Ready && !Dirty))
-                Run("summarize");
-            x += 95f;
-            if (UiControls.Button(new Rect(x, r.y, 65f, h), "Plan", on: Ready && !Dirty))
-                Run("plan");
-            x += 70f;
-            if (
-                UiControls.Button(
-                    new Rect(x, r.y, 85f, h),
-                    _source ? "Task list" : "Source",
-                    on: Ready
-                )
-            )
-                ToggleSource();
-            x += 90f;
             if (
                 UiControls.Button(
                     new Rect(x, r.y, 90f, h),
@@ -66,7 +63,7 @@ namespace SlopWorld
             }
             x += 95f;
             if (UiControls.Button(new Rect(x, r.y, 100f, h), "Discard", on: Ready && Dirty))
-                Load();
+                Discard();
             float top = r.y + h + gap;
             string status = _busy
                 ? "Working…"
@@ -488,14 +485,8 @@ namespace SlopWorld
                     tagPressed = true;
                 }
             var linked = Linked(entry);
-            if (!string.IsNullOrEmpty(linked?.TaskId))
-                Chip(
-                    ref x,
-                    y,
-                    row.xMax,
-                    linked.TaskId == "pending" ? "Dispatch pending" : linked.Status,
-                    UiTheme.Lead
-                );
+            if (linked != null && linked.Links.Count > 0)
+                Chip(ref x, y, row.xMax, linked.Links.Count + " links", UiTheme.Lead);
             Text.Font = GameFont.Small;
             Slab.Hairline(new Rect(left, row.yMax - 1f, row.xMax - left, 1f), UiTheme.Edge);
             if (

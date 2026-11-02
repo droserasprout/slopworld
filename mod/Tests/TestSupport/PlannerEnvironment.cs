@@ -29,8 +29,13 @@ namespace SlopWorld
     static class TaskDetailView
     {
         public static TaskInfo Shown;
+        public static IContentView ReturnTo;
 
-        public static void Open(TaskInfo task) => Shown = task;
+        public static void Open(TaskInfo task, IContentView returnTo = null)
+        {
+            Shown = task;
+            ReturnTo = returnTo;
+        }
     }
 
     sealed partial class SessionHub
@@ -46,11 +51,8 @@ namespace SlopWorld
         internal bool BusyTest => _busy;
         internal bool ReadyTest => Ready;
         internal string TextTest => _text;
-        internal string OutputTest => _output;
         internal string ErrorTest => _error;
         internal string PriorityTest => _draft.Priority;
-
-        internal void ProjectTest(string id) => _project = id;
 
         internal Action PriorityEditTest(string value) =>
             EditSelected(() => _draft.Priority = value);
@@ -65,16 +67,33 @@ namespace SlopWorld
             Save();
         }
 
-        internal void RunTest(string action) => Run(action);
-
         internal void LoadTest() => Load();
 
+        internal void DiscardTest() => Discard();
+
+        internal bool DirtyTest => Dirty;
+
         internal void OpenTaskTest(string id) => OpenTask(id);
+
+        internal string DescriptionTest
+        {
+            get => SelectedDescription.Text;
+            set => SelectedDescription.Text = value;
+        }
+        internal string DescriptionErrorTest => SelectedDescription.Error;
+        internal bool DescriptionBusyTest => SelectedDescription.Busy;
+        internal bool DescriptionDirtyTest => SelectedDescription.Dirty;
+
+        internal void SaveDescriptionTest() => Save();
+
+        internal void RemoveLinkTest(int index) => RemoveLink(Linked(_selected).Links[index]);
+
+        internal void AddLinkTest(string kind, string id) => AddLink(kind, id, id);
 
         void DrawBoard(Rect body)
         {
             // Rendering is excluded; retain reads of rendering-only fields.
-            _ = (_assistant, _filter, _search, _detailOpen, _sort);
+            _ = (_filter, _search, _detailOpen, _sort);
         }
     }
 }

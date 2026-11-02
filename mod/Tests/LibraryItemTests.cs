@@ -10,6 +10,46 @@ namespace SlopWorld.Tests
             yield return ("round trips file action modes", RoundTripsFileActionModes);
             yield return ("missing mode keeps the invocation menu", MissingModeKeepsInvocationMenu);
             yield return ("errand execution choice round trips", ErrandExecution);
+            yield return (
+                "timer drafts retain references without sharing mutable state",
+                TimerRoundTrip
+            );
+        }
+
+        static void TimerRoundTrip()
+        {
+            var source = new Wire.LibraryItem
+            {
+                Name = "Review",
+                Kind = WireProtocol.LibraryKind.Timer,
+                Timer = new Wire.TimerConfig
+                {
+                    Enabled = true,
+                    Schedule = "*/15 * * * *",
+                    Target = "0123456789abcdef",
+                    Prompt = "Review prompt",
+                },
+                TimerStatus = new Wire.TimerStatus { LastAt = 60, Outcome = "Submitted" },
+            };
+            var item = LibraryItemInfo.FromWire(source);
+            var draft = item.Copy();
+            draft.Timer.Prompt = "Changed";
+            AssertEx.Equal(
+                "Review prompt",
+                item.Timer.Prompt,
+                "draft does not change accepted reference"
+            );
+            AssertEx.Equal(LibraryItemKind.Timer, item.Kind, "Timer kind is retained");
+            AssertEx.Equal(
+                "0123456789abcdef",
+                item.ToWire().Timer.Target,
+                "stable target survives save"
+            );
+            AssertEx.True(
+                item.ToWire().TimerStatus == null,
+                "read-only status is not submitted with edits"
+            );
+            AssertEx.Equal("Submitted", item.TimerStatus.Outcome, "status remains visible");
         }
 
         static void ErrandExecution()
@@ -21,7 +61,12 @@ namespace SlopWorld.Tests
                 !empty.Host && empty.AgentTemplate == "",
                 "missing wire fields leave the execution choice unset"
             );
+            AssertEx.False(
+                empty.Runnable,
+                "unbound Prompts are reusable text, not temporary agent launches"
+            );
             var item = new LibraryItemInfo { Name = "review", AgentTemplate = "reviewer" };
+            AssertEx.True(item.Runnable, "explicit execution makes a Prompt runnable");
             var parsed = LibraryItemInfo.FromWire(
                 ProtobufFixtures.Read<Wire.LibraryItem>(JVal.Parse(item.ToJson()))
             );

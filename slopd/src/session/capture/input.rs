@@ -35,7 +35,7 @@ impl SessionRuntime {
         // Gaps delay delivery but are not themselves terminal input.
         let mut item = QueuedInput::new(item);
         if let Some(trace) = &trace
-            && !matches!(&item.command, Input::Gap(_))
+            && !matches!(&item.command, Input::Gap(_) | Input::Fence(_))
         {
             item.traces.push(trace.clone());
         }
@@ -135,6 +135,12 @@ impl SessionRuntime {
         }) {
             return false;
         }
+        if let Input::Fence(done) = item.command {
+            if done.send(()).is_err() {
+                tracing::trace!("input fence receiver retired");
+            }
+            return true;
+        }
         #[cfg(test)]
         if let Some(sink) = self.input_sink.lock().unwrap().as_ref() {
             sink.send(item.command).unwrap();
@@ -168,6 +174,12 @@ impl SessionRuntime {
                 }
                 .await,
             ),
+            Input::Fence(done) => {
+                if done.send(()).is_err() {
+                    tracing::trace!("input fence receiver retired");
+                }
+                return;
+            }
             Input::Gap(delay) => {
                 tokio::time::sleep(delay).await;
                 return;

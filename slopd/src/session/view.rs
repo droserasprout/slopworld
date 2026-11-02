@@ -83,6 +83,8 @@ pub struct SessionLaunchView {
     // Effective startup policy; task-owned workers disable both flags.
     pub autostart: bool,
     pub auto_resume: bool,
+    pub initial_prompt: String,
+    pub state_id: String,
 }
 
 /// Explicit task hierarchy and worker persistence.

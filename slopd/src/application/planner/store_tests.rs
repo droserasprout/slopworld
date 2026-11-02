@@ -8,8 +8,6 @@ fn ids_preserve_user_text_dates_unknown_metadata_and_line_endings() {
     assert!(saved.starts_with(source.lines().next().unwrap()));
     assert!(saved.contains("\r\n\r\n"));
     assert_eq!(items(&saved).unwrap().len(), 2);
-    selected(&saved, 2).unwrap_err();
-    selected(&saved, 1).unwrap_err();
 }
 
 #[test]
@@ -19,19 +17,6 @@ fn invalid_and_duplicate_ids_cannot_alias_worker_tasks() {
     assign_ids("One sw-id:nope").unwrap_err();
     assign_ids(&format!("One sw-id:{id} sw-id:{id}")).unwrap_err();
     assign_ids("One sw-task:a:b").unwrap_err();
-}
-
-#[test]
-fn dispatch_reservation_keeps_user_fields_and_survives_repeated_saves() {
-    let saved = assign_ids("(B) Fix bug +project due:2026-11-01\nOther task\n").unwrap();
-    let reserved = link(&saved, 0, "pending").unwrap();
-    assert_eq!(selected(&reserved, 0).unwrap().task_id, "pending");
-    let linked = link(&reserved, 0, "task-123").unwrap();
-    assert_eq!(selected(&linked, 0).unwrap().task_id, "task-123");
-    assert_eq!(assign_ids(&linked).unwrap(), linked);
-    assert_eq!(linked.lines().nth(1), saved.lines().nth(1));
-    assert!(linked.starts_with("(B) Fix bug +project due:2026-11-01"));
-    check_revision(&linked, &revision(&saved)).unwrap_err();
 }
 
 #[tokio::test]
@@ -99,38 +84,7 @@ async fn disk_failure_preserves_previous_revision_and_allows_retry() {
 #[test]
 fn task_metadata_does_not_replace_lookalikes_inside_user_text() {
     let text = assign_ids("Preserve prefixsw-task:pending sw-task:pending").unwrap();
-    let linked = link(&text, 0, "task-123").unwrap();
-    assert!(linked.contains("prefixsw-task:pending sw-task:task-123"));
+    assert_eq!(assign_ids(&text).unwrap(), text);
+    assert_eq!(items(&text).unwrap()[0].task_id, "pending");
     assign_ids("Task sw-id:").unwrap_err();
-}
-
-#[test]
-fn worker_progress_is_projected_without_rewriting_user_fields() {
-    let text = assign_ids("(A) Fix bug due:2026-11-01 sw-task:pending").unwrap();
-    let store = Store::new(PathBuf::from("unused"));
-    let document = store.document(text.clone()).unwrap();
-    let id = document.items[0].id.clone();
-    let task = crate::tasks::Task {
-        id: "task-123".into(),
-        from: crate::tasks::HOST.into(),
-        to: "worker".into(),
-        from_id: crate::tasks::HOST.into(),
-        to_id: "worker-id".into(),
-        body: format!("{}\nWork order", marker(&id)),
-        status: crate::tasks::Status::Done,
-        note: Some("Done".into()),
-        history: vec![],
-        summary: None,
-        created_ms: 1,
-        updated_ms: 2,
-        worker: Some(crate::tasks::WorkerTask {
-            session: "worker".into(),
-            parent: crate::tasks::HOST.into(),
-            durable: true,
-        }),
-    };
-    let document = document.with_tasks(&[task]);
-    assert_eq!(document.text, text);
-    assert_eq!(document.items[0].task_id, "task-123");
-    assert_eq!(document.items[0].status, "done");
 }

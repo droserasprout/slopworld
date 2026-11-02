@@ -2,7 +2,7 @@
 
 Use the Library to save prompts and commands you run repeatedly. Errands open
 temporary sessions; breadcrumbs insert text into an existing terminal; file
-actions run against a selected path.
+actions run against a selected path. Timers send an existing Prompt to a durable agent on a schedule.
 
 ## Prompt errands
 
@@ -14,6 +14,9 @@ Choose a project and an agent template under **Run using**, then save. In Librar
 right-click the entry and select **Run**. A temporary agent terminal opens with
 that prompt. Read its response there. Set **Where it runs** to **Ask me every time**
 to reuse one entry across projects.
+
+Prompts can also use **Run using > Reusable text only**. These are editable text definitions
+for Timers and agent startup, without a temporary-agent Run action.
 
 ## Shell errands
 
@@ -77,3 +80,24 @@ host, outside the agent's sandbox. Commands can use `{{ absolute_path }}` and
 A user entry replaces the supplied entry with the same name. The Library also
 stores [agent templates](../agents/configuring-agents.md#templates).
 Manage [command presets](command-presets.md) in **Settings > Commands**.
+
+## Timers
+
+Create **+ > Library > Timer**, enable it, choose a target agent and a Library Prompt,
+and enter a five-field UTC cron expression. `*/15 * * * *` checks every fifteen minutes;
+`0 9 * * 1-5` checks at 09:00 UTC on weekdays. Fields support numbers, `*`, ranges,
+comma-separated lists and positive steps. Weekdays use 0 for Sunday through 6 for Saturday.
+When both day-of-month and weekday are restricted, either can match.
+
+The daemon schedules Timers independently of the game. Busy, stopped, shell and unready
+targets are skipped. Missed occurrences are not replayed after downtime. Multiple Timers
+for the same agent can submit at most one prompt per minute. Prompt edits affect the next
+occurrence; Timers do not copy text. A missing Prompt or target withholds delivery.
+
+Named agents are bound by stable identity: renaming preserves the target, deleting and
+recreating an agent with the same name does not. Timer details show the last
+attempt, its outcome and the next scheduled occurrence in UTC. A recorded submission
+means queued terminal input, not agent acceptance. An interrupted claim is not retried.
+
+Edit a supplied Library item to create a personal override. Deleting that override restores
+the supplied default. To pause a supplied Timer, disable it instead of deleting its override.

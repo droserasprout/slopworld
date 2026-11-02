@@ -23,7 +23,9 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `POST` | `/api/ncspot` | `root-only` | `RedrawReq` | `SessionResult` |
 | `GET` | `/api/planner` | `root-only` | `Empty` | `PlannerDocument` |
 | `PUT` | `/api/planner` | `root-only` | `PlannerSaveReq` | `PlannerDocument` |
-| `POST` | `/api/planner/action` | `root-only` | `PlannerActionReq` | `PlannerActionReply` |
+| `GET` | `/api/planner/items/:id/description` | `root-only` | `Empty` | `PlannerDescription` |
+| `PUT` | `/api/planner/items/:id/description` | `root-only` | `PlannerSaveReq` | `PlannerDescription` |
+| `PUT` | `/api/planner/items/:id/links` | `root-only` | `PlannerLinksReq` | `PlannerDocument` |
 | `GET` | `/api/usage` | `root-only` | `Empty` | `UsageSnapshot` |
 | `GET` | `/api/whereis` | `root-only` | `Empty` | `WhereIsReply` |
 

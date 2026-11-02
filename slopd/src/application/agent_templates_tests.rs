@@ -92,8 +92,14 @@ async fn failed_save_preserves_catalog_and_version_then_retry_survives_reload() 
         .unwrap();
     assert_eq!(reader.list().await[0].version, saved.version);
     let reloaded = AgentTemplates::load(catalog.path.clone()).await.unwrap();
-    assert_eq!(reloaded.list().await[0].description, "accepted on retry");
-    assert_eq!(reloaded.list().await[0].version, saved.version);
+    let reviewer = reloaded
+        .list()
+        .await
+        .into_iter()
+        .find(|t| t.name == "reviewer")
+        .unwrap();
+    assert_eq!(reviewer.description, "accepted on retry");
+    assert_eq!(reviewer.version, saved.version);
 }
 
 #[tokio::test]
@@ -180,4 +186,19 @@ async fn instantiation_rejects_deleted_templates_and_preserves_destination_ident
             .to_string()
             .contains("no such agent template")
     );
+}
+
+#[tokio::test]
+async fn loading_catalog_preserves_user_templates_without_seeding_planner() {
+    let fixture = super::super::test_support::Fixture::new();
+    let path = fixture.root.join("templates");
+    let catalog = AgentTemplates::new(AgentTemplateStore::default(), path.clone());
+    catalog
+        .create(template("existing", "Keep this"))
+        .await
+        .unwrap();
+    let reopened = AgentTemplates::load(path).await.unwrap();
+    let items = reopened.list().await;
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].name, "existing");
 }

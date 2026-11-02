@@ -2,6 +2,24 @@ use super::*;
 
 use axum::http::HeaderValue;
 
+#[tokio::test]
+async fn scoped_workers_cannot_attach_planner_links() {
+    let app = crate::application::test_application(crate::config::Config::default());
+    let result = spawn_worker(
+        State(app),
+        Extension(scoped("caller")),
+        caller("caller"),
+        Proto(wire::SpawnWorkerReq {
+            template: Some("review".into()),
+            body: Some("Work".into()),
+            planner_id: uuid::Uuid::new_v4().to_string(),
+            ..Default::default()
+        }),
+    )
+    .await;
+    assert_eq!(result.unwrap_err().0, StatusCode::FORBIDDEN);
+}
+
 #[test]
 fn root_worker_requests_use_the_explicit_session_caller() {
     let mut headers = HeaderMap::new();
@@ -78,6 +96,52 @@ fn task_identity_rejects_missing_headers_and_host_impersonation() {
             .unwrap_err()
             .0,
         StatusCode::FORBIDDEN
+    );
+}
+
+#[tokio::test]
+async fn host_can_open_agent_tasks_but_agent_visibility_and_missing_tasks_stay_restricted() {
+    let app = mailbox_manager();
+    let task = mailbox_task(&app, "alice", "bob", "Agent work")
+        .await
+        .unwrap();
+    let Proto(reply) = one_task(
+        State(app.clone()),
+        Extension(Cap::Root),
+        caller(crate::tasks::HOST),
+        Path(task.id.clone()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reply.task.unwrap().id, task.id);
+    for (cap, headers) in [
+        (scoped("carol"), caller(crate::tasks::HOST)),
+        (Cap::Root, caller("carol")),
+    ] {
+        assert_eq!(
+            one_task(
+                State(app.clone()),
+                Extension(cap),
+                headers,
+                Path(task.id.clone())
+            )
+            .await
+            .unwrap_err()
+            .0,
+            StatusCode::NOT_FOUND
+        );
+    }
+    assert_eq!(
+        one_task(
+            State(app),
+            Extension(Cap::Root),
+            caller(crate::tasks::HOST),
+            Path("missing-task".into())
+        )
+        .await
+        .unwrap_err()
+        .0,
+        StatusCode::NOT_FOUND
     );
 }
 
@@ -630,6 +694,7 @@ async fn worker_api_maps_checkouts_and_returns_committed_identity() {
                     template: Some("review".into()),
                     project: Some("repo".into()),
                     body: Some("inspect API wiring".into()),
+                    planner_id: String::new(),
                     name: new_worktree.then(|| "custom-review".into()),
                     durable: Some(durable),
                     new_worktree: Some(new_worktree),

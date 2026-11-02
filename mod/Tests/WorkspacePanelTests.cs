@@ -93,6 +93,73 @@ namespace SlopWorld.Tests
             );
         }
 
+        public static void LinkedContentReturnsToTheSameOriginWithNormalLifecycle()
+        {
+            var events = new List<string>();
+            var planner = new Panel("planner", events);
+            var task = new Panel("task", events);
+            var owner = new WorkspacePanelOwner<Panel>();
+            owner.SetFocus(true);
+            owner.SetContent(planner);
+            events.Clear();
+            owner.SetContent(task, planner);
+            AssertEx.True(
+                ReferenceEquals(planner, owner.ReturnContent),
+                "link retains its exact origin"
+            );
+            AssertEx.Equal(
+                "planner:blur,planner:hide,planner:close,task:open,task:show,task:focus",
+                string.Join(",", events),
+                "origin releases readers while task is shown"
+            );
+            events.Clear();
+            owner.SetContent(owner.ReturnContent);
+            AssertEx.True(
+                ReferenceEquals(planner, owner.Active),
+                "return restores the same draft owner"
+            );
+            AssertEx.Equal(
+                "task:blur,task:hide,task:close,planner:open,planner:show,planner:focus",
+                string.Join(",", events),
+                "return closes task and reopens planner exactly once"
+            );
+            AssertEx.True(owner.ReturnContent == null, "return target is consumed");
+            owner.SetContent(null);
+            AssertEx.True(owner.Active == null, "next Escape can leave a content-only host");
+        }
+
+        public static void OrdinaryNavigationAndTeardownRetireLinkedReturnTargets()
+        {
+            var events = new List<string>();
+            var terminal = new Panel("terminal", events);
+            var planner = new Panel("planner", events);
+            var task = new Panel("task", events);
+            var other = new Panel("other", events);
+            var owner = new WorkspacePanelOwner<Panel>();
+            owner.SetBacking(terminal);
+            owner.SetContent(planner);
+            owner.SetContent(task, planner);
+            owner.SetContent(other);
+            AssertEx.True(owner.ReturnContent == null, "unrelated navigation drops the origin");
+            owner.SetContent(task, planner);
+            AssertEx.True(
+                owner.ReturnContent == null,
+                "a stale origin cannot establish a return target"
+            );
+            owner.SetContent(planner);
+            owner.SetContent(task, planner);
+            owner.SetContent(null);
+            AssertEx.True(
+                ReferenceEquals(terminal, owner.Active),
+                "terminal navigation bypasses the return target"
+            );
+            AssertEx.True(owner.ReturnContent == null, "terminal navigation clears the origin");
+            owner.SetContent(planner);
+            owner.SetContent(task, planner);
+            owner.Close();
+            AssertEx.True(owner.ReturnContent == null, "host close releases origin references");
+        }
+
         public static void SplitLifecycle()
         {
             var events = new List<string>();

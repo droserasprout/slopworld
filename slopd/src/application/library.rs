@@ -75,7 +75,10 @@ impl LibraryMutation {
             Self::Replace { name, item: mut sc } => {
                 sc.builtin = false;
                 if cfg.is_builtin_library_item(&name) {
-                    bail!("The daemon cannot edit built-in library item {name}.");
+                    anyhow::ensure!(sc.name == name, "Duplicate a built-in item to rename it.");
+                    check_library_item(cfg, &sc)?;
+                    cfg.library.push(sc);
+                    return Ok(());
                 }
                 check_library_item(cfg, &sc)?;
                 let idx = cfg
@@ -145,7 +148,9 @@ impl LibraryCatalog {
 }
 impl Services {
     pub(crate) async fn library(&self, cfg: Config) -> Vec<LibraryItemCfg> {
-        self.library.list(cfg).await
+        let mut items = self.library.list(cfg).await;
+        self.timers.decorate(&mut items).await;
+        items
     }
     pub(crate) async fn announce_library(&self, cfg: Config) {
         self.emit(Event::Library {

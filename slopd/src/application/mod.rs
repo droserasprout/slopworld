@@ -33,6 +33,7 @@ mod maintenance;
 pub(crate) mod planner;
 pub(crate) mod startup;
 mod task_summaries;
+pub(crate) mod timers;
 mod usage;
 use crate::tasks::io::TaskStore;
 use anyhow::{Context, Result};
@@ -43,6 +44,7 @@ use tokio::sync::{RwLock, broadcast};
 pub(crate) struct Services {
     tasks: TaskStore,
     pub(crate) planner: planner::Store,
+    pub(crate) timers: timers::Timers,
     pub(crate) title_cache: Arc<crate::title::SummaryCache>,
     pub(crate) catalogs: catalogs::CatalogState,
     pub(crate) library: LibraryCatalog,
@@ -70,6 +72,7 @@ impl Services {
         )));
         let mut services = Self::new(tasks, cache, tmux, 256, templates);
         services.planner = planner::Store::new(data.join("TODO.txt"));
+        services.timers = timers::Timers::new(data.join("timer-occurrences.json"));
         services.catalogs = catalogs::CatalogState::load();
         Ok(Arc::new(services))
     }
@@ -86,6 +89,7 @@ impl Services {
             tasks,
             title_cache,
             planner: planner::Store::new(crate::paths::data_root().join("TODO.txt")),
+            timers: timers::Timers::new(crate::paths::data_root().join("timer-occurrences.json")),
             catalogs: catalogs::CatalogState::new(None, None),
             library: LibraryCatalog::default(),
             templates,

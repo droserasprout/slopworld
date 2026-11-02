@@ -357,6 +357,8 @@ namespace SlopWorld
                     return "Shell";
                 case LibraryItemKind.Breadcrumb:
                     return "Breadcrumb";
+                case LibraryItemKind.Timer:
+                    return "Timer";
                 case LibraryItemKind.FileAction:
                     return "File Action";
                 default:
