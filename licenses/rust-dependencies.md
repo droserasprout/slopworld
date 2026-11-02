@@ -40,7 +40,7 @@ and does not identify which crates are included in a particular binary.
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
 | bytes | 1.12.1 | MIT |
-| cc | 1.10.0 | MIT OR Apache-2.0 |
+| cc | 1.11.0 | MIT OR Apache-2.0 |
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
@@ -59,7 +59,7 @@ and does not identify which crates are included in a particular binary.
 | coreaudio-rs | 0.14.2 | MIT/Apache-2.0 |
 | cpal | 0.17.3 | Apache-2.0 |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 |
-| crc32fast | 1.5.3 | MIT OR Apache-2.0 |
+| crc32fast | 1.5.4 | MIT OR Apache-2.0 |
 | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 |
 | crypto-common | 0.1.7 | MIT OR Apache-2.0 |
 | cursor-icon | 1.2.0 | MIT OR Apache-2.0 OR Zlib |
@@ -76,7 +76,7 @@ and does not identify which crates are included in a particular binary.
 | displaydoc | 0.2.7 | MIT OR Apache-2.0 |
 | document-features | 0.2.12 | MIT OR Apache-2.0 |
 | either | 1.19.0 | MIT OR Apache-2.0 |
-| encoding_rs | 0.8.42 | (Apache-2.0 OR MIT) AND BSD-3-Clause |
+| encoding_rs | 0.8.44 | (Apache-2.0 OR MIT) AND BSD-3-Clause |
 | enumflags2 | 0.7.12 | MIT OR Apache-2.0 |
 | enumflags2_derive | 0.7.12 | MIT OR Apache-2.0 |
 | equivalent | 1.0.3 | Apache-2.0 OR MIT |
@@ -129,16 +129,16 @@ and does not identify which crates are included in a particular binary.
 | is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |
 | itertools | 0.14.0 | MIT OR Apache-2.0 |
 | itoa | 1.0.18 | MIT OR Apache-2.0 |
-| jiff | 0.2.38 | Unlicense OR MIT |
-| jiff-core | 0.1.1 | Unlicense OR MIT |
-| jiff-static | 0.2.38 | Unlicense OR MIT |
+| jiff | 0.2.39 | Unlicense OR MIT |
+| jiff-core | 0.1.2 | Unlicense OR MIT |
+| jiff-static | 0.2.39 | Unlicense OR MIT |
 | jiff-tzdb | 0.1.9 | Unlicense OR MIT |
 | jiff-tzdb-platform | 0.1.3 | Unlicense OR MIT |
 | jni | 0.21.1 | MIT/Apache-2.0 |
 | jni-sys | 0.3.1 | MIT OR Apache-2.0 |
 | jni-sys | 0.4.1 | MIT OR Apache-2.0 |
 | jni-sys-macros | 0.4.1 | MIT OR Apache-2.0 |
-| js-sys | 0.3.106 | MIT OR Apache-2.0 |
+| js-sys | 0.3.107 | MIT OR Apache-2.0 |
 | landlock | 0.4.7 | MIT OR Apache-2.0 |
 | lazy_static | 1.5.1 | MIT OR Apache-2.0 |
 | libc | 0.2.191 | MIT OR Apache-2.0 |
@@ -147,7 +147,7 @@ and does not identify which crates are included in a particular binary.
 | litemap | 0.8.3 | Unicode-3.0 |
 | litrs | 1.0.1 | MIT OR Apache-2.0 |
 | lock_api | 0.4.14 | MIT OR Apache-2.0 |
-| log | 0.4.34 | MIT OR Apache-2.0 |
+| log | 0.4.35 | MIT OR Apache-2.0 |
 | mach2 | 0.5.0 | BSD-2-Clause OR MIT OR Apache-2.0 |
 | matchers | 0.2.0 | MIT |
 | matchit | 0.7.3 | MIT AND BSD-3-Clause |
@@ -238,7 +238,7 @@ and does not identify which crates are included in a particular binary.
 | sha1 | 0.10.7 | MIT OR Apache-2.0 |
 | sharded-slab | 0.1.7 | MIT |
 | shlex | 2.0.1 | MIT OR Apache-2.0 |
-| signal-hook | 0.4.5 | MIT OR Apache-2.0 |
+| signal-hook | 0.4.6 | MIT OR Apache-2.0 |
 | signal-hook-registry | 1.4.8 | MIT OR Apache-2.0 |
 | simd-adler32 | 0.3.10 | MIT |
 | simdutf8 | 0.1.5 | MIT OR Apache-2.0 |
@@ -291,27 +291,28 @@ and does not identify which crates are included in a particular binary.
 | tungstenite | 0.24.0 | MIT OR Apache-2.0 |
 | typenum | 1.20.1 | MIT OR Apache-2.0 |
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
-| unicode-width | 0.2.2 | MIT OR Apache-2.0 |
+| unicode-width | 0.2.3 | MIT OR Apache-2.0 |
 | untrusted | 0.9.0 | ISC |
 | ureq | 3.5.0 | MIT OR Apache-2.0 |
 | ureq-proto | 0.6.5 | MIT OR Apache-2.0 |
 | url | 2.5.8 | MIT OR Apache-2.0 |
 | utf-8 | 0.7.6 | MIT OR Apache-2.0 |
 | utf8-zero | 0.8.1 | MIT OR Apache-2.0 |
-| utf8_iter | 1.0.4 | Apache-2.0 OR MIT |
+| utf8_iter | 1.1.0 | Apache-2.0 OR MIT |
 | utf8parse | 0.2.2 | Apache-2.0 OR MIT |
+| utf_types | 1.0.0 | Apache-2.0 OR MIT |
 | uuid | 1.29.0 | Apache-2.0 OR MIT |
 | valuable | 0.1.1 | MIT |
 | version_check | 0.9.5 | MIT/Apache-2.0 |
 | vte | 0.15.0 | Apache-2.0 OR MIT |
 | walkdir | 2.5.0 | Unlicense/MIT |
 | wasi | 0.11.1+wasi-snapshot-preview1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
-| wasm-bindgen | 0.2.129 | MIT OR Apache-2.0 |
-| wasm-bindgen-futures | 0.4.79 | MIT OR Apache-2.0 |
-| wasm-bindgen-macro | 0.2.129 | MIT OR Apache-2.0 |
-| wasm-bindgen-macro-support | 0.2.129 | MIT OR Apache-2.0 |
-| wasm-bindgen-shared | 0.2.129 | MIT OR Apache-2.0 |
-| web-sys | 0.3.106 | MIT OR Apache-2.0 |
+| wasm-bindgen | 0.2.130 | MIT OR Apache-2.0 |
+| wasm-bindgen-futures | 0.4.80 | MIT OR Apache-2.0 |
+| wasm-bindgen-macro | 0.2.130 | MIT OR Apache-2.0 |
+| wasm-bindgen-macro-support | 0.2.130 | MIT OR Apache-2.0 |
+| wasm-bindgen-shared | 0.2.130 | MIT OR Apache-2.0 |
+| web-sys | 0.3.107 | MIT OR Apache-2.0 |
 | webpki-roots | 1.0.11 | CDLA-Permissive-2.0 |
 | weezl | 0.1.12 | MIT OR Apache-2.0 |
 | winapi-util | 0.1.11 | Unlicense OR MIT |

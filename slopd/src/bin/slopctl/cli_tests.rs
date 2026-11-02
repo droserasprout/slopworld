@@ -200,10 +200,10 @@ fn injected_project_defaults_all_project_options_and_explicit_flags_win() {
             "{input}"
         );
         assert_eq!(parse_project("", Some("")), parse_project("", None));
-        assert!(parse_project(" --project --", Some("injected")).is_err());
+        parse_project(" --project --", Some("injected")).unwrap_err();
         if !input.starts_with("template") {
             assert!(parse_project("", None).is_err(), "{input}");
-            assert!(parse_project(" --project=", Some("injected")).is_err());
+            parse_project(" --project=", Some("injected")).unwrap_err();
         }
     }
 }

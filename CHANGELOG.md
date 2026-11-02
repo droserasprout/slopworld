@@ -12,17 +12,32 @@ Expect any imaginable incompatibilities until 0.1.0.
 
 ### Added
 
-- CLI: Added `task followup` to send additional instructions to running workers.
-- Planner: Added a todo.txt backlog with AI summaries, planning, and worker dispatch.
+- CLI: Added `slopctl task cancel` to cancel tasks without stopping workers.
+- CLI: Added `slopctl task followup` to send additional instructions to running workers.
+- Library: Added Timers to send prompts, spawn workers, or run shell scripts on calendar/delay/interval schedules.
+- Planner: Added a todo.txt backlog for planning and worker dispatch.
+- Settings: Added time zone selection under Locale.
 - Workers: Added custom names in the spawn dialog and `slopctl worker spawn --name`.
-- Workers: Added per-agent delegation policies and separate follow-up, cancellation, terminal, and lifecycle permissions.
-  
+- Workers: Added per-agent delegation policies and permissions.
+
 ### Fixed
 
+- Agents: Skip auto-resume when conversation history is empty.
 - Agents: Provide self-scoped daemon credentials for each launch.
 - Agents: Wait for the Codex composer before submitting startup prompts.
-- Terminal: Fix semicolon recovery for non-US keyboard layouts
+- CLI: Use `SLOPWORLD_PROJECT` when `--project` is omitted.
+- Git: Stop polling directories confirmed to be outside a repository.
+- Sandbox: Fixed Android preset NDK paths and environment.
+- Terminal: Fixed regression in pasting local image file URIs into Codex.
+- Terminal: Fixed semicolon recovery for non-US keyboard layouts.
 - Workers: Keep workers without a visible parent in their project group.
+- Workers: Prevent Codex folder trust prompts from blocking startup.
+
+### Changed
+
+- Game: Expanded map zoom limits and added a backdrop.
+- Library: Merged Breadcrumbs into Prompts.
+- Settings: Lowered default game volume.
 
 ## [0.0.12] - 2026-10-27
 
