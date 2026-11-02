@@ -11,14 +11,12 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static partial class Patch_LoadingTips
     {
-        const float WordsPerSecond = 60f;
+        const float WordsPerSecond = 75f;
         const int MaxWordsPerFrame = 48;
 
-        // Text sits inside a full-height panel. Keep the width narrow enough to read as a
-        // terminal instead of turning the loading screen into a wall of tiny type.
-        const float WidthRatio = 0.45f;
-        const float MaxWidth = 540f;
-        const float MinWidth = 280f;
+        // Keep the stream in the dark area beside the planet in the final background
+        // frames, independent of resolution and UI scale.
+        const float WidthRatio = 0.38f;
         internal const float LoadingSideMargin = 0f;
         const int LoadingFontBump = 10;
 
@@ -137,8 +135,7 @@ namespace SlopWorld
             _measuredFontSize = fontSize;
             Generation++;
 
-            float w = Mathf.Min(MaxWidth, Mathf.Max(MinWidth, width * WidthRatio));
-            w = Mathf.Min(w, Mathf.Max(120f, width - 40f));
+            float w = Mathf.Max(1f, width * WidthRatio);
             float h = Mathf.Max(1f, height);
             float textHeight = Mathf.Max(1f, h - Margin.y * 2f);
             float lineHeight = fontSize * GlyphScale * GlyphLineHeight / GlyphSource;
@@ -399,18 +396,25 @@ namespace SlopWorld
             }
 
             float now = Time.realtimeSinceStartup;
+            // The baseline targets filling the panel during a typical load at 2x scale.
+            // Account for both dimensions of the text area:
+            // halving UI scale fits roughly four times as many words on the same display.
+            float scaleRatio = 2f / Mathf.Max(0.5f, Prefs.UIScale);
+            float capacityRatio = scaleRatio * scaleRatio;
+            int frameLimit = Mathf.Max(1, Mathf.CeilToInt(MaxWordsPerFrame * capacityRatio));
             if (_lastAdvancedAt < 0f)
             {
                 _lastAdvancedAt = now;
-                _wordBudget = MaxWordsPerFrame;
+                _wordBudget = frameLimit;
             }
             else
             {
-                _wordBudget += Mathf.Max(0f, now - _lastAdvancedAt) * WordsPerSecond;
+                _wordBudget +=
+                    Mathf.Max(0f, now - _lastAdvancedAt) * WordsPerSecond * capacityRatio;
                 _lastAdvancedAt = now;
             }
 
-            int count = Mathf.Min(MaxWordsPerFrame, Mathf.FloorToInt(_wordBudget));
+            int count = Mathf.Min(frameLimit, Mathf.FloorToInt(_wordBudget));
             if (count <= 0)
                 return;
             _wordBudget -= count;

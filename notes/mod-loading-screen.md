@@ -3,6 +3,11 @@
 `Patches/LoadingScreen/` owns tip streaming and vanilla drawing suppression. It uses
 the committed ASCII atlas and terminal font preference. Measure before reading
 geometry, and reflow retained text on resize even when no words are due.
+The full-height stream occupies the rightmost 38% of the screen, fitting the final
+background frames' black area with space beside the planet. Keep its width
+proportional rather than capped in UI units so UI scale does not change its coverage.
+Streaming uses 75 words per second at 2x UI scale; the rate and per-frame allowance
+scale with inverse UI scale squared to account for the larger text capacity at lower scales.
 
 Tip selection must not consume gameplay RNG because it runs during map generation.
 `LoadingTipSelection` owns fit ranking and recent history; the stream owns geometry
