@@ -2,7 +2,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The daemon owns the shared prompt delivered to new workers.
     public sealed class WorkersPage : DaemonConfigPage
     {
         readonly UiAreaResize _promptResize = new UiAreaResize(180f);

@@ -12,12 +12,9 @@ fitting and fades. Offset blending reduces grid lines without dimming the frame 
 [Eco](mod-eco.md) consumes those layers rather than owning a second baker.
 
 `EcoBackdrop` projects GUI offsets into world space and owns materials/matrices.
-It draws beneath the current map in ordinary play as well as Eco, using the same
-animation and Eco dimming. Vanilla grey map-edge clippers are suppressed so exposed
-space outside the terrain shows this backdrop.
-`Patches/Chrome/MapZoomRange` expands map camera limits at configuration creation:
-the minimum size is divided by 1.5 and the maximum multiplied by 1.5. Default zoom
-and input sensitivity stay with the game's camera configuration.
+It also draws outside the map during ordinary play, replacing vanilla map-edge clippers.
+`Patches/Chrome/MapZoomRange` owns expanded zoom limits; default zoom and input
+sensitivity remain with the game.
 Geometry depends on map/view/texture dimensions, not animation-frame identity. Hold
 map identity weakly. Draw an opaque black base beneath shifted layers, including
 beneath terminals: input can close a terminal after world draws have queued.

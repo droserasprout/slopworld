@@ -5,9 +5,8 @@
 gates without owning phases. Restore unfinished intro gates before Eco decides to
 pause ticks. Arrivals place directly when skyfall fails or Eco rests. Menu landing
 and New colony queue `QuickStart` before setup pages enter the window stack.
-Departure fades to black over the final wave and settling phase (3.2 seconds).
-The old game's component holds the fade until its loading handoff; fade state is
-not carried into the new colony.
+The departing game's component holds its fade through the loading handoff;
+the new colony starts clear.
 `Patches/Chrome/NextPlanetFade` draws after the root GUI pass so pawn labels fade
 with the map, and yields to long-event loading screens.
 
@@ -20,9 +19,8 @@ to existing colonies. Its map click and top-bar building icon open Planner.
 Settings opens from the top-bar gear and has no map object. `SettingsHeater` and
 its ThingDef remain only for save compatibility; load cleanup removes landed and
 pending heaters.
-`ArrivalDrops` spreads workspace pods within five cells of the arrival anchor, preferring
-four-cell separation from each other and landed workspace objects. Constrained terrain
-relaxes spacing, with vanilla placement as the fallback when no nearby cell is valid.
+`ArrivalDrops` owns workspace pod spacing and falls back to vanilla placement on
+constrained terrain.
 `Pets` sends the starting cat in a separate pod at the same arrival boundary.
 It removes remaining colony animals before delivery. The saved intro phase prevents
 repeated delivery after saving and loading a pending pod.

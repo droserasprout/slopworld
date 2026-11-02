@@ -28,8 +28,7 @@ namespace SlopWorld
 
             public void Accept(Wire.PlannerDescription value, bool reading)
             {
-                // Reload rebases a local draft onto the latest accepted revision. Clean
-                // drafts follow remote text; dirty drafts remain available for save/discard.
+                // Reload preserves dirty text but updates the revision for save/discard.
                 if (!reading || !Dirty)
                     Text = value.Text;
                 Saved = value.Text;
@@ -109,8 +108,7 @@ namespace SlopWorld
                 Failed(generation, "Description is still loading. Try saving again.");
                 return;
             }
-            // Closing the view permits settlement, but another endpoint must never
-            // receive a continuation containing this endpoint's private draft.
+            // Never send remaining drafts to a different endpoint.
             if (_endpoint != DaemonClient.BaseUrl)
             {
                 Failed(

@@ -56,15 +56,13 @@ checkboxes control additional permissions:
 - **Type in terminal** (disabled by default).
 - **Stop or restart workers** (disabled by default).
 
-Each permission can be enabled without enabling the others. A child's delegation
-policy cannot exceed its parent's permissions or allowed template selection.
+A child's delegation policy cannot exceed its parent's permissions or allowed templates.
 
 Change an existing relationship in the child worker's **Workers** tab, which shows
-**What [parent] can do** and its captured permissions. Parent policy edits affect future workers
-only. Relationships follow stable identities through renames and never attach to a
-replacement with the same name. Legacy workers without a captured parent identity
-must be replaced by a newly spawned worker before relationship access can be edited.
-Manual grants remain independent; host access remains root-only.
+**What [parent] can do**. Parent policy edits affect future workers only. Renaming preserves
+the relationship; replacing an agent with the same name does not. Workers created without
+a saved parent identity must be replaced before relationship access can be edited.
+Manual grants are separate; host access remains root-only.
 
 A parent with **Send follow-ups** enabled can send `slopctl task followup --id ID "Check the tests"`
 to wake a running interactive worker. The daemon waits for readiness and records the

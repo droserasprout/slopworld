@@ -15,8 +15,8 @@ right-click the entry and select **Run**. A temporary agent terminal opens with
 that prompt. Read its response there. Set **Where it runs** to **Ask me every time**
 to reuse one entry across projects.
 
-Prompts can also use **Run using > Reusable text only**. These are editable text definitions
-for the terminal Prompts menu, Timers and agent startup, without a temporary-agent Run action.
+Choose **Run using > Reusable text only** for prompts used by terminals, Timers, or
+agent startup without an errand's **Run** action.
 
 ## Shell errands
 
@@ -94,10 +94,10 @@ targets are skipped. Missed occurrences are not replayed after downtime. Multipl
 for the same agent can submit at most one prompt per minute. Prompt edits affect the next
 occurrence; Timers do not copy text. A missing Prompt or target withholds delivery.
 
-Named agents are bound by stable identity: renaming preserves the target, deleting and
-recreating an agent with the same name does not. Timer details show the last
-attempt, its outcome and the next scheduled occurrence in UTC. A recorded submission
-means queued terminal input, not agent acceptance. An interrupted claim is not retried.
+Renaming an agent preserves its Timers; deleting and recreating it with the same name
+does not. Timer details show the last attempt, its outcome, and the next occurrence in UTC.
+Submission means the input was queued, not accepted by the agent. Interrupted attempts
+are not retried.
 
 Edit a supplied Library item to create a personal override. Deleting that override restores
 the supplied default. To pause a supplied Timer, disable it instead of deleting its override.

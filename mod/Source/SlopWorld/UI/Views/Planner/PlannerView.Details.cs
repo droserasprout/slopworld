@@ -48,8 +48,7 @@ namespace SlopWorld
 
         void DrawTaskFields(Listing_Standard l)
         {
-            // Controls are named by stable task identity so delayed text input cannot target
-            // a different task after selecting a new row.
+            // Stable control names keep delayed input from reaching another task.
             string key = "planner.task." + _selected.Key;
             _draft.Title = UiControls.Area(l, 76f, key + ".title", _draft.Title, on: Ready);
             l.Gap(UiTheme.GapS);

@@ -25,11 +25,9 @@ from a successful tmux listing, including one-shot workers without saved session
 Listing or persistence failure aborts startup for retry; ordinary configuration
 reconciliation must not run this check while a worker is being registered.
 
-Worker names are allocated under the registration guard before task creation. Automatic
-names use the project for host-owned workers and the caller for agent-owned workers,
-with numeric suffixes across live sessions, saved agents, and host tabs. An optional
-custom name must be valid and unused; collisions fail rather than changing it.
-Names do not determine project membership or parent authority.
+Worker names are reserved across live sessions, saved agents, and host tabs under the
+registration guard, before task creation. Names confer neither project membership nor
+parent authority. Naming options belong to [slopctl](../docs/src/reference/slopctl.md).
 
 Workers are durable by default; one-shot workers disappear on exit. Neither autostarts
 nor auto-resumes, and parent deletion does not cascade. Checkout lifetime is
@@ -69,12 +67,10 @@ clients cannot indefinitely block lifecycle changes or revocation.
 The root-only relationship editor persists durable workers through configuration and
 one-shot workers through their credential-free tmux snapshot. Edits compare the
 worker task ID so a stale editor cannot modify a replacement with the same name.
-`application/worker_tasks.rs` owns follow-up and cancellation authorization, destination
-planning, and follow-up audit coordination. HTTP maps operation failures to responses;
-session supplies live identity and delivery, and the task store owns mutation policy. Follow-ups
-prepare a run-bound destination under session admission, then wait for readiness without
-the boundary. Commit revalidates credentials, participation, cancellation, relationship
-permissions, and run identity. An owned exclusive boundary spans audit and submission;
-lost readiness fails without waiting under admission. Delivery rejects shells, requires agent
-readiness, and rechecks foreground command before queued paste and Enter. Submission
-is recorded in task history without claiming acceptance or changing the task result.
+`application/worker_tasks.rs` owns follow-up and cancellation authorization and follow-up
+auditing. Session owns identity and delivery; the task store owns mutation policy. Follow-ups prepare
+under session admission, wait for readiness outside it, then revalidate authority, task
+state, and run identity. Exclusive admission spans audit and submission; lost readiness
+fails without another wait. Delivery rechecks the foreground command before paste and
+Enter to avoid sending input to a shell after agent exit. History records submission,
+not acceptance, without changing the task result.

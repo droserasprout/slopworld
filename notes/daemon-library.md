@@ -13,11 +13,9 @@ Validation precedes allocation. File-action scope belongs to
 `application/file_actions.rs`; planning must not allocate sessions.
 
 Editing supplied entries creates user overrides; deleting one reveals the supplied entry.
-Runnable items require an explicit host or template choice. Prompts without one are
-reusable text for startup and Timers. File actions execute on
-the daemon host through `files/actions/`, independently of agent prompts.
-All Prompts are available in the terminal Prompts menu, startup, and Timers.
-Execution settings optionally enable errands; text-only Prompts need no project.
+All Prompts supply reusable text; errands additionally require a host or template.
+Text-only Prompts need no project. File actions execute on the daemon host through
+`files/actions/`.
 `config/library.rs` owns the directory classification shared by catalog discovery and
 storage target admission, including Timers. Catalog discovery also reads legacy
 `breadcrumbs/` entries as Prompts and watches their revisions. The next Library
@@ -32,10 +30,8 @@ Manual insertion does not submit; launch callers compose errand/worker prompts b
 before delivery; timeout withholds input. Temporary errands disappear on stop/exit
 and clean private state. Reader handles are opaque and reserved against configured
 and live names under the session boundary. Labels and intent are separate metadata.
-Codex startup delivery also requires a visible cursor on its composer row: startup
-banners can enable bracketed paste before the composer accepts input. Readiness is
-checked again at admission; successful terminal submission is not a task acceptance
-acknowledgement.
+Delivery rechecks readiness at admission. Codex startup banners can enable bracketed
+paste before accepting input, so delivery also requires a cursor on the composer row.
 [Saved host tabs](daemon-host-terminals.md) have a different persistence contract.
 
 [Configuration stores](daemon-config-stores.md) owns revision checks and recovery.
@@ -51,6 +47,4 @@ durable agent target. Claims precede input, missed ticks do not accumulate, and 
 submissions are not replayed. Session admission freezes catalog and lifecycle identity
 through claims; `session/delivery.rs` rechecks idle/readiness and uses guarded agent input.
 Timer status is a read-only projection, not persisted Library configuration.
-Invalid schedules introduced by disk edits are logged and skipped independently so
-they cannot block other Timers. Stepped calendar wildcards retain cron's wildcard
-day-matching semantics.
+Invalid schedules from disk edits are logged and skipped without blocking other Timers.

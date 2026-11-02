@@ -4,7 +4,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Places workspace arrival pods across nearby ground, rather than clustering at one cell.
     // Callers retain cargo identity across delivery and save/load.
     internal static class ArrivalDrops
     {

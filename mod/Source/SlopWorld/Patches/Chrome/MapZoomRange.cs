@@ -3,8 +3,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Expand each newly created map camera configuration once. Keep its default zoom
-    // and input sensitivity; only the near and far limits change.
     [HarmonyPatch(typeof(CameraMapConfig), MethodType.Constructor)]
     internal static class Patch_MapZoomRange
     {

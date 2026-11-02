@@ -2,7 +2,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Independent permissions for portable policy and existing relationships.
     static class WorkerPermissionFields
     {
         public static void Draw(

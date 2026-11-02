@@ -2,16 +2,15 @@
 
 `tasks/service.rs` owns policy and participant authority; `tasks/io.rs` owns serialized
 persistence and accepted state. Session/API adapters resolve callers. Sandboxes use
-APIs, never task files. Arrival does not wake an agent, and reads do not consume tasks. Explicit worker
-follow-ups use the worker delivery path, with audit notes that preserve task status.
+APIs, never task files. Arrival does not wake an agent, and reads do not consume tasks.
+Explicit follow-ups use [worker delivery](daemon-workers.md) without changing task status.
 
 Authority follows stable session IDs: rename preserves it, replacement under the same
 name does not. It is separate from [terminal grants](agent-grants.md). Participants
 can remove terminal tasks; root can remove unfinished work. Removal deletes the
 shared record and history for both sides. IDs remain reserved until daemon exit.
-Root requests using the host identity can read any individual Task, matching the
-operator's all-Tasks list. Scoped callers and root requests acting as an agent retain
-participant visibility; this read policy does not change mutation authority.
+Root acting as host can read all tasks. Scoped callers and root acting as an agent
+can read only participating tasks. Mutation authority is separate.
 
 Application and runtime share one store. Its I/O worker retains the authorization
 lease through disk writes and publication after requester cancellation. Failed writes
@@ -42,44 +41,23 @@ Only root may read or mutate the Planner API. Agents update existing Tasks, whos
 is projected on links independently of Planner completion.
 See [Planner](../docs/src/customization/settings.md#planner).
 
-The Planner's `TodoText` projection owns task-field edits, completion dates, filtering,
-and sorting. It retains unrelated line content and opaque metadata; source mode is the
-explicit escape hatch for raw edits. Planner navigation exposes projects and contexts;
-quick-add parses inline `+project` and `@context` tags and merges them with the selected
-filters without duplicates.
-The view acquires a TaskStore reader demand for
-worker progress and releases it on close. Drafts and asynchronous callbacks are scoped
-to the endpoint; task selection retires text-field lifetimes. In-flight requests belong
-to the cached endpoint draft and settle even when the view closes. Window navigation
-has a separate lifetime, so a late task-reader response cannot reopen a closed view.
-Both read and save replies project live worker links and status without rewriting the document.
+`TodoText` owns field edits and preserves unrelated text and metadata. The view holds
+TaskStore polling demand while open. Drafts and requests belong to the endpoint and
+stable task ID; replies settle after selection changes or closure. Navigation has a
+separate lifetime so late replies cannot reopen a closed view.
 
-Planner links live in `planner/links/<sw-id>.json` under the daemon data root, with
-independent revision checks. Stored links contain typed association identities and fallback
-labels; task status is projected from the Task store and never persisted with the links.
-An explicit empty list suppresses inferred `sw-task:` and
-worker-body associations. Worker links store private state IDs; client navigation resolves
-the current session by ID. Removing links never mutates Tasks or worker processes.
-Planner worker spawning commits both links after Task creation and before registration/
-startup, under the owned session boundary, so failed startup remains inspectable.
+Links have independent revisions and store identities and fallback labels, never live
+status. An explicit empty list suppresses inferred associations. Worker navigation uses
+private state IDs. Removing a link leaves its Task or worker intact. Spawn ordering
+belongs to [workers](daemon-workers.md).
 
-Planner Markdown descriptions live under the daemon data root in
-`planner/descriptions/<sw-id>.md`. The description store validates saved task membership
-under the backlog gate and checks its own content revision. Task edits/completion preserve
-sidecars; deletion retains them for recovery. Description drafts and in-flight replies
-belong to endpoint/task identity, independently of selection. Planner Save writes the
-backlog and then dirty descriptions, retaining failed drafts and accepted revisions
-for retry. Reload description retries failed reads and adopts remote text for clean drafts;
-for dirty drafts it preserves local text while updating the accepted text and revision
-used by Save or Discard. Description request state owns these transitions independently
-of rendering. Discard restores both from their last accepted values. Refresh retains
-visible rows and field state when task text is unchanged, while updating link metadata.
-A chained save stops before sending another description if the current endpoint changes;
-accepted replies still settle their captured drafts. Backlog saves reject removing rows
-with dirty descriptions, preserving recoverable drafts. Imported rows without stable IDs
-offer Save tasks even before content edits, so the daemon can assign their identities.
-Background refresh leaves controls enabled; replies cannot overwrite edits made while
-the request was pending or supersede a newer save.
+Description writes check saved task membership under the backlog gate and compare
+content revisions. Deletion retains descriptions for recovery. Save writes the backlog
+before dirty descriptions; partial failures retain drafts and accepted revisions for
+retry. An endpoint switch stops further writes but lets accepted replies settle.
+Backlog saves cannot remove rows with dirty descriptions. Refresh must preserve pending
+edits and cannot supersede a newer save. UI procedures and storage paths belong to the
+[Planner guide](../docs/src/customization/settings.md#planner).
 
 Supervised cancellation carries a checked selection into the task store. It applies
 only to the sender's worker tasks and may cancel working tasks; ordinary recipient

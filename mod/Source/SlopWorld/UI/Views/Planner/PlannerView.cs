@@ -165,8 +165,7 @@ namespace SlopWorld
 
         void Accept(Wire.PlannerDocument document, bool discard = false)
         {
-            // A refresh can change link metadata without changing the todo text.
-            // Keep the existing rows, field lifetime and selection until text changes.
+            // Link-only refreshes must preserve rows, selection, and field lifetime.
             bool rebuild = _document == null || _text != document.Text || discard;
             _document = document;
             _text = document.Text;
@@ -179,8 +178,7 @@ namespace SlopWorld
         {
             if (_busy)
                 return;
-            // Only the initial load needs a loading presentation. Refreshing an existing
-            // document must not disable/repaint its fields or replace its status text.
+            // Background refresh must leave editing enabled.
             bool initial = _document == null;
             int generation = initial ? Begin() : ++_generation;
             DaemonClient.Get<Wire.PlannerDocument>(
@@ -189,8 +187,7 @@ namespace SlopWorld
                 {
                     if (!Current(generation))
                         return;
-                    // Editing remains available during refresh. Keep local drafts and their
-                    // original revision so a subsequent save still detects external changes.
+                    // Keep edits made during refresh and their revision for conflict detection.
                     if (!initial && Dirty)
                         return;
                     _error = null;

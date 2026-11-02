@@ -69,9 +69,8 @@ DNS, limit, or mount changes.
 
 **Auto-resume last conversation** applies only to a fresh process. A daemon restart
 that adopts an existing terminal does not submit the resume command again. Codex, Claude,
-and Pi resume only when nonempty transcripts exist in their private state. Empty or deleted
-history starts fresh; unrecognized commands also start fresh. A stalled resume has a bounded
-wait, dismisses its picker, releases input, and logs a diagnostic.
+and Pi resume only when their private state contains a nonempty transcript. Other commands
+start fresh. If resume times out, the daemon dismisses the picker and logs a warning.
 
 ## Private state
 

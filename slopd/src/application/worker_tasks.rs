@@ -41,9 +41,7 @@ pub(crate) fn principal(
                 format!("Set the {SESSION_HEADER} header for this root task request."),
             )
         })?;
-    // The root token represents the user at the keyboard.
-    // A grant uses its grantor's session name as the caller identity.
-    // A session named `host` cannot use the host identity through a grant.
+    // A session named `host` must not acquire host authority through a grant.
     if who == crate::tasks::HOST && !cap.may_create() {
         return Err(err(
             Failure::Forbidden,

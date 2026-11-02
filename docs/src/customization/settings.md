@@ -106,81 +106,56 @@ reset private state, restore trash, or delete unused state. See
 
 ## Workers
 
-Open **Settings > Agents > Workers** to customize the shared initial worker prompt.
+Open **Settings > Agents > Workers** to edit and save the initial worker prompt.
+Changes apply to new workers.
 
-Use **Edit agent > Workers** to enable delegation, choose allowed templates, and set
-independent follow-up, task cancellation, terminal input, and stop/restart permissions
-for future workers. Delegation and further delegation are disabled by default.
-Templates retain these settings; child workers inherit restrictions from their parent
-and template. Existing relationship access is edited separately on the child worker's
-Workers tab.
-
-Edit the initial worker prompt in Settings, then save. New workers receive
-that prompt; existing workers keep their saved settings. See
-[Agent collaboration](../agents/agent-collaboration.md) for delegation and reporting.
+Configure delegation, allowed templates, and parent permissions in **Edit agent > Workers**.
+See [Agent collaboration](../agents/agent-collaboration.md#parent-worker-access).
 
 ## Planner
 
-The chess table button beside Settings on the right of the status bar opens **Planner**.
-You can also click the Planner chess table on the map; it arrives in its own drop pod.
+Open **Planner** with the chess table button beside Settings or the chess table on the map.
 Use **Add a task** for quick entry, check a task to complete it, and select a row to
 edit its title, priority, due date, projects, or contexts. Quick-add and checkboxes save
-immediately; the details pane has **Save changes** and **Discard edits**. Delete removes
-only the TODO entry, keeping any linked worker task.
+immediately. The details pane uses **Save changes** and **Discard edits**.
 
-Use the Markdown field directly beneath the task title for long notes, checklists, and code blocks.
-**Save changes** saves the task and all edited descriptions. **Discard** restores both
-to their last saved values. Failed description saves retain their drafts for retry.
-**Preview** renders the current
-draft. **Reload description** reads external edits. On a conflict, copy your draft before
-discarding edits and reloading. Description drafts survive task and view changes within
-the mod session; save before quitting.
+The list filters by date, completion, project (`+project`), and context (`@context`).
+Search matches titles, projects, and contexts; sort by due date, priority, or title.
+The **Projects** dropdown accepts multiple TODO or configured projects. Smaller windows
+use filter menus and open details separately. Due dates and recurrence metadata do not
+schedule work.
 
-Descriptions are limited to 1 MiB and stored as
-`planner/descriptions/<sw-id>.md` beneath the daemon data root, alongside `TODO.txt`.
-The task line stays ordinary todo.txt with its existing `sw-id:`. Renaming, moving, or
-completing a task preserves its description. Deleting a task retains the Markdown file;
-restoring the same `sw-id:` reconnects it. Copying a task line requires a new ID and does
-not copy its separate description file.
+Use the Markdown field beneath the title for notes, checklists, and code blocks.
+**Preview** renders the draft. **Save changes** saves the task and all edited descriptions;
+failed saves retain drafts for retry. **Discard** restores the last saved values.
+Drafts survive task and view changes within the mod session; save before quitting.
 
-Close task details with the cross button; unsaved edits remain when you reopen the task. The **Projects** dropdown
-lets you check multiple existing TODO projects or configured projects.
+**Tasks | Raw** switches between the task list and its underlying
+[todo.txt text](https://github.com/todotxt/todo.txt). Field edits preserve unknown metadata.
+**Refresh** reloads external TODO edits and links; **Reload description** reads external
+Markdown edits. On a conflict, copy the affected draft before discarding and reloading.
 
-The list offers My tasks, Today (including overdue), Upcoming, Overdue, Completed, and
-All tasks. Search matches titles, projects, and contexts. Sort by due date, priority,
-or title. Projects (`+project`) and contexts (`@context`) appear on the left; smaller windows use filter menus and open
-task details separately. Worker status and the latest progress note update while Planner
-is open.
+**Links** lists associated Tasks and Workers, with live status and progress. Click a
+Task to open its details or a Worker to focus its terminal. **Link Task…** and
+**Link Worker…** attach existing items; **Remove** detaches them without deleting,
+canceling, or stopping them. Worker outcomes do not change the Planner checkbox.
 
-The daemon stores `TODO.txt` in its application data directory (normally
-`~/.local/share/slopworld/`). The **Tasks | Raw** switcher opens the task list or underlying
-[todo.txt text](https://github.com/todotxt/todo.txt) for advanced editing. Unknown metadata
-and worker links survive task-field edits. Drafts survive view changes within the mod
-session; save before quitting. External changes cause a save conflict: copy your draft
-from Raw before discarding it and refreshing.
+Save edits before choosing **Spawn worker…**. Select a project, then use the worker
+dialog, prefilled with the task title and saved description. Spawning links the new
+Task and Worker even if startup fails. You can remove old links and spawn another worker.
+To cancel an unfinished task, open its link and choose **Cancel**. Cancellation prevents
+further task updates but leaves the worker process running.
 
-**Links** in task details lists associated Tasks and Workers. Click a Task link to open
-its details or a Worker link to focus its terminal. **Link Task…** and **Link Worker…**
-attach existing items. Each link has **Remove**; this only removes the association and
-never deletes, cancels, or stops the linked item. Removed links stay removed after refresh.
-Task outcomes such as Failed belong to the linked Task, while the Planner checkbox
-controls whether the backlog item is complete.
+The daemon stores `TODO.txt` (up to 64 KiB) in its data directory, normally
+`~/.local/share/slopworld/`. Saving assigns each task a stable `sw-id:`; preserve it and
+any `sw-task:` metadata when editing Raw. Agents report through Tasks and cannot edit
+the backlog through the Planner API.
 
-**Spawn worker…** lets you choose a project and opens the worker dialog with the task
-title and saved Markdown description. Spawning links both the new Task and Worker,
-including when worker startup fails. You can remove old links and spawn another attempt.
-Save task and description edits before spawning. Links are stored separately at
-`planner/links/<sw-id>.json` under the daemon data root.
-
-**Refresh** reloads external TODO edits and links. Due dates and recurrence metadata organize the backlog; they do not
-schedule work. Documents are limited to 64 KiB.
-
-Saving adds a stable `sw-id:` to each task. Preserve this and any existing `sw-task:`
-metadata. Agents report status through Tasks and cannot edit the Planner document through
-its API. Worker completion does not automatically mark the user's line with `x`.
-To cancel an unfinished linked worker task, click its Task link and choose **Cancel**.
-Cancellation prevents further task updates; it does not stop the worker process or erase
-the TODO entry.
+Descriptions live in `planner/descriptions/<sw-id>.md` (up to 1 MiB each); links live in
+`planner/links/<sw-id>.json`. Renaming, moving, or completing a task preserves its description.
+Deleting a TODO entry keeps its description and linked worker task. Restoring the same
+`sw-id:` reconnects the description; copying a task requires a new ID and does not copy
+its description.
 
 ## Configuration file
 

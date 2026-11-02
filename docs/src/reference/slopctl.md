@@ -78,7 +78,7 @@ Task statuses are `queued`, `accepted`, `working`, `done`, `failed`, or `cancele
 A task is terminal when its status is `done`, `failed`, or `canceled`.
 
 Use `slopctl task list` to find work.
-Use `slopctl task followup --id ID "message"` to submit an explicit follow-up to a
+Use `slopctl task followup --id ID "message"` to send a follow-up to a
 running interactive worker. The parent must have follow-up permission. The request
 and submission outcome appear in task history without changing its status. It does
 not start stopped workers or deliver to shells.
