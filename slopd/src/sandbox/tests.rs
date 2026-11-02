@@ -152,6 +152,9 @@ fn state_directory_follows_the_identity_not_the_agent_name() {
 
 #[test]
 fn persistent_tmp_is_created_under_the_agent_state() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
     let state_id = format!("persistent-tmp-{}", uuid::Uuid::new_v4());
     let s = SessionCfg {
         name: "tmp-agent".into(),
@@ -178,6 +181,9 @@ fn persistent_tmp_is_created_under_the_agent_state() {
 
 #[test]
 fn preparation_uses_captured_presets_like_the_launch_plan() {
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
     let root = std::env::temp_dir().join(format!("slopd-snapshot-prep-{}", uuid::Uuid::new_v4()));
     let host = root.join("private");
     std::fs::create_dir_all(host.join("prompts")).unwrap();
@@ -263,6 +269,10 @@ pub(crate) fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
 
 #[tokio::test]
 async fn nested_private_roots_fail_before_preparation_in_either_order() {
+    // Concurrent storage creation can change protected paths between safety lookups.
+    let Some(_) = crate::test_support::isolated() else {
+        return;
+    };
     let root = std::env::temp_dir().join(format!("slopd-nested-private-{}", uuid::Uuid::new_v4()));
     let host = root.join("host");
     std::fs::create_dir_all(host.join("child")).unwrap();

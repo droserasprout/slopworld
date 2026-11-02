@@ -321,7 +321,11 @@ pub(crate) fn normalize(path: &Path) -> Result<PathBuf> {
                 // must likewise never fall back to a lexical allow decision.
                 match std::fs::symlink_metadata(&probe) {
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Ok(_) => return Err(error).context("resolving existing safety path"),
+                    Ok(_) => {
+                        return Err(error).with_context(|| {
+                            format!("resolving existing safety path {}", probe.display())
+                        });
+                    }
                     Err(error) => return Err(error).context("looking up safety path"),
                 }
                 let name = probe
