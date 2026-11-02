@@ -3,6 +3,7 @@
 
 mod bind;
 pub(crate) mod cache;
+mod codex;
 mod host;
 pub(crate) mod images;
 mod network;
@@ -85,12 +86,15 @@ pub(crate) fn build_plan(
     let network = cfg.network_of(s, p);
     let dns = cfg.dns_of(s, p);
     let agent_shell = agent_shell_path(cfg)?;
-    let agent_argv = shell_split(&cfg.command_of(s))?;
+    let mut agent_argv = shell_split(&cfg.command_of(s))?;
     anyhow::ensure!(
         agent_argv.first().is_some_and(|arg| !arg.is_empty()),
         "agent command has no executable"
     );
     let dir = expand(&p.dir);
+    if s.worker {
+        codex::trust_workspace(&mut agent_argv, &dir);
+    }
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());

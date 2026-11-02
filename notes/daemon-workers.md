@@ -33,6 +33,9 @@ Workers are durable by default; one-shot workers disappear on exit. Neither auto
 nor auto-resumes, and parent deletion does not cascade. Checkout lifetime is
 [independent](daemon-worktrees.md). Configured prompts are delivered asynchronously
 through `session/delivery.rs`; timeout may withhold them.
+For direct Codex commands, `sandbox/codex.rs` supplies launch-only trust for the
+allocated project/worktree path so fresh private state does not block startup on
+the folder-trust dialog. Host configuration and template snapshots are not edited.
 
 Recovery rejects a name reassigned to another identity and revokes grants before
 adoption. Durable workers use saved configuration; one-shot workers use credential-free
