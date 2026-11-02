@@ -50,9 +50,10 @@ fn run() -> Result<(), StyledStr> {
         mode,
         endpoint: named_endpoint,
         json,
-    } = cli::parse(
+    } = cli::parse_with_project(
         std::env::args().skip(1).collect(),
         commands::task_id_from_env().as_deref(),
+        std::env::var("SLOPWORLD_PROJECT").ok().as_deref(),
     )?;
     let command = match command {
         Command::Help { usage } => {

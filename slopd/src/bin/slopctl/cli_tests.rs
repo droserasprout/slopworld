@@ -159,3 +159,67 @@ fn help_works_before_task_text_with_global_options() {
         assert!(matches!(parsed.command, Command::Help { .. }), "{input}");
     }
 }
+
+#[test]
+fn injected_project_defaults_all_project_options_and_explicit_flags_win() {
+    for input in [
+        "worker spawn --template review",
+        "agent create reviewer --template review",
+        "template list",
+        "template show review",
+        "worktree list",
+        "worktree create --name review",
+        "worktree rename tree --name review",
+        "worktree remove tree",
+    ] {
+        let suffix = if input.starts_with("worker") {
+            " inspect --project literal"
+        } else {
+            ""
+        };
+        let parse_project = |flags: &str, project| {
+            parse_with_project(
+                format!("{input}{flags}{suffix}")
+                    .split_whitespace()
+                    .map(str::to_owned)
+                    .collect(),
+                None,
+                project,
+            )
+            .map(|parsed| parsed.command)
+            .map_err(|error| error.to_string())
+        };
+        assert_eq!(
+            parse_project("", Some("my-repo")).unwrap(),
+            parse_project(" --project=my-repo", None).unwrap(),
+            "{input}"
+        );
+        assert_eq!(
+            parse_project(" --project=explicit", Some("injected")).unwrap(),
+            parse_project(" --project=explicit", None).unwrap(),
+            "{input}"
+        );
+        assert_eq!(parse_project("", Some("")), parse_project("", None));
+        assert!(parse_project(" --project --", Some("injected")).is_err());
+        if !input.starts_with("template") {
+            assert!(parse_project("", None).is_err(), "{input}");
+            assert!(parse_project(" --project=", Some("injected")).is_err());
+        }
+    }
+}
+
+#[test]
+fn injected_project_preserves_spaces() {
+    let parsed = parse_with_project(
+        vec!["worktree".into(), "list".into()],
+        None,
+        Some("my project"),
+    )
+    .unwrap();
+    assert_eq!(
+        parsed.command,
+        Command::Remote(RemoteCommand::Worktree(WorktreeArgs::List {
+            project: "my project".into(),
+        }))
+    );
+}

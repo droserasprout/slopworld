@@ -7,7 +7,7 @@ use super::commands::{
 use super::logs::{LogsArgs, LogsOptions};
 use super::shared::application_paths::{self, Mode};
 use clap::builder::StyledStr;
-use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
@@ -24,7 +24,7 @@ pub(crate) enum Command {
     styles = crate::cli_styles::styles(),
     about = "Delegate work and inspect SlopWorld diagnostics",
     version = env!("SLOPWORLD_VERSION"),
-    after_long_help = "Connection precedence: --endpoint, SLOPD_URL/SLOPD_TOKEN, SLOPD_ENDPOINT, local.\nManage peers with slopworld connect NAME [URL] and slopworld endpoints.\nSLOPWORLD_SESSION identifies the caller (default: host; requires the root token).\nSLOPWORLD_TASK_ID supplies the current task ID.\n\nKeep the task ID returned by task delegate or worker spawn, then run task wait ID.\nWait has no short timeout; do not poll task, inbox, or status while it waits."
+    after_long_help = "Connection precedence: --endpoint, SLOPD_URL/SLOPD_TOKEN, SLOPD_ENDPOINT, local.\nManage peers with slopworld connect NAME [URL] and slopworld endpoints.\nSLOPWORLD_SESSION identifies the caller (default: host; requires the root token).\nSLOPWORLD_PROJECT supplies the default for --project.\nSLOPWORLD_TASK_ID supplies the current task ID.\n\nKeep the task ID returned by task delegate or worker spawn, then run task wait ID.\nWait has no short timeout; do not poll task, inbox, or status while it waits."
 )]
 struct Cli {
     /// Print JSON instead of human-readable output
@@ -253,9 +253,36 @@ fn endpoint_name(value: &str) -> Result<String, String> {
     Ok(value.to_owned())
 }
 
+// Apply defaults to the schema before parsing so required project options accept the
+// injected project while explicit flags and trailing task text keep Clap semantics.
+fn with_project_default(mut command: clap::Command, project: &str) -> clap::Command {
+    if command.get_arguments().any(|arg| arg.get_id() == "project") {
+        command = command.mut_arg("project", |arg| {
+            arg.required(false).default_value(project.to_owned())
+        });
+    }
+    command.mut_subcommands(|child| with_project_default(child, project))
+}
+
+#[cfg(test)]
 pub(crate) fn parse(args: Vec<String>, task_id: Option<&str>) -> Result<Parsed, StyledStr> {
+    parse_with_project(args, task_id, None)
+}
+
+pub(crate) fn parse_with_project(
+    args: Vec<String>,
+    task_id: Option<&str>,
+    project: Option<&str>,
+) -> Result<Parsed, StyledStr> {
     let no_args = args.is_empty();
-    let cli = match Cli::try_parse_from(std::iter::once("slopctl".into()).chain(args)) {
+    let mut schema = Cli::command();
+    if let Some(project) = project.filter(|value| !value.is_empty()) {
+        schema = with_project_default(schema, project);
+    }
+    let cli = match schema
+        .try_get_matches_from(std::iter::once("slopctl".into()).chain(args))
+        .and_then(|matches| Cli::from_arg_matches(&matches))
+    {
         Ok(cli) => cli,
         Err(error)
             if !error.use_stderr()

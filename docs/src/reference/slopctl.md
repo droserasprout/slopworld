@@ -119,6 +119,9 @@ Stdout (including `--json`) contains only the final task result.
 
 The following are abbreviated examples; CLI help lists all options.
 
+All `--project` options default to `SLOPWORLD_PROJECT` when it is nonempty.
+An explicit `--project` overrides that default.
+
 `slopctl worker spawn [--one-shot] --project PROJECT --template TEMPLATE "task description"` creates the
 task and child session in one daemon operation.
 The worker uses the selected template.

@@ -36,7 +36,7 @@ options take precedence where available. Build recipe settings belong to
 | `SLOPWORLD_GAME` | `slopworld` | Saved or discovered game directory | Game directory when `--game` is absent. |
 | `SLOPWORLD_GAME_LOG` | Launcher, `slopctl logs`, `just logs` | `<CACHE>/Player.log` | Unity log path, passed to the game with `-logFile`; sidecar defaults to `<CACHE>/sidecar/Player.log`. |
 | `SLOPWORLD_PROFILE` | `slopworld` | `<DATA>/profiles/<name>` | Override the selected peer’s profile when `--profile` is absent; sidecar profiles use `<DATA>/sidecar/profiles/<name>`. |
-| `SLOPWORLD_PROJECT` | Session commands | Set by daemon | Project name supplied to agent and host-shell processes. |
+| `SLOPWORLD_PROJECT` | Session commands | Set by daemon | Project name supplied to agent and host-shell processes; the default for `slopctl --project` options. |
 | `SLOPWORLD_SESSION` | `slopctl` | `host` | Caller identity; supplied by the daemon to agent and host-shell processes. |
 | `SLOPWORLD_TASK_ID` | `slopctl` | Set for workers | Task ID used when a task command omits it. |
 
