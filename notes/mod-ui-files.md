@@ -16,7 +16,8 @@ readers, including when following Markdown links or switching to plain source; a
 pager could reopen an unchecked replacement symlink.
 
 Refresh preserves semantic selection and expansion. Reveal waits for current listings
-and probes paths omitted by caps. Missing checkouts cannot select or reopen readers.
+and probes paths omitted by caps. Changing or clearing directory focus invalidates
+pending reveals. Missing checkouts cannot select or reopen readers.
 Rename/removal refresh both trees and can dismiss affected source readers. Files
 reads Git's shared status cache for Diff availability without owning Git refresh.
 

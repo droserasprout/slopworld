@@ -304,6 +304,63 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void FocusChangesInvalidatePendingReveals()
+        {
+            foreach (bool clear in new[] { false, true })
+            {
+                using (var f = new Fixture())
+                {
+                    var root = f.Root();
+                    root.Children = new List<FileNode>();
+                    root.More = true;
+                    f.Store.RevealPath(root.Project, new List<string> { "old.cs" });
+                    var pending = DaemonClient.Requests.Single();
+                    if (clear)
+                        f.Store.ClearFocus();
+                    else
+                        f.Store.FocusDirectory("/storage", "Storage");
+                    pending.Reply(new Wire.FileStatResult { IsFile = true });
+                    AssertEx.Equal(0, f.Revealed.Count, "navigation invalidates pending selection");
+                    AssertEx.Equal(0, root.Children.Count, "obsolete probe cannot insert a row");
+                }
+            }
+        }
+
+        public static void FocusedGroupsAndRefreshFollowNavigation()
+        {
+            using (var f = new Fixture())
+            {
+                var project = f.Root();
+                f.Store.FocusDirectory("/storage", "Storage");
+                var group = f.Store.Controller.Groups().Single();
+                var root = (FileNode)group.Root;
+                AssertEx.Equal("Storage", root.Name, "focus uses supplied label");
+                AssertEx.Equal("/storage", root.Root, "focused paths retain their root");
+                f.Store.EnsureLoaded(root);
+                DaemonClient.Requests.Single().Reply(Listing(dirs: new[] { "nested" }));
+                f.Store.Reload();
+                f.Store.RefreshIfDue();
+                DaemonClient.Requests.Last().Reply(Listing(files: new[] { "fresh.cs" }));
+                AssertEx.Equal("fresh.cs", root.Children.Single().Name, "focused root refreshes");
+                f.Store.FocusDirectory("", "Ignored");
+                AssertEx.True(
+                    ReferenceEquals(root, f.Store.Controller.Groups().Single().Root),
+                    "empty focus is ignored"
+                );
+                f.Store.FocusDirectory("/other", null);
+                AssertEx.Equal(
+                    "/other",
+                    ((FileNode)f.Store.Controller.Groups().Single().Root).Name,
+                    "path supplies missing label"
+                );
+                f.Store.ClearFocus();
+                AssertEx.True(
+                    f.Store.Controller.Groups().Any(g => ReferenceEquals(g.Root, project)),
+                    "clearing focus restores checkout groups"
+                );
+            }
+        }
+
         public static void IndependentStoresDoNotShareBrowseAdmission()
         {
             using (var f = new Fixture())

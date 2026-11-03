@@ -195,6 +195,8 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(path))
                 return;
 
+            // Navigation supersedes reveal callbacks even when their listing is still valid.
+            _focusVersion++;
             _focusedKey = "storage:" + path;
             _focusedRoot = new FileNode
             {
@@ -211,6 +213,7 @@ namespace SlopWorld
 
         public void ClearFocus()
         {
+            _focusVersion++;
             _focusedRoot = null;
             _focusedKey = null;
             BumpTree();
