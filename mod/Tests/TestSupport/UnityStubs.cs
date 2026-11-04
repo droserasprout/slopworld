@@ -41,6 +41,14 @@ namespace UnityEngine
         public RectOffset(int l, int r, int t, int b) { }
     }
 
+    public struct CharacterInfo
+    {
+        public int minX,
+            maxX,
+            minY,
+            maxY;
+    }
+
     public class Font
     {
         public static System.Func<string[]> InstalledNames = () => System.Array.Empty<string>();
@@ -51,6 +59,31 @@ namespace UnityEngine
         public float ascent = 12f;
         public float Height = 18f;
         public bool Monospace;
+        public System.Func<char, bool> SupportsCharacter = _ => true;
+
+        public bool HasCharacter(char character) => SupportsCharacter(character);
+
+        public System.Func<char, int, FontStyle, CharacterInfo?> CharacterMetrics = (_, _, _) =>
+            new CharacterInfo
+            {
+                minX = 0,
+                maxX = 8,
+                minY = -2,
+                maxY = 12,
+            };
+
+        public bool GetCharacterInfo(
+            char character,
+            out CharacterInfo info,
+            int size,
+            FontStyle style
+        )
+        {
+            var result = CharacterMetrics(character, size, style);
+            info = result.GetValueOrDefault();
+            return result.HasValue;
+        }
+
         public readonly System.Collections.Generic.List<string> Prepared =
             new System.Collections.Generic.List<string>();
 
@@ -492,6 +525,16 @@ namespace UnityEngine
 
     public static class GUIUtility
     {
+        public static void ScaleAroundPivot(Vector2 scale, Vector2 pivot)
+        {
+            var matrix = GUI.matrix;
+            matrix.m03 += matrix.m00 * pivot.x * (1f - scale.x);
+            matrix.m13 += matrix.m11 * pivot.y * (1f - scale.y);
+            matrix.m00 *= scale.x;
+            matrix.m11 *= scale.y;
+            GUI.matrix = matrix;
+        }
+
         public static int hotControl;
 
         public static int GetControlID(int hint, FocusType focus) => hint == 0 ? 1 : hint;

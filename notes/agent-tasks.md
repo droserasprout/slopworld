@@ -23,8 +23,7 @@ Bulk changes validate the whole selection before writing, then stop at the first
 failure. Partial completion returns per-item outcomes; clients apply confirmed changes
 and can retry. Task batches are not one workspace transaction. History follows commit
 order, independently of timestamps, with sender labels captured at update time.
-Every task record requires an explicit history array, including an empty array for
-a task without updates.
+Every task record requires a history array, empty when there are no updates.
 
 `application/task_summaries.rs` uses the shared [title provider](agent-titles.md) with
 separate task policy. See [workers](daemon-workers.md) for startup and failure,
@@ -34,6 +33,8 @@ for commands.
 The mod's `TaskStore` owns HTTP polling deadlines. The visible sidebar board and
 open task readers independently demand polling; readers release their registration
 on close or replacement, so hiding or switching the sidebar cannot freeze a reader.
+
+## Planner
 
 `application/planner/` owns the manual todo.txt backlog and explicit Task/Worker links.
 The mod's `PlannerDocumentState` owns endpoint-scoped backlog and description drafts,
@@ -61,10 +62,11 @@ Backlog saves cannot remove rows with dirty descriptions. Refresh must preserve 
 edits and cannot supersede a newer save. UI procedures and storage paths belong to the
 [Planner guide](../docs/src/customization/settings.md#planner).
 
+## Cancellation
+
 Supervised cancellation carries a checked selection into the task store. It applies
-only to the sender's worker tasks and may cancel working tasks; ordinary recipient
-cancellation retains its queued/accepted policy. Cancellation preserves the latest
+only to the sender's worker tasks, including working tasks. Ordinary recipients
+can cancel only queued or accepted tasks. Cancellation preserves the latest
 result note and prevents subsequent recipient updates. It does not stop the process.
 
-The host task reader and task menus share `TaskInfo.CanCancel`: unfinished worker tasks
-include the working state, while ordinary mailbox tasks remain queued/accepted only.
+The host task reader and task menus share this policy through `TaskInfo.CanCancel`.

@@ -8,7 +8,7 @@ Handwritten types use `SlopWorld`; generated protobuf types use `SlopWorld.Wire`
 | --- | --- |
 | `Bootstrap/` | Startup, profile gating, and the RimWorld mod entry point. |
 | `Application/` | Features that outlive a map, including [jukebox playback](mod-jukebox.md). |
-| `Platform/` | Child processes and native window control. Harmony hooks stay in `Patches/`. |
+| `Platform/` | Child processes, native window control, and Linux Fontconfig queries. Harmony hooks stay in `Patches/`. |
 | `Client/` | Connection and daemon-backed state. `SessionHub/` coordinates services; see [client ownership](mod-client.md). |
 | `Settings/`, `Serialization/` | Profile preferences, persistence, and shared format adapters. Callers validate feature schemas. |
 | `Sim/`, `Patches/` | Simulation and Harmony integration, respectively. Start with [simulation](mod-sim.md). |

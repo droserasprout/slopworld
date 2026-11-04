@@ -1,0 +1,11 @@
+upstream_url = "https://github.com/notofonts/symbols"
+
+[[fonts]]
+font_file = "NotoSansSymbols2-Regular.ttf"
+font_sha256 = "c4a0a80f0041ce4be81e2478faad22776d23edb98ae3f0d19bd37044820ecf9d"
+installed_source = "/usr/share/fonts/noto/NotoSansSymbols2-Regular.ttf"
+
+[[fonts]]
+font_file = "NotoSansSymbols-Regular.ttf"
+font_sha256 = "d0e98e9a2c046594c5021437273943be7e79e0fd980fde125279e22302212595"
+installed_source = "/usr/share/fonts/noto/NotoSansSymbols-Regular.ttf"

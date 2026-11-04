@@ -17,9 +17,11 @@
 
   <ItemGroup>
     <EmbeddedResource Include="../../shared/loading-tips.txt" LogicalName="SlopWorld.LoadingTips" />
+    <EmbeddedResource Include="../../assets/unicode/emoji-test.txt" LogicalName="SlopWorld.EmojiTests" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalSelectionGeometry.cs" />
     <Compile Include="../Source/SlopWorld/Patches/ColonistBar/SessionGizmoEligibility.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalFontFallbacks.cs" />
+    <Compile Include="../Source/SlopWorld/Platform/Fonts/FontconfigFonts.cs" />
     <Compile Include="../Source/SlopWorld/UI/Fonts/FontFamilyIdentity.cs" />
     <Compile Include="../Source/SlopWorld/UI/Fonts/FontSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Fonts/InstalledFonts.cs" />
@@ -281,6 +283,10 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalHistory.cs" Link="Source/UI/Terminal/History/TerminalHistory.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalRunCache.cs" Link="Source/UI/Terminal/Rendering/TerminalRunCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/SharedTextRenderer.cs" Link="Source/UI/Text/SharedTextRenderer.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/TextSymbolRenderer.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/TextSpriteGeometry.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/TextAtlas.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/TextSymbolData.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/InlineTextLayout.cs" Link="Source/UI/Text/InlineTextLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextSpriteCatalog.cs" Link="Source/UI/Text/TextSpriteCatalog.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextSpriteData.cs" Link="Source/UI/Text/TextSpriteData.cs" />

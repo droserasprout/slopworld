@@ -55,5 +55,14 @@ def png_bytes(image: Image.Image) -> bytes:
     return output.getvalue()
 
 
+def packed_ink_bounds(image: Image.Image) -> int:
+    """Pack byte-sized atlas-cell ink bounds as x/y/width/height, low byte first."""
+    bounds = image.getchannel('A').getbbox()
+    if bounds is None:
+        raise ValueError('artwork rendered no visible ink')
+    left, top, right, bottom = bounds
+    return left | (top << 8) | ((right - left) << 16) | ((bottom - top) << 24)
+
+
 def save_png(image: Image.Image, path: Path) -> None:
     write_if_changed(path, png_bytes(image))

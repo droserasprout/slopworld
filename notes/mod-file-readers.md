@@ -34,27 +34,29 @@ LESSOPEN can strand padding. `PagerCommands` owns command construction and
 `CodeHighlight` resolves themes. Feature dispatch belongs to [Files](mod-ui-files.md),
 [Git](mod-ui-git.md), and [Search](mod-ui-search.md).
 
+## Pager commands
+
 Daemon Auto resolution and mod reader commands recognize both `bat` and Debian's
-`batcat`; both use the `bat` theme engine. The single bat selector stores a
-portable bare `bat` command. The daemon resolves highlighter requests through its
-PATH; client launches use the executable advertised by daemon Auto metadata. Preserve the actual executable name
-when applying themes, source numbering, diff options, and child-pager line targets.
+`batcat`; both use the `bat` theme engine. The bat selector stores a portable bare
+`bat` command. The daemon resolves highlighter requests through its PATH; client
+launches use the executable advertised by daemon Auto metadata. Preserve that
+executable name when applying themes, source numbering, diff options, and
+child-pager line targets.
 
 Diff launches pass `LESSANSIENDCHARS=mK` through bat to its less child, matching
 what delta sets when it launches less directly. Without `K`, less drops delta's
 erase-to-end sequence and addition/removal backgrounds stop at the text.
-This preserves the initial fill only: less still drops the background when
-horizontal scrolling hides an entire short or empty changed line. Removing bat
-from the pipeline does not change that clipping behavior; the pager owns it.
+Less still drops the background when horizontal scrolling hides an entire short
+or empty changed line. This clipping happens in the pager, even without bat.
 Delta must parse complete source lines: disable both its syntax-length cutoff and
 input-line truncation. A cutoff inside a string or comment otherwise corrupts the
 syntax state for subsequent rows; the pager owns viewport clipping and horizontal scrolling.
 
-Auto prefers moor when installed; packages suggest it without requiring it.
-Moor file readers stream the configured highlighter
-through an explicit shell pipeline because moor does not consume `LESSOPEN`.
-The pager remains a positional executable, preserving reader recognition and quoting;
-source labels, numbering, and line targets belong to `PagerCommands`. Disable moor's
-own syntax highlighting so profile highlighter and theme choices retain ownership.
-Moor uses selection mouse mode: the terminal translates both touchpad axes to
-arrow keys on the alternate screen, and text selection remains local.
+Auto prefers moor when installed; packages suggest it without requiring it. Moor
+file readers stream the configured highlighter through a shell pipeline because moor
+does not consume `LESSOPEN`. The pager remains a positional executable, preserving
+reader recognition and quoting; source labels, numbering, and line targets belong to
+`PagerCommands`. Disable moor's own syntax highlighting so profile highlighter and
+theme choices retain ownership. Moor uses selection mouse mode: the terminal
+translates both touchpad axes to arrow keys on the alternate screen, and text
+selection remains local.

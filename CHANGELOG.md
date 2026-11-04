@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
+## [Unreleased]
+
+### Fixed
+
+- Files: Prevent delayed file reveals from changing selection after navigating elsewhere.
+- Terminal: Fixed emoji widths shifting following text and cursor positions.
+- Terminal: Fixed missing symbols and glyphs overlapping adjacent cells.
+
+### Changed
+
+- Terminal: Use system font fallback preferences on Linux.
+
 ## [0.0.13] - 2026-11-02
 
 ### Added

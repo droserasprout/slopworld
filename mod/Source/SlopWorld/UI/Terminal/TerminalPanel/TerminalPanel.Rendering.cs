@@ -320,10 +320,9 @@ namespace SlopWorld
                     : InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared);
                 SharedTextRenderer.DrawTerminalRun(
                     plainLayout,
-                    new Rect(x, y, plainLayout.Width + cw, ch),
+                    new Rect(x, y, plainLayout.Width, ch),
                     ch,
-                    style,
-                    overhang: cw
+                    style
                 );
                 return;
             }
@@ -334,13 +333,7 @@ namespace SlopWorld
                 : InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared);
             PerfTrace.End("terminal-text-layout", layoutStarted, 1);
             long drawStarted = PerfTrace.Start();
-            SharedTextRenderer.DrawTerminalRun(
-                layout,
-                new Rect(x, y, layout.Width + cw, ch),
-                ch,
-                style,
-                overhang: cw
-            );
+            SharedTextRenderer.DrawTerminalRun(layout, new Rect(x, y, layout.Width, ch), ch, style);
             PerfTrace.End("terminal-text-draw", drawStarted, 1);
         }
 

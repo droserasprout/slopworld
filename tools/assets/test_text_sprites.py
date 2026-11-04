@@ -5,8 +5,11 @@ import re
 import tempfile
 import unittest
 
+from PIL import Image
+
 from tools import ROOT
 from tools.assets import emoji_atlas
+from tools.assets.artwork import packed_ink_bounds
 
 
 class TextSpriteMetadataTests(unittest.TestCase):
@@ -28,9 +31,15 @@ class TextSpriteMetadataTests(unittest.TestCase):
         assert row_match is not None
         rows = int(row_match.group(1))
         self.assertLessEqual(len(keys), rows * emoji_atlas.COLUMNS)
+        ink_bounds = []
+        with Image.open(emoji_atlas.DEFAULT_TEXTURE) as atlas:
+            for slot in range(len(keys)):
+                x = slot % emoji_atlas.COLUMNS * emoji_atlas.SIZE
+                y = slot // emoji_atlas.COLUMNS * emoji_atlas.SIZE
+                ink_bounds.append(packed_ink_bounds(atlas.crop((x, y, x + emoji_atlas.SIZE, y + emoji_atlas.SIZE))))
         with tempfile.TemporaryDirectory() as directory:
             output = pathlib.Path(directory) / 'TextSpriteData.cs'
-            emoji_atlas.write_data(str(output), keys, rows)
+            emoji_atlas.write_data(str(output), keys, rows, ink_bounds)
             self.assertEqual(source, output.read_text(encoding='utf-8'))
 
     def test_font_charset_excludes_invisible_sequence_components(self) -> None:
@@ -44,7 +53,7 @@ class TextSpriteMetadataTests(unittest.TestCase):
     def test_sequences_and_bmp_keys_keep_slot_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = pathlib.Path(directory) / 'TextSpriteData.cs'
-            emoji_atlas.write_data(str(output), ['👩‍💻', '❤️', '😀'], 1)
+            emoji_atlas.write_data(str(output), ['👩‍💻', '❤️', '😀'], 1, [0x20200000] * 3)
             source = output.read_text(encoding='utf-8')
             self.assertIn(r'"\U0001F469\U0000200D\U0001F4BB", "\U00002764\U0000FE0F", "\U0001F600"', source)
 

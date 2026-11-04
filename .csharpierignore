@@ -4,3 +4,4 @@
 **/obj/**
 mod/Source/SlopWorld/Client/Generated/**
 mod/Source/SlopWorld/UI/Text/TextSpriteData.cs
+mod/Source/SlopWorld/UI/Text/TextSymbolData.cs

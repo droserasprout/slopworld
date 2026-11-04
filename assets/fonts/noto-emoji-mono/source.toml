@@ -1,0 +1,4 @@
+upstream_url = "https://github.com/google/fonts/tree/main/ofl/notoemoji"
+download_url = "https://raw.githubusercontent.com/google/fonts/main/ofl/notoemoji/NotoEmoji%5Bwght%5D.ttf"
+font_file = "NotoEmoji.ttf"
+font_sha256 = "de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551"

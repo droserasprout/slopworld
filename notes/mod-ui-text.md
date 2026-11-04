@@ -4,6 +4,24 @@
 operations preserve catalog keys and plain text elements; drawing clips positioned
 spans to the label box. Missing artwork must not change layout, and atlas drawing
 preserves caller opacity without inheriting text tint.
+Catalog matching leaves text-default symbols on the font path unless an emoji
+selector or a supported longer sequence requests artwork. VS15 requests font
+presentation. The pinned scalar-plus-VS16 keys identify text-default symbols;
+bare artwork slots remain in place to preserve atlas indexing.
+Terminal rendering prefers the terminal font for supported BMP text-default symbols.
+`TextSymbolRenderer` supplies missing BMP glyphs and supplementary symbols that
+legacy Unity cannot reliably query as whole scalars. Its atlas covers 207 symbols.
+`just generate-symbol-atlas` selects glyphs from pinned Noto Sans Symbols 2, then
+Noto Sans Symbols, then monochrome Noto Emoji for remaining coverage. It queries
+the vendored files directly, independently of host font configuration. The first
+two cover 191 symbols; Noto Emoji supplies the remaining 16. `assets/fonts/noto-symbols/`
+and `assets/fonts/noto-emoji-mono/` own source checksums; the corresponding
+`licenses/` directories own attribution. Generated source indices retain glyph provenance. Emoji
+presentation continues to use the color atlas. `TextAtlas` owns shared texture loading
+and draw-state restoration; renderers own presentation, geometry, and tint.
+Monochrome atlas metadata preserves original raster size and baseline-relative
+glyph bounds separately from packed UV bounds; terminal font metrics determine
+display size. Packing must not normalize the displayed size of each symbol.
 
 Plain labels use the native text path. `PlainStatusLabel` and its height helper
 share native wrapping; catalog keys remain literal text in these APIs.

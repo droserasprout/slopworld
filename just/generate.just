@@ -1,6 +1,6 @@
 # Regenerate all outputs from reviewed inputs; stage notices last
 [group('generate')]
-generate-all: generate-completions generate-protocol generate-api-docs generate-loading-font generate-icons generate-emojis generate-emoji-atlas generate-fileicons generate-appicon generate-favicon generate-daemon-licenses generate-sidecar-licenses generate-licenses
+generate-all: generate-completions generate-protocol generate-api-docs generate-loading-font generate-icons generate-emojis generate-emoji-atlas generate-symbol-atlas generate-fileicons generate-appicon generate-favicon generate-daemon-licenses generate-sidecar-licenses generate-licenses
 
 # Generate protocol
 [group('generate')]
@@ -66,6 +66,11 @@ generate-emojis:
 [group('generate')]
 generate-emoji-atlas:
     uv run --locked --extra assets python -m tools.assets.emoji_atlas
+
+# Generate monochrome text-default font symbols
+[group('generate')]
+generate-symbol-atlas:
+    uv run --locked --extra assets python -m tools.assets.symbol_atlas
 
 # Generate file icons from vendored SVGs
 [group('generate')]

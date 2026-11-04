@@ -27,8 +27,9 @@ insets must also reach vanilla buttons, inspect panes, gizmos, and colonist hit 
 changing drawing alone leaves invisible targets. Internal split changes must not
 resize terminals. The tab and open-files pane scroll independently.
 
-Worker hierarchy comes from daemon metadata; missing/filtered parents leave children
-at the top level of their own project group, including project folding and row sizing. Host, temporary, and worker rows do not count as ordinary project agents.
+Worker hierarchy comes from daemon metadata. Children of missing or filtered
+parents appear at the top level of their own project group and follow its folding and row
+sizing. Host, temporary, and worker rows do not count as ordinary project agents.
 Rename handoffs preserve membership until HTTP and WebSocket agree. Expand truncated
 host cwd labels only when their suffix matches `Dir`; preserve application/fixed titles.
 
@@ -48,6 +49,6 @@ the Library model. Catalog publication must advance `HubCatalog.Revision`, and a
 worktree replies or explicit retries must advance `WorktreeInventory.Revision`.
 
 Worker launch opens the terminal after session refresh. The hub returns detached
-identity rather than having the dialog resolve mutable catalogs. Base previews reject
+identity so the dialog does not need to resolve mutable catalogs. Base previews reject
 superseded replies, including repeated requests for the same revision, and retire on
 close. See [client](mod-client.md) for handoffs.

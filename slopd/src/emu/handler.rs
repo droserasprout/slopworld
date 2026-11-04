@@ -4,8 +4,8 @@ use super::{RenderCache, SideSink};
 use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::Column;
 use alacritty_terminal::index::Line;
-use alacritty_terminal::term::Term;
 use alacritty_terminal::term::cell::{CellExtra, Flags};
+use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::vte::ansi::cursor_icon::CursorIcon;
 use alacritty_terminal::vte::ansi::*;
 use std::sync::Arc;
@@ -76,6 +76,16 @@ impl Handler for Mirror<'_> {
         *self.pager_prompt = false;
         *self.history_dirty = true;
         if !self.try_input_cluster_component(c) {
+            // tmux's utf8_default_width_cache forces these text-default emoji
+            // bases to two columns; unicode-width (and Alacritty) returns one.
+            // Match the transport before attaching selectors or skin tones.
+            if matches!(
+                c as u32,
+                0x261d | 0x26f9 | 0x270c | 0x270d | 0x1f3cb | 0x1f3cc | 0x1f574 | 0x1f575 | 0x1f590
+            ) {
+                self.input_tmux_wide_scalar(c);
+                return;
+            }
             // Alacritty attaches zero-width scalars to column zero at the left
             // margin, and to the base of wide cells elsewhere.
             if c.width() == Some(0) {
@@ -90,6 +100,10 @@ impl Handler for Mirror<'_> {
                     self.discard_cluster_component(column, c);
                     return;
                 }
+                // Term::input appends marks without marking the base cell as
+                // damaged. A selector arriving after a published frame must
+                // still invalidate that row's cached text.
+                self.cache.invalidate();
             }
             self.term.input(c);
         }
@@ -219,6 +233,23 @@ impl Handler for Mirror<'_> {
 }
 
 impl Mirror<'_> {
+    fn input_tmux_wide_scalar(&mut self, c: char) {
+        // Reuse Alacritty's wide-character insertion, wrapping, scrolling and
+        // damage handling, then replace only the scalar. Promoting a narrow
+        // write afterward cannot handle a base starting in the last column.
+        let cannot_fit = self.term.grid().cursor.point.column.0 + 1 >= self.term.columns()
+            && !self.term.mode().contains(TermMode::LINE_WRAP);
+        self.term.input('界');
+        if cannot_fit {
+            return;
+        }
+        if let Some(column) = previous_base_column(self.term) {
+            let line = self.term.grid().cursor.point.line;
+            self.term.grid_mut()[line][column].c = c;
+            self.cache.invalidate();
+        }
+    }
+
     fn discard_cluster_component(&mut self, column: Column, c: char) {
         let line = self.term.grid().cursor.point.line;
         *self.overflow_tail =
@@ -298,13 +329,15 @@ impl Mirror<'_> {
                         return true;
                     }
                     self.term.grid_mut()[line][column].push_zerowidth(c);
-                    if width == 2 && !wide {
+                    // tmux keeps the base width for ZWJ continuations;
+                    // regional pairs explicitly promote the cell instead.
+                    if regional_pair && width == 2 && !wide {
                         promote_to_wide(self.term, line, column);
                     }
                     self.cache.invalidate();
                     return true;
                 }
-                if width_mark && width == 2 && !wide {
+                if width_mark && (c == '\u{fe0f}' || width == 2) && !wide {
                     if marks.len() >= MAX_CELL_MARKS {
                         self.discard_cluster_component(column, c);
                         return true;

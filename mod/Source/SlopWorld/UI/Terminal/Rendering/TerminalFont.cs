@@ -8,32 +8,10 @@ namespace SlopWorld
     // an OS font resolves against both the prefix's fonts and the host's.
     public static class TerminalFont
     {
-        // Family preference order; TerminalFontFallbacks inserts Nerd Font variants.
-        // Symbol faces at the tail cover glyphs missing from monospace fonts.
-        static readonly string[] Candidates =
-        {
-            "Fira Code",
-            "JetBrains Mono",
-            "Hack",
-            "Noto Sans Mono",
-            "Cascadia Mono",
-            "Cascadia Code",
-            "Source Code Pro",
-            "Iosevka",
-            "Menlo",
-            "Ubuntu Mono",
-            "DejaVu Sans Mono",
-            "Adwaita Mono",
-            "Liberation Mono",
-            "Consolas",
-            "Courier New",
-            "Monospace",
-            "Noto Sans Symbols 2",
-            "Noto Sans Symbols",
-            "Symbola",
-            "DejaVu Sans",
-            "Unifont",
-        };
+        static readonly TerminalFontFallbacks Fallbacks = new TerminalFontFallbacks(
+            FontconfigFonts.Families,
+            message => Log.Warning("[SlopWorld] " + message)
+        );
 
         static GUIStyle _style;
         static Font _font;
@@ -110,7 +88,7 @@ namespace SlopWorld
                 PreferredName = FontSelection.FirstInstalled(chain, InstalledFonts.All);
                 _font =
                     Font.CreateDynamicFontFromOSFont(chain, _size)
-                    ?? Font.CreateDynamicFontFromOSFont("Courier New", _size);
+                    ?? Font.CreateDynamicFontFromOSFont("monospace", _size);
                 _fontless = _font == null;
                 if (_font != null)
                     _font.hideFlags = HideFlags.DontUnloadUnusedAsset;
@@ -157,8 +135,7 @@ namespace SlopWorld
             _rev++;
         }
 
-        static string[] Chain(string name) =>
-            TerminalFontFallbacks.Build(Candidates, InstalledFonts.All, name);
+        static string[] Chain(string name) => Fallbacks.Get(name, InstalledFonts.Revision);
 
         public static List<string> Mono
         {

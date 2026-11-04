@@ -1,7 +1,7 @@
 # Workspace panel lifecycle
 
-`IWorkspacePanel` defines minimum size, arrangement, and lifecycle, visibility, and
-focus callbacks. Panel identity is the instance reference; titles and session names
+`IWorkspacePanel` defines minimum size, arrangement, and callbacks for lifecycle,
+visibility, and focus. Panel identity is the instance reference; titles and session names
 do not identify panels. `IContentView` adds title and drawing; `ContentView` provides
 common bounds, visibility, and focus state.
 
@@ -13,11 +13,11 @@ cannot occupy both workspace slots or both split children.
 Explicit drill-down content can name its current origin as a return target. The origin
 closes normally and reopens as the same instance on Escape/Close; ordinary navigation
 and host teardown clear the target. Planner Task links use this to retain selection and
-drafts. F12 continues to return directly to the backing terminal rather than drill-down content.
+drafts. F12 returns directly to the backing terminal.
 
 The host handles global shortcuts before drawing content; hidden terminals do not
 receive the content view's remaining keys. Keyboard navigation between panels is
-currently unimplemented. Terminal focus and per-pane sizing belong to
+unimplemented. Terminal focus and per-pane sizing belong to
 [terminal ownership](mod-terminal.md); shared rectangles to
 [workspace geometry](ui-dynamic-layout-architecture.md).
 

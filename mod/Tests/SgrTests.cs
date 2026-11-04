@@ -242,6 +242,7 @@ namespace SlopWorld.Tests
             );
             var cases = new[]
             {
+                (Wire: "\x1b[0m\x1b[2;2z✍🏻\x1b[3Gx", Key: "✍🏻", Width: 2),
                 (Wire: "\x1b[0m\x1b[2;2z👩‍\x1b[3G💻\x1b[5Gx", Key: "👩‍💻", Width: 4),
                 (Wire: "\x1b[0m👍\x1b[3G🏽\x1b[5Gx", Key: "👍🏽", Width: 4),
                 (Wire: "\x1b[0m🇺\x1b[3G🇾\x1b[5Gx", Key: "🇺🇾", Width: 4),

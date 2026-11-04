@@ -97,6 +97,10 @@ def main() -> None:
         long.write_text(''.join(f'line {i}\n' for i in range(1, 101)))
         emoji = root / 'emoji.txt'
         emoji.write_text('👍🏻 light skin\n🧎‍♂️ kneeling\n🤼‍♂️ wrestling\n🧑🏻‍🫯‍🧑🏼 mixed tones\n')
+        sequence_probe = root / 'sequences.txt'
+        probe_rows = ['🧎🏽‍♂️‍➡️ kneeling', '🧎🏽‍♂‍➡ kneeling minimal', '👨‍❤️‍💋‍👨 kiss']
+        probe_rows += ['💀 skull', '☠️ skull and crossbones', '☠ skull and crossbones', '☘ shamrock']
+        sequence_probe.write_text('\n'.join(probe_rows) + '\n')
         unicode = ROOT / 'assets/unicode/emoji-test.txt'
         long_emoji = root / 'long-emoji.txt'
         source_rows = [
@@ -183,7 +187,32 @@ def main() -> None:
             assert lines[:18] == [row.rstrip() for row in source_rows], lines[:18]
             print('Pager geometry and emoji sequences passed')
             bat = shutil.which('bat') or shutil.which('batcat')
+            tmux(
+                'new-session',
+                '-d',
+                '-s',
+                'sequence-direct',
+                '-x',
+                '100',
+                '-y',
+                '12',
+                'sh',
+                '-c',
+                'cat "$1"; sleep 30',
+                'sequence-probe',
+                str(sequence_probe),
+            )
+            direct_rows = wait_for('sequence-direct', probe_rows[0])
+            assert direct_rows[: len(probe_rows)] == probe_rows, direct_rows[: len(probe_rows)]
+            print('Direct tmux sequence preservation passed')
             if bat:
+                output = subprocess.check_output(
+                    [bat, '--color=always', '--style=plain', '--paging=never', '--theme=ansi', str(sequence_probe)],
+                    text=True,
+                )
+                bat_rows = [''.join(cell.text for cell in row) for row in parse_capture(output)]
+                assert bat_rows == probe_rows, bat_rows
+                print('Bat sequence preservation passed')
                 # bat receives the file; LESS carries the diagnostic line selector to its pager.
                 tmux(
                     'new-session',

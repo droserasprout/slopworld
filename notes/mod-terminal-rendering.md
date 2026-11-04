@@ -8,13 +8,16 @@ uses FIFO eviction; retained live frames reuse link-candidate transitions per ro
 belongs to the parser, not shared frame snapshots; transitions preserve delimiters
 split across physical rows.
 
-`TerminalFontFallbacks` expands family priorities from the installed font catalog
-owned by `InstalledFonts`. Catalog revisions invalidate the active terminal font,
-monospace probes, and cached font menus; font invalidation also advances the terminal
-render revision. Nerd Font variants precede their original within each family;
-fixed-width icon variants take precedence over regular Nerd Fonts. Renamed
-families use the shared `FontFamilyIdentity` stem mappings rather than separate
-hardcoded variant lists.
+`Platform/Fonts/FontconfigFonts` obtains Linux fallback order from system Fontconfig
+for the selected family (or `monospace` by default). It applies system substitutions
+and returns monochrome families in `FcFontSort` order; color faces stay on the emoji
+atlas path. `TerminalFontFallbacks` caches this order by selection and installed-font
+revision, without promoting Nerd Fonts or special-casing glyphs. A failed query uses
+the selected family plus `monospace` until a selection change or rescan retries it.
+`InstalledFonts` owns the Unity font catalog. Catalog revisions invalidate the active
+terminal font, monospace probes, and cached font menus; font invalidation also advances
+the terminal render revision. Fontconfig selects family order; Unity still resolves
+and rasterizes those names, so this does not replace Unity with Pango shaping.
 
 Texture creation failure falls back to direct painting. Damage describes one received
 revision: skipped predecessors or missing damage require a full repaint. Cursor and
@@ -37,6 +40,23 @@ continuation cells, overlaps and trailing-space rules.
 
 Terminal glyphs are positioned individually on the cell grid, including ASCII, so
 scaled native font advances cannot accumulate drift. Daemon clusters remain intact.
+Font painting clips to occupied cells and uniformly shrinks oversized fallback advances
+by requesting a smaller font size, retaining the terminal baseline. It must not
+change `GUI.matrix` per glyph: local coordinates inside nested IMGUI groups cannot
+be used as screen-space transform pivots;
+it must not borrow the following cell's drawing area. Supported BMP text-default
+symbols use the terminal font after requesting their exact size/style and checking
+loaded ink bounds; a coverage claim alone is insufficient. Missing or empty BMP glyphs and supplementary symbols use
+monochrome packaged font ink. That ink inherits the terminal
+foreground and selection geometry.
+Color atlas glyphs fit their baked ink bounds into the occupied width and line
+height, preserving aspect ratio. Monochrome fallback uses original font-relative ink
+bounds and bearings at the configured font size, aligned to the terminal font's
+baseline. It only shrinks uniformly when necessary and shifts overflow into its
+cells. Atlas packing does not determine display size. Line height is a limit,
+never a target that stretches every glyph to fill the row.
+Transparent square tile padding must not force tall
+one-column symbols down to a cell-width-sized square.
 Daemon columns own glyph widths; never reconstruct them from Unicode ranges or font
 metrics. Complete scalars and occupied widths stay intact through parsing, sprite
 joining, selection, and copy. Emoji clusters remain separate from adjacent text so

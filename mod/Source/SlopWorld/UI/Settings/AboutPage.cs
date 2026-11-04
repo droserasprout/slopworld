@@ -219,6 +219,12 @@ namespace SlopWorld
                 "https://webdraft.hu/fonts/classic-console/"
             ),
             new Credit("Noto Color Emoji", "emojis", "https://github.com/googlefonts/noto-emoji"),
+            new Credit("Noto Sans Symbols", "text symbols", "https://github.com/notofonts/symbols"),
+            new Credit(
+                "Noto Emoji",
+                "monochrome symbols",
+                "https://github.com/google/fonts/tree/main/ofl/notoemoji"
+            ),
             new Credit("Unicode emoji data", "emoji sequences", "https://www.unicode.org/emoji/"),
         };
 

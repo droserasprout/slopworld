@@ -14,7 +14,7 @@ pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('MIT')
-depends=('alsa-lib' 'bash' 'bat' 'bubblewrap' 'git' 'less' 'micro' 'passt' 'ripgrep' 'systemd' 'tmux>=3.7' 'xclip')
+depends=('alsa-lib' 'bash' 'bat' 'bubblewrap' 'fontconfig' 'git' 'less' 'micro' 'passt' 'ripgrep' 'systemd' 'tmux>=3.7' 'xclip')
 makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv')
 optdepends=(
   'glib2: desktop application associations and portal access'

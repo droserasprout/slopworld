@@ -444,6 +444,130 @@ fn metadata_only_damage_reuses_rows() {
 }
 
 #[test]
+fn pinned_emoji_widths_match_tmux() {
+    #[derive(serde::Deserialize)]
+    struct Probe {
+        line: usize,
+        status: String,
+        text: String,
+        width: u16,
+    }
+    let output = std::process::Command::new("python3")
+        .args(["-m", "tools.terminal.unicode_width_probe"])
+        .current_dir(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap(),
+        )
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let probes: Vec<Probe> = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(probes.len(), 5225);
+    assert_eq!(
+        probes.iter().filter(|p| p.status == "unqualified").count(),
+        243
+    );
+    let mut mismatches = Vec::new();
+    for probe in &probes {
+        let mut emu = SessionEmu::new(200, 3);
+        emu.feed(format!("{}X", probe.text).as_bytes());
+        let width = emu.render().cx - 1;
+        if width != probe.width {
+            mismatches.push(format!(
+                "line {} {} {:?}: tmux={}, mirror={}",
+                probe.line, probe.status, probe.text, probe.width, width
+            ));
+        }
+    }
+    assert!(
+        mismatches.is_empty(),
+        "{} width mismatches:\n{}",
+        mismatches.len(),
+        mismatches.join("\n")
+    );
+}
+
+#[test]
+fn text_default_emoji_bases_match_tmux_two_cell_widths() {
+    for base in ['☝', '⛹', '✌', '✍', '🏋', '🏌', '🕴', '🕵', '🖐'] {
+        for suffix in ["", "🏻", "🏿", "\u{fe0f}", "\u{fe0e}"] {
+            let text = format!("{base}{suffix}");
+            let input = format!("{text}x");
+            for chunk_size in [1, input.len()] {
+                let mut emu = SessionEmu::new(20, 2);
+                for chunk in input.as_bytes().chunks(chunk_size) {
+                    emu.feed(chunk);
+                    emu.render();
+                }
+                let frame = emu.render();
+                assert_eq!((frame.cx, frame.cy), (3, 0), "{text}");
+                assert!(frame.lines[0].contains(&text), "{text}");
+                assert!(frame.lines[0].ends_with("\x1b[3Gx"), "{text}");
+            }
+        }
+    }
+}
+
+#[test]
+fn text_default_hand_preserves_following_space() {
+    for suffix in ["д", " д", "  д"] {
+        let input = format!("🖐{suffix}");
+        for chunk_size in [1, input.len()] {
+            let mut actual = SessionEmu::new(20, 2);
+            let mut reference = SessionEmu::new(20, 2);
+            reference.feed(format!("界{suffix}").as_bytes());
+            for chunk in input.as_bytes().chunks(chunk_size) {
+                actual.feed(chunk);
+                actual.render();
+            }
+            let frame = actual.render();
+            let expected = reference.render();
+            assert_eq!(usize::from(frame.cx), 2 + suffix.chars().count());
+            assert_eq!(
+                frame.lines[0].as_ref(),
+                expected.lines[0].replace('界', "🖐")
+            );
+            println!("{input:?}: cursor={}, row={:?}", frame.cx, frame.lines[0]);
+        }
+    }
+}
+
+#[test]
+fn tmux_wide_overrides_preserve_wrapping_insertion_and_overwrite() {
+    for base in ['✍', '🏌'] {
+        // Compare placement and flags against the engine's ordinary wide path.
+        for prefix in ["", "a", "ab", "abc", "abcde\r\x1b[4h", "abc\x1b[?7l"] {
+            let mut actual = SessionEmu::new(4, 2);
+            let mut expected = SessionEmu::new(4, 2);
+            actual.feed(format!("{prefix}{base}").as_bytes());
+            expected.feed(format!("{prefix}界").as_bytes());
+            let frame = actual.render();
+            let reference = expected.render();
+            assert_eq!(
+                (frame.cx, frame.cy),
+                (reference.cx, reference.cy),
+                "{prefix:?}"
+            );
+            for (line, reference) in frame.lines.iter().zip(&reference.lines) {
+                assert_eq!(
+                    line.as_ref(),
+                    reference.replace('界', &base.to_string()),
+                    "{prefix:?}"
+                );
+            }
+            actual.feed(b"\x1b[HZ\x1b[K");
+            expected.feed(b"\x1b[HZ\x1b[K");
+            assert_eq!(actual.render().lines[0], expected.render().lines[0]);
+        }
+    }
+}
+
+#[test]
 fn preserves_zero_width_emoji_components_with_cell_width() {
     let mut e = SessionEmu::new(20, 2);
     e.feed("👩‍💻x".as_bytes());

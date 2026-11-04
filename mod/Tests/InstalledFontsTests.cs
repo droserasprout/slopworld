@@ -30,11 +30,15 @@ namespace SlopWorld.Tests
                 var after = InstalledFonts.All;
                 AssertEx.Equal(2, scans, "next read discovers newly installed fonts");
                 AssertEx.Equal(1, before.Count, "old snapshot remains intact");
-                var chain = TerminalFontFallbacks.Build(new[] { "Fira Code" }, after);
+                var fallbacks = new TerminalFontFallbacks(
+                    _ => new[] { "Fira Code", "FiraCode Nerd Font Mono" },
+                    _ => { }
+                );
+                var chain = fallbacks.Get("Fira Code", InstalledFonts.Revision);
                 AssertEx.Equal(
-                    "FiraCode Nerd Font Mono",
+                    "Fira Code",
                     FontSelection.FirstInstalled(chain, after),
-                    "new Nerd Font takes family priority after rescan"
+                    "catalog rescan does not override system preference with Nerd Font priority"
                 );
             }
             finally

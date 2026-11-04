@@ -6,14 +6,17 @@ reservations, and live registration. Application commits durable records before
 reconciliation. Registration and spawn guards remain held through task creation,
 startup, and cleanup, including after requester cancellation.
 
-Templates supply copied configuration/snapshots. Workers receive fresh private
-identity and scoped grants; the caller supplies parent/task ownership. Root may use
-any registered project and template; scoped callers use templates allowed by their agent policy in their
-own project. Host terminals cannot own workers. See [templates](daemon-agent-templates.md)
-and [grants](agent-grants.md).
+Templates supply configuration copies and snapshots. Workers receive fresh private
+identities and scoped grants; callers supply parent and task ownership. Root may use
+any registered project and template. Scoped callers stay in their own project and
+use templates allowed by their agent policy. Host terminals cannot own workers. See
+[templates](daemon-agent-templates.md) and [grants](agent-grants.md).
 
-Root spawns with a Planner item ID persist its Task and Worker links before registration;
-link-write failure fails the Task and withholds startup. Planner owns link storage and removal.
+A root spawn with a Planner item ID saves its Task and Worker links before
+registration. If saving fails, the Task fails and startup is withheld. Planner owns
+link storage and removal.
+
+## Startup and recovery
 
 Tasks persist before startup. `session/worker_failures.rs` owns failure policy;
 callers check delayed run/reader identity and capture task identity before leaving
@@ -48,6 +51,8 @@ See [redeploy](daemon-redeploy.md) for adoption, [sidebar](mod-sidebar.md) for h
 [Workers settings](../docs/src/customization/settings.md#workers) for prompt policy,
 and [slopctl](../docs/src/reference/slopctl.md) for commands.
 
+## Delegation and permissions
+
 `config/worker_policy.rs` owns portable delegation settings. Delegation is opt-in
 per agent or template. The caller's policy controls spawn and relationship access;
 the child template may narrow inherited delegation, permissions, and template selection.
@@ -58,8 +63,9 @@ legacy workers without one cannot gain authority through a name-only edit.
 Stored named permission bundles decode to independent flags without widening access;
 saving emits only the flag representation. This also applies to template snapshots.
 
-`session/caps.rs` resolves direct relationships by stable identity. All parents can read diagnostics. Follow-ups, task cancellation, terminal input,
-and stop/restart each have an independent permission. Terminal frames require
+`session/caps.rs` resolves direct relationships by stable identity. All parents can
+read diagnostics. Follow-ups, task cancellation, terminal input, and stop/restart
+each have an independent permission. Terminal frames require
 terminal permission; lifecycle permission does not imply it. None grants generic
 file/configuration authority. Manual grants remain
 independent. `api/ws/outbound.rs` rechecks current relationship access at serialized
@@ -67,13 +73,16 @@ publication, including buffered and scroll frames on existing connections. Write
 waits outside session admission; socket sends have a one-second deadline so stalled
 clients cannot indefinitely block lifecycle changes or revocation.
 
+## Relationship edits and follow-ups
+
 The root-only relationship editor persists durable workers through configuration and
 one-shot workers through their credential-free tmux snapshot. Edits compare the
 worker task ID so a stale editor cannot modify a replacement with the same name.
-`application/worker_tasks.rs` owns follow-up and cancellation authorization and follow-up
-auditing. Session owns identity and delivery; the task store owns mutation policy. Follow-ups prepare
-under session admission, wait for readiness outside it, then revalidate authority, task
-state, and run identity. Exclusive admission spans audit and submission; lost readiness
-fails without another wait. Delivery rechecks the foreground command before paste and
-Enter to avoid sending input to a shell after agent exit. History records submission,
-not acceptance, without changing the task result.
+`application/worker_tasks.rs` owns follow-up and cancellation authorization and
+follow-up auditing. Session owns identity and delivery; the task store owns mutation
+policy. Follow-ups prepare under session admission, wait for readiness outside it,
+then revalidate authority, task state, and run identity. Exclusive admission spans
+audit and submission; lost readiness fails without another wait. Delivery rechecks
+the foreground command before paste and Enter to avoid sending input to a shell
+after agent exit. History records submission, not acceptance, without changing the
+task result.

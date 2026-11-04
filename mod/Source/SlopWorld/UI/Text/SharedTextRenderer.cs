@@ -1,5 +1,4 @@
 using UnityEngine;
-using Verse;
 
 namespace SlopWorld
 {
@@ -7,25 +6,7 @@ namespace SlopWorld
     // system. Catalog glyphs use the packaged atlas and retain their size if it is missing.
     static class SharedTextRenderer
     {
-        const string AtlasPath = "SlopWorld/TerminalEmoji";
-        static Texture2D _atlas;
-        static bool _looked;
-
-        static Texture2D Atlas
-        {
-            get
-            {
-                if (_looked)
-                    return _atlas;
-                _looked = true;
-                _atlas = ContentFinder<Texture2D>.Get(AtlasPath, false);
-                if (_atlas == BaseContent.BadTex)
-                    _atlas = null;
-                if (_atlas == null)
-                    Log.Warning("[SlopWorld] text sprite atlas is missing");
-                return _atlas;
-            }
-        }
+        static readonly TextAtlas Atlas = new TextAtlas("SlopWorld/TerminalEmoji");
 
         // Bounds are the caller's actual clipping rectangle. Glyph overhang never changes
         // advance. UI passes its label box, terminal runs remain inside the pane's clip.
@@ -33,8 +14,7 @@ namespace SlopWorld
             InlineTextLayout layout,
             Rect bounds,
             float lineHeight,
-            GUIStyle style,
-            float overhang
+            GUIStyle style
         )
         {
             if (bounds.width <= 0f || bounds.height <= 0f)
@@ -49,21 +29,11 @@ namespace SlopWorld
                 && layout.Spans[0].Width == layout.Width
             )
             {
-                var previous = style.clipping;
-                style.clipping = TextClipping.Clip;
-                try
-                {
-                    string text = layout.Spans[0].Text;
-                    Prepare(text, style);
-                    GUI.Label(bounds, text, style);
-                }
-                finally
-                {
-                    style.clipping = previous;
-                }
+                bounds.width = layout.Width;
+                DrawFontCell(layout.Spans[0].Text, bounds, lineHeight, style);
                 return;
             }
-            Draw(layout, bounds, lineHeight, style, overhang: overhang);
+            Draw(layout, bounds, lineHeight, style, overhang: 0f, terminal: true);
         }
 
         public static void Draw(
@@ -72,7 +42,8 @@ namespace SlopWorld
             float lineHeight,
             GUIStyle style,
             float offsetX = 0f,
-            float overhang = 1f
+            float overhang = 1f,
+            bool terminal = false
         )
         {
             if (bounds.width <= 0f || bounds.height <= 0f)
@@ -87,7 +58,7 @@ namespace SlopWorld
                         continue;
                     if (span.Sprite >= 0)
                     {
-                        var atlas = Atlas;
+                        var atlas = Atlas.Texture;
                         if (atlas != null)
                         {
                             float side = Mathf.Min(span.Width, lineHeight);
@@ -106,23 +77,35 @@ namespace SlopWorld
                                 1f / TextSpriteData.AtlasColumns,
                                 1f / TextSpriteData.AtlasRows
                             );
-                            Color color = GUI.color;
-                            try
-                            {
-                                // Preserve caller opacity, but do not tint colored artwork.
-                                GUI.color = new Color(1f, 1f, 1f, color.a);
-                                GUI.DrawTextureWithTexCoords(rect, atlas, uv);
-                            }
-                            finally
-                            {
-                                GUI.color = color;
-                            }
+                            if (terminal)
+                                TextSpriteGeometry.Fit(
+                                    TextSpriteData.InkBounds[span.Sprite],
+                                    span.Sprite,
+                                    TextSpriteData.AtlasColumns,
+                                    TextSpriteData.AtlasRows,
+                                    TextSpriteData.CellSize,
+                                    new Rect(x, 0f, span.Width, lineHeight),
+                                    out rect,
+                                    out uv
+                                );
+                            // Preserve caller opacity without tinting colored artwork.
+                            TextAtlas.Draw(atlas, rect, uv, new Color(1f, 1f, 1f, GUI.color.a));
                             continue;
                         }
                     }
 
                     // Never ask an OS emoji font to replace missing packaged artwork.
                     string text = span.Sprite >= 0 ? "\ufffd" : span.Text;
+                    if (terminal)
+                    {
+                        DrawFontCell(
+                            text,
+                            new Rect(x, 0f, span.Width, bounds.height),
+                            lineHeight,
+                            style
+                        );
+                        continue;
+                    }
                     Prepare(text, style);
                     GUI.Label(new Rect(x, 0f, span.Width + overhang, bounds.height), text, style);
                 }
@@ -130,6 +113,52 @@ namespace SlopWorld
             finally
             {
                 GUI.EndGroup();
+            }
+        }
+
+        // IMGUI group coordinates must not be mixed with screen-space matrix pivots.
+        // Fit native glyphs by requesting a smaller font size, never by transforming
+        // GUI.matrix for an individual cell. Keep the original text baseline.
+        static void DrawFontCell(string text, Rect bounds, float lineHeight, GUIStyle style)
+        {
+            var clipping = style.clipping;
+            int originalSize = style.fontSize;
+            style.clipping = TextClipping.Clip;
+            try
+            {
+                if (TextSymbolRenderer.TryDraw(text, bounds, lineHeight, style))
+                    return;
+                Prepare(text, style);
+                if (text.Length > 0 && text[0] > 127)
+                {
+                    float width = style.CalcSize(new GUIContent(text)).x;
+                    if (width > bounds.width)
+                    {
+                        int size = (int)TextSpriteGeometry.FontSize(style, lineHeight);
+                        float baseline = TextSpriteGeometry.Baseline(style.font, size);
+                        int fittedSize = Mathf.Max(1, (int)(size * bounds.width / width));
+                        style.fontSize = fittedSize;
+                        float offset = Mathf.Clamp(
+                            baseline * (1f - fittedSize / (float)size),
+                            0f,
+                            bounds.height
+                        );
+                        bounds.y += offset;
+                        bounds.height -= offset;
+                        if (style.font != null)
+                            style.font.RequestCharactersInTexture(
+                                text,
+                                fittedSize,
+                                style.fontStyle
+                            );
+                    }
+                }
+                GUI.Label(bounds, text, style);
+            }
+            finally
+            {
+                style.fontSize = originalSize;
+                style.clipping = clipping;
             }
         }
 

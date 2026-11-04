@@ -40,8 +40,16 @@ have no process to adopt. Startup seeding/repaint belongs to [redeploy](daemon-r
 role transitions to [lifecycle](daemon-session-lifecycle.md), activity to
 [state](daemon-session-state.md), and client history to [terminal](mod-terminal.md).
 
-The private tmux server and emulator must agree on emoji cell widths. New panes set
-`LESSUTFCHARDEF` to retain modifiers/joiners/selectors; overrides and existing panes
+The private tmux server and emulator must agree on emoji cell widths. Both use
+the same two-cell width for tmux's text-default emoji-base overrides (including
+writing hand and golfer); the mirror applies those widths before modifiers and
+selectors arrive. Client sprite fitting must not compensate for transport width
+disagreements. ZWJ continuations retain the base cell width; a following VS16 can
+promote it. The pinned emoji-test corpus is checked against cursor replies from an
+isolated tmux server by `pinned_emoji_widths_match_tmux`. Unqualified status does
+not imply a uniform cell width or monochrome presentation for joined sequences.
+New panes set `LESSUTFCHARDEF` to retain modifiers/joiners/selectors;
+overrides and existing panes
 keep their launch settings. CI and sidecar use the same pinned Debian forky tmux;
 older packages can lack required width ranges. Preserve application-negotiated
 bracketed paste rather than guessing from command names.

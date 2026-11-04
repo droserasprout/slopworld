@@ -65,6 +65,20 @@ namespace SlopWorld
                     break;
                 if (node.Slot < 0)
                     continue;
+                // The pinned emoji-test keys include scalar + VS16 for symbols
+                // whose bare form defaults to text. Keep their atlas slots stable,
+                // but only select artwork for the qualified form or a longer sequence.
+                int scalarLength = char.IsHighSurrogate(text[offset]) ? 2 : 1;
+                if (
+                    i - offset + 1 == scalarLength
+                    && node.Next.TryGetValue('\ufe0f', out var qualified)
+                    && qualified.Slot >= 0
+                )
+                    continue;
+                // VS15 explicitly requests font presentation, including for a
+                // character that would otherwise default to emoji artwork.
+                if (i + 1 < text.Length && text[i + 1] == '\ufe0e')
+                    continue;
                 length = i - offset + 1;
                 slot = node.Slot;
             }

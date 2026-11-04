@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 
 namespace SlopWorld.Tests
@@ -10,6 +11,77 @@ namespace SlopWorld.Tests
         );
 
         static float Measure(string text) => text.Length * 2f;
+
+        public static void PinnedUnqualifiedSymbolsPreservePresentationAndCellBounds()
+        {
+            int singles = 0;
+            int sequences = 0;
+            using var stream = typeof(InlineTextLayoutTests).Assembly.GetManifestResourceStream(
+                "SlopWorld.EmojiTests"
+            );
+            using var reader = new StreamReader(stream);
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (line.Length == 0 || line[0] == '#')
+                    continue;
+                var fields = line.Split(';');
+                if (fields[1].Split('#')[0].Trim() != "unqualified")
+                    continue;
+                var points = fields[0].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                string text = string.Concat(
+                    points.Select(p => char.ConvertFromUtf32(Convert.ToInt32(p, 16)))
+                );
+                bool single = points.Length == 1;
+                if (single)
+                    singles++;
+                else
+                    sequences++;
+                var catalog = TextSpriteCatalog.Shared;
+                AssertEx.Equal(!single, catalog.Contains(text), "presentation: " + fields[0]);
+                foreach (int cells in new[] { 1, 2 })
+                {
+                    var layout = InlineTextLayout.CellCluster(text, cells, 8f, catalog);
+                    AssertEx.Equal(cells * 8f, layout.Width, "transport width retained");
+                    AssertEx.Equal(1, layout.Spans.Length, "whole cluster");
+                    AssertEx.Equal(text, layout.Spans[0].Text, "original sequence retained");
+                    AssertEx.Equal(cells * 8f, layout.Spans[0].Width, "drawing uses cell bounds");
+                }
+            }
+            AssertEx.Equal(207, singles, "all bare text-default symbols checked");
+            AssertEx.Equal(36, sequences, "all unqualified sequences checked");
+        }
+
+        public static void SymbolPresentationPreservesFontsAndExplicitEmoji()
+        {
+            var catalog = TextSpriteCatalog.Shared;
+            foreach (string symbol in new[] { "⚠", "♥", "✔", "©", "™", "☀", "🖥" })
+            {
+                AssertEx.False(catalog.Contains(symbol), "bare symbol uses font: " + symbol);
+                var layout = InlineTextLayout.CellCluster(symbol, 1, 8f, catalog);
+                AssertEx.Equal(-1, layout.Spans[0].Sprite, "terminal font path");
+                AssertEx.Equal(symbol, layout.Spans[0].Text, "original text retained");
+                AssertEx.Equal(8f, layout.Width, "daemon width retained");
+            }
+            foreach (
+                string text in new[]
+                {
+                    "⚠\ufe0f",
+                    "♥\ufe0f",
+                    "🖥\ufe0f",
+                    "😀",
+                    "👩‍💻",
+                    "🏳‍🌈",
+                    "1️⃣",
+                }
+            )
+            {
+                AssertEx.True(catalog.Match(text, 0, out int length, out _), "emoji artwork");
+                AssertEx.Equal(text.Length, length, "whole sequence matched");
+            }
+            foreach (string text in new[] { "⚠\ufe0e", "♥\ufe0e", "⌚\ufe0e", "😀\ufe0e" })
+                AssertEx.False(catalog.Contains(text), "explicit text presentation");
+        }
 
         public static void LongestSequenceAndBmpKeys()
         {
@@ -201,6 +273,17 @@ namespace SlopWorld.Tests
             for (int i = 0; i < TextSpriteData.Keys.Length; i++)
             {
                 string key = TextSpriteData.Keys[i];
+                if (
+                    TerminalColumns.ScalarCount(key) == 1
+                    && Array.IndexOf(TextSpriteData.Keys, key + "\ufe0f") >= 0
+                )
+                {
+                    AssertEx.False(
+                        TextSpriteCatalog.Shared.Contains(key),
+                        "text-default artwork slot is reserved but not selected"
+                    );
+                    continue;
+                }
                 AssertEx.True(
                     TextSpriteCatalog.Shared.Match(key, 0, out int length, out int slot),
                     "key found"
