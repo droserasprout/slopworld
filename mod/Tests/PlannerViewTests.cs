@@ -24,6 +24,143 @@ namespace SlopWorld.Tests
             return view;
         }
 
+        public static void QuickAddKeepsFiltersAndRecoversFromRejectedSave()
+        {
+            var view = Loaded();
+            try
+            {
+                view.AddTest("Follow up", "repo", "office");
+                var save = DaemonClient.Requests.Last();
+                string submitted = ((Wire.PlannerSaveReq)save.Body).Text;
+                Assert.That(submitted, Does.Contain("Follow up +repo @office"));
+                Assert.That(view.SelectedTitleTest, Is.EqualTo("Follow up"));
+                Assert.That(view.QuickAddTest, Is.Empty);
+                Assert.That(view.DetailOpenTest, Is.True);
+                save.Fail("Offline");
+                Assert.That(view.TextTest, Is.EqualTo(submitted));
+                Assert.That(view.DirtyTest, Is.True);
+                Assert.That(view.ErrorTest, Is.EqualTo("Offline"));
+                view.SaveTest(view.TextTest);
+                var retry = DaemonClient.Requests.Last();
+                Assert.That(((Wire.PlannerSaveReq)retry.Body).Text, Is.EqualTo(submitted));
+                retry.Reply(new Wire.PlannerDocument { Text = submitted, Revision = "r2" });
+                Assert.That(view.DirtyTest, Is.False);
+            }
+            finally
+            {
+                view.Closed();
+            }
+        }
+
+        public static void InvalidQuickAddPreservesInputWithoutSubmitting()
+        {
+            var view = Loaded();
+            try
+            {
+                int requests = DaemonClient.Requests.Count;
+                view.AddTest("\n");
+                Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+                Assert.That(view.TextTest, Is.EqualTo("Task"));
+                Assert.That(view.QuickAddTest, Is.EqualTo("\n"));
+                Assert.That(view.ErrorTest, Is.Not.Empty);
+            }
+            finally
+            {
+                view.Closed();
+            }
+        }
+
+        public static void DirtyRowBlocksSelectionAndCompletionUntilDiscarded()
+        {
+            var view = Loaded();
+            try
+            {
+                view.LoadTest();
+                DaemonClient
+                    .Requests.Last()
+                    .Reply(new Wire.PlannerDocument { Text = "First\nSecond", Revision = "r2" });
+                view.SelectTest(0);
+                view.PriorityEditTest("A")();
+                var draft = view.DraftIdentityTest;
+                int requests = DaemonClient.Requests.Count;
+                view.SelectTest(1);
+                view.ToggleTest(1);
+                Assert.That(view.SelectedTitleTest, Is.EqualTo("First"));
+                Assert.That(view.DraftIdentityTest, Is.SameAs(draft));
+                Assert.That(view.TextTest, Is.EqualTo("First\nSecond"));
+                Assert.That(view.ErrorTest, Does.Contain("Save or discard"));
+                Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+                view.SelectTest(0);
+                Assert.That(view.DraftIdentityTest, Is.SameAs(draft));
+                view.DiscardTest();
+                view.ToggleTest(1);
+                var save = DaemonClient.Requests.Last();
+                string text = ((Wire.PlannerSaveReq)save.Body).Text;
+                var entries = TodoText.Parse(text);
+                Assert.That(entries[0].Completed, Is.False);
+                Assert.That(entries[1].Completed, Is.True);
+                save.Reply(new Wire.PlannerDocument { Text = text, Revision = "r3" });
+                view.ToggleTest(1);
+                Assert.That(TodoText.Parse(view.TextTest)[1].Completed, Is.False);
+            }
+            finally
+            {
+                view.Closed();
+            }
+        }
+
+        public static void DeleteClearsSelectionAndFailedSaveCanBeDiscarded()
+        {
+            var view = Loaded();
+            try
+            {
+                view.SelectTest(0);
+                view.DeleteTest();
+                Assert.That(view.TextTest, Is.Empty);
+                Assert.That(view.SelectedTitleTest, Is.Null);
+                Assert.That(view.DetailOpenTest, Is.False);
+                var save = DaemonClient.Requests.Last();
+                Assert.That(((Wire.PlannerSaveReq)save.Body).Text, Is.Empty);
+                save.Fail("Conflict");
+                Assert.That(view.DirtyTest, Is.True);
+                view.DiscardTest();
+                Assert.That(view.TextTest, Is.EqualTo("Task"));
+                Assert.That(view.DirtyTest, Is.False);
+            }
+            finally
+            {
+                view.Closed();
+            }
+        }
+
+        public static void SourceToggleValidatesAndAppliesTheSelectedDraft()
+        {
+            var view = Loaded();
+            try
+            {
+                view.SelectTest(0);
+                view.PriorityEditTest("invalid")();
+                view.ToggleSourceTest();
+                Assert.That(view.SourceTest, Is.False);
+                Assert.That(view.TextTest, Is.EqualTo("Task"));
+                Assert.That(view.ErrorTest, Does.Contain("Priority"));
+                view.PriorityEditTest("A")();
+                int requests = DaemonClient.Requests.Count;
+                view.ToggleSourceTest();
+                Assert.That(view.SourceTest, Is.True);
+                Assert.That(view.TextTest, Does.StartWith("(A) "));
+                Assert.That(view.DirtyTest, Is.True);
+                Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+                view.ToggleSourceTest();
+                Assert.That(view.SourceTest, Is.False);
+                Assert.That(view.PriorityTest, Is.EqualTo("A"));
+            }
+            finally
+            {
+                view.Closed();
+            }
+        }
+
         public static void DocumentOwnerKeepsSaveActiveWhilePublishingBacklogAndDescriptionStages()
         {
             DaemonClient.Requests.Clear();

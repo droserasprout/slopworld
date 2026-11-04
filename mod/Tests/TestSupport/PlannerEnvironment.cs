@@ -73,6 +73,25 @@ namespace SlopWorld
 
         internal void DiscardTest() => Discard();
 
+        internal void AddTest(string text, string project = "", string context = "")
+        {
+            _quickAdd = text;
+            _projectFilter = project;
+            _contextFilter = context;
+            Add();
+        }
+
+        internal string QuickAddTest => _quickAdd;
+        internal string SelectedTitleTest => _selected?.Title;
+        internal bool DetailOpenTest => _detailOpen;
+        internal bool SourceTest => _source;
+
+        internal void ToggleTest(int index) => Toggle(_state.Entries[index]);
+
+        internal void DeleteTest() => DeleteSelected();
+
+        internal void ToggleSourceTest() => ToggleSource();
+
         internal bool DirtyTest => Dirty;
         internal bool CanSaveTest => CanSave;
 
