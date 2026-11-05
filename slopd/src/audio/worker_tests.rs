@@ -209,6 +209,84 @@ fn stable_output_restores_the_recovery_budget() {
 }
 
 #[test]
+fn repeated_stop_during_backoff_preserves_device_cleanup_and_allows_a_fresh_play() {
+    let (mut worker, rx, dropped) = recovering_worker();
+    let source = worker.control.snapshot().0.unwrap();
+    let now = Instant::now();
+    worker.check_output(now);
+    let stopped = worker.control.stop();
+    worker.stop(stopped);
+    worker.stop(stopped);
+    worker.check_output(now + Duration::from_secs(10));
+    assert_eq!(dropped.load(Ordering::Acquire), 1);
+    assert!(worker.recovery.retry.is_none());
+    assert!(worker.pending.is_none());
+    assert_eq!(worker.recovery.recoveries, 0);
+    let generation = worker.control.play(&source);
+    worker.play(source, generation);
+    worker.handle(rx.recv_timeout(Duration::from_secs(2)).unwrap());
+    assert!(worker.state.lock().unwrap().playing);
+    worker.shutdown();
+    worker.shutdown();
+    assert!(!worker.state.lock().unwrap().playing);
+    assert!(worker.state.lock().unwrap().source.is_none());
+}
+
+#[test]
+fn retired_pending_failure_cannot_clear_a_new_request_for_the_same_source() {
+    let (mut worker, _rx, _) = recovering_worker();
+    let (source, generation) = worker.control.snapshot();
+    let source = source.unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    worker.pending = Some(PendingOpen {
+        source: source.clone(),
+        generation,
+        cancel: cancel.clone(),
+    });
+    worker.control.stop();
+    let replacement = worker.control.play(&source);
+    worker.opened(
+        &source,
+        generation,
+        &cancel,
+        Err(anyhow::anyhow!("retired open failed")),
+        None,
+    );
+    assert!(worker.control.is_current(&source, replacement));
+    assert!(worker.state.lock().unwrap().error.is_none());
+    assert!(worker.pending.is_none());
+    worker.shutdown();
+}
+
+#[test]
+fn repeated_shutdown_cancels_pending_work_and_rejects_its_late_device() {
+    let (mut worker, _rx, dropped) = recovering_worker();
+    let (source, generation) = worker.control.snapshot();
+    let source = source.unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    worker.pending = Some(PendingOpen {
+        source: source.clone(),
+        generation,
+        cancel: cancel.clone(),
+    });
+    worker.shutdown();
+    worker.shutdown();
+    assert!(cancel.load(Ordering::Acquire));
+    let late_dropped = Arc::new(AtomicUsize::new(0));
+    worker.opened(
+        &source,
+        generation,
+        &cancel,
+        Err(anyhow::anyhow!("late completion")),
+        Some(Box::new(BrokenOutput(late_dropped.clone()))),
+    );
+    assert_eq!(late_dropped.load(Ordering::Acquire), 1);
+    assert_eq!(dropped.load(Ordering::Acquire), 0);
+    assert!(worker.control.snapshot().0.is_none());
+    assert!(!worker.state.lock().unwrap().playing);
+}
+
+#[test]
 fn source_replaced_during_backoff_discards_the_old_retry() {
     let (mut worker, _rx, _) = recovering_worker();
     let now = Instant::now();
