@@ -477,3 +477,88 @@ async fn repeated_failed_attachment_cleanup_cannot_retire_a_replacement_reader()
             .await;
     }
 }
+
+#[tokio::test]
+async fn cancelled_attachment_caller_hands_failed_handshake_cleanup_to_runtime() {
+    for attachment in [Attachment::Startup, Attachment::Existing] {
+        let socket = crate::test_support::TmuxSocket::new();
+        let manager =
+            crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+        manager
+            .tmux
+            .spawn(
+                "target",
+                "/tmp",
+                80,
+                24,
+                &["sleep".into(), "60".into()],
+                true,
+            )
+            .await
+            .unwrap();
+        let mut row = Live::new(
+            SessionCfg {
+                name: "target".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.role = SessionRole::HostShell;
+        row.process_running = true;
+        row.set_state(State::Working);
+        manager.live.write().await.insert("target".into(), row);
+        let started = manager.tmux.stall_next_attach_for_test();
+        let caller = {
+            let manager = manager.clone();
+            tokio::spawn(async move {
+                manager
+                    .session_operation(async {
+                        let terminal = manager.terminal_boundary("target").write_owned().await;
+                        manager.attach_reader("target", attachment, &terminal).await
+                    })
+                    .await
+            })
+        };
+        // The child exists and handshake is pending before we cancel its caller.
+        let pid = i32::try_from(started.await.unwrap()).unwrap();
+        caller.abort();
+        assert!(caller.await.unwrap_err().is_cancelled());
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                if manager.live.read().await["target"]
+                    .capture
+                    .reader_token
+                    .is_none()
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("cancelled caller abandoned failed attachment cleanup");
+        // Cleanup publication must follow child reaping, even without the caller.
+        // SAFETY: probe only this test's child without blocking or sending signals.
+        let waited = unsafe { nix::libc::waitpid(pid, std::ptr::null_mut(), nix::libc::WNOHANG) };
+        assert_eq!(waited, -1);
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(nix::libc::ECHILD)
+        );
+        {
+            let live = manager.live.read().await;
+            let row = &live["target"];
+            assert!(row.capture.emu.is_none());
+            assert!(row.capture.reader.is_none());
+            assert_eq!(
+                row.process_running,
+                matches!(attachment, Attachment::Existing)
+            );
+        }
+        tokio::time::timeout(Duration::from_secs(5), manager.spawn_reader("target"))
+            .await
+            .expect("cancelled caller retained a boundary")
+            .unwrap();
+        manager.stop("target").await.unwrap();
+    }
+}

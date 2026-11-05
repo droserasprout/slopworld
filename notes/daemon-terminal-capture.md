@@ -3,7 +3,11 @@
 `session/capture/` owns readers, frames, history, input, and exit handling. `emu/`
 mirrors geometry; `tmux/` owns transport. Work belongs to a specific run; stop/reset
 or replacement prevents stale publication. Cleanup retains cancellation and child
-reaping through teardown: dropping a task handle only detaches it.
+reaping through teardown: dropping a task handle only detaches it. Attachment callers
+clean failed starts under their existing lifecycle and terminal guards. Cancellation
+hands readiness to runtime-owned cleanup, which waits for handshake failure and child
+reaping before reacquiring those boundaries and rechecking the reader token. Successful
+attachments remain live after requester cancellation.
 
 Tmux answers terminal queries; the mirror must not send duplicate replies to shell
 input. Screens may coalesce, but bytes and history replies stay complete. History

@@ -1,5 +1,6 @@
 //! tmux control-mode reader attachment and transport lifetime.
-//! Startup owns failed launches; exit handling owns confirmed process exits and recovery.
+//! The attachment caller owns failed-start cleanup, with a runtime cancellation handoff.
+//! Transport owns the handshake and child reaping; exit handling owns recovery.
 
 use super::super::lifecycle::stop::{
     ReaderDisposition, finish_reader, reader_owned_by, replace_reader,
@@ -17,6 +18,86 @@ use futures::FutureExt;
 enum Attachment {
     Startup,
     Existing,
+}
+
+/// Inline cleanup uses the caller's guards. If that caller disappears, transfer
+/// readiness and cleanup to the runtime instead of abandoning the installed token.
+/// The handoff waits for transport failure/reaping before taking lifecycle locks.
+struct PendingAttachment {
+    manager: Arc<SessionRuntime>,
+    name: String,
+    token: Arc<()>,
+    attachment: Attachment,
+    ready: Option<tokio::sync::oneshot::Receiver<Result<(), String>>>,
+    start: Option<tokio::sync::oneshot::Sender<()>>,
+    armed: bool,
+}
+
+impl PendingAttachment {
+    async fn wait(&mut self) -> Result<()> {
+        let start = self.start.take().context("attachment start already sent")?;
+        if start.send(()).is_err() {
+            return Err(anyhow!(
+                "control reader for {} exited before starting",
+                self.name
+            ));
+        }
+        let result = self
+            .ready
+            .as_mut()
+            .context("attachment readiness already consumed")?
+            .await;
+        self.ready = None;
+        match result {
+            Ok(result) => result.map_err(anyhow::Error::msg),
+            Err(_) => Err(anyhow!(
+                "control reader for {} exited before attach",
+                self.name
+            )),
+        }
+    }
+}
+
+impl Drop for PendingAttachment {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        let manager = self.manager.clone();
+        let name = self.name.clone();
+        let token = self.token.clone();
+        let attachment = self.attachment;
+        let ready = self.ready.take();
+        tokio::spawn(async move {
+            // A successful attachment remains useful after requester cancellation.
+            if let Some(ready) = ready
+                && matches!(ready.await, Ok(Ok(())))
+            {
+                return;
+            }
+            manager
+                .session_operation(async {
+                    let terminal = manager.terminal_boundary(&name).write_owned().await;
+                    manager
+                        .cleanup_reader_start(&name, &token, attachment, &terminal)
+                        .await;
+                })
+                .await;
+        });
+    }
+}
+
+/// Successful handshake transfers the child and all buffered output together.
+struct AttachedControl {
+    child: tokio::process::Child,
+    lines: ControlLineReceiver,
+    pending: Vec<Vec<u8>>,
+}
+
+async fn reap_control_child(child: &mut tokio::process::Child, name: &str) {
+    if let Err(error) = child.kill().await {
+        tracing::debug!("stopping control client for {name}: {error}");
+    }
 }
 
 // Limit watched terminal redraws to roughly one per display frame.
@@ -328,6 +409,43 @@ impl SessionRuntime {
             seed_emulator(&mut e, &cap, rows);
         }
         let emu = Arc::new(Mutex::new(e));
+        let Some(mut pending) = self.install_reader(name, emu.clone(), attachment).await else {
+            return Ok(false);
+        };
+
+        // The caller retains the lifecycle and terminal boundaries until readiness
+        // or inline cleanup. The transport must never reacquire them on failure.
+        let ready = pending.wait().await;
+        if let Err(error) = ready {
+            self.cleanup_reader_start(name, &pending.token, attachment, terminal)
+                .await;
+            pending.armed = false;
+            return Err(error);
+        }
+        pending.armed = false;
+
+        self.render_and_broadcast(name, &emu).await;
+        if self
+            .live
+            .read()
+            .await
+            .get(name)
+            .is_some_and(|live| reader_owned_by(live, &pending.token))
+        {
+            Ok(true)
+        } else {
+            Err(anyhow!("control reader for {name} exited during startup"))
+        }
+    }
+
+    /// Publish the emulator, task and token atomically before permitting transport
+    /// startup. The returned handoff owns readiness and failed-start cleanup.
+    async fn install_reader(
+        self: &Arc<Self>,
+        name: &str,
+        emu: Arc<Mutex<SessionEmu>>,
+        attachment: Attachment,
+    ) -> Option<PendingAttachment> {
         let reader_token = Arc::new(());
         let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
         let (start_tx, start_rx) = tokio::sync::oneshot::channel();
@@ -340,8 +458,7 @@ impl SessionRuntime {
             tokio::spawn(async move {
                 // Wait until the handle and token are installed before allowing cleanup.
                 if start_rx.await.is_ok() {
-                    m.run_control(name, emu, reader_token, ready_tx, attachment)
-                        .await;
+                    m.run_control(name, emu, reader_token, ready_tx).await;
                 }
             })
         };
@@ -351,50 +468,27 @@ impl SessionRuntime {
             match live.get_mut(name) {
                 // Capture yielded; another caller may have installed a reader meanwhile.
                 Some(l) if l.capture.emu.is_none() => {
-                    l.capture.emu = Some(emu.clone());
+                    l.capture.emu = Some(emu);
                     l.capture.reader_token = Some(reader_token.clone());
                     l.capture.retry_at = None;
                     replace_reader(l, handle)
                 }
                 _ => {
                     finish_reader(ReaderDisposition::Abort(handle));
-                    return Ok(false);
+                    return None;
                 }
             }
         };
         finish_reader(replaced_reader);
-
-        if start_tx.send(()).is_err() {
-            self.cleanup_reader_start(name, &reader_token, attachment, terminal)
-                .await;
-            return Err(anyhow!("control reader for {name} exited before starting"));
-        }
-        match ready_rx.await {
-            Ok(Ok(())) => {
-                self.render_and_broadcast(name, &emu).await;
-                if self
-                    .live
-                    .read()
-                    .await
-                    .get(name)
-                    .is_some_and(|live| reader_owned_by(live, &reader_token))
-                {
-                    Ok(true)
-                } else {
-                    Err(anyhow!("control reader for {name} exited during startup"))
-                }
-            }
-            Ok(Err(error)) => {
-                self.cleanup_reader_start(name, &reader_token, attachment, terminal)
-                    .await;
-                Err(anyhow!(error))
-            }
-            Err(_) => {
-                self.cleanup_reader_start(name, &reader_token, attachment, terminal)
-                    .await;
-                Err(anyhow!("control reader for {name} exited before attach"))
-            }
-        }
+        Some(PendingAttachment {
+            manager: self.clone(),
+            name: name.to_owned(),
+            token: reader_token,
+            attachment,
+            ready: Some(ready_rx),
+            start: Some(start_tx),
+            armed: true,
+        })
     }
 
     async fn cleanup_reader_start(
@@ -411,23 +505,44 @@ impl SessionRuntime {
         }
     }
 
-    async fn fail_reader_start(
-        self: &Arc<Self>,
+    /// Prepare transport without taking lifecycle locks. Failure is reported only
+    /// after the child is reaped, so caller-owned cleanup can safely release capture.
+    async fn attach_control(
+        &self,
         name: &str,
-        reader_token: &Arc<()>,
-        ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
-        error: String,
-        attachment: Attachment,
-    ) {
-        if matches!(attachment, Attachment::Existing) {
-            // Release failed capture before waking the caller so an immediate
-            // retry cannot mistake the failed attachment for a live reader.
-            self.release_completed_reader(name, reader_token).await;
-        }
-        // Release startup before cleanup waits for its session boundary.
-        drop(ready_tx.send(Err(error)));
-        if matches!(attachment, Attachment::Startup) {
-            self.mark_down(name, reader_token).await;
+        cols: u16,
+        rows: u16,
+    ) -> Result<AttachedControl, String> {
+        let diagnostic = |error: anyhow::Error| {
+            format!(
+                "control attach {name}: {}",
+                crate::sandbox::sanitize_diagnostic(&error.to_string())
+            )
+        };
+        let (mut child, master) = self
+            .tmux
+            .control_attach(name, cols, rows)
+            .map_err(diagnostic)?;
+        let mut lines = spawn_control_reader(master);
+        let handshake =
+            match tokio::time::timeout(CONTROL_ATTACH_TIMEOUT, wait_for_control_attach(&mut lines))
+                .await
+            {
+                Ok(result) => result.map_err(diagnostic),
+                Err(_) => Err(format!(
+                    "control attach {name} did not become ready within {CONTROL_ATTACH_TIMEOUT:?}"
+                )),
+            };
+        match handshake {
+            Ok(pending) => Ok(AttachedControl {
+                child,
+                lines,
+                pending,
+            }),
+            Err(error) => {
+                reap_control_child(&mut child, name).await;
+                Err(error)
+            }
         }
     }
 
@@ -437,61 +552,26 @@ impl SessionRuntime {
         emu: Arc<Mutex<SessionEmu>>,
         reader_token: Arc<()>,
         ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
-        attachment: Attachment,
     ) {
-        let (cols, rows) = match self.live.read().await.get(&name) {
-            Some(l) => (l.cols, l.rows),
-            None => {
-                self.fail_reader_start(
-                    &name,
-                    &reader_token,
-                    ready_tx,
-                    format!("session {name} disappeared before control attach"),
-                    attachment,
-                )
-                .await;
-                return;
-            }
+        let dimensions = self
+            .live
+            .read()
+            .await
+            .get(&name)
+            .map(|live| (live.cols, live.rows));
+        let attached = match dimensions {
+            Some((cols, rows)) => self.attach_control(&name, cols, rows).await,
+            None => Err(format!("session {name} disappeared before control attach")),
         };
-        let (mut child, master) = match self.tmux.control_attach(&name, cols, rows) {
-            Ok(c) => c,
-            Err(e) => {
-                let error = format!(
-                    "control attach {name}: {}",
-                    crate::sandbox::sanitize_diagnostic(&e.to_string())
-                );
-                tracing::error!("{error}");
-                self.fail_reader_start(&name, &reader_token, ready_tx, error, attachment)
-                    .await;
-                return;
-            }
-        };
-
-        let mut rx = spawn_control_reader(master);
-        let attached =
-            match tokio::time::timeout(CONTROL_ATTACH_TIMEOUT, wait_for_control_attach(&mut rx))
-                .await
-            {
-                Ok(result) => result.map_err(|error| {
-                    format!(
-                        "control attach {name}: {}",
-                        crate::sandbox::sanitize_diagnostic(&error.to_string()),
-                    )
-                }),
-                Err(_) => Err(format!(
-                    "control attach {name} did not become ready within {CONTROL_ATTACH_TIMEOUT:?}"
-                )),
-            };
-        let pending = match attached {
-            Ok(pending) => pending,
+        let AttachedControl {
+            mut child,
+            lines,
+            pending,
+        } = match attached {
+            Ok(control) => control,
             Err(error) => {
                 tracing::error!("{error}");
-                // Both handshake errors and timeouts must reap before releasing startup.
-                if let Err(kill_error) = child.kill().await {
-                    tracing::debug!("stopping failed control client for {name}: {kill_error}");
-                }
-                self.fail_reader_start(&name, &reader_token, ready_tx, error, attachment)
-                    .await;
+                drop(ready_tx.send(Err(error)));
                 return;
             }
         };
@@ -500,20 +580,16 @@ impl SessionRuntime {
         // A pane can die while slopd is offline or between status inspection and
         // attachment. The death hook is not replayed for an already-dead pane.
         // Inspect after the handshake: later deaths will wake this attached client.
-        if matches!(self.tmux.pane_exit(&name).await, Ok(Some(_)))
-            && let Err(error) = child.kill().await
-        {
-            tracing::debug!("stopping control client for dead pane {name}: {error}");
+        if matches!(self.tmux.pane_exit(&name).await, Ok(Some(_))) {
+            reap_control_child(&mut child, &name).await;
         }
         // Drain queued output and perform the ordinary frame/clipboard handoff
         // even when attachment discovers an exit instead of receiving its hook.
-        self.run_control_loop(&name, emu, rx, pending).await;
+        self.run_control_loop(&name, emu, lines, pending).await;
 
-        // Reap before mark_down so the client releases the PTY slave.
+        // Reap before recovery so the client releases the PTY slave.
         // kill_on_drop does not wait; cleanup can race and stall Ctrl+D exit.
-        if let Err(error) = child.kill().await {
-            tracing::debug!("stopping control client for {name}: {error}");
-        }
+        reap_control_child(&mut child, &name).await;
         self.reader_ended(name, reader_token).await;
     }
 
