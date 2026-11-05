@@ -500,3 +500,70 @@ async fn worker_relationship_and_portable_policy_survive_record_reload() {
     );
     assert_eq!(f.value(FIRST).parent_id, SECOND);
 }
+
+#[tokio::test]
+async fn nested_extensions_follow_snapshot_identity_and_repeated_clearing() {
+    let mut f = Fixture::<SessionCfg>::new();
+    let mut value = agent(FIRST, "agent");
+    value.limits.memory_mb = Some(256);
+    value.command_snapshot = Some(Default::default());
+    value.sandbox_snapshots = ["first", "second"]
+        .map(|name| crate::presets::SandboxPreset {
+            name: name.into(),
+            ..Default::default()
+        })
+        .into();
+    f.change(|rows| rows.push(value)).await.unwrap();
+    let path = f.path(FIRST);
+    let mut raw: toml::Value = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    for field in ["limits", "workers", "dns", "command_snapshot"] {
+        raw[field]
+            .as_table_mut()
+            .unwrap()
+            .insert("future".into(), field.into());
+    }
+    for row in raw["sandbox_snapshots"].as_array_mut().unwrap() {
+        let name = row["name"].clone();
+        row.as_table_mut().unwrap().insert("future".into(), name);
+    }
+    std::fs::write(&path, toml::to_string(&raw).unwrap()).unwrap();
+    f.reload().await.unwrap();
+    f.change(|rows| rows[0].sandbox_snapshots.reverse())
+        .await
+        .unwrap();
+    let raw: toml::Value = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    for row in raw["sandbox_snapshots"].as_array().unwrap() {
+        assert_eq!(row["future"], row["name"]);
+    }
+    for _ in 0..2 {
+        f.change(|rows| {
+            rows[0].limits = Default::default();
+            rows[0].command_snapshot = None;
+            rows[0].sandbox_snapshots.clear();
+        })
+        .await
+        .unwrap();
+        f.reload().await.unwrap();
+        let raw: toml::Value = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(raw["limits"].as_table().unwrap().len(), 1);
+        for field in ["limits", "workers", "dns"] {
+            assert_eq!(raw[field]["future"].as_str(), Some(field));
+        }
+        assert!(raw.get("command_snapshot").is_none());
+        assert!(raw.get("sandbox_snapshots").is_none());
+    }
+    f.change(|rows| {
+        rows[0].command_snapshot = Some(Default::default());
+        rows[0]
+            .sandbox_snapshots
+            .push(crate::presets::SandboxPreset {
+                name: "first".into(),
+                ..Default::default()
+            });
+    })
+    .await
+    .unwrap();
+    let raw: toml::Value = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(raw["command_snapshot"].get("future").is_none());
+    assert!(raw["sandbox_snapshots"][0].get("future").is_none());
+}

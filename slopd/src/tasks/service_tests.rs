@@ -573,3 +573,142 @@ fn update_cancellation_enforces_recipient_status_and_preserves_result() {
         }
     }
 }
+
+#[test]
+fn cancellation_write_failure_retry_and_stale_cleanup_preserve_history() {
+    for single in [false, true] {
+        let mut f = Fixture::new();
+        let task = f.create("cancel after accepted result");
+        let before = f
+            .tasks
+            .update(
+                "agent",
+                "agent",
+                &task.id,
+                Status::Accepted,
+                Some("latest result".into()),
+            )
+            .unwrap();
+        let stamp = f.tasks.stamp(&before).unwrap();
+        let path = f.path(&task.id);
+        let bytes = fs::read(&path).unwrap();
+        let fault = crate::paths::fail_writes(&path);
+        if single {
+            f.tasks
+                .update(
+                    "agent",
+                    "agent",
+                    &task.id,
+                    Status::Canceled,
+                    Some("cancellation reason".into()),
+                )
+                .unwrap_err();
+        } else {
+            let result = f
+                .tasks
+                .cancel_many("agent", "agent", std::slice::from_ref(&task.id), false)
+                .unwrap();
+            assert_eq!(result.failed.len(), 1);
+            assert!(result.committed.is_empty());
+        }
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert_eq!(
+            f.tasks.get("agent", &task.id).unwrap().history,
+            before.history
+        );
+        drop(fault);
+        let canceled = if single {
+            f.tasks
+                .update(
+                    "agent",
+                    "agent",
+                    &task.id,
+                    Status::Canceled,
+                    Some("cancellation reason".into()),
+                )
+                .unwrap()
+        } else {
+            f.tasks
+                .cancel_many("agent", "agent", std::slice::from_ref(&task.id), false)
+                .unwrap()
+                .tasks
+                .remove(0)
+        };
+        assert_eq!(canceled.note, before.note);
+        assert_eq!(canceled.history.len(), before.history.len() + 1);
+        assert_eq!(
+            canceled.history.last().unwrap().note.as_deref(),
+            single.then_some("cancellation reason")
+        );
+        f.tasks = Tasks::load_records(&f.root).unwrap();
+        assert_eq!(
+            f.tasks.get("agent", &task.id).unwrap().history,
+            canceled.history
+        );
+        let retry = f
+            .tasks
+            .cancel_many("agent", "agent", std::slice::from_ref(&task.id), false)
+            .unwrap();
+        assert_eq!(retry.unchanged, [task.id.clone()]);
+        assert_eq!(retry.tasks[0].history, canceled.history);
+        for _ in 0..2 {
+            f.tasks
+                .remove_many("agent", std::slice::from_ref(&task.id), false)
+                .unwrap();
+            assert!(
+                f.tasks
+                    .set_summary_checked(&stamp, "late result")
+                    .unwrap()
+                    .is_none()
+            );
+        }
+        assert!(!path.exists());
+    }
+}
+
+#[test]
+fn recipient_single_and_bulk_cancellation_agree_for_every_status() {
+    for status in [
+        Status::Queued,
+        Status::Accepted,
+        Status::Working,
+        Status::Done,
+        Status::Failed,
+        Status::Canceled,
+    ] {
+        let mut f = Fixture::new();
+        let single = f.create("single");
+        let bulk = f.create("bulk");
+        for task in [&single, &bulk] {
+            f.tasks
+                .update("agent", "agent", &task.id, status, Some("result".into()))
+                .unwrap();
+        }
+        let one = f
+            .tasks
+            .update("agent", "agent", &single.id, Status::Canceled, None);
+        let many = f
+            .tasks
+            .cancel_many("agent", "agent", std::slice::from_ref(&bulk.id), false);
+        if status == Status::Canceled {
+            // Generic updates reject terminal cancellation; batch retries are idempotent.
+            assert!(one.is_err());
+            assert_eq!(many.unwrap().unchanged, [bulk.id.clone()]);
+        } else {
+            assert_eq!(one.is_ok(), many.is_ok(), "{status:?}");
+            assert_eq!(
+                one.is_ok(),
+                matches!(status, Status::Queued | Status::Accepted)
+            );
+        }
+        let one = f.tasks.get("agent", &single.id).unwrap();
+        let many = f.tasks.get("agent", &bulk.id).unwrap();
+        assert_eq!(one.status, many.status);
+        assert_eq!(one.note, many.note);
+        assert_eq!(one.history.len(), many.history.len());
+        assert_eq!(
+            one.history.last().unwrap().note,
+            many.history.last().unwrap().note
+        );
+    }
+}

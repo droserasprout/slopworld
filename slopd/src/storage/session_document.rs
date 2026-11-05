@@ -140,3 +140,7 @@ pub(super) fn prepare(
     }
     Ok(new)
 }
+
+#[cfg(test)]
+#[path = "session_document_tests.rs"]
+mod tests;
