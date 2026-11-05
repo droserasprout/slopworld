@@ -5,7 +5,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use super::control::{Control, SourceRequirement};
+use super::control::{Control, PlayDisposition};
 use super::playback::{self, AudioOutput, OutputFactory};
 use super::{AudioState, station};
 
@@ -27,16 +27,63 @@ pub(super) enum WorkerMsg {
     },
 }
 
-struct PendingOpen {
+/// Identity and cancellation travel together from opening through committed playback.
+struct SourceRun {
     source: String,
     generation: u64,
     cancel: Arc<AtomicBool>,
 }
 
-enum PlayDisposition {
-    AlreadyPending,
-    AlreadyPlaying,
-    Open,
+#[derive(Default)]
+enum SourcePhase {
+    #[default]
+    Idle,
+    Opening(SourceRun),
+    Playing(SourceRun),
+    Backoff(OutputRetry),
+}
+
+impl SourcePhase {
+    fn retire(&mut self) {
+        if let Self::Opening(run) | Self::Playing(run) = std::mem::take(self) {
+            run.cancel.store(true, Ordering::Release);
+        }
+    }
+
+    fn opening(&self) -> Option<&SourceRun> {
+        match self {
+            Self::Opening(run) => Some(run),
+            _ => None,
+        }
+    }
+
+    fn retry(&self) -> Option<&OutputRetry> {
+        match self {
+            Self::Backoff(retry) => Some(retry),
+            _ => None,
+        }
+    }
+
+    fn take_retry(&mut self) -> Option<OutputRetry> {
+        if self.retry().is_some()
+            && let Self::Backoff(retry) = std::mem::take(self)
+        {
+            return Some(retry);
+        }
+        None
+    }
+
+    fn disposition(&self, source: &str, generation: u64) -> PlayDisposition {
+        match self {
+            Self::Opening(run) if run.source == source && run.generation == generation => {
+                PlayDisposition::AlreadyPending
+            }
+            Self::Playing(run) if run.source == source && run.generation == generation => {
+                PlayDisposition::AlreadyPlaying
+            }
+            _ => PlayDisposition::Open,
+        }
+    }
 }
 
 const HEALTH_POLL: Duration = Duration::from_millis(100);
@@ -54,7 +101,6 @@ struct OutputRecovery {
     recoveries: usize,
     recovery_generation: Option<u64>,
     healthy_since: Option<Instant>,
-    retry: Option<OutputRetry>,
 }
 
 struct AudioWorker {
@@ -63,9 +109,7 @@ struct AudioWorker {
     tx: Sender<WorkerMsg>,
     factory: Arc<dyn OutputFactory>,
     output: Option<Box<dyn AudioOutput>>,
-    pending: Option<PendingOpen>,
-    active_cancel: Option<Arc<AtomicBool>>,
-    active_generation: Option<u64>,
+    source: SourcePhase,
     recovery: OutputRecovery,
 }
 
@@ -86,9 +130,7 @@ pub(super) fn run(
         tx,
         factory,
         output: None,
-        pending: None,
-        active_cancel: None,
-        active_generation: None,
+        source: SourcePhase::Idle,
         recovery: OutputRecovery::default(),
     };
 
@@ -114,13 +156,7 @@ impl AudioWorker {
             output.report_underruns();
         }
         if self.output.as_ref().is_some_and(|output| output.failed()) {
-            if let Some(cancel) = self.active_cancel.take() {
-                cancel.store(true, Ordering::Release);
-            }
-            if let Some(waiting) = self.pending.take() {
-                waiting.cancel.store(true, Ordering::Release);
-            }
-            self.active_generation = None;
+            self.source.retire();
             self.recovery.healthy_since = None;
             drop(self.output.take());
             let (source, generation) = self.control.snapshot();
@@ -134,12 +170,8 @@ impl AudioWorker {
         {
             self.recovery.recoveries = 0;
         }
-        if self
-            .recovery
-            .retry
-            .as_ref()
-            .is_some_and(|retry| now >= retry.at)
-            && let Some(retry) = self.recovery.retry.take()
+        if self.source.retry().is_some_and(|retry| now >= retry.at)
+            && let Some(retry) = self.source.take_retry()
             && self.control.is_current(&retry.source, retry.generation)
         {
             self.play(retry.source, retry.generation);
@@ -161,20 +193,13 @@ impl AudioWorker {
             return;
         }
         self.recovery.recoveries += 1;
-        self.control.publish_current(
-            &self.state,
-            generation,
-            SourceRequirement::Exact(&source),
-            |_, current| {
-                current.playing = false;
-                current.error = Some(format!("{why}; recovering audio output"));
-            },
-        );
+        self.control
+            .publish_recovery(&self.state, &source, generation, why);
         tracing::warn!(
             attempt = self.recovery.recoveries,
             "audio: {why}; reopening output"
         );
-        self.recovery.retry = Some(OutputRetry {
+        self.source = SourcePhase::Backoff(OutputRetry {
             source,
             generation,
             at: now + Duration::from_secs(self.recovery.recoveries as u64),
@@ -221,12 +246,7 @@ impl AudioWorker {
 
     fn shutdown(&mut self) {
         self.control.shutdown();
-        if let Some(waiting) = self.pending.take() {
-            waiting.cancel.store(true, Ordering::Release);
-        }
-        if let Some(cancel) = self.active_cancel.take() {
-            cancel.store(true, Ordering::Release);
-        }
+        self.source.retire();
         let mut current = self.state.lock().unwrap_or_else(|p| p.into_inner());
         current.playing = false;
         current.source = None;
@@ -235,9 +255,8 @@ impl AudioWorker {
 
     fn play(&mut self, source: String, generation: u64) {
         if self
-            .recovery
-            .retry
-            .as_ref()
+            .source
+            .retry()
             .is_some_and(|retry| retry.source == source && retry.generation == generation)
         {
             return;
@@ -246,7 +265,7 @@ impl AudioWorker {
             return;
         }
         // A new user request supersedes delayed recovery without reviving the old source.
-        self.recovery.retry = None;
+        self.source.take_retry();
         self.reset_recovery_generation(generation);
 
         let title = station::TitleSink::pending_for(
@@ -257,47 +276,12 @@ impl AudioWorker {
         let cancel = title.cancelled.clone();
         let needs_output = self.output.is_none();
         let volume = self.control.volume();
-        let pending = &mut self.pending;
-        let active_cancel = &mut self.active_cancel;
-        let active_generation = self.active_generation;
-        let disposition = self.control.publish_current(
+        let disposition = self.control.prepare_play(
             &self.state,
+            &source,
             generation,
-            SourceRequirement::Exact(&source),
-            |request, current| {
-                if pending.as_ref().is_some_and(|waiting| {
-                    waiting.generation == generation && waiting.source == source
-                }) {
-                    return PlayDisposition::AlreadyPending;
-                }
-
-                // Published state may still describe a ring retired by queued stop/play.
-                if active_generation == Some(generation)
-                    && current.playing
-                    && current.source.as_deref() == Some(source.as_str())
-                {
-                    current.volume = volume;
-                    return PlayDisposition::AlreadyPlaying;
-                }
-
-                if let Some(waiting) = pending.take() {
-                    waiting.cancel.store(true, Ordering::Release);
-                }
-                if let Some(old_cancel) = active_cancel.take() {
-                    old_cancel.store(true, Ordering::Release);
-                }
-                current.playing = false;
-                current.source = None;
-                current.title = None;
-                current.error = None;
-                request.cancel = Some(cancel.clone());
-                *pending = Some(PendingOpen {
-                    source: source.clone(),
-                    generation,
-                    cancel: cancel.clone(),
-                });
-                PlayDisposition::Open
-            },
+            cancel.clone(),
+            self.source.disposition(&source, generation),
         );
         match disposition {
             None | Some(PlayDisposition::AlreadyPending) => {}
@@ -306,16 +290,26 @@ impl AudioWorker {
                     output.set_volume(volume);
                 }
             }
-            Some(PlayDisposition::Open) => spawn_open(
-                OpenRequest {
-                    source,
+            Some(PlayDisposition::Open) => {
+                // Only worker-owned resources are retired here. A concurrent request has
+                // already cancelled this candidate through Control's registered handle.
+                self.source.retire();
+                self.source = SourcePhase::Opening(SourceRun {
+                    source: source.clone(),
                     generation,
-                    title,
-                    needs_output,
-                },
-                self.factory.clone(),
-                &self.tx,
-            ),
+                    cancel,
+                });
+                spawn_open(
+                    OpenRequest {
+                        source,
+                        generation,
+                        title,
+                        needs_output,
+                    },
+                    self.factory.clone(),
+                    &self.tx,
+                );
+            }
         }
     }
 
@@ -327,27 +321,10 @@ impl AudioWorker {
     }
 
     fn stop(&mut self, generation: u64) {
-        let recovery = &mut self.recovery;
-        let pending = &mut self.pending;
-        let active_cancel = &mut self.active_cancel;
-        self.control.publish_current(
-            &self.state,
-            generation,
-            SourceRequirement::None,
-            |_, current| {
-                recovery.retry = None;
-                recovery.recoveries = 0;
-                if let Some(waiting) = pending.take() {
-                    waiting.cancel.store(true, Ordering::Release);
-                }
-                if let Some(cancel) = active_cancel.take() {
-                    cancel.store(true, Ordering::Release);
-                }
-                current.playing = false;
-                current.source = None;
-                current.title = None;
-            },
-        );
+        if self.control.publish_stopped(&self.state, generation) {
+            self.source.retire();
+            self.recovery.recoveries = 0;
+        }
     }
 
     fn opened(
@@ -358,7 +335,7 @@ impl AudioWorker {
         result: anyhow::Result<playback::OpenedSource>,
         opened_output: Option<Box<dyn AudioOutput>>,
     ) {
-        let matches = self.pending.as_ref().is_some_and(|waiting| {
+        let matches = self.source.opening().is_some_and(|waiting| {
             waiting.generation == generation
                 && waiting.source == source
                 && Arc::ptr_eq(&waiting.cancel, cancel)
@@ -368,7 +345,7 @@ impl AudioWorker {
             drop(opened_output);
             return;
         }
-        self.pending = None;
+        self.source = SourcePhase::Idle;
 
         if !self.control.is_current(source, generation) {
             drop(result);
@@ -422,26 +399,19 @@ impl AudioWorker {
         match playback::commit(opened, output.as_ref(), self.control.volume()) {
             Ok(Some(committed)) => {
                 let cancel = committed.title.cancelled.clone();
-                let volume = self.control.volume();
-                let published = self.control.publish_current(
-                    &self.state,
-                    generation,
-                    SourceRequirement::Exact(source),
-                    |request, current| {
-                        request.cancel = Some(cancel.clone());
-                        current.playing = true;
-                        current.source = Some(source.to_owned());
-                        current.volume = volume;
-                        current.error = None;
-                    },
-                );
-                if published.is_none() {
+                let published =
+                    self.control
+                        .publish_playing(&self.state, source, generation, cancel.clone());
+                if !published {
                     committed.title.cancel();
                     return;
                 }
                 committed.title.commit();
-                self.active_generation = Some(generation);
-                self.active_cancel = Some(committed.title.cancelled);
+                self.source = SourcePhase::Playing(SourceRun {
+                    source: source.to_owned(),
+                    generation,
+                    cancel,
+                });
                 tracing::info!("audio: playing {}", source);
             }
             Ok(None) => {}

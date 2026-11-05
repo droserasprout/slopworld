@@ -1,6 +1,6 @@
 //! Request identity, cancellation, and state publication. Playback I/O belongs to the worker.
 
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::{AudioState, fail_state};
@@ -36,6 +36,13 @@ pub(super) enum SourceRequirement<'a> {
     Active,
     Exact(&'a str),
     None,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum PlayDisposition {
+    AlreadyPending,
+    AlreadyPlaying,
+    Open,
 }
 
 pub(super) struct Control {
@@ -84,7 +91,7 @@ impl Control {
 
     /// Publish a short state change while the request identity is locked. Lock order is request
     /// then audio state. Callers must finish playback and other I/O before entering this boundary.
-    pub(super) fn publish_current<R>(
+    fn with_current<R>(
         &self,
         state: &Arc<Mutex<AudioState>>,
         generation: u64,
@@ -106,6 +113,126 @@ impl Control {
 
         let mut current = state.lock().unwrap_or_else(|p| p.into_inner());
         Some(publish(&mut request, &mut current))
+    }
+
+    /// Worker phase is only a hint: published playback must also match before reusing a ring.
+    /// The cancellation handle is registered under request identity before the opener starts,
+    /// so a replacement can interrupt it without waiting for the worker's next command.
+    pub(super) fn prepare_play(
+        &self,
+        state: &Arc<Mutex<AudioState>>,
+        source: &str,
+        generation: u64,
+        cancel: Arc<AtomicBool>,
+        disposition: PlayDisposition,
+    ) -> Option<PlayDisposition> {
+        self.with_current(
+            state,
+            generation,
+            SourceRequirement::Exact(source),
+            |request, current| {
+                match disposition {
+                    PlayDisposition::AlreadyPending => return PlayDisposition::AlreadyPending,
+                    PlayDisposition::AlreadyPlaying
+                        if current.playing && current.source.as_deref() == Some(source) =>
+                    {
+                        current.volume = self.volume();
+                        return PlayDisposition::AlreadyPlaying;
+                    }
+                    PlayDisposition::AlreadyPlaying | PlayDisposition::Open => {}
+                }
+                current.playing = false;
+                current.source = None;
+                current.title = None;
+                current.error = None;
+                request.cancel = Some(cancel);
+                PlayDisposition::Open
+            },
+        )
+    }
+
+    pub(super) fn publish_playing(
+        &self,
+        state: &Arc<Mutex<AudioState>>,
+        source: &str,
+        generation: u64,
+        cancel: Arc<AtomicBool>,
+    ) -> bool {
+        self.with_current(
+            state,
+            generation,
+            SourceRequirement::Exact(source),
+            |request, current| {
+                request.cancel = Some(cancel);
+                current.playing = true;
+                current.source = Some(source.to_owned());
+                current.volume = self.volume();
+                current.error = None;
+            },
+        )
+        .is_some()
+    }
+
+    pub(super) fn publish_stopped(&self, state: &Arc<Mutex<AudioState>>, generation: u64) -> bool {
+        self.with_current(state, generation, SourceRequirement::None, |_, current| {
+            current.playing = false;
+            current.source = None;
+            current.title = None;
+        })
+        .is_some()
+    }
+
+    pub(super) fn publish_recovery(
+        &self,
+        state: &Arc<Mutex<AudioState>>,
+        source: &str,
+        generation: u64,
+        why: &str,
+    ) {
+        self.with_current(
+            state,
+            generation,
+            SourceRequirement::Exact(source),
+            |_, current| {
+                current.playing = false;
+                current.error = Some(format!("{why}; recovering audio output"));
+            },
+        );
+    }
+
+    pub(super) fn publish_title(
+        &self,
+        state: &Arc<Mutex<AudioState>>,
+        generation: u64,
+        title: Option<String>,
+    ) -> bool {
+        self.with_current(
+            state,
+            generation,
+            SourceRequirement::Active,
+            |_, current| {
+                if current.title == title {
+                    false
+                } else {
+                    current.title = title;
+                    true
+                }
+            },
+        )
+        .unwrap_or(false)
+    }
+
+    // Fixtures can arrange otherwise unreachable identities without exposing mutable request
+    // publication to production owners. All production callers use the operations above.
+    #[cfg(test)]
+    pub(super) fn publish_current<R>(
+        &self,
+        state: &Arc<Mutex<AudioState>>,
+        generation: u64,
+        source: SourceRequirement<'_>,
+        publish: impl FnOnce(&mut RequestState, &mut AudioState) -> R,
+    ) -> Option<R> {
+        self.with_current(state, generation, source, publish)
     }
 
     pub(super) fn is_current(&self, source: &str, generation: u64) -> bool {
@@ -130,7 +257,7 @@ impl Control {
         let requirement = source.map_or(SourceRequirement::None, SourceRequirement::Exact);
         let log_why = why.clone();
         let published = self
-            .publish_current(state, generation, requirement, |request, current| {
+            .with_current(state, generation, requirement, |request, current| {
                 request.retire();
                 fail_state(current, why);
             })

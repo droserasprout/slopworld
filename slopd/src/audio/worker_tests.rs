@@ -1,4 +1,5 @@
 use super::*;
+use crate::audio::control::SourceRequirement;
 use crate::audio::test_support::{FakeOutputFactory, FakeOutputState};
 use std::sync::atomic::AtomicUsize;
 
@@ -36,13 +37,11 @@ fn failed_opener_start_clears_the_pending_identity_and_allows_retry() {
         tx: tx.clone(),
         factory: factory.clone(),
         output: None,
-        pending: Some(PendingOpen {
+        source: SourcePhase::Opening(SourceRun {
             source: "fixture".into(),
             generation,
             cancel: cancel.clone(),
         }),
-        active_cancel: None,
-        active_generation: None,
         recovery: OutputRecovery::default(),
     };
     spawn_open_with(
@@ -57,7 +56,7 @@ fn failed_opener_start_clears_the_pending_identity_and_allows_retry() {
         |_| Err(std::io::Error::other("synthetic opener failure")),
     );
     worker.handle(rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap());
-    assert!(worker.pending.is_none());
+    assert!(worker.source.opening().is_none());
     assert_eq!(control.snapshot(), (None, generation));
     assert!(cancel.load(Ordering::Acquire));
     assert!(
@@ -114,7 +113,7 @@ fn recovering_worker() -> (AudioWorker, Receiver<WorkerMsg>, Arc<AtomicUsize>) {
     let dropped = Arc::new(AtomicUsize::new(0));
     let worker = AudioWorker {
         state,
-        control,
+        control: control.clone(),
         tx,
         factory: Arc::new(FakeOutputFactory(Arc::new(FakeOutputState {
             opens: AtomicUsize::new(0),
@@ -122,9 +121,11 @@ fn recovering_worker() -> (AudioWorker, Receiver<WorkerMsg>, Arc<AtomicUsize>) {
             volumes: Mutex::new(Vec::new()),
         }))),
         output: Some(Box::new(BrokenOutput(dropped.clone()))),
-        pending: None,
-        active_cancel: Some(Arc::new(AtomicBool::new(false))),
-        active_generation: Some(generation),
+        source: SourcePhase::Playing(SourceRun {
+            source: control.snapshot().0.unwrap(),
+            generation,
+            cancel: Arc::new(AtomicBool::new(false)),
+        }),
         recovery: OutputRecovery::default(),
     };
     (worker, rx, dropped)
@@ -133,7 +134,10 @@ fn recovering_worker() -> (AudioWorker, Receiver<WorkerMsg>, Arc<AtomicUsize>) {
 #[test]
 fn backend_failure_retires_output_then_reopens_current_source_and_volume() {
     let (mut worker, rx, dropped) = recovering_worker();
-    let cancel = worker.active_cancel.as_ref().unwrap().clone();
+    let SourcePhase::Playing(run) = &worker.source else {
+        panic!("fixture must be playing")
+    };
+    let cancel = run.cancel.clone();
     let now = Instant::now();
     worker.check_output(now);
     assert_eq!(dropped.load(Ordering::Acquire), 1);
@@ -144,7 +148,7 @@ fn backend_failure_retires_output_then_reopens_current_source_and_volume() {
         .volume
         .store(0.3f32.to_bits(), Ordering::Release);
     worker.check_output(now + Duration::from_secs(1));
-    assert!(worker.pending.is_some());
+    assert!(worker.source.opening().is_some());
     worker.handle(rx.recv_timeout(Duration::from_secs(2)).unwrap());
     assert!(worker.output.is_some());
     let state = worker.state.lock().unwrap();
@@ -161,14 +165,14 @@ fn failed_reopens_back_off_and_eventually_publish_a_terminal_error() {
     let now = Instant::now();
     worker.check_output(now);
     for attempt in 1..=MAX_RECOVERIES {
-        let retry = worker.recovery.retry.take().unwrap();
+        let retry = worker.source.take_retry().unwrap();
         assert_eq!(
             retry.at.duration_since(now),
             Duration::from_secs(attempt as u64)
         );
         worker.schedule_recovery(retry.source, retry.generation, now, "device unavailable");
     }
-    assert!(worker.recovery.retry.is_none());
+    assert!(worker.source.retry().is_none());
     assert!(worker.control.snapshot().0.is_none());
     assert!(
         worker
@@ -181,7 +185,7 @@ fn failed_reopens_back_off_and_eventually_publish_a_terminal_error() {
             .contains("recovery exhausted")
     );
     worker.check_output(now + Duration::from_secs(100));
-    assert!(worker.pending.is_none());
+    assert!(worker.source.opening().is_none());
 }
 
 #[test]
@@ -192,8 +196,8 @@ fn request_retired_during_backoff_is_not_restarted() {
     // Exercise the request-side cancellation before the queued stop reaches the worker.
     worker.control.shutdown();
     worker.check_output(now + Duration::from_secs(5));
-    assert!(worker.recovery.retry.is_none());
-    assert!(worker.pending.is_none());
+    assert!(worker.source.retry().is_none());
+    assert!(worker.source.opening().is_none());
     assert!(worker.output.is_none());
 }
 
@@ -219,8 +223,8 @@ fn repeated_stop_during_backoff_preserves_device_cleanup_and_allows_a_fresh_play
     worker.stop(stopped);
     worker.check_output(now + Duration::from_secs(10));
     assert_eq!(dropped.load(Ordering::Acquire), 1);
-    assert!(worker.recovery.retry.is_none());
-    assert!(worker.pending.is_none());
+    assert!(worker.source.retry().is_none());
+    assert!(worker.source.opening().is_none());
     assert_eq!(worker.recovery.recoveries, 0);
     let generation = worker.control.play(&source);
     worker.play(source, generation);
@@ -238,7 +242,7 @@ fn retired_pending_failure_cannot_clear_a_new_request_for_the_same_source() {
     let (source, generation) = worker.control.snapshot();
     let source = source.unwrap();
     let cancel = Arc::new(AtomicBool::new(false));
-    worker.pending = Some(PendingOpen {
+    worker.source = SourcePhase::Opening(SourceRun {
         source: source.clone(),
         generation,
         cancel: cancel.clone(),
@@ -254,7 +258,7 @@ fn retired_pending_failure_cannot_clear_a_new_request_for_the_same_source() {
     );
     assert!(worker.control.is_current(&source, replacement));
     assert!(worker.state.lock().unwrap().error.is_none());
-    assert!(worker.pending.is_none());
+    assert!(worker.source.opening().is_none());
     worker.shutdown();
 }
 
@@ -264,7 +268,7 @@ fn repeated_shutdown_cancels_pending_work_and_rejects_its_late_device() {
     let (source, generation) = worker.control.snapshot();
     let source = source.unwrap();
     let cancel = Arc::new(AtomicBool::new(false));
-    worker.pending = Some(PendingOpen {
+    worker.source = SourcePhase::Opening(SourceRun {
         source: source.clone(),
         generation,
         cancel: cancel.clone(),
@@ -304,8 +308,8 @@ fn source_replaced_during_backoff_discards_the_old_retry() {
         )
         .unwrap();
     worker.check_output(now + Duration::from_secs(5));
-    assert!(worker.recovery.retry.is_none());
-    assert!(worker.pending.is_none());
+    assert!(worker.source.retry().is_none());
+    assert!(worker.source.opening().is_none());
     assert_eq!(worker.control.snapshot().0.as_deref(), Some("replacement"));
 }
 
@@ -313,13 +317,13 @@ fn source_replaced_during_backoff_discards_the_old_retry() {
 fn reopen_failure_keeps_request_alive_until_the_retry_budget_is_exhausted() {
     let (mut worker, _rx, _) = recovering_worker();
     worker.check_output(Instant::now());
-    let retry = worker.recovery.retry.take().unwrap();
-    worker.pending = Some(PendingOpen {
+    let retry = worker.source.take_retry().unwrap();
+    worker.source = SourcePhase::Opening(SourceRun {
         source: retry.source.clone(),
         generation: retry.generation,
         cancel: Arc::new(AtomicBool::new(false)),
     });
-    let cancel = worker.pending.as_ref().unwrap().cancel.clone();
+    let cancel = worker.source.opening().unwrap().cancel.clone();
     worker.opened(
         &retry.source,
         retry.generation,
@@ -329,8 +333,8 @@ fn reopen_failure_keeps_request_alive_until_the_retry_budget_is_exhausted() {
     );
     assert!(worker.control.is_current(&retry.source, retry.generation));
     assert_eq!(worker.recovery.recoveries, 2);
-    assert!(worker.recovery.retry.is_some());
-    assert!(worker.pending.is_none());
+    assert!(worker.source.retry().is_some());
+    assert!(worker.source.opening().is_none());
 }
 
 #[test]
@@ -339,7 +343,7 @@ fn late_opener_from_before_output_failure_cannot_replace_the_recovery_opener() {
     let (source, generation) = worker.control.snapshot();
     let source = source.unwrap();
     let old_cancel = Arc::new(AtomicBool::new(false));
-    worker.pending = Some(PendingOpen {
+    worker.source = SourcePhase::Opening(SourceRun {
         source: source.clone(),
         generation,
         cancel: old_cancel.clone(),
@@ -347,7 +351,7 @@ fn late_opener_from_before_output_failure_cannot_replace_the_recovery_opener() {
     worker.check_output(Instant::now());
     assert!(old_cancel.load(Ordering::Acquire));
     let new_cancel = Arc::new(AtomicBool::new(false));
-    worker.pending = Some(PendingOpen {
+    worker.source = SourcePhase::Opening(SourceRun {
         source: source.clone(),
         generation,
         cancel: new_cancel.clone(),
@@ -361,7 +365,7 @@ fn late_opener_from_before_output_failure_cannot_replace_the_recovery_opener() {
         Some(Box::new(BrokenOutput(dropped.clone()))),
     );
     assert!(Arc::ptr_eq(
-        &worker.pending.as_ref().unwrap().cancel,
+        &worker.source.opening().unwrap().cancel,
         &new_cancel
     ));
     assert_eq!(dropped.load(Ordering::Acquire), 1);
@@ -375,7 +379,7 @@ fn stale_stop_does_not_cancel_recovery_for_the_current_request() {
     worker.check_output(Instant::now());
     let generation = worker.control.snapshot().1;
     worker.stop(generation.wrapping_sub(1));
-    assert!(worker.recovery.retry.is_some());
+    assert!(worker.source.retry().is_some());
     assert_eq!(worker.recovery.recoveries, 1);
 }
 
@@ -420,13 +424,11 @@ fn replacement_during_output_commit_cancels_candidate_without_publishing_stale_s
     );
     let cancel = title.cancelled.clone();
     let opened = playback::open(&source, title).unwrap();
-    worker.pending = Some(PendingOpen {
+    worker.source = SourcePhase::Opening(SourceRun {
         source: source.clone(),
         generation,
         cancel: cancel.clone(),
     });
-    worker.active_generation = None;
-    worker.active_cancel = None;
     worker.output = Some(Box::new(ReplacingOutput {
         control: worker.control.clone(),
         state: worker.state.clone(),
@@ -434,9 +436,8 @@ fn replacement_during_output_commit_cancels_candidate_without_publishing_stale_s
     }));
     worker.opened(&source, generation, &cancel, Ok(opened), None);
     assert!(cancel.load(Ordering::Acquire));
-    assert!(worker.pending.is_none());
-    assert!(worker.active_generation.is_none());
-    assert!(worker.active_cancel.is_none());
+    assert!(worker.source.opening().is_none());
+    assert!(matches!(worker.source, SourcePhase::Idle));
     let state = worker.state.lock().unwrap();
     assert_eq!(state.source.as_deref(), Some("replacement"));
     assert_eq!(state.title.as_deref(), Some("replacement title"));

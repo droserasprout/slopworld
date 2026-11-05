@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use super::control::{Control, SourceRequirement};
+use super::control::Control;
 use super::{AudioState, OPEN};
 
 /// Receive delayed station metadata. The generation prevents old metadata from changing a replacement station's title.
@@ -93,16 +93,7 @@ impl TitleSink {
         };
         let label = title.as_deref().unwrap_or("-").to_string();
         let changed = if let Some(control) = self.control.as_ref() {
-            control
-                .publish_current(state, self.generation, SourceRequirement::Active, |_, s| {
-                    if s.title == title {
-                        false
-                    } else {
-                        s.title = title;
-                        true
-                    }
-                })
-                .unwrap_or(false)
+            control.publish_title(state, self.generation, title)
         } else if self.generation == self.current_generation.load(Ordering::SeqCst) {
             let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
             if s.title == title {
