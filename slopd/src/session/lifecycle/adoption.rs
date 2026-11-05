@@ -5,6 +5,17 @@ use crate::config::HostTerminalCfg;
 use crate::session::*;
 use futures::StreamExt;
 
+/// Startup must not infer worker loss after an unavailable identity query.
+/// Other malformed pane metadata keeps the existing skip-and-inspect behavior.
+#[derive(Debug)]
+struct WorkerMetadataUnavailable;
+
+impl std::fmt::Display for WorkerMetadataUnavailable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("worker recovery metadata unavailable")
+    }
+}
+
 /// Raw tmux observations and the matching saved host entry.
 struct AdoptionProbe {
     name: String,
@@ -21,10 +32,77 @@ struct AdoptionProbe {
 /// Original observations plus resolved recovery inputs for the live table.
 struct AdoptionDecision {
     probe: AdoptionProbe,
-    worker_session: Option<SessionCfg>,
+    identity: AdoptionIdentity,
     host_project: String,
     host_path: String,
     activity: Option<crate::activity::Activity>,
+}
+
+/// Resolve metadata precedence once, before live-row creation or repair.
+/// An identified worker without recoverable settings must be retired, never
+/// reinterpreted as a host or an ordinary temporary agent.
+enum AdoptionIdentity {
+    Worker {
+        session: Box<SessionCfg>,
+        lifetime: AgentLifetime,
+    },
+    InvalidWorker,
+    TemporaryAgent(Box<SessionCfg>),
+    Host(SessionRole),
+    Agent,
+}
+
+impl AdoptionIdentity {
+    fn resolve(cfg: &Config, probe: &AdoptionProbe) -> Self {
+        if let Some(metadata) = &probe.worker {
+            return match recovered_worker_cfg(cfg, &probe.name, metadata) {
+                Some(session) => Self::Worker {
+                    session: Box::new(session),
+                    lifetime: if metadata.durable {
+                        AgentLifetime::Durable
+                    } else {
+                        AgentLifetime::Temporary
+                    },
+                },
+                None => Self::InvalidWorker,
+            };
+        }
+        if let Some(session) = &probe.temporary_session {
+            return Self::TemporaryAgent(Box::new(session.clone()));
+        }
+        if probe.host {
+            return Self::Host(if probe.saved_host.is_some() {
+                SessionRole::HostShell
+            } else {
+                SessionRole::HostAction
+            });
+        }
+        Self::Agent
+    }
+
+    fn role(&self) -> SessionRole {
+        match self {
+            Self::Worker { lifetime, .. } => SessionRole::Agent(*lifetime),
+            Self::Host(role) => *role,
+            _ => SessionRole::Agent(AgentLifetime::Temporary),
+        }
+    }
+
+    fn is_host(&self) -> bool {
+        matches!(self, Self::Host(_))
+    }
+
+    fn conflicts_with(&self, saved: &SessionCfg) -> bool {
+        match self {
+            Self::Worker { session, .. } => !saved.worker || session.state_id != saved.state_id,
+            Self::InvalidWorker | Self::TemporaryAgent(_) | Self::Host(_) => true,
+            Self::Agent => saved.worker,
+        }
+    }
+
+    fn retain_after_failed_retirement(&self) -> bool {
+        matches!(self, Self::Host(_) | Self::TemporaryAgent(_))
+    }
 }
 
 impl SessionRuntime {
@@ -42,6 +120,7 @@ impl SessionRuntime {
             self.tmux.activity(&name),
             self.tmux.reader_metadata(&name),
         );
+        let worker = worker.context(WorkerMetadataUnavailable)?;
         let temporary_session = if worker.is_none() {
             let mut session = self.tmux.temporary_agent_config(&name).await?;
             if let Some(session) = &mut session {
@@ -91,10 +170,7 @@ impl SessionRuntime {
         probe: AdoptionProbe,
         activity_cache: &crate::activity::ActivityCache,
     ) -> AdoptionDecision {
-        let worker_session = probe
-            .worker
-            .as_ref()
-            .and_then(|metadata| recovered_worker_cfg(cfg, &probe.name, metadata));
+        let identity = AdoptionIdentity::resolve(cfg, &probe);
         let host_project = probe
             .tmux_host
             .as_ref()
@@ -111,7 +187,7 @@ impl SessionRuntime {
 
         AdoptionDecision {
             probe,
-            worker_session,
+            identity,
             host_project,
             host_path,
             activity,
@@ -136,16 +212,22 @@ impl SessionRuntime {
         let probes = futures::stream::iter(names)
             .map(|name| async move {
                 match self.probe_orphan(cfg, name.clone()).await {
-                    Ok(probe) => Some(probe),
+                    Ok(probe) => Ok(Some(probe)),
+                    Err(error) if error.is::<WorkerMetadataUnavailable>() => {
+                        Err(error.context(format!("cannot recover pane {name}")))
+                    }
                     Err(error) => {
                         tracing::warn!(session = %name, "cannot recover pane metadata: {error:#}");
-                        None
+                        Ok(None)
                     }
                 }
             })
             .buffer_unordered(8)
             .collect::<Vec<_>>()
             .await;
+        // Resolve the whole probe batch before any adoption or retirement. A
+        // failed worker query must abort checked startup before task-loss recovery.
+        let probes = probes.into_iter().collect::<Result<Vec<_>>>()?;
         let decisions = probes
             .into_iter()
             .flatten()
@@ -153,18 +235,10 @@ impl SessionRuntime {
 
         let mut adopted = false;
         for decision in decisions {
-            let invalid_worker =
-                decision.probe.worker.is_some() && decision.worker_session.is_none();
-            let conflict = cfg.session(&decision.probe.name).is_some_and(|saved| {
-                decision.probe.host
-                    || (saved.worker && decision.probe.worker.is_none())
-                    || decision.probe.temporary_session.is_some()
-                    || decision.probe.worker.as_ref().is_some_and(|metadata| {
-                        !saved.worker
-                            || metadata.state_id.as_deref() != Some(saved.state_id.as_str())
-                    })
-            });
-            if conflict || invalid_worker {
+            let conflict = cfg
+                .session(&decision.probe.name)
+                .is_some_and(|saved| decision.identity.conflicts_with(saved));
+            if conflict || matches!(decision.identity, AdoptionIdentity::InvalidWorker) {
                 // Name-based authorization resolves through saved config. Never attach a
                 // surviving process or retain its credentials under a different identity.
                 let _terminal = self
@@ -173,7 +247,7 @@ impl SessionRuntime {
                     .await;
                 self.invalidate_session(&decision.probe.name).await;
                 if let Err(error) = self.tmux.kill(&decision.probe.name).await {
-                    if decision.probe.host || decision.probe.temporary_session.is_some() {
+                    if decision.identity.retain_after_failed_retirement() {
                         // Failed retirement must retain the actual process identity. Otherwise
                         // the configured placeholder would authorize the conflicting process.
                         self.live.write().await.insert(
@@ -205,7 +279,7 @@ impl SessionRuntime {
                 std::collections::hash_map::Entry::Vacant(entry) => {
                     tracing::info!(
                         "adopting tmux session {name} as a temporary {}",
-                        if decision.probe.host {
+                        if decision.identity.is_host() {
                             "host terminal"
                         } else {
                             "agent"
@@ -227,7 +301,7 @@ impl SessionRuntime {
             self.refresh_readerless_size(name).await;
         }
         self.attach_adopted_reader(name, &terminal).await;
-        if decision.probe.host {
+        if decision.identity.is_host() {
             // The saved host catalog alone owns persistence; a viewer stays temporary.
             if let Some(path) = &decision.probe.current_path {
                 self.remember_host_path(name, path).await;
@@ -238,11 +312,10 @@ impl SessionRuntime {
 
     /// Build worker settings or reconstruct a host/viewer session from saved metadata.
     fn adopted_session_cfg(cfg: &Config, decision: &AdoptionDecision) -> SessionCfg {
-        if let Some(session) = &decision.worker_session {
-            return session.clone();
-        }
-        if let Some(session) = &decision.probe.temporary_session {
-            return session.clone();
+        match &decision.identity {
+            AdoptionIdentity::Worker { session, .. }
+            | AdoptionIdentity::TemporaryAgent(session) => return session.as_ref().clone(),
+            _ => {}
         }
 
         let mut session = SessionCfg {
@@ -253,7 +326,7 @@ impl SessionRuntime {
                 .as_ref()
                 .and_then(|tab| tab.label.clone()),
             project: decision.host_project.clone(),
-            command: if decision.probe.host {
+            command: if decision.identity.is_host() {
                 cfg.defaults.shell.clone()
             } else {
                 String::new()
@@ -276,26 +349,12 @@ impl SessionRuntime {
             Self::adopted_session_cfg(cfg, decision),
             TitleCapture::default(),
         );
-        if decision.worker_session.is_none()
+        if !matches!(decision.identity, AdoptionIdentity::Worker { .. })
             && let Some(reader) = &decision.probe.reader
         {
             l.launch = LaunchContext::from(reader);
         }
-        l.role = if let Some(metadata) = &decision.probe.worker {
-            SessionRole::Agent(if metadata.durable {
-                AgentLifetime::Durable
-            } else {
-                AgentLifetime::Temporary
-            })
-        } else if decision.probe.host {
-            if decision.probe.saved_host.is_some() {
-                SessionRole::HostShell
-            } else {
-                SessionRole::HostAction
-            }
-        } else {
-            SessionRole::Agent(AgentLifetime::Temporary)
-        };
+        l.role = decision.identity.role();
         l.host_path = decision.host_path.clone();
         l.state = State::Working;
         l.last_change = now;
@@ -319,32 +378,28 @@ impl SessionRuntime {
 
     /// Repair worker/host identity, then restore activity for a durable Down row.
     fn repair_adopted_live(&self, l: &mut Live, decision: &AdoptionDecision) {
-        if let Some(session) = &decision.probe.temporary_session {
-            l.cfg = session.clone();
-            l.role = SessionRole::Agent(AgentLifetime::Temporary);
-            l.host_path.clear();
-        }
-        if let (Some(metadata), Some(session)) = (
-            decision.probe.worker.as_ref(),
-            decision.worker_session.clone(),
-        ) {
-            // Worker metadata overrides a stale host-catalog identity.
-            l.cfg = session;
-            l.launch = LaunchContext::default();
-            l.role = SessionRole::Agent(if metadata.durable {
-                AgentLifetime::Durable
-            } else {
-                AgentLifetime::Temporary
-            });
-            l.host_path.clear();
-        }
-        if decision.probe.host && l.role.is_host() {
-            if !decision.host_project.is_empty() {
-                l.cfg.project = decision.host_project.clone();
+        match &decision.identity {
+            AdoptionIdentity::TemporaryAgent(session) => {
+                l.cfg = session.as_ref().clone();
+                l.role = decision.identity.role();
+                l.host_path.clear();
             }
-            if !decision.host_path.is_empty() {
-                l.host_path = decision.host_path.clone();
+            AdoptionIdentity::Worker { session, .. } => {
+                // Worker metadata overrides a stale host-catalog identity.
+                l.cfg = session.as_ref().clone();
+                l.launch = LaunchContext::default();
+                l.role = decision.identity.role();
+                l.host_path.clear();
             }
+            AdoptionIdentity::Host(_) if l.role.is_host() => {
+                if !decision.host_project.is_empty() {
+                    l.cfg.project = decision.host_project.clone();
+                }
+                if !decision.host_path.is_empty() {
+                    l.host_path = decision.host_path.clone();
+                }
+            }
+            _ => {}
         }
         self.restore_activity(l, decision.activity);
     }
@@ -404,6 +459,11 @@ pub(in crate::session) fn recovered_worker_cfg(
     name: &str,
     metadata: &crate::tmux::WorkerMetadata,
 ) -> Option<SessionCfg> {
+    // A successful probe can still describe an incomplete worker. Preserve its
+    // worker marker so adoption retires it rather than falling back to another role.
+    if metadata.parent.is_empty() || metadata.task_id.is_empty() {
+        return None;
+    }
     let state_id = metadata
         .state_id
         .as_ref()

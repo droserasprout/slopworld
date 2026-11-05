@@ -85,6 +85,8 @@ pub struct Tmux {
     stalled_attach: Arc<Mutex<Option<tokio::sync::oneshot::Sender<u32>>>>,
     #[cfg(test)]
     fail_attach: Arc<std::sync::atomic::AtomicBool>,
+    #[cfg(test)]
+    fail_option_query: Arc<Mutex<Option<String>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -144,6 +146,8 @@ impl Tmux {
             stalled_attach: Arc::default(),
             #[cfg(test)]
             fail_attach: Arc::default(),
+            #[cfg(test)]
+            fail_option_query: Arc::default(),
         }
     }
 
@@ -157,7 +161,24 @@ impl Tmux {
         ["-L", &self.socket]
     }
 
+    #[cfg(test)]
+    pub(crate) fn fail_next_option_query_for_test(&self, option: &str) {
+        *self.fail_option_query.lock().unwrap() = Some(option.to_owned());
+    }
+
     async fn run(&self, args: &[&str]) -> Result<String> {
+        #[cfg(test)]
+        {
+            let mut failure = self.fail_option_query.lock().unwrap();
+            if args.first() == Some(&"show-options")
+                && failure
+                    .as_deref()
+                    .is_some_and(|option| args.last() == Some(&option))
+            {
+                failure.take();
+                bail!("injected metadata query failure");
+            }
+        }
         let out = Command::new("tmux")
             .args(self.socket_args())
             .args(args)
@@ -453,25 +474,32 @@ impl Tmux {
         Ok(())
     }
 
-    pub async fn worker_metadata(&self, name: &str) -> Option<WorkerMetadata> {
-        if self.option(name, WORKER).await?.trim() != "1" {
-            return None;
+    /// Missing worker markers permit other recovery roles. Query failures must
+    /// propagate: they cannot authorize fallback to a host or partial identity.
+    pub async fn worker_metadata(&self, name: &str) -> Result<Option<WorkerMetadata>> {
+        if self.query_option(name, WORKER).await?.as_deref() != Some("1") {
+            return Ok(None);
         }
-        Some(WorkerMetadata {
+        Ok(Some(WorkerMetadata {
             session: self
-                .option(name, "@slopworld-worker-config")
-                .await
+                .query_option(name, "@slopworld-worker-config")
+                .await?
                 .and_then(|value| serde_json::from_str(&value).ok()),
-            project: self.option(name, "@slopworld-worker-project").await,
-            worktree: self.option(name, "@slopworld-worker-worktree").await,
-            parent: self.option(name, WORKER_PARENT).await?,
-            task_id: self.option(name, WORKER_TASK).await?,
-            durable: self
-                .option(name, WORKER_DURABLE)
-                .await
-                .is_some_and(|value| value.trim() == "1"),
-            state_id: self.option(name, WORKER_STATE).await,
-        })
+            project: self.query_option(name, "@slopworld-worker-project").await?,
+            worktree: self
+                .query_option(name, "@slopworld-worker-worktree")
+                .await?,
+            parent: self
+                .query_option(name, WORKER_PARENT)
+                .await?
+                .unwrap_or_default(),
+            task_id: self
+                .query_option(name, WORKER_TASK)
+                .await?
+                .unwrap_or_default(),
+            durable: self.query_option(name, WORKER_DURABLE).await?.as_deref() == Some("1"),
+            state_id: self.query_option(name, WORKER_STATE).await?,
+        }))
     }
 
     pub(crate) async fn set_temporary_agent_config(
@@ -489,13 +517,10 @@ impl Tmux {
     ) -> Result<Option<crate::config::SessionCfg>> {
         // Missing metadata permits resolution through worker, host, reader, or saved
         // session state. A failed query cannot authorize any adoption decision.
-        let value = self
-            .run(&["show-options", "-qv", "-t", name, TEMPORARY_AGENT_CONFIG])
-            .await?;
-        if value.trim().is_empty() {
-            return Ok(None);
-        }
-        Ok(Some(serde_json::from_str(&value)?))
+        self.query_option(name, TEMPORARY_AGENT_CONFIG)
+            .await?
+            .map(|value| serde_json::from_str(&value).map_err(Into::into))
+            .transpose()
     }
 
     /// The process tmux created for pane zero. A missing pane is a live-state observation, not a
@@ -574,12 +599,16 @@ impl Tmux {
         Ok(())
     }
 
+    async fn query_option(&self, name: &str, option: &str) -> Result<Option<String>> {
+        let value = self
+            .run(&["show-options", "-qv", "-t", name, option])
+            .await?;
+        let value = value.trim();
+        Ok((!value.is_empty()).then(|| value.to_owned()))
+    }
+
     pub(crate) async fn option(&self, name: &str, option: &str) -> Option<String> {
-        self.run(&["show-options", "-qv", "-t", name, option])
-            .await
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
+        self.query_option(name, option).await.ok().flatten()
     }
 
     /// State ages live on the tmux server as well as in slopd's fallback file cache. The

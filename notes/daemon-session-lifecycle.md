@@ -20,8 +20,13 @@ saved definitions. `session/role.rs` owns retention: durable agents/saved shells
 stop; temporary agents clean private state. Snapshot role/inputs before I/O.
 
 Adoption uses tmux reader metadata rather than saved agent records. Worker metadata
-wins over stale host identity. Temporary non-workers publish identity/project/worktree
-metadata before launch. Invalid metadata leaves panes untouched; [workers](daemon-workers.md)
+wins over stale host identity. Adoption resolves a typed identity once for creation,
+repair, and conflict checks. Worker option-query failures retain the pane for retry;
+they cannot be interpreted as absent metadata or authorize another recovery role.
+Failed worker identity queries abort checked reconciliation before startup task-loss
+recovery. Successfully read but incomplete worker identity is rejected by worker
+recovery. Ordinary malformed non-worker metadata remains available for inspection.
+Temporary non-workers publish identity/project/worktree metadata before launch. Invalid metadata leaves panes untouched; [workers](daemon-workers.md)
 owns worker rejection. Reconciliation must not reinterpret a host or different durable
 identity as a same-name configured agent. Retire incompatible processes first; failure
 keeps identities separate. Host refresh preserves live identity and input queues.

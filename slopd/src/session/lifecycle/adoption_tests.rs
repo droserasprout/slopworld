@@ -32,7 +32,7 @@ fn recovered_worker_does_not_invent_settings_from_its_parent() {
 
 #[test]
 fn recovered_activity_is_kept_only_for_durable_workers() {
-    use super::{AdoptionDecision, AdoptionProbe, SessionRuntime, State};
+    use super::{AdoptionDecision, AdoptionIdentity, AdoptionProbe, SessionRuntime, State};
 
     let cfg = Config::default();
     for durable in [false, true] {
@@ -46,7 +46,14 @@ fn recovered_activity_is_kept_only_for_durable_workers() {
             state_id: Some("1111111111114111".into()),
         };
         let decision = AdoptionDecision {
-            worker_session: recovered_worker_cfg(&cfg, "worker", &metadata),
+            identity: AdoptionIdentity::Worker {
+                session: Box::new(recovered_worker_cfg(&cfg, "worker", &metadata).unwrap()),
+                lifetime: if durable {
+                    crate::session::AgentLifetime::Durable
+                } else {
+                    crate::session::AgentLifetime::Temporary
+                },
+            },
             probe: AdoptionProbe {
                 temporary_session: None,
                 name: "worker".into(),
@@ -340,7 +347,7 @@ fn adoption_restores_reader_context_without_putting_it_in_agent_configuration() 
             current_path: None,
             reader: Some(metadata.clone()),
         },
-        worker_session: None,
+        identity: AdoptionIdentity::Host(SessionRole::HostAction),
         host_project: String::new(),
         host_path: "/tmp".into(),
         activity: None,
@@ -354,7 +361,10 @@ fn adoption_restores_reader_context_without_putting_it_in_agent_configuration() 
     assert_eq!(row.role, SessionRole::HostAction);
     assert!(cfg.sessions.is_empty() && cfg.host_terminals.is_empty());
     let worker_decision = AdoptionDecision {
-        worker_session: Some(SessionCfg::default()),
+        identity: AdoptionIdentity::Worker {
+            session: Box::new(SessionCfg::default()),
+            lifetime: AgentLifetime::Temporary,
+        },
         ..decision
     };
     let worker = SessionRuntime::new_adopted_live(&cfg, &worker_decision);
@@ -718,5 +728,126 @@ fn recovered_worker_normalizes_identity_without_mutating_saved_or_snapshot_setti
         }
         assert!(metadata.session.as_ref().unwrap().daemon_token.is_some());
         assert!(cfg.sessions[0].autostart);
+    }
+}
+
+#[tokio::test]
+async fn failed_worker_metadata_query_cannot_resolve_as_host_or_partial_worker() {
+    use super::*;
+    let socket = crate::test_support::TmuxSocket::new();
+    let manager = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    manager
+        .tmux
+        .spawn(
+            "worker",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            true,
+        )
+        .await
+        .unwrap();
+    let session = SessionCfg {
+        name: "worker".into(),
+        project: "captured-project".into(),
+        ..Default::default()
+    };
+    manager
+        .tmux
+        .set_worker_metadata("worker", "parent", "task", false, &session.state_id)
+        .await
+        .unwrap();
+    manager
+        .tmux
+        .set_worker_config("worker", &session)
+        .await
+        .unwrap();
+    for option in [
+        "@slopworld_worker",
+        "@slopworld-worker-config",
+        "@slopworld-worker-project",
+        "@slopworld-worker-worktree",
+        "@slopworld_worker_parent",
+        "@slopworld_worker_task",
+        "@slopworld_worker_durable",
+        "@slopworld_worker_state",
+    ] {
+        manager.tmux.fail_next_option_query_for_test(option);
+        assert!(
+            manager
+                .session_operation(manager.adopt_orphans(&Config::default()))
+                .await
+                .is_err(),
+            "failed {option} query was treated as usable recovery metadata"
+        );
+        assert!(
+            manager.tmux.exists("worker").await,
+            "failed probing must preserve the pane"
+        );
+        assert!(manager.live.read().await.is_empty());
+        let retry = manager
+            .probe_orphan(&Config::default(), "worker".into())
+            .await
+            .unwrap();
+        assert!(retry.worker.is_some());
+        assert!(!retry.host);
+        let decision =
+            SessionRuntime::decide_orphan(&Config::default(), retry, &manager.activity_cache);
+        let row = SessionRuntime::new_adopted_live(&Config::default(), &decision);
+        assert_eq!(
+            row.cfg.project, "captured-project",
+            "missing optional project must preserve the captured configuration"
+        );
+        assert_eq!(row.cfg.state_id, session.state_id);
+    }
+}
+
+#[tokio::test]
+async fn successfully_read_worker_metadata_with_missing_relationship_retires_the_pane() {
+    use super::*;
+    for option in ["@slopworld_worker_parent", "@slopworld_worker_task"] {
+        let socket = crate::test_support::TmuxSocket::new();
+        let manager =
+            crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+        manager
+            .tmux
+            .spawn(
+                "worker",
+                "/tmp",
+                80,
+                24,
+                &["sleep".into(), "60".into()],
+                false,
+            )
+            .await
+            .unwrap();
+        let session = SessionCfg {
+            name: "worker".into(),
+            ..Default::default()
+        };
+        manager
+            .tmux
+            .set_worker_config("worker", &session)
+            .await
+            .unwrap();
+        manager
+            .tmux
+            .set_worker_metadata("worker", "parent", "task", false, &session.state_id)
+            .await
+            .unwrap();
+        manager
+            .tmux
+            .set_option("worker", option, " ")
+            .await
+            .unwrap();
+        assert!(
+            !manager
+                .session_operation(manager.adopt_orphans(&Config::default()))
+                .await
+                .unwrap()
+        );
+        assert!(!manager.tmux.exists("worker").await);
+        assert!(manager.live.read().await.is_empty());
     }
 }

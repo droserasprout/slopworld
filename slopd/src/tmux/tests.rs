@@ -944,7 +944,15 @@ async fn worker_configuration_metadata_round_trips_without_credentials() {
     tmux.set_worker_metadata("worker", "parent", "task", false, &session.state_id)
         .await
         .unwrap();
-    let metadata = tmux.worker_metadata("worker").await.unwrap();
+    let metadata = tmux.worker_metadata("worker").await.unwrap().unwrap();
+    assert_eq!(metadata.parent, "parent");
+    assert_eq!(metadata.task_id, "task");
+    assert_eq!(
+        metadata.state_id.as_deref(),
+        Some(session.state_id.as_str())
+    );
+    assert!(metadata.project.is_none());
+    assert!(metadata.worktree.is_none());
     let recovered = metadata.session.unwrap();
     assert_eq!(recovered.command, session.command);
     assert_eq!(recovered.sandbox, session.sandbox);
@@ -973,5 +981,91 @@ fn followup_foreground_rejects_shells_dead_panes_and_missing_metadata() {
     }
     for value in ["0|codex\n", "0|claude", "0|node"] {
         assert!(super::agent_input_active(value), "{value}");
+    }
+}
+
+#[tokio::test]
+async fn worker_metadata_distinguishes_an_absent_marker_from_a_failed_query() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = super::Tmux::new(&socket.path);
+    tmux.worker_metadata("missing").await.unwrap_err();
+    tmux.spawn(
+        "plain",
+        "/tmp",
+        80,
+        24,
+        &["sleep".into(), "60".into()],
+        false,
+    )
+    .await
+    .unwrap();
+    for _ in 0..2 {
+        assert!(tmux.worker_metadata("plain").await.unwrap().is_none());
+    }
+}
+
+#[tokio::test]
+async fn worker_metadata_keeps_missing_optional_fields_absent_and_normalizes_values() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = super::Tmux::new(&socket.path);
+    tmux.spawn(
+        "worker",
+        "/tmp",
+        80,
+        24,
+        &["sleep".into(), "60".into()],
+        false,
+    )
+    .await
+    .unwrap();
+    tmux.set_worker_metadata("worker", " parent ", " task ", true, " 1111111111114111 ")
+        .await
+        .unwrap();
+    tmux.set_option("worker", "@slopworld-worker-project", "  ")
+        .await
+        .unwrap();
+    let metadata = tmux.worker_metadata("worker").await.unwrap().unwrap();
+    assert_eq!(metadata.parent, "parent");
+    assert_eq!(metadata.task_id, "task");
+    assert_eq!(metadata.state_id.as_deref(), Some("1111111111114111"));
+    assert!(metadata.durable);
+    assert!(metadata.session.is_none());
+    assert!(metadata.project.is_none());
+    assert!(metadata.worktree.is_none());
+    assert!(
+        tmux.option("worker", "@slopworld-worker-project")
+            .await
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn identified_worker_with_missing_relationship_cannot_fall_back_to_another_role() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let tmux = super::Tmux::new(&socket.path);
+    tmux.spawn(
+        "worker",
+        "/tmp",
+        80,
+        24,
+        &["sleep".into(), "60".into()],
+        false,
+    )
+    .await
+    .unwrap();
+    for option in [super::WORKER_PARENT, super::WORKER_TASK] {
+        tmux.set_worker_metadata("worker", "parent", "task", true, "1111111111114111")
+            .await
+            .unwrap();
+        tmux.set_option("worker", option, " ").await.unwrap();
+        let metadata = tmux.worker_metadata("worker").await.unwrap().unwrap();
+        if option == super::WORKER_PARENT {
+            assert!(metadata.parent.is_empty());
+            assert_eq!(metadata.task_id, "task");
+        } else {
+            assert_eq!(metadata.parent, "parent");
+            assert!(metadata.task_id.is_empty());
+        }
+        assert!(tmux.exists("worker").await);
     }
 }
