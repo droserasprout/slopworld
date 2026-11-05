@@ -85,7 +85,7 @@ namespace SlopWorld
         {
             if (!WorkspaceVisibility.Shown || WorkspaceVisibility.Hidden)
                 return;
-            if (Event.current.type == EventType.Layout)
+            if (Event.current.type == EventType.Layout || SmoothScroll.WheelOnly)
                 return;
 
             var workspace = WorkspaceLayout.Current;

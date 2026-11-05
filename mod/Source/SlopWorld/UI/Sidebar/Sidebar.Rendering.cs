@@ -64,6 +64,11 @@ namespace SlopWorld
 
         static void DrawAgentTab()
         {
+            if (SmoothScroll.WheelOnly)
+            {
+                BeginAgentScroll();
+                return;
+            }
             Tabs();
             DrawAdd();
             Grip();

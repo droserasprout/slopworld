@@ -12,6 +12,11 @@ frame so input and repaint use consistent geometry.
 Open `UiMenu` bounds reserve wheel and native touchpad input for the topmost menu
 under the pointer, including padding and menus whose options fit without scrolling.
 
+Agent rows and the top bar omit presentation work on wheel-only passes; scroll
+owners still consume precise movement and close their groups normally. Workspace
+wheel input must retain native fractional samples: queue compaction switches to
+logical deltas and changes touchpad motion.
+
 Files/Git trees, Search results, Library lists, and open editor/viewer rows reserve
 only the scrollbar rail's horizontal inset for painting. The scrollbar retains its
 wider invisible mouse target; hover buttons and row click regions inset by

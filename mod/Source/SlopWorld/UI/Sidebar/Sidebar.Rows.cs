@@ -231,6 +231,8 @@ namespace SlopWorld
 
         static void DrawRows()
         {
+            if (SmoothScroll.WheelOnly)
+                return;
             var hub = SessionHub.Instance;
             foreach (var row in Layout.Rows)
             {
