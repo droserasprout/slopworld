@@ -9,7 +9,9 @@ Daemon pages keep independent drafts scoped by page and endpoint. Save only chan
 fields; acknowledgements accept submitted values while preserving newer edits.
 Reload merges unedited fields and reports conflicts; Discard takes remote values.
 One save cannot reload another page. Endpoint changes clear config paths, failed
-reload retains raw text, and stale replies cannot replace newer outcomes.
+reload retains raw text, and stale replies cannot replace newer outcomes. Save replies
+settle the captured draft even after navigation to another endpoint. Shared refreshes
+require the saved endpoint to remain current; UI callbacks also require the current page.
 
 `DaemonConfigEndpoint` resolves once per synchronous draw, including preparation;
 transport/callback guards still check the live endpoint. Effective previews come

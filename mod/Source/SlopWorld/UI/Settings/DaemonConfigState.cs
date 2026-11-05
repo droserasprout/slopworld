@@ -125,7 +125,7 @@ namespace SlopWorld
                 patch,
                 _ =>
                 {
-                    if (!IsCurrent(key, draft, operation))
+                    if (!draft.IsCurrent(operation))
                         return;
                     draft.Saving = false;
                     // Acknowledge only what was sent. Fields changed while the request was in
@@ -133,11 +133,12 @@ namespace SlopWorld
                     draft.Acknowledge(submitted, submittedTexts);
                     draft.ApplyQueuedNormalizations();
                     store.Saved(endpoint);
-                    afterSave?.Invoke();
+                    if (IsCurrent(key, draft, operation))
+                        afterSave?.Invoke();
                 },
                 msg =>
                 {
-                    if (!IsCurrent(key, draft, operation))
+                    if (!draft.IsCurrent(operation))
                         return;
                     draft.Saving = false;
                     draft.Error = msg;

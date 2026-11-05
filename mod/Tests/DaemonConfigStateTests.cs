@@ -115,5 +115,48 @@ namespace SlopWorld.Tests
             Assert.That(state.Dirty, Is.False);
         }
 
+        public static void SaveSettlesCapturedDraftAfterSwitchOnSuccessAndFailure()
+        {
+            foreach (bool success in new[] { true, false })
+            {
+                DaemonClient.BaseUrl = "http://config-draft-a";
+                var hub = SessionHub.Instance = new SessionHub();
+                string page = Guid.NewGuid().ToString();
+                var state = new DaemonConfigState(page);
+                state.Load(false, null);
+                Last.Reply(Reply("base"));
+                state.Config.TitleModel = "submitted";
+                int callbacks = 0;
+                state.Save(() => callbacks++);
+                var save = Last;
+                // Edits made after submission must survive an acknowledgement.
+                state.Config.TitleModel = "new edit";
+                DaemonClient.BaseUrl = "http://config-draft-b";
+                state.Load(false, null);
+                Last.Reply(Reply("endpoint b"));
+                int requests = DaemonClient.Requests.Count;
+                if (success)
+                    save.Reply(new Wire.Ack());
+                else
+                    save.Fail("disk full");
+                Assert.That(callbacks, Is.Zero);
+                Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+                Assert.That(hub.Config.TitleModel, Is.EqualTo("endpoint b"));
+                DaemonClient.BaseUrl = "http://config-draft-a";
+                // Reopening the page uses the same retained draft.
+                state = new DaemonConfigState(page);
+                Assert.That(state.Saving, Is.False);
+                Assert.That(state.Config.TitleModel, Is.EqualTo("new edit"));
+                Assert.That(state.Dirty, Is.True);
+                Assert.That(state.Error, success ? Is.Null : Is.EqualTo("disk full"));
+                state.Discard();
+                Assert.That(state.Config.TitleModel, Is.EqualTo(success ? "submitted" : "base"));
+                state.Config.TitleModel = "retry";
+                state.Save(null);
+                Assert.That(state.Saving, Is.True);
+                Last.Reply(new Wire.Ack());
+                Assert.That(state.Saving, Is.False);
+            }
+        }
     }
 }
