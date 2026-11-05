@@ -649,7 +649,7 @@ fn cancellation_write_failure_retry_and_stale_cleanup_preserve_history() {
             .tasks
             .cancel_many("agent", "agent", std::slice::from_ref(&task.id), false)
             .unwrap();
-        assert_eq!(retry.unchanged, [task.id.clone()]);
+        assert_eq!(retry.unchanged.as_slice(), std::slice::from_ref(&task.id));
         assert_eq!(retry.tasks[0].history, canceled.history);
         for _ in 0..2 {
             f.tasks
@@ -693,7 +693,10 @@ fn recipient_single_and_bulk_cancellation_agree_for_every_status() {
         if status == Status::Canceled {
             // Generic updates reject terminal cancellation; batch retries are idempotent.
             assert!(one.is_err());
-            assert_eq!(many.unwrap().unchanged, [bulk.id.clone()]);
+            assert_eq!(
+                many.unwrap().unchanged.as_slice(),
+                std::slice::from_ref(&bulk.id)
+            );
         } else {
             assert_eq!(one.is_ok(), many.is_ok(), "{status:?}");
             assert_eq!(

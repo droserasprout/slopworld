@@ -39,6 +39,13 @@ fn check<T: DeserializeOwned>(known: &[&str], storage_only: &[&str]) {
 
 #[test]
 fn document_field_metadata_covers_complete_serde_models() {
+    let nested = |name| {
+        NESTED_FIELDS
+            .iter()
+            .find(|field| field.name == name)
+            .unwrap()
+            .known
+    };
     check::<SessionCfg>(
         AGENT,
         &[
@@ -55,9 +62,9 @@ fn document_field_metadata_covers_complete_serde_models() {
         ],
     );
     check::<crate::config::HostTerminalCfg>(HOST, &["storage_order"]);
-    check::<crate::config::Limits>(LIMITS, &[]);
-    check::<crate::config::WorkerPolicy>(WORKERS, &[]);
-    check::<crate::config::DnsConfig>(DNS, &[]);
-    check::<crate::presets::CommandPreset>(COMMAND, &[]);
-    check::<crate::presets::SandboxPreset>(SANDBOX, &[]);
+    check::<crate::config::Limits>(nested("limits"), &[]);
+    check::<crate::config::WorkerPolicy>(nested("workers"), &[]);
+    check::<crate::config::DnsConfig>(nested("dns"), &[]);
+    check::<crate::presets::CommandPreset>(nested("command_snapshot"), &[]);
+    check::<crate::presets::SandboxPreset>(nested("sandbox_snapshots"), &[]);
 }

@@ -1,5 +1,6 @@
 //! Agent/host-shell document schema and extension preservation. Runtime-only
-//! fields are discarded on write. Extensions follow their enclosing definition:
+//! fields are discarded on write. One nested schema governs decode and retention.
+//! Extensions follow their enclosing definition:
 //! removing an optional snapshot also removes extensions inside that snapshot.
 
 use super::document::{preserve, retain_known};
@@ -81,27 +82,102 @@ const WORKERS: &[&str] = &[
     "recursive",
 ];
 
+// Field metadata stays explicit because disk extension lifetimes are not part of
+// the API model. Tests compare every known-key set to Serde's complete field list,
+// including optional fields omitted from default serialization.
+struct NestedField {
+    name: &'static str,
+    known: &'static [&'static str],
+    shape: ExtensionShape,
+}
+
+#[derive(Clone, Copy)]
+enum ExtensionShape {
+    Table,
+    // Clearing the last modeled limit keeps an extension-only table.
+    RetainedTable,
+    Rows { key: &'static str },
+}
+
+const NESTED_FIELDS: &[NestedField] = &[
+    NestedField {
+        name: "limits",
+        known: LIMITS,
+        shape: ExtensionShape::RetainedTable,
+    },
+    NestedField {
+        name: "workers",
+        known: WORKERS,
+        shape: ExtensionShape::Table,
+    },
+    NestedField {
+        name: "dns",
+        known: DNS,
+        shape: ExtensionShape::Table,
+    },
+    NestedField {
+        name: "command_snapshot",
+        known: COMMAND,
+        shape: ExtensionShape::Table,
+    },
+    NestedField {
+        name: "sandbox_snapshots",
+        known: SANDBOX,
+        shape: ExtensionShape::Rows { key: "name" },
+    },
+];
+
+impl NestedField {
+    fn retain_modeled(&self, document: &mut toml::Value) {
+        let Some(value) = document.get_mut(self.name) else {
+            return;
+        };
+        match self.shape {
+            ExtensionShape::Rows { .. } => {
+                if let Some(rows) = value.as_array_mut() {
+                    for row in rows {
+                        retain_known(row, self.known);
+                    }
+                }
+            }
+            ExtensionShape::Table | ExtensionShape::RetainedTable => {
+                retain_known(value, self.known)
+            }
+        }
+    }
+
+    fn preserve_extensions(
+        &self,
+        document: &mut toml::Value,
+        old: Option<&toml::Value>,
+    ) -> Result<()> {
+        if let ExtensionShape::Rows { key } = self.shape {
+            super::document::preserve_rows(document, old, self.name, key, self.known);
+            return Ok(());
+        }
+        let previous = old.and_then(|old| old.get(self.name));
+        if let Some(next) = document.get_mut(self.name) {
+            preserve(next, previous, self.known);
+        } else if matches!(self.shape, ExtensionShape::RetainedTable) {
+            let mut extensions = toml::Value::Table(Default::default());
+            preserve(&mut extensions, previous, self.known);
+            if extensions.as_table().is_some_and(|table| !table.is_empty()) {
+                document
+                    .as_table_mut()
+                    .context("serialized definition is not a table")?
+                    .insert(self.name.into(), extensions);
+            }
+        }
+        Ok(())
+    }
+}
+
 pub(super) fn decode(raw: &toml::Value) -> Result<SessionCfg> {
     let mut modeled = raw.clone();
     // API schemas reject unknown nested policy fields. Disk records retain
     // them as extensions without interpreting them as current policy.
-    for (field, keys) in [
-        ("limits", LIMITS),
-        ("workers", WORKERS),
-        ("dns", DNS),
-        ("command_snapshot", COMMAND),
-    ] {
-        if let Some(value) = modeled.get_mut(field) {
-            retain_known(value, keys);
-        }
-    }
-    if let Some(rows) = modeled
-        .get_mut("sandbox_snapshots")
-        .and_then(toml::Value::as_array_mut)
-    {
-        for row in rows {
-            retain_known(row, SANDBOX);
-        }
+    for field in NESTED_FIELDS {
+        field.retain_modeled(&mut modeled);
     }
     Ok(modeled.try_into()?)
 }
@@ -112,31 +188,8 @@ pub(super) fn prepare(
     old: Option<&toml::Value>,
 ) -> Result<toml::Value> {
     let mut new = super::document::prepare(value, order, old, AGENT)?;
-    for (field, keys) in [
-        ("limits", LIMITS),
-        ("workers", WORKERS),
-        ("dns", DNS),
-        ("command_snapshot", COMMAND),
-    ] {
-        if let (Some(next), Some(previous)) =
-            (new.get_mut(field), old.and_then(|old| old.get(field)))
-        {
-            preserve(next, Some(previous), keys);
-        }
-    }
-    super::document::preserve_rows(&mut new, old, "sandbox_snapshots", "name", SANDBOX);
-    // Limits may serialize to nothing after the last cap is cleared. Keep
-    // extensions in that optional table without reviving any known cap.
-    if new.get("limits").is_none()
-        && let Some(old) = old.and_then(|old| old.get("limits"))
-    {
-        let mut extensions = toml::Value::Table(Default::default());
-        preserve(&mut extensions, Some(old), LIMITS);
-        if extensions.as_table().is_some_and(|table| !table.is_empty()) {
-            new.as_table_mut()
-                .context("serialized definition is not a table")?
-                .insert("limits".into(), extensions);
-        }
+    for field in NESTED_FIELDS {
+        field.preserve_extensions(&mut new, old)?;
     }
     Ok(new)
 }

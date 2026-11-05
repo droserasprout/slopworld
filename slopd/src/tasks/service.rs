@@ -36,6 +36,16 @@ struct Entry {
     incarnation: u64,
 }
 
+enum BatchChange {
+    Absent,
+    Unchanged(Task),
+    Cancel {
+        plan: CancellationPlan,
+        sender: String,
+    },
+    Remove,
+}
+
 pub(crate) struct Tasks {
     disk: super::records::Records,
     by_id: HashMap<String, Entry>,
@@ -265,17 +275,24 @@ impl Tasks {
             entry.task.status != Status::Canceled,
             "Task is canceled. You cannot update it."
         );
+        if status == Status::Canceled {
+            let plan = CancellationPlan::prepare(entry, who, false, false)?;
+            return self.cancel(plan, sender.into(), note);
+        }
         let mut task = entry.task.clone();
         let order = entry.order;
-        if status == Status::Canceled {
-            validate_cancellation(&task, who, false, false)?;
-            let latest_note = task.note.clone();
-            task.record_update(sender.into(), status, note);
-            task.note = latest_note;
-        } else {
-            task.record_update(sender.into(), status, note);
-        }
+        task.record_update(sender.into(), status, note);
         self.persist(task, order)
+    }
+
+    fn cancel(
+        &mut self,
+        plan: CancellationPlan,
+        sender: String,
+        note: Option<String>,
+    ) -> Result<Task> {
+        let order = plan.order;
+        self.persist(plan.apply(sender, note), order)
     }
     pub(crate) fn followup_note(&mut self, id: &str, sender: &str, note: String) -> Result<()> {
         let entry = self.by_id.get(id).context("Task no longer exists")?;
@@ -419,7 +436,6 @@ impl Tasks {
         cancel_sender: Option<&str>,
         supervised: &[String],
     ) -> Result<BatchResult> {
-        let cancel = cancel_sender.is_some();
         let mut selected = ids
             .iter()
             .filter(|id| !id.trim().is_empty())
@@ -429,15 +445,25 @@ impl Tasks {
         selected.dedup();
         // Stable persisted listing order first; missing IDs sort lexically last.
         selected.sort_by_key(|id| self.by_id.get(id).map_or(u64::MAX, |e| e.order));
+        let mut plans = Vec::with_capacity(selected.len());
         for id in &selected {
             let Some(entry) = self.by_id.get(id) else {
+                plans.push(BatchChange::Absent);
                 continue;
             };
             let task = &entry.task;
-            if cancel {
+            let plan = if let Some(sender) = cancel_sender {
                 let supervising =
                     task.worker.is_some() && task.from_id == who && supervised.contains(id);
-                validate_cancellation(task, who, force, supervising)?;
+                let plan = CancellationPlan::prepare(entry, who, force, supervising)?;
+                if task.status == Status::Canceled {
+                    BatchChange::Unchanged(plan.task)
+                } else {
+                    BatchChange::Cancel {
+                        plan,
+                        sender: if force { HOST.into() } else { sender.into() },
+                    }
+                }
             } else {
                 ensure!(
                     force || task.visible_to(who),
@@ -447,31 +473,28 @@ impl Tasks {
                     force || task.status.is_terminal(),
                     "Task {id} is unfinished. Finish, fail, or cancel it before you remove it."
                 );
-            }
+                BatchChange::Remove
+            };
+            plans.push(plan);
         }
         let mut result = BatchResult::default();
-        for (at, id) in selected.iter().enumerate() {
-            let Some(entry) = self.by_id.get(id) else {
-                result.absent.push(id.clone());
-                continue;
-            };
-            if cancel && entry.task.status == Status::Canceled {
-                result.unchanged.push(id.clone());
-                result.tasks.push(entry.task.clone());
-                continue;
-            }
-            let change = if let Some(sender) = cancel_sender {
-                let mut task = entry.task.clone();
-                let order = entry.order;
-                let sender = if force { HOST.into() } else { sender.into() };
-                let latest_note = task.note.clone();
-                task.record_update(sender, Status::Canceled, None);
-                task.note = latest_note;
-                self.persist(task, order).map(|task| {
+        for (at, (id, plan)) in selected.iter().zip(plans).enumerate() {
+            let change = match plan {
+                BatchChange::Absent => {
+                    result.absent.push(id.clone());
+                    continue;
+                }
+                BatchChange::Unchanged(task) => {
+                    result.unchanged.push(id.clone());
                     result.tasks.push(task);
-                })
-            } else {
-                self.retire(id)
+                    continue;
+                }
+                BatchChange::Cancel { plan, sender } => {
+                    self.cancel(plan, sender, None).map(|task| {
+                        result.tasks.push(task);
+                    })
+                }
+                BatchChange::Remove => self.retire(id),
             };
             if let Err(error) = change {
                 result.failed.push(BatchFailure {
@@ -489,22 +512,42 @@ impl Tasks {
     }
 }
 
-/// Shared cancellation policy for single updates and prevalidated batches.
-fn validate_cancellation(task: &Task, who: &str, force: bool, supervising: bool) -> Result<()> {
-    let id = &task.id;
-    ensure!(
-        force || supervising || task.recipient_is(who),
-        "Only the recipient can cancel task {id}."
-    );
-    ensure!(
-        ((supervising || (force && task.worker.is_some())) && !task.status.is_terminal())
-            || matches!(
-                task.status,
-                Status::Queued | Status::Accepted | Status::Canceled
-            ),
-        "Cancel task {id} only when it is queued or accepted."
-    );
-    Ok(())
+/// Checked, owned transition shared by generic updates and batch cancellation.
+/// The serialized store cannot change between preparation and commit. Record the
+/// history timestamp at commit, preserving the latest result independently of it.
+struct CancellationPlan {
+    task: Task,
+    order: u64,
+}
+
+impl CancellationPlan {
+    fn prepare(entry: &Entry, who: &str, force: bool, supervising: bool) -> Result<Self> {
+        let task = &entry.task;
+        let id = &task.id;
+        ensure!(
+            force || supervising || task.recipient_is(who),
+            "Only the recipient can cancel task {id}."
+        );
+        ensure!(
+            ((supervising || (force && task.worker.is_some())) && !task.status.is_terminal())
+                || matches!(
+                    task.status,
+                    Status::Queued | Status::Accepted | Status::Canceled
+                ),
+            "Cancel task {id} only when it is queued or accepted."
+        );
+        Ok(Self {
+            task: task.clone(),
+            order: entry.order,
+        })
+    }
+
+    fn apply(mut self, sender: String, note: Option<String>) -> Task {
+        let latest_note = self.task.note.clone();
+        self.task.record_update(sender, Status::Canceled, note);
+        self.task.note = latest_note;
+        self.task
+    }
 }
 
 #[cfg(test)]
