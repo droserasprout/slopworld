@@ -6,6 +6,24 @@ namespace Verse
 {
     static class Widgets
     {
+        static readonly Stack<Vector2> ScrollOrigins = new Stack<Vector2>();
+
+        public static void BeginGroup(Rect body)
+        {
+            ScrollOrigins.Push(GUIUtility.Origin);
+            GUIUtility.Origin += new Vector2(body.x, body.y);
+            Event.current.mousePosition -= new Vector2(body.x, body.y);
+            if (ScrollOrigins.Count % 2 == 0)
+                SlopWorld.EditorTrace.Record("scroll", body);
+        }
+
+        public static void EndGroup()
+        {
+            var old = ScrollOrigins.Pop();
+            Event.current.mousePosition += GUIUtility.Origin - old;
+            GUIUtility.Origin = old;
+        }
+
         public static void Label(Rect body, string text) =>
             SlopWorld.EditorTrace.Record(text, body);
     }

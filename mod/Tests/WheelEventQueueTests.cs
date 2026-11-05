@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -9,153 +11,239 @@ namespace SlopWorld.Tests
         [SetUp]
         public void Clear()
         {
+            Drain(_ => { });
             Event.ClearEvents();
             Time.frameCount++;
+            Event.current = new Event { type = EventType.Repaint };
+            WheelEventQueue.Compact(Event.current);
         }
 
         [TearDown]
-        public void Cleanup() => Event.ClearEvents();
+        public void Cleanup() => Clear();
+
+        internal static Event Wheel(float y, float x = 0f, float pointer = 10f) =>
+            new Event
+            {
+                type = EventType.ScrollWheel,
+                rawType = EventType.ScrollWheel,
+                mousePosition = new Vector2(pointer, 10f),
+                delta = new Vector2(x, y),
+            };
+
+        internal static void Drain(Action<Event> dispatch)
+        {
+            int frames = 0;
+            do
+            {
+                Assert.That(++frames, Is.LessThan(5000), "queue must make progress");
+                Time.frameCount++;
+                Event.current = new Event { type = EventType.Layout };
+                Assert.That(WheelEventQueue.Compact(Event.current), Is.True);
+                int calls = 0;
+                while (Event.PopEvent(Event.current))
+                {
+                    if (!WheelEventQueue.Compact(Event.current))
+                        continue;
+                    calls++;
+                    dispatch(Event.current);
+                }
+                Assert.That(calls, Is.LessThanOrEqualTo(WheelEventQueue.DispatchLimit));
+            } while (WheelEventQueue.HasPendingInput || Event.GetEventCount() > 0);
+        }
 
         [Test]
-        public void CompactsWheelRunsWithoutMovingKeys()
+        public void CompactsRunsWithoutMovingKeysOrLosingApplicationSteps()
         {
             var current = Wheel(2f);
             for (int i = 0; i < 12; i++)
-                Event.EnqueueTestEvent(Wheel(1f));
-            Event.EnqueueTestEvent(new Event { type = EventType.KeyDown });
+                Event.EnqueueTestEvent(Wheel(.25f));
+            Event.EnqueueTestEvent(
+                new Event { type = EventType.KeyDown, keyCode = KeyCode.Return }
+            );
             for (int i = 0; i < 12; i++)
-                Event.EnqueueTestEvent(Wheel(1f));
-
-            WheelEventQueue.Compact(current);
-
-            Assert.That(WheelEventQueue.UsesLogicalDelta(current), Is.True);
-            Assert.That(current.delta.y, Is.EqualTo(14f));
-            Assert.That(Event.GetEventCount(), Is.EqualTo(2));
-            var next = new Event();
-            Assert.That(Event.PopEvent(next), Is.True);
-            Assert.That(next.type, Is.EqualTo(EventType.KeyDown));
-            Assert.That(Event.PopEvent(next), Is.True);
-            WheelEventQueue.Compact(next);
-            Assert.That(next.delta.y, Is.EqualTo(12f));
-            Assert.That(Event.GetEventCount(), Is.Zero);
+                Event.EnqueueTestEvent(Wheel(-9f));
+            Assert.That(WheelEventQueue.Compact(current), Is.True);
+            Assert.That(current.delta.y, Is.EqualTo(5f));
+            Assert.That(WheelEventQueue.ApplicationSteps(current, false), Is.EqualTo(14));
+            Assert.That(WheelEventQueue.ApplicationSteps(current, true), Is.EqualTo(13));
+            Assert.That(WheelEventQueue.RequiresLogicalInput, Is.True);
+            var events = new List<Event>();
+            Drain(e =>
+            {
+                events.Add(new Event(e));
+                if (e.type == EventType.ScrollWheel)
+                {
+                    Assert.That(WheelEventQueue.ApplicationSteps(e, false), Is.EqualTo(60));
+                    Assert.That(WheelEventQueue.RequiresLogicalInput, Is.True);
+                }
+            });
+            Assert.That(events.Count, Is.EqualTo(2));
+            Assert.That(events[0].keyCode, Is.EqualTo(KeyCode.Return));
+            Assert.That(events[1].delta.y, Is.EqualTo(-108f));
         }
 
         [Test]
-        public void DifferentPointerAndModifierKeepSeparateTargets()
+        public void LargeCompatibleStormBoundsDispatchAndEachApplicationWrite()
         {
-            var current = Wheel(1f);
-            for (int i = 0; i < 24; i++)
-                Event.EnqueueTestEvent(
-                    new Event
-                    {
-                        type = EventType.ScrollWheel,
-                        mousePosition = new Vector2(40f, 10f),
-                        delta = new Vector2(0f, 1f),
-                        modifiers = i < 12 ? EventModifiers.None : EventModifiers.Shift,
-                    }
-                );
-
-            WheelEventQueue.Compact(current);
-
-            Assert.That(current.delta.y, Is.EqualTo(1f));
-            Assert.That(Event.GetEventCount(), Is.EqualTo(2));
-            var next = new Event();
-            Event.PopEvent(next);
-            WheelEventQueue.Compact(next);
-            Assert.That(next.delta.y, Is.EqualTo(12f));
-            Assert.That(next.modifiers, Is.EqualTo(EventModifiers.None));
-            Event.PopEvent(next);
-            WheelEventQueue.Compact(next);
-            Assert.That(next.delta.y, Is.EqualTo(12f));
-            Assert.That(next.modifiers, Is.EqualTo(EventModifiers.Shift));
+            const int packets = 36000;
+            for (int i = 0; i < packets; i++)
+                Event.EnqueueTestEvent(Wheel(.25f));
+            Event.CopyCalls = 0;
+            int reports = 0,
+                readers = 0,
+                calls = 0;
+            float distance = 0;
+            Drain(e =>
+            {
+                calls++;
+                int steps = WheelEventQueue.ApplicationSteps(e, false);
+                Assert.That(steps, Is.InRange(1, 255));
+                reports += steps;
+                readers += WheelEventQueue.ApplicationSteps(e, true);
+                distance += e.delta.y;
+            });
+            Assert.That(reports, Is.EqualTo(packets));
+            Assert.That(readers, Is.EqualTo(packets));
+            Assert.That(distance, Is.EqualTo(packets * .25f));
+            Assert.That(calls, Is.EqualTo((packets + 254) / 255));
+            Assert.That(Event.CopyCalls, Is.LessThanOrEqualTo(calls * 2 + 2));
         }
 
         [Test]
-        public void SmallQueueRemainsUntouched()
-        {
-            var current = Wheel(2f);
-            Event.EnqueueTestEvent(Wheel(1f));
-            WheelEventQueue.Compact(current);
-            Assert.That(current.delta.y, Is.EqualTo(2f));
-            Assert.That(Event.GetEventCount(), Is.EqualTo(1));
-        }
-
-        [Test]
-        public void LayoutCompactsAllRunsBeforeInputAndKeepsReversals()
-        {
-            for (int i = 0; i < 10000; i++)
-                Event.EnqueueTestEvent(Wheel(1f));
-            for (int i = 0; i < 10000; i++)
-                Event.EnqueueTestEvent(Wheel(-1f));
-            Event.EnqueueTestEvent(new Event { type = EventType.MouseDown, button = 1 });
-            for (int i = 0; i < 10000; i++)
-                Event.EnqueueTestEvent(Wheel(1f));
-            WheelEventQueue.Compact(new Event { type = EventType.Layout });
-            Assert.That(Event.GetEventCount(), Is.EqualTo(4));
-            var next = new Event();
-            Event.PopEvent(next);
-            Assert.That(next.delta.y, Is.EqualTo(10000f));
-            Assert.That(WheelEventQueue.UsesLogicalDelta(next), Is.True);
-            Event.PopEvent(next);
-            Assert.That(next.delta.y, Is.EqualTo(-10000f));
-            Event.PopEvent(next);
-            Assert.That(next.type, Is.EqualTo(EventType.MouseDown));
-            Assert.That(next.button, Is.EqualTo(1));
-            Event.PopEvent(next);
-            Assert.That(next.delta.y, Is.EqualTo(10000f));
-        }
-
-        [Test]
-        public void UnmergeableStormIsScannedOncePerFrame()
+        public void MixedStormPreservesEveryBoundaryAndDoesNotRescanDeferredTail()
         {
             const int count = 10000;
             for (int i = 0; i < count; i++)
             {
-                var e = Wheel(1f);
-                e.mousePosition = new Vector2(i, 10f);
+                var e = Wheel(i % 2 == 0 ? 1f : -1f, pointer: i);
+                e.modifiers = i % 3 == 0 ? EventModifiers.Shift : EventModifiers.None;
+                e.displayIndex = i % 2;
                 Event.EnqueueTestEvent(e);
             }
-            var next = new Event { type = EventType.Layout };
-            WheelEventQueue.Compact(next);
-            Assert.That(Event.GetEventCount(), Is.EqualTo(count));
-            for (int i = 0; i < count; i++)
+            int consumed = 0;
+            Drain(e =>
             {
-                Assert.That(Event.PopEvent(next), Is.True);
-                Assert.That(next.mousePosition.x, Is.EqualTo(i));
-                WheelEventQueue.Compact(next);
-            }
-            Assert.That(Event.PopCalls, Is.EqualTo(count * 2));
-            Time.frameCount++;
-            Assert.That(WheelEventQueue.UsesLogicalDelta(next), Is.False);
+                Assert.That(e.mousePosition.x, Is.EqualTo(consumed));
+                Assert.That(e.delta.y, Is.EqualTo(consumed % 2 == 0 ? 1f : -1f));
+                Assert.That(e.displayIndex, Is.EqualTo(consumed % 2));
+                Assert.That(
+                    e.modifiers,
+                    Is.EqualTo(consumed % 3 == 0 ? EventModifiers.Shift : EventModifiers.None)
+                );
+                Assert.That(WheelEventQueue.RequiresLogicalInput, Is.True);
+                consumed++;
+            });
+            Assert.That(consumed, Is.EqualTo(count));
+            // One native scan and one dispatch pop per packet, plus one empty pop/frame.
+            Assert.That(Event.PopCalls, Is.LessThan(count * 2 + 400));
         }
 
         [Test]
-        public void DifferentDisplaysKeepSeparateWheelRunsAndOrder()
+        public void NewInputCannotOvertakeDeferredWheelOrKeys()
         {
-            for (int display = 0; display < 3; display++)
-            for (int i = 0; i < 12; i++)
-            {
-                var wheel = Wheel(display + 1);
-                wheel.displayIndex = display;
-                Event.EnqueueTestEvent(wheel);
-            }
+            for (int i = 0; i < 70; i++)
+                Event.EnqueueTestEvent(Wheel(1f, pointer: i));
             WheelEventQueue.Compact(new Event { type = EventType.Layout });
-            Assert.That(Event.GetEventCount(), Is.EqualTo(3));
             var next = new Event();
-            for (int display = 0; display < 3; display++)
+            int index = 0;
+            while (Event.PopEvent(next))
             {
-                Assert.That(Event.PopEvent(next), Is.True);
-                Assert.That(next.displayIndex, Is.EqualTo(display));
-                Assert.That(next.delta.y, Is.EqualTo(12f * (display + 1)));
+                Assert.That(WheelEventQueue.Compact(next), Is.True);
+                Assert.That(next.mousePosition.x, Is.EqualTo(index++));
             }
+            // Native input arrives before Layout on the next frame.
+            Time.frameCount++;
+            var key = new Event { type = EventType.KeyDown, keyCode = KeyCode.Return };
+            Assert.That(WheelEventQueue.Compact(key), Is.False);
+            Assert.That(key.type, Is.EqualTo(EventType.Used));
+            var seen = new List<Event>();
+            Drain(e => seen.Add(new Event(e)));
+            for (int i = 0; i < 38; i++)
+                Assert.That(seen[i].mousePosition.x, Is.EqualTo(i + 32));
+            Assert.That(seen.Count, Is.EqualTo(39));
+            Assert.That(seen[38].keyCode, Is.EqualTo(KeyCode.Return));
         }
 
-        static Event Wheel(float y) =>
-            new Event
+        [Test]
+        public void LateNativeArrivalWaitsBehindAlreadyEmittedAndDeferredInput()
+        {
+            for (int i = 0; i < 40; i++)
+                Event.EnqueueTestEvent(Wheel(1f, pointer: i));
+            WheelEventQueue.Compact(new Event { type = EventType.Layout });
+            var first = new Event();
+            Event.PopEvent(first);
+            Assert.That(WheelEventQueue.Compact(first), Is.True);
+            Assert.That(first.mousePosition.x, Is.Zero);
+            var late = Wheel(1f, pointer: 1000);
+            Assert.That(WheelEventQueue.Compact(late), Is.False);
+            int next = 1;
+            Drain(e =>
             {
-                type = EventType.ScrollWheel,
-                mousePosition = new Vector2(10f, 10f),
-                delta = new Vector2(0f, y),
-            };
+                Assert.That(e.mousePosition.x, Is.EqualTo(next < 40 ? next : 1000));
+                next++;
+            });
+            Assert.That(next, Is.EqualTo(41));
+        }
+
+        [Test]
+        public void MetadataSurvivesFrameChangeAndAnotherConsumerSkippingAPrefix()
+        {
+            for (int i = 0; i < 12; i++)
+                Event.EnqueueTestEvent(Wheel(.25f));
+            for (int i = 0; i < 12; i++)
+                Event.EnqueueTestEvent(Wheel(-.5f));
+            WheelEventQueue.Compact(new Event { type = EventType.Layout });
+            var next = new Event();
+            Event.PopEvent(next); // A different consumer removes the first run.
+            Time.frameCount++;
+            Event.PopEvent(next);
+            Assert.That(WheelEventQueue.Compact(next), Is.True);
+            Assert.That(WheelEventQueue.ApplicationSteps(next, false), Is.EqualTo(12));
+            Assert.That(WheelEventQueue.RequiresLogicalInput, Is.True);
+            Assert.That(next.delta.y, Is.EqualTo(-6f));
+            Event.current = new Event { type = EventType.Repaint };
+            WheelEventQueue.Compact(Event.current);
+            Assert.That(WheelEventQueue.HasPendingInput, Is.False);
+        }
+
+        [Test]
+        public void UnknownConsumersAndInputAfterTransitionsKeepIndividualPackets()
+        {
+            for (int i = 0; i < 12; i++)
+                Event.EnqueueTestEvent(Wheel(.25f));
+            WheelEventQueue.Compact(new Event { type = EventType.Layout }, _ => false);
+            Assert.That(Event.GetEventCount(), Is.EqualTo(12));
+            Drain(e => Assert.That(e.delta.y, Is.EqualTo(.25f)));
+            Time.frameCount++;
+            Event.EnqueueTestEvent(new Event { type = EventType.KeyDown });
+            for (int i = 0; i < 12; i++)
+                Event.EnqueueTestEvent(Wheel(.25f));
+            WheelEventQueue.Compact(new Event { type = EventType.Layout }, _ => true);
+            Assert.That(Event.GetEventCount(), Is.EqualTo(13));
+            Drain(e =>
+            {
+                if (e.type == EventType.ScrollWheel)
+                    Assert.That(e.delta.y, Is.EqualTo(.25f));
+            });
+        }
+
+        [Test]
+        public void ApplicationDominantAxisAndReaderCountsKeepOriginalPackets()
+        {
+            for (int i = 0; i < 12; i++)
+                Event.EnqueueTestEvent(Wheel(.1f, 3f));
+            for (int i = 0; i < 12; i++)
+                Event.EnqueueTestEvent(Wheel(3f, .1f));
+            int calls = 0;
+            Drain(e =>
+            {
+                bool horizontal = e.delta.x > e.delta.y;
+                Assert.That(horizontal, Is.EqualTo(calls == 0));
+                Assert.That(WheelEventQueue.ApplicationSteps(e, false, horizontal), Is.EqualTo(36));
+                Assert.That(WheelEventQueue.ApplicationSteps(e, true, horizontal), Is.EqualTo(12));
+                calls++;
+            });
+            Assert.That(calls, Is.EqualTo(2));
+        }
     }
 }

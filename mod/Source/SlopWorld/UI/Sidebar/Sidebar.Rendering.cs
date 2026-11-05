@@ -37,8 +37,15 @@ namespace SlopWorld
 
         static void DrawOpenFiles()
         {
-            UpdateOpenFilesVisibility();
             var split = CurrentSplit;
+            if (
+                SmoothScroll.WheelOnly
+                && split.HasUpper
+                && Interaction.FilesRoutedScroll.HandleWheel(ToRect(split.Upper))
+            )
+                return;
+            UpdateOpenFilesVisibility();
+            split = CurrentSplit;
             Layout.ViewRows.Clear();
             HandleFilesDivider(PaneBody, split);
             if (!split.HasUpper)

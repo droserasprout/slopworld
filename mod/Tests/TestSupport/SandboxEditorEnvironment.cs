@@ -254,44 +254,6 @@ namespace SlopWorld
         public static void Hairline(Rect r, Color color) => EditorTrace.Record("rule", r);
     }
 
-    sealed class SmoothScroll
-    {
-        public static bool WheelOnly;
-        public static readonly List<SmoothScroll> WheelTrace = new List<SmoothScroll>();
-        Vector2 _origin;
-
-        public IDisposable Scope(Rect frame, Rect view, bool bars = true, bool precise = true)
-        {
-            EditorTrace.Record("scroll", view);
-            _origin = GUIUtility.Origin;
-            GUIUtility.Origin = new Vector2(
-                _origin.x + frame.x + view.x,
-                _origin.y + frame.y + view.y
-            );
-            ScrollWheelRouter.Begin(this, frame, view, precise, _origin);
-            return new ScrollScope(this);
-        }
-
-        sealed class ScrollScope : IDisposable
-        {
-            readonly SmoothScroll _owner;
-
-            public ScrollScope(SmoothScroll owner)
-            {
-                _owner = owner;
-            }
-
-            public void Dispose() => _owner.Dispose();
-        }
-
-        public void Dispose()
-        {
-            WheelTrace.Add(this);
-            ScrollWheelRouter.End();
-            GUIUtility.Origin = _origin;
-        }
-    }
-
     static class ConfirmDialog
     {
         public sealed class Prompt

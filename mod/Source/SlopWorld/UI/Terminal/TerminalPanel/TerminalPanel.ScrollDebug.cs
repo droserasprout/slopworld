@@ -21,7 +21,7 @@ namespace SlopWorld
                 FirstReply,
                 FirstDisplayable;
             public int LastInputFrame;
-            public int Inputs,
+            public int InputFrames,
                 Queued,
                 Sent,
                 Replies,
@@ -83,7 +83,7 @@ namespace SlopWorld
             if (_scrollDebug.LastInputFrame == Time.frameCount)
                 return;
             _scrollDebug.LastInputFrame = Time.frameCount;
-            _scrollDebug.Inputs++;
+            _scrollDebug.InputFrames++;
         }
 
         void ScrollDebugQueued(int offset)
@@ -220,7 +220,7 @@ namespace SlopWorld
                     + $"send={Ms(_scrollDebug.FirstQueued, _scrollDebug.FirstSent)} "
                     + $"reply={Ms(_scrollDebug.FirstSent, _scrollDebug.FirstReply)} "
                     + $"display={Ms(_scrollDebug.FirstReply, _scrollDebug.FirstDisplayable)}ms "
-                    + $"counts(in={_scrollDebug.Inputs},queued={_scrollDebug.Queued},"
+                    + $"counts(inputFrames={_scrollDebug.InputFrames},queued={_scrollDebug.Queued},"
                     + $"sent={_scrollDebug.Sent},reply={_scrollDebug.Replies},"
                     + $"stale={_scrollDebug.StaleReplies},display={_scrollDebug.Displayable},"
                     + $"repaint={_scrollDebug.RepaintFrames},paint={_scrollDebug.Paints},"

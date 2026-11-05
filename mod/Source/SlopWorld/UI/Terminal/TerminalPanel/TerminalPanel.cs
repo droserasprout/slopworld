@@ -53,7 +53,8 @@ namespace SlopWorld
         public override void Draw(Rect body)
         {
             DrewScreen = DrawTerminalBody(body, Focused);
-            DrawStatus(body, SessionHub.Instance, DrewScreen);
+            if (!SmoothScroll.WheelOnly)
+                DrawStatus(body, SessionHub.Instance, DrewScreen);
         }
 
         public override void FocusChanged(bool focused)
@@ -78,6 +79,11 @@ namespace SlopWorld
         internal bool DrawTerminalBody(Rect body, bool input)
         {
             var hub = SessionHub.Instance;
+            if (SmoothScroll.WheelOnly)
+            {
+                HandleWheelInput(body, input);
+                return DrewScreen;
+            }
             string drawingSession = _state.Name;
 
             if (_state.ShowStopped && hub.Get(_state.Name)?.Gone == true)
@@ -176,6 +182,35 @@ namespace SlopWorld
             DrawSelection(body, buf, shift);
             DrawHistoryBar(body, historyInput);
             return true;
+        }
+
+        // Wheel delivery changes input state only. History assembly, row parsing,
+        // font discovery, texture setup and status chrome belong to ordinary passes.
+        // UpdateHistoryTarget still observes each reversal before the next event so
+        // crossing the live boundary preserves application/history ownership.
+        void HandleWheelInput(Rect body, bool input)
+        {
+            if (!input || !_opened || !Visible || !body.Contains(Event.current.mousePosition))
+                return;
+            var hub = SessionHub.Instance;
+            if (_state.ShowStopped && hub.Get(_state.Name)?.Gone == true)
+                return;
+            SyncHistoryConnection();
+            var live = hub.Screen(_state.Name);
+            NoteLiveFrame(live, RestoredHistoryShift(live));
+            if (TerminalFont.CellH <= 0.01f)
+                _ = TerminalFont.Style;
+            float cellH = TerminalFont.CellH;
+            bool historyInput = HistoryInputEnabled(live);
+            PrepareHistoryScroll(cellH, live);
+            if (historyInput)
+                _historyScroll.BeginInput(body, new Vector2(0f, _historyMax));
+            _input.Handle(body);
+            if (historyInput)
+            {
+                _historyScroll.EndInput();
+                UpdateHistoryTarget(cellH, live);
+            }
         }
 
         void DrawStatus(Rect body, SessionHub hub, bool pane)

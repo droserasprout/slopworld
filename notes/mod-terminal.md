@@ -28,6 +28,10 @@ a separate modifier to these character shortcuts. Ctrl+V remains reserved for pa
 Semicolon recovery uses layout-resolved text only. Physical punctuation keys must
 wait for character events so non-US layouts do not gain extra ASCII punctuation.
 
+Wheel input updates local history and application input without preparing a displayed
+history view or renderer. [Shared scrolling](mod-ui-scrolling.md) owns queue admission,
+native coverage, and bounded application report counts across deferred delivery.
+
 Each panel negotiates its own bounds using the same snapped cell advance for drawing
 and hits. Refresh cannot pass one pane's geometry to another. Client allocation limits
 remain independent of daemon capabilities.

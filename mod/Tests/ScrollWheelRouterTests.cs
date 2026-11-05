@@ -10,8 +10,7 @@ namespace SlopWorld.Tests
         [SetUp]
         public void Reset()
         {
-            SmoothScroll.WheelOnly = false;
-            SmoothScroll.WheelTrace.Clear();
+            Event.current = new Event { type = EventType.Repaint };
             GUIUtility.Origin = new Vector2();
         }
 
@@ -19,7 +18,7 @@ namespace SlopWorld.Tests
         public void Cleanup() => Reset();
 
         [Test]
-        public void StormSkipsContentAndPreservesNestedEndOrder()
+        public void StormSkipsContentAndRestoresGroups()
         {
             var router = new ScrollWheelRouter();
             var outer = new SmoothScroll();
@@ -36,25 +35,17 @@ namespace SlopWorld.Tests
                 using (sibling.Scope(new Rect(400, 0, 100, 100), view)) { }
             };
             router.Draw(bounds, draw);
-            SmoothScroll.WheelTrace.Clear();
-            SmoothScroll.WheelOnly = true;
+            Event.current = new Event { type = EventType.ScrollWheel };
             for (int i = 0; i < 1000; i++)
                 router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(1));
-            Assert.That(SmoothScroll.WheelTrace.Count, Is.EqualTo(3000));
-            for (int i = 0; i < 3000; i += 3)
-            {
-                Assert.That(SmoothScroll.WheelTrace[i], Is.SameAs(inner));
-                Assert.That(SmoothScroll.WheelTrace[i + 1], Is.SameAs(outer));
-                Assert.That(SmoothScroll.WheelTrace[i + 2], Is.SameAs(sibling));
-            }
             Assert.That(GUIUtility.Origin, Is.EqualTo(new Vector2()));
             router.Invalidate();
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(2));
             router.Draw(new Rect(0, 0, 100, 100), draw);
             Assert.That(draws, Is.EqualTo(3));
-            SmoothScroll.WheelOnly = false;
+            Event.current = new Event { type = EventType.Repaint };
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(4));
         }
@@ -73,14 +64,13 @@ namespace SlopWorld.Tests
                     return;
                 using (scroll.Scope(bounds, bounds)) { }
             };
-            SmoothScroll.WheelOnly = true;
+            Event.current = new Event { type = EventType.ScrollWheel };
             router.Draw(bounds, draw);
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(2));
-            SmoothScroll.WheelOnly = false;
+            Event.current = new Event { type = EventType.Repaint };
             router.Draw(bounds, draw);
-            SmoothScroll.WheelOnly = true;
-            SmoothScroll.WheelOnly = true;
+            Event.current = new Event { type = EventType.ScrollWheel };
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(3));
         }
@@ -100,10 +90,10 @@ namespace SlopWorld.Tests
                 GUIUtility.Origin = new Vector2();
             };
             router.Draw(bounds, draw);
-            SmoothScroll.WheelOnly = true;
+            Event.current = new Event { type = EventType.ScrollWheel };
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(2));
-            SmoothScroll.WheelOnly = false;
+            Event.current = new Event { type = EventType.Repaint };
             router.Draw(
                 bounds,
                 () =>
@@ -121,7 +111,7 @@ namespace SlopWorld.Tests
                     }
                 )
             );
-            SmoothScroll.WheelOnly = true;
+            Event.current = new Event { type = EventType.ScrollWheel };
             router.Draw(bounds, draw);
             Assert.That(draws, Is.EqualTo(3));
         }

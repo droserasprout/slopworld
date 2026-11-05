@@ -138,6 +138,7 @@
       <HintPath>../Assemblies/Tomlyn.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Compile Include="../Source/SlopWorld/UI/Scrolling/SmoothScroll.cs" />
     <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollWheelRouter.cs" Link="Source/ScrollWheelRouter.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/MenuRowGeometry.cs" Link="Source/MenuRowGeometry.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/SelectorClickGuard.cs" Link="Source/SelectorClickGuard.cs" />

@@ -6,6 +6,7 @@ namespace UnityEngine
     static class Input
     {
         public static bool Held;
+        public static Vector2 mouseScrollDelta;
 
         public static bool GetMouseButton(int button) => Held;
     }
@@ -60,6 +61,8 @@ namespace SlopWorld
     static class FieldFocusScope
     {
         internal sealed class Memory { }
+
+        public static IDisposable TrackScroll(SmoothScroll owner, Rect outer) => null;
     }
 
     static class TextFieldSelection

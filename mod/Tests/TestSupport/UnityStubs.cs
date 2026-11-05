@@ -203,6 +203,11 @@ namespace UnityEngine
             this.y = y;
         }
 
+        public static Vector2 zero => new Vector2();
+        public static Vector2 one => new Vector2(1f, 1f);
+
+        public static Vector2 operator *(Vector2 a, float b) => new Vector2(a.x * b, a.y * b);
+
         public float sqrMagnitude => x * x + y * y;
 
         public static Vector2 operator -(Vector2 a, Vector2 b) => new Vector2(a.x - b.x, a.y - b.y);
@@ -324,9 +329,14 @@ namespace UnityEngine
 
     public class Event
     {
-        public static Event current;
+        public static Event current = new Event { type = EventType.Repaint };
 
-        public void Use() => type = EventType.Used;
+        public void Use()
+        {
+            if (type != EventType.Used)
+                rawType = type;
+            type = EventType.Used;
+        }
 
         public KeyCode keyCode;
         public char character;
@@ -346,13 +356,20 @@ namespace UnityEngine
 
         public Event() { }
 
+        public static int CopyCalls;
+
         public Event(Event e)
         {
+            CopyCalls++;
             CopyFrom(e);
         }
 
         public void CopyFrom(Event e)
         {
+            keyCode = e.keyCode;
+            control = e.control;
+            alt = e.alt;
+            shift = e.shift;
             character = e.character;
             button = e.button;
             clickCount = e.clickCount;
@@ -462,6 +479,8 @@ namespace UnityEngine
     public static class Mathf
     {
         public const float PI = (float)System.Math.PI;
+
+        public static float Sign(float value) => value < 0 ? -1f : 1f;
 
         public static float Abs(float value) => System.Math.Abs(value);
 

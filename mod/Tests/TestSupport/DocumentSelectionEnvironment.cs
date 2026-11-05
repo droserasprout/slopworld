@@ -22,6 +22,10 @@ namespace SlopWorld
 {
     sealed class UiMenu
     {
+        public static bool ScrollBlocked;
+
+        public static bool BlocksScrollBehind() => ScrollBlocked;
+
         public readonly List<Verse.FloatMenuOption> Options;
 
         public UiMenu(List<Verse.FloatMenuOption> options)

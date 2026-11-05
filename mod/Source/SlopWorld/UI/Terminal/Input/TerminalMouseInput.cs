@@ -33,10 +33,13 @@ namespace SlopWorld
             {
                 if (e.delta.y == 0f)
                     return;
-                int step = reader ? 1 : Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
+                if (!ClaimApplicationWheel(e))
+                    return;
+                int step = WheelEventQueue.ApplicationSteps(e, reader);
                 _panel.ClearSelection();
                 var cell = _panel.CellAt(body, e.mousePosition);
                 string act = e.delta.y < 0f ? "wheelup" : "wheeldown";
+                // Queue chunks retain per-packet counts and fit the wire's byte count.
                 SessionHub.Instance.Terminal.SendMouse(
                     _panel.SessionName,
                     act,
@@ -54,10 +57,12 @@ namespace SlopWorld
             // During that frame, arrow keys scroll micro and are safe while the shell hands control to it.
             if (editor || (live != null && live.AltScreen))
             {
+                if (!ClaimApplicationWheel(e))
+                    return;
                 // Use the dominant axis to ignore slight touchpad drift. Pagers receive normal arrow keys.
                 bool horizontal = Mathf.Abs(e.delta.x) > Mathf.Abs(e.delta.y);
                 float delta = horizontal ? e.delta.x : e.delta.y;
-                int step = reader ? 1 : Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(delta)), 1, 5);
+                int step = WheelEventQueue.ApplicationSteps(e, reader, horizontal);
                 string key = horizontal
                     ? (delta < 0f ? "Left" : "Right")
                     : (delta < 0f ? "Up" : "Down");
@@ -71,6 +76,20 @@ namespace SlopWorld
             }
 
             // SmoothScroll keeps fractional X11 wheel input. The draw pass requests history snapshots without blocking local motion.
+        }
+
+        static bool ClaimApplicationWheel(Event e)
+        {
+            // A mode change can occur while a run's tail waits for another frame.
+            // Native motion already spent by history must not also reach the live app.
+            if (WheelEventQueue.NativeCovered)
+            {
+                e.Use();
+                return false;
+            }
+            WheelEventQueue.UseLogical();
+            X11ScrollInput.DiscardPendingMovement();
+            return true;
         }
 
         bool IsEditorSession()
