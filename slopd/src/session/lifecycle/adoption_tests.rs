@@ -661,3 +661,62 @@ fn temporary_worker_recovery_keeps_captured_relationship_and_delegation_policy()
     assert_eq!(recovered.workers, child.workers);
     assert!(recovered.daemon_token.is_none());
 }
+
+#[test]
+fn recovered_worker_normalizes_identity_without_mutating_saved_or_snapshot_settings() {
+    let saved = SessionCfg {
+        name: "worker".into(),
+        command: "saved-command".into(),
+        project: "saved-project".into(),
+        autostart: true,
+        auto_resume: true,
+        daemon_token: Some("old-credential".into()),
+        ..Default::default()
+    };
+    let snapshot = SessionCfg {
+        command: "snapshot-command".into(),
+        ..saved.clone()
+    };
+    let cfg = Config {
+        sessions: vec![saved.clone()],
+        ..Default::default()
+    };
+    for matching_saved in [true, false] {
+        let state_id = if matching_saved {
+            saved.state_id.clone()
+        } else {
+            crate::storage_id::draft_identity()
+        };
+        let metadata = crate::tmux::WorkerMetadata {
+            session: Some(Box::new(snapshot.clone())),
+            project: Some("captured-project".into()),
+            worktree: None,
+            parent: "captured-parent".into(),
+            task_id: "captured-task".into(),
+            durable: true,
+            state_id: Some(state_id.clone()),
+        };
+        for _ in 0..2 {
+            let recovered = recovered_worker_cfg(&cfg, "worker", &metadata).unwrap();
+            assert_eq!(
+                recovered.command,
+                if matching_saved {
+                    "saved-command"
+                } else {
+                    "snapshot-command"
+                }
+            );
+            assert_eq!(recovered.state_id, state_id);
+            assert_eq!(recovered.project, "captured-project");
+            assert!(recovered.worktree.is_empty());
+            assert!(recovered.worker);
+            assert_eq!(recovered.parent, "captured-parent");
+            assert_eq!(recovered.task_id, "captured-task");
+            assert!(!recovered.autostart);
+            assert!(!recovered.auto_resume);
+            assert!(recovered.daemon_token.is_none());
+        }
+        assert!(metadata.session.as_ref().unwrap().daemon_token.is_some());
+        assert!(cfg.sessions[0].autostart);
+    }
+}

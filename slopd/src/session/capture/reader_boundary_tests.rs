@@ -436,3 +436,44 @@ async fn early_control_failure_and_aborted_reader_release_ownership_for_retry() 
         manager.stop("target").await.unwrap();
     }
 }
+
+#[tokio::test]
+async fn repeated_failed_attachment_cleanup_cannot_retire_a_replacement_reader() {
+    for attachment in [Attachment::Startup, Attachment::Existing] {
+        let manager = crate::session::test_manager(Config::default());
+        let stale = Arc::new(());
+        let replacement = Arc::new(());
+        let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+        let mut row = Live::new(
+            SessionCfg {
+                name: "target".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        row.process_running = true;
+        row.set_state(State::Working);
+        row.capture.reader_token = Some(replacement.clone());
+        row.capture.emu = Some(emu.clone());
+        let run_id = row.run_id;
+        manager.live.write().await.insert("target".into(), row);
+        manager
+            .session_operation(async {
+                let terminal = manager.terminal_boundary("target").write_owned().await;
+                for _ in 0..2 {
+                    manager
+                        .cleanup_reader_start("target", &stale, attachment, &terminal)
+                        .await;
+                    let live = manager.live.read().await;
+                    let row = &live["target"];
+                    assert!(reader_owned_by(row, &replacement));
+                    assert!(Arc::ptr_eq(row.capture.emu.as_ref().unwrap(), &emu));
+                    assert_eq!(row.run_id, run_id);
+                    assert!(row.process_running);
+                    assert_eq!(row.state, State::Working);
+                    assert!(row.capture.retry_at.is_none());
+                }
+            })
+            .await;
+    }
+}
