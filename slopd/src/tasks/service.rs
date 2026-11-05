@@ -267,7 +267,14 @@ impl Tasks {
         );
         let mut task = entry.task.clone();
         let order = entry.order;
-        task.record_update(sender.into(), status, note);
+        if status == Status::Canceled {
+            validate_cancellation(&task, who, false, false)?;
+            let latest_note = task.note.clone();
+            task.record_update(sender.into(), status, note);
+            task.note = latest_note;
+        } else {
+            task.record_update(sender.into(), status, note);
+        }
         self.persist(task, order)
     }
     pub(crate) fn followup_note(&mut self, id: &str, sender: &str, note: String) -> Result<()> {
@@ -430,19 +437,7 @@ impl Tasks {
             if cancel {
                 let supervising =
                     task.worker.is_some() && task.from_id == who && supervised.contains(id);
-                ensure!(
-                    force || supervising || task.recipient_is(who),
-                    "Only the recipient can cancel task {id}."
-                );
-                ensure!(
-                    ((supervising || (force && task.worker.is_some()))
-                        && !task.status.is_terminal())
-                        || matches!(
-                            task.status,
-                            Status::Queued | Status::Accepted | Status::Canceled
-                        ),
-                    "Cancel task {id} only when it is queued or accepted."
-                );
+                validate_cancellation(task, who, force, supervising)?;
             } else {
                 ensure!(
                     force || task.visible_to(who),
@@ -492,6 +487,24 @@ impl Tasks {
         }
         Ok(result)
     }
+}
+
+/// Shared cancellation policy for single updates and prevalidated batches.
+fn validate_cancellation(task: &Task, who: &str, force: bool, supervising: bool) -> Result<()> {
+    let id = &task.id;
+    ensure!(
+        force || supervising || task.recipient_is(who),
+        "Only the recipient can cancel task {id}."
+    );
+    ensure!(
+        ((supervising || (force && task.worker.is_some())) && !task.status.is_terminal())
+            || matches!(
+                task.status,
+                Status::Queued | Status::Accepted | Status::Canceled
+            ),
+        "Cancel task {id} only when it is queued or accepted."
+    );
+    Ok(())
 }
 
 #[cfg(test)]

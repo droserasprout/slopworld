@@ -91,6 +91,19 @@ async fn startup_preserves_surviving_workers_terminal_results_and_ordinary_tasks
             })
             .await
             .unwrap();
+        if status == Status::Canceled {
+            runtime
+                .task_store()
+                .update_task_async(
+                    "missing",
+                    "missing",
+                    &task.id,
+                    Status::Accepted,
+                    Some("original result".into()),
+                )
+                .await
+                .unwrap();
+        }
         runtime
             .task_store()
             .update_task_async(
@@ -354,6 +367,19 @@ async fn failure_preserves_completed_and_canceled_tasks() {
     let runtime = crate::session::test_manager(Config::default());
     for status in [Status::Done, Status::Canceled] {
         let session = worker(&runtime).await;
+        if status == Status::Canceled {
+            runtime
+                .task_store()
+                .update_task_async(
+                    "child",
+                    "child",
+                    &session.task_id,
+                    Status::Accepted,
+                    Some("Already resolved".into()),
+                )
+                .await
+                .unwrap();
+        }
         runtime
             .task_store()
             .update_task_async(
@@ -451,6 +477,19 @@ async fn pending_failure_settles_deleted_stale_and_terminal_tasks_without_overwr
             .record_worker_failure(&session, WorkerFailureCause::Stopped)
             .await;
         drop(fault);
+        if status == Status::Canceled {
+            runtime
+                .task_store()
+                .update_task_async(
+                    "child",
+                    "child",
+                    &session.task_id,
+                    Status::Accepted,
+                    Some("accepted terminal outcome".into()),
+                )
+                .await
+                .unwrap();
+        }
         runtime
             .task_store()
             .update_task_async(

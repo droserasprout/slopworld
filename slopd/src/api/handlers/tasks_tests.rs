@@ -1022,3 +1022,50 @@ async fn followup_destination_preserves_identity_and_missing_worker_errors() {
     assert_eq!(root_error.message, "Worker no longer exists.");
     assert_eq!(operation_error(root_error).0, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn generic_task_updates_obey_cancellation_policy() {
+    let m = crate::application::test_application(crate::config::Config {
+        sessions: ["alice", "bob"]
+            .into_iter()
+            .map(|name| crate::config::SessionCfg {
+                name: name.into(),
+                state_id: mailbox_identity(name),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    });
+    for status in ["accepted", "working", "done", "failed"] {
+        let task = mailbox_task(&m, "alice", "bob", "work").await.unwrap();
+        update_task(
+            State(m.clone()),
+            Extension(scoped("bob")),
+            HeaderMap::new(),
+            Path(task.id.clone()),
+            Proto(wire::UpdateTaskReq {
+                status: Some(status.into()),
+                note: Some("latest result".into()),
+            }),
+        )
+        .await
+        .unwrap();
+        let result = update_task(
+            State(m.clone()),
+            Extension(scoped("bob")),
+            HeaderMap::new(),
+            Path(task.id.clone()),
+            Proto(wire::UpdateTaskReq {
+                status: Some("canceled".into()),
+                note: None,
+            }),
+        )
+        .await;
+        if status == "accepted" {
+            let Proto(reply) = result.unwrap();
+            assert_eq!(reply.task.unwrap().note.as_deref(), Some("latest result"));
+        } else {
+            assert_eq!(result.unwrap_err().0, StatusCode::BAD_REQUEST);
+        }
+    }
+}

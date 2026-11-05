@@ -518,3 +518,58 @@ fn supervised_cancellation_is_scoped_and_followup_history_preserves_result_and_s
         .unwrap();
     assert_eq!(again.unchanged, [task.id]);
 }
+
+#[test]
+fn update_cancellation_enforces_recipient_status_and_preserves_result() {
+    let mut f = Fixture::new();
+    for status in [
+        Status::Queued,
+        Status::Accepted,
+        Status::Working,
+        Status::Done,
+        Status::Failed,
+    ] {
+        let task = f.create("work");
+        let before = f
+            .tasks
+            .update(
+                "agent",
+                "agent",
+                &task.id,
+                status,
+                Some("latest result".into()),
+            )
+            .unwrap();
+        let disk = fs::read(f.path(&task.id)).unwrap();
+        f.tasks
+            .update("host", "host", &task.id, Status::Canceled, None)
+            .unwrap_err();
+        let result = f
+            .tasks
+            .update("agent", "agent", &task.id, Status::Canceled, None);
+        if matches!(status, Status::Queued | Status::Accepted) {
+            let canceled = result.unwrap();
+            assert_eq!(canceled.note, before.note);
+            assert_eq!(canceled.history.len(), before.history.len() + 1);
+            f.tasks
+                .update("agent", "agent", &task.id, Status::Working, None)
+                .unwrap_err();
+            f.tasks
+                .update("agent", "agent", &task.id, Status::Canceled, None)
+                .unwrap_err();
+            let saved = Tasks::load_records(&f.root)
+                .unwrap()
+                .get("agent", &task.id)
+                .unwrap();
+            assert_eq!(saved.note, before.note);
+            assert_eq!(saved.status, Status::Canceled);
+        } else {
+            result.unwrap_err();
+            assert_eq!(fs::read(f.path(&task.id)).unwrap(), disk);
+            assert_eq!(
+                f.tasks.get("agent", &task.id).unwrap().history,
+                before.history
+            );
+        }
+    }
+}

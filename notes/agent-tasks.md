@@ -66,7 +66,8 @@ edits and cannot supersede a newer save. UI procedures and storage paths belong 
 
 Supervised cancellation carries a checked selection into the task store. It applies
 only to the sender's worker tasks, including working tasks. Ordinary recipients
-can cancel only queued or accepted tasks. Cancellation preserves the latest
-result note and prevents subsequent recipient updates. It does not stop the process.
+can cancel only queued or accepted tasks, including through generic task updates.
+Cancellation preserves the latest result note and prevents subsequent recipient
+updates. It does not stop the process.
 
 The host task reader and task menus share this policy through `TaskInfo.CanCancel`.
