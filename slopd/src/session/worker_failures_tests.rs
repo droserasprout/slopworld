@@ -54,6 +54,13 @@ async fn startup_preserves_surviving_workers_terminal_results_and_ordinary_tasks
     let runtime = crate::session::test_manager(Config::default());
     let survivor = worker(&runtime).await;
     runtime
+        .config_authority
+        .write()
+        .await
+        .sessions
+        .push(survivor.clone());
+    runtime.upsert_sessions(&runtime.config().await).await;
+    runtime
         .tmux
         .spawn(
             "child",
@@ -147,6 +154,20 @@ async fn startup_preserves_a_worker_renamed_since_task_creation() {
         .unwrap();
     runtime.recover_missing_worker_tasks().await.unwrap();
     assert_task(&runtime, &session.task_id, Status::Queued, None).await;
+    // Reuse the original task label for an unrelated pane, then lose the
+    // actual worker offline. The old label confers no task ownership.
+    runtime
+        .tmux
+        .spawn(
+            "child",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            false,
+        )
+        .await
+        .unwrap();
     runtime.tmux.kill("renamed").await.unwrap();
     runtime.recover_missing_worker_tasks().await.unwrap();
     assert_task(

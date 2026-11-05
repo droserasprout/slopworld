@@ -25,6 +25,8 @@ repeated cleanup. Lifecycle owns retention, resource cleanup, and grant revocati
 Startup/delivery failure, stop, removal, or confirmed exit can fail unfinished work.
 After startup adoption, recovery fails unfinished worker tasks whose panes are absent
 from a successful tmux listing, including one-shot workers without saved sessions.
+Survival requires an adopted live worker with matching task and stable identity; a
+pane reusing the task’s original session label does not establish ownership.
 Listing or persistence failure aborts startup for retry; ordinary configuration
 reconciliation must not run this check while a worker is being registered.
 

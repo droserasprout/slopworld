@@ -96,9 +96,7 @@ impl SessionRuntime {
             let tasks = self.task_store().all_tasks_async().await?;
             for task in tasks.into_iter().filter(|task| !task.status.is_terminal()) {
                 let Some(worker) = &task.worker else { continue };
-                if panes.contains(&worker.session)
-                    || surviving_tasks.contains(&(task.to_id.clone(), task.id.clone()))
-                {
+                if surviving_tasks.contains(&(task.to_id.clone(), task.id.clone())) {
                     continue;
                 }
                 self.task_store()
