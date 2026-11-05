@@ -84,15 +84,12 @@ namespace SlopWorld
             int operation = draft.BeginOperation();
             if (refreshHealth)
                 SessionHub.Instance.RefreshHealth();
-            DaemonClient.Get<Wire.ConfigResult>(
-                WireProtocol.Routes.Config,
-                j =>
+            SessionHub.Instance.ConfigStore.Refresh(
+                (j, server) =>
                 {
                     if (!IsCurrent(key, draft, operation))
                         return;
-                    var server = DaemonConfig.FromWire(j.Values, j.Metadata);
                     draft.LoadServer(server);
-                    SessionHub.Instance.Config = server;
                     Path = j.Path;
                     draft.Error = null;
                     loaded?.Invoke();
@@ -117,6 +114,8 @@ namespace SlopWorld
             string key = _key;
             int operation = draft.BeginOperation();
             draft.Saving = true;
+            var store = SessionHub.Instance.ConfigStore;
+            string endpoint = store.BeginSave();
             var submitted = draft.Config.Snapshot();
             var patch = draft.Config.ToPatch(draft.BaselineValue());
             var submittedTexts = draft.TextSnapshot();
@@ -133,7 +132,7 @@ namespace SlopWorld
                     // flight remain different from this submitted baseline and stay dirty.
                     draft.Acknowledge(submitted, submittedTexts);
                     draft.ApplyQueuedNormalizations();
-                    SessionHub.Instance.RefreshConfig();
+                    store.Saved(endpoint);
                     afterSave?.Invoke();
                 },
                 msg =>

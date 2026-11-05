@@ -19,6 +19,11 @@ on reconnect. An explicit unavailable Landlock capability queues a one-time popu
 after loading finishes; unknown capability availability does not warn. Local socket
 acceptance is not daemon acknowledgement.
 
+`DaemonConfigStore` owns shared endpoint-scoped configuration publication for both
+hub refreshes and Settings reads. Request order and save boundaries reject stale
+publication; page drafts settle their own operations independently. Shared accepted
+config is isolated from mutable page drafts. Endpoint changes reset shared values.
+
 Catalog pushes trigger authoritative HTTP reads rather than overwriting newer edits.
 `SnapshotRequest` owns refresh revision checks and waiter settlement; services publish
 snapshots. Refresh callers share the winning HTTP/push result. Launch handoffs wait

@@ -27,9 +27,10 @@ namespace SlopWorld
         bool _landlockWarningShown;
 
         // Refresh host-application defaults on connection and after settings saves.
-        // Settings pages can update these values before the daemon responds.
+        // Settings and connection refreshes share the same publication owner.
         // Initial defaults keep file actions usable before the first response.
-        public DaemonConfig Config = new DaemonConfig();
+        internal readonly DaemonConfigStore ConfigStore = new DaemonConfigStore();
+        public DaemonConfig Config => ConfigStore.Value;
         public DaemonCapabilities Capabilities = new DaemonCapabilities();
 
         // Keep this non-null. An empty object indicates unavailable usage data before the daemon responds.
@@ -159,12 +160,7 @@ namespace SlopWorld
         // ---- config --------------------------------------------------------------------
 
         // Send configuration changes through HTTP to retain error details when saving config.toml fails.
-        public void RefreshConfig(Action<string> fail = null) =>
-            DaemonClient.Get<Wire.ConfigResult>(
-                WireProtocol.Routes.Config,
-                j => Config = DaemonConfig.FromWire(j.Values, j.Metadata),
-                fail
-            );
+        public void RefreshConfig(Action<string> fail = null) => ConfigStore.Refresh(fail: fail);
 
         public void RefreshHealth(Action<string> fail = null) =>
             DaemonClient.Get<Wire.Health>(

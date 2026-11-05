@@ -252,6 +252,8 @@
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfigDraft.cs" Link="Source/Client/Daemon/DaemonConfigDraft.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/DaemonConfigValidation.cs" Link="Source/UI/Settings/DaemonConfigValidation.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/DaemonConfigEndpoint.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Settings/DaemonConfigState.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfigStore.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/Endpoint.cs" Link="Source/Client/Daemon/Endpoint.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/ApplicationPaths.cs" />
     <Compile Include="../Source/SlopWorld/Client/Catalog/MountEntry.cs" Link="Source/Client/Catalog/MountEntry.cs" />

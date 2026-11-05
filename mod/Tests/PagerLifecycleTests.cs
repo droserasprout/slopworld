@@ -7,7 +7,11 @@ namespace SlopWorld
     sealed partial class SessionHub
     {
         public static SessionHub Instance = new SessionHub();
-        public readonly DaemonConfig Config = new DaemonConfig();
+        internal readonly DaemonConfigStore ConfigStore = new DaemonConfigStore();
+        public DaemonConfig Config => ConfigStore.Value;
+
+        public void RefreshHealth() { }
+
         public readonly PagerTestStore SessionStore = new PagerTestStore();
         public readonly Dictionary<string, SessionInfo> Sessions =
             new Dictionary<string, SessionInfo>();
