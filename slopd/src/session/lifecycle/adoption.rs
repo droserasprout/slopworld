@@ -157,6 +157,7 @@ impl SessionRuntime {
                 decision.probe.worker.is_some() && decision.worker_session.is_none();
             let conflict = cfg.session(&decision.probe.name).is_some_and(|saved| {
                 decision.probe.host
+                    || (saved.worker && decision.probe.worker.is_none())
                     || decision.probe.temporary_session.is_some()
                     || decision.probe.worker.as_ref().is_some_and(|metadata| {
                         !saved.worker
@@ -180,10 +181,10 @@ impl SessionRuntime {
                             Self::new_adopted_live(cfg, &decision),
                         );
                     }
-                    tracing::warn!(
-                        "cannot stop conflicting pane {}: {error:#}",
+                    return Err(error.context(format!(
+                        "cannot stop conflicting pane {}",
                         decision.probe.name
-                    );
+                    )));
                 }
                 continue;
             }

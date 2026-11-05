@@ -32,6 +32,7 @@ After startup adoption, recovery fails unfinished worker tasks whose panes are a
 from a successful tmux listing, including one-shot workers without saved sessions.
 Survival requires an adopted live worker with matching task and stable identity; a
 pane reusing the task’s original session label does not establish ownership.
+Readerless saved workers require matching pane worker metadata before adoption.
 Listing failures during adoption or recovery, and task persistence failures, abort
 startup for retry. Ordinary configuration reconciliation must not run task recovery
 while a worker is being registered.

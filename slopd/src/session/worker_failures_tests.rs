@@ -597,6 +597,53 @@ async fn publish_worker_metadata(runtime: &SessionRuntime, session: &SessionCfg,
 }
 
 #[tokio::test]
+async fn startup_rejects_a_saved_worker_name_without_worker_metadata() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let runtime = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    let session = worker(&runtime).await;
+    runtime
+        .config_authority
+        .write()
+        .await
+        .sessions
+        .push(session.clone());
+    runtime
+        .tmux
+        .spawn(
+            "child",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    runtime.tmux.fail_next_kill_for_test();
+    runtime.sync_from_config_checked().await.unwrap_err();
+    assert_task(&runtime, &session.task_id, Status::Queued, None).await;
+    assert!(runtime.live.read().await["child"].capture.emu.is_none());
+    runtime.sync_from_config_checked().await.unwrap();
+    assert!(!runtime.tmux.exists("child").await);
+    assert!(runtime.live.read().await["child"].capture.emu.is_none());
+    runtime.recover_missing_worker_tasks().await.unwrap();
+    assert_task(
+        &runtime,
+        &session.task_id,
+        Status::Failed,
+        Some("worker session child was lost while the daemon was offline"),
+    )
+    .await;
+    let first = runtime.task_store().all_tasks_async().await.unwrap();
+    runtime.sync_from_config_checked().await.unwrap();
+    runtime.recover_missing_worker_tasks().await.unwrap();
+    assert_eq!(
+        first[0].history,
+        runtime.task_store().all_tasks_async().await.unwrap()[0].history
+    );
+}
+
+#[tokio::test]
 async fn startup_aborts_failed_discovery_and_recovers_one_shot_on_retry() {
     let socket = crate::test_support::TmuxSocket::new();
     let runtime = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
