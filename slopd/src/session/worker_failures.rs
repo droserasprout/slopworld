@@ -3,6 +3,27 @@
 //! identity-checked transitions and preserves terminal results. Cleanup stays in lifecycle.
 
 use super::{SessionCfg, SessionRuntime, lifecycle::stop::DetachCause};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use tokio::time::Instant;
+
+const RETRY_DELAY: Duration = Duration::from_secs(2);
+
+// Runtime-owned evidence outlives disposable live rows. No background task owns a
+// runtime reference: maintenance drives retries, and daemon startup recovers loss.
+#[derive(Default)]
+pub(super) struct PendingWorkerFailures {
+    entries: Mutex<HashMap<(String, String), PendingFailure>>,
+    commit: tokio::sync::Mutex<()>,
+}
+
+struct PendingFailure {
+    failure: Arc<WorkerFailure>,
+    retry_at: Instant,
+}
 
 pub(crate) enum WorkerFailureCause {
     RegistrationFailed(String),
@@ -66,18 +87,108 @@ impl WorkerFailure {
         Self::for_session(session, event)
     }
 
-    pub(super) async fn apply(self, runtime: &SessionRuntime) {
-        if let Err(error) = runtime
-            .task_store()
-            .fail_worker_async(&self.task_id, &self.identity, self.note)
-            .await
-        {
-            tracing::error!(task = %self.task_id, "could not persist worker failure: {error:#}");
-        }
+    pub(super) async fn apply(self, runtime: &SessionRuntime) -> anyhow::Result<()> {
+        let failure = runtime.retain_worker_failure(self);
+        runtime.commit_worker_failure(failure).await
     }
 }
 
 impl SessionRuntime {
+    /// Register evidence synchronously before retirement or any cancellation point.
+    /// First evidence wins, including a detailed exit followed by generic cleanup.
+    pub(super) fn retain_worker_failure(&self, failure: WorkerFailure) -> Arc<WorkerFailure> {
+        let key = (failure.task_id.clone(), failure.identity.clone());
+        let mut pending = self
+            .worker_failures
+            .entries
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let entry = pending.entry(key).or_insert_with(|| PendingFailure {
+            failure: Arc::new(failure),
+            retry_at: Instant::now(),
+        });
+        self.maintenance_wake().notify_one();
+        entry.failure.clone()
+    }
+
+    pub(super) async fn commit_worker_failure(
+        &self,
+        failure: Arc<WorkerFailure>,
+    ) -> anyhow::Result<()> {
+        // Serialize attempts, but never hold the evidence map lock across task I/O.
+        // Cancellation leaves the entry present; the store may finish independently,
+        // and a later idempotent retry observes its terminal result.
+        let _commit = self.worker_failures.commit.lock().await;
+        let key = (failure.task_id.clone(), failure.identity.clone());
+        if !self
+            .worker_failures
+            .entries
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .get(&key)
+            .is_some_and(|entry| Arc::ptr_eq(&entry.failure, &failure))
+        {
+            return Ok(());
+        }
+        match self
+            .task_store()
+            .fail_worker_async(&failure.task_id, &failure.identity, failure.note.clone())
+            .await
+        {
+            Ok(_) => {
+                // Deleted tasks, changed identities and existing terminal outcomes
+                // settle the pending evidence without recreating or overwriting them.
+                self.worker_failures
+                    .entries
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .remove(&key);
+                Ok(())
+            }
+            Err(error) => {
+                if let Some(entry) = self
+                    .worker_failures
+                    .entries
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .get_mut(&key)
+                {
+                    entry.retry_at = Instant::now() + RETRY_DELAY;
+                }
+                self.maintenance_wake().notify_one();
+                tracing::error!(task = %failure.task_id, "could not persist worker failure; retained for retry: {error:#}");
+                Err(error)
+            }
+        }
+    }
+
+    pub(super) fn worker_failure_delay(&self) -> Option<Duration> {
+        let now = Instant::now();
+        self.worker_failures
+            .entries
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .values()
+            .map(|entry| entry.retry_at.saturating_duration_since(now))
+            .min()
+    }
+
+    pub(super) async fn retry_worker_failures(&self) {
+        let due = self
+            .worker_failures
+            .entries
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .values()
+            .filter(|entry| entry.retry_at <= Instant::now())
+            .map(|entry| entry.failure.clone())
+            .collect::<Vec<_>>();
+        for failure in due {
+            // The commit owner logs errors and retains evidence for the next deadline.
+            drop(self.commit_worker_failure(failure).await);
+        }
+    }
+
     /// Startup-only recovery, after adoption and before requests can launch workers.
     /// Read persisted tasks as one-shot workers may have no saved session at all.
     /// A failed tmux query is not evidence of loss; leave tasks intact and retry startup.
@@ -122,7 +233,8 @@ impl SessionRuntime {
         event: WorkerFailureCause,
     ) {
         if let Some(failure) = WorkerFailure::for_session(session, event) {
-            failure.apply(self).await;
+            // The commit owner logs errors and retains evidence for maintenance.
+            drop(failure.apply(self).await);
         }
     }
 }

@@ -126,6 +126,7 @@ impl SessionRuntime {
     pub async fn retick(self: &Arc<Self>) {
         let _perf = crate::perf::timer("retick");
         let started = crate::perf::enabled().then(std::time::Instant::now);
+        self.retry_worker_failures().await;
         self.retry_capture_if_due().await;
 
         let now = unix_ms();

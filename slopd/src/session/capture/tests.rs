@@ -257,7 +257,7 @@ async fn current_reader_exit_resets_durable_process_state_once() {
         assert!(live.input.sender.is_none());
     }
 
-    manager.execute_cleanup(plan.unwrap()).await;
+    manager.execute_cleanup(plan.unwrap()).await.unwrap();
     assert!(manager.live.read().await.contains_key("agent"));
 }
 

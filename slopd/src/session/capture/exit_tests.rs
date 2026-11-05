@@ -54,6 +54,13 @@ async fn maintenance_recovers_reader_after_unavailable_status_without_config_cha
 }
 
 async fn task_owned_session(manager: &SessionRuntime) -> (SessionCfg, crate::tasks::Task) {
+    task_owned_session_with_durability(manager, true).await
+}
+
+async fn task_owned_session_with_durability(
+    manager: &SessionRuntime,
+    durable: bool,
+) -> (SessionCfg, crate::tasks::Task) {
     let mut session = SessionCfg {
         name: "worker".into(),
         worker: true,
@@ -73,7 +80,7 @@ async fn task_owned_session(manager: &SessionRuntime) -> (SessionCfg, crate::tas
             Some(crate::tasks::WorkerTask {
                 session: session.name.clone(),
                 parent: crate::tasks::HOST.into(),
-                durable: true,
+                durable,
             }),
         )
         .await
@@ -800,4 +807,54 @@ async fn failed_exit_evidence_write_retains_pane_and_still_fails_task() {
             .status()
             .await,
     );
+}
+
+#[tokio::test]
+async fn one_shot_exit_retries_task_write_after_live_row_and_private_state_are_removed() {
+    use crate::session::AgentLifetime;
+    let manager = crate::session::test_manager(Config::default());
+    manager.tmux.ensure_server().await.unwrap();
+    let (session, task) = task_owned_session_with_durability(&manager, false).await;
+    let private = crate::sandbox::state_dir(&session).unwrap();
+    let token = Arc::new(());
+    let mut live = Live::new(session, TitleCapture::default());
+    live.role = SessionRole::Agent(AgentLifetime::Temporary);
+    live.capture.reader_token = Some(token.clone());
+    manager.live.write().await.insert("worker".into(), live);
+    let task_path = manager
+        .cfg_path()
+        .parent()
+        .unwrap()
+        .join("data/tasks")
+        .join(format!("{}.toml", task.id));
+    let fault = crate::paths::fail_writes(&task_path);
+    // A successful listing confirms the pane disappeared while its reader was active.
+    manager.reader_ended("worker".into(), token.clone()).await;
+    assert!(!manager.live.read().await.contains_key("worker"));
+    assert!(!private.exists());
+    let pending = manager
+        .task_store()
+        .task_for_async("host", &task.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(pending.status, crate::tasks::Status::Queued);
+    drop(fault);
+    // Repeated reader completion cannot replace retained detailed exit evidence.
+    manager.reader_ended("worker".into(), token).await;
+    // Advance only this owner's retry deadline; runtime retick supplies the actual retry.
+    manager.make_worker_failures_due();
+    manager.retick().await;
+    let saved = manager
+        .task_store()
+        .task_for_async("host", &task.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.status, crate::tasks::Status::Failed);
+    assert_eq!(
+        saved.note.as_deref(),
+        Some("worker session worker: pane disappeared; exit status unknown")
+    );
+    assert!(manager.worker_failure_delay().is_none());
 }

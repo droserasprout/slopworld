@@ -20,8 +20,13 @@ link storage and removal.
 
 Tasks persist before startup. `session/worker_failures.rs` owns failure policy;
 callers check delayed run/reader identity and capture task identity before leaving
-live state. The store preserves terminal results and detailed exit evidence across
-repeated cleanup. Lifecycle owns retention, resource cleanup, and grant revocation.
+live state. Runtime-owned pending outcomes retain captured task/session identities before
+retirement, independently of live rows and private state. Maintenance retries failed
+writes; cancellation leaves pending evidence available for retry. Explicit stop reports
+persistence failure after resource cleanup. The store preserves terminal results and
+detailed exit evidence across repeated cleanup. Pending evidence lasts for the daemon
+lifetime; startup recovery handles unfinished tasks after a daemon restart. Lifecycle
+owns retention, resource cleanup, and grant revocation.
 Startup/delivery failure, stop, removal, or confirmed exit can fail unfinished work.
 After startup adoption, recovery fails unfinished worker tasks whose panes are absent
 from a successful tmux listing, including one-shot workers without saved sessions.

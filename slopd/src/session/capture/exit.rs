@@ -93,6 +93,8 @@ impl SessionRuntime {
         } else {
             self.save_pane_exit(name, &session, &reason).await
         };
+        // Register detailed task evidence before retiring the reader or temporary
+        // state. Failed task writes stay owned by runtime maintenance after cleanup.
         self.record_worker_failure(
             &session,
             WorkerFailureCause::ProcessExited {

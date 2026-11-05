@@ -73,7 +73,8 @@ impl SessionRuntime {
             finish_reader(std::mem::replace(&mut plan.reader, ReaderDisposition::None));
         }
         for plan in plans {
-            self.execute_cleanup(plan).await;
+            // Worker persistence errors remain queued for maintenance.
+            drop(self.execute_cleanup(plan).await);
         }
     }
 

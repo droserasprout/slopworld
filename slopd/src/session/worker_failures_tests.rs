@@ -211,15 +211,19 @@ async fn startup_retries_a_failed_task_write() {
 }
 
 async fn worker(runtime: &SessionRuntime) -> SessionCfg {
+    worker_with_durability(runtime, true).await
+}
+
+async fn worker_with_durability(runtime: &SessionRuntime, durable: bool) -> SessionCfg {
     let task = runtime
         .task_store()
-        .run(|tasks| {
+        .run(move |tasks| {
             tasks.create_worker(
                 "host".into(),
                 "child".into(),
                 "Delegate".into(),
                 "parent".into(),
-                true,
+                durable,
             )
         })
         .await
@@ -273,7 +277,8 @@ async fn lifecycle_and_startup_failures_preserve_the_first_terminal_result() {
         WorkerFailure::for_detach(&session, &DetachCause::Forget)
             .unwrap()
             .apply(&runtime)
-            .await;
+            .await
+            .unwrap();
         assert_task(&runtime, &session.task_id, Status::Failed, Some(note)).await;
     }
     for (cause, note) in [
@@ -300,11 +305,13 @@ async fn lifecycle_and_startup_failures_preserve_the_first_terminal_result() {
         WorkerFailure::for_detach(&session, &cause)
             .unwrap()
             .apply(&runtime)
-            .await;
+            .await
+            .unwrap();
         WorkerFailure::for_detach(&session, &cause)
             .unwrap()
             .apply(&runtime)
-            .await;
+            .await
+            .unwrap();
         assert_task(&runtime, &session.task_id, Status::Failed, Some(note)).await;
     }
 }
@@ -363,4 +370,145 @@ async fn failure_preserves_completed_and_canceled_tasks() {
             .await;
         assert_task(&runtime, &session.task_id, status, Some("Already resolved")).await;
     }
+}
+
+fn task_path(runtime: &SessionRuntime, session: &SessionCfg) -> std::path::PathBuf {
+    runtime
+        .cfg_path()
+        .parent()
+        .unwrap()
+        .join("data/tasks")
+        .join(format!("{}.toml", session.task_id))
+}
+
+impl SessionRuntime {
+    pub(in crate::session) fn make_worker_failures_due(&self) {
+        for entry in self.worker_failures.entries.lock().unwrap().values_mut() {
+            entry.retry_at = Instant::now();
+        }
+    }
+}
+
+#[tokio::test]
+async fn one_shot_stop_reports_write_failure_and_maintenance_retries_after_retirement() {
+    use crate::session::{AgentLifetime, Live, SessionRole, TitleCapture};
+    let runtime = crate::session::test_manager(Config::default());
+    let session = worker_with_durability(&runtime, false).await;
+    let mut row = Live::new(session.clone(), TitleCapture::default());
+    row.role = SessionRole::Agent(AgentLifetime::Temporary);
+    runtime.live.write().await.insert(session.name.clone(), row);
+    let fault = crate::paths::fail_writes(&task_path(&runtime, &session));
+    assert!(runtime.stop(&session.name).await.is_err());
+    assert!(!runtime.live.read().await.contains_key(&session.name));
+    assert_task(&runtime, &session.task_id, Status::Queued, None).await;
+    assert!(runtime.worker_failure_delay().unwrap() > Duration::ZERO);
+    assert!(runtime.maintenance_delay().await <= RETRY_DELAY);
+    // A second cleanup without a live row must not discard the original outcome.
+    runtime.stop(&session.name).await.unwrap();
+    runtime.forget(&session.name).await;
+    drop(fault);
+    runtime.make_worker_failures_due();
+    runtime.retick().await;
+    assert_task(
+        &runtime,
+        &session.task_id,
+        Status::Failed,
+        Some("The daemon stopped worker session child."),
+    )
+    .await;
+    assert!(runtime.worker_failure_delay().is_none());
+    let first = runtime.task_store().all_tasks_async().await.unwrap();
+    runtime.retick().await;
+    let second = runtime.task_store().all_tasks_async().await.unwrap();
+    assert_eq!(first[0].history, second[0].history);
+}
+
+#[tokio::test]
+async fn pending_failure_settles_deleted_stale_and_terminal_tasks_without_overwriting() {
+    let runtime = crate::session::test_manager(Config::default());
+    let deleted = worker(&runtime).await;
+    let fault = crate::paths::fail_writes(&task_path(&runtime, &deleted));
+    runtime
+        .record_worker_failure(&deleted, WorkerFailureCause::Stopped)
+        .await;
+    drop(fault);
+    runtime
+        .task_store()
+        .remove_task_async("host", &deleted.task_id, true)
+        .await
+        .unwrap();
+
+    let stale = worker(&runtime).await;
+    let mut replacement = stale.clone();
+    replacement.state_id = "wrong identity".into();
+    runtime.retain_worker_failure(
+        WorkerFailure::for_session(&replacement, WorkerFailureCause::Stopped).unwrap(),
+    );
+    for status in [Status::Done, Status::Canceled, Status::Failed] {
+        let session = worker(&runtime).await;
+        let fault = crate::paths::fail_writes(&task_path(&runtime, &session));
+        runtime
+            .record_worker_failure(&session, WorkerFailureCause::Stopped)
+            .await;
+        drop(fault);
+        runtime
+            .task_store()
+            .update_task_async(
+                "child",
+                "child",
+                &session.task_id,
+                status,
+                Some("accepted terminal outcome".into()),
+            )
+            .await
+            .unwrap();
+        runtime.make_worker_failures_due();
+        runtime.retick().await;
+        assert_task(
+            &runtime,
+            &session.task_id,
+            status,
+            Some("accepted terminal outcome"),
+        )
+        .await;
+    }
+    assert_task(&runtime, &stale.task_id, Status::Queued, None).await;
+    assert!(
+        runtime
+            .task_store()
+            .task_for_async("host", &deleted.task_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(runtime.worker_failure_delay().is_none());
+}
+
+#[tokio::test]
+async fn canceled_failure_attempt_keeps_evidence_until_maintenance_commits() {
+    let runtime = crate::session::test_manager(Config::default());
+    let session = worker(&runtime).await;
+    let commit = runtime.worker_failures.commit.lock().await;
+    {
+        let attempt = runtime.record_worker_failure(&session, WorkerFailureCause::Stopped);
+        tokio::pin!(attempt);
+        // Poll registration deterministically, then cancel while waiting for the
+        // commit gate. No task I/O or timer ordering is involved.
+        tokio::select! {
+            biased;
+            () = &mut attempt => panic!("commit gate is held"),
+            () = std::future::ready(()) => {}
+        }
+    }
+    assert!(runtime.worker_failure_delay().is_some());
+    drop(commit);
+    runtime.retick().await;
+    assert_task(
+        &runtime,
+        &session.task_id,
+        Status::Failed,
+        Some("The daemon stopped worker session child."),
+    )
+    .await;
+    assert!(runtime.worker_failure_delay().is_none());
 }

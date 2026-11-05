@@ -85,6 +85,7 @@ pub(crate) fn test_manager_with_socket(
         activity_mutation: tokio::sync::Mutex::new(()),
         activity_cache: storage.activity_cache,
         tasks: services.tasks,
+        worker_failures: worker_failures::PendingWorkerFailures::default(),
         events: services.events,
         title_cache: services.title_cache,
         application,

@@ -35,7 +35,7 @@ pub(crate) struct CleanupPlan {
     revoke_grants: bool,
 
     // Task outcome and client publication.
-    worker_failure: Option<WorkerFailure>,
+    worker_failure: Option<Arc<WorkerFailure>>,
     announce_sessions: bool,
 }
 
@@ -135,7 +135,8 @@ impl SessionRuntime {
 
         let session = current.cfg.clone();
         let project = session.project.clone();
-        let worker_failure = WorkerFailure::for_detach(&session, cause);
+        let worker_failure = WorkerFailure::for_detach(&session, cause)
+            .map(|failure| self.retain_worker_failure(failure));
 
         let plan = CleanupPlan {
             name: name.to_string(),
@@ -166,7 +167,10 @@ impl SessionRuntime {
     }
 
     /// Release resources and publish the outcome after the live-map lock is released.
-    pub(in crate::session) async fn execute_cleanup(self: &Arc<Self>, plan: CleanupPlan) {
+    pub(in crate::session) async fn execute_cleanup(
+        self: &Arc<Self>,
+        plan: CleanupPlan,
+    ) -> Result<()> {
         // Abort owned readers before any cancellation point.
         finish_reader(plan.reader);
         if plan.revoke_grants {
@@ -185,9 +189,11 @@ impl SessionRuntime {
 
         self.clear_activity(&plan.name).await;
         self.clear_latest_title(&plan.name);
-        if let Some(failure) = plan.worker_failure {
-            failure.apply(self).await;
-        }
+        let outcome = if let Some(failure) = plan.worker_failure {
+            self.commit_worker_failure(failure).await
+        } else {
+            Ok(())
+        };
 
         // Only disposable sandbox state is deleted; durable private state survives.
         if plan.remove_ephemeral_state
@@ -201,6 +207,9 @@ impl SessionRuntime {
         if plan.remove_temp_project {
             self.temp.write().await.remove(&plan.project);
         }
+        outcome.map_err(|error| {
+            error.context("session cleanup completed; worker task outcome is pending persistence and will be retried")
+        })
     }
 
     pub(in crate::session) fn clear_latest_title(&self, name: &str) {
@@ -228,7 +237,7 @@ impl SessionRuntime {
             self.detach_live_locked(&mut live, name, &DetachCause::Stop)
         };
         if let Some(plan) = plan {
-            self.execute_cleanup(plan).await;
+            self.execute_cleanup(plan).await?;
         } else {
             // Repeated stops still clear stale caches after the live row is gone.
             self.forget_scroll(name);
@@ -254,7 +263,8 @@ impl SessionRuntime {
             self.detach_live_locked(&mut live, name, &DetachCause::Forget)
         };
         if let Some(plan) = plan {
-            self.execute_cleanup(plan).await;
+            // Worker persistence errors remain queued for maintenance.
+            drop(self.execute_cleanup(plan).await);
         }
     }
 

@@ -303,7 +303,8 @@ impl SessionRuntime {
                     WorkerFailure::for_session(&live.cfg, WorkerFailureCause::DeliveryTimedOut)
                 });
             if let Some(failure) = failure {
-                failure.apply(self).await;
+                // Worker persistence errors remain queued for maintenance.
+                drop(failure.apply(self).await);
             }
         })
         .await;

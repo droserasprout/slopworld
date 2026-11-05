@@ -36,6 +36,7 @@ pub struct SessionRuntime {
 
     // Client communication and authorization.
     pub(super) tasks: crate::tasks::io::TaskStore,
+    pub(super) worker_failures: worker_failures::PendingWorkerFailures,
     pub(super) events: crate::application::EventPublisher,
     pub(super) title_cache: Arc<crate::title::SummaryCache>,
     // Fixture composition only; production runtime cannot access the service container.

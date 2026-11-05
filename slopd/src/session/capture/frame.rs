@@ -303,7 +303,8 @@ impl SessionRuntime {
             )
         };
         if let Some(plan) = plan {
-            self.execute_cleanup(plan).await;
+            // Worker persistence errors remain queued for maintenance.
+            drop(self.execute_cleanup(plan).await);
         }
     }
 }

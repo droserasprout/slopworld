@@ -34,7 +34,7 @@ impl SessionRuntime {
                 delay = delay.min(due.saturating_duration_since(activity_now));
             }
         }
-        delay
+        delay.min(self.worker_failure_delay().unwrap_or(Duration::MAX))
     }
 
     pub(crate) fn maintenance_wake(&self) -> Arc<tokio::sync::Notify> {
