@@ -1,9 +1,12 @@
 # Keep the SDK and NDK read-only. Install and update toolchains on the host.
 # Builds write their output in the project.
-# Give each session private Gradle and Android state to protect host initialization scripts, caches, and device keys.
+# Share Android identity and Gradle state with host tools. ADB servers on the shared
+# network must use the same device keys, including after a server restart.
 [[sandbox]]
 name = "android-dev"
-description = "Read-only Android SDK and NDK and private Gradle and Android state"
+description = "Read-only Android SDK and NDK with shared Android and Gradle state"
+warning_level = "host_control"
+escapes = "The sandbox can use and change host Android device keys and emulator state, and modify Gradle initialization scripts used by host builds"
 ro = [
     "$ANDROID_HOME",
     "$ANDROID_SDK_ROOT",
@@ -16,5 +19,5 @@ ro = [
     "~/.local/share/android-sdk",
     "$JAVA_HOME",
 ]
-private = ["~/.android", "~/.gradle"]
+cache = ["~/.android", "~/.gradle"]
 env = ["ANDROID_HOME", "ANDROID_SDK_ROOT", "ANDROID_NDK_HOME", "ANDROID_NDK_ROOT", "NDK_HOME", "JAVA_HOME"]

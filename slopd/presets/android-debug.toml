@@ -6,6 +6,6 @@ requires = ["android-dev", "gpu", "x11", "wayland"]
 # /dev/bus/usb reaches physical devices. /dev/kvm enables accelerated emulators. Both are
 # optional on hosts that only use a software emulator or an already-running remote device.
 dev = ["/dev/bus/usb", "/dev/kvm"]
-ro = ["/proc", "/sys", "/run/udev"]
-env = ["ADB_SERVER_SOCKET", "ANDROID_SERIAL", "ANDROID_ADB_SERVER_PORT"]
+ro = ["/proc", "/sys", "/run/udev", "${ADB_VENDOR_KEYS:paths}"]
+env = ["ADB_SERVER_SOCKET", "ANDROID_SERIAL", "ANDROID_ADB_SERVER_PORT", "ADB_VENDOR_KEYS"]
 escapes = "The sandbox can control connected Android devices and emulators. It can also use host graphics devices"

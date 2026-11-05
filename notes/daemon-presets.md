@@ -32,6 +32,12 @@ home after private overlays, retaining their modes. NuGet also uses `DOTNET_CLI_
 for configuration, plugins and caches. Alias sources overlapping private state
 reject launch; they must never reveal the host originals behind a private overlay.
 
+Android presets share `~/.android` and `~/.gradle` through `cache`, including directory
+creation on first launch. Do not add a private overlay for Android identity: shared-network
+ADB clients can restart the same server, which must retain the host's device keys.
+The writable Gradle root includes host initialization scripts, so `android-dev` declares
+host-control access. `android-debug` additionally mounts and forwards `ADB_VENDOR_KEYS`.
+
 SSH presets expose files/sockets but do not override OpenSSH selection. Explicit
 `IdentityAgent` wins over `SSH_AUTH_SOCK`; selected sockets must be mounted as well
 as forwarded. See [SSH agents](../docs/src/sandbox/sandbox-presets.md#ssh-agents).

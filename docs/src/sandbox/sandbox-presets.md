@@ -110,8 +110,25 @@ always show host control, regardless of the declared warning level.
 
 For example, `aws`, `gh`, `kube`, and `psql` expose credentials and show sensitive
 access. Docker, Podman, D-Bus, systemd, X11, and `slopworld-debug` show host control.
-`android-debug` inherits host control through X11. Warnings describe capabilities;
+`android-dev` shares writable Gradle initialization scripts and shows host control.
+`android-debug` also inherits host control through X11. Warnings describe capabilities;
 they do not add or remove sandbox permissions.
+
+## Android development
+
+Use `android-dev` for builds and `android-debug` for connected devices and emulators.
+Both share the host's writable `~/.android` and `~/.gradle` directories, creating
+these directories at launch if needed. This keeps ADB device keys, emulator state,
+Gradle configuration and caches consistent with host tools. SDK and NDK mounts
+are read-only; install or update toolchains on the host.
+
+`android-debug` also forwards ADB server and device selection variables and exposes
+paths selected by `ADB_VENDOR_KEYS`. With shared networking, host and sandbox
+clients can use the same ADB server. Restarting that server affects both clients.
+Private networking does not expose a host loopback ADB server.
+
+Preset changes apply to new agent processes. Restart the agent to change its
+mounts; an existing process retains its original Android directory.
 
 ## SlopWorld development
 
