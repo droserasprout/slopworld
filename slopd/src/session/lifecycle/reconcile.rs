@@ -8,7 +8,7 @@ pub(in crate::session) struct ConfigReconciler;
 
 impl ConfigReconciler {
     /// Apply the snapshot before recovering panes that are absent from configuration.
-    pub(in crate::session) async fn sync(manager: &Arc<SessionRuntime>) {
+    pub(in crate::session) async fn sync(manager: &Arc<SessionRuntime>) -> Result<()> {
         let cfg = manager.config().await;
         manager.prune_removed(&cfg).await;
 
@@ -18,10 +18,11 @@ impl ConfigReconciler {
         manager.autostart(&cfg).await;
         manager.autostart_host_terminals(&cfg).await;
 
-        let adopted = manager.adopt_orphans(&cfg).await;
+        let adopted = manager.adopt_orphans(&cfg).await?;
         if titles_changed || adopted {
             manager.announce_sessions().await;
         }
+        Ok(())
     }
 }
 
@@ -199,10 +200,13 @@ mod tests;
 impl SessionRuntime {
     /// Hold the session boundary across the complete reconciliation pass.
     pub async fn sync_from_config(self: &Arc<Self>) {
-        self.session_operation(self.sync_from_config_inner()).await
+        if let Err(error) = self.sync_from_config_checked().await {
+            tracing::warn!("session reconciliation failed: {error:#}");
+        }
     }
 
-    async fn sync_from_config_inner(self: &Arc<Self>) {
-        ConfigReconciler::sync(self).await;
+    /// Startup must not infer worker loss after incomplete pane discovery.
+    pub(crate) async fn sync_from_config_checked(self: &Arc<Self>) -> Result<()> {
+        self.session_operation(ConfigReconciler::sync(self)).await
     }
 }

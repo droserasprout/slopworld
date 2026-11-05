@@ -197,7 +197,7 @@ async fn resize_waits_for_adoption_disconnect_and_rename_attachment() {
         let attach = manager.session_operation(async {
             match recovery {
                 Recovery::Adoption => {
-                    manager.adopt_orphans(&cfg).await;
+                    manager.adopt_orphans(&cfg).await.unwrap();
                 }
                 Recovery::Disconnect => {
                     manager.reader_ended("target".into(), token).await;

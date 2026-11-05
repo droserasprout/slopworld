@@ -587,7 +587,10 @@ async fn benchmark_terminal_load_contention() {
     );
     for iteration in 0..3 {
         let start = std::time::Instant::now();
-        manager.session_operation(manager.adopt_orphans(&cfg)).await;
+        manager
+            .session_operation(manager.adopt_orphans(&cfg))
+            .await
+            .unwrap();
         println!(
             "known_workers=100 adoption_pass={} elapsed_ms={:.1}",
             iteration + 1,

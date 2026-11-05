@@ -123,7 +123,12 @@ async fn reconciliation_keeps_attached_worker_identity_without_reprobing_tmux_me
     row.capture.emu = Some(Arc::new(Mutex::new(crate::emu::SessionEmu::new(120, 34))));
     manager.live.write().await.insert("worker".into(), row);
     for _ in 0..3 {
-        assert!(!manager.session_operation(manager.adopt_orphans(&cfg)).await);
+        assert!(
+            !manager
+                .session_operation(manager.adopt_orphans(&cfg))
+                .await
+                .unwrap()
+        );
         let live = manager.live.read().await;
         assert_eq!(live["worker"].cfg.state_id, session.state_id);
         assert_eq!(live["worker"].cfg.project, session.project);
@@ -157,7 +162,12 @@ async fn recovering_worker_without_current_metadata_retires_the_pane() {
         .set_worker_metadata("worker", "parent", "task", false, "invalid-state")
         .await
         .unwrap();
-    assert!(!manager.session_operation(manager.adopt_orphans(&cfg)).await);
+    assert!(
+        !manager
+            .session_operation(manager.adopt_orphans(&cfg))
+            .await
+            .unwrap()
+    );
     assert!(!manager.tmux.exists("worker").await);
     assert!(!manager.live.read().await.contains_key("worker"));
 }
@@ -252,7 +262,10 @@ async fn surviving_worker_cannot_replace_a_different_saved_identity() {
             .await
             .is_some()
     );
-    manager.session_operation(manager.adopt_orphans(&cfg)).await;
+    manager
+        .session_operation(manager.adopt_orphans(&cfg))
+        .await
+        .unwrap();
     assert!(
         manager
             .config_authority

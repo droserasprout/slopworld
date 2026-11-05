@@ -42,7 +42,7 @@ pub(crate) async fn start_sessions(
     if let Err(error) = manager.tmux.ensure_server().await {
         tracing::error!("could not prepare tmux server: {error:#}");
     }
-    manager.sync_from_config().await;
+    manager.sync_from_config_checked().await?;
     manager.recover_missing_worker_tasks().await?;
     manager.prune_stale_grants().await;
     Ok(application)

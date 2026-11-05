@@ -543,9 +543,9 @@ async fn assert_adoption_finalizes_exited_pane(fail_attach: bool) {
     if fail_attach {
         manager.tmux.fail_next_attach_for_test();
     }
-    manager
-        .session_operation(manager.adopt_orphans(&Config::default()))
-        .await;
+    let cfg = Config::default();
+    let adoption = manager.adopt_orphans(&cfg);
+    manager.session_operation(adoption).await.unwrap();
     if fail_attach {
         let live = manager.live.read().await;
         assert_eq!(live["worker"].state, State::Working);

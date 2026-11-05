@@ -119,9 +119,9 @@ impl SessionRuntime {
     }
 
     /// Recover missing live rows and attach readers to surviving tmux panes.
-    pub(in crate::session) async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
+    pub(in crate::session) async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> Result<bool> {
         // Caller holds the session boundary across probing, live updates, and attachment.
-        let names = self.tmux.list().await;
+        let names = self.tmux.list_checked().await?;
         // Attached readers already own authoritative live identity and metadata.
         // Probe only missing or readerless rows; retain recovery after disconnect.
         let names = {
@@ -189,7 +189,7 @@ impl SessionRuntime {
             }
             adopted |= self.commit_adoption(cfg, decision).await;
         }
-        adopted
+        Ok(adopted)
     }
 
     /// Create or repair the live row before restoring dimensions and capture.

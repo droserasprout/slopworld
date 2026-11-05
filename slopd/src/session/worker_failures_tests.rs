@@ -72,6 +72,8 @@ async fn startup_preserves_surviving_workers_terminal_results_and_ordinary_tasks
         )
         .await
         .unwrap();
+    publish_worker_metadata(&runtime, &survivor, true).await;
+    runtime.sync_from_config_checked().await.unwrap();
     let ordinary = runtime
         .task_store()
         .create_task("host".into(), "missing".into(), "ordinary".into())
@@ -165,6 +167,8 @@ async fn startup_preserves_a_worker_renamed_since_task_creation() {
         )
         .await
         .unwrap();
+    publish_worker_metadata(&runtime, &session, true).await;
+    runtime.sync_from_config_checked().await.unwrap();
     runtime.recover_missing_worker_tasks().await.unwrap();
     assert_task(&runtime, &session.task_id, Status::Queued, None).await;
     // Reuse the original task label for an unrelated pane, then lose the
@@ -181,6 +185,15 @@ async fn startup_preserves_a_worker_renamed_since_task_creation() {
         )
         .await
         .unwrap();
+    // Simulate offline loss: retire the capture task before removing the pane.
+    let reader = {
+        let mut live = runtime.live.write().await;
+        let row = live.get_mut("renamed").unwrap();
+        row.capture.reader_token = None;
+        row.capture.reader.take().unwrap()
+    };
+    reader.abort();
+    drop(reader.await);
     runtime.tmux.kill("renamed").await.unwrap();
     runtime.recover_missing_worker_tasks().await.unwrap();
     assert_task(
@@ -231,12 +244,21 @@ async fn worker_with_durability(runtime: &SessionRuntime, durable: bool) -> Sess
     let task = runtime
         .task_store()
         .run(move |tasks| {
-            tasks.create_worker(
-                "host".into(),
-                "child".into(),
+            tasks.create_owned(
+                crate::tasks::Participant {
+                    name: "host".into(),
+                    identity: "host".into(),
+                },
+                crate::tasks::Participant {
+                    name: "child".into(),
+                    identity: crate::storage_id::draft_identity(),
+                },
                 "Delegate".into(),
-                "parent".into(),
-                durable,
+                Some(crate::tasks::WorkerTask {
+                    session: "child".into(),
+                    parent: "parent".into(),
+                    durable,
+                }),
             )
         })
         .await
@@ -246,6 +268,7 @@ async fn worker_with_durability(runtime: &SessionRuntime, durable: bool) -> Sess
         state_id: task.to_id,
         task_id: task.id,
         worker: true,
+        parent: "parent".into(),
         ..Default::default()
     }
 }
@@ -371,7 +394,7 @@ async fn failure_preserves_completed_and_canceled_tasks() {
             runtime
                 .task_store()
                 .update_task_async(
-                    "child",
+                    &session.state_id,
                     "child",
                     &session.task_id,
                     Status::Accepted,
@@ -383,7 +406,7 @@ async fn failure_preserves_completed_and_canceled_tasks() {
         runtime
             .task_store()
             .update_task_async(
-                "child",
+                &session.state_id,
                 "child",
                 &session.task_id,
                 status,
@@ -481,7 +504,7 @@ async fn pending_failure_settles_deleted_stale_and_terminal_tasks_without_overwr
             runtime
                 .task_store()
                 .update_task_async(
-                    "child",
+                    &session.state_id,
                     "child",
                     &session.task_id,
                     Status::Accepted,
@@ -493,7 +516,7 @@ async fn pending_failure_settles_deleted_stale_and_terminal_tasks_without_overwr
         runtime
             .task_store()
             .update_task_async(
-                "child",
+                &session.state_id,
                 "child",
                 &session.task_id,
                 status,
@@ -550,4 +573,60 @@ async fn canceled_failure_attempt_keeps_evidence_until_maintenance_commits() {
     )
     .await;
     assert!(runtime.worker_failure_delay().is_none());
+}
+
+async fn publish_worker_metadata(runtime: &SessionRuntime, session: &SessionCfg, durable: bool) {
+    runtime
+        .tmux
+        .set_worker_metadata(
+            &session.name,
+            &session.parent,
+            &session.task_id,
+            durable,
+            &session.state_id,
+        )
+        .await
+        .unwrap();
+    if !durable {
+        runtime
+            .tmux
+            .set_worker_config(&session.name, session)
+            .await
+            .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn startup_aborts_failed_discovery_and_recovers_one_shot_on_retry() {
+    let socket = crate::test_support::TmuxSocket::new();
+    let runtime = crate::session::test_manager_with_socket(Config::default(), socket.path.clone());
+    let session = worker_with_durability(&runtime, false).await;
+    runtime
+        .tmux
+        .spawn(
+            "child",
+            "/tmp",
+            80,
+            24,
+            &["sleep".into(), "60".into()],
+            false,
+        )
+        .await
+        .unwrap();
+    publish_worker_metadata(&runtime, &session, false).await;
+    // Hide only this fixture's socket: the worker process survives the failed discovery.
+    let hidden = format!("{}.hidden", socket.path);
+    std::fs::rename(&socket.path, &hidden).unwrap();
+    let result = runtime.sync_from_config_checked().await;
+    std::fs::rename(&hidden, &socket.path).unwrap();
+    result.unwrap_err();
+    assert_task(&runtime, &session.task_id, Status::Queued, None).await;
+    assert!(runtime.tmux.exists("child").await);
+    runtime.sync_from_config_checked().await.unwrap();
+    runtime.recover_missing_worker_tasks().await.unwrap();
+    assert_task(&runtime, &session.task_id, Status::Queued, None).await;
+    assert_eq!(
+        runtime.live.read().await["child"].cfg.state_id,
+        session.state_id
+    );
 }
