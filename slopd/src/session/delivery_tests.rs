@@ -667,7 +667,10 @@ os.write(1, b'\x1b[?2004hready> ')
 data = bytearray()
 while not data.endswith(b'\r'):
     data.extend(os.read(0, 65536))
-(root / 'followup-received').write_bytes(data)
+# File existence signals completion to the test, so publish only after closing.
+pending = root / 'followup-received.tmp'
+pending.write_bytes(data)
+pending.rename(root / 'followup-received')
 import time
 time.sleep(60)
 "#;
