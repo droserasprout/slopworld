@@ -135,7 +135,7 @@ namespace SlopWorld
                 listing =>
                 {
                     UiLayout.SectionHeading(listing, "TASKS");
-                    foreach (TodoFilter filter in Enum.GetValues(typeof(TodoFilter)))
+                    foreach (TodoFilter filter in Enum.GetValues<TodoFilter>())
                     {
                         int count = _state.Entries.Count(entry =>
                             TodoText.Matches(entry, filter, "", "", Settings.Today)
@@ -250,7 +250,7 @@ namespace SlopWorld
                 new Rect(rect.xMax - 120f, y, 120f, h),
                 "Sort: " + _sort.ToString().ToLowerInvariant(),
                 () =>
-                    Enum.GetValues(typeof(TodoSort))
+                    Enum.GetValues<TodoSort>()
                         .Cast<TodoSort>()
                         .Select(sort => new FloatMenuOption(sort.ToString(), () => _sort = sort))
                         .ToList()
@@ -262,7 +262,7 @@ namespace SlopWorld
                     new Rect(rect.x, y, rect.width / 2 - gap, h),
                     FilterName(_filter),
                     () =>
-                        Enum.GetValues(typeof(TodoFilter))
+                        Enum.GetValues<TodoFilter>()
                             .Cast<TodoFilter>()
                             .Select(filter => new FloatMenuOption(
                                 FilterName(filter),

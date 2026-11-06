@@ -7,7 +7,7 @@ namespace SlopWorld.Tests
     {
         public static void WorkingWorkerTasksCanBeCanceledWithoutBroadeningOrdinaryTaskPolicy()
         {
-            foreach (DelegatedTaskStatus status in Enum.GetValues(typeof(DelegatedTaskStatus)))
+            foreach (DelegatedTaskStatus status in Enum.GetValues<DelegatedTaskStatus>())
             {
                 var ordinary = new TaskInfo { Status = status };
                 var worker = new TaskInfo { Status = status, WorkerSession = "worker" };

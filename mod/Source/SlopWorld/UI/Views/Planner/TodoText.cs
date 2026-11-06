@@ -87,7 +87,7 @@ namespace SlopWorld
             {
                 if (string.IsNullOrWhiteSpace(Title))
                     return "Give this task a title.";
-                if (Title.IndexOf('\r') >= 0 || Title.IndexOf('\n') >= 0)
+                if (Title.Contains('\r') || Title.Contains('\n'))
                     return "A task title must fit on one line.";
                 if (TodoText.Words(Title).Any(word => TodoText.Field(word) != "title"))
                     return "Use the project, context and date fields for tags and metadata.";
@@ -101,7 +101,7 @@ namespace SlopWorld
                 if (
                     TodoText
                         .Words(Projects + " " + Contexts)
-                        .Any(word => word.IndexOf(':') >= 0 || word[0] == '+' || word[0] == '@')
+                        .Any(word => word.Contains(':') || word[0] == '+' || word[0] == '@')
                 )
                     return "Separate names with spaces, without +, @ or colons.";
                 return null;
@@ -307,19 +307,19 @@ namespace SlopWorld
                         .Append(' ');
             }
             else
-                text.Append(entry.Raw.Substring(0, entry.BodyStart));
+                text.Append(entry.Raw.AsSpan(0, entry.BodyStart));
             int cursor = entry.BodyStart;
             var written = new HashSet<string>();
             foreach (var token in entry.Tokens)
             {
-                text.Append(entry.Raw.Substring(cursor, token.Start - cursor));
+                text.Append(entry.Raw.AsSpan(cursor, token.Start - cursor));
                 if (!changes.TryGetValue(token.Field, out var replacement))
                     text.Append(token.Value);
                 else if (written.Add(token.Field))
                     text.Append(replacement);
                 cursor = token.Start + token.Length;
             }
-            text.Append(entry.Raw.Substring(cursor));
+            text.Append(entry.Raw.AsSpan(cursor));
             foreach (var pair in changes)
                 if (!written.Contains(pair.Key) && pair.Value.Length > 0)
                     text.Append(' ').Append(pair.Value);
@@ -342,7 +342,7 @@ namespace SlopWorld
             int bodyEnd = end > start && document[end - 1] == '\r' ? end - 1 : end;
             if (document.Substring(start, bodyEnd - start) != entry.Raw)
                 throw new InvalidOperationException("The task changed. Reload before editing.");
-            return document.Substring(0, start) + replacement + document.Substring(bodyEnd);
+            return string.Concat(document.AsSpan(0, start), replacement, document.AsSpan(bodyEnd));
         }
 
         internal static string Add(
@@ -355,7 +355,7 @@ namespace SlopWorld
         {
             // Quick entry accepts tags, while the detail title remains title-only. Reject
             // line breaks before tokenizing so pasting cannot silently create another task.
-            if (title.IndexOf('\r') >= 0 || title.IndexOf('\n') >= 0)
+            if (title.Contains('\r') || title.Contains('\n'))
                 throw new ArgumentException("A task title must fit on one line.");
             var words = Words(title);
             var draft = new TodoDraft(ParseLine("New task", 0))
@@ -388,10 +388,7 @@ namespace SlopWorld
             if (draft.Error != null)
                 throw new ArgumentException(draft.Error);
             string newline = document.Contains("\r\n") ? "\r\n" : "\n";
-            string prefix =
-                document.Length > 0 && !document.EndsWith("\n", StringComparison.Ordinal)
-                    ? newline
-                    : "";
+            string prefix = document.Length > 0 && !document.EndsWith('\n') ? newline : "";
             return document
                 + prefix
                 + Stamp(today)

@@ -274,6 +274,8 @@ namespace SlopWorld
             public Event WheelEvent;
             public Vector2 WheelDelta;
             public Vector2 WheelMouse;
+            public Vector2 CoverageMouse;
+            public EventModifiers CoverageModifiers;
             public readonly NativeScrollCoverage Coverage = new NativeScrollCoverage();
         }
 
@@ -284,7 +286,9 @@ namespace SlopWorld
         {
             if (!Settings.SmoothScrolling)
                 return false;
-            return Precise.Coverage.Covers(Time.frameCount, e.delta.x, e.delta.y);
+            return Precise.CoverageMouse.Equals(GUIUtility.GUIToScreenPoint(e.mousePosition))
+                && Precise.CoverageModifiers == e.modifiers
+                && Precise.Coverage.Covers(Time.frameCount, e.delta.x, e.delta.y);
         }
 
         void ClaimPrecise(Rect outer, Vector2 max)
@@ -343,6 +347,8 @@ namespace SlopWorld
             if (Precise.Owner == null)
             {
                 Precise.Coverage.Record(frame, Precise.Amount.x, Precise.Amount.y);
+                Precise.CoverageMouse = GUIUtility.GUIToScreenPoint(e.mousePosition);
+                Precise.CoverageModifiers = e.modifiers;
             }
             Precise.Owner = this;
         }

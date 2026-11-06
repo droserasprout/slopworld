@@ -216,7 +216,7 @@ namespace SlopWorld
             foreach (
                 var group in TimeZones
                     .Value.Where(zone => zone.Id != "UTC")
-                    .GroupBy(zone => zone.Id.Contains("/") ? zone.Id.Split('/')[0] : "Other")
+                    .GroupBy(zone => zone.Id.Contains('/') ? zone.Id.Split('/')[0] : "Other")
             )
                 yield return new UiSubmenu(
                     group.Key,

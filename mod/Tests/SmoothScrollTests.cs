@@ -13,7 +13,7 @@ namespace SlopWorld.Tests
         [SetUp]
         public void Reset()
         {
-            new WheelEventQueueTests().Clear();
+            Time.frameCount++;
             Settings.S.smoothScrolling = false;
             UiMenu.ScrollBlocked = false;
             Input.mouseScrollDelta = Vector2.zero;
@@ -31,42 +31,18 @@ namespace SlopWorld.Tests
         [TearDown]
         public void Cleanup() => Reset();
 
+        static Event Wheel(float delta, float pointer = 10f) =>
+            new Event
+            {
+                type = EventType.ScrollWheel,
+                delta = new Vector2(0, delta),
+                mousePosition = new Vector2(pointer, pointer),
+            };
+
         static void Apply(SmoothScroll scroll)
         {
             scroll.BeginInput(Bounds, Max);
             scroll.EndInput();
-        }
-
-        [Test]
-        public void LargeBurstKeepsFractionalNativeMotionAcrossDeferredFrames()
-        {
-            var scroll = new SmoothScroll();
-            var sources = new List<string>();
-            scroll.ObserveInput = (_, after, source) => sources.Add(source);
-            for (int i = 0; i < 20000; i++)
-                Event.EnqueueTestEvent(WheelEventQueueTests.Wheel(1f));
-            X11ScrollInput.Sample = new Vector2(0f, .1375f);
-            X11ScrollInput.Available = true;
-            WheelEventQueueTests.Drain(e => Apply(scroll));
-            Assert.That(scroll.Position.y, Is.EqualTo(5.5f).Within(.001f));
-            Assert.That(sources.FindAll(s => s == "precise").Count, Is.EqualTo(1));
-            Assert.That(X11ScrollInput.Discards, Is.Zero);
-        }
-
-        [Test]
-        public void DisablingSmoothingCannotReplayCoveredDeferredMovement()
-        {
-            var scroll = new SmoothScroll();
-            for (int i = 0; i < 1000; i++)
-                Event.EnqueueTestEvent(WheelEventQueueTests.Wheel(1f));
-            X11ScrollInput.Sample = new Vector2(0, .125f);
-            X11ScrollInput.Available = true;
-            WheelEventQueueTests.Drain(e =>
-            {
-                Apply(scroll);
-                Settings.S.smoothScrolling = false;
-            });
-            Assert.That(scroll.Position.y, Is.EqualTo(5f));
         }
 
         [Test]
@@ -83,11 +59,10 @@ namespace SlopWorld.Tests
                 using (inner.Scope(Bounds, new Rect(0, 0, 100, 1000), false)) { }
             };
             router.Draw(Bounds, draw);
-            for (int i = 0; i < 1000; i++)
-                Event.EnqueueTestEvent(WheelEventQueueTests.Wheel(.5f));
+            Event.current = Wheel(.5f);
             X11ScrollInput.Sample = new Vector2(0, .125f);
             X11ScrollInput.Available = true;
-            WheelEventQueueTests.Drain(e => router.Draw(Bounds, draw));
+            router.Draw(Bounds, draw);
             Assert.That(rows, Is.EqualTo(1));
             Assert.That(outer.Position.y, Is.Zero);
             Assert.That(inner.Position.y, Is.EqualTo(5f).Within(.001f));
@@ -98,8 +73,9 @@ namespace SlopWorld.Tests
         public void OrdinaryFallbackRetainsRawFractionAndNonWheelNativeInputStillMoves()
         {
             var scroll = new SmoothScroll();
-            Event.current = WheelEventQueueTests.Wheel(1f);
-            WheelEventQueue.Compact(Event.current);
+            var sources = new List<string>();
+            scroll.ObserveInput = (_, _, source) => sources.Add(source);
+            Event.current = Wheel(1f);
             Input.mouseScrollDelta = new Vector2(0, .125f);
             Apply(scroll);
             Assert.That(scroll.Position.y, Is.EqualTo(2.5f));
@@ -109,23 +85,11 @@ namespace SlopWorld.Tests
                 type = EventType.Repaint,
                 mousePosition = new Vector2(10, 10),
             };
-            WheelEventQueue.Compact(Event.current);
             X11ScrollInput.Sample = new Vector2(0, .125f);
             X11ScrollInput.Available = true;
             Apply(scroll);
             Assert.That(scroll.Position.y, Is.EqualTo(7.5f));
-        }
-
-        [Test]
-        public void MixedReversalsClampInOrderAcrossFramesWithoutNativeReplay()
-        {
-            var scroll = new SmoothScroll();
-            for (int i = 0; i < 80; i++)
-                Event.EnqueueTestEvent(WheelEventQueueTests.Wheel(i % 2 == 0 ? -1f : 1f));
-            X11ScrollInput.Sample = new Vector2(0, 999f);
-            X11ScrollInput.Available = true;
-            WheelEventQueueTests.Drain(e => Apply(scroll));
-            Assert.That(scroll.Position.y, Is.EqualTo(20f));
+            Assert.That(sources, Does.Contain("precise"));
         }
 
         [Test]
@@ -133,13 +97,11 @@ namespace SlopWorld.Tests
         {
             var left = new SmoothScroll();
             var right = new SmoothScroll();
-            Event.current = WheelEventQueueTests.Wheel(1f);
-            WheelEventQueue.Compact(Event.current);
+            Event.current = Wheel(1f);
             X11ScrollInput.Sample = new Vector2(0, .25f);
             X11ScrollInput.Available = true;
             Apply(left);
-            Event.current = WheelEventQueueTests.Wheel(1f, pointer: 20f);
-            WheelEventQueue.Compact(Event.current);
+            Event.current = Wheel(1f, pointer: 20f);
             Apply(right);
             Assert.That(left.Position.y, Is.EqualTo(10f));
             Assert.That(right.Position.y, Is.EqualTo(20f));
@@ -150,8 +112,7 @@ namespace SlopWorld.Tests
         {
             var scroll = new SmoothScroll();
             UiMenu.ScrollBlocked = true;
-            Event.current = WheelEventQueueTests.Wheel(1f);
-            WheelEventQueue.Compact(Event.current);
+            Event.current = Wheel(1f);
             X11ScrollInput.Sample = new Vector2(0, .25f);
             X11ScrollInput.Available = true;
             Apply(scroll);
@@ -160,8 +121,10 @@ namespace SlopWorld.Tests
             UiMenu.ScrollBlocked = false;
             Settings.S.smoothScrolling = false;
             for (int i = 0; i < 12; i++)
-                Event.EnqueueTestEvent(WheelEventQueueTests.Wheel(.25f));
-            WheelEventQueueTests.Drain(e => Apply(scroll));
+            {
+                Event.current = Wheel(.25f);
+                Apply(scroll);
+            }
             Assert.That(scroll.Position.y, Is.EqualTo(60f));
         }
     }

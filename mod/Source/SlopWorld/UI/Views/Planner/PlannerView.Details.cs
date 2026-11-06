@@ -266,7 +266,7 @@ namespace SlopWorld
                             return "Enter a name.";
                         return
                             name.Any(char.IsWhiteSpace)
-                            || name.Contains(":")
+                            || name.Contains(':')
                             || name[0] == '+'
                             || name[0] == '@'
                             ? "Use one name without spaces, +, @ or colons."

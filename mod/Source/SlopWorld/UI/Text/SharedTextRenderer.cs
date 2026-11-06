@@ -132,6 +132,8 @@ namespace SlopWorld
             }
         }
 
+        // Fit glyphs with font size while preserving the baseline; per-cell GUI matrix
+        // transforms would mix group coordinates with screen-space pivots.
         static void DrawFontCell(string text, Rect bounds, float lineHeight, GUIStyle style)
         {
             var clipping = style.clipping;

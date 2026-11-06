@@ -29,7 +29,6 @@ namespace SlopWorld.Tests
             GUI.LabelMatrices.Clear();
             GUI.color = new Color(1, 1, 1, 1);
             GUI.LabelColors.Clear();
-            GUI.FailLabel = false;
             GUI.SpriteColors.Clear();
             GUI.SpriteDraws.Clear();
             GUI.TextGroupDepth = 0;
@@ -53,7 +52,7 @@ namespace SlopWorld.Tests
             {
                 GUI.color = tint;
                 style.normal.textColor = red;
-                SharedTextRenderer.DrawTerminalRun(plain, bounds, 14f, style, 6f);
+                SharedTextRenderer.DrawTerminalRun(plain, bounds, 14f, style);
                 AssertEx.Equal(
                     tint * red,
                     GUI.LabelColors[0],
@@ -61,7 +60,7 @@ namespace SlopWorld.Tests
                 );
                 AssertEx.Equal(tint, GUI.color, "plain run restores caller tint");
                 style.normal.textColor = blue;
-                SharedTextRenderer.DrawTerminalRun(mixed, bounds, 14f, style, 6f);
+                SharedTextRenderer.DrawTerminalRun(mixed, bounds, 14f, style);
                 AssertEx.Equal(
                     tint * blue,
                     GUI.LabelColors[1],
@@ -80,7 +79,7 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(tint, GUI.color, "mixed run restores caller tint");
                 GUI.FailLabel = true;
                 AssertEx.Throws<InvalidOperationException>(
-                    () => SharedTextRenderer.DrawTerminalRun(plain, bounds, 14f, style, 6f),
+                    () => SharedTextRenderer.DrawTerminalRun(plain, bounds, 14f, style),
                     "label failure"
                 );
                 AssertEx.Equal(tint, GUI.color, "failed run restores caller tint");

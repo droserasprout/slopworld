@@ -45,10 +45,7 @@ namespace SlopWorld
                 var tips = new List<string>();
                 string line;
                 while ((line = reader.ReadLine()) != null)
-                    if (
-                        !string.IsNullOrWhiteSpace(line)
-                        && !line.StartsWith("#", StringComparison.Ordinal)
-                    )
+                    if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith('#'))
                         tips.Add(line);
                 return tips;
             }
