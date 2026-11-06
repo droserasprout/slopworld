@@ -60,22 +60,25 @@ namespace SlopWorld
         // Worker metadata from the task. The wire response explicitly identifies the parent.
         // Do not infer parent relationships from names or projects.
         public Wire.WorkerPolicy Workers = WorkerPolicyDefaults();
-        public bool ParentBound;
-        public Wire.WorkerAccess ParentAccess = WorkerAccessDefaults();
+        public Wire.AgentPermissions Permissions = PermissionDefaults();
 
-        public static Wire.WorkerAccess WorkerAccessDefaults(Wire.WorkerAccess source = null)
+        public static Wire.AgentPermissions PermissionDefaults(Wire.AgentPermissions source = null)
         {
-            var value = source?.Clone() ?? new Wire.WorkerAccess();
+            var value = source?.Clone() ?? new Wire.AgentPermissions();
             if (!value.HasFollowup)
-                value.Followup = true;
+                value.Followup = "own_workers";
             if (!value.HasCancel)
-                value.Cancel = true;
+                value.Cancel = "own_workers";
             if (!value.HasTerminal)
-                value.Terminal = false;
+                value.Terminal = "deny";
             if (!value.HasLifecycle)
-                value.Lifecycle = false;
+                value.Lifecycle = "deny";
+            if (!value.HasDelete)
+                value.Delete = "deny";
             return value;
         }
+
+        public bool ParentBound;
 
         public static Wire.WorkerPolicy WorkerPolicyDefaults(Wire.WorkerPolicy source = null)
         {
@@ -84,7 +87,6 @@ namespace SlopWorld
                 value.Enabled = false;
             if (!value.HasAllTemplates)
                 value.AllTemplates = true;
-            value.Access = WorkerAccessDefaults(value.Access);
             if (!value.HasRecursive)
                 value.Recursive = false;
             return value;
@@ -184,6 +186,7 @@ namespace SlopWorld
                 AutoResume = AutoResume,
                 InitialPrompt = InitialPrompt,
                 Workers = Workers.Clone(),
+                Permissions = Permissions.Clone(),
             };
             if (!string.IsNullOrWhiteSpace(Cmd))
                 value.Cmd = Cmd;

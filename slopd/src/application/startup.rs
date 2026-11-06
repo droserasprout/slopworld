@@ -44,6 +44,6 @@ pub(crate) async fn start_sessions(
     }
     manager.sync_from_config_checked().await?;
     manager.recover_missing_worker_tasks().await?;
-    manager.prune_stale_grants().await;
+    manager.prune_stale_credentials().await;
     Ok(application)
 }

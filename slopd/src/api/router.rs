@@ -6,7 +6,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
 use axum::{Extension, Router};
 
-use crate::grant::Cap;
+use crate::credentials::Cap;
 use crate::shared::protocol::routes;
 
 use super::handlers::*;
@@ -32,6 +32,10 @@ fn scoped_routes(m: App) -> Router<App> {
     Router::new()
         .route(routes::SESSIONS, post(create))
         .route(routes::SESSION, delete(destroy))
+        .route(
+            routes::WORKTREE,
+            delete(remove_worktree).put(rename_worktree),
+        )
         .route(routes::SESSION_CWD, get(cwd))
         .route(routes::SESSION_SANDBOX, get(sandbox))
         .route(routes::SESSION_START, post(start))
@@ -86,16 +90,12 @@ fn shared_routes(m: App) -> Router<App> {
 fn root_routes(m: App) -> Router<App> {
     // Host controls and configuration default to root-only access.
     Router::new()
-        .route(routes::WORKER_ACCESS, put(set_worker_access))
+        .route(routes::AGENT_PERMISSIONS, put(set_agent_permissions))
         .route(routes::PLANNER, get(get_planner).put(save_planner))
         .route(routes::PLANNER_LINKS, put(save_planner_links))
         .route(
             routes::PLANNER_DESCRIPTION,
             get(get_planner_description).put(save_planner_description),
-        )
-        .route(
-            routes::WORKTREE,
-            delete(remove_worktree).put(rename_worktree),
         )
         .route(routes::SESSION_UPDATE, put(update))
         .route(routes::SETTINGS_PREVIEW, post(settings_preview))
@@ -124,8 +124,6 @@ fn root_routes(m: App) -> Router<App> {
         .route(routes::RUN, post(run))
         .route(routes::FILE_ACTION, post(file_action))
         .route(routes::OPEN_APPS, get(open_apps))
-        .route(routes::GRANTS, get(list_grants).post(mint_grant))
-        .route(routes::GRANTOR, delete(revoke_grants))
         .route(routes::STATE, get(stored_states))
         .route(routes::STATE_TRASH, delete(empty_trash))
         .route(routes::STATE_ITEM, delete(delete_stored_state))

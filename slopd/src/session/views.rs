@@ -50,6 +50,7 @@ impl SessionRuntime {
                     },
                     launch: SessionLaunchView {
                         workers: l.cfg.workers.clone(),
+                        permissions: l.cfg.permissions,
                         command: l.cfg.command.clone(),
                         command_preset: cfg.command_name(&l.cfg),
                         cmd: l.cfg.cmd.clone(),
@@ -69,7 +70,6 @@ impl SessionRuntime {
                     },
                     worker: SessionWorkerView {
                         parent_bound: !l.cfg.parent_id.is_empty(),
-                        access: l.cfg.parent_access,
                         enabled: l.cfg.worker,
                         parent: parent_name(&l.cfg, &live),
                         task_id: l.cfg.task_id.clone(),

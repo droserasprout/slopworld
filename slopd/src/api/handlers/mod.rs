@@ -2,7 +2,7 @@ use crate::api::protobuf::Proto;
 use crate::shared::wire;
 use axum::http::StatusCode;
 
-use crate::grant::{Cap, Level};
+use crate::credentials::{Cap, Level};
 
 use super::{ApiResult, App, err};
 
@@ -14,7 +14,6 @@ mod config;
 #[cfg(test)]
 pub(crate) use config::config_patch;
 mod files;
-mod grants;
 mod highlighting;
 mod jukebox;
 mod library;
@@ -29,7 +28,6 @@ mod templates;
 pub(crate) use actions::*;
 pub(crate) use config::*;
 pub(crate) use files::*;
-pub(crate) use grants::*;
 pub(crate) use highlighting::*;
 pub(crate) use jukebox::*;
 pub(crate) use library::*;

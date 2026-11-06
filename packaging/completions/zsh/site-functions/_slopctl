@@ -973,7 +973,7 @@ _slopctl_commands() {
 'worker:Create task-owned workers from agent templates' \
 'agent:Create agents from the daemon'\''s template catalog' \
 'template:Discover and inspect agent templates' \
-'worktree:Manage project worktrees; rename and remove require the root token' \
+'worktree:Manage project worktrees; mutations require worktree management permission' \
 'task:Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set' \
 'peers:List sessions visible to the caller, including host' \
 'status:Show caller, endpoint, daemon reachability, and pending task counts' \
@@ -1071,7 +1071,7 @@ _slopctl__subcmd__help_commands() {
 'worker:Create task-owned workers from agent templates' \
 'agent:Create agents from the daemon'\''s template catalog' \
 'template:Discover and inspect agent templates' \
-'worktree:Manage project worktrees; rename and remove require the root token' \
+'worktree:Manage project worktrees; mutations require worktree management permission' \
 'task:Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set' \
 'peers:List sessions visible to the caller, including host' \
 'status:Show caller, endpoint, daemon reachability, and pending task counts' \
@@ -1268,7 +1268,7 @@ _slopctl__subcmd__help__subcmd__worktree_commands() {
     local commands; commands=(
 'list:List registered worktrees' \
 'create:Allocate a worktree or register an existing checkout' \
-'rename:Rename a registered worktree (requires the root token)' \
+'rename:Rename a registered worktree (requires worktree management permission)' \
 'remove:Remove a managed worktree or unregister an external checkout, keeping its files' \
     )
     _describe -t commands 'slopctl help worktree commands' commands "$@"
@@ -1586,7 +1586,7 @@ _slopctl__subcmd__worktree_commands() {
     local commands; commands=(
 'list:List registered worktrees' \
 'create:Allocate a worktree or register an existing checkout' \
-'rename:Rename a registered worktree (requires the root token)' \
+'rename:Rename a registered worktree (requires worktree management permission)' \
 'remove:Remove a managed worktree or unregister an external checkout, keeping its files' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -1602,7 +1602,7 @@ _slopctl__subcmd__worktree__subcmd__help_commands() {
     local commands; commands=(
 'list:List registered worktrees' \
 'create:Allocate a worktree or register an existing checkout' \
-'rename:Rename a registered worktree (requires the root token)' \
+'rename:Rename a registered worktree (requires worktree management permission)' \
 'remove:Remove a managed worktree or unregister an external checkout, keeping its files' \
 'help:Print this message or the help of the given subcommand(s)' \
     )

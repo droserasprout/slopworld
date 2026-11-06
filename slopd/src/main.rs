@@ -11,12 +11,12 @@ mod cli;
 mod cli_styles;
 mod clock;
 mod config;
+mod credentials;
 mod desktop;
 mod emu;
 mod endpoint;
 mod files;
 mod git;
-mod grant;
 mod jukebox;
 mod latency;
 mod music;
@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
     let (config, storage) = loaded.into_parts();
     let config_authority = Arc::new(application::ConfigAuthority::new(
         config,
-        grant::Grants::load_data(&storage.binding.data).with_context(|| {
+        credentials::CredentialStore::load_data(&storage.binding.data).with_context(|| {
             format!(
                 "loading grant store for {}",
                 storage.binding.settings.display()

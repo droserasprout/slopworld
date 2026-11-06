@@ -5,9 +5,9 @@ use super::*;
 impl SessionRuntime {
     pub async fn cap_ok(
         &self,
-        cap: &crate::grant::Cap,
+        cap: &crate::credentials::Cap,
         session: &str,
-        need: crate::grant::Level,
+        need: crate::credentials::Level,
     ) -> bool {
         // Callers serialize this check and its session operation with lifecycle changes.
         let is_host = self.is_host(session).await;
@@ -16,9 +16,9 @@ impl SessionRuntime {
 
     pub(crate) async fn terminal_cap_ok(
         &self,
-        cap: &crate::grant::Cap,
+        cap: &crate::credentials::Cap,
         session: &str,
-        need: crate::grant::Level,
+        need: crate::credentials::Level,
     ) -> bool {
         self.cap_ok(cap, session, need).await
             || self
@@ -27,38 +27,93 @@ impl SessionRuntime {
                 .is_some_and(|access| access.terminal)
     }
 
-    pub(crate) async fn worker_lifecycle_ok(&self, cap: &crate::grant::Cap, session: &str) -> bool {
-        self.cap_ok(cap, session, crate::grant::Level::Rw).await
+    pub(crate) async fn worker_lifecycle_ok(
+        &self,
+        cap: &crate::credentials::Cap,
+        session: &str,
+    ) -> bool {
+        self.cap_ok(cap, session, crate::credentials::Level::Rw)
+            .await
             || self
                 .worker_access(cap, session)
                 .await
                 .is_some_and(|access| access.lifecycle)
     }
 
-    /// Resolve a direct relationship by stable identity under the request boundary.
-    /// Manual grants remain independent; a missing legacy parent ID grants nothing.
+    /// Resolve current action scopes under the request boundary. Parent identity is
+    /// captured, but permissions are never cached on a relationship or credential.
     pub(crate) async fn worker_access(
         &self,
-        cap: &crate::grant::Cap,
+        cap: &crate::credentials::Cap,
         name: &str,
     ) -> Option<crate::config::WorkerAccess> {
         if !cap.is_valid() || self.is_host(name).await {
             return None;
         }
-        let child = self.session_cfg(name).await?;
-        if !child.worker || child.parent_id.is_empty() {
-            return None;
-        }
+        let target = self.session_cfg(name).await?;
         let principal = cap.principal()?;
-        if self.is_host(principal).await {
-            return None;
-        }
-        let parent = self.session_cfg(principal).await?;
-        (parent.state_id == child.parent_id).then_some(child.parent_access)
+        let caller = self.session_cfg(principal).await?;
+        let own =
+            target.worker && !target.parent_id.is_empty() && target.parent_id == caller.state_id;
+        let project = !caller.project.is_empty() && caller.project == target.project;
+        let p = caller.permissions;
+        let access = crate::config::WorkerAccess {
+            followup: p.followup.allows(own, project),
+            cancel: p.cancel.allows(own, project),
+            terminal: p.terminal.allows(own, project),
+            lifecycle: p.lifecycle.allows(own, project),
+        };
+        (own || access.followup
+            || access.cancel
+            || access.terminal
+            || access.lifecycle
+            || p.delete.allows(own, project))
+        .then_some(access)
     }
 
-    pub(crate) async fn worker_diagnostics_ok(&self, cap: &crate::grant::Cap, name: &str) -> bool {
-        self.cap_ok(cap, name, crate::grant::Level::Ro).await
+    pub(crate) async fn delete_agent_ok(&self, cap: &crate::credentials::Cap, name: &str) -> bool {
+        if cap.may_create() {
+            return true;
+        }
+        if !cap.is_valid() || self.is_host(name).await {
+            return false;
+        }
+        let Some(principal) = cap.principal() else {
+            return false;
+        };
+        let Some(caller) = self.session_cfg(principal).await else {
+            return false;
+        };
+        let Some(target) = self.session_cfg(name).await else {
+            return false;
+        };
+        caller.permissions.delete.allows(
+            target.worker && !target.parent_id.is_empty() && target.parent_id == caller.state_id,
+            principal != name && !caller.project.is_empty() && caller.project == target.project,
+        )
+    }
+
+    pub(crate) async fn manage_worktrees_ok(&self, cap: &crate::credentials::Cap) -> bool {
+        if cap.may_create() {
+            return true;
+        }
+        if !cap.is_valid() {
+            return false;
+        }
+        let Some(principal) = cap.principal() else {
+            return false;
+        };
+        self.session_cfg(principal)
+            .await
+            .is_some_and(|s| s.permissions.worktrees)
+    }
+
+    pub(crate) async fn worker_diagnostics_ok(
+        &self,
+        cap: &crate::credentials::Cap,
+        name: &str,
+    ) -> bool {
+        self.cap_ok(cap, name, crate::credentials::Level::Ro).await
             || self.worker_access(cap, name).await.is_some()
     }
 
@@ -66,21 +121,23 @@ impl SessionRuntime {
         self.live.read().await.contains_key(name) || self.config().await.session(name).is_some()
     }
 
+    #[cfg(test)]
     pub async fn mint_grant(
         &self,
         grantor: String,
         sessions: Vec<String>,
-        level: crate::grant::Level,
+        level: crate::credentials::Level,
     ) -> Result<String> {
         self.session_operation(self.mint_grant_inner(grantor, sessions, level))
             .await
     }
 
+    #[cfg(test)]
     async fn mint_grant_inner(
         &self,
         grantor: String,
         sessions: Vec<String>,
-        level: crate::grant::Level,
+        level: crate::credentials::Level,
     ) -> Result<String> {
         if !self.session_known(&grantor).await {
             bail!("no such session to grant to: {grantor}");
@@ -125,7 +182,7 @@ impl SessionRuntime {
         drop(live);
         self.config_authority
             .mint_grant(
-                crate::grant::Grant {
+                crate::credentials::AgentCredential {
                     grantor,
                     sessions: scope,
                     level,
@@ -137,6 +194,7 @@ impl SessionRuntime {
             .await
     }
 
+    #[cfg(test)]
     pub async fn revoke_grants(&self, grantor: &str) -> Result<()> {
         self.session_operation(self.config_authority.revoke_grants(grantor))
             .await
@@ -144,7 +202,7 @@ impl SessionRuntime {
 
     /// Revoke whole grants owned by or targeting a disappearing session.
     pub async fn invalidate_session(&self, name: &str) {
-        self.session_operation(self.config_authority.invalidate_session_grants(name))
+        self.session_operation(self.config_authority.invalidate_session_credentials(name))
             .await
     }
 }
@@ -152,3 +210,7 @@ impl SessionRuntime {
 #[cfg(test)]
 #[path = "caps_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "permission_tests.rs"]
+mod permission_tests;

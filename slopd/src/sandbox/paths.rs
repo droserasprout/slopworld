@@ -69,6 +69,10 @@ pub fn refused(path: &str) -> Option<String> {
             crate::paths::data_root().join("grants.toml"),
         ),
         (
+            "agent credentials",
+            crate::paths::data_root().join("credentials.toml"),
+        ),
+        (
             "workspace recovery journal",
             crate::paths::data_root().join("workspace.save-journal"),
         ),

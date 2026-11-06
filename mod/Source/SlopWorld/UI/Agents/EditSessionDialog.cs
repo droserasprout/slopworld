@@ -165,7 +165,7 @@ namespace SlopWorld
                     Worker = !copy && existing.Worker,
                     Workers = existing.Workers.Clone(),
                     Parent = copy ? "" : existing.Parent,
-                    ParentAccess = existing.ParentAccess.Clone(),
+                    Permissions = existing.Permissions.Clone(),
                     TaskId = copy ? "" : existing.TaskId,
                     ParentBound = existing.ParentBound,
                     Autostart = existing.Autostart,
@@ -276,13 +276,13 @@ namespace SlopWorld
             UiLayout.DrawRail(
                 r,
                 _s.Worker
-                    ? new[] { ("Workers", Tab.Workers) }
+                    ? new[] { ("Permissions", Tab.Workers) }
                     : new[]
                     {
                         ("General", Tab.General),
                         ("Sandbox", Tab.Sandbox),
                         ("Resource limits", Tab.ResourceLimits),
-                        ("Workers", Tab.Workers),
+                        ("Permissions", Tab.Workers),
                         ("Preview", Tab.Preview),
                     },
                 ref _tab
@@ -295,21 +295,15 @@ namespace SlopWorld
             _error = null;
             if (_s.Worker)
             {
-                if (!_s.ParentBound)
-                {
-                    _error =
-                        "Legacy worker has no captured parent identity. Spawn a new worker to establish access.";
-                    return;
-                }
                 _saving = true;
                 DaemonClient.Put(
-                    WireProtocol.Routes.WorkerAccess.Replace(
+                    WireProtocol.Routes.AgentPermissions.Replace(
                         ":name",
                         Uri.EscapeDataString(_identity.OriginalName)
                     ),
-                    new Wire.WorkerAccessReq
+                    new Wire.AgentPermissionsReq
                     {
-                        Access = _s.ParentAccess.Clone(),
+                        Permissions = _s.Permissions.Clone(),
                         TaskId = _s.TaskId,
                         Workers = _s.Workers.Clone(),
                     },

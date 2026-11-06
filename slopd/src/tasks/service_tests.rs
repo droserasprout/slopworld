@@ -487,7 +487,7 @@ fn supervised_cancellation_is_scoped_and_followup_history_preserves_result_and_s
             "stranger",
             std::slice::from_ref(&task.id),
             false,
-            std::slice::from_ref(&task.id),
+            &[],
         )
         .unwrap_err();
     let result = f

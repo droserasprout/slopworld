@@ -63,6 +63,8 @@ pub(crate) struct AgentTemplate {
 pub(crate) struct AgentTemplateDefaults {
     #[serde(default)]
     pub(crate) workers: crate::config::WorkerPolicy,
+    #[serde(default)]
+    pub permissions: crate::config::AgentPermissions,
     /// Complete command preset definition, if the source used a preset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) command: Option<CommandPreset>,
@@ -336,6 +338,7 @@ impl AgentTemplate {
             description,
             defaults: AgentTemplateDefaults {
                 workers: source.workers.clone(),
+                permissions: source.permissions,
                 command,
                 cmd: source.cmd.clone(),
                 args: source.args.clone(),
@@ -361,6 +364,7 @@ impl AgentTemplate {
             name,
             project,
             workers: defaults.workers.clone(),
+            permissions: defaults.permissions,
             initial_prompt: defaults.initial_prompt.clone(),
             command: defaults
                 .command
@@ -389,6 +393,7 @@ impl AgentTemplate {
         let previous = session.clone();
 
         session.workers = overrides.workers.clone();
+        session.permissions = overrides.permissions;
         session.command = overrides.command.clone();
         session.cmd = overrides.cmd.clone();
         session.args = overrides.args.clone();

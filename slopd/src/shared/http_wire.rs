@@ -21,6 +21,7 @@ fn matches(pattern: &str, path: &str) -> bool {
 }
 #[derive(Clone, Copy)]
 enum RequestKind {
+    AgentPermissionsReq,
     AgentTemplate,
     ConfigPatch,
     CopyPresetReq,
@@ -30,7 +31,6 @@ enum RequestKind {
     Empty,
     FileActionReq,
     FileReq,
-    GrantReq,
     HighlightReq,
     LabelReq,
     LibraryItem,
@@ -52,7 +52,6 @@ enum RequestKind {
     Station,
     TimerConfig,
     UpdateTaskReq,
-    WorkerAccessReq,
     WorkerFollowupReq,
 }
 #[derive(Clone, Copy)]
@@ -65,8 +64,6 @@ enum ResponseKind {
     ConfigResult,
     FileStatResult,
     GitResult,
-    GrantResult,
-    GrantsReply,
     Health,
     HighlightThemes,
     ImageResult,
@@ -178,8 +175,6 @@ const ROUTES: &[Route] = &[
         Resp::OutputResult,
     ),
     ("GET /api/open-apps", Req::Empty, Resp::AppsReply),
-    ("GET /api/grants", Req::Empty, Resp::GrantsReply),
-    ("POST /api/grants", Req::GrantReq, Resp::GrantResult),
     ("GET /api/state", Req::Empty, Resp::StoredStates),
     ("DELETE /api/state/trash", Req::Empty, Resp::Ack),
     ("GET /api/presets", Req::Empty, Resp::PresetsReply),
@@ -257,8 +252,8 @@ const ROUTES: &[Route] = &[
         Resp::SessionResult,
     ),
     (
-        "PUT /api/sessions/:name/worker-access",
-        Req::WorkerAccessReq,
+        "PUT /api/sessions/:name/permissions",
+        Req::AgentPermissionsReq,
         Resp::Ack,
     ),
     (
@@ -286,7 +281,6 @@ const ROUTES: &[Route] = &[
         Req::CreateWorktreeReq,
         Resp::Worktree,
     ),
-    ("DELETE /api/grants/:grantor", Req::Empty, Resp::Ack),
     (
         "POST /api/state/trash/:key/restore",
         Req::Empty,
@@ -319,6 +313,7 @@ fn route(method: &str, path: &str) -> anyhow::Result<&'static Route> {
 pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::Result<Vec<u8>> {
     let route = route(method, path)?;
     match route.1 {
+        RequestKind::AgentPermissionsReq => encode_wire::<wire::AgentPermissionsReq>(value),
         RequestKind::AgentTemplate => encode_wire::<wire::AgentTemplate>(value),
         RequestKind::ConfigPatch => encode_wire::<wire::ConfigPatch>(value),
         RequestKind::CopyPresetReq => encode_wire::<wire::CopyPresetReq>(value),
@@ -328,7 +323,6 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         RequestKind::Empty => encode_wire::<wire::Empty>(value),
         RequestKind::FileActionReq => encode_wire::<wire::FileActionReq>(value),
         RequestKind::FileReq => encode_wire::<wire::FileReq>(value),
-        RequestKind::GrantReq => encode_wire::<wire::GrantReq>(value),
         RequestKind::HighlightReq => encode_wire::<wire::HighlightReq>(value),
         RequestKind::LabelReq => encode_wire::<wire::LabelReq>(value),
         RequestKind::LibraryItem => encode_wire::<wire::LibraryItem>(value),
@@ -350,7 +344,6 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         RequestKind::Station => encode_wire::<wire::Station>(value),
         RequestKind::TimerConfig => encode_wire::<wire::TimerConfig>(value),
         RequestKind::UpdateTaskReq => encode_wire::<wire::UpdateTaskReq>(value),
-        RequestKind::WorkerAccessReq => encode_wire::<wire::WorkerAccessReq>(value),
         RequestKind::WorkerFollowupReq => encode_wire::<wire::WorkerFollowupReq>(value),
     }
 }
@@ -367,8 +360,6 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
             Ok(serde_json::to_value(wire::FileStatResult::decode(value)?)?)
         }
         ResponseKind::GitResult => Ok(serde_json::to_value(wire::GitResult::decode(value)?)?),
-        ResponseKind::GrantResult => Ok(serde_json::to_value(wire::GrantResult::decode(value)?)?),
-        ResponseKind::GrantsReply => Ok(serde_json::to_value(wire::GrantsReply::decode(value)?)?),
         ResponseKind::Health => Ok(serde_json::to_value(wire::Health::decode(value)?)?),
         ResponseKind::HighlightThemes => {
             Ok(serde_json::to_value(wire::HighlightThemes::decode(value)?)?)
@@ -438,6 +429,9 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
 pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::Result<Value> {
     let route = route(method, path)?;
     match route.1 {
+        RequestKind::AgentPermissionsReq => Ok(serde_json::to_value(
+            wire::AgentPermissionsReq::decode(value)?,
+        )?),
         RequestKind::AgentTemplate => {
             Ok(serde_json::to_value(wire::AgentTemplate::decode(value)?)?)
         }
@@ -459,7 +453,6 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
             Ok(serde_json::to_value(wire::FileActionReq::decode(value)?)?)
         }
         RequestKind::FileReq => Ok(serde_json::to_value(wire::FileReq::decode(value)?)?),
-        RequestKind::GrantReq => Ok(serde_json::to_value(wire::GrantReq::decode(value)?)?),
         RequestKind::HighlightReq => Ok(serde_json::to_value(wire::HighlightReq::decode(value)?)?),
         RequestKind::LabelReq => Ok(serde_json::to_value(wire::LabelReq::decode(value)?)?),
         RequestKind::LibraryItem => Ok(serde_json::to_value(wire::LibraryItem::decode(value)?)?),
@@ -505,9 +498,6 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
         RequestKind::UpdateTaskReq => {
             Ok(serde_json::to_value(wire::UpdateTaskReq::decode(value)?)?)
         }
-        RequestKind::WorkerAccessReq => {
-            Ok(serde_json::to_value(wire::WorkerAccessReq::decode(value)?)?)
-        }
         RequestKind::WorkerFollowupReq => Ok(serde_json::to_value(
             wire::WorkerFollowupReq::decode(value)?,
         )?),
@@ -525,8 +515,6 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
         ResponseKind::ConfigResult => encode_wire::<wire::ConfigResult>(value),
         ResponseKind::FileStatResult => encode_wire::<wire::FileStatResult>(value),
         ResponseKind::GitResult => encode_wire::<wire::GitResult>(value),
-        ResponseKind::GrantResult => encode_wire::<wire::GrantResult>(value),
-        ResponseKind::GrantsReply => encode_wire::<wire::GrantsReply>(value),
         ResponseKind::Health => encode_wire::<wire::Health>(value),
         ResponseKind::HighlightThemes => encode_wire::<wire::HighlightThemes>(value),
         ResponseKind::ImageResult => encode_wire::<wire::ImageResult>(value),

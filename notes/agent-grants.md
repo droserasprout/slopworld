@@ -1,17 +1,16 @@
-# Scoped grants
+# Agent credentials and permissions
 
-`slopd/src/grant.rs` owns bearer-token scope and revocation;
-`session/caps.rs` coordinates authorization lifetime. Grants expose selected
-non-host sessions. Callers also need network reachability to the daemon API.
-User delivery and setup belong to [Agent collaboration](../docs/src/agents/agent-collaboration.md).
+`slopd/src/credentials.rs` owns bearer identity and shared revocation state.
+`session/caps.rs` authorizes actions against the caller's current `AgentPermissions`.
+Root credentials retain administrative authority. Agent credentials supply self-access;
+manual grants and captured relationship flags cannot authorize other targets.
+Policy changes apply at the next admission or protected stream publication without
+restarting the agent. Already admitted effects retain their operation guards.
 
-`ro` allows listing, reading, and watching scoped sessions; `rw` adds input, sizing,
-and permitted lifecycle operations. Root capability permits host access, direct
-agent creation, full config replacement, and other root-only routes. A blank daemon
-token is invalid: startup and configuration updates reject blank credentials,
-and capability resolution fails closed. First startup generates a secure root
-token when the settings file is absent; see [security](../docs/src/sandbox/security.md).
-Worker policy and project restrictions belong to [workers](daemon-workers.md).
+Own-worker scope compares stable parent identity. Project scope compares the caller
+and target's accepted project, never terminal headers. Host terminals are excluded.
+Deletion excludes self. Worktree mutation checks policy and the caller's project;
+external registration remains root-only. Spawn-created checkouts use the same policy.
 
 Root HTTP mutations drain uploads before acquiring the session boundary and recheck
 the captured root credential generation inside it. Token rotation invalidates pending
@@ -26,18 +25,11 @@ completion and cleanup.
 
 The CLI refuses HTTP redirects so bearer headers cannot reach another endpoint.
 
-Removal, rename, or identity replacement revokes grants owned by or targeting that
-session, including their other targets. Stop/start preserves manually issued ordinary grants.
-Every non-host launch receives an automatic self-scoped rw grant. The persisted
-launch marker separates its revocation from manual authority: stop/exit and failed
-launch revoke it, and a fresh launch replaces any leftover automatic grant. Adoption
-keeps the surviving process credential valid for the same identity; startup also
-prunes automatic grants for panes absent from a successful tmux listing. Runtime
-credentials never enter saved agent records or tmux snapshots; sandbox diagnostics
-redact them. Workers retain their broader task-lifetime revocation policy.
-Restart restores grants only for the same grantor/target identities and prunes stale
-entries. New tokens require secure randomness; there is no predictable fallback.
+Credentials live in `credentials.toml`, independently of the retired `grants.toml`.
+No old tokens are restored. Launch, adoption, stop/exit, and identity invalidation own
+credential lifetime. Credentials never enter saved agent records or tmux snapshots.
+Both credential stores are excluded from sandbox mounts. Store writes remain private,
+and revocation propagates to previously resolved credentials.
 
-Mailbox authority belongs to [tasks](agent-tasks.md), route contracts to
-[the API](../docs/src/reference/api.md), reachability to [sandbox isolation](sandbox-isolation.md),
-and store locations to [paths](../docs/src/reference/paths.md).
+See [workers](daemon-workers.md), [tasks](agent-tasks.md), and
+[Agent collaboration](../docs/src/agents/agent-collaboration.md).

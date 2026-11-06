@@ -256,10 +256,10 @@ async fn surviving_worker_cannot_replace_a_different_saved_identity() {
         .grants_for_test()
         .write()
         .await
-        .mint(crate::grant::Grant {
+        .mint(crate::credentials::AgentCredential {
             grantor: "worker".into(),
             sessions: ["worker".into()].into(),
-            level: crate::grant::Level::Rw,
+            level: crate::credentials::Level::Rw,
             revoked: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         });
     assert!(
@@ -566,7 +566,7 @@ async fn existing_down_agent_restores_age_and_restarts_only_working_decay() {
 #[tokio::test]
 async fn failed_conflicting_pane_retirement_preserves_identity_and_revokes_grants() {
     use super::*;
-    use crate::grant::Level;
+    use crate::credentials::Level;
     for host in [true, false] {
         let socket = crate::test_support::TmuxSocket::new();
         let cfg = Config {

@@ -40,7 +40,7 @@ pub(crate) fn test_manager_with_socket(
     ));
     let config_authority = Arc::new(crate::application::ConfigAuthority::new(
         config,
-        crate::grant::Grants::default(),
+        crate::credentials::CredentialStore::default(),
     ));
     let mut application = crate::application::Services::new(
         crate::tasks::io::TaskStore::new(
@@ -139,13 +139,6 @@ impl SessionRuntime {
         live.capture.emu = Some(Arc::new(Mutex::new(emu)));
         self.live.write().await.insert(name.into(), live);
         rx
-    }
-}
-
-impl SessionRuntime {
-    pub(crate) async fn use_persisted_grants_for_test(&self) {
-        *self.config_authority.grants_for_test().write().await =
-            crate::grant::Grants::load(self.cfg_path()).unwrap();
     }
 }
 

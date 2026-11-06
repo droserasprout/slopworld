@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    grant::{Cap, Grant, Level},
+    credentials::{AgentCredential, Cap, Level},
     shared::protocol::routes,
 };
 use axum::{
@@ -194,7 +194,7 @@ async fn assert_initial_catalog_empty(app: &Router) {
 }
 
 fn scoped_app(manager: &crate::application::Application, level: Level) -> Router {
-    crate::api::router(manager.clone()).layer(Extension(Cap::Scoped(Grant {
+    crate::api::router(manager.clone()).layer(Extension(Cap::Scoped(AgentCredential {
         grantor: "agent".into(),
         sessions: ["agent".into()].into(),
         level,

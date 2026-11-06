@@ -177,7 +177,11 @@ impl SessionRuntime {
             // The session boundary prevents name reuse until cleanup finishes.
             self.invalidate_session(&plan.name).await;
         }
-        if let Err(error) = self.config_authority.revoke_launch_grants(&plan.name).await {
+        if let Err(error) = self
+            .config_authority
+            .revoke_launch_credentials(&plan.name)
+            .await
+        {
             tracing::error!("revoking launch credential for {}: {error:#}", plan.name);
         }
         self.forget_scroll(&plan.name);

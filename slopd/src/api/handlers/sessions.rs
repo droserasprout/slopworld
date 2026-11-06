@@ -6,7 +6,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::grant::{Cap, Level};
+use crate::credentials::{Cap, Level};
 
 use super::{ApiResult, App, err};
 
@@ -112,7 +112,7 @@ pub(crate) async fn destroy(
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
 ) -> ApiResult<wire::Ack> {
-    if !cap.allows(&name, m.sessions.is_host(&name).await, Level::Rw) {
+    if !m.sessions.delete_agent_ok(&cap, &name).await {
         return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")));
     }
     super::ack_result(SessionEdits::new(&m).remove(&name).await)

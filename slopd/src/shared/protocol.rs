@@ -31,7 +31,7 @@ pub(crate) mod routes {
     pub(crate) const TEMPLATE: &str = "/api/templates/:name";
     pub(crate) const TEMPLATE_CREATE: &str = "/api/templates/:name/create";
     pub(crate) const TASKS: &str = "/api/tasks";
-    pub(crate) const WORKER_ACCESS: &str = "/api/sessions/:name/worker-access";
+    pub(crate) const AGENT_PERMISSIONS: &str = "/api/sessions/:name/permissions";
     pub(crate) const TASK_FOLLOWUP: &str = "/api/tasks/:id/followup";
     pub(crate) const TASKS_CANCEL: &str = "/api/tasks/cancel";
     pub(crate) const TASKS_REMOVE: &str = "/api/tasks/remove";
@@ -53,8 +53,6 @@ pub(crate) mod routes {
     pub(crate) const WORKERS: &str = "/api/workers";
     pub(crate) const FILE_ACTION: &str = "/api/file-action";
     pub(crate) const OPEN_APPS: &str = "/api/open-apps";
-    pub(crate) const GRANTS: &str = "/api/grants";
-    pub(crate) const GRANTOR: &str = "/api/grants/:grantor";
     pub(crate) const STATE: &str = "/api/state";
     pub(crate) const STATE_TRASH: &str = "/api/state/trash";
     pub(crate) const STATE_ITEM: &str = "/api/state/:kind/:key";

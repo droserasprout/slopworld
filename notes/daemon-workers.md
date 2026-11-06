@@ -7,7 +7,7 @@ reconciliation. Registration and spawn guards remain held through task creation,
 startup, and cleanup, including after requester cancellation.
 
 Templates supply configuration copies and snapshots. Workers receive fresh private
-identities and scoped grants; callers supply parent and task ownership. Root may use
+identities and identity credentials; callers supply parent and task ownership. Root may use
 any registered project and template. Scoped callers stay in their own project and
 use templates allowed by their agent policy. Host terminals cannot own workers. See
 [templates](daemon-agent-templates.md) and [grants](agent-grants.md).
@@ -26,7 +26,7 @@ writes; cancellation leaves pending evidence available for retry. Explicit stop 
 persistence failure after resource cleanup. The store preserves terminal results and
 detailed exit evidence across repeated cleanup. Pending evidence lasts for the daemon
 lifetime; startup recovery handles unfinished tasks after a daemon restart. Lifecycle
-owns retention, resource cleanup, and grant revocation.
+owns retention, resource cleanup, and credential revocation.
 Startup/delivery failure, stop, removal, or confirmed exit can fail unfinished work.
 After startup adoption, recovery fails unfinished worker tasks whose panes are absent
 from a successful tmux listing, including one-shot workers without saved sessions.
@@ -49,7 +49,7 @@ For direct Codex commands, `sandbox/codex.rs` supplies launch-only trust for the
 allocated project/worktree path so fresh private state does not block startup on
 the folder-trust dialog. Host configuration and template snapshots are not edited.
 
-Recovery rejects a name reassigned to another identity and revokes grants before
+Recovery rejects a name reassigned to another identity and revokes credentials before
 adoption. Durable workers use saved configuration; one-shot workers use credential-free
 tmux snapshots. Invalid identity or missing configuration retires the pane.
 Restart requires saved launch configuration and rejects one-shot workers and runtime-only
@@ -63,33 +63,24 @@ and [slopctl](../docs/src/reference/slopctl.md) for commands.
 ## Delegation and permissions
 
 `config/worker_policy.rs` owns portable delegation settings. Delegation is opt-in
-per agent or template. The caller's policy controls spawn and relationship access;
+per agent or template. The caller's policy controls spawning;
 the child template may narrow inherited delegation, permissions, and template selection.
 The daemon owns only the shared initial worker prompt. Spawn captures the parent
-state ID, relationship access, and child policy.
-Policy edits do not rewrite existing relationships. Recovery retains captured IDs;
-legacy workers without one cannot gain authority through a name-only edit.
-Stored named permission bundles decode to independent flags without widening access;
-saving emits only the flag representation. This also applies to template snapshots.
+state ID and the child’s initial policy.
+`config/permissions.rs` owns current CLI/API action scopes. Permission edits apply to
+existing workers immediately. Parent identity remains captured; relationship flags
+are legacy input only. Worker spawning and template restrictions remain independent.
 
-`session/caps.rs` resolves direct relationships by stable identity. All parents can
-read diagnostics. Follow-ups, task cancellation, terminal input, and stop/restart
-each have an independent permission. Terminal frames require
-terminal permission; lifecycle permission does not imply it. None grants generic
-file/configuration authority. Manual grants remain
-independent. `api/ws/outbound.rs` rechecks current relationship access at serialized
-publication, including buffered and scroll frames on existing connections. Writer contention
-waits outside session admission; socket sends have a one-second deadline so stalled
-clients cannot indefinitely block lifecycle changes or revocation.
+`session/caps.rs` checks current caller policy. Own workers means direct children;
+project agents excludes host terminals. The root-only worker editor updates the
+worker's own permissions and spawning policy, comparing the task ID to reject stale
+editors. Durable changes use configuration; one-shot changes use the credential-free
+tmux snapshot. WebSocket publication rechecks current terminal access before sending.
 
-## Relationship edits and follow-ups
-
-The root-only relationship editor persists durable workers through configuration and
-one-shot workers through their credential-free tmux snapshot. Edits compare the
-worker task ID so a stale editor cannot modify a replacement with the same name.
 `application/worker_tasks.rs` owns follow-up and cancellation authorization and
 follow-up auditing. Session owns identity and delivery; the task store owns mutation
-policy. Follow-ups prepare under session admission, wait for readiness outside it,
+policy. Authorized follow-ups support both worker assignments and ordinary tasks
+addressed to existing agents. Follow-ups prepare under session admission, wait for readiness outside it,
 then revalidate authority, task state, and run identity. Exclusive admission spans
 audit and submission; lost readiness fails without another wait. Delivery rechecks
 the foreground command before paste and Enter to avoid sending input to a shell

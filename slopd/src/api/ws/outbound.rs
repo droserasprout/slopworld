@@ -15,7 +15,7 @@ use tokio::time::{Instant, sleep_until};
 use super::super::App;
 use super::{WatchGuard, WsSubs, WsTx};
 use crate::application::{Event, EventMessage};
-use crate::grant::Cap;
+use crate::credentials::Cap;
 
 /// Relationship access is read from current runtime state, never cached on a socket.
 pub(super) async fn scope_live_event(
@@ -40,7 +40,7 @@ pub(super) async fn scope_live_event(
             Some(EventMessage::new(Event::Sessions { sessions: visible }))
         }
         Event::Screen { screen } => sessions
-            .terminal_cap_ok(cap, &screen.name, crate::grant::Level::Ro)
+            .terminal_cap_ok(cap, &screen.name, crate::credentials::Level::Ro)
             .await
             .then_some(ev),
         _ => None,

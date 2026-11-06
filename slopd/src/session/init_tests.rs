@@ -27,22 +27,21 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     }
     let seed = crate::session::test_manager_with_socket(cfg.clone(), socket.clone());
     *seed.config_authority.grants_for_test().write().await =
-        crate::grant::Grants::load(seed.cfg_path()).unwrap();
-    for session in &cfg.sessions {
-        seed.live.write().await.insert(
-            session.name.clone(),
-            Live::new(session.clone(), TitleCapture::default()),
-        );
-    }
+        crate::credentials::CredentialStore::load(seed.cfg_path()).unwrap();
+    seed.sync_from_config().await;
     let kept = seed
-        .mint_grant("kept".into(), vec!["kept".into()], crate::grant::Level::Rw)
+        .mint_grant(
+            "kept".into(),
+            vec!["kept".into()],
+            crate::credentials::Level::Rw,
+        )
         .await
         .unwrap();
     let stale = seed
         .mint_grant(
             "replaced".into(),
             vec!["replaced".into()],
-            crate::grant::Level::Rw,
+            crate::credentials::Level::Rw,
         )
         .await
         .unwrap();
@@ -72,7 +71,7 @@ async fn initialization_retains_loaded_records_and_prunes_credentials_after_reco
     let (config, storage) = loaded.into_parts();
     let authority = Arc::new(crate::application::ConfigAuthority::new(
         config,
-        crate::grant::Grants::load_data(&storage.binding.data).unwrap(),
+        crate::credentials::CredentialStore::load_data(&storage.binding.data).unwrap(),
     ));
     let manager = crate::application::startup::start_sessions(
         storage,
@@ -151,14 +150,14 @@ async fn assert_reconciled_sessions_and_grants(
         assert!(row.capture.reader.is_none());
     }
     drop(live);
-    assert!(authority.resolve_cap(Some(kept)).await.is_some());
+    assert!(authority.resolve_cap(Some(kept)).await.is_none());
     assert!(authority.resolve_cap(Some(stale)).await.is_none());
-    assert_eq!(authority.grant_count().await, 1);
+    assert_eq!(authority.grant_count().await, 0);
     // Pruning must survive another daemon restart.
     assert_eq!(
-        crate::grant::Grants::load_data(&crate::paths::data_root())
+        crate::credentials::CredentialStore::load_data(&crate::paths::data_root())
             .unwrap()
             .count(),
-        1
+        0
     );
 }

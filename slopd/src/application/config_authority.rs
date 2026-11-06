@@ -12,20 +12,20 @@ use tokio::sync::{RwLock, broadcast};
 /// Internal notifications for rechecking connected clients’ credentials.
 #[derive(Debug, Clone)]
 pub(crate) enum AuthChange {
-    GrantsRevoked,
+    CredentialsRevoked,
     RootTokenChanged,
 }
-/// One accepted settings lock, persisted grants, and credential invalidation epochs.
+/// One accepted settings lock, persisted credentials, and credential invalidation epochs.
 pub(crate) struct ConfigAuthority {
     config: Arc<RwLock<Config>>,
-    grants: RwLock<crate::grant::Grants>,
+    grants: RwLock<crate::credentials::CredentialStore>,
     auth_generation: AtomicU64,
     root_generation: AtomicU64,
     changes: broadcast::Sender<AuthChange>,
 }
 
 impl ConfigAuthority {
-    pub(crate) fn new(config: Config, grants: crate::grant::Grants) -> Self {
+    pub(crate) fn new(config: Config, grants: crate::credentials::CredentialStore) -> Self {
         let (changes, _) = broadcast::channel(16);
         Self {
             config: Arc::new(RwLock::new(config)),
@@ -90,16 +90,20 @@ impl ConfigAuthority {
 
     /// Admission samples the credential epoch before and after resolution. A token
     /// cloned before a concurrent rotation must not authorize the newer epoch.
-    pub(crate) async fn resolve_cap(&self, presented: Option<&str>) -> Option<crate::grant::Cap> {
+    pub(crate) async fn resolve_cap(
+        &self,
+        presented: Option<&str>,
+    ) -> Option<crate::credentials::Cap> {
         let root = self.config.read().await.daemon.token.clone();
         self.grants.read().await.resolve(presented, &root)
     }
 
     /// Session adapter supplies identities validated under its operation guard.
     /// Retain that guard through minting, revocation, or session invalidation.
+    #[cfg(test)]
     pub(crate) async fn mint_grant(
         &self,
-        grant: crate::grant::Grant,
+        grant: crate::credentials::AgentCredential,
         grantor_state_id: String,
         session_state_ids: std::collections::BTreeMap<String, String>,
     ) -> Result<String> {
@@ -109,28 +113,32 @@ impl ConfigAuthority {
             .mint_persisted(grant, grantor_state_id, session_state_ids)
     }
     /// Lifecycle supplies a non-host identity under the session operation guard.
-    pub(crate) async fn mint_launch_grant(&self, name: &str, state_id: &str) -> Result<String> {
+    pub(crate) async fn mint_launch_credential(
+        &self,
+        name: &str,
+        state_id: &str,
+    ) -> Result<String> {
         anyhow::ensure!(
             !state_id.is_empty(),
             "launch credential requires a stable identity"
         );
-        self.revoke_launch_grants(name).await?;
+        self.revoke_launch_credentials(name).await?;
         self.grants.write().await.mint_launch(name, state_id)
     }
 
-    pub(crate) async fn revoke_launch_grants(&self, name: &str) -> Result<()> {
+    pub(crate) async fn revoke_launch_credentials(&self, name: &str) -> Result<()> {
         let mut grants = self.grants.write().await;
         let count = grants.count();
         let result = grants.revoke_launch(name);
         let changed = grants.count() < count;
         drop(grants);
         if changed {
-            self.invalidate_auth(AuthChange::GrantsRevoked);
+            self.invalidate_auth(AuthChange::CredentialsRevoked);
         }
         result.map(|_| ())
     }
 
-    pub(crate) async fn prune_absent_launch_grants(
+    pub(crate) async fn prune_absent_launch_credentials(
         &self,
         panes: &std::collections::HashSet<String>,
     ) -> Result<bool> {
@@ -138,7 +146,7 @@ impl ConfigAuthority {
     }
 
     /// Startup only, after session adoption and before client admission.
-    pub(crate) async fn prune_stale_grants(
+    pub(crate) async fn prune_stale_credentials(
         &self,
         state_ids: &std::collections::HashMap<String, String>,
         host_sessions: &std::collections::HashSet<String>,
@@ -148,13 +156,15 @@ impl ConfigAuthority {
             .await
             .prune_stale(state_ids, host_sessions)
     }
+    #[cfg(test)]
     pub(crate) async fn grant_count(&self) -> usize {
         self.grants.read().await.count()
     }
     #[cfg(test)]
-    pub(crate) fn grants_for_test(&self) -> &RwLock<crate::grant::Grants> {
+    pub(crate) fn grants_for_test(&self) -> &RwLock<crate::credentials::CredentialStore> {
         &self.grants
     }
+    #[cfg(test)]
     pub(crate) async fn revoke_grants(&self, grantor: &str) -> Result<()> {
         let mut grants = self.grants.write().await;
         let count = grants.count();
@@ -162,21 +172,21 @@ impl ConfigAuthority {
         let changed = grants.count() < count;
         drop(grants);
         if changed {
-            self.invalidate_auth(AuthChange::GrantsRevoked);
+            self.invalidate_auth(AuthChange::CredentialsRevoked);
         }
         result.map(|_| ())
     }
 
-    pub(crate) async fn invalidate_session_grants(&self, name: &str) {
+    pub(crate) async fn invalidate_session_credentials(&self, name: &str) {
         let mut grants = self.grants.write().await;
         let count = grants.count();
         if let Err(error) = grants.try_invalidate_session(name) {
-            tracing::error!("persisting grants invalidated with session {name}: {error:#}");
+            tracing::error!("persisting credentials invalidated with session {name}: {error:#}");
         }
         let changed = grants.count() < count;
         drop(grants);
         if changed {
-            self.invalidate_auth(AuthChange::GrantsRevoked);
+            self.invalidate_auth(AuthChange::CredentialsRevoked);
         }
     }
 }

@@ -152,8 +152,7 @@ def render() -> str:
     if discovered != payloads.keys():
         raise ValueError(f'HTTP route inventory differs from wire contract: {discovered ^ payloads.keys()}')
     families = {
-        'sessions': 'Sessions and grants',
-        'grants': 'Sessions and grants',
+        'sessions': 'Sessions and permissions',
         'tasks': 'Tasks and workers',
         'workers': 'Tasks and workers',
         'projects': 'Projects and worktrees',

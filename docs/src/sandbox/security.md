@@ -34,8 +34,8 @@ not enumerate every secret exposure.
 
 ## Daemon API authority
 
-Root authorization controls grants, host sessions, and configuration. Scoped grants
-restrict selected agent sessions; see [Agent collaboration](../agents/agent-collaboration.md).
+Root authorization controls host sessions and configuration. Agent credentials
+identify callers; their current saved permissions authorize actions; see [Agent collaboration](../agents/agent-collaboration.md).
 `[daemon].token` must be nonempty and contain more than whitespace. Startup and
 settings updates reject blank tokens. First startup generates and saves a secure
 token when `config.toml` does not exist. Existing files must supply a token.

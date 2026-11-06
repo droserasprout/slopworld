@@ -229,10 +229,10 @@ async fn scoped_worktree_requests_cannot_cross_projects_or_register_host_paths()
         ..Default::default()
     });
     let cap = || {
-        Cap::Scoped(crate::grant::Grant {
+        Cap::Scoped(crate::credentials::AgentCredential {
             grantor: "caller".into(),
             sessions: Default::default(),
-            level: crate::grant::Level::Rw,
+            level: crate::credentials::Level::Rw,
             revoked: Default::default(),
         })
     };

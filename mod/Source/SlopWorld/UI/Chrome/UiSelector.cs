@@ -42,6 +42,43 @@ namespace SlopWorld
         public static Rect ScreenBox(Rect box) =>
             new Rect(UiControls.MenuAt(box) - new Vector2(0f, box.height), box.size);
 
+        // A compact form row with a flexible label and an aligned, right-hand selector.
+        public static bool DrawRow(
+            Listing_Standard listing,
+            string caption,
+            string value,
+            IEnumerable<SelectorOption> source,
+            out Rect box,
+            string tip = null,
+            bool enabled = true,
+            float selectorWidth = 200f
+        )
+        {
+            var row = listing.GetRect(Mathf.Max(UiTheme.RowH, UiTheme.CompactH));
+            float width = Mathf.Min(selectorWidth, row.width * 0.5f);
+            box = new Rect(row.xMax - width, row.y, width, row.height);
+            using (WidgetState.Save())
+            {
+                GUI.color = enabled ? UiTheme.Name : UiTheme.Fade(UiTheme.Name, 0.5f);
+                UiText.RowLabel(
+                    new Rect(row.x, row.y, Mathf.Max(0f, box.x - row.x - UiTheme.GapS), row.height),
+                    caption
+                );
+            }
+            listing.Gap(UiTheme.GapS);
+            if (!UiControls.SelectInline(box, value, tip, enabled))
+                return false;
+
+            var options = (source ?? Enumerable.Empty<SelectorOption>())
+                .Select(option => new FloatMenuOption(option.Label, option.Choose)
+                {
+                    Disabled = !option.Enabled,
+                })
+                .ToList();
+            Find.WindowStack.Add(Menu(options, ScreenBox(box)));
+            return true;
+        }
+
         public static bool DrawInline(
             Rect box,
             string value,

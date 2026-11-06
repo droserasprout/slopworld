@@ -523,6 +523,17 @@ namespace SlopWorld
             Action<UiMenu> openMenu = null
         ) => UiSelector.Draw(l, caption, value, choices, out box, tip, on, open, openMenu);
 
+        public static bool SelectRow(
+            Listing_Standard listing,
+            string caption,
+            string value,
+            IEnumerable<SelectorOption> choices,
+            out Rect box,
+            string tip = null,
+            bool on = true,
+            float selectorWidth = 200f
+        ) => UiSelector.DrawRow(listing, caption, value, choices, out box, tip, on, selectorWidth);
+
         // Inline selectors keep their caller-owned table or toolbar geometry.
         public static bool SelectInline(Rect box, string value, string tip = null, bool on = true)
         {

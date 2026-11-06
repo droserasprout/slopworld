@@ -32,7 +32,7 @@ async fn failed_prepared_worker_launch_cleans_created_resources_and_can_retry() 
             .mint_grant(
                 "worker".into(),
                 vec!["worker".into()],
-                crate::grant::Level::Rw,
+                crate::credentials::Level::Rw,
             )
             .await
             .unwrap();
@@ -428,7 +428,7 @@ async fn failed_worker_start_removes_owned_state_and_revokes_credentials() {
         .mint_grant(
             "agent".into(),
             vec!["agent".into()],
-            crate::grant::Level::Rw,
+            crate::credentials::Level::Rw,
         )
         .await
         .unwrap();
@@ -656,13 +656,13 @@ async fn ordinary_launch_failure_revokes_only_automatic_authority_and_retry_rota
         .mint_grant(
             "agent".into(),
             vec!["agent".into()],
-            crate::grant::Level::Rw,
+            crate::credentials::Level::Rw,
         )
         .await
         .unwrap();
     let old = manager
         .config_authority
-        .mint_launch_grant("agent", &session.state_id)
+        .mint_launch_credential("agent", &session.state_id)
         .await
         .unwrap();
     let cap = manager
@@ -672,7 +672,7 @@ async fn ordinary_launch_failure_revokes_only_automatic_authority_and_retry_rota
         .unwrap();
     let new = manager
         .config_authority
-        .mint_launch_grant("agent", &session.state_id)
+        .mint_launch_credential("agent", &session.state_id)
         .await
         .unwrap();
     assert!(!cap.is_valid());
@@ -729,8 +729,8 @@ async fn ordinary_preparation_injects_self_credentials_and_redacts_diagnostics()
         .resolve_cap(Some(token))
         .await
         .unwrap();
-    assert!(cap.allows("agent", false, crate::grant::Level::Rw));
-    assert!(!cap.allows("other", false, crate::grant::Level::Ro));
+    assert!(cap.allows("agent", false, crate::credentials::Level::Rw));
+    assert!(!cap.allows("other", false, crate::credentials::Level::Ro));
     assert!(
         plan.argv
             .windows(3)
@@ -756,14 +756,14 @@ async fn ordinary_command_failure_redacts_errors_and_stop_revokes_only_launch_gr
         .mint_grant(
             "agent".into(),
             vec!["agent".into()],
-            crate::grant::Level::Rw,
+            crate::credentials::Level::Rw,
         )
         .await
         .unwrap();
     for fail in [true, false] {
         let token = manager
             .config_authority
-            .mint_launch_grant("agent", &session.state_id)
+            .mint_launch_credential("agent", &session.state_id)
             .await
             .unwrap();
         let cap = manager

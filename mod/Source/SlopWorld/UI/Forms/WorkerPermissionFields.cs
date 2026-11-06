@@ -1,36 +1,52 @@
+using System;
 using Verse;
 
 namespace SlopWorld
 {
     static class WorkerPermissionFields
     {
-        public static void Draw(
-            Listing_Standard l,
-            string heading,
-            Wire.WorkerAccess value,
-            bool locked = false
-        )
+        public static void Draw(Listing_Standard l, Wire.AgentPermissions value)
         {
-            UiLayout.SectionHeading(l, heading);
-            UiLayout.Note(l, "The parent can always read progress, results, and diagnostics.");
-            value.Followup = UiControls.Checkbox(
+            UiLayout.SectionHeading(l, "Permissions");
+            UiLayout.Note(
                 l,
-                "Send follow-ups",
-                value.Followup,
-                locked: locked
+                "Own workers means direct children. Project agents excludes host terminals."
             );
-            value.Cancel = UiControls.Checkbox(l, "Cancel tasks", value.Cancel, locked: locked);
-            value.Terminal = UiControls.Checkbox(
+            Scope(l, "Send follow-ups", value.Followup, next => value.Followup = next);
+            Scope(l, "Cancel tasks", value.Cancel, next => value.Cancel = next);
+            Scope(l, "Type in terminals", value.Terminal, next => value.Terminal = next);
+            Scope(l, "Stop or restart agents", value.Lifecycle, next => value.Lifecycle = next);
+            Scope(l, "Delete agents", value.Delete, next => value.Delete = next);
+            UiControls.SelectRow(
                 l,
-                "Type in terminal",
-                value.Terminal,
-                locked: locked
+                "Manage worktrees",
+                value.Worktrees ? "Project worktrees" : "Deny",
+                new[]
+                {
+                    new SelectorOption("Deny", () => value.Worktrees = false),
+                    new SelectorOption("Project worktrees", () => value.Worktrees = true),
+                },
+                out _
             );
-            value.Lifecycle = UiControls.Checkbox(
+        }
+
+        static void Scope(Listing_Standard l, string label, string value, Action<string> set)
+        {
+            string selected =
+                value == "own_workers" ? "Own workers"
+                : value == "project_agents" ? "Project agents"
+                : "Deny";
+            UiControls.SelectRow(
                 l,
-                "Stop or restart workers",
-                value.Lifecycle,
-                locked: locked
+                label,
+                selected,
+                new[]
+                {
+                    new SelectorOption("Deny", () => set("deny")),
+                    new SelectorOption("Own workers", () => set("own_workers")),
+                    new SelectorOption("Project agents", () => set("project_agents")),
+                },
+                out _
             );
         }
     }

@@ -8,7 +8,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::grant::Cap;
+use crate::credentials::Cap;
 
 use super::super::types::{
     CreateAgentTemplateReq, SaveAgentTemplateReq, SpawnableTemplatesQuery, TemplateVersionQuery,

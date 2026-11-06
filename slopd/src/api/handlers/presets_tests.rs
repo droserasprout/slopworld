@@ -58,7 +58,7 @@ async fn update_distinguishes_validation_from_storage_failure() {
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR, "{}", error.error);
 }
 
-use crate::grant::{Cap, Grant, Level};
+use crate::credentials::{AgentCredential, Cap, Level};
 use axum::{
     Extension, Router,
     body::{Body, to_bytes},
@@ -151,12 +151,13 @@ async fn preset_routes_persist_reload_notify_and_reject_failed_mutations() {
             .iter()
             .any(|p| p.name == "coverage-agent" && p.cmd == "echo first")
     );
-    let scoped = crate::api::router(manager.clone()).layer(Extension(Cap::Scoped(Grant {
-        grantor: "agent".into(),
-        sessions: ["agent".into()].into(),
-        level: Level::Rw,
-        revoked: Default::default(),
-    })));
+    let scoped =
+        crate::api::router(manager.clone()).layer(Extension(Cap::Scoped(AgentCredential {
+            grantor: "agent".into(),
+            sessions: ["agent".into()].into(),
+            level: Level::Rw,
+            revoked: Default::default(),
+        })));
     for (method, endpoint, body) in [
         ("PUT", path.to_string(), definition("echo forbidden")),
         ("DELETE", path.to_string(), vec![]),

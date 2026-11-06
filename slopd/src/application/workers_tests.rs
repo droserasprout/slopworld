@@ -204,6 +204,7 @@ fn project_policy_rejects_missing_host_and_unscoped_callers() {
         (Caller::HostTerminal, "repo", "host terminal"),
         (
             Caller::Agent {
+                permissions: Default::default(),
                 identity: "parent-id".into(),
                 policy: Default::default(),
                 project: " ".into(),
@@ -215,6 +216,7 @@ fn project_policy_rejects_missing_host_and_unscoped_callers() {
         (Caller::Root, "absent", "no such worker project"),
         (
             Caller::Agent {
+                permissions: Default::default(),
                 identity: "parent-id".into(),
                 policy: Default::default(),
                 project: "other".into(),
@@ -231,6 +233,7 @@ fn project_policy_rejects_missing_host_and_unscoped_callers() {
             &cfg,
             "caller",
             &Caller::Agent {
+                permissions: Default::default(),
                 identity: "parent-id".into(),
                 policy: Default::default(),
                 project: " repo ".into()
@@ -251,6 +254,7 @@ fn template_policy_checks_identity_scope_and_exact_allowlist_before_lookup() {
         (Caller::HostTerminal, "review", "host terminal"),
         (
             Caller::Agent {
+                permissions: Default::default(),
                 identity: "parent-id".into(),
                 policy: Default::default(),
                 project: "other".into(),
@@ -260,6 +264,7 @@ fn template_policy_checks_identity_scope_and_exact_allowlist_before_lookup() {
         ),
         (
             Caller::Agent {
+                permissions: Default::default(),
                 identity: "parent-id".into(),
                 policy: Default::default(),
                 project: "repo".into(),
@@ -488,6 +493,7 @@ fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default
         prepare(
             &cfg,
             &Caller::Agent {
+                permissions: Default::default(),
                 project: "repo".into(),
                 identity: "stable-parent".into(),
                 policy,
@@ -523,9 +529,9 @@ fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default
     let second = prepare_with(policy.clone()).unwrap().session;
     assert!(second.workers.enabled);
     assert_eq!(
-        second.parent_access,
-        WorkerAccess::all(),
-        "parent controls relationship access"
+        second.permissions,
+        crate::config::AgentPermissions::default(),
+        "worker authority is its own policy"
     );
     assert_eq!(second.workers.access, WorkerAccess::default());
     assert!(!second.workers.all_templates);

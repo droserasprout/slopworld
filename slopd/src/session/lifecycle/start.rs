@@ -127,7 +127,7 @@ impl SessionRuntime {
         } else {
             Some(
                 self.config_authority
-                    .mint_launch_grant(&session.name, &session.state_id)
+                    .mint_launch_credential(&session.name, &session.state_id)
                     .await
                     .context("minting agent daemon credential")?,
             )
@@ -349,7 +349,7 @@ impl SessionRuntime {
     async fn revoke_failed_start_grants(&self, name: &str, worker: bool) {
         if worker {
             self.invalidate_session(name).await;
-        } else if let Err(error) = self.config_authority.revoke_launch_grants(name).await {
+        } else if let Err(error) = self.config_authority.revoke_launch_credentials(name).await {
             tracing::error!("revoking failed launch credential for {name}: {error:#}");
         }
     }

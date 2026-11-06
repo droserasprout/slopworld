@@ -2,7 +2,7 @@
 //! The connection owns scroll admission; manager services own session and playback policy.
 
 use crate::application::{Event, EventMessage};
-use crate::grant::{Cap, Level};
+use crate::credentials::{Cap, Level};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::super::App;

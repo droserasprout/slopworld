@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn saved_named_permissions_load_without_gaining_authority_and_write_as_fields() {
+fn legacy_relationship_defaults_load_but_are_not_saved_as_authority() {
     for (name, expected) in [
         ("observer", WorkerAccess::none()),
         ("supervisor", WorkerAccess::default()),
@@ -11,7 +11,11 @@ fn saved_named_permissions_load_without_gaining_authority_and_write_as_fields() 
         assert_eq!(policy.access, expected);
         let saved = toml::to_string(&policy).unwrap();
         assert!(!saved.contains(name));
-        assert_eq!(toml::from_str::<WorkerPolicy>(&saved).unwrap(), policy);
+        assert!(!saved.contains("access"));
+        assert_eq!(
+            toml::from_str::<WorkerPolicy>(&saved).unwrap().access,
+            WorkerAccess::default()
+        );
     }
     for invalid in [r#""unknown""#, r#"{"typo":true}"#, r#"{"terminal":"yes"}"#] {
         serde_json::from_str::<WorkerAccess>(invalid).unwrap_err();

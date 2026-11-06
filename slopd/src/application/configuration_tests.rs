@@ -37,7 +37,7 @@ async fn settings_cannot_clear_root_authority_or_change_accepted_state_on_failur
         assert_eq!(manager.config_authority.auth_generation(), 0);
         assert!(matches!(
             manager.config_authority.resolve_cap(Some(&token)).await,
-            Some(crate::grant::Cap::Root)
+            Some(crate::credentials::Cap::Root)
         ));
     }
     let error = manager
@@ -70,7 +70,11 @@ async fn removing_and_replacing_sessions_revokes_only_changed_identities() {
     let mut caps = Vec::new();
     for name in ["kept", "removed", "replaced"] {
         let token = manager
-            .mint_grant(name.into(), vec![name.into()], crate::grant::Level::Rw)
+            .mint_grant(
+                name.into(),
+                vec![name.into()],
+                crate::credentials::Level::Rw,
+            )
             .await
             .unwrap();
         caps.push(
@@ -485,7 +489,7 @@ async fn daemon_settings_reader_observes_only_accepted_settings_and_survives_man
     ));
     assert!(matches!(
         manager.config_authority.resolve_cap(Some(&old_token)).await,
-        Some(crate::grant::Cap::Root)
+        Some(crate::credentials::Cap::Root)
     ));
     drop(fault);
     manager.configuration().patch_config(patch).await.unwrap();

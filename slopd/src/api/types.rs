@@ -217,15 +217,6 @@ pub(crate) struct OpenAppsQuery {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct GrantReq {
-    pub(crate) grantor: String,
-    #[serde(default)]
-    pub(crate) sessions: Vec<String>,
-    /// `ro` to watch, `rw` to drive.
-    pub(crate) level: String,
-}
-
-#[derive(Deserialize)]
 pub(crate) struct ConfigReq {
     pub(crate) text: String,
 }

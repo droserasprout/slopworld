@@ -15,16 +15,16 @@ HTTP has no version negotiation; WebSocket requires `slopworld.protobuf.v2`.
 
 ### Authorization {#authorization}
 
-The daemon token grants root authority. Session and task routes also accept
-scoped grants; `rw` grants permit input, labels, and allowed lifecycle operations.
-Creating sessions or replacing their configuration requires root authority.
-Configuration, catalogs, files, usage, audio, and private state also require root,
-except for [template discovery](#agent-templates).
+The daemon token provides root authority. Agent tokens identify a stable agent;
+its current saved permissions authorize CLI and API actions on other agents and
+worktrees. Manual session grants are unavailable. Saving permissions applies to
+existing workers and open connections without restart. Already admitted operations
+finish under their operation guards.
 
-Route access groups describe middleware; handlers check each operation's
-permissions. Removing or renaming a session revokes its target memberships and
-owned grants and closes affected WebSockets. Reusing its name requires a new
-grant. See [Security model](../sandbox/security.md) for credential handling.
+Creating agents, changing permissions/configuration, external checkout registration,
+and host-terminal access require root. Removing, renaming, or replacing an identity
+revokes its credentials and closes affected WebSockets. See
+[Agent collaboration](../agents/agent-collaboration.md) for permission scopes.
 
 ## HTTP
 
@@ -100,7 +100,7 @@ caller determines task and sidebar parentage only.
 
 ### Sandbox inspection
 
-`GET /api/sessions/:name/sandbox` uses the session's read grant. It returns a
+`GET /api/sessions/:name/sandbox` checks self or current diagnostic access. It returns a
 sanitized saved launch plan and a best-effort live process tree. The plan survives
 process exit and does not prove startup succeeded. Host terminals have no plan.
 

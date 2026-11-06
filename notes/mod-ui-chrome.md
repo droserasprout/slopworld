@@ -20,6 +20,8 @@ same-type windows, so each menu level needs a separate instance; submenu openers
 non-null action to remain enabled.
 Selector width measurement includes menu checkbox columns and submenu arrows, so
 matching the popup to its source control does not truncate those rows.
+`UiSelector` owns both stacked form selectors and single-row label/dropdown fields;
+single-row fields keep their dropdowns aligned on the right as the form resizes.
 `UiMenuInput` supplies inline creation fields. Focused fields retain editing keys;
 menu accept dispatch submits them on Enter. Features own validation and draft guards,
 while the menu cancels field lifetime on closure.

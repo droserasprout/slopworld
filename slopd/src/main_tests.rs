@@ -1,6 +1,6 @@
 use super::*;
 use crate::config::{Daemon, ProjectCfg, SessionCfg};
-use crate::grant::Level;
+use crate::credentials::Level;
 use crate::session::SessionRuntime;
 use crate::shared::{http_wire, wire};
 use axum::body::Body;
@@ -190,17 +190,12 @@ async fn stalled_scoped_uploads_allow_revocation_and_recheck_authority_on_comple
             .expect("request body was not polled")
             .unwrap();
 
-        let revoke = Request::builder()
-            .method("DELETE")
-            .uri("/api/grants/grantor")
-            .header(shared::protocol::TOKEN_HEADER, "root-secret")
-            .body(Body::empty())
-            .unwrap();
-        let response = tokio::time::timeout(std::time::Duration::from_secs(1), app.oneshot(revoke))
-            .await
-            .expect("stalled upload blocked grant revocation")
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            manager.invalidate_session("grantor"),
+        )
+        .await
+        .expect("stalled upload blocked credential revocation");
 
         release.send(()).unwrap();
         let response = tokio::time::timeout(std::time::Duration::from_secs(1), upload)
@@ -237,7 +232,7 @@ async fn scoped_uploads_preserve_body_limits_and_accept_valid_json() {
             http_wire::encode_request(
                 "POST",
                 "/api/tasks",
-                serde_json::json!({"to":"target","body":"valid upload"}),
+                serde_json::json!({"to":"grantor","body":"valid upload"}),
             )
             .unwrap(),
             StatusCode::OK,
@@ -387,11 +382,10 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
     let manager = manager();
     manager.sync_from_config().await;
     let scoped = manager
-        .mint_grant("grantor".into(), vec!["target".into()], Level::Rw)
+        .mint_grant("target".into(), vec!["target".into()], Level::Rw)
         .await
         .unwrap();
     let app = app(&manager);
-    let revoke_app = app.clone();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move {
@@ -436,16 +430,7 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
 
     websocket_boundary(&mut socket).await;
 
-    let revoke = Request::builder()
-        .method("DELETE")
-        .uri(format!("{}/grantor", shared::protocol::routes::GRANTS))
-        .header(shared::protocol::TOKEN_HEADER, "root-secret")
-        .body(Body::empty())
-        .unwrap();
-    assert_eq!(
-        revoke_app.oneshot(revoke).await.unwrap().status(),
-        StatusCode::OK
-    );
+    manager.invalidate_session("target").await;
 
     manager.emit(crate::application::Event::Sessions {
         sessions: manager.views().await,
@@ -490,20 +475,20 @@ async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
 #[tokio::test]
 async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() {
     for level in [Level::Ro, Level::Rw] {
-        for subject in ["target", "grantor"] {
+        for subject in ["target"] {
             for rename in [false, true] {
                 let manager = manager();
                 let mut cfg = add_unrelated_sessions(&manager).await;
                 let token = manager
                     .mint_grant(
-                        "grantor".into(),
+                        "target".into(),
                         vec!["target".into(), "other".into()],
                         level,
                     )
                     .await
                     .unwrap();
                 let unrelated = manager
-                    .mint_grant("other-owner".into(), vec!["other".into()], level)
+                    .mint_grant("other".into(), vec!["other".into()], level)
                     .await
                     .unwrap();
                 let app = app(&manager);

@@ -544,7 +544,7 @@ async fn followups_reject_shell_templates_hosts_and_control_sequences_before_que
             .await
             .unwrap_err()
             .to_string()
-            .contains("live task worker")
+            .contains("live agent")
     );
     {
         let mut live = manager.live.write().await;
@@ -558,7 +558,7 @@ async fn followups_reject_shell_templates_hosts_and_control_sequences_before_que
             .await
             .unwrap_err()
             .to_string()
-            .contains("live task worker")
+            .contains("live agent")
     );
     assert!(rx.try_recv().is_err());
 }
@@ -612,7 +612,60 @@ async fn task_worker_delivery_fixture() -> (
 
 #[tokio::test]
 async fn followup_submits_guarded_paste_and_enter_and_audits_without_changing_task_status() {
-    let (manager, mut rx, task) = task_worker_delivery_fixture().await;
+    assert_followup_delivery(true).await;
+}
+
+#[tokio::test]
+async fn project_agent_followup_submits_and_audits_an_ordinary_task() {
+    assert_followup_delivery(false).await;
+}
+
+async fn assert_followup_delivery(worker: bool) {
+    let (manager, mut rx, task) = if worker {
+        task_worker_delivery_fixture().await
+    } else {
+        let (manager, rx) = delivery_fixture_config(Config {
+            sessions: vec![
+                SessionCfg {
+                    name: "sender".into(),
+                    project: "repo".into(),
+                    permissions: serde_json::from_value(serde_json::json!({
+                        "followup": "project_agents"
+                    }))
+                    .unwrap(),
+                    ..Default::default()
+                },
+                SessionCfg {
+                    name: "worker".into(),
+                    project: "repo".into(),
+                    cmd: Some("test-agent".into()),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        })
+        .await;
+        let sender = manager.task_participant("sender").await.unwrap();
+        let recipient = manager.task_participant("worker").await.unwrap();
+        let task = manager
+            .create_task_owned(sender, recipient, "Initial work".into(), None)
+            .await
+            .unwrap();
+        assert!(task.worker.is_none());
+        manager.live.write().await.get_mut("worker").unwrap().state = State::Idle;
+        (manager, rx, task)
+    };
+    let sender = if worker { crate::tasks::HOST } else { "sender" };
+    let cap = if worker {
+        crate::credentials::Cap::Root
+    } else {
+        crate::credentials::Cap::Scoped(crate::credentials::AgentCredential {
+            grantor: sender.into(),
+            sessions: Default::default(),
+            level: crate::credentials::Level::Rw,
+            revoked: Default::default(),
+        })
+    };
     let app = crate::application::Application::from_runtime(&manager);
     let root = manager.cfg_path().parent().unwrap();
     let script = r#"import os, pathlib, tty
@@ -648,9 +701,9 @@ time.sleep(60)
     .unwrap();
     crate::application::worker_tasks::followup(
         &app,
-        &crate::grant::Cap::Root,
+        &cap,
         Some(app.config_authority.root_generation()),
-        Some(crate::tasks::HOST.into()),
+        Some(sender.into()),
         task.id.clone(),
         "Check the tests λ".into(),
     )
@@ -675,7 +728,7 @@ time.sleep(60)
     assert!(
         history
             .iter()
-            .all(|entry| entry.sender == crate::tasks::HOST && entry.status == task.status)
+            .all(|entry| entry.sender == sender && entry.status == task.status)
     );
     let paste = rx.recv().await.unwrap();
     assert!(

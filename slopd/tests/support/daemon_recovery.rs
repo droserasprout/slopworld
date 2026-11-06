@@ -87,7 +87,17 @@ impl Daemon {
         assert_eq!(view.project, "repo");
         let worker = view.worker.unwrap();
         assert!(worker.enabled && worker.durable && worker.parent_bound);
-        assert!(worker.access.as_ref().unwrap().terminal.unwrap());
+        assert_eq!(
+            view.launch
+                .as_ref()
+                .unwrap()
+                .permissions
+                .as_ref()
+                .unwrap()
+                .terminal
+                .as_deref(),
+            Some("deny")
+        );
         assert_eq!(worker.parent, "parent");
         assert_eq!(worker.task_id, "recovery-task");
         assert!(view.runtime.unwrap().alive, "{}", self.logs());

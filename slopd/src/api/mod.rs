@@ -62,6 +62,7 @@ pub(super) fn parse_session(value: Value) -> Result<crate::config::SessionCfg, A
             "auto_resume",
             "initial_prompt",
             "workers",
+            "permissions",
             "worker",
             "parent",
             "task_id",

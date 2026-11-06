@@ -1,6 +1,6 @@
 //! Stored-state routes exercise authentication, extraction and protobuf encoding together.
 use crate::config::{Config, SessionCfg};
-use crate::grant::Level;
+use crate::credentials::Level;
 use crate::shared::{http_wire, protocol::TOKEN_HEADER, wire};
 use axum::{
     body::Body,

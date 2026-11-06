@@ -177,8 +177,8 @@ impl SessionRuntime {
             .next()
             .unwrap_or_default();
         anyhow::ensure!(
-            current.cfg.worker && !current.role.is_host() && current.state != State::Down,
-            "Follow-ups require a live task worker"
+            !current.role.is_host() && current.state != State::Down,
+            "Follow-ups require a live agent"
         );
         anyhow::ensure!(
             !crate::sandbox::is_shell_command(&executable),

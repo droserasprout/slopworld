@@ -14,7 +14,7 @@ Paths are relative to `slopd/src/`. Module declarations own the file inventory.
 | `worktrees/` | Checkout records, Git effects, and rollback guards. Application coordinates operations; see [worktrees](daemon-worktrees.md). |
 | `sandbox/`, `presets.rs`, `presets/` | Sandbox construction, private state, and preset catalogs. See [sandbox isolation](sandbox-isolation.md) and [presets](daemon-presets.md). |
 | `agent_templates/`, `prompt/` | Portable template snapshots and prompt substitution. Application owns catalog and launch coordination; see [templates](daemon-agent-templates.md) and [library](daemon-library.md). |
-| `tasks.rs`, `tasks/`, `grant.rs` | Task policy/persistence and scoped authority. See [tasks](agent-tasks.md) and [grants](agent-grants.md). |
+| `tasks.rs`, `tasks/`, `credentials.rs` | Task policy/persistence and agent identity credentials. See [tasks](agent-tasks.md) and [grants](agent-grants.md). |
 | `emu/`, `tmux/` | Terminal mirror and tmux transport. See [capture](daemon-terminal-capture.md). |
 | `desktop.rs` | Current desktop environment snapshots for sandbox socket mounts and forwarded variables. |
 | `music/`, `audio/`, `jukebox.rs` | Playback transitions, audio output, and station storage. See [jukebox](mod-jukebox.md). |

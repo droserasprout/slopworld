@@ -294,12 +294,10 @@ impl Tasks {
         let order = plan.order;
         self.persist(plan.apply(sender, note), order)
     }
+    // Application admission checks current follow-up authority for both workers and
+    // ordinary agents before handing the audit and delivery to an owned operation.
     pub(crate) fn followup_note(&mut self, id: &str, sender: &str, note: String) -> Result<()> {
         let entry = self.by_id.get(id).context("Task no longer exists")?;
-        ensure!(
-            entry.task.worker.is_some(),
-            "Follow-ups require a worker task"
-        );
         let order = entry.order;
         let mut task = entry.task.clone();
         let result = task.note.clone();
@@ -453,8 +451,7 @@ impl Tasks {
             };
             let task = &entry.task;
             let plan = if let Some(sender) = cancel_sender {
-                let supervising =
-                    task.worker.is_some() && task.from_id == who && supervised.contains(id);
+                let supervising = supervised.contains(id);
                 let plan = CancellationPlan::prepare(entry, who, force, supervising)?;
                 if task.status == Status::Canceled {
                     BatchChange::Unchanged(plan.task)

@@ -1,10 +1,10 @@
 use super::*;
 use crate::config::{Config, ProjectCfg};
-use crate::grant::Grant;
+use crate::credentials::AgentCredential;
 
 fn scoped(names: &[&str], level: Level) -> Cap {
-    Cap::Scoped(Grant {
-        grantor: "caller".into(),
+    Cap::Scoped(AgentCredential {
+        grantor: names.first().copied().unwrap_or("caller").into(),
         sessions: names.iter().map(|name| (*name).to_owned()).collect(),
         level,
         revoked: Default::default(),
@@ -131,7 +131,7 @@ async fn session_diagnostics_hide_unscoped_names_and_report_authorized_missing_t
 async fn label_updates_require_write_access_and_preserve_state_on_invalid_input() {
     let manager = configured_manager().await;
     for cap in [
-        scoped(&["agent"], Level::Ro),
+        scoped(&["unrelated"], Level::Ro),
         scoped(&["private"], Level::Rw),
     ] {
         assert_eq!(
@@ -216,7 +216,7 @@ async fn pinning_rejects_denied_missing_and_non_reader_sessions() {
     let manager = configured_manager().await;
     for (cap, name, expected) in [
         (
-            scoped(&["agent"], Level::Ro),
+            scoped(&["unrelated"], Level::Ro),
             "agent",
             StatusCode::FORBIDDEN,
         ),
@@ -321,7 +321,7 @@ async fn session_actions_require_write_access_and_keep_response_shapes() {
     macro_rules! check {
             ($action:ident, $status:expr) => {
                 for level in [Level::Ro, Level::Rw] {
-                    let cap = Cap::Scoped(Grant {
+                    let cap = Cap::Scoped(AgentCredential {
                         grantor: "caller".into(),
                         sessions: if level == Level::Ro { [name.clone()].into() } else { Default::default() },
                         level,
@@ -332,8 +332,8 @@ async fn session_actions_require_write_access_and_keep_response_shapes() {
                     assert_eq!(status, StatusCode::FORBIDDEN);
                     assert_eq!(body, json!({ "error": format!("not allowed: {name}") }));
                 }
-                for cap in [Cap::Root, Cap::Scoped(Grant {
-                    grantor: "caller".into(), sessions: [name.clone()].into(), level: Level::Rw, revoked: Default::default(),
+                for cap in [Cap::Root, Cap::Scoped(AgentCredential {
+                    grantor: name.clone(), sessions: [name.clone()].into(), level: Level::Rw, revoked: Default::default(),
                 })] {
                     let response = $action(State(manager.clone()), Extension(cap), Path(name.clone())).await;
                     if $status == StatusCode::OK {
@@ -363,8 +363,8 @@ async fn configured_session_stop_obeys_read_and_write_grants() {
         ..Default::default()
     });
     for level in [Level::Ro, Level::Rw] {
-        let cap = Cap::Scoped(Grant {
-            grantor: "caller".into(),
+        let cap = Cap::Scoped(AgentCredential {
+            grantor: if level == Level::Ro { "other" } else { "agent" }.into(),
             sessions: ["agent".into()].into(),
             level,
             revoked: Default::default(),
@@ -412,7 +412,7 @@ async fn replacing_session_configuration_is_root_only_and_root_can_change_sandbo
     let original = manager.sessions.config().await;
 
     for level in [Level::Ro, Level::Rw] {
-        let cap = Cap::Scoped(Grant {
+        let cap = Cap::Scoped(AgentCredential {
             grantor: "caller".into(),
             sessions: ["agent".into()].into(),
             level,

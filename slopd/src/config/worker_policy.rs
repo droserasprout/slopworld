@@ -1,8 +1,9 @@
-//! Portable delegation limits and access captured on a stable parent-worker relationship.
+//! Worker spawning limits and legacy relationship input. Current action scopes live
+//! in `permissions`; `session/caps.rs` resolves them into independent action flags.
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-/// Independent permissions on one parent-worker relationship; read access is implicit.
+/// Resolved action flags, also used to read legacy relationship settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "AccessInput")]
 pub struct WorkerAccess {
@@ -104,6 +105,7 @@ pub struct WorkerPolicy {
     /// Used when all_templates is false; an empty selection permits no templates.
     pub templates: BTreeSet<String>,
     pub all_templates: bool,
+    #[serde(skip_serializing)]
     pub access: WorkerAccess,
     pub recursive: bool,
 }

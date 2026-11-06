@@ -84,7 +84,7 @@ Choose network and DNS in the agent editor. See
 
 ## Workers {#workers}
 
-Configure delegation and allowed templates in **Edit agent > Workers**, or save
+Configure delegation and allowed templates in **Edit agent > Permissions**, or save
 those choices in a template. Delegation is disabled by default. The global
 [Worker settings](../customization/settings.md#workers) customize the initial prompt.
 Workers use the same agent settings and need daemon API access for tasks.

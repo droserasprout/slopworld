@@ -7,7 +7,7 @@ use tower::ServiceExt;
 #[tokio::test]
 async fn shared_health_and_task_routes_continue_during_worktree_guard() {
     let manager = crate::application::test_application(crate::config::Config::default());
-    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::credentials::Cap::Root));
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
     let (started, started_wait) = tokio::sync::oneshot::channel();
     let checkout = manager.sessions.session_read_operation(async {
@@ -47,7 +47,7 @@ async fn read_routes_emit_the_declared_binary_payloads() {
         toml::to_string(&crate::config::Config::default()).unwrap(),
     )
     .unwrap();
-    let app = crate::api::router(manager).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager).layer(Extension(crate::credentials::Cap::Root));
     for path in [
         "/api/health",
         "/api/sessions",
@@ -60,7 +60,6 @@ async fn read_routes_emit_the_declared_binary_payloads() {
         "/api/usage",
         "/api/audio",
         "/api/jukebox",
-        "/api/grants",
         "/api/tasks",
         "/api/browse?path=/tmp",
     ] {
@@ -117,7 +116,7 @@ async fn config_read_preserves_stored_host_identity_without_exposing_it_on_the_w
     });
     let manager = crate::application::test_application(cfg.clone());
     let settings = std::fs::read_to_string(manager.sessions.cfg_path()).unwrap();
-    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::credentials::Cap::Root));
     let response = app
         .oneshot(
             Request::builder()
@@ -153,7 +152,7 @@ async fn config_read_preserves_stored_host_identity_without_exposing_it_on_the_w
 #[tokio::test]
 async fn binary_requests_preserve_defaults_and_reject_wrong_media_and_malformed_bytes() {
     let manager = crate::application::test_application(crate::config::Config::default());
-    let app = crate::api::router(manager).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager).layer(Extension(crate::credentials::Cap::Root));
     for (mime, body, expected) in [
         (
             "application/json",
@@ -248,7 +247,7 @@ fn patches_are_explicit_and_preserve_false_zero_empty_and_escaped_map_keys() {
 async fn settings_patch_persists_bind_and_rotates_token_atomically() {
     let manager = crate::application::test_application(crate::config::Config::default());
     let original = manager.config_authority.read_config().await.clone();
-    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::credentials::Cap::Root));
     for (bind, token, expected) in [
         ("192.168.1.10:7717", "new-root-token", StatusCode::OK),
         ("invalid address", "another-token", StatusCode::BAD_REQUEST),
@@ -345,7 +344,7 @@ async fn root_session_snapshots_continue_during_an_unrelated_lifecycle_transacti
         ..Default::default()
     });
     manager.sessions.sync_from_config().await;
-    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::credentials::Cap::Root));
     let (release, wait) = tokio::sync::oneshot::channel::<()>();
     let transaction = manager
         .sessions

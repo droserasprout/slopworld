@@ -139,10 +139,10 @@ http:
       path: "/api/tasks"
       methods: [GET, POST, DELETE]
       scope: scoped
-    worker_access:
+    agent_permissions:
       protobuf:
-        PUT: [WorkerAccessReq, Ack]
-      path: "/api/sessions/:name/worker-access"
+        PUT: [AgentPermissionsReq, Ack]
+      path: "/api/sessions/:name/permissions"
       methods: [PUT]
       scope: root
     task_followup:
@@ -261,7 +261,7 @@ http:
         PUT: [CreateWorktreeReq, Worktree]
       path: "/api/worktrees/:id"
       methods: [DELETE, PUT]
-      scope: root
+      scope: scoped
     workers:
       protobuf:
         POST: [SpawnWorkerReq, WorkerResult]
@@ -279,19 +279,6 @@ http:
         GET: [Empty, AppsReply]
       path: "/api/open-apps"
       methods: [GET]
-      scope: root
-    grants:
-      protobuf:
-        GET: [Empty, GrantsReply]
-        POST: [GrantReq, GrantResult]
-      path: "/api/grants"
-      methods: [GET, POST]
-      scope: root
-    grantor:
-      protobuf:
-        DELETE: [Empty, Ack]
-      path: "/api/grants/:grantor"
-      methods: [DELETE]
       scope: root
     state:
       protobuf:

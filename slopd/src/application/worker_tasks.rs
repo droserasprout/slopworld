@@ -1,7 +1,7 @@
 //! Worker task authorization, destination planning, and follow-up audit coordination.
 //! Session owns identity and delivery leases; tasks owns mutation policy and persistence.
 use super::{Application, Configuration};
-use crate::grant::Cap;
+use crate::credentials::Cap;
 use crate::shared::protocol::SESSION_HEADER;
 use anyhow::Context;
 
@@ -57,74 +57,58 @@ async fn require_cancel_permission(
     cap: &Cap,
     who: &str,
     id: &str,
-) -> Result<(), OperationError> {
+) -> Result<bool, OperationError> {
     if cap.may_create() {
-        return Ok(());
+        return Ok(false);
     }
-    if let Some(task) = m
+    let Some(task) = m
         .sessions
         .task_store()
-        .task_for_async(who, id)
+        .task_any_async(id)
         .await
         .map_err(|e| err(Failure::Internal, e))?
-        && task.worker.is_some()
-        && task.from_id == who
-    {
-        let target = m
-            .sessions
-            .views()
-            .await
-            .into_iter()
-            .find(|view| view.worker.task_id == id);
-        let access = match target {
-            Some(target) => m.sessions.worker_access(cap, &target.name).await,
-            None => None,
-        };
-        if !access.is_some_and(|access| access.cancel) {
-            return Err(err(
-                Failure::Forbidden,
-                "The parent does not have permission for this worker action.",
-            ));
-        }
-    }
-    Ok(())
-}
-
-pub(crate) async fn followup_target(
-    m: &Application,
-    cap: &Cap,
-    caller: &str,
-    id: &str,
-) -> Result<String, OperationError> {
-    let who = m
-        .sessions
-        .task_participant(caller)
-        .await
-        .map_err(|e| err(Failure::Invalid, e))?
-        .identity;
-    let task = m
-        .sessions
-        .task_store()
-        .task_for_async(&who, id)
-        .await
-        .map_err(|e| err(Failure::Internal, e))?
-        .ok_or_else(|| err(Failure::Missing, "Task is unavailable."))?;
-    if task.worker.is_none() || (!cap.may_create() && task.from_id != who) {
-        return Err(err(
-            Failure::Forbidden,
-            "Only a worker's parent can send a follow-up.",
-        ));
-    }
-    if task.status == crate::tasks::Status::Canceled {
-        return Err(err(Failure::Invalid, "Task is canceled."));
+    else {
+        return Ok(false);
+    };
+    if task.to_id == who {
+        return Ok(false);
     }
     let target = m
         .sessions
         .views()
         .await
         .into_iter()
-        .find(|view| view.worker.task_id == id);
-    if !cap.may_create() && task.from_id == who {
+        .find(|view| view.launch.state_id == task.to_id);
+    let access = match target {
+        Some(target) => m.sessions.worker_access(cap, &target.name).await,
+        None => None,
+    };
+    if !access.is_some_and(|access| access.cancel) {
+        return Err(err(Failure::Forbidden, "Task cancellation is denied."));
+    }
+    Ok(true)
+}
+
+pub(crate) async fn followup_target(
+    m: &Application,
+    cap: &Cap,
+    _caller: &str,
+    id: &str,
+) -> Result<String, OperationError> {
+    let task = m
+        .sessions
+        .task_store()
+        .task_any_async(id)
+        .await
+        .map_err(|e| err(Failure::Internal, e))?
+        .ok_or_else(|| err(Failure::Missing, "Task is unavailable."))?;
+    let target = m
+        .sessions
+        .views()
+        .await
+        .into_iter()
+        .find(|view| view.launch.state_id == task.to_id);
+    if !cap.may_create() {
         let access = match &target {
             Some(target) => m.sessions.worker_access(cap, &target.name).await,
             None => None,
@@ -132,9 +116,12 @@ pub(crate) async fn followup_target(
         if !access.is_some_and(|access| access.followup) {
             return Err(err(
                 Failure::Forbidden,
-                "The parent does not have permission for this worker action.",
+                "Follow-ups to this agent are denied.",
             ));
         }
+    }
+    if task.status == crate::tasks::Status::Canceled {
+        return Err(err(Failure::Invalid, "Task is canceled."));
     }
     let target = target.ok_or_else(|| err(Failure::Missing, "Worker no longer exists."))?;
     let cfg = m
@@ -233,8 +220,7 @@ pub(crate) async fn cancel(
 ) -> Result<crate::tasks::BatchResult, OperationError> {
     let mut supervised = Vec::new();
     for id in &ids {
-        require_cancel_permission(m, cap, &who.identity, id).await?;
-        if !cap.may_create() {
+        if require_cancel_permission(m, cap, &who.identity, id).await? {
             supervised.push(id.clone());
         }
     }

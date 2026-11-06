@@ -55,7 +55,7 @@ impl SessionRuntime {
                 live.cfg.state_id == session.state_id,
                 "Worker identity changed"
             );
-            live.cfg.parent_access = session.parent_access;
+            live.cfg.permissions = session.permissions;
             live.cfg.workers = session.workers.clone();
         }
         Ok(())
@@ -95,6 +95,7 @@ impl SessionRuntime {
                     project: session.project,
                     identity: session.state_id,
                     policy: session.workers,
+                    permissions: session.permissions,
                 },
                 None => workers::Caller::Missing,
             }

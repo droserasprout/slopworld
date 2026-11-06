@@ -64,7 +64,8 @@ pub(crate) async fn load(binding: &StorageBinding) -> Result<Loaded> {
     // Only first startup provisions a credential. Existing settings must supply
     // one; silently rotating a missing token would conceal a configuration error.
     if new_settings {
-        cfg.daemon.token = crate::grant::gen_token().context("creating daemon root credential")?;
+        cfg.daemon.token =
+            crate::credentials::gen_token().context("creating daemon root credential")?;
     }
     let stores = Stores {
         projects: Store::load(binding).await?,

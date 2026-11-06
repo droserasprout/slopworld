@@ -259,7 +259,7 @@ async fn duplicate_is_independent_and_missing_sources_are_rejected() {
 #[tokio::test]
 async fn spawnable_catalog_filters_policy_and_enforces_agent_project() {
     use crate::config::{ProjectCfg, SessionCfg};
-    use crate::grant::{Grant, Level};
+    use crate::credentials::{AgentCredential, Level};
     let mut cfg = Config {
         projects: ["own", "other"]
             .into_iter()
@@ -292,7 +292,7 @@ async fn spawnable_catalog_filters_policy_and_enforces_agent_project() {
         .await
         .unwrap();
     }
-    let cap = Cap::Scoped(Grant {
+    let cap = Cap::Scoped(AgentCredential {
         grantor: "caller".into(),
         sessions: Default::default(),
         level: Level::Ro,

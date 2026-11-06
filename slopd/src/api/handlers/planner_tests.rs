@@ -1,5 +1,5 @@
 use super::*;
-use crate::grant::Cap;
+use crate::credentials::Cap;
 use axum::Extension;
 use axum::{body::Body, http::Request};
 use tower::ServiceExt;
@@ -14,10 +14,10 @@ async fn planner_routes_reject_agent_credentials_before_reading_or_writing() {
         ("PUT", "/api/planner/items/id/description"),
         ("PUT", "/api/planner/items/id/links"),
     ] {
-        let cap = Cap::Scoped(crate::grant::Grant {
+        let cap = Cap::Scoped(crate::credentials::AgentCredential {
             grantor: "agent".into(),
             sessions: Default::default(),
-            level: crate::grant::Level::Rw,
+            level: crate::credentials::Level::Rw,
             revoked: Default::default(),
         });
         let router = crate::api::router(app.clone()).layer(Extension(cap));

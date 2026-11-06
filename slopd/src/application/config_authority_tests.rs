@@ -10,7 +10,10 @@ fn config(token: &str) -> Config {
 
 #[tokio::test]
 async fn settings_lock_excludes_rotation_until_credentials_and_epoch_can_publish_together() {
-    let config_authority = ConfigAuthority::new(config("old"), crate::grant::Grants::default());
+    let config_authority = ConfigAuthority::new(
+        config("old"),
+        crate::credentials::CredentialStore::default(),
+    );
     let settings = config_authority.daemon_settings();
     let mut changes = config_authority.auth_changes();
     let read = config_authority.read_config().await;
@@ -39,13 +42,16 @@ async fn settings_lock_excludes_rotation_until_credentials_and_epoch_can_publish
     assert!(config_authority.resolve_cap(Some("old")).await.is_none());
     assert!(matches!(
         config_authority.resolve_cap(Some("new")).await,
-        Some(crate::grant::Cap::Root)
+        Some(crate::credentials::Cap::Root)
     ));
 }
 
 #[tokio::test]
 async fn unchanged_credentials_preserve_epochs_and_settings_reader_outlives_owner() {
-    let config_authority = ConfigAuthority::new(config("root"), crate::grant::Grants::default());
+    let config_authority = ConfigAuthority::new(
+        config("root"),
+        crate::credentials::CredentialStore::default(),
+    );
     let settings = config_authority.daemon_settings();
     let mut changes = config_authority.auth_changes();
     let mut next = config("root");

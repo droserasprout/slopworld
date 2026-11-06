@@ -1,5 +1,5 @@
 use crate::api::protobuf::CONTENT_TYPE;
-use crate::grant::Cap;
+use crate::credentials::Cap;
 use crate::shared::{protocol, wire};
 use axum::{
     Extension, Router,

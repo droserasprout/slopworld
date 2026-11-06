@@ -31,7 +31,7 @@ namespace SlopWorld
                 StateId = j.Launch.StateId,
                 AutoResumePending = j.Runtime.AutoResumePending,
                 Workers = WorkerPolicyDefaults(j.Launch.Workers),
-                ParentAccess = WorkerAccessDefaults(j.Worker.Access),
+                Permissions = PermissionDefaults(j.Launch.Permissions),
                 ParentBound = j.Worker.ParentBound,
                 Worker = j.Worker.Enabled,
                 Parent = j.Worker.Parent,

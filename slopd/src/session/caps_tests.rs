@@ -1,5 +1,5 @@
 use crate::config::{Config, Daemon, SessionCfg};
-use crate::grant::{Cap, Level};
+use crate::credentials::{Cap, Level};
 use crate::session::test_manager;
 use crate::session::{AgentLifetime, SessionRole};
 
@@ -53,10 +53,10 @@ async fn capabilities_resolve_and_grants_stay_scoped() {
         .resolve_cap(Some(&token))
         .await
         .unwrap();
-    assert!(cap.allows("target", false, Level::Ro));
+    assert!(!cap.allows("target", false, Level::Ro));
     assert!(!cap.allows("target", false, Level::Rw));
-    assert!(!cap.allows("grantor", false, Level::Ro));
-    assert!(manager.cap_ok(&cap, "target", Level::Ro).await);
+    assert!(cap.allows("grantor", false, Level::Ro));
+    assert!(!manager.cap_ok(&cap, "target", Level::Ro).await);
     assert!(!manager.cap_ok(&cap, "target", Level::Rw).await);
 
     manager.revoke_grants("grantor").await.unwrap();
@@ -122,7 +122,7 @@ async fn durable_stop_preserves_grants_but_ephemeral_removal_invalidates_them() 
             let manager = test_manager(config());
             manager.sync_from_config().await;
             let token = manager
-                .mint_grant("grantor".into(), vec!["target".into()], level)
+                .mint_grant(subject.into(), vec![subject.into()], level)
                 .await
                 .unwrap();
             let cap = manager
@@ -131,14 +131,14 @@ async fn durable_stop_preserves_grants_but_ephemeral_removal_invalidates_them() 
                 .await
                 .unwrap();
             manager.stop(subject).await.unwrap();
-            assert!(manager.cap_ok(&cap, "target", level).await);
+            assert!(manager.cap_ok(&cap, subject, level).await);
             assert!(manager.start(subject).await.is_err()); // No command in this fixture.
-            assert!(manager.cap_ok(&cap, "target", level).await);
+            assert!(manager.cap_ok(&cap, subject, level).await);
             manager.live.write().await.get_mut(subject).unwrap().role =
                 SessionRole::Agent(AgentLifetime::Temporary);
             manager.stop(subject).await.unwrap();
             manager.sync_from_config().await;
-            assert!(!manager.cap_ok(&cap, "target", level).await);
+            assert!(!manager.cap_ok(&cap, subject, level).await);
         }
     }
 }
@@ -187,7 +187,7 @@ async fn relationship_roles_follow_stable_identity_and_keep_manual_grants_indepe
     cfg.sessions[1].parent = "grantor".into();
     cfg.sessions[1].parent_id = "1111111111111111".into();
     let manager = test_manager(cfg);
-    let cap = Cap::Scoped(crate::grant::Grant {
+    let cap = Cap::Scoped(crate::credentials::AgentCredential {
         grantor: "grantor".into(),
         sessions: ["grantor".into()].into(),
         level: Level::Rw,
@@ -200,7 +200,7 @@ async fn relationship_roles_follow_stable_identity_and_keep_manual_grants_indepe
             terminal: bits & 4 != 0,
             lifecycle: bits & 8 != 0,
         };
-        manager.config_authority.write().await.sessions[1].parent_access = role;
+        manager.config_authority.write().await.sessions[0].permissions = role.into();
         assert_eq!(manager.worker_access(&cap, "target").await, Some(role));
         assert!(manager.worker_diagnostics_ok(&cap, "target").await);
         assert_eq!(
@@ -234,7 +234,7 @@ async fn relationship_roles_follow_stable_identity_and_keep_manual_grants_indepe
         grant.sessions.insert("target".into());
         grant.level = Level::Ro;
     }
-    assert!(manager.terminal_cap_ok(&renamed, "target", Level::Ro).await);
+    assert!(!manager.terminal_cap_ok(&renamed, "target", Level::Ro).await);
     assert!(!manager.terminal_cap_ok(&renamed, "target", Level::Rw).await);
     manager.config_authority.write().await.sessions[1]
         .parent_id

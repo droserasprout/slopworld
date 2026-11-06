@@ -5,7 +5,7 @@ async fn scope_event(cap: &Cap, event: Arc<EventMessage>) -> Option<Arc<EventMes
 }
 use super::*;
 use crate::api::types::{AudioReq, AudioSelection};
-use crate::grant::Grant;
+use crate::credentials::AgentCredential;
 use crate::session::{
     ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
     SessionWorkerView, State,
@@ -19,7 +19,7 @@ async fn socket_prompts_require_target_write_access_and_global_commands_require_
     use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
     use crate::shared::wire::{self, client_message::Payload as C};
     for (cap, prompt_allowed, root) in [
-        (scoped(&["target"], Level::Ro), false, false),
+        (scoped(&["denied"], Level::Ro), false, false),
         (scoped(&["other"], Level::Rw), false, false),
         (scoped(&["target"], Level::Rw), true, false),
         (Cap::Root, true, true),
@@ -218,6 +218,7 @@ fn view(name: &str) -> SessionView {
         project: String::new(),
         dir: String::new(),
         launch: SessionLaunchView {
+            permissions: Default::default(),
             workers: Default::default(),
             command: String::new(),
             command_preset: String::new(),
@@ -237,7 +238,6 @@ fn view(name: &str) -> SessionView {
         },
         worker: SessionWorkerView {
             parent_bound: false,
-            access: Default::default(),
             enabled: false,
             parent: String::new(),
             task_id: String::new(),
@@ -367,8 +367,8 @@ fn session_groups_match_wire_schema() {
 }
 
 fn scoped(sessions: &[&str], level: Level) -> Cap {
-    Cap::Scoped(Grant {
-        grantor: "g".to_string(),
+    Cap::Scoped(AgentCredential {
+        grantor: sessions.first().copied().unwrap_or("caller").into(),
         sessions: sessions
             .iter()
             .map(|s| s.to_string())
@@ -436,7 +436,7 @@ async fn a_scoped_grant_sees_only_the_sessions_it_names() {
                 .await
                 .expect("a filtered list is still an event")
         ),
-        vec!["a".to_string(), "c".to_string()]
+        vec!["a".to_string()]
     );
 }
 
@@ -485,7 +485,7 @@ async fn screens_require_a_live_grant_for_the_named_session() {
     let Cap::Scoped(grant) = cap.clone() else {
         panic!("test capability must be scoped")
     };
-    let mut grants = crate::grant::Grants::default();
+    let mut grants = crate::credentials::CredentialStore::default();
     grants.mint(grant);
     grants.invalidate_session("a");
     assert!(scope_event(&cap, event).await.is_none());
@@ -712,7 +712,7 @@ async fn subscriptions_filter_frames_and_flush_latest_frames_before_control_even
             .await
         );
     }
-    assert_eq!(subs.lock().await.len(), 2);
+    assert_eq!(subs.lock().await.len(), 1);
     let (events, rx) = broadcast::channel(32);
     let pump = spawn_frame_pump(rx, socket.tx.clone(), subs.clone(), cap.clone());
     for (name, seq) in [
@@ -760,7 +760,7 @@ async fn subscriptions_filter_frames_and_flush_latest_frames_before_control_even
         }
     }
     assert_eq!(latest.get("a"), Some(&4));
-    assert_eq!(latest.get("b"), Some(&5));
+    assert_eq!(latest.get("b"), None);
     assert!(
         Box::pin(handle_client_msg(
             ClientMsg::Unsub { name: "a".into() },
@@ -950,12 +950,12 @@ async fn dropping_scroll_replies_cancels_pending_captures() {
 #[tokio::test]
 async fn auth_changes_ignore_unrelated_credentials_but_close_on_revocation_or_lost_events() {
     let (events, mut rx) = broadcast::channel(2);
-    events.send(AuthChange::GrantsRevoked).unwrap();
+    events.send(AuthChange::CredentialsRevoked).unwrap();
     events.send(AuthChange::RootTokenChanged).unwrap();
     assert!(auth_invalidated(&mut rx, &Cap::Root).await);
     let cap = scoped(&["a"], Level::Ro);
     events.send(AuthChange::RootTokenChanged).unwrap();
-    events.send(AuthChange::GrantsRevoked).unwrap();
+    events.send(AuthChange::CredentialsRevoked).unwrap();
     tokio::time::timeout(Duration::from_millis(20), auth_invalidated(&mut rx, &cap))
         .await
         .unwrap_err();
@@ -965,7 +965,7 @@ async fn auth_changes_ignore_unrelated_credentials_but_close_on_revocation_or_lo
     grant
         .revoked
         .store(true, std::sync::atomic::Ordering::Release);
-    events.send(AuthChange::GrantsRevoked).unwrap();
+    events.send(AuthChange::CredentialsRevoked).unwrap();
     assert!(auth_invalidated(&mut rx, &cap).await);
     for _ in 0..3 {
         events.send(AuthChange::RootTokenChanged).unwrap();
@@ -1278,7 +1278,7 @@ async fn terminal_commands_require_write_scope_and_current_run() {
             .store(true, std::sync::atomic::Ordering::Release);
     }
     for cap in [
-        scoped(&["target"], Level::Ro),
+        scoped(&["unrelated"], Level::Ro),
         scoped(&["other"], Level::Rw),
         revoked,
     ] {
@@ -1363,7 +1363,7 @@ async fn mouse_and_resize_commands_enforce_scope_before_changing_terminal() {
             .unwrap(),
         )
     };
-    let ro = scoped(&["target"], Level::Ro);
+    let ro = scoped(&["unrelated"], Level::Ro);
     assert!(handle_client_msg(mouse("press"), &manager, &ro, &socket.tx, &subs).await);
     assert!(handle_client_msg(resize(), &manager, &ro, &socket.tx, &subs).await);
     assert!(input.try_recv().is_err());
@@ -1935,6 +1935,7 @@ async fn open_socket_filters_terminal_events_after_relationship_downgrade_and_re
             SessionCfg {
                 name: "parent".into(),
                 state_id: "1111111111111111".into(),
+                permissions: WorkerAccess::all().into(),
                 ..Default::default()
             },
             SessionCfg {
@@ -1951,7 +1952,7 @@ async fn open_socket_filters_terminal_events_after_relationship_downgrade_and_re
         ],
         ..Default::default()
     });
-    let cap = Cap::Scoped(Grant {
+    let cap = Cap::Scoped(AgentCredential {
         grantor: "parent".into(),
         sessions: Default::default(),
         level: Level::Rw,
@@ -1970,7 +1971,7 @@ async fn open_socket_filters_terminal_events_after_relationship_downgrade_and_re
         },
         WorkerAccess::none(),
     ] {
-        manager.config_authority.write().await.sessions[1].parent_access = role;
+        manager.config_authority.write().await.sessions[0].permissions = role.into();
         // Simulate a frame retained before the downgrade; final publication rechecks it.
         send(&socket.tx, &cap, &event).await.unwrap();
         let views = message(Event::Sessions {

@@ -1,5 +1,5 @@
 use crate::config::{Config, Daemon, SessionCfg};
-use crate::grant::Level;
+use crate::credentials::Level;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -99,7 +99,7 @@ async fn replacement_waits_for_authorized_use_and_then_rejects_the_old_capabilit
             ..Default::default()
         });
         let token = manager
-            .mint_grant("grantor".into(), vec!["target".into()], level)
+            .mint_grant("target".into(), vec!["target".into()], level)
             .await
             .unwrap();
         let cap = manager

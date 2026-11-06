@@ -24,7 +24,7 @@ pub(crate) enum WorktreeArgs {
         #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
         path: Option<String>,
     },
-    /// Rename a registered worktree (requires the root token)
+    /// Rename a registered worktree (requires worktree management permission)
     Rename {
         #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
         project: String,

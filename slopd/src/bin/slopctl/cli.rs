@@ -56,7 +56,7 @@ enum CliCommand {
     /// Discover and inspect agent templates
     #[command(subcommand)]
     Template(TemplateCommand),
-    /// Manage project worktrees; rename and remove require the root token
+    /// Manage project worktrees; mutations require worktree management permission
     #[command(subcommand)]
     Worktree(WorktreeArgs),
     /// Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set

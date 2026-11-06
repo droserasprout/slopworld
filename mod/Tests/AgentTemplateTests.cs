@@ -9,9 +9,9 @@ namespace SlopWorld.Tests
             var template = new AgentTemplateInfo();
             template.Workers.Enabled = false;
             template.Workers.AllTemplates = false;
-            template.Workers.Access.Followup = false;
-            template.Workers.Access.Cancel = false;
-            template.Workers.Access.Lifecycle = true;
+            template.Permissions.Followup = "deny";
+            template.Permissions.Cancel = "deny";
+            template.Permissions.Lifecycle = "own_workers";
             template.Workers.Templates.Add("review");
             var form = new SessionInfo();
             template.ApplyTo(form);
@@ -25,11 +25,15 @@ namespace SlopWorld.Tests
             var reloaded = AgentTemplateInfo.FromWire(saved);
             AssertEx.Equal(false, reloaded.Workers.Enabled, "disabled policy persists");
             AssertEx.Equal(false, reloaded.Workers.AllTemplates, "explicit selection persists");
-            AssertEx.Equal(false, reloaded.Workers.Access.Followup, "followup persists");
-            AssertEx.Equal(true, reloaded.Workers.Access.Lifecycle, "lifecycle is independent");
+            AssertEx.Equal("deny", reloaded.Permissions.Followup, "followup persists");
             AssertEx.Equal(
-                false,
-                reloaded.Workers.Access.Terminal,
+                "own_workers",
+                reloaded.Permissions.Lifecycle,
+                "lifecycle is independent"
+            );
+            AssertEx.Equal(
+                "deny",
+                reloaded.Permissions.Terminal,
                 "lifecycle does not imply terminal"
             );
             AssertEx.Equal(2, reloaded.Workers.Templates.Count, "selection round trip");
@@ -37,37 +41,21 @@ namespace SlopWorld.Tests
             copy.Workers.Templates.Clear();
             AssertEx.Equal(2, reloaded.Workers.Templates.Count, "duplicate owns its selection");
             var request = form.ToWire();
-            AssertEx.Equal(false, request.Workers.Access.Cancel, "agent saves permission");
+            AssertEx.Equal("deny", request.Permissions.Cancel, "agent saves permission");
             request.Workers.Templates.Clear();
             AssertEx.Equal(2, form.Workers.Templates.Count, "request owns its selection");
-            var defaults = SessionInfo.WorkerPolicyDefaults(new Wire.WorkerPolicy());
+            var spawningDefaults = SessionInfo.WorkerPolicyDefaults(new Wire.WorkerPolicy());
             AssertEx.True(
-                !defaults.Enabled && defaults.AllTemplates,
+                !spawningDefaults.Enabled && spawningDefaults.AllTemplates,
                 "delegation requires explicit permission"
             );
-            var explicitEmpty = SessionInfo.WorkerAccessDefaults(new Wire.WorkerAccess());
-            AssertEx.Equal(
-                false,
-                explicitEmpty.Terminal,
-                "present partial permissions use permission defaults"
-            );
-            var independent = SessionInfo.WorkerAccessDefaults(
-                new Wire.WorkerAccess
-                {
-                    Followup = false,
-                    Cancel = true,
-                    Terminal = true,
-                    Lifecycle = false,
-                }
-            );
-            AssertEx.Equal(false, independent.Followup, "explicit followup false preserved");
-            AssertEx.Equal(true, independent.Terminal, "terminal independent of followup");
-            AssertEx.Equal(false, independent.Lifecycle, "terminal does not imply lifecycle");
-            AssertEx.Equal(true, defaults.Access.Followup, "followup default");
-            AssertEx.Equal(true, defaults.Access.Cancel, "cancel default");
-            AssertEx.Equal(false, defaults.Access.Terminal, "terminal default");
-            AssertEx.Equal(false, defaults.Access.Lifecycle, "lifecycle default");
-            AssertEx.Equal(false, defaults.Recursive, "recursion requires explicit permission");
+            var defaults = SessionInfo.PermissionDefaults();
+            AssertEx.Equal("own_workers", defaults.Followup, "followup default");
+            AssertEx.Equal("own_workers", defaults.Cancel, "cancel default");
+            AssertEx.Equal("deny", defaults.Terminal, "terminal default");
+            AssertEx.Equal("deny", defaults.Lifecycle, "lifecycle default");
+            AssertEx.Equal("deny", defaults.Delete, "delete default");
+            AssertEx.Equal(false, defaults.Worktrees, "worktrees default");
         }
 
         public static void CapturedDependenciesKeepBreadthFirstOrderAndDeduplicateCycles()

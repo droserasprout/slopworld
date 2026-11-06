@@ -31,7 +31,7 @@ namespace SlopWorld
             public const string Template = "/api/templates/:name";
             public const string TemplateCreate = "/api/templates/:name/create";
             public const string Tasks = "/api/tasks";
-            public const string WorkerAccess = "/api/sessions/:name/worker-access";
+            public const string AgentPermissions = "/api/sessions/:name/permissions";
             public const string TaskFollowup = "/api/tasks/:id/followup";
             public const string TasksCancel = "/api/tasks/cancel";
             public const string TasksRemove = "/api/tasks/remove";
@@ -53,8 +53,6 @@ namespace SlopWorld
             public const string Workers = "/api/workers";
             public const string FileAction = "/api/file-action";
             public const string OpenApps = "/api/open-apps";
-            public const string Grants = "/api/grants";
-            public const string Grantor = "/api/grants/:grantor";
             public const string State = "/api/state";
             public const string StateTrash = "/api/state/trash";
             public const string StateItem = "/api/state/:kind/:key";

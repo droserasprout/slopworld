@@ -112,7 +112,7 @@ reset private state, restore trash, or delete unused state. See
 Open **Settings > Agents > Workers** to edit and save the initial worker prompt.
 Changes apply to new workers.
 
-Configure delegation, allowed templates, and parent permissions in **Edit agent > Workers**.
+Configure delegation, allowed templates, and current agent permissions in **Edit agent > Permissions**.
 See [Agent collaboration](../agents/agent-collaboration.md#parent-worker-access).
 
 ## Planner

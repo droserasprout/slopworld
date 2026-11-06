@@ -3,7 +3,7 @@ use super::{ApiResult, App, err};
 use crate::api::protobuf::{Proto, domain};
 use crate::application::workers::Workers;
 use crate::application::worktrees::Worktrees;
-use crate::grant::Cap;
+use crate::credentials::Cap;
 use crate::shared::wire;
 use axum::{
     Extension,
@@ -52,6 +52,7 @@ pub(crate) async fn create_worktree(
     headers: HeaderMap,
     Proto(q): Proto<wire::CreateWorktreeReq>,
 ) -> ApiResult<wire::Worktree> {
+    require_manage(&m, &cap).await?;
     let mut q: crate::application::worktrees::WorktreeRequest = domain(q)?;
     if !q.path.is_empty() && !cap.may_create() {
         return Err(err(
@@ -72,21 +73,39 @@ pub(crate) async fn create_worktree(
 
 pub(crate) async fn remove_worktree(
     State(m): State<App>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
     Path(id): Path<String>,
     Query(q): Query<WorktreeQuery>,
 ) -> ApiResult {
-    super::ack_result(Worktrees::new(&m).remove_worktree(q.project, id).await)
+    require_manage(&m, &cap).await?;
+    let caller = worktree_principal(&cap, &headers)?;
+    let project = Workers::new(&m)
+        .worker_project(&caller, &q.project)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+
+    super::ack_result(Worktrees::new(&m).remove_worktree(project, id).await)
 }
 
 pub(crate) async fn rename_worktree(
     State(m): State<App>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
     Path(id): Path<String>,
     Query(q): Query<WorktreeQuery>,
     Proto(req): Proto<wire::CreateWorktreeReq>,
 ) -> ApiResult<wire::Worktree> {
+    require_manage(&m, &cap).await?;
+    let caller = worktree_principal(&cap, &headers)?;
+    let project = Workers::new(&m)
+        .worker_project(&caller, &q.project)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+
     let req: crate::application::worktrees::WorktreeRequest = domain(req)?;
     let worktree = Worktrees::new(&m)
-        .rename_worktree(q.project, id, req.name)
+        .rename_worktree(project, id, req.name)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(worktree_reply(worktree)))
@@ -143,3 +162,11 @@ fn worktree_reply(worktree: crate::worktrees::Worktree) -> wire::Worktree {
 #[cfg(test)]
 #[path = "worktrees_tests.rs"]
 mod tests;
+
+async fn require_manage(m: &App, cap: &Cap) -> Result<(), crate::api::protobuf::ApiError> {
+    if m.sessions.manage_worktrees_ok(cap).await {
+        Ok(())
+    } else {
+        Err(err(StatusCode::FORBIDDEN, "Worktree management is denied."))
+    }
+}

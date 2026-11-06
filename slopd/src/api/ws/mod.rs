@@ -12,7 +12,7 @@ use outbound::{run_frame_pump, send, send_initial_snapshot};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
-use crate::grant::{Cap, Level};
+use crate::credentials::{Cap, Level};
 use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::{HeaderMap, StatusCode};
@@ -341,7 +341,7 @@ impl CommandIntake {
 async fn auth_invalidated(changes: &mut broadcast::Receiver<AuthChange>, cap: &Cap) -> bool {
     loop {
         match changes.recv().await {
-            Ok(AuthChange::GrantsRevoked) => {
+            Ok(AuthChange::CredentialsRevoked) => {
                 if !cap.is_valid() {
                     return true;
                 }

@@ -1,5 +1,4 @@
 using System.Linq;
-using UnityEngine;
 using Verse;
 
 namespace SlopWorld
@@ -8,36 +7,14 @@ namespace SlopWorld
     {
         void DrawWorkers(Listing_Standard l)
         {
-            bool enabled = GUI.enabled;
-            GUI.enabled = enabled && (!_s.Worker || _s.ParentBound);
-            try
-            {
-                DrawWorkerFields(l);
-            }
-            finally
-            {
-                GUI.enabled = enabled;
-            }
-        }
-
-        void DrawWorkerFields(Listing_Standard l)
-        {
-            if (_s.Worker)
-            {
-                if (!_s.ParentBound)
-                    UiLayout.Note(
-                        l,
-                        "This worker has no saved parent identity. Spawn a new worker to edit its permissions."
-                    );
-                WorkerPermissionFields.Draw(
-                    l,
-                    "What "
-                        + (string.IsNullOrEmpty(_s.Parent) ? "the parent" : _s.Parent)
-                        + " can do",
-                    _s.ParentAccess
-                );
-                UiLayout.Note(l, "Applies to this worker only.");
-            }
+            WorkerPermissionFields.Draw(l, _s.Permissions);
+            UiLayout.Note(
+                l,
+                EditingTemplate
+                    ? "New agents copy these permissions."
+                    : "Changes apply when saved, including to existing workers. No restart required."
+            );
+            UiLayout.SectionHeading(l, "Worker spawning");
             var policy = _s.Workers;
             policy.Enabled = UiControls.Checkbox(l, "Allow spawning workers", policy.Enabled);
             UiLayout.Note(l, "Applies to new workers. Edit existing workers separately.");
@@ -73,7 +50,6 @@ namespace SlopWorld
             }
             if (allowed.Count == 0)
                 UiLayout.Note(l, "No templates. Create one in Library.");
-            WorkerPermissionFields.Draw(l, "Permissions", policy.Access, locked: !policy.Enabled);
             UiLayout.SectionHeading(l, "Advanced");
             policy.Recursive = UiControls.Checkbox(
                 l,

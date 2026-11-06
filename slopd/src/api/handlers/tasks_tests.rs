@@ -65,7 +65,7 @@ fn caller(name: &str) -> HeaderMap {
 }
 
 fn scoped(name: &str) -> Cap {
-    Cap::Scoped(crate::grant::Grant {
+    Cap::Scoped(crate::credentials::AgentCredential {
         grantor: name.into(),
         sessions: Default::default(),
         level: Level::Ro,
@@ -419,7 +419,7 @@ async fn bulk_cancel_remove_and_prune_enforce_scope() {
         .await
         .unwrap_err()
         .0,
-        StatusCode::BAD_REQUEST
+        StatusCode::FORBIDDEN
     );
     assert!(
         store()
@@ -776,6 +776,7 @@ async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient
             sessions: vec![
                 SessionCfg {
                     name: "parent".into(),
+                    permissions: access.into(),
                     ..Default::default()
                 },
                 SessionCfg {
@@ -848,14 +849,21 @@ async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient
                 worker_tasks::followup_target(&manager, &scoped("parent"), "parent", &task.id)
                     .await
                     .unwrap_err();
-            assert_eq!(operation_error(rejected).0, StatusCode::BAD_REQUEST);
+            assert_eq!(
+                operation_error(rejected).0,
+                if access.followup {
+                    StatusCode::BAD_REQUEST
+                } else {
+                    StatusCode::FORBIDDEN
+                }
+            );
         }
     }
 }
 
 #[tokio::test]
 async fn relationship_edits_persist_without_changing_parent_policy_and_reject_legacy_binding() {
-    use crate::config::{Config, SessionCfg, WorkerAccess};
+    use crate::config::{AgentPermissions, Config, SessionCfg, WorkerAccess};
     let manager = crate::application::test_application(Config {
         sessions: vec![
             SessionCfg {
@@ -882,34 +890,39 @@ async fn relationship_edits_persist_without_changing_parent_policy_and_reject_le
     let workers = Workers::new(&manager);
     assert!(
         workers
-            .set_access("child", "previous-task", WorkerAccess::all(), None)
+            .set_access("child", "previous-task", AgentPermissions::default(), None)
             .await
             .unwrap_err()
             .to_string()
             .contains("relationship changed")
     );
     workers
-        .set_access("child", "child-task", WorkerAccess::none(), None)
+        .set_access(
+            "child",
+            "child-task",
+            AgentPermissions {
+                worktrees: true,
+                ..Default::default()
+            },
+            None,
+        )
         .await
         .unwrap();
     let cfg = crate::config::Config::load(manager.sessions.cfg_path())
         .await
         .unwrap();
-    assert_eq!(
-        cfg.session("child").unwrap().parent_access,
-        WorkerAccess::none()
-    );
+    assert!(cfg.session("child").unwrap().permissions.worktrees);
     assert_eq!(
         cfg.session("parent").unwrap().workers.access,
         WorkerAccess::default()
     );
     assert!(
         workers
-            .set_access("legacy", "legacy-task", WorkerAccess::all(), None)
+            .set_access("legacy", "legacy-task", AgentPermissions::default(), None)
             .await
             .unwrap_err()
             .to_string()
-            .contains("no captured parent identity")
+            .contains("relationship changed")
     );
     assert!(
         manager
@@ -1003,8 +1016,8 @@ async fn followup_destination_preserves_identity_and_missing_worker_errors() {
     let changed = worker_tasks::followup_target(&manager, &Cap::Root, "parent", &task.id)
         .await
         .unwrap_err();
-    assert_eq!(changed.message, "Worker identity changed.");
-    assert_eq!(operation_error(changed).0, StatusCode::FORBIDDEN);
+    assert_eq!(changed.message, "Worker no longer exists.");
+    assert_eq!(operation_error(changed).0, StatusCode::NOT_FOUND);
     {
         let mut cfg = manager.config_authority.write().await;
         cfg.sessions[1].task_id.clear();
@@ -1068,4 +1081,94 @@ async fn generic_task_updates_obey_cancellation_policy() {
             assert_eq!(result.unwrap_err().0, StatusCode::BAD_REQUEST);
         }
     }
+}
+
+#[tokio::test]
+async fn project_task_actions_use_current_policy_and_preserve_recipient_transition_rules() {
+    let m = mailbox_manager();
+    {
+        let mut cfg = m.config_authority.write().await;
+        for session in &mut cfg.sessions {
+            session.project = if session.name == "dave" {
+                "outside"
+            } else {
+                "repo"
+            }
+            .into();
+        }
+    }
+    m.sessions.sync_from_config().await;
+    let task = mailbox_task(&m, "alice", "bob", "project work")
+        .await
+        .unwrap();
+    let outside = mailbox_task(&m, "alice", "dave", "outside work")
+        .await
+        .unwrap();
+    for (scope, allowed) in [
+        ("deny", false),
+        ("own_workers", false),
+        ("project_agents", true),
+        ("deny", false),
+    ] {
+        m.config_authority.write().await.sessions[2].permissions =
+            serde_json::from_value(serde_json::json!({"followup":scope, "cancel":scope})).unwrap();
+        let result = worker_tasks::followup_target(&m, &scoped("carol"), "carol", &task.id).await;
+        assert_eq!(result.is_ok(), allowed);
+        let error = worker_tasks::followup_target(&m, &scoped("carol"), "carol", &outside.id)
+            .await
+            .unwrap_err();
+        assert_eq!(operation_error(error).0, StatusCode::FORBIDDEN);
+    }
+    m.sessions
+        .task_store()
+        .update_task_async(
+            &mailbox_identity("bob"),
+            "bob",
+            &task.id,
+            crate::tasks::Status::Working,
+            None,
+        )
+        .await
+        .unwrap();
+    let request = || {
+        Proto(wire::RemoveTasksReq {
+            ids: vec![task.id.clone()],
+        })
+    };
+    assert_eq!(
+        cancel_tasks(
+            State(m.clone()),
+            Extension(scoped("bob")),
+            HeaderMap::new(),
+            request()
+        )
+        .await
+        .unwrap_err()
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        cancel_tasks(
+            State(m.clone()),
+            Extension(scoped("carol")),
+            HeaderMap::new(),
+            request()
+        )
+        .await
+        .unwrap_err()
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    m.config_authority.write().await.sessions[2].permissions =
+        serde_json::from_value(serde_json::json!({"cancel":"project_agents"})).unwrap();
+    let result = cancel_tasks(
+        State(m.clone()),
+        Extension(scoped("carol")),
+        HeaderMap::new(),
+        request(),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert_eq!(result.committed, vec![task.id]);
 }

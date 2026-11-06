@@ -58,7 +58,7 @@ directory stores the canonical game directory path.
 | `<DATA>/host_shells/<id>.toml` | under `SLOPD_DATA` | Host-shell definitions and remembered directories. |
 | `<DATA>/worktrees/<id>.toml` | under `SLOPD_DATA` | Registered checkout records and phases. |
 | `<DATA>/tasks/<id>.toml` | under `SLOPD_DATA` | Complete task records; no runtime task journal. |
-| `<DATA>/grants.toml` | under `SLOPD_DATA` | Scoped credentials, mode `0600`. |
+| `<DATA>/credentials.toml` | under `SLOPD_DATA` | Agent identity credentials, mode `0600`. |
 | `<DATA>/workspace.save-journal` | under `SLOPD_DATA` | Pending transaction recovery; do not delete. |
 | `<DATA>/sessions/<state-id>/` | under `SLOPD_DATA` | Per-agent private state. The daemon assigns the opaque state ID at creation. |
 | `<DATA>/sessions/.trash/` | under `SLOPD_DATA` | Recoverable private-state trash. |

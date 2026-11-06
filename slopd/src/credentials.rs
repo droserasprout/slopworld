@@ -1,8 +1,5 @@
-//! Scoped credentials let an agent monitor or control another agent, but not a host session.
-//! See [notes/agent-grants.md]. The mod uses `[daemon] token` as the root credential.
-//! The daemon stores each other live credential in the data-root grant store.
-//! It revokes the grant when the grantor or a target session no longer exists.
-
+//! Agent bearer credentials and revocation. Tokens identify one session; current policy
+//! in `session/caps.rs` authorizes other targets. Root credentials remain separate.
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -14,15 +11,15 @@ use std::sync::{
 };
 
 #[derive(Debug)]
-pub(crate) struct GrantPersistence;
+pub(crate) struct CredentialPersistence;
 
-impl std::fmt::Display for GrantPersistence {
+impl std::fmt::Display for CredentialPersistence {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("persisting scoped grant")
+        f.write_str("persisting agent credential")
     }
 }
 
-/// The operations a grant permits on its specified sessions.
+/// Operation categories used by self-access and transport checks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Level {
@@ -32,32 +29,27 @@ pub enum Level {
     Rw,
 }
 
-impl Level {
-    /// `Rw` satisfies either access level. `Ro` satisfies only `Ro`.
-    pub fn satisfies(self, need: Level) -> bool {
-        matches!((self, need), (Level::Rw, _) | (Level::Ro, Level::Ro))
-    }
-}
-
-/// A credential that the daemon revokes when its grantor or any target no longer exists.
+/// An agent identity with shared revocation state.
 #[derive(Debug, Clone)]
-pub struct Grant {
-    /// The grantor session. The daemon revokes the grant when this session no longer exists.
+pub struct AgentCredential {
+    /// The authenticated agent name, bound to its saved identity by the credential store.
     pub grantor: String,
-    /// The sessions the holder may access. Grant creation excludes host sessions.
+    // Legacy test fixtures deliberately carry ignored scopes to detect bypasses.
+    #[cfg(test)]
     pub sessions: HashSet<String>,
+    #[cfg(test)]
     pub level: Level,
-    /// All resolved copies share revocation state. Scopes do not change after grant creation.
+    /// All resolved copies share revocation state.
     pub(crate) revoked: Arc<AtomicBool>,
 }
 
 /// The capability that `auth` resolves from a request token.
 /// `Root` gives the mod read and write access to all sessions, including host sessions.
-/// `Scoped` is a grant that excludes host sessions.
+/// Agent credentials never authorize host sessions.
 #[derive(Debug, Clone)]
 pub enum Cap {
     Root,
-    Scoped(Grant),
+    Scoped(AgentCredential),
 }
 
 impl Cap {
@@ -76,28 +68,15 @@ impl Cap {
     }
     /// Check whether this capability permits access to `session` at level `need`.
     /// The caller supplies the session flag `is_host`. Root permits all access.
-    /// A scoped grant must be valid, name the session, and satisfy the required access level.
-    /// This check also excludes host sessions, although grant creation already excludes them.
-    pub fn allows(&self, session: &str, is_host: bool, need: Level) -> bool {
+    /// The credential supplies self-access only. Other targets require current policy.
+    pub fn allows(&self, session: &str, is_host: bool, _need: Level) -> bool {
         match self {
             Cap::Root => true,
-            Cap::Scoped(g) => {
-                self.is_valid()
-                    && !is_host
-                    && g.level.satisfies(need)
-                    && g.sessions.contains(session)
-            }
+            Cap::Scoped(g) => self.is_valid() && !is_host && g.grantor == session,
         }
     }
 
-    /// Check whether a list can show `session` to this holder.
-    /// Lists exclude session names when the grant does not permit read access.
-    #[cfg(test)]
-    pub fn can_see(&self, session: &str, is_host: bool) -> bool {
-        self.allows(session, is_host, Level::Ro)
-    }
-
-    /// Only root can create sessions. Grants permit access to existing sessions.
+    /// Only root can create sessions directly.
     pub fn may_create(&self) -> bool {
         matches!(self, Cap::Root)
     }
@@ -105,53 +84,45 @@ impl Cap {
 
 #[derive(Debug, Clone)]
 struct Entry {
-    /// Automatic process authority; manual grants retain their independent lifetime.
+    /// Test fixtures can model credentials without a running process.
     launch: bool,
-    grant: Grant,
-    /// Stable agent identities prevent grants from attaching to reused session names after a daemon restart.
-    /// Host terminals have no persistent state ID and leave this field empty.
+    grant: AgentCredential,
+    /// Stable identity checked before startup restores a process credential.
     grantor_state_id: String,
-    session_state_ids: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct File {
     #[serde(default)]
-    grants: Vec<StoredGrant>,
+    credentials: Vec<StoredCredential>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct StoredGrant {
-    #[serde(default)]
-    launch: bool,
+struct StoredCredential {
     token: String,
     grantor: String,
-    #[serde(default)]
     grantor_state_id: String,
-    sessions: Vec<String>,
-    session_state_ids: BTreeMap<String, String>,
-    level: Level,
 }
 
-/// This store indexes active grants by bearer token and saves them in a private sibling file.
+/// Private persisted process credentials, indexed by bearer token.
 /// The default store supports capability tests that do not need disk persistence.
 #[derive(Default)]
-pub struct Grants {
+pub struct CredentialStore {
     path: Option<PathBuf>,
     by_token: HashMap<String, Entry>,
 }
 
-impl Grants {
+impl CredentialStore {
     #[cfg(test)]
     pub fn load(config: &Path) -> Result<Self> {
         Self::load_path(config.with_file_name("grants.toml"))
     }
 
     pub(crate) fn load_data(data: &Path) -> Result<Self> {
-        let path = crate::paths::normalize(data)?.join("grants.toml");
+        let path = crate::paths::normalize(data)?.join("credentials.toml");
         anyhow::ensure!(
             crate::paths::normalize(&path)? == path,
-            "grant store aliases another path"
+            "credential store aliases another path"
         );
         Self::load_path(path)
     }
@@ -195,39 +166,27 @@ impl Grants {
         let file: File =
             toml::from_str(text).with_context(|| format!("parsing {}", path.display()))?;
         let mut by_token = HashMap::new();
-        for stored in file.grants {
+        for stored in file.credentials {
             if !valid_token(&stored.token)
                 || stored.grantor.trim().is_empty()
-                || stored
-                    .sessions
-                    .iter()
-                    .any(|session| session.trim().is_empty())
+                || stored.grantor_state_id.is_empty()
             {
-                bail!("invalid grant record in {}", path.display());
-            }
-            let sessions: HashSet<String> = stored.sessions.iter().cloned().collect();
-            if sessions.len() != stored.sessions.len()
-                || sessions.len() != stored.session_state_ids.len()
-                || sessions
-                    .iter()
-                    .any(|session| !stored.session_state_ids.contains_key(session))
-                || stored.session_state_ids.values().any(String::is_empty)
-            {
-                bail!("invalid grant scope in {}", path.display());
+                bail!("invalid identity credential in {}", path.display());
             }
             let entry = Entry {
-                launch: stored.launch,
-                grant: Grant {
+                launch: true,
+                grant: AgentCredential {
                     grantor: stored.grantor,
-                    sessions,
-                    level: stored.level,
+                    #[cfg(test)]
+                    sessions: HashSet::new(),
+                    #[cfg(test)]
+                    level: Level::Rw,
                     revoked: Default::default(),
                 },
                 grantor_state_id: stored.grantor_state_id,
-                session_state_ids: stored.session_state_ids,
             };
             if by_token.insert(stored.token, entry).is_some() {
-                bail!("duplicate grant token in {}", path.display());
+                bail!("duplicate credential token in {}", path.display());
             }
         }
 
@@ -238,9 +197,9 @@ impl Grants {
     }
 
     /// Resolve the capability for a request. `root` is `[daemon] token`.
-    /// A missing or whitespace-only root fails closed, even for live grants.
+    /// A missing or whitespace-only root fails closed, even for live credentials.
     /// A valid root gives `Root` access only when the token matches.
-    /// Any other token must identify a live grant. Otherwise, the request has no capability.
+    /// Any other token must identify a live credential. Otherwise, the request has no capability.
     pub fn resolve(&self, presented: Option<&str>, root: &str) -> Option<Cap> {
         if root.trim().is_empty() {
             return None;
@@ -257,7 +216,7 @@ impl Grants {
 
     /// Create an in-memory grant for callers that do not own a persistent store.
     #[cfg(test)]
-    pub fn mint(&mut self, grant: Grant) -> String {
+    pub fn mint(&mut self, grant: AgentCredential) -> String {
         self.mint_with_identity(grant, String::new(), BTreeMap::new(), false)
             .expect("in-memory grant cannot fail to persist")
     }
@@ -265,21 +224,24 @@ impl Grants {
     /// Create and save a grant before returning its token.
     /// The manager supplies stable session identities.
     /// These let the daemon remove grants for deleted or replaced sessions at startup.
+    #[cfg(test)]
     pub fn mint_persisted(
         &mut self,
-        grant: Grant,
+        grant: AgentCredential,
         grantor_state_id: String,
         session_state_ids: BTreeMap<String, String>,
     ) -> Result<String> {
         self.mint_with_identity(grant, grantor_state_id, session_state_ids, false)
     }
 
-    /// Automatic authority belongs to one launch, independently of manual grants.
+    /// Process credentials belong to one launch.
     pub(crate) fn mint_launch(&mut self, name: &str, state_id: &str) -> Result<String> {
         self.mint_with_identity(
-            Grant {
+            AgentCredential {
                 grantor: name.into(),
+                #[cfg(test)]
                 sessions: [name.into()].into(),
+                #[cfg(test)]
                 level: Level::Rw,
                 revoked: Default::default(),
             },
@@ -299,13 +261,13 @@ impl Grants {
 
     fn mint_with_identity(
         &mut self,
-        grant: Grant,
+        grant: AgentCredential,
         grantor_state_id: String,
-        session_state_ids: BTreeMap<String, String>,
+        _session_state_ids: BTreeMap<String, String>,
         launch: bool,
     ) -> Result<String> {
         let token = loop {
-            let token = gen_token().context(GrantPersistence)?;
+            let token = gen_token().context(CredentialPersistence)?;
             if !self.by_token.contains_key(&token) {
                 break token;
             }
@@ -316,22 +278,16 @@ impl Grants {
                 launch,
                 grant,
                 grantor_state_id,
-                session_state_ids,
             },
         );
         if let Err(error) = self.persist() {
             self.by_token.remove(&token);
-            return Err(error).context(GrantPersistence);
+            return Err(error).context(CredentialPersistence);
         }
         Ok(token)
     }
 
-    /// Revoke every grant that a session owns. Save the revocation before returning.
     #[cfg(test)]
-    pub fn revoke_grantor(&mut self, grantor: &str) {
-        drop(self.try_revoke_grantor(grantor));
-    }
-
     pub fn try_revoke_grantor(&mut self, grantor: &str) -> Result<bool> {
         self.revoke_matching(|entry| entry.grant.grantor == grantor)
     }
@@ -343,9 +299,7 @@ impl Grants {
     }
 
     pub fn try_invalidate_session(&mut self, name: &str) -> Result<bool> {
-        self.revoke_matching(|entry| {
-            entry.grant.grantor == name || entry.grant.sessions.contains(name)
-        })
+        self.revoke_matching(|entry| entry.grant.grantor == name)
     }
 
     /// Remove credentials that do not match the current session identities.
@@ -362,11 +316,7 @@ impl Grants {
                 !host_sessions.contains(&entry.grant.grantor)
                     && state_ids.get(&entry.grant.grantor) == Some(&entry.grantor_state_id)
             };
-            let targets = entry.grant.sessions.iter().all(|session| {
-                !host_sessions.contains(session)
-                    && state_ids.get(session) == entry.session_state_ids.get(session)
-            });
-            !grantor || !targets
+            !grantor
         })
     }
 
@@ -393,20 +343,21 @@ impl Grants {
                 match fs::remove_file(path) {
                     Ok(()) => {
                         return Err(error)
-                            .context("grant store cleared after revoke write failure");
+                            .context("credential store cleared after revoke write failure");
                     }
                     Err(clear_error) if clear_error.kind() == std::io::ErrorKind::NotFound => {
-                        return Err(error).context("grant store absent after revoke write failure");
+                        return Err(error)
+                            .context("credential store absent after revoke write failure");
                     }
                     Err(clear_error) => {
                         return Err(error).context(format!(
-                            "grant revoke write failed and {} could not be cleared: {clear_error}",
+                            "credential revoke write failed and {} could not be cleared: {clear_error}",
                             path.display()
                         ));
                     }
                 }
             }
-            return Err(error).context("persisting grant revocation");
+            return Err(error).context("persisting credential revocation");
         }
         Ok(true)
     }
@@ -415,30 +366,22 @@ impl Grants {
         let Some(path) = &self.path else {
             return Ok(());
         };
-        let mut grants: Vec<StoredGrant> = self
+        let mut credentials: Vec<StoredCredential> = self
             .by_token
             .iter()
-            .map(|(token, entry)| {
-                let mut sessions: Vec<String> = entry.grant.sessions.iter().cloned().collect();
-                sessions.sort();
-                StoredGrant {
-                    launch: entry.launch,
-                    token: token.clone(),
-                    grantor: entry.grant.grantor.clone(),
-                    grantor_state_id: entry.grantor_state_id.clone(),
-                    sessions,
-                    session_state_ids: entry.session_state_ids.clone(),
-                    level: entry.grant.level,
-                }
+            .map(|(token, entry)| StoredCredential {
+                token: token.clone(),
+                grantor: entry.grant.grantor.clone(),
+                grantor_state_id: entry.grantor_state_id.clone(),
             })
             .collect();
-        grants.sort_by(|a, b| a.token.cmp(&b.token));
-        let text = toml::to_string(&File { grants })?;
+        credentials.sort_by(|a, b| a.token.cmp(&b.token));
+        let text = toml::to_string(&File { credentials })?;
         crate::paths::write_private_toml(path, &text)
             .with_context(|| format!("writing {}", path.display()))
     }
 
-    /// The total number of stored grants, for the mod's display.
+    /// The total number of stored credentials.
     pub fn count(&self) -> usize {
         self.by_token.len()
     }
@@ -460,10 +403,10 @@ fn gen_token_from(mut source: impl std::io::Read) -> Result<String> {
     let mut buf = [0u8; 16];
     source
         .read_exact(&mut buf)
-        .context("reading secure randomness for scoped grant")?;
+        .context("reading secure randomness for agent credential")?;
     Ok(buf.iter().map(|b| format!("{b:02x}")).collect())
 }
 
 #[cfg(test)]
-#[path = "grant_tests.rs"]
+#[path = "credentials_tests.rs"]
 mod tests;

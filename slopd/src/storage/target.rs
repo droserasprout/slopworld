@@ -99,7 +99,7 @@ impl Target {
             (Self::Data(_), [Some("tasks"), Some(name)]) => name
                 .strip_suffix(".toml")
                 .is_some_and(crate::storage_id::valid),
-            (Self::Data(_), [Some("grants.toml")]) => true,
+            (Self::Data(_), [Some("grants.toml" | "credentials.toml")]) => true,
             _ => false,
         }
     }

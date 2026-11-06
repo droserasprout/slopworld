@@ -37,6 +37,7 @@ pub(super) const AGENT: &[&str] = &[
     "auto_resume",
     "initial_prompt",
     "workers",
+    "permissions",
     "parent_id",
     "parent_access",
     "worker",
@@ -100,6 +101,18 @@ enum ExtensionShape {
 }
 
 const NESTED_FIELDS: &[NestedField] = &[
+    NestedField {
+        name: "permissions",
+        known: &[
+            "followup",
+            "cancel",
+            "terminal",
+            "lifecycle",
+            "delete",
+            "worktrees",
+        ],
+        shape: ExtensionShape::Table,
+    },
     NestedField {
         name: "limits",
         known: LIMITS,

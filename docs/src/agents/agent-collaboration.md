@@ -1,7 +1,7 @@
 # Agent collaboration
 
 Tasks carry assignments and reports between agents. Workers are agents spawned
-for an assignment; scoped grants control access to selected agent terminals.
+for an assignment. Each agent’s saved permissions control its CLI and API access.
 Host sessions remain accessible only with the root token.
 
 ## Worker delegation
@@ -14,7 +14,7 @@ This example creates a persistent worker so you can inspect its terminal afterwa
 1. Save a working agent as a template using **Save as template**, or create one
    in Library. See [Configuration and templates](configuring-agents.md#templates).
 2. If an agent will spawn workers, enable delegation and choose allowed templates
-   in **Edit agent > Workers**. The host can use any catalog template;
+   in **Edit agent > Permissions**. The host can use any catalog template;
    scoped agents can use only allowed templates in their own project.
 
 ### Assignment and reporting
@@ -43,26 +43,31 @@ prompt used when creating an agent.
 
 ### Parent-worker access
 
-Open **Edit agent > Workers** to enable delegation, narrow the allowed templates,
-choose access to new workers, and allow further delegation. Templates save these
-choices; workers copy them once and inherit restrictions from their parent and template.
-Delegation and further delegation are disabled by default.
+Open **Edit agent > Permissions** to set current authority. Changes take effect when
+Save succeeds, including for existing workers and open connections; no restart is
+needed. Templates provide initial permissions for new agents.
 
-Parents always read task progress, results, and startup diagnostics. Four independent
-checkboxes control additional permissions:
+| Permission | Choices |
+| --- | --- |
+| Send follow-ups | Deny, Own workers, Project agents |
+| Cancel tasks | Deny, Own workers, Project agents |
+| Type in terminals | Deny, Own workers, Project agents |
+| Stop or restart agents | Deny, Own workers, Project agents |
+| Delete agents | Deny, Own workers, Project agents |
+| Manage worktrees | Deny, Project worktrees |
 
-- **Send follow-ups** (enabled by default).
-- **Cancel tasks** (enabled by default).
-- **Type in terminal** (disabled by default).
-- **Stop or restart workers** (disabled by default).
+Own workers means direct children bound to the parent's stable identity. Project
+agents excludes host terminals. Parents can always read their workers' diagnostics.
+Follow-ups and cancellation default to Own workers; other actions default to Deny.
+Agents retain access to their own terminal and task updates. Deletion needs explicit
+permission and cannot target the caller itself. Worktree management covers creation,
+rename, and removal; external checkout registration remains root-only. Listing stays
+available within the agent's project.
 
-A child's delegation policy cannot exceed its parent's permissions or allowed templates.
-
-Change an existing relationship in the child worker's **Workers** tab, which shows
-**What [parent] can do**. Parent policy edits affect future workers only. Renaming preserves
-the relationship; replacing an agent with the same name does not. Workers created without
-a saved parent identity must be replaced before relationship access can be edited.
-Manual grants are separate; host access remains root-only.
+Worker spawning, allowed templates, and recursive spawning are separate controls below
+the permissions. Delegation is disabled by default. New workers receive the stricter
+permissions and delegation settings of their parent and template. Editing a worker
+changes what that worker can do, not what its parent can do.
 
 A parent with **Send follow-ups** enabled can send `slopctl task followup --id ID "Check the tests"`
 to wake a running interactive worker. The daemon waits for readiness and records the
@@ -86,9 +91,9 @@ The Tasks view is global; the workspace Project filter does not hide its rows.
 For delegation to an existing agent, use `slopctl task delegate AGENT "description"`
 within the permissions below.
 
-Agents can hand work to other agents within their grant scope and report to `host`,
-the user at the keyboard. Terminal permissions and task participation are separate:
-`ro` or `rw` controls terminal access. See [Using slopctl](../reference/slopctl.md) for task
+Agents can report to `host`, the user at the keyboard. Sending assignments to other
+agents uses the Send follow-ups scope. Terminal permissions and task participation
+are separate. See [Using slopctl](../reference/slopctl.md) for task
 commands, statuses, and lifecycle.
 
 Tasks are shared by sender and recipient. Only the recipient can update an
@@ -105,40 +110,19 @@ removes its history.
 For batch cancellation and removal failure behavior, see
 [Task batch operations](../reference/api.md#task-batch-operations).
 
-## Terminal grants
+## Credentials and connectivity
 
-| Level | Permissions |
-| --- | --- |
-| `ro` | List, read, and watch sessions, including state, screen output, and `capture-pane`. |
-| `rw` | All `ro` permissions, plus sending keys, resizing, starting, stopping, and restarting sessions. |
+Every newly launched agent receives `SLOPD_URL` and `SLOPD_TOKEN` automatically.
+The token identifies that agent; its current saved policy determines access to other
+agents. There are no manually issued session grants or `ro`/`rw` token scopes.
+Host terminals and administrative configuration remain root-only.
 
-Only the root token can create grants or create agents directly. See the
-[API reference](../reference/api.md) for creating grants.
-Scoped agents can spawn workers only in their own project and from templates
-allowed by their own delegation policy. See [Worker configuration](configuring-agents.md#workers).
+Credentials survive daemon restarts while the same process and stable identity
+survive. Stop, exit, failed launch, rename, removal, or identity replacement revokes
+credentials. A fresh launch receives a new token. Credentials are stored privately
+in `<DATA>/credentials.toml`; the old grant store is not loaded. Agents running with
+old grant tokens need a fresh launch after upgrading.
 
-### Credentials and connectivity
-
-For a manually created grant, follow the [CLI connection instructions](../reference/slopctl.md#connection)
-with the scoped token. Every newly launched agent receives `SLOPD_URL` and
-`SLOPD_TOKEN` automatically, with read-write access to its own session. It can use
-task mailboxes and spawn workers from allowed templates in its own project.
-Terminal input and stop/restart require their respective relationship permissions.
-Access to unrelated existing terminals requires an additional grant. Host terminals
-remain root-only. Agents already running need a fresh launch to receive credentials;
-replacing only the daemon preserves credentials already delivered to surviving agents.
-Keep root credentials private, as explained in the [Security model](../sandbox/security.md).
-
-Agents and workers need network access to the daemon API to use grants and tasks.
-`network = "none"` prevents this access. See
-[Network configuration](configuring-agents.md#network) for other modes.
-
-### Grant lifetime
-
-Grants survive daemon restarts when their participants keep the same identities.
-They are revoked when a grantor or target is renamed, removed, or replaced.
-Automatic launch credentials are also revoked on stop, exit, or failed launch;
-a fresh launch receives a new token. Manual grants for ordinary agents survive
-stop/start. Worker cleanup revokes its task authority.
-The daemon checks token permissions on every request. See
-[Paths and files](../reference/paths.md) for grant storage.
+Agents need network reachability to the daemon API. `network = "none"` prevents
+this access. See [Network configuration](configuring-agents.md#network) and the
+[Security model](../sandbox/security.md).

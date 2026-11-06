@@ -130,9 +130,11 @@ pub struct SessionCfg {
     #[serde(default)]
     pub initial_prompt: String,
 
-    /// Portable policy affects future workers only.
+    /// Spawning settings are independent of current CLI/API permissions.
     #[serde(default)]
     pub workers: super::WorkerPolicy,
+    #[serde(default)]
+    pub permissions: super::AgentPermissions,
 
     // Worker identity, set only by delegated-task creation.
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -206,6 +208,7 @@ impl Default for SessionCfg {
             auto_resume: false,
             initial_prompt: String::new(),
             workers: super::WorkerPolicy::default(),
+            permissions: super::AgentPermissions::default(),
             parent_id: String::new(),
             parent_access: super::WorkerAccess::default(),
             worker: false,

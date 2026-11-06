@@ -8,11 +8,11 @@ use axum::Extension;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 
-use crate::grant::{Cap, Level};
+use crate::credentials::{Cap, Level};
 use crate::shared::protocol::SESSION_HEADER;
 
 use super::super::types::*;
-use super::{ApiResult, App, err, guard};
+use super::{ApiResult, App, err};
 
 /// Persistence identities stay private; the wire contract exposes participant labels.
 fn task_view(task: crate::tasks::Task) -> wire::Task {
@@ -115,8 +115,15 @@ pub(crate) async fn create_task(
             format!("Session {} does not exist.", q.to),
         ));
     }
-    if q.to != crate::tasks::HOST {
-        guard(&m, &cap, &q.to, Level::Ro).await?;
+    if q.to != crate::tasks::HOST
+        && !m.sessions.cap_ok(&cap, &q.to, Level::Ro).await
+        && !m
+            .sessions
+            .worker_access(&cap, &q.to)
+            .await
+            .is_some_and(|access| access.followup)
+    {
+        return Err(err(StatusCode::FORBIDDEN, format!("not allowed: {}", q.to)));
     }
     let from = m
         .sessions
@@ -172,6 +179,9 @@ pub(crate) async fn spawn_worker(
             StatusCode::FORBIDDEN,
             "Only root can link Planner items.",
         ));
+    }
+    if q.new_worktree && !m.sessions.manage_worktrees_ok(&cap).await {
+        return Err(err(StatusCode::FORBIDDEN, "Worktree management is denied."));
     }
     let checkout = if q.new_worktree {
         if !q.worktree.is_empty() {
@@ -353,13 +363,13 @@ pub(crate) async fn followup_task(
     Ok(Proto(wire::Ack { ok: true }))
 }
 
-pub(crate) async fn set_worker_access(
+pub(crate) async fn set_agent_permissions(
     State(m): State<App>,
     Path(name): Path<String>,
-    Proto(q): Proto<wire::WorkerAccessReq>,
+    Proto(q): Proto<wire::AgentPermissionsReq>,
 ) -> ApiResult {
     let access = domain(
-        q.access
+        q.permissions
             .ok_or_else(|| err(StatusCode::BAD_REQUEST, "Worker permissions are required."))?,
     )?;
     let policy = q.workers.map(domain).transpose()?;

@@ -75,7 +75,7 @@ async fn worktree_http_round_trip_preserves_identity_and_removes_records() {
         projects: vec![project(&root)],
         ..Default::default()
     });
-    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::credentials::Cap::Root));
     let (status, preview) = request(
         &app,
         "POST",
@@ -131,7 +131,7 @@ async fn failed_launch_removes_disposable_rows_but_retains_saved_shells() {
         },
         "/dev/null/slopworld-test-socket",
     );
-    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::credentials::Cap::Root));
     let (status, error) = request(&app, "POST", "/api/run", json!({
         "kind":"shell", "host":true, "project":"repo", "command":"sleep 60", "label":"disposable"
     })).await;
@@ -171,7 +171,7 @@ async fn explicit_saved_and_captured_actions_succeed_through_http() {
         }],
         ..Default::default()
     });
-    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::credentials::Cap::Root));
     for (path, value) in [
         (
             "/api/run",

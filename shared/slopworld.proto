@@ -72,17 +72,20 @@ message Project {
   optional string worktree_root = 7;
 }
 
-message WorkerAccess {
-  optional bool followup = 1;
-  optional bool cancel = 2;
-  optional bool terminal = 3;
-  optional bool lifecycle = 4;
+message AgentPermissions {
+  optional string followup = 1;
+  optional string cancel = 2;
+  optional string terminal = 3;
+  optional string lifecycle = 4;
+  optional string delete = 5;
+  optional bool worktrees = 6;
 }
 
-message WorkerAccessReq {
+message AgentPermissionsReq {
   reserved 1;
-  WorkerAccess access = 4;
+  reserved 4;
   WorkerPolicy workers = 2;
+  AgentPermissions permissions = 5;
   string task_id = 3;
 }
 message WorkerFollowupReq {
@@ -94,7 +97,7 @@ message WorkerPolicy {
   repeated string templates = 2;
   optional bool all_templates = 3;
   reserved 4;
-  WorkerAccess access = 6;
+  reserved 6;
   optional bool recursive = 5;
 }
 
@@ -120,6 +123,7 @@ message SessionConfig {
   optional string worktree = 19;
   optional string args = 20;
   WorkerPolicy workers = 21;
+  AgentPermissions permissions = 24;
   string initial_prompt = 23;
 }
 
@@ -203,6 +207,7 @@ message SessionLaunchView {
   bool auto_resume = 12;
   optional string args = 13;
   WorkerPolicy workers = 14;
+  AgentPermissions permissions = 18;
   string initial_prompt = 16;
   string state_id = 17;
 }
@@ -214,7 +219,7 @@ message SessionWorkerView {
   string task_id = 3;
   bool durable = 4;
   reserved 5;
-  WorkerAccess access = 7;
+  reserved 7;
 }
 
 message SessionReaderView {
@@ -324,6 +329,7 @@ message AgentTemplateDefaults {
   optional bool auto_resume = 10;
   optional string args = 11;
   WorkerPolicy workers = 12;
+  AgentPermissions permissions = 17;
   string initial_prompt = 14;
 }
 
@@ -536,11 +542,7 @@ message FileActionReq {
   optional bool host = 4;
 }
 
-message GrantReq {
-  optional string grantor = 1;
-  repeated string sessions = 2;
-  optional string level = 3;
-}
+
 
 message CopyPresetReq {
   optional string name = 1;
@@ -729,14 +731,9 @@ message OutputResult {
   string output = 2;
 }
 
-message GrantResult {
-  bool ok = 1;
-  string token = 2;
-}
 
-message GrantsReply {
-  uint64 grants = 1;
-}
+
+
 
 message PresetsReply {
   string dir = 3;

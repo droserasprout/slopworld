@@ -23,6 +23,7 @@ fn template() -> AgentTemplate {
         version: 0,
         description: "Review changes".into(),
         defaults: AgentTemplateDefaults {
+            permissions: Default::default(),
             workers: Default::default(),
             command: Some(command()),
             cmd: None,
@@ -372,7 +373,7 @@ fn portable_worker_policy_copies_without_relationship_identity() {
     source.workers.enabled = false;
     source.workers.all_templates = false;
     source.workers.templates.insert("review".into());
-    source.workers.access = crate::config::WorkerAccess::none();
+    source.permissions = crate::config::WorkerAccess::none().into();
     let template = AgentTemplate::capture(
         "policy".into(),
         String::new(),
@@ -385,6 +386,7 @@ fn portable_worker_policy_copies_without_relationship_identity() {
     let restored: AgentTemplate = toml::from_str(&encoded).unwrap();
     let child = restored.instantiate("copy".into(), "repo".into());
     assert_eq!(child.workers, source.workers);
+    assert_eq!(child.permissions, source.permissions);
     assert!(child.parent_id.is_empty());
     assert!(!child.worker);
     let mut overrides = child.clone();

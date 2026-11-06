@@ -187,7 +187,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         .mint_grant(
             "child".into(),
             vec!["child".into()],
-            crate::grant::Level::Rw,
+            crate::credentials::Level::Rw,
         )
         .await
         .unwrap();

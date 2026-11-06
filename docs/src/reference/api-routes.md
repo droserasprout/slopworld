@@ -77,28 +77,6 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `GET` | `/api/open-apps` | `root-only` | `Empty` | `AppsReply` |
 | `POST` | `/api/run` | `root-only` | `RunReq` | `SessionResult` |
 
-## Sessions and grants
-
-| Method | Path | Route access group | Request body | Response |
-| --- | --- | --- | --- | --- |
-| `GET` | `/api/grants` | `root-only` | `Empty` | `GrantsReply` |
-| `POST` | `/api/grants` | `root-only` | `GrantReq` | `GrantResult` |
-| `DELETE` | `/api/grants/:grantor` | `root-only` | `Empty` | `Ack` |
-| `GET` | `/api/sessions` | `scoped` | `Empty` | `SessionsReply` |
-| `POST` | `/api/sessions` | `scoped` | `SessionConfig` | `Ack` |
-| `DELETE` | `/api/sessions/:name` | `scoped` | `Empty` | `Ack` |
-| `GET` | `/api/sessions/:name` | `scoped` | `Empty` | `SessionView` |
-| `PUT` | `/api/sessions/:name` | `root-only` | `SessionConfig` | `Ack` |
-| `GET` | `/api/sessions/:name/cwd` | `scoped` | `Empty` | `PathResult` |
-| `PUT` | `/api/sessions/:name/label` | `scoped` | `LabelReq` | `Ack` |
-| `PUT` | `/api/sessions/:name/reader-pinned` | `scoped` | `ReaderPinnedReq` | `Ack` |
-| `POST` | `/api/sessions/:name/restart` | `scoped` | `Empty` | `Ack` |
-| `GET` | `/api/sessions/:name/sandbox` | `scoped` | `Empty` | `SandboxReport` |
-| `POST` | `/api/sessions/:name/start` | `scoped` | `Empty` | `Ack` |
-| `POST` | `/api/sessions/:name/state/reset` | `scoped` | `Empty` | `Ack` |
-| `POST` | `/api/sessions/:name/stop` | `scoped` | `Empty` | `Ack` |
-| `PUT` | `/api/sessions/:name/worker-access` | `root-only` | `WorkerAccessReq` | `Ack` |
-
 ## Projects and worktrees
 
 | Method | Path | Route access group | Request body | Response |
@@ -111,9 +89,28 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `POST` | `/api/projects/preview` | `root-only` | `ProjectPreviewReq` | `ProjectPreviewResult` |
 | `GET` | `/api/worktrees` | `scoped` | `Empty` | `WorktreesReply` |
 | `POST` | `/api/worktrees` | `scoped` | `CreateWorktreeReq` | `Worktree` |
-| `DELETE` | `/api/worktrees/:id` | `root-only` | `Empty` | `Ack` |
-| `PUT` | `/api/worktrees/:id` | `root-only` | `CreateWorktreeReq` | `Worktree` |
+| `DELETE` | `/api/worktrees/:id` | `scoped` | `Empty` | `Ack` |
+| `PUT` | `/api/worktrees/:id` | `scoped` | `CreateWorktreeReq` | `Worktree` |
 | `POST` | `/api/worktrees/preview` | `scoped` | `CreateWorktreeReq` | `WorktreeBase` |
+
+## Sessions and permissions
+
+| Method | Path | Route access group | Request body | Response |
+| --- | --- | --- | --- | --- |
+| `GET` | `/api/sessions` | `scoped` | `Empty` | `SessionsReply` |
+| `POST` | `/api/sessions` | `scoped` | `SessionConfig` | `Ack` |
+| `DELETE` | `/api/sessions/:name` | `scoped` | `Empty` | `Ack` |
+| `GET` | `/api/sessions/:name` | `scoped` | `Empty` | `SessionView` |
+| `PUT` | `/api/sessions/:name` | `root-only` | `SessionConfig` | `Ack` |
+| `GET` | `/api/sessions/:name/cwd` | `scoped` | `Empty` | `PathResult` |
+| `PUT` | `/api/sessions/:name/label` | `scoped` | `LabelReq` | `Ack` |
+| `PUT` | `/api/sessions/:name/permissions` | `root-only` | `AgentPermissionsReq` | `Ack` |
+| `PUT` | `/api/sessions/:name/reader-pinned` | `scoped` | `ReaderPinnedReq` | `Ack` |
+| `POST` | `/api/sessions/:name/restart` | `scoped` | `Empty` | `Ack` |
+| `GET` | `/api/sessions/:name/sandbox` | `scoped` | `Empty` | `SandboxReport` |
+| `POST` | `/api/sessions/:name/start` | `scoped` | `Empty` | `Ack` |
+| `POST` | `/api/sessions/:name/state/reset` | `scoped` | `Empty` | `Ack` |
+| `POST` | `/api/sessions/:name/stop` | `scoped` | `Empty` | `Ack` |
 
 ## Tasks and workers
 

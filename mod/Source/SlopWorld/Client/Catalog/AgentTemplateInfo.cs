@@ -35,6 +35,7 @@ namespace SlopWorld
         public bool AutoResume;
         public string InitialPrompt = "";
         public Wire.WorkerPolicy Workers = SessionInfo.WorkerPolicyDefaults();
+        public Wire.AgentPermissions Permissions = SessionInfo.PermissionDefaults();
 
         // Keep complete daemon snapshots alongside the editor fields.
         // Name or description edits must preserve captured preset definitions, including definitions absent from current catalogs.
@@ -67,6 +68,7 @@ namespace SlopWorld
                 AutoResume = d.AutoResume,
                 InitialPrompt = d.InitialPrompt,
                 Workers = SessionInfo.WorkerPolicyDefaults(d.Workers),
+                Permissions = SessionInfo.PermissionDefaults(d.Permissions),
                 DefaultsSnapshot = d.Clone(),
             };
             if (d.HasPersistentTmp)
@@ -99,6 +101,7 @@ namespace SlopWorld
                 AutoResume = AutoResume,
                 InitialPrompt = InitialPrompt,
                 Workers = Workers.Clone(),
+                Permissions = Permissions.Clone(),
                 DefaultsSnapshot = DefaultsSnapshot.Clone(),
             };
 
@@ -161,6 +164,7 @@ namespace SlopWorld
             d.Dns = DnsSpecified ? form.Dns.ToWire() : null;
             d.Limits = form.Limits.ToWire();
             d.Workers = form.Workers.Clone();
+            d.Permissions = form.Permissions.Clone();
             d.InitialPrompt = form.InitialPrompt;
             return new Wire.AgentTemplate
             {
@@ -216,6 +220,7 @@ namespace SlopWorld
             s.AutoResume = AutoResume;
             s.InitialPrompt = InitialPrompt;
             s.Workers = Workers.Clone();
+            s.Permissions = Permissions.Clone();
         }
     }
 }

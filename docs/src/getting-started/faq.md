@@ -156,7 +156,7 @@ See [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
 
 ### I have created an agent template, but agents can't spawn it as a worker
 
-Open **Edit agent > Workers**, enable **Allow spawning workers**, and
+Open **Edit agent > Permissions**, enable **Allow spawning workers**, and
 choose which templates it may use. Delegation is disabled by default. These choices
 can also be saved in an agent template.
 

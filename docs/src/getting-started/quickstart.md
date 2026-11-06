@@ -140,7 +140,7 @@ conversation or credentials, or store the project's mounts. See
    then select **Spawn**. Its terminal opens automatically.
 
 If you want an agent to spawn workers itself, enable delegation and choose allowed
-templates in **Edit agent > Workers**. Spawning as **You (host)** can use any template
+templates in **Edit agent > Permissions**. Spawning as **You (host)** can use any template
 in the catalog. See [Agent collaboration](../agents/agent-collaboration.md) for
 worker instructions and delegation.
 

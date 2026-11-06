@@ -44,6 +44,7 @@ pub(crate) enum Caller {
         project: String,
         identity: String,
         policy: crate::config::WorkerPolicy,
+        permissions: crate::config::AgentPermissions,
     },
     HostTerminal,
     Missing,
@@ -162,11 +163,14 @@ pub(crate) fn prepare(
     let mut session =
         worker_session_from_template(&template, "worker-validation".into(), &project, &caller);
     if let Caller::Agent {
-        identity, policy, ..
+        identity,
+        policy,
+        permissions,
+        ..
     } = context
     {
         session.parent_id = identity.clone();
-        session.parent_access = policy.access;
+        session.permissions = session.permissions.intersect(*permissions);
         session.workers.enabled &= policy.recursive;
         session.workers.access = session.workers.access.intersect(policy.access);
         session.workers.recursive &= policy.recursive;
@@ -574,7 +578,7 @@ impl Workers {
         &self,
         name: &str,
         expected_task: &str,
-        access: crate::config::WorkerAccess,
+        permissions: crate::config::AgentPermissions,
         policy: Option<crate::config::WorkerPolicy>,
     ) -> Result<()> {
         let owner = self.clone();
@@ -589,14 +593,10 @@ impl Workers {
                     .context("Worker no longer exists")?;
                 anyhow::ensure!(session.worker, "Session is not a worker");
                 anyhow::ensure!(
-                    !session.parent_id.is_empty(),
-                    "This legacy worker has no captured parent identity. Spawn a new worker to establish a relationship; access cannot be assigned by name."
-                );
-                anyhow::ensure!(
                     !expected_task.is_empty() && session.task_id == expected_task,
                     "Worker relationship changed. Reload the worker before editing access."
                 );
-                session.parent_access = access;
+                session.permissions = permissions;
                 if let Some(policy) = policy {
                     session.workers = policy;
                 }
@@ -615,7 +615,7 @@ impl Workers {
                                 .iter_mut()
                                 .find(|s| s.state_id == session.state_id)
                                 .context("Worker identity changed")?;
-                            saved.parent_access = access;
+                            saved.permissions = permissions;
                             saved.workers = session.workers.clone();
                             Ok(())
                         })
