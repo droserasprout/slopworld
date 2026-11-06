@@ -19,6 +19,10 @@ namespace SlopWorld.Tests
             yield return ("normalizes connection info directly", NormalizesConnectionInfoDirectly);
             yield return ("finds the descriptor below XDG config", FindsXdgDescriptor);
             yield return ("application roots override XDG paths", ApplicationRootsOverrideXdg);
+            yield return (
+                "application roots fall back to the user profile",
+                ApplicationRootsFallBackToUserProfile
+            );
         }
 
         static void ResolvesAndNormalizesIpv6Descriptor()
@@ -206,6 +210,41 @@ namespace SlopWorld.Tests
                     Environment.SetEnvironmentVariable(variable, previous[variable]);
                 if (Directory.Exists(root))
                     Directory.Delete(root, true);
+            }
+        }
+
+        static void ApplicationRootsFallBackToUserProfile()
+        {
+            string[] variables =
+            {
+                "SLOPD_CONFIG_ROOT",
+                "SLOPD_DATA",
+                "XDG_CONFIG_HOME",
+                "XDG_DATA_HOME",
+            };
+            var previous = new Dictionary<string, string>();
+            foreach (string variable in variables)
+                previous[variable] = Environment.GetEnvironmentVariable(variable);
+            try
+            {
+                foreach (string variable in variables)
+                    Environment.SetEnvironmentVariable(variable, null);
+                string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                AssertEx.Equal(
+                    Path.Combine(home, ".config", "slopworld"),
+                    ApplicationPaths.ConfigRoot,
+                    "config defaults to the user profile"
+                );
+                AssertEx.Equal(
+                    Path.Combine(home, ".local/share", "slopworld", "jukebox.toml"),
+                    ApplicationPaths.LikesPath,
+                    "likes default to the user profile"
+                );
+            }
+            finally
+            {
+                foreach (string variable in variables)
+                    Environment.SetEnvironmentVariable(variable, previous[variable]);
             }
         }
 

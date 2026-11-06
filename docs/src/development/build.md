@@ -17,7 +17,7 @@ Install these tools before building:
 | just | Version **1.58 or newer**. Install through your package manager or with `cargo install just --locked`. |
 | Python and uv | Python **3.12 or newer** and uv. Recipes synchronize the locked tooling dependencies automatically. |
 | tmux | **3.7 or newer** for runtime sessions and terminal tests; CI and the sidecar pin 3.7c. |
-| Fontconfig | Linux terminal font fallback uses `libfontconfig.so.1`; C# integration tests also require `fc-match` and an installed font. |
+| Fontconfig | Linux terminal font fallback uses `libfontconfig.so.1`; C# integration tests also require `fc-match` and an installed font. Python symbol-atlas tests require `fc-query`. |
 
 If your distribution does not supply protoc 36.1, download the matching binary
 archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)
