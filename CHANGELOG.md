@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 Expect any imaginable incompatibilities until 0.1.0.
 
-## [Unreleased]
+## [0.0.14] - 2026-11-06
+
+### Added
+
+- Agents: Added Permissons tab to agents' Edit window to manage API/CLI access.
 
 ### Fixed
 
@@ -19,9 +23,9 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Terminal: Fixed emoji widths shifting following text and cursor positions.
 - Terminal: Fixed missing symbols and glyphs overlapping adjacent cells.
 - UI: Reduce stuttering during rapid scrolling.
+- Workers: Abort startup recovery when terminal discovery fails.
 - Workers: Match recovered workers by identity and task ownership instead of name.
 - Workers: Retry failed task updates after session cleanup.
-- Workers: Abort startup recovery when terminal discovery fails.
 
 ### Changed
 
@@ -389,7 +393,8 @@ Initial release 🐈
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.13...HEAD
+[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.14...HEAD
+[0.0.13]: https://github.com/droserasprout/slopworld/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/droserasprout/slopworld/compare/v0.0.12...v0.0.13
 [0.0.12]: https://github.com/droserasprout/slopworld/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/droserasprout/slopworld/compare/v0.0.10...v0.0.11

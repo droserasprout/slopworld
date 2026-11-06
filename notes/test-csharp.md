@@ -3,6 +3,10 @@
 Run `just mod-test`, also included in `just test`. Build and coverage commands belong
 to [Build from source](../docs/src/development/build.md).
 
+`just mod-coverage` enforces at least 92.38% total line coverage and runs in
+`just ci-mod` and `just ci`. The gate measures linked production sources in the
+game-free harness, not the entire mod; test and generated protocol files are excluded.
+
 The .NET 8/CoreCLR project explicitly links production sources and supplies substitutes
 for game/Unity dependencies. NUnitLite uses a non-parallel fixture; the harness finds
 test types whose names end in `Tests` and invokes qualifying public static methods.

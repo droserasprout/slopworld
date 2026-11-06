@@ -40,7 +40,7 @@ and does not identify which crates are included in a particular binary.
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
 | bytes | 1.12.1 | MIT |
-| cc | 1.11.0 | MIT OR Apache-2.0 |
+| cc | 1.11.1 | MIT OR Apache-2.0 |
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
@@ -85,7 +85,7 @@ and does not identify which crates are included in a particular binary.
 | fdeflate | 0.3.7 | MIT OR Apache-2.0 |
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
 | fixedbitset | 0.5.7 | MIT OR Apache-2.0 |
-| flate2 | 1.1.10 | MIT OR Apache-2.0 |
+| flate2 | 1.1.11 | MIT OR Apache-2.0 |
 | foldhash | 0.1.5 | Zlib |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 |
 | futures | 0.3.34 | MIT OR Apache-2.0 |
@@ -152,7 +152,7 @@ and does not identify which crates are included in a particular binary.
 | matchers | 0.2.0 | MIT |
 | matchit | 0.7.3 | MIT AND BSD-3-Clause |
 | memchr | 2.8.3 | Unlicense OR MIT |
-| mime | 0.3.17 | MIT OR Apache-2.0 |
+| mime | 0.3.18 | MIT OR Apache-2.0 |
 | miniz_oxide | 0.8.9 | MIT OR Zlib OR Apache-2.0 |
 | miniz_oxide | 0.9.1 | MIT OR Zlib OR Apache-2.0 |
 | mio | 1.2.4 | MIT |
@@ -274,9 +274,9 @@ and does not identify which crates are included in a particular binary.
 | tokio-tungstenite | 0.24.0 | MIT |
 | toml | 0.8.23 | MIT OR Apache-2.0 |
 | toml_datetime | 0.6.11 | MIT OR Apache-2.0 |
-| toml_datetime | 1.1.2+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_datetime | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |
 | toml_edit | 0.22.27 | MIT OR Apache-2.0 |
-| toml_edit | 0.25.17+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_edit | 0.25.19+spec-1.1.0 | MIT OR Apache-2.0 |
 | toml_parser | 1.1.5+spec-1.1.0 | MIT OR Apache-2.0 |
 | toml_write | 0.1.2 | MIT OR Apache-2.0 |
 | tower | 0.5.3 | MIT |
@@ -293,8 +293,8 @@ and does not identify which crates are included in a particular binary.
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | unicode-width | 0.2.3 | MIT OR Apache-2.0 |
 | untrusted | 0.9.0 | ISC |
-| ureq | 3.5.0 | MIT OR Apache-2.0 |
-| ureq-proto | 0.6.5 | MIT OR Apache-2.0 |
+| ureq | 3.5.1 | MIT OR Apache-2.0 |
+| ureq-proto | 0.7.1 | MIT OR Apache-2.0 |
 | url | 2.5.8 | MIT OR Apache-2.0 |
 | utf-8 | 0.7.6 | MIT OR Apache-2.0 |
 | utf8-zero | 0.8.1 | MIT OR Apache-2.0 |
@@ -358,7 +358,7 @@ and does not identify which crates are included in a particular binary.
 | windows_x86_64_msvc | 0.48.5 | MIT OR Apache-2.0 |
 | windows_x86_64_msvc | 0.52.6 | MIT OR Apache-2.0 |
 | winnow | 0.7.15 | MIT |
-| winnow | 1.0.4 | MIT |
+| winnow | 1.0.5 | MIT |
 | writeable | 0.6.4 | Unicode-3.0 |
 | yoke | 0.8.4 | Unicode-3.0 |
 | yoke-derive | 0.8.4 | Unicode-3.0 |

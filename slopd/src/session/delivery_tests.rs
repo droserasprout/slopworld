@@ -620,53 +620,44 @@ async fn project_agent_followup_submits_and_audits_an_ordinary_task() {
     assert_followup_delivery(false).await;
 }
 
-async fn assert_followup_delivery(worker: bool) {
-    let (manager, mut rx, task) = if worker {
-        task_worker_delivery_fixture().await
-    } else {
-        let (manager, rx) = delivery_fixture_config(Config {
-            sessions: vec![
-                SessionCfg {
-                    name: "sender".into(),
-                    project: "repo".into(),
-                    permissions: serde_json::from_value(serde_json::json!({
-                        "followup": "project_agents"
-                    }))
-                    .unwrap(),
-                    ..Default::default()
-                },
-                SessionCfg {
-                    name: "worker".into(),
-                    project: "repo".into(),
-                    cmd: Some("test-agent".into()),
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        })
-        .await;
-        let sender = manager.task_participant("sender").await.unwrap();
-        let recipient = manager.task_participant("worker").await.unwrap();
-        let task = manager
-            .create_task_owned(sender, recipient, "Initial work".into(), None)
-            .await
-            .unwrap();
-        assert!(task.worker.is_none());
-        manager.live.write().await.get_mut("worker").unwrap().state = State::Idle;
-        (manager, rx, task)
-    };
-    let sender = if worker { crate::tasks::HOST } else { "sender" };
-    let cap = if worker {
-        crate::credentials::Cap::Root
-    } else {
-        crate::credentials::Cap::Scoped(crate::credentials::AgentCredential {
-            grantor: sender.into(),
-            sessions: Default::default(),
-            level: crate::credentials::Level::Rw,
-            revoked: Default::default(),
-        })
-    };
-    let app = crate::application::Application::from_runtime(&manager);
+async fn project_agent_delivery_fixture() -> (
+    std::sync::Arc<SessionRuntime>,
+    tokio::sync::mpsc::UnboundedReceiver<QueuedInput>,
+    crate::tasks::Task,
+) {
+    let (manager, rx) = delivery_fixture_config(Config {
+        sessions: vec![
+            SessionCfg {
+                name: "sender".into(),
+                project: "repo".into(),
+                permissions: serde_json::from_value(serde_json::json!({
+                    "followup": "project_agents"
+                }))
+                .unwrap(),
+                ..Default::default()
+            },
+            SessionCfg {
+                name: "worker".into(),
+                project: "repo".into(),
+                cmd: Some("test-agent".into()),
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    })
+    .await;
+    let sender = manager.task_participant("sender").await.unwrap();
+    let recipient = manager.task_participant("worker").await.unwrap();
+    let task = manager
+        .create_task_owned(sender, recipient, "Initial work".into(), None)
+        .await
+        .unwrap();
+    assert!(task.worker.is_none());
+    manager.live.write().await.get_mut("worker").unwrap().state = State::Idle;
+    (manager, rx, task)
+}
+
+async fn spawn_followup_receiver(manager: &SessionRuntime) {
     let root = manager.cfg_path().parent().unwrap();
     let script = r#"import os, pathlib, tty
 root = pathlib.Path('.')
@@ -699,6 +690,28 @@ time.sleep(60)
     })
     .await
     .unwrap();
+}
+
+async fn assert_followup_delivery(worker: bool) {
+    let (manager, mut rx, task) = if worker {
+        task_worker_delivery_fixture().await
+    } else {
+        project_agent_delivery_fixture().await
+    };
+    let sender = if worker { crate::tasks::HOST } else { "sender" };
+    let cap = if worker {
+        crate::credentials::Cap::Root
+    } else {
+        crate::credentials::Cap::Scoped(crate::credentials::AgentCredential {
+            grantor: sender.into(),
+            sessions: Default::default(),
+            level: crate::credentials::Level::Rw,
+            revoked: Default::default(),
+        })
+    };
+    let app = crate::application::Application::from_runtime(&manager);
+    let root = manager.cfg_path().parent().unwrap();
+    spawn_followup_receiver(&manager).await;
     crate::application::worker_tasks::followup(
         &app,
         &cap,

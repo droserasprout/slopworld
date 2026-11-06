@@ -182,7 +182,7 @@ jobs:
       - name: Report coverage
         run: |
           just coverage-summary-mod >> "$GITHUB_STEP_SUMMARY"
-          echo 'C# coverage measures linked production files in the game-free harness, not the entire mod. No percentage threshold is enforced.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'C# coverage measures linked production files in the game-free harness, not the entire mod. At least 92.38% total line coverage is required.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage reports
         if: ${{ !cancelled() && hashFiles('coverage/csharp.cobertura.xml') != '' }}
