@@ -29,7 +29,7 @@ daemon-test *args:
 # git/exec_tests.rs checks enforcement in the child; retain setup in the raw report only.
 rust_coverage_exclude := '/tests/|/benches/|/benchmark/|/(tests|test_support|test_http|http_fixture|benchmark|[^/]*_tests)\.rs$|/shared/(http_wire|protocol)\.rs$|/git/exec\.rs$|/target/|/rustc[^/]*/library/'
 
-# Collect Rust coverage and require at least 92.79% filtered line coverage
+# Collect Rust coverage and require at least 92.70% filtered line coverage
 [group('daemon')]
 daemon-coverage:
     #!/usr/bin/env bash
@@ -42,7 +42,8 @@ daemon-coverage:
     cargo llvm-cov --locked --no-report
     cargo llvm-cov report --cobertura --output-path "$output/rust.cobertura.xml"
     cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --cobertura --output-path "$output/rust.filtered.cobertura.xml"
-    cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --fail-under-lines 92.79 | tee "$output/rust.files.txt"
+    # Leave a small margin below observed coverage for asynchronous execution variation.
+    cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --fail-under-lines 92.70 | tee "$output/rust.files.txt"
 
 # Install the daemon, CLI, launcher and user service
 [group('daemon')]

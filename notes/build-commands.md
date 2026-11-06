@@ -42,6 +42,9 @@ workspace artifacts. Configure compiler flags before CI cache setup, and let
 Filtered Rust coverage excludes Git's seccomp setup in `git/exec.rs`: its pre-exec
 child counters do not survive exec. Child-process enforcement tests still run, and
 the raw report retains the file.
+The Rust line-coverage gate keeps a small margin below measured hosted coverage:
+asynchronous audio, browse, and capture paths can vary between passing runs. Do not
+ratchet the gate to a single run's exact percentage.
 
 The mod project owns game references. Never ship game DLLs: keep `Private=false`.
 Pinned RimRef selects explicit references with `UseRimRef=true` and shares the game
