@@ -13,12 +13,25 @@ Expect any imaginable incompatibilities until 0.1.0.
 ### Fixed
 
 - Files: Prevent delayed file reveals from changing selection after navigating elsewhere.
+- Settings: Prevent stale configuration reads from overwriting newer changes.
+- Settings: Fixed saves remaining pending after switching daemon connections.
+- Tasks: Enforce cancellation permissions for task status updates.
 - Terminal: Fixed emoji widths shifting following text and cursor positions.
 - Terminal: Fixed missing symbols and glyphs overlapping adjacent cells.
+- UI: Reduce stuttering during rapid scrolling.
+- Workers: Match recovered workers by identity and task ownership instead of name.
+- Workers: Retry failed task updates after session cleanup.
+- Workers: Abort startup recovery when terminal discovery fails.
 
 ### Changed
 
+- Agents: Replace session grants with per-agent Permissions that apply without restarting.
+- Sandbox: Share Android and Gradle state with host development tools.
 - Terminal: Use system font fallback preferences on Linux.
+
+### Removed
+
+- API: Removed manual session grants. Agents using old tokens need a fresh launch after upgrading.
 
 ## [0.0.13] - 2026-11-02
 
