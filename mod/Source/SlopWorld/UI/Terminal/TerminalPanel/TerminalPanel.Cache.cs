@@ -150,19 +150,7 @@ namespace SlopWorld
                 return;
             var buf = key.Buffer;
             var body = new Rect(key.X, key.Y - key.Lead, key.Width, key.Height + key.Lead);
-            bool broad = repaint == TerminalRepaint.Full;
-            int damageTop = 0,
-                damageHeight = _cacheRegion.Height;
-            if (!broad)
-                _cacheRegion.DamageBand(
-                    key,
-                    buf.ChangedRows,
-                    _snapSy,
-                    _snapOy,
-                    out damageTop,
-                    out damageHeight
-                );
-            if (damageHeight == 0)
+            if (_cacheRegion.Height == 0)
                 return;
             var scroll = default(TerminalScrollCopy);
             bool reuse =
@@ -181,7 +169,7 @@ namespace SlopWorld
                 TraceCacheScrollReuse(key);
                 PerfTrace.Count("terminal-cache-misses");
             }
-            else if (broad)
+            else
                 TraceBroadCacheRepaint(repaintReason);
             PerfTrace.Count("terminal-cache-repaints");
 
@@ -204,20 +192,17 @@ namespace SlopWorld
                     target = scratch;
                 }
                 RenderTexture.active = target;
-                if (canCopy && (!broad || reuse))
+                if (reuse)
                 {
-                    int sourceTop = reuse ? scroll.SourceTop : damageTop;
-                    int destinationTop = reuse ? scroll.DestinationTop : damageTop;
-                    int height = reuse ? scroll.Height : damageHeight;
                     CopyPixels(
                         _cache,
                         0,
-                        sourceTop,
+                        scroll.SourceTop,
                         _cacheRegion.Width,
-                        height,
+                        scroll.Height,
                         target,
                         _cacheRegion.X,
-                        _cacheRegion.Y + destinationTop
+                        _cacheRegion.Y + scroll.DestinationTop
                     );
                 }
                 _cacheLead = key.Lead;
@@ -237,28 +222,27 @@ namespace SlopWorld
                     );
                     PerfTrace.Count("terminal-cache-rows-repainted", count);
                 }
-                else if (broad)
+                else
                     TerminalCachePaint.Full(
                         target,
                         body,
                         SolidTerminalBackground,
                         () => Paint(body, buf, key.CellW, key.CellH)
                     );
-                else
-                {
-                    PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
-                    PaintRows(body, buf, key.CellW, key.CellH, buf.ChangedRows);
-                }
                 if (canCopy)
-                    CopyPixels(
-                        target,
-                        _cacheRegion.X,
-                        _cacheRegion.Y + damageTop,
-                        _cacheRegion.Width,
-                        damageHeight,
-                        _cache,
-                        0,
-                        damageTop
+                    TerminalCachePaint.CopyCompleted(
+                        was,
+                        () =>
+                            CopyPixels(
+                                target,
+                                _cacheRegion.X,
+                                _cacheRegion.Y,
+                                _cacheRegion.Width,
+                                _cacheRegion.Height,
+                                _cache,
+                                0,
+                                0
+                            )
                     );
             }
             finally
@@ -267,9 +251,7 @@ namespace SlopWorld
                 if (scratch != null)
                     RenderTexture.ReleaseTemporary(scratch);
                 PerfTrace.End(
-                    reuse ? "terminal-cache-scroll-paint"
-                        : broad ? "terminal-cache-full-paint"
-                        : "terminal-cache-row-paint",
+                    reuse ? "terminal-cache-scroll-paint" : "terminal-cache-full-paint",
                     started,
                     1
                 );
@@ -289,25 +271,21 @@ namespace SlopWorld
             int destinationTop
         )
         {
-            bool startsAtTop = SystemInfo.graphicsUVStartsAtTop;
+            // CopyTexture accepts bottom-origin coordinates even on Waylith's
+            // top-origin Vulkan backend; the compatibility API converts them.
             Graphics.CopyTexture(
                 source,
                 0,
                 0,
                 x,
-                TerminalCacheRegion.TextureY(top, height, source.height, startsAtTop),
+                TerminalCacheRegion.TextureY(top, height, source.height),
                 width,
                 height,
                 destination,
                 0,
                 0,
                 destinationX,
-                TerminalCacheRegion.TextureY(
-                    destinationTop,
-                    height,
-                    destination.height,
-                    startsAtTop
-                )
+                TerminalCacheRegion.TextureY(destinationTop, height, destination.height)
             );
         }
 

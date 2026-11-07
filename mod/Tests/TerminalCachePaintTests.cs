@@ -8,6 +8,58 @@ namespace SlopWorld.Tests
     public class TerminalCachePaintTests
     {
         [Test]
+        public void CopyClosesActiveScratchBatchBeforeReadingPixelsAcrossRepeatedRepaints()
+        {
+            var previous = RenderTexture.active;
+            var outer = new RenderTexture();
+            var scratch = new RenderTexture();
+            var cache = new RenderTexture();
+            try
+            {
+                for (int frame = 1; frame <= 3; frame++)
+                {
+                    RenderTexture.active = scratch;
+                    string glyphs = "glyphs " + frame;
+                    TerminalCachePaint.Full(
+                        scratch,
+                        new Rect(0, 0, 100, 100),
+                        new Color(),
+                        () => scratch.Pending.Add(glyphs)
+                    );
+                    Assert.That(
+                        scratch.Pending,
+                        Is.Not.Empty,
+                        "active target still owns queued GUI work"
+                    );
+                    TerminalCachePaint.CopyCompleted(
+                        outer,
+                        () =>
+                        {
+                            Assert.That(RenderTexture.active, Is.SameAs(outer));
+                            Assert.That(scratch.Pending, Is.Empty);
+                            cache.Pixels = (string[])scratch.Pixels.Clone();
+                        }
+                    );
+                    Assert.That(cache.Pixels, Is.EqualTo(new[] { "background", glyphs }));
+                }
+                RenderTexture.active = scratch;
+                scratch.Pending.Add("last glyphs");
+                Assert.Throws<InvalidOperationException>(() =>
+                    TerminalCachePaint.CopyCompleted(
+                        outer,
+                        () => throw new InvalidOperationException("copy failed")
+                    )
+                );
+                Assert.That(RenderTexture.active, Is.SameAs(outer));
+                Assert.That(scratch.Pending, Is.Empty);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+            }
+        }
+
+        [Test]
         public void RepeatedHistoryRepaintsKeepCompleteFrameUntilBackgroundAndGlyphsAreBaked()
         {
             var previous = RenderTexture.active;

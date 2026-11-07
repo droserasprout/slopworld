@@ -30,7 +30,7 @@ namespace SlopWorld.Tests
                 TerminalCopyPlan
             );
             yield return (
-                "terminal keeps cursor-only pixels and repaints sparse damage",
+                "terminal keeps cursor-only pixels and fully repaints sparse edits",
                 TerminalDamage
             );
             yield return ("terminal broad and missing damage repaint completely", TerminalFallback);
@@ -60,11 +60,16 @@ namespace SlopWorld.Tests
             AssertEx.Equal(19, crop.Y, "top floor");
             AssertEx.Equal(841, crop.Width, "right ceiling");
             AssertEx.Equal(1061, crop.Height, "screen clamp");
-            AssertEx.Equal(19, TerminalCacheRegion.TextureY(19, 100, 1080, true), "top origin");
             AssertEx.Equal(
                 961,
-                TerminalCacheRegion.TextureY(19, 100, 1080, false),
-                "bottom origin"
+                TerminalCacheRegion.TextureY(19, 100, 1080),
+                "copy API converts screen coordinates to bottom origin"
+            );
+            AssertEx.Equal(0, TerminalCacheRegion.TextureY(0, 100, 100), "full crop destination");
+            AssertEx.Equal(
+                63,
+                TerminalCacheRegion.TextureY(19, 18, 100),
+                "partial crop destination"
             );
             var bandRegion = TerminalCacheRegion.Crop(0, 0, 1280, 1600, 1920, 1600);
             var key = new TerminalCacheKey
@@ -196,9 +201,9 @@ namespace SlopWorld.Tests
         {
             var screen = Screen(new[] { 1 });
             AssertEx.Equal(
-                TerminalRepaint.Rows,
+                TerminalRepaint.Full,
                 TerminalRepaintPolicy.Choose(false, 1, screen),
-                "single-row edit is selective"
+                "single-row edits replace the complete cached frame"
             );
             screen.Cx = 3;
             screen.Seq++;
@@ -207,6 +212,21 @@ namespace SlopWorld.Tests
                 TerminalRepaintPolicy.Choose(false, 2, screen),
                 "cursor and sequence changes reuse pixels"
             );
+            for (int revision = 3; revision <= 8; revision++)
+            {
+                screen.ContentRevision = revision;
+                screen.Lines[1] = revision % 2 == 0 ? "short" : "a longer edited prompt";
+                AssertEx.Equal(
+                    TerminalRepaint.Full,
+                    TerminalRepaintPolicy.Choose(false, revision - 1, screen),
+                    "repeated edits cannot retain partially cleared glyphs"
+                );
+                AssertEx.Equal(
+                    TerminalRepaint.None,
+                    TerminalRepaintPolicy.Choose(false, revision, screen),
+                    "completed frame stays cached while idle"
+                );
+            }
         }
 
         static void TerminalSkippedFrames()
@@ -240,9 +260,9 @@ namespace SlopWorld.Tests
                 "skipped revision has a distinct full-paint reason"
             );
             AssertEx.Equal(
-                TerminalRepaint.Rows,
+                TerminalRepaint.Full,
                 TerminalRepaintPolicy.Choose(false, screen.ContentRevision - 1, screen),
-                "damage is sufficient when the immediately preceding revision was painted"
+                "even consecutive sparse updates rebuild the complete frame"
             );
         }
 

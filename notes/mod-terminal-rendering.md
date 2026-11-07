@@ -24,7 +24,9 @@ and rasterizes those names.
 
 `TerminalCachePaint` records full-repaint backgrounds and glyphs in the same native GUI
 render-target batch. GPU clears through `GL.Clear` use a separate command stream; keep them
-out of cache repaints. Partial repaints clear only changed rows within the GUI batch.
+out of cache repaints. Content changes repaint the complete pane in one batch;
+unchanged content and cursor-only updates retain the cache. Sparse row overpainting
+is not used because it leaves stale scanlines under Waylith.
 
 Cache sampling supplies bottom-origin UVs to `GUI.DrawTextureWithTexCoords`; the GUI backend
 owns conversion to its texture origin. Do not add a graphics-API-dependent flip.
@@ -37,11 +39,13 @@ and screen-mode changes invalidate the appropriate parsed/rendered caches.
 On backends with texture-copy support, each panel retains a physical-pixel crop.
 Painting uses a pooled, temporary screen-sized target so IMGUI clipping and glyph
 sampling keep their existing screen coordinates; this scratch contributes to peak
-GPU storage. Backends without copy support retain the screen-sized cache. History
+GPU storage. Close the scratch GUI draw target before copying its pixels: Waylith's
+GPU copy does not flush pending GUI commands. Backends without copy support retain
+the screen-sized cache. History
 scrolls reuse matching, link-free rows only at integer physical-pixel shifts;
 exposed and boundary rows repaint. Scale, origin, surface or content mismatches
-fall back to a full repaint. Cache copy coordinates follow the same backend Y
-orientation as texture sampling.
+fall back to a full repaint. CopyTexture coordinates are bottom-origin even when
+the backend reports top-origin UVs; sampling and copy conversion are separate contracts.
 
 Selection painting retains byte geometry under weak immutable-row keys. Replacement
 rows invalidate that geometry without retaining sessions or games. Copying text

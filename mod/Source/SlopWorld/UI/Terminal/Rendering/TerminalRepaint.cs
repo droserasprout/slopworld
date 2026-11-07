@@ -5,7 +5,6 @@ namespace SlopWorld
     internal enum TerminalRepaint
     {
         None,
-        Rows,
         Full,
     }
 
@@ -99,9 +98,9 @@ namespace SlopWorld
         public bool Matches(TerminalCacheRegion other) =>
             X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
 
-        // Match the cache's existing sampling orientation on both GL and top-origin backends.
-        public static int TextureY(int top, int height, int textureHeight, bool startsAtTop) =>
-            startsAtTop ? top : textureHeight - top - height;
+        // CopyTexture's public coordinates are bottom-origin, independent of backend UVs.
+        public static int TextureY(int top, int height, int textureHeight) =>
+            textureHeight - top - height;
 
         // Sparse repaint needs only this bounding strip in the screen-sized scratch.
         // Labels clip to their row; one pixel covers unsnapped glyph bounds and snapped fills.
@@ -332,7 +331,10 @@ namespace SlopWorld
                 return TerminalRepaint.Full;
             }
             reason = TerminalRepaintReason.SparseRows;
-            return TerminalRepaint.Rows;
+            // Waylith's partial row overpaint leaves stale scanlines after edits.
+            // Keep unchanged frames cached, but rebuild changed content as a complete
+            // background/glyph batch until incremental rendering is validated natively.
+            return TerminalRepaint.Full;
         }
     }
 }
