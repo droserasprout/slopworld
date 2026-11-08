@@ -136,7 +136,7 @@ what is reset and [Backup and recovery](../maintenance/backup-and-recovery.md) f
 
 ### Can agents communicate with each other? {#agent-communication}
 
-Yes. Terminal grants and task mailboxes support collaboration. See
+Yes. Agents can use task mailboxes and access each other's terminals when permitted. See
 [Agent collaboration](../agents/agent-collaboration.md).
 
 ## Interface

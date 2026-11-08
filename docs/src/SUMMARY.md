@@ -26,7 +26,7 @@
 - [Agents]()
   - [Configuration and templates](agents/configuring-agents.md)
   - [Session lifecycle](agents/session-lifecycle.md)
-  - [Tasks, workers, and grants](agents/agent-collaboration.md)
+  - [Tasks, workers, and permissions](agents/agent-collaboration.md)
   - [Usage and summaries](agents/usage-and-summaries.md)
 - [Sandbox]()
   - [Overview](sandbox/sandboxing.md)

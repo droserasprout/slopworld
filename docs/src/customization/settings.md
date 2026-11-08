@@ -67,6 +67,8 @@ window stays undecorated when fullscreen is off. Native RimWorld display modes a
 | VSync (not recommended) | Off by default. Synchronizes presentation with the display, adds scrolling latency, and disables the FPS selector. Turning it off restores the selected limit. |
 | Smooth scrolling | Use precise touchpad movement where supported; disable it for wheel steps. Enabled by default. |
 
+**Post-processing** adds visual effects such as scanlines and vignette. It is off by default.
+
 On Linux, **Window > Inhibit screensaver** keeps the screen awake while SlopWorld
 is running, including in menus and in the background. It is enabled by default,
 applies live, and is saved with the profile. Turn it off to restore normal desktop

@@ -73,7 +73,7 @@ RIMWORLD=/path/to/RimWorld/game just install
 slopworld
 ```
 
-`RIMWORLD` defaults to `~/GOG Games/RimWorld/game`.
+`RIMWORLD` defaults to `~/.local/share/Steam/steamapps/common/RimWorld`.
 
 Always start the "game" with `slopworld`. The mod only activates in a separate profile and should stay disabled in vanilla installation.
 

@@ -12,7 +12,7 @@ for overrides, XDG locations, and sidecar/macOS paths.
 | Data | Linux default location | Include |
 | --- | --- | --- |
 | Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, project records, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
-| Workspace records and authority | `~/.local/share/slopworld/` | Agent and host-shell definitions, worktree/task records, grants, and any pending workspace recovery journal. |
+| Workspace records and authority | `~/.local/share/slopworld/` | Agent definitions and permissions, host-shell definitions, worktree/task records, and any pending workspace recovery journal. |
 | Agent private state | `~/.local/share/slopworld/sessions/` | Tool state, history, configuration copies, and recoverable trash. |
 | Game profile | `~/.local/share/slopworld/profiles/` | Saves and mod settings. |
 | Jukebox | `~/.config/slopworld/jukebox/` and `~/.local/share/slopworld/jukebox.toml` | Stations and liked songs. |
