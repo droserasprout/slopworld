@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using UnityEngine;
+using Waylith.Assets;
 
 namespace SlopWorld
 {
@@ -27,6 +28,19 @@ namespace SlopWorld
 
         static Fingerprint ReadIdentity(Texture2D source)
         {
+            // The packed payload already has a content hash. Include the decoder runtime
+            // so engine/import changes cannot reuse frames baked from different pixels.
+            string path = source.CoreTexture?.SourcePath;
+            if (path != null && ContentPack.TryGetTextureContentHash(path, out string contentHash))
+                return new Fingerprint(
+                    "pack-"
+                        + typeof(Texture2D).Module.ModuleVersionId.ToString("N")
+                        + "-"
+                        + contentHash
+                );
+
+            // Generated or unpacked sources have no immutable pack identity. Retain the
+            // pixel-based fallback, memoized per source, rather than guessing from its name.
             Color[] pixels = TextureReadback.ReadBack(source);
             // Feed bounded RGBA8 blocks rather than allocating another full-size pixel array.
             var block = new byte[4096];

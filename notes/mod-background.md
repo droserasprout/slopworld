@@ -8,7 +8,9 @@ while definitions load. Late bootstrap only installs the hook if early installat
 failed, so wrappers and animation state are not duplicated. Source textures remain
 provider-owned and immutable; the baker owns generated frames and cleanup. Build
 replacements before releasing the old set, retaining it on failure. Cache identity
-includes source, geometry, tuning, preset, and bake version.
+includes source, geometry, tuning, preset, and bake version. Packed sources use the
+content hash plus runtime identity, avoiding GPU readback on cache hits; unpacked
+sources retain the pixel-hash fallback.
 
 `MenuBackgroundLayers` shares frame selection, opacity, and offsets. Repeated GUI
 calls do not advance history, and replacement resets it. Menu/loading keep vanilla
