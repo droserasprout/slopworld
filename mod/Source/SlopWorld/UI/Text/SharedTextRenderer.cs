@@ -136,6 +136,7 @@ namespace SlopWorld
         // transforms would mix group coordinates with screen-space pivots.
         static void DrawFontCell(string text, Rect bounds, float lineHeight, GUIStyle style)
         {
+            text = ComposeForPainting(text);
             var clipping = style.clipping;
             int originalSize = style.fontSize;
             style.clipping = TextClipping.Clip;
@@ -174,6 +175,26 @@ namespace SlopWorld
             {
                 style.fontSize = originalSize;
                 style.clipping = clipping;
+            }
+        }
+
+        // Waylith's DrawText looks up and paints each scalar separately; it does not
+        // attach combining marks to a base glyph. Canonical composites use the font's
+        // authored accent placement, exactly as their precomposed equivalents do.
+        // Normalize only the paint string: daemon cells, selection and copied bytes
+        // retain their original scalars and widths. Uncomposable marks stay present.
+        static string ComposeForPainting(string text)
+        {
+            if (text.Length < 2)
+                return text;
+            try
+            {
+                return text.Normalize(System.Text.NormalizationForm.FormC);
+            }
+            catch (System.ArgumentException)
+            {
+                // An incomplete UTF-16 cell must not abort painting the whole pane.
+                return text;
             }
         }
 

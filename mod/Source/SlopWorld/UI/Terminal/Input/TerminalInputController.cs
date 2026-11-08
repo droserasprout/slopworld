@@ -158,6 +158,34 @@ namespace SlopWorld
 
         // Handle keys assigned to workspace controls. Read KeyBindingDefs so option-menu changes apply.
         // Send shifted and unbound keys to the agent. Close menus before a workspace transition.
+        internal static bool IsWorkspaceKey(Event e)
+        {
+            if (e.shift || e.keyCode == KeyCode.None)
+                return false;
+            if (e.alt && !e.control && !e.command)
+            {
+                if (
+                    e.keyCode == KeyCode.A
+                    || e.keyCode == KeyCode.S
+                    || e.keyCode == KeyCode.Z
+                    || e.keyCode == KeyCode.X
+                    || WorkspaceHotkeys.SlotKey(e) >= 0
+                )
+                    return true;
+            }
+            return (e.control && !e.alt && !e.command && Bound(ModDefOf.SlopCommandPalette, e))
+                || Bound(ModDefOf.SlopSidebarAgents, e)
+                || Bound(ModDefOf.SlopSidebarFiles, e)
+                || Bound(ModDefOf.SlopSidebarGit, e)
+                || Bound(ModDefOf.SlopSidebarSearch, e)
+                || Bound(ModDefOf.SlopSidebarTasks, e)
+                || Bound(ModDefOf.SlopSidebarLibrary, e)
+                || Bound(ModDefOf.SlopToggleOpenFiles, e)
+                || Bound(ModDefOf.SlopTogglePlanner, e)
+                || Bound(ModDefOf.SlopQuickTerminal, e)
+                || Bound(ModDefOf.SlopToggleFullscreen, e);
+        }
+
         public static bool HandleFunctionKey(Event e)
         {
             // Send Shift+key to the agent or TUI.

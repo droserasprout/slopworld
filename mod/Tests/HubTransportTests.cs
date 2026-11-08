@@ -60,6 +60,8 @@ namespace SlopWorld.Tests
                 return true;
             }
 
+            public bool FlushOutgoing(int timeoutMs) => Connected;
+
             public void Dispose()
             {
                 Disposals++;

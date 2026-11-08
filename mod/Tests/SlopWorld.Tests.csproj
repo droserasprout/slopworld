@@ -65,6 +65,7 @@
     <Compile Include="../Source/SlopWorld/UI/Chrome/NativeTextLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/NativeTextScope.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Chrome/NativeText.cs" />
+    <Compile Include="../Source/SlopWorld/Patches/Chrome/NativeKeyDispatch.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/UiScaleDrag.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Chrome/SwapchainAcquireTimeout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalCachePaint.cs" />
@@ -104,9 +105,14 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalHistoryRestore.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalInputController.Keyboard.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalWheelSteps.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/Input/TerminalPaneInput.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalViewportResize.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalPanel.Sizing.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanel/TerminalPanel.State.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Links/TerminalLinkService.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/QuitInterceptor.cs" />
+    <Compile Include="../Source/SlopWorld/Sim/Lifecycle/NativeCloseDispatch.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/SaveCoordinator.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/ShutdownSaving.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/LoadFailureRecovery.cs" />

@@ -127,6 +127,8 @@ namespace SlopWorld.Tests
             public string LastError => null;
             public IncomingMessageQueue Incoming { get; } = new IncomingMessageQueue();
             public readonly List<Wire.AudioRequest> Sent = new List<Wire.AudioRequest>();
+            public int FlushedCount;
+            public bool FlushSucceeds = true;
 
             public bool Connect(
                 string host,
@@ -145,10 +147,40 @@ namespace SlopWorld.Tests
                 return true;
             }
 
+            public bool FlushOutgoing(int timeoutMs)
+            {
+                FlushedCount = Sent.Count;
+                Assert.That(timeoutMs, Is.InRange(1, 1000));
+                return Connected && FlushSucceeds;
+            }
+
             public void Dispose()
             {
                 Connected = false;
                 Incoming.Close();
+            }
+        }
+
+        public static void ShutdownStopFlushesAfterQueuedSelectionAndReportsFailure()
+        {
+            using var socket = new Socket();
+            var transport = new HubTransport(() => socket, action => action());
+            try
+            {
+                transport.Connect();
+                transport.Update();
+                var audio = new AudioBus(transport);
+                audio.PlayStation("station", "stream", 0.5f);
+                Assert.That(audio.StopForShutdown(0.5f), Is.True);
+                Assert.That(socket.Sent[1].Stop, Is.Not.Null);
+                Assert.That(socket.FlushedCount, Is.EqualTo(2));
+                socket.FlushSucceeds = false;
+                Assert.That(audio.StopForShutdown(0.5f), Is.False);
+                Assert.That(socket.FlushedCount, Is.EqualTo(3));
+            }
+            finally
+            {
+                transport.Disconnect();
             }
         }
 

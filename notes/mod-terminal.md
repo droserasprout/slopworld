@@ -31,10 +31,15 @@ physical key state must not synthesize a second text stream.
 Wheel input updates local history and application input without preparing a displayed
 history view or renderer. [Shared scrolling](mod-ui-scrolling.md) owns queue admission,
 native coverage, and bounded application report counts across deferred delivery.
+The hovered visible pane receives wheel input while its workspace host has input;
+scrolling does not change the selected pane or keyboard focus.
 
 Each panel negotiates its own bounds using the same snapped cell advance for drawing
 and hits. Refresh cannot pass one pane's geometry to another. Client allocation limits
 remain independent of daemon capabilities.
+While reading history, a pane defers daemon resizing so reflow cannot invalidate its
+row anchor. The retained grid clips to the new pane bounds; returning live negotiates
+the latest bounds. This also applies to divider drags and restored history positions.
 
 Flush literal input before clipboard/PRIMARY paste and on focus loss; release forwarded
 mouse presses too. Rejected input is discarded. Mouse-reporting apps own live clicks;

@@ -517,7 +517,8 @@ namespace SlopWorld
                 return;
             if (!hub.Capabilities.AudioPlayback)
                 return;
-            hub.Audio.Stop(Volume());
+            if (!hub.Audio.StopForShutdown(Volume()))
+                Log.Warning("[SlopWorld] radio stop could not be flushed before shutdown");
         }
 
         // Mark the selection for the next Update, which checks connection state before sending.

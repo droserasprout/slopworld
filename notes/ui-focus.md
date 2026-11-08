@@ -17,5 +17,11 @@ word/line selection and selection dragging. Field Tab/Shift+Tab traversal remain
 unimplemented. Panel navigation belongs to [workspace layout](ui-dynamic-layout-architecture.md),
 and terminal focus and key routing to [terminal input](mod-terminal.md).
 
+Waylith suppresses game-key dispatch while a field captures text. The native keyboard
+adapter admits workspace bindings and binding capture while retaining native editing
+events; workspace dispatch still checks modal ownership before fields draw.
+Custom editable styles must not use the native names `textarea` or `textfield`:
+Waylith interprets backgroundless multiline controls with those names as read-only.
+
 See [FieldFocusScope](../mod/Source/SlopWorld/UI/Text/FieldFocusScope.cs) and
 [focus tests](../mod/Tests/FieldFocusTests.cs) for the local contracts.

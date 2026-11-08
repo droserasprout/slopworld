@@ -96,6 +96,93 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void CanonicalCombiningCellsPaintLikePrecomposedWithoutChangingCopyText()
+        {
+            foreach (
+                var pair in new[]
+                {
+                    ("e\u0301", "é"),
+                    ("a\u0308", "ä"),
+                    ("o\u0302", "ô"),
+                    ("a\u0308\u0301", "ä\u0301"),
+                }
+            )
+            {
+                // The first three are the manually confirmed probe. Use the runtime's
+                // font path for remaining stacked marks; they must not be dropped.
+                string composed = pair.Item2;
+                foreach (int size in new[] { 12, 18, 25 })
+                foreach (var face in new[] { FontStyle.Normal, FontStyle.Bold, FontStyle.Italic })
+                {
+                    Reset(new Texture2D());
+                    var style = new GUIStyle
+                    {
+                        font = new Font(),
+                        fontSize = size,
+                        fontStyle = face,
+                    };
+                    var source = InlineTextLayout.CellCluster(
+                        pair.Item1,
+                        1,
+                        8f,
+                        TextSpriteCatalog.Shared
+                    );
+                    var equivalent = InlineTextLayout.CellCluster(
+                        composed,
+                        1,
+                        8f,
+                        TextSpriteCatalog.Shared
+                    );
+                    var bounds = new Rect(17, 23, 8, 30);
+                    SharedTextRenderer.DrawTerminalRun(source, bounds, 30, style);
+                    SharedTextRenderer.DrawTerminalRun(equivalent, bounds, 30, style);
+                    AssertEx.Equal(
+                        GUI.TextLabels[1],
+                        GUI.TextLabels[0],
+                        "canonical cells use identical glyph text and baseline bounds"
+                    );
+                    AssertEx.Equal(
+                        GUI.LabelFontSizes[1],
+                        GUI.LabelFontSizes[0],
+                        "canonical cells use identical fitted size"
+                    );
+                    AssertEx.Equal(
+                        pair.Item1,
+                        source.Spans[0].Text,
+                        "painting retains original selection/copy scalars"
+                    );
+                    AssertEx.Equal(8f, source.Width, "painting retains daemon cell width");
+                    var runs = Sgr.ParseLine("\x1b[" + pair.Item1.Length + ";1z" + pair.Item1);
+                    AssertEx.Equal(
+                        pair.Item1,
+                        TerminalColumns.Slice(TerminalColumns.Cells(runs), 0, 0),
+                        "copy retains decomposed text after painting"
+                    );
+                }
+            }
+        }
+
+        public static void PaintCompositionPreservesUnsupportedMarksAndMalformedCells()
+        {
+            foreach (string text in new[] { "x\u0301", "\u0301", "e\ud800", "e\udc00" })
+            {
+                Reset(new Texture2D());
+                var layout = InlineTextLayout.CellCluster(text, 1, 8f, TextSpriteCatalog.Shared);
+                SharedTextRenderer.DrawTerminalRun(
+                    layout,
+                    new Rect(0, 0, 8, 18),
+                    18,
+                    new GUIStyle()
+                );
+                AssertEx.Equal(
+                    text,
+                    GUI.TextLabels[0].Text,
+                    "uncomposable or malformed text is retained"
+                );
+                AssertEx.Equal(text, layout.Spans[0].Text, "source cell remains unchanged");
+            }
+        }
+
         public static void PlainTerminalRunUsesScalarColumnsAndGroupClip()
         {
             Reset(null);

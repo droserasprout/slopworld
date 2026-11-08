@@ -20,6 +20,9 @@ Old callback batches cannot spill into a new connection. Capabilities reset to u
 on reconnect. An explicit unavailable Landlock capability queues a one-time popup
 after loading finishes; unknown capability availability does not warn. Local socket
 acceptance is not daemon acknowledgement.
+Shutdown radio commands use a bounded FIFO writer barrier before engine teardown.
+It includes an in-flight write, reports timeout/disconnection, and does not claim a
+daemon acknowledgement. Ordinary disconnect still discards pending input.
 
 `DaemonConfigStore` owns shared endpoint-scoped configuration publication for both
 hub refreshes and Settings reads. Request order and save boundaries reject stale

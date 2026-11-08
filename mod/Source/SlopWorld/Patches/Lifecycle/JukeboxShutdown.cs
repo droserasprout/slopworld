@@ -3,11 +3,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Run before Root.Shutdown closes the socket. Keep playback shutdown separate from saving.
+    // Save first, then flush the configured stop before Root.Shutdown terminates the engine.
     // QuitInterceptor also routes the window close action through Root.Shutdown.
     [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
     public static class Patch_RadioOnShutdown
     {
+        [HarmonyPriority(Priority.Last)]
         static void Prefix() => Radio.Quit();
     }
 }

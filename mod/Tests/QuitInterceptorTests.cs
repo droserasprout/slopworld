@@ -51,6 +51,37 @@ namespace SlopWorld.Tests
 
         static AlertDialog.Notice Notice => (AlertDialog.Notice)Verse.Find.WindowStack[0];
 
+        [Test]
+        public void NativeLoopCloseCanBeCancelledAndRepeatedWithoutStoppingTheEngine()
+        {
+            Assert.That(QuitInterceptor.DeferNativeClose(false, false), Is.False);
+            QuitInterceptor.Check();
+            Assert.That(Verse.Find.WindowStack.Count, Is.Zero);
+            Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.True);
+            QuitInterceptor.Check();
+            Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.True);
+            QuitInterceptor.Check();
+            Assert.That(Verse.Find.WindowStack.Count, Is.EqualTo(1));
+            Verse.Find.WindowStack.Remove(Notice);
+            QuitInterceptor.Check();
+            Assert.That(Verse.Root.Shutdowns, Is.Zero);
+            Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.True);
+            QuitInterceptor.Check();
+            Accept();
+            QuitInterceptor.Check();
+            Assert.That(Verse.Root.Shutdowns, Is.EqualTo(1));
+            Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.False);
+        }
+
+        [Test]
+        public void EngineRequestedShutdownBypassesNativeClosePolicy()
+        {
+            Assert.That(QuitInterceptor.DeferNativeClose(true, true), Is.False);
+            QuitInterceptor.Check();
+            Assert.That(Verse.Find.WindowStack.Count, Is.Zero);
+            Assert.That(Verse.Root.Shutdowns, Is.Zero);
+        }
+
         static void Accept()
         {
             var notice = Notice;
@@ -189,11 +220,15 @@ namespace SlopWorld.Tests
             Assert.That(Settings.S.askOnExit, Is.True);
         }
 
-        [Test]
-        public void SessionStoppingRefreshesAndWaitsForEveryAcknowledgement()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void SessionStoppingRefreshesAndWaitsForEveryAcknowledgement(bool nativeClose)
         {
             Settings.S.stopSessionsOnExit = true;
-            QuitInterceptor.Request();
+            if (nativeClose)
+                Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.True);
+            else
+                QuitInterceptor.Request();
             QuitInterceptor.Check();
             var hub = SessionHub.Instance;
             hub.Sessions["agent"] = new SessionInfo { Name = "agent", Alive = true };

@@ -180,6 +180,32 @@ namespace SlopWorld.Tests
             return data;
         }
 
+        public static void ShutdownFlushDeliversAllQueuedCommandsBeforeImmediateDisposal()
+        {
+            WithPeer(
+                ValidResponse,
+                stream =>
+                {
+                    for (byte expected = 1; expected <= 3; expected++)
+                    {
+                        var header = Read(stream, 2);
+                        Assert.That(header, Is.EqualTo(new byte[] { 0x82, 0x81 }));
+                        var mask = Read(stream, 4);
+                        Assert.That((byte)(Read(stream, 1)[0] ^ mask[0]), Is.EqualTo(expected));
+                    }
+                },
+                (socket, port) =>
+                {
+                    Assert.That(socket.Connect("127.0.0.1", port, "/ws", ""), Is.True);
+                    for (byte value = 1; value <= 3; value++)
+                        Assert.That(socket.SendBinary(new[] { value }), Is.True);
+                    Assert.That(socket.FlushOutgoing(1000), Is.True);
+                    socket.Dispose();
+                    Assert.That(socket.FlushOutgoing(1000), Is.False);
+                }
+            );
+        }
+
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             foreach (int size in new[] { 125, 126, 65535, 65536 })
@@ -590,6 +616,11 @@ namespace SlopWorld.Tests
                         Is.True
                     );
                     Assert.That(socket.SendBinary(new byte[8 * 1024 * 1024]), Is.True);
+                    Assert.That(
+                        socket.FlushOutgoing(1),
+                        Is.False,
+                        "flush includes the blocked in-flight write and has a bounded wait"
+                    );
                     Assert.That(
                         SpinWait.SpinUntil(() => !socket.Connected, 5000),
                         Is.True,

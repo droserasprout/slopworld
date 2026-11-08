@@ -79,9 +79,17 @@ namespace SlopWorld
         internal bool DrawTerminalBody(Rect body, bool input)
         {
             var hub = SessionHub.Instance;
+            // Hover owns wheel input; selecting a pane remains a mouse-down action.
+            // The host still gates delivery while a modal or covered view owns input.
+            bool wheel = TerminalPaneInput.Wheel(
+                _host.InputAvailable,
+                Visible,
+                Event.current.type,
+                body.Contains(Event.current.mousePosition)
+            );
             if (SmoothScroll.WheelOnly)
             {
-                HandleWheelInput(body, input);
+                HandleWheelInput(body, wheel);
                 return DrewScreen;
             }
             string drawingSession = _state.Name;
@@ -119,17 +127,17 @@ namespace SlopWorld
             bool historyInput = HistoryInputEnabled(live);
             PrepareHistoryScroll(cellH, live);
             bool historyGesture = historyInput || _historyBarDragging;
-            if (input && historyGesture)
+            if ((input || wheel) && historyGesture)
             {
                 _historyScroll.BeginInput(body, new Vector2(0f, _historyMax));
             }
 
-            if (input)
+            if (input || wheel)
             {
                 _input.Handle(body);
             }
 
-            if (input && historyGesture)
+            if ((input || wheel) && historyGesture)
             {
                 // This pane has no nested scroll owner. Spend the claimed packet after the input
                 // controller has had a chance to claim the scrollbar drag. Therefore, the request

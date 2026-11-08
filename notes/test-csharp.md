@@ -38,6 +38,8 @@ assembly and produce empty coverage.
 in an isolated assembly context. It resolves native text targets and field geometry,
 and applies the swapchain rewrite to the game's actual IL. It does not start the game
 or validate rendering. Keep this check separate from the game-free coverage denominator.
+It also checks the native close-loop and keyboard-dispatch rewrites against installed
+IL, including preservation of the native text-edit shortcut path.
 
 Benchmark workflow belongs to [build commands](build-commands.md) and
 [IPC benchmarks](../bench/ipc/README.md).

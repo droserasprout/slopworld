@@ -23,6 +23,12 @@ namespace SlopWorld
                 }
             );
 
+        internal bool StopForShutdown(float volume)
+        {
+            Stop(volume);
+            return _transport.FlushOutgoing(1000);
+        }
+
         void SendSelection(Wire.AudioSelection selection, float volume) =>
             _transport.Send(
                 new Wire.ClientMessage

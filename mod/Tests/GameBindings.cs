@@ -56,6 +56,61 @@ namespace SlopWorld.Tests
                 );
                 count++;
 
+                foreach (
+                    MethodBase loop in (IEnumerable)Invoke(
+                        mod,
+                        "Patch_NativeWindowClose",
+                        "TargetMethods"
+                    )
+                )
+                {
+                    Require(loop != null, "missing cancellable native close target");
+                    var loopCode = PatchProcessor.GetOriginalInstructions(loop);
+                    var patched = (
+                        (IEnumerable<CodeInstruction>)
+                            Invoke(mod, "Patch_NativeWindowClose", "Transpiler", loopCode)
+                    ).ToArray();
+                    Require(
+                        patched.Count(i =>
+                            i.operand is MethodInfo m
+                            && m.Name == "ShouldClose"
+                            && m.DeclaringType?.Name == "Patch_NativeWindowClose"
+                        ) == 1,
+                        "native close guard must run before each loop exit decision"
+                    );
+                    count++;
+                }
+
+                var dispatch = (MethodBase)Invoke(mod, "Patch_NativeWorkspaceKeys", "TargetMethod");
+                Require(
+                    dispatch != null
+                        && dispatch.GetParameters()[1].ParameterType.FullName
+                            == "UnityEngine.EventModifiers",
+                    "unexpected native keyboard modifier argument"
+                );
+                var keys = (
+                    (IEnumerable<CodeInstruction>)
+                        Invoke(
+                            mod,
+                            "Patch_NativeWorkspaceKeys",
+                            "Transpiler",
+                            PatchProcessor.GetOriginalInstructions(dispatch)
+                        )
+                ).ToArray();
+                Require(
+                    keys.Count(i =>
+                        i.operand is MethodInfo m
+                        && m.Name == "Consumes"
+                        && m.DeclaringType?.FullName == "UnityStubs.Internal.TextFocus"
+                    ) == 1,
+                    "native edit shortcut filter must remain intact"
+                );
+                Require(
+                    keys.Count(i => i.operand is MethodInfo m && m.Name == "ConsumesGameKey") == 1,
+                    "missing native workspace key filter"
+                );
+                count++;
+
                 var parser = (MethodBase)Invoke(mod, "Patch_NativeTextTags", "TargetMethod");
                 Require(parser != null, "missing native rich-text parser");
                 count++;
@@ -89,6 +144,38 @@ namespace SlopWorld.Tests
                 Require(
                     fieldRect != null && fieldRect.ReturnType == rect,
                     "unexpected field geometry signature"
+                );
+                count++;
+
+                // The installed engine's readonly heuristic is based on style names,
+                // not GUI.enabled. Verify our backgroundless editors avoid that branch.
+                var nativeField = gui.GetType("UnityEngine.GUI", throwOnError: true)
+                    .GetMethod("TextFieldImpl", BindingFlags.Static | BindingFlags.NonPublic);
+                var fieldCode = PatchProcessor.GetOriginalInstructions(nativeField);
+                string[] readonlyStyles = fieldCode
+                    .Where(i => i.opcode == System.Reflection.Emit.OpCodes.Ldstr)
+                    .Select(i => i.operand as string)
+                    .Where(s => s == "textarea" || s == "textfield")
+                    .ToArray();
+                Require(
+                    readonlyStyles.Length == 2
+                        && fieldCode.Any(i =>
+                            i.operand is MethodInfo m && m.Name == "get_background"
+                        ),
+                    "native readonly field heuristic changed"
+                );
+                var bare = mod.GetType("SlopWorld.TextEntryController", throwOnError: true)
+                    .GetMethod("Bare", BindingFlags.Static | BindingFlags.NonPublic);
+                var names = PatchProcessor
+                    .GetOriginalInstructions(bare)
+                    .Where(i => i.opcode == System.Reflection.Emit.OpCodes.Ldstr)
+                    .Select(i => i.operand as string)
+                    .ToArray();
+                Require(
+                    names.Contains("SlopWorld.TextArea")
+                        && names.Contains("SlopWorld.TextField")
+                        && !names.Intersect(readonlyStyles).Any(),
+                    "editable styles collide with native readonly names"
                 );
                 count++;
                 Console.WriteLine(

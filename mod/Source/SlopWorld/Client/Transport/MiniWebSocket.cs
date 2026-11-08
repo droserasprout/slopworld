@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SlopWorld
 {
@@ -26,12 +27,21 @@ namespace SlopWorld
             bool useTls = false
         );
         bool SendBinary(byte[] text);
+        bool FlushOutgoing(int timeoutMs);
     }
 
     public partial class MiniWebSocket : IDisposable, IHubSocket
     {
         internal readonly IncomingMessageQueue Incoming = new IncomingMessageQueue();
-        readonly ConcurrentQueue<byte[]> _outgoing = new ConcurrentQueue<byte[]>();
+
+        sealed class OutgoingMessage
+        {
+            public byte[] Payload;
+            public TaskCompletionSource<bool> Completion;
+        }
+
+        readonly ConcurrentQueue<OutgoingMessage> _outgoing =
+            new ConcurrentQueue<OutgoingMessage>();
 
         // Limit frame allocations while allowing terminal screens with encoded SGR text.
         const long MaxFrame = 32L * 1024 * 1024;
@@ -239,9 +249,23 @@ namespace SlopWorld
         {
             if (!Connected || (text == null || text.Length == 0))
                 return false;
-            _outgoing.Enqueue(text);
+            _outgoing.Enqueue(new OutgoingMessage { Payload = text });
             _sendSignal.Set();
             return true;
+        }
+
+        // Final shutdown sends must reach the stream before disposal kills the writer.
+        // A FIFO barrier includes the in-flight write, unlike observing queue emptiness.
+        public bool FlushOutgoing(int timeoutMs)
+        {
+            if (!Connected)
+                return false;
+            var completion = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously
+            );
+            _outgoing.Enqueue(new OutgoingMessage { Completion = completion });
+            _sendSignal.Set();
+            return completion.Task.Wait(timeoutMs) && completion.Task.Result;
         }
 
         void WriteLoop()
@@ -250,20 +274,27 @@ namespace SlopWorld
             {
                 while (!_closing)
                 {
-                    if (!_outgoing.TryDequeue(out var text))
+                    if (!_outgoing.TryDequeue(out var message))
                     {
                         _sendSignal.WaitOne(250);
                         continue;
                     }
 
-                    if (_closing)
-                        break;
-                    var payload = text;
-                    lock (_sendLock)
+                    bool written = false;
+                    try
                     {
-                        if (_closing || _net == null)
-                            break;
-                        WriteFrame(0x2, payload);
+                        lock (_sendLock)
+                        {
+                            if (_closing || _net == null)
+                                break;
+                            if (message.Payload != null)
+                                WriteFrame(0x2, message.Payload);
+                            written = true;
+                        }
+                    }
+                    finally
+                    {
+                        message.Completion?.TrySetResult(written);
                     }
                 }
             }
@@ -385,6 +416,8 @@ namespace SlopWorld
 
         void Cleanup()
         {
+            while (_outgoing.TryDequeue(out var message))
+                message.Completion?.TrySetResult(false);
             try
             {
                 _net?.Close();

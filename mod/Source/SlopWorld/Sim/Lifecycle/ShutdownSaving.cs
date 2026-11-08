@@ -8,6 +8,7 @@ namespace SlopWorld
     [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
     public static class Patch_SaveOnShutdown
     {
+        [HarmonyPriority(Priority.First)]
         static void Prefix()
         {
             SaveCoordinator.NoteProgrammaticShutdown();
@@ -15,10 +16,9 @@ namespace SlopWorld
         }
     }
 
-    // RimWorld 1.7's native window close bypasses Application.wantsToQuit and
-    // Root.Shutdown. The engine calls this lifecycle on the main thread after its
-    // loop stops, before game shutdown callbacks and runtime teardown. DoAutosave
-    // writes synchronously, so it does not need another update or long event.
+    // Fallback for engine-requested shutdown/crashes that bypass Root.Shutdown.
+    // User window-close requests are intercepted before the loop exits so they can
+    // still show UI, cancel and drain session stops. This late hook cannot cancel.
     [HarmonyPatch]
     static class Patch_SaveOnNativeShutdown
     {

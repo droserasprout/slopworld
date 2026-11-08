@@ -6,6 +6,25 @@ namespace SlopWorld
     // Pane geometry measurement and debounced daemon resize negotiation.
     sealed partial class TerminalPanel
     {
+        bool DeferResize =>
+            TerminalViewportResize.Deferred(_scrollOff, _historyJumpPending, _historyJumpOff);
+
+        bool RetainHistorySize()
+        {
+            if (!DeferResize)
+                return false;
+            // Cancel an unsent debounce rather than reviving obsolete bounds on return
+            // to live. Restored tabs must also use their own grid for history warmup.
+            _state.SizeDirty = false;
+            var live = SessionHub.Instance.Screen(_state.Name);
+            if (live != null)
+            {
+                _state.Cols = live.Cols;
+                _state.Rows = live.Rows;
+            }
+            return true;
+        }
+
         internal void RefreshSize()
         {
             _state.SizeDirty = false;
@@ -14,6 +33,8 @@ namespace SlopWorld
 
         void PrimePanelSize()
         {
+            if (RetainHistorySize())
+                return;
             // New sessions use the intended slot immediately, even before their first frame.
             // Do not borrow another panel's most recently rendered dimensions.
             var style = TerminalFont.Style;
@@ -41,6 +62,8 @@ namespace SlopWorld
         // carries the emulator's dimensions, so that closes the loop.
         void NegotiateSize(ScreenBuf buf)
         {
+            if (RetainHistorySize())
+                return;
             // The getter builds or refreshes the font and, as part of that, measures the
             // cells. Reading CellW/CellH first sees zero on the first pane and stale values
             // after a font setting changes.

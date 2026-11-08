@@ -54,6 +54,11 @@ continuation cells, overlaps and trailing-space rules.
 
 Terminal glyphs are positioned individually on the cell grid, including ASCII, so
 scaled native font advances cannot accumulate drift. Daemon clusters remain intact.
+The paint string uses canonical Unicode composition before font measurement and
+drawing. Waylith paints scalar glyphs without mark attachment; composable accents
+therefore use the same font-authored placement as precomposed text. Source clusters,
+daemon widths and copied text remain unchanged. Noncomposable marks still depend
+on native glyph placement.
 Font painting clips to occupied cells and uniformly shrinks oversized fallback advances
 by requesting a smaller font size, retaining the terminal baseline. It must not
 change `GUI.matrix` per glyph: local coordinates inside nested IMGUI groups cannot

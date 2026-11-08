@@ -37,6 +37,8 @@ namespace SlopWorld.Tests
 
             public bool SendBinary(byte[] text) => Connected;
 
+            public bool FlushOutgoing(int timeoutMs) => Connected;
+
             public void Dispose()
             {
                 Disposed = true;

@@ -503,6 +503,9 @@ namespace SlopWorld
             )
                 return cached;
             var style = new GUIStyle(of);
+            // Waylith treats a backgroundless multiline style named "textarea" or
+            // "textfield" as read-only. Our chrome is external, but these are editors.
+            style.name = area ? "SlopWorld.TextArea" : "SlopWorld.TextField";
 
             // Vanilla's skin can leave an active/on-state texture behind even after the
             // ordinary states are cleared. Strip every state so Slab is the only owner of

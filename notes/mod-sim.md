@@ -9,6 +9,11 @@ before stopping a fixed snapshot of live processes; connection changes invalidat
 the attempt. Cancellation and failure must not enter `Root.Shutdown`, whose save
 and radio hooks remain the final shutdown boundary. Internal restart/profile
 shutdowns bypass user confirmation.
+The native adapter intercepts both engine-loop close-flag checks before rendering
+stops, clears deferred window-close flags, and leaves engine-requested shutdowns
+alone. The late native lifecycle save hook is only a non-cancellable fallback.
+Final shutdown saves first, then applies the radio preference and bounds the wait
+for its socket write; session-stop acknowledgements precede this boundary.
 The confirmation lists the client's current live sessions when session stopping
 is enabled. Its Don't ask again choice persists only on confirmed quit, before
 shutdown can bypass the profile's timed flush.
