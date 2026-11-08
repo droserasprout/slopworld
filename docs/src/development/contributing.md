@@ -25,6 +25,10 @@ See the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes
 every book page appears once in the summary. The documentation publication workflow
 runs the same checks. It also checks local file and directory links in repository
 READMEs and `notes/` Markdown, including new files that Git does not ignore.
+Documentation pushes on every branch build and upload the book.
+On `main`, these pushes do not publish it.
+Run the Documentation workflow manually on `main` to publish production docs.
+The `human-docs` and `road-to-release` branches publish previews automatically.
 Repository link checks validate target existence; anchor checks apply to the rendered
 book. `just tools-test tools/docs` tests the checker without building the book.
 `just docs-serve` serves it locally.
