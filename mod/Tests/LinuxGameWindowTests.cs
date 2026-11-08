@@ -56,7 +56,8 @@ namespace SlopWorld.Tests
             {
                 Application.platform = RuntimePlatform.WindowsPlayer;
                 LinuxGameWindow.Follow();
-                Assert.That(recovery.ReadySince, Is.EqualTo(-1f));
+                Assert.That(recovery.Applied, Is.Null);
+                Assert.That(recovery.NextTry, Is.Zero);
             }
             finally
             {

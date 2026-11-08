@@ -9,13 +9,26 @@ namespace SlopWorld
         static string _applied;
         static float _nextTry;
 
+        internal static void Startup() => Apply("SlopWorld");
+
         // Follow the connected daemon's hostname as health information becomes available.
         public static void Follow()
         {
             if (Application.platform != RuntimePlatform.LinuxPlayer)
                 return;
 
-            string title = "SlopWorld - " + SessionHub.Instance.Health.Hostname;
+            string hostname = SessionHub.Instance.Health.Hostname;
+            Apply(
+                string.IsNullOrEmpty(hostname) || hostname == "?"
+                    ? "SlopWorld"
+                    : "SlopWorld - " + hostname
+            );
+        }
+
+        static void Apply(string title)
+        {
+            if (Application.platform != RuntimePlatform.LinuxPlayer)
+                return;
             if (_applied == title)
                 return;
 

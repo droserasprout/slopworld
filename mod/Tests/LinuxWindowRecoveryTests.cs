@@ -97,7 +97,6 @@ namespace SlopWorld.Tests
             var recovery = new LinuxWindowRecovery();
             recovery.CompleteAttempt(0f, true, false, WindowChange.Unsupported);
             Assert.That(recovery.TryBeginAttempt(100f, true, true, out _), Is.False);
-            Assert.That(recovery.ReadySince, Is.EqualTo(-1f));
         }
 
         [Test]
@@ -146,12 +145,10 @@ namespace SlopWorld.Tests
         }
 
         [Test]
-        public void StartupSettlesBeforeFirstAttemptAndRetryUsesCompletionTime()
+        public void StartupAttemptsImmediatelyAndRetryUsesCompletionTime()
         {
             var recovery = new LinuxWindowRecovery();
-            Assert.That(recovery.TryBeginAttempt(10f, true, false, out _), Is.False);
-            Assert.That(recovery.TryBeginAttempt(11.4f, true, false, out _), Is.False);
-            Assert.That(recovery.TryBeginAttempt(11.5f, true, false, out bool watch), Is.True);
+            Assert.That(recovery.TryBeginAttempt(10f, true, false, out bool watch), Is.True);
             Assert.That(watch, Is.True);
             recovery.CompleteAttempt(12f, true, watch, WindowChange.Retry);
             Assert.That(recovery.Applied, Is.Null);

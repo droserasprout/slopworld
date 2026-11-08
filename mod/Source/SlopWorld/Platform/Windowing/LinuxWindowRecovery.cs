@@ -13,7 +13,6 @@ namespace SlopWorld
         }
 
         const float RetrySeconds = 1f;
-        const float StartupSettleSeconds = 1.5f;
         const float ResyncPollSeconds = 0.05f;
         const float ResyncTimeoutSeconds = 0.5f;
         const float WindowSettleSeconds = 1f;
@@ -21,7 +20,6 @@ namespace SlopWorld
         internal bool? Applied { get; private set; }
         internal bool Unsupported { get; private set; }
         internal float NextTry { get; private set; }
-        internal float ReadySince { get; private set; } = -1f;
         internal float ResyncedAt { get; private set; } = -1f;
         internal bool HasResize => ResyncedAt >= 0f;
 
@@ -33,13 +31,6 @@ namespace SlopWorld
             watch = false;
             if (Unsupported)
                 return false;
-            if (Applied == null)
-            {
-                if (ReadySince < 0f)
-                    ReadySince = now;
-                if (now - ReadySince < StartupSettleSeconds)
-                    return false;
-            }
             watch = WatchingWindow(now, loading);
             return (Applied != fullscreen || watch) && now >= NextTry;
         }

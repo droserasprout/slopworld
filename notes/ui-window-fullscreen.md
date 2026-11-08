@@ -16,7 +16,11 @@ isolated bus tests; the display preference belongs to [Display settings](../docs
 under XWayland. The launcher sets `FORCE_X11=1` before window creation. The mod follows
 its saved fullscreen preference while keeping the renderer and RimWorld display mode
 windowed. Native fullscreen controls are hidden in embedded game options. Both WM_CLASS strings are `slopworld`, matching the desktop
-entry despite sharing the RimWorld executable.
+entry despite sharing the RimWorld executable. Early bootstrap follows the native
+window from the game-thread update before definitions finish loading, without a
+fixed Unity startup delay. Missing windows retry and surface resizing still waits
+for geometry confirmation. The initial title is `SlopWorld`; late updates add the
+connected daemon hostname without making early window setup depend on SessionHub.
 
 `LinuxWindowRecovery` owns process-lifetime policy and retry timing without game
 dependencies. `LinuxGameWindow` samples scene state and performs ordered game/X11

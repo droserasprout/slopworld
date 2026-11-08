@@ -24,6 +24,7 @@ namespace SlopWorld
                 Patch_MenuBackgroundDraw.Install(harmony);
                 harmony.Patch(
                     AccessTools.Method(typeof(Root), nameof(Root.Update)),
+                    prefix: new HarmonyMethod(typeof(EarlyBootstrap), nameof(FollowWindow)),
                     postfix: new HarmonyMethod(typeof(EarlyBootstrap), nameof(Update))
                 );
                 harmony.Patch(
@@ -35,10 +36,21 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // Installation is transactional: never defer sounds without all consumers.
+                // Installation is transactional: never defer sounds without all consumers,
+                // or hide the normal loader when its replacement could not be installed.
                 harmony.UnpatchAll(harmony.Id);
                 Log.Warning("[SlopWorld] early startup patches unavailable: " + e);
             }
+        }
+
+        static void FollowWindow()
+        {
+            // The native window exists before mod discovery. Run on the game thread,
+            // without pulling SessionHub or late definition-dependent owners forward.
+            if (Ready)
+                return;
+            WindowTitle.Startup();
+            LinuxGameWindow.Follow();
         }
 
         static void Update()
