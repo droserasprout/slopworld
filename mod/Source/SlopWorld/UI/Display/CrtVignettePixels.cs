@@ -1,3 +1,4 @@
+using System.Threading;
 using UnityEngine;
 
 namespace SlopWorld
@@ -12,9 +13,11 @@ namespace SlopWorld
             int height,
             float cornerOpacity,
             float scanlineOpacity = 0f,
-            float scale = 1f
+            float scale = 1f,
+            CancellationToken cancellation = default
         )
         {
+            cancellation.ThrowIfCancellationRequested();
             var pixels = new Color32[width * height];
             // Horizontal coordinates repeat on every row. Preserve the original float
             // operations so precomputing their squares cannot move quantization boundaries.
@@ -26,6 +29,7 @@ namespace SlopWorld
             }
             for (int y = 0; y < height; y++)
             {
+                cancellation.ThrowIfCancellationRequested();
                 float ny = 2f * (y + 0.5f) / height - 1f;
                 float verticalSquared = ny * ny;
                 int row = y * width;

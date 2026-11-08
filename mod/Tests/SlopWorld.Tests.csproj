@@ -25,6 +25,7 @@
     <Compile Include="../Source/SlopWorld/UI/Fonts/InstalledFonts.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/History/TerminalSessionCaches.cs" />
     <Compile Include="../Source/SlopWorld/UI/Display/CrtVignettePixels.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Display/CrtVignetteWork.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Links/TerminalPathProbe.cs" />
     <Compile Include="../Source/SlopWorld/UI/Async/DialogSubmitState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Tasks/WorkerBasePreviewState.cs" />

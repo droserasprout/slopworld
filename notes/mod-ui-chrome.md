@@ -51,8 +51,9 @@ Post-processing defaults to Off; saved explicit levels remain active.
 cache dependencies. `Patch_CrtOverlay` draws after Waylith flushes queued GUI windows;
 `GUI.depth` only orders behaviours and cannot place their draws above that later pass. A combined scanline/vignette texture uses one full-screen draw;
 a scanline strip covers initial preparation. Keep the previous combined texture visible while
-resize or UI-scale changes settle. Bake replacements in Update outside frame drawing and
-release textures when disabled. Cursor dimming must preserve the
+resize or UI-scale changes settle. Compute replacement pixels on workers, then upload in Update outside frame drawing.
+Resize, scale and mode changes invalidate pending results; disabling or destroying
+the overlay cancels workers and releases textures. Cursor dimming must preserve the
 original hotspot.
 
 `TooltipLayout` freezes wrapping because GUI transforms can change native line breaks.

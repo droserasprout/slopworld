@@ -4,6 +4,11 @@ namespace SlopWorld
 {
     // Owns the Unity presentation of the profile's CRT overlay, independently of pane caches.
     // One combined texture shades the finished GUI and stays visible during resize bakes.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1001",
+        Justification = "Unity owns the behaviour lifetime; OnDestroy disposes worker state."
+    )]
     internal sealed class CrtOverlay : MonoBehaviour
     {
         const float ResizeSettleSeconds = 0.2f;
@@ -19,6 +24,9 @@ namespace SlopWorld
         int _pendingHeight;
         float _vignetteReadyAt;
         bool _vignetteDirty;
+        readonly CrtVignetteWork _vignetteWork = new CrtVignetteWork(e =>
+            Verse.Log.Warning("[SlopWorld] CRT pixel preparation failed: " + e.Message)
+        );
 
         internal static void Install()
         {
@@ -111,12 +119,22 @@ namespace SlopWorld
                 _pendingHeight = height;
                 _pendingScale = scale;
                 _vignetteDirty = true;
+                _vignetteWork.Cancel();
             }
             if (_vignetteDirty && Time.realtimeSinceStartup >= _vignetteReadyAt)
             {
                 // A brief stretch of the old dither is preferable to dropping the shading.
                 // Replace only after the new texture is ready.
-                var replacement = CreateVignette(width, height, scale, _mode);
+                var request = new CrtVignetteWork.Request(
+                    width,
+                    height,
+                    VisualEffectsMode.CornerOpacity(_mode),
+                    VisualEffectsMode.ScanlineOpacity(_mode),
+                    scale
+                );
+                if (!_vignetteWork.TryGet(request, out var pixels))
+                    return;
+                var replacement = CreateVignette(width, height, pixels);
                 if (_vignette != null)
                     Destroy(_vignette);
                 _vignette = replacement;
@@ -145,23 +163,24 @@ namespace SlopWorld
             return texture;
         }
 
-        static Texture2D CreateVignette(int width, int height, float scale, string mode)
+        static Texture2D CreateVignette(int width, int height, Color32[] pixels)
         {
             // Dither at the final pixel resolution. Scaling a small noisy texture would
             // filter away the noise or turn it into visible patches.
             var texture = CreateTexture("SlopWorld vignette", width, height);
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
-            var pixels = CrtVignettePixels.Build(
-                width,
-                height,
-                VisualEffectsMode.CornerOpacity(mode),
-                VisualEffectsMode.ScanlineOpacity(mode),
-                scale
-            );
-            texture.SetPixels32(pixels);
-            texture.Apply(false, true);
-            return texture;
+            try
+            {
+                texture.SetPixels32(pixels);
+                texture.Apply(false, true);
+                return texture;
+            }
+            catch
+            {
+                Destroy(texture);
+                throw;
+            }
         }
 
         static Texture2D CreateTexture(string name, int width, int height) =>
@@ -178,10 +197,12 @@ namespace SlopWorld
             if (ReferenceEquals(_instance, this))
                 _instance = null;
             ReleaseTextures();
+            _vignetteWork.Dispose();
         }
 
         void ReleaseTextures()
         {
+            _vignetteWork.Cancel();
             if (_scanlines != null)
                 Destroy(_scanlines);
             if (_vignette != null)
