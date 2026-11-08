@@ -99,10 +99,14 @@ namespace SlopWorld
             var inner = SettingsPageLayout.Body(rect);
 
             string total =
-                _load.SizesAvailable ? Human(_entries.Sum(e => e.Bytes)) + " total."
+                _load.SizesAvailable
+                    ? Human(_entries.Sum(e => e.Bytes))
+                        + " total. "
+                        + Human(_entries.Where(e => e.Kind == "trash").Sum(e => e.Bytes))
+                        + " in trash."
                 : _loading ? "Calculating storage sizes…"
                 : "Storage sizes unavailable.";
-            string caption = total + " " + "Data in trash expires after 14 days.";
+            string caption = total + "\nData in trash expires after 14 days.";
             float width = UiScrollBody
                 .Measure(inner, 0f, UiScrollbarReservation.Always)
                 .ContentWidth;

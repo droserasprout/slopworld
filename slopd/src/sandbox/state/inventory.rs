@@ -31,6 +31,11 @@ pub(super) fn tree_size(path: &Path) -> u64 {
         .sum()
 }
 
+pub(crate) fn measure_stored_entry(mut entry: StoredState) -> StoredState {
+    entry.bytes = tree_size(Path::new(&entry.path));
+    entry
+}
+
 pub(crate) fn stored_entry(
     kind: &str,
     key: String,
@@ -57,7 +62,7 @@ pub(crate) fn stored_entry(
 
 /// Return the state inventory for the settings UI.
 /// State without a configured state ID is orphaned state. Listing never removes storage;
-/// application::stored_state coordinates expired-trash cleanup before a measured inventory.
+/// application::stored_state coordinates concurrent measurement and explicit cleanup.
 pub(crate) fn stored_states(sessions: &[SessionCfg], measure_sizes: bool) -> Vec<StoredState> {
     let root = state_root();
     let mut out = Vec::new();
