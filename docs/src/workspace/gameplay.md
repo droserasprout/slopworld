@@ -29,6 +29,15 @@ The player pawn can move, cast Fireball, Rejuvenate, teleport, and use Cat whist
 See [Player controls](../reference/keyboard-shortcuts.md#player-pawn-map) for the
 key bindings.
 
+## Cat aura
+
+Click the cat to heal it and restore its surroundings. Each accepted pat adds ten
+seconds of aura time; repeated pats stack into minutes. The charged aura follows
+the cat, protecting nearby cells from plague and fire spread while healing nearby
+pawns and clearing fire and filth once per simulation second. Pats less than 0.4
+seconds apart count only once. Charge pauses with the simulation, including Eco
+mode, and resets when the colony reloads.
+
 ## Eco mode
 
 Eco mode pauses the colony simulation and hides the map while the daemon and

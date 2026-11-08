@@ -17,3 +17,9 @@ flower sowing continue; fire containment still applies.
 
 Blast safety covers all player-faction pawns, including untracked colonists. Fire
 spread checks both source and destination, and sparks recheck containment on impact.
+
+`Aura` owns map-local, unsaved pet charge using weak pawn identity. Each accepted
+pat adds ten simulation seconds; charged protection follows the living, spawned
+colony animal and sweeps nearby cells once per simulation second. Existing fixed
+pulses and individual grace periods remain independent. `Pets` owns the input
+cooldown, so repeated selection within that cooldown does not add charge.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -39,6 +40,10 @@ namespace SlopWorld
         // Patch_NoRegrowth checks this list for each cell.
         readonly List<Pulse> _pulses = new List<Pulse>();
 
+        // Charge belongs to this map and must not keep departed pets alive.
+        readonly ConditionalWeakTable<Pawn, AuraCharge> _charges =
+            new ConditionalWeakTable<Pawn, AuraCharge>();
+
         // Map each thingIDNumber to the game tick of its most recent pulse.
         readonly Dictionary<int, int> _grace = new Dictionary<int, int>();
         readonly List<int> _stale = new List<int>();
@@ -57,10 +62,19 @@ namespace SlopWorld
         // Check location and pulse age. Plant growth and fire spread depend on the affected cells.
         public bool Covers(IntVec3 cell)
         {
+            int now = Find.TickManager.TicksGame;
+            foreach (var pet in map.mapPawns.SpawnedColonyAnimals)
+                if (
+                    Pets.Is(pet)
+                    && _charges.TryGetValue(pet, out var charge)
+                    && charge.Active(now)
+                    && pet.Position.DistanceToSquared(cell) <= RadiusSq
+                )
+                    return true;
+
             if (_pulses.Count == 0)
                 return false;
 
-            int now = Find.TickManager.TicksGame;
             for (int i = 0; i < _pulses.Count; i++)
                 if (
                     now - _pulses[i].Tick < GraceTicks
@@ -86,6 +100,10 @@ namespace SlopWorld
             if (Find.TickManager.TicksGame % PruneInterval != 0)
                 return;
             Prune(Find.TickManager.TicksGame);
+            int now = Find.TickManager.TicksGame;
+            foreach (var pet in Pets.On(map))
+                if (_charges.TryGetValue(pet, out var charge) && charge.Active(now))
+                    Sweep(pet.Position, now);
         }
 
         // Heal the pet before applying a pulse to nearby cells.
@@ -95,6 +113,7 @@ namespace SlopWorld
                 return;
 
             int now = Find.TickManager.TicksGame;
+            _charges.GetValue(pet, _ => new AuraCharge()).Pat(now);
             Comfort(pet);
 
             _pulses.Add(new Pulse { At = pet.Position, Tick = now });
