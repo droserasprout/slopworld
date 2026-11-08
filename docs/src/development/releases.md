@@ -1,8 +1,9 @@
 # Packaging and releases
 
 GitHub Actions tests, builds, attests, and publishes versioned releases.
-Waylith builds require installed RimWorld 1.7 assemblies; hosted packaging needs
-those assemblies provisioned on the build runner.
+Hosted builds use pinned RimRef 1.7.5000-unstable reference assemblies.
+Local release validation uses installed RimWorld 1.7 assemblies for native binding
+and IL checks.
 Start with [Build from source](build.md) for the toolchain and checks.
 
 ## Versioned GitHub releases

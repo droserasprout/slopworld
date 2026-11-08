@@ -61,6 +61,7 @@ To compile without installing, choose a target:
 | `just build` | Daemon, CLI, launcher, and mod |
 | `just daemon-build` | Daemon, CLI, and launcher |
 | `just mod-build` | C# mod against installed game assemblies |
+| `just mod-build rimref` | C# mod against pinned RimRef 1.7.5000-unstable references; no game installation required |
 | `just sidecar-build` | Host-side container launcher; requires neither the game nor protoc |
 
 Builds use Debug mode by default. Use `just BUILD=release build` for Release.
@@ -88,7 +89,8 @@ sidecar, mod, and Python tools:
 To check C# compilation against the game assemblies, run `just mod-check-build`.
 It builds Release with warnings treated as errors, resolves native text patch targets,
 and checks the swapchain rewrite against installed game assemblies without starting
-the game. Release packaging includes this check.
+the game. Local release packaging includes this check; hosted packaging compiles
+against pinned RimRef references without inspecting game IL.
 Game-free C# tests and formatting do not require those assemblies.
 
 For documentation changes, run `just docs-build`. See

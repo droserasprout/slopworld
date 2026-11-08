@@ -193,6 +193,15 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.run_recipe(f'RIMWORLD={game}', f'MANAGED={managed}', 'VERSION=1.2.3', 'mod-build')
         self.assertIn(f'-p:RimWorldManaged={managed}', self.calls('dotnet')[-1]['args'])
 
+    def test_ci_mod_compiles_with_references_without_using_the_installed_game(self) -> None:
+        self.env['MANAGED'] = '/missing game'
+        self.run_recipe('ci-mod')
+        (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
+        self.assertIn('-p:UseRimRef=true', mod['args'])
+        self.assertIn('Release', mod['args'])
+        self.assertFalse(any(arg.startswith('-p:RimWorldManaged=') for arg in mod['args']))
+        self.assertFalse(any('--game-bindings' in call['args'] for call in self.calls('dotnet')))
+
     def test_build_overrides_preserve_frozen_flags_and_custom_paths(self) -> None:
         self.run_recipe('BUILD=release', 'CARGOFLAGS=--release --frozen', 'daemon-build')
         (call,) = self.calls('cargo')

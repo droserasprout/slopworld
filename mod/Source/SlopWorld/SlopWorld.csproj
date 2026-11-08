@@ -21,6 +21,17 @@
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
+  <!-- Keep one lock graph for installed-game and CI builds. Import only the
+       selected game references below; never ship reference assemblies. -->
+  <ItemGroup>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="[1.7.5000-unstable]"
+                      GeneratePathProperty="true" ExcludeAssets="all" PrivateAssets="all" />
+  </ItemGroup>
+  <PropertyGroup>
+    <GameReferencePath>$(RimWorldManaged)</GameReferencePath>
+    <GameReferencePath Condition="'$(UseRimRef)' == 'true'">$(PkgKrafs_Rimworld_Ref)/ref/net10.0</GameReferencePath>
+  </PropertyGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="../../../shared/loading-tips.txt" LogicalName="SlopWorld.LoadingTips" />
     <EmbeddedResource Include="../../Textures/SlopWorld/LoadingFont.png" LogicalName="SlopWorld.LoadingFont" />
@@ -55,7 +66,7 @@
       <Private>false</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(RimWorldManaged)/Assembly-CSharp.dll</HintPath>
+      <HintPath>$(GameReferencePath)/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
@@ -63,12 +74,12 @@
   <ItemGroup>
     <!-- Waylith supplies Unity's API through a single game-owned assembly. -->
     <Reference Include="UnityStubs">
-      <HintPath>$(RimWorldManaged)/UnityStubs.dll</HintPath>
+      <HintPath>$(GameReferencePath)/UnityStubs.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <!-- Game rendering signatures expose Waylith.Rendering.Material directly. -->
     <Reference Include="Waylith">
-      <HintPath>$(RimWorldManaged)/Waylith.dll</HintPath>
+      <HintPath>$(GameReferencePath)/Waylith.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
@@ -81,7 +92,7 @@
   </ItemGroup>
 
   <Target Name="CheckRimWorldReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(RimWorldManaged)/Assembly-CSharp.dll') Or !Exists('$(RimWorldManaged)/UnityStubs.dll') Or !Exists('$(RimWorldManaged)/Waylith.dll')"
-           Text="Missing RimWorld 1.7 assemblies under $(RimWorldManaged); set RIMWORLD or MANAGED when using just, or RimWorldManaged when using dotnet build." />
+    <Error Condition="!Exists('$(GameReferencePath)/Assembly-CSharp.dll') Or !Exists('$(GameReferencePath)/UnityStubs.dll') Or !Exists('$(GameReferencePath)/Waylith.dll')"
+           Text="Missing RimWorld 1.7 assemblies under $(GameReferencePath); set RIMWORLD or MANAGED when using just, or pass rimref to just mod-build for pinned reference assemblies." />
   </Target>
 </Project>

@@ -110,7 +110,8 @@ def build(output: Path, release: gates.Release) -> None:
     validate(release)
     for recipes in (
         ('generate-check-protocol', 'generate-licenses', 'generate-check-licenses', 'docs-build'),
-        ('build',),
+        ('daemon-build',),
+        ('mod-build', 'rimref'),
     ):
         run([*just, *recipes])
         validate(release)

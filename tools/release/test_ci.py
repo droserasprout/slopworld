@@ -124,16 +124,23 @@ def test_ci_does_not_reuse_old_output(bundle: Path, release: gates.Release) -> N
         run.assert_not_called()
 
 
-def test_failed_build_cannot_package(tmp_path: Path, release: gates.Release, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('failed_stage', [0, 1, 2])
+def test_failed_build_cannot_package(
+    tmp_path: Path, release: gates.Release, monkeypatch: pytest.MonkeyPatch, failed_stage: int
+) -> None:
     monkeypatch.setenv('JUST_CMD', 'just')
     with (
         patch.object(ci, 'validate'),
-        patch.object(ci, 'run', side_effect=subprocess.CalledProcessError(1, ['just'])),
+        patch.object(
+            ci, 'run', side_effect=[None] * failed_stage + [subprocess.CalledProcessError(1, ['just'])]
+        ) as run,
         patch.object(publish, 'package') as package,
     ):
         with pytest.raises(subprocess.CalledProcessError):
             ci.build(tmp_path, release)
         package.assert_not_called()
+        if failed_stage == 2:
+            assert run.call_args.args[0][-2:] == ['mod-build', 'rimref']
 
 
 def test_release_workflow_gates_publication_and_downloads_exact_artifact() -> None:
