@@ -39,6 +39,12 @@ namespace SlopWorld
         }
 
         static LayoutState _layout;
+        static MenuBackgroundBake.PreparedFrames _preparing;
+        static Texture2D _preparingSource;
+        static MenuBackgroundPreset _preparingPreset;
+        static string _preparingKey;
+        static int _preparedFrame = -1;
+
         static Texture2D _failedSource;
         static MenuBackgroundPreset _failedPreset;
         static float _retryAt;
@@ -79,6 +85,8 @@ namespace SlopWorld
         {
             if (source != null && !Ready(source))
                 return null;
+            if (source == null)
+                AdvancePreparation();
             if (_frames == null)
                 return null;
 
@@ -188,96 +196,99 @@ namespace SlopWorld
         // False means we could not get any and the caller should stand down.
         static bool Ready(Texture2D source)
         {
-            if (source == null)
-                return false;
-
-            MenuBackgroundPreset preset = Chosen;
-            // Drawing can ask several times per frame. Cool down failed readback as well as
-            // disk/decode work, using source identity before computing the persistent key.
+            var preset = Chosen;
             if (
                 _failedSource == source
                 && _failedPreset == preset
                 && Time.realtimeSinceStartup < _retryAt
             )
                 return _frames != null;
-            string key;
-
-            // Build before touching the resident layout. The source belongs to vanilla (or the
-            // content pack). Therefore, a failed replacement must leave both it and the current
-            // frames available for the caller to keep drawing.
-            Texture2D[] replacement = null;
-            System.Diagnostics.Stopwatch loadTimer = null;
-            long workingSetBefore = 0;
-            bool baked = false;
             try
             {
-                key = MenuBackgroundBake.Key(source, preset);
+                string key = MenuBackgroundBake.Key(source, preset);
                 if (_frames != null && _srcKey == key)
-                    return true;
-                loadTimer = System.Diagnostics.Stopwatch.StartNew();
-                workingSetBefore = MenuBackgroundMemory.WorkingSet();
-                replacement = MenuBackgroundBake.Load(key, preset);
-                if (replacement == null)
                 {
-                    baked = true;
-                    replacement = MenuBackgroundBake.Bake(source, key, preset);
+                    CancelPreparation();
+                    return true;
                 }
+                if (_preparing == null || _preparingKey != key)
+                {
+                    CancelPreparation();
+                    _preparingSource = source;
+                    _preparingPreset = preset;
+                    _preparingKey = key;
+                    _preparing = new MenuBackgroundBake.PreparedFrames(source, key, preset);
+                }
+                AdvancePreparation();
             }
             catch (Exception e)
             {
-                // A background that will not bake is a cosmetic loss. Parallel.For hands back
-                // an AggregateException whose own Message says only that one happened, so
-                // unwrap the cause to make the warning useful.
-                if (e is AggregateException agg)
-                    e = agg.Flatten().InnerException ?? e;
-                _failedSource = source;
-                _failedPreset = preset;
-                _retryAt = Time.realtimeSinceStartup + 60f;
-                Log.Warning($"[SlopWorld] background bake failed, retrying in 60 seconds: {e}");
-                return _frames != null;
+                PreparationFailed(source, preset, e);
             }
+            return _frames != null;
+        }
 
-            if (replacement == null)
+        internal static void AdvancePreparation()
+        {
+            if (_preparing == null || _preparedFrame == Time.frameCount)
+                return;
+            _preparedFrame = Time.frameCount;
+            try
             {
-                _failedSource = source;
-                _failedPreset = preset;
-                _retryAt = Time.realtimeSinceStartup + 60f;
-                return _frames != null;
+                if (!_preparing.Step())
+                    return;
+                var replacement = _preparing.Take();
+                var retired = _frames;
+                _frames = replacement;
+                _srcKey = _preparingKey;
+                _preset = _preparingPreset;
+                _began = -1f;
+                _animation.Current = null;
+                _animation.Previous = null;
+                _failedSource = null;
+                _failedPreset = null;
+                MenuBackgroundBake.DestroyFrames(retired);
+                MenuBackgroundMemory.Report(
+                    replacement,
+                    _preparing.Baked,
+                    _preparing.ElapsedMs,
+                    _preparing.WorkingSetBefore
+                );
+                CancelPreparation();
             }
-            _failedSource = null;
-            _failedPreset = null;
+            catch (Exception e)
+            {
+                PreparationFailed(_preparingSource, _preparingPreset, e);
+            }
+        }
 
-            // Transfer ownership on the main thread, then release only the retired set. The
-            // source is never ours to destroy.
-            Texture2D[] retired = _frames;
-            _frames = replacement;
-            _srcKey = key;
-            _preset = preset;
-            _began = -1f;
-            _animation.Current = null;
-            _animation.Previous = null;
-            MenuBackgroundBake.DestroyFrames(retired);
-            loadTimer.Stop();
-            MenuBackgroundMemory.Report(
-                replacement,
-                baked,
-                loadTimer.ElapsedMilliseconds,
-                workingSetBefore
+        static void PreparationFailed(
+            Texture2D source,
+            MenuBackgroundPreset preset,
+            Exception error
+        )
+        {
+            CancelPreparation();
+            _failedSource = source;
+            _failedPreset = preset;
+            _retryAt = Time.realtimeSinceStartup + 60f;
+            Log.Warning(
+                "[SlopWorld] background preparation failed, retaining the previous background: "
+                    + error
             );
-            MenuBackgroundBake.Sweep(key);
-            return true;
+        }
+
+        internal static void CancelPreparation()
+        {
+            _preparing?.Dispose();
+            _preparing = null;
+            _preparingSource = null;
+            _preparingPreset = null;
+            _preparingKey = null;
         }
 
         // Source capture must not feed a generated frame back into the baker.
-        public static bool IsOurs(Texture2D tex)
-        {
-            if (tex == null || _frames == null)
-                return false;
-            for (int i = 0; i < _frames.Length; i++)
-                if (ReferenceEquals(_frames[i], tex))
-                    return true;
-            return false;
-        }
+        public static bool IsOurs(Texture2D tex) => MenuBackgroundBake.IsGenerated(tex);
     }
 
     // Patch the draw path: loading screens bypass MainMenuDrawer.Init, and BackgroundOnGUI owns

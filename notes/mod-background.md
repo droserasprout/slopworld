@@ -10,7 +10,12 @@ provider-owned and immutable; the baker owns generated frames and cleanup. Build
 replacements before releasing the old set, retaining it on failure. Cache identity
 includes source, geometry, tuning, preset, and bake version. Packed sources use the
 content hash plus runtime identity, avoiding GPU readback on cache hits; unpacked
-sources retain the pixel-hash fallback.
+sources retain the pixel-hash fallback. Preparation owns an unpublished frame set.
+File reads and pixel math run on workers; the early update hook and drawing share
+a once-per-frame preparation pump, with at most one native frame decode/upload.
+The update hook finishes preparation even after the loading screen closes. Replacement and shutdown cancel pending preparation
+and release partial textures on the game thread. A cold cache still requires one
+main-thread source readback.
 
 `MenuBackgroundLayers` shares frame selection, opacity, and offsets. Repeated GUI
 calls do not advance history, and replacement resets it. Menu/loading keep vanilla

@@ -42,11 +42,13 @@ namespace SlopWorld
 
         static void Update()
         {
+            MenuBackground.AdvancePreparation();
             StartupAudio.Update();
         }
 
         static void Shutdown()
         {
+            MenuBackground.CancelPreparation();
             StartupAudio.Flush();
         }
 
