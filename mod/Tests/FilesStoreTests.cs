@@ -376,5 +376,112 @@ namespace SlopWorld.Tests
                 );
             }
         }
+
+        public static void UnfoldRefreshesCachedBranchesAndLeavesUnopenedDirectoriesLazy()
+        {
+            using (var f = new Fixture())
+            {
+                var root = f.Root();
+                var cached = Child(root, "cached", true);
+                cached.Children = new List<FileNode> { Child(cached, "old.cs") };
+                var unopened = Child(root, "unopened", true);
+                root.Children = new List<FileNode> { cached, unopened };
+                f.Store.FocusDirectory("/storage", "Storage");
+                var focused = (FileNode)f.Store.Controller.Groups().Single().Root;
+                focused.Children = new List<FileNode>();
+
+                f.Store.SetAllFolded(true);
+                AssertEx.True(f.Store.AllFolded, "focused group folds");
+                AssertEx.False(cached.Expanded || unopened.Expanded, "cached descendants fold too");
+                AssertEx.True(root.Expanded && focused.Expanded, "headings own root folding");
+                AssertEx.Equal(0, DaemonClient.Requests.Count, "folding does not fetch");
+                f.Store.SetAllFolded(false);
+                AssertEx.False(f.Store.AllFolded, "focused group reopens");
+                AssertEx.True(
+                    cached.Expanded && unopened.Expanded,
+                    "descendant expansion restored"
+                );
+                AssertEx.Equal(
+                    2,
+                    DaemonClient.Requests.Count,
+                    "checkout and focused caches refresh"
+                );
+                DaemonClient.Requests[0].Reply(Listing(dirs: new[] { "cached", "unopened" }));
+                DaemonClient.Requests[1].Reply(Listing());
+                AssertEx.Equal(
+                    3,
+                    DaemonClient.Requests.Count,
+                    "only previously loaded branch refreshes"
+                );
+                DaemonClient.Requests[2].Reply(Listing(files: new[] { "fresh.cs" }));
+                AssertEx.Equal(
+                    "fresh.cs",
+                    cached.Children.Single().Name,
+                    "stale children replaced"
+                );
+                AssertEx.Equal(null, unopened.Children, "unopened directory stays lazy");
+                f.Store.ToggleNode(cached);
+                f.Store.ToggleNode(cached);
+                AssertEx.Equal(4, DaemonClient.Requests.Count, "manual reopening refreshes cache");
+                DaemonClient.Requests[3].Reply(Listing());
+                AssertEx.Equal(0, cached.Children.Count, "manual refresh removes deleted files");
+            }
+        }
+
+        public static void PollingRespectsOfflineFoldedAndInflightStateAndReentryRefreshes()
+        {
+            using (var f = new Fixture())
+            {
+                var root = f.Root();
+                root.Children = new List<FileNode>();
+                SessionHub.Instance.Online = false;
+                f.Store.RefreshIfDue();
+                AssertEx.Equal(0, DaemonClient.Requests.Count, "offline polling is silent");
+                SessionHub.Instance.Online = true;
+                f.Store.RefreshIfDue();
+                AssertEx.Equal(1, DaemonClient.Requests.Count, "online refresh starts immediately");
+                Time.realtimeSinceStartup += 3f;
+                f.Store.RefreshIfDue();
+                AssertEx.Equal(
+                    1,
+                    DaemonClient.Requests.Count,
+                    "slow listing cannot overlap generations"
+                );
+                DaemonClient.Requests[0].Reply(Listing());
+                f.Store.RefreshIfDue();
+                AssertEx.Equal(
+                    2,
+                    DaemonClient.Requests.Count,
+                    "overdue refresh follows completion"
+                );
+                DaemonClient.Requests[1].Reply(Listing());
+                f.Store.RefreshIfDue();
+                AssertEx.Equal(
+                    2,
+                    DaemonClient.Requests.Count,
+                    "deadline suppresses immediate repeat"
+                );
+                f.Store.Entered();
+                AssertEx.Equal(
+                    3,
+                    DaemonClient.Requests.Count,
+                    "reentry ignores old polling deadline"
+                );
+                DaemonClient.Requests[2].Reply(Listing());
+                var group = f.Store.Controller.Groups().Single();
+                f.Store.ToggleGroup(group);
+                Time.realtimeSinceStartup += 3f;
+                f.Store.RefreshIfDue();
+                AssertEx.Equal(3, DaemonClient.Requests.Count, "folded checkout does not poll");
+                f.Store.ToggleGroup(group);
+                AssertEx.Equal(
+                    4,
+                    DaemonClient.Requests.Count,
+                    "reopening heading refreshes immediately"
+                );
+                DaemonClient.Requests[3].Reply(Listing(files: new[] { "new.cs" }));
+                AssertEx.Equal("new.cs", root.Children.Single().Name, "reopened root is current");
+            }
+        }
     }
 }

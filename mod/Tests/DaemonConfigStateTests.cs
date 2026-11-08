@@ -14,6 +14,102 @@ namespace SlopWorld.Tests
 
         static DaemonClient.Request Last => DaemonClient.Requests[DaemonClient.Requests.Count - 1];
 
+        public static void ReloadReportsConflictingEditsAndDiscardUsesLatestServerValues()
+        {
+            DaemonClient.BaseUrl = "http://config-conflict-reload";
+            SessionHub.Instance = new SessionHub();
+            var state = new DaemonConfigState(Guid.NewGuid().ToString());
+            state.Discard();
+            state.Save(null);
+            Assert.That(state.Loaded, Is.False);
+            state.Load(false, null);
+            Last.Reply(Reply("base"));
+            Assert.That(state.Path, Is.EqualTo("/config/base"));
+            Assert.That(state.ConflictMessage, Is.Null);
+            state.DraftText("model", "daemon.title_model", "base");
+            state.Config.TitleModel = "local";
+            state.SetDraftText("model", "daemon.title_model", "local");
+            state.Error = "previous failure";
+            state.Load(false, null);
+            Last.Reply(Reply("remote"));
+            Assert.That(state.Config.TitleModel, Is.EqualTo("local"));
+            Assert.That(
+                state.DraftText("model", "daemon.title_model", "remote"),
+                Is.EqualTo("local")
+            );
+            Assert.That(state.Error, Is.Null);
+            Assert.That(state.HasConflicts, Is.True);
+            Assert.That(state.ConflictMessage, Does.Contain("daemon.title_model"));
+            Assert.That(state.Path, Is.EqualTo("/config/remote"));
+            state.Discard();
+            Assert.That(state.Config.TitleModel, Is.EqualTo("remote"));
+            Assert.That(
+                state.DraftText("model", "daemon.title_model", "ignored"),
+                Is.EqualTo("remote")
+            );
+            Assert.That(state.Dirty || state.HasConflicts, Is.False);
+            Assert.That(state.ConflictMessage, Is.Null);
+            int requests = DaemonClient.Requests.Count;
+            state.Save(null);
+            Assert.That(
+                DaemonClient.Requests.Count,
+                Is.EqualTo(requests),
+                "clean draft needs no write"
+            );
+            DaemonClient.BaseUrl = "http://config-conflict-other";
+            Assert.That(
+                state.Path,
+                Is.Empty,
+                "old endpoint path is hidden even before loading a draft"
+            );
+            Assert.That(state.Loaded, Is.False);
+        }
+
+        public static void SaveNormalizesSubmittedTextWithoutOverwritingNewerTyping()
+        {
+            foreach (bool editDuringSave in new[] { false, true })
+            {
+                DaemonClient.BaseUrl = "http://config-text-normalization";
+                SessionHub.Instance = new SessionHub();
+                var state = new DaemonConfigState(Guid.NewGuid().ToString());
+                state.Load(false, null);
+                Last.Reply(Reply("base"));
+                state.DraftText("model", "daemon.title_model", "base");
+                state.SetDraftText("model", "daemon.title_model", " submitted ");
+                state.Config.TitleModel = "submitted";
+                state.QueueDraftTextNormalization("model", "daemon.title_model", "submitted");
+                int callbacks = 0;
+                state.Save(() => callbacks++);
+                var save = Last;
+                int requests = DaemonClient.Requests.Count;
+                state.Load(false, () => Assert.Fail("load during save must not start"));
+                state.Save(() => Assert.Fail("duplicate save must not start"));
+                state.Discard();
+                Assert.That(DaemonClient.Requests.Count, Is.EqualTo(requests));
+                Assert.That(state.Saving && state.Dirty, Is.True);
+                if (editDuringSave)
+                    state.SetDraftText("model", "daemon.title_model", "new typing");
+                save.Reply(new Wire.Ack());
+                Assert.That(state.Saving, Is.False);
+                Assert.That(callbacks, Is.EqualTo(1));
+                Assert.That(state.Config.TitleModel, Is.EqualTo("submitted"));
+                Assert.That(
+                    state.DraftText("model", "daemon.title_model", "ignored"),
+                    Is.EqualTo(editDuringSave ? "new typing" : "submitted")
+                );
+                Assert.That(state.IsTextDirty("model"), Is.EqualTo(editDuringSave));
+                Assert.That(state.Dirty, Is.EqualTo(editDuringSave));
+                Assert.That(state.DraftFieldKeys("mod"), Is.EqualTo(new[] { "model" }));
+                Assert.That(state.DraftFieldKeys("other"), Is.Empty);
+                Assert.That(
+                    state.NormalizeDraftTextIfUnchanged("model", "daemon.title_model", "submitted"),
+                    Is.EqualTo(!editDuringSave)
+                );
+                state.Discard();
+                Assert.That(state.Dirty, Is.False);
+            }
+        }
+
         public static void SharedReadsRejectReversedRepliesAndOldEndpoint()
         {
             DaemonClient.BaseUrl = "http://config-order-a";
