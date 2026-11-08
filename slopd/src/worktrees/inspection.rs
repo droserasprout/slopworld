@@ -3,6 +3,39 @@ use super::{Worktree, WorktreePhase, git};
 use anyhow::Result;
 use std::path::Path;
 
+/// Removal needs only an empty/nonempty answer, not a retained inventory of paths.
+/// Collapse untracked directories and drain status with constant capture space;
+/// ignored files still block deletion, and Git failures never imply cleanliness.
+pub(super) async fn has_local_files(path: &Path) -> Result<bool> {
+    let mut command = tokio::process::Command::from(super::repository_command(path));
+    command.args([
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=normal",
+        "--ignored",
+        "--ignore-submodules=none",
+    ]);
+    let output = crate::process::run_bounded(
+        &mut command,
+        std::time::Duration::from_secs(30),
+        crate::process::CaptureLimits {
+            stdout: 1,
+            stderr: 8192,
+        },
+    )
+    .await?;
+    anyhow::ensure!(
+        output.status.success(),
+        "Git status: {}",
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    anyhow::ensure!(
+        !output.stderr_truncated,
+        "Git status error output exceeded limit"
+    );
+    Ok(!output.stdout.is_empty())
+}
+
 pub(crate) async fn resolve_commit(path: &Path, revision: &str) -> Result<String> {
     git(
         path,
