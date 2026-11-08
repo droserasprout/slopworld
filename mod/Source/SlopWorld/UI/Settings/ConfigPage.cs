@@ -141,14 +141,24 @@ namespace SlopWorld
                 out _
             );
 
-            UiControls.Select(
-                l,
-                "Time zone",
-                TimeZonePreference.Label(s.timeZone),
-                TimeZoneOptions(),
-                out _,
-                "Auto uses this computer's time zone, even with a remote daemon."
-            );
+            // Enumerating the system catalog initializes the runtime's time-zone cache.
+            // Keep that cold work out of Settings drawing, including layout measurement.
+            if (
+                UiControls.Select(
+                    l,
+                    "Time zone",
+                    TimeZonePreference.Label(s.timeZone),
+                    out var timeZoneBox,
+                    "Auto uses this computer's time zone, even with a remote daemon."
+                )
+            )
+                Find.WindowStack.Add(
+                    UiSelector.Menu(
+                        TimeZoneOptions().ToList(),
+                        UiSelector.ScreenBox(timeZoneBox),
+                        matchWidth: false
+                    )
+                );
 
             UiControls.Select(
                 l,
