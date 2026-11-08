@@ -282,11 +282,31 @@ namespace SlopWorld
 
     // Patch the draw path: loading screens bypass MainMenuDrawer.Init, and BackgroundOnGUI owns
     // aspect fitting, letterboxing, and the expansion crossfade.
-    [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.BackgroundOnGUI))]
     public static class Patch_MenuBackgroundDraw
     {
+        internal static MethodBase Target() =>
+            AccessTools.Method(
+                typeof(UI_BackgroundMain),
+                nameof(UI_BackgroundMain.BackgroundOnGUI)
+            );
+
+        internal static void Install(Harmony harmony)
+        {
+            var target = Target();
+            var prefix = AccessTools.Method(typeof(Patch_MenuBackgroundDraw), nameof(Prefix));
+            var patches = Harmony.GetPatchInfo(target);
+            if (patches != null)
+                foreach (var patch in patches.Prefixes)
+                    if (patch.PatchMethod == prefix)
+                        return;
+            harmony.Patch(
+                target,
+                prefix: new HarmonyMethod(prefix),
+                transpiler: new HarmonyMethod(typeof(Patch_MenuBackgroundDraw), nameof(LayerFrames))
+            );
+        }
+
         // Replace only this background's texture calls, leaving vanilla geometry and fades intact.
-        [HarmonyTranspiler]
         static IEnumerable<CodeInstruction> LayerFrames(IEnumerable<CodeInstruction> instructions)
         {
             foreach (CodeInstruction instruction in instructions)
@@ -313,17 +333,20 @@ namespace SlopWorld
             }
         }
 
-        static void Prefix(UI_BackgroundMain __instance)
+        static void Prefix(UI_BackgroundMain __instance, Texture2D ___BGPlanet)
         {
+            // Present the lightweight first tip frame before any cached-frame readback/bake.
+            if (!LoadingScreenHost.HasPainted && !EarlyBootstrap.Ready)
+                return;
             Texture2D src = __instance.overrideBGImage;
 
             // Never rebake from an already-generated frame.
             if (MenuBackground.IsOurs(src))
                 src = null;
 
-            // Supply vanilla's source only before the first bake. ContentFinder scans loaded mods.
+            // Reuse the already loaded source, without touching mod content discovery.
             if (src == null && !MenuBackground.HasFrames)
-                src = ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false);
+                src = ___BGPlanet;
 
             Texture2D frame = MenuBackground.Current(src);
             if (frame != null)

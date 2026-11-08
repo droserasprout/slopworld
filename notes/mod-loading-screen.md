@@ -1,5 +1,20 @@
 # Loading screen
 
+`EarlyBootstrap` installs `LoadingScreenHost` from the mod constructor. This same host
+owns full-screen loading through bootstrap, scene switches and auto-resume, including
+synchronous events that vanilla would draw as a bubble. It acknowledges repaint to
+the long-event scheduler and keeps Root waiting while that full-screen session has
+queued work, so menu/map UI cannot cover a promoted synchronous event.
+Only an interactive menu/play repaint with no queued events
+ends the stream; a null current event is not an end-of-load signal. Ordinary in-game
+operation windows remain game-owned outside a full-screen loading session.
+`LoadingFontAtlas` decodes the
+embedded atlas on the game thread, without waiting for mod content loading. Settings
+are available before early hooks are installed; tips are also embedded. This path must
+not initialize UI fonts or definitions, or show stage labels. Background animation
+starts after the first lightweight tip repaint, from the game's already loaded source.
+There is no second loading renderer or stream reset at the late bootstrap boundary.
+
 `Bootstrap/StartupAudio` retains the game's sound-grain resolution callbacks for
 first use and warms one definition per idle frame after loading. Native audio stays
 on the game thread; duration reads and grain consumers demand resolution first.

@@ -30,6 +30,7 @@ namespace SlopWorld
             var h = new Harmony("io.drsr.slopworld");
             try
             {
+                Patch_MenuBackgroundDraw.Install(h);
                 ApplyAttributedPatches(h);
                 Patch_HideGui.Apply(h);
                 Patch_MainButtons.Apply(h);

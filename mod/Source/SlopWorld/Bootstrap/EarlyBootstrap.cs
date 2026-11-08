@@ -19,6 +19,8 @@ namespace SlopWorld
             var harmony = new Harmony("io.drsr.slopworld.startup");
             try
             {
+                LoadingScreenHost.Install(harmony);
+                Patch_MenuBackgroundDraw.Install(harmony);
                 harmony.Patch(
                     AccessTools.Method(typeof(Root), nameof(Root.Update)),
                     postfix: new HarmonyMethod(typeof(EarlyBootstrap), nameof(Update))

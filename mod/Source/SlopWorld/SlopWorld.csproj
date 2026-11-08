@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="../../../shared/loading-tips.txt" LogicalName="SlopWorld.LoadingTips" />
+    <EmbeddedResource Include="../../Textures/SlopWorld/LoadingFont.png" LogicalName="SlopWorld.LoadingFont" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="../../../shared/magic-8-ball.txt" LogicalName="SlopWorld.Magic8Ball" />

@@ -1,7 +1,11 @@
 # Baked backgrounds
 
 `UI/MenuBackground/` supplies cached menu/loading/Eco frames. `BackgroundOnGUI` is
-the entry point because loading bypasses menu initialization. Source textures remain
+the entry point because loading bypasses menu initialization. Its hook installs early,
+using the game's existing background texture instead of mod content discovery. The
+first tip repaint precedes frame-cache loading/baking; subsequent draws can animate
+while definitions load. Late bootstrap only installs the hook if early installation
+failed, so wrappers and animation state are not duplicated. Source textures remain
 provider-owned and immutable; the baker owns generated frames and cleanup. Build
 replacements before releasing the old set, retaining it on failure. Cache identity
 includes source, geometry, tuning, preset, and bake version.

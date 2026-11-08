@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -42,7 +41,6 @@ namespace SlopWorld
         static int FontSize => Mathf.Clamp(Settings.FontSize + LoadingFontBump, 8, 32);
 
         // Keep this grid in sync with tools/assets/loading_font_atlas.py.
-        const string GlyphAtlasPath = "SlopWorld/LoadingFont";
         const int GlyphFirst = 32,
             GlyphLast = 126;
         const int GlyphSource = 64,
@@ -57,24 +55,7 @@ namespace SlopWorld
         const int GlyphAtlasWidth = GlyphColumns * GlyphPitchWidth;
         const int GlyphAtlasHeight = GlyphRows * GlyphPitchHeight;
         const float GlyphScale = 0.80f;
-        static Texture2D _glyphAtlas;
-        static bool _glyphAtlasLooked;
-
-        static Texture2D GlyphAtlas
-        {
-            get
-            {
-                if (_glyphAtlasLooked)
-                    return _glyphAtlas;
-                _glyphAtlasLooked = true;
-                _glyphAtlas = ContentFinder<Texture2D>.Get(GlyphAtlasPath, false);
-                if (_glyphAtlas == BaseContent.BadTex)
-                    _glyphAtlas = null;
-                if (_glyphAtlas == null)
-                    Log.Warning("[SlopWorld] loading screen font atlas is missing");
-                return _glyphAtlas;
-            }
-        }
+        static Texture2D GlyphAtlas => LoadingFontAtlas.Get();
 
         static float TextWidth(string text, int fontSize) =>
             text.Length * fontSize * GlyphScale * GlyphWidth / GlyphSource;
@@ -155,7 +136,7 @@ namespace SlopWorld
         static float _scrollStartedAt = -1f;
         static bool _modeKnown;
         static bool _grandma;
-        static bool _loadingSession;
+        static readonly LoadingStreamSession LoadingSession = new LoadingStreamSession();
         static bool _newLoadingSession;
         static int _streamGeneration = -1;
 
@@ -231,21 +212,24 @@ namespace SlopWorld
             _scrollStartedAt = -1f;
         }
 
-        // One loading screen can move through several QueuedLongEvent objects. Keep one stream
-        // across those queue handoffs. Null currentEvent is the boundary between load sessions.
+        // Null currentEvent can be a scene/queue handoff, including the menu frame that
+        // schedules auto-resume. Only the host's idle interactive-frame observer ends a load.
         internal static void Begin(object loadingEvent)
         {
-            if (loadingEvent == null)
+            if (LoadingSession.Begin(loadingEvent != null))
             {
-                _loadingSession = false;
-                return;
+                _newLoadingSession = true;
+                Log.Message("[SlopWorld] loading stream started");
             }
-
-            if (_loadingSession)
-                return;
-            _loadingSession = true;
-            _newLoadingSession = true;
         }
+
+        internal static void InteractiveFrame(bool eventsPending) =>
+            LoadingSession.InteractiveFrame(eventsPending);
+
+        internal static bool DrawFullScreen(bool canUseGameWindow) =>
+            LoadingSession.DrawFullScreen(canUseGameWindow);
+
+        internal static bool IsFullScreen => LoadingSession.FullScreen;
 
         // Keep the separators deliberately plain: tips are split on spaces, while a null token
         // represents an explicit newline. No parser or word-pool machinery is needed here.
@@ -461,54 +445,6 @@ namespace SlopWorld
         static bool Prefix()
         {
             DrawPanel();
-            return false;
-        }
-    }
-
-    // Draw the stream and nothing else. The status box and mod summary are not useful while a
-    // map is being generated. The right-aligned panel uses the full screen height.
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI))]
-    public static class Patch_LoadingLayout
-    {
-        static readonly FieldInfo CurrentEvent = AccessTools.Field(
-            typeof(LongEventHandler),
-            "currentEvent"
-        );
-        static readonly Type EventType = CurrentEvent?.FieldType;
-        static readonly FieldInfo ForceHideUI =
-            EventType == null ? null : AccessTools.Field(EventType, "forceHideUI");
-        static readonly FieldInfo ShowExtraUIInfo =
-            EventType == null ? null : AccessTools.Field(EventType, "showExtraUIInfo");
-        static readonly MethodInfo UseStandardWindow =
-            EventType == null ? null : AccessTools.PropertyGetter(EventType, "UseStandardWindow");
-
-        static bool Prefix()
-        {
-            if (ForceHideUI == null || ShowExtraUIInfo == null || UseStandardWindow == null)
-                return true;
-
-            object ev = CurrentEvent.GetValue(null);
-            if (ev == null)
-            {
-                Patch_LoadingTips.Begin(null);
-                return true;
-            }
-            if ((bool)ForceHideUI.GetValue(ev))
-                return true;
-            if ((bool)UseStandardWindow.Invoke(ev, null))
-                return true;
-            if (Find.UIRoot == null)
-                return true;
-            if (!(bool)ShowExtraUIInfo.GetValue(ev))
-                return true;
-
-            Patch_LoadingTips.Begin(ev);
-
-            if (UIMenuBackgroundManager.background == null)
-                UIMenuBackgroundManager.background = new UI_BackgroundMain();
-            UIMenuBackgroundManager.background.BackgroundOnGUI();
-
-            Patch_LoadingTips.DrawPanel();
             return false;
         }
     }

@@ -31,6 +31,39 @@ namespace SlopWorld.Tests
                 )
                     context.LoadFromAssemblyPath(Path.Combine(Path.GetFullPath(managed), assembly));
                 int count = 0;
+                using (var loadingFont = mod.GetManifestResourceStream("SlopWorld.LoadingFont"))
+                    Require(
+                        loadingFont != null && loadingFont.Length > 0,
+                        "early loading font must be embedded independently of game content"
+                    );
+                Invoke(mod, "LoadingScreenHost", "Validate");
+                Require(
+                    ((MethodInfo)Invoke(mod, "LoadingScreenHost", "WaitTarget")).ReturnType
+                        == typeof(bool),
+                    "missing full-screen UI wait contract"
+                );
+                foreach (
+                    MethodBase target in (IEnumerable)Invoke(
+                        mod,
+                        "LoadingScreenHost",
+                        "InteractiveTargets"
+                    )
+                )
+                    Require(
+                        target != null
+                            && target.DeclaringType.Name is "MainMenuDrawer" or "UIRoot_Play",
+                        "missing interactive loading boundary"
+                    );
+                var background = (MethodBase)Invoke(mod, "Patch_MenuBackgroundDraw", "Target");
+                var backgroundSource = background.DeclaringType.GetField(
+                    "BGPlanet",
+                    BindingFlags.Static | BindingFlags.NonPublic
+                );
+                Require(
+                    backgroundSource != null
+                        && backgroundSource.FieldType.FullName == "UnityEngine.Texture2D",
+                    "missing early background source"
+                );
                 var soundResolve = (MethodBase)Invoke(mod, "StartupAudio", "ResolveTarget");
                 var soundCode = PatchProcessor.GetOriginalInstructions(soundResolve);
                 var deferredCode =
@@ -88,7 +121,7 @@ namespace SlopWorld.Tests
                         "unprotected sound-grain consumer: " + method.Name
                     );
                 }
-                count += 3;
+                count += 6;
                 foreach (string owner in new[] { "Patch_NativeTextStyle", "Patch_NativeTextField" })
                 {
                     var targets = (IEnumerable)Invoke(mod, owner, "TargetMethods");
