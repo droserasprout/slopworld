@@ -36,7 +36,13 @@ namespace Verse
     static class MarkdownWindowLookup
     {
         public static T WindowOfType<T>(this WindowStack stack)
-            where T : class => null;
+            where T : class
+        {
+            foreach (var window in stack)
+                if (window is T match)
+                    return match;
+            return null;
+        }
     }
 }
 

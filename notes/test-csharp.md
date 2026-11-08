@@ -13,6 +13,11 @@ test types whose names end in `Tests` and invokes qualifying public static metho
 Tests cover pure policies and game-free client/transport integration. Individual
 tests own the detailed behavior inventory.
 
+Palette tests link the production window, execution, keyboard input, search, and history.
+A fixture supplies command registrations and substitutes native fields/window hosting;
+settings writes use temporary profiles. Catalog-specific submenu eligibility, command
+registration wiring, native text focus, and rendering remain outside that boundary.
+
 Linux idle-inhibition integration tests require `dbus-daemon`.
 They start an isolated private bus and fake desktop services; they never acquire
 an inhibitor on the developer's desktop. Other platforms skip those native tests.

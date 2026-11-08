@@ -41,6 +41,9 @@
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/Jukebox.Presence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Planner/PlannerBench.Presence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Settings/SettingsHeater.Presence.cs" />
+    <Compile Include="../Source/SlopWorld/UI/CommandPalette/CommandPalette.cs" />
+    <Compile Include="../Source/SlopWorld/UI/CommandPalette/CommandPalette.Execution.cs" />
+    <Compile Include="../Source/SlopWorld/UI/CommandPalette/CommandPalette.Input.cs" />
     <Compile Include="../Source/SlopWorld/UI/CommandPalette/PaletteHistory.cs" />
     <Compile Include="../Source/SlopWorld/UI/CommandPalette/PaletteSearch.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/MainThreadCompletions.cs" />

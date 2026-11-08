@@ -116,6 +116,27 @@ namespace SlopWorld
             Find.WindowStack.Add(new CommandPalette());
         }
 
+        // A filtered list shows matches in rank order, with the best match first.
+        // Omit group headings to make this order clear.
+        bool Grouped => _filter.Length == 0;
+
+        // Without a filter, recent entries appear first under "Recently".
+        // Other entries appear under their own categories.
+        string GroupOf(int index) =>
+            index < _recentInList ? "Recently" : _matches[index].Command.Group;
+
+        static List<SubOption> CreationSub(List<CreationActions.Entry> entries) =>
+            entries
+                .Where(entry => entry != CreationActions.Entry.Separator)
+                .Select(entry => new SubOption
+                {
+                    Label = entry.Label,
+                    Enabled = entry.Enabled,
+                    Select = entry.Select,
+                    Children = entry.Children == null ? null : () => CreationSub(entry.Children()),
+                })
+                .ToList();
+
         // --------------------------------------------------------------- command model
 
         sealed class CommandDef

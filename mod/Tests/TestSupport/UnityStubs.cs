@@ -266,6 +266,7 @@ namespace UnityEngine
 
     public enum KeyCode
     {
+        None = -1,
         A,
         B,
         C,
@@ -505,6 +506,8 @@ namespace UnityEngine
         public static float Max(float a, float b) => a > b ? a : b;
 
         public static float Ceil(float value) => (float)System.Math.Ceiling(value);
+
+        public static int FloorToInt(float value) => (int)System.Math.Floor(value);
 
         public static float Floor(float value) => (float)System.Math.Floor(value);
 

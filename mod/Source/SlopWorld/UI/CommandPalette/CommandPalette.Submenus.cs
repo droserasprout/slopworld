@@ -173,18 +173,6 @@ namespace SlopWorld
             return list;
         }
 
-        static List<SubOption> CreationSub(List<CreationActions.Entry> entries) =>
-            entries
-                .Where(entry => entry != CreationActions.Entry.Separator)
-                .Select(entry => new SubOption
-                {
-                    Label = entry.Label,
-                    Enabled = entry.Enabled,
-                    Select = entry.Select,
-                    Children = entry.Children == null ? null : () => CreationSub(entry.Children()),
-                })
-                .ToList();
-
         static List<SubOption> HostSessionsSub()
         {
             var list = SessionHub
