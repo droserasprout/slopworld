@@ -63,6 +63,8 @@ To compile without installing, choose a target:
 | `just mod-build` | C# mod against installed game assemblies |
 | `just mod-build rimref` | C# mod against pinned RimRef 1.7.5000-unstable references; no game installation required |
 | `just sidecar-build` | Host-side container launcher; requires neither the game nor protoc |
+| `just package-sidecar debian` | Independent slopcar package on the selected native distribution (`arch`, `debian`, or `fedora`) |
+| `just release-sidecar amd64` | Tagged sidecar distro packages for `amd64` or `arm64`; requires containers and matching architecture or emulation |
 
 Builds use Debug mode by default. Use `just BUILD=release build` for Release.
 Both modes write the mod to `mod/Assemblies/SlopWorld.dll`, which Git ignores.

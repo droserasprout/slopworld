@@ -19,7 +19,7 @@ release-package:
 release-ci-prepare mode='release':
     uv run --locked python -m tools.release.ci prepare {{ if mode == 'preview' { '--preview' } else { '' } }}
 
-# Build release artifacts after the workflow's tests pass
+# Build release packages after the workflow's tests pass
 [arg('mode', pattern='^(release|preview)$')]
 [group('release')]
 release-ci-package mode='release':
@@ -35,3 +35,8 @@ release-ci-verify mode='release':
 [group('release')]
 release-ci-publish:
     uv run --locked python -m tools.release.ci publish
+
+# Build separate sidecar distro packages for one Linux architecture
+[group('release')]
+release-sidecar architecture='amd64':
+    uv run --locked python -m tools.release.sidecar {{ quote(architecture) }}

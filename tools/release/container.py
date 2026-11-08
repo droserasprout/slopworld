@@ -16,16 +16,29 @@ from tools.utils import command
 from tools.utils import run
 
 
-def package(distribution: str, output: Path, revision: str, version: str) -> Path:
+def package(
+    distribution: str,
+    output: Path,
+    revision: str,
+    version: str,
+    *,
+    product: str = 'slopworld',
+    architecture: str = 'amd64',
+) -> Path:
+    if product not in ('slopworld', 'slopcar') or architecture not in ('amd64', 'arm64'):
+        raise ValueError('Unsupported product or architecture')
+    machine = 'x86_64' if architecture == 'amd64' else 'aarch64'
+    if distribution == 'arch' and architecture != 'amd64':
+        raise ValueError('Arch packages require amd64')
     if distribution == 'arch':
         arch_version(version)
-        generated_name = archive_name = f'slopworld-{version}-x86_64.pkg.tar.zst'
+        generated_name = archive_name = f'{product}-{version}-{machine}.pkg.tar.zst'
     elif distribution == 'debian':
-        generated_name = f'slopworld_{debian_version(version)}_amd64.deb'
-        archive_name = f'slopworld-{version}-amd64.deb'
+        generated_name = f'{product}_{debian_version(version)}_{architecture}.deb'
+        archive_name = f'{product}-{version}-{architecture}.deb'
     elif distribution == 'fedora':
-        generated_name = f'slopworld-{rpm_version(version)}-1.x86_64.rpm'
-        archive_name = f'slopworld-{version}-x86_64.rpm'
+        generated_name = f'{product}-{rpm_version(version)}-1.{machine}.rpm'
+        archive_name = f'{product}-{version}-{machine}.rpm'
     else:
         raise ValueError(f'Unsupported distribution: {distribution}')
     output = output.resolve()
@@ -37,7 +50,7 @@ def package(distribution: str, output: Path, revision: str, version: str) -> Pat
         # maps container root to an ordinary UID, which must traverse this mount
         # to reach its own writable staging directory. TemporaryDirectory is 0700.
         workspace.chmod(0o755)
-        compile_package(ROOT, distribution, workspace, revision, version)
+        compile_package(ROOT, distribution, workspace, revision, version, product=product, architecture=architecture)
         generated = workspace / generated_name
         if not generated.is_file() or generated.stat().st_size == 0:
             raise ValueError(f'Missing or empty container package: {generated_name}')
@@ -46,23 +59,34 @@ def package(distribution: str, output: Path, revision: str, version: str) -> Pat
     return archive
 
 
-def compile_package(root: Path, distribution: str, output: Path, revision: str, version: str) -> None:
+def compile_package(
+    root: Path,
+    distribution: str,
+    output: Path,
+    revision: str,
+    version: str,
+    *,
+    product: str = 'slopworld',
+    architecture: str = 'amd64',
+) -> None:
     container = command('CONTAINER', 'podman')
+    suffix = '' if architecture == 'amd64' else '-arm64'
+    image = f'slopworld-{distribution}{suffix}-release'
     run(
         [
             *container,
             'build',
             '--platform',
-            'linux/amd64',
+            f'linux/{architecture}',
             *shlex.split(os.environ.get('CONTAINER_BUILD_ARGS', '')),
             '-t',
-            f'slopworld-{distribution}-release',
+            image,
             '-f',
             str(root / f'packaging/{distribution}/Dockerfile'),
             str(root / f'packaging/{distribution}'),
         ]
     )
-    cache = root / f'dist/{distribution}-build'
+    cache = root / f'dist/{distribution}{suffix}-build'
     mounts = []
     for name, destination in (
         ('target', '/build/target'),
@@ -84,7 +108,7 @@ def compile_package(root: Path, distribution: str, output: Path, revision: str, 
             *container,
             'run',
             '--platform',
-            'linux/amd64',
+            f'linux/{architecture}',
             *shlex.split(os.environ.get('CONTAINER_RUN_ARGS', '')),
             '--rm',
             # Arch's root makepkg wrapper needs nested Bubblewrap namespaces.
@@ -110,13 +134,13 @@ def compile_package(root: Path, distribution: str, output: Path, revision: str, 
             'GIT_CONFIG_KEY_0=safe.directory',
             '--env',
             f'GIT_CONFIG_VALUE_0={root}',
-            f'slopworld-{distribution}-release',
+            image,
             'bash',
             '-euc',
             (
-                'cargo build --manifest-path slopd/Cargo.toml --release --locked; '
-                f'python3 -m pytest tools/release/test_{distribution}.py -q -p no:cacheprovider; '
-                f'python3 -m tools.release.native {distribution} --stage-only --binary-dir /build/target/release '
+                f'cargo build --manifest-path {"slopcar" if product == "slopcar" else "slopd"}/Cargo.toml --release --locked; '
+                f'python3 -m pytest tools/release/test_{distribution}.py tools/release/test_sidecar.py -q -p no:cacheprovider; '
+                f'python3 -m tools.release.native {distribution} --product {product} --stage-only --binary-dir /build/target/release '
                 '--output /output --revision "$1" --version "$2"'
             ),
             f'release-{distribution}',

@@ -26,3 +26,8 @@ package-test what:
 [group('package')]
 package-stage-mod destination:
     uv run --locked python -m tools.release.source_mod {{ quote(destination) }}
+
+# Build an independent slopcar package on the selected distribution
+[group('package')]
+package-sidecar distribution:
+    uv run --locked python -m tools.release.native {{ quote(distribution) }} --product slopcar

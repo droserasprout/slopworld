@@ -29,7 +29,10 @@ def package(
     binary_dir: Path | None = None,
     *,
     mod: Path | None = None,
+    product: str = 'slopworld',
 ) -> Path:
+    if product not in ('slopworld', 'slopcar'):
+        raise ValueError(f'Unsupported product: {product}')
     arch_version(version)
     if architecture != 'x86_64':
         raise ValueError(f'Unsupported Arch architecture: {architecture}')
@@ -38,30 +41,43 @@ def package(
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.arch-', dir=output) as temporary:
         workspace = Path(temporary)
-        if mod is None:
+        if mod is None and product == 'slopworld':
             mod = workspace / 'mod'
             staging.stage_mod(mod, revision, version)
-        archive = build_archive(workspace, version, binary_dir or ROOT / 'slopd/target/release', mod)
+        archive = build_archive(
+            workspace,
+            version,
+            binary_dir or ROOT / ('slopcar/target/release' if product == 'slopcar' else 'slopd/target/release'),
+            mod,
+            revision=revision,
+            product=product,
+        )
         destination = output / archive.name
         archive.replace(destination)
     return destination
 
 
-def build_archive(workspace: Path, version: str, binary_dir: Path, mod: Path) -> Path:
+def build_archive(
+    workspace: Path, version: str, binary_dir: Path, mod: Path | None, *, revision: str = '', product: str = 'slopworld'
+) -> Path:
     payload = workspace / 'payload'
-    staging.stage_system(payload, binary_dir)
-    shutil.copytree(mod, payload / 'usr/share/slopworld/SlopWorld')
-    for source, destination in (
-        ('packaging/arch/slopworld.rules', 'etc/ananicy.d/slopworld.rules'),
-        ('README.md', 'usr/share/doc/slopworld/README.md'),
-    ):
-        staging.copy_file(ROOT / source, payload / destination)
-    staging.stage_notices(payload)
-    staging.copy_file(ROOT / 'packaging/arch/slopworld.install', workspace / 'slopworld.install')
+    if product == 'slopcar':
+        staging.stage_sidecar(payload, binary_dir, revision, version)
+    else:
+        assert mod is not None
+        staging.stage_system(payload, binary_dir)
+        shutil.copytree(mod, payload / 'usr/share/slopworld/SlopWorld')
+        for source, destination in (
+            ('packaging/arch/slopworld.rules', 'etc/ananicy.d/slopworld.rules'),
+            ('README.md', 'usr/share/doc/slopworld/README.md'),
+        ):
+            staging.copy_file(ROOT / source, payload / destination)
+        staging.stage_notices(payload)
+        staging.copy_file(ROOT / 'packaging/arch/slopworld.install', workspace / 'slopworld.install')
     # The metadata and install hook stay owned by PKGBUILD.local. The trusted
     # repository file is sourced by Bash, as it is for ordinary makepkg builds.
     (workspace / 'PKGBUILD').write_text(
-        'source "$RELEASE_SOURCE/packaging/arch/PKGBUILD.local"\n'
+        f'source "$RELEASE_SOURCE/packaging/arch/{"PKGBUILD.slopcar" if product == "slopcar" else "PKGBUILD.local"}"\n'
         'unset -f pkgver prepare build check\n'
         'pkgver="$RELEASE_VERSION"\n'
         'package() { cp -r --preserve=mode,timestamps "$startdir/payload/." "$pkgdir/"; }\n'
@@ -110,10 +126,10 @@ def build_archive(workspace: Path, version: str, binary_dir: Path, mod: Path) ->
             *arguments,
         ]
     run(arguments, cwd=workspace, env=environment)
-    archives = list(workspace.glob('slopworld-*.pkg.tar.zst'))
+    archives = list(workspace.glob(f'{product}-*.pkg.tar.zst'))
     if len(archives) != 1:
         raise ValueError('makepkg did not produce exactly one release package')
-    archive_path = workspace / f'slopworld-{version}-x86_64.pkg.tar.zst'
+    archive_path = workspace / f'{product}-{version}-x86_64.pkg.tar.zst'
     archives[0].replace(archive_path)
     # Reading package metadata catches malformed archives before publication.
     # Even file queries initialize libalpm; use an empty staging database so

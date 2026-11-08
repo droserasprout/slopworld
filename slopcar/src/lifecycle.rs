@@ -162,11 +162,8 @@ fn run_with(
 
 fn require_image(docker: &Docker, settings: &Settings) -> Result<()> {
     if !docker.exists("image", settings.image.as_ref())? {
-        bail!(
-            "image {} is missing; run slopcar build --source CHECKOUT or docker pull {}",
-            settings.image,
-            settings.image
-        );
+        // Pull only absent images. Never replace a locally installed/custom image.
+        docker.run(&args(&["pull", &settings.image]), false)?;
     }
     Ok(())
 }
@@ -185,7 +182,6 @@ fn start_container(
         println!("slopcar: started existing container {}", settings.container);
         return Ok(());
     }
-    require_image(docker, settings)?;
     if start.workspaces.is_empty() {
         bail!("the first start needs at least one --workspace");
     }
@@ -211,6 +207,7 @@ fn start_container(
     }
     let port = start.port.unwrap_or(settings.port);
     let identity = identity()?;
+    require_image(docker, settings)?;
     let (_profile, security) = security(identity)?;
     config::seed(&settings.config, &settings.data, port)?;
     let mut flags = args(&[

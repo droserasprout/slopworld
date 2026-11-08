@@ -114,7 +114,7 @@ def test_repeated_builds_and_failed_validation_preserve_published_package(
     mod = tmp_path / 'mod'
     mod.mkdir()
 
-    def build(workspace: Path, version: str, binaries: Path, staged_mod: Path) -> Path:
+    def build(workspace: Path, version: str, binaries: Path, staged_mod: Path, **kwargs: object) -> Path:
         assert binaries == binary_dir and staged_mod == mod
         archive = workspace / 'slopworld-1.0.0-x86_64.pkg.tar.zst'
         archive.write_bytes(b'package')

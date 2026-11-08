@@ -34,7 +34,7 @@ def bundle(tmp_path: Path, release: gates.Release, monkeypatch: pytest.MonkeyPat
 
 
 def test_bundle_verifies_every_file_and_identity(bundle: Path, release: gates.Release) -> None:
-    assert len(ci.verify(bundle, release)) == 8
+    assert len(ci.verify(bundle, release)) == len(ci.asset_names(release.version)) + 1
     with pytest.raises(ValueError, match='manifest'):
         ci.verify(bundle, gates.Release('b' * 40, release.tag, release.version))
 
@@ -82,7 +82,7 @@ def test_every_attestation_passes_before_publication_without_rebuilding(
 ) -> None:
     monkeypatch.setenv('GITHUB_REPOSITORY', 'owner/repo')
     monkeypatch.setenv('GH', 'gh')
-    results: list[subprocess.CalledProcessError | None] = [None] * 8
+    results: list[subprocess.CalledProcessError | None] = [None] * (len(ci.asset_names(release.version)) + 1)
     if failure is not None:
         results[failure] = subprocess.CalledProcessError(1, ['gh'])
     with (
@@ -97,7 +97,7 @@ def test_every_attestation_passes_before_publication_without_rebuilding(
             upload.assert_not_called()
         else:
             ci.upload(bundle, release)
-            assert run.call_count == 8
+            assert run.call_count == len(ci.asset_names(release.version)) + 1
             validate.assert_called_once_with(release)
             assert upload.call_args.kwargs == {'require_tag': True}
         build.assert_not_called()
@@ -147,7 +147,7 @@ def test_release_workflow_gates_publication_and_downloads_exact_artifact() -> No
     workflow = yaml.load((ROOT / '.github/workflows/release.yml').read_text(), Loader=yaml.BaseLoader)
     jobs = workflow['jobs']
     assert jobs['test']['with']['ref'] == '${{ needs.prepare.outputs.commit }}'
-    assert set(jobs['package']['needs']) == {'prepare', 'test'}
+    assert set(jobs['package']['needs']) == {'prepare', 'test', 'sidecar'}
     assert set(jobs['publish']['needs']) == {'prepare', 'package', 'image'}
     for name in ('publish', 'image'):
         assert jobs[name]['if'] == "needs.prepare.outputs.mode == 'release'"

@@ -15,6 +15,7 @@ from tools import ROOT
 from tools.release import changelog
 from tools.release import gates
 from tools.release import publish
+from tools.release import sidecar
 from tools.utils import command
 from tools.utils import log
 from tools.utils import run
@@ -59,11 +60,11 @@ def preflight(release: gates.Release) -> None:
 
 def asset_names(version: str) -> list[str]:
     return [
-        f'slopworld-{version}-x86_64-linux.tar.gz',
         f'slopworld-{version}-mod.zip',
         f'slopworld-{version}-x86_64.pkg.tar.zst',
         f'slopworld-{version}-amd64.deb',
         f'slopworld-{version}-x86_64.rpm',
+        *(name for architecture in sidecar.ARCHITECTURES for name in sidecar.asset_names(version, architecture)),
         'SHA256SUMS',
         'release-notes.md',
     ]
@@ -120,7 +121,14 @@ def build(output: Path, release: gates.Release) -> None:
         if release.tag
         else f'Preview of {release.revision}; not a published release.\n'
     )
-    publish.package(output, release.revision, release.version, notes=notes, native_packages=True)
+    publish.package(
+        output,
+        release.revision,
+        release.version,
+        notes=notes,
+        native_packages=True,
+        sidecar_directory=Path(os.environ['SIDECAR_RELEASE_DIR']) if os.environ.get('SIDECAR_RELEASE_DIR') else None,
+    )
     validate(release)
     (output / 'release.json').write_text(json.dumps(manifest(output, release), indent=2) + '\n')
     verify(output, release)

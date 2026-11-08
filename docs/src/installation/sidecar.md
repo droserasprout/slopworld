@@ -7,23 +7,55 @@
 A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The Linux game
 remains on the Linux host and connects to the sidecar over a loopback port.
 
-## Requirements
+## Install the host launcher
 
-You need Docker on Linux. Building the host-side launcher and image
-also requires Rust, `just`, and a local repository checkout.
-The container supplies the daemon runtime dependencies. To build the launcher and
-mod for the Linux game below, also install the host
-[build prerequisites](../development/build.md#prerequisites) and locate your native RimWorld 1.7
-installation.
+The minimum supported host-library baseline is **Debian 13 (Trixie)**. Use a
+matching distro package on a host that satisfies its declared library dependencies;
+older-library systems are outside the support target. Fedora packages target Fedora 43,
+and Arch packages target current Arch Linux.
+
+You also need access to a running local Docker engine. The host kernel must allow
+the nested sandbox operations checked by `slopcar doctor`. The container supplies
+tmux, Bubblewrap, and pasta; those do not impose native package requirements on the host.
+The `slopcar` launcher includes its seccomp policy and requires no Rust, Python,
+or source checkout.
+
+Download the separate **slopcar** package from
+[GitHub Releases](https://github.com/droserasprout/slopworld/releases).
+Debian 13-compatible and Fedora packages are available for amd64/x86_64 and arm64/aarch64;
+the Arch package is x86_64. Install the matching package with your package manager:
+
+```sh
+sudo apt install ./slopcar-{{#constant release_version}}-amd64.deb
+# Or on Fedora:
+sudo dnf install ./slopcar-{{#constant release_version}}-x86_64.rpm
+# Or on Arch:
+sudo pacman -U ./slopcar-{{#constant release_version}}-x86_64.pkg.tar.zst
+```
+
+The package contains the launcher, completions, and notices. It depends on Docker
+and native system libraries, and installs no game mod, native daemon, or user service.
+Docker must be running and accessible to your ordinary user; run `slopcar` without sudo.
+
+### From source
+
+For source installs, use `just sidecar-install`. This requires Rust, `just`, `uv`,
+and a checkout. Build a local image explicitly when needed:
+
+```sh
+export SLOPCAR_IMAGE=slopcar:local
+just sidecar-image
+```
 
 ## Start the sidecar {#start-a-worker}
 
-Build and install the host-side Rust launcher, then build and check the image:
+By default, the launcher selects `ghcr.io/droserasprout/slopcar:<launcher version>`.
+`doctor` and a fresh `start` pull the selected image only when it is missing locally.
+They never rebuild or refresh an installed image. `SLOPCAR_IMAGE` selects a custom image.
+Check the container's sandbox runtime before starting:
 
 ```sh
-just sidecar-install
-just sidecar-image
-just sidecar-doctor
+slopcar doctor
 ```
 
 Pass `--workspace` for each project that agents may access. Use absolute paths.
@@ -36,6 +68,7 @@ slopcar start --workspace "/absolute/path/to/project"
 The installed launcher embeds its seccomp profile and runtime commands do not
 require a checkout. `slopcar build --source /path/to/slopworld` builds an image
 from an explicit checkout; without `--source`, it uses the current directory.
+Local builds require a checkout and are always explicit.
 Set `SLOPCAR_IMAGE` to select an image, including one already pulled from a registry.
 
 Before running agents, extend the standard image with your chosen Linux agent

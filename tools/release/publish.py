@@ -1,4 +1,4 @@
-"""Build local Linux release archives and publish versioned GitHub releases.
+"""Package Linux releases and publish versioned GitHub releases.
 
 Recipes own compiler settings; this module owns staging and publication ordering.
 Only tracked mod assets and explicitly named runtime DLLs enter the mod archive.
@@ -9,19 +9,17 @@ import hashlib
 import json
 import os
 import platform
-import shutil
 import subprocess
-import tarfile
 import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
 
 from tools import ROOT
-from tools import cli_completions
 from tools.release import changelog
 from tools.release import container
 from tools.release import gates
+from tools.release import sidecar
 from tools.release import staging
 from tools.utils import command
 from tools.utils import log
@@ -29,40 +27,41 @@ from tools.utils import run
 from tools.utils import run_main
 
 
-def package(output: Path, revision: str, version: str, *, notes: str, native_packages: bool = False) -> list[Path]:
-    daemon_name = f'slopworld-{version}-x86_64-linux'
-    asset_names = (f'{daemon_name}.tar.gz', f'slopworld-{version}-mod.zip')
+def package(
+    output: Path,
+    revision: str,
+    version: str,
+    *,
+    notes: str,
+    native_packages: bool = False,
+    sidecar_directory: Path | None = None,
+) -> list[Path]:
+    mod_name = f'slopworld-{version}-mod.zip'
     output.mkdir(parents=True, exist_ok=True)
     # Finish every archive and native package before replacing prepared outputs.
     with tempfile.TemporaryDirectory(prefix='.release-', dir=output) as temporary:
         workspace = Path(temporary)
-        daemon = workspace / daemon_name
-        for binary in ('slopd', 'slopctl', 'slopworld'):
-            staging.copy_file(ROOT / 'slopd/target/release' / binary, daemon / 'bin' / binary)
-        for source_name in ('slopd/slopd.service', 'packaging/slopworld.desktop', 'LICENSE'):
-            staging.copy_file(ROOT / source_name, daemon / Path(source_name).name)
-        shutil.copytree(ROOT / 'licenses', daemon / 'licenses')
-        cli_completions.stage(ROOT / 'packaging/completions', daemon / 'share', ('slopctl', 'slopworld'))
-        staging.metadata(daemon, revision, version)
-
         mod = workspace / 'SlopWorld'
         staging.stage_mod(mod, revision, version)
 
-        # Archives must be usable by other users after extraction, regardless of
-        # the build umask or source modes. Native packagers normalize their payloads.
-        for directory in (daemon, mod):
-            staging.normalize_permissions(directory, daemon / 'bin')
+        # The game mod remains a ZIP; executable distribution belongs to native packages.
+        staging.normalize_permissions(mod, mod / 'bin')
 
-        with tarfile.open(workspace / asset_names[0], 'w:gz') as archive:
-            archive.add(daemon, arcname=daemon.name)
-        with zipfile.ZipFile(workspace / asset_names[1], 'w', zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(workspace / mod_name, 'w', zipfile.ZIP_DEFLATED) as archive:
             for source in sorted(mod.rglob('*')):
                 if source.is_file():
                     archive.write(source, source.relative_to(workspace))
-        names = list(asset_names[:2])
+        names = [mod_name]
         if native_packages:
             for distribution in ('arch', 'debian', 'fedora'):
                 names.append(container.package(distribution, workspace, revision, version).name)
+            for architecture in sidecar.ARCHITECTURES:
+                if sidecar_directory is None:
+                    sidecar.build(workspace, revision, version, architecture)
+                else:
+                    for name in sidecar.asset_names(version, architecture):
+                        staging.copy_file(sidecar_directory / name, workspace / name)
+                names.extend(sidecar.asset_names(version, architecture))
         checksums = []
         for name in names:
             with (workspace / name).open('rb') as stream:
@@ -157,7 +156,7 @@ def main() -> None:
         output = ROOT / output
     assets = package(output, release.revision, version, notes=notes, native_packages=True)
     gates.validate(release)
-    log(f'Release archives: {output}')
+    log(f'Release packages: {output}')
     if args.action == 'publish':
         publish(gh, repository, output, release.revision, release.tag, assets)
 

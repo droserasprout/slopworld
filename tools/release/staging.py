@@ -78,3 +78,16 @@ def normalize_permissions(directory: Path, binaries: Path) -> None:
     """Make distributable files independent of source modes and the build umask."""
     for path in (directory, *directory.rglob('*')):
         path.chmod(0o755 if path.is_dir() or path.parent == binaries else 0o644)
+
+
+def stage_sidecar(payload: Path, binary_dir: Path, revision: str, version: str) -> None:
+    """Stage the independent host launcher without daemon, game, or service files."""
+    copy_file(binary_dir / 'slopcar', payload / 'usr/bin/slopcar')
+    cli_completions.stage(ROOT / 'packaging/completions', payload / 'usr/share', ('slopcar',))
+    notices = payload / 'usr/share/licenses/slopcar'
+    copy_file(ROOT / 'LICENSE', notices / 'LICENSE')
+    copy_file(ROOT / 'licenses/slopcar/THIRD-PARTY-NOTICES.txt', notices / 'THIRD-PARTY-NOTICES.txt')
+    documentation = payload / 'usr/share/doc/slopcar'
+    copy_file(ROOT / 'slopcar/README.md', documentation / 'README.md')
+    metadata(documentation, revision, version)
+    normalize_permissions(payload, payload / 'usr/bin')

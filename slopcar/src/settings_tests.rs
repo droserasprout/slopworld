@@ -18,6 +18,10 @@ fn standalone_defaults_use_shared_application_roots() {
     let base = "/home/test/.local/share/slopworld";
     assert_eq!(default.data, PathBuf::from(base).join("sidecar/daemon"));
     assert_eq!(default.port, 7718);
+    assert_eq!(
+        default.image,
+        concat!("ghcr.io/droserasprout/slopcar:", env!("CARGO_PKG_VERSION"))
+    );
 }
 
 #[test]

@@ -14,7 +14,7 @@ options take precedence where available. Build recipe settings belong to
 | `RIMWORLD` | `slopworld mod` | Platform game location | Game installation for mod management. Also used by build recipes. |
 | `SLOPCAR_CONTAINER` | `slopcar`, `slopctl --sidecar logs daemon` | `slopcar` | Sidecar container name. |
 | `SLOPCAR_CPUS` | `slopcar` | `4` | Container CPU limit. |
-| `SLOPCAR_IMAGE` | `slopcar` | `slopcar:local` | Container image to build or run. |
+| `SLOPCAR_IMAGE` | `slopcar` | `ghcr.io/droserasprout/slopcar:<launcher version>` | Container image to build or run; start/doctor pull it only when absent. |
 | `SLOPCAR_MEMORY` | `slopcar` | `8g` | Container memory limit. |
 | `SLOPCAR_PIDS_LIMIT` | `slopcar` | `4096` | Container process limit. |
 | `SLOPCAR_PORT` | `slopcar` | `7718` | Loopback host port and initial daemon bind port. |

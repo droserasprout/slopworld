@@ -10,7 +10,8 @@ for custom images; OpenSSH uses standalone sysusers/tmpfiles helpers instead of
 full systemd.
 The independent `slopcar/Cargo.toml` crate builds on Linux without
 the daemon's Linux/audio/protobuf dependencies. `just sidecar-build` builds it;
-`just sidecar-install` installs it. `just sidecar-test` runs Rust tests; `just tools-test slopcar` runs Python tests.
+`just sidecar-install` installs it from source. Separate
+Arch/Debian/Fedora `slopcar` packages provide the launcher without a Rust toolchain. `just sidecar-test` runs Rust tests; `just tools-test slopcar` runs Python tests.
 `just generate-sidecar-licenses` updates its dependency notices after lock changes;
 `slopcar licenses` prints the notices embedded in the executable.
 
@@ -28,6 +29,23 @@ Sandbox construction uses the container's usr-merge layout at runtime.
 
 For setup, workspace and credential mounts, client connection, and lifecycle, see
 the [sidecar guide](../docs/src/installation/sidecar.md).
+
+## Distribution
+
+The minimum supported host-library baseline is Debian 13 (Trixie). Debian packages
+build against that baseline; Fedora and Arch packages use their native builders
+and declare the libraries they need. Older-library compatibility is out of scope.
+Kernel/Docker sandbox support is a separate requirement checked by `slopcar doctor`.
+
+Arch/Debian/Fedora packages contain only the binary, completions, notices, and
+version/revision metadata. They depend on Docker and native system libraries.
+`tools/release/sidecar.py` coordinates package builds; native format modules own
+separate slopcar payloads. Hosted releases build on native amd64 and arm64 runners,
+then include every package in the attested, checksummed release bundle.
+
+The default image is `ghcr.io/droserasprout/slopcar:<launcher version>`.
+Start/doctor pull missing images; installed images and explicit `SLOPCAR_IMAGE`
+choices are preserved. Source image builds remain explicit.
 
 ## Outer isolation
 

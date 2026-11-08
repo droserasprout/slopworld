@@ -1,0 +1,11 @@
+# Release staging supplies an already-built payload and version.
+pkgname=slopcar
+pkgver=0
+pkgrel=1
+pkgdesc='Host launcher for the SlopWorld Linux sidecar'
+arch=('x86_64')
+url='https://github.com/droserasprout/slopworld'
+license=('MIT')
+depends=('gcc-libs' 'glibc' 'docker')
+options=('!strip' '!debug')
+source=()

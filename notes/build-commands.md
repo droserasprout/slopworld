@@ -69,6 +69,12 @@ only tracked runtime assets and [notices](core-attribution.md). Build Debian pac
 on the target distribution; RPM discovery must exclude private mod assemblies.
 Container output publishes only after checks pass. Its temporary mount needs 0755
 for Arch's mapped build UID. Disable SELinux relabeling of repositories/worktree metadata.
+Sidecar releases build distro packages on native amd64/arm64 runners in
+matching-architecture containers. `release-sidecar` builds one architecture;
+`package-sidecar` builds a standalone launcher package on the current distribution.
+The final release bundle includes their checksums and attestations alongside the
+native game packages. Local all-architecture releases require configured container
+emulation when the requested architecture differs from the host.
 Packages leave game attachment and user-service lifecycle to the user. Source installs
 stage a temporary mod for the launcher's atomic installer in `mod_install.rs`.
 

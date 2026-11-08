@@ -1,0 +1,12 @@
+Package: slopcar
+Version: {version}
+Section: utils
+Priority: optional
+Architecture: {architecture}
+Maintainer: Lev Gorodetskii <aur@drsr.io>
+Depends: {shared_libraries}, docker.io | docker-ce-cli
+Homepage: https://github.com/droserasprout/slopworld
+Description: Host launcher for the SlopWorld Linux sidecar
+ Manages the container, workspace and credential mounts, and persistent state.
+ Requires access to a running local Docker engine. Does not install the native
+ SlopWorld daemon, game mod, or agent CLIs.

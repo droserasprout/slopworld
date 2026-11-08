@@ -24,7 +24,13 @@ Start with [Build from source](build.md) for the toolchain and checks.
 
 The **Release** workflow requires the tagged commit to belong to `origin/main`.
 It resolves one commit, runs the reusable test workflow against it, and then
-builds the daemon archive, mod ZIP, Arch, Debian, and Fedora packages. Native
+builds the mod ZIP and Arch, Debian, and Fedora packages. Executables are
+distributed as distro packages; the mod ZIP supports manual game installation.
+Separate native amd64 and arm64 jobs build independent
+`slopcar` Debian/Fedora packages; the amd64 job also builds its Arch package. The final bundle
+includes all launcher packages and their checksums. The sidecar host-library
+baseline is Debian 13, using the existing Trixie builder for DEBs and native
+Fedora/Arch builders for those formats. Native
 packages compile in their distribution containers. The build consumes committed
 artwork and checks protocol outputs, staged notices, and the documentation book.
 Run generators and review their changes before tagging; CI does not regenerate

@@ -1,4 +1,4 @@
-# Release binaries target Debian 13's libraries rather than the Arch build host.
+# Both slopworld and slopcar target the Debian 13 minimum host-library baseline.
 FROM docker.io/library/rust:1-trixie
 ARG APT_SANDBOX_USER=_apt
 RUN apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} update && apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} install -y --no-install-recommends \

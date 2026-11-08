@@ -12,8 +12,19 @@ argument after `logs` verbatim to Docker; use `slopcar help logs` for CLI help.
 Local help, completions, notices, and paths bypass container settings and Docker discovery.
 Mount policy and filesystem validation remain in their execution owners.
 
-Image builds are explicit. Install, doctor, and launch consume the selected
-`SLOPCAR_IMAGE` without rebuilding it, preserving user-installed agent CLIs.
+Image builds are explicit. The default image is the published tag matching the
+launcher crate version. Doctor and fresh starts pull the selected `SLOPCAR_IMAGE`
+only when absent, preserving installed/custom images and agent CLIs. Invalid mount
+plans fail before pulls or persistent-state creation.
+
+`tools/release/sidecar.py` coordinates independent distro packages; native package
+format owners stage a separate `slopcar` product through `staging.stage_sidecar`.
+It has no mod, native daemon, or systemd payload. Hosted native-architecture jobs
+hand packages to the final release job for checksums and attestations. The minimum
+host-library support baseline is Debian 13; `packaging/debian/Dockerfile` owns that
+build environment. Other formats use native builders and dependency discovery.
+Do not introduce an older-libc or musl compatibility target. Docker/kernel sandbox
+capabilities remain separate from the library baseline.
 
 Host storage uses the common application roots and explicit sidecar mode;
 `shared/application_paths.rs` owns selection. Host root overrides select mount
