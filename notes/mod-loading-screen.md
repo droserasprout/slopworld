@@ -6,7 +6,8 @@ synchronous events that vanilla would draw as a bubble. It acknowledges repaint 
 the long-event scheduler and keeps Root waiting while that full-screen session has
 queued work, so menu/map UI cannot cover a promoted synchronous event.
 Only an interactive menu/play repaint with no queued events
-ends the stream; a null current event is not an end-of-load signal. Ordinary in-game
+ends the stream; a null current event is not an end-of-load signal. The host keeps
+drawing across those queue gaps to avoid an empty frame during scene handoff. Ordinary in-game
 operation windows remain game-owned outside a full-screen loading session.
 `LoadingFontAtlas` decodes the
 embedded atlas on the game thread, without waiting for mod content loading. Settings

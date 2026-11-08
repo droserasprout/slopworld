@@ -93,9 +93,11 @@ namespace SlopWorld
         static bool Draw()
         {
             object current = CurrentEvent.GetValue(null);
-            if (current == null)
+            // Queue gaps can still repaint before the next scene has interactive UI.
+            // Keep the existing loading frame until InteractiveFrame ends the session.
+            if (current == null && !Patch_LoadingTips.IsFullScreen)
                 return true;
-            if ((bool)ForceHide.GetValue(current))
+            if (current != null && (bool)ForceHide.GetValue(current))
                 return false;
             Patch_LoadingTips.Begin(current);
             // Preserve small in-game operation windows. Entry/startup events always use
@@ -104,6 +106,7 @@ namespace SlopWorld
                 Current.ProgramState == ProgramState.Playing
                 && Find.UIRoot != null
                 && Find.WindowStack != null
+                && current != null
                 && (bool)UseStandardWindow.Invoke(current, null);
             if (!Patch_LoadingTips.DrawFullScreen(canUseGameWindow))
                 return true;
@@ -116,7 +119,7 @@ namespace SlopWorld
             }
             // Synchronous events wait for their first repaint. Suppressing the status
             // window must retain this acknowledgement or startup can deadlock.
-            if (Event.current.type == EventType.Repaint)
+            if (current != null && Event.current.type == EventType.Repaint)
                 Displayed.SetValue(current, true);
             return false;
         }
