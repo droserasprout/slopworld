@@ -6,7 +6,6 @@ set default-list
 import 'just/settings-game.just'
 import 'just/config.just'
 import 'just/settings-release.just'
-import 'mac/config.just'
 
 # Build the daemon, launcher and mod
 [group('Build and run')]
@@ -80,7 +79,6 @@ import 'just/docs.just'
 import 'just/bench.just'
 import 'just/trace.just'
 import 'just/sidecar.just'
-import 'just/mac.just'
 import 'just/game.just'
 
 # Install the mod and its launcher

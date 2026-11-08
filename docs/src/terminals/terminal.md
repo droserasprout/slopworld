@@ -2,7 +2,7 @@
 
 These commands apply to a native Linux daemon reachable from the host terminal.
 The default private socket is `slopworld`; see [Paths and files](../reference/paths.md)
-for socket overrides. Sidecar and macOS tmux sessions run inside the Linux container;
+for socket overrides. Sidecar tmux sessions run inside the Linux container;
 use the [in-game terminal](terminal-interface.md) for those deployments.
 
 ## Listing sessions

@@ -48,7 +48,7 @@ isort = { force-single-line = true, known-first-party = ["tools"] }
 quote-style = "single"
 
 [tool.pytest.ini_options]
-testpaths = ["tools", "mac", "slopcar", "bench"]
+testpaths = ["tools", "slopcar", "bench"]
 # Standalone terminal benchmark scripts import sibling modules.
 pythonpath = ["bench/terminal-input"]
 addopts = ["-ra", "--import-mode=importlib"]
@@ -69,6 +69,5 @@ exclude_also = [
 [tool.uv]
 package = false
 environments = [
-    "sys_platform == 'darwin'",
     "sys_platform == 'linux'",
 ]

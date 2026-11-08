@@ -1,14 +1,11 @@
-# macOS architecture boundary
+# Linux sidecar architecture boundary
 
-The native game/mod talks to a Linux `slopcar` container running the daemon, tmux,
-and agent sandboxes. The current worker depends on Linux Bubblewrap/pasta; a native
-macOS worker would require a different runtime backend. Multi-architecture images
-support amd64/arm64, which does not itself establish platform validation.
+The Linux game/mod talks to a Linux `slopcar` container running the daemon, tmux,
+and agent sandboxes. The worker depends on Linux Bubblewrap/pasta. Container images
+support amd64/arm64; the host game still requires a supported Linux game build.
 
-`mac/` owns the native macOS workflow. The root justfile imports `mac/config.just`
-and exposes its commands through `just/mac.just`. Shared container tooling remains
-in `slopcar/`; its independent Rust crate owns the
-host launcher and embeds the seccomp policy; image builds still need a checkout.
+`slopcar/` owns container tooling; its independent Rust crate owns the host launcher
+and embeds the seccomp policy. Image builds still need a checkout.
 `slopcar/src/cli.rs` owns the Clap command tree and generated help. It preserves
 credential mount order across read-only/read-write options and forwards every
 argument after `logs` verbatim to Docker; use `slopcar help logs` for CLI help.
@@ -23,9 +20,9 @@ Host storage uses the common application roots and explicit sidecar mode;
 sources and never become container environment paths. Workspace paths match on
 host/container. Container mount/security policy belongs to
 [slopcar](../slopcar/README.md), and setup/lifecycle to
-[macOS](../docs/src/installation/macos.md) and [sidecar](../docs/src/installation/sidecar.md).
-The launcher supplies Linux host IDs through `PUID`/`PGID`; Docker Desktop uses
-1000:1000. The root entrypoint updates ordinary account databases, then drops
+[sidecar](../docs/src/installation/sidecar.md).
+The launcher supplies Linux host IDs through `PUID`/`PGID`. The root entrypoint
+updates ordinary account databases, then drops
 privileges and capabilities before running the daemon or doctor as `slop`.
 The writable container root and minimal startup capabilities belong to the sidecar
 security policy. Shells and health checks must explicitly select `slop`, since
@@ -36,9 +33,7 @@ Container replacement ends tmux processes while
 persistent private state remains;
 this differs from daemon-only redeployment.
 
-Sidecar capabilities disable desktop opening, audio playback, and
-per-session limits. Ordinary text clipboard operations use RimWorld/Unity fallback;
-PRIMARY and image clipboard reads are unavailable on macOS. The mod can play its
-bundled OST through RimWorld while radio/Spotify daemon playback is unavailable.
-Native platform behavior requires platform-specific evidence, separate from runtime
-capability declarations.
+Sidecar capabilities disable desktop opening, audio playback, and per-session limits.
+Clipboard operations, including PRIMARY and image reads, belong to the Linux game
+host. The mod can play its bundled OST through RimWorld while radio/Spotify daemon
+playback is unavailable.

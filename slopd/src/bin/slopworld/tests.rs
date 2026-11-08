@@ -1,4 +1,5 @@
 use super::*;
+use std::ffi::OsStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 pub(super) fn scratch(what: &str) -> PathBuf {
@@ -85,10 +86,10 @@ fn sidecar_endpoint_must_exist_and_is_resolved_to_an_absolute_path() {
 }
 
 #[test]
-fn an_explicit_mac_game_uses_the_app_mods_directory() {
-    let root = scratch("mac-game");
-    let app = root.join("RimWorld.app");
-    let executable = app.join("Contents/MacOS/RimWorld by Ludeon Studios");
+fn an_explicit_game_uses_the_adjacent_mods_directory() {
+    let root = scratch("explicit-game");
+    let app = root.join("game");
+    let executable = app.join("RimWorld");
     std::fs::create_dir_all(executable.parent().unwrap()).unwrap();
     std::fs::write(&executable, "game").unwrap();
     let (found, mods) = game_target(None, executable.to_str(), None).unwrap();

@@ -4,13 +4,12 @@
 > Sidecar mode is not well tested and has many limitations. On Linux, consider a
 > [remote connection](linux.md#remote-connection) instead.
 
-A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The game
-can remain on the host and connect to the sidecar over a loopback port. This page covers standalone sidecar setup. The native-game
-[macOS workflow](macos.md) uses the same Linux sidecar.
+A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The Linux game
+remains on the Linux host and connects to the sidecar over a loopback port.
 
 ## Requirements
 
-You need Docker or Docker Desktop. Building the host-side launcher and image
+You need Docker on Linux. Building the host-side launcher and image
 also requires Rust, `just`, and a local repository checkout.
 The container supplies the daemon runtime dependencies. To build the launcher and
 mod for the Linux game below, also install the host
@@ -42,7 +41,7 @@ Set `SLOPCAR_IMAGE` to select an image, including one already pulled from a regi
 Before running agents, extend the standard image with your chosen Linux agent
 CLIs and their dependencies, then set `SLOPCAR_IMAGE` to that custom image.
 Install those tools when building the image so they survive container replacement.
-The launcher supplies `PUID`/`PGID` from your Linux user, or 1000:1000 on macOS.
+The launcher supplies `PUID`/`PGID` from your Linux user.
 The entrypoint starts as root to configure the `slop` account, then drops privileges
 before starting the daemon. Workspace and credential ownership stays unchanged.
 

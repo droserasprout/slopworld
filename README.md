@@ -46,11 +46,10 @@ on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
 [GOG](https://www.gog.com/en/game/rimworld), or
 [directly from Ludeon Studios](https://rimworldgame.com/).
 
-For Linux host, see the [requirements](https://slopworld.space/installation/linux.html#requirements) and
+SlopWorld supports Linux. See the [requirements](https://slopworld.space/installation/linux.html#requirements) and
 [installation guide](https://slopworld.space/installation/linux.html).
 
-For experimental sidecar mode (`slopd` in Docker) follow the [macOS](https://slopworld.space/installation/macos.html)
-and [sidecar worker](https://slopworld.space/installation/sidecar.html) guides.
+For experimental sidecar mode (`slopd` in Docker) follow the [sidecar worker](https://slopworld.space/installation/sidecar.html) guide.
 
 ### From binaries
 

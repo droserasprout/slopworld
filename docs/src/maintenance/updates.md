@@ -1,7 +1,7 @@
 # Updates and uninstallation
 
 These steps apply to native Linux packages. For other installations, see
-[macOS](../installation/macos.md), [Sidecar mode](../installation/sidecar.md), or
+[Sidecar mode](../installation/sidecar.md), or
 [Build from source](../development/build.md).
 
 ## Updating

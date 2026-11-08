@@ -10,7 +10,6 @@ options take precedence where available. Build recipe settings belong to
 
 | Variable | Read by | Default | Effect |
 | --- | --- | --- | --- |
-| `MAC_RIMWORLD` | `slopworld mod` on macOS | `~/Documents/RimWorld.app` | Game app location when `RIMWORLD` is absent. Also used by macOS recipes. |
 | `OPENROUTER_API_KEY` | Daemon | None | Key for prompt summaries and OpenRouter balance polling when no key file is configured. |
 | `RIMWORLD` | `slopworld mod` | Platform game location | Game installation for mod management. Also used by build recipes. |
 | `SLOPCAR_CONTAINER` | `slopcar`, `slopctl --sidecar logs daemon` | `slopcar` | Sidecar container name. |

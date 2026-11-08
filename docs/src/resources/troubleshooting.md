@@ -40,7 +40,7 @@ journalctl --user -u slopd -n 30 --no-pager
 If no listener appears, check `[daemon].bind` in the configuration and logs for
 startup failures. Service active status alone does not mean the listener is ready.
 If the endpoint descriptor is missing or stale, restarting the daemon recreates it.
-See [Sidecar mode](../installation/sidecar.md) or [macOS](../installation/macos.md) for container lifecycle.
+See [Sidecar mode](../installation/sidecar.md) for container lifecycle.
 
 ## An agent cannot reach the network
 
@@ -60,8 +60,8 @@ being a launch error by themselves. See [Sandbox presets](../sandbox/sandbox-pre
 
 ## Multiple instances {#multiple-instances}
 
-Launcher processes using the same profile cannot launch simultaneously on Linux
-or macOS. Detection of a game launched directly is Linux-only. Use separate
+Launcher processes using the same profile cannot launch simultaneously on Linux.
+The launcher also detects games launched directly. Use separate
 [Game profiles](../maintenance/game-profiles.md) for separate instances.
 
 ## tmux says "no sessions" but agents are running

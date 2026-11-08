@@ -25,8 +25,7 @@ without issuing another daemon clipboard request. Copy events retain control-eve
 ordering and are not replayed on reconnect. Unwatched mirrors keep only their latest
 pending write until watched. OSC 52 reads remain unsupported.
 
-macOS text copy and paste use Unity's local buffer. PRIMARY and image reads are
-Linux-only. The daemon does not read or write its host desktop clipboard.
+The daemon does not read or write its host desktop clipboard.
 
 ## Image transport
 

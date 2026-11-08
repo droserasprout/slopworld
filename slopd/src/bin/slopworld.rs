@@ -9,7 +9,6 @@ mod cli_completions;
 mod cli_styles;
 
 use clap::builder::StyledStr;
-use std::ffi::OsStr;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
@@ -295,18 +294,7 @@ fn game_target(
             }
             let default_mods = executable
                 .parent()
-                .and_then(|macos| {
-                    (macos.file_name() == Some(OsStr::new("MacOS")))
-                        .then(|| macos.parent())
-                        .flatten()
-                })
-                .and_then(|contents| {
-                    (contents.file_name() == Some(OsStr::new("Contents")))
-                        .then(|| contents.parent())
-                        .flatten()
-                })
-                .map(|app| app.join("Mods"))
-                .or_else(|| executable.parent().map(|parent| parent.join("Mods")))
+                .map(|parent| parent.join("Mods"))
                 .ok_or_else(|| {
                     format!("game executable has no parent: {}", executable.display())
                 })?;

@@ -423,9 +423,6 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             if (hub == null)
                 return;
-            // On macOS, wait for daemon capabilities before disabling native music.
-            if (!hub.Capabilities.Known && Application.platform == RuntimePlatform.OSXPlayer)
-                return;
             if (NativeAudio)
             {
                 // Stop the failed daemon source once before running local music.

@@ -7,7 +7,7 @@ for sandbox limits.
 ## Backup contents
 
 These are native Linux default locations. See [Paths and files](../reference/paths.md)
-for overrides, XDG locations, and sidecar/macOS paths.
+for overrides, XDG locations, and sidecar paths.
 
 | Data | Linux default location | Include |
 | --- | --- | --- |
@@ -55,8 +55,7 @@ For the native Linux service, start the daemon with:
 systemctl --user start slopd
 ```
 
-For containers, follow [Sidecar mode](../installation/sidecar.md); on macOS, follow the
-[macOS guide](../installation/macos.md). Agents with autostart enabled start automatically.
+For containers, follow [Sidecar mode](../installation/sidecar.md). Agents with autostart enabled start automatically.
 Start other agents from the sidebar. The daemon recreates its endpoint descriptor
 from the saved configuration.
 

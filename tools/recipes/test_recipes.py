@@ -44,9 +44,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
             (self.directory / tool).symlink_to(stub)
         self.env = os.environ.copy()
         # Make results independent of the caller's selected build/profile/tool settings.
-        settings = '\n'.join(
-            path.read_text() for directory in (ROOT / 'just', ROOT / 'mac') for path in directory.glob('*.just')
-        )
+        settings = '\n'.join(path.read_text() for path in (ROOT / 'just').glob('*.just'))
         for key in re.findall(r'^(?:export )?([A-Z][A-Z_]+) :=', settings, re.MULTILINE):
             self.env.pop(key, None)
         self.env.update(PATH=str(self.directory) + os.pathsep + os.environ['PATH'], RECIPE_TEST_LOG=str(self.log))
@@ -177,44 +175,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(len(self.calls('cargo')), 1)
         self.assertEqual(self.calls('sidecar'), [])
 
-    def test_macos_launch_and_install_preserve_selected_image(self) -> None:
-        self.env['SLOPCAR_IMAGE'] = 'custom-agents:local'
-        for recipe in ('install', 'run', 'doctor'):
-            result = self.run_recipe('--dry-run', f'mac-{recipe}')
-            self.assertNotIn('image build', result.stderr)
-            self.assertNotIn('build --source', result.stderr)
-
-    def test_macos_profile_initialization_uses_the_profile_command(self) -> None:
-        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'PROFILE=/game profile', 'mac-profile')
-        (call,) = self.calls('runner')
-        self.assertEqual(call['args'], ['--sidecar', 'profile', 'init', '--profile', '/game profile'])
-
-    def test_macos_launch_uses_only_launcher_options(self) -> None:
-        self.env.update(
-            MAC_GAME='/game bundle/executable',
-            MAC_RESOURCES='/game bundle/resources',
-            MAC_MODS='/game bundle/mods',
-            PROFILE='/game profile',
-            MAC_GAME_ARGS='-screen-width 1200',
-        )
-        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'mac-run')
-        (launcher,) = self.calls('runner')
-        self.assertEqual(
-            launcher['args'],
-            [
-                '--sidecar',
-                '--game-exe',
-                '/game bundle/executable',
-                '--working-dir',
-                '/game bundle/resources',
-                '--mods',
-                '/game bundle/mods',
-                '--profile',
-                '/game profile',
-                '--no-window-fix',
-            ],
-        )
-
     def test_release_build_uses_environment_and_command_override(self) -> None:
         self.env['BUILD'] = 'debug'
         self.run_recipe('BUILD=release', 'daemon-build')
@@ -268,9 +228,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(call['args'][-2:], ['--profile', '/chosen profile'])
         self.assertEqual(call['args'][:2], ['--sidecar', '--game'])
         self.log.unlink()
-        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'mac-run')
+        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'sidecar-run')
         (call,) = self.calls('runner')
-        self.assertEqual(call['args'][:2], ['--sidecar', '--game-exe'])
+        self.assertEqual(call['args'][:2], ['--sidecar', '--game'])
         self.assertNotIn('--profile', call['args'])
 
     def test_trace_recipe_queries_the_launcher_profile(self) -> None:
@@ -381,46 +341,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 self.log.unlink(missing_ok=True)
                 self.run_recipe(f'mod-{operation}', success=False)
                 self.assertEqual(len(self.calls('dotnet')), 1)
-
-    def test_mac_mod_passes_native_assemblies_and_release_selection(self) -> None:
-        app = self.directory / 'RimWorld.app'
-        game = app / 'Contents/MacOS/RimWorld'
-        game.parent.mkdir(parents=True)
-        game.touch()
-        game.chmod(0o755)
-        managed = app / 'Contents/MacOS'
-        managed.mkdir(parents=True, exist_ok=True)
-        for assembly in ('Assembly-CSharp.dll', 'UnityStubs.dll', 'Waylith.dll'):
-            (managed / assembly).touch()
-        (app / 'Mods').mkdir()
-        self.run_recipe(
-            '--justfile',
-            str(ROOT / 'justfile'),
-            'BUILD=release',
-            'VERSION=1.2.3',
-            f'MAC_RIMWORLD={app}',
-            'mac-mod-build',
-            cwd=ROOT / 'mac',
-        )
-        (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
-        self.assertEqual(mod['cwd'], str(ROOT))
-        self.assertEqual(mod['env']['BUILD'], 'release')
-        self.assertIn(f'-p:RimWorldManaged={managed}', mod['args'])
-        self.assertIn('Release', mod['args'])
-
-    def test_mac_sidecar_workspace_defaults_to_repository_root(self) -> None:
-        result = self.run_recipe(
-            '--justfile', str(ROOT / 'justfile'), '--evaluate', 'SLOPCAR_WORKSPACE', cwd=ROOT / 'mac'
-        )
-        self.assertEqual(result.stdout.strip(), str(ROOT))
-        result = self.run_recipe(
-            '--justfile',
-            str(ROOT / 'justfile'),
-            '--evaluate',
-            f'SLOPCAR_WORKSPACE={self.directory}',
-            'SLOPCAR_WORKSPACE',
-        )
-        self.assertEqual(result.stdout.strip(), str(self.directory))
 
     def test_dependency_failure_stops_mod_build(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'dotnet'

@@ -2,8 +2,8 @@
 
 Build and install SlopWorld on native Linux, then run checks for your changes.
 For prebuilt packages, see [Linux installation](../installation/linux.md).
-For native macOS or a container deployment, follow the
-[macOS](../installation/macos.md) or [Sidecar mode](../installation/sidecar.md) guide.
+For a Linux container deployment, follow the
+[Sidecar mode](../installation/sidecar.md) guide.
 
 ## Prerequisites
 

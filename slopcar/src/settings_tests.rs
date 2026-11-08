@@ -13,17 +13,9 @@ fn settings(values: &[(&str, &str)]) -> Result<Settings> {
 #[test]
 fn standalone_defaults_use_shared_application_roots() {
     let default = settings(&[("HOME", "/home/test")]).unwrap();
-    let base = if cfg!(target_os = "macos") {
-        "/home/test/Library/Application Support/slopworld"
-    } else {
-        "/home/test/.config/slopworld"
-    };
+    let base = "/home/test/.config/slopworld";
     assert_eq!(default.config, PathBuf::from(base).join("sidecar"));
-    let base = if cfg!(target_os = "macos") {
-        "/home/test/Library/Application Support/slopworld"
-    } else {
-        "/home/test/.local/share/slopworld"
-    };
+    let base = "/home/test/.local/share/slopworld";
     assert_eq!(default.data, PathBuf::from(base).join("sidecar/daemon"));
     assert_eq!(default.port, 7718);
 }

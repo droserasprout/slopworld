@@ -1,7 +1,7 @@
 # Host shells
 
 Host shells run commands on the daemon host, outside agent sandboxes, without an
-agent pawn. In sidecar and macOS deployments, the daemon host is the Linux container.
+agent pawn. In sidecar deployments, the daemon host is the Linux container.
 Use an [agent shell](agent-shells.md) when you need an agent's sandbox settings.
 
 ## Open a shell

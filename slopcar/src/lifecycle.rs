@@ -14,22 +14,15 @@ fn args(values: &[&str]) -> Vec<OsString> {
 }
 
 fn container_identity() -> Result<(u32, u32)> {
-    #[cfg(target_os = "linux")]
-    {
-        // SAFETY: effective credential queries have no preconditions.
-        // Unlike temporary-file ownership, these do not depend on TMPDIR.
-        let uid = unsafe { libc::geteuid() };
-        // SAFETY: querying the effective group ID also has no preconditions.
-        let gid = unsafe { libc::getegid() };
-        if uid == 0 {
-            bail!("run slopcar as the non-root user who owns its persistent state");
-        }
-        Ok((uid, gid))
+    // SAFETY: effective credential queries have no preconditions.
+    // Unlike temporary-file ownership, these do not depend on TMPDIR.
+    let uid = unsafe { libc::geteuid() };
+    // SAFETY: querying the effective group ID also has no preconditions.
+    let gid = unsafe { libc::getegid() };
+    if uid == 0 {
+        bail!("run slopcar as the non-root user who owns its persistent state");
     }
-    #[cfg(not(target_os = "linux"))]
-    {
-        Ok((1000, 1000))
-    }
+    Ok((uid, gid))
 }
 
 fn security(identity: (u32, u32)) -> Result<(tempfile::NamedTempFile, Vec<OsString>)> {

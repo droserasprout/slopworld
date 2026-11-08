@@ -6,7 +6,6 @@
   - [FAQ](getting-started/faq.md)
 - [Installation]()
   - [Linux](installation/linux.md)
-  - [macOS](installation/macos.md)
   - [Sidecar mode](installation/sidecar.md)
 - [Workspace]()
   - [Interface](workspace/interface.md)

@@ -2,8 +2,8 @@
 
 A quick tour covering core concepts and usual workflow.
 
-First, finish the [Linux](../installation/linux.md) guide for native Linux, [macOS](../installation/macos.md)
-or [Sidecar mode](../installation/sidecar.md) for other environments.
+First, finish the [Linux](../installation/linux.md) guide for native Linux
+or [Sidecar mode](../installation/sidecar.md) for a Linux container deployment.
 
 ## Prepare your tools
 

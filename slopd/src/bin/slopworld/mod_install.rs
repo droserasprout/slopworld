@@ -46,27 +46,11 @@ fn game_mods(args: &Args) -> Result<PathBuf, String> {
     resolve_mods(
         args,
         super::option_env_nonempty("RIMWORLD").as_deref(),
-        || {
-            default_mod_game(
-                cfg!(target_os = "macos"),
-                super::option_env_nonempty("MAC_RIMWORLD").as_deref(),
-            )
-        },
+        || super::game_dir(None),
     )
 }
 
-// Keep the native macOS destination aligned with mac/config.just.
-fn default_mod_game(is_macos: bool, mac_rimworld: Option<&str>) -> Result<PathBuf, String> {
-    if is_macos {
-        Ok(PathBuf::from(super::expand(
-            mac_rimworld.unwrap_or("~/Documents/RimWorld.app"),
-        )))
-    } else {
-        super::game_dir(None)
-    }
-}
-
-/// Explicit destinations bypass saved defaults, including native macOS layouts.
+/// Explicit destinations bypass saved defaults, including custom mod directories.
 fn resolve_mods(
     args: &Args,
     rimworld: Option<&str>,
@@ -91,7 +75,7 @@ fn install_and_remember(
     mods: &Path,
     config_path: impl FnOnce() -> Result<PathBuf, String>,
 ) -> Result<String, String> {
-    // Native macOS layouts and arbitrary mod destinations do not select a Linux default.
+    // Only destinations beside the game executable select a launch default.
     let game = mods.parent().filter(|game| game.join(super::EXE).is_file());
     let config = game.map(|_| config_path()).transpose()?;
     let message = install(source, mods)?;

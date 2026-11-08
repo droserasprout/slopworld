@@ -12,9 +12,7 @@ The application roots have these environment overrides and Linux defaults:
 | `SLOPD_CACHE` | `~/.cache/slopworld` |
 
 The defaults follow `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, and `XDG_CACHE_HOME`
-when set to absolute paths on Linux. On macOS, configuration and data default to
-`~/Library/Application Support/slopworld`, and cache defaults to
-`~/Library/Caches/slopworld`. Settings and catalogs live under `<CONFIG>`;
+when set to absolute paths. Settings and catalogs live under `<CONFIG>`;
 private session state lives under `<DATA>/sessions`. Endpoint discovery and launcher/game paths
 follow these roots unless their explicit overrides below select another path.
 On Unix, mode `0600` gives read and write access only to the owner.
@@ -97,7 +95,7 @@ The default named socket is `slopworld`. `SLOPD_TMUX_SOCKET` overrides the name;
 
 ## Sidecar host storage
 
-`slopcar`, Linux recipes, and macOS recipes use the same application roots.
+`slopcar` and Linux recipes use the same application roots.
 `slopworld --sidecar` and `slopctl --sidecar` select sidecar defaults explicitly.
 Setting a profile or endpoint override does not select sidecar mode.
 

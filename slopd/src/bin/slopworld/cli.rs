@@ -25,13 +25,13 @@ pub(super) struct LaunchArgs {
     /// RimWorld install (default: SLOPWORLD_GAME, game.toml, usual locations)
     #[arg(long, help_heading = "Game", value_hint = clap::ValueHint::DirPath)]
     pub game: Option<String>,
-    /// Explicit executable for native macOS app bundles
+    /// Explicit game executable
     #[arg(long, help_heading = "Game", value_hint = clap::ValueHint::FilePath)]
     pub game_exe: Option<String>,
     /// Working directory for the game process
     #[arg(long, help_heading = "Game", value_hint = clap::ValueHint::DirPath)]
     pub working_dir: Option<String>,
-    /// Mod directory to validate for a non-Linux game layout
+    /// Mod directory to validate when using a custom layout
     #[arg(long, help_heading = "Game", value_hint = clap::ValueHint::DirPath)]
     pub mods: Option<String>,
     /// Save data folder (default: SLOPWORLD_PROFILE, selected connection profile)
@@ -124,7 +124,7 @@ impl PathName {
 pub(super) enum ModCommand {
     /// Atomically replace the mod after copying to a temporary sibling directory
     #[command(
-        after_help = "Default source: /usr/share/slopworld/SlopWorld. Destination defaults to RIMWORLD, then MAC_RIMWORLD or ~/Documents/RimWorld.app on macOS; launcher defaults on Linux."
+        after_help = "Default source: /usr/share/slopworld/SlopWorld. Destination defaults to RIMWORLD, then launcher defaults."
     )]
     Install {
         #[arg(long, value_hint = clap::ValueHint::DirPath)]

@@ -198,7 +198,7 @@ namespace SlopWorld
             new BinarySpec("SlopWorld", "slopd", "daemon service"),
             new BinarySpec("SlopWorld", "slopctl", "agent coordination CLI"),
             new BinarySpec("SlopWorld", "slopworld", "game launcher"),
-            new BinarySpec("SlopWorld", "slopcar", "macOS sidecar launcher"),
+            new BinarySpec("SlopWorld", "slopcar", "Linux sidecar launcher"),
             new BinarySpec("Runtime", "tmux", "session multiplexer", ProbeKind.DaemonPath),
             new BinarySpec("Runtime", "bwrap", "sandbox isolation", ProbeKind.DaemonPath),
             new BinarySpec("Runtime", "pasta", "private networking", ProbeKind.DaemonPath),

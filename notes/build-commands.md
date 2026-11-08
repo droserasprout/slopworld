@@ -13,7 +13,7 @@ compact test summaries visible.
 C# formatting belongs to CSharpier; analyzer policy belongs to `.editorconfig` and
 `Directory.Build.props` and runs during builds, not `mod-lint`. Rust lint selection
 belongs to each crate's manifest; `clippy.toml` owns thresholds and test allowances.
-`mac/` owns native macOS workflows; `slopcar/` owns containers. Mod builds do not
+`slopcar/` owns Linux containers and their host launcher. Mod builds do not
 build Rust, so install/launch recipes must declare their launcher dependency.
 
 Shell completion scripts in `packaging/completions/` are generated from the three

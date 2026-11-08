@@ -1,7 +1,7 @@
 # Linux
 
 Install SlopWorld on native Linux using binary Arch/DEB/RPM packages.
-For other setups, see [macOS](../installation/macos.md) or [Sidecar mode](../installation/sidecar.md).
+For a Linux container deployment, see [Sidecar mode](../installation/sidecar.md).
 
 ## Requirements
 

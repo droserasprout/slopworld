@@ -28,7 +28,7 @@ explicit `SLOPD_ENDPOINT` file, the filename without `.toml` supplies the profil
 `--sidecar` selects a separate catalog under `<CONFIG>/sidecar/`, with
 profiles under `<DATA>/sidecar/profiles/NAME`. Use `slopworld --sidecar connect NAME`
 and `slopworld --sidecar endpoints` to manage those peers. The [sidecar](../installation/sidecar.md)
-and [macOS](../installation/macos.md) recipes select sidecar mode explicitly.
+recipes select sidecar mode explicitly.
 
 `--profile DIR` overrides automatic profile selection, followed by `SLOPWORLD_PROFILE`.
 Explicit paths can share a folder. Profile paths cannot contain `=`.

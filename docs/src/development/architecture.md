@@ -55,9 +55,7 @@ in the [Security model](../sandbox/security.md).
 On native Linux, the game/mod and daemon run on the host. In sidecar mode, the
 native game/mod connects to a Linux container running the daemon, tmux, and agent
 sandboxes. Workspace paths must match between the host and container.
-The native macOS workflow lives in `mac/`; shared container tooling lives in
-`slopcar/`.
+Container tooling lives in `slopcar/`. Both deployment modes require Linux.
 
 Replacing the container ends its tmux processes, while persistent private state
-can remain. See [Sidecar mode](../installation/sidecar.md) and
-[macOS](../installation/macos.md) for setup and lifecycle procedures.
+can remain. See [Sidecar mode](../installation/sidecar.md) for setup and lifecycle procedures.

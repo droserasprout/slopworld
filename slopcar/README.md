@@ -8,7 +8,7 @@ The final image copies the completed Debian runtime filesystem once to avoid
 retaining files replaced by package upgrades. It keeps APT and the package database
 for custom images; OpenSSH uses standalone sysusers/tmpfiles helpers instead of
 full systemd.
-The independent `slopcar/Cargo.toml` crate builds on Linux and macOS without
+The independent `slopcar/Cargo.toml` crate builds on Linux without
 the daemon's Linux/audio/protobuf dependencies. `just sidecar-build` builds it;
 `just sidecar-install` installs it. `just sidecar-test` runs Rust tests; `just tools-test slopcar` runs Python tests.
 `just generate-sidecar-licenses` updates its dependency notices after lock changes;
@@ -27,13 +27,12 @@ state at `<DATA>/sidecar/daemon`; container mount targets remain fixed.
 Sandbox construction uses the container's usr-merge layout at runtime.
 
 For setup, workspace and credential mounts, client connection, and lifecycle, see
-the [sidecar guide](../docs/src/installation/sidecar.md). Native macOS game setup is in
-the [macOS guide](../docs/src/installation/macos.md).
+the [sidecar guide](../docs/src/installation/sidecar.md).
 
 ## Outer isolation
 
-The launcher passes the invoking Linux user's numeric IDs as `PUID`/`PGID`;
-Docker Desktop uses 1000:1000. The image defaults both variables to 1000 when
+The launcher passes the invoking Linux user's numeric IDs as `PUID`/`PGID`.
+The image defaults both variables to 1000 when
 launched directly. Its root entrypoint updates the `slop` account with
 `groupmod`/`usermod`, then uses `setpriv` to clear supplementary groups and drop
 all capabilities before starting the daemon or doctor as `slop`. UID 0 is rejected.

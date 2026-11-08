@@ -54,8 +54,7 @@ If you want to play the vanilla game, choose Steam bc Workshop and mods are the 
 
 ### Which game builds can I use? {#supported-builds}
 
-- For x86_64 Linux: native builds.
-- For Apple silicon Macs: native builds with a sidecar container (slopd-in-Docker).
+Use native x86_64 Linux builds.
 
 RimWorld doesn't have ARM64 builds for Linux.
 

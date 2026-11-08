@@ -6,8 +6,7 @@
 `mod/` contains the C# mod, assets, and tests that run without the game.
 Shared Python tools form the `tools` package, grouped by responsibility with tests
 beside their owners. The root justfile exposes flat, prefixed recipes and aggregates; `just/` owns
-the component recipes and specialist menus. `mac/` owns native macOS scripts and
-settings, exposed through `mac-*` recipes.
+the component recipes and specialist menus.
 User documentation is in `docs/`. Implementation notes are in `notes/`.
 
 ## Development workflow

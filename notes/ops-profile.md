@@ -12,7 +12,7 @@ modules execute typed requests without parsing argv.
 `slopworld/game_config.rs` owns the saved Linux game directory. Successful installation
 remembers a canonical game parent only when it contains `RimWorld`. Explicit
 arguments/environment override it; invalid saved configuration blocks fallback.
-Install/removal share platform resolution, with macOS paths matching `mac/config.just`.
+Install/removal share Linux game resolution.
 See [paths](ops-paths.md) and [game profiles](../docs/src/maintenance/game-profiles.md)
 for locations and options.
 
@@ -28,8 +28,8 @@ detection runs. It signals a missing preferences file through the game-only
 `SLOPWORLD_INITIAL_AUDIO` environment value; the mod applies audio defaults after
 initialization. Existing preferences remain authoritative even with mod-list reset.
 
-Retain the profile lock through game exit on Linux/macOS; external-game detection
-is Linux-only. `slopworld/endpoints.rs` owns authenticated client registration and
+Retain the profile lock through game exit. Linux external-game detection also
+prevents conflicting launches. `slopworld/endpoints.rs` owns authenticated client registration and
 secret-free listing. `peer_probe.rs` owns authenticated discovery, `peer_store.rs`
 owns private file publication, and `peer_prompt.rs` owns hidden input and terminal
 restoration. A launch derives its profile from the already selected descriptor,

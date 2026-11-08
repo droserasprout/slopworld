@@ -16,9 +16,9 @@ _slopworld() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
 '--game=[RimWorld install (default\: SLOPWORLD_GAME, game.toml, usual locations)]:GAME:_files -/' \
-'--game-exe=[Explicit executable for native macOS app bundles]:GAME_EXE:_files' \
+'--game-exe=[Explicit game executable]:GAME_EXE:_files' \
 '--working-dir=[Working directory for the game process]:WORKING_DIR:_files -/' \
-'--mods=[Mod directory to validate for a non-Linux game layout]:MODS:_files -/' \
+'--mods=[Mod directory to validate when using a custom layout]:MODS:_files -/' \
 '--profile=[Save data folder (default\: SLOPWORLD_PROFILE, selected connection profile)]:PROFILE:_files -/' \
 '--endpoint=[Saved connection (default\: local)]:ENDPOINT:_default' \
 '--sidecar[Use sidecar paths and UI defaults]' \
