@@ -58,10 +58,10 @@ namespace SlopWorld
         }
 
         static Preset Resolve(string value) =>
-            value == Off ? OffPreset
+            value == Mild ? MildPreset
             : value == Moderate ? ModeratePreset
             : value == Massive ? MassivePreset
-            : MildPreset;
+            : OffPreset;
 
         public static string Normalize(string value) => Resolve(value).Key;
 

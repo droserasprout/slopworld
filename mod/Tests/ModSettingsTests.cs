@@ -34,9 +34,9 @@ namespace SlopWorld.Tests
                 var settings = ProfileSettings.Load();
                 AssertEx.Equal(true, settings.smoothScrolling, "smooth scrolling default");
                 AssertEx.Equal(
-                    VisualEffectsMode.Mild,
+                    VisualEffectsMode.Off,
                     settings.visualEffects,
-                    "Visual effects default to Mild"
+                    "Visual effects default to Off"
                 );
                 AssertEx.Equal(true, settings.autoConnect, "missing file default");
                 AssertEx.Equal(true, settings.statusbarPlanner, "planner visibility defaults on");
@@ -132,9 +132,9 @@ namespace SlopWorld.Tests
         public static void VisualEffectsPreferencesNormalizeAndRoundTripLevels()
         {
             AssertEx.Equal(
-                VisualEffectsMode.Mild,
+                VisualEffectsMode.Off,
                 ModSettings.FromToml("visualEffects = \"unknown\"").visualEffects,
-                "unknown defaults to mild"
+                "unknown defaults to off"
             );
             foreach (
                 string mode in new[]

@@ -81,6 +81,36 @@ namespace SlopWorld.Tests
                     count++;
                 }
 
+                var nativeGui = context
+                    .LoadFromAssemblyName(new AssemblyName("UnityStubs"))
+                    .GetType("UnityEngine.GUI", throwOnError: true);
+                var flushWindows = nativeGui.GetMethod("ProcessPendingWindows");
+                Require(
+                    flushWindows != null && flushWindows.IsStatic,
+                    "missing native window flush for CRT overlay"
+                );
+                var imgui = context
+                    .LoadFromAssemblyName(new AssemblyName("RimWorld"))
+                    .GetType("RimWorldWaylith.Imgui.ImguiDispatch", throwOnError: true);
+                Require(
+                    imgui
+                        .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+                        .Any(method =>
+                        {
+                            var calls = PatchProcessor
+                                .GetOriginalInstructions(method)
+                                .Select(i => i.operand)
+                                .OfType<MethodInfo>()
+                                .ToArray();
+                            int behaviours = Array.FindIndex(calls, m => m.Name == "DispatchOnGUI");
+                            int windows = Array.FindIndex(calls, m => m == flushWindows);
+                            int end = Array.FindIndex(calls, m => m.Name == "EndPass");
+                            return behaviours >= 0 && windows > behaviours && end > windows;
+                        }),
+                    "CRT overlay requires window flush after behaviours and before EndPass"
+                );
+                count++;
+
                 var dispatch = (MethodBase)Invoke(mod, "Patch_NativeWorkspaceKeys", "TargetMethod");
                 Require(
                     dispatch != null

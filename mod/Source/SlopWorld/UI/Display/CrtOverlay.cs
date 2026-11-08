@@ -8,6 +8,8 @@ namespace SlopWorld
     {
         const float ResizeSettleSeconds = 0.2f;
 
+        static CrtOverlay _instance;
+
         string _mode;
         Texture2D _scanlines;
         Texture2D _vignette;
@@ -22,7 +24,7 @@ namespace SlopWorld
         {
             var owner = new GameObject("SlopWorld CRT overlay");
             DontDestroyOnLoad(owner);
-            owner.AddComponent<CrtOverlay>();
+            _instance = owner.AddComponent<CrtOverlay>();
         }
 
         void Update()
@@ -59,10 +61,12 @@ namespace SlopWorld
             RefreshVignette(width, height, scale);
         }
 
-        void OnGUI()
+        internal static void DrawAfterWindows() => _instance?.Draw();
+
+        void Draw()
         {
-            // This separate behaviour stays above windows and tooltips without controls.
-            GUI.depth = -10000;
+            // Waylith queues windows until after all MonoBehaviour GUI callbacks.
+            // The native window-pass postfix calls us while its draw target is still open.
             if (Event.current.type != EventType.Repaint || Settings.VisualEffects != _mode)
                 return;
             if (_mode == VisualEffectsMode.Off || _scanlines == null)
@@ -169,7 +173,12 @@ namespace SlopWorld
                 hideFlags = HideFlags.DontUnloadUnusedAsset,
             };
 
-        void OnDestroy() => ReleaseTextures();
+        void OnDestroy()
+        {
+            if (ReferenceEquals(_instance, this))
+                _instance = null;
+            ReleaseTextures();
+        }
 
         void ReleaseTextures()
         {

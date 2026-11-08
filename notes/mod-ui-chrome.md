@@ -43,8 +43,10 @@ selection endpoints after hit tests, including on failure.
 
 `Slab` supplies snapped bounds and scale. Grain is an explicit control choice, drawn
 before borders/text with face opacity. Appearance previews reuse these renderers.
+Post-processing defaults to Off; saved explicit levels remain active.
 `CrtOverlay` draws in physical pixels above windows/tooltips without input or terminal
-cache dependencies. A combined scanline/vignette texture uses one full-screen draw;
+cache dependencies. `Patch_CrtOverlay` draws after Waylith flushes queued GUI windows;
+`GUI.depth` only orders behaviours and cannot place their draws above that later pass. A combined scanline/vignette texture uses one full-screen draw;
 a scanline strip covers initial preparation. Keep the previous combined texture visible while
 resize or UI-scale changes settle. Bake replacements in Update outside frame drawing and
 release textures when disabled. Cursor dimming must preserve the
