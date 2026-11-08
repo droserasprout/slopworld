@@ -11,6 +11,48 @@ namespace SlopWorld.Tests
     [TestFixture]
     public class NativeFontsTests
     {
+        [Test]
+        public void RescanDiscardsAnInFlightPreparedCatalog()
+        {
+            using var entered = new System.Threading.ManualResetEventSlim();
+            using var release = new System.Threading.ManualResetEventSlim();
+            using var finished = new System.Threading.ManualResetEventSlim();
+            var previous = Font.DiscoverPaths;
+            int calls = 0;
+            try
+            {
+                NativeFonts.Rescan();
+                Font.DiscoverPaths = () =>
+                {
+                    if (System.Threading.Interlocked.Increment(ref calls) == 1)
+                    {
+                        entered.Set();
+                        if (!release.Wait(TimeSpan.FromSeconds(10)))
+                            throw new TimeoutException();
+                        finished.Set();
+                    }
+                    return Array.Empty<string>();
+                };
+                NativeFonts.Prepare();
+                NativeFonts.Prepare();
+                Assert.That(entered.Wait(TimeSpan.FromSeconds(10)), Is.True);
+                NativeFonts.Rescan();
+                Assert.That(NativeFonts.Names(), Is.Empty);
+                Assert.That(calls, Is.EqualTo(2));
+                release.Set();
+                Assert.That(finished.Wait(TimeSpan.FromSeconds(10)), Is.True);
+                NativeFonts.Prepare();
+                Assert.That(NativeFonts.Names(), Is.Empty);
+                Assert.That(calls, Is.EqualTo(2));
+            }
+            finally
+            {
+                release.Set();
+                Font.DiscoverPaths = previous;
+                NativeFonts.Rescan();
+            }
+        }
+
         static void U16(byte[] data, int at, ushort value) =>
             BinaryPrimitives.WriteUInt16BigEndian(data.AsSpan(at), value);
 

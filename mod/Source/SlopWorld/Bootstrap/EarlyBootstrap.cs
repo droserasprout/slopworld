@@ -16,6 +16,7 @@ namespace SlopWorld
             if (installed || !ModProfile.Ok)
                 return;
             installed = true;
+            NativeFonts.Prepare();
             var harmony = new Harmony("io.drsr.slopworld.startup");
             try
             {

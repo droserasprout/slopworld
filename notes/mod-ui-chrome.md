@@ -29,6 +29,9 @@ Font menus use `FontFamilyIdentity` to group patched faces with their installed
 original family, sharing alias identity with terminal fallback selection. Menu
 grouping preserves each face's installed name for selection and persistence.
 `InstalledFonts` owns OS discovery and the catalog revision shared by font consumers.
+Early bootstrap prewarms `NativeFonts` discovery on a worker using private managed
+catalog snapshots. Registration remains on the presentation thread; rescans retire
+pending snapshots so obsolete discovery cannot publish.
 Rescanning reapplies UI fonts; terminal fonts and both menus observe the revision.
 `FontSelection` labels Auto with its first installed candidate, explicitly as a
 preference rather than a claim about Unity's native glyph resolution.

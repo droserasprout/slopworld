@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityStubs.Gui;
 using Verse;
@@ -11,32 +12,68 @@ namespace SlopWorld
     // Font indices belong to the backend for its lifetime; Font wrappers may be destroyed.
     static class NativeFonts
     {
-        static Dictionary<string, (string Path, int Face)> _paths;
-        static readonly HashSet<string> Mono = new HashSet<string>(
-            StringComparer.OrdinalIgnoreCase
-        );
+        sealed class Catalog
+        {
+            internal readonly Dictionary<string, (string Path, int Face)> Paths = new(
+                StringComparer.OrdinalIgnoreCase
+            );
+            internal readonly HashSet<string> Mono = new(StringComparer.OrdinalIgnoreCase);
+            internal readonly List<string> Warnings = new();
+        }
+
+        static readonly object Gate = new object();
+        static Task<Catalog> pending;
+        static Catalog catalog;
+
+        // The game's OS font discovery is file/fontconfig enumeration, with no graphics
+        // access. Workers build a private snapshot; only consumers publish it.
+        internal static void Prepare()
+        {
+            lock (Gate)
+                if (catalog == null)
+                    pending ??= Task.Run(Scan);
+        }
 
         public static string[] Names(bool monospaced = false)
         {
-            EnsureCatalog();
-            var names = monospaced ? new List<string>(Mono) : new List<string>(_paths.Keys);
+            var current = EnsureCatalog();
+            var names = monospaced
+                ? new List<string>(current.Mono)
+                : new List<string>(current.Paths.Keys);
             names.Sort(StringComparer.OrdinalIgnoreCase);
             return names.ToArray();
         }
 
-        public static void Rescan() => _paths = null;
+        public static void Rescan()
+        {
+            lock (Gate)
+            {
+                catalog = null;
+                // Old scans contain managed snapshots only. Observe failures without ever
+                // publishing their results after the catalog generation has changed.
+                if (pending != null)
+                    _ = pending.ContinueWith(
+                        t =>
+                        {
+                            _ = t.Exception;
+                        },
+                        TaskScheduler.Default
+                    );
+                pending = null;
+            }
+        }
 
         public static Font Create(string name, int size) => Create(new[] { name }, size);
 
         public static Font Create(string[] candidates, int size)
         {
-            EnsureCatalog();
+            var current = EnsureCatalog();
             var backend = GuiBackend.Current;
             if (backend == null)
                 return null;
             foreach (string name in candidates)
             {
-                if (!_paths.TryGetValue(name, out var source))
+                if (!current.Paths.TryGetValue(name, out var source))
                     continue;
                 try
                 {
@@ -64,16 +101,50 @@ namespace SlopWorld
             return null;
         }
 
-        static void EnsureCatalog()
+        static Catalog EnsureCatalog()
         {
-            if (_paths != null)
-                return;
-            _paths = new Dictionary<string, (string Path, int Face)>(
-                StringComparer.OrdinalIgnoreCase
-            );
-            Mono.Clear();
+            while (true)
+            {
+                Task<Catalog> scan;
+                lock (Gate)
+                {
+                    if (catalog != null)
+                        return catalog;
+                    pending ??= Task.Run(Scan);
+                    scan = pending;
+                }
+                Catalog result;
+                try
+                {
+                    result = scan.GetAwaiter().GetResult();
+                }
+                catch
+                {
+                    lock (Gate)
+                        if (ReferenceEquals(scan, pending))
+                            pending = null;
+                    throw;
+                }
+                lock (Gate)
+                {
+                    if (!ReferenceEquals(scan, pending))
+                        continue;
+                    if (catalog == null)
+                    {
+                        catalog = result;
+                        foreach (string warning in result.Warnings)
+                            Log.Warning(warning);
+                    }
+                    return catalog;
+                }
+            }
+        }
+
+        static Catalog Scan()
+        {
+            var result = new Catalog();
             var scores = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var paths = Font.GetPathsToOSFonts();
+            var paths = (string[])Font.GetPathsToOSFonts().Clone();
             Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
             foreach (string path in paths)
             {
@@ -91,20 +162,21 @@ namespace SlopWorld
                             || score < previousScore
                         )
                         {
-                            _paths[family] = (path, face);
+                            result.Paths[family] = (path, face);
                             scores[family] = score;
                             if (InstalledFontNames.Monospaced(bytes, face))
-                                Mono.Add(family);
+                                result.Mono.Add(family);
                             else
-                                Mono.Remove(family);
+                                result.Mono.Remove(family);
                         }
                     }
                 }
                 catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
                 {
-                    Log.Warning($"[SlopWorld] font catalog {path}: {e.Message}");
+                    result.Warnings.Add($"[SlopWorld] font catalog {path}: {e.Message}");
                 }
             }
+            return result;
         }
     }
 }

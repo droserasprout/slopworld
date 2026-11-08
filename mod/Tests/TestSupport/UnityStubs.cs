@@ -65,7 +65,10 @@ namespace UnityEngine
     {
         public static string[] Paths = System.Array.Empty<string>();
 
-        public static string[] GetPathsToOSFonts() => Paths;
+        public static System.Func<string[]> DiscoverPaths;
+
+        public static string[] GetPathsToOSFonts() =>
+            DiscoverPaths != null ? DiscoverPaths() : Paths;
 
         public string name;
         public int GameFontIndex;
