@@ -8,7 +8,9 @@ and notice presentation, connected once by Bootstrap. Recognition policy stays i
 application; bounded child execution belongs to `Platform/Processes/`.
 
 Spotify callbacks belong to the source revision and open terminals only after
-session refresh. Shutdown stops playback before closing the socket.
+session refresh. Shutdown applies stop-on-exit and mute policy before closing the
+socket: either setting requests a stop; otherwise playback may continue. Later
+frames cannot send playback updates after shutdown begins.
 
 Daemon `music/` validates selections before changing players and retains one transition
 guard through reply. The ncspot guard spans IPC polling and applied-volume persistence,

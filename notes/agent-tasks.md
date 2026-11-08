@@ -64,9 +64,10 @@ edits and cannot supersede a newer save. UI procedures and storage paths belong 
 
 ## Cancellation
 
-Supervised cancellation carries a checked selection into the task store. It applies
-only to the sender's worker tasks, including working tasks. Ordinary recipients
-can cancel only queued or accepted tasks, including through generic task updates.
+Supervised cancellation checks the caller's current cancel scope against each target
+and carries that selection into the task store. It can cancel unfinished tasks,
+including ordinary working project tasks, without requiring sender participation.
+Recipients can cancel only queued or accepted tasks, including through generic task updates.
 Cancellation preserves the latest result note and prevents subsequent recipient
 updates. It does not stop the process.
 

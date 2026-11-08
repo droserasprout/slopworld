@@ -3,7 +3,7 @@
 `shared/slopworld.proto` owns messages; `shared/protocol.yaml` owns routes, mappings,
 enums, and limits. `just generate-protocol` generates C# bindings and the Rust HTTP
 dispatcher; `slopd/build.rs` generates Rust messages. `just generate-api-docs` builds
-the [API reference](../docs/src/reference/api.md) from router/type mappings. Its access
+the [API route reference](../docs/src/reference/api-routes.md) from router/type mappings. Its access
 inventory reads named middleware families; handler checks still determine effective
 access. Generators reject unresolved routes and inconsistent inventories.
 

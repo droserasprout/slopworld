@@ -7,7 +7,10 @@ outside the sandbox, use a [host shell](host-shells.md).
 
 In the **Agents** sidebar, right-click an agent and choose **Shell**.
 The shell inherits the agent's sandbox presets, network mode, DNS, resource limits,
-and selected project's mounts. It sees the same filesystem as the agent.
+persistent `/tmp` setting, and project/worktree mounts. It has its own private
+copies and, when enabled, its own persistent `/tmp`; it does not share the agent's
+private state. The shell is temporary: stopping it or exiting removes its private
+state, including persistent `/tmp`.
 See [Input and panes](terminal-interface.md) for terminal controls.
 
 ## Choose the agent's tool shell

@@ -1,8 +1,10 @@
 # Input and panes
 
-Select a session in the **Agents** sidebar to open its terminal. F12 opens or closes
-the terminal window. Closing the window leaves the session running; use the
-session's **Stop** action to end its process.
+On the map, clicking an agent in the **Agents** sidebar selects its pawn. Press T
+or choose **Terminal** from the session's context menu to open its terminal.
+With the terminal window open, clicking a sidebar session switches to it.
+F12 opens or closes the terminal window. Closing the window leaves the session
+running; use the session's **Stop** action to end its process.
 
 ## Input
 

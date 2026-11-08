@@ -51,5 +51,7 @@ The frame limiter and VSync are separate controls under **Settings > Display**. 
 
 SlopWorld creates a colony on first launch and loads the latest saved colony on
 later launches. Colony saves and agent processes have separate lifetimes: closing
-the game leaves agents running while their daemon host remains available.
+the game leaves agents running while their daemon host remains available, unless
+**Stop active sessions** is selected under
+[Settings > General > Game > On exit](../customization/settings.md#on-exit).
 See [Saves and profiles](../maintenance/game-profiles.md) and [Backup and recovery](../maintenance/backup-and-recovery.md).

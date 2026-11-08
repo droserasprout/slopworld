@@ -54,16 +54,26 @@ to the bundle's `Contents/MacOS` layout. Select a bundle installed elsewhere wit
 MAC_RIMWORLD=/path/to/RimWorld.app just mac-dev
 ```
 
-For a built mod, you can also run the installer from the checkout:
+To reinstall without launching the game, run from the repository root:
 
 ```sh
-slopworld mod install --source mod
+just mac-install
 ```
 
-On macOS, the destination defaults to `~/Documents/RimWorld.app/Mods`, use `--game` or `MAC_RIMWORLD` to override.
+This builds and installs the mod into `MAC_MODS`, which defaults to
+`~/Documents/RimWorld.app/Mods`. Reuse your `MAC_RIMWORLD` override for another bundle.
 
-Remove the mod with `slopworld mod uninstall`; it uses the same game path defaults
-and accepts `--game` for another app bundle.
+The macOS recipes build the launcher in the checkout without installing it into
+`PATH`. Remove the mod from the repository root with:
+
+```sh
+slopd/target/debug/slopworld mod uninstall
+```
+
+Use `slopd/target/release/slopworld` if you built with `BUILD=release`.
+The command defaults to `~/Documents/RimWorld.app/Mods`; pass
+`--game /path/to/RimWorld.app` or reuse `MAC_RIMWORLD` for another bundle, or
+pass `--mods /path/to/Mods` if you overrode `MAC_MODS`.
 
 The game uses a separate SlopWorld profile. See [Game profiles](../maintenance/game-profiles.md)
 for profile behavior and [Paths and files](../reference/paths.md) for locations.

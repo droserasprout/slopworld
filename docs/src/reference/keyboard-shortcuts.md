@@ -34,7 +34,7 @@ Press **?** in game to show current shortcuts.
 | Ctrl+current sidebar key | Focus that sidebar view's last target. |
 | Alt+Z / Alt+X | Previous/next agent or shell session. |
 | Alt+A / Alt+S | Previous/next open file (view, editor, search reader or diff). |
-| Alt+1..9, Alt+0 | Select an agent on the map or switch panes in the terminal window; 0 is tenth. |
+| Alt+1..9, Alt+0 | Select a session by its position in the Agents sidebar: select its pawn on the map or switch the focused terminal pane to it; 0 is tenth. |
 
 Switching between sessions and open files with these Alt shortcuts returns to the
 last active item in that group. Press again to cycle. If that item is closed or

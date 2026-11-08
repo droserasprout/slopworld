@@ -13,7 +13,7 @@ committed revision, or **Add** to register an existing checkout of the same
 repository. The original checkout appears as **main**.
 
 New worktrees start on a branch with the same name. Choose an unused, valid Git
-branch name. Uncommitted changes stay in the original checkout.
+branch name without slashes. Uncommitted changes stay in the original checkout.
 
 Choose a worktree in **Spawn worker** or in agent settings. Stop an agent before
 changing its worktree. Select **Terminal** in the worktree list to open a shell

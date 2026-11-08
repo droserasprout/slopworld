@@ -84,8 +84,15 @@ The sidecar profile is separate from the native profile.
 See [Paths and files](../reference/paths.md) for overrides and
 [Game profiles](../maintenance/game-profiles.md) for profile behavior.
 
-Start the worker before running the game. Use `slopctl --sidecar status` to connect
-from the CLI. `SLOPD_ENDPOINT` can select an explicit descriptor in either mode.
+Start the worker before running the game. `install-mod` builds the CLI in the
+checkout without installing it into `PATH`. From the repository root, connect with:
+
+```sh
+slopd/target/debug/slopctl --sidecar status
+```
+
+Use `slopd/target/release/slopctl` if you built with `BUILD=release`.
+`SLOPD_ENDPOINT` can select an explicit descriptor in either mode.
 
 ## Lifecycle
 
