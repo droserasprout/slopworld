@@ -68,7 +68,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             ca-certificates curl git unzip zstd build-essential pkg-config \
-            libasound2-dev \
+            libasound2-dev libdbus-1-dev \
             python3 procps tmux=3.7c-1 less ripgrep bubblewrap
 
       - uses: actions/checkout@v5

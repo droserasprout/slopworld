@@ -12,9 +12,10 @@ pkgdesc="RimWorld with the colony sim replaced by live AI coding agents (git)"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('MIT')
-depends=('alsa-lib' 'bash' 'bat' 'bubblewrap' 'fontconfig' 'git' 'less' 'micro' 'passt' 'ripgrep' 'systemd' 'tmux>=3.7' 'xclip')
+depends=('alsa-lib' 'bash' 'bat' 'bubblewrap' 'dbus' 'fontconfig' 'git' 'less' 'micro' 'passt' 'ripgrep' 'systemd' 'tmux>=3.7' 'xclip')
 makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv')
 optdepends=(
+  'rtkit: real-time jukebox audio scheduling'
   'glib2: desktop application associations and portal access'
   'gtk3: native Open With chooser'
   'highlight: alternative syntax highlighter'
@@ -93,8 +94,6 @@ package() {
 
   install -Dm644 packaging/slopworld.desktop \
     "$pkgdir/usr/share/applications/slopworld.desktop"
-  install -Dm644 packaging/arch/slopworld.rules \
-    "$pkgdir/etc/ananicy.d/slopworld.rules"
   install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png \
     "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
 

@@ -41,6 +41,10 @@ unicode-width = "0.2"
 ureq = { version = "3.5.0", default-features = false, features = ["rustls", "json"] }
 uuid = { version = "1", features = ["v4"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Unify with rodio's CPAL dependency so only its audio callback requests real-time scheduling.
+cpal = { version = "0.17", features = ["audio_thread_priority"] }
+
 [build-dependencies]
 prost-build = "0.14.4"
 

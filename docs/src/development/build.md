@@ -14,7 +14,7 @@ Install these tools before building:
 | Rust | Use rustup with the version and components pinned in `rust-toolchain.toml`. |
 | Native compiler toolchain | Install a C compiler (GCC or Clang), libc development headers, and build tools such as `make`. On Debian/Ubuntu, install `build-essential`. |
 | LLVM linker (`lld`) | Required by the daemon crate's Cargo configuration on x86_64 Linux. |
-| pkg-config and ALSA development files | Required for the Linux daemon's audio backend. Debian/Ubuntu: `pkg-config` and `libasound2-dev`; Fedora: `pkgconf-pkg-config` and `alsa-lib-devel`; Arch: `pkgconf` and `alsa-lib`. |
+| pkg-config, ALSA and D-Bus development files | Required for the Linux daemon's audio backend and real-time thread promotion. Debian/Ubuntu: `pkg-config`, `libasound2-dev` and `libdbus-1-dev`; Fedora: `pkgconf-pkg-config`, `alsa-lib-devel` and `dbus-devel`; Arch: `pkgconf`, `alsa-lib` and `dbus`. |
 | .NET SDK | Install the version pinned in `global.json`. It builds the `net10.0` mod. NuGet restores locked runtime packages. |
 | Protobuf compiler (`protoc`) | Required for Rust builds. Use **36.1** for stable generated C# output; check with `protoc --version`. |
 | just | Version **1.58 or newer**. Install through your package manager or with `cargo install just --locked`. |

@@ -67,11 +67,7 @@ def build_archive(
         assert mod is not None
         staging.stage_system(payload, binary_dir)
         shutil.copytree(mod, payload / 'usr/share/slopworld/SlopWorld')
-        for source, destination in (
-            ('packaging/arch/slopworld.rules', 'etc/ananicy.d/slopworld.rules'),
-            ('README.md', 'usr/share/doc/slopworld/README.md'),
-        ):
-            staging.copy_file(ROOT / source, payload / destination)
+        staging.copy_file(ROOT / 'README.md', payload / 'usr/share/doc/slopworld/README.md')
         staging.stage_notices(payload)
         staging.copy_file(ROOT / 'packaging/arch/slopworld.install', workspace / 'slopworld.install')
     # The metadata and install hook stay owned by PKGBUILD.local. The trusted

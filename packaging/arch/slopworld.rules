@@ -1,2 +1,0 @@
-# Audio callbacks share this process with daemon work; do not lower its CPU priority.
-{ "name": "slopd", "type": "Service", "nice": 0, "sched": "normal" }

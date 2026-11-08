@@ -133,7 +133,15 @@ namespace SlopWorld
                 }
             ),
             new Credit("prost", "Protocol Buffers", "https://github.com/tokio-rs/prost"),
-            new Credit("Rodio", "audio", "https://github.com/RustAudio/rodio"),
+            new Credit(
+                "Rodio / CPAL",
+                "audio",
+                new[]
+                {
+                    new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
+                    new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
+                }
+            ),
             new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
             new Credit(
                 "Support libraries",

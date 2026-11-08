@@ -15,6 +15,7 @@ metadata; it does not include their full license texts or notices.
 | [globset](https://github.com/BurntSushi/ripgrep/tree/master/crates/globset) | MIT (selected from Unlicense OR MIT) | [License](globset/LICENSE-MIT) | Andrew Gallant; daemon search path filters. |
 | [bstr](https://github.com/BurntSushi/bstr) | MIT (selected from MIT OR Apache-2.0) | [License](bstr/LICENSE-MIT) | Andrew Gallant; byte-string support for globset. |
 | [Jiff](https://github.com/BurntSushi/jiff) and its time-zone/atomic support dependencies | MIT (selected where dual-licensed) | [License texts](jiff/) | Named-zone calendar scheduling in the daemon. |
+| Audio scheduling dependencies | MIT and MPL-2.0 | [Licenses and source](audio/README.md) | CPAL callback real-time scheduling through RealtimeKit. |
 | RimWorld Tame designator | RimWorld EULA | [License](rimworld/EULA.txt) | Ludeon Studios Inc.; `UI/Designators/Tame` from RimWorld 1.6, mirrored, scaled, and rotated for the documentation cursors. |
 | [X.Org Xlib and libXss](https://www.x.org/) | MIT/X11-style licenses | [Xlib notices](xorg/libX11.COPYING), [libXss notices](xorg/libXss.COPYING) | System X11 libraries; window integration, idle timer resets and optional screensaver suspension. The libraries are not bundled. |
 | Slopcar Rust dependencies | MIT | [Full dependency notices](slopcar/THIRD-PARTY-NOTICES.txt) | Host-side container launcher; generated from its locked Cargo graph by `just generate-sidecar-licenses`. |

@@ -5,6 +5,10 @@ Open the map jukebox or status-bar jukebox control. The OST is a built-in source
 
 If the daemon cannot open or play the OST, RimWorld plays the bundled tracks locally.
 
+On native Linux, install `rtkit` and make the system D-Bus available so the daemon
+can request real-time scheduling for its audio output thread. Playback continues
+without that priority if the request fails; the daemon journal records the failure.
+
 ## Internet radio
 
 <img src="../images/jukebox-menu.jpg" alt="Jukebox menu with playback controls and radio sources" align="right" width="280">

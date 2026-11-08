@@ -13,9 +13,6 @@ inside its own install, so attach it as your normal user (not root):
 Then start the daemon for your user:
 
   systemctl --user enable --now slopd.service
-
-The Ananicy rule is installed at /etc/ananicy.d/slopworld.rules. Restart your
-Ananicy service if it was already running so it loads the new rule.
 EOF
 }
 
@@ -28,7 +25,5 @@ as your normal user:
 
   systemctl --user daemon-reload
   systemctl --user try-restart slopd.service
-
-Restart your Ananicy service if it was already running so it loads the new rule.
 EOF
 }

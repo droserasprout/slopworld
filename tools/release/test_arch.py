@@ -73,7 +73,6 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     for relative in (
         'packaging/arch/PKGBUILD.local',
         'packaging/arch/slopworld.install',
-        'packaging/arch/slopworld.rules',
         'packaging/slopworld.desktop',
         'README.md',
         'LICENSE',
