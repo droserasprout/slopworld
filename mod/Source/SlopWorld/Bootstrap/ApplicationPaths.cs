@@ -10,6 +10,7 @@ namespace SlopWorld
         internal static string ConfigRoot =>
             Root("SLOPD_CONFIG_ROOT", "XDG_CONFIG_HOME", ".config");
         internal static string DataRoot => Root("SLOPD_DATA", "XDG_DATA_HOME", ".local/share");
+        internal static string CacheRoot => Root("SLOPD_CACHE", "XDG_CACHE_HOME", ".cache");
         internal static string LikesPath => Path.Combine(DataRoot, "jukebox.toml");
 
         static string Root(string variable, string xdg, string fallback)

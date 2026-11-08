@@ -1,5 +1,14 @@
 # Loading screen
 
+`Bootstrap/StartupAudio` retains the game's sound-grain resolution callbacks for
+first use and warms one definition per idle frame after loading. Native audio stays
+on the game thread; duration reads and grain consumers demand resolution first.
+Callbacks are weakly owned by definitions so reloads can discard old work.
+Only decoded byte counts are persisted under the application cache root. Keys include
+the audio runtime identity and the current packed-content hash or loose file path,
+size and modification time. Cache failures fall back to native probes. Binding checks
+protect the callback rewrite and its consumers against game updates.
+
 `Patches/LoadingScreen/` owns tip streaming and vanilla drawing suppression. It uses
 the committed ASCII atlas and terminal font preference. Measure before reading
 geometry, and reflow retained text on resize even when no words are due.

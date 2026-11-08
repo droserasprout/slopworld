@@ -31,6 +31,64 @@ namespace SlopWorld.Tests
                 )
                     context.LoadFromAssemblyPath(Path.Combine(Path.GetFullPath(managed), assembly));
                 int count = 0;
+                var soundResolve = (MethodBase)Invoke(mod, "StartupAudio", "ResolveTarget");
+                var soundCode = PatchProcessor.GetOriginalInstructions(soundResolve);
+                var deferredCode =
+                    (IEnumerable<CodeInstruction>)Invoke(mod, "StartupAudio", "Rewrite", soundCode);
+                Require(
+                    deferredCode.Count(i =>
+                        i.operand is MethodInfo m
+                        && m.Name == "Defer"
+                        && m.DeclaringType?.Name == "StartupAudio"
+                    ) == 1,
+                    "startup sound deferral must preserve one game callback"
+                );
+                var sizeProbe = (MethodInfo)Invoke(mod, "StartupAudio", "SizeTarget");
+                Require(
+                    sizeProbe.ReturnType == typeof(bool)
+                        && sizeProbe.GetParameters()[1].ParameterType
+                            == typeof(long).MakeByRefType(),
+                    "native audio metadata probe signature changed"
+                );
+                var soundConsumers = ((IEnumerable)Invoke(mod, "StartupAudio", "ConsumerTargets"))
+                    .Cast<MethodBase>()
+                    .ToArray();
+                foreach (
+                    MethodBase target in (IEnumerable)Invoke(mod, "StartupAudio", "ConsumerTargets")
+                )
+                    Require(target != null, "missing lazy sound consumer");
+                foreach (
+                    var method in soundResolve.DeclaringType.GetMethods(
+                        BindingFlags.Public
+                            | BindingFlags.NonPublic
+                            | BindingFlags.Instance
+                            | BindingFlags.DeclaredOnly
+                    )
+                )
+                {
+                    bool readsGrains = PatchProcessor
+                        .GetOriginalInstructions(method)
+                        .Any(i =>
+                            i.operand is FieldInfo field
+                            && field.DeclaringType == soundResolve.DeclaringType
+                            && new[]
+                            {
+                                "resolvedGrains",
+                                "distinctResolvedGrainsCount",
+                                "numToAvoid",
+                            }.Contains(field.Name)
+                        );
+                    Require(
+                        !readsGrains
+                            || soundConsumers.Contains(method)
+                            || soundCode.Any(i =>
+                                i.opcode == System.Reflection.Emit.OpCodes.Ldftn
+                                && Equals(i.operand, method)
+                            ),
+                        "unprotected sound-grain consumer: " + method.Name
+                    );
+                }
+                count += 3;
                 foreach (string owner in new[] { "Patch_NativeTextStyle", "Patch_NativeTextField" })
                 {
                     var targets = (IEnumerable)Invoke(mod, owner, "TargetMethods");

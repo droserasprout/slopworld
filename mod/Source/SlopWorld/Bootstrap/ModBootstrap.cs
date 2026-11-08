@@ -56,6 +56,7 @@ namespace SlopWorld
             UiFont.Apply();
             CrtOverlay.Install();
             TerminalLatencyFrame.Install();
+            EarlyBootstrap.Complete();
         }
 
         static void ApplyAttributedPatches(Harmony harmony)
