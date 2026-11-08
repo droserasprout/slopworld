@@ -5,6 +5,7 @@ use super::super::http::{Endpoint, request};
 use super::common::encode_component;
 use crate::shared::protocol::routes;
 use serde_json::{Value, json};
+use std::fmt::Write;
 
 #[derive(Debug, PartialEq, Eq, clap::Subcommand)]
 pub(crate) enum WorktreeArgs {
@@ -77,44 +78,62 @@ pub(super) fn run(
     let value = request(endpoint, session, method, &url, body)?;
     if json_output {
         print_json(&value);
-    } else if removed {
-        println!("Worktree removed. Branches retained.");
+    } else {
+        print!("{}", render_worktrees(&value, removed));
+    }
+    Ok(())
+}
+
+#[expect(clippy::expect_used, reason = "formatting into a String cannot fail")]
+fn render_worktrees(value: &Value, removed: bool) -> String {
+    let mut out = String::new();
+    if removed {
+        writeln!(out, "Worktree removed. Branches retained.")
+            .expect("writing to a String cannot fail");
     } else {
         let rows: Vec<&Value> = value
             .get("worktrees")
             .and_then(Value::as_array)
             .map(|v| v.iter().collect())
-            .unwrap_or_else(|| vec![&value]);
+            .unwrap_or_else(|| vec![value]);
         for w in rows {
-            println!(
+            writeln!(
+                out,
                 "{}  {}  {}\n  {}",
                 w.get("id").and_then(Value::as_str).unwrap_or(""),
                 w.get("name").and_then(Value::as_str).unwrap_or(""),
                 w.get("branch").and_then(Value::as_str).unwrap_or(""),
                 w.get("path").and_then(Value::as_str).unwrap_or("")
-            );
+            )
+            .expect("writing to a String cannot fail");
             if let Some(error) = w
                 .get("error")
                 .and_then(Value::as_str)
                 .filter(|s| !s.is_empty())
             {
-                println!("  {error}");
+                writeln!(out, "  {error}").expect("writing to a String cannot fail");
             }
             if let Some(attachments) = w
                 .get("attachments")
                 .and_then(Value::as_array)
                 .filter(|v| !v.is_empty())
             {
-                println!(
+                writeln!(
+                    out,
                     "  attached: {}",
                     attachments
                         .iter()
                         .filter_map(Value::as_str)
                         .collect::<Vec<_>>()
                         .join(", ")
-                );
+                )
+                .expect("writing to a String cannot fail");
             }
         }
     }
-    Ok(())
+    out
 }
+
+#[cfg(test)]
+#[path = "worktree_tests.rs"]
+mod tests;
