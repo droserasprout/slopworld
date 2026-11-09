@@ -29,18 +29,14 @@ namespace SlopWorld
             JukeboxMenu.Open();
         }
 
-        // Show the current track in hover text. Omit the tooltip when no track label is available.
-        const string Note = "\u266A ";
-
         // Use the cell hash as a stable tooltip identifier.
         // An identifier based on text would restart the fade whenever the track title changes.
         void Tip(IntVec3 cell)
         {
-            string now = Radio.CachedNowPlaying;
-            if (string.IsNullOrEmpty(now))
-                return;
-
-            TooltipHandler.TipRegion(CellRect(cell), new TipSignal(Note + now, cell.GetHashCode()));
+            TooltipHandler.TipRegion(
+                CellRect(cell),
+                new TipSignal(JukeboxMenu.IconTip(), cell.GetHashCode())
+            );
         }
 
         // Convert opposite cell corners to screen coordinates.

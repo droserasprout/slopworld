@@ -25,10 +25,24 @@ namespace SlopWorld
             if (_quit)
                 return;
             Read();
+            if (DaemonAudioUnavailable())
+            {
+                SelectSource(clearFailure: false);
+                return;
+            }
             if (SpotifyAvailable || !_spotify)
                 return;
             SelectSource(clearFailure: false);
         }
+
+        static bool DaemonAudioUnavailable() =>
+            SessionHub.Instance?.Capabilities.Known == true
+            && !SessionHub.Instance.Capabilities.AudioPlayback
+            && (
+                _spotify
+                || _station != null
+                || (!string.IsNullOrEmpty(Settings.Radio) && Settings.Radio != "ost")
+            );
 
         public static void OpenSpotify(Action<string> opened, Action<string> failed)
         {

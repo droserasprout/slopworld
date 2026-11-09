@@ -38,6 +38,7 @@ pub(crate) const QUEUE_POLL: Duration = Duration::from_millis(5);
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct AudioState {
+    pub stop_ack: Option<String>,
     pub playing: bool,
     pub source: Option<String>,
     pub volume: f32,
@@ -153,6 +154,22 @@ impl Audio {
     pub fn stop(&self) {
         let generation = self.inner.control.stop();
         self.send(WorkerMsg::Command(Cmd::Stop { generation }), "stop");
+    }
+
+    pub(crate) async fn stop_confirmed(&self) -> anyhow::Result<()> {
+        self.stop();
+        let (done, completed) = tokio::sync::oneshot::channel();
+        self.inner
+            .tx
+            .send(WorkerMsg::Barrier(done))
+            .map_err(|error| anyhow::anyhow!("audio worker unavailable during stop: {error}"))?;
+        tokio::time::timeout(Duration::from_secs(5), completed).await??;
+        let state = self.state();
+        anyhow::ensure!(
+            !state.playing && state.source.is_none() && state.error.is_none(),
+            "audio stop failed"
+        );
+        Ok(())
     }
 
     fn send(&self, message: WorkerMsg, operation: &str) {

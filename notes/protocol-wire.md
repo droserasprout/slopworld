@@ -41,3 +41,8 @@ identity checks. Optional `paste.image_data` uploads bounded image bytes; it req
 root authority and a current run ID, and takes precedence over text. Text paste never
 imports daemon-host files. [Clipboard](daemon-clipboard.md) owns import policy;
 [grants](agent-grants.md) owns access.
+
+Jukebox stop requests may carry a unique `stop_token`. The daemon echoes it as
+`stop_ack` only after both audio and ncspot have stopped under the transition guard.
+The mod requires its current token before starting local OST playback. Broadcast
+playback snapshots do not retain acknowledgments.

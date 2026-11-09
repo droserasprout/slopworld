@@ -10,10 +10,7 @@ namespace SlopWorld
     // Save station selection in user settings so it persists across colonies.
     public static partial class Radio
     {
-        // The daemon shuffles OST files. The mod selects the directory as one source.
         static readonly System.Random Dice = new System.Random();
-
-        static string OstPath() => NativeJukebox.OstPath();
 
         static int _selectionRevision;
         public const string OstSourceId = "ost";
@@ -39,16 +36,12 @@ namespace SlopWorld
         static double _cachedNowPlayingAt = double.NegativeInfinity;
         static int _cachedNowPlayingVersion = -1;
 
-        // Use bundled SongDefs when the daemon cannot play audio or open the OST.
-        // Until capabilities arrive, the default permits daemon playback.
-        static bool NativeAudio =>
-            LocalOst
-            || (SessionHub.Instance != null && !SessionHub.Instance.Capabilities.AudioPlayback);
+        static bool NativeAudio => LocalOst;
 
         internal static Func<NativeTrackSnapshot> NativeTrackProvider =
             NativeJukebox.ReadNativeTrack;
 
-        // Read metadata from the current native SongDef during sidecar playback.
+        // Read metadata from the current native SongDef.
         static string NativeNowPlaying()
         {
             return SampleNativeTrack()?.Display;
@@ -77,7 +70,7 @@ namespace SlopWorld
         }
 
         // Stop daemon playback when muted to avoid downloading an inaudible stream.
-        // For sidecar playback, mute the native music manager. RemoveVanillaSongs.xml limits its songs to the SlopWorld OST.
+        // For OST playback, stop the native music manager. RemoveVanillaSongs.xml limits its songs to the SlopWorld OST.
         public static bool Muted
         {
             get
@@ -185,8 +178,8 @@ namespace SlopWorld
             if (_spotify)
                 return _rawTitle;
             return _station != null ? FormatTitle(_station, _rawTitle)
-                : string.IsNullOrEmpty(_rawTitle) ? "Terry Fail - OST"
-                : "Terry Fail - " + _rawTitle;
+                : string.IsNullOrEmpty(_rawTitle) ? "terry fail - OST"
+                : "terry fail - " + _rawTitle;
         }
 
         public static string Artist
@@ -302,6 +295,13 @@ namespace SlopWorld
 
         static void CurrentParts(out string artist, out string title)
         {
+            if (NativeAudio)
+            {
+                var track = SampleNativeTrack();
+                artist = track?.Artist ?? "terry fail";
+                title = track?.Title ?? "OST";
+                return;
+            }
             if (_spotify)
             {
                 artist = "";
@@ -324,7 +324,7 @@ namespace SlopWorld
                 return;
             }
 
-            artist = "Terry Fail";
+            artist = "terry fail";
             title = string.IsNullOrEmpty(_rawTitle) ? "OST" : _rawTitle;
         }
 
@@ -343,48 +343,36 @@ namespace SlopWorld
             SelectSource();
         }
 
-        // Select OST or a radio station at random. Select the station rate separately.
-        // Pick handles unmuting, saved settings, and the pending daemon update.
-        public static void PickRandom()
+        public static void Previous() => Navigate(-1, false);
+
+        public static void Next() => Navigate(1, false);
+
+        public static void PickRandom() => Navigate(1, true);
+
+        static void Navigate(int direction, bool random)
         {
             Read();
-
-            var candidates = new List<Station>();
-            foreach (var candidate in Stations)
-                if (SourceShown(candidate.Id) && (_muted || candidate != _station))
-                    candidates.Add(candidate);
-
-            // Exclude OST if it is already playing.
-            bool ostCurrent = !_spotify && !_muted && _station == null;
-            bool canPickOst = SourceShown(OstSourceId) && !ostCurrent;
-            int count = candidates.Count + (canPickOst ? 1 : 0);
-            if (count == 0)
+            if (_spotify)
                 return;
-
-            if (canPickOst && Dice.Next(count) == 0)
+            if (_station == null)
             {
-                Pick(null, 0);
+                NativeJukebox.Navigate(direction, random);
+                if (_muted)
+                    ToggleMute();
                 return;
             }
-
-            var station = candidates[Dice.Next(candidates.Count)];
-            Pick(station, station.Rates[Dice.Next(station.Rates.Length)]);
+            var stations = new List<Station>();
+            foreach (var station in Stations)
+                if (SourceShown(station.Id))
+                    stations.Add(station);
+            var next = RadioNavigation.Station(stations, _station, direction, random ? Dice : null);
+            if (next != null)
+                Pick(next, RadioNavigation.ClosestRate(next.Rates, _station.Rate));
         }
 
         public static void ToggleMute()
         {
             Read();
-            if (NativeAudio)
-            {
-                _muted = !_muted;
-                if (_muted)
-                    NativeJukebox.SetMuted(true);
-                else
-                    NativeJukebox.Resume();
-                Save();
-                return;
-            }
-
             _muted = !_muted;
             _blamed = false;
             Save();
@@ -423,25 +411,18 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             if (hub == null)
                 return;
-            if (NativeAudio)
-            {
-                // Stop the failed daemon source once before running local music.
-                if (hub.Capabilities.AudioPlayback)
-                    UpdatePlayback(Time.realtimeSinceStartupAsDouble, hub, Volume());
-                NativeJukebox.SetMuted(_muted);
-                return;
-            }
-
-            NativeJukebox.DisableForDaemon();
-
+            // Stop native audio before sending any remote selection. Local playback
+            // only resumes after the matching stop acknowledgment arrives.
+            NativeJukebox.SetMuted(!NativePlaybackAllowed);
             UpdatePlayback(Time.realtimeSinceStartupAsDouble, hub, Volume());
+            NativeJukebox.SetMuted(!NativePlaybackAllowed);
         }
 
         // Apply both music and master volume because daemon playback bypasses the game AudioListener.
         static float Volume() => NativeJukebox.Volume;
 
         // Read the daemon playback report. Log failures once per selection.
-        // Failed stations select OST; failed daemon OST playback uses bundled SongDefs.
+        // Failed stations select the locally played OST.
         public static void Report(
             bool playing,
             string error,
@@ -476,12 +457,6 @@ namespace SlopWorld
             if (playing || string.IsNullOrEmpty(error))
             {
                 _blamed = false;
-                return;
-            }
-            if (FallbackToLocalOst(source, error))
-            {
-                Log.Warning("[SlopWorld] jukebox: " + error + ". Using the bundled OST locally.");
-                NativeJukebox.Resume();
                 return;
             }
             if (_blamed)

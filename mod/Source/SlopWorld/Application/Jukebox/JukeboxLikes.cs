@@ -32,9 +32,24 @@ namespace SlopWorld
                 return null;
             int slash = Math.Max(clipPath.LastIndexOf('/'), clipPath.LastIndexOf('\\'));
             string title = slash >= 0 ? clipPath.Substring(slash + 1) : clipPath;
+            title = Path.GetFileNameWithoutExtension(title);
+            // Export dates identify assets, not the song shown or saved in likes.
+            int suffix = title.Length - 9;
+            if (
+                suffix > 0
+                && (title[suffix] == '-' || title[suffix] == '_')
+                && DateTime.TryParseExact(
+                    title.Substring(suffix + 1),
+                    "yyyyMMdd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out _
+                )
+            )
+                title = title.Substring(0, suffix);
             return string.IsNullOrEmpty(title)
                 ? null
-                : new NativeTrackSnapshot("Terry Fail", title, "SlopWorld OST");
+                : new NativeTrackSnapshot("terry fail", title, "SlopWorld OST");
         }
     }
 

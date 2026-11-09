@@ -226,8 +226,35 @@ namespace SlopWorld.Tests
         static void NativePathMapping()
         {
             var track = NativeTrackSnapshot.FromOstClipPath("Sounds\\SlopWorld\\OST\\second.ogg");
-            AssertEx.Equal("Terry Fail", track.Artist, "the shipped OST artist is explicit");
-            AssertEx.Equal("second.ogg", track.Title, "only the final clip-path component is used");
+            AssertEx.Equal("terry fail", track.Artist, "the shipped OST artist is explicit");
+            AssertEx.Equal("second", track.Title, "asset paths and extensions are not song titles");
+            foreach (
+                string path in new[]
+                {
+                    "SlopWorld/OST/pace-20261012",
+                    "pace-20261012.ogg",
+                    "pace_20261012.wav",
+                }
+            )
+            {
+                var dated = NativeTrackSnapshot.FromOstClipPath(path);
+                AssertEx.Equal("pace", dated.Title, "export dates are omitted from titles");
+                AssertEx.Equal(
+                    "terry fail - pace",
+                    dated.Display,
+                    "display uses clean track identity"
+                );
+            }
+            AssertEx.Equal(
+                "song-20261399",
+                NativeTrackSnapshot.FromOstClipPath("song-20261399").Title,
+                "a non-date suffix remains part of the title"
+            );
+            AssertEx.Equal(
+                "song-2026",
+                NativeTrackSnapshot.FromOstClipPath("song-2026").Title,
+                "ordinary numeric title endings remain intact"
+            );
             AssertEx.Equal("SlopWorld OST", track.Source, "the native source is explicit");
             AssertEx.Equal(
                 null,

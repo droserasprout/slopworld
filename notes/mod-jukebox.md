@@ -3,6 +3,9 @@
 `Application/Jukebox/` owns playback across menus and maps. `Radio` owns preferences,
 metadata, and source transitions; `RadioPlayback` owns send cadence and reconnect
 deduplication. Pending selections send immediately; idle frames do not resolve paths.
+A saved station waits for the first catalog before sending playback commands.
+Connection snapshots send the catalog before audio state so restoring a selection
+cannot erase the report for a stream that kept playing across game restarts.
 `Sim/Jukebox/` adapts map presence and native music. `UI/Jukebox/` owns menus/actions
 and notice presentation, connected once by Bootstrap. Recognition policy stays in
 application; bounded child execution belongs to `Platform/Processes/`.
@@ -41,19 +44,26 @@ deadline: continuous traffic or playback backpressure must not force reconnects.
 Catalog reload failure retains the valid snapshot for retry. Mutation errors distinguish
 saved disk changes from failed activation so repaired definitions can activate later.
 
-Daemon playback disables vanilla music. Sidecar OST and failed daemon OST playback
-use the bundled SongDefs through RimWorld's music manager. The OST failure fallback
-lasts for the game process, stops daemon playback, and leaves other sources available.
-On a profile's first run, OST playback is local and selects `pace` once before
-returning to RimWorld's usual song selection. Native playback advances after the
-music manager's update when enabled and idle, bypassing its random inter-track
-delay without interrupting active songs. The launcher's first-run signal is shared
-with initial audio preferences.
+The game owns all OST assets and playback through its bundled SongDefs. The daemon
+rejects file playback selections and plays radio/Spotify only. Source changes stop
+native music before sending a daemon selection. Returning to OST requires the
+current unique stop token to be acknowledged after the daemon worker retires its
+source and ncspot stops. Selection changes and disconnects revoke that acknowledgment;
+sidecar capabilities permit local playback without an audio handoff. Music-manager
+updates enforce this gate before vanilla can start a song.
+
+The first local song on a profile's first run is `pace`. Native playback advances
+without the vanilla random inter-track delay. Previous/next follow bundled SongDef
+order; shuffle selects another track. Radio navigation follows visible catalog order,
+wraps, and selects the closest bitrate (lower on ties). Pause stops playback and
+retains the source; play restarts it. Spotify track navigation stays in ncspot.
+The dropdown uses Unicode media symbols with text presentation for transport
+actions, preceded by a disabled current-track row while playback has a track label.
 The map component owns the jukebox reference, including cargo in its separate
 opening pod. It saves that reference so player reconciliation cannot replace
 pending cargo, including after loading during arrival. Player delivery is independent
 of agents; reconciliation repairs a missing or destroyed jukebox after the player lands.
-Muting daemon streams/Spotify stops them to avoid background playback/downloads.
+Pausing daemon streams/Spotify stops them to avoid background playback/downloads.
 Spotify requires both ncspot and audio capabilities; sidecar supplies neither and
 falls back to OST for unavailable saved selections.
 

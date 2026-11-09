@@ -178,6 +178,7 @@ impl Control {
             current.playing = false;
             current.source = None;
             current.title = None;
+            current.error = None;
         })
         .is_some()
     }

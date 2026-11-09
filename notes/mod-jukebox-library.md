@@ -3,7 +3,7 @@
 `Radio` owns track identity and captures like records; `JukeboxActions` owns the
 persistence handoff and player notifications. Likes preserve original station
 metadata separately from effective recognized/formatted artist and title.
-Sidecar likes use one native-track snapshot for confirmation and persistence rather
+OST likes use one native-track snapshot for confirmation and persistence rather
 than daemon metadata or saved radio selection.
 `JukeboxLikeWriter` owns game-free persistence of the complete like record for both
 playback modes; native snapshots require usable artist, title, and source values,
@@ -18,4 +18,6 @@ file opens the shared path through the game host's file association. This owners
 boundary also applies to sidecars, while platform opening behavior needs its own
 validation. File locations belong to [paths](../docs/src/reference/paths.md), playback
 modes to [jukebox](mod-jukebox.md), and user workflow to the [Jukebox guide](../docs/src/customization/jukebox.md).
-OST export and installation tooling own filenames and SongDef updates.
+OST export and installation tooling own filenames and SongDef updates. Native track
+snapshots display the artist as `terry fail` and omit file extensions and trailing
+export dates from titles; likes use that same normalized identity.

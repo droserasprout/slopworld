@@ -6,34 +6,42 @@ namespace SlopWorld
         // NativeJukebox adapts game music; Radio owns metadata.
         static readonly RadioPlayback Playback = new RadioPlayback();
 
-        // Retain the fallback for this game process: a remote daemon cannot open
-        // the local mod's OST path. Other sources may still use daemon playback.
-        static bool _localOstFallback;
+        // A unique stop acknowledgment prevents delayed reports from starting local
+        // music after a newer source selection or connection has taken ownership.
+        static string _stopToken;
+        static bool _daemonStopped;
+        static bool LocalOst => !_spotify && _station == null;
 
-        // The first-run opening is local so its track order does not depend on
-        // the daemon's filesystem or shuffled directory playlist.
-        static bool LocalOst =>
-            (_localOstFallback || ProfileAudioDefaults.FirstRun) && !_spotify && _station == null;
+        internal static bool NativePlaybackAllowed =>
+            !_quit
+            && !_muted
+            && LocalOst
+            && (_catalogReady || string.IsNullOrEmpty(Settings.Radio) || Settings.Radio == "ost")
+            && (
+                SessionHub.Instance?.Capabilities.Known == true
+                && (!SessionHub.Instance.Capabilities.AudioPlayback || _daemonStopped)
+            );
 
-        static bool FallbackToLocalOst(string source, string error)
+        internal static void AcknowledgeStop(string token, bool playing = false)
         {
-            if (
-                _muted
-                || _spotify
-                || _station != null
-                || LocalOst
-                || string.IsNullOrEmpty(error)
-                || (!string.IsNullOrEmpty(source) && source != OstPath())
-            )
-                return false;
-
-            _localOstFallback = true;
-            Playback.Invalidate();
-            return true;
+            if (playing)
+            {
+                _daemonStopped = false;
+                _stopToken = null;
+                NativeJukebox.SetMuted(true);
+                if (LocalOst)
+                    Playback.Invalidate();
+                return;
+            }
+            if (token != null && token == _stopToken)
+                _daemonStopped = true;
         }
 
         static void InvalidatePlayback()
         {
+            _daemonStopped = false;
+            _stopToken = null;
+            NativeJukebox.SetMuted(true);
             _selectionRevision++;
             _openingSpotify = false;
             _spotifyOpened = _spotifyFailed = null;
@@ -42,6 +50,23 @@ namespace SlopWorld
 
         static void UpdatePlayback(double now, SessionHub hub, float volume)
         {
+            if (!hub.Online)
+            {
+                _daemonStopped = false;
+                _stopToken = null;
+            }
+            // A saved station has no object until its catalog arrives. Do not send
+            // an OST stop in that gap: the daemon may still be playing this station.
+            if (
+                !_catalogReady
+                && !_muted
+                && !_spotify
+                && _station == null
+                && !string.IsNullOrEmpty(Settings.Radio)
+                && Settings.Radio != "ost"
+                && Settings.Radio != "ncspot"
+            )
+                return;
             switch (Playback.Step(now, hub.Online, PlaybackPlan, volume, out var plan))
             {
                 case RadioPlayback.UpdateKind.Selection:
@@ -61,31 +86,23 @@ namespace SlopWorld
                 return RadioPlaybackPlan.Spotify;
             if (_station != null)
                 return RadioPlaybackPlan.Station(_station.Id, _station.Path(_station.Rate));
-            if (!_catalogReady && IsSavedStation())
-                return RadioPlaybackPlan.Stop;
-            return RadioPlaybackPlan.File(OstPath());
+            return RadioPlaybackPlan.Stop;
         }
-
-        static bool IsSavedStation() =>
-            !string.IsNullOrEmpty(Settings.Radio)
-            && Settings.Radio != "ost"
-            && Settings.Radio != "ncspot";
 
         static void SendSelection(SessionHub hub, float volume, RadioPlaybackPlan plan)
         {
             switch (plan.Kind)
             {
                 case RadioPlaybackPlan.SourceKind.Stop:
-                    hub.Audio.Stop(volume);
+                    _daemonStopped = false;
+                    _stopToken = System.Guid.NewGuid().ToString("N");
+                    hub.Audio.Stop(volume, _stopToken);
                     break;
                 case RadioPlaybackPlan.SourceKind.Spotify:
                     hub.Audio.SendSpotify(volume);
                     break;
                 case RadioPlaybackPlan.SourceKind.Station:
                     hub.Audio.PlayStation(plan.Id, plan.Path, volume);
-                    break;
-                case RadioPlaybackPlan.SourceKind.File:
-                    hub.Audio.PlayFile(plan.Path, volume);
                     break;
             }
         }

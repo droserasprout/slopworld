@@ -9,17 +9,19 @@ namespace SlopWorld
             _transport = transport;
         }
 
-        public void PlayFile(string file, float volume) =>
-            SendSelection(new Wire.AudioSelection { File = file }, volume);
-
         public void PlayStation(string station, string stream, float volume) =>
             SendSelection(new Wire.AudioSelection { Station = station, Stream = stream }, volume);
 
-        public void Stop(float volume) =>
+        public void Stop(float volume, string token = null) =>
             _transport.Send(
                 new Wire.ClientMessage
                 {
-                    Audio = new Wire.AudioRequest { Volume = volume, Stop = new Wire.Empty() },
+                    Audio = new Wire.AudioRequest
+                    {
+                        Volume = volume,
+                        Stop = new Wire.Empty(),
+                        StopToken = token ?? "",
+                    },
                 }
             );
 

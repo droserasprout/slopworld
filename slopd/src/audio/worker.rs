@@ -18,6 +18,7 @@ pub(super) enum Cmd {
 pub(super) enum WorkerMsg {
     Command(Cmd),
     Shutdown,
+    Barrier(tokio::sync::oneshot::Sender<()>),
     Opened {
         cancel: Arc<AtomicBool>,
         source: String,
@@ -215,6 +216,11 @@ impl AudioWorker {
 
     fn handle(&mut self, message: WorkerMsg) -> bool {
         match message {
+            WorkerMsg::Barrier(done) => {
+                // Cancellation of the caller does not undo an already applied stop.
+                done.send(()).unwrap_or(());
+                true
+            }
             WorkerMsg::Shutdown => {
                 self.shutdown();
                 false
@@ -321,8 +327,10 @@ impl AudioWorker {
     }
 
     fn stop(&mut self, generation: u64) {
-        if self.control.publish_stopped(&self.state, generation) {
+        // Retire output before publishing the stopped state used for local handoff.
+        if self.control.snapshot().1 == generation {
             self.source.retire();
+            self.control.publish_stopped(&self.state, generation);
             self.recovery.recoveries = 0;
         }
     }

@@ -432,6 +432,8 @@ message AudioState {
   optional string error = 4;
   optional string title = 5;
   optional string session = 6;
+  // Echoed only after a requested stop completes. Not retained in snapshots.
+  optional string stop_ack = 7;
 }
 
 message StationMetadata {
@@ -932,6 +934,7 @@ message AudioRequest {
     AudioSelection selection = 1;
     Empty stop = 2;
   }
+  optional string stop_token = 4;
 }
 
 message ClientMessage {

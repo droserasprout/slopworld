@@ -59,7 +59,7 @@ namespace SlopWorld.Tests
         public static void VolumeUpdatesRespectCadenceAndMinimumDifference()
         {
             var playback = new RadioPlayback();
-            var plan = RadioPlaybackPlan.File("/ost");
+            var plan = RadioPlaybackPlan.Station("radio", "high");
             Step(playback, 0, true, plan, 0.5f);
             Assert.That(
                 Step(playback, 0.01, true, plan, 0.6f),
@@ -96,10 +96,6 @@ namespace SlopWorld.Tests
             Assert.That(
                 Step(playback, 0.23, true, RadioPlaybackPlan.Stop, 1),
                 Is.EqualTo(RadioPlayback.UpdateKind.Selection)
-            );
-            Assert.That(
-                RadioPlaybackPlan.File(null).Kind,
-                Is.EqualTo(RadioPlaybackPlan.SourceKind.Stop)
             );
             Assert.That(
                 RadioPlaybackPlan.Station("radio", null).Kind,

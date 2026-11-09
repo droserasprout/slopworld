@@ -82,6 +82,7 @@
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/RadioPlayback.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Playback.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/RadioNavigation.cs" />
     <Compile Include="../Source/SlopWorld/Client/Audio/AudioBus.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Selection.cs" />
     <Compile Include="../Source/SlopWorld/Bootstrap/ModProfile.cs" />

@@ -95,14 +95,16 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &App, cap: &Cap) -> bool
     if send(tx, cap, &ev).await.is_err() {
         return false;
     }
-    let ev = EventMessage::new(Event::Audio {
-        audio: m.services.music.state().await,
+    // Restore the selected station before publishing its playback state. Catalog
+    // reconciliation invalidates client metadata, even for an unchanged stream.
+    let ev = EventMessage::new(Event::Jukebox {
+        jukebox: crate::jukebox::catalog(),
     });
     if send(tx, cap, &ev).await.is_err() {
         return false;
     }
-    let ev = EventMessage::new(Event::Jukebox {
-        jukebox: crate::jukebox::catalog(),
+    let ev = EventMessage::new(Event::Audio {
+        audio: m.services.music.state().await,
     });
     if send(tx, cap, &ev).await.is_err() {
         return false;

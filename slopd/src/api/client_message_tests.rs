@@ -87,6 +87,7 @@ fn audio_distinguishes_selection_stop_and_volume_only() {
         })),
     ] {
         let ClientMsg::Audio(req) = command(Payload::Audio(wire::AudioRequest {
+            stop_token: None,
             volume: 0.5,
             change: change.clone(),
         }))

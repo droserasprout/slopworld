@@ -83,6 +83,11 @@ impl Music {
         req: AudioReq,
     ) -> Option<crate::audio::AudioState> {
         let spotify = req.wants_spotify();
+        let stop_token = if matches!(req.selection, Some(None)) {
+            req.stop_token.clone()
+        } else {
+            None
+        };
         let volume = req.volume;
         let _transition = self.transition.lock().await;
         let result = match req.change() {
@@ -102,7 +107,13 @@ impl Music {
         }
         // Reopening an existing player still needs a reply. Preserve ordered socket
         // launch/stop handling even when no broadcast state changed.
-        if spotify {
+        if let Some(token) = stop_token {
+            let mut state = self.state().await;
+            if !state.playing && state.source.is_none() && state.error.is_none() {
+                state.stop_ack = Some(token);
+            }
+            Some(state)
+        } else if spotify {
             Some(self.state().await)
         } else {
             None
@@ -117,7 +128,7 @@ impl Music {
             }
             Change::Stop => {
                 self.stop_ncspot(sessions).await?;
-                self.audio.stop();
+                self.audio.stop_confirmed().await?;
             }
             Change::Audio(source) => {
                 // Catalog resolution must succeed before stopping the current source.
@@ -132,7 +143,7 @@ impl Music {
 
 fn resolve_audio_source(source: AudioSource) -> Result<String> {
     match source {
-        AudioSource::File(file) => Ok(file),
+        AudioSource::File(_) => anyhow::bail!("Soundtrack playback belongs to the game."),
         AudioSource::Station { station, stream } => crate::jukebox::catalog()
             .resolve(&station, &stream)
             .map_err(|e| anyhow::anyhow!("jukebox selection rejected: {e:#}")),

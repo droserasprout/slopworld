@@ -11,7 +11,6 @@ namespace SlopWorld
             Stop,
             Spotify,
             Station,
-            File,
         }
 
         internal readonly SourceKind Kind;
@@ -19,7 +18,6 @@ namespace SlopWorld
             Path;
         internal string Identity =>
             Kind == SourceKind.Station ? "station:" + Id + ":" + Path
-            : Kind == SourceKind.File ? "file:" + Path
             : Kind == SourceKind.Spotify ? "ncspot"
             : "stop";
 
@@ -37,9 +35,6 @@ namespace SlopWorld
             id == null || stream == null
                 ? Stop
                 : new RadioPlaybackPlan(SourceKind.Station, id, stream);
-
-        internal static RadioPlaybackPlan File(string path) =>
-            path == null ? Stop : new RadioPlaybackPlan(SourceKind.File, path: path);
     }
 
     // Own send cadence and reconnect deduplication. Native music, persistence, reporting

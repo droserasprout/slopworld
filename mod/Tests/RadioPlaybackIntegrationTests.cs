@@ -6,7 +6,7 @@ namespace SlopWorld.Tests
 {
     static class RadioPlaybackIntegrationTests
     {
-        public static void FirstRunOstStaysLocalWhileOtherSourcesStillUseDaemon()
+        public static void OstAlwaysStaysLocalWhileOtherSourcesUseDaemon()
         {
             string saved = Environment.GetEnvironmentVariable("SLOPWORLD_INITIAL_AUDIO");
             string savedRadio = Settings.S.radio;
@@ -32,7 +32,7 @@ namespace SlopWorld.Tests
                 Environment.SetEnvironmentVariable("SLOPWORLD_INITIAL_AUDIO", "0");
                 Radio.SelectPlaybackTest();
                 Radio.UpdatePlaybackTest(0.03, 0.5f);
-                Assert.That(socket.Sent[3].Selection.File, Is.EqualTo("/test/ost"));
+                Assert.That(socket.Sent[3].Stop, Is.Not.Null);
             }
             finally
             {
@@ -43,81 +43,105 @@ namespace SlopWorld.Tests
             }
         }
 
-        public static void FailedDaemonOstStopsRemotePlaybackAndKeepsLocalFallbackAcrossReconnect()
+        public static void LocalPlaybackRequiresCurrentStopAcknowledgmentAndReconnectRevokesIt()
+        {
+            using var socket = new Socket();
+            var transport = new HubTransport(() => socket, action => action());
+            try
+            {
+                Radio.ResetSpotifyTest();
+                SessionHub.Instance.Capabilities = DaemonCapabilities.FromWire(
+                    new Wire.Capabilities { AudioPlayback = true }
+                );
+                SessionHub.Instance.Audio = new AudioBus(transport);
+                transport.Connect();
+                transport.Update();
+                Radio.SelectPlaybackTest();
+                Radio.UpdatePlaybackTest(0, 0.5f);
+                string first = socket.Sent[0].StopToken;
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                Radio.AcknowledgeStop("stale");
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                Radio.AcknowledgeStop(first);
+                Assert.That(Radio.NativePlaybackAllowed, Is.True);
+                Radio.SelectPlaybackTest(spotify: true);
+                Radio.AcknowledgeStop(first);
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                Radio.SelectPlaybackTest();
+                Radio.UpdatePlaybackTest(1, 0.5f);
+                Radio.AcknowledgeStop(first);
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                Radio.AcknowledgeStop(socket.Sent[1].StopToken);
+                Assert.That(Radio.NativePlaybackAllowed, Is.True);
+                SessionHub.Instance.Online = false;
+                Radio.UpdatePlaybackTest(2, 0.5f);
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                SessionHub.Instance.Online = true;
+                Radio.UpdatePlaybackTest(3, 0.5f);
+                Radio.AcknowledgeStop(socket.Sent[1].StopToken);
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                Radio.AcknowledgeStop(socket.Sent[2].StopToken);
+                Assert.That(Radio.NativePlaybackAllowed, Is.True);
+                Radio.AcknowledgeStop(null, playing: true);
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                Radio.UpdatePlaybackTest(3.01, 0.5f);
+                Radio.AcknowledgeStop(socket.Sent[3].StopToken);
+                Assert.That(Radio.NativePlaybackAllowed, Is.True);
+                Radio.MutePlaybackTest();
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+            }
+            finally
+            {
+                transport.Disconnect();
+                Radio.ResetSpotifyTest();
+            }
+        }
+
+        public static void SavedStationDoesNotStopDaemonWhileWaitingForInitialCatalog()
         {
             string saved = Settings.S.radio;
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
             {
-                Settings.S.radio = "ost";
                 Radio.ResetSpotifyTest();
+                Settings.S.radio = "radio:high";
+                // Read/Save are substituted in this harness; represent loaded preferences.
+                typeof(Radio)
+                    .GetField(
+                        "_read",
+                        System.Reflection.BindingFlags.Static
+                            | System.Reflection.BindingFlags.NonPublic
+                    )
+                    .SetValue(null, true);
                 SessionHub.Instance.Audio = new AudioBus(transport);
                 transport.Connect();
                 transport.Update();
-                Radio.SelectPlaybackTest();
                 Radio.UpdatePlaybackTest(0, 0.5f);
-                Assert.That(socket.Sent[0].Selection.File, Is.EqualTo("/test/ost"));
-                Assert.That(Radio.FallbackToLocalOstTest("old station", "failed"), Is.False);
-                Assert.That(Radio.FallbackToLocalOstTest("/test/ost", null), Is.False);
-                Assert.That(
-                    Radio.FallbackToLocalOstTest("/test/ost", "missing directory"),
-                    Is.True
-                );
-                Radio.UpdatePlaybackTest(0.01, 0.5f);
-                Assert.That(socket.Sent[1].Stop, Is.Not.Null);
-                Assert.That(Radio.FallbackToLocalOstTest("/test/ost", "late error"), Is.False);
                 Radio.UpdatePlaybackTest(1, 0.5f);
-                Assert.That(socket.Sent.Count, Is.EqualTo(2));
-                SessionHub.Instance.Online = false;
-                Radio.UpdatePlaybackTest(2, 0.5f);
-                SessionHub.Instance.Online = true;
-                Radio.UpdatePlaybackTest(3, 0.5f);
-                Assert.That(socket.Sent[2].Stop, Is.Not.Null);
-                var station = new Radio.Station(
-                    "radio",
-                    "Radio",
-                    "",
-                    "",
-                    new[] { 64 },
-                    new[] { "low" },
-                    64
-                );
-                Radio.SelectPlaybackTest(station, 64);
-                Radio.UpdatePlaybackTest(3.01, 0.5f);
-                Assert.That(socket.Sent[3].Selection.Station, Is.EqualTo("radio"));
-                Assert.That(Radio.FallbackToLocalOstTest(null, "station error"), Is.False);
-                Radio.SelectPlaybackTest();
-                Radio.UpdatePlaybackTest(3.02, 0.5f);
-                Assert.That(socket.Sent[4].Stop, Is.Not.Null);
+                Assert.That(socket.Sent, Is.Empty, "startup must leave the existing stream alone");
+                var station = new Wire.Station
+                {
+                    Id = "radio",
+                    Metadata = new Wire.StationMetadata { Name = "Radio" },
+                    DefaultRate = 64,
+                };
+                station.Streams.Add(new Wire.StationStream { Rate = 64, Key = "low" });
+                station.Streams.Add(new Wire.StationStream { Rate = 128, Key = "high" });
+                var catalog = new Wire.JukeboxCatalog();
+                catalog.Stations.Add(station);
+                Radio.SetStations(catalog);
+                Radio.UpdatePlaybackTest(1.01, 0.5f);
+                Assert.That(socket.Sent.Count, Is.EqualTo(1));
+                Assert.That(socket.Sent[0].Selection.Station, Is.EqualTo("radio"));
+                Assert.That(socket.Sent[0].Selection.Stream, Is.EqualTo("high"));
+                Assert.That(socket.Sent[0].Stop, Is.Null);
             }
             finally
             {
                 transport.Disconnect();
                 Radio.ResetSpotifyTest();
                 Settings.S.radio = saved;
-            }
-        }
-
-        public static void MutedAndSpotifyFailuresDoNotEnableLocalOst()
-        {
-            try
-            {
-                Radio.ResetSpotifyTest();
-                Radio.SelectPlaybackTest(spotify: true);
-                Assert.That(Radio.FallbackToLocalOstTest(null, "failed"), Is.False);
-                Radio.SelectPlaybackTest();
-                Radio.MutePlaybackTest();
-                Assert.That(Radio.FallbackToLocalOstTest("/test/ost", "failed"), Is.False);
-                Radio.SelectPlaybackTest();
-                Assert.That(
-                    Radio.FallbackToLocalOstTest(null, "audio device unavailable"),
-                    Is.True
-                );
-            }
-            finally
-            {
-                Radio.ResetSpotifyTest();
             }
         }
 
@@ -199,7 +223,7 @@ namespace SlopWorld.Tests
                 Radio.SelectPlaybackTest();
                 Radio.UpdatePlaybackTest(0, 0.5f);
                 Assert.That(socket.Sent.Count, Is.EqualTo(1));
-                Assert.That(socket.Sent[0].Selection.File, Is.EqualTo("/test/ost"));
+                Assert.That(socket.Sent[0].Stop, Is.Not.Null);
                 Assert.That(socket.Sent[0].Volume, Is.EqualTo(0.5f));
                 var station = new Radio.Station(
                     "radio",
@@ -235,7 +259,7 @@ namespace SlopWorld.Tests
                 Assert.That(socket.Sent[5].Stop, Is.Not.Null);
                 Radio.SelectPlaybackTest();
                 Radio.UpdatePlaybackTest(0.34, 0.8f);
-                Assert.That(socket.Sent[6].Selection.File, Is.EqualTo("/test/ost"));
+                Assert.That(socket.Sent[6].Stop, Is.Not.Null);
             }
             finally
             {

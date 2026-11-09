@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 using Verse;
 
 namespace SlopWorld
@@ -6,13 +7,16 @@ namespace SlopWorld
     // Shared jukebox controls for map, workspace and settings entry points.
     public static class JukeboxMenu
     {
-        const string Note = "\u266A ";
-
         // Use the same current track label for the status bar tooltip.
         public static string IconTip()
         {
             string now = Radio.CachedNowPlaying;
-            return string.IsNullOrEmpty(now) ? "" : Note + now;
+            if (string.IsNullOrEmpty(now))
+                return "Jukebox";
+            string song = "\u266A " + now;
+            return !Radio.Spotify && Radio.Picked == null
+                ? song
+                : "\u25C9 " + Radio.Source + "\n" + song;
         }
 
         // Open the same menu from the map jukebox and status bar.
@@ -24,29 +28,92 @@ namespace SlopWorld
 
         static List<FloatMenuOption> MenuOptions()
         {
+            var options = new List<FloatMenuOption>();
+            string now = Radio.NowPlaying;
+            if (!string.IsNullOrEmpty(now))
+                options.Add(new FloatMenuOption(now, null));
+            options.Add(TransportRow());
+
             // Sidecar mode uses native OST playback. Show only controls that this mode supports.
             if (!SessionHub.Instance.Capabilities.AudioPlayback)
             {
-                return new List<FloatMenuOption>
-                {
-                    UiLayout.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
-                    new FloatMenuOption("Settings", ModOptions.OpenAudioTab),
-                };
+                options.Add(new FloatMenuOption("Settings", ModOptions.OpenAudioTab));
+                return options;
             }
 
-            return new List<FloatMenuOption>
-            {
-                new UiSubmenu(PlayRow(), StationOptions),
-                Radio.Spotify && Radio.SpotifyAvailable && Radio.SourceShown(Radio.SpotifySourceId)
-                    ? new FloatMenuOption("Open Spotify player", JukeboxActions.OpenSpotify)
-                    : RecognizeRow(),
-                new FloatMenuOption("Like", JukeboxActions.Like),
-                new FloatMenuOption("History", JukeboxHistoryView.Open),
-                UiLayout.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
-                UiLayout.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
-                new FloatMenuOption("Settings", ModOptions.OpenAudioTab),
-            };
+            options.AddRange(
+                new FloatMenuOption[]
+                {
+                    new UiSubmenu("Tune", StationOptions),
+                    Radio.Spotify
+                    && Radio.SpotifyAvailable
+                    && Radio.SourceShown(Radio.SpotifySourceId)
+                        ? new FloatMenuOption("Open Spotify player", JukeboxActions.OpenSpotify)
+                        : RecognizeRow(),
+                    new FloatMenuOption("Like", JukeboxActions.Like),
+                    new FloatMenuOption("History", JukeboxHistoryView.Open),
+                    UiLayout.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
+                    new FloatMenuOption("Settings", ModOptions.OpenAudioTab),
+                }
+            );
+            return options;
         }
+
+        // FloatMenuOption substitutes a diagnostic label for an empty string.
+        static FloatMenuOption TransportRow() =>
+            new FloatMenuOption(" ", () => { })
+            {
+                extraPartWidth = 160f,
+                extraPartRightJustified = false,
+                extraPartOnGUI = rect =>
+                {
+                    // These symbols default to text; native labels render VS15 as a box.
+                    var icons = new[]
+                    {
+                        "\u23EE",
+                        Radio.Muted ? "\u25B6" : "\u23F8",
+                        "\u23ED",
+                        "\u2928",
+                    };
+                    var tips = new[]
+                    {
+                        "Previous",
+                        Radio.Muted ? "Play" : "Pause",
+                        "Next",
+                        "Shuffle",
+                    };
+                    System.Action[] actions =
+                    {
+                        Radio.Previous,
+                        Radio.ToggleMute,
+                        Radio.Next,
+                        Radio.PickRandom,
+                    };
+                    for (int i = 0; i < actions.Length; i++)
+                    {
+                        var button = new Rect(
+                            rect.x + i * rect.width / 4f,
+                            rect.y,
+                            rect.width / 4f,
+                            rect.height
+                        );
+                        TooltipHandler.TipRegion(button, tips[i]);
+                        if (
+                            UiLayout.Button(
+                                button,
+                                icons[i],
+                                UiTheme.Btn.Ghost,
+                                i == 1 || !Radio.Spotify
+                            )
+                        )
+                        {
+                            UiMenu.CloseAll();
+                            actions[i]();
+                        }
+                    }
+                    return false;
+                },
+            };
 
         // Show cancellation and the input label during recognition. Otherwise, offer recognition or retry.
         // Menu rows reflect state when the menu opens.
@@ -65,17 +132,6 @@ namespace SlopWorld
                 string.IsNullOrEmpty(Radio.RecognitionError) ? "Recognize" : "Recognize (retry)",
                 Radio.Recognize
             );
-        }
-
-        // Show the current source or muted state in the first row.
-        static string PlayRow() => "Play  -  " + (Radio.Muted ? "muted" : Playing());
-
-        static string Playing()
-        {
-            if (Radio.Spotify)
-                return "Spotify";
-            var on = Radio.Picked;
-            return on == null ? "OST" : $"{on.Name} {Radio.RateLabel(on.Rate)}";
         }
 
         // List music sources in a submenu. Place OST first because it requires no network connection.
@@ -127,7 +183,7 @@ namespace SlopWorld
         }
 
         // Mark the playing source without disabling its row.
-        // When muted, leave source rows unmarked and use the Mute toggle to show the state.
+        // When paused, leave source rows unmarked.
         static string Mark(string label, bool playing) =>
             playing && !Radio.Muted ? label + "  (playing)" : label;
     }
