@@ -268,8 +268,8 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         modules = [call['args'][call['args'].index('-m') + 1] for call in self.calls('uv')]
         self.assertEqual(modules[-1], 'tools.licenses.stage_licenses')
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
-        self.assertEqual([call['tool'] for call in calls[:3]], ['cargo', 'cargo', 'uv'])
-        self.assertEqual(modules[0], 'tools.cli_completions')
+        self.assertEqual([call['tool'] for call in calls[:4]], ['uv', 'cargo', 'cargo', 'uv'])
+        self.assertEqual(modules[:2], ['tools.assets.clown_nose', 'tools.cli_completions'])
         self.assertEqual(
             [(Path(call['cwd']).name, call['args']) for call in self.calls('cargo')],
             [('slopd', ['build', '--quiet', '--locked']), ('slopcar', ['build', '--quiet', '--locked'])],
