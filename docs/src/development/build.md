@@ -1,8 +1,8 @@
 # Build from source
 
-Build and install SlopWorld on native Linux, then run checks for your changes.
+Build and install SlopWorld from a source checkout, then run checks for your changes.
 For prebuilt packages, see [Linux installation](../installation/linux.md).
-For a Linux container deployment, follow the
+To build and run the daemon in a container, follow the
 [Sidecar mode](../installation/sidecar.md) guide.
 
 ## Prerequisites
@@ -48,7 +48,7 @@ slopworld
 and mod. Launch with `slopworld` to use the separate
 [game profile](../maintenance/game-profiles.md).
 
-Installation saves the Linux game directory in
+Installation saves the game directory in
 [game.toml](../reference/paths.md#launcher-configuration). If you move the game,
 run `RIMWORLD=/new/path/to/game just install-mod` to update the mod and saved path.
 

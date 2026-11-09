@@ -2,8 +2,8 @@
 
 A quick tour covering core concepts and usual workflow.
 
-First, finish the [Linux](../installation/linux.md) guide for native Linux
-or [Sidecar mode](../installation/sidecar.md) for a Linux container deployment.
+First, follow the [installation guide](../installation/linux.md), or set up
+[Sidecar mode](../installation/sidecar.md) to run the daemon in a container.
 
 ## Prepare your tools
 

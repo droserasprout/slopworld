@@ -30,7 +30,7 @@ blocks: steady-state callbacks must not allocate, free, lock, or wake the feeder
 Each fixed-format run gets a separate mixer input, so converter buffers are created
 on the worker rather than rebuilt at callback span boundaries.
 The worker logs aggregated output underruns and source starvation separately.
-On Linux, CPAL requests real-time scheduling for its output callback through
+CPAL requests real-time scheduling for its output callback through
 RealtimeKit over the system D-Bus; unavailable or denied promotion logs a failure
 and playback continues with normal scheduling. Feeders and Tokio workers stay normal.
 Each player has its own generation shared

@@ -1,8 +1,8 @@
 # Updates and uninstallation
 
-These steps apply to native Linux packages. For other installations, see
-[Sidecar mode](../installation/sidecar.md), or
-[Build from source](../development/build.md).
+These steps apply to SlopWorld installed through your package manager.
+For container updates, see [Sidecar mode](../installation/sidecar.md).
+For a source checkout, see [Build from source](../development/build.md).
 
 ## Updating
 

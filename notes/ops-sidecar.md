@@ -19,7 +19,8 @@ plans fail before pulls or persistent-state creation.
 
 `tools/release/sidecar.py` coordinates independent distro packages; native package
 format owners stage a separate `slopcar` product through `staging.stage_sidecar`.
-It has no mod, native daemon, or systemd payload. Hosted native-architecture jobs
+It contains no mod, `slopd` binary, or systemd unit; the daemon runs from the container image.
+Hosted native-architecture jobs
 hand packages to the final release job for checksums and attestations. The minimum
 host-library support baseline is Debian 13; `packaging/debian/Dockerfile` owns that
 build environment. Other formats use native builders and dependency discovery.

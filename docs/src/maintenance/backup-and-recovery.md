@@ -6,10 +6,12 @@ for sandbox limits.
 
 ## Backup contents
 
-These are native Linux default locations. See [Paths and files](../reference/paths.md)
-for overrides, XDG locations, and sidecar paths.
+The table lists default locations for an installation without a sidecar. If the
+daemon runs remotely, back up its configuration and data on that machine and the
+game profile on yours. See [Paths and files](../reference/paths.md) for overrides,
+XDG locations, and sidecar paths.
 
-| Data | Linux default location | Include |
+| Data | Default location | Include |
 | --- | --- | --- |
 | Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, project records, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
 | Workspace records and authority | `~/.local/share/slopworld/` | Agent definitions and permissions, host-shell definitions, worktree/task records, and any pending workspace recovery journal. |
@@ -25,9 +27,10 @@ Daemon caches, including activity and prompt summaries, are disposable.
 ## Backup procedure
 
 1. Stop agents, host shells, and other tools writing to the data being copied.
-   Stopping the native daemon alone leaves tmux and its processes running.
+   Stopping the systemd service alone leaves tmux and its processes running.
 2. Save and close the game so its profile stops changing.
-3. Stop the native daemon with `systemctl --user stop slopd`. For a sidecar, run
+3. On the daemon's machine, stop its service with `systemctl --user stop slopd`.
+   For a sidecar, run
    `slopcar stop`; this also ends the container's tmux
    and agent processes.
 4. Copy the locations listed above, including any path overrides, into one backup.
@@ -49,7 +52,7 @@ If `workspace.save-journal` is present, restore the original `SLOPD_CONFIG_ROOT`
 recovers interrupted workspace transactions before loading records. This recovery
 covers process interruption, not power-loss durability.
 
-For the native Linux service, start the daemon with:
+To start the daemon's systemd service, run this on its machine:
 
 ```sh
 systemctl --user start slopd

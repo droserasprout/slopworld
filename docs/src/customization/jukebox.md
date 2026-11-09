@@ -5,7 +5,8 @@ Open the map jukebox or status-bar jukebox control. The OST is a built-in source
 
 If the daemon cannot open or play the OST, RimWorld plays the bundled tracks locally.
 
-On native Linux, install `rtkit` and make the system D-Bus available so the daemon
+For daemon audio playback, install `rtkit` on the machine running the daemon
+and make its system D-Bus available so the daemon
 can request real-time scheduling for its audio output thread. Playback continues
 without that priority if the request fails; the daemon journal records the failure.
 
@@ -23,8 +24,9 @@ and liked-song locations.
 
 ## Spotify via ncspot
 
-This feature requires a native Linux daemon, `ncspot`, and Spotify
-Premium. The source is hidden when ncspot is unavailable; hide it manually through
+This feature requires Spotify Premium and `ncspot` installed on the machine
+running the daemon, with audio output available there. Sidecar mode does not
+support Spotify playback. The source is hidden when ncspot is unavailable; hide it manually through
 Settings if desired.
 
 1. Install `ncspot`.

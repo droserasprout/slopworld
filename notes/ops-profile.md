@@ -6,13 +6,13 @@ The launcher accepts only its own options and commands; it constructs the game's
 arguments from the selected profile and disables the separate game file logger.
 Local commands dispatch before game/profile discovery. Endpoint and mod-install
 modules execute typed requests without parsing argv.
-`slopworld/instance.rs` owns profile-keyed locks and Linux external-game detection.
+`slopworld/instance.rs` owns profile-keyed locks and external-game detection.
 [Mod profile isolation](mod-profile.md) owns in-game gating.
 
-`slopworld/game_config.rs` owns the saved Linux game directory. Successful installation
+`slopworld/game_config.rs` owns the saved game directory. Successful installation
 remembers a canonical game parent only when it contains `RimWorld`. Explicit
 arguments/environment override it; invalid saved configuration blocks fallback.
-Install/removal share Linux game resolution.
+Install/removal share game resolution.
 See [paths](ops-paths.md) and [game profiles](../docs/src/maintenance/game-profiles.md)
 for locations and options.
 
@@ -28,7 +28,7 @@ detection runs. It signals a missing preferences file through the game-only
 `SLOPWORLD_INITIAL_AUDIO` environment value; the mod applies audio defaults after
 initialization. Existing preferences remain authoritative even with mod-list reset.
 
-Retain the profile lock through game exit. Linux external-game detection also
+Retain the profile lock through game exit. External-game detection also
 prevents conflicting launches. `slopworld/endpoints.rs` owns authenticated client registration and
 secret-free listing. `peer_probe.rs` owns authenticated discovery, `peer_store.rs`
 owns private file publication, and `peer_prompt.rs` owns hidden input and terminal
@@ -45,7 +45,7 @@ it on each launch, and pass `-NoFileLog` to disable Waylith's separate logger.
 Prepare the log only after profile validation and locking during normal launch.
 [Linux window integration](ui-window-fullscreen.md) owns window behavior.
 
-Linux launches set `FORCE_X11=1` for Waylith's GLFW initialization unless
+Launches set `FORCE_X11=1` for Waylith's GLFW initialization unless
 `--no-window-fix` is selected. Native X11 and XWayland windows share the mod's EWMH
 fullscreen and decoration handling; native Wayland windows do not expose that
 boundary. The renderer uses the game's Vulkan backend.

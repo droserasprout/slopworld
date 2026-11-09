@@ -3,7 +3,7 @@
 See [Environment variables](environment.md) for which process reads each override
 and for connection, logging, and runtime controls.
 
-The application roots have these environment overrides and Linux defaults:
+The application roots have these environment overrides and defaults:
 
 | Environment variable | Default directory |
 | --- | --- |
@@ -15,7 +15,7 @@ The defaults follow `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, and `XDG_CACHE_HOME`
 when set to absolute paths. Settings and catalogs live under `<CONFIG>`;
 private session state lives under `<DATA>/sessions`. Endpoint discovery and launcher/game paths
 follow these roots unless their explicit overrides below select another path.
-On Unix, mode `0600` gives read and write access only to the owner.
+File mode `0600` gives read and write access only to the owner.
 
 Planner stores its backlog at `<DATA>/TODO.txt` and Markdown descriptions at
 `<DATA>/planner/descriptions/<sw-id>.md`. Description files remain after task deletion
@@ -43,9 +43,9 @@ Task and Worker associations live in `<DATA>/planner/links/<sw-id>.json`, also m
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `<CONFIG>/game.toml` | `--game`, then `SLOPWORLD_GAME` | Default Linux game directory, remembered after mod installation succeeds. |
+| `<CONFIG>/game.toml` | `--game`, then `SLOPWORLD_GAME` | Default game directory, remembered after mod installation succeeds. |
 
-The file contains one `path` string. Installing the mod into a Linux game's `Mods`
+The file contains one `path` string. Installing the mod into the game's `Mods`
 directory stores the canonical game directory path.
 
 ## Data
@@ -91,11 +91,11 @@ Each launch replaces the log.
 
 The default named socket is `slopworld`. `SLOPD_TMUX_SOCKET` overrides the name;
 `TMUX_TMPDIR` changes the socket directory. See
-[Attaching to tmux](../terminals/terminal.md) for native Linux commands.
+[Attaching to tmux](../terminals/terminal.md) for commands to run on the daemon's machine.
 
 ## Sidecar host storage
 
-`slopcar` and Linux recipes use the same application roots.
+Sidecar storage lives beneath the application roots listed above.
 `slopworld --sidecar` and `slopctl --sidecar` select sidecar defaults explicitly.
 Setting a profile or endpoint override does not select sidecar mode.
 

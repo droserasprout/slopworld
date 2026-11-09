@@ -213,7 +213,7 @@ slopworld completions zsh
 slopcar completions fish
 ```
 
-Native Linux packages install Bash, Zsh, and Fish completions for `slopctl` and
+SlopWorld distribution packages install Bash, Zsh, and Fish completions for `slopctl` and
 `slopworld` under `/usr/share`. Source installation with `just daemon-install`
 or `just sidecar-install` installs the corresponding scripts under
 `${XDG_DATA_HOME:-$HOME/.local/share}`. Bash needs bash-completion enabled.

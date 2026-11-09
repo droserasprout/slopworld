@@ -45,7 +45,7 @@ Flush literal input before clipboard/PRIMARY paste and on focus loss; release fo
 mouse presses too. Rejected input is discarded. Mouse-reporting apps own live clicks;
 Shift/history keeps local selection. Clipboard replies check pane/run identity after
 round trips. CLIPBOARD, PRIMARY, and OSC writes stay separate; PRIMARY never sends the
-image shortcut. Codex tries text before image paste; Linux clients read
+image shortcut. Codex tries text before image paste; clients read
 text from their own X11 desktop and upload local PNG clipboard bytes when no text
 is available. Host panes accept text only. [Clipboard](daemon-clipboard.md) owns image imports.
 

@@ -3,7 +3,7 @@
 Set variables before starting the process that reads them. For a systemd-managed
 daemon, set them in the service environment and restart it.
 
-Defaults below are for native mode unless noted. `<CONFIG>`, `<DATA>`, and `<CACHE>`
+Defaults below apply without `--sidecar` unless noted. `<CONFIG>`, `<DATA>`, and `<CACHE>`
 are the application roots described in [Paths and files](paths.md). Command-line
 options take precedence where available. Build recipe settings belong to
 [Build from source](../development/build.md).
@@ -11,17 +11,17 @@ options take precedence where available. Build recipe settings belong to
 | Variable | Read by | Default | Effect |
 | --- | --- | --- | --- |
 | `OPENROUTER_API_KEY` | Daemon | None | Key for prompt summaries and OpenRouter balance polling when no key file is configured. |
-| `RIMWORLD` | `slopworld mod` | Platform game location | Game installation for mod management. Also used by build recipes. |
+| `RIMWORLD` | `slopworld mod` | Default game location | Game installation for mod management. Also used by build recipes. |
 | `SLOPCAR_CONTAINER` | `slopcar`, `slopctl --sidecar logs daemon` | `slopcar` | Sidecar container name. |
 | `SLOPCAR_CPUS` | `slopcar` | `4` | Container CPU limit. |
 | `SLOPCAR_IMAGE` | `slopcar` | `ghcr.io/droserasprout/slopcar:<launcher version>` | Container image to build or run; start/doctor pull it only when absent. |
 | `SLOPCAR_MEMORY` | `slopcar` | `8g` | Container memory limit. |
 | `SLOPCAR_PIDS_LIMIT` | `slopcar` | `4096` | Container process limit. |
 | `SLOPCAR_PORT` | `slopcar` | `7718` | Loopback host port and initial daemon bind port. |
-| `SLOPD_CACHE` | Daemon, launcher, CLI | Platform cache directory | Application cache root.[^paths] |
-| `SLOPD_CONFIG_ROOT` | Daemon, mod, launcher, CLI | Platform config directory | Configuration root for settings, catalogs, endpoint discovery, and the saved game directory.[^paths] |
+| `SLOPD_CACHE` | Daemon, launcher, CLI | XDG cache directory | Application cache root.[^paths] |
+| `SLOPD_CONFIG_ROOT` | Daemon, mod, launcher, CLI | XDG config directory | Configuration root for settings, catalogs, endpoint discovery, and the saved game directory.[^paths] |
 | `SLOPD_CREDITS_URL` | Daemon | `https://openrouter.ai/api/v1/credits` | OpenRouter balance endpoint. |
-| `SLOPD_DATA` | Daemon, mod, launcher, CLI | Platform data directory | Data root for workspace state, jukebox likes, and the default game profile.[^paths] |
+| `SLOPD_DATA` | Daemon, mod, launcher, CLI | XDG data directory | Data root for workspace state, jukebox likes, and the default game profile.[^paths] |
 | `SLOPD_ENDPOINT` | Daemon, mod, launcher, `slopctl` | `<CONFIG>/endpoints/local.toml` | Explicit descriptor path; clients default to `endpoints/local.toml`.[^connection] |
 | `SLOPD_LOG` | Daemon | `slopd=info` | Tracing filter; use `slopd=debug` for more detail. |
 | `SLOPD_OPENAI_USAGE_URL` | Daemon | `https://chatgpt.com/backend-api/wham/usage` | OpenAI usage endpoint. |
@@ -50,8 +50,8 @@ options take precedence where available. Build recipe settings belong to
     daemon listener or the mod. Workers receive a scoped URL/token pair automatically.
     See [Agent collaboration](../agents/agent-collaboration.md).
 
-`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_CACHE_HOME` supply directory defaults
-on Linux. The daemon's `PATH` determines which tools it can find. Desktop and audio
+`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_CACHE_HOME` supply directory defaults.
+The daemon's `PATH` determines which tools it can find. Desktop and audio
 integrations use the host session environment, including `DISPLAY`,
 `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS`, and `PULSE_SERVER`.
 

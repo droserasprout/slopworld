@@ -70,7 +70,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 
 | Gesture | Action |
 | --- | --- |
-| Middle-click | Paste the game desktop's PRIMARY selection (X11/XWayland on Linux). |
+| Middle-click | Paste the game desktop's PRIMARY selection (X11/XWayland). |
 | Ctrl+click | Open a URL printed in the terminal, or show a file menu. The menu offers applicable Focus, View, Edit, Open in, File actions, and Copy path actions. View and Edit honor a `:line` suffix. |
 | Right-click | Terminal context menu. |
 | Double-click | Select a word and publish it to the game desktop's PRIMARY selection. |

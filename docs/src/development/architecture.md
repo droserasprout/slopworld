@@ -50,12 +50,14 @@ For their user-facing behavior, see [Session lifecycle](../agents/session-lifecy
 ["Gameplay"](../workspace/gameplay.md). Sandbox access boundaries are described
 in the [Security model](../sandbox/security.md).
 
-## Native and sidecar deployment
+## Daemon deployment
 
-On native Linux, the game/mod and daemon run on the host. In sidecar mode, the
-native game/mod connects to a Linux container running the daemon, tmux, and agent
-sandboxes. Workspace paths must match between the host and container.
-Container tooling lives in `slopcar/`. Both deployment modes require Linux.
+The daemon can run directly on the game's machine or on a remote Linux machine.
+The game/mod connects to the selected daemon over HTTP and WebSocket.
+
+In sidecar mode, the game runs on the host and connects to a Docker container
+running the daemon, tmux, and agent sandboxes. Workspace paths must match between
+the host and container. Container tooling lives in `slopcar/`.
 
 Replacing the container ends its tmux processes, while persistent private state
 can remain. See [Sidecar mode](../installation/sidecar.md) for setup and lifecycle procedures.

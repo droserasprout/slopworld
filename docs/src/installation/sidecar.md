@@ -1,11 +1,11 @@
 # Sidecar mode
 
 > [!WARNING]
-> Sidecar mode is not well tested and has many limitations. On Linux, consider a
+> Sidecar mode is not well tested and has many limitations. Consider a
 > [remote connection](linux.md#remote-connection) instead.
 
-A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The Linux game
-remains on the Linux host and connects to the sidecar over a loopback port.
+A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The game
+remains on the host and connects to the sidecar over a loopback port.
 
 ## Install the host launcher
 
@@ -34,7 +34,7 @@ sudo pacman -U ./slopcar-{{#constant release_version}}-x86_64.pkg.tar.zst
 ```
 
 The package contains the launcher, completions, and notices. It depends on Docker
-and native system libraries, and installs no game mod, native daemon, or user service.
+and system libraries. It does not install the game mod or a daemon service on the host.
 Docker must be running and accessible to your ordinary user; run `slopcar` without sudo.
 
 ### From source
@@ -74,7 +74,7 @@ Set `SLOPCAR_IMAGE` to select an image, including one already pulled from a regi
 Before running agents, extend the standard image with your chosen Linux agent
 CLIs and their dependencies, then set `SLOPCAR_IMAGE` to that custom image.
 Install those tools when building the image so they survive container replacement.
-The launcher supplies `PUID`/`PGID` from your Linux user.
+The launcher supplies `PUID`/`PGID` from your host user.
 The entrypoint starts as root to configure the `slop` account, then drops privileges
 before starting the daemon. Workspace and credential ownership stays unchanged.
 
@@ -96,9 +96,9 @@ mounts also protect container configuration/state targets and reject Docker sock
 or configuration sources. See the [technical README](https://github.com/droserasprout/slopworld/blob/main/slopcar/README.md)
 for the detailed mount constraints.
 
-## Linux game connection
+## Game connection
 
-Build and install the mod into your Linux game before launching. Run these commands
+Build and install the mod into your game before launching. Run these commands
 from the repository root, using the same game directory for installation and launch:
 
 ```sh
@@ -112,7 +112,7 @@ Then launch with the sidecar's endpoint and profile:
 RIMWORLD=/path/to/RimWorld/game just sidecar-run
 ```
 
-The sidecar profile is separate from the native profile.
+The sidecar uses a separate game profile from the default local connection.
 See [Paths and files](../reference/paths.md) for overrides and
 [Game profiles](../maintenance/game-profiles.md) for profile behavior.
 
@@ -145,7 +145,7 @@ image or change mounts or resource limits, remove the container with
 `slopcar rm`, then repeat the original `start` command, including its
 directory overrides and mounts. Container removal preserves those directories.
 
-The default port 7718 allows a native daemon on 7717 to run alongside the sidecar.
+The default port 7718 allows a local daemon on 7717 to run alongside the sidecar.
 `--port` (or `SLOPCAR_PORT`) sets the host port and daemon bind port when the worker first creates its configuration.
 A different port requires a new configuration directory.
 The launcher rejects a configuration directory that specifies another port.

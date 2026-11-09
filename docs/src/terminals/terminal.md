@@ -1,8 +1,10 @@
 # Attaching to tmux
 
-These commands apply to a native Linux daemon reachable from the host terminal.
+Run these commands in a terminal on the machine running the daemon, as the same
+user. For a local daemon, use your desktop terminal; for a remote daemon, connect
+to its machine first, for example over SSH.
 The default private socket is `slopworld`; see [Paths and files](../reference/paths.md)
-for socket overrides. Sidecar tmux sessions run inside the Linux container;
+for socket overrides. Sidecar tmux sessions run inside the container;
 use the [in-game terminal](terminal-interface.md) for those deployments.
 
 ## Listing sessions

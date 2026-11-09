@@ -34,7 +34,7 @@ Protected paths, including the daemon's configuration and private state, cannot
 be mounted through ordinary path fields.
 
 In `ro`, `rw`, and `dev`, a whole entry such as `${KUBECONFIG:paths}` expands
-an environment variable containing a platform path list (colon-separated on Linux).
+an environment variable containing a colon-separated path list.
 Empty entries are ignored. Each remaining entry must be absolute and pass the
 same protected-path checks as an ordinary bind. Missing files are skipped.
 Ordinary `$VARIABLE` expansion still selects one path, including any literal colons.

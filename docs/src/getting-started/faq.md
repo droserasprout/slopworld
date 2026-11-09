@@ -58,7 +58,7 @@ Use native x86_64 Linux builds.
 
 RimWorld doesn't have ARM64 builds for Linux.
 
-See [Requirements](../installation/linux.md#requirements) for supported platforms and game builds.
+See [Requirements](../installation/linux.md#requirements) for supported architectures and game builds.
 
 ### Can I play vanilla RimWorld after installing SlopWorld? {#normal-rimworld}
 

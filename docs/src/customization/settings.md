@@ -56,7 +56,7 @@ cancelling leaves the setting unchanged.
 ## Display
 
 Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
-On Linux, SlopWorld launches through X11 or XWayland and keeps the renderer windowed.
+SlopWorld launches through X11 or XWayland and keeps the renderer windowed.
 **Display > Fullscreen** and F11 control fullscreen through the window manager. The
 window stays undecorated when fullscreen is off. Native RimWorld display modes are hidden.
 
@@ -69,7 +69,7 @@ window stays undecorated when fullscreen is off. Native RimWorld display modes a
 
 **Post-processing** adds visual effects such as scanlines and vignette. It is off by default.
 
-On Linux, **Window > Inhibit screensaver** keeps the screen awake while SlopWorld
+**Window > Inhibit screensaver** keeps the screen awake while SlopWorld
 is running, including in menus and in the background. It is enabled by default,
 applies live, and is saved with the profile. Turn it off to restore normal desktop
 idle behavior.

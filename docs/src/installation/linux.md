@@ -1,7 +1,8 @@
 # Linux
 
-Install SlopWorld on native Linux using binary Arch/DEB/RPM packages.
-For a Linux container deployment, see [Sidecar mode](../installation/sidecar.md).
+Install SlopWorld using your distribution's package manager. These packages install
+the daemon directly on the host. To run it in a container, see
+[Sidecar mode](../installation/sidecar.md).
 
 ## Requirements
 
@@ -82,7 +83,7 @@ on Debian and Fedora). Install the tools for the features you use:
 ## Attach the mod and launch
 
 Run these commands as your normal user. Replace the game path
-with your native Linux RimWorld installation:
+with your RimWorld installation directory:
 
 ```sh
 # Install the mod

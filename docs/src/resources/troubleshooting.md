@@ -30,7 +30,8 @@ it does not establish that the patch caused the crash.
 ## The daemon is running but the mod shows no connection
 
 Run `slopctl status` and inspect daemon logs with `slopctl logs daemon`.
-Check the host or container that actually runs the daemon. On native Linux:
+Check the host or container that actually runs the daemon. For a daemon managed
+by systemd, run these commands on its machine:
 
 ```sh
 ss -tlnp | rg 7717
@@ -60,7 +61,7 @@ being a launch error by themselves. See [Sandbox presets](../sandbox/sandbox-pre
 
 ## Multiple instances {#multiple-instances}
 
-Launcher processes using the same profile cannot launch simultaneously on Linux.
+Launcher processes using the same profile cannot launch simultaneously.
 The launcher also detects games launched directly. Use separate
 [Game profiles](../maintenance/game-profiles.md) for separate instances.
 
