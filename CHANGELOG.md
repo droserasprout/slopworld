@@ -6,7 +6,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
-Expect any imaginable incompatibilities until 0.1.0.
+## [Unreleased]
+
+Starting with this release **RimWorld 1.7** (Waylith) is required to run SlopWorld.
+
+### Added
+
+- Packaging: Added standalone Linux sidecar launcher packages.
+- Settings: Show total trash size on the Storage tab.
+
+### Fixed
+
+- Git: Bound memory use when checking worktrees before removal.
+- Settings: Fixed scrollbar flashing and delays when opening settings.
+- UI: Keep the loading screen visible through startup transitions.
+- UI: Fixed Command palette Git actions targeting the wrong checkout.
+- UI: Fixed stale task status changes and cancellation permissions in Command palette.
+
+### Changed
+
+- Jukebox: Request real-time audio scheduling on Linux.
+- Settings: Disable post-processing by default.
+
+### Removed
+
+- Platform: Removed experimental macOS support.
 
 ## [0.0.14] - 2026-11-06
 
@@ -310,10 +334,6 @@ Expect any imaginable incompatibilities until 0.1.0.
 - Settings: Set default Usage polling interval to 120s and disable by default.
 
 ## [0.0.4] - 2026-10-15
-
-### Changed
-
-- RimWorld 1.7 (Waylith) migration.
 
 ### Fixed
 
