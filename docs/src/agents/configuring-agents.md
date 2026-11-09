@@ -49,8 +49,10 @@ saved settings, not unsaved changes.
 Templates appear in Library. Click one to edit it, or use
 **+ > Library > Agent template** to create one. Right-click to duplicate or delete.
 Templates copy command and sandbox settings once. Existing agents retain their
-saved settings when a template or preset changes. Templates do not store project
-mounts, labels, credentials, or private-state identities.
+copied settings and captured explicit preset definitions when the catalog changes.
+The implicit [global preset](../sandbox/sandbox-presets.md#global-preset-and-composition)
+remains live and applies at the next start. Templates do not store project mounts,
+labels, credentials, or private-state identities.
 
 **Session default** leaves persistent temporary storage, autostart, and auto-resume
 unspecified; new agents default to `false`. Omitted network and DNS use `private`

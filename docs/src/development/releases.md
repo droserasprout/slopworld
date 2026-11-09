@@ -97,8 +97,11 @@ still receive updates.
 `just release-package` retains the full local generation, validation, and
 packaging flow. It requires a clean tagged commit on `main` (or a detached tagged
 commit belonging to `main`), an x86_64 Linux build host, and Podman. Set
-`CONTAINER=docker` to use Docker. All native packages build in containers;
-The installed game supplies the mod references. Output goes to
+`CONTAINER=docker` to use Docker. Both local release commands build amd64 and
+arm64 sidecar packages, so the x86_64 host also needs working arm64 container
+emulation; see [architecture requirements](build.md#build). All native packages
+build in containers. Install [mdBook](contributing.md#documentation) for book
+validation. The installed game supplies the mod references. Output goes to
 `dist/{{#constant release_version}}/`; set `RELEASE_DIR` to override it.
 
 `just release-publish` also builds locally and publishes through your authenticated

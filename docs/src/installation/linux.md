@@ -123,7 +123,11 @@ slopctl config set daemon.bind 192.168.1.10:7717
 systemctl --user restart slopd.service
 ```
 
-On the client, register the daemon and enter its token at the hidden key prompt:
+On the server, run `slopctl paths endpoint` to locate the endpoint descriptor.
+Read its `token` field and enter that value at the client’s hidden key prompt below.
+See [Paths and files](../reference/paths.md) if you use custom configuration roots.
+
+On the client, register the daemon:
 
 ```sh
 slopworld connect tank http://192.168.1.10:7717

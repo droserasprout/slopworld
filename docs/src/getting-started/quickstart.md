@@ -14,7 +14,7 @@ Install the optional CLI tools you want to use on the machine running the daemon
 SlopWorld integrates with these tools to some extent:
 
 - Agents: `codex`, `claude`, `pi`, `opencode`.
-- VCS, search: `git`, `git-delta`, `rg`.
+- VCS, search: `git`, `rg`.
 - Code and diffs: `bat`, `less`, `delta`, `pygmentize`, `highlight`.
 - Editors: `micro`, `vim`, `nvim`, `nano`, `emacsclient`.
 - Shells: `bash`, `zsh`, `fish`, `nu`, `pwsh`.
@@ -25,10 +25,14 @@ If your favorite agent or tool is missing, it **doesn't** mean it's not supporte
 
 <img src="../images/quickstart-code-settings.jpg" alt="Code appearance settings with pager, syntax highlighter, line numbers, and theme" align="right" width="280">
 
-Launch the game with `slopworld`. Look around.
+Launch using the command from your installation guide: `slopworld` for a local
+daemon, `slopworld --endpoint NAME` for a saved remote connection, or
+`just sidecar-run` from the source checkout for the sidecar workflow.
 
-The sidebar holds your agents, files, and Git changes. Selecting an agent opens
-its terminal. See the [interface tour](../workspace/interface.md) for the other controls.
+The sidebar holds your agents, files, and Git changes. Select an agent, then
+press T or choose **Terminal** from its context menu. With the terminal window
+open, clicking an agent switches to its terminal. See the
+[interface tour](../workspace/interface.md) for the other controls.
 If the workspace cannot connect to the daemon, follow
 [Troubleshooting](../resources/troubleshooting.md).
 
@@ -43,7 +47,9 @@ If the workspace cannot connect to the daemon, follow
 
 Select **[+] > Host Shell > ~** in the sidebar.
 
-This is a regular Linux shell attached to tmux session. It's persistent and will survive if you close the game and keep `slopd` daemon running.
+This is a Linux shell attached to tmux. It survives closing the game unless
+[Stop active sessions](../customization/settings.md#on-exit) is enabled.
+The `~` tab disappears when its shell stops or exits; project shell tabs are saved.
 
 This shell runs on the daemon host, outside the agent sandbox. In sidecar mode,
 it runs inside the container. See [Host shells](../terminals/host-shells.md) for stopping,
@@ -74,7 +80,9 @@ access, see [Configuring projects](../workspace/configuring-projects.md).
    for this walkthrough.
 4. Visit **Sandbox** to enable sandbox presets suitable for your project.
 5. Open **Preview** to inspect the settings and project mounts, then save.
-6. Find the agent in the **Agents** tab. If it is stopped, press **S** shortcut or choose **Start** from RMB context menu. Select the agent to open its terminal.
+6. Select the agent in the **Agents** tab. If it is stopped, press **S** or choose
+   **Start** from its context menu. Press **T** or choose **Terminal** to open
+   its terminal.
 
 Complete any setup prompts shown by the CLI. If startup fails, use the error
 message with [Troubleshooting](../resources/troubleshooting.md). See
@@ -102,7 +110,7 @@ does not necessarily mean the task is finished.
 1. When the agent reports completion, open **Git** in the sidebar. Click `hello-world.md` to open diff viewer.
 2. Open **Files**, expand the same project and checkout. Click the .md file to open the rendered Markdown preview.
 3. Return to **Git**, right-click the file, and choose **Stage**.
-4. Create a **Terminal (host)** from the same context menu, run `git diff --cached` to check what will enter the commit.
+4. Right-click the checkout heading and choose **Terminal (host)**, then run `git diff --cached` to check what will enter the commit.
 
 See [Git](../workspace/review-changes.md) for the full review workflow and
 [Files and search](../workspace/files-and-search.md) for browsing and editing.

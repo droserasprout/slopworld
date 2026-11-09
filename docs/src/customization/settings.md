@@ -56,13 +56,15 @@ cancelling leaves the setting unchanged.
 ## Display
 
 Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
-SlopWorld launches through X11 or XWayland and keeps the renderer windowed.
-**Display > Fullscreen** and F11 control fullscreen through the window manager. The
-window stays undecorated when fullscreen is off. Native RimWorld display modes are hidden.
+On Linux, the default launcher window override uses X11 or XWayland and keeps the
+renderer windowed. **Display > Fullscreen** and F11 control fullscreen through the
+window manager; the window stays undecorated when fullscreen is off. Native
+RimWorld display modes are hidden.
+`--no-window-fix` skips the launcher’s X11 selection.
 
 | Control | Effect |
 | --- | --- |
-| Fullscreen | Toggle window-manager fullscreen. |
+| Fullscreen | Toggle fullscreen; uses the window manager with the Linux window override. |
 | Frame limiter | Auto (default) follows the display refresh rate. Manual limits are 15, 30, 60, 120, 144, and 240 FPS. |
 | VSync (not recommended) | Off by default. Synchronizes presentation with the display, adds scrolling latency, and disables the FPS selector. Turning it off restores the selected limit. |
 | Smooth scrolling | Use precise touchpad movement where supported; disable it for wheel steps. Enabled by default. |
@@ -107,8 +109,10 @@ Under **General > Locale**, choose `YYYY-MM-DD` (default), `DD/MM/YYYY`, or
 the game desktop’s zone, even with a remote daemon. Choose a named zone to override it.
 Changes apply live to clocks and timestamps and are saved with the profile.
 Date formatting also applies to the game build date. The time zone also sets Planner’s Today and overdue
-calculations and the colony clock. Due dates remain calendar dates. Timer schedules
-still use UTC; their last and next occurrence timestamps use the selected zone.
+calculations and the colony clock. Due dates remain calendar dates.
+[Calendar timers](../workspace/library.md#timers) use their saved time zone; this
+preference supplies the initial zone for new timers and displays occurrence
+timestamps without changing existing schedules.
 
 ## Storage
 
@@ -127,48 +131,8 @@ See [Agent collaboration](../agents/agent-collaboration.md#parent-worker-access)
 
 ## Planner
 
-Open **Planner** with the chess table button beside Settings or the chess table on the map.
-Use **Add a task** for quick entry, check a task to complete it, and select a row to
-edit its title, priority, due date, projects, or contexts. Quick-add and checkboxes save
-immediately. The details pane uses **Save changes** and **Discard edits**.
-
-The list filters by date, completion, project (`+project`), and context (`@context`).
-Search matches titles, projects, and contexts; sort by due date, priority, or title.
-The **Projects** dropdown accepts multiple TODO or configured projects. Smaller windows
-use filter menus and open details separately. Due dates and recurrence metadata do not
-schedule work.
-
-Use the Markdown field beneath the title for notes, checklists, and code blocks.
-**Preview** renders the draft. **Save changes** saves the task and all edited descriptions;
-failed saves retain drafts for retry. **Discard** restores the last saved values.
-Drafts survive task and view changes within the mod session; save before quitting.
-
-**Tasks | Raw** switches between the task list and its underlying
-[todo.txt text](https://github.com/todotxt/todo.txt). Field edits preserve unknown metadata.
-**Refresh** reloads external TODO edits and links; **Reload description** reads external
-Markdown edits. On a conflict, copy the affected draft before discarding and reloading.
-
-**Links** lists associated Tasks and Workers, with live status and progress. Click a
-Task to open its details or a Worker to focus its terminal. **Link Task…** and
-**Link Worker…** attach existing items; **Remove** detaches them without deleting,
-canceling, or stopping them. Worker outcomes do not change the Planner checkbox.
-
-Save edits before choosing **Spawn worker…**. Select a project, then use the worker
-dialog, prefilled with the task title and saved description. Spawning links the new
-Task and Worker even if startup fails. You can remove old links and spawn another worker.
-To cancel an unfinished task, open its link and choose **Cancel**. Cancellation prevents
-further task updates but leaves the worker process running.
-
-The daemon stores `TODO.txt` (up to 64 KiB) in its data directory, normally
-`~/.local/share/slopworld/`. Saving assigns each task a stable `sw-id:`; preserve it and
-any `sw-task:` metadata when editing Raw. Agents report through Tasks and cannot edit
-the backlog through the Planner API.
-
-Descriptions live in `planner/descriptions/<sw-id>.md` (up to 1 MiB each); links live in
-`planner/links/<sw-id>.json`. Renaming, moving, or completing a task preserves its description.
-Deleting a TODO entry keeps its description and linked worker task. Restoring the same
-`sw-id:` reconnects the description; copying a task requires a new ID and does not copy
-its description.
+Open Planner with the chess table button beside Settings or the chess table on the map.
+See [Planner](../workspace/planner.md) for the backlog, notes, and worker assignments.
 
 ## Configuration file
 

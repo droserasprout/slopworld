@@ -20,7 +20,8 @@ then save.
 Pasting an image into a Codex agent uploads the local clipboard's PNG
 data to that session, including when the daemon is remote. Images must be at most
 20 MiB and 8192 pixels in each dimension. If the daemon reports a missing image
-mount, restart the agent to enable image attachments.
+mount, restart the agent to enable image attachments. Ordinary clipboard text
+takes precedence over image-data fallback. Middle-click pastes PRIMARY text only.
 
 SlopWorld uses function keys for workspace navigation. Hold Shift to forward a
 function key to the CLI without Shift. Escape goes to the CLI.

@@ -8,7 +8,7 @@ lifetimes.
 
 | Action | Running process | Saved configuration and files |
 | --- | --- | --- |
-| Close and reopen the game | Agents continue while their daemon host remains running. | Reopening reconnects to the workspace. |
+| Close and reopen the game | Agents continue while their daemon host remains running, unless [Stop active sessions](../customization/settings.md#on-exit) is enabled. | Reopening reconnects to the workspace. |
 | Restart the daemon | Existing tmux sessions survive and are adopted. | Private state and configuration remain. |
 | Stop an agent | Ends its process. | The configured agent remains Down with its private state. |
 | Restart an agent | Starts a fresh process with saved settings. | Reuses its private state and project files. |

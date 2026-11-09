@@ -77,7 +77,9 @@ If you play the vanilla game tho, I highly recommend buying DLCs, especially Roy
 
 ### Can I mix SlopWorld with other mods?
 
-No. The launcher ensures that the SlopWorld profile only enables one mod.
+Other mods are unsupported. New and reset profiles enable Core plus SlopWorld;
+normal launches preserve your existing mod list. See
+[Profile reset](../maintenance/game-profiles.md#mod-list-reset) to restore the intended list.
 
 ## Agents and sandboxing
 
@@ -123,7 +125,9 @@ See [Configuring agents](../agents/configuring-agents.md).
 
 ### What happens when I restart an agent? Reinstall the game or the daemon? {#restart}
 
-Closing the game or restarting the daemon preserves running tmux sessions. Rebooting the host or restarting/replacing the sidecar ends them.
+Restarting the daemon preserves running tmux sessions. Closing the game also
+preserves them unless [Stop active sessions](../customization/settings.md#on-exit)
+is enabled. Rebooting the host or restarting/replacing the sidecar ends them.
 
 See [Session lifecycle](../agents/session-lifecycle.md) for restart behavior and
 what survives closing the game or restarting the daemon.
@@ -140,16 +144,21 @@ Yes. Agents can use task mailboxes and access each other's terminals when permit
 
 ## Interface
 
-### How do I pass function keys to the terminal session? {#f-keys}
+<a id="how-to-send-f-key-or-alt-combo-to-the-terminal-process-bypassing-slopworld-shortcuts"></a>
 
-The mod reserves function keys for navigation. Pressing them with Shift sends them to the terminal.
+### How do I pass function keys or Alt combinations to the terminal? {#f-keys}
+
+Hold Shift to forward a reserved shortcut without Shift: Shift+F1 sends F1, and
+Alt+Shift+A sends Alt+A. Sending the shifted versions of those reserved shortcuts
+is not supported.
 See [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
 
 ### How do I copy text from the terminal? {#copy}
 
 You can use the standard Ctrl+Shift+C/V shortcuts or the context menu.
 
-When text is selected, you can also use Ctrl+C/V directly. Without a selection, Ctrl+C interrupts the process.
+Ctrl+C copies selected text; without a selection, it interrupts the process.
+Ctrl+V pastes.
 
 See [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
 
@@ -158,12 +167,6 @@ See [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
 Open **Edit agent > Permissions**, enable **Allow spawning workers**, and
 choose which templates it may use. Delegation is disabled by default. These choices
 can also be saved in an agent template.
-
-### How to send F-key or Alt combo to the terminal process bypassing SlopWorld shortcuts?
-
-Use Shift as modifier.
-
-e.g, to send F1 press Shift+F1. To send Alt+A press Alt+Shift+A. Sending actual Shift+F1 and Alt+Shift+A is not possible yet.
 
 ## Fun
 

@@ -19,7 +19,7 @@ See [Input and panes](terminal-interface.md) for terminal controls.
 tools inside sandboxed agent sessions through the `SHELL` environment variable.
 It defaults to `bash`. Restart the agent after changing it.
 
-This setting is separate from the **Shell** default used by shell errands.
+This setting is separate from the **User shell** default used by shell errands.
 It does not change host panes, shell errands, or explicit tool-call shell overrides.
 See [Command presets](../workspace/command-presets.md) for managing available commands.
 

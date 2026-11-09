@@ -69,9 +69,10 @@ the permissions. Delegation is disabled by default. New workers receive the stri
 permissions and delegation settings of their parent and template. Editing a worker
 changes what that worker can do, not what its parent can do.
 
-A parent with **Send follow-ups** enabled can send `slopctl task followup --id ID "Check the tests"`
-to wake a running interactive worker. The daemon waits for readiness and records the
-request and submission outcome in task history. Submission does not accept or reopen
+An agent with **Send follow-ups** permission for the recipient can send
+`slopctl task followup --id ID "Check the tests"` to wake a running interactive
+worker or an existing agent assigned a mailbox task. The daemon waits for readiness
+and records the request and submission outcome in task history. Submission does not accept or reopen
 the task. Follow-ups are rejected for canceled tasks, stopped workers, and shell
 workers. Use a new worker when the process has exited.
 
@@ -89,7 +90,10 @@ read the failure and create a new task to retry. See
 
 The Tasks view is global; the workspace Project filter does not hide its rows.
 For delegation to an existing agent, use `slopctl task delegate AGENT "description"`
-within the permissions below.
+within the permissions below. Mailbox arrival does not wake the recipient. Keep
+the returned ID and, for immediate delivery to a running interactive agent, use
+`slopctl task followup --id ID "Read and accept this task"`. This requires
+**Send follow-ups** permission and waits for the agent to be ready.
 
 Agents can report to `host`, the user at the keyboard. Sending assignments to other
 agents uses the Send follow-ups scope. Terminal permissions and task participation
@@ -97,10 +101,12 @@ are separate. See [Using slopctl](../reference/slopctl.md) for task
 commands, statuses, and lifecycle.
 
 Tasks are shared by sender and recipient. Only the recipient can update an
-uncanceled task. The root token can cancel queued or accepted tasks through the
-task board, API, or `slopctl task cancel ID`. Parents with **Cancel tasks** enabled can also cancel their
-working worker tasks. Cancellation does not stop the worker process. Participants can remove
-terminal tasks; root can also remove unfinished tasks. Only root can send as `host`.
+uncanceled task. Recipients can cancel queued or accepted tasks. The root token
+can cancel those and unfinished worker assignments through the task board, API, or
+`slopctl task cancel ID`. Agents with **Cancel tasks** permission can cancel
+unfinished tasks addressed to recipients within that scope, including ordinary
+working tasks without being a participant. Cancellation does not stop the process.
+Participants can remove terminal tasks; root can also remove unfinished tasks. Only root can send as `host`.
 
 Task details and `slopctl task show ID` retain the original assignment and every
 subsequent update in order, with sender, status, and time. Progress reports remain
@@ -120,8 +126,7 @@ Host terminals and administrative configuration remain root-only.
 Credentials survive daemon restarts while the same process and stable identity
 survive. Stop, exit, failed launch, rename, removal, or identity replacement revokes
 credentials. A fresh launch receives a new token. Credentials are stored privately
-in `<DATA>/credentials.toml`; the old grant store is not loaded. Agents running with
-old grant tokens need a fresh launch after upgrading.
+in `<DATA>/credentials.toml`.
 
 Agents need network reachability to the daemon API. `network = "none"` prevents
 this access. See [Network configuration](configuring-agents.md#network) and the

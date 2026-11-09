@@ -80,9 +80,9 @@ When an application requests mouse reporting, left-click selection gestures on t
 live screen go to the application. Hold Shift to select text locally, including word
 and line selection. Selection gestures in scrollback history remain local.
 
-On the primary screen, the mouse wheel scrolls the mod's scrollback history. On the
-alternate screen, the wheel sends arrow keys (Up/Down) to the application. When the
-application requests mouse reporting, the mod forwards wheel input as mouse events.
+While reading scrollback, the wheel stays in history. At the live screen, an
+application requesting mouse reporting receives wheel events. Otherwise, the wheel
+scrolls history on the primary screen or sends Up/Down keys on the alternate screen.
 
 ## Player pawn (map)
 

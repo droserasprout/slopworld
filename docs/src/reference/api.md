@@ -96,7 +96,9 @@ host, `<caller>-worker` for agents, with numeric suffixes when needed. An explic
 name must be valid and unused; duplicate names fail without creating a task.
 
 Workers receive the template's captured settings and fresh private state. The
-caller determines task and sidebar parentage only.
+caller determines task and sidebar parentage and limits the child’s permissions
+and delegation policy. See [Parent-worker access](../agents/agent-collaboration.md#parent-worker-access)
+for inheritance rules; host-owned workers have delegation disabled.
 
 ### Sandbox inspection
 
@@ -115,8 +117,9 @@ process exit and does not prove startup succeeded. Host terminals have no plan.
 | `like` | A named session's presets, network, DNS, and limits. |
 
 Conflicting choices or missing sandbox settings are rejected. Projects supply
-mounts. An empty shell command uses the daemon's `$SHELL`; only an empty host
-shell command attached to a project without `temp` creates a saved host tab.
+mounts. An empty host shell command uses the daemon's `$SHELL`, falling back to
+its configured shell. Sandboxed shell errands use `defaults.shell`. Only an empty
+host shell command attached to a project without `temp` creates a saved host tab.
 Explicit host commands and file actions are temporary. See
 [Library items and errands](../workspace/library.md) for workflows.
 

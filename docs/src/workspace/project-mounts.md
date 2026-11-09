@@ -18,8 +18,9 @@ be removed.
    stays fixed; a relative path such as `docs` is inside the agent's checkout.
 4. Choose **Read-only** or **Read-write**, then **Save**.
 
-**Add project** copies another project's paths into a mount. Later changes to
-that project do not update the copied paths. Select **×** to remove a mount.
+**Add project** mounts another project's directory at its original path. Its
+additional mounts are not copied, and later directory changes do not update this
+mount. Select **×** to remove a mount.
 Use the agent editor's **Preview** tab to check access.
 
 ## Shared cache mounts
@@ -42,8 +43,8 @@ if the executable is missing.
 3. Set **To** to the cache directory required by the tool.
 4. Select **Save** and restart running agents.
 
-Saving links the cache into every checkout, including **main** and future
-worktrees. Host shells and agents use the same cached files.
+For a relative **To** path, saving links the cache into every checkout, including
+**main** and future worktrees. Host shells and agents use the same cached files.
 
 An absolute **To** path mounts the cache only inside the sandbox, without checkout
 links. Keep it outside the original checkout when using worktrees. Sidecar mode

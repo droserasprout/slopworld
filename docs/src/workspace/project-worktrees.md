@@ -24,8 +24,9 @@ of commits. See [Paths and files](../reference/paths.md) for storage locations.
 
 ## Renaming
 
-Move or remove attached sessions, then select **Rename**. Renaming a managed
-worktree moves its directory; its branch keeps its name.
+For a ready managed worktree, move or remove attached sessions, then select
+**Rename**. Renaming moves its directory; its branch keeps its name.
+External checkouts cannot be renamed here.
 
 <a id="remove-a-worktree"></a>
 

@@ -211,7 +211,18 @@
 
                 <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
                 <script>
-                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    const sidebarButton = document.getElementById('mdbook-sidebar-toggle');
+                    sidebarButton.setAttribute('aria-expanded', sidebar === 'visible');
+                    sidebarButton.setAttribute('role', 'button');
+                    sidebarButton.tabIndex = 0;
+                    // Reuse label activation so mdBook owns checkbox state and transitions.
+                    // Without JavaScript, the label still toggles the checkbox directly.
+                    sidebarButton.addEventListener('keydown', event => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (!event.repeat) sidebarButton.click();
+                    });
                     document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
                     Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
                         link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);

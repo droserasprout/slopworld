@@ -7,21 +7,23 @@ for sandbox limits.
 ## Backup contents
 
 The table lists default locations for an installation without a sidecar. If the
-daemon runs remotely, back up its configuration and data on that machine and the
-game profile on yours. See [Paths and files](../reference/paths.md) for overrides,
-XDG locations, and sidecar paths.
+daemon runs remotely, back up its configuration and data on that machine. On the
+game machine, also back up the game profile, saved connections in
+`<CONFIG>/endpoints/`, and likes in `<DATA>/jukebox.toml`. See
+[Paths and files](../reference/paths.md) for overrides, XDG locations, and sidecar paths.
 
 | Data | Default location | Include |
 | --- | --- | --- |
 | Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, project records, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
-| Workspace records and authority | `~/.local/share/slopworld/` | Agent definitions and permissions, host-shell definitions, worktree/task records, and any pending workspace recovery journal. |
+| Workspace records and authority | `~/.local/share/slopworld/` | Agent definitions and permissions, host-shell definitions, worktree/task records, Planner `TODO.txt` and `planner/`, `timer-state.json`, and any pending workspace recovery journal. |
 | Agent private state | `~/.local/share/slopworld/sessions/` | Tool state, history, configuration copies, and recoverable trash. |
 | Game profile | `~/.local/share/slopworld/profiles/` | Saves and mod settings. |
 | Jukebox | `~/.config/slopworld/jukebox/` and `~/.local/share/slopworld/jukebox.toml` | Stations and liked songs. |
 | External data | Your project, worktree, cache-mount, and credential-source paths | These are not backed up by copying SlopWorld's roots. |
 
 Preserve `config.toml`, which contains the authoritative daemon token.
-The endpoint descriptor can be recreated; it cannot replace that configuration.
+The daemon recreates its `endpoints/local.toml` descriptor; it cannot replace that
+configuration. Saved client connections in `endpoints/NAME.toml` must be backed up.
 Daemon caches, including activity and prompt summaries, are disposable.
 
 ## Backup procedure

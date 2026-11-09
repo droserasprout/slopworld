@@ -42,7 +42,7 @@ revisions, and request settlement; saves compare document revisions. `PlannerVie
 selection, its row field editor, polling demand, and window presentation.
 Only root may read or mutate the Planner API. Agents update existing Tasks, whose status
 is projected on links independently of Planner completion.
-See [Planner](../docs/src/customization/settings.md#planner).
+See [Planner](../docs/src/workspace/planner.md).
 
 `TodoText` owns field edits and preserves unrelated text and metadata. The view holds
 TaskStore polling demand while open. Drafts and requests belong to the endpoint and
@@ -60,7 +60,7 @@ before dirty descriptions; partial failures retain drafts and accepted revisions
 retry. An endpoint switch stops further writes but lets accepted replies settle.
 Backlog saves cannot remove rows with dirty descriptions. Refresh must preserve pending
 edits and cannot supersede a newer save. UI procedures and storage paths belong to the
-[Planner guide](../docs/src/customization/settings.md#planner).
+[Planner guide](../docs/src/workspace/planner.md).
 
 ## Cancellation
 

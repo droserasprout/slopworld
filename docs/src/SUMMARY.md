@@ -14,6 +14,7 @@
   - [Worktrees](workspace/project-worktrees.md)
   - [Files and search](workspace/files-and-search.md)
   - [Git](workspace/review-changes.md)
+  - [Planner](workspace/planner.md)
   - [Library and errands](workspace/library.md)
   - [Command presets](workspace/command-presets.md)
   - ["Gameplay"](workspace/gameplay.md)

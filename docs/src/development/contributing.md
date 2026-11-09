@@ -21,6 +21,14 @@ See the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes
 
 ## Documentation
 
+Install mdBook **0.5.4**, matching the publication workflow and theme template:
+
+```sh
+cargo install mdbook --version 0.5.4 --locked
+```
+
+It is required for book builds and release validation, not ordinary compilation.
+
 `just docs-build` builds the mdBook and checks local links, rendered anchors, and that
 every book page appears once in the summary. The documentation publication workflow
 runs the same checks. It also checks local file and directory links in repository

@@ -18,7 +18,7 @@ options take precedence where available. Build recipe settings belong to
 | `SLOPCAR_MEMORY` | `slopcar` | `8g` | Container memory limit. |
 | `SLOPCAR_PIDS_LIMIT` | `slopcar` | `4096` | Container process limit. |
 | `SLOPCAR_PORT` | `slopcar` | `7718` | Loopback host port and initial daemon bind port. |
-| `SLOPD_CACHE` | Daemon, launcher, CLI | XDG cache directory | Application cache root.[^paths] |
+| `SLOPD_CACHE` | Daemon, mod, launcher, CLI | XDG cache directory | Application cache root.[^paths] |
 | `SLOPD_CONFIG_ROOT` | Daemon, mod, launcher, CLI | XDG config directory | Configuration root for settings, catalogs, endpoint discovery, and the saved game directory.[^paths] |
 | `SLOPD_CREDITS_URL` | Daemon | `https://openrouter.ai/api/v1/credits` | OpenRouter balance endpoint. |
 | `SLOPD_DATA` | Daemon, mod, launcher, CLI | XDG data directory | Data root for workspace state, jukebox likes, and the default game profile.[^paths] |

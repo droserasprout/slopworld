@@ -17,9 +17,8 @@ Use `slopctl --endpoint NAME` to select a saved peer. Manage saved client
 connections with `slopworld connect NAME URL` and list them with `slopworld endpoints`.
 See [Saves and profiles](../maintenance/game-profiles.md) for connection setup.
 
-For one command, use `slopctl --endpoint tank status`. The precedence is
-`--endpoint NAME`, paired `SLOPD_URL`/`SLOPD_TOKEN`, `SLOPD_ENDPOINT`, then
-`endpoints/local.toml`. The default `--endpoint local` can be omitted.
+For one command, use `slopctl --endpoint tank status`. The default
+`--endpoint local` can be omitted.
 `--sidecar` uses the catalog under `<CONFIG>/sidecar/`.
 `slopctl peers` continues to list live daemon sessions.
 
@@ -198,9 +197,10 @@ default to `<CACHE>/sidecar/Player.log`.
 
 ## Machine-readable output
 
-Every command accepts `--json` to print newline-delimited JSON instead of formatted text.
-The JSON represents the result, such as a filtered task list, name list, or status object.
-The structured output shape varies by command.
+Use `--json` for a JSON result document, such as a task list or status object.
+Ordinary results are pretty-printed and may span several lines; log output emits
+one compact JSON object per log line. The result shape varies by command.
+Help and shell completion scripts remain text.
 
 ## Shell completions
 

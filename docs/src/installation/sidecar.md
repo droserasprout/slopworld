@@ -7,6 +7,9 @@
 A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The game
 remains on the host and connects to the sidecar over a loopback port.
 
+Sidecar mode disables desktop file opening, daemon audio (radio and Spotify),
+and per-session resource limits. The bundled soundtrack still plays in the game.
+
 ## Install the host launcher
 
 The minimum supported host-library baseline is **Debian 13 (Trixie)**. Use a
@@ -18,7 +21,8 @@ You also need access to a running local Docker engine. The host kernel must allo
 the nested sandbox operations checked by `slopcar doctor`. The container supplies
 tmux, Bubblewrap, and pasta; those do not impose native package requirements on the host.
 The `slopcar` launcher includes its seccomp policy and requires no Rust, Python,
-or source checkout.
+or source checkout. These requirements cover only the container launcher;
+[game connection](#game-connection) below also requires a host source build.
 
 Download the separate **slopcar** package from
 [GitHub Releases](https://github.com/droserasprout/slopworld/releases).
@@ -98,8 +102,13 @@ for the detailed mount constraints.
 
 ## Game connection
 
-Build and install the mod into your game before launching. Run these commands
-from the repository root, using the same game directory for installation and launch:
+This source workflow requires a checkout and the
+[host build prerequisites](../development/build.md#prerequisites), including the
+.NET SDK and Protobuf compiler. It builds the mod and the native daemon/CLI/launcher
+crate, even though the daemon will run in the container.
+
+Build and install the mod before launching. Run these commands from the repository
+root, using the same game directory for installation and launch:
 
 ```sh
 RIMWORLD=/path/to/RimWorld/game just install-mod

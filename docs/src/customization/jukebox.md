@@ -19,6 +19,8 @@ in the Sources table. ICY metadata supplies the track display. Volume multiplies
 RimWorld's audio settings; mute stops daemon playback and downloads.
 
 The full menu offers song recognition through `songrec`, Like, and History.
+Install `songrec` on the game machine; recognition uses its local audio output,
+with `pactl` selecting the default output monitor.
 Likes are saved locally; see [Paths and files](../reference/paths.md) for stations
 and liked-song locations.
 

@@ -5,7 +5,9 @@ active terminal or content view, and top bar.
 
 ## Sidebar
 
-Select an agent to open its terminal. Drag the grip to resize the sidebar.
+On the map, select an agent and press T or choose **Terminal** from its context
+menu. With the terminal window open, clicking a session switches to it.
+Drag the grip to resize the sidebar.
 The tabs appear in this order:
 
 - **Agents** groups sessions by project. Open a row's context menu for session actions.

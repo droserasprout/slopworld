@@ -31,15 +31,22 @@ containing `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`. The defau
 `~/.local/share/Steam/steamapps/common/RimWorld`. `MANAGED` can select a separate
 assembly directory.
 
+Documentation builds and release validation also require the pinned
+[mdBook setup](contributing.md#documentation).
+
 ## Build and install
 
 ### Install and launch
 
-Clone the repository and run the installer, replacing the game path below:
+Install the [runtime dependencies](../installation/linux.md#requirements) as well
+as the compiler tools above; the source installer does not install host packages.
+Clone the repository and check for missing runtime tools before installing,
+replacing the game path below:
 
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
 cd slopworld
+just tools-check-requirements
 RIMWORLD=/path/to/RimWorld/game just install
 slopworld
 ```
@@ -159,7 +166,7 @@ For a sidecar deployment, use `just sidecar-devloop`.
 
 ## Related guides
 
-- [Developer build notes](https://github.com/droserasprout/slopworld/blob/main/notes/build-commands.md) cover dependency maintenance and benchmarks.
+- [Developer build notes](https://github.com/droserasprout/slopworld/blob/main/notes/build-commands.md) describe build ownership, dependency locks, and test boundaries.
 - [Contributing](contributing.md) covers repository and documentation workflows.
 - [Troubleshooting](../resources/troubleshooting.md) covers logs and diagnosis.
 - [Packaging and releases](releases.md) covers archives and publication.

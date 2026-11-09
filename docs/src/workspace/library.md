@@ -10,7 +10,8 @@ Use **+ > Library** to create a prompt named `Explain this project`. Enter:
 
 > Read the README and summarize how to build and test this project. Do not edit files.
 
-Choose a project and an agent template under **Run using**, then save. In Library,
+Choose **Run using > Agent template** and select a template. Set **Where it runs**
+to **One project, named below**, select the project, then save. In Library,
 right-click the entry and select **Run**. A temporary agent terminal opens with
 that prompt. Read its response there. Set **Where it runs** to **Ask me every time**
 to reuse one entry across projects.

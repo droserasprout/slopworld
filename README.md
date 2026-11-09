@@ -7,8 +7,8 @@
 <img src="docs/src/images/screenshot.jpg" alt="SlopWorld workspace in RimWorld" width="320" align="right">
 
 SlopWorld is a fun terminal-focused IDE for agentic coding, built on RimWorld.
-Your agents' sessions appear as colonists. Select one to open its terminal and give
-it work.
+Your agents' sessions appear as colonists. Select one and press T to open its
+terminal and give it work.
 
 - Run [agent CLIs](https://slopworld.space/agents/configuring-agents.html), [shells](https://slopworld.space/terminals/host-shells.html), and tools in [persistent terminal sessions](https://slopworld.space/terminals/terminal.html).
 - Manage [projects](https://slopworld.space/workspace/configuring-projects.html), [mounts](https://slopworld.space/workspace/project-mounts.html), and [Git worktrees](https://slopworld.space/workspace/project-worktrees.html) for parallel work.
