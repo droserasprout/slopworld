@@ -22,6 +22,10 @@ fixed Unity startup delay. Missing windows retry and surface resizing still wait
 for geometry confirmation. The initial title is `SlopWorld`; late updates add the
 connected daemon hostname without making early window setup depend on SessionHub.
 
+`CameraEdgeScroll` adapts only the camera's fullscreen checks to recognize the Linux
+fullscreen preference, including its bottom-edge width. Game edge-scroll preferences,
+UI exclusions, and Eco input suppression remain owned by their existing paths.
+
 `LinuxWindowRecovery` owns process-lifetime policy and retry timing without game
 dependencies. `LinuxGameWindow` samples scene state and performs ordered game/X11
 calls. Startup and loading arm the watch; quiet settlement retires it. Departure,

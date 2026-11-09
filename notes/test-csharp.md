@@ -47,6 +47,8 @@ and applies the swapchain rewrite to the game's actual IL. It does not start the
 or validate rendering. Keep this check separate from the game-free coverage denominator.
 It also checks the native close-loop and keyboard-dispatch rewrites against installed
 IL, including preservation of the native text-edit shortcut path.
+Camera edge-scroll checks verify that both fullscreen rewrites replace only the
+display getter, preserving the game's remaining scrolling logic.
 
 Benchmark workflow belongs to [build commands](build-commands.md) and
 [IPC benchmarks](../bench/ipc/README.md).

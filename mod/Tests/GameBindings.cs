@@ -31,6 +31,53 @@ namespace SlopWorld.Tests
                 )
                     context.LoadFromAssemblyPath(Path.Combine(Path.GetFullPath(managed), assembly));
                 int count = 0;
+                foreach (
+                    MethodBase target in (IEnumerable)Invoke(
+                        mod,
+                        "CameraEdgeScroll",
+                        "TargetMethods"
+                    )
+                )
+                {
+                    var cameraOriginal = PatchProcessor.GetOriginalInstructions(target);
+                    var cameraRewritten = (
+                        (IEnumerable<CodeInstruction>)
+                            Invoke(
+                                mod,
+                                "CameraEdgeScroll",
+                                "Transpiler",
+                                cameraOriginal
+                                    .Select(instruction => new CodeInstruction(instruction))
+                                    .ToList()
+                            )
+                    ).ToList();
+                    Require(
+                        cameraOriginal.Count == cameraRewritten.Count,
+                        "camera instructions must be retained"
+                    );
+                    int replacements = 0;
+                    for (int i = 0; i < cameraOriginal.Count; i++)
+                    {
+                        Require(
+                            cameraOriginal[i].opcode == cameraRewritten[i].opcode,
+                            "camera opcode changed"
+                        );
+                        if (Equals(cameraOriginal[i].operand, cameraRewritten[i].operand))
+                            continue;
+                        Require(
+                            cameraOriginal[i].operand is MethodInfo before
+                                && before.Name == "get_fullScreen"
+                                && before.DeclaringType.FullName == "UnityEngine.Screen"
+                                && cameraRewritten[i].operand is MethodInfo after
+                                && after.Name == "Fullscreen"
+                                && after.DeclaringType.Name == "CameraEdgeScroll",
+                            "camera rewrite must only replace the fullscreen getter"
+                        );
+                        replacements++;
+                    }
+                    Require(replacements == 1, "camera must use one fullscreen replacement");
+                    count++;
+                }
                 using (var loadingFont = mod.GetManifestResourceStream("SlopWorld.LoadingFont"))
                     Require(
                         loadingFont != null && loadingFont.Length > 0,
