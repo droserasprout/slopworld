@@ -82,8 +82,8 @@ namespace SlopWorld
             Catalog.Library.FirstOrDefault(x => x.Name == name);
     }
 
-    // Creation and catalog registration are host inputs here. The production window,
-    // execution, search and input code are linked unchanged; drawing is not simulated.
+    // Creation and non-Git/task registration are host inputs here. The production window,
+    // execution, search and input code are linked; drawing is not simulated.
     static class CreationActions
     {
         public sealed class Entry
@@ -99,5 +99,40 @@ namespace SlopWorld
     public partial class CommandPalette
     {
         static readonly List<CommandDef> CommandTable = new List<CommandDef>();
+    }
+}
+
+namespace SlopWorld
+{
+    // Record the final view/action handoff; candidate lists and command delegates are production code.
+    static class GitView
+    {
+        public static readonly List<(string Action, string Scope)> Calls =
+            new List<(string, string)>();
+
+        public static void DiffAll(string scope) => Calls.Add(("diff", scope));
+
+        public static void StageAll(string scope) => Calls.Add(("stage", scope));
+
+        public static void UnstageAll(string scope) => Calls.Add(("unstage", scope));
+
+        public static void CommitStaged(string scope) => Calls.Add(("commit", scope));
+    }
+
+    static class TaskActions
+    {
+        public static TaskInfo Canceled,
+            Removed;
+
+        public static void CancelTask(TaskInfo task) => Canceled = task;
+
+        public static void RemoveTask(TaskInfo task) => Removed = task;
+    }
+
+    static class TasksView
+    {
+        public static int FiltersOpened;
+
+        public static void OpenFilterMenu() => FiltersOpened++;
     }
 }

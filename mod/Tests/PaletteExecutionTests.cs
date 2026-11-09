@@ -11,7 +11,7 @@ namespace SlopWorld
     {
         [TestFixture]
         [NonParallelizable]
-        public sealed class PaletteExecutionTests
+        public sealed partial class PaletteExecutionTests
         {
             CommandPalette palette;
             int calls;

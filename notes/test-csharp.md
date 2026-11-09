@@ -14,9 +14,11 @@ Tests cover pure policies and game-free client/transport integration. Individual
 tests own the detailed behavior inventory.
 
 Palette tests link the production window, execution, keyboard input, search, and history.
-A fixture supplies command registrations and substitutes native fields/window hosting;
-settings writes use temporary profiles. Catalog-specific submenu eligibility, command
-registration wiring, native text focus, and rendering remain outside that boundary.
+Git/task catalog tests link their production registrations, candidate lists, and stale-target
+guards; final Git/view actions are recorded and task status writes use the recording transport.
+Other registrations are fixture inputs. Native fields/window hosting are substituted and
+settings writes use temporary profiles. Other catalog eligibility, native text focus, and
+rendering remain outside that boundary.
 
 Linux idle-inhibition integration tests require `dbus-daemon`.
 They start an isolated private bus and fake desktop services; they never acquire
