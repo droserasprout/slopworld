@@ -1,6 +1,6 @@
 # Regenerate all outputs from reviewed inputs; stage notices last
 [group('generate')]
-generate-all: generate-completions generate-protocol generate-api-docs generate-loading-font generate-icons generate-emojis generate-emoji-atlas generate-symbol-atlas generate-fileicons generate-appicon generate-favicon generate-daemon-licenses generate-sidecar-licenses generate-licenses
+generate-all: generate-clown-nose generate-completions generate-protocol generate-api-docs generate-loading-font generate-icons generate-emojis generate-emoji-atlas generate-symbol-atlas generate-fileicons generate-appicon generate-favicon generate-daemon-licenses generate-sidecar-licenses generate-licenses
 
 # Generate protocol
 [group('generate')]
@@ -81,3 +81,13 @@ generate-fileicons:
 [group('generate')]
 generate-completions: daemon-build sidecar-build
     uv run --locked python -m tools.cli_completions generate slopctl slopworld slopcar
+
+# Generate the geometric agent clown-nose overlay
+[group('generate')]
+generate-clown-nose:
+    uv run --locked --extra assets python -m tools.assets.clown_nose
+
+# Generate agent faceplates in every eye color
+[group('generate')]
+generate-robot-faces facing='both':
+    uv run --locked --extra assets python -m tools.assets.roboface all --facing {{ quote(facing) }}

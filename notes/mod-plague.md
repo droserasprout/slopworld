@@ -23,3 +23,9 @@ pat adds ten simulation seconds; charged protection follows the living, spawned
 colony animal and sweeps nearby cells once per simulation second. Existing fixed
 pulses and individual grace periods remain independent. `Pets` owns the input
 cooldown, so repeated selection within that cooldown does not add charge.
+
+Accepted pats also have a small chance to replace one nearby empty player-owned
+grave with a rose. Occupied graves are excluded. Planting validation happens while
+the grave is despawned; failure restores it. Completed buildings have no individual
+Worksite ownership record, and conversion leaves construction totals and historical
+plague seeds intact.

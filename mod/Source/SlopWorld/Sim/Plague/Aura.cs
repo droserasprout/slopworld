@@ -10,7 +10,7 @@ namespace SlopWorld
 {
     // Pets.Poke reverses local plague effects. WaterBall uses the same restorative pulse.
     // Keep pulse and protection tables only in memory. The map saves terrain changes.
-    public class Aura : MapComponent
+    public partial class Aura : MapComponent
     {
         // Affect nearby cells around the animal.
         const float Radius = 3.9f;
@@ -121,6 +121,8 @@ namespace SlopWorld
 
             if (Rand.Value < ReviveChance)
                 Revive(pet.Position, now);
+            if (Rand.Value < 0.1f)
+                ConvertGrave(pet.Position, now);
         }
 
         // Apply the WaterBall pulse without the random chance used for pet pats.

@@ -544,6 +544,7 @@ namespace SlopWorld
 
         // Save eye variants by binding name, alongside the pawn references.
         Dictionary<string, RobotFace.EyeColor> _savedEyeColors;
+        Dictionary<string, bool> _savedClownNoses;
 
         // Supply working lists for Scribe_Collections to retain dictionary keys and values between XML loading and reference resolution.
         // The short overload cannot supply these lists for Reference values and returns an empty dictionary with an error.
@@ -570,13 +571,23 @@ namespace SlopWorld
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 _savedEyeColors = new Dictionary<string, RobotFace.EyeColor>();
+                _savedClownNoses = new Dictionary<string, bool>();
                 foreach (var binding in _pawns)
                     if (binding.Value != null)
+                    {
                         _savedEyeColors[binding.Key] = RobotFace.ColorOf(binding.Value);
+                        _savedClownNoses[binding.Key] = RobotFace.HasClownNose(binding.Value);
+                    }
             }
             Scribe_Collections.Look(
                 ref _savedEyeColors,
                 "agentEyeColors",
+                LookMode.Value,
+                LookMode.Value
+            );
+            Scribe_Collections.Look(
+                ref _savedClownNoses,
+                "agentClownNoses",
                 LookMode.Value,
                 LookMode.Value
             );
@@ -590,6 +601,14 @@ namespace SlopWorld
                         RobotFace.Restore(binding.Value, color);
                     else
                         RobotFace.Assign(binding.Value);
+                foreach (var binding in _pawns)
+                    RobotFace.RestoreClownNose(
+                        binding.Value,
+                        _savedClownNoses != null
+                            && _savedClownNoses.TryGetValue(binding.Key, out var enabled)
+                            && enabled
+                    );
+                _savedClownNoses = null;
                 _savedEyeColors = null;
             }
             _reindex = true; // whatever the table is now, it is not what the index holds

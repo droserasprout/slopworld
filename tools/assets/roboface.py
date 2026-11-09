@@ -147,7 +147,8 @@ def build_base(facing: str) -> Renderer:
     else:
         region = front(r, geometry.below(PLATE_TOP), ahead_of(BACK_X))
         socket(r, 73.5, geometry.EYE_Y)
-        geometry.paint_mouth(r, 63.0, geometry.MOUTH[1], 80.0, geometry.MOUTH[3], (66.0, 69.5, 73.0, 76.5), C_SOCKET)
+        # Foreshorten the grille toward the front edge instead of spanning the cheek.
+        geometry.paint_mouth(r, 74.0, geometry.MOUTH[1], 83.0, geometry.MOUTH[3], (77.0, 80.0), C_SOCKET)
         for cy in (59.5, 84.0):
             geometry.paint_bolt(r, BACK_X + 4.0, cy, region)
     return r
@@ -190,13 +191,15 @@ def save(rgb: geometry.FloatArray, a: geometry.FloatArray, name: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('variants', nargs='*', type=str.lower, choices=[*map(str.lower, EYE_COLORS), 'missing', 'all'])
+    parser.add_argument('--facing', choices=['south', 'east', 'both'], default='both')
     args = parser.parse_args(argv)
     registry = {**EYE_COLORS, 'Missing': None}
     wanted = list(registry) if not args.variants or 'all' in args.variants else [v.title() for v in args.variants]
-    bases = {f: build_base(f) for f in ('south', 'east')}
+    facings = ('south', 'east') if args.facing == 'both' else (args.facing,)
+    bases = {f: build_base(f) for f in facings}
     OUT.mkdir(parents=True, exist_ok=True)
     for variant in wanted:
-        for facing in ('south', 'east'):
+        for facing in facings:
             eye_r = build_eyes(facing, registry[variant])
             rgb, a = composite(bases[facing], eye_r)
             save(rgb, a, f'{variant}_{facing}')

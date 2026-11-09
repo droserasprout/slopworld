@@ -34,7 +34,9 @@ session renames and keeps ephemeral/worker sessions sidebar-only. An exception
 aborts the whole sweep.
 
 Runtime face assignments and pet cooldowns use weak pawn identity. These caches must
-not retain pawns or games; `AgentColony` persists bound face variants in saves.
+not retain pawns or games; `AgentColony` persists bound face variants and clown-nose rolls in saves.
+`RobotFace` rolls the nose on generation and appearance rerolls; older saves default
+to no nose until the next reroll. The head attachment follows faceplate orientation.
 
 [Colony scenes](mod-colony-scenes.md) own intro/departure phases and save interaction.
 [Worksites](mod-worksite.md) use Working state to control construction; completion

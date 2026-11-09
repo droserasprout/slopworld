@@ -14,6 +14,9 @@ controls also let you start or stop, edit, duplicate, label, or delete it. See
 for the default keys and [Session lifecycle](../agents/session-lifecycle.md) for what each
 action preserves.
 
+Agents can roll a red clown nose when created or when **New look** rerolls their
+appearance. The result is saved with the colony.
+
 ## Construction
 
 Agents with **Working** status receive construction work. Interrupted construction
@@ -35,7 +38,9 @@ Click the cat to heal it and restore its surroundings. Each accepted pat adds te
 seconds of aura time; repeated pats stack into minutes. The charged aura follows
 the cat, protecting nearby cells from plague and fire spread while healing nearby
 pawns and clearing fire and filth once per simulation second. Pats less than 0.4
-seconds apart count only once. Charge pauses with the simulation, including Eco
+seconds apart count only once. Each accepted pat also has a 10% chance to turn one
+nearby empty player-owned grave into a rose, where planting is possible. Occupied
+graves are left alone. Charge pauses with the simulation, including Eco
 mode, and resets when the colony reloads.
 
 ## Eco mode
