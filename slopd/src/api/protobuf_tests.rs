@@ -365,3 +365,35 @@ async fn root_session_snapshots_continue_during_an_unrelated_lifecycle_transacti
     release.send(()).unwrap();
     transaction.await;
 }
+
+#[test]
+fn radio_output_patch_preserves_empty_device_and_round_trips_config_view() {
+    let mut config = crate::config::Config::default();
+    config.daemon.audio_output.backend = crate::config::AudioBackend::Pulse;
+    config.daemon.audio_output.device = "headphones".into();
+    let Proto(view): Proto<wire::Config> = reply(serde_json::to_value(&config).unwrap()).unwrap();
+    let output = view.daemon.unwrap().audio_output.unwrap();
+    assert_eq!(output.backend, "pulse");
+    assert_eq!(output.device, "headphones");
+    let patch = config_patch(wire::ConfigPatch {
+        values: Some(wire::EditableConfig {
+            daemon: Some(wire::Daemon {
+                audio_output: Some(wire::AudioOutputSettings {
+                    backend: "auto".into(),
+                    device: String::new(),
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        paths: vec![
+            "daemon.audio_output.backend".into(),
+            "daemon.audio_output.device".into(),
+        ],
+    })
+    .unwrap();
+    assert_eq!(
+        patch,
+        json!({"daemon": {"audio_output": {"backend": "auto", "device": ""}}})
+    );
+}

@@ -21,11 +21,20 @@ preventing stop/reopen from reusing its socket mid-poll. `application/music_oper
 adapts host-terminal launch/stop; session retains lifecycle guards. Recovery runs
 after adoption. Tmux markers identify managed players and preserve applied volume.
 
+Settings → Audio stores daemon radio routing in `daemon.audio_output`: a backend
+preference and an optional host PCM ID. Empty device follows server/default routing.
+The output catalog is read-only and endpoint-local; physical sound-server sink routing
+remains with the desktop. These settings do not control native OST or ncspot.
+Saving retires the current radio output and reconnects the requested stream; stale
+openers cannot restore the previous device. Auto retains PipeWire-first ordering.
+An explicit PCM is tried first, then the backend preference and system default.
+
 Daemon audio tries preferred ALSA devices then default, excluding null sinks and
-repeated IDs. Backend failure retires the device and restarts the source after bounded
-backoff. Recovery publishes no terminal error, so the mod retains the station;
-exhausted retries publish the failure. Stop/replacement cancels delayed recovery. Reopening restarts files/reconnects
-stations. The audio worker owns one idle/opening/playing/backoff source phase; each live
+repeated IDs. Backend failure retires the device, excludes its PCM from recovery attempts,
+and restarts the source after bounded backoff. Recovery publishes no terminal
+error, so the mod retains the station; exhausted retries publish the failure.
+A new source generation or routing change clears failed-device exclusions.
+Stop/replacement cancels delayed recovery. Reopening restarts files/reconnects stations. The audio worker owns one idle/opening/playing/backoff source phase; each live
 run carries its source, generation, and cancellation together. Output-device lifetime and
 recovery budget remain separate. Control owns request identity and narrow playback/title
 publication operations, registering cancellation before the worker starts an opener.

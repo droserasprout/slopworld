@@ -12,6 +12,10 @@ pub(crate) async fn start_sessions(
     authority: Arc<ConfigAuthority>,
 ) -> Result<super::Application> {
     services
+        .music
+        .configure_output(authority.read_config().await.daemon.audio_output.clone())
+        .await;
+    services
         .library
         .seed(authority.read_config().await.library_items_all());
     let workspace = Arc::new(super::Workspace::new(storage, crate::endpoint::path()));

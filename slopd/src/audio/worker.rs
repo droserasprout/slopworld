@@ -8,10 +8,12 @@ use std::time::{Duration, Instant};
 use super::control::{Control, PlayDisposition};
 use super::playback::{self, AudioOutput, OutputFactory};
 use super::{AudioState, station};
+use crate::config::AudioOutputSettings;
 
 pub(super) enum Cmd {
     Play { source: String, generation: u64 },
     Volume(f32),
+    Configure(AudioOutputSettings),
     Stop { generation: u64 },
 }
 
@@ -102,6 +104,7 @@ struct OutputRecovery {
     recoveries: usize,
     recovery_generation: Option<u64>,
     healthy_since: Option<Instant>,
+    failed_devices: Vec<String>,
 }
 
 struct AudioWorker {
@@ -112,6 +115,7 @@ struct AudioWorker {
     output: Option<Box<dyn AudioOutput>>,
     source: SourcePhase,
     recovery: OutputRecovery,
+    settings: AudioOutputSettings,
 }
 
 #[expect(
@@ -133,6 +137,7 @@ pub(super) fn run(
         output: None,
         source: SourcePhase::Idle,
         recovery: OutputRecovery::default(),
+        settings: AudioOutputSettings::default(),
     };
 
     loop {
@@ -157,9 +162,19 @@ impl AudioWorker {
             output.report_underruns();
         }
         if self.output.as_ref().is_some_and(|output| output.failed()) {
+            self.reset_recovery_generation(self.control.snapshot().1);
             self.source.retire();
             self.recovery.healthy_since = None;
+            if let Some(id) = self.output.as_ref().and_then(|output| output.device_id())
+                && !self.recovery.failed_devices.contains(&id)
+            {
+                self.recovery.failed_devices.push(id);
+            }
             drop(self.output.take());
+            self.state
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .output_device = None;
             let (source, generation) = self.control.snapshot();
             if let Some(source) = source {
                 self.schedule_recovery(source, generation, now, "audio output failed");
@@ -211,6 +226,7 @@ impl AudioWorker {
         if self.recovery.recovery_generation != Some(generation) {
             self.recovery.recoveries = 0;
             self.recovery.recovery_generation = Some(generation);
+            self.recovery.failed_devices.clear();
         }
     }
 
@@ -227,6 +243,10 @@ impl AudioWorker {
             }
             WorkerMsg::Command(Cmd::Play { source, generation }) => {
                 self.play(source, generation);
+                true
+            }
+            WorkerMsg::Command(Cmd::Configure(settings)) => {
+                self.configure(settings);
                 true
             }
             WorkerMsg::Command(Cmd::Volume(volume)) => {
@@ -311,11 +331,33 @@ impl AudioWorker {
                         generation,
                         title,
                         needs_output,
+                        settings: self.settings.clone(),
+                        excluded: self.recovery.failed_devices.clone(),
                     },
                     self.factory.clone(),
                     &self.tx,
                 );
             }
+        }
+    }
+
+    fn configure(&mut self, settings: AudioOutputSettings) {
+        if self.settings == settings {
+            return;
+        }
+        self.settings = settings;
+        // Retiring the opening run also invalidates its cancellation identity. Its delayed
+        // completion cannot restore the old device, even when source generation is unchanged.
+        self.source.retire();
+        drop(self.output.take());
+        self.state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .output_device = None;
+        self.recovery = OutputRecovery::default();
+        let (source, generation) = self.control.snapshot();
+        if let Some(source) = source {
+            self.play(source, generation);
         }
     }
 
@@ -362,6 +404,10 @@ impl AudioWorker {
         }
 
         if let Some(opened_output) = opened_output {
+            self.state
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .output_device = opened_output.device_id();
             self.output = Some(opened_output);
             self.recovery.healthy_since = Some(Instant::now());
         }
@@ -438,6 +484,8 @@ struct OpenRequest {
     generation: u64,
     title: station::TitleSink,
     needs_output: bool,
+    settings: AudioOutputSettings,
+    excluded: Vec<String>,
 }
 
 fn spawn_open(request: OpenRequest, factory: Arc<dyn OutputFactory>, tx: &Sender<WorkerMsg>) {
@@ -460,6 +508,8 @@ fn spawn_open_with(
         generation,
         title,
         needs_output,
+        settings,
+        excluded,
     } = request;
     let thread_source = source.clone();
     let failure_source = source.clone();
@@ -470,7 +520,7 @@ fn spawn_open_with(
         let (result, output) = match playback::open(&thread_source, title) {
             Ok(opened) => {
                 if needs_output {
-                    match factory.open() {
+                    match factory.open(&settings, &excluded) {
                         Ok(output) => (Ok(opened), Some(output)),
                         Err(error) => (Err(error), None),
                     }

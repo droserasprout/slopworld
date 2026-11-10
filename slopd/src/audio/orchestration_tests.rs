@@ -112,7 +112,11 @@ impl playback::AudioOutput for PanicOutput {
 }
 struct PanicFactory(Arc<AtomicBool>);
 impl OutputFactory for PanicFactory {
-    fn open(&self) -> anyhow::Result<Box<dyn playback::AudioOutput>> {
+    fn open(
+        &self,
+        _: &crate::config::AudioOutputSettings,
+        _: &[String],
+    ) -> anyhow::Result<Box<dyn playback::AudioOutput>> {
         Ok(Box::new(PanicOutput(self.0.clone())))
     }
 }

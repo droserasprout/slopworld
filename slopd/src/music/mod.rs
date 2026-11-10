@@ -45,6 +45,15 @@ impl Music {
         }
     }
 
+    pub(crate) async fn configure_output(&self, settings: crate::config::AudioOutputSettings) {
+        let _transition = self.transition.lock().await;
+        self.audio.configure_output(settings);
+    }
+
+    pub(crate) fn output_device(&self) -> Option<String> {
+        self.audio.state().output_device
+    }
+
     pub(crate) async fn state(&self) -> crate::audio::AudioState {
         self.ncspot
             .lock()

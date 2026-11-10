@@ -13,6 +13,7 @@ session creation requires root. See [Authorization](api.md#authorization).
 | Method | Path | Route access group | Request body | Response |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/audio` | `root-only` | `Empty` | `AudioState` |
+| `GET` | `/api/audio/outputs` | `root-only` | `Empty` | `AudioOutputs` |
 | `GET` | `/api/capabilities` | `root-only` | `Empty` | `Capabilities` |
 | `GET` | `/api/health` | `scoped` | `Empty` | `Health` |
 | `GET` | `/api/jukebox` | `root-only` | `Empty` | `JukeboxCatalog` |

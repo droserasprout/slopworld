@@ -13,6 +13,7 @@ Starting with this release **RimWorld 1.7** (Waylith) is required to run SlopWor
 ### Added
 
 - Packaging: Added standalone Linux sidecar launcher packages.
+- Settings: Added radio output and audio backend selection.
 - Settings: Show total trash size on the Storage tab.
 
 ### Fixed

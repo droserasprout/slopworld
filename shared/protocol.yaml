@@ -360,6 +360,12 @@ http:
       path: "/api/jukebox"
       methods: [GET]
       scope: root
+    audio_outputs:
+      protobuf:
+        GET: [Empty, AudioOutputs]
+      path: "/api/audio/outputs"
+      methods: [GET]
+      scope: root
     jukebox_presets:
       protobuf:
         GET: [Empty, JukeboxCatalog]

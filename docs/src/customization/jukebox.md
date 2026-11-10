@@ -49,3 +49,17 @@ Spotify library controls remain in `ncspot`. "Like" button writes only SlopWorld
 Sidecar mode uses RimWorld to play the bundled OST.
 
 Internet radio, song recognition, and Spotify playback are not available.
+
+## Radio output
+
+Settings → Audio → Daemon radio output selects where slopd plays radio. Leave
+Output and Backend on **Auto** for
+normal use. Auto shows the detected output in parentheses. The list contains outputs exposed by the daemon host's audio system.
+With a sound-server output, use desktop sound settings to choose speakers or
+headphones. **Refresh outputs** updates the list and shows the currently open output.
+
+The advanced backend preference can favor PulseAudio-compatible output (including
+PipeWire's Pulse server), PipeWire, or the system default. If a selected output
+cannot open, the daemon falls back automatically. **Save** persists the choice on
+the daemon host and reconnects any playing radio stream; **Discard** restores the
+saved settings. These choices do not route RimWorld's OST/game sounds or Spotify.

@@ -136,6 +136,7 @@ fn root_routes(m: App) -> Router<App> {
         .route(routes::CONFIG_PATCH, put(put_config_patch))
         .route(routes::USAGE, get(usage))
         .route(routes::AUDIO, get(audio))
+        .route(routes::AUDIO_OUTPUTS, get(audio_outputs))
         .route(routes::NCSPOT, post(ncspot))
         .route(routes::JUKEBOX, get(jukebox))
         .route(

@@ -58,6 +58,7 @@ enum RequestKind {
 enum ResponseKind {
     Ack,
     AppsReply,
+    AudioOutputs,
     AudioState,
     BrowseResult,
     Capabilities,
@@ -185,6 +186,7 @@ const ROUTES: &[Route] = &[
     ("GET /api/audio", Req::Empty, Resp::AudioState),
     ("POST /api/ncspot", Req::RedrawReq, Resp::SessionResult),
     ("GET /api/jukebox", Req::Empty, Resp::JukeboxCatalog),
+    ("GET /api/audio/outputs", Req::Empty, Resp::AudioOutputs),
     ("GET /api/jukebox/presets", Req::Empty, Resp::JukeboxCatalog),
     ("POST /api/jukebox/presets", Req::Station, Resp::Ack),
     ("GET /api/browse", Req::Empty, Resp::BrowseResult),
@@ -352,6 +354,7 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     match route.2 {
         ResponseKind::Ack => Ok(serde_json::to_value(wire::Ack::decode(value)?)?),
         ResponseKind::AppsReply => Ok(serde_json::to_value(wire::AppsReply::decode(value)?)?),
+        ResponseKind::AudioOutputs => Ok(serde_json::to_value(wire::AudioOutputs::decode(value)?)?),
         ResponseKind::AudioState => Ok(serde_json::to_value(wire::AudioState::decode(value)?)?),
         ResponseKind::BrowseResult => Ok(serde_json::to_value(wire::BrowseResult::decode(value)?)?),
         ResponseKind::Capabilities => Ok(serde_json::to_value(wire::Capabilities::decode(value)?)?),
@@ -509,6 +512,7 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     match route.2 {
         ResponseKind::Ack => encode_wire::<wire::Ack>(value),
         ResponseKind::AppsReply => encode_wire::<wire::AppsReply>(value),
+        ResponseKind::AudioOutputs => encode_wire::<wire::AudioOutputs>(value),
         ResponseKind::AudioState => encode_wire::<wire::AudioState>(value),
         ResponseKind::BrowseResult => encode_wire::<wire::BrowseResult>(value),
         ResponseKind::Capabilities => encode_wire::<wire::Capabilities>(value),

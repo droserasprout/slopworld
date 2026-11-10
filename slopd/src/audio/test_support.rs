@@ -19,7 +19,11 @@ pub(super) struct FakeOutputFactory(pub(super) Arc<FakeOutputState>);
 pub(super) struct FakeOutput(pub(super) Arc<FakeOutputState>);
 
 impl OutputFactory for FakeOutputFactory {
-    fn open(&self) -> anyhow::Result<Box<dyn AudioOutput>> {
+    fn open(
+        &self,
+        _: &crate::config::AudioOutputSettings,
+        _: &[String],
+    ) -> anyhow::Result<Box<dyn AudioOutput>> {
         self.0.opens.fetch_add(1, Ordering::AcqRel);
         Ok(Box::new(FakeOutput(self.0.clone())))
     }

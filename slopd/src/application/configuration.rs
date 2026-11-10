@@ -174,6 +174,10 @@ impl Configuration {
     }
     /// Reconcile only after releasing the persistence gate, then publish accepted views.
     async fn finish_config_change(&self) {
+        self.services
+            .music
+            .configure_output(self.config().await.daemon.audio_output.clone())
+            .await;
         self.sessions.sync_from_config().await;
         super::projects::publish(&self.config_authority, &self.services).await;
         self.services.announce_library(self.config().await).await;

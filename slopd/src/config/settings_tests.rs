@@ -114,3 +114,24 @@ fn usage_defaults_are_opt_in_with_a_two_minute_interval() {
     assert_eq!(explicit.usage_poll_secs, 60);
     assert!(explicit.usage_items["claude_session"].poll);
 }
+
+#[test]
+fn audio_output_patch_preserves_other_settings_and_reset_restores_automatic() {
+    let old = workspace();
+    let text = toml::to_string(&old.settings).unwrap();
+    let patch = toml::from_str("[daemon.audio_output]\nbackend = 'pulse'\ndevice = 'headphones'\n")
+        .unwrap();
+    let prepared = document::patch(&old, &text, patch).unwrap();
+    let saved: Settings = toml::from_str(&prepared.text).unwrap();
+    assert_eq!(saved.daemon.audio_output.backend, AudioBackend::Pulse);
+    assert_eq!(saved.daemon.audio_output.device, "headphones");
+    assert_eq!(saved.daemon.token, old.daemon.token);
+    let patch = toml::from_str("[daemon.audio_output]\nbackend = 'auto'\ndevice = ''\n").unwrap();
+    let reset = document::patch(&prepared.candidate, &prepared.text, patch).unwrap();
+    assert_eq!(
+        reset.candidate.daemon.audio_output,
+        AudioOutputSettings::default()
+    );
+    let invalid = toml::from_str("[daemon.audio_output]\nbackend = 'unknown'\n").unwrap();
+    assert!(document::patch(&old, &text, invalid).is_err());
+}

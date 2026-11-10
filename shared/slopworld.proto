@@ -18,6 +18,7 @@ message Daemon {
   string pi_titles = 12;
   string task_summaries = 13;
   Instructions instructions = 14;
+  AudioOutputSettings audio_output = 20;
   reserved 16;
   reserved "planner";
   reserved 15, 17, 18, 19;
@@ -1059,4 +1060,20 @@ message PlannerSaveReq {
 message PlannerDescription {
   string text = 1;
   string revision = 2;
+}
+
+message AudioOutputSettings {
+  string backend = 1;
+  string device = 2;
+}
+
+message AudioOutputDevice {
+  string id = 1;
+  string name = 2;
+}
+
+message AudioOutputs {
+  repeated AudioOutputDevice devices = 1;
+  optional string active_device = 2;
+  map<string, string> auto_devices = 3;
 }

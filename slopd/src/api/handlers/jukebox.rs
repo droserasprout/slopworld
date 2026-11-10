@@ -123,3 +123,40 @@ fn jukebox_error(error: crate::jukebox::JukeboxError) -> super::super::protobuf:
 #[cfg(test)]
 #[path = "jukebox_tests.rs"]
 mod tests;
+
+/// Device discovery is blocking ALSA work; it never runs on a Tokio executor thread.
+pub(crate) async fn audio_outputs(State(m): State<App>) -> ApiResult<wire::AudioOutputs> {
+    let devices = tokio::task::spawn_blocking(crate::audio::output_devices)
+        .await
+        .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
+        .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    use crate::config::{AudioBackend, AudioOutputSettings};
+    // Discovery previews the same preference policy as playback without opening streams.
+    let auto_devices = [
+        ("auto", AudioBackend::Auto),
+        ("pulse", AudioBackend::Pulse),
+        ("pipewire", AudioBackend::Pipewire),
+        ("default", AudioBackend::Default),
+    ]
+    .into_iter()
+    .map(|(key, backend)| {
+        let settings = AudioOutputSettings {
+            backend,
+            device: String::new(),
+        };
+        let id = crate::audio::preferred_ids(&settings)
+            .into_iter()
+            .find(|id| devices.iter().any(|(candidate, _)| candidate == id))
+            .unwrap_or_default();
+        (key.to_owned(), id)
+    })
+    .collect();
+    Ok(Proto(wire::AudioOutputs {
+        auto_devices,
+        devices: devices
+            .into_iter()
+            .map(|(id, name)| wire::AudioOutputDevice { id, name })
+            .collect(),
+        active_device: m.services.music.output_device(),
+    }))
+}

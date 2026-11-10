@@ -197,6 +197,8 @@ namespace SlopWorld
         // Task summaries are generated once for each durable delegated task.
         public string TaskSummaries = "";
         public string WorkerPrompt = "";
+        public string AudioBackend = "auto";
+        public string AudioDevice = "";
 
         // Settings > Agents > Workers stores the selected qualified template identities.
         // The daemon uses them as policy, not as part of templates or saved agent settings.
@@ -289,6 +291,10 @@ namespace SlopWorld
                 PiTitles = d.PiTitles,
                 TaskSummaries = d.TaskSummaries,
                 WorkerPrompt = i.WorkerPrompt,
+                AudioBackend = string.IsNullOrEmpty(d.AudioOutput?.Backend)
+                    ? "auto"
+                    : d.AudioOutput.Backend,
+                AudioDevice = d.AudioOutput?.Device ?? "",
 
                 Agent = f.Agent,
                 AgentShell = f.AgentShell,
@@ -356,6 +362,11 @@ namespace SlopWorld
                 PiTitles = PiTitles,
                 TaskSummaries = TaskSummaries,
                 Instructions = new Wire.Instructions { WorkerPrompt = WorkerPrompt },
+                AudioOutput = new Wire.AudioOutputSettings
+                {
+                    Backend = AudioBackend,
+                    Device = AudioDevice,
+                },
             };
             foreach (var pair in UsageItems)
                 daemon.UsageItems[pair.Key] = new Wire.UsageItem

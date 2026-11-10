@@ -398,6 +398,7 @@ fn compares_sound_server_bridges() {
             .open_stream()
             .unwrap();
         let output = RodioOutput {
+            id: "test".into(),
             _sink: sink,
             volume: Arc::new(AtomicU32::new(0.0f32.to_bits())),
             health,
@@ -418,4 +419,41 @@ fn compares_sound_server_bridges() {
             output.failed(),
         );
     }
+}
+
+#[test]
+fn output_preferences_fall_back_without_using_null_or_repeating_devices() {
+    use crate::config::{AudioBackend, AudioOutputSettings};
+    let settings = AudioOutputSettings {
+        backend: AudioBackend::Pulse,
+        device: "headphones".into(),
+    };
+    assert_eq!(
+        preferred_ids(&settings),
+        ["headphones", "pulse", "pipewire", "default"]
+    );
+    let mut attempts = Vec::new();
+    let (id, ()) = open_first_available(
+        preferred_ids(&settings)
+            .into_iter()
+            .map(|id| (id.clone(), id)),
+        || Some(("default".into(), "default".into())),
+        |id| {
+            attempts.push(id.clone());
+            if id == "pipewire" {
+                Ok(())
+            } else {
+                Err(anyhow!("unavailable"))
+            }
+        },
+    )
+    .unwrap();
+    assert_eq!(id, "pipewire");
+    assert_eq!(attempts, ["headphones", "pulse", "pipewire"]);
+    let settings = AudioOutputSettings {
+        backend: AudioBackend::Default,
+        device: "null".into(),
+    };
+    assert_eq!(preferred_ids(&settings), ["default", "pipewire", "pulse"]);
+    assert_eq!(preferred_ids(&AudioOutputSettings::default()), SERVER_PCMS);
 }
