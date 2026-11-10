@@ -1,0 +1,136 @@
+set shell := ["bash", "-euc"]
+set quiet
+set default-list
+game := env("RIMWORLD", env("HOME") + "/.local/share/Steam/steamapps/common/RimWorld")
+
+# Inspect installed toolchains and the local game without launching it.
+inspect:
+    dotnet --info
+    dotnet workload list
+    command -v node chromium chromium-browser google-chrome ilspycmd || true
+    ls -la {{quote(game)}} | head -60
+    ls -d /usr/share/dotnet/packs/* "$HOME/.dotnet/packs/"* 2>/dev/null || true
+
+# Compile the standalone interpreter probe; dependencies stay in ignored build output.
+build:
+    dotnet restore Probe.csproj --locked-mode --nologo -v quiet
+    dotnet build Probe.csproj -c Debug --no-restore --nologo -v minimal
+
+# Produce a local-only static root, including actual installed managed assemblies.
+stage: build
+    rm -rf out/wwwroot
+    mkdir -p out/wwwroot
+    cp -r bin/Debug/net10.0/wwwroot/. out/wwwroot/
+    cp wwwroot/* out/wwwroot/
+    dotnet run --project Scanner/Scanner.csproj -- {{quote(game)}} --stage out/wwwroot/game
+
+# Isolated startup experiment: skip threaded logger, recognize browser platform.
+stage-adapted: build
+    rm -rf out/wwwroot-adapted
+    mkdir -p out/wwwroot-adapted
+    cp -r bin/Debug/net10.0/wwwroot/. out/wwwroot-adapted/
+    cp wwwroot/* out/wwwroot-adapted/
+    dotnet run --project Scanner/Scanner.csproj -- {{quote(game)}} --stage out/wwwroot-adapted/game --adapt
+
+# Preserve the four-adaptation root while adapting the browser installation path.
+stage-lifecycle: build
+    rm -rf out/wwwroot-lifecycle
+    mkdir -p out/wwwroot-lifecycle
+    cp -r bin/Debug/net10.0/wwwroot/. out/wwwroot-lifecycle/
+    cp wwwroot/* out/wwwroot-lifecycle/
+    dotnet run --project Scanner/Scanner.csproj -- {{quote(game)}} --stage out/wwwroot-lifecycle/game --lifecycle
+
+# Inspect installed managed signatures without running game initialization.
+scan:
+    mkdir -p out
+    dotnet run --project Scanner/Scanner.csproj -- {{quote(game)}} > out/assembly-scan.txt
+    cat out/assembly-scan.txt
+
+# Install a pinned local disassembler for inspecting the installed entry point.
+disassembler:
+    dotnet tool install ilspycmd --version 9.1.0.7988 --tool-path .local/tools
+
+# Decompile only the launcher owner into ignored local evidence.
+entry-source:
+    mkdir -p out
+    .local/tools/ilspycmd -t RimWorldWaylith.Program {{quote(game + "/RimWorld.dll")}} > out/entrypoint.cs
+
+source assembly type output:
+    .local/tools/ilspycmd -t {{quote(type)}} {{quote(game + "/" + assembly + ".dll")}} > {{quote(output)}}
+
+types assembly:
+    .local/tools/ilspycmd -l c {{quote(game + "/" + assembly + ".dll")}}
+
+asset-sizes:
+    du -sh {{quote(game + "/Assets.zip")}} {{quote(game + "/Data/Core")}}
+
+asset-list pattern:
+    python3 -c 'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); print("\n".join(f"{i.filename} {i.file_size} bytes" for i in z.infolist() if sys.argv[2].lower() in i.filename.lower()))' {{quote(game + "/Assets.zip")}} {{quote(pattern)}}
+
+copy-draw-assets:
+    mkdir -p out/wwwroot-adapted/assets
+    cp {{quote(game + "/Assets.zip")}} out/wwwroot-adapted/assets/Assets.zip
+
+stage-assets: stage-lifecycle
+    mkdir -p out/wwwroot-lifecycle/assets
+    cp {{quote(game + "/Assets.zip")}} out/wwwroot-lifecycle/assets/Assets.zip
+    sha256sum {{quote(game + "/Assets.zip")}} out/wwwroot-lifecycle/assets/Assets.zip > out/asset-hashes.txt
+
+copy-offline:
+    rm -rf out/wwwroot-offline
+    cp -r out/wwwroot-adapted out/wwwroot-offline
+
+stage-jobs: build
+    rm -rf out/wwwroot-jobs
+    mkdir -p out/wwwroot-jobs/assets
+    cp -r bin/Debug/net10.0/wwwroot/. out/wwwroot-jobs/
+    cp wwwroot/* out/wwwroot-jobs/
+    dotnet run --project Scanner/Scanner.csproj -- {{quote(game)}} --stage out/wwwroot-jobs/game --jobs
+    cp {{quote(game + "/Assets.zip")}} out/wwwroot-jobs/assets/Assets.zip
+
+il assembly type output:
+    .local/tools/ilspycmd -il -t {{quote(type)}} {{quote(game + "/" + assembly + ".dll")}} > {{quote(output)}}
+
+adapters:
+    dotnet build Adapters/Adapters.csproj -p:GameDirectory={{quote(game)}} --nologo -v minimal
+
+stage-core: stage-jobs
+    rm -rf out/wwwroot-core
+    cp -r out/wwwroot-jobs out/wwwroot-core
+    just adapters
+    cp Adapters/bin/Debug/net10.0/Adapters.dll out/wwwroot-core/
+    python3 core_pack.py {{quote(game)}} out/wwwroot-core/assets/Core.zip
+    just --justfile ../compat/justfile core ../runtime/out/wwwroot-core ../runtime/bin/Debug/net10.0/Probe.dll
+
+# Summarize browser evidence without dumping hashes or scene buffers.
+report file='out/browser.json':
+    jq '{completed, runtime: .result.runtime, architecture: .result.architecture, checks: [.result.checks[] | {name,ok,value,errors}], loads: (.result.loaded | length), loadErrors: .result.loadErrors, adaptations: .result.adaptations}' {{quote(file)}}
+
+# Apply the repository-pinned C# formatter only to this worker's sources.
+format:
+    dotnet tool run csharpier format Program.cs Scanner
+    uv run --locked ruff format verify.py
+
+check-format:
+    dotnet tool run csharpier check Program.cs Scanner
+    uv run --locked ruff format --check verify.py
+    uv run --locked ruff check verify.py
+
+# Verify browser computations and byte-for-byte provenance of staged assemblies.
+verify root='out/wwwroot' report='out/browser.json':
+    python3 verify.py {{quote(game)}} {{quote(root)}} {{quote(report)}}
+
+copy-eco:
+    rm -rf out/wwwroot-eco
+    cp -r out/wwwroot-core out/wwwroot-eco
+
+copy-http:
+    rm -rf out/wwwroot-http
+    cp -r out/wwwroot-core out/wwwroot-http
+    mkdir -p out/wwwroot-http/mod
+    cp ../../../mod/Assemblies/Google.Protobuf.dll out/wwwroot-http/mod/
+
+workspace-dependencies:
+    cp wwwroot/main.js out/wwwroot-eco/main.js
+    cp ../../../mod/Assemblies/{0Harmony,Google.Protobuf,Markdig,AngleSharp,Tomlyn}.dll out/wwwroot-eco/mod/
+    uv run --locked python mod_pack.py ../../../mod out/wwwroot-eco/mod/Content.zip
