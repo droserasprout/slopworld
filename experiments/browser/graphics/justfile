@@ -1,0 +1,38 @@
+game := env("RIMWORLD", env("HOME") + "/.local/share/Steam/steamapps/common/RimWorld")
+
+default:
+    @just --list
+
+# Prepare locally derived shaders; never commit out/ or installed assets.
+prepare:
+    python3 prepare.py "{{game}}"
+
+# Read PE metadata only; does not load or execute game assemblies.
+inspect:
+    dotnet run --project inspect/Inspect.csproj -- "{{game}}" out/native.json
+    python3 report.py
+
+# Public source checkout for reproducible boundary investigation.
+source:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -d vendor/BRUTAL/.git ]; then git init -q vendor/BRUTAL; fi
+    git -C vendor/BRUTAL fetch -q --depth 1 https://github.com/ahwootech/BRUTAL.git 7a3b72d84368872b885094e34fe8cdf5f7989460
+    git -C vendor/BRUTAL checkout -q --detach FETCH_HEAD
+
+test:
+    python3 -m unittest -v test_prepare.py
+    node --check renderer.js
+    node --check probe.js
+
+format:
+    uv run --locked ruff check --quiet --select I --fix *.py
+    uv run --locked ruff format --quiet *.py
+
+lint:
+    uv run --locked ruff check --quiet *.py
+    uv run --locked ruff format --quiet --check *.py
+
+# Invoke only the installed native shader compiler; no game process or Vulkan device.
+shader-targets:
+    python3 shader_targets.py "{{game}}"
