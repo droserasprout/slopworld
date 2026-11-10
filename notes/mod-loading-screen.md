@@ -9,6 +9,8 @@ Only an interactive menu/play repaint with no queued events
 ends the stream; a null current event is not an end-of-load signal. The host keeps
 drawing across those queue gaps to avoid an empty frame during scene handoff. Ordinary in-game
 operation windows remain game-owned outside a full-screen loading session.
+Autosave events are identified by their untranslated `Autosaving` text key and
+hidden by the host, while retaining the repaint acknowledgement needed to run the save.
 `LoadingFontAtlas` decodes the
 embedded atlas on the game thread, without waiting for mod content loading. Settings
 are available before early hooks are installed; tips are also embedded. This path must

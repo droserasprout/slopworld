@@ -20,6 +20,10 @@ namespace SlopWorld
             CurrentEvent?.FieldType,
             "forceHideUI"
         );
+        static readonly FieldInfo EventTextKey = AccessTools.Field(
+            CurrentEvent?.FieldType,
+            "eventTextKey"
+        );
         static readonly FieldInfo Displayed = AccessTools.Field(
             CurrentEvent?.FieldType,
             "alreadyDisplayed"
@@ -47,6 +51,7 @@ namespace SlopWorld
             if (
                 CurrentEvent == null
                 || ForceHide?.FieldType != typeof(bool)
+                || EventTextKey?.FieldType != typeof(string)
                 || Displayed?.FieldType != typeof(bool)
                 || UseStandardWindow?.ReturnType != typeof(bool)
             )
@@ -99,6 +104,14 @@ namespace SlopWorld
                 return true;
             if (current != null && (bool)ForceHide.GetValue(current))
                 return false;
+            if (current != null && (string)EventTextKey.GetValue(current) == "Autosaving")
+            {
+                // Hide only the autosave status UI. Synchronous saves still need a
+                // repaint acknowledgement before LongEventHandler can run them.
+                if (Event.current.type == EventType.Repaint)
+                    Displayed.SetValue(current, true);
+                return false;
+            }
             Patch_LoadingTips.Begin(current);
             // Preserve small in-game operation windows. Entry/startup events always use
             // our full-screen renderer, even when vanilla omits extra UI or requests a bubble.
