@@ -246,7 +246,8 @@ namespace SlopWorld
                 );
             else
             {
-                string defaultLabel = _engine == "bat" ? "Auto (ansi)" : "Use command default";
+                string defaultLabel =
+                    _engine == "bat" ? OptionLabels.Auto("ansi") : "Use command default";
                 var choices = new List<FloatMenuOption>
                 {
                     new FloatMenuOption(defaultLabel, () => SelectTheme("")),
@@ -357,44 +358,40 @@ namespace SlopWorld
         static string AutoLabel(string command)
         {
             if (command == null)
-                return "Auto";
+                return OptionLabels.Auto();
             string tool = System.IO.Path.GetFileName(SlopWorld.PagerCommands.Executable(command));
-            return "Auto ("
-                + (
-                    tool.Length == 0 ? "none"
-                    : tool == "pygmentize" ? "Pygments"
-                    : tool
-                )
-                + ")";
+            return OptionLabels.Auto(
+                tool.Length == 0 ? "none"
+                : tool == "pygmentize" ? "Pygments"
+                : tool
+            );
         }
 
         string AutoHighlighterLabel()
         {
             if (_command?.Trim() == "auto" && !_loading && _catalogError == null)
-                return "Auto ("
-                    + (
-                        _engine.Length == 0 ? "none"
-                        : _engine == "pygments" ? "Pygments"
-                        : _engine
-                    )
-                    + ")";
+                return OptionLabels.Auto(
+                    _engine.Length == 0 ? "none"
+                    : _engine == "pygments" ? "Pygments"
+                    : _engine
+                );
             return AutoLabel(_cfg.AutoCommands?.Highlighter);
         }
 
-        static List<CommandChoice> PagerCommands() =>
+        List<CommandChoice> PagerCommands() =>
             new List<CommandChoice>
             {
-                new CommandChoice("Auto", "auto"),
+                new CommandChoice(AutoLabel(_cfg.AutoCommands?.Pager), "auto"),
                 new CommandChoice("moor", "moor"),
                 new CommandChoice("less", "less"),
                 new CommandChoice("bat", "bat --paging=always"),
                 new CommandChoice("more", "more"),
             };
 
-        static List<CommandChoice> HighlighterCommands() =>
+        List<CommandChoice> HighlighterCommands() =>
             new List<CommandChoice>
             {
-                new CommandChoice("Auto", "auto"),
+                new CommandChoice(AutoHighlighterLabel(), "auto"),
                 new CommandChoice("highlight", "highlight --out-format=xterm256"),
                 new CommandChoice("Pygments", "pygmentize -f terminal256 -O style=monokai"),
                 new CommandChoice("bat", "bat --color=always --style=plain --paging=never"),

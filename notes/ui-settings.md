@@ -11,6 +11,8 @@ its final pointer sample.
 Audio volumes apply live to RimWorld preferences. The Audio page saves pending
 changes after the mouse is released and on teardown; the embedded Settings view
 does not run the vanilla options dialog's close lifecycle.
+`OptionLabels.Auto` owns the shared `Auto (detected option)` label format; callers
+supply detection results and omit the suffix while the result is unknown.
 
 Daemon pages keep independent drafts scoped by page and endpoint. Save only changed
 fields; acknowledgements accept submitted values while preserving newer edits.

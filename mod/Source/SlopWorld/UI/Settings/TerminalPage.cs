@@ -97,7 +97,7 @@ namespace SlopWorld
         void DrawTheme(Listing_Standard l, ModSettings s)
         {
             UiLayout.SectionHeading(l, "Colors");
-            string autoLabel = "Auto (" + TerminalTheme.Get(UIScheme.Current.Id).Label + ")";
+            string autoLabel = OptionLabels.Auto(TerminalTheme.Get(UIScheme.Current.Id).Label);
             UiControls.Select(
                 l,
                 "Color scheme:",

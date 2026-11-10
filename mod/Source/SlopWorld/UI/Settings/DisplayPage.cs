@@ -50,7 +50,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Rendering");
             string mode = FramePolicy.Normalize(S.displayMode);
             int fps = FramePolicy.NearestPreset(S.foregroundFps);
-            string autoLabel = "Auto (" + BackgroundFrames.AutoFps + " FPS)";
+            string autoLabel = OptionLabels.Auto(BackgroundFrames.AutoFps + " FPS");
             string frameLimitLabel = mode == FramePolicy.Auto ? autoLabel : fps + " FPS";
             string frameLimitTip = S.vsync
                 ? "Turn off VSync to choose an FPS limit."
@@ -119,7 +119,7 @@ namespace SlopWorld
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption(
-                    "Auto (" + BackgroundFrames.AutoFps + " FPS)",
+                    OptionLabels.Auto(BackgroundFrames.AutoFps + " FPS"),
                     () =>
                     {
                         if (S.vsync)
