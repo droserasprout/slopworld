@@ -8,6 +8,10 @@ pending value independently of native control state and applies it on reported
 release or when the button is up after capture is lost. A reported release uses
 its final pointer sample.
 
+Audio volumes apply live to RimWorld preferences. The Audio page saves pending
+changes after the mouse is released and on teardown; the embedded Settings view
+does not run the vanilla options dialog's close lifecycle.
+
 Daemon pages keep independent drafts scoped by page and endpoint. Save only changed
 fields; acknowledgements accept submitted values while preserving newer edits.
 Reload merges unedited fields and reports conflicts; Discard takes remote values.

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using Verse;
 
@@ -5,16 +6,20 @@ namespace SlopWorld
 {
     // RimWorld's mixer, brought into the SlopWorld group and drawn in the same chrome as
     // the other pages. These remain Prefs rather than mod settings: the game's sound
-    // engine observes the setters, and Dialog_Options persists them on close.
-    public class AudioPage : IOptionPage
+    // engine observes the setters. This page saves them because the embedded settings
+    // view does not run Dialog_Options' vanilla close lifecycle.
+    public sealed class AudioPage : IOptionPage, IDisposable
     {
         readonly SettingsForm _form = new SettingsForm();
+        bool _unsaved;
 
         public void Load() => JukeboxPresetStore.Refresh();
 
         public void Draw(Rect rect)
         {
             _form.Draw(SettingsPageLayout.Body(rect), DrawFields);
+            if (!Input.GetMouseButton(0))
+                SavePending();
             var foot = new UiLayout.Bar(SettingsPageLayout.Footer(rect));
             if (foot.Left("Add source", UiTheme.Btn.Primary))
                 AudioSourceDialog.OpenNew();
@@ -94,13 +99,28 @@ namespace SlopWorld
                 Radio.ToggleStopOnExit();
         }
 
-        static float VolumeSlider(Listing_Standard listing, string translationKey, float value) =>
-            UiControls.Slider(
+        float VolumeSlider(Listing_Standard listing, string translationKey, float value)
+        {
+            float next = UiControls.Slider(
                 listing,
                 translationKey.Translate(),
                 value,
                 (translationKey + "Tooltip").Translate()
             );
+            if (next != value)
+                _unsaved = true;
+            return next;
+        }
+
+        public void Dispose() => SavePending();
+
+        void SavePending()
+        {
+            if (!_unsaved)
+                return;
+            Prefs.Save();
+            _unsaved = false;
+        }
 
         static void DrawSources(Listing_Standard l)
         {
