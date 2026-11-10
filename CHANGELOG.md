@@ -12,6 +12,7 @@ Starting with this release **RimWorld 1.7** (Waylith) is required to run SlopWor
 
 ### Added
 
+- Jukebox: Added playback controls to the context menu.
 - Packaging: Added standalone Linux sidecar launcher packages.
 - Settings: Added radio output and audio backend selection.
 - Settings: Show total trash size on the Storage tab.
@@ -20,6 +21,7 @@ Starting with this release **RimWorld 1.7** (Waylith) is required to run SlopWor
 
 - Git: Bound memory use when checking worktrees before removal.
 - Settings: Fixed scrollbar flashing and delays when opening settings.
+- Settings: Persist audio volume changes across restarts.
 - UI: Keep the loading screen visible through startup transitions.
 - UI: Fixed Command palette Git actions targeting the wrong checkout.
 - UI: Fixed stale task status changes and cancellation permissions in Command palette.
@@ -27,6 +29,7 @@ Starting with this release **RimWorld 1.7** (Waylith) is required to run SlopWor
 ### Changed
 
 - Jukebox: Request real-time audio scheduling on Linux.
+- Jukebox: Play the bundled soundtrack locally in-game.
 - Settings: Disable post-processing by default.
 
 ### Removed
