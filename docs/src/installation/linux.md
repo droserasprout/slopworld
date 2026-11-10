@@ -1,37 +1,112 @@
 # Linux
 
-Install SlopWorld on native Linux using binary Arch/DEB/RPM packages.
-For other setups, see [macOS](../installation/macos.md) or [Sidecar mode](../installation/sidecar.md).
+Install SlopWorld using your distribution's package manager. Install the packages
+for the role of each machine. To run it in a container, see
+[Sidecar mode](../installation/sidecar.md).
 
 ## Requirements
 
 - **x86_64 Linux** with systemd user services and scopes.
-- **RimWorld 1.6** installed separately. Locate the folder containing the `RimWorldLinux` binary.
-- **Runtime dependencies**, including Bubblewrap, passt, tmux 3.7+, and others. The package manager installs these.
+- **RimWorld 1.7** installed separately. Locate the folder containing the `RimWorld` binary.
+- **Runtime dependencies**, including Bubblewrap, passt, and tmux 3.7+. The package manager installs these.
+
+## Interactive installer
+
+Download `install.py` from the
+[latest release](https://github.com/droserasprout/slopworld/releases/latest), then run:
+
+```sh
+python3 install.py
+```
+
+The installer requires Python 3.10 or newer, with no additional Python packages.
+If Python is missing, install `python3` with apt or dnf, or `python` with pacman.
+It selects Debian/Ubuntu, Fedora, or Arch packages using the distribution identity
+and ancestry, including derivatives such as CachyOS. For unrecognized distributions,
+it detects apt, dnf, or pacman; ambiguous detection stops with an error. Package
+library requirements and distribution-specific prerequisites below still apply.
+
+Use Up/Down to move between component checkboxes and Space to toggle them.
+Press Enter to apply changes, or Q/Esc to cancel. If terminal controls are
+unavailable, the installer falls back to numbered toggles.
+Installed components are preselected and their versions are shown alongside the
+target release. **Unchecking an installed component uninstalls it.** Selecting
+`slopd` also selects its required `slopctl` package. On ARM64, only `slopcar` is
+available, on Debian/Ubuntu and Fedora.
+
+The installer downloads the selected packages and checksums from one GitHub release
+into a private directory under `/tmp`, verifies every package, and invokes the
+system package manager. Run it as your normal user; it uses `sudo` for installation.
+The package manager shows its transaction and resolves runtime dependencies.
+Temporary downloads are removed on completion, failure, or cancellation.
+Checksums detect damaged downloads; they do not independently establish provenance.
+See [release verification](../development/releases.md#verify-a-download) for attestation checks.
+
+Run it again to update selected components. Add `--version VERSION` to an
+explicit `--install` command to select a specific stable release. Installation does not attach the mod or start
+services; continue with [Attach the mod and launch](#attach-the-mod-and-launch).
+
+### Without the menu
+
+Explicit actions skip the menu and leave unmentioned components unchanged:
+
+```sh
+python3 install.py --install slopworld slopd
+python3 install.py --remove slopd slopctl
+python3 install.py --install slopcar --remove slopd
+```
+
+`--install` installs or updates; selecting `slopd` also installs/updates `slopctl`.
+To remove `slopctl` while `slopd` is installed, remove both. Removal preserves user
+configuration and does not request dependency cleanup or purge. Removing packages
+does not detach an already attached game mod.
+
+Running without arguments opens the menu. Any arguments select noninteractive
+mode and require `--install` or `--remove` (except `--help`). Package-manager
+prompts are accepted automatically; existing configuration is retained. Sudo uses
+`-n` and fails if authentication is needed, so authenticate beforehand with
+`sudo -v` or run with sufficient privileges. `--no-tui` is an optional explicit
+marker for this mode. Removal-only commands do not contact GitHub. Mixed commands verify and
+install downloads before removing packages. These are separate transactions: if
+removal fails, successful installations remain applied.
 
 ## Get binaries
 
 Install a Linux binary package from the
 [release downloads](https://github.com/droserasprout/slopworld/releases).
-Each package includes the daemon, CLI, launcher, and RimWorld mod.
+| Package | Contents | Install on |
+| --- | --- | --- |
+| `slopworld` | Game launcher, mod, assets and OST | Game desktop |
+| `slopd` | Daemon and user service; requires `slopctl` | Native agent server |
+| `slopctl` | CLI for local or remote daemons | Server, administration machine, or CI |
+| `slopcar` | Container launcher | Sidecar host |
+
+For a local native setup, install `slopworld`, `slopd`, and `slopctl` together.
+For a remote game client, install only `slopworld`. For a sidecar game host,
+install `slopworld` and `slopcar`; `slopctl` is optional on that host.
+The commands below install the local native setup.
 The commands below require `wget` and use version {{#constant release_version}}.
 
 ### Arch Linux
 
-Download and install the Arch package:
+Download and install the Arch packages:
 
 ```sh
-wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst
-sudo pacman -U ./slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst
+for package in slopworld slopd slopctl; do
+  wget "https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/${package}-{{#constant release_version}}-x86_64.pkg.tar.zst"
+done
+sudo pacman -U ./slopworld-{{#constant release_version}}-x86_64.pkg.tar.zst ./slopd-{{#constant release_version}}-x86_64.pkg.tar.zst ./slopctl-{{#constant release_version}}-x86_64.pkg.tar.zst
 ```
 
 ### Ubuntu 26.10+
 
-Download and install the deb package:
+Download and install the deb packages:
 
 ```sh
-wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-amd64.deb
-sudo apt install ./slopworld-{{#constant release_version}}-amd64.deb
+for package in slopworld slopd slopctl; do
+  wget "https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/${package}-{{#constant release_version}}-amd64.deb"
+done
+sudo apt install ./slopworld-{{#constant release_version}}-amd64.deb ./slopd-{{#constant release_version}}-amd64.deb ./slopctl-{{#constant release_version}}-amd64.deb
 ```
 
 Older releases don't have tmux 3.7 in repositories or backports.
@@ -40,24 +115,28 @@ Older releases don't have tmux 3.7 in repositories or backports.
 
 ### Debian 13+
 
-Download and install the deb package:
+Download and install the deb packages:
 
 ```sh
 echo 'deb https://deb.debian.org/debian trixie-backports main' | sudo tee /etc/apt/sources.list.d/backports.list
 sudo apt update
 sudo apt install tmux/trixie-backports
 
-wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-amd64.deb
-sudo apt install ./slopworld-{{#constant release_version}}-amd64.deb
+for package in slopworld slopd slopctl; do
+  wget "https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/${package}-{{#constant release_version}}-amd64.deb"
+done
+sudo apt install ./slopworld-{{#constant release_version}}-amd64.deb ./slopd-{{#constant release_version}}-amd64.deb ./slopctl-{{#constant release_version}}-amd64.deb
 ```
 
 ### Fedora
 
-Download and install the Fedora package:
+Download and install the Fedora packages:
 
 ```sh
-wget https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/slopworld-{{#constant release_version}}-x86_64.rpm
-sudo dnf install ./slopworld-{{#constant release_version}}-x86_64.rpm
+for package in slopworld slopd slopctl; do
+  wget "https://github.com/droserasprout/slopworld/releases/download/{{#constant release_tag}}/${package}-{{#constant release_version}}-x86_64.rpm"
+done
+sudo dnf install ./slopworld-{{#constant release_version}}-x86_64.rpm ./slopd-{{#constant release_version}}-x86_64.rpm ./slopctl-{{#constant release_version}}-x86_64.rpm
 ```
 
 The RPM requires Fedora 43 library versions. To build for another Fedora release, see [Fedora packages](../development/releases.md#fedora-packages).
@@ -82,7 +161,7 @@ on Debian and Fedora). Install the tools for the features you use:
 ## Attach the mod and launch
 
 Run these commands as your normal user. Replace the game path
-with your native Linux RimWorld installation:
+with your RimWorld installation directory:
 
 ```sh
 # Install the mod
@@ -106,8 +185,8 @@ Always launch with `slopworld`. The mod uses a separate
 
 ## Remote connection
 
-Install SlopWorld on both machines and attach the mod to the client's RimWorld
-installation as above. The remote server runs `slopd` and your agents; the client
+Install `slopd` and `slopctl` on the server, and `slopworld` on the client.
+Attach the mod to the client's RimWorld installation as above. The remote server runs `slopd` and your agents; the client
 runs the game. This example uses SSH host `tank` and server IP `192.168.1.10`.
 Replace them with your server's hostname and reachable IP address.
 
@@ -122,7 +201,11 @@ slopctl config set daemon.bind 192.168.1.10:7717
 systemctl --user restart slopd.service
 ```
 
-On the client, register the daemon and enter its token at the hidden key prompt:
+On the server, run `slopctl paths endpoint` to locate the endpoint descriptor.
+Read its `token` field and enter that value at the client’s hidden key prompt below.
+See [Paths and files](../reference/paths.md) if you use custom configuration roots.
+
+On the client, register the daemon:
 
 ```sh
 slopworld connect tank http://192.168.1.10:7717
@@ -132,6 +215,13 @@ slopworld --endpoint tank
 The first command saves the connection as `endpoints/tank.toml`. Launching with
 `--endpoint tank` creates its separate `profiles/tank` game profile.
 Use `slopworld endpoints` to list saved peers.
+
+### Standalone CLI
+
+Install only `slopctl` on an administration machine or CI runner. Set `SLOPD_URL`
+and `SLOPD_TOKEN` for the remote daemon, then use commands such as `slopctl status`
+and `slopctl task wait ID`. No local daemon or game is required. Local log commands
+still read that machine's logs.
 
 ## Next steps
 

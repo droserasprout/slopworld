@@ -47,6 +47,11 @@ namespace Verse
 
     static class Prefs
     {
+        public static UnityEngine.FullScreenMode FullScreenMode = UnityEngine
+            .FullScreenMode
+            .Windowed;
+        public static int Saves;
+
         public static float UIScale = 1f;
         public static float VolumeMaster,
             VolumeGame,
@@ -55,7 +60,11 @@ namespace Verse
             VolumeUI;
         public static int AudioPreferenceSaves;
 
-        public static void Save() => AudioPreferenceSaves++;
+        public static void Save()
+        {
+            Saves++;
+            AudioPreferenceSaves++;
+        }
     }
 }
 

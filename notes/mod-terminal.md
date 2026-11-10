@@ -25,22 +25,35 @@ Native fields receive keys inside the callback. Shift bypasses Alt
 navigation; terminal encoding forwards the unshifted Alt letter/digit.
 Ctrl+Alt letters and control punctuation retain both modifiers; Shift does not add
 a separate modifier to these character shortcuts. Ctrl+V remains reserved for paste.
-Semicolon recovery uses layout-resolved text only. Physical punctuation keys must
-wait for character events so non-US layouts do not gain extra ASCII punctuation.
+Printable input, including punctuation, follows native character events. Polling
+physical key state must not synthesize a second text stream.
+Literal input flushes at the end of native keyboard dispatch, independently of
+repaint. Keep each dispatch batch together so UTF-16 surrogate pairs survive;
+named keys flush preceding text before being sent.
+While a terminal workspace owns input, IMGUI replays accepted native keyboard
+events in arrival order with event-time modifiers, including repeats. Frame key
+polling must not collapse multiple presses, sort Enter ahead of later text, or
+apply a later Shift/Ctrl/Alt state to an earlier event. Focus reset and a new native
+input frame discard undispatched events; fields and modal windows retain native routing.
 
 Wheel input updates local history and application input without preparing a displayed
 history view or renderer. [Shared scrolling](mod-ui-scrolling.md) owns queue admission,
 native coverage, and bounded application report counts across deferred delivery.
+The hovered visible pane receives wheel input while its workspace host has input;
+scrolling does not change the selected pane or keyboard focus.
 
 Each panel negotiates its own bounds using the same snapped cell advance for drawing
 and hits. Refresh cannot pass one pane's geometry to another. Client allocation limits
 remain independent of daemon capabilities.
+While reading history, a pane defers daemon resizing so reflow cannot invalidate its
+row anchor. The retained grid clips to the new pane bounds; returning live negotiates
+the latest bounds. This also applies to divider drags and restored history positions.
 
 Flush literal input before clipboard/PRIMARY paste and on focus loss; release forwarded
 mouse presses too. Rejected input is discarded. Mouse-reporting apps own live clicks;
 Shift/history keeps local selection. Clipboard replies check pane/run identity after
 round trips. CLIPBOARD, PRIMARY, and OSC writes stay separate; PRIMARY never sends the
-image shortcut. Codex tries text before image paste; Linux clients read
+image shortcut. Codex tries text before image paste; clients read
 text from their own X11 desktop and upload local PNG clipboard bytes when no text
 is available. Host panes accept text only. [Clipboard](daemon-clipboard.md) owns image imports.
 
@@ -59,3 +72,7 @@ on activation, never hover/repaint; preserve line targets and restrict Reveal to
 projects. Native previews own selection/copy, while paste may use their backing terminal.
 See [history](mod-terminal-history.md), [rendering](mod-terminal-rendering.md), and
 [capture](daemon-terminal-capture.md).
+
+Reader wheel steps follow the magnitude of Waylith's accumulated frame event
+(three event units per notch), for both mouse reports and arrow-key fallback.
+Counting one step per event makes fast scrolling depend on the frame rate.

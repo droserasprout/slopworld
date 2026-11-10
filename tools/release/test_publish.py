@@ -5,7 +5,6 @@ import os
 import platform
 import shutil
 import subprocess
-import tarfile
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +15,7 @@ import pytest
 from tools.release import changelog
 from tools.release import gates
 from tools.release import publish
+from tools.release import sidecar
 from tools.release import staging
 
 
@@ -23,6 +23,15 @@ from tools.release import staging
 def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / 'checkout'
     root.mkdir()
+
+    def fake_sidecar(directory: Path, revision: str, version: str, architecture: str) -> None:
+        for name in sidecar.asset_names(version, architecture):
+            (directory / name).write_bytes(b'sidecar package')
+
+    installer = root / 'tools/host/release_installer.py'
+    installer.parent.mkdir(parents=True)
+    shutil.copyfile(Path(__file__).parents[1] / 'host/release_installer.py', installer)
+    monkeypatch.setattr(sidecar, 'build', fake_sidecar)
     monkeypatch.setattr(publish, 'ROOT', root)
     monkeypatch.setattr(staging, 'ROOT', root)
     shutil.copytree(Path(__file__).parents[2] / 'packaging/completions', root / 'packaging/completions')
@@ -72,15 +81,7 @@ def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_f
     output = tmp_path / 'release output'
     assets = publish.package(output, 'a' * 40, '0.1.0-snapshot', notes='Release notes\n')
     assert (output / 'release-notes.md').read_text() == 'Release notes\n'
-    with tarfile.open(assets[0]) as archive:
-        prefix = 'slopworld-0.1.0-snapshot-x86_64-linux'
-        assert archive.getmember(f'{prefix}/bin/slopd').mode & 0o111
-        revision_file = archive.extractfile(f'{prefix}/REVISION')
-        assert revision_file is not None
-        assert revision_file.read() == b'a' * 40 + b'\n'
-        assert f'{prefix}/licenses/dependency.txt' in archive.getnames()
-        assert f'{prefix}/share/zsh/site-functions/_slopctl' in archive.getnames()
-    with zipfile.ZipFile(assets[1]) as archive:
+    with zipfile.ZipFile(assets[0]) as archive:
         names = archive.namelist()
         assert archive.read('SlopWorld/About/LICENSE') == (inputs / 'LICENSE').read_bytes()
         assert (
@@ -92,7 +93,7 @@ def test_archives_include_runtime_licenses_metadata_and_exclude_game_and_local_f
         assert archive.read('SlopWorld/VERSION') == b'0.1.0-snapshot\n'
         assert {Path(name).stem for name in names if name.endswith('.dll')} == set(staging.MOD_ASSEMBLIES)
         assert not any('Source/' in name or 'untracked' in name for name in names)
-    for line in assets[2].read_text().splitlines():
+    for line in assets[1].read_text().splitlines():
         digest, name = line.split('  ')
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
 
@@ -105,11 +106,7 @@ def test_archive_permissions_are_independent_of_umask_and_source_modes(inputs: P
         assets = publish.package(tmp_path / 'output', 'revision', '1.0.0', notes='Release notes\n')
     finally:
         os.umask(previous)
-    with tarfile.open(assets[0]) as archive:
-        for member in archive.getmembers():
-            binary = Path(member.name).parent.name == 'bin'
-            assert member.mode == (0o755 if member.isdir() or binary else 0o644)
-    with zipfile.ZipFile(assets[1]) as archive:
+    with zipfile.ZipFile(assets[0]) as archive:
         assert all((entry.external_attr >> 16) & 0o777 == 0o644 for entry in archive.infolist())
 
 
@@ -258,22 +255,26 @@ def test_native_packages_are_included_in_checksums_and_outputs(inputs: Path, tmp
 
     with (
         patch(
-            'tools.release.container.package',
-            side_effect=lambda distribution, directory, *args: native(
-                'slopworld-1.0.0-'
-                + {'arch': 'x86_64.pkg.tar.zst', 'debian': 'amd64.deb', 'fedora': 'x86_64.rpm'}[distribution]
-            )(directory),
+            'tools.release.container.package_native',
+            side_effect=lambda distribution, directory, *args: [
+                native(
+                    f'{product}-1.0.0-'
+                    + {'arch': 'x86_64.pkg.tar.zst', 'debian': 'amd64.deb', 'fedora': 'x86_64.rpm'}[distribution]
+                )(directory)
+                for product in staging.NATIVE_PRODUCTS
+            ],
         ),
     ):
         assets = publish.package(output, 'revision', '1.0.0', notes='Release notes\n', native_packages=True)
     names = [path.name for path in assets]
-    assert names[-4:] == [
-        'slopworld-1.0.0-x86_64.pkg.tar.zst',
-        'slopworld-1.0.0-amd64.deb',
-        'slopworld-1.0.0-x86_64.rpm',
-        'SHA256SUMS',
+    assert names[1:10] == [
+        f'{product}-1.0.0-{suffix}'
+        for suffix in ('x86_64.pkg.tar.zst', 'amd64.deb', 'x86_64.rpm')
+        for product in staging.NATIVE_PRODUCTS
     ]
-    assert len(assets[-1].read_text().splitlines()) == 5
+    assert names[-2:] == ['install.py', 'SHA256SUMS']
+    assert (output / 'install.py').read_bytes() == (inputs / 'tools/host/release_installer.py').read_bytes()
+    assert len(assets[-1].read_text().splitlines()) == 16
     for line in assets[-1].read_text().splitlines():
         digest, name = line.split('  ')
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
@@ -295,13 +296,13 @@ def test_native_package_failure_preserves_entire_previous_release(
 
     failing = False
 
-    def container_package(distribution: str, directory: Path, *args: object) -> Path:
+    def container_package(distribution: str, directory: Path, *args: object) -> list[Path]:
         if failing and distribution == failed_package:
             raise ValueError('native build failed')
-        return native(distribution + '.archive')(directory)
+        return [native(distribution + f'-{product}.archive')(directory) for product in staging.NATIVE_PRODUCTS]
 
     with (
-        patch('tools.release.container.package', side_effect=container_package),
+        patch('tools.release.container.package_native', side_effect=container_package),
     ):
         assets = publish.package(output, 'revision', '1.0.0', notes='Previous notes\n', native_packages=True)
         previous = {path.name: path.read_bytes() for path in (*assets, output / 'release-notes.md')}

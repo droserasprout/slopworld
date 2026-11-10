@@ -30,9 +30,10 @@ namespace SlopWorld
 
         public bool autoConnect = true;
 
-        // The Linux popup window starts borderless to avoid Unity's Alt+Tab freeze. Keep
-        // fullscreen on by default, but let the player return to that launch window.
+        // Linux fullscreen belongs to the window manager while the renderer stays windowed.
+        // Start fullscreen by default; F11 returns to the undecorated desktop window.
         public bool fullscreen = true;
+        public bool inhibitScreensaver = true;
 
         // Sidebar preferences belong to the profile, not the colony save.
         public bool sidebarHidden;
@@ -151,7 +152,7 @@ namespace SlopWorld
         public string displayMode = FramePolicy.Auto;
         public int foregroundFps = 60;
         public bool vsync;
-        public string visualEffects = VisualEffectsMode.Mild;
+        public string visualEffects = VisualEffectsMode.Off;
         public bool smoothScrolling = true;
 
         // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
@@ -184,6 +185,7 @@ namespace SlopWorld
             Field("autoConnect", (ModSettings s) => ref s.autoConnect, Bool, String),
             Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
             Field("visualEffects", (ModSettings s) => ref s.visualEffects, Text, String),
+            Field("inhibitScreensaver", (ModSettings s) => ref s.inhibitScreensaver, Bool, String),
             Field("sidebarHidden", (ModSettings s) => ref s.sidebarHidden, Bool, String),
             Field("sidebarWidth", (ModSettings s) => ref s.sidebarWidth, Float, Number),
             Field(

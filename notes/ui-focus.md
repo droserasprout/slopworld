@@ -2,8 +2,11 @@
 
 `WorkspacePanelOwner` owns panel focus. `FieldLifetime` owns editable-field state in
 Settings, shared dialogs, the command palette, Search, Library, and WorkspaceWindow.
-Closing a lifetime makes delayed edits inert and retires selection gestures; it
-need not cancel an outstanding clipboard request.
+Closing a lifetime makes delayed edits inert, retires selection gestures, and
+releases native keyboard focus still owned by that form. `FieldKeyboardFocus`
+tracks both native acquisition and restored focus; retiring an older form must
+preserve a newer field's focus. Cancellation need not cancel an outstanding
+clipboard request.
 
 `FieldFocusScope` owns focus memory in Settings, shared dialogs, and eligible
 WorkspaceWindow content. When a form regains input, restore its remembered field only
@@ -16,6 +19,12 @@ Restoring focus does not move the caret. `TextFieldSelection` separately owns cu
 word/line selection and selection dragging. Field Tab/Shift+Tab traversal remains
 unimplemented. Panel navigation belongs to [workspace layout](ui-dynamic-layout-architecture.md),
 and terminal focus and key routing to [terminal input](mod-terminal.md).
+
+Waylith suppresses game-key dispatch while a field captures text. The native keyboard
+adapter admits workspace bindings and binding capture while retaining native editing
+events; workspace dispatch still checks modal ownership before fields draw.
+Custom editable styles must not use the native names `textarea` or `textfield`:
+Waylith interprets backgroundless multiline controls with those names as read-only.
 
 See [FieldFocusScope](../mod/Source/SlopWorld/UI/Text/FieldFocusScope.cs) and
 [focus tests](../mod/Tests/FieldFocusTests.cs) for the local contracts.

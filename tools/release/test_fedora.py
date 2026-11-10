@@ -80,10 +80,9 @@ def test_system_layout_permissions_and_snapshot_version(
         workspace = Path(arguments[5].removeprefix('_topdir '))
         assert arguments[7] == 'slopworld_version 0.1.0.20261005.abcdef'
         payload = workspace / 'SOURCES/payload'
-        for binary in release_staging.BINARIES:
+        for binary in ('slopworld',):
             assert (payload / 'usr/bin' / binary).stat().st_mode & 0o777 == 0o755
-        unit = (payload / 'usr/lib/systemd/user/slopd.service').read_text()
-        assert 'ExecStart=/usr/bin/slopd' in unit and 'KillMode=process' in unit
+        assert not (payload / 'usr/lib/systemd').exists()
         mod = payload / 'usr/share/slopworld/SlopWorld'
         assert (mod / 'VERSION').read_text() == '0.1.0-20261005-abcdef\n'
         assert (mod / 'REVISION').read_text() == 'revision\n'
@@ -172,7 +171,8 @@ def test_real_rpm_archive_round_trip(package_inputs: Path, tmp_path: Path) -> No
     assert build_time == '1792454400'
     requires = execute(['rpm', '-qp', '--requires', str(archive)], capture_output=True, text=True).stdout
     assert 'libc.so.6' in requires
-    assert all(dependency in requires.splitlines() for dependency in ('bubblewrap', 'passt', 'tmux >= 3.7'))
+    assert 'xclip' in requires.splitlines()
+    assert not any(dependency in requires for dependency in ('bubblewrap', 'passt', 'tmux'))
     assert 'mono' not in requires.lower()
     assert not execute(['rpm', '-qp', '--scripts', str(archive)], capture_output=True, text=True).stdout.strip()
     owners = execute(
@@ -189,5 +189,5 @@ def test_real_rpm_archive_round_trip(package_inputs: Path, tmp_path: Path) -> No
     mod = extracted / 'usr/share/slopworld/SlopWorld'
     assert (mod / 'VERSION').read_text() == '1.0.0\n'
     assert (mod / 'About/ThirdPartyNotices/NOTICE.txt').is_file()
-    assert (extracted / 'usr/bin/slopd').stat().st_mode & 0o777 == 0o755
-    assert 'ExecStart=/usr/bin/slopd' in (extracted / 'usr/lib/systemd/user/slopd.service').read_text()
+    assert (extracted / 'usr/bin/slopworld').stat().st_mode & 0o777 == 0o755
+    assert not (extracted / 'usr/lib/systemd').exists()

@@ -64,11 +64,9 @@ impl HostSessions for TestSessions {
 }
 
 #[test]
-fn resolve_audio_accepts_a_plain_file() {
-    assert_eq!(
-        resolve_audio_source(AudioSource::File("/tmp/song.mp3".into())).unwrap(),
-        "/tmp/song.mp3"
-    );
+fn resolve_audio_rejects_soundtrack_files() {
+    let error = resolve_audio_source(AudioSource::File("/tmp/song.mp3".into())).unwrap_err();
+    assert!(error.to_string().contains("belongs to the game"));
 }
 
 #[tokio::test]
@@ -81,6 +79,7 @@ async fn transports_cannot_bypass_the_music_transition_gate() {
     let socket = music.select(
         &sessions,
         AudioReq {
+            stop_token: None,
             selection: None,
             volume: 0.42,
         },
@@ -114,13 +113,41 @@ async fn failed_stop_retains_player_for_retry_and_repeated_stop_is_harmless() {
     let root = crate::test_support::fixture("music-stop");
     music.recover_ncspot(&sessions, &root).await;
     sessions.fail_stop.store(true, Ordering::SeqCst);
-    let error = music.apply(&sessions, Change::Stop, 1.0).await.unwrap_err();
-    assert!(error.to_string().contains("injected stop failure"));
+    let reply = music
+        .select(
+            &sessions,
+            AudioReq {
+                selection: Some(None),
+                volume: 1.0,
+                stop_token: Some("failed-stop".into()),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(reply.stop_ack.is_none());
     assert_eq!(music.state().await.session.as_deref(), Some("player"));
     assert!(tmux.exists("player").await);
     sessions.fail_stop.store(false, Ordering::SeqCst);
-    for _ in 0..2 {
-        music.apply(&sessions, Change::Stop, 1.0).await.unwrap();
+    for token in ["retry", "repeated"] {
+        let reply = music
+            .select(
+                &sessions,
+                AudioReq {
+                    selection: Some(None),
+                    volume: 1.0,
+                    stop_token: Some(token.into()),
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(reply.stop_ack.as_deref(), Some(token));
+        assert!(!reply.playing);
+        assert!(reply.source.is_none());
+        assert!(reply.error.is_none());
+        assert!(
+            music.state().await.stop_ack.is_none(),
+            "acknowledgments are not persistent state"
+        );
     }
     assert_eq!(sessions.stops.load(Ordering::SeqCst), 2);
     assert!(!tmux.exists("player").await);
@@ -214,6 +241,7 @@ async fn spotify_open_reuses_player_replies_updates_volume_and_recovers_after_ex
             .select(
                 &sessions,
                 AudioReq {
+                    stop_token: None,
                     volume: 2.0,
                     selection: None
                 }
@@ -232,6 +260,7 @@ async fn spotify_open_reuses_player_replies_updates_volume_and_recovers_after_ex
         .select(
             &sessions,
             AudioReq {
+                stop_token: None,
                 volume: 1.0,
                 selection: Some(None),
             },
@@ -290,6 +319,7 @@ async fn polling_holds_player_ownership_until_ipc_and_volume_persistence_finish(
     let stop = music.select(
         &sessions,
         AudioReq {
+            stop_token: None,
             volume: 1.0,
             selection: Some(None),
         },

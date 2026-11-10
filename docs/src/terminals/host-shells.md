@@ -1,7 +1,7 @@
 # Host shells
 
 Host shells run commands on the daemon host, outside agent sandboxes, without an
-agent pawn. In sidecar and macOS deployments, the daemon host is the Linux container.
+agent pawn. In sidecar deployments, the daemon host is the Linux container.
 Use an [agent shell](agent-shells.md) when you need an agent's sandbox settings.
 
 ## Open a shell
@@ -12,18 +12,16 @@ for typing, splitting the view, and closing panes.
 
 ## Stop, restart, or remove a tab
 
-Right-click the host tab to open its context menu:
+Use the tab's context menu to stop a project shell while keeping its saved tab and
+working directory. Starting it again uses that directory. **Remove** ends the shell
+and deletes the saved tab.
 
-- **Stop** ends the shell and keeps the tab and its saved working directory.
-- **Start** launches a stopped tab in its last saved working directory.
-- **Terminal** opens the running shell's terminal.
-- **Remove** ends the shell and deletes the saved tab.
-
+The unscoped `~` shell is temporary: its tab disappears when stopped or exited.
 Project host tabs remain after their shell stops. After a reboot, saved project
 tabs start automatically when autostart is enabled (the default). Otherwise,
 they return as stopped tabs.
 
 ## Label a tab
 
-Host tabs show the terminal application's title. Choose **Label** from the tab's
+Host tabs show the terminal application's title. Choose **Edit label** from the tab's
 context menu to save a fixed title; clear the label to restore the application's title.

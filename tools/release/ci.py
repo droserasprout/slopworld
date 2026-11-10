@@ -15,6 +15,8 @@ from tools import ROOT
 from tools.release import changelog
 from tools.release import gates
 from tools.release import publish
+from tools.release import sidecar
+from tools.release import staging
 from tools.utils import command
 from tools.utils import log
 from tools.utils import run
@@ -59,11 +61,14 @@ def preflight(release: gates.Release) -> None:
 
 def asset_names(version: str) -> list[str]:
     return [
-        f'slopworld-{version}-x86_64-linux.tar.gz',
         f'slopworld-{version}-mod.zip',
-        f'slopworld-{version}-x86_64.pkg.tar.zst',
-        f'slopworld-{version}-amd64.deb',
-        f'slopworld-{version}-x86_64.rpm',
+        *(
+            f'{product}-{version}-{suffix}'
+            for suffix in ('x86_64.pkg.tar.zst', 'amd64.deb', 'x86_64.rpm')
+            for product in staging.NATIVE_PRODUCTS
+        ),
+        *(name for architecture in sidecar.ARCHITECTURES for name in sidecar.asset_names(version, architecture)),
+        'install.py',
         'SHA256SUMS',
         'release-notes.md',
     ]
@@ -106,11 +111,12 @@ def build(output: Path, release: gates.Release) -> None:
     # A fresh bundle prevents an old package or attestation from entering a new run.
     if output.exists() and any(output.iterdir()):
         raise ValueError('Release output must be empty; use a fresh directory.')
-    just = [os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={release.version}', 'MANAGED=rimref']
+    just = [os.environ['JUST_CMD'], 'BUILD=release', f'VERSION={release.version}']
     validate(release)
     for recipes in (
         ('generate-check-protocol', 'generate-licenses', 'generate-check-licenses', 'docs-build'),
-        ('build',),
+        ('daemon-build',),
+        ('mod-build', 'rimref'),
     ):
         run([*just, *recipes])
         validate(release)
@@ -119,7 +125,14 @@ def build(output: Path, release: gates.Release) -> None:
         if release.tag
         else f'Preview of {release.revision}; not a published release.\n'
     )
-    publish.package(output, release.revision, release.version, notes=notes, native_packages=True)
+    publish.package(
+        output,
+        release.revision,
+        release.version,
+        notes=notes,
+        native_packages=True,
+        sidecar_directory=Path(os.environ['SIDECAR_RELEASE_DIR']) if os.environ.get('SIDECAR_RELEASE_DIR') else None,
+    )
     validate(release)
     (output / 'release.json').write_text(json.dumps(manifest(output, release), indent=2) + '\n')
     verify(output, release)

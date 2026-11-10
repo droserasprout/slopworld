@@ -6,6 +6,10 @@ README owns the overview and is included by `docs/src/introduction.md`.
 
 Put each fact on one page; tours and FAQ link to it. FAQ questions need stable
 anchors. `SUMMARY.md` owns navigation, with directories matching its sections.
+Explain workflows, consequences, and non-obvious constraints rather than copying
+settings menus, preset values, or every field into prose. Keep exhaustive lists in
+references only when readers need them to use a contract, such as API fields or
+configuration syntax.
 Keep short related topics together. Include the root changelog rather than copying it.
 
 `docs/theme/` owns presentation and follows `mod/Themes/` palettes. Screenshots use

@@ -69,21 +69,6 @@ namespace SlopWorld
                 "(no saved agents with a project)"
             );
 
-        static List<SubOption> ProjectsSub()
-        {
-            var list = SessionHub
-                .Instance.Projects.Select(p => new SubOption
-                {
-                    Label = $"{p.Name}  -  {p.Dir}",
-                    Value = p.Name,
-                })
-                .ToList();
-
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no projects)", Enabled = false });
-            return list;
-        }
-
         static List<SubOption> DeletableProjectsSub()
         {
             var list = SessionHub
@@ -173,18 +158,6 @@ namespace SlopWorld
             return list;
         }
 
-        static List<SubOption> CreationSub(List<CreationActions.Entry> entries) =>
-            entries
-                .Where(entry => entry != CreationActions.Entry.Separator)
-                .Select(entry => new SubOption
-                {
-                    Label = entry.Label,
-                    Enabled = entry.Enabled,
-                    Select = entry.Select,
-                    Children = entry.Children == null ? null : () => CreationSub(entry.Children()),
-                })
-                .ToList();
-
         static List<SubOption> HostSessionsSub()
         {
             var list = SessionHub
@@ -200,85 +173,6 @@ namespace SlopWorld
                         Enabled = false,
                     }
                 );
-            return list;
-        }
-
-        static string TaskLabel(TaskInfo task) =>
-            $"{task.Summary}  ({TaskInfo.StatusText(task.Status)}, {task.Direction})  -  {task.Id}";
-
-        static List<SubOption> TaskOptions(
-            Func<TaskInfo, bool> include,
-            string emptyLabel,
-            Func<TaskInfo, SubOption> option = null
-        )
-        {
-            var list = SessionHub
-                .Instance.Tasks.Where(task =>
-                    task != null && !string.IsNullOrEmpty(task.Id) && include(task)
-                )
-                .Select(
-                    option ?? (task => new SubOption { Label = TaskLabel(task), Value = task.Id })
-                )
-                .ToList();
-
-            if (list.Count == 0)
-                list.Add(new SubOption { Label = emptyLabel, Enabled = false });
-            return list;
-        }
-
-        static List<SubOption> TasksSub() => TaskOptions(task => true, "(no tasks)");
-
-        static List<SubOption> CancelableTasksSub() =>
-            TaskOptions(
-                task =>
-                    task.Status == DelegatedTaskStatus.Queued
-                    || task.Status == DelegatedTaskStatus.Accepted,
-                "(no cancelable tasks)"
-            );
-
-        static List<SubOption> TerminalTasksSub() =>
-            TaskOptions(task => task.Terminal, "(no completed tasks)");
-
-        static List<SubOption> TaskStatusSub() =>
-            TaskOptions(
-                task => task.Incoming && !task.Terminal,
-                "(no incoming tasks to update)",
-                task => new SubOption
-                {
-                    Label = TaskLabel(task),
-                    Children = () => TaskStatusChoices(task),
-                }
-            );
-
-        static List<SubOption> TaskStatusChoices(TaskInfo task)
-        {
-            var list = new List<SubOption>();
-            var statuses = new[]
-            {
-                DelegatedTaskStatus.Accepted,
-                DelegatedTaskStatus.Working,
-                DelegatedTaskStatus.Done,
-                DelegatedTaskStatus.Failed,
-            };
-            foreach (var value in statuses)
-            {
-                var status = value;
-                list.Add(
-                    new SubOption
-                    {
-                        Label = TaskInfo.StatusText(status),
-                        Enabled = task.Status != status,
-                        Select = () =>
-                            SessionHub.Instance.TaskStore.UpdateStatus(
-                                task.Id,
-                                status,
-                                null,
-                                null,
-                                UiLayout.Fail
-                            ),
-                    }
-                );
-            }
             return list;
         }
 

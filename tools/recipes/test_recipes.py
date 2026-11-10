@@ -44,9 +44,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
             (self.directory / tool).symlink_to(stub)
         self.env = os.environ.copy()
         # Make results independent of the caller's selected build/profile/tool settings.
-        settings = '\n'.join(
-            path.read_text() for directory in (ROOT / 'just', ROOT / 'mac') for path in directory.glob('*.just')
-        )
+        settings = '\n'.join(path.read_text() for path in (ROOT / 'just').glob('*.just'))
         for key in re.findall(r'^(?:export )?([A-Z][A-Z_]+) :=', settings, re.MULTILINE):
             self.env.pop(key, None)
         self.env.update(PATH=str(self.directory) + os.pathsep + os.environ['PATH'], RECIPE_TEST_LOG=str(self.log))
@@ -177,44 +175,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(len(self.calls('cargo')), 1)
         self.assertEqual(self.calls('sidecar'), [])
 
-    def test_macos_launch_and_install_preserve_selected_image(self) -> None:
-        self.env['SLOPCAR_IMAGE'] = 'custom-agents:local'
-        for recipe in ('install', 'run', 'doctor'):
-            result = self.run_recipe('--dry-run', f'mac-{recipe}')
-            self.assertNotIn('image build', result.stderr)
-            self.assertNotIn('build --source', result.stderr)
-
-    def test_macos_profile_initialization_uses_the_profile_command(self) -> None:
-        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'PROFILE=/game profile', 'mac-profile')
-        (call,) = self.calls('runner')
-        self.assertEqual(call['args'], ['--sidecar', 'profile', 'init', '--profile', '/game profile'])
-
-    def test_macos_launch_uses_only_launcher_options(self) -> None:
-        self.env.update(
-            MAC_GAME='/game bundle/executable',
-            MAC_RESOURCES='/game bundle/resources',
-            MAC_MODS='/game bundle/mods',
-            PROFILE='/game profile',
-            MAC_GAME_ARGS='-screen-width 1200',
-        )
-        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'mac-run')
-        (launcher,) = self.calls('runner')
-        self.assertEqual(
-            launcher['args'],
-            [
-                '--sidecar',
-                '--game-exe',
-                '/game bundle/executable',
-                '--working-dir',
-                '/game bundle/resources',
-                '--mods',
-                '/game bundle/mods',
-                '--profile',
-                '/game profile',
-                '--no-window-fix',
-            ],
-        )
-
     def test_release_build_uses_environment_and_command_override(self) -> None:
         self.env['BUILD'] = 'debug'
         self.run_recipe('BUILD=release', 'daemon-build')
@@ -222,6 +182,25 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(call['args'], ['build', '--quiet', '--locked', '--release'])
         self.assertEqual(call['env']['BUILD'], 'release')
         self.assertEqual(call['cwd'], str(ROOT / 'slopd'))
+
+    def test_mod_build_uses_game_root_and_preserves_reference_override(self) -> None:
+        self.env.pop('MANAGED', None)
+        game = self.directory / 'Steam game'
+        self.run_recipe(f'RIMWORLD={game}', 'VERSION=1.2.3', 'mod-build')
+        self.assertIn(f'-p:RimWorldManaged={game}', self.calls('dotnet')[-1]['args'])
+        self.log.unlink()
+        managed = self.directory / 'custom references'
+        self.run_recipe(f'RIMWORLD={game}', f'MANAGED={managed}', 'VERSION=1.2.3', 'mod-build')
+        self.assertIn(f'-p:RimWorldManaged={managed}', self.calls('dotnet')[-1]['args'])
+
+    def test_ci_mod_compiles_with_references_without_using_the_installed_game(self) -> None:
+        self.env['MANAGED'] = '/missing game'
+        self.run_recipe('ci-mod')
+        (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
+        self.assertIn('-p:UseRimRef=true', mod['args'])
+        self.assertIn('Release', mod['args'])
+        self.assertFalse(any(arg.startswith('-p:RimWorldManaged=') for arg in mod['args']))
+        self.assertFalse(any('--game-bindings' in call['args'] for call in self.calls('dotnet')))
 
     def test_build_overrides_preserve_frozen_flags_and_custom_paths(self) -> None:
         self.run_recipe('BUILD=release', 'CARGOFLAGS=--release --frozen', 'daemon-build')
@@ -258,9 +237,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(call['args'][-2:], ['--profile', '/chosen profile'])
         self.assertEqual(call['args'][:2], ['--sidecar', '--game'])
         self.log.unlink()
-        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'mac-run')
+        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'sidecar-run')
         (call,) = self.calls('runner')
-        self.assertEqual(call['args'][:2], ['--sidecar', '--game-exe'])
+        self.assertEqual(call['args'][:2], ['--sidecar', '--game'])
         self.assertNotIn('--profile', call['args'])
 
     def test_trace_recipe_queries_the_launcher_profile(self) -> None:
@@ -289,8 +268,8 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         modules = [call['args'][call['args'].index('-m') + 1] for call in self.calls('uv')]
         self.assertEqual(modules[-1], 'tools.licenses.stage_licenses')
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
-        self.assertEqual([call['tool'] for call in calls[:3]], ['cargo', 'cargo', 'uv'])
-        self.assertEqual(modules[0], 'tools.cli_completions')
+        self.assertEqual([call['tool'] for call in calls[:4]], ['uv', 'cargo', 'cargo', 'uv'])
+        self.assertEqual(modules[:2], ['tools.assets.clown_nose', 'tools.cli_completions'])
         self.assertEqual(
             [(Path(call['cwd']).name, call['args']) for call in self.calls('cargo')],
             [('slopd', ['build', '--quiet', '--locked']), ('slopcar', ['build', '--quiet', '--locked'])],
@@ -337,20 +316,32 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual([call['args'] for call in self.calls('uv')], [['lock', '--upgrade']])
 
     def test_build_check_forces_release_and_warnings(self) -> None:
-        self.run_recipe('BUILD=debug', 'VERSION=1.2.3', 'mod-check-build')
+        self.run_recipe('BUILD=debug', 'VERSION=1.2.3', 'MANAGED=/game assemblies', 'mod-check-build')
         self.assertEqual(self.calls('cargo'), [])
         (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
         self.assertIn('Release', mod['args'])
         self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
+        (bindings,) = [call for call in self.calls('dotnet') if '--game-bindings' in call['args']]
+        self.assertIn('Release', bindings['args'])
+        self.assertEqual(bindings['args'][-3:], ['--game-bindings', '/game assemblies', 'mod/Assemblies/SlopWorld.dll'])
 
-    def test_rimref_ci_build_ignores_local_game_path(self) -> None:
-        self.run_recipe('MANAGED=/missing/game', 'BUILD=debug', 'VERSION=1.2.3', 'mod-check-build-rimref')
-        (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
-        self.assertIn('-p:UseRimRef=true', mod['args'])
-        self.assertFalse(any(arg.startswith('-p:RimWorldManaged=') for arg in mod['args']))
-        self.assertIn('Release', mod['args'])
-        self.assertIn('-p:TreatWarningsAsErrors=true', mod['args'])
-        self.assertIn('-p:RestoreLockedMode=true', mod['args'])
+    def test_csharp_formatting_scopes_discovery_to_source_folders(self) -> None:
+        folders = [
+            'mod/Source/SlopWorld',
+            'mod/Tests',
+            'bench/ipc/csharp',
+        ]
+        for operation in ('format', 'lint'):
+            with self.subTest(operation=operation):
+                self.log.unlink(missing_ok=True)
+                self.run_recipe(f'mod-{operation}')
+                calls = self.calls('dotnet')
+                self.assertEqual(calls[0]['args'], ['tool', 'restore', '--verbosity', 'quiet'])
+                calls = calls[1:]
+                self.assertEqual([call['cwd'] for call in calls], [str(ROOT / folder) for folder in folders])
+                for call in calls:
+                    action = 'check' if operation == 'lint' else 'format'
+                    self.assertEqual(call['args'], ['csharpier', action, '--log-level', 'Warning', '.'])
 
     def test_csharp_formatting_stops_after_a_folder_fails(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'dotnet'
@@ -359,45 +350,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 self.log.unlink(missing_ok=True)
                 self.run_recipe(f'mod-{operation}', success=False)
                 self.assertEqual(len(self.calls('dotnet')), 1)
-
-    def test_mac_mod_passes_native_assemblies_and_release_selection(self) -> None:
-        app = self.directory / 'RimWorld.app'
-        game = app / 'Contents/MacOS/RimWorld by Ludeon Studios'
-        game.parent.mkdir(parents=True)
-        game.touch()
-        game.chmod(0o755)
-        managed = app / 'Contents/Resources/Data/Managed'
-        managed.mkdir(parents=True)
-        (managed / 'Assembly-CSharp.dll').touch()
-        (app / 'Mods').mkdir()
-        self.run_recipe(
-            '--justfile',
-            str(ROOT / 'justfile'),
-            'BUILD=release',
-            'VERSION=1.2.3',
-            f'MAC_RIMWORLD={app}',
-            'mac-mod-build',
-            cwd=ROOT / 'mac',
-        )
-        (mod,) = [call for call in self.calls('dotnet') if 'mod/Source/SlopWorld/SlopWorld.csproj' in call['args']]
-        self.assertEqual(mod['cwd'], str(ROOT))
-        self.assertEqual(mod['env']['BUILD'], 'release')
-        self.assertIn(f'-p:RimWorldManaged={managed}', mod['args'])
-        self.assertIn('Release', mod['args'])
-
-    def test_mac_sidecar_workspace_defaults_to_repository_root(self) -> None:
-        result = self.run_recipe(
-            '--justfile', str(ROOT / 'justfile'), '--evaluate', 'SLOPCAR_WORKSPACE', cwd=ROOT / 'mac'
-        )
-        self.assertEqual(result.stdout.strip(), str(ROOT))
-        result = self.run_recipe(
-            '--justfile',
-            str(ROOT / 'justfile'),
-            '--evaluate',
-            f'SLOPCAR_WORKSPACE={self.directory}',
-            'SLOPCAR_WORKSPACE',
-        )
-        self.assertEqual(result.stdout.strip(), str(self.directory))
 
     def test_dependency_failure_stops_mod_build(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'dotnet'

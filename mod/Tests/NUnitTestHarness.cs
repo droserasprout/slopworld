@@ -54,9 +54,9 @@ namespace SlopWorld.Tests
                         .OrderBy(method => method.MetadataToken)
                 )
                 {
-                    yield return new TestCaseData(
-                        (Action)method.CreateDelegate(typeof(Action))
-                    ).SetName(NamedLabel(type, method));
+                    yield return new TestCaseData(method.CreateDelegate<Action>()).SetName(
+                        NamedLabel(type, method)
+                    );
                 }
             }
         }

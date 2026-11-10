@@ -20,6 +20,7 @@ fn resolve_audio_rejects_malformed_selections() {
         };
         assert!(
             AudioReq {
+                stop_token: None,
                 selection: Some(Some(selection)),
                 volume: 1.0
             }

@@ -23,27 +23,43 @@ def debian_version(version: str) -> str:
     return version + '-1'
 
 
-def package(output: Path, revision: str, version: str, architecture: str, binary_dir: Path | None = None) -> Path:
+def package(
+    output: Path,
+    revision: str,
+    version: str,
+    architecture: str,
+    binary_dir: Path | None = None,
+    *,
+    product: str = 'slopworld',
+) -> Path:
+    if product not in shared.PRODUCTS:
+        raise ValueError(f'Unsupported product: {product}')
     version_field = debian_version(version)
     if architecture not in ('amd64', 'arm64'):
         raise ValueError(f'Unsupported Debian architecture: {architecture}')
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    destination = output / f'slopworld_{version_field}_{architecture}.deb'
+    destination = output / f'{product}_{version_field}_{architecture}.deb'
     # A failed input, dependency scan, or archive build preserves existing output.
     with tempfile.TemporaryDirectory(prefix='.debian-', dir=output) as temporary:
         workspace = Path(temporary)
-        staging = workspace / 'slopworld'
-        shared.stage_system(staging, binary_dir or ROOT / 'slopd/target/release')
-        stage_mod(staging / 'usr/share/slopworld/SlopWorld', revision, version)
-        copy_file(ROOT / 'packaging/debian/README.Debian', staging / 'usr/share/doc/slopworld/README.Debian')
-        shared.stage_notices(staging, 'usr/share/doc/slopworld/copyright')
+        staging = workspace / product
+        if product == 'slopcar':
+            shared.stage_sidecar(staging, binary_dir or ROOT / 'slopcar/target/release', revision, version)
+        else:
+            shared.stage_system(staging, binary_dir or ROOT / 'slopd/target/release', product)
+            if product == 'slopworld':
+                stage_mod(staging / 'usr/share/slopworld/SlopWorld', revision, version)
+            copy_file(ROOT / 'packaging/debian/README.Debian', staging / f'usr/share/doc/{product}/README.Debian')
+            shared.metadata(staging / f'usr/share/doc/{product}', revision, version)
+            shared.stage_notices(staging, f'usr/share/doc/{product}/copyright')
         # dpkg-shlibdeps requires a source control file even for binary-only staging.
         source_control = workspace / 'debian/control'
         source_control.parent.mkdir()
-        source_control.write_text('Source: slopworld\n\nPackage: slopworld\nArchitecture: any\n')
+        source_control.write_text(f'Source: {product}\n\nPackage: {product}\nArchitecture: any\n')
+        binaries = (product,)
         result = run(
-            ['dpkg-shlibdeps', '-O', *(str(staging / 'usr/bin' / binary) for binary in shared.BINARIES)],
+            ['dpkg-shlibdeps', '-O', *(str(staging / 'usr/bin' / binary) for binary in binaries)],
             cwd=workspace,
             capture_output=True,
             text=True,
@@ -61,7 +77,7 @@ def package(output: Path, revision: str, version: str, architecture: str, binary
         control = staging / 'DEBIAN/control'
         control.parent.mkdir()
         control.write_text(
-            (ROOT / 'packaging/debian/control')
+            (ROOT / ('packaging/debian/control' if product == 'slopworld' else f'packaging/debian/{product}.control'))
             .read_text()
             .format(version=version_field, architecture=architecture, shared_libraries=dependencies)
         )

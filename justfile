@@ -6,7 +6,6 @@ set default-list
 import 'just/settings-game.just'
 import 'just/config.just'
 import 'just/settings-release.just'
-import 'mac/config.just'
 
 # Build the daemon, launcher and mod
 [group('Build and run')]
@@ -27,7 +26,7 @@ clean: sidecar-clean daemon-clean mod-clean clean-coverage
 
 # Remove installed files; preserve config and saves
 [group('Build and run')]
-uninstall: daemon-uninstall uninstall-mod
+uninstall: daemon-uninstall cli-uninstall uninstall-mod
 
 # Format Python, Rust and C# sources
 [group('Check and fix')]
@@ -80,18 +79,21 @@ import 'just/docs.just'
 import 'just/bench.just'
 import 'just/trace.just'
 import 'just/sidecar.just'
-import 'just/mac.just'
 import 'just/game.just'
 
 # Install the mod and its launcher
 [group('Build and run')]
 install-mod managed=MANAGED mods=MODS: daemon-build (mod-build managed)
     uv run --locked python -m tools.host.install_mod --runner "$RUNNER" --mods {{ quote(mods) }}
+    install -Dm755 "$RUNNER" "$BIN/slopworld"
+    uv run --locked python -m tools.cli_completions install slopworld
 
-# Remove the installed mod
+# Remove the installed mod and launcher
 [group('Build and run')]
 uninstall-mod mods=MODS: daemon-build
     "$RUNNER" mod uninstall --mods {{ quote(mods) }}
+    uv run --locked python -m tools.cli_completions uninstall slopworld
+    rm -f "$BIN/slopworld"
 
 # Restore reviewed Python, runtime and .NET tool locks
 [group('Maintain')]

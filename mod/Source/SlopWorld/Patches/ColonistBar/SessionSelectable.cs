@@ -94,6 +94,8 @@ namespace SlopWorld
             else
             {
                 yield return BuildStartGizmo();
+                if (info.ResumeSupported)
+                    yield return BuildResumeGizmo(info);
             }
 
             if (info.Host)
@@ -162,6 +164,22 @@ namespace SlopWorld
                 hotKey = ModDefOf.SlopToggleSession,
                 action = () => SessionActions.Start(Session),
             };
+        }
+
+        Gizmo BuildResumeGizmo(SessionInfo info)
+        {
+            var command = new UiCommandAction(UiTheme.Btn.Default)
+            {
+                defaultLabel = "Resume",
+                defaultDesc = $"Start '{Session}' and resume its last conversation.",
+                icon = Icons.Refresh,
+                defaultIconColor = UiTheme.Accent,
+                hotKey = ModDefOf.SlopResumeSession,
+                action = () => SessionActions.Resume(Session),
+            };
+            if (!SessionActions.CanResume(info))
+                command.Disable("This agent is already starting or resuming.");
+            return command;
         }
 
         Gizmo BuildEditGizmo()

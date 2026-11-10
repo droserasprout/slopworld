@@ -65,7 +65,6 @@ def main() -> None:
             'The daemon does not need a restart.'
         )
     run(['install', '-Dm755', str(target / 'slopd'), str(binaries / 'slopd')])
-    run(['install', '-Dm755', str(target / 'slopctl'), str(binaries / 'slopctl')])
     with tempfile.NamedTemporaryFile() as unit:
         unit.write(contents)
         unit.flush()

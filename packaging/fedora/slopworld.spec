@@ -1,4 +1,4 @@
-# Private Unity assemblies must not create system dependencies or providers.
+# Private mod assemblies must not create system dependencies or providers.
 %global __requires_exclude_from ^/usr/share/slopworld/.*$
 %global __provides_exclude_from ^/usr/share/slopworld/.*$
 %global debug_package %{nil}
@@ -16,14 +16,13 @@ Summary: RimWorld colony interface for live AI coding agents
 License: MIT
 URL: https://github.com/droserasprout/slopworld
 ExclusiveArch: x86_64 aarch64
-Requires: bash, bat, bubblewrap, fontconfig, git, less, micro, passt, ripgrep, systemd, tmux >= 3.7, xclip
-Suggests: glib2, gtk3, highlight, moor, procps-ng, python3-gobject, python3-pygments, xdg-desktop-portal, xsel
-Provides: slopd = %{version}-%{release}
+Requires: fontconfig, xclip
+Suggests: glib2, gtk3, python3-gobject, xdg-desktop-portal, xsel
 
 %description
-Includes the Linux session daemon, CLI, launcher, and RimWorld 1.6 mod.
+Includes the game launcher and RimWorld 1.7 mod with assets and OST.
 RimWorld must be installed separately. See /usr/share/doc/slopworld/README.Fedora
-for mod attachment and per-user daemon setup.
+for mod attachment. Install slopd separately for a local server.
 
 %install
 mkdir -p "%{buildroot}"
@@ -31,18 +30,12 @@ cp -a "%{_sourcedir}/payload/." "%{buildroot}/"
 
 %files
 %defattr(-,root,root,-)
-/usr/bin/slopd
-/usr/bin/slopctl
 /usr/bin/slopworld
-/usr/lib/systemd/user/slopd.service
 /usr/share/applications/slopworld.desktop
 /usr/share/icons/hicolor/128x128/apps/slopworld.png
 /usr/share/slopworld
-/usr/share/bash-completion/completions/slopctl
 /usr/share/bash-completion/completions/slopworld
-/usr/share/zsh/site-functions/_slopctl
 /usr/share/zsh/site-functions/_slopworld
-/usr/share/fish/vendor_completions.d/slopctl.fish
 /usr/share/fish/vendor_completions.d/slopworld.fish
 %doc /usr/share/doc/slopworld
 %license /usr/share/licenses/slopworld

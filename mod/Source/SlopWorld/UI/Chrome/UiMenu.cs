@@ -193,7 +193,7 @@ namespace SlopWorld
 
         // Preferred width from menu labels. Selectors also reserve their arrow space and
         // pass the resulting control width back to the opened menu.
-        public static float WidthFor(IEnumerable<string> labels)
+        public static float WidthFor(IEnumerable<string> labels, float maxWidth = MaxW)
         {
             using (WidgetState.Save())
             {
@@ -204,11 +204,11 @@ namespace SlopWorld
                     foreach (var label in labels)
                     {
                         widest = Mathf.Max(widest, UiTheme.Wide(label));
-                        if (widest + PadX * 2f >= MaxW)
+                        if (widest + PadX * 2f >= maxWidth)
                             break;
                     }
                 }
-                return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
+                return Mathf.Clamp(widest + PadX * 2f, Mathf.Min(MinW, maxWidth), maxWidth);
             }
         }
 
@@ -235,7 +235,7 @@ namespace SlopWorld
 
         // Checkbox columns and submenu arrows consume the same row width as the label.
         // Selectors must measure these too before fixing the popup to the control width.
-        public static float WidthFor(IEnumerable<FloatMenuOption> options)
+        public static float WidthFor(IEnumerable<FloatMenuOption> options, float maxWidth = MaxW)
         {
             using (WidgetState.Save())
             {
@@ -251,10 +251,10 @@ namespace SlopWorld
                             + o.extraPartWidth
                             + (o is UiSubmenu ? ArrowW + UiTheme.GapXS : 0f)
                     );
-                    if (w + PadX * 2f >= MaxW)
+                    if (w + PadX * 2f >= maxWidth)
                         break;
                 }
-                return Mathf.Clamp(w + PadX * 2f, MinW, MaxW);
+                return Mathf.Clamp(w + PadX * 2f, Mathf.Min(MinW, maxWidth), maxWidth);
             }
         }
 
@@ -308,25 +308,25 @@ namespace SlopWorld
             );
         }
 
-        // Place beside the parent, never over it. Prefer the right side, then the left, and
-        // narrow to the roomier side when neither can hold the requested width. Recompute
-        // every frame because scrolling or edge clamping can move the anchor row.
+        // Recompute after scrolling, resizing or asynchronous option updates.
         void Place()
         {
-            var p = _parent.windowRect;
-            float roomRight = UI.screenWidth - p.xMax;
-            float roomLeft = p.x;
-
-            bool onRight = _want.x <= roomRight || roomRight >= roomLeft;
-            float w = Mathf.Min(_want.x, Mathf.Max(onRight ? roomRight : roomLeft, MinW));
-            float x = onRight ? p.xMax - Slab.LineW : p.x - w + Slab.LineW;
-
-            windowRect = new Rect(
-                Mathf.Max(0f, x),
-                Mathf.Max(0f, Mathf.Min(_anchor, UI.screenHeight - _want.y)),
-                w,
-                _want.y
+            windowRect = MenuPlacement.Place(
+                _parent.windowRect,
+                AncestorBounds(),
+                _want,
+                _anchor,
+                UI.screenWidth,
+                UI.screenHeight,
+                MinW,
+                Slab.LineW
             );
+        }
+
+        IEnumerable<Rect> AncestorBounds()
+        {
+            for (var menu = _parent; menu != null; menu = menu._parent)
+                yield return menu.windowRect;
         }
 
         public override void DoWindowContents(Rect rect)

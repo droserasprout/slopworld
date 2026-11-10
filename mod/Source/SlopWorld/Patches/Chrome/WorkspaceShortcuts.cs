@@ -21,6 +21,14 @@ namespace SlopWorld
             if (ModOptions.KeyboardCaptureActive)
                 return;
 
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
+            if (
+                window != null
+                    ? !Find.WindowStack.GetsInput(window)
+                    : Find.WindowStack?.AnyWindowAbsorbingAllInput == true
+            )
+                return;
+
             if (WorkspaceWindow.HandleFunctionKey(e))
             {
                 e.Use();

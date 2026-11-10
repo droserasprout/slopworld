@@ -1,30 +1,69 @@
 # Sidecar mode
 
 > [!WARNING]
-> Sidecar mode is not well tested and has many limitations. On Linux, consider a
+> Sidecar mode is not well tested and has many limitations. Consider a
 > [remote connection](linux.md#remote-connection) instead.
 
 A sidecar runs `slopd`, tmux, and the agent sandboxes in a Docker container. The game
-can remain on the host and connect to the sidecar over a loopback port. This page covers standalone sidecar setup. The native-game
-[macOS workflow](macos.md) uses the same Linux sidecar.
+remains on the host and connects to the sidecar over a loopback port.
 
-## Requirements
+Sidecar mode disables desktop file opening, daemon audio (radio and Spotify),
+and per-session resource limits. The bundled soundtrack still plays in the game.
 
-You need Docker or Docker Desktop. Building the host-side launcher and image
-also requires Rust, `just`, and a local repository checkout.
-The container supplies the daemon runtime dependencies. To build the launcher and
-mod for the Linux game below, also install the host
-[build prerequisites](../development/build.md#prerequisites) and locate your native RimWorld 1.6
-installation.
+The game host needs the `slopworld` client package and `slopcar` launcher package.
+It does not need the native `slopd` package; the image contains the daemon and CLI.
+Install `slopctl` separately if you want CLI access from the host.
+
+## Install the host launcher
+
+The minimum supported host-library baseline is **Debian 13 (Trixie)**. Use a
+matching distro package on a host that satisfies its declared library dependencies;
+older-library systems are outside the support target. Fedora packages target Fedora 43,
+and Arch packages target current Arch Linux.
+
+You also need access to a running local Docker engine. The host kernel must allow
+the nested sandbox operations checked by `slopcar doctor`. The container supplies
+tmux, Bubblewrap, and pasta; those do not impose native package requirements on the host.
+The `slopcar` launcher includes its seccomp policy and requires no Rust, Python,
+or source checkout. These requirements cover only the container launcher;
+[game connection](#game-connection) below also requires a host source build.
+
+Download the separate **slopcar** package from
+[GitHub Releases](https://github.com/droserasprout/slopworld/releases).
+Debian 13-compatible and Fedora packages are available for amd64/x86_64 and arm64/aarch64;
+the Arch package is x86_64. Install the matching package with your package manager:
+
+```sh
+sudo apt install ./slopcar-{{#constant release_version}}-amd64.deb
+# Or on Fedora:
+sudo dnf install ./slopcar-{{#constant release_version}}-x86_64.rpm
+# Or on Arch:
+sudo pacman -U ./slopcar-{{#constant release_version}}-x86_64.pkg.tar.zst
+```
+
+The package contains the launcher, completions, and notices. It depends on Docker
+and system libraries. It does not install the game mod or a daemon service on the host.
+Docker must be running and accessible to your ordinary user; run `slopcar` without sudo.
+
+### From source
+
+For source installs, use `just sidecar-install`. This requires Rust, `just`, `uv`,
+and a checkout. Build a local image explicitly when needed:
+
+```sh
+export SLOPCAR_IMAGE=slopcar:local
+just sidecar-image
+```
 
 ## Start the sidecar {#start-a-worker}
 
-Build and install the host-side Rust launcher, then build and check the image:
+By default, the launcher selects `ghcr.io/droserasprout/slopcar:<launcher version>`.
+`doctor` and a fresh `start` pull the selected image only when it is missing locally.
+They never rebuild or refresh an installed image. `SLOPCAR_IMAGE` selects a custom image.
+Check the container's sandbox runtime before starting:
 
 ```sh
-just sidecar-install
-just sidecar-image
-just sidecar-doctor
+slopcar doctor
 ```
 
 Pass `--workspace` for each project that agents may access. Use absolute paths.
@@ -37,12 +76,13 @@ slopcar start --workspace "/absolute/path/to/project"
 The installed launcher embeds its seccomp profile and runtime commands do not
 require a checkout. `slopcar build --source /path/to/slopworld` builds an image
 from an explicit checkout; without `--source`, it uses the current directory.
+Local builds require a checkout and are always explicit.
 Set `SLOPCAR_IMAGE` to select an image, including one already pulled from a registry.
 
 Before running agents, extend the standard image with your chosen Linux agent
 CLIs and their dependencies, then set `SLOPCAR_IMAGE` to that custom image.
 Install those tools when building the image so they survive container replacement.
-The launcher supplies `PUID`/`PGID` from your Linux user, or 1000:1000 on macOS.
+The launcher supplies `PUID`/`PGID` from your host user.
 The entrypoint starts as root to configure the `slop` account, then drops privileges
 before starting the daemon. Workspace and credential ownership stays unchanged.
 
@@ -64,10 +104,15 @@ mounts also protect container configuration/state targets and reject Docker sock
 or configuration sources. See the [technical README](https://github.com/droserasprout/slopworld/blob/main/slopcar/README.md)
 for the detailed mount constraints.
 
-## Linux game connection
+## Game connection
 
-Build and install the mod into your Linux game before launching. Run these commands
-from the repository root, using the same game directory for installation and launch:
+This source workflow requires a checkout and the
+[host build prerequisites](../development/build.md#prerequisites), including the
+.NET SDK and Protobuf compiler. It builds the mod and the native daemon/CLI/launcher
+crate, even though the daemon will run in the container.
+
+Build and install the mod before launching. Run these commands from the repository
+root, using the same game directory for installation and launch:
 
 ```sh
 RIMWORLD=/path/to/RimWorld/game just install-mod
@@ -80,12 +125,19 @@ Then launch with the sidecar's endpoint and profile:
 RIMWORLD=/path/to/RimWorld/game just sidecar-run
 ```
 
-The sidecar profile is separate from the native profile.
+The sidecar uses a separate game profile from the default local connection.
 See [Paths and files](../reference/paths.md) for overrides and
 [Game profiles](../maintenance/game-profiles.md) for profile behavior.
 
-Start the worker before running the game. Use `slopctl --sidecar status` to connect
-from the CLI. `SLOPD_ENDPOINT` can select an explicit descriptor in either mode.
+Start the worker before running the game. `install-mod` builds the CLI in the
+checkout without installing it into `PATH`. From the repository root, connect with:
+
+```sh
+slopd/target/debug/slopctl --sidecar status
+```
+
+Use `slopd/target/release/slopctl` if you built with `BUILD=release`.
+`SLOPD_ENDPOINT` can select an explicit descriptor in either mode.
 
 ## Lifecycle
 
@@ -106,7 +158,7 @@ image or change mounts or resource limits, remove the container with
 `slopcar rm`, then repeat the original `start` command, including its
 directory overrides and mounts. Container removal preserves those directories.
 
-The default port 7718 allows a native daemon on 7717 to run alongside the sidecar.
+The default port 7718 allows a local daemon on 7717 to run alongside the sidecar.
 `--port` (or `SLOPCAR_PORT`) sets the host port and daemon bind port when the worker first creates its configuration.
 A different port requires a new configuration directory.
 The launcher rejects a configuration directory that specifies another port.

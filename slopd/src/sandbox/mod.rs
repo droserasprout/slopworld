@@ -34,10 +34,10 @@ pub use state::StoredState;
 #[cfg(test)]
 use state::direct_child;
 pub(crate) use state::{
-    delete_stored_state, empty_trash, finish_restored_state, persistent_tmp_path, private_path,
-    purge_trash, remove_ephemeral_state, restore_stored_state, restore_trashed_state,
-    retained_state_identities, rollback_restored_state, state_dir, state_root, stored_states,
-    trash_state, trashed_session,
+    delete_stored_state, empty_trash, finish_restored_state, measure_stored_entry,
+    persistent_tmp_path, private_path, purge_trash, remove_ephemeral_state, restore_stored_state,
+    restore_trashed_state, retained_state_identities, rollback_restored_state, state_dir,
+    state_root, stored_states, trash_state, trashed_session,
 };
 
 const PANE_TERM: &str = "tmux-256color";

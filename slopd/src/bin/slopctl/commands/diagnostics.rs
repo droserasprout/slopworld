@@ -6,19 +6,26 @@ use super::super::http::{Endpoint, request, status_value};
 use super::common::encode_component;
 use crate::shared::protocol::routes;
 use serde_json::{Value, json};
+use std::fmt::Write;
 
 pub(super) fn run_peers(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
     let v = request(endpoint, session, "GET", routes::SESSIONS, None)?;
-    let names = peer_names(&v);
     if json {
-        print_json(&json!(names));
+        print_json(&json!(peer_names(&v)));
     } else {
-        for name in names {
-            let mark = if name == session { " (you)" } else { "" };
-            println!("{name}{mark}");
-        }
+        print!("{}", render_peers(&v, session));
     }
     Ok(())
+}
+
+#[expect(clippy::expect_used, reason = "formatting into a String cannot fail")]
+fn render_peers(v: &Value, session: &str) -> String {
+    let mut out = String::new();
+    for name in peer_names(v) {
+        let mark = if name == session { " (you)" } else { "" };
+        writeln!(out, "{name}{mark}").expect("writing to a String cannot fail");
+    }
+    out
 }
 
 pub(super) fn run_status(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
@@ -53,10 +60,18 @@ pub(super) fn run_sandbox_inspect(
 }
 
 fn print_sandbox(v: &Value) {
-    println!("session   {}", v["session"].as_str().unwrap_or("?"));
+    print!("{}", render_sandbox(v));
+}
+
+#[expect(clippy::expect_used, reason = "formatting into a String cannot fail")]
+fn render_sandbox(v: &Value) -> String {
+    let mut out = String::new();
+    writeln!(out, "session   {}", v["session"].as_str().unwrap_or("?"))
+        .expect("writing to a String cannot fail");
     if v["host"].as_bool().unwrap_or(false) {
-        println!("sandbox   not applicable (host terminal)");
-        return;
+        writeln!(out, "sandbox   not applicable (host terminal)")
+            .expect("writing to a String cannot fail");
+        return out;
     }
     if let Some(plan) = v.get("plan").filter(|plan| !plan.is_null()) {
         for section in [
@@ -67,41 +82,53 @@ fn print_sandbox(v: &Value) {
             "mounts",
             "command",
         ] {
-            println!("{section}:");
+            writeln!(out, "{section}:").expect("writing to a String cannot fail");
             if let Some(args) = plan[section].as_array() {
                 if args.is_empty() {
-                    println!("  (none)");
+                    writeln!(out, "  (none)").expect("writing to a String cannot fail");
                 } else {
                     for arg in args {
-                        println!("  {}", shell_quote(arg.as_str().unwrap_or("<arg>")));
+                        writeln!(out, "  {}", shell_quote(arg.as_str().unwrap_or("<arg>")))
+                            .expect("writing to a String cannot fail");
                     }
                 }
             }
         }
     } else {
-        println!("plan      no saved sandbox launch");
+        writeln!(out, "plan      no saved sandbox launch")
+            .expect("writing to a String cannot fail");
     }
     let live = &v["live"];
-    println!("live      {}", live["status"].as_str().unwrap_or("unknown"));
+    writeln!(
+        out,
+        "live      {}",
+        live["status"].as_str().unwrap_or("unknown")
+    )
+    .expect("writing to a String cannot fail");
     if let Some(pid) = live["pane_pid"].as_u64() {
-        println!("pane pid  {pid}");
+        writeln!(out, "pane pid  {pid}").expect("writing to a String cannot fail");
     }
-    println!(
+    writeln!(
+        out,
         "compare   {}",
         v["comparison"].as_str().unwrap_or("unknown")
-    );
+    )
+    .expect("writing to a String cannot fail");
     if let Some(processes) = live["processes"].as_array() {
         for process in processes {
             let pid = process["pid"].as_u64().unwrap_or(0);
             let ppid = process["ppid"].as_u64().unwrap_or(0);
-            println!("process   {pid} (parent {ppid})");
+            writeln!(out, "process   {pid} (parent {ppid})")
+                .expect("writing to a String cannot fail");
             if let Some(argv) = process["argv"].as_array() {
                 for arg in argv {
-                    println!("  {}", shell_quote(arg.as_str().unwrap_or("<arg>")));
+                    writeln!(out, "  {}", shell_quote(arg.as_str().unwrap_or("<arg>")))
+                        .expect("writing to a String cannot fail");
                 }
             }
         }
     }
+    out
 }
 
 fn shell_quote(value: &str) -> String {

@@ -47,6 +47,13 @@ namespace SlopWorld
             Sidebar.TerminalClosed(_state.Name);
         }
 
+        // Hosts close panels before removing them; disposal also covers an unopened cache.
+        public void Dispose()
+        {
+            Closed();
+            Drop();
+        }
+
         internal void BindSession(string name)
         {
             if (name == _state.Name)
@@ -69,11 +76,13 @@ namespace SlopWorld
             }
             _state.ShowStopped =
                 _state.Name != null && SessionHub.Instance.Get(_state.Name)?.Gone == true;
-            if (_opened)
-                PrimePanelSize();
+            _state.SizeDirty = false;
             _historyCoordinator.ResetForSession();
             RestoreScrollbackState(_state.Name);
             _historyCoordinator.RestoreCache(_state.Name);
+            // Restore the anchor before deciding whether this tab can be reflowed.
+            if (_opened)
+                PrimePanelSize();
             if (_scrollOff > 0)
             {
                 _historyDisplayedFrame = CachedDisplayedFrame(_state.Name);

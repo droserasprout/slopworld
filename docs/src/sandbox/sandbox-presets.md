@@ -26,14 +26,15 @@ env = ["MY_TOOL_TOKEN"]
 MY_TOOL_MODE = "local"
 ```
 
-Paths expand `~` and environment variables. An unset variable omits the whole path.
+Paths expand `~` and environment variables. An unset variable omits the whole path,
+except in `shared`, where it fails validation.
 Nonempty paths must be absolute after expansion; relative preset paths are rejected.
 Missing ordinary bind sources are skipped; an invalid project directory prevents launch.
 Protected paths, including the daemon's configuration and private state, cannot
 be mounted through ordinary path fields.
 
 In `ro`, `rw`, and `dev`, a whole entry such as `${KUBECONFIG:paths}` expands
-an environment variable containing a platform path list (colon-separated on Linux).
+an environment variable containing a colon-separated path list.
 Empty entries are ignored. Each remaining entry must be absolute and pass the
 same protected-path checks as an ordinary bind. Missing files are skipped.
 Ordinary `$VARIABLE` expansion still selects one path, including any literal colons.
@@ -54,13 +55,16 @@ Ordinary `$VARIABLE` expansion still selects one path, including any literal col
 The daemon omits ordinary preset binds when their host paths do not exist.
 `cache` directories are created at launch; previewing a preset does not create them. A `private` bind can use
 an existing session copy when its host path is missing.
-If a path contains an unset environment variable, the daemon omits the whole path.
 
 ## Global preset and composition
 
 The implicit `global` preset supplies existing `/usr`, `/etc`, `/opt`, and
-`~/.local/bin` read-only. Sandboxes also have `/proc`, `/dev`, and a temporary `/tmp`.
-Copy `global.toml` to the user preset directory to override it.
+`~/.local/bin` read-only. Sandboxes also have `/proc`, `/dev`, and `/tmp`, which uses
+private session state when persistent `/tmp` is enabled.
+To override the global preset with a file, copy the shipped `slopd/presets/global.toml`
+to `~/.config/slopworld/sandbox_presets/global.toml`, remove the `[[sandbox]]`
+header, and edit the fields. Keep `name = "global"` at the top level: user files
+contain one flat definition, so the shipped file cannot be used verbatim.
 
 `requires` adds other presets. Missing or cyclic dependencies are rejected when
 saving; required presets appear as disabled controls in the editor.

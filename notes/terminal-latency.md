@@ -12,7 +12,7 @@ echo. Frame end precedes physical presentation. Client and daemon clocks have
 separate monotonic epochs: subtract only within one peer. Percentiles exclude censored
 outcomes, so compare failures and incomplete samples too. Traces contain no terminal text.
 
-Memory counters overlap; never add RSS, Mono, and Unity totals. GC counts are not
+Memory counters overlap; never add RSS, managed heap, and graphics totals. GC counts are not
 allocated bytes. Eco's geometry-capacity estimate measures array payload before
 layer disposal, not retained memory or an RSS delta. Atlas estimates cover RGBA only.
 Destruction and GC may happen later.
@@ -26,4 +26,4 @@ Desktop phases need performance records and valid latency samples; history also 
 a completed scroll sample. Compare actual duration and slip counts: `complete_with_slip`
 retains events but shifts deadlines. Transport residual includes both network directions
 and unmeasured client/codec work. Performance lanes overlap; helper timings cannot
-predict Unity or end-to-end costs. See [diagnostics](ops-diagnostics.md) for CPU attribution.
+predict rendering or end-to-end costs. See [diagnostics](ops-diagnostics.md) for CPU attribution.

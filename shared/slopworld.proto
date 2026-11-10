@@ -18,6 +18,7 @@ message Daemon {
   string pi_titles = 12;
   string task_summaries = 13;
   Instructions instructions = 14;
+  AudioOutputSettings audio_output = 20;
   reserved 16;
   reserved "planner";
   reserved 15, 17, 18, 19;
@@ -205,6 +206,7 @@ message SessionLaunchView {
   repeated Mount mounts = 10;
   bool autostart = 11;
   bool auto_resume = 12;
+  bool resume_supported = 19;
   optional string args = 13;
   WorkerPolicy workers = 14;
   AgentPermissions permissions = 18;
@@ -432,6 +434,8 @@ message AudioState {
   optional string error = 4;
   optional string title = 5;
   optional string session = 6;
+  // Echoed only after a requested stop completes. Not retained in snapshots.
+  optional string stop_ack = 7;
 }
 
 message StationMetadata {
@@ -932,6 +936,7 @@ message AudioRequest {
     AudioSelection selection = 1;
     Empty stop = 2;
   }
+  optional string stop_token = 4;
 }
 
 message ClientMessage {
@@ -1056,4 +1061,20 @@ message PlannerSaveReq {
 message PlannerDescription {
   string text = 1;
   string revision = 2;
+}
+
+message AudioOutputSettings {
+  string backend = 1;
+  string device = 2;
+}
+
+message AudioOutputDevice {
+  string id = 1;
+  string name = 2;
+}
+
+message AudioOutputs {
+  repeated AudioOutputDevice devices = 1;
+  optional string active_device = 2;
+  map<string, string> auto_devices = 3;
 }

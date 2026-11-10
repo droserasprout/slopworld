@@ -3,16 +3,16 @@
 The Rust launcher owns profile seeding, locking, and game process lifetime.
 `slopworld/cli.rs` owns the Clap command tree, generated help, and completions.
 The launcher accepts only its own options and commands; it constructs the game's
-arguments from the selected profile, log path, and window settings. Local commands
-dispatch before game/profile discovery. Endpoint and mod-install modules execute
-typed requests without parsing argv.
-`slopworld/instance.rs` owns profile-keyed locks and Linux external-game detection.
+arguments from the selected profile and disables the separate game file logger.
+Local commands dispatch before game/profile discovery. Endpoint and mod-install
+modules execute typed requests without parsing argv.
+`slopworld/instance.rs` owns profile-keyed locks and external-game detection.
 [Mod profile isolation](mod-profile.md) owns in-game gating.
 
-`slopworld/game_config.rs` owns the saved Linux game directory. Successful installation
-remembers a canonical game parent only when it contains `RimWorldLinux`. Explicit
+`slopworld/game_config.rs` owns the saved game directory. Successful installation
+remembers a canonical game parent only when it contains `RimWorld`. Explicit
 arguments/environment override it; invalid saved configuration blocks fallback.
-Install/removal share platform resolution, with macOS paths matching `mac/config.just`.
+Install/removal share game resolution.
 See [paths](ops-paths.md) and [game profiles](../docs/src/maintenance/game-profiles.md)
 for locations and options.
 
@@ -28,8 +28,8 @@ detection runs. It signals a missing preferences file through the game-only
 `SLOPWORLD_INITIAL_AUDIO` environment value; the mod applies audio defaults after
 initialization. Existing preferences remain authoritative even with mod-list reset.
 
-Retain the profile lock through game exit on Linux/macOS; external-game detection
-is Linux-only. `slopworld/endpoints.rs` owns authenticated client registration and
+Retain the profile lock through game exit. External-game detection also
+prevents conflicting launches. `slopworld/endpoints.rs` owns authenticated client registration and
 secret-free listing. `peer_probe.rs` owns authenticated discovery, `peer_store.rs`
 owns private file publication, and `peer_prompt.rs` owns hidden input and terminal
 restoration. A launch derives its profile from the already selected descriptor,
@@ -40,6 +40,12 @@ and cannot be registered with `connect`.
 The shared path resolver defaults to `local`; daemon publication always uses its
 own descriptor path. Native/sidecar catalogs remain separate. Profiles follow peer names, with explicit path overrides taking
 precedence. The resolved profile owns lock identity; explicit paths can share a
-folder. Redirect Unity logs through the shared resolver, including
-`SLOPWORLD_GAME_LOG`, and create the log parent only for normal launch.
+folder. Capture stdout and stderr in the shared resolved `Player.log`, replacing
+it on each launch, and pass `-NoFileLog` to disable Waylith's separate logger.
+Prepare the log only after profile validation and locking during normal launch.
 [Linux window integration](ui-window-fullscreen.md) owns window behavior.
+
+Launches set `FORCE_X11=1` for Waylith's GLFW initialization unless
+`--no-window-fix` is selected. Native X11 and XWayland windows share the mod's EWMH
+fullscreen and decoration handling; native Wayland windows do not expose that
+boundary. The renderer uses the game's Vulkan backend.

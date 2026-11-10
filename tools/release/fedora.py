@@ -22,13 +22,23 @@ def rpm_version(version: str) -> str:
     return version.replace('-', '.')
 
 
-def package(output: Path, revision: str, version: str, architecture: str, binary_dir: Path | None = None) -> Path:
+def package(
+    output: Path,
+    revision: str,
+    version: str,
+    architecture: str,
+    binary_dir: Path | None = None,
+    *,
+    product: str = 'slopworld',
+) -> Path:
+    if product not in shared.PRODUCTS:
+        raise ValueError(f'Unsupported product: {product}')
     version_field = rpm_version(version)
     if architecture not in ('x86_64', 'aarch64'):
         raise ValueError(f'Unsupported Fedora architecture: {architecture}')
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    destination = output / f'slopworld-{version_field}-1.{architecture}.rpm'
+    destination = output / f'{product}-{version_field}-1.{architecture}.rpm'
     # RPM postprocessors split paths on whitespace: build under /tmp, then copy
     # to the output filesystem for atomic publication. Failures preserve old output.
     with (
@@ -36,19 +46,30 @@ def package(output: Path, revision: str, version: str, architecture: str, binary
         tempfile.TemporaryDirectory(prefix='slopworld-rpm-', dir='/tmp') as temporary,
     ):
         workspace = Path(temporary)
-        stage_payload(workspace / 'SOURCES/payload', revision, version, binary_dir)
-        archive = build_archive(workspace, version_field, architecture, destination.name, source_date_epoch(revision))
+        if product == 'slopcar':
+            shared.stage_sidecar(
+                workspace / 'SOURCES/payload', binary_dir or ROOT / 'slopcar/target/release', revision, version
+            )
+        else:
+            stage_payload(workspace / 'SOURCES/payload', revision, version, binary_dir, product)
+        archive = build_archive(
+            workspace, version_field, architecture, destination.name, source_date_epoch(revision), product=product
+        )
         published = Path(publication) / destination.name
         copy_file(archive, published)
         published.replace(destination)
     return destination
 
 
-def stage_payload(payload: Path, revision: str, version: str, binary_dir: Path | None) -> None:
-    shared.stage_system(payload, binary_dir or ROOT / 'slopd/target/release')
-    stage_mod(payload / 'usr/share/slopworld/SlopWorld', revision, version)
-    copy_file(ROOT / 'packaging/fedora/README.Fedora', payload / 'usr/share/doc/slopworld/README.Fedora')
-    shared.stage_notices(payload)
+def stage_payload(
+    payload: Path, revision: str, version: str, binary_dir: Path | None, product: str = 'slopworld'
+) -> None:
+    shared.stage_system(payload, binary_dir or ROOT / 'slopd/target/release', product)
+    if product == 'slopworld':
+        stage_mod(payload / 'usr/share/slopworld/SlopWorld', revision, version)
+    copy_file(ROOT / 'packaging/fedora/README.Fedora', payload / f'usr/share/doc/{product}/README.Fedora')
+    shared.metadata(payload / f'usr/share/doc/{product}', revision, version)
+    shared.stage_notices(payload, f'usr/share/licenses/{product}/LICENSE')
     shared.normalize_permissions(payload, payload / 'usr/bin')
 
 
@@ -67,9 +88,11 @@ def source_date_epoch(revision: str) -> str:
     return epoch
 
 
-def build_archive(workspace: Path, version: str, architecture: str, expected_name: str, epoch: str) -> Path:
-    spec = workspace / 'SPECS/slopworld.spec'
-    copy_file(ROOT / 'packaging/fedora/slopworld.spec', spec)
+def build_archive(
+    workspace: Path, version: str, architecture: str, expected_name: str, epoch: str, *, product: str = 'slopworld'
+) -> Path:
+    spec = workspace / f'SPECS/{product}.spec'
+    copy_file(ROOT / f'packaging/fedora/{product}.spec', spec)
     run(
         [
             'rpmbuild',

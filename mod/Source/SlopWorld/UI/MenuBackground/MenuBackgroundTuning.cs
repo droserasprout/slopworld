@@ -75,9 +75,6 @@ namespace SlopWorld
         // Bump when bake arithmetic changes. Tuning constants are already in the cache key.
         internal const int Version = 3;
 
-        // Batch scratch buffers to cap transient memory and parallelism independently of set size.
-        internal const int BakeBudgetMB = 96;
-
         // Remove cache directories unused for this long.
         internal const int KeepDays = 30;
     }

@@ -1,9 +1,9 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static SlopWorld.MenuBackgroundTuning;
@@ -19,11 +19,7 @@ namespace SlopWorld
         {
             string identity =
                 $"{MenuBackgroundSource.Identity(src)}-{src.width}x{src.height}-{preset.Name}{preset.Total}-{Tuning}-v{MenuBackgroundTuning.Version}";
-            using (var hash = SHA256.Create())
-                return BitConverter
-                    .ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(identity)))
-                    .Replace("-", "")
-                    .ToLowerInvariant();
+            return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
         }
 
         // Every number the pixels depend on, hashed in. Under Version alone, a tuning change
@@ -128,63 +124,6 @@ namespace SlopWorld
             }
         }
 
-        internal static Texture2D[] Load(string key, MenuBackgroundPreset preset)
-        {
-            string dir = Dir(key);
-            if (!Directory.Exists(dir))
-                return null;
-
-            var frames = new Texture2D[preset.Total];
-            try
-            {
-                for (int i = 0; i < frames.Length; i++)
-                {
-                    // D2 holds a set of up to a hundred. Past that this needs widening.
-                    string path = Path.Combine(dir, $"{i:D2}.jpg");
-                    if (!File.Exists(path))
-                    {
-                        DestroyFrames(frames);
-                        return null; // a partial cache rebakes
-                    }
-
-                    Texture2D tex = null;
-                    try
-                    {
-                        tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
-                        if (!LoadFrame(tex, File.ReadAllBytes(path)))
-                        {
-                            UnityEngine.Object.Destroy(tex);
-                            tex = null;
-                            DestroyFrames(frames);
-                            return null; // a corrupt cache rebakes
-                        }
-                        tex.filterMode = FilterMode.Bilinear;
-                        tex.wrapMode = TextureWrapMode.Clamp;
-                        Keep(tex);
-                        frames[i] = tex;
-                        tex = null; // ownership moved into the returned set
-                    }
-                    catch
-                    {
-                        UnityEngine.Object.Destroy(tex);
-                        throw;
-                    }
-                }
-
-                try
-                {
-                    Directory.SetLastWriteTimeUtc(dir, DateTime.UtcNow);
-                }
-                catch { }
-                return frames;
-            }
-            catch
-            {
-                DestroyFrames(frames);
-                throw;
-            }
-        }
-
         static bool _compressionFailed;
 
         // Keep the JPEG cache portable. Compress one decoded frame at a time, before dropping
@@ -264,87 +203,6 @@ namespace SlopWorld
             Rot(clean, dst, fuel, w, h, k, phase);
         }
 
-        internal static Texture2D[] Bake(Texture2D src, string key, MenuBackgroundPreset preset)
-        {
-            int w = src.width,
-                h = src.height;
-            float scale = Mathf.Min(1f, (float)MaxSide / Mathf.Max(w, h));
-            int bw = Mathf.Max(1, Mathf.RoundToInt(w * scale));
-            int bh = Mathf.Max(1, Mathf.RoundToInt(h * scale));
-
-            Color[] clean = Downsample(TextureReadback.ReadBack(src), w, h, bw, bh);
-            float[] fuel = Fuel(clean, bw, bh);
-
-            string dir = Dir(key);
-            Directory.CreateDirectory(dir);
-
-            // Pixel math is thread-safe. Texture2D encoding/loading must remain on the main
-            // thread, so compute batches in parallel and write them in order.
-            int total = preset.Total;
-            int batch = Mathf.Clamp((BakeBudgetMB << 20) / Mathf.Max(1, bw * bh * 16), 1, total);
-            var opts = new ParallelOptions { MaxDegreeOfParallelism = batch };
-
-            var scratch = new Color[batch][];
-            for (int b = 0; b < batch; b++)
-                scratch[b] = new Color[bw * bh];
-
-            var frames = new Texture2D[total];
-            try
-            {
-                for (int start = 0; start < total; start += batch)
-                {
-                    int end = Math.Min(total, start + batch);
-
-                    Parallel.For(
-                        start,
-                        end,
-                        opts,
-                        i => Stage(preset, clean, scratch[i - start], fuel, bw, bh, i)
-                    );
-
-                    for (int i = start; i < end; i++)
-                    {
-                        Texture2D tex = null;
-                        try
-                        {
-                            tex = new Texture2D(bw, bh, TextureFormat.RGB24, false);
-                            tex.SetPixels(scratch[i - start]);
-                            tex.Apply();
-
-                            byte[] jpg = tex.EncodeToJPG(JpegQuality);
-                            File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.jpg"), jpg);
-
-                            // Reload the JPEG so the first launch and cached reload use identical
-                            // pixels. A failed reload does not transfer ownership.
-                            if (!LoadFrame(tex, jpg))
-                                throw new InvalidDataException("Unity could not reload baked JPEG");
-                            tex.filterMode = FilterMode.Bilinear;
-                            tex.wrapMode = TextureWrapMode.Clamp;
-                            Keep(tex);
-                            frames[i] = tex;
-                            tex = null; // ownership moved into the returned set
-                        }
-                        catch
-                        {
-                            UnityEngine.Object.Destroy(tex);
-                            throw;
-                        }
-                    }
-                }
-
-                Log.Message(
-                    $"[SlopWorld] baked {preset.Name}: {Onset} ramp + {preset.Depths}x{preset.Phases} "
-                        + $"at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}"
-                );
-                return frames;
-            }
-            catch
-            {
-                DestroyFrames(frames);
-                throw;
-            }
-        }
-
         // Averaging rather than sampling: point-sampling a starfield at half scale throws away
         // half the stars.
         static Color[] Downsample(Color[] src, int w, int h, int bw, int bh)
@@ -400,7 +258,19 @@ namespace SlopWorld
                     UnityEngine.Object.Destroy(frames[i]);
         }
 
+        static readonly ConditionalWeakTable<Texture2D, object> Generated = new();
+        static readonly object GeneratedMarker = new();
+
+        // Native background fields may still reference a retired frame until their next
+        // draw. Recognize those too, without rooting retired textures or rebaking from them.
+        internal static bool IsGenerated(Texture2D texture) =>
+            !ReferenceEquals(texture, null) && Generated.TryGetValue(texture, out _);
+
         // Root generated textures across map switches.
-        static void Keep(Texture2D tex) => tex.hideFlags = HideFlags.DontUnloadUnusedAsset;
+        static void Keep(Texture2D tex)
+        {
+            tex.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            Generated.Add(tex, GeneratedMarker);
+        }
     }
 }

@@ -20,6 +20,7 @@ pub(crate) mod routes {
     pub(crate) const SESSION_CWD: &str = "/api/sessions/:name/cwd";
     pub(crate) const SESSION_SANDBOX: &str = "/api/sessions/:name/sandbox";
     pub(crate) const SESSION_START: &str = "/api/sessions/:name/start";
+    pub(crate) const SESSION_RESUME: &str = "/api/sessions/:name/resume";
     pub(crate) const SESSION_STOP: &str = "/api/sessions/:name/stop";
     pub(crate) const SESSION_RESTART: &str = "/api/sessions/:name/restart";
     pub(crate) const SESSION_LABEL: &str = "/api/sessions/:name/label";
@@ -66,6 +67,7 @@ pub(crate) mod routes {
     pub(crate) const AUDIO: &str = "/api/audio";
     pub(crate) const NCSPOT: &str = "/api/ncspot";
     pub(crate) const JUKEBOX: &str = "/api/jukebox";
+    pub(crate) const AUDIO_OUTPUTS: &str = "/api/audio/outputs";
     pub(crate) const JUKEBOX_PRESETS: &str = "/api/jukebox/presets";
     pub(crate) const JUKEBOX_PRESET: &str = "/api/jukebox/presets/:id";
     pub(crate) const BROWSE: &str = "/api/browse";

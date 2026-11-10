@@ -4,21 +4,49 @@
 use super::{Application, Configuration};
 use crate::config::Config;
 use anyhow::{Result, anyhow};
+use futures::{StreamExt, TryStreamExt, stream};
 
 pub(crate) async fn stored_states(
     cfg: Config,
     measure_sizes: bool,
 ) -> Result<Vec<crate::sandbox::StoredState>> {
-    tokio::task::spawn_blocking(move || {
-        let mut entries = crate::sandbox::stored_states(&cfg.sessions, measure_sizes);
-        entries.extend(crate::sandbox::cache::inventory(
-            &cfg.projects,
-            measure_sizes,
-        ));
+    let entries = tokio::task::spawn_blocking(move || {
+        let mut entries = crate::sandbox::stored_states(&cfg.sessions, false);
+        entries.extend(crate::sandbox::cache::inventory(&cfg.projects, false));
         entries
     })
     .await
-    .map_err(|e| anyhow!("scanning private state: {e}"))
+    .map_err(|e| anyhow!("scanning private state: {e}"))?;
+    if !measure_sizes {
+        return Ok(entries);
+    }
+    measure_entries(entries, crate::sandbox::measure_stored_entry).await
+}
+
+// Bound blocking filesystem walks per request and retain inventory order regardless
+// of completion order. Cancellation drops queued work; admitted read-only walks finish.
+async fn measure_entries(
+    entries: Vec<crate::sandbox::StoredState>,
+    measure: impl Fn(crate::sandbox::StoredState) -> crate::sandbox::StoredState
+    + Clone
+    + Send
+    + 'static,
+) -> Result<Vec<crate::sandbox::StoredState>> {
+    let mut measured: Vec<_> =
+        stream::iter(entries.into_iter().enumerate().map(|(index, entry)| {
+            let measure = measure.clone();
+            async move {
+                tokio::task::spawn_blocking(move || measure(entry))
+                    .await
+                    .map(|entry| (index, entry))
+                    .map_err(|e| anyhow!("measuring private state: {e}"))
+            }
+        }))
+        .buffer_unordered(4)
+        .try_collect()
+        .await?;
+    measured.sort_unstable_by_key(|(index, _)| *index);
+    Ok(measured.into_iter().map(|(_, entry)| entry).collect())
 }
 
 /// Run blocking destruction only from an owned lifecycle operation. The outer owned

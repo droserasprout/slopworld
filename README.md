@@ -7,8 +7,8 @@
 <img src="docs/src/images/screenshot.jpg" alt="SlopWorld workspace in RimWorld" width="320" align="right">
 
 SlopWorld is a fun terminal-focused IDE for agentic coding, built on RimWorld.
-Your agents' sessions appear as colonists. Select one to open its terminal and give
-it work.
+Your agents' sessions appear as colonists. Select one and press T to open its
+terminal and give it work.
 
 - Run [agent CLIs](https://slopworld.space/agents/configuring-agents.html), [shells](https://slopworld.space/terminals/host-shells.html), and tools in [persistent terminal sessions](https://slopworld.space/terminals/terminal.html).
 - Manage [projects](https://slopworld.space/workspace/configuring-projects.html), [mounts](https://slopworld.space/workspace/project-mounts.html), and [Git worktrees](https://slopworld.space/workspace/project-worktrees.html) for parallel work.
@@ -41,16 +41,15 @@ SlopWorld consists of three components:
 
 <img src="docs/src/images/introduction-work.jpg" alt="SlopWorld terminal showing a code diff beneath a tooltip about automated work" width="240" align="right">
 
-You need a native build of **RimWorld 1.6**, preferably the latest one. Buy the game
+You need a native build of **RimWorld 1.7**, preferably the latest one. Buy the game
 on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
 [GOG](https://www.gog.com/en/game/rimworld), or
 [directly from Ludeon Studios](https://rimworldgame.com/).
 
-For Linux host, see the [requirements](https://slopworld.space/installation/linux.html#requirements) and
+SlopWorld supports Linux. See the [requirements](https://slopworld.space/installation/linux.html#requirements) and
 [installation guide](https://slopworld.space/installation/linux.html).
 
-For experimental sidecar mode (`slopd` in Docker) follow the [macOS](https://slopworld.space/installation/macos.html)
-and [sidecar worker](https://slopworld.space/installation/sidecar.html) guides.
+For experimental sidecar mode (`slopd` in Docker) follow the [sidecar worker](https://slopworld.space/installation/sidecar.html) guide.
 
 ### From binaries
 
@@ -73,7 +72,7 @@ RIMWORLD=/path/to/RimWorld/game just install
 slopworld
 ```
 
-`RIMWORLD` defaults to `~/GOG Games/RimWorld/game`.
+`RIMWORLD` defaults to `~/.local/share/Steam/steamapps/common/RimWorld`.
 
 Always start the "game" with `slopworld`. The mod only activates in a separate profile and should stay disabled in vanilla installation.
 

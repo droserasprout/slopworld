@@ -331,7 +331,7 @@ namespace SlopWorld.Tests
                     var target in new[]
                     {
                         UnityEngine.RuntimePlatform.LinuxPlayer,
-                        UnityEngine.RuntimePlatform.OSXPlayer,
+                        UnityEngine.RuntimePlatform.WindowsPlayer,
                     }
                 )
                 {

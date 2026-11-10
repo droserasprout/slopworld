@@ -20,6 +20,7 @@ namespace SlopWorld
             public const string SessionCwd = "/api/sessions/:name/cwd";
             public const string SessionSandbox = "/api/sessions/:name/sandbox";
             public const string SessionStart = "/api/sessions/:name/start";
+            public const string SessionResume = "/api/sessions/:name/resume";
             public const string SessionStop = "/api/sessions/:name/stop";
             public const string SessionRestart = "/api/sessions/:name/restart";
             public const string SessionLabel = "/api/sessions/:name/label";
@@ -66,6 +67,7 @@ namespace SlopWorld
             public const string Audio = "/api/audio";
             public const string Ncspot = "/api/ncspot";
             public const string Jukebox = "/api/jukebox";
+            public const string AudioOutputs = "/api/audio/outputs";
             public const string JukeboxPresets = "/api/jukebox/presets";
             public const string JukeboxPreset = "/api/jukebox/presets/:id";
             public const string Browse = "/api/browse";

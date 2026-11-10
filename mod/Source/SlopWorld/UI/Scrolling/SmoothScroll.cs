@@ -276,7 +276,6 @@ namespace SlopWorld
             public Vector2 WheelMouse;
             public Vector2 CoverageMouse;
             public EventModifiers CoverageModifiers;
-            public int CoverageDisplay;
             public readonly NativeScrollCoverage Coverage = new NativeScrollCoverage();
         }
 
@@ -285,24 +284,18 @@ namespace SlopWorld
 
         static bool PreciseCovers(Event e)
         {
-            // A preference change cannot replay already consumed native movement.
-            if (WheelEventQueue.NativeCovered)
-                return true;
-            if (!Settings.SmoothScrolling || WheelEventQueue.RequiresLogicalInput)
+            if (!Settings.SmoothScrolling)
                 return false;
-            return (
-                Precise.CoverageMouse.Equals(GUIUtility.GUIToScreenPoint(e.mousePosition))
+            return Precise.CoverageMouse.Equals(GUIUtility.GUIToScreenPoint(e.mousePosition))
                 && Precise.CoverageModifiers == e.modifiers
-                && Precise.CoverageDisplay == e.displayIndex
-                && Precise.Coverage.Covers(Time.frameCount, e.delta.x, e.delta.y)
-            );
+                && Precise.Coverage.Covers(Time.frameCount, e.delta.x, e.delta.y);
         }
 
         void ClaimPrecise(Rect outer, Vector2 max)
         {
-            if (!Settings.SmoothScrolling || WheelEventQueue.RequiresLogicalInput)
+            if (!Settings.SmoothScrolling)
             {
-                // Disabled smoothing and ambiguous native ownership use logical input.
+                // Disabled smoothing uses logical movement exclusively.
                 // Reject in-flight native motion instead of replaying that movement later.
                 X11ScrollInput.DiscardPendingMovement();
                 Precise.Frame = -1;
@@ -316,17 +309,6 @@ namespace SlopWorld
             }
             int frame = Time.frameCount;
             var e = Event.current;
-            // Defer an unstamped native sample until the FIFO names its pointer owner.
-            // Covered delayed chunks must not consume newer native movement.
-            if (
-                WheelEventQueue.NativeCovered
-                || (
-                    e.type != EventType.ScrollWheel
-                    && e.type != EventType.Used
-                    && WheelEventQueue.HasPendingInput
-                )
-            )
-                return;
             bool wheel = e.type == EventType.ScrollWheel;
             bool newWheel =
                 wheel
@@ -367,7 +349,6 @@ namespace SlopWorld
                 Precise.Coverage.Record(frame, Precise.Amount.x, Precise.Amount.y);
                 Precise.CoverageMouse = GUIUtility.GUIToScreenPoint(e.mousePosition);
                 Precise.CoverageModifiers = e.modifiers;
-                Precise.CoverageDisplay = e.displayIndex;
             }
             Precise.Owner = this;
         }
@@ -410,20 +391,11 @@ namespace SlopWorld
                 {
                     // XInput already supplied this packet, including any sub-step parts.
                     Wheel.Amount = Vector2.zero;
-                    if (Precise.Spent || Precise.Owner == null)
-                        WheelEventQueue.CoverNative();
                 }
                 else
                 {
-                    // Raw frame input cannot represent a merged queue delta.
-                    var raw =
-                        !Settings.SmoothScrolling
-                        || WheelEventQueue.RequiresLogicalInput
-                        || WheelEventQueue.UsesAggregatedDelta
-                            ? e.delta
-                            : Input.mouseScrollDelta;
-                    WheelEventQueue.UseLogical();
                     X11ScrollInput.DiscardPendingMovement();
+                    var raw = !Settings.SmoothScrolling ? e.delta : Input.mouseScrollDelta;
                     Wheel.Amount =
                         new Vector2(
                             PrecisionDelta(e.delta.x, raw.x),
@@ -442,7 +414,6 @@ namespace SlopWorld
 
             Precise.Spent = true;
             Precise.Owner = null;
-            WheelEventQueue.CoverNative();
             var next = new Vector2(
                 Mathf.Clamp(_pos.x + Precise.Amount.x, 0f, _max.x),
                 Mathf.Clamp(_pos.y + Precise.Amount.y, 0f, _max.y)

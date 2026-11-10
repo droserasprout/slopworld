@@ -136,6 +136,8 @@
                 };
                 if (!(event.key in destinations)) return;
                 event.preventDefault();
+                // Consumed arrows must not reach mdBook's chapter navigation.
+                event.stopPropagation();
                 scrollTo(bar, destinations[event.key]);
             });
             // Rails are outside their owners; forward wheel input to the same scroller.

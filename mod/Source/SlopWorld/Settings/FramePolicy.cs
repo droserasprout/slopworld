@@ -2,12 +2,12 @@ using System;
 
 namespace SlopWorld
 {
-    // Select native presentation and target FPS. Unfocused windows always use 15 FPS.
+    // Select native presentation and target render FPS. RenderPacing owns scheduling.
     public sealed class FramePolicy
     {
         public const string Auto = "auto",
             Limit = "limit";
-        public static readonly int[] Presets = { 15, 30, 60, 120, 144, 240 };
+        public static readonly int[] Presets = { 5, 15, 30, 60, 120, 144, 240 };
 
         // Missing or unknown settings use the monitor-matched FPS limit.
         public static string Normalize(string mode) => mode == Limit ? Limit : Auto;
@@ -55,6 +55,7 @@ namespace SlopWorld
             // The FPS limit controls the background frame rate. Keep presentation mode tied to the
             // VSync toggle so focus changes do not recreate the Vulkan swapchain.
             int nextSync = vsync ? 1 : 0;
+
             bool changed = target != nextTarget || sync != nextSync;
             target = nextTarget;
             sync = nextSync;

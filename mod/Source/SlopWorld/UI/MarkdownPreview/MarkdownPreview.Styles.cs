@@ -123,6 +123,17 @@ namespace SlopWorld
                 : style.lineHeight;
         }
 
+        internal static float MeasureText(GUIStyle style, string text)
+        {
+            // Native CalcSize reports the last word's edge, excluding trailing ASCII spaces.
+            // A visible suffix makes those spaces interior; subtract its advance so layout,
+            // selection and the combined label all retain exactly the same whitespace.
+            if (!string.IsNullOrEmpty(text) && text[text.Length - 1] == ' ')
+                return style.CalcSize(new GUIContent(text + "M")).x
+                    - style.CalcSize(new GUIContent("M")).x;
+            return style.CalcSize(new GUIContent(text ?? "")).x;
+        }
+
         public float MeasureChar(GUIStyle style, char value)
         {
             if (!_charWidths.TryGetValue(style, out var widths))
@@ -132,7 +143,7 @@ namespace SlopWorld
             }
             if (!widths.TryGetValue(value, out var width))
             {
-                width = style.CalcSize(new GUIContent(value.ToString())).x;
+                width = MeasureText(style, value.ToString());
                 widths[value] = width;
             }
             return width;

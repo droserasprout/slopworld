@@ -377,3 +377,126 @@ fn retirement_during_output_io_discards_ring_and_releases_gated_feeder() {
         }
     }
 }
+
+/// Exercise both Linux sound-server bridges with the production decoder/queue/mixer.
+/// Run explicitly with pw-profiler alongside it: graph xruns need not reach CPAL.
+/// Muted output keeps this diagnostic from playing a second audible soundtrack.
+#[test]
+#[ignore = "requires live sound servers; observe their graph errors with pw-profiler"]
+fn compares_sound_server_bridges() {
+    let host = cpal::default_host();
+    let devices: Vec<_> = host.output_devices().unwrap().collect();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/OST");
+    let mut runs = Vec::new();
+    for id in ["pipewire", "pulse"] {
+        let device = devices.iter().find(|d| pcm_id(d) == id).unwrap().clone();
+        let health = Arc::new(OutputHealth::new());
+        let callback_health = health.clone();
+        let sink = rodio::DeviceSinkBuilder::from_device(device)
+            .unwrap()
+            .with_error_callback(move |error| callback_health.record(&error))
+            .open_stream()
+            .unwrap();
+        let output = RodioOutput {
+            id: "test".into(),
+            _sink: sink,
+            volume: Arc::new(AtomicU32::new(0.0f32.to_bits())),
+            health,
+        };
+        let title = TitleSink::pending(None, 0);
+        let opened = open(source.to_str().unwrap(), title.clone()).unwrap();
+        assert!(commit(opened, &output, 0.0).unwrap().is_some());
+        runs.push((id, output, title));
+    }
+    println!("bridge diagnostic ready: pid={}", std::process::id());
+    std::thread::sleep(Duration::from_secs(60));
+    for (id, output, title) in &runs {
+        title.cancel();
+        println!(
+            "{id}: backend_underruns={} source_underruns={} failed={}",
+            output.health.backend_underruns.load(Ordering::Relaxed),
+            output.health.source_underruns.load(Ordering::Relaxed),
+            output.failed(),
+        );
+    }
+}
+
+#[test]
+fn output_preferences_fall_back_without_using_null_or_repeating_devices() {
+    use crate::config::{AudioBackend, AudioOutputSettings};
+    let settings = AudioOutputSettings {
+        backend: AudioBackend::Pulse,
+        device: "headphones".into(),
+    };
+    assert_eq!(
+        preferred_ids(&settings),
+        ["headphones", "pulse", "pipewire", "default"]
+    );
+    let mut attempts = Vec::new();
+    let (id, ()) = open_first_available(
+        preferred_ids(&settings)
+            .into_iter()
+            .map(|id| (id.clone(), id)),
+        || Some(("default".into(), "default".into())),
+        |id| {
+            attempts.push(id.clone());
+            if id == "pipewire" {
+                Ok(())
+            } else {
+                Err(anyhow!("unavailable"))
+            }
+        },
+    )
+    .unwrap();
+    assert_eq!(id, "pipewire");
+    assert_eq!(attempts, ["headphones", "pulse", "pipewire"]);
+    let settings = AudioOutputSettings {
+        backend: AudioBackend::Default,
+        device: "null".into(),
+    };
+    assert_eq!(preferred_ids(&settings), ["default", "pipewire", "pulse"]);
+    assert_eq!(preferred_ids(&AudioOutputSettings::default()), SERVER_PCMS);
+}
+
+#[test]
+fn source_format_is_preferred_and_only_rejection_uses_device_default() {
+    let format = AudioFormat {
+        channels: rodio::ChannelCount::new(1).unwrap(),
+        rate: rodio::SampleRate::new(22050).unwrap(),
+    };
+    let mut attempts = Vec::new();
+    open_with_format_fallback(Some(format), |requested| {
+        attempts.push(requested);
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(attempts, [Some(format)]);
+    attempts.clear();
+    open_with_format_fallback(Some(format), |requested| {
+        attempts.push(requested);
+        anyhow::ensure!(requested.is_none(), "unsupported format");
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(attempts, [Some(format), None]);
+    let error =
+        open_with_format_fallback::<()>(Some(format), |_| anyhow::bail!("unavailable device"))
+            .unwrap_err();
+    assert!(error.to_string().contains("unavailable device"));
+}
+
+#[test]
+fn output_buffer_duration_stays_bounded_across_source_rates() {
+    for rate in [8000, 22050, 44100, 48000, 96000, 192000] {
+        let frames = output_buffer_frames(rodio::SampleRate::new(rate).unwrap());
+        let milliseconds = f64::from(frames) * 1000.0 / f64::from(rate);
+        assert!(
+            (33.0..=67.0).contains(&milliseconds),
+            "{rate}: {milliseconds} ms"
+        );
+    }
+    assert_eq!(
+        output_buffer_frames(rodio::SampleRate::new(22050).unwrap()),
+        1024
+    );
+}

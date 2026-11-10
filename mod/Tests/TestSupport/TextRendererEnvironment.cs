@@ -22,7 +22,8 @@ namespace UnityEngine
         public static readonly List<TextClipping> LabelClippings = new List<TextClipping>();
         public static readonly List<int> LabelFontSizes = new List<int>();
         public static readonly List<Matrix4x4> LabelMatrices = new List<Matrix4x4>();
-        public static Color color;
+        public static Color color = new Color(1f, 1f, 1f, 1f);
+        public static readonly List<Color> LabelColors = new List<Color>();
         public static readonly List<(Rect Box, Texture2D Texture, Rect Uv)> SpriteDraws =
             new List<(Rect, Texture2D, Rect)>();
         public static readonly List<Color> SpriteColors = new List<Color>();
@@ -53,6 +54,8 @@ namespace UnityEngine
             TextLabels.Add((box, text));
             LabelClippings.Add(style.clipping);
             LabelFontSizes.Add(style.fontSize);
+            // Native GUI.Label forwards GUI tint without consulting style.normal.textColor.
+            LabelColors.Add(color);
             if (FailLabel)
                 throw new InvalidOperationException("label failure");
         }

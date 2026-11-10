@@ -6,7 +6,43 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
-Expect any imaginable incompatibilities until 0.1.0.
+## [Unreleased]
+
+### Breaking changes
+
+- **RimWorld 1.7 (Waylith) is required**. Get it from Steam, "unstable" branch.
+- **slopworld package has been split** to `slopworld`, `slopd`, `slopctl`, `slopcar`.
+- **macOS suport has been removed**.
+
+### Added
+
+- Jukebox: Added playback controls to the context menu.
+- Packaging: Added sidecar launcher packages.
+- Settings: Added radio output and audio backend selection.
+- Settings: Show total trash size on the Storage tab.
+
+### Fixed
+
+- Git: Bound memory use when checking worktrees before removal.
+- Jukebox: Avoid unnecessary resampling during radio playback.
+- Settings: Fixed scrollbar flashing and delays when opening settings.
+- Settings: Persist audio volume changes across restarts.
+- UI: Keep the loading screen visible through startup transitions.
+- UI: Fixed Command palette Git actions targeting the wrong checkout.
+- UI: Fixed stale task status changes and cancellation permissions in Command palette.
+
+### Changed
+
+- Jukebox: Request real-time audio scheduling on Linux.
+- Jukebox: Play the bundled soundtrack locally in-game.
+- Jukebox: Resample the bundled soundtrack to 48 kHz.
+- Settings: Disable post-processing by default.
+- Packaging: Split `slopworld` package into `slopworld`, `slopd`, and `slopctl`.
+
+### Removed
+
+- Platform: Removed experimental macOS support.
+- Game: Removed RimWorld 1.6 support.
 
 ## [0.0.14] - 2026-11-06
 

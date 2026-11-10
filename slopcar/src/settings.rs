@@ -28,7 +28,10 @@ impl Settings {
                 .unwrap_or_else(|| default.into())
         };
         Ok(Self {
-            image: value("SLOPCAR_IMAGE", "slopcar:local"),
+            image: value(
+                "SLOPCAR_IMAGE",
+                concat!("ghcr.io/droserasprout/slopcar:", env!("CARGO_PKG_VERSION")),
+            ),
             container: value("SLOPCAR_CONTAINER", "slopcar"),
             config: crate::application_paths::Mode::Sidecar.config_dir_with(&lookup),
             data: crate::application_paths::Mode::Sidecar.daemon_data_dir_with(&lookup),

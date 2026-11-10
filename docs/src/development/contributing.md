@@ -6,8 +6,7 @@
 `mod/` contains the C# mod, assets, and tests that run without the game.
 Shared Python tools form the `tools` package, grouped by responsibility with tests
 beside their owners. The root justfile exposes flat, prefixed recipes and aggregates; `just/` owns
-the component recipes and specialist menus. `mac/` owns native macOS scripts and
-settings, exposed through `mac-*` recipes.
+the component recipes and specialist menus.
 User documentation is in `docs/`. Implementation notes are in `notes/`.
 
 ## Development workflow
@@ -22,10 +21,22 @@ See the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes
 
 ## Documentation
 
+Install mdBook **0.5.4**, matching the publication workflow and theme template:
+
+```sh
+cargo install mdbook --version 0.5.4 --locked
+```
+
+It is required for book builds and release validation, not ordinary compilation.
+
 `just docs-build` builds the mdBook and checks local links, rendered anchors, and that
 every book page appears once in the summary. The documentation publication workflow
 runs the same checks. It also checks local file and directory links in repository
 READMEs and `notes/` Markdown, including new files that Git does not ignore.
+Documentation pushes on every branch build and upload the book.
+On `main`, these pushes do not publish it.
+Run the Documentation workflow manually on `main` to publish production docs.
+The `human-docs` and `road-to-release` branches publish previews automatically.
 Repository link checks validate target existence; anchor checks apply to the rendered
 book. `just tools-test tools/docs` tests the checker without building the book.
 `just docs-serve` serves it locally.
@@ -43,5 +54,8 @@ Use repository URLs for files outside the book: relative links to source or note
 will not exist on the published site. Preserve incoming anchors when moving sections.
 
 Keep user procedures in the book and implementation constraints in `notes/`.
+Explain workflows and non-obvious behavior; do not transcribe menus, preset lists,
+or every editor field. Exact option inventories belong only in references where
+readers need them to use an API or write configuration.
 Tours and FAQ should link to the guide that owns each procedure. Edit generated
 API inventories through their generator rather than changing the output directly.

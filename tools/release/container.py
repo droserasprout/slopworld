@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 from tools import ROOT
+from tools.release import staging
 from tools.release.arch import arch_version
 from tools.release.debian import debian_version
 from tools.release.fedora import rpm_version
@@ -16,18 +17,45 @@ from tools.utils import command
 from tools.utils import run
 
 
-def package(distribution: str, output: Path, revision: str, version: str) -> Path:
+def package(
+    distribution: str,
+    output: Path,
+    revision: str,
+    version: str,
+    *,
+    product: str = 'slopworld',
+    architecture: str = 'amd64',
+) -> Path:
+    return package_products(distribution, output, revision, version, product=product, architecture=architecture)[0]
+
+
+def package_native(distribution: str, output: Path, revision: str, version: str) -> list[Path]:
+    """Build once per distribution, then publish the three native products together."""
+    return package_products(distribution, output, revision, version, product='native')
+
+
+def archive_names(distribution: str, version: str, product: str, architecture: str) -> tuple[str, str]:
+    machine = 'x86_64' if architecture == 'amd64' else 'aarch64'
     if distribution == 'arch':
+        if architecture != 'amd64':
+            raise ValueError('Arch packages require amd64')
         arch_version(version)
-        generated_name = archive_name = f'slopworld-{version}-x86_64.pkg.tar.zst'
-    elif distribution == 'debian':
-        generated_name = f'slopworld_{debian_version(version)}_amd64.deb'
-        archive_name = f'slopworld-{version}-amd64.deb'
-    elif distribution == 'fedora':
-        generated_name = f'slopworld-{rpm_version(version)}-1.x86_64.rpm'
-        archive_name = f'slopworld-{version}-x86_64.rpm'
-    else:
-        raise ValueError(f'Unsupported distribution: {distribution}')
+        name = f'{product}-{version}-{machine}.pkg.tar.zst'
+        return name, name
+    if distribution == 'debian':
+        return f'{product}_{debian_version(version)}_{architecture}.deb', f'{product}-{version}-{architecture}.deb'
+    if distribution == 'fedora':
+        return f'{product}-{rpm_version(version)}-1.{machine}.rpm', f'{product}-{version}-{machine}.rpm'
+    raise ValueError(f'Unsupported distribution: {distribution}')
+
+
+def package_products(
+    distribution: str, output: Path, revision: str, version: str, *, product: str, architecture: str = 'amd64'
+) -> list[Path]:
+    if product not in ('native', *staging.PRODUCTS) or architecture not in ('amd64', 'arm64'):
+        raise ValueError('Unsupported product or architecture')
+    products = staging.NATIVE_PRODUCTS if product == 'native' else (product,)
+    names = [archive_names(distribution, version, name, architecture) for name in products]
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     # Fresh output prevents stale package reuse; the same filesystem allows atomic rename.
@@ -37,32 +65,48 @@ def package(distribution: str, output: Path, revision: str, version: str) -> Pat
         # maps container root to an ordinary UID, which must traverse this mount
         # to reach its own writable staging directory. TemporaryDirectory is 0700.
         workspace.chmod(0o755)
-        compile_package(ROOT, distribution, workspace, revision, version)
-        generated = workspace / generated_name
-        if not generated.is_file() or generated.stat().st_size == 0:
-            raise ValueError(f'Missing or empty container package: {generated_name}')
-        archive = output / archive_name
-        generated.replace(archive)
-    return archive
+        compile_package(ROOT, distribution, workspace, revision, version, product=product, architecture=architecture)
+        # Validate the whole set before replacing any previous artifact.
+        for generated_name, _ in names:
+            generated = workspace / generated_name
+            if not generated.is_file() or generated.stat().st_size == 0:
+                raise ValueError(f'Missing or empty container package: {generated_name}')
+        archives = []
+        for generated_name, archive_name in names:
+            archive = output / archive_name
+            (workspace / generated_name).replace(archive)
+            archives.append(archive)
+    return archives
 
 
-def compile_package(root: Path, distribution: str, output: Path, revision: str, version: str) -> None:
+def compile_package(
+    root: Path,
+    distribution: str,
+    output: Path,
+    revision: str,
+    version: str,
+    *,
+    product: str = 'slopworld',
+    architecture: str = 'amd64',
+) -> None:
     container = command('CONTAINER', 'podman')
+    suffix = '' if architecture == 'amd64' else '-arm64'
+    image = f'slopworld-{distribution}{suffix}-release'
     run(
         [
             *container,
             'build',
             '--platform',
-            'linux/amd64',
+            f'linux/{architecture}',
             *shlex.split(os.environ.get('CONTAINER_BUILD_ARGS', '')),
             '-t',
-            f'slopworld-{distribution}-release',
+            image,
             '-f',
             str(root / f'packaging/{distribution}/Dockerfile'),
             str(root / f'packaging/{distribution}'),
         ]
     )
-    cache = root / f'dist/{distribution}-build'
+    cache = root / f'dist/{distribution}{suffix}-build'
     mounts = []
     for name, destination in (
         ('target', '/build/target'),
@@ -84,7 +128,7 @@ def compile_package(root: Path, distribution: str, output: Path, revision: str, 
             *container,
             'run',
             '--platform',
-            'linux/amd64',
+            f'linux/{architecture}',
             *shlex.split(os.environ.get('CONTAINER_RUN_ARGS', '')),
             '--rm',
             # Arch's root makepkg wrapper needs nested Bubblewrap namespaces.
@@ -110,13 +154,13 @@ def compile_package(root: Path, distribution: str, output: Path, revision: str, 
             'GIT_CONFIG_KEY_0=safe.directory',
             '--env',
             f'GIT_CONFIG_VALUE_0={root}',
-            f'slopworld-{distribution}-release',
+            image,
             'bash',
             '-euc',
             (
-                'cargo build --manifest-path slopd/Cargo.toml --release --locked; '
-                f'python3 -m pytest tools/release/test_{distribution}.py -q -p no:cacheprovider; '
-                f'python3 -m tools.release.native {distribution} --stage-only --binary-dir /build/target/release '
+                f'cargo build --manifest-path {"slopcar" if product == "slopcar" else "slopd"}/Cargo.toml --release --locked; '
+                f'python3 -m pytest tools/release/test_{distribution}.py tools/release/test_sidecar.py -q -p no:cacheprovider; '
+                f'python3 -m tools.release.native {distribution} --product {product} --stage-only --binary-dir /build/target/release '
                 '--output /output --revision "$1" --version "$2"'
             ),
             f'release-{distribution}',

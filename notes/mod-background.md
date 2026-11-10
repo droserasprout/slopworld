@@ -1,10 +1,21 @@
 # Baked backgrounds
 
 `UI/MenuBackground/` supplies cached menu/loading/Eco frames. `BackgroundOnGUI` is
-the entry point because loading bypasses menu initialization. Source textures remain
+the entry point because loading bypasses menu initialization. Its hook installs early,
+using the game's existing background texture instead of mod content discovery. The
+first tip repaint precedes frame-cache loading/baking; subsequent draws can animate
+while definitions load. Late bootstrap only installs the hook if early installation
+failed, so wrappers and animation state are not duplicated. Source textures remain
 provider-owned and immutable; the baker owns generated frames and cleanup. Build
 replacements before releasing the old set, retaining it on failure. Cache identity
-includes source, geometry, tuning, preset, and bake version.
+includes source, geometry, tuning, preset, and bake version. Packed sources use the
+content hash plus runtime identity, avoiding GPU readback on cache hits; unpacked
+sources retain the pixel-hash fallback. Preparation owns an unpublished frame set.
+File reads and pixel math run on workers; the early update hook and drawing share
+a once-per-frame preparation pump, with at most one native frame decode/upload.
+The update hook finishes preparation even after the loading screen closes. Replacement and shutdown cancel pending preparation
+and release partial textures on the game thread. A cold cache still requires one
+main-thread source readback.
 
 `MenuBackgroundLayers` shares frame selection, opacity, and offsets. Repeated GUI
 calls do not advance history, and replacement resets it. Menu/loading keep vanilla

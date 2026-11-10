@@ -1,12 +1,12 @@
-# Build an Arch package
+# Build the three native Arch packages
 [group('package')]
 package-arch: (_package-build 'arch')
 
-# Build a Debian package
+# Build the three native Debian packages
 [group('package')]
 package-debian: (_package-build 'debian')
 
-# Build a Fedora package
+# Build the three native Fedora packages
 [group('package')]
 package-fedora: (_package-build 'fedora')
 
@@ -26,3 +26,13 @@ package-test what:
 [group('package')]
 package-stage-mod destination:
     uv run --locked python -m tools.release.source_mod {{ quote(destination) }}
+
+# Build an independent slopcar package on the selected distribution
+[group('package')]
+package-sidecar distribution:
+    uv run --locked python -m tools.release.native {{ quote(distribution) }} --product slopcar
+
+# Build one independently installable product on the selected distribution
+[group('package')]
+package-product distribution product:
+    uv run --locked python -m tools.release.native {{ quote(distribution) }} --product {{ quote(product) }}

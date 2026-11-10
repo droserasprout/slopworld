@@ -86,25 +86,30 @@ namespace SlopWorld
                 Task<string> output =
                     spec.InheritOutput || spec.BinaryOutputLimit > 0
                         ? Task.FromResult("")
-                        : process.StandardOutput.ReadToEndAsync();
+                        : process.StandardOutput.ReadToEndAsync(CancellationToken.None);
                 Task<string> error = spec.InheritOutput
                     ? Task.FromResult("")
-                    : process.StandardError.ReadToEndAsync();
+                    : process.StandardError.ReadToEndAsync(CancellationToken.None);
                 // Write off-thread so a child that never reads stdin still obeys the deadline.
                 Task input =
                     spec.StandardInput == null
                         ? Task.CompletedTask
-                        : Task.Run(() =>
-                        {
-                            // Unity/Mono's default stdin writer may use a legacy encoding
-                            // and replace non-ASCII characters with '?'. Write UTF-8 bytes
-                            // directly, without a BOM, independently of the process locale.
-                            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(spec.StandardInput);
-                            using (var stream = process.StandardInput.BaseStream)
+                        : Task.Run(
+                            () =>
                             {
-                                stream.Write(bytes, 0, bytes.Length);
-                            }
-                        });
+                                // Unity/Mono's default stdin writer may use a legacy encoding
+                                // and replace non-ASCII characters with '?'. Write UTF-8 bytes
+                                // directly, without a BOM, independently of the process locale.
+                                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(
+                                    spec.StandardInput
+                                );
+                                using (var stream = process.StandardInput.BaseStream)
+                                {
+                                    stream.Write(bytes, 0, bytes.Length);
+                                }
+                            },
+                            CancellationToken.None
+                        );
 
                 pipes = Task.WhenAll(input, output, error, binary);
                 using (cancel.Register(() => Kill(process)))
@@ -158,7 +163,7 @@ namespace SlopWorld
                 if (pipes.IsCompleted)
                     process.Dispose();
                 else
-                    _ = Task.Run(() => ClosePipes(process, spec));
+                    _ = Task.Run(() => ClosePipes(process, spec), CancellationToken.None);
             }
         }
 

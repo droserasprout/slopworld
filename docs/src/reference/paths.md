@@ -3,7 +3,7 @@
 See [Environment variables](environment.md) for which process reads each override
 and for connection, logging, and runtime controls.
 
-The application roots have these environment overrides and Linux defaults:
+The application roots have these environment overrides and defaults:
 
 | Environment variable | Default directory |
 | --- | --- |
@@ -12,12 +12,10 @@ The application roots have these environment overrides and Linux defaults:
 | `SLOPD_CACHE` | `~/.cache/slopworld` |
 
 The defaults follow `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, and `XDG_CACHE_HOME`
-when set to absolute paths on Linux. On macOS, configuration and data default to
-`~/Library/Application Support/slopworld`, and cache defaults to
-`~/Library/Caches/slopworld`. Settings and catalogs live under `<CONFIG>`;
+when set to absolute paths. Settings and catalogs live under `<CONFIG>`;
 private session state lives under `<DATA>/sessions`. Endpoint discovery and launcher/game paths
 follow these roots unless their explicit overrides below select another path.
-On Unix, mode `0600` gives read and write access only to the owner.
+File mode `0600` gives read and write access only to the owner.
 
 Planner stores its backlog at `<DATA>/TODO.txt` and Markdown descriptions at
 `<DATA>/planner/descriptions/<sw-id>.md`. Description files remain after task deletion
@@ -45,9 +43,9 @@ Task and Worker associations live in `<DATA>/planner/links/<sw-id>.json`, also m
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `<CONFIG>/game.toml` | `--game`, then `SLOPWORLD_GAME` | Default Linux game directory, remembered after mod installation succeeds. |
+| `<CONFIG>/game.toml` | `--game`, then `SLOPWORLD_GAME` | Default game directory, remembered after mod installation succeeds. |
 
-The file contains one `path` string. Installing the mod into a Linux game's `Mods`
+The file contains one `path` string. Installing the mod into the game's `Mods`
 directory stores the canonical game directory path.
 
 ## Data
@@ -81,23 +79,23 @@ directory stores the canonical game directory path.
 
 | Path | Used by | Override | Description |
 | --- | --- | --- | --- |
-| `<CACHE>/Player.log` | Launcher and game | `SLOPWORLD_GAME_LOG` | Unity writes Harmony and mod exceptions here. They do not appear in the terminal that launched the game. |
+| `<CACHE>/Player.log` | Launcher and game | `SLOPWORLD_GAME_LOG` | The launcher captures game console output, including Harmony and mod exceptions. |
 | `journalctl --user -u slopd` | Daemon | `SLOPWORLD_DAEMON_UNIT` for `slopctl logs` | Daemon log when it runs as a systemd user service. |
 
-The launcher passes `-logFile` to Unity and creates the log directory before
-launching. `slopctl logs game` and `just logs` use the same default and environment
-override. Set `SLOPWORLD_GAME_LOG` to select a custom path for both launching and
-reading logs.
+The launcher creates the log directory and captures game stdout and stderr in the
+selected file. It passes `-NoFileLog` to disable the game's separate file logger.
+`slopctl logs game` and `just logs` use the same default and environment override.
+Each launch replaces the log.
 
 ## tmux
 
 The default named socket is `slopworld`. `SLOPD_TMUX_SOCKET` overrides the name;
 `TMUX_TMPDIR` changes the socket directory. See
-[Attaching to tmux](../terminals/terminal.md) for native Linux commands.
+[Attaching to tmux](../terminals/terminal.md) for commands to run on the daemon's machine.
 
 ## Sidecar host storage
 
-`slopcar`, Linux recipes, and macOS recipes use the same application roots.
+Sidecar storage lives beneath the application roots listed above.
 `slopworld --sidecar` and `slopctl --sidecar` select sidecar defaults explicitly.
 Setting a profile or endpoint override does not select sidecar mode.
 

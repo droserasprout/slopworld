@@ -23,14 +23,15 @@ appear in the terminal that launched the game.
 For a native crash during startup patching, inspect the last `[SlopWorld] patching`
 entry in the game log. It names the patch class being processed when startup stopped.
 The preceding Harmony entry records the loaded library version and location.
-A native Mono signal bypasses the mod's exception handler, so it may leave no
+A native crash can bypass the mod's exception handler, leaving no
 `patching incomplete:` entry. The last patch marker narrows the investigation;
 it does not establish that the patch caused the crash.
 
 ## The daemon is running but the mod shows no connection
 
 Run `slopctl status` and inspect daemon logs with `slopctl logs daemon`.
-Check the host or container that actually runs the daemon. On native Linux:
+Check the host or container that actually runs the daemon. For a daemon managed
+by systemd, run these commands on its machine:
 
 ```sh
 ss -tlnp | rg 7717
@@ -40,7 +41,7 @@ journalctl --user -u slopd -n 30 --no-pager
 If no listener appears, check `[daemon].bind` in the configuration and logs for
 startup failures. Service active status alone does not mean the listener is ready.
 If the endpoint descriptor is missing or stale, restarting the daemon recreates it.
-See [Sidecar mode](../installation/sidecar.md) or [macOS](../installation/macos.md) for container lifecycle.
+See [Sidecar mode](../installation/sidecar.md) for container lifecycle.
 
 ## An agent cannot reach the network
 
@@ -60,8 +61,8 @@ being a launch error by themselves. See [Sandbox presets](../sandbox/sandbox-pre
 
 ## Multiple instances {#multiple-instances}
 
-Launcher processes using the same profile cannot launch simultaneously on Linux
-or macOS. Detection of a game launched directly is Linux-only. Use separate
+Launcher processes using the same profile cannot launch simultaneously.
+The launcher also detects games launched directly. Use separate
 [Game profiles](../maintenance/game-profiles.md) for separate instances.
 
 ## tmux says "no sessions" but agents are running

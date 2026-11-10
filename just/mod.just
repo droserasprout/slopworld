@@ -1,4 +1,4 @@
-# Build against game assemblies, or pass managed='rimref' for pinned stubs
+# Build against game assemblies, or pass managed='rimref' for pinned references
 [group('mod')]
 mod-build $managed='' $configuration='' $warnings='true': mod-check-themes mod-restore
     #!/usr/bin/env bash
@@ -16,7 +16,7 @@ mod-build $managed='' $configuration='' $warnings='true': mod-check-themes mod-r
     if [ "$configuration" = release ]; then configuration=Release; else configuration=Debug; fi
     dotnet build "mod/Source/SlopWorld/SlopWorld.csproj" --verbosity quiet --nologo --configuration "$configuration" "${references[@]}" -p:InformationalVersion="$version" -p:TreatWarningsAsErrors="$warnings" -p:RestoreLockedMode=true
 
-# Restore locked Unity Mono runtime packages
+# Restore locked .NET 10 runtime packages
 [group('mod')]
 mod-restore:
     dotnet build mod/Dependencies/Runtime.csproj --configuration Release --verbosity quiet --nologo -p:RestoreLockedMode=true
@@ -34,21 +34,18 @@ mod-check-themes:
 # Format production, test and benchmark C# sources
 [group('mod')]
 mod-format: mod-restore-tools
-    for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport; do (cd "$source" && dotnet csharpier format --log-level Warning .) || exit "$?"; done
+    for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp; do (cd "$source" && dotnet csharpier format --log-level Warning .) || exit "$?"; done
 
 # Check C# formatting without game assemblies
 [group('mod')]
 mod-lint: mod-restore-tools
-    for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport; do (cd "$source" && dotnet csharpier check --log-level Warning .) || exit "$?"; done
+    for source in mod/Source/SlopWorld mod/Tests bench/ipc/csharp; do (cd "$source" && dotnet csharpier check --log-level Warning .) || exit "$?"; done
 
 
-# Validate a Release build with warnings as errors (requires game assemblies)
+# Validate Release compilation and native bindings without starting the game
 [group('mod')]
 mod-check-build: (mod-build '' 'release' 'true')
-
-# Validate a game-free Release build with pinned RimRef references
-[group('mod')]
-mod-check-build-rimref: (mod-build 'rimref' 'release' 'true')
+    dotnet run --project mod/Tests/SlopWorld.Tests.csproj --configuration Release -p:RestoreLockedMode=true -- --game-bindings "$MANAGED" mod/Assemblies/SlopWorld.dll
 
 # Run game-free C# tests
 [positional-arguments]
@@ -61,10 +58,10 @@ mod-test *args: mod-restore
 mod-coverage: mod-restore mod-restore-tools
     mkdir -p "$COVERAGE_DIR"
     dotnet build mod/Tests/SlopWorld.Tests.csproj --verbosity quiet --nologo --configuration Release -p:Coverage=true -p:RestoreLockedMode=true
-    dotnet tool run coverlet -- mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll --target dotnet --targetargs 'mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll --quiet' --include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' --exclude-by-file '**/Client/Generated/Slopworld.cs' --threshold 92.38 --threshold-type line --threshold-stat total --format cobertura --output "$COVERAGE_DIR/csharp.cobertura.xml"
+    dotnet tool run coverlet -- mod/Tests/bin/Release/net10.0/SlopWorld.Tests.dll --target dotnet --targetargs 'mod/Tests/bin/Release/net10.0/SlopWorld.Tests.dll --quiet' --include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' --exclude-by-file '**/Client/Generated/Slopworld.cs' --threshold 92.38 --threshold-type line --threshold-stat total --format cobertura --output "$COVERAGE_DIR/csharp.cobertura.xml"
 
 # Remove component build output
 [group('mod')]
 mod-clean:
     rm -f "mod/Assemblies/SlopWorld.dll"
-    rm -rf mod/Source/SlopWorld/obj
+    rm -rf mod/Source/SlopWorld/bin mod/Source/SlopWorld/obj mod/Dependencies/bin mod/Dependencies/obj mod/Tests/bin mod/Tests/obj

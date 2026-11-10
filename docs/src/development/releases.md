@@ -1,7 +1,9 @@
 # Packaging and releases
 
-GitHub Actions tests, builds, attests, and publishes versioned releases without a
-RimWorld installation. The mod compiles against the pinned RimRef package.
+GitHub Actions tests, builds, attests, and publishes versioned releases.
+Hosted builds use pinned RimRef 1.7.5000-unstable reference assemblies.
+Local release validation uses installed RimWorld 1.7 assemblies for native binding
+and IL checks.
 Start with [Build from source](build.md) for the toolchain and checks.
 
 ## Versioned GitHub releases
@@ -22,7 +24,13 @@ Start with [Build from source](build.md) for the toolchain and checks.
 
 The **Release** workflow requires the tagged commit to belong to `origin/main`.
 It resolves one commit, runs the reusable test workflow against it, and then
-builds the daemon archive, mod ZIP, Arch, Debian, and Fedora packages. Native
+builds the mod ZIP and Arch, Debian, and Fedora packages. Executables are
+distributed as distro packages; the mod ZIP supports manual game installation.
+Separate native amd64 and arm64 jobs build independent
+`slopcar` Debian/Fedora packages; the amd64 job also builds its Arch package. The final bundle
+includes all launcher packages, the standalone `install.py` installer, and their checksums. The sidecar host-library
+baseline is Debian 13, using the existing Trixie builder for DEBs and native
+Fedora/Arch builders for those formats. Native
 packages compile in their distribution containers. The build consumes committed
 artwork and checks protocol outputs, staged notices, and the documentation book.
 Run generators and review their changes before tagging; CI does not regenerate
@@ -89,8 +97,11 @@ still receive updates.
 `just release-package` retains the full local generation, validation, and
 packaging flow. It requires a clean tagged commit on `main` (or a detached tagged
 commit belonging to `main`), an x86_64 Linux build host, and Podman. Set
-`CONTAINER=docker` to use Docker. All native packages build in containers;
-RimRef supplies the mod references. Output goes to
+`CONTAINER=docker` to use Docker. Both local release commands build amd64 and
+arm64 sidecar packages, so the x86_64 host also needs working arm64 container
+emulation; see [architecture requirements](build.md#build). All native packages
+build in containers. Install [mdBook](contributing.md#documentation) for book
+validation. The installed game supplies the mod references. Output goes to
 `dist/{{#constant release_version}}/`; set `RELEASE_DIR` to override it.
 
 `just release-publish` also builds locally and publishes through your authenticated
@@ -101,10 +112,13 @@ tag to use the verifiable CI flow. Local commands never commit changes or move t
 
 ## Distribution packages
 
-These commands build a local package without publishing or installing it.
+These commands compile once and build separate `slopworld`, `slopd`, and `slopctl`
+packages without publishing or installing them. `slopcar` remains independently packaged.
+Use `just package-product debian slopctl` (or another distro/product) to build only
+one package. Server and CLI packaging do not build the mod.
 Each needs the [build prerequisites](build.md#prerequisites) and its distribution's
-native packaging tools. Set `MANAGED=rimref` to compile without a game installation,
-or use the installed game's assemblies by default. Commit changes before
+native packaging tools. The installed game supplies compilation references; set `MANAGED` to select
+a separate assembly directory. Commit changes before
 packaging to record the source revision. `VERSION` overrides the build version.
 
 Build Debian/Ubuntu and Fedora packages on the oldest distribution release you
@@ -115,29 +129,29 @@ intend to support; their library requirements come from the build host.
 Install `base-devel` and `bubblewrap` on Arch, then run:
 
 ```sh
-just MANAGED=rimref package-arch
+just package-arch
 ```
 
-The package goes to `dist/arch/`; override with `ARCH_DIR`.
+The packages go to `dist/arch/`; override with `ARCH_DIR`.
 
 ### Debian packages
 
 Install `libasound2-dev` and `dpkg-dev` on Debian or Ubuntu, then run:
 
 ```sh
-just MANAGED=rimref package-debian
+just package-debian
 ```
 
-The package goes to `dist/debian/`; override with `DEB_DIR`.
+The packages go to `dist/debian/`; override with `DEB_DIR`.
 
 ### Fedora packages
 
 Install `alsa-lib-devel`, `rpm-build`, and `redhat-rpm-config` on Fedora, then run:
 
 ```sh
-just MANAGED=rimref package-fedora
+just package-fedora
 ```
 
-The package goes to `dist/fedora/`; override with `RPM_DIR`.
+The packages go to `dist/fedora/`; override with `RPM_DIR`.
 Follow [Linux installation](../installation/linux.md) to install a package,
 attach the mod, and start the daemon.

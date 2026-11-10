@@ -18,7 +18,7 @@ namespace SlopWorld.Tests
                 .GetField("_notice", BindingFlags.Static | BindingFlags.NonPublic)
                 .SetValue(null, null);
             UnityEngine.Application.wantsToQuit = null;
-            SaveCoordinator.Programmatic = false;
+            SaveCoordinator.ConsumeProgrammaticShutdown();
             Verse.Root.Shutdowns = 0;
             Verse.Find.WindowStack = new Verse.WindowStack();
             Settings.S.askOnExit = true;
@@ -43,13 +43,44 @@ namespace SlopWorld.Tests
         [Test]
         public void ProgrammaticShutdownDoesNotQueueAnotherShutdown()
         {
-            SaveCoordinator.Programmatic = true;
+            SaveCoordinator.NoteProgrammaticShutdown();
             Assert.That(UnityEngine.Application.wantsToQuit(), Is.True);
             QuitInterceptor.Check();
             Assert.That(Verse.Root.Shutdowns, Is.Zero);
         }
 
         static AlertDialog.Notice Notice => (AlertDialog.Notice)Verse.Find.WindowStack[0];
+
+        [Test]
+        public void NativeLoopCloseCanBeCancelledAndRepeatedWithoutStoppingTheEngine()
+        {
+            Assert.That(QuitInterceptor.DeferNativeClose(false, false), Is.False);
+            QuitInterceptor.Check();
+            Assert.That(Verse.Find.WindowStack.Count, Is.Zero);
+            Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.True);
+            QuitInterceptor.Check();
+            Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.True);
+            QuitInterceptor.Check();
+            Assert.That(Verse.Find.WindowStack.Count, Is.EqualTo(1));
+            Verse.Find.WindowStack.Remove(Notice);
+            QuitInterceptor.Check();
+            Assert.That(Verse.Root.Shutdowns, Is.Zero);
+            Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.True);
+            QuitInterceptor.Check();
+            Accept();
+            QuitInterceptor.Check();
+            Assert.That(Verse.Root.Shutdowns, Is.EqualTo(1));
+            Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.False);
+        }
+
+        [Test]
+        public void EngineRequestedShutdownBypassesNativeClosePolicy()
+        {
+            Assert.That(QuitInterceptor.DeferNativeClose(true, true), Is.False);
+            QuitInterceptor.Check();
+            Assert.That(Verse.Find.WindowStack.Count, Is.Zero);
+            Assert.That(Verse.Root.Shutdowns, Is.Zero);
+        }
 
         static void Accept()
         {
@@ -189,11 +220,15 @@ namespace SlopWorld.Tests
             Assert.That(Settings.S.askOnExit, Is.True);
         }
 
-        [Test]
-        public void SessionStoppingRefreshesAndWaitsForEveryAcknowledgement()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void SessionStoppingRefreshesAndWaitsForEveryAcknowledgement(bool nativeClose)
         {
             Settings.S.stopSessionsOnExit = true;
-            QuitInterceptor.Request();
+            if (nativeClose)
+                Assert.That(QuitInterceptor.DeferNativeClose(true, false), Is.True);
+            else
+                QuitInterceptor.Request();
             QuitInterceptor.Check();
             var hub = SessionHub.Instance;
             hub.Sessions["agent"] = new SessionInfo { Name = "agent", Alive = true };
@@ -333,7 +368,7 @@ namespace Verse
         public static void Shutdown()
         {
             Shutdowns++;
-            SlopWorld.SaveCoordinator.Programmatic = true;
+            SlopWorld.SaveCoordinator.NoteProgrammaticShutdown();
             NUnit.Framework.Assert.That(
                 UnityEngine.Application.wantsToQuit(),
                 NUnit.Framework.Is.True
@@ -361,17 +396,5 @@ namespace SlopWorld
 
         public void Stop(string name, System.Action<string> fail, System.Action done) =>
             ExitStops.Add((name, fail, done));
-    }
-
-    public static class SaveCoordinator
-    {
-        public static bool Programmatic;
-
-        public static bool ConsumeProgrammaticShutdown()
-        {
-            bool result = Programmatic;
-            Programmatic = false;
-            return result;
-        }
     }
 }

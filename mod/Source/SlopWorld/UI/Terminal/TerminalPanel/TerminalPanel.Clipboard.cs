@@ -217,7 +217,7 @@ namespace SlopWorld
         bool HostClipboardTextOnly => SessionHub.Instance.Get(_state.Name)?.Host != false;
 
         // Codex accepts image attachments. Linux uploads binary clipboard data and
-        // pastes a staged path. macOS uses local text paste only.
+        // pastes a staged path.
         bool CodexImagePaste =>
             !HostClipboardTextOnly
             && SessionHub.Instance.Get(_state.Name)?.CommandPreset == "codex";

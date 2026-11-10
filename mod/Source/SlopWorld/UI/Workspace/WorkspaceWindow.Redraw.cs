@@ -33,8 +33,6 @@ namespace SlopWorld
                 ),
                 Background
             );
-
-            _terminals.Flush();
         }
     }
 }

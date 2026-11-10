@@ -66,6 +66,7 @@ async fn socket_prompts_require_target_write_access_and_global_commands_require_
                     rows: Some(31),
                 }),
                 C::Audio(wire::AudioRequest {
+                    stop_token: None,
                     volume: 0.23,
                     ..Default::default()
                 }),
@@ -175,6 +176,7 @@ async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change()
     for _ in 0..2 {
         let reply = handle_audio(
             AudioReq {
+                stop_token: None,
                 selection: Some(Some(AudioSelection {
                     ncspot: true,
                     file: Some("/tmp/song.mp3".into()),
@@ -233,6 +235,7 @@ fn view(name: &str) -> SessionView {
             mounts: Vec::new(),
             autostart: false,
             auto_resume: false,
+            resume_supported: false,
             initial_prompt: String::new(),
             state_id: String::new(),
         },
@@ -666,8 +669,9 @@ async fn initial_snapshots_send_binary_host_state_only_to_root() {
     assert!(matches!(receive(&mut socket.client).await, P::Usage(_)));
     assert!(matches!(receive(&mut socket.client).await, P::Projects(_)));
     assert!(matches!(receive(&mut socket.client).await, P::Library(_)));
-    assert!(matches!(receive(&mut socket.client).await, P::Audio(_)));
+    // The catalog must precede playback: restoring the selection clears old metadata.
     assert!(matches!(receive(&mut socket.client).await, P::Jukebox(_)));
+    assert!(matches!(receive(&mut socket.client).await, P::Audio(_)));
     assert!(send_initial_snapshot(&socket.tx, &manager, &scoped(&["a"], Level::Ro)).await);
     // A subsequent marker proves no host-wide events were queued after the scoped list.
     send(
@@ -1557,6 +1561,7 @@ async fn root_commands_queued_behind_rotation_have_no_effect() {
     let admitted = std::sync::atomic::AtomicBool::new(false);
     let audio = super::commands::dispatch_client_msg(
         ClientMsg::Audio(AudioReq {
+            stop_token: None,
             selection: None,
             volume: if volume < 0.5 { 0.75 } else { 0.25 },
         }),
@@ -1683,6 +1688,7 @@ async fn root_revocation_cancels_dispatch_still_waiting_for_admission() {
     assert!(futures::poll!(transaction.as_mut()).is_pending());
     let dispatch = handle_client_msg(
         ClientMsg::Audio(AudioReq {
+            stop_token: None,
             selection: None,
             volume: 0.25,
         }),
@@ -1816,11 +1822,12 @@ async fn live_intake_socket() -> (App, ClientSocket, JoinHandle<()>, JoinHandle<
         let root = running.config_authority.root_generation();
         ws_run(socket, running, Cap::Root, generation, root).await;
     });
-    // The final initial catalog is the marker for completed socket initialization.
+    // Playback follows the jukebox catalog. Drain the complete initial snapshot
+    // so the next receive belongs to the command under test, not startup audio.
     loop {
         if matches!(
             receive(&mut client).await,
-            crate::shared::wire::event::Payload::Jukebox(_)
+            crate::shared::wire::event::Payload::Audio(_)
         ) {
             break;
         }

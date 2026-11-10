@@ -1,42 +1,27 @@
-# Maintainer: Lev Gorodetskii <aur@drsr.io>
+# Maintainer: Lev Gorodetskii <slopworld@drsr.io>
 #
 # Builds the working tree this file sits in. From packaging/arch:
 #
 #   makepkg -p PKGBUILD.local -si
 #
 # The mod half links against the game's own assemblies, so RIMWORLD must point at
-# a real Linux install (default ~/GOG Games/RimWorld/game, override in the environment).
+# a real Linux install (default ~/.local/share/Steam/steamapps/common/RimWorld, override in the environment).
 
-pkgname=slopworld
+pkgbase=slopworld
+pkgname=('slopworld' 'slopd' 'slopctl')
 pkgver=0.0.14
 pkgrel=1
 pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('MIT')
-depends=('alsa-lib' 'bash' 'bat' 'bubblewrap' 'fontconfig' 'git' 'less' 'micro' 'passt' 'ripgrep' 'systemd' 'tmux>=3.7' 'xclip')
-makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv')
-optdepends=(
-  'glib2: desktop application associations and portal access'
-  'gtk3: native Open With chooser'
-  'highlight: alternative syntax highlighter'
-  'moor: recommended pager'
-  'ncspot: Spotify playback'
-  'procps-ng: fallback process inspection'
-  'python-gobject: native Open With chooser'
-  'python-pygments: alternative syntax highlighter'
-  'songrec: jukebox song recognition'
-  'xdg-desktop-portal: Open With fallback'
-  'xsel: clipboard and PRIMARY selection (fallback)'
-)
-provides=('slopd')
-conflicts=('slopworld-git')
+makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv' 'alsa-lib' 'dbus' 'systemd')
 options=('!strip' '!debug')
 source=()
-install=slopworld.install
+source "$startdir/packages.sh"
 
-: "${RIMWORLD:=$HOME/GOG Games/RimWorld/game}"
-_managed="$RIMWORLD/RimWorldLinux_Data/Managed"
+: "${RIMWORLD:=$HOME/.local/share/Steam/steamapps/common/RimWorld}"
+_managed="${MANAGED:-$RIMWORLD}"
 _src="$(realpath "$startdir/../..")"
 
 pkgver() {
@@ -114,36 +99,30 @@ check() {
   cargo test --release --frozen
 }
 
-package() {
-  cd "$srcdir/slopworld" || return
+package_slopworld() {
+  pkgdesc="${_slopworld_desc}"
+  depends=("${_slopworld_depends[@]}")
+  optdepends=("${_slopworld_optional[@]}")
+  provides=()
+  conflicts=('slopworld-git')
+  install=slopworld.install
+  _package_native slopworld
+}
 
-  install -Dm755 target/release/slopd "$pkgdir/usr/bin/slopd"
-  install -Dm755 target/release/slopctl "$pkgdir/usr/bin/slopctl"
-  install -Dm755 target/release/slopworld "$pkgdir/usr/bin/slopworld"
+package_slopd() {
+  pkgdesc="${_slopd_desc}"
+  depends=("${_slopd_depends[@]}" 'slopctl')
+  optdepends=("${_slopd_optional[@]}")
+  provides=()
+  conflicts=('slopd-git')
+  _package_native slopd
+}
 
-  # The unit in the source tree runs the binary from ~/.local/bin.
-  # The package installs the binary on PATH.
-  install -Dm644 slopd/slopd.service "$pkgdir/usr/lib/systemd/user/slopd.service"
-  sed -i 's|%h/.local/bin/slopd|/usr/bin/slopd|' \
-    "$pkgdir/usr/lib/systemd/user/slopd.service"
-
-  # RimWorld loads mods only from its installation directory.
-  # Stage the mod here because the package must not write to that directory.
-  # The install hook prints the link command for the user.
-  local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
-  UV_OFFLINE=true just package-stage-mod "$_mod"
-  find "$_mod" -type d -exec chmod 755 {} +
-  find "$_mod" -type f -exec chmod 644 {} +
-
-  install -Dm644 packaging/slopworld.desktop \
-    "$pkgdir/usr/share/applications/slopworld.desktop"
-  install -Dm644 packaging/arch/slopworld.rules \
-    "$pkgdir/etc/ananicy.d/slopworld.rules"
-  # The colonists' own face, with a wilted rose growing from the skull.
-  install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png \
-    "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
-
-  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  cp -r licenses "$pkgdir/usr/share/licenses/$pkgname/third-party"
+package_slopctl() {
+  pkgdesc="${_slopctl_desc}"
+  depends=("${_slopctl_depends[@]}")
+  optdepends=("${_slopctl_optional[@]}")
+  provides=()
+  conflicts=('slopctl-git')
+  _package_native slopctl
 }

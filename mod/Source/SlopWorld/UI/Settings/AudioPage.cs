@@ -5,22 +5,32 @@ namespace SlopWorld
 {
     // RimWorld's mixer, brought into the SlopWorld group and drawn in the same chrome as
     // the other pages. These remain Prefs rather than mod settings: the game's sound
-    // engine observes the setters, and Dialog_Options persists them on close.
-    public class AudioPage : IOptionPage
+    // engine observes the setters. This page saves them because the embedded settings
+    // view does not run Dialog_Options' vanilla close lifecycle.
+    public sealed partial class AudioPage : DaemonConfigPage
     {
-        readonly SettingsForm _form = new SettingsForm();
+        bool _unsaved;
 
-        public void Load() => JukeboxPresetStore.Refresh();
+        protected override bool DrawFieldsBeforeLoad => true;
+        protected override string SaveScope => "daemon radio output";
+        protected override string SavedMessage => "radio output settings saved.";
 
-        public void Draw(Rect rect)
+        public override void Load()
         {
-            _form.Draw(SettingsPageLayout.Body(rect), DrawFields);
-            var foot = new UiLayout.Bar(SettingsPageLayout.Footer(rect));
-            if (foot.Left("Add source", UiTheme.Btn.Primary))
-                AudioSourceDialog.OpenNew();
+            JukeboxPresetStore.Refresh();
+            base.Load();
+            RefreshOutputs();
         }
 
-        void DrawFields(Listing_Standard l)
+        protected override void BeforeDraw()
+        {
+            if (!Input.GetMouseButton(0))
+                SavePending();
+        }
+
+        protected override void AfterSave() => RefreshOutputs();
+
+        protected override void DrawFields(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Volume");
             Prefs.VolumeMaster = VolumeSlider(l, "MasterVolume", Prefs.VolumeMaster);
@@ -28,6 +38,9 @@ namespace SlopWorld
             Prefs.VolumeMusic = VolumeSlider(l, "MusicVolume", Prefs.VolumeMusic);
             Prefs.VolumeAmbient = VolumeSlider(l, "AmbientVolume", Prefs.VolumeAmbient);
             Prefs.VolumeUI = VolumeSlider(l, "UIVolume", Prefs.VolumeUI);
+
+            l.Gap(UiTheme.GapL);
+            DrawOutput(l);
 
             l.Gap(UiTheme.GapL);
             DrawSources(l);
@@ -94,18 +107,40 @@ namespace SlopWorld
                 Radio.ToggleStopOnExit();
         }
 
-        static float VolumeSlider(Listing_Standard listing, string translationKey, float value) =>
-            UiControls.Slider(
+        float VolumeSlider(Listing_Standard listing, string translationKey, float value)
+        {
+            float next = UiControls.Slider(
                 listing,
                 translationKey.Translate(),
                 value,
                 (translationKey + "Tooltip").Translate()
             );
+            if (next != value)
+                _unsaved = true;
+            return next;
+        }
+
+        public override void Dispose()
+        {
+            _outputsDisposed = true;
+            SavePending();
+            base.Dispose();
+        }
+
+        void SavePending()
+        {
+            if (!_unsaved)
+                return;
+            Prefs.Save();
+            _unsaved = false;
+        }
 
         static void DrawSources(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Sources");
             UiLayout.Note(l, "Choose which sources appear in the jukebox.");
+            if (UiLayout.Button(l, "Add source"))
+                AudioSourceDialog.OpenNew();
             l.Gap(UiTheme.GapS);
 
             // Keep the table inside the listing so its rows participate in the page's measured

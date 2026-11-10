@@ -6,6 +6,62 @@ namespace SlopWorld.Tests
 {
     static class SessionStoreTests
     {
+        public static void ResumeDeduplicatesRequestsAndOpensOnlyAfterRefresh()
+        {
+            DaemonClient.Requests.Clear();
+            var store = new SessionStore(_ => { });
+            int completed = 0;
+            store.Resume("agent", () => completed++, _ => Assert.Fail());
+            store.Resume("agent", () => completed++, _ => Assert.Fail());
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(1));
+            Assert.That(store.IsResuming("agent"), Is.True);
+            DaemonClient.Requests[0].Reply(new Wire.Ack());
+            Assert.That(completed, Is.Zero);
+            DaemonClient.Requests[1].Reply(Sessions("agent"));
+            Assert.That(completed, Is.EqualTo(1));
+            Assert.That(store.IsResuming("agent"), Is.False);
+            DaemonClient.Requests.Clear();
+        }
+
+        public static void ResumeFailureReleasesPendingRequestForRetry()
+        {
+            DaemonClient.Requests.Clear();
+            var store = new SessionStore(_ => { });
+            string error = null;
+            store.Resume("agent", () => Assert.Fail(), message => error = message);
+            DaemonClient.Requests[0].Fail("offline");
+            Assert.That(error, Is.EqualTo("offline"));
+            Assert.That(store.IsResuming("agent"), Is.False);
+            store.Resume("agent", () => Assert.Fail(), message => error = message);
+            DaemonClient.Requests[1].Reply(new Wire.Ack());
+            DaemonClient.Requests[2].Fail("refresh failed");
+            Assert.That(error, Is.EqualTo("refresh failed"));
+            Assert.That(store.IsResuming("agent"), Is.False);
+            store.Resume("agent", () => Assert.Fail(), _ => { });
+            Assert.That(store.IsResuming("agent"), Is.True);
+            DaemonClient.Requests[3].Fail("offline");
+            DaemonClient.Requests.Clear();
+        }
+
+        public static void ResumeReconnectRetiresOldRepliesWithoutReleasingNewRequests()
+        {
+            DaemonClient.Requests.Clear();
+            var store = new SessionStore(_ => { });
+            int completed = 0;
+            store.Resume("agent", () => completed++, _ => Assert.Fail());
+            store.ResetConnectionScreens();
+            Assert.That(store.IsResuming("agent"), Is.False);
+            store.Resume("agent", () => completed++, _ => Assert.Fail());
+            DaemonClient.Requests[0].Reply(new Wire.Ack());
+            Assert.That(DaemonClient.Requests.Count, Is.EqualTo(2));
+            Assert.That(store.IsResuming("agent"), Is.True);
+            DaemonClient.Requests[1].Reply(new Wire.Ack());
+            DaemonClient.Requests[2].Reply(Sessions("agent"));
+            Assert.That(completed, Is.EqualTo(1));
+            Assert.That(store.IsResuming("agent"), Is.False);
+            DaemonClient.Requests.Clear();
+        }
+
         public static void StopCallbackLetsBatchOwnRefresh()
         {
             DaemonClient.Requests.Clear();

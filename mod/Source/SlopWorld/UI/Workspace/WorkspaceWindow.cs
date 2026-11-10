@@ -93,6 +93,16 @@ namespace SlopWorld
 
                     bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
                     _panels.SetFocus(input);
+                    if (
+                        input
+                        && Event.current.type == EventType.KeyDown
+                        && !ModOptions.KeyboardCaptureActive
+                        && HandleFunctionKey(Event.current)
+                    )
+                    {
+                        Event.current.Use();
+                        return;
+                    }
                     // Unity restores window keyboard events inside this callback. Dispatch
                     // navigation before DrawTopBar draws the sidebar's native Search fields.
                     // A transition may replace this window or its content, so stop this pass.

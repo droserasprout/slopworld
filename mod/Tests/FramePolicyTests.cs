@@ -5,7 +5,7 @@ namespace SlopWorld.Tests
         public static void Transitions()
         {
             AssertEx.Equal(
-                15,
+                5,
                 FramePolicy.NearestPreset(-2147483633),
                 "extreme negative FPS does not overflow"
             );
@@ -29,7 +29,10 @@ namespace SlopWorld.Tests
 
             target = 90;
             sync = 0;
-            Step(policy, true, "limit", -1, false, ref target, ref sync, 15, 0, true);
+            Step(policy, true, "limit", -1, false, ref target, ref sync, 5, 0, true);
+            Step(policy, true, "limit", 5, false, ref target, ref sync, 5, 0, false);
+            Step(policy, false, "limit", 5, false, ref target, ref sync, 15, 0, true);
+            Step(policy, true, "limit", 5, false, ref target, ref sync, 5, 0, true);
             Step(policy, true, "limit", 9999, false, ref target, ref sync, 240, 0, true);
             Step(policy, true, "invalid", 60, false, ref target, ref sync, 60, 0, true);
             Step(policy, true, "auto", 60, true, ref target, ref sync, -1, 1, true);

@@ -13,6 +13,7 @@ session creation requires root. See [Authorization](api.md#authorization).
 | Method | Path | Route access group | Request body | Response |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/audio` | `root-only` | `Empty` | `AudioState` |
+| `GET` | `/api/audio/outputs` | `root-only` | `Empty` | `AudioOutputs` |
 | `GET` | `/api/capabilities` | `root-only` | `Empty` | `Capabilities` |
 | `GET` | `/api/health` | `scoped` | `Empty` | `Health` |
 | `GET` | `/api/jukebox` | `root-only` | `Empty` | `JukeboxCatalog` |
@@ -107,6 +108,7 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `PUT` | `/api/sessions/:name/permissions` | `root-only` | `AgentPermissionsReq` | `Ack` |
 | `PUT` | `/api/sessions/:name/reader-pinned` | `scoped` | `ReaderPinnedReq` | `Ack` |
 | `POST` | `/api/sessions/:name/restart` | `scoped` | `Empty` | `Ack` |
+| `POST` | `/api/sessions/:name/resume` | `scoped` | `Empty` | `Ack` |
 | `GET` | `/api/sessions/:name/sandbox` | `scoped` | `Empty` | `SandboxReport` |
 | `POST` | `/api/sessions/:name/start` | `scoped` | `Empty` | `Ack` |
 | `POST` | `/api/sessions/:name/state/reset` | `scoped` | `Empty` | `Ack` |

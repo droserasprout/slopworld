@@ -25,14 +25,14 @@ function __fish_slopworld_using_subcommand
 end
 
 complete -c slopworld -n "__fish_slopworld_needs_command" -l game -d 'RimWorld install (default: SLOPWORLD_GAME, game.toml, usual locations)' -r -f -a "(__fish_complete_directories)"
-complete -c slopworld -n "__fish_slopworld_needs_command" -l game-exe -d 'Explicit executable for native macOS app bundles' -r -F
+complete -c slopworld -n "__fish_slopworld_needs_command" -l game-exe -d 'Explicit game executable' -r -F
 complete -c slopworld -n "__fish_slopworld_needs_command" -l working-dir -d 'Working directory for the game process' -r -f -a "(__fish_complete_directories)"
-complete -c slopworld -n "__fish_slopworld_needs_command" -l mods -d 'Mod directory to validate for a non-Linux game layout' -r -f -a "(__fish_complete_directories)"
+complete -c slopworld -n "__fish_slopworld_needs_command" -l mods -d 'Mod directory to validate when using a custom layout' -r -f -a "(__fish_complete_directories)"
 complete -c slopworld -n "__fish_slopworld_needs_command" -l profile -d 'Save data folder (default: SLOPWORLD_PROFILE, selected connection profile)' -r -f -a "(__fish_complete_directories)"
 complete -c slopworld -n "__fish_slopworld_needs_command" -l endpoint -d 'Saved connection (default: local)' -r
 complete -c slopworld -n "__fish_slopworld_needs_command" -l sidecar -d 'Use sidecar paths and UI defaults'
 complete -c slopworld -n "__fish_slopworld_needs_command" -l print -d 'Print game argv without launching or creating files'
-complete -c slopworld -n "__fish_slopworld_needs_command" -l no-window-fix -d 'Omit default X11/OpenGL window arguments'
+complete -c slopworld -n "__fish_slopworld_needs_command" -l no-window-fix -d 'Omit the default X11 window override'
 complete -c slopworld -n "__fish_slopworld_needs_command" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c slopworld -n "__fish_slopworld_needs_command" -s V -l version -d 'Print version'
 complete -c slopworld -n "__fish_slopworld_needs_command" -f -a "completions" -d 'Print a shell completion script without loading game or profile state'

@@ -107,7 +107,7 @@ namespace SlopWorld
                         continue;
                     }
                     Prepare(text, style);
-                    GUI.Label(new Rect(x, 0f, span.Width + overhang, bounds.height), text, style);
+                    DrawLabel(new Rect(x, 0f, span.Width + overhang, bounds.height), text, style);
                 }
             }
             finally
@@ -116,11 +116,27 @@ namespace SlopWorld
             }
         }
 
-        // IMGUI group coordinates must not be mixed with screen-space matrix pivots.
-        // Fit native glyphs by requesting a smaller font size, never by transforming
-        // GUI.matrix for an individual cell. Keep the original text baseline.
+        internal static void DrawLabel(Rect bounds, string text, GUIStyle style)
+        {
+            // The native label path forwards GUI tint, but ignores the style state's text color.
+            // Apply the foreground here for both plain spans and text beside atlas sprites.
+            Color tint = GUI.color;
+            GUI.color = tint * style.normal.textColor;
+            try
+            {
+                GUI.Label(bounds, text, style);
+            }
+            finally
+            {
+                GUI.color = tint;
+            }
+        }
+
+        // Fit glyphs with font size while preserving the baseline; per-cell GUI matrix
+        // transforms would mix group coordinates with screen-space pivots.
         static void DrawFontCell(string text, Rect bounds, float lineHeight, GUIStyle style)
         {
+            text = ComposeForPainting(text);
             var clipping = style.clipping;
             int originalSize = style.fontSize;
             style.clipping = TextClipping.Clip;
@@ -153,12 +169,32 @@ namespace SlopWorld
                             );
                     }
                 }
-                GUI.Label(bounds, text, style);
+                DrawLabel(bounds, text, style);
             }
             finally
             {
                 style.fontSize = originalSize;
                 style.clipping = clipping;
+            }
+        }
+
+        // Waylith's DrawText looks up and paints each scalar separately; it does not
+        // attach combining marks to a base glyph. Canonical composites use the font's
+        // authored accent placement, exactly as their precomposed equivalents do.
+        // Normalize only the paint string: daemon cells, selection and copied bytes
+        // retain their original scalars and widths. Uncomposable marks stay present.
+        static string ComposeForPainting(string text)
+        {
+            if (text.Length < 2)
+                return text;
+            try
+            {
+                return text.Normalize(System.Text.NormalizationForm.FormC);
+            }
+            catch (System.ArgumentException)
+            {
+                // An incomplete UTF-16 cell must not abort painting the whole pane.
+                return text;
             }
         }
 

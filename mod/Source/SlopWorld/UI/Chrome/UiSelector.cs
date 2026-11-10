@@ -115,7 +115,7 @@ namespace SlopWorld
                 value,
                 out box,
                 tip,
-                forcedWidth: UiMenu.WidthFor(new[] { value }.Concat(labels))
+                forcedWidth: UiMenu.WidthFor(new[] { value }.Concat(labels), rect.width)
             );
             listing.Gap(UiTheme.GapS);
             if (!pressed)
@@ -145,7 +145,10 @@ namespace SlopWorld
                 tip,
                 enabled,
                 open,
-                Mathf.Max(UiMenu.WidthFor(new[] { value }), UiMenu.WidthFor(options))
+                Mathf.Max(
+                    UiMenu.WidthFor(new[] { value }, rect.width),
+                    UiMenu.WidthFor(options, rect.width)
+                )
             );
             if (!pressed)
                 return false;
@@ -179,7 +182,10 @@ namespace SlopWorld
                 tip,
                 enabled,
                 open,
-                UiMenu.WidthFor(new[] { value }.Concat(options.Select(option => option.Label)))
+                UiMenu.WidthFor(
+                    new[] { value }.Concat(options.Select(option => option.Label)),
+                    rect.width
+                )
             );
             if (!pressed)
                 return false;

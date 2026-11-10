@@ -4,7 +4,7 @@ using System.Xml;
 
 namespace Verse
 {
-    public class Window
+    public partial class Window
     {
         public bool closeOnCancel = true;
     }

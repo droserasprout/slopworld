@@ -69,6 +69,12 @@ http:
       path: "/api/sessions/:name/start"
       methods: [POST]
       scope: scoped
+    session_resume:
+      protobuf:
+        POST: [Empty, Ack]
+      path: "/api/sessions/:name/resume"
+      methods: [POST]
+      scope: scoped
     session_stop:
       protobuf:
         POST: [Empty, Ack]
@@ -358,6 +364,12 @@ http:
       protobuf:
         GET: [Empty, JukeboxCatalog]
       path: "/api/jukebox"
+      methods: [GET]
+      scope: root
+    audio_outputs:
+      protobuf:
+        GET: [Empty, AudioOutputs]
+      path: "/api/audio/outputs"
       methods: [GET]
       scope: root
     jukebox_presets:

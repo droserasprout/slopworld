@@ -24,6 +24,10 @@ namespace SlopWorld
     // Only engine/resource boundaries are substituted. Styles and block flow are production.
     static class TerminalFont
     {
+        public static float CellH => 20f;
+
+        public static float CellWAtScreenScale(float scale) => 8f;
+
         public static int Rev;
         public static GUIStyle Style = new GUIStyle
         {

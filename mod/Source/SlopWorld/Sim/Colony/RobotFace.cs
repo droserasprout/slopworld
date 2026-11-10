@@ -10,6 +10,8 @@ namespace SlopWorld
     // areas under hair and apparel metallic. tools/assets/roboface.py has the geometry.
     public static class RobotFace
     {
+        const float ClownNoseChance = 0.05f;
+
         static readonly Color MetalSkinColor = new Color(0.42f, 0.435f, 0.46f);
 
         // Each variant has south and east textures with color in the PNG files.
@@ -61,6 +63,7 @@ namespace SlopWorld
         sealed class FaceAssignment
         {
             public EyeColor Color;
+            public bool ClownNose;
         }
 
         static readonly ConditionalWeakTable<Pawn, FaceAssignment> _eyeColors =
@@ -115,8 +118,7 @@ namespace SlopWorld
             if (_eyeColors.TryGetValue(pawn, out _))
                 return;
 
-            var color = ColorWeights.RandomElementByWeight(p => p.Weight).Color;
-            _eyeColors.GetValue(pawn, _ => new FaceAssignment()).Color = color;
+            RollFace(pawn);
         }
 
         // Select a new face and hair using the same hair restrictions as generation.
@@ -126,9 +128,7 @@ namespace SlopWorld
             if (pawn?.story == null)
                 return;
 
-            _eyeColors.GetValue(pawn, _ => new FaceAssignment()).Color = ColorWeights
-                .RandomElementByWeight(p => p.Weight)
-                .Color;
+            RollFace(pawn);
 
             for (var i = 0; i < 8; i++)
             {
@@ -143,12 +143,30 @@ namespace SlopWorld
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
+        static void RollFace(Pawn pawn)
+        {
+            var face = _eyeColors.GetValue(pawn, _ => new FaceAssignment());
+            face.Color = ColorWeights.RandomElementByWeight(p => p.Weight).Color;
+            face.ClownNose = Rand.Value < ClownNoseChance;
+        }
+
         // Returns the eye color assigned to this pawn, or the default (Blue) if unassigned.
         public static EyeColor ColorOf(Pawn pawn)
         {
             if (pawn == null)
                 return EyeColor.Blue;
             return _eyeColors.TryGetValue(pawn, out var c) ? c.Color : EyeColor.Blue;
+        }
+
+        public static bool HasClownNose(Pawn pawn) =>
+            pawn != null && _eyeColors.TryGetValue(pawn, out var face) && face.ClownNose;
+
+        internal static void RestoreClownNose(Pawn pawn, bool enabled)
+        {
+            if (pawn == null || pawn.Destroyed)
+                return;
+            _eyeColors.GetValue(pawn, _ => new FaceAssignment()).ClownNose = enabled;
+            pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
         internal static void Restore(Pawn pawn, EyeColor color)
@@ -234,6 +252,23 @@ namespace SlopWorld
                 yield break;
 
             yield return (new PawnRenderNode_AttachmentHead(pawn, props, tree), null);
+
+            if (RobotFace.HasClownNose(pawn))
+            {
+                var nose = new PawnRenderNodeProperties
+                {
+                    nodeClass = typeof(PawnRenderNode_AttachmentHead),
+                    texPath = "SlopWorld/ClownNose",
+                    parentTagDef = PawnRenderNodeTagDefOf.Head,
+                    shaderTypeDef = ShaderTypeDefOf.Cutout,
+                    colorType = PawnRenderNodeProperties.AttachmentColorType.Custom,
+                    color = Color.white,
+                    baseLayer = head.Props.baseLayer + 0.75f,
+                    visibleFacing = new List<Rot4> { Rot4.South, Rot4.East, Rot4.West },
+                };
+                if (tree.ShouldAddNodeToTree(nose))
+                    yield return (new PawnRenderNode_AttachmentHead(pawn, nose, tree), null);
+            }
         }
 
         // nodesByTag is private, so this walks down from the public root instead of

@@ -178,6 +178,7 @@ impl Control {
             current.playing = false;
             current.source = None;
             current.title = None;
+            current.error = None;
         })
         .is_some()
     }
@@ -187,7 +188,6 @@ impl Control {
         state: &Arc<Mutex<AudioState>>,
         source: &str,
         generation: u64,
-        why: &str,
     ) {
         self.with_current(
             state,
@@ -195,7 +195,9 @@ impl Control {
             SourceRequirement::Exact(source),
             |_, current| {
                 current.playing = false;
-                current.error = Some(format!("{why}; recovering audio output"));
+                // The client treats errors as terminal and falls back to OST. Recovery
+                // keeps the selected station; only exhausted retries publish an error.
+                current.error = None;
             },
         );
     }

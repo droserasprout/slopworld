@@ -72,8 +72,8 @@ namespace SlopWorld
             if (
                 string.IsNullOrEmpty(value)
                 || !value.StartsWith("file://", StringComparison.OrdinalIgnoreCase)
-                || value.IndexOf('\r') >= 0
-                || value.IndexOf('\n') >= 0
+                || value.Contains('\r')
+                || value.Contains('\n')
                 || !Uri.TryCreate(value, UriKind.Absolute, out var uri)
                 || !uri.IsFile
                 || (uri.Host.Length != 0 && uri.Host != "localhost")

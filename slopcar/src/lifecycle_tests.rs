@@ -35,6 +35,7 @@ case "$1" in
  info) exit 0 ;;
  container) test -f "$here/exists"; exit $? ;;
  image) test ! -f "$here/no-image"; exit $? ;;
+ pull) test ! -f "$here/fail-pull"; exit $? ;;
  run)
    for arg in "$@"; do
      case "$arg" in seccomp=*) cp "${arg#seccomp=}" "$here/profile" || exit 10 ;; esac
@@ -199,7 +200,7 @@ fn failed_creation_keeps_config_for_retry_and_remove_preserves_state() {
     assert!(fixture.settings.data.is_dir());
 }
 #[test]
-fn invalid_mounts_or_missing_image_leave_state_uncreated() {
+fn invalid_mounts_or_failed_pull_leave_state_uncreated() {
     let fixture = Fixture::new();
     let start = Start {
         workspaces: vec![fixture.settings.home.clone()],
@@ -209,6 +210,7 @@ fn invalid_mounts_or_missing_image_leave_state_uncreated() {
     assert!(!fixture.settings.config.exists());
     assert!(!fixture.calls().contains("CALL\nrun\n"));
     fs::write(fixture.root.path().join("no-image"), "").unwrap();
+    fs::write(fixture.root.path().join("fail-pull"), "").unwrap();
     assert!(
         run_with(
             Command::Start(fixture.start()),
@@ -339,4 +341,21 @@ fn linux_identity_does_not_depend_on_a_writable_temporary_directory() {
     } else {
         assert_eq!(container_identity().unwrap(), (uid, gid));
     }
+}
+
+#[test]
+fn pulls_missing_image_but_never_refreshes_an_installed_image() {
+    let fixture = Fixture::new();
+    run_with(Command::Doctor, &fixture.settings, &fixture.docker).unwrap();
+    assert!(!fixture.calls().contains("CALL\npull\n"));
+    fs::write(fixture.root.path().join("no-image"), "").unwrap();
+    run_with(
+        Command::Start(fixture.start()),
+        &fixture.settings,
+        &fixture.docker,
+    )
+    .unwrap();
+    let calls = fixture.calls();
+    assert!(calls.contains("CALL\npull\ntest-image\n"));
+    assert!(fixture.settings.config.join("config.toml").is_file());
 }

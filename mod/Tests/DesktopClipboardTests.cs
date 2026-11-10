@@ -85,13 +85,13 @@ namespace SlopWorld.Tests
             }
         }
 
-        public static void MacTextClipboardStaysLocalAndPrimaryDoesNotAliasClipboard()
+        public static void NonLinuxTextClipboardStaysLocalAndPrimaryDoesNotAliasClipboard()
         {
             var platform = Application.platform;
             string previous = GUIUtility.systemCopyBuffer;
             try
             {
-                Application.platform = RuntimePlatform.OSXPlayer;
+                Application.platform = RuntimePlatform.WindowsPlayer;
                 DaemonClient.Requests.Clear();
                 var provider = new DesktopUiClipboard();
                 int successes = 0;

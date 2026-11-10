@@ -107,8 +107,7 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
-            var temperatureChoices = Enum.GetValues(typeof(TemperatureDisplayMode))
-                .Cast<TemperatureDisplayMode>()
+            var temperatureChoices = Enum.GetValues<TemperatureDisplayMode>()
                 .Select(mode => new FloatMenuOption(
                     mode.ToStringHuman(),
                     () => SetTemperatureUnit(mode)
@@ -142,14 +141,24 @@ namespace SlopWorld
                 out _
             );
 
-            UiControls.Select(
-                l,
-                "Time zone",
-                TimeZonePreference.Label(s.timeZone),
-                TimeZoneOptions(),
-                out _,
-                "Auto uses this computer's time zone, even with a remote daemon."
-            );
+            // Enumerating the system catalog initializes the runtime's time-zone cache.
+            // Keep that cold work out of Settings drawing, including layout measurement.
+            if (
+                UiControls.Select(
+                    l,
+                    "Time zone",
+                    TimeZonePreference.Label(s.timeZone),
+                    out var timeZoneBox,
+                    "Auto uses this computer's time zone, even with a remote daemon."
+                )
+            )
+                Find.WindowStack.Add(
+                    UiSelector.Menu(
+                        TimeZoneOptions().ToList(),
+                        UiSelector.ScreenBox(timeZoneBox),
+                        matchWidth: false
+                    )
+                );
 
             UiControls.Select(
                 l,
@@ -217,7 +226,7 @@ namespace SlopWorld
             foreach (
                 var group in TimeZones
                     .Value.Where(zone => zone.Id != "UTC")
-                    .GroupBy(zone => zone.Id.Contains("/") ? zone.Id.Split('/')[0] : "Other")
+                    .GroupBy(zone => zone.Id.Contains('/') ? zone.Id.Split('/')[0] : "Other")
             )
                 yield return new UiSubmenu(
                     group.Key,

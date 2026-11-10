@@ -23,7 +23,9 @@ namespace SlopWorld
         {
             _host = host;
             _selected = selected;
+#pragma warning disable CA2000 // WorkspaceSplit owns the panel lifetime and cleanup.
             _panes = new WorkspaceSplit<TerminalPanel>(new TerminalPanel(host, name));
+#pragma warning restore CA2000
         }
 
         public TerminalPanel Find(string name) =>
@@ -54,7 +56,9 @@ namespace SlopWorld
             }
             else
             {
+#pragma warning disable CA2000 // The panel is handed to WorkspaceSplit, which owns cleanup.
                 var panel = new TerminalPanel(_host, name);
+#pragma warning restore CA2000
                 // Assign its half before opening/subscribing, so its initial resize is correct.
                 var geometry = Geometry(Bounds);
                 panel.Arrange(geometry.Second);

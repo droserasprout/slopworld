@@ -1,5 +1,6 @@
 //! Hidden key input; terminal settings are restored on completion, cancellation, or read failure.
 use std::io::{self, IsTerminal, Read, Write};
+use std::os::fd::AsFd;
 
 pub(super) fn read_key() -> Result<String, String> {
     eprint!("Peer key: ");
@@ -14,9 +15,13 @@ pub(super) fn read_key() -> Result<String, String> {
             .map_err(|_error| "reading peer key".to_owned())?;
         return Ok(key.trim_end_matches(['\r', '\n']).into());
     }
+    read_interactive(&stdin, &mut stdin.lock())
+}
+
+fn read_interactive(terminal: &impl AsFd, input: &mut impl Read) -> Result<String, String> {
     use nix::sys::termios::{self, LocalFlags, SetArg, SpecialCharacterIndices};
     let original =
-        termios::tcgetattr(&stdin).map_err(|_error| "reading terminal settings".to_owned())?;
+        termios::tcgetattr(terminal).map_err(|_error| "reading terminal settings".to_owned())?;
     let mut hidden = original.clone();
     // Read cancellation as a byte so Ctrl-C restores echo before returning.
     hidden
@@ -30,10 +35,10 @@ pub(super) fn read_key() -> Result<String, String> {
         .control_chars
         .get_mut(SpecialCharacterIndices::VTIME as usize)
         .ok_or("terminal lacks VTIME")? = 0;
-    termios::tcsetattr(&stdin, SetArg::TCSANOW, &hidden)
+    termios::tcsetattr(terminal, SetArg::TCSANOW, &hidden)
         .map_err(|_error| "hiding peer key input".to_owned())?;
-    struct Restore<'a>(&'a io::Stdin, termios::Termios);
-    impl Drop for Restore<'_> {
+    struct Restore<'a, T: AsFd>(&'a T, termios::Termios);
+    impl<T: AsFd> Drop for Restore<'_, T> {
         fn drop(&mut self) {
             if let Err(error) = termios::tcsetattr(self.0, SetArg::TCSANOW, &self.1) {
                 eprintln!("restoring terminal settings: {error}");
@@ -41,8 +46,7 @@ pub(super) fn read_key() -> Result<String, String> {
             eprintln!();
         }
     }
-    let _restore = Restore(&stdin, original);
-    let mut input = stdin.lock();
+    let _restore = Restore(terminal, original);
     let mut key = Vec::new();
     loop {
         let mut byte = [0];
@@ -61,3 +65,7 @@ pub(super) fn read_key() -> Result<String, String> {
     }
     String::from_utf8(key).map_err(|_error| "peer key must be UTF-8".into())
 }
+
+#[cfg(test)]
+#[path = "peer_prompt_tests.rs"]
+mod tests;

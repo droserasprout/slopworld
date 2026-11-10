@@ -13,7 +13,7 @@ committed revision, or **Add** to register an existing checkout of the same
 repository. The original checkout appears as **main**.
 
 New worktrees start on a branch with the same name. Choose an unused, valid Git
-branch name. Uncommitted changes stay in the original checkout.
+branch name without slashes. Uncommitted changes stay in the original checkout.
 
 Choose a worktree in **Spawn worker** or in agent settings. Stop an agent before
 changing its worktree. Select **Terminal** in the worktree list to open a shell
@@ -24,8 +24,9 @@ of commits. See [Paths and files](../reference/paths.md) for storage locations.
 
 ## Renaming
 
-Move or remove attached sessions, then select **Rename**. Renaming a managed
-worktree moves its directory; its branch keeps its name.
+For a ready managed worktree, move or remove attached sessions, then select
+**Rename**. Renaming moves its directory; its branch keeps its name.
+External checkouts cannot be renamed here.
 
 <a id="remove-a-worktree"></a>
 

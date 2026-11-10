@@ -3,23 +3,6 @@
 Open Settings with the gear icon in the top bar or the **Settings** command in the
 palette. Settings opens as tabs over the terminal pane.
 
-## Find a setting
-
-| Category | Controls and guides |
-| --- | --- |
-| General | Game and daemon controls, date and time formats |
-| Display | Fullscreen, frame limits, VSync, smooth scrolling |
-| Appearance | Interface styling, workspace layout, terminal appearance, code readers |
-| Integrations | [Credentials and usage polling](../agents/usage-and-summaries.md) |
-| Agents | [Prompt summaries](../agents/usage-and-summaries.md#prompt-summaries) and [workers](#workers) |
-| Sandbox | [Sandbox presets](../sandbox/sandbox-presets.md) |
-| Storage | [Private state and shared caches](../maintenance/storage.md) |
-| Commands | Defaults, [command presets](../workspace/command-presets.md), binary discovery |
-| Keyboard | [Key bindings](../reference/keyboard-shortcuts.md) |
-| Audio | [Jukebox and audio sources](jukebox.md) |
-| RimWorld | Game options |
-| About | Project information |
-
 ## Applying changes
 
 | Change | When it applies |
@@ -38,52 +21,46 @@ reload while the daemon runs.
 
 ## On exit
 
-Under **General > Game**, open **On exit** to toggle its checkboxes:
+Closing the game can leave agents running on the daemon host. Use
+**General > Game > On exit** to choose whether quitting also stops sessions and
+radio playback. Stopping sessions does not delete their configuration.
 
-- **Ask** (on by default): confirm before quitting from GM, Alt+F4, or window close.
-- **Stop radio** (on by default): stop jukebox playback when quitting. This is the
-  same preference shown in Audio and the jukebox menu.
-- **Stop active sessions** (off by default): stop running session processes before
-  quitting, without deleting configured sessions.
-
-With **Ask** unchecked, quitting applies the selected actions immediately. If
-sessions cannot be stopped, choose **Retry** or **Quit anyway**, or press Escape
-to stay in SlopWorld. Quit saves the colony through the usual shutdown path.
-When **Stop active sessions** is checked, the confirmation lists the currently
-active sessions. Check **Don't ask again** and choose **Quit** to turn off **Ask**;
-cancelling leaves the setting unchanged.
+If a session cannot be stopped, you can retry, quit anyway, or cancel quitting.
+Disabling exit confirmation makes the selected actions immediate. The colony
+still saves through its usual shutdown path.
 
 ## Display
 
 Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
+On Linux, the default launcher window override uses X11 or XWayland and keeps the
+renderer windowed. **Display > Fullscreen** and F11 control fullscreen through the
+window manager; the window stays undecorated when fullscreen is off. Native
+RimWorld display modes are hidden.
+`--no-window-fix` skips the launcher’s X11 selection.
 
-| Control | Effect |
-| --- | --- |
-| Fullscreen | Toggle window-manager fullscreen. |
-| Frame limiter | Auto (default) follows the display refresh rate. Manual limits are 15, 30, 60, 120, 144, and 240 FPS. |
-| VSync (not recommended) | Off by default. Synchronizes presentation with the display, adds scrolling latency, and disables the FPS selector. Turning it off restores the selected limit. |
-| Smooth scrolling | Use precise touchpad movement where supported; disable it for wheel steps. Enabled by default. |
+Leave the frame limiter on **Auto** to follow the monitor's refresh rate, or
+lower it to reduce rendering work. VSync synchronizes presentation with the
+display but can add scrolling latency; it takes precedence over the selected
+frame limit. Turning VSync off restores that limit. Unfocused windows use a
+fixed background frame rate and restore your selection on focus.
 
-Unfocused windows use 15 FPS and restore foreground pacing on focus.
-Auto uses the nearest integer refresh rate and falls back to 60 FPS if unavailable.
-These preferences apply live and are saved with the profile.
+The limit controls rendering. Keyboard and mouse events, daemon communication,
+and game updates continue between rendered frames. A low limit makes visual
+feedback less frequent, but does not pace typing or send one character per frame.
+
+Disable **Smooth scrolling** if you prefer discrete wheel steps. SlopWorld keeps
+the desktop awake while it runs, even in the background; turn off
+**Window > Inhibit screensaver** to allow normal desktop idle behavior.
+
+Display preferences apply live and are saved with the profile.
 [Eco mode](../workspace/gameplay.md#eco-mode) controls colony simulation separately.
 
 ## Appearance
 
-| Page | Controls |
-| --- | --- |
-| Interface | UI scale, fonts, colors, cursor styling |
-| Workspace | Density, sidebar, statusbar |
-| Terminal | Terminal appearance |
-| Code | Pager, syntax highlighter, code themes |
+Under **Appearance > Code**, **Auto** selects from tools installed on the daemon
+host. Installing or removing tools can change that selection; choose an explicit
+tool or custom command when you need it to stay fixed.
 
-Under **Appearance > Code**, **Auto** selects tools installed on the daemon host:
-
-- Pager: moor → bat → less → more.
-- Highlighter: bat → Pygments → highlight → plain text.
-
-Explicit tools and custom commands stay fixed. **Off** disables highlighting.
 Moor is optional and preferred by Auto when installed on the daemon host. It preserves diff
 backgrounds during horizontal scrolling. File views stream the selected highlighter
 into moor and retain source numbering and line navigation.
@@ -92,13 +69,14 @@ without either, it prints directly. Save and restart active readers after a chan
 
 ## Date and time
 
-Under **General > Locale**, choose `YYYY-MM-DD` (default), `DD/MM/YYYY`, or
-`MM/DD/YYYY`, a 24-hour or 12-hour time display, and a time zone. **Auto** uses
+Set date and time formatting under **General > Locale**. The **Auto** time zone uses
 the game desktop’s zone, even with a remote daemon. Choose a named zone to override it.
 Changes apply live to clocks and timestamps and are saved with the profile.
 Date formatting also applies to the game build date. The time zone also sets Planner’s Today and overdue
-calculations and the colony clock. Due dates remain calendar dates. Timer schedules
-still use UTC; their last and next occurrence timestamps use the selected zone.
+calculations and the colony clock. Due dates remain calendar dates.
+[Calendar timers](../workspace/library.md#timers) use their saved time zone; this
+preference supplies the initial zone for new timers and displays occurrence
+timestamps without changing existing schedules.
 
 ## Storage
 
@@ -117,48 +95,8 @@ See [Agent collaboration](../agents/agent-collaboration.md#parent-worker-access)
 
 ## Planner
 
-Open **Planner** with the chess table button beside Settings or the chess table on the map.
-Use **Add a task** for quick entry, check a task to complete it, and select a row to
-edit its title, priority, due date, projects, or contexts. Quick-add and checkboxes save
-immediately. The details pane uses **Save changes** and **Discard edits**.
-
-The list filters by date, completion, project (`+project`), and context (`@context`).
-Search matches titles, projects, and contexts; sort by due date, priority, or title.
-The **Projects** dropdown accepts multiple TODO or configured projects. Smaller windows
-use filter menus and open details separately. Due dates and recurrence metadata do not
-schedule work.
-
-Use the Markdown field beneath the title for notes, checklists, and code blocks.
-**Preview** renders the draft. **Save changes** saves the task and all edited descriptions;
-failed saves retain drafts for retry. **Discard** restores the last saved values.
-Drafts survive task and view changes within the mod session; save before quitting.
-
-**Tasks | Raw** switches between the task list and its underlying
-[todo.txt text](https://github.com/todotxt/todo.txt). Field edits preserve unknown metadata.
-**Refresh** reloads external TODO edits and links; **Reload description** reads external
-Markdown edits. On a conflict, copy the affected draft before discarding and reloading.
-
-**Links** lists associated Tasks and Workers, with live status and progress. Click a
-Task to open its details or a Worker to focus its terminal. **Link Task…** and
-**Link Worker…** attach existing items; **Remove** detaches them without deleting,
-canceling, or stopping them. Worker outcomes do not change the Planner checkbox.
-
-Save edits before choosing **Spawn worker…**. Select a project, then use the worker
-dialog, prefilled with the task title and saved description. Spawning links the new
-Task and Worker even if startup fails. You can remove old links and spawn another worker.
-To cancel an unfinished task, open its link and choose **Cancel**. Cancellation prevents
-further task updates but leaves the worker process running.
-
-The daemon stores `TODO.txt` (up to 64 KiB) in its data directory, normally
-`~/.local/share/slopworld/`. Saving assigns each task a stable `sw-id:`; preserve it and
-any `sw-task:` metadata when editing Raw. Agents report through Tasks and cannot edit
-the backlog through the Planner API.
-
-Descriptions live in `planner/descriptions/<sw-id>.md` (up to 1 MiB each); links live in
-`planner/links/<sw-id>.json`. Renaming, moving, or completing a task preserves its description.
-Deleting a TODO entry keeps its description and linked worker task. Restoring the same
-`sw-id:` reconnects the description; copying a task requires a new ID and does not copy
-its description.
+Open Planner with the chess table button beside Settings or the chess table on the map.
+See [Planner](../workspace/planner.md) for the backlog, notes, and worker assignments.
 
 ## Configuration file
 

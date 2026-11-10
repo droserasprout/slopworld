@@ -30,11 +30,6 @@ namespace SlopWorld
             get => _state.DroppedKeys;
             set => _state.DroppedKeys = value;
         }
-        internal int SemicolonFrame
-        {
-            get => _state.SemicolonFrame;
-            set => _state.SemicolonFrame = value;
-        }
         internal int ScrollOffset
         {
             get => _scrollOff;

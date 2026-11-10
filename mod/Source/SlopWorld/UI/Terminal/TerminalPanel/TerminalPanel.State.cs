@@ -9,7 +9,6 @@ namespace SlopWorld
         public string Name;
         public bool ShowStopped;
         public readonly StringBuilder Literal = new StringBuilder();
-        public int SemicolonFrame = -1;
         public int Cols,
             Rows;
         public float ResizeAt;

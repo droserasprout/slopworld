@@ -12,8 +12,9 @@ Changing this filter does not move an agent to another checkout.
 3. For Markdown, use **View** for the rendered reader or **View in pager** for source.
 
 Images open in the native reader. Text pagers and editors run on the daemon host;
-they do not use an agent's private state. Configure reader tools under
-[Settings > Appearance > Code](../customization/settings.md#applying-changes).
+they do not use an agent's private state. Configure the editor under
+**Settings > Commands > Defaults**, and the pager and syntax highlighter under
+[Settings > Appearance > Code](../customization/settings.md#appearance).
 
 Where desktop integration is available, **Open in** lists associated applications.
 Choose **Other** to select another application. See

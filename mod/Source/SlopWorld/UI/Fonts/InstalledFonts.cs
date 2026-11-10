@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // Owns OS discovery. Consumers use Revision to invalidate fonts, probes, and menus.
+    // Publishes the shared catalog and revision; NativeFonts owns discovery and registration.
+    // Consumers use Revision to invalidate fonts, probes, and menus.
     static class InstalledFonts
     {
         static IReadOnlyList<string> _all;
@@ -14,6 +14,7 @@ namespace SlopWorld
 
         public static void Rescan()
         {
+            NativeFonts.Rescan();
             _all = null;
             Revision++;
         }
@@ -23,7 +24,7 @@ namespace SlopWorld
             var found = new List<string>();
             try
             {
-                var names = Font.GetOSInstalledFontNames();
+                var names = NativeFonts.Names();
                 if (names == null)
                     return found.AsReadOnly();
                 var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

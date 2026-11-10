@@ -97,7 +97,7 @@ def run_bench(build: str, run_number: int, raw_path: Path, suite="gamefree") -> 
     if suite not in ("gamefree", "ipc"):
         shutil.rmtree(temporary)
         return samples
-    for runtime in ("mono", "net8", "rust"):
+    for runtime in ("net10", "rust"):
         path = repeat_path / "ipc" / f"{runtime}.csv"
         with path.open() as stream:
             rows = list(csv.DictReader(stream))
@@ -110,8 +110,7 @@ def run_bench(build: str, run_number: int, raw_path: Path, suite="gamefree") -> 
                 f"missing: {sorted(expected - actual)}; unexpected: {sorted(actual - expected)}"
             )
         for row in rows:
-            runtime_label = "coreclr" if runtime == "net8" else runtime
-            name = f"IPC/{runtime_label}/{row['fixture']}/{row['lane']}"
+            name = f"IPC/{runtime}/{row['fixture']}/{row['lane']}"
             if name in samples:
                 raise RuntimeError(f"duplicate benchmark: {name}")
             samples[name] = Sample(float(row["p50_us"]), float(row["p95_us"]),

@@ -11,7 +11,9 @@ namespace SlopWorld
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly ContentHeight _height;
 
-        public ScrollableListing(float initialHeight = 900f)
+        // Start without overflow until the first measured extent is published. An oversized
+        // estimate flashes a scrollbar on short forms; the reserved gutter keeps width stable.
+        public ScrollableListing(float initialHeight = 0f)
         {
             _height = new ContentHeight(initialHeight);
         }

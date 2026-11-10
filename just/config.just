@@ -1,8 +1,9 @@
 # Shared settings and script environment. Domain files own recipes.
 # Export user settings to component recipes and workflow scripts.
 
-export RIMWORLD := env("RIMWORLD", GOGDL_PATH + '/RimWorld/game')
-export MANAGED := env("MANAGED", RIMWORLD + '/RimWorldLinux_Data/Managed')
+export RIMWORLD := env("RIMWORLD", env("HOME") + '/.local/share/Steam/steamapps/common/RimWorld')
+# RimWorld 1.7 keeps game assemblies at the installation root.
+export MANAGED := env("MANAGED", RIMWORLD)
 export MODS := env("MODS", RIMWORLD + '/Mods')
 export BIN := env("BIN", env("HOME") + '/.local/bin')
 export UNITS := env("UNITS", env("HOME") + '/.config/systemd/user')

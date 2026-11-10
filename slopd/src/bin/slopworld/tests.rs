@@ -1,4 +1,5 @@
 use super::*;
+use std::ffi::OsStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 pub(super) fn scratch(what: &str) -> PathBuf {
@@ -31,45 +32,10 @@ fn a_value_comes_inline_or_after() {
 }
 
 #[test]
-fn the_window_fix_is_enabled_by_default() {
-    let a = game_argv(
-        Path::new("/g/RimWorldLinux"),
-        Path::new("/p"),
-        Path::new("/logs/Player.log"),
-        false,
-    );
+fn launch_arguments_select_the_profile_and_console_log() {
     assert_eq!(
-        a,
-        vec![
-            "/g/RimWorldLinux",
-            "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log",
-            "-popupwindow",
-            "-screen-fullscreen",
-            "0",
-            "-force-opengl"
-        ]
-    );
-}
-
-#[test]
-fn the_window_fix_can_be_disabled() {
-    let a = parsed(&["--no-window-fix"]);
-    assert!(a.no_window_fix);
-    assert_eq!(
-        game_argv(
-            Path::new("/g/RimWorldLinux"),
-            Path::new("/p"),
-            Path::new("/logs/Player.log"),
-            a.no_window_fix
-        ),
-        vec![
-            "/g/RimWorldLinux",
-            "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log"
-        ]
+        game_argv(Path::new("/g/RimWorld"), Path::new("/p")),
+        vec!["/g/RimWorld", "-savedatafolder=/p", "-NoFileLog"]
     );
 }
 
@@ -120,10 +86,10 @@ fn sidecar_endpoint_must_exist_and_is_resolved_to_an_absolute_path() {
 }
 
 #[test]
-fn an_explicit_mac_game_uses_the_app_mods_directory() {
-    let root = scratch("mac-game");
-    let app = root.join("RimWorld.app");
-    let executable = app.join("Contents/MacOS/RimWorld by Ludeon Studios");
+fn an_explicit_game_uses_the_adjacent_mods_directory() {
+    let root = scratch("explicit-game");
+    let app = root.join("game");
+    let executable = app.join("RimWorld");
     std::fs::create_dir_all(executable.parent().unwrap()).unwrap();
     std::fs::write(&executable, "game").unwrap();
     let (found, mods) = game_target(None, executable.to_str(), None).unwrap();
@@ -241,24 +207,10 @@ fn a_missing_marker_is_put_back() {
 
 #[test]
 fn the_profile_rides_on_the_games_own_argument() {
-    let argv = game_argv(
-        Path::new("/g/RimWorldLinux"),
-        Path::new("/p"),
-        Path::new("/logs/Player.log"),
-        false,
-    );
+    let argv = game_argv(Path::new("/g/RimWorld"), Path::new("/p"));
     assert_eq!(
         argv,
-        vec![
-            "/g/RimWorldLinux",
-            "-savedatafolder=/p",
-            "-logFile",
-            "/logs/Player.log",
-            "-popupwindow",
-            "-screen-fullscreen",
-            "0",
-            "-force-opengl"
-        ]
+        vec!["/g/RimWorld", "-savedatafolder=/p", "-NoFileLog"]
     );
 }
 
@@ -266,6 +218,33 @@ fn the_profile_rides_on_the_games_own_argument() {
 fn a_game_directory_without_the_binary_is_named_rather_than_skipped() {
     let e = game_dir(Some("/nowhere/at/all")).unwrap_err();
     assert!(e.contains("/nowhere/at/all"), "{e}");
+}
+
+#[test]
+fn game_console_streams_share_the_log_and_each_launch_replaces_it() {
+    let root = scratch("console-log");
+    let log = root.join("nested/Player.log");
+    for _ in 0..2 {
+        let mut command = Command::new("sh");
+        command.args(["-c", "printf 'output\n'; printf 'error\n' >&2"]);
+        configure_game_log(&mut command, &log).unwrap();
+        assert!(command.status().unwrap().success());
+        assert_eq!(std::fs::read_to_string(&log).unwrap(), "output\nerror\n");
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn invalid_log_directory_reports_its_path() {
+    let root = scratch("invalid-log");
+    std::fs::create_dir_all(&root).unwrap();
+    let parent = root.join("file");
+    std::fs::write(&parent, "keep").unwrap();
+    let error =
+        configure_game_log(&mut Command::new("sh"), &parent.join("Player.log")).unwrap_err();
+    assert!(error.contains(parent.to_str().unwrap()), "{error}");
+    assert_eq!(std::fs::read_to_string(&parent).unwrap(), "keep");
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -482,4 +461,27 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
         crate::cli::Command::Display(_) => Ok(None),
         _ => Err("expected launch".into()),
     }
+}
+
+#[test]
+fn linux_launch_selects_x11_for_window_manager_fullscreen() {
+    let mut command = Command::new("/g/RimWorld");
+    configure_game_window(&mut command, false);
+    let selected = command.get_envs().find(|(key, _)| *key == "FORCE_X11");
+    if cfg!(target_os = "linux") {
+        assert_eq!(
+            selected,
+            Some((OsStr::new("FORCE_X11"), Some(OsStr::new("1"))))
+        );
+    } else {
+        assert_eq!(selected, None);
+    }
+}
+
+#[test]
+fn the_window_fix_can_be_disabled() {
+    let args = parsed(&["--no-window-fix"]);
+    let mut command = Command::new("/g/RimWorld");
+    configure_game_window(&mut command, args.no_window_fix);
+    assert!(!command.get_envs().any(|(key, _)| key == "FORCE_X11"));
 }

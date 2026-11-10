@@ -34,7 +34,7 @@ Press **?** in game to show current shortcuts.
 | Ctrl+current sidebar key | Focus that sidebar view's last target. |
 | Alt+Z / Alt+X | Previous/next agent or shell session. |
 | Alt+A / Alt+S | Previous/next open file (view, editor, search reader or diff). |
-| Alt+1..9, Alt+0 | Select an agent on the map or switch panes in the terminal window; 0 is tenth. |
+| Alt+1..9, Alt+0 | Select a session by its position in the Agents sidebar: select its pawn on the map or switch the focused terminal pane to it; 0 is tenth. |
 
 Switching between sessions and open files with these Alt shortcuts returns to the
 last active item in that group. Press again to cycle. If that item is closed or
@@ -46,6 +46,7 @@ filtered out, navigation starts at the first item (next) or last item (previous)
 | --- | --- | --- |
 | T | Open agent terminal | yes |
 | S | Start/stop agent | yes |
+| R | Resume stopped agent conversation | yes |
 | E | Edit agent | yes |
 | D | Duplicate agent | yes |
 | L | Label selected session | yes |
@@ -70,7 +71,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 
 | Gesture | Action |
 | --- | --- |
-| Middle-click | Paste the game desktop's PRIMARY selection (X11/XWayland on Linux). |
+| Middle-click | Paste the game desktop's PRIMARY selection (X11/XWayland). |
 | Ctrl+click | Open a URL printed in the terminal, or show a file menu. The menu offers applicable Focus, View, Edit, Open in, File actions, and Copy path actions. View and Edit honor a `:line` suffix. |
 | Right-click | Terminal context menu. |
 | Double-click | Select a word and publish it to the game desktop's PRIMARY selection. |
@@ -80,9 +81,9 @@ When an application requests mouse reporting, left-click selection gestures on t
 live screen go to the application. Hold Shift to select text locally, including word
 and line selection. Selection gestures in scrollback history remain local.
 
-On the primary screen, the mouse wheel scrolls the mod's scrollback history. On the
-alternate screen, the wheel sends arrow keys (Up/Down) to the application. When the
-application requests mouse reporting, the mod forwards wheel input as mouse events.
+While reading scrollback, the wheel stays in history. At the live screen, an
+application requesting mouse reporting receives wheel events. Otherwise, the wheel
+scrolls history on the primary screen or sends Up/Down keys on the alternate screen.
 
 ## Player pawn (map)
 

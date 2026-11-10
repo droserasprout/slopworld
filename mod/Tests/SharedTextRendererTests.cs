@@ -28,12 +28,159 @@ namespace SlopWorld.Tests
             GUI.LabelFontSizes.Clear();
             GUI.LabelMatrices.Clear();
             GUI.color = new Color(1, 1, 1, 1);
+            GUI.LabelColors.Clear();
             GUI.SpriteColors.Clear();
             GUI.SpriteDraws.Clear();
             GUI.TextGroupDepth = 0;
             GUI.FailSprite = false;
             GUI.FailLabel = false;
             GUI.matrix = Matrix4x4.identity;
+        }
+
+        public static void TerminalForegroundChangesBetweenRunsAndRestoresCallerTint()
+        {
+            Reset(new Texture2D());
+            Color previous = GUI.color;
+            var tint = new Color(0.8f, 0.6f, 0.4f, 0.5f);
+            var red = new Color(1f, 0.1f, 0.2f, 0.8f);
+            var blue = new Color(0.2f, 0.3f, 1f, 0.6f);
+            var style = new GUIStyle();
+            var plain = InlineTextLayout.Cells("a", 1, 6f, TextSpriteCatalog.Shared);
+            var mixed = InlineTextLayout.Cells("a😀b", 4, 6f, TextSpriteCatalog.Shared);
+            var bounds = new Rect(0, 0, 30, 14);
+            try
+            {
+                GUI.color = tint;
+                style.normal.textColor = red;
+                SharedTextRenderer.DrawTerminalRun(plain, bounds, 14f, style);
+                AssertEx.Equal(
+                    tint * red,
+                    GUI.LabelColors[0],
+                    "plain glyph retains foreground and caller opacity"
+                );
+                AssertEx.Equal(tint, GUI.color, "plain run restores caller tint");
+                style.normal.textColor = blue;
+                SharedTextRenderer.DrawTerminalRun(mixed, bounds, 14f, style);
+                AssertEx.Equal(
+                    tint * blue,
+                    GUI.LabelColors[1],
+                    "mixed run uses its current foreground"
+                );
+                AssertEx.Equal(
+                    tint * blue,
+                    GUI.LabelColors[2],
+                    "text after sprite retains foreground"
+                );
+                AssertEx.Equal(
+                    new Color(1, 1, 1, tint.a),
+                    GUI.SpriteColors[0],
+                    "colored glyph keeps its own artwork"
+                );
+                AssertEx.Equal(tint, GUI.color, "mixed run restores caller tint");
+                GUI.FailLabel = true;
+                AssertEx.Throws<InvalidOperationException>(
+                    () => SharedTextRenderer.DrawTerminalRun(plain, bounds, 14f, style),
+                    "label failure"
+                );
+                AssertEx.Equal(tint, GUI.color, "failed run restores caller tint");
+                AssertEx.Equal(
+                    TextClipping.Overflow,
+                    style.clipping,
+                    "failed run restores style clip"
+                );
+            }
+            finally
+            {
+                GUI.color = previous;
+                GUI.FailLabel = false;
+            }
+        }
+
+        public static void CanonicalCombiningCellsPaintLikePrecomposedWithoutChangingCopyText()
+        {
+            foreach (
+                var pair in new[]
+                {
+                    ("e\u0301", "é"),
+                    ("a\u0308", "ä"),
+                    ("o\u0302", "ô"),
+                    ("a\u0308\u0301", "ä\u0301"),
+                }
+            )
+            {
+                // The first three are the manually confirmed probe. Use the runtime's
+                // font path for remaining stacked marks; they must not be dropped.
+                string composed = pair.Item2;
+                foreach (int size in new[] { 12, 18, 25 })
+                foreach (var face in new[] { FontStyle.Normal, FontStyle.Bold, FontStyle.Italic })
+                {
+                    Reset(new Texture2D());
+                    var style = new GUIStyle
+                    {
+                        font = new Font(),
+                        fontSize = size,
+                        fontStyle = face,
+                    };
+                    var source = InlineTextLayout.CellCluster(
+                        pair.Item1,
+                        1,
+                        8f,
+                        TextSpriteCatalog.Shared
+                    );
+                    var equivalent = InlineTextLayout.CellCluster(
+                        composed,
+                        1,
+                        8f,
+                        TextSpriteCatalog.Shared
+                    );
+                    var bounds = new Rect(17, 23, 8, 30);
+                    SharedTextRenderer.DrawTerminalRun(source, bounds, 30, style);
+                    SharedTextRenderer.DrawTerminalRun(equivalent, bounds, 30, style);
+                    AssertEx.Equal(
+                        GUI.TextLabels[1],
+                        GUI.TextLabels[0],
+                        "canonical cells use identical glyph text and baseline bounds"
+                    );
+                    AssertEx.Equal(
+                        GUI.LabelFontSizes[1],
+                        GUI.LabelFontSizes[0],
+                        "canonical cells use identical fitted size"
+                    );
+                    AssertEx.Equal(
+                        pair.Item1,
+                        source.Spans[0].Text,
+                        "painting retains original selection/copy scalars"
+                    );
+                    AssertEx.Equal(8f, source.Width, "painting retains daemon cell width");
+                    var runs = Sgr.ParseLine("\x1b[" + pair.Item1.Length + ";1z" + pair.Item1);
+                    AssertEx.Equal(
+                        pair.Item1,
+                        TerminalColumns.Slice(TerminalColumns.Cells(runs), 0, 0),
+                        "copy retains decomposed text after painting"
+                    );
+                }
+            }
+        }
+
+        public static void PaintCompositionPreservesUnsupportedMarksAndMalformedCells()
+        {
+            foreach (string text in new[] { "x\u0301", "\u0301", "e\ud800", "e\udc00" })
+            {
+                Reset(new Texture2D());
+                var layout = InlineTextLayout.CellCluster(text, 1, 8f, TextSpriteCatalog.Shared);
+                SharedTextRenderer.DrawTerminalRun(
+                    layout,
+                    new Rect(0, 0, 8, 18),
+                    18,
+                    new GUIStyle()
+                );
+                AssertEx.Equal(
+                    text,
+                    GUI.TextLabels[0].Text,
+                    "uncomposable or malformed text is retained"
+                );
+                AssertEx.Equal(text, layout.Spans[0].Text, "source cell remains unchanged");
+            }
         }
 
         public static void PlainTerminalRunUsesScalarColumnsAndGroupClip()

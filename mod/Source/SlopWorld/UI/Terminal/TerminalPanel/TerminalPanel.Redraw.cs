@@ -131,7 +131,7 @@ namespace SlopWorld
             if (_scrollPending && now >= _nextScrollSend)
                 SendPendingScroll();
 
-            if (!_state.SizeDirty || now < _state.ResizeAt)
+            if (!_state.SizeDirty || now < _state.ResizeAt || DeferResize)
                 return;
 
             // A socket that is down drops the message, so hold the ask rather than spend it.

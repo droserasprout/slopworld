@@ -117,7 +117,7 @@ namespace SlopWorld
         {
             var zone = Resolve(id);
             if (string.IsNullOrEmpty(id) || id == Auto)
-                return "Auto (" + zone.Id + ")";
+                return OptionLabels.Auto(zone.Id);
             return zone.Id == id ? id : id + " (unavailable; using " + zone.Id + ")";
         }
     }

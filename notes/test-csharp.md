@@ -7,21 +7,52 @@ to [Build from source](../docs/src/development/build.md).
 `just ci-mod` and `just ci`. The gate measures linked production sources in the
 game-free harness, not the entire mod; test and generated protocol files are excluded.
 
-The .NET 8/CoreCLR project explicitly links production sources and supplies substitutes
+The .NET 10/CoreCLR project explicitly links production sources and supplies substitutes
 for game/Unity dependencies. NUnitLite uses a non-parallel fixture; the harness finds
 test types whose names end in `Tests` and invokes qualifying public static methods.
 Tests cover pure policies and game-free client/transport integration. Individual
 tests own the detailed behavior inventory.
+
+Palette tests link the production window, execution, keyboard input, search, and history.
+Git/task catalog tests link their production registrations, candidate lists, and stale-target
+guards; final Git/view actions are recorded and task status writes use the recording transport.
+Other registrations are fixture inputs. Native fields/window hosting are substituted and
+settings writes use temporary profiles. Other catalog eligibility, native text focus, and
+rendering remain outside that boundary.
+
+Idle-inhibition integration tests require `dbus-daemon`.
+They start an isolated private bus and fake desktop services; they never acquire
+an inhibitor on the developer's desktop.
+X11 fallback selection and periodic worker cleanup use fake leases; these tests
+never open the host display or change its screensaver state.
 
 The same project links the production `DaemonHttpTransport` for bounded loopback
 HTTP tests of protocol handling, deadlines, response limits, and host-pumped callbacks.
 Service tests keep a recording `DaemonClient` facade; transport tests own isolated
 transport instances and exercise the real endpoint resolver.
 
-Substitutes do not verify Unity drawing/input or Harmony target binding. Test output,
+The Harmony runtime fixture patches and restores a managed method using the shipped
+DLL. Substitutes do not verify game target binding or native drawing/input. Test output,
 including `TestResult.xml`, belongs in the executable output directory, not the
 shipped `Assemblies/` tree. RimWorld must not load test/substitute assemblies.
 Game checks, when requested, use [build diagnostics](../docs/src/development/build.md).
 
+Run coverage and binding checks sequentially. Both rebuild the same test output
+with different debug settings; concurrent builds can overwrite the instrumented
+assembly and produce empty coverage.
+
+`just mod-check-build` also runs `GameBindings` against the installed game and built mod
+in an isolated assembly context. It resolves native text targets and field geometry,
+and applies the swapchain rewrite to the game's actual IL. It does not start the game
+or validate rendering. Keep this check separate from the game-free coverage denominator.
+It also checks the native close-loop and keyboard-dispatch rewrites against installed
+IL, including preservation of the native text-edit shortcut path.
+Camera edge-scroll checks verify that both fullscreen rewrites replace only the
+display getter, preserving the game's remaining scrolling logic.
+
 Benchmark workflow belongs to [build commands](build-commands.md) and
 [IPC benchmarks](../bench/ipc/README.md).
+
+Harmony comes from the .NET 10 asset of the pinned Lib.Harmony package.
+The runtime smoke test must exercise patching and unpatching. Test-harness CLR
+support does not establish game-target bindings or native rendering behavior.

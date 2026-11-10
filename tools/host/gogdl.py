@@ -59,7 +59,7 @@ def main() -> None:
         login(auth, gogdl)
         return
     game = Path(os.environ['RIMWORLD']) if args.action == 'update' else Path(os.environ['GOGDL_PATH'])
-    if args.action == 'update' and not os.access(game / 'RimWorldLinux', os.X_OK):
+    if args.action == 'update' and not os.access(game / 'RimWorld', os.X_OK):
         raise ValueError(f'RimWorld is missing at {game}. Run just game-install or set RIMWORLD.')
     if not has_credentials(auth):
         raise ValueError(f'The gogdl login is missing at {auth}. Run just game-login.')

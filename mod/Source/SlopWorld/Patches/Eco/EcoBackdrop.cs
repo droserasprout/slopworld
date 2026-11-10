@@ -181,7 +181,7 @@ namespace SlopWorld
             if (MenuBackground.HasFrames)
                 return MenuBackground.Current(null);
             if (_offered)
-                return null;
+                return MenuBackground.Current(null);
 
             _offered = true;
             return MenuBackground.Current(

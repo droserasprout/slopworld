@@ -1,8 +1,10 @@
 # Input and panes
 
-Select a session in the **Agents** sidebar to open its terminal. F12 opens or closes
-the terminal window. Closing the window leaves the session running; use the
-session's **Stop** action to end its process.
+On the map, clicking an agent in the **Agents** sidebar selects its pawn. Press T
+or choose **Terminal** from the session's context menu to open its terminal.
+With the terminal window open, clicking a sidebar session switches to it.
+F12 opens or closes the terminal window. Closing the window leaves the session
+running; use the session's **Stop** action to end its process.
 
 ## Input
 
@@ -15,10 +17,11 @@ To save selected text in the Library, right-click and choose **Save as**, then
 dialog opens with the selection in its body. Enter a name and any required settings,
 then save.
 
-On Linux, pasting an image into a Codex agent uploads the local clipboard's PNG
+Pasting an image into a Codex agent uploads the local clipboard's PNG
 data to that session, including when the daemon is remote. Images must be at most
 20 MiB and 8192 pixels in each dimension. If the daemon reports a missing image
-mount, restart the agent to enable image attachments.
+mount, restart the agent to enable image attachments. Ordinary clipboard text
+takes precedence over image-data fallback. Middle-click pastes PRIMARY text only.
 
 SlopWorld uses function keys for workspace navigation. Hold Shift to forward a
 function key to the CLI without Shift. Escape goes to the CLI.
@@ -39,4 +42,4 @@ focused pane. The session keeps running. Closing the last pane closes the termin
 - [Host shells](host-shells.md): run commands on the daemon host.
 - [Agent shells](agent-shells.md): run commands with an agent's sandbox settings.
 - [Attaching to tmux](terminal.md): list, attach to, or read sessions from
-  another terminal on native Linux.
+  a terminal on the daemon's machine.

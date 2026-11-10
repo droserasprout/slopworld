@@ -60,14 +60,14 @@ def test_package_system_paths_permissions_dependencies_and_metadata(
         assert f'Architecture: {architecture}\n' in control
         assert 'Version: 0.1.0-20261005-abcdef-1\n' in control
         assert 'libasound2t64 (>= 1.0), libc6 (>= 2.38)' in control
-        assert 'passt' in control and 'tmux (>= 3.7)' in control
-        for binary in release_staging.BINARIES:
+        assert 'xclip' in control and 'libfontconfig1' in control
+        assert 'passt' not in control and 'tmux' not in control
+        for binary in ('slopworld',):
             assert (staging / 'usr/bin' / binary).stat().st_mode & 0o777 == 0o755
-        assert (staging / 'usr/share/bash-completion/completions/slopctl').is_file()
+        assert (staging / 'usr/share/bash-completion/completions/slopworld').is_file()
         assert (staging / 'usr/share/zsh/site-functions/_slopworld').is_file()
-        assert (staging / 'usr/share/fish/vendor_completions.d/slopctl.fish').is_file()
-        unit = (staging / 'usr/lib/systemd/user/slopd.service').read_text()
-        assert 'ExecStart=/usr/bin/slopd' in unit and 'KillMode=process' in unit
+        assert (staging / 'usr/share/fish/vendor_completions.d/slopworld.fish').is_file()
+        assert not (staging / 'usr/lib/systemd').exists()
         mod = staging / 'usr/share/slopworld/SlopWorld'
         assert (mod / 'VERSION').read_text() == '0.1.0-20261005-abcdef\n'
         assert (mod / 'REVISION').read_text() == 'revision\n'
@@ -136,7 +136,7 @@ def test_real_debian_archive_round_trip(package_inputs: Path, tmp_path: Path) ->
     extracted = tmp_path / 'extracted'
     execute(['dpkg-deb', '--extract', str(archive), str(extracted)])
     assert (extracted / 'usr/share/slopworld/SlopWorld/VERSION').read_text() == '1.0.0\n'
-    assert (extracted / 'usr/bin/slopd').stat().st_mode & 0o111
+    assert (extracted / 'usr/bin/slopworld').stat().st_mode & 0o111
     tar_result = execute(['dpkg-deb', '--fsys-tarfile', str(archive)], capture_output=True)
     import io
     import tarfile

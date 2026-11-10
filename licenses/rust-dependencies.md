@@ -25,6 +25,7 @@ and does not identify which crates are included in a particular binary.
 | arrayvec | 0.7.8 | MIT OR Apache-2.0 |
 | async-trait | 0.1.92 | MIT OR Apache-2.0 |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT |
+| audio_thread_priority | 0.34.0 | MPL-2.0 |
 | autocfg | 1.5.1 | Apache-2.0 OR MIT |
 | axum | 0.7.9 | MIT |
 | axum-core | 0.4.5 | MIT |
@@ -65,9 +66,7 @@ and does not identify which crates are included in a particular binary.
 | cursor-icon | 1.2.0 | MIT OR Apache-2.0 OR Zlib |
 | dasp_sample | 0.11.0 | MIT OR Apache-2.0 |
 | data-encoding | 2.11.1 | MIT |
-| defmt | 1.2.0 | MIT OR Apache-2.0 |
-| defmt-macros | 1.2.0 | MIT OR Apache-2.0 |
-| defmt-parser | 1.1.0 | MIT OR Apache-2.0 |
+| dbus | 0.6.5 | Apache-2.0/MIT |
 | deranged | 0.5.9 | MIT OR Apache-2.0 |
 | digest | 0.10.7 | MIT OR Apache-2.0 |
 | dirs | 5.0.1 | MIT OR Apache-2.0 |
@@ -129,9 +128,9 @@ and does not identify which crates are included in a particular binary.
 | is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |
 | itertools | 0.14.0 | MIT OR Apache-2.0 |
 | itoa | 1.0.18 | MIT OR Apache-2.0 |
-| jiff | 0.2.39 | Unlicense OR MIT |
-| jiff-core | 0.1.2 | Unlicense OR MIT |
-| jiff-static | 0.2.39 | Unlicense OR MIT |
+| jiff | 0.2.40 | Unlicense OR MIT |
+| jiff-core | 0.1.3 | Unlicense OR MIT |
+| jiff-static | 0.2.40 | Unlicense OR MIT |
 | jiff-tzdb | 0.1.9 | Unlicense OR MIT |
 | jiff-tzdb-platform | 0.1.3 | Unlicense OR MIT |
 | jni | 0.21.1 | MIT/Apache-2.0 |
@@ -142,12 +141,14 @@ and does not identify which crates are included in a particular binary.
 | landlock | 0.4.7 | MIT OR Apache-2.0 |
 | lazy_static | 1.5.1 | MIT OR Apache-2.0 |
 | libc | 0.2.191 | MIT OR Apache-2.0 |
+| libdbus-sys | 0.2.7 | Apache-2.0/MIT |
 | libredox | 0.1.25 | MIT |
 | linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | litemap | 0.8.3 | Unicode-3.0 |
 | litrs | 1.0.1 | MIT OR Apache-2.0 |
 | lock_api | 0.4.14 | MIT OR Apache-2.0 |
 | log | 0.4.35 | MIT OR Apache-2.0 |
+| mach2 | 0.4.3 | BSD-2-Clause OR MIT OR Apache-2.0 |
 | mach2 | 0.5.0 | BSD-2-Clause OR MIT OR Apache-2.0 |
 | matchers | 0.2.0 | MIT |
 | matchit | 0.7.3 | MIT AND BSD-3-Clause |
@@ -243,7 +244,7 @@ and does not identify which crates are included in a particular binary.
 | simd-adler32 | 0.3.10 | MIT |
 | simdutf8 | 0.1.5 | MIT OR Apache-2.0 |
 | slab | 0.4.12 | MIT |
-| smallvec | 1.16.4 | MIT OR Apache-2.0 |
+| smallvec | 1.16.5 | MIT OR Apache-2.0 |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 |
 | strsim | 0.11.1 | MIT |
@@ -301,7 +302,7 @@ and does not identify which crates are included in a particular binary.
 | utf8_iter | 1.1.0 | Apache-2.0 OR MIT |
 | utf8parse | 0.2.2 | Apache-2.0 OR MIT |
 | utf_types | 1.0.0 | Apache-2.0 OR MIT |
-| uuid | 1.29.0 | Apache-2.0 OR MIT |
+| uuid | 1.29.1 | Apache-2.0 OR MIT |
 | valuable | 0.1.1 | MIT |
 | version_check | 0.9.5 | MIT/Apache-2.0 |
 | vte | 0.15.0 | Apache-2.0 OR MIT |

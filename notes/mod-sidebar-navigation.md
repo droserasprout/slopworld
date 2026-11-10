@@ -26,6 +26,11 @@ adapt that tree to their own rows. Worker and host-shell choices respect the sha
 project filter. Palette submenus retain parent searches and
 selection while descending and returning through breadcrumbs.
 
+Palette Git commands enumerate enabled checkout scopes and retain scope keys through
+execution; stale or unavailable selections cannot fall back to a project's main checkout.
+Task status menus resolve the current incoming, nonterminal record both when opening
+choices and when submitting. Cancellation uses the shared `TaskInfo.CanCancel` policy.
+
 Start with [tab definitions](../mod/Source/SlopWorld/UI/Sidebar/SidebarTabDefinition.cs),
 [history](../mod/Source/SlopWorld/UI/Sidebar/SidebarViewHistory.cs), and
 [tab tests](../mod/Tests/SidebarTabTests.cs).

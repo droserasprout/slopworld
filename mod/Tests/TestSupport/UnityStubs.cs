@@ -38,7 +38,19 @@ namespace UnityEngine
 
     public class RectOffset
     {
-        public RectOffset(int l, int r, int t, int b) { }
+        public int left,
+            right,
+            top,
+            bottom;
+        public int horizontal => left + right;
+
+        public RectOffset(int l, int r, int t, int b)
+        {
+            left = l;
+            right = r;
+            top = t;
+            bottom = b;
+        }
     }
 
     public struct CharacterInfo
@@ -51,9 +63,19 @@ namespace UnityEngine
 
     public class Font
     {
-        public static System.Func<string[]> InstalledNames = () => System.Array.Empty<string>();
+        public static string[] Paths = System.Array.Empty<string>();
 
-        public static string[] GetOSInstalledFontNames() => InstalledNames();
+        public static System.Func<string[]> DiscoverPaths;
+
+        public static string[] GetPathsToOSFonts() =>
+            DiscoverPaths != null ? DiscoverPaths() : Paths;
+
+        public string name;
+        public int GameFontIndex;
+
+        public Font() { }
+
+        public Font(string name) => this.name = name;
 
         public int fontSize = 16;
         public float ascent = 12f;
@@ -137,11 +159,12 @@ namespace UnityEngine
 
     public class GUIStyleState
     {
-        public Color textColor;
+        public Color textColor = new Color(1f, 1f, 1f, 1f);
     }
 
     public class GUIStyle
     {
+        public int FontIndex => 1;
         public Font font;
         public int fontSize;
         public FontStyle fontStyle;
@@ -171,7 +194,8 @@ namespace UnityEngine
         public Vector2 CalcSize(GUIContent content)
         {
             float width = 0f;
-            foreach (char c in content.text)
+            // Native CalcSize excludes trailing ASCII spaces from the reported line width.
+            foreach (char c in content.text.TrimEnd(' '))
                 width +=
                     font == null ? 1f
                     : font.Monospace ? 8f
@@ -219,6 +243,7 @@ namespace UnityEngine
     {
         ScrollWheel,
         KeyDown,
+        KeyUp,
         MouseDown,
         Layout,
         Used,
@@ -242,6 +267,7 @@ namespace UnityEngine
 
     public enum KeyCode
     {
+        None = -1,
         A,
         B,
         C,
@@ -329,6 +355,7 @@ namespace UnityEngine
 
     public class Event
     {
+        public const float scrollWheelDeltaPerTick = 3f;
         public static Event current = new Event { type = EventType.Repaint };
 
         public void Use()
@@ -350,9 +377,6 @@ namespace UnityEngine
         public EventType type,
             rawType;
         public EventModifiers modifiers;
-        public int displayIndex;
-        static readonly System.Collections.Generic.Queue<Event> Events =
-            new System.Collections.Generic.Queue<Event>();
 
         public Event() { }
 
@@ -378,30 +402,6 @@ namespace UnityEngine
             type = e.type;
             rawType = e.rawType;
             modifiers = e.modifiers;
-            displayIndex = e.displayIndex;
-        }
-
-        public static int GetEventCount() => Events.Count;
-
-        public static int PopCalls;
-
-        public static bool PopEvent(Event e)
-        {
-            PopCalls++;
-            if (Events.Count == 0)
-                return false;
-            e.CopyFrom(Events.Dequeue());
-            return true;
-        }
-
-        static void QueueEvent(Event e) => Events.Enqueue(new Event(e));
-
-        public static void EnqueueTestEvent(Event e) => QueueEvent(e);
-
-        public static void ClearEvents()
-        {
-            Events.Clear();
-            PopCalls = 0;
         }
     }
 
@@ -429,6 +429,9 @@ namespace UnityEngine
 
     public struct Color
     {
+        public static Color operator *(Color a, Color b) =>
+            new Color(a.r * b.r, a.g * b.g, a.b * b.b, a.a * b.a);
+
         public float r,
             g,
             b,
@@ -505,6 +508,8 @@ namespace UnityEngine
 
         public static float Ceil(float value) => (float)System.Math.Ceiling(value);
 
+        public static int FloorToInt(float value) => (int)System.Math.Floor(value);
+
         public static float Floor(float value) => (float)System.Math.Floor(value);
 
         public static float Clamp01(float value) => Clamp(value, 0f, 1f);
@@ -555,6 +560,7 @@ namespace UnityEngine
         }
 
         public static int hotControl;
+        public static int keyboardControl;
 
         public static int GetControlID(int hint, FocusType focus) => hint == 0 ? 1 : hint;
 

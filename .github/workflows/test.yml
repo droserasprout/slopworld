@@ -68,7 +68,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             ca-certificates curl git unzip zstd build-essential pkg-config \
-            libasound2-dev \
+            libasound2-dev libdbus-1-dev \
             python3 procps tmux=3.7c-1 less ripgrep bubblewrap
 
       - uses: actions/checkout@v5
@@ -167,8 +167,6 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
-          # The game-free harness targets net8.0 and needs its matching runtime.
-          dotnet-version: '8.0.x'
           cache: true
           cache-dependency-path: |
             mod/Source/SlopWorld/packages.lock.json
@@ -176,7 +174,10 @@ jobs:
             mod/Tests/packages.lock.json
             .config/dotnet-tools.json
 
-      - name: Build C# with RimRef and collect coverage
+      - name: Install D-Bus test dependency
+        run: sudo apt-get update && sudo apt-get install -y dbus-daemon
+
+      - name: Check C# and collect coverage
         run: just ci-mod
 
       - name: Report coverage
@@ -190,11 +191,4 @@ jobs:
         with:
           name: coverage-mod
           path: coverage/csharp.cobertura.xml
-          if-no-files-found: error
-
-      - name: Upload compiled mod
-        uses: actions/upload-artifact@v6
-        with:
-          name: mod-assembly
-          path: mod/Assemblies/SlopWorld.dll
           if-no-files-found: error

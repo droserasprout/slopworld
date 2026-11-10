@@ -26,6 +26,8 @@ namespace SlopWorld
         // A sessions event can arrive before the HTTP response that confirms a rename.
         // Track the old name until the response arrives so the terminal does not treat the rename as session termination.
         readonly Dictionary<string, string> _pendingRenames = new Dictionary<string, string>();
+        readonly HashSet<string> _resuming = new();
+        long _resumeGeneration;
         long _sessionsVersion;
         readonly SnapshotRequest _refresh;
         readonly HashSet<string> _launches = new HashSet<string>();
@@ -96,6 +98,8 @@ namespace SlopWorld
         {
             _screens.Clear();
             _scrolls.Clear();
+            _resuming.Clear();
+            _resumeGeneration++;
         }
 
         public bool TryScrollScreen(string name, out ScreenBuf screen)
@@ -386,6 +390,36 @@ namespace SlopWorld
         {
             string session = j.Session;
             RefreshLaunched(session, () => started?.Invoke(session), fail);
+        }
+
+        public bool IsResuming(string name) => _resuming.Contains(name);
+
+        public void Resume(string name, Action done, Action<string> fail)
+        {
+            if (!_resuming.Add(name))
+                return;
+            long generation = _resumeGeneration;
+            void Complete(string error)
+            {
+                // Replies from a retired connection cannot release a new request or open its pane.
+                if (generation != _resumeGeneration)
+                    return;
+                _resuming.Remove(name);
+                if (error != null)
+                    fail?.Invoke(error);
+                else
+                    done?.Invoke();
+            }
+            DaemonClient.Post(
+                $"{SessionsPath}/{HubWire.Esc(name)}/resume",
+                null,
+                _ =>
+                {
+                    if (generation == _resumeGeneration)
+                        RefreshLaunched(name, () => Complete(null), error => Complete(error));
+                },
+                error => Complete(error)
+            );
         }
 
         public void Start(string name, Action<string> fail = null) =>

@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 using Verse;
@@ -23,7 +22,6 @@ namespace SlopWorld
             _cacheScaleY,
             _cacheOriginX,
             _cacheOriginY;
-        int[] _scrollPaintRows = Array.Empty<int>();
 
         // Cache the pane between screen frames: the daemon updates more slowly than the monitor.
         // Retain only the pane crop; paint through a temporary screen-sized target so
@@ -150,74 +148,16 @@ namespace SlopWorld
                 return;
             var buf = key.Buffer;
             var body = new Rect(key.X, key.Y - key.Lead, key.Width, key.Height + key.Lead);
-            bool broad = repaint == TerminalRepaint.Full;
-            int damageTop = 0,
-                damageHeight = _cacheRegion.Height;
-            if (!broad)
-                _cacheRegion.DamageBand(
-                    key,
-                    buf.ChangedRows,
-                    _snapSy,
-                    _snapOy,
-                    out damageTop,
-                    out damageHeight
-                );
-            if (damageHeight == 0)
+            if (_cacheRegion.Height == 0)
                 return;
-            var scroll = default(TerminalScrollCopy);
-            bool reuse =
-                repaintAll
-                && canCopy
-                && TerminalScrollReuse.TryPlan(
-                    _cacheKey,
-                    key,
-                    _snapSy,
-                    _snapOy,
-                    _cacheRegion,
-                    out scroll
-                );
-            if (
-                PerfTrace.Enabled
-                && repaintAll
-                && _cacheKey.Buffer != null
-                && _cacheKey.Offset > 0
-                && key.Offset > 0
-                && _cacheKey.Offset != key.Offset
-                && _cacheKey.SameSurface(key)
-            )
-            {
-                PerfTrace.Count("terminal-cache-scroll-shifts");
-                int overlap = TerminalScrollReuse.MatchingRows(_cacheKey, key);
-                if (overlap > 0)
-                {
-                    PerfTrace.Count("terminal-cache-scroll-overlap", overlap);
-                    if (
-                        TerminalScrollReuse.PixelAligned(
-                            _cacheKey.Offset,
-                            key.Offset,
-                            key.CellH,
-                            _snapSy
-                        )
-                    )
-                        PerfTrace.Count("terminal-cache-scroll-copyable", overlap);
-                }
-            }
-            PerfTrace.Count("terminal-cache-repaints");
             if (repaintAll)
-                PerfTrace.Count("terminal-cache-misses");
-            else if (broad)
             {
-                PerfTrace.Count("terminal-cache-broad-repaints");
-                if (PerfTrace.Enabled)
-                {
-                    if (repaintReason == TerminalRepaintReason.SkippedRevisions)
-                        PerfTrace.Count("terminal-cache-skipped-revisions");
-                    else if (repaintReason == TerminalRepaintReason.BroadRows)
-                        PerfTrace.Count("terminal-cache-broad-rows");
-                    else if (repaintReason == TerminalRepaintReason.MissingDamage)
-                        PerfTrace.Count("terminal-cache-missing-damage");
-                }
+                TraceCacheScrollReuse(key);
+                PerfTrace.Count("terminal-cache-misses");
             }
+            else
+                TraceBroadCacheRepaint(repaintReason);
+            PerfTrace.Count("terminal-cache-repaints");
 
             long started = PerfTrace.Start();
             var was = RenderTexture.active;
@@ -238,58 +178,30 @@ namespace SlopWorld
                     target = scratch;
                 }
                 RenderTexture.active = target;
-                if (broad)
-                    GL.Clear(false, true, SolidTerminalBackground);
-                if (canCopy && (!broad || reuse))
-                {
-                    int sourceTop = reuse ? scroll.SourceTop : damageTop;
-                    int destinationTop = reuse ? scroll.DestinationTop : damageTop;
-                    int height = reuse ? scroll.Height : damageHeight;
-                    CopyPixels(
-                        _cache,
-                        0,
-                        sourceTop,
-                        _cacheRegion.Width,
-                        height,
-                        target,
-                        _cacheRegion.X,
-                        _cacheRegion.Y + destinationTop
-                    );
-                }
                 _cacheLead = key.Lead;
-                if (reuse)
-                {
-                    int count = buf.Runs.Length - (scroll.EndRow - scroll.FirstRow);
-                    if (_scrollPaintRows.Length != count)
-                        _scrollPaintRows = new int[count];
-                    int index = 0;
-                    for (int row = 0; row < buf.Runs.Length; row++)
-                        if (row < scroll.FirstRow || row >= scroll.EndRow)
-                            _scrollPaintRows[index++] = row;
-                    PaintRows(body, buf, key.CellW, key.CellH, _scrollPaintRows);
-                    PerfTrace.Count(
-                        "terminal-cache-scroll-rows-reused",
-                        scroll.EndRow - scroll.FirstRow
-                    );
-                    PerfTrace.Count("terminal-cache-rows-repainted", count);
-                }
-                else if (broad)
-                    Paint(body, buf, key.CellW, key.CellH);
-                else
-                {
-                    PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
-                    PaintRows(body, buf, key.CellW, key.CellH, buf.ChangedRows);
-                }
+                // History changes repaint the whole target, just like live edits.
+                // Copying old pixels into a separate native GUI batch can retain a
+                // blank interior indefinitely once the history view stops changing.
+                TerminalCachePaint.Full(
+                    target,
+                    body,
+                    SolidTerminalBackground,
+                    () => Paint(body, buf, key.CellW, key.CellH)
+                );
                 if (canCopy)
-                    CopyPixels(
-                        target,
-                        _cacheRegion.X,
-                        _cacheRegion.Y + damageTop,
-                        _cacheRegion.Width,
-                        damageHeight,
-                        _cache,
-                        0,
-                        damageTop
+                    TerminalCachePaint.CopyCompleted(
+                        was,
+                        () =>
+                            CopyPixels(
+                                target,
+                                _cacheRegion.X,
+                                _cacheRegion.Y,
+                                _cacheRegion.Width,
+                                _cacheRegion.Height,
+                                _cache,
+                                0,
+                                0
+                            )
                     );
             }
             finally
@@ -297,13 +209,7 @@ namespace SlopWorld
                 RenderTexture.active = was;
                 if (scratch != null)
                     RenderTexture.ReleaseTemporary(scratch);
-                PerfTrace.End(
-                    reuse ? "terminal-cache-scroll-paint"
-                        : broad ? "terminal-cache-full-paint"
-                        : "terminal-cache-row-paint",
-                    started,
-                    1
-                );
+                PerfTrace.End("terminal-cache-full-paint", started, 1);
             }
             // The key retains the font revision from before Paint: atlas rebuilds during
             // glyph submission must force another full paint on the following frame.
@@ -320,26 +226,64 @@ namespace SlopWorld
             int destinationTop
         )
         {
-            bool startsAtTop = SystemInfo.graphicsUVStartsAtTop;
+            // CopyTexture accepts bottom-origin coordinates even on Waylith's
+            // top-origin Vulkan backend; the compatibility API converts them.
             Graphics.CopyTexture(
                 source,
                 0,
                 0,
                 x,
-                TerminalCacheRegion.TextureY(top, height, source.height, startsAtTop),
+                TerminalCacheRegion.TextureY(top, height, source.height),
                 width,
                 height,
                 destination,
                 0,
                 0,
                 destinationX,
-                TerminalCacheRegion.TextureY(
-                    destinationTop,
-                    height,
-                    destination.height,
-                    startsAtTop
-                )
+                TerminalCacheRegion.TextureY(destinationTop, height, destination.height)
             );
+        }
+
+        void TraceCacheScrollReuse(TerminalCacheKey key)
+        {
+            if (
+                !PerfTrace.Enabled
+                || _cacheKey.Buffer == null
+                || _cacheKey.Offset <= 0
+                || key.Offset <= 0
+                || _cacheKey.Offset == key.Offset
+                || !_cacheKey.SameSurface(key)
+            )
+                return;
+
+            PerfTrace.Count("terminal-cache-scroll-shifts");
+            int rows = TerminalScrollReuse.MatchingRows(_cacheKey, key);
+            if (rows > 0)
+            {
+                PerfTrace.Count("terminal-cache-scroll-overlap", rows);
+                if (
+                    TerminalScrollReuse.PixelAligned(
+                        _cacheKey.Offset,
+                        key.Offset,
+                        key.CellH,
+                        _snapSy
+                    )
+                )
+                    PerfTrace.Count("terminal-cache-scroll-copyable", rows);
+            }
+        }
+
+        static void TraceBroadCacheRepaint(TerminalRepaintReason reason)
+        {
+            PerfTrace.Count("terminal-cache-broad-repaints");
+            if (!PerfTrace.Enabled)
+                return;
+            if (reason == TerminalRepaintReason.SkippedRevisions)
+                PerfTrace.Count("terminal-cache-skipped-revisions");
+            else if (reason == TerminalRepaintReason.BroadRows)
+                PerfTrace.Count("terminal-cache-broad-rows");
+            else if (reason == TerminalRepaintReason.MissingDamage)
+                PerfTrace.Count("terminal-cache-missing-damage");
         }
 
         TerminalCacheKey CacheKey(Rect body, ScreenBuf buf, float cw, float ch)
@@ -450,27 +394,14 @@ namespace SlopWorld
             }
             if (edgeOverrun)
                 PerfTrace.Count("terminal-cache-edge-clamps");
-            float u0 = x0 / pw,
-                u1 = x1 / pw;
-
-            // texCoords y counts from the destination's bottom either way. Which end of
-            // the texture that is, is where the API put the target's first row.
-            float v0,
-                v1;
-            if (SystemInfo.graphicsUVStartsAtTop)
-            {
-                v0 = y1 / ph;
-                v1 = y0 / ph;
-            }
-            else
-            {
-                v0 = 1f - y1 / ph;
-                v1 = 1f - y0 / ph;
-            }
 
             var tint = GUI.color;
             GUI.color = Color.white;
-            GUI.DrawTextureWithTexCoords(destination, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
+            GUI.DrawTextureWithTexCoords(
+                destination,
+                _cache,
+                TerminalCacheSampling.SourceUv(pw, ph, x0, y0, x1, y1)
+            );
             GUI.color = tint;
             drawn = true;
             ScrollDebugBlit(debugStarted, drawn);

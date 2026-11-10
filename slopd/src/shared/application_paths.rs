@@ -16,20 +16,10 @@ impl Root {
     }
 
     pub(crate) fn resolve_with(self, lookup: impl Fn(&'static str) -> Option<OsString>) -> PathBuf {
-        let (variable, xdg, linux, mac) = match self {
-            Self::Config => (
-                "SLOPD_CONFIG_ROOT",
-                "XDG_CONFIG_HOME",
-                ".config",
-                "Library/Application Support",
-            ),
-            Self::Data => (
-                "SLOPD_DATA",
-                "XDG_DATA_HOME",
-                ".local/share",
-                "Library/Application Support",
-            ),
-            Self::Cache => ("SLOPD_CACHE", "XDG_CACHE_HOME", ".cache", "Library/Caches"),
+        let (variable, xdg, default) = match self {
+            Self::Config => ("SLOPD_CONFIG_ROOT", "XDG_CONFIG_HOME", ".config"),
+            Self::Data => ("SLOPD_DATA", "XDG_DATA_HOME", ".local/share"),
+            Self::Cache => ("SLOPD_CACHE", "XDG_CACHE_HOME", ".cache"),
         };
         if let Some(path) = lookup(variable) {
             return expand_home(PathBuf::from(path), &lookup);
@@ -38,14 +28,10 @@ impl Root {
             .filter(|value| !value.is_empty())
             .map(PathBuf::from)
             .or_else(std::env::home_dir);
-        let base = if cfg!(target_os = "macos") {
-            home.map(|home| home.join(mac))
-        } else {
-            lookup(xdg)
-                .map(PathBuf::from)
-                .filter(|path| path.is_absolute())
-                .or_else(|| home.map(|home| home.join(linux)))
-        };
+        let base = lookup(xdg)
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .or_else(|| home.map(|home| home.join(default)));
         base.unwrap_or_else(|| PathBuf::from(".")).join("slopworld")
     }
 }

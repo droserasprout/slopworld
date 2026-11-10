@@ -64,6 +64,10 @@ pub struct Daemon {
     #[serde(default)]
     pub task_summaries: TitlePolicy,
 
+    /// Radio output preference. Empty device follows the selected backend.
+    #[serde(default)]
+    pub audio_output: AudioOutputSettings,
+
     // Delegated workers.
     /// Instructions delivered to newly spawned workers.
     #[serde(default)]
@@ -157,6 +161,7 @@ impl Default for Daemon {
             pi_titles: default_pi_title_policy(),
             task_summaries: TitlePolicy::Never,
             instructions: InstructionsCfg::default(),
+            audio_output: AudioOutputSettings::default(),
         }
     }
 }
@@ -252,7 +257,27 @@ impl std::fmt::Debug for Daemon {
             .field("title_min_chars", &self.title_min_chars)
             .field("pi_titles", &self.pi_titles)
             .field("task_summaries", &self.task_summaries)
+            .field("audio_output", &self.audio_output)
             .field("instructions", &self.instructions)
             .finish()
     }
+}
+
+/// Machine-local radio routing. Explicit devices fall back through the backend policy.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AudioOutputSettings {
+    #[serde(default)]
+    pub backend: AudioBackend,
+    #[serde(default)]
+    pub device: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioBackend {
+    #[default]
+    Auto,
+    Pulse,
+    Pipewire,
+    Default,
 }

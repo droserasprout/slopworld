@@ -7,6 +7,8 @@ and `TerminalFont` supply cache revisions. Parsed link decoration belongs to
 uses FIFO eviction; retained live frames reuse link-candidate transitions per row. Candidate scratch
 belongs to the parser, not shared frame snapshots; transitions preserve delimiters
 split across physical rows.
+Panel closure releases its render texture; disposal also releases a cache created
+before the panel opened. Repeated closure/disposal must remain harmless.
 
 `Platform/Fonts/FontconfigFonts` obtains Linux fallback order from system Fontconfig
 for the selected family (or `monospace` by default). It applies system substitutions
@@ -14,10 +16,20 @@ and returns monochrome families in `FcFontSort` order; color faces stay on the e
 atlas path. `TerminalFontFallbacks` caches this order by selection and installed-font
 revision, without promoting Nerd Fonts or special-casing glyphs. A failed query uses
 the selected family plus `monospace` until a selection change or rescan retries it.
-`InstalledFonts` owns the Unity font catalog. Catalog revisions invalidate the active
+`InstalledFonts` publishes the font catalog; `NativeFonts` owns file discovery,
+OpenType face selection, and native registration. A rescan invalidates both owners. Catalog revisions invalidate the active
 terminal font, monospace probes, and cached font menus; font invalidation also advances
-the terminal render revision. Fontconfig selects family order; Unity still resolves
-and rasterizes those names, so this does not replace Unity with Pango shaping.
+the terminal render revision. Fontconfig selects family order; the native backend resolves
+and rasterizes those names.
+
+`TerminalCachePaint` records full-repaint backgrounds and glyphs in the same native GUI
+render-target batch. GPU clears through `GL.Clear` use a separate command stream; keep them
+out of cache repaints. Content changes repaint the complete pane in one batch;
+unchanged content and cursor-only updates retain the cache. Sparse row overpainting
+is not used because it leaves stale scanlines under Waylith.
+
+Cache sampling supplies bottom-origin UVs to `GUI.DrawTextureWithTexCoords`; the GUI backend
+owns conversion to its texture origin. Do not add a graphics-API-dependent flip.
 
 Texture creation failure falls back to direct painting. Damage describes one received
 revision: skipped predecessors or missing damage require a full repaint. Cursor and
@@ -27,11 +39,13 @@ and screen-mode changes invalidate the appropriate parsed/rendered caches.
 On backends with texture-copy support, each panel retains a physical-pixel crop.
 Painting uses a pooled, temporary screen-sized target so IMGUI clipping and glyph
 sampling keep their existing screen coordinates; this scratch contributes to peak
-GPU storage. Backends without copy support retain the screen-sized cache. History
-scrolls reuse matching, link-free rows only at integer physical-pixel shifts;
-exposed and boundary rows repaint. Scale, origin, surface or content mismatches
-fall back to a full repaint. Cache copy coordinates follow the same backend Y
-orientation as texture sampling.
+GPU storage. Close the scratch GUI draw target before copying its pixels: Waylith's
+GPU copy does not flush pending GUI commands. Backends without copy support retain
+the screen-sized cache. History scrolling repaints the complete pane, including
+matching interior rows. Do not seed a partial GUI repaint with pixels copied through
+a separate GPU command stream; a damaged interior can persist in a pinned view.
+CopyTexture coordinates are bottom-origin even when
+the backend reports top-origin UVs; sampling and copy conversion are separate contracts.
 
 Selection painting retains byte geometry under weak immutable-row keys. Replacement
 rows invalidate that geometry without retaining sessions or games. Copying text
@@ -40,6 +54,11 @@ continuation cells, overlaps and trailing-space rules.
 
 Terminal glyphs are positioned individually on the cell grid, including ASCII, so
 scaled native font advances cannot accumulate drift. Daemon clusters remain intact.
+The paint string uses canonical Unicode composition before font measurement and
+drawing. Waylith paints scalar glyphs without mark attachment; composable accents
+therefore use the same font-authored placement as precomposed text. Source clusters,
+daemon widths and copied text remain unchanged. Noncomposable marks still depend
+on native glyph placement.
 Font painting clips to occupied cells and uniformly shrinks oversized fallback advances
 by requesting a smaller font size, retaining the terminal baseline. It must not
 change `GUI.matrix` per glyph: local coordinates inside nested IMGUI groups cannot

@@ -26,6 +26,7 @@ namespace SlopWorld
 
         /// Hotkey on the selected agent's Start/Stop gizmo.
         public static KeyBindingDef SlopToggleSession;
+        public static KeyBindingDef SlopResumeSession;
 
         /// Hotkey on the selected agent's Edit gizmo.
         public static KeyBindingDef SlopEditSession;

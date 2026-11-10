@@ -37,6 +37,7 @@ namespace SlopWorld
                     break;
 
                 case Wire.Event.PayloadOneofCase.Audio:
+                    Radio.AcknowledgeStop(ev.Audio.StopAck, ev.Audio.Playing);
                     Radio.Report(
                         ev.Audio.Playing,
                         ev.Audio.Error,

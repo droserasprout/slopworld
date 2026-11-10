@@ -19,8 +19,6 @@ namespace SlopWorld
             InvalidatePlayback();
         }
 
-        static string OstPath() => "/test/ost";
-
         internal static void SelectPlaybackTest(
             Station station = null,
             int rate = 0,
@@ -36,13 +34,11 @@ namespace SlopWorld
         internal static void UpdatePlaybackTest(double now, float volume) =>
             UpdatePlayback(now, SessionHub.Instance, volume);
 
-        internal static bool FallbackToLocalOstTest(string source, string error) =>
-            FallbackToLocalOst(source, error);
-
         internal static void ResetSpotifyTest()
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;
-            _localOstFallback = false;
+            _daemonStopped = false;
+            _stopToken = null;
             _spotifyOpened = _spotifyFailed = null;
             _station = null;
             _read = false;
@@ -74,6 +70,11 @@ namespace SlopWorld
             string error = null,
             string source = "ncspot"
         ) => ReportSpotify(error, source, session);
+    }
+
+    static class NativeJukebox
+    {
+        internal static void SetMuted(bool muted) { }
     }
 
     sealed partial class SessionHub

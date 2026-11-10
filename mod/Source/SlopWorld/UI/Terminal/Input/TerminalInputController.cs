@@ -92,14 +92,6 @@ namespace SlopWorld
         public void Handle(Rect body)
         {
             var e = Event.current;
-            // WindowStack can consume the semicolon before the window draws. Replay that character only.
-            // Do not replay other Used events.
-            if (e.type == EventType.Used && e.rawType == EventType.KeyDown && e.character == ';')
-            {
-                HandleKey(e);
-                return;
-            }
-
             switch (e.type)
             {
                 case EventType.ScrollWheel:
@@ -155,11 +147,6 @@ namespace SlopWorld
                 return;
         }
 
-        public void CaptureSemicolonInput()
-        {
-            CaptureSemicolonInputCore();
-        }
-
         bool TryLocal(Event e) => Try(_local, e);
 
         bool TryTerminal(Event e) => Try(_terminal, e);
@@ -171,6 +158,34 @@ namespace SlopWorld
 
         // Handle keys assigned to workspace controls. Read KeyBindingDefs so option-menu changes apply.
         // Send shifted and unbound keys to the agent. Close menus before a workspace transition.
+        internal static bool IsWorkspaceKey(Event e)
+        {
+            if (e.shift || e.keyCode == KeyCode.None)
+                return false;
+            if (e.alt && !e.control && !e.command)
+            {
+                if (
+                    e.keyCode == KeyCode.A
+                    || e.keyCode == KeyCode.S
+                    || e.keyCode == KeyCode.Z
+                    || e.keyCode == KeyCode.X
+                    || WorkspaceHotkeys.SlotKey(e) >= 0
+                )
+                    return true;
+            }
+            return (e.control && !e.alt && !e.command && Bound(ModDefOf.SlopCommandPalette, e))
+                || Bound(ModDefOf.SlopSidebarAgents, e)
+                || Bound(ModDefOf.SlopSidebarFiles, e)
+                || Bound(ModDefOf.SlopSidebarGit, e)
+                || Bound(ModDefOf.SlopSidebarSearch, e)
+                || Bound(ModDefOf.SlopSidebarTasks, e)
+                || Bound(ModDefOf.SlopSidebarLibrary, e)
+                || Bound(ModDefOf.SlopToggleOpenFiles, e)
+                || Bound(ModDefOf.SlopTogglePlanner, e)
+                || Bound(ModDefOf.SlopQuickTerminal, e)
+                || Bound(ModDefOf.SlopToggleFullscreen, e);
+        }
+
         public static bool HandleFunctionKey(Event e)
         {
             // Send Shift+key to the agent or TUI.
@@ -300,14 +315,6 @@ namespace SlopWorld
                 return;
             }
 
-            // Unity reports a semicolon with a spurious modifier on this player. The character event has the keyboard-layout result.
-            if (e.character == ';')
-            {
-                AppendSemicolon();
-                e.Use();
-                return;
-            }
-
             if (TryTerminal(e))
                 return;
 
@@ -315,7 +322,7 @@ namespace SlopWorld
             if (e.alt && e.shift && ForwardMappedKey(e))
                 return;
 
-            // Unity sends printable input in a second event that carries only the character.
+            // Character events carry the keyboard-layout result, including punctuation.
             if (
                 e.character != '\0'
                 && e.character != '\n'
@@ -449,39 +456,6 @@ namespace SlopWorld
             SessionHub.Instance.Terminal.SendKeys(_panel.SessionName, new[] { key }, false);
             e.Use();
             return true;
-        }
-
-        // IMGUI drops semicolon's KeyDown before it reaches this window on this player. Unity still sends the character event.
-        // DoWindowContents can run more than once per frame. The frame marker prevents duplicate input.
-        internal void CaptureSemicolonInputCore()
-        {
-            if (
-                _panel.AutoResumePending
-                || _panel.SemicolonFrame == Time.frameCount
-                || !SessionHub.Instance.Online
-            )
-                return;
-            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            // The physical semicolon key produces ж on a Russian layout. Recover only
-            // layout-resolved semicolons; other text arrives through normal character events.
-            int count = CountSemicolonInput(Input.inputString, shift);
-            if (count == 0)
-                return;
-
-            _panel.JumpToLive();
-            _panel.Flush();
-            SessionHub.Instance.Terminal.Paste(_panel.SessionName, new string(';', count));
-            _panel.SemicolonFrame = Time.frameCount;
-        }
-
-        void AppendSemicolon()
-        {
-            if (_panel.SemicolonFrame == Time.frameCount)
-                return;
-            _panel.JumpToLive();
-            _panel.Flush();
-            SessionHub.Instance.Terminal.Paste(_panel.SessionName, ";");
-            _panel.SemicolonFrame = Time.frameCount;
         }
 
         // Ignore slots past the end of the portrait list. Show stopped agents with their action controls.

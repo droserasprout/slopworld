@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -8,15 +10,25 @@ namespace SlopWorld
     // Adapt host music, SongDefs and game volume; Radio owns source and playback policy.
     internal static class NativeJukebox
     {
+        static SongDef _pendingSong,
+            _lastSong;
+        static readonly System.Random Dice = new System.Random();
         static bool _openingTrackPending = ProfileAudioDefaults.FirstRun;
 
-        // Override only the first selection in a new profile. The manager retains
-        // its normal history and subsequent song selection.
+        // Explicit transport selections override the next song. Otherwise only the
+        // first selection in a new profile overrides the manager's normal choice.
         [HarmonyPatch(typeof(MusicManagerPlay), "ChooseNextSong")]
         static class Patch_OpeningSong
         {
             static bool Prefix(ref SongDef __result)
             {
+                if (_pendingSong != null)
+                {
+                    __result = _pendingSong;
+                    _pendingSong = null;
+                    _openingTrackPending = false;
+                    return false;
+                }
                 if (!_openingTrackPending)
                     return true;
                 _openingTrackPending = false;
@@ -34,6 +46,15 @@ namespace SlopWorld
         [HarmonyPatch(typeof(MusicManagerPlay), nameof(MusicManagerPlay.MusicUpdate))]
         static class Patch_ContinuousPlayback
         {
+            static void Prefix(MusicManagerPlay __instance)
+            {
+                if (!Radio.NativePlaybackAllowed)
+                {
+                    __instance.disabled = true;
+                    __instance.Stop();
+                }
+            }
+
             static void Postfix(MusicManagerPlay __instance)
             {
                 if (!__instance.disabled && !__instance.IsPlaying)
@@ -41,12 +62,30 @@ namespace SlopWorld
             }
         }
 
-        internal static string OstPath()
+        internal static void Navigate(int direction, bool random)
         {
-            var root = ModEntry.Instance?.Content?.RootDir;
-            return string.IsNullOrEmpty(root)
-                ? null
-                : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "OST");
+            var songs = DefDatabase<SongDef>
+                .AllDefsListForReading.Where(song =>
+                    song.clipPath != null
+                    && song.clipPath.StartsWith("SlopWorld/OST/", StringComparison.Ordinal)
+                )
+                .ToList();
+            var music = NativeMusic();
+            var current = _pendingSong ?? music?.CurrentSong ?? _lastSong;
+            int index = RadioNavigation.Index(
+                songs.Count,
+                songs.IndexOf(current),
+                direction,
+                random ? Dice : null
+            );
+            if (index < 0)
+                return;
+            _pendingSong = songs[index];
+            if (Radio.NativePlaybackAllowed)
+            {
+                music?.Stop();
+                Resume();
+            }
         }
 
         static RimWorld.MusicManagerPlay NativeMusic()
@@ -87,43 +126,30 @@ namespace SlopWorld
             bool changed = music.disabled != muted;
             music.disabled = muted;
             if (muted && (changed || music.IsPlaying))
+            {
+                _lastSong = music.CurrentSong ?? _lastSong;
                 music.Stop();
+            }
             else if (!muted && changed)
                 Resume();
         }
 
-        // Start the next SlopWorld song immediately after unmuting.
+        // Restart the selected SlopWorld song immediately after unpausing.
         // Clearing disabled alone waits for the native music transition timer.
         internal static void Resume()
         {
+            if (!Radio.NativePlaybackAllowed)
+                return;
             var music = NativeMusic();
             if (music == null)
                 return;
 
+            _pendingSong = _pendingSong ?? _lastSong;
             music.disabled = false;
             if (Current.ProgramState == ProgramState.Playing)
                 music.StartNewSong();
         }
 
         internal static float Volume => Mathf.Clamp01(Prefs.VolumeMusic * Prefs.VolumeMaster);
-
-        internal static void DisableForDaemon()
-        {
-            if (Current.ProgramState == ProgramState.Playing)
-            {
-                try
-                {
-                    var music = Find.MusicManagerPlay;
-                    if (music != null && !music.disabled)
-                    {
-                        music.Stop();
-                        music.disabled = true;
-                    }
-                }
-                catch
-                { /* Root_Play castclass fails on menu */
-                }
-            }
-        }
     }
 }

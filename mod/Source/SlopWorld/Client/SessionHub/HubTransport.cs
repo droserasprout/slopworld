@@ -90,6 +90,8 @@ namespace SlopWorld
         // Discard messages when the socket is disconnected.
         public void Send(Wire.ClientMessage message) => TrySend(message);
 
+        internal bool FlushOutgoing(int timeoutMs) => _ws?.FlushOutgoing(timeoutMs) == true;
+
         // Acceptance means queued locally, not acknowledged by the daemon. Never replay
         // rejected input after reconnect: it may reach a different application state.
         public bool TrySend(Wire.ClientMessage message)

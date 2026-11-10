@@ -25,3 +25,5 @@ Text pieces use the shared emoji atlas for catalog sequences. Sprite advances fo
 line height; measurement, wrapping, drawing, and selection share that geometry.
 Match catalog keys before Unicode text elements so joined emoji stay intact on Mono.
 Clipboard text retains the original Unicode sequences.
+`StyleSet` measurement retains whitespace advances even though native `CalcSize`
+excludes trailing spaces; cached character widths and wrapped chunks share that rule.

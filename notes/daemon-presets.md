@@ -20,8 +20,7 @@ read-only access does not limit credential use. See [sandbox isolation](sandbox-
 resolves/guards them; lifecycle creates them only after validating a launch plan,
 using that plan's retained paths so catalog changes cannot change its mounts.
 Ordinary `rw` paths remain existing-only because they may name files or sockets.
-Cache contents outlive sessions. Keep platform-specific paths existing-only so Linux
-launches do not create macOS trees.
+Cache contents outlive sessions.
 
 `sandbox/paths.rs` owns `${VAR:paths}` expansion for ordinary binds. Validation
 and mount selection use the same expansion and guard every list entry separately.

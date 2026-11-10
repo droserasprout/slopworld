@@ -76,6 +76,23 @@ namespace SlopWorld.Tests
             AssertEx.Equal(false, written, "reading preferences does not queue a write");
         }
 
+        public static void ScreensaverPreferenceDefaultsOnAndPersistsBothValues()
+        {
+            AssertEx.True(
+                ModSettings.FromToml("").inhibitScreensaver,
+                "existing profiles inherit enabled inhibition"
+            );
+            foreach (bool enabled in new[] { false, true })
+            {
+                var settings = new ModSettings { inhibitScreensaver = enabled };
+                AssertEx.Equal(
+                    enabled,
+                    ModSettings.FromToml(settings.ToToml()).inhibitScreensaver,
+                    "screensaver preference survives serialization"
+                );
+            }
+        }
+
         static void WithSettings(Action<ModSettings> action)
         {
             var settings = Settings.S;
@@ -144,16 +161,16 @@ namespace SlopWorld.Tests
                 var settings = new ModSettings();
                 for (int i = 0; i < 200; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "clean settings never create a file");
+                AssertEx.Equal(false, File.Exists(path), "clean settings never create a file");
                 settings.MarkDirty();
                 for (int i = 0; i < 119; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "dirty settings wait for 120 ticks");
+                AssertEx.Equal(false, File.Exists(path), "dirty settings wait for 120 ticks");
                 settings.MarkDirty();
                 settings.theme = "new-theme";
                 for (int i = 0; i < 119; i++)
                     settings.FlushIfDue();
-                AssertEx.False(File.Exists(path), "new interaction restarts quiet period");
+                AssertEx.Equal(false, File.Exists(path), "new interaction restarts quiet period");
                 settings.FlushIfDue();
                 AssertEx.Equal(
                     "new-theme",
@@ -320,6 +337,11 @@ namespace SlopWorld.Tests
                     ("autoConnect", v => settings.autoConnect = v, () => Settings.AutoConnect),
                     ("fullscreen", v => settings.fullscreen = v, () => Settings.Fullscreen),
                     (
+                        "inhibitScreensaver",
+                        v => settings.inhibitScreensaver = v,
+                        () => Settings.InhibitScreensaver
+                    ),
+                    (
                         "sidebarHidden",
                         v => settings.sidebarHidden = v,
                         () => Settings.SidebarHidden
@@ -449,7 +471,7 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(
                     FramePolicy.Limit,
                     Settings.DisplayMode,
-                    "explicit FPS cap retained"
+                    "explicit FPS limit retained"
                 );
                 AssertEx.Equal(
                     TemperatureUnit.MemeMode,

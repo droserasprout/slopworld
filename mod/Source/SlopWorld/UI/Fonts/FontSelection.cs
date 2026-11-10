@@ -22,7 +22,7 @@ namespace SlopWorld
         {
             if (!string.IsNullOrEmpty(selected))
                 return selected;
-            return string.IsNullOrEmpty(preferred) ? "Auto" : "Auto (" + preferred + ")";
+            return OptionLabels.Auto(preferred);
         }
     }
 }

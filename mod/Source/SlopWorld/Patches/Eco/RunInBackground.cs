@@ -1,6 +1,8 @@
 using HarmonyLib;
 using UnityEngine;
 using Verse;
+using Waylith;
+using Waylith.Graphics;
 
 namespace SlopWorld
 {
@@ -24,7 +26,8 @@ namespace SlopWorld
             });
     }
 
-    // Keep foreground frame timing independent of Eco. Apply the background limit when the application loses focus.
+    // Select render timing independently of Eco. RenderPacing consumes the target
+    // without letting the engine's native FPS throttle delay input or updates.
     public static class BackgroundFrames
     {
         static readonly FramePolicy Policy = new FramePolicy();
@@ -41,17 +44,18 @@ namespace SlopWorld
                 if (now >= _nextRefreshSample)
                 {
                     _nextRefreshSample = now + 1f;
-                    _autoFps = FramePolicy.AutoFps(Screen.currentResolution.refreshRateRatio.value);
+                    _autoFps = FramePolicy.AutoFps(EngineWindow.CurrentResolution.RefreshRate);
                 }
                 return _autoFps;
             }
         }
+        static int _appliedSync = -1;
 
         // Root.Update calls this in menus and during play. Update settings only when the effective values change.
         public static void Follow()
         {
             int target = Application.targetFrameRate,
-                sync = QualitySettings.vSyncCount;
+                sync = _appliedSync;
             if (
                 !Policy.Follow(
                     Application.isFocused,
@@ -64,8 +68,15 @@ namespace SlopWorld
                 )
             )
                 return;
-            QualitySettings.vSyncCount = sync;
-            Application.targetFrameRate = target;
+            // QualitySettings.vSyncCount is a stub. The native event queues a present-mode
+            // change for the engine to apply safely between render frames.
+            if (sync != _appliedSync)
+            {
+                EngineWindow.SetVSyncMode(sync == 0 ? VSyncMode.Off : VSyncMode.VSync);
+                _appliedSync = sync;
+            }
+            if (Application.targetFrameRate != target)
+                Application.targetFrameRate = target;
         }
     }
 }

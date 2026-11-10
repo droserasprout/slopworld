@@ -3,7 +3,20 @@
 [Profile preferences](mod-settings.md), daemon settings, and RimWorld preferences
 have separate lifetimes. Profile controls usually apply live and flush after a quiet
 period or on close. UI scale applies on slider release so its target stays stable;
-`UnlockUIScale` bypasses vanilla's low-resolution reset.
+`UnlockUIScale` bypasses vanilla's low-resolution reset. `UiScaleDrag` retains the
+pending value independently of native control state and applies it on reported
+release or when the button is up after capture is lost. A reported release uses
+its final pointer sample.
+
+Audio volumes apply live to RimWorld preferences. The Audio page saves pending
+changes after the mouse is released and on teardown; the embedded Settings view
+does not run the vanilla options dialog's close lifecycle.
+Daemon radio output on the same page uses the endpoint-scoped Save/Discard draft;
+its device catalog is a refreshable snapshot and never controls native game audio.
+The output status appears only when the snapshot reports an open radio device;
+an absent active device does not mean routing is unavailable.
+`OptionLabels.Auto` owns the shared `Auto (detected option)` label format; callers
+supply detection results and omit the suffix while the result is unknown.
 
 Daemon pages keep independent drafts scoped by page and endpoint. Save only changed
 fields; acknowledgements accept submitted values while preserving newer edits.
@@ -28,8 +41,9 @@ projections. Missing parents/cycles must leave entries visible in the hierarchy.
 Binary probes share a generation across host and daemon environments. Storage scans
 publish shallow inventory before sizes and reject replies after refresh/disposal.
 Failure preserves navigation; unknown sizes are not zero. Selection follows stable
-kind/key. Shallow scans skip purging; the manager purges before measured scans, while
-sandbox inventory never deletes. See `BinaryDiscoveryTests` and `StorageLoadStateTests`.
+kind/key. The application measures item sizes with bounded concurrent filesystem walks;
+both shallow and measured inventory are read-only. See `BinaryDiscoveryTests` and
+`StorageLoadStateTests`.
 
 `SettingsLayout` owns page geometry. `SettingsPreviewGeometry` owns the pure placement
 for pinned and stacked settings previews; the form owns scrolling and measured content

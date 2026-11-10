@@ -11,7 +11,9 @@ from tools import ROOT
 from tools import cli_completions
 from tools.utils import run
 
-BINARIES = ('slopd', 'slopctl', 'slopworld')
+NATIVE_PRODUCTS = ('slopworld', 'slopd', 'slopctl')
+PRODUCTS = (*NATIVE_PRODUCTS, 'slopcar')
+BINARIES = NATIVE_PRODUCTS
 MOD_DIRECTORIES = ('About', 'Defs', 'Patches', 'Sounds', 'Textures', 'Themes')
 MOD_ASSEMBLIES = (
     'SlopWorld',
@@ -21,11 +23,7 @@ MOD_ASSEMBLIES = (
     'Markdig',
     'Newtonsoft.Json',
     'Tomlyn',
-    'System.Buffers',
-    'System.Memory',
-    'System.Numerics.Vectors',
-    'System.Runtime.CompilerServices.Unsafe',
-    'System.Text.Encoding.CodePages',
+    'Tmds.DBus.Protocol',
 )
 
 
@@ -55,21 +53,25 @@ def stage_mod(mod: Path, revision: str, version: str) -> None:
     metadata(mod, revision, version)
 
 
-def stage_system(payload: Path, binary_dir: Path) -> None:
-    """Stage the system files shared by all native package formats."""
-    for binary in BINARIES:
-        target = payload / 'usr/bin' / binary
-        copy_file(binary_dir / binary, target)
-        target.chmod(0o755)
-    cli_completions.stage(ROOT / 'packaging/completions', payload / 'usr/share', ('slopctl', 'slopworld'))
-    unit = payload / 'usr/lib/systemd/user/slopd.service'
-    copy_file(ROOT / 'slopd/slopd.service', unit)
-    unit.write_text(unit.read_text().replace('%h/.local/bin/slopd', '/usr/bin/slopd'))
-    for source, destination in (
-        ('packaging/slopworld.desktop', 'usr/share/applications/slopworld.desktop'),
-        ('mod/Textures/SlopWorld/SlopWorld_icon.png', 'usr/share/icons/hicolor/128x128/apps/slopworld.png'),
-    ):
-        copy_file(ROOT / source, payload / destination)
+def stage_system(payload: Path, binary_dir: Path, product: str = 'slopworld') -> None:
+    """Stage one native product; no file is owned by two packages."""
+    if product not in NATIVE_PRODUCTS:
+        raise ValueError(f'Unsupported native product: {product}')
+    target = payload / 'usr/bin' / product
+    copy_file(binary_dir / product, target)
+    target.chmod(0o755)
+    if product != 'slopd':
+        cli_completions.stage(ROOT / 'packaging/completions', payload / 'usr/share', (product,))
+    if product == 'slopd':
+        unit = payload / 'usr/lib/systemd/user/slopd.service'
+        copy_file(ROOT / 'slopd/slopd.service', unit)
+        unit.write_text(unit.read_text().replace('%h/.local/bin/slopd', '/usr/bin/slopd'))
+    if product == 'slopworld':
+        for source, destination in (
+            ('packaging/slopworld.desktop', 'usr/share/applications/slopworld.desktop'),
+            ('mod/Textures/SlopWorld/SlopWorld_icon.png', 'usr/share/icons/hicolor/128x128/apps/slopworld.png'),
+        ):
+            copy_file(ROOT / source, payload / destination)
 
 
 def stage_notices(payload: Path, copyright_path: str = 'usr/share/licenses/slopworld/LICENSE') -> None:
@@ -82,3 +84,16 @@ def normalize_permissions(directory: Path, binaries: Path) -> None:
     """Make distributable files independent of source modes and the build umask."""
     for path in (directory, *directory.rglob('*')):
         path.chmod(0o755 if path.is_dir() or path.parent == binaries else 0o644)
+
+
+def stage_sidecar(payload: Path, binary_dir: Path, revision: str, version: str) -> None:
+    """Stage the independent host launcher without daemon, game, or service files."""
+    copy_file(binary_dir / 'slopcar', payload / 'usr/bin/slopcar')
+    cli_completions.stage(ROOT / 'packaging/completions', payload / 'usr/share', ('slopcar',))
+    notices = payload / 'usr/share/licenses/slopcar'
+    copy_file(ROOT / 'LICENSE', notices / 'LICENSE')
+    copy_file(ROOT / 'licenses/slopcar/THIRD-PARTY-NOTICES.txt', notices / 'THIRD-PARTY-NOTICES.txt')
+    documentation = payload / 'usr/share/doc/slopcar'
+    copy_file(ROOT / 'slopcar/README.md', documentation / 'README.md')
+    metadata(documentation, revision, version)
+    normalize_permissions(payload, payload / 'usr/bin')

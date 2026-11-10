@@ -406,7 +406,7 @@ namespace SlopWorld
             foreach (var rawLine in (text ?? "").Split('\n'))
             {
                 // Remove the CRLF delimiter, preserving whitespace in the value.
-                string line = rawLine.EndsWith("\r", StringComparison.Ordinal)
+                string line = rawLine.EndsWith('\r')
                     ? rawLine.Substring(0, rawLine.Length - 1)
                     : rawLine;
                 int at = line.IndexOf('=');

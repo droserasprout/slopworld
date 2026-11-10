@@ -10,8 +10,8 @@ namespace SlopWorld
 
         // The palette is a catalogue of data. Availability is evaluated while the list is
         // rebuilt, so game-state changes do not require rebuilding the definitions.
-        static readonly List<CommandDef> CommandTable = new List<CommandDef>
-        {
+        static readonly List<CommandDef> CommandTable =
+        [
             CommandDef.ForCreation("add", "Add…", "Create", CreationActions.Add),
             CommandDef.ForAgent(
                 "agent.label",
@@ -53,6 +53,12 @@ namespace SlopWorld
                 "Agent: Start",
                 () => AgentsSub(AgentState.Down),
                 s => SessionActions.Start(s.Name)
+            ),
+            CommandDef.ForAgent(
+                "agent.resume",
+                "Agent: Resume",
+                () => AgentOptions(SessionActions.CanResume, "(no agents available to resume)"),
+                s => SessionActions.Resume(s.Name)
             ),
             CommandDef.ForAgent(
                 "agent.stop",
@@ -130,27 +136,7 @@ namespace SlopWorld
                 ProjectsSub,
                 ProjectActions.ProjectTerminal
             ),
-            CommandDef.ForTask("task.open", "Task: Open", TasksSub, t => TaskDetailView.Open(t)),
-            CommandDef.ForTask(
-                "task.cancel",
-                "Task: Cancel",
-                CancelableTasksSub,
-                t => TaskActions.CancelTask(t)
-            ),
-            CommandDef.ForTask(
-                "task.remove",
-                "Task: Remove",
-                TerminalTasksSub,
-                t => TaskActions.RemoveTask(t)
-            ),
-            new CommandDef(
-                "task.status",
-                "Task: Set Status",
-                "Task",
-                _ => { },
-                subAction: TaskStatusSub
-            ),
-            new CommandDef("task.filter", "Task: Filter", "Task", _ => TasksView.OpenFilterMenu()),
+            .. TaskCommands(),
             CommandDef.ForLibraryItem(
                 "library.run",
                 "Library: Run",
@@ -227,30 +213,7 @@ namespace SlopWorld
             ),
             new CommandDef("search.run", "Search: Run Search", "Search", _ => SearchView.Search()),
             new CommandDef("git.refresh", "Git: Refresh", "Refresh", _ => GitView.Refresh()),
-            CommandDef.ForProject(
-                "git.diff-all",
-                "Git: Diff All",
-                ProjectsSub,
-                p => GitView.DiffAll(p.Name)
-            ),
-            CommandDef.ForProject(
-                "git.stage-all",
-                "Git: Stage All",
-                ProjectsSub,
-                p => GitView.StageAll(p.Name)
-            ),
-            CommandDef.ForProject(
-                "git.unstage-all",
-                "Git: Unstage All",
-                ProjectsSub,
-                p => GitView.UnstageAll(p.Name)
-            ),
-            CommandDef.ForProject(
-                "git.commit-staged",
-                "Git: Commit Staged",
-                ProjectsSub,
-                p => GitView.CommitStaged(p.Name)
-            ),
+            .. GitCommands(),
             new CommandDef(
                 "view.refresh-sidebar",
                 "View: Refresh Sidebar",
@@ -569,6 +532,6 @@ namespace SlopWorld
                 _ => NextPlanet.Begin(),
                 enabled: () => Playing() && !Settings.EcoMode
             ),
-        };
+        ];
     }
 }

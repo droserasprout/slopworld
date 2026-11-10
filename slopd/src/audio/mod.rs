@@ -13,6 +13,7 @@ mod control;
 mod health;
 mod output_source;
 mod playback;
+pub(crate) use playback::{output_devices, preferred_ids};
 mod queue;
 mod ring;
 mod station;
@@ -38,6 +39,9 @@ pub(crate) const QUEUE_POLL: Duration = Duration::from_millis(5);
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct AudioState {
+    pub stop_ack: Option<String>,
+    #[serde(skip)]
+    pub output_device: Option<String>,
     pub playing: bool,
     pub source: Option<String>,
     pub volume: f32,
@@ -141,6 +145,13 @@ impl Audio {
         );
     }
 
+    pub(crate) fn configure_output(&self, settings: crate::config::AudioOutputSettings) {
+        self.send(
+            WorkerMsg::Command(Cmd::Configure(settings)),
+            "configure output",
+        );
+    }
+
     pub fn set_volume(&self, volume: f32) {
         let volume = volume.clamp(0.0, 1.0);
         self.inner
@@ -153,6 +164,22 @@ impl Audio {
     pub fn stop(&self) {
         let generation = self.inner.control.stop();
         self.send(WorkerMsg::Command(Cmd::Stop { generation }), "stop");
+    }
+
+    pub(crate) async fn stop_confirmed(&self) -> anyhow::Result<()> {
+        self.stop();
+        let (done, completed) = tokio::sync::oneshot::channel();
+        self.inner
+            .tx
+            .send(WorkerMsg::Barrier(done))
+            .map_err(|error| anyhow::anyhow!("audio worker unavailable during stop: {error}"))?;
+        tokio::time::timeout(Duration::from_secs(5), completed).await??;
+        let state = self.state();
+        anyhow::ensure!(
+            !state.playing && state.source.is_none() && state.error.is_none(),
+            "audio stop failed"
+        );
+        Ok(())
     }
 
     fn send(&self, message: WorkerMsg, operation: &str) {

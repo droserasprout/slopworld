@@ -3,13 +3,16 @@ use anyhow::{Result, bail};
 use serde::Deserialize;
 
 /// A jukebox request. Omit `selection` to change only the volume. Use null to stop playback.
-/// Select a catalog entry with a station ID and stream key, or select soundtrack files with a file or directory path.
+/// Select a catalog entry with a station ID and stream key, or ncspot.
+/// Legacy file selections are decoded but rejected: the game owns soundtrack playback.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AudioReq {
     #[serde(default, deserialize_with = "some_option")]
     pub(crate) selection: Option<Option<AudioSelection>>,
     pub(crate) volume: f32,
+    #[serde(default)]
+    pub(crate) stop_token: Option<String>,
 }
 
 #[derive(Deserialize)]

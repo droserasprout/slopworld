@@ -132,6 +132,7 @@ namespace SlopWorld
                 }
                 var content = new GUIContent(source);
                 DrawNativeTextField(r, input.ControlId, content, area, -1, input.Style);
+                FieldKeyboardFocus.Track(lifetime, name, input.ControlId);
                 var editor = ReconcileEditor(name, source, readOnly, input, lifetime);
                 string result =
                     editor == null ? content.text
@@ -195,7 +196,7 @@ namespace SlopWorld
                 input.MouseDown
                 && input.Button == 1
                 && focusedEditor != null
-                && focusedEditor.IsOverSelection(e.mousePosition);
+                && NativeTextLayout.IsOverSelection(focusedEditor, e.mousePosition);
             if (input.KeepSelection)
             {
                 input.Cursor = focusedEditor.cursorIndex;
@@ -389,7 +390,12 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(text))
                 return;
             string insert = SingleLinePaste(text, area);
-            QueueEdit(name, controlId, editor => editor.ReplaceSelection(insert), lifetime);
+            QueueEdit(
+                name,
+                controlId,
+                editor => NativeTextLayout.ReplaceSelection(editor, insert),
+                lifetime
+            );
         }
 
         static void RequestPaste(
@@ -498,6 +504,9 @@ namespace SlopWorld
             )
                 return cached;
             var style = new GUIStyle(of);
+            // Waylith treats a backgroundless multiline style named "textarea" or
+            // "textfield" as read-only. Our chrome is external, but these are editors.
+            style.name = area ? "SlopWorld.TextArea" : "SlopWorld.TextField";
 
             // Vanilla's skin can leave an active/on-state texture behind even after the
             // ordinary states are cleared. Strip every state so Slab is the only owner of

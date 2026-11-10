@@ -5,7 +5,6 @@ namespace SlopWorld
     internal enum TerminalRepaint
     {
         None,
-        Rows,
         Full,
     }
 
@@ -22,6 +21,22 @@ namespace SlopWorld
 
     internal static class TerminalCacheSampling
     {
+        // The GUI API converts bottom-origin UVs to the backend's texture origin.
+        public static UnityEngine.Rect SourceUv(
+            int width,
+            int height,
+            float x0,
+            float y0,
+            float x1,
+            float y1
+        ) =>
+            new UnityEngine.Rect(
+                x0 / width,
+                1f - y1 / height,
+                (x1 - x0) / width,
+                (y1 - y0) / height
+            );
+
         // UI.screenWidth/Height can round a scaled viewport up by a fraction of a
         // physical pixel. Clamp that edge to the texture; larger excursions mean
         // the cache cannot safely provide the requested pixels.
@@ -83,9 +98,9 @@ namespace SlopWorld
         public bool Matches(TerminalCacheRegion other) =>
             X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
 
-        // Match the cache's existing sampling orientation on both GL and top-origin backends.
-        public static int TextureY(int top, int height, int textureHeight, bool startsAtTop) =>
-            startsAtTop ? top : textureHeight - top - height;
+        // CopyTexture's public coordinates are bottom-origin, independent of backend UVs.
+        public static int TextureY(int top, int height, int textureHeight) =>
+            textureHeight - top - height;
 
         // Sparse repaint needs only this bounding strip in the screen-sized scratch.
         // Labels clip to their row; one pixel covers unsnapped glyph bounds and snapped fills.
@@ -114,15 +129,6 @@ namespace SlopWorld
             top = first;
             height = Math.Max(0, end - first);
         }
-    }
-
-    internal struct TerminalScrollCopy
-    {
-        public int SourceTop,
-            DestinationTop,
-            Height,
-            FirstRow,
-            EndRow;
     }
 
     internal struct TerminalCacheKey
@@ -206,57 +212,6 @@ namespace SlopWorld
             return count;
         }
 
-        // Only fully available rows can skip painting. A clipped source edge must be
-        // redrawn when it moves into view, even when the corresponding text matches.
-        public static bool TryPlan(
-            TerminalCacheKey old,
-            TerminalCacheKey next,
-            float scaleY,
-            float originY,
-            TerminalCacheRegion region,
-            out TerminalScrollCopy copy
-        )
-        {
-            copy = default(TerminalScrollCopy);
-            int count = MatchingRows(old, next);
-            if (count == 0 || !PixelAligned(old.Offset, next.Offset, next.CellH, scaleY))
-                return false;
-            int delta = next.Offset - old.Offset;
-            int pixels = (int)Math.Round(delta * (double)next.CellH * scaleY);
-            int height = region.Height - Math.Abs(pixels);
-            if (pixels == 0 || height <= 0)
-                return false;
-            int destinationTop = Math.Max(0, pixels);
-            int first = Math.Max(0, delta);
-            int end = first + count;
-            double top = (next.Y - next.Lead) * scaleY + originY;
-            double rowHeight = next.CellH * scaleY;
-            // Repaint the boundary rows too: glyph overhang and clipped glyphs must
-            // not be mistaken for a complete reusable row.
-            while (
-                first < end
-                && Math.Round(top + first * rowHeight) < region.Y + destinationTop + rowHeight
-            )
-                first++;
-            while (
-                end > first
-                && Math.Round(top + end * rowHeight)
-                    > region.Y + destinationTop + height - rowHeight
-            )
-                end--;
-            if (end <= first)
-                return false;
-            copy = new TerminalScrollCopy
-            {
-                SourceTop = Math.Max(0, -pixels),
-                DestinationTop = destinationTop,
-                Height = height,
-                FirstRow = first,
-                EndRow = end,
-            };
-            return true;
-        }
-
         public static bool PixelAligned(
             int oldOffset,
             int newOffset,
@@ -316,7 +271,10 @@ namespace SlopWorld
                 return TerminalRepaint.Full;
             }
             reason = TerminalRepaintReason.SparseRows;
-            return TerminalRepaint.Rows;
+            // Waylith's partial row overpaint leaves stale scanlines after edits.
+            // Keep unchanged frames cached, but rebuild changed content as a complete
+            // background/glyph batch until incremental rendering is validated natively.
+            return TerminalRepaint.Full;
         }
     }
 }

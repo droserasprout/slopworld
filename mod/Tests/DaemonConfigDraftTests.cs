@@ -5,6 +5,30 @@ namespace SlopWorld.Tests
 {
     static class DaemonConfigDraftTests
     {
+        public static void AudioRoutingPatchKeepsLaterEditsAndDoesNotTouchOtherSettings()
+        {
+            var draft = new DaemonConfigDraft();
+            draft.LoadServer(new DaemonConfig());
+            draft.Config.AudioBackend = "pulse";
+            draft.Config.AudioDevice = "headphones";
+            var patch = draft.Config.ToPatch(draft.BaselineValue());
+            Assert.That(
+                patch.Paths,
+                Is.EquivalentTo(
+                    new[] { "daemon.audio_output.backend", "daemon.audio_output.device" }
+                )
+            );
+            var submitted = draft.Config.Snapshot();
+            draft.Config.AudioDevice = "";
+            draft.Acknowledge(submitted, draft.TextSnapshot());
+            Assert.That(draft.Config.AudioDevice, Is.EqualTo(""));
+            Assert.That(draft.IsDirty, Is.True);
+            draft.ResetToBaseline();
+            Assert.That(draft.Config.AudioBackend, Is.EqualTo("pulse"));
+            Assert.That(draft.Config.AudioDevice, Is.EqualTo("headphones"));
+            Assert.That(draft.IsDirty, Is.False);
+        }
+
         public static void NormalizationOnlyTouchesUneditedFieldsAndCanBeCanceled()
         {
             var draft = new DaemonConfigDraft();

@@ -131,7 +131,7 @@ macro_rules! session_action {
     };
 }
 
-session_action!(stop, restart);
+session_action!(stop, restart, resume);
 pub(crate) async fn start(
     State(m): State<App>,
     Extension(cap): Extension<Cap>,

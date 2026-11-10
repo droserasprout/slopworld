@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Verse
 {
-    static class Widgets
+    static partial class Widgets
     {
         static readonly Stack<Vector2> ScrollOrigins = new Stack<Vector2>();
 
@@ -36,7 +36,13 @@ namespace Verse
     static class MarkdownWindowLookup
     {
         public static T WindowOfType<T>(this WindowStack stack)
-            where T : class => null;
+            where T : class
+        {
+            foreach (var window in stack)
+                if (window is T match)
+                    return match;
+            return null;
+        }
     }
 }
 

@@ -65,6 +65,7 @@ impl SessionRuntime {
                         // Tasks own worker lifetimes independently of launch flags.
                         autostart: l.cfg.autostart && !l.cfg.worker,
                         auto_resume: l.cfg.auto_resume && !l.cfg.worker,
+                        resume_supported: resume_supported(l, &cfg),
                         initial_prompt: l.cfg.initial_prompt.clone(),
                         state_id: l.cfg.state_id.clone(),
                     },
@@ -126,4 +127,12 @@ fn parent_name(session: &SessionCfg, live: &HashMap<String, Live>) -> String {
     } else {
         String::new()
     }
+}
+
+// Advertise command support without scanning private transcripts on every publication.
+// The startup owner checks that history still exists when Resume is requested.
+fn resume_supported(live: &Live, cfg: &Config) -> bool {
+    live.role.is_durable_agent()
+        && !live.cfg.worker
+        && super::lifecycle::resume::supports_resume(&cfg.command_of(&live.cfg))
 }

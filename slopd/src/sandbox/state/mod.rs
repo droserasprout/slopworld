@@ -58,7 +58,7 @@ mod inventory;
 pub use inventory::StoredState;
 #[cfg(test)]
 use inventory::tree_size;
-pub(crate) use inventory::{stored_entry, stored_states};
+pub(crate) use inventory::{measure_stored_entry, stored_entry, stored_states};
 
 /// The trash root is daemon-owned storage, never a link to external data.
 /// Entries may be symlinks: inventory reports the link itself and deletion unlinks it.

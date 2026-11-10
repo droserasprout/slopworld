@@ -34,7 +34,9 @@ replacement. Checkout deletion leaves cache data intact. `sandbox/cache.rs` repo
 new links for rollback; `config/transactions/cache.rs` reconciles them.
 
 Removal checks cleanliness and retained branches with helper execution blocked, then
-removes only the selected checkout's files in the daemon. Git registration cleanup
+removes only the selected checkout's files in the daemon. Cleanliness includes ignored
+files and uses bounded empty/nonempty status capture, so large build-output inventories
+report local files rather than an output-limit error. Git registration cleanup
 has writable authority only for the recorded metadata, never the checkout parent or
 sibling checkouts. Locked worktrees and submodules require manual resolution. A
 failure after file deletion retains the record for missing-checkout recovery.

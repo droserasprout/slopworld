@@ -65,5 +65,5 @@ def build(release: Release) -> None:
         ('generate-check-protocol', 'generate-check-licenses', 'docs-build'),
         ('build',),
     ):
-        run([*command, 'MANAGED=rimref', *recipes])
+        run([*command, *recipes])
         validate(release)

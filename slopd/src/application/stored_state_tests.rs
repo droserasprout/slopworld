@@ -2,6 +2,60 @@ use super::*;
 use std::future::Future;
 
 #[tokio::test]
+async fn measurements_overlap_with_bounded_workers_and_preserve_order() {
+    let entries = (0..8)
+        .map(|index| crate::sandbox::StoredState {
+            kind: "orphan".into(),
+            key: index.to_string(),
+            session: None,
+            project: None,
+            path: String::new(),
+            bytes: 0,
+            modified: 0,
+        })
+        .collect();
+    let (started, mut starts) = tokio::sync::mpsc::unbounded_channel();
+    let (release, released) = std::sync::mpsc::channel();
+    let released = std::sync::Arc::new(std::sync::Mutex::new(released));
+    let task = tokio::spawn(measure_entries(entries, move |mut entry| {
+        let index: u64 = entry.key.parse().unwrap();
+        started.send(index).unwrap();
+        if index < 4 {
+            released
+                .lock()
+                .unwrap()
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap();
+        }
+        entry.bytes = index + 1;
+        entry
+    }));
+    let mut admitted = Vec::new();
+    for _ in 0..4 {
+        admitted.push(
+            tokio::time::timeout(std::time::Duration::from_secs(5), starts.recv())
+                .await
+                .unwrap()
+                .unwrap(),
+        );
+    }
+    admitted.sort_unstable();
+    assert_eq!(admitted, vec![0, 1, 2, 3]);
+    assert_eq!(
+        starts.try_recv().unwrap_err(),
+        tokio::sync::mpsc::error::TryRecvError::Empty
+    );
+    for _ in 0..4 {
+        release.send(()).unwrap();
+    }
+    let measured = task.await.unwrap().unwrap();
+    assert_eq!(
+        measured.iter().map(|entry| entry.bytes).collect::<Vec<_>>(),
+        (1..=8).collect::<Vec<_>>()
+    );
+}
+
+#[tokio::test]
 async fn inventory_retains_expired_trash_for_both_size_modes() {
     let Some(_) = crate::test_support::isolated() else {
         return;

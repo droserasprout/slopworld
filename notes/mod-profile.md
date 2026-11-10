@@ -1,6 +1,6 @@
 # Mod profile isolation
 
-`ModBootstrap` and `ModProfile` gate profile-specific changes on existence of the
+`EarlyBootstrap`, `ModBootstrap` and `ModProfile` gate profile-specific changes on existence of the
 launcher-written marker. Harmony registration, startup def mutation, and XML patch
 operations have independent gates; each entry point must respect its own guard.
 The game can still load SlopWorld definitions while patching is refused.
@@ -14,6 +14,10 @@ The mandatory startup refusal owns access to play. Game/map component callbacks
 and gameplay UI rely on that boundary rather than repeating profile checks.
 Startup def mutation and XML patch gates remain necessary because they run before
 the refusal dialog can be displayed.
+
+`ModEntry` installs only startup hooks before XML processing. Their separate Harmony
+owner rolls back the whole early installation if a target is incompatible. Gameplay
+patches remain in `ModBootstrap`; neither bootstrap runs for an unmarked profile.
 
 Assemblies load before XML, and static constructors run afterward. A single Harmony
 gate cannot protect the other paths. Launcher profile lifetime belongs to

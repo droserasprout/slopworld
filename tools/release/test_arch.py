@@ -10,10 +10,13 @@ from tools.release import staging
 from tools.utils import run as execute
 
 
-def test_local_source_snapshot_excludes_build_output_and_keeps_sources(tmp_path: Path) -> None:
+def test_local_source_snapshot_excludes_build_output_and_keeps_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = tmp_path / 'checkout'
     start = root / 'packaging/arch'
     staging.copy_file(Path(__file__).parents[2] / 'packaging/arch/PKGBUILD.local', start / 'PKGBUILD.local')
+    staging.copy_file(Path(__file__).parents[2] / 'packaging/arch/packages.sh', start / 'packages.sh')
     excluded = (
         'slopd/target',
         'slopcar/target',
@@ -36,16 +39,18 @@ def test_local_source_snapshot_excludes_build_output_and_keeps_sources(tmp_path:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text('fixture')
     game = tmp_path / 'game'
-    managed = game / 'RimWorldLinux_Data/Managed'
+    managed = game
     managed.mkdir(parents=True)
     (managed / 'Assembly-CSharp.dll').touch()
+    # Just exports MANAGED; the snapshot fixture must not depend on a host install.
+    monkeypatch.setenv('MANAGED', str(tmp_path / 'missing-host-game'))
     execute(
         [
             'bash',
             '-euc',
             (
                 'startdir="$1/packaging/arch"; srcdir="$startdir/src"; pkgdir="$startdir/pkg"; '
-                'RIMWORLD="$2"; source "$startdir/PKGBUILD.local"; '
+                'RIMWORLD="$2"; MANAGED="$2"; source "$startdir/PKGBUILD.local"; '
                 'python() { printf "1.0.0\\n"; }; cargo() { :; }; uv() { :; }; prepare'
             ),
             'snapshot-test',
@@ -68,8 +73,8 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     shutil.copytree(Path(__file__).parents[2] / 'packaging/completions', root / 'packaging/completions')
     for relative in (
         'packaging/arch/PKGBUILD.local',
+        'packaging/arch/packages.sh',
         'packaging/arch/slopworld.install',
-        'packaging/arch/slopworld.rules',
         'packaging/slopworld.desktop',
         'README.md',
         'LICENSE',
@@ -97,7 +102,9 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     result = execute(['bsdtar', '-tf', str(archive)], capture_output=True, text=True)
     assert '.BUILDINFO' in result.stdout and '.MTREE' in result.stdout
     assert 'usr/share/slopworld/SlopWorld/VERSION' in result.stdout
-    assert 'usr/bin/slopd' in result.stdout
+    assert 'usr/bin/slopworld' in result.stdout
+    assert 'usr/bin/slopd' not in result.stdout
+    assert 'usr/bin/slopctl' not in result.stdout
 
 
 def test_repeated_builds_and_failed_validation_preserve_published_package(
@@ -110,7 +117,7 @@ def test_repeated_builds_and_failed_validation_preserve_published_package(
     mod = tmp_path / 'mod'
     mod.mkdir()
 
-    def build(workspace: Path, version: str, binaries: Path, staged_mod: Path) -> Path:
+    def build(workspace: Path, version: str, binaries: Path, staged_mod: Path, **kwargs: object) -> Path:
         assert binaries == binary_dir and staged_mod == mod
         archive = workspace / 'slopworld-1.0.0-x86_64.pkg.tar.zst'
         archive.write_bytes(b'package')

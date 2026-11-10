@@ -191,6 +191,13 @@ namespace SlopWorld
                 )
             );
 
+            if (info?.ResumeSupported == true && !alive)
+            {
+                var resume = new FloatMenuOption("Resume", () => SessionActions.Resume(name));
+                resume.Disabled = !SessionActions.CanResume(info);
+                opts.Add(resume);
+            }
+
             var term = new FloatMenuOption("Terminal", () => WorkspaceWindow.Open(name));
             term.Disabled = !alive;
             opts.Add(term);

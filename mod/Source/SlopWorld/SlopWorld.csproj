@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
+    <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(HOME)/.local/share/Steam/steamapps/common/RimWorld</RimWorldManaged>
     <AssemblyName>SlopWorld</AssemblyName>
     <RootNamespace>SlopWorld</RootNamespace>
     <LangVersion>latest</LangVersion>
@@ -20,37 +21,36 @@
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(RimWorldManaged)' == ''">
-    <RimWorldManaged>$(HOME)/GOG Games/RimWorld/game/RimWorldLinux_Data/Managed</RimWorldManaged>
-  </PropertyGroup>
-
-  <!-- Keep one lock graph for local and CI builds. Select only the references
-       below; never import or copy RimRef's other assemblies into the mod. -->
+  <!-- Keep one lock graph for installed-game and CI builds. Import only the
+       selected game references below; never ship reference assemblies. -->
   <ItemGroup>
-    <EmbeddedResource Include="../../../shared/loading-tips.txt" LogicalName="SlopWorld.LoadingTips" />
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="[1.6.4850]"
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="[1.7.5000-unstable]"
                       GeneratePathProperty="true" ExcludeAssets="all" PrivateAssets="all" />
   </ItemGroup>
   <PropertyGroup>
     <GameReferencePath>$(RimWorldManaged)</GameReferencePath>
-    <GameReferencePath Condition="'$(UseRimRef)' == 'true'">$(PkgKrafs_Rimworld_Ref)/ref/net472</GameReferencePath>
+    <GameReferencePath Condition="'$(UseRimRef)' == 'true'">$(PkgKrafs_Rimworld_Ref)/ref/net10.0</GameReferencePath>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../../../shared/loading-tips.txt" LogicalName="SlopWorld.LoadingTips" />
+    <EmbeddedResource Include="../../Textures/SlopWorld/LoadingFont.png" LogicalName="SlopWorld.LoadingFont" />
+  </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="../../../shared/magic-8-ball.txt" LogicalName="SlopWorld.Magic8Ball" />
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Tmds.DBus.Protocol">
+      <HintPath>../../Assemblies/Tmds.DBus.Protocol.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="0Harmony">
       <HintPath>../../Assemblies/0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="AngleSharp">
       <HintPath>../../Assemblies/AngleSharp.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System.Text.Encoding.CodePages">
-      <HintPath>../../Assemblies/System.Text.Encoding.CodePages.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Markdig">
@@ -69,29 +69,19 @@
       <HintPath>$(GameReferencePath)/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(GameReferencePath)/UnityEngine.CoreModule.dll</HintPath>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Waylith supplies Unity's API through a single game-owned assembly. -->
+    <Reference Include="UnityStubs">
+      <HintPath>$(GameReferencePath)/UnityStubs.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>$(GameReferencePath)/UnityEngine.IMGUIModule.dll</HintPath>
+    <!-- Game rendering signatures expose Waylith.Rendering.Material directly. -->
+    <Reference Include="Waylith">
+      <HintPath>$(GameReferencePath)/Waylith.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>$(GameReferencePath)/UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>$(GameReferencePath)/UnityEngine.InputLegacyModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <!-- EncodeToPNG/LoadImage, which is how the baked backgrounds reach the cache. -->
-    <Reference Include="UnityEngine.ImageConversionModule">
-      <HintPath>$(GameReferencePath)/UnityEngine.ImageConversionModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
   </ItemGroup>
 
   <ItemGroup>
@@ -99,25 +89,10 @@
       <HintPath>../../Assemblies/Google.Protobuf.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="System.Memory">
-      <HintPath>../../Assemblies/System.Memory.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System.Buffers">
-      <HintPath>../../Assemblies/System.Buffers.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System.Numerics.Vectors">
-      <HintPath>../../Assemblies/System.Numerics.Vectors.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>../../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
+
   <Target Name="CheckRimWorldReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(GameReferencePath)/Assembly-CSharp.dll')"
-           Text="Missing RimWorld references under $(GameReferencePath); set RIMWORLD or MANAGED when using just, or use just mod-build rimref for the pinned reference package." />
+    <Error Condition="!Exists('$(GameReferencePath)/Assembly-CSharp.dll') Or !Exists('$(GameReferencePath)/UnityStubs.dll') Or !Exists('$(GameReferencePath)/Waylith.dll')"
+           Text="Missing RimWorld 1.7 assemblies under $(GameReferencePath); set RIMWORLD or MANAGED when using just, or pass rimref to just mod-build for pinned reference assemblies." />
   </Target>
 </Project>

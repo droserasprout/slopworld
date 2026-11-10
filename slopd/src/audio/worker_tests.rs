@@ -37,19 +37,24 @@ fn failed_opener_start_clears_the_pending_identity_and_allows_retry() {
         tx: tx.clone(),
         factory: factory.clone(),
         output: None,
+        output_format: None,
         source: SourcePhase::Opening(SourceRun {
             source: "fixture".into(),
             generation,
             cancel: cancel.clone(),
         }),
         recovery: OutputRecovery::default(),
+        settings: AudioOutputSettings::default(),
     };
     spawn_open_with(
         OpenRequest {
             source: "fixture".into(),
             generation,
             title,
-            needs_output: true,
+            output: None,
+            output_format: None,
+            settings: AudioOutputSettings::default(),
+            excluded: Vec::new(),
         },
         factory,
         &tx,
@@ -84,6 +89,9 @@ impl AudioOutput for BrokenOutput {
     fn append(&self, _: Box<dyn rodio::Source + Send>) {}
     fn set_volume(&self, _: f32) {}
     fn play(&self) {}
+    fn device_id(&self) -> Option<String> {
+        Some("default".into())
+    }
     fn failed(&self) -> bool {
         true
     }
@@ -121,12 +129,14 @@ fn recovering_worker() -> (AudioWorker, Receiver<WorkerMsg>, Arc<AtomicUsize>) {
             volumes: Mutex::new(Vec::new()),
         }))),
         output: Some(Box::new(BrokenOutput(dropped.clone()))),
+        output_format: None,
         source: SourcePhase::Playing(SourceRun {
             source: control.snapshot().0.unwrap(),
             generation,
             cancel: Arc::new(AtomicBool::new(false)),
         }),
         recovery: OutputRecovery::default(),
+        settings: AudioOutputSettings::default(),
     };
     (worker, rx, dropped)
 }
@@ -143,6 +153,11 @@ fn backend_failure_retires_output_then_reopens_current_source_and_volume() {
     assert_eq!(dropped.load(Ordering::Acquire), 1);
     assert!(cancel.load(Ordering::Acquire));
     assert!(!worker.state.lock().unwrap().playing);
+    assert!(
+        worker.state.lock().unwrap().error.is_none(),
+        "recovery must not trigger client OST fallback"
+    );
+    assert_eq!(worker.recovery.failed_devices, ["default"]);
     worker
         .control
         .volume
@@ -204,7 +219,19 @@ fn request_retired_during_backoff_is_not_restarted() {
 #[test]
 fn stable_output_restores_the_recovery_budget() {
     let (mut worker, _rx, _) = recovering_worker();
-    worker.output = Some(worker.factory.open().unwrap());
+    worker.output = Some(
+        worker
+            .factory
+            .open(
+                &worker.settings,
+                &[],
+                station::AudioFormat {
+                    channels: rodio::ChannelCount::new(2).unwrap(),
+                    rate: rodio::SampleRate::new(44100).unwrap(),
+                },
+            )
+            .unwrap(),
+    );
     worker.recovery.recoveries = MAX_RECOVERIES;
     let now = Instant::now();
     worker.recovery.healthy_since = Some(now);
@@ -443,4 +470,198 @@ fn replacement_during_output_commit_cancels_candidate_without_publishing_stale_s
     assert_eq!(state.title.as_deref(), Some("replacement title"));
     assert!(!state.playing);
     assert!(state.error.is_none());
+}
+
+#[test]
+fn output_change_retires_pending_opener_and_rejects_its_late_completion() {
+    let (mut worker, rx, dropped) = recovering_worker();
+    let (source, generation) = worker.control.snapshot();
+    let source = source.unwrap();
+    let old_cancel = Arc::new(AtomicBool::new(false));
+    worker.source = SourcePhase::Opening(SourceRun {
+        source: source.clone(),
+        generation,
+        cancel: old_cancel.clone(),
+    });
+    let settings = AudioOutputSettings {
+        backend: crate::config::AudioBackend::Pulse,
+        device: String::new(),
+    };
+    worker.configure(settings.clone());
+    assert_eq!(dropped.load(Ordering::Acquire), 1);
+    assert!(old_cancel.load(Ordering::Acquire));
+    let new_cancel = worker.source.opening().unwrap().cancel.clone();
+    // Reapplying an accepted snapshot must not interrupt the replacement opener.
+    worker.configure(settings);
+    assert!(Arc::ptr_eq(
+        &new_cancel,
+        &worker.source.opening().unwrap().cancel
+    ));
+    let stale_dropped = Arc::new(AtomicUsize::new(0));
+    worker.opened(
+        &source,
+        generation,
+        &old_cancel,
+        Err(anyhow::anyhow!("old output")),
+        Some(Box::new(BrokenOutput(stale_dropped.clone()))),
+    );
+    assert_eq!(stale_dropped.load(Ordering::Acquire), 1);
+    assert!(worker.output.is_none());
+    assert!(worker.state.lock().unwrap().error.is_none());
+    worker.handle(rx.recv_timeout(Duration::from_secs(2)).unwrap());
+    assert!(worker.state.lock().unwrap().playing);
+}
+
+#[test]
+fn output_change_after_stop_does_not_restart_radio() {
+    let (mut worker, rx, dropped) = recovering_worker();
+    let generation = worker.control.stop();
+    worker.stop(generation);
+    worker.configure(AudioOutputSettings {
+        backend: crate::config::AudioBackend::Pulse,
+        device: String::new(),
+    });
+    assert_eq!(dropped.load(Ordering::Acquire), 1);
+    assert!(matches!(worker.source, SourcePhase::Idle));
+    assert!(worker.output.is_none());
+    assert!(rx.try_recv().is_err());
+    assert!(!worker.state.lock().unwrap().playing);
+}
+
+#[test]
+fn failed_system_default_is_excluded_from_reopen_without_rejecting_station() {
+    struct FallbackFactory;
+    impl OutputFactory for FallbackFactory {
+        fn open(
+            &self,
+            settings: &AudioOutputSettings,
+            excluded: &[String],
+            format: station::AudioFormat,
+        ) -> anyhow::Result<Box<dyn AudioOutput>> {
+            anyhow::ensure!(
+                settings.backend == crate::config::AudioBackend::Default,
+                "reopen lost backend preference"
+            );
+            anyhow::ensure!(
+                excluded == ["default"],
+                "reopen did not exclude failed default output"
+            );
+            FakeOutputFactory(Arc::new(FakeOutputState {
+                opens: AtomicUsize::new(0),
+                appends: AtomicUsize::new(0),
+                volumes: Mutex::new(Vec::new()),
+            }))
+            .open(settings, excluded, format)
+        }
+    }
+    let (mut worker, rx, _) = recovering_worker();
+    worker.settings.backend = crate::config::AudioBackend::Default;
+    worker.factory = Arc::new(FallbackFactory);
+    let requested = worker.control.snapshot();
+    let now = Instant::now();
+    worker.check_output(now);
+    assert!(worker.state.lock().unwrap().error.is_none());
+    assert_eq!(worker.control.snapshot(), requested);
+    worker.check_output(now + Duration::from_secs(1));
+    worker.handle(rx.recv_timeout(Duration::from_secs(2)).unwrap());
+    let state = worker.state.lock().unwrap();
+    assert!(state.playing);
+    assert!(state.error.is_none());
+    assert_eq!(state.source, requested.0);
+}
+
+struct TrackedOutput(Arc<AtomicUsize>);
+impl Drop for TrackedOutput {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::AcqRel);
+    }
+}
+impl AudioOutput for TrackedOutput {
+    fn append(&self, _: Box<dyn rodio::Source + Send>) {}
+    fn set_volume(&self, _: f32) {}
+    fn play(&self) {}
+}
+
+#[test]
+fn matching_source_format_reuses_output_but_rate_or_channels_change_retires_it_first() {
+    let mono = station::AudioFormat {
+        channels: rodio::ChannelCount::new(1).unwrap(),
+        rate: rodio::SampleRate::new(22050).unwrap(),
+    };
+    let dropped = Arc::new(AtomicUsize::new(0));
+    let output = reuse_or_open_output(
+        Some(Box::new(TrackedOutput(dropped.clone()))),
+        Some(mono),
+        mono,
+        || panic!("matching format must reuse output"),
+    )
+    .unwrap();
+    assert_eq!(dropped.load(Ordering::Acquire), 0);
+    drop(output);
+    for changed in [
+        station::AudioFormat {
+            rate: rodio::SampleRate::new(48000).unwrap(),
+            ..mono
+        },
+        station::AudioFormat {
+            channels: rodio::ChannelCount::new(2).unwrap(),
+            ..mono
+        },
+    ] {
+        let before = dropped.load(Ordering::Acquire);
+        let error = reuse_or_open_output(
+            Some(Box::new(TrackedOutput(dropped.clone()))),
+            Some(mono),
+            changed,
+            || {
+                assert_eq!(
+                    dropped.load(Ordering::Acquire),
+                    before + 1,
+                    "release exclusive PCM before reopening"
+                );
+                anyhow::bail!("replacement unavailable")
+            },
+        )
+        .err()
+        .unwrap();
+        assert!(error.to_string().contains("replacement unavailable"));
+    }
+}
+
+#[test]
+fn opener_passes_decoded_format_to_factory_and_discards_stale_replacement() {
+    struct RecordingFactory(Arc<Mutex<Vec<station::AudioFormat>>>, Arc<AtomicUsize>);
+    impl OutputFactory for RecordingFactory {
+        fn open(
+            &self,
+            _: &AudioOutputSettings,
+            _: &[String],
+            format: station::AudioFormat,
+        ) -> anyhow::Result<Box<dyn AudioOutput>> {
+            self.0
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .push(format);
+            Ok(Box::new(TrackedOutput(self.1.clone())))
+        }
+    }
+    let (mut worker, rx, _) = recovering_worker();
+    let formats = Arc::new(Mutex::new(Vec::new()));
+    let dropped = Arc::new(AtomicUsize::new(0));
+    worker.factory = Arc::new(RecordingFactory(formats.clone(), dropped.clone()));
+    let source = worker.control.snapshot().0.unwrap();
+    let expected = playback::open(&source, station::TitleSink::pending(None, 0))
+        .unwrap()
+        .format;
+    worker.control.stop();
+    let generation = worker.control.play(&source);
+    worker.play(source, generation);
+    let completion = rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(*formats.lock().unwrap(), [expected]);
+    let stopped = worker.control.stop();
+    worker.stop(stopped);
+    worker.handle(completion);
+    assert_eq!(dropped.load(Ordering::Acquire), 1);
+    assert!(worker.output.is_none());
+    assert!(!worker.state.lock().unwrap().playing);
 }

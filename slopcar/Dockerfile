@@ -5,7 +5,7 @@
 FROM rust:1-trixie AS build
 WORKDIR /build/slopd
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libasound2-dev \
+        libasound2-dev libdbus-1-dev \
         pkg-config \
         protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         highlight \
         less \
-        libasound2t64 \
+        libasound2t64 libdbus-1-3 \
         micro \
         openssh-client \
         passt \

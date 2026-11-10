@@ -20,7 +20,7 @@ namespace SlopWorld
             SelectionOptions(
                 "All statuses",
                 Filters.Status,
-                (DelegatedTaskStatus[])Enum.GetValues(typeof(DelegatedTaskStatus)),
+                Enum.GetValues<DelegatedTaskStatus>(),
                 TaskInfo.StatusText
             );
 
@@ -28,7 +28,7 @@ namespace SlopWorld
             SelectionOptions(
                 "All directions",
                 Filters.Direction,
-                (TaskDirection[])Enum.GetValues(typeof(TaskDirection)),
+                Enum.GetValues<TaskDirection>(),
                 direction =>
                     direction == TaskDirection.Incoming ? "Incoming to you"
                     : direction == TaskDirection.Outgoing ? "Sent by you"

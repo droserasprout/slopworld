@@ -133,15 +133,6 @@ namespace SlopWorld
             }
         }
 
-        // A filtered list shows matches in rank order, with the best match first.
-        // Omit group headings to make this order clear.
-        bool Grouped => _filter.Length == 0;
-
-        // Without a filter, recent entries appear first under "Recently".
-        // Other entries appear under their own categories.
-        string GroupOf(int index) =>
-            index < _recentInList ? "Recently" : _matches[index].Command.Group;
-
         // --------------------------------------------------------------- sub list
 
         void DrawSubList(Rect r)

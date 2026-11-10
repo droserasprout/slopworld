@@ -20,7 +20,9 @@ namespace SlopWorld
             Texture2D texture = null;
             try
             {
+#pragma warning disable CA2000 // Success transfers texture ownership; failure releases it through Object.Destroy.
                 texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+#pragma warning restore CA2000
                 if (
                     !texture.LoadImage(bytes, true)
                     || texture.width != width

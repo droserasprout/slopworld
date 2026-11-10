@@ -114,7 +114,7 @@ def test_build_stops_at_failed_stage(monkeypatch: pytest.MonkeyPatch, failed_sta
 
     def invoke(args: list[str]) -> None:
         calls.append(args)
-        if args[4] == failed_stage:
+        if args[3] == failed_stage:
             raise subprocess.CalledProcessError(1, args)
 
     with patch.object(gates, 'run', side_effect=invoke), patch.object(gates, 'validate') as validate:
@@ -125,7 +125,7 @@ def test_build_stops_at_failed_stage(monkeypatch: pytest.MonkeyPatch, failed_sta
             gates.build(release)
         stages = ['generate-all', 'lint', 'test', 'generate-check-protocol', 'build']
         count = stages.index(failed_stage) + 1 if failed_stage else len(stages)
-        assert [call[4] for call in calls] == stages[:count]
+        assert [call[3] for call in calls] == stages[:count]
         assert all(call[:3] == ['/path with spaces/just', 'BUILD=release', 'VERSION=0.0.1'] for call in calls)
         assert validate.call_count == count + (0 if failed_stage else 1)
 

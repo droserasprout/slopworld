@@ -45,20 +45,29 @@ daemon-coverage:
     # Leave a small margin below observed coverage for asynchronous execution variation.
     cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --fail-under-lines 92.70 | tee "$output/rust.files.txt"
 
-# Install the daemon, CLI, launcher and user service
+# Install the daemon, its CLI dependency, and user service
 [group('daemon')]
-daemon-install: daemon-build
+daemon-install: daemon-build cli-install
     uv run --locked python -m tools.host.install_daemon
-    install -Dm755 "$RUNNER" "$BIN/slopworld"
-    uv run --locked python -m tools.cli_completions install slopctl slopworld
 
-# Remove the daemon, CLI, launcher and user service
+# Install the standalone command-line client
+[group('daemon')]
+cli-install: daemon-build
+    install -Dm755 "$SLOPCTL" "$BIN/slopctl"
+    uv run --locked python -m tools.cli_completions install slopctl
+
+# Remove the daemon and user service; retain the independently installed CLI
 [group('daemon')]
 daemon-uninstall:
-    uv run --locked python -m tools.cli_completions uninstall slopctl slopworld
     -systemctl --user disable --now slopd.service
-    rm -f "$UNITS/slopd.service" "$BIN/slopd" "$BIN/slopctl" "$BIN/slopworld"
+    rm -f "$UNITS/slopd.service" "$BIN/slopd"
     systemctl --user daemon-reload
+
+# Remove the standalone command-line client
+[group('daemon')]
+cli-uninstall:
+    uv run --locked python -m tools.cli_completions uninstall slopctl
+    rm -f "$BIN/slopctl"
 
 # Remove component build output
 [group('daemon')]

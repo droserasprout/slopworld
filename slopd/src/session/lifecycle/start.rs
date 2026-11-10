@@ -57,7 +57,7 @@ impl SessionRuntime {
     }
 
     /// Resolve launch inputs, preparing directories and agent credentials for this attempt.
-    async fn prepare_start(&self, name: &str) -> Result<StartPlan> {
+    async fn prepare_start(&self, name: &str, resume: bool) -> Result<StartPlan> {
         let cfg = self.config().await;
         let (mut session, project) = self.resolve_target(&cfg, name).await?;
         if self.tmux.exists(name).await {
@@ -74,12 +74,8 @@ impl SessionRuntime {
                 bail!("Worker {name} needs network access to use the task API.");
             }
         }
-        // New or cleared private state has no conversation to select. Do not open
-        // an empty picker; never infer history from directory/process existence.
-        if session.auto_resume && !super::resume::has_history(&cfg.command_of(&session), &session) {
-            session.auto_resume = false;
-            tracing::info!(session = %name, "starting fresh: no supported saved conversation found");
-        }
+        self.apply_resume_policy(&cfg, name, &mut session, resume)
+            .await?;
         // Reuse terminal dimensions and a valid remembered host directory.
         let (cols, rows, role, host_path, context) = match self.live.read().await.get(name) {
             Some(live) => {
@@ -163,6 +159,36 @@ impl SessionRuntime {
         })
     }
 
+    /// Resolve one-shot recovery separately from process and sandbox preparation.
+    async fn apply_resume_policy(
+        &self,
+        cfg: &Config,
+        name: &str,
+        session: &mut SessionCfg,
+        resume: bool,
+    ) -> Result<()> {
+        if resume {
+            if session.worker || self.is_host(name).await || cfg.session(name).is_none() {
+                bail!("Resume requires a saved, non-worker agent.");
+            }
+            if !super::resume::has_history(&cfg.command_of(session), session) {
+                bail!("No supported saved conversation found for {name}.");
+            }
+            // Override this launch only; accepted configuration remains unchanged.
+            session.auto_resume = true;
+        }
+        // New or cleared private state has no conversation to select. Do not open
+        // an empty picker; never infer history from directory/process existence.
+        if !resume
+            && session.auto_resume
+            && !super::resume::has_history(&cfg.command_of(session), session)
+        {
+            session.auto_resume = false;
+            tracing::info!(session = %name, "starting fresh: no supported saved conversation found");
+        }
+        Ok(())
+    }
+
     /// Create the placeholder pane and persist metadata needed for adoption.
     async fn launch_tmux(self: &Arc<Self>, name: &str, plan: &StartPlan) -> Result<()> {
         // Keep the pane silent until reader attachment to avoid losing early output.
@@ -232,14 +258,26 @@ impl SessionRuntime {
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         let manager = self.clone();
         let name = name.to_owned();
-        self.owned_session_operation(Box::pin(async move { manager.start_inner(&name).await }))
-            .await
+        self.owned_session_operation(Box::pin(
+            async move { manager.start_inner(&name, false).await },
+        ))
+        .await
+    }
+
+    /// Resume once under the same cancellation-safe admission as ordinary startup.
+    pub async fn resume(self: &Arc<Self>, name: &str) -> Result<()> {
+        let manager = self.clone();
+        let name = name.to_owned();
+        self.owned_session_operation(Box::pin(
+            async move { manager.start_inner(&name, true).await },
+        ))
+        .await
     }
 
     /// Prepare, create, attach, then launch; unwind resources on failure.
-    async fn start_inner(self: &Arc<Self>, name: &str) -> Result<()> {
+    async fn start_inner(self: &Arc<Self>, name: &str, resume: bool) -> Result<()> {
         let terminal = self.terminal_boundary(name).write_owned().await;
-        let plan = self.prepare_start(name).await?;
+        let plan = self.prepare_start(name, resume).await?;
         self.start_prepared(name, plan, terminal).await
     }
 

@@ -14,7 +14,7 @@ const DELIVERY_ENTER_GAP: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Ready {
-    Settled,
+    Settled(u64),
     // Startup continues in the background. Only Gone cancels queued typing.
     Timeout,
     Gone,
@@ -23,7 +23,7 @@ enum Ready {
 /// Admission can lose readiness while waiting for the session boundary.
 #[derive(Debug, PartialEq, Eq)]
 enum Admission {
-    Submitted,
+    Submitted(u64),
     Retry,
     Gone,
     Timeout,
@@ -38,9 +38,18 @@ enum DeliveryIntent<'a> {
     Followup(&'a str),
     ScheduledPrompt(&'a str),
     AutoResume,
+    ResumeSelection(u64),
 }
 
 impl DeliveryIntent<'_> {
+    fn input_ready(self, target: &DeliveryTarget, live: &Live) -> bool {
+        match self {
+            // Pickers need not enable bracketed paste or expose a composer cursor.
+            Self::ResumeSelection(after_seq) => live.seq > after_seq,
+            _ => target.input_ready(live),
+        }
+    }
+
     fn requires_idle_turn(self) -> bool {
         matches!(self, Self::ScheduledPrompt(_))
     }
@@ -155,7 +164,7 @@ impl SessionRuntime {
                 tokio::time::Instant::now() + READY_TIMEOUT
             )
             .await,
-            Admission::Submitted
+            Admission::Submitted(_)
         ))
     }
 
@@ -203,7 +212,7 @@ impl SessionRuntime {
             .wait_ready_until(target, tokio::time::Instant::now() + READY_TIMEOUT)
             .await
         {
-            Ready::Settled => Ok(()),
+            Ready::Settled(_) => Ok(()),
             Ready::Timeout => bail!("Worker was not ready; follow-up was not delivered."),
             Ready::Gone => bail!("Worker stopped or restarted; follow-up was not delivered."),
         }
@@ -225,7 +234,7 @@ impl SessionRuntime {
             )
             .await
         {
-            Admission::Submitted => Ok(()),
+            Admission::Submitted(_) => Ok(()),
             Admission::Gone => bail!("Worker stopped or restarted; follow-up was not delivered."),
             Admission::Retry | Admission::Timeout => {
                 bail!("Worker was not ready; follow-up was not delivered.")
@@ -278,12 +287,15 @@ impl SessionRuntime {
         deadline: tokio::time::Instant,
     ) -> Ready {
         loop {
-            match self.wait_ready_until(target, deadline).await {
-                Ready::Settled => {}
+            let seq = match self.wait_ready_for(target, intent, deadline, None).await {
+                Ready::Settled(seq) => seq,
                 outcome => return outcome,
-            }
-            match self.admit_delivery(target, intent, deadline).await {
-                Admission::Submitted => return Ready::Settled,
+            };
+            match self
+                .admit_settled_delivery(target, intent, deadline, Some(seq))
+                .await
+            {
+                Admission::Submitted(seq) => return Ready::Settled(seq),
                 Admission::Gone => return Ready::Gone,
                 Admission::Timeout => return Ready::Timeout,
                 Admission::Retry => {}
@@ -318,8 +330,19 @@ impl SessionRuntime {
         intent: DeliveryIntent<'_>,
         deadline: tokio::time::Instant,
     ) -> Admission {
+        self.admit_settled_delivery(target, intent, deadline, None)
+            .await
+    }
+
+    async fn admit_settled_delivery(
+        self: &Arc<Self>,
+        target: &DeliveryTarget,
+        intent: DeliveryIntent<'_>,
+        deadline: tokio::time::Instant,
+        settled_seq: Option<u64>,
+    ) -> Admission {
         self.session_read_operation(async {
-            {
+            let seq = {
                 let live = self.live.read().await;
                 let Some(current) = live.get(&target.name).filter(|live| target.matches(live))
                 else {
@@ -330,11 +353,13 @@ impl SessionRuntime {
                 }
                 if (intent.requires_idle_turn()
                     && (current.state != State::Idle || current.input.auto_resume_pending))
-                    || !target.input_ready(current)
+                    || !intent.input_ready(target, current)
+                    || settled_seq.is_some_and(|seq| seq != current.seq)
                 {
                     return Admission::Retry;
                 }
-            }
+                current.seq
+            };
             if self.ensure_paste_ready(&target.name).await.is_err() {
                 return Admission::Retry;
             }
@@ -376,6 +401,16 @@ impl SessionRuntime {
                     )
                     .await;
                 }
+                DeliveryIntent::ResumeSelection(_) => {
+                    self.queue_input(
+                        &target.name,
+                        Input::Keys {
+                            keys: vec!["Enter".into()],
+                            literal: false,
+                        },
+                    )
+                    .await;
+                }
                 DeliveryIntent::AutoResume => {
                     // Auto-resume is startup control, excluded from title capture.
                     for input in auto_resume_inputs() {
@@ -383,7 +418,7 @@ impl SessionRuntime {
                     }
                 }
             }
-            Admission::Submitted
+            Admission::Submitted(seq)
         })
         .await
     }
@@ -434,14 +469,39 @@ impl SessionRuntime {
         let submitted = self
             .submit_when_ready(target, DeliveryIntent::AutoResume, deadline)
             .await;
-        let consumed = submitted == Ready::Settled && self.delivery_fence(target, deadline).await;
-        if consumed && self.wait_ready_until(target, deadline).await == Ready::Settled {
+        let confirmed = match submitted {
+            Ready::Settled(seq) if self.delivery_fence(target, deadline).await => {
+                match self
+                    .submit_when_ready(target, DeliveryIntent::ResumeSelection(seq), deadline)
+                    .await
+                {
+                    Ready::Settled(seq) if self.delivery_fence(target, deadline).await => Some(seq),
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+        let restored = if let Some(seq) = confirmed {
+            matches!(
+                self.wait_ready_for(
+                    target,
+                    DeliveryIntent::StartupPrompt(""),
+                    deadline,
+                    Some(seq)
+                )
+                .await,
+                Ready::Settled(_)
+            )
+        } else {
+            false
+        };
+        if restored {
             self.deliver_initial(target).await;
         } else {
             // A stale/empty picker must not leave startup input locked forever.
             // Dismiss only this run; never send Enter again or replay a prompt.
             self.session_read_operation(async {
-                if submitted == Ready::Settled
+                if matches!(submitted, Ready::Settled(_))
                     && self
                         .live
                         .read()
@@ -572,6 +632,17 @@ impl SessionRuntime {
         target: &DeliveryTarget,
         deadline: tokio::time::Instant,
     ) -> Ready {
+        self.wait_ready_for(target, DeliveryIntent::StartupPrompt(""), deadline, None)
+            .await
+    }
+
+    async fn wait_ready_for(
+        &self,
+        target: &DeliveryTarget,
+        intent: DeliveryIntent<'_>,
+        deadline: tokio::time::Instant,
+        after_seq: Option<u64>,
+    ) -> Ready {
         let mut last_seq = u64::MAX;
         let mut still_since = None;
 
@@ -584,7 +655,8 @@ impl SessionRuntime {
                         .as_ref()
                         .map(|s| s.lines.iter().any(|x| !strip_sgr(x).trim().is_empty()))
                         .unwrap_or(false);
-                    let paste_mode = target.input_ready(l);
+                    let paste_mode =
+                        intent.input_ready(target, l) && after_seq.is_none_or(|seq| l.seq > seq);
                     let running = l.state != State::Down || l.capture.reader_token.is_some();
                     (l.seq, printed && paste_mode, running, target.matches(l))
                 })
@@ -606,7 +678,7 @@ impl SessionRuntime {
                 last_seq = seq;
                 still_since = Some(now);
             } else if still_since.is_some_and(|since| now.duration_since(since) >= SETTLE_TIME) {
-                return Ready::Settled;
+                return Ready::Settled(seq);
             }
 
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -617,11 +689,6 @@ impl SessionRuntime {
 fn auto_resume_inputs() -> Vec<Input> {
     vec![
         Input::Bytes(b"/resume".to_vec()),
-        Input::Gap(ENTER_GAP),
-        Input::Keys {
-            keys: vec!["Enter".into()],
-            literal: false,
-        },
         Input::Gap(ENTER_GAP),
         Input::Keys {
             keys: vec!["Enter".into()],

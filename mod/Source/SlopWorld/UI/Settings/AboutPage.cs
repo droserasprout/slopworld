@@ -133,7 +133,15 @@ namespace SlopWorld
                 }
             ),
             new Credit("prost", "Protocol Buffers", "https://github.com/tokio-rs/prost"),
-            new Credit("Rodio", "audio", "https://github.com/RustAudio/rodio"),
+            new Credit(
+                "Rodio / CPAL",
+                "audio",
+                new[]
+                {
+                    new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
+                    new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
+                }
+            ),
             new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
             new Credit(
                 "Support libraries",
@@ -158,15 +166,16 @@ namespace SlopWorld
         static readonly Credit[] ClientLibraries =
         {
             new Credit("C#", "language", "https://learn.microsoft.com/dotnet/csharp/"),
-            new Credit("Mono", "runtime", "https://www.mono-project.com/"),
-            new Credit(
-                "Harmony",
-                "RimWorld patching",
-                "https://github.com/pardeike/HarmonyRimWorld"
-            ),
+            new Credit(".NET", "runtime", "https://github.com/dotnet/runtime"),
+            new Credit("Harmony", "RimWorld patching", "https://github.com/pardeike/Harmony"),
             new Credit("AngleSharp", "HTML", "https://github.com/AngleSharp/AngleSharp"),
             new Credit("Markdig", "markdown", "https://github.com/xoofx/markdig"),
             new Credit("Tomlyn", "TOML configs", "https://github.com/xoofx/Tomlyn"),
+            new Credit(
+                "Tmds.DBus.Protocol",
+                "desktop integration",
+                "https://github.com/tmds/Tmds.DBus"
+            ),
             new Credit("Newtonsoft.Json", "JSON", "https://www.newtonsoft.com/json"),
             new Credit(
                 "Google.Protobuf",
@@ -177,6 +186,7 @@ namespace SlopWorld
 
         static readonly Credit[] Tools =
         {
+            new Credit("X.Org Xlib / libXss", "window and idle control", "https://www.x.org/"),
             new Credit("tmux", "terminal sessions", "https://github.com/tmux/tmux/wiki"),
             new Credit("bubblewrap", "sandboxing", "https://github.com/containers/bubblewrap"),
             new Credit("Git", "version control", "https://git-scm.com/"),
@@ -386,22 +396,13 @@ namespace SlopWorld
         {
             y = NextSection(y);
             y = SectionHeading(r, y, "Built with") + HeadingGap;
-            y = InlineLinkLine(
+            return InlineLinkLine(
                 r,
                 y,
                 "",
                 "RimWorld by Ludeon Studios",
                 "",
                 "https://rimworldgame.com/",
-                RegularFont
-            );
-            return InlineLinkLine(
-                r,
-                y,
-                "",
-                "Unity by Unity Technologies",
-                "",
-                "https://unity.com/",
                 RegularFont
             );
         }
@@ -483,7 +484,6 @@ namespace SlopWorld
             // Keep vertical glyph overflow; labels apply their own horizontal column clip.
             float line = Mathf.Max(UiFont.LineHeight(detailStyle), UiFont.LineHeight(nameStyle));
             float gap = ColumnGap;
-            // Allow three columns within the Settings margins.
             columns = Mathf.Clamp(Mathf.FloorToInt((rect.width + gap) / (200f + gap)), 1, columns);
             int rows = (credits.Length + columns - 1) / columns;
             var widths = new float[columns];

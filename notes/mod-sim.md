@@ -9,6 +9,11 @@ before stopping a fixed snapshot of live processes; connection changes invalidat
 the attempt. Cancellation and failure must not enter `Root.Shutdown`, whose save
 and radio hooks remain the final shutdown boundary. Internal restart/profile
 shutdowns bypass user confirmation.
+The native adapter intercepts both engine-loop close-flag checks before rendering
+stops, clears deferred window-close flags, and leaves engine-requested shutdowns
+alone. The late native lifecycle save hook is only a non-cancellable fallback.
+Final shutdown saves first, then applies the radio preference and bounds the wait
+for its socket write; session-stop acknowledgements precede this boundary.
 The confirmation lists the client's current live sessions when session stopping
 is enabled. Its Don't ask again choice persists only on confirmed quit, before
 shutdown can bypass the profile's timed flush.
@@ -29,7 +34,9 @@ session renames and keeps ephemeral/worker sessions sidebar-only. An exception
 aborts the whole sweep.
 
 Runtime face assignments and pet cooldowns use weak pawn identity. These caches must
-not retain pawns or games; `AgentColony` persists bound face variants in saves.
+not retain pawns or games; `AgentColony` persists bound face variants and clown-nose rolls in saves.
+`RobotFace` rolls the nose on generation and appearance rerolls; older saves default
+to no nose until the next reroll. The head attachment follows faceplate orientation.
 
 [Colony scenes](mod-colony-scenes.md) own intro/departure phases and save interaction.
 [Worksites](mod-worksite.md) use Working state to control construction; completion

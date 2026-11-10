@@ -82,7 +82,7 @@ namespace SlopWorld
         }
     }
 
-    static class UiText
+    static partial class UiText
     {
         public static float PlainStatusLabelHeight(string text, float width) =>
             Verse.Text.CalcHeight(text, width);

@@ -244,8 +244,6 @@ const BUILTIN: &[(&str, &str)] = &[
         "android-debug",
         include_str!("../presets/android-debug.toml"),
     ),
-    ("ios-dev", include_str!("../presets/ios-dev.toml")),
-    ("ios-debug", include_str!("../presets/ios-debug.toml")),
     ("gpg", include_str!("../presets/gpg.toml")),
     ("gpg-agent", include_str!("../presets/gpg-agent.toml")),
     (

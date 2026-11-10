@@ -156,6 +156,7 @@ namespace SlopWorld
             TextFieldSelection.ReleaseFocus();
             GUI.FocusControl(name);
             GUIUtility.keyboardControl = target.Id;
+            FieldKeyboardFocus.Track(_lifetime, name, target.Id);
             RevealTarget(target);
         }
 

@@ -30,6 +30,7 @@ namespace SlopWorld
         {
             Instance = this;
             settings = ProfileSettings.Load();
+            EarlyBootstrap.Install();
         }
     }
 }

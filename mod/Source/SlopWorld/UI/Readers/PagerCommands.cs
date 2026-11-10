@@ -154,7 +154,7 @@ namespace SlopWorld
             string executable = Executable(command, "micro");
             if (
                 !string.Equals(Path.GetFileName(executable), "micro", StringComparison.Ordinal)
-                || command.IndexOf("-clipboard", StringComparison.Ordinal) >= 0
+                || command.Contains("-clipboard", StringComparison.Ordinal)
             )
                 return command;
 
@@ -270,14 +270,19 @@ namespace SlopWorld
             if (git.StartsWith("git ", StringComparison.Ordinal))
             {
                 if (batTheme != null)
-                    git = "git -c delta.minus-style=" + Quote("syntax auto") + git.Substring(3);
-                git =
-                    "git -c delta.line-numbers="
-                    + (lineNumbers ? "true" : "false")
+                    git = string.Concat(
+                        "git -c delta.minus-style=",
+                        Quote("syntax auto"),
+                        git.AsSpan(3)
+                    );
+                git = string.Concat(
+                    "git -c delta.line-numbers=",
+                    lineNumbers ? "true" : "false",
                     // Truncating a line before syntax parsing can drop a closing
                     // quote/comment and corrupt highlighting on following lines.
-                    + " -c delta.max-line-length=0 -c delta.max-syntax-highlighting-length=0"
-                    + git.Substring(3);
+                    " -c delta.max-line-length=0 -c delta.max-syntax-highlighting-length=0",
+                    git.AsSpan(3)
+                );
             }
             string theme = string.IsNullOrEmpty(batTheme)
                 ? ""

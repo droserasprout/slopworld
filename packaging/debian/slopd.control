@@ -1,0 +1,11 @@
+Package: slopd
+Version: {version}
+Architecture: {architecture}
+Section: devel
+Priority: optional
+Maintainer: Lev Gorodetskii <slopworld@drsr.io>
+Homepage: https://github.com/droserasprout/slopworld
+Depends: bash, bat, bubblewrap, git, less, micro, passt, ripgrep, systemd, tmux (>= 3.7), slopctl, {shared_libraries}
+Suggests: highlight, moor, procps, python3-pygments, rtkit
+Description: Linux session daemon for SlopWorld coding agents
+ Does not require RimWorld or the SlopWorld game client.

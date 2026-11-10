@@ -15,7 +15,7 @@ pub(super) use super::title::TitleSink;
 use super::title::monotonic_millis;
 use super::{CONNECT, STREAM_IDLE};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct AudioFormat {
     pub(crate) channels: ChannelCount,
     pub(crate) rate: SampleRate,

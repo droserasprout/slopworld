@@ -58,7 +58,7 @@ fn successful_linux_mod_install_remembers_game_and_failed_install_preserves_it()
 fn non_linux_mod_install_does_not_discover_or_change_linux_default() {
     let root = scratch("non-linux-default");
     let source = mod_source(&root);
-    let mods = root.join("RimWorld.app/Mods");
+    let mods = root.join("custom/Mods");
     fs::create_dir_all(&mods).unwrap();
     super::install_and_remember(&source, &mods, || {
         panic!("non-Linux installation must bypass config discovery")
@@ -256,23 +256,6 @@ fn install_and_uninstall_accept_exact_mods_directory() {
             );
         }
     }
-}
-
-#[test]
-fn mac_default_uses_the_app_bundle_and_allows_a_configured_location() {
-    assert_eq!(
-        super::default_mod_game(true, None).unwrap(),
-        PathBuf::from(crate::expand("~/Documents/RimWorld.app"))
-    );
-    let root = scratch("mac-default");
-    let game = root.join("RimWorld.app");
-    fs::create_dir_all(game.join("Mods")).unwrap();
-    let mods = super::resolve_mods(&Args::default(), None, || {
-        super::default_mod_game(true, game.to_str())
-    })
-    .unwrap();
-    assert_eq!(mods, game.join("Mods"));
-    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

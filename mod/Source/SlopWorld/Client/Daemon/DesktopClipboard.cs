@@ -4,7 +4,6 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Linux selections belong to the game desktop, even when the connected daemon is remote.
-    // macOS retains Unity's local text buffer fallback.
     public static class DesktopClipboard
     {
         static readonly MainThreadCompletions Completions = new MainThreadCompletions(

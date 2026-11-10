@@ -47,19 +47,8 @@ async fn validate_removal_repository(worktree: &Worktree) -> Result<()> {
 
 async fn remove_clean_worktree(worktree: &Worktree) -> Result<()> {
     let path = Path::new(&worktree.path);
-    let status = git(
-        path,
-        &[
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-            "--ignored",
-            "--ignore-submodules=none",
-        ],
-    )
-    .await?;
     anyhow::ensure!(
-        status.is_empty(),
+        !super::inspection::has_local_files(path).await?,
         "The worktree has tracked changes, untracked files, or ignored files. Resolve them before removal."
     );
     let head = git(path, &["rev-parse", "--verify", "HEAD"]).await?;

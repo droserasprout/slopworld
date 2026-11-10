@@ -17,6 +17,7 @@ use super::ring::{FinishedOnDrop, Ring, enqueue_chunk};
 use super::station::{
     AudioFormat, Playlist, TitleSink, local_title, next_playlist_source, open_file, open_source,
 };
+use crate::config::{AudioBackend, AudioOutputSettings};
 
 const PREFILL_SECS: usize = 1;
 
@@ -31,6 +32,9 @@ pub(crate) const NULL_PCM: &str = "null";
 /// Interface between command handling and rodio.
 /// Tests use a simulated mixer to check source generations. Production delegates to the rodio player.
 pub(crate) trait AudioOutput: Send + Sync {
+    fn device_id(&self) -> Option<String> {
+        None
+    }
     fn append(&self, source: Box<dyn Source + Send>);
     fn set_volume(&self, volume: f32);
     fn play(&self);
@@ -45,17 +49,28 @@ pub(crate) trait AudioOutput: Send + Sync {
 }
 
 pub(crate) trait OutputFactory: Send + Sync {
-    fn open(&self) -> Result<Box<dyn AudioOutput>>;
+    fn open(
+        &self,
+        settings: &AudioOutputSettings,
+        excluded: &[String],
+        format: AudioFormat,
+    ) -> Result<Box<dyn AudioOutput>>;
 }
 
 pub(crate) struct RodioOutputFactory;
 
 impl OutputFactory for RodioOutputFactory {
-    fn open(&self) -> Result<Box<dyn AudioOutput>> {
+    fn open(
+        &self,
+        settings: &AudioOutputSettings,
+        excluded: &[String],
+        format: AudioFormat,
+    ) -> Result<Box<dyn AudioOutput>> {
         let health = Arc::new(OutputHealth::new());
-        let sink = open_device_with_health(&health)?;
+        let (id, sink) = open_device_with_health(&health, settings, excluded, Some(format))?;
         Ok(Box::new(RodioOutput {
             _sink: sink,
+            id,
             volume: Arc::new(AtomicU32::new(1.0f32.to_bits())),
             health,
         }))
@@ -63,12 +78,16 @@ impl OutputFactory for RodioOutputFactory {
 }
 
 struct RodioOutput {
+    id: String,
     _sink: rodio::MixerDeviceSink,
     volume: Arc<AtomicU32>,
     health: Arc<OutputHealth>,
 }
 
 impl AudioOutput for RodioOutput {
+    fn device_id(&self) -> Option<String> {
+        Some(self.id.clone())
+    }
     fn source_underruns(&self) -> Arc<AtomicUsize> {
         self.health.source_underruns.clone()
     }
@@ -107,10 +126,21 @@ pub(crate) fn pcm_id(device: &cpal::Device) -> String {
 /// Reject `null` because it discards audio.
 #[cfg(test)]
 pub(crate) fn open_device() -> Result<rodio::MixerDeviceSink> {
-    open_device_with_health(&Arc::new(OutputHealth::new()))
+    open_device_with_health(
+        &Arc::new(OutputHealth::new()),
+        &AudioOutputSettings::default(),
+        &[],
+        None,
+    )
+    .map(|(_, sink)| sink)
 }
 
-fn open_device_with_health(health: &Arc<OutputHealth>) -> Result<rodio::MixerDeviceSink> {
+fn open_device_with_health(
+    health: &Arc<OutputHealth>,
+    settings: &AudioOutputSettings,
+    excluded: &[String],
+    format: Option<AudioFormat>,
+) -> Result<(String, rodio::MixerDeviceSink)> {
     let host = cpal::default_host();
 
     let named: Vec<(String, cpal::Device)> = host
@@ -118,30 +148,113 @@ fn open_device_with_health(health: &Arc<OutputHealth>) -> Result<rodio::MixerDev
         .map(|ds| ds.map(|d| (pcm_id(&d), d)).collect())
         .unwrap_or_default();
 
-    let preferred = SERVER_PCMS
+    let preferred = preferred_ids(settings)
         .into_iter()
-        .filter_map(|want| named.iter().find(|(id, _)| id == want).cloned());
+        .filter(|id| !excluded.contains(id))
+        .filter_map(|want| named.iter().find(|(id, _)| id == &want).cloned());
     let (id, sink) = open_first_available(
         preferred,
         || {
             host.default_output_device()
                 .map(|device| (pcm_id(&device), device))
+                .filter(|(id, _)| !excluded.contains(id))
         },
-        |device| {
-            let health = health.clone();
-            rodio::DeviceSinkBuilder::from_device(device)
-                .and_then(|b| {
-                    b.with_error_callback(move |error| {
-                        health.record(&error);
-                    })
-                    .open_stream()
-                })
-                .map_err(anyhow::Error::from)
-        },
+        |device| open_formatted_device(&device, health, format),
     )?;
 
-    tracing::info!("audio: output device {id:?}");
-    Ok(sink)
+    tracing::info!(
+        device = id,
+        source_format = ?format,
+        output_rate = sink.config().sample_rate().get(),
+        output_channels = sink.config().channel_count().get(),
+        "audio: output opened"
+    );
+    Ok((id, sink))
+}
+
+/// Explicit devices lead the backend fallback policy; automatic prefers sound servers.
+pub(crate) fn preferred_ids(settings: &AudioOutputSettings) -> Vec<String> {
+    let mut ids = Vec::new();
+    if !settings.device.is_empty() && settings.device != NULL_PCM {
+        ids.push(settings.device.clone());
+    }
+    let backends: &[&str] = match settings.backend {
+        AudioBackend::Auto => &SERVER_PCMS,
+        AudioBackend::Pulse => &["pulse", "pipewire", "default"],
+        AudioBackend::Pipewire => &["pipewire", "pulse", "default"],
+        AudioBackend::Default => &["default", "pipewire", "pulse"],
+    };
+    ids.extend(backends.iter().map(|id| (*id).to_owned()));
+    ids
+}
+
+/// Try the decoded format before the device default. Server PCMs can resample directly
+/// to their graph; physical PCMs may need Rodio's supported-format fallback.
+fn open_formatted_device(
+    device: &cpal::Device,
+    health: &Arc<OutputHealth>,
+    format: Option<AudioFormat>,
+) -> Result<rodio::MixerDeviceSink> {
+    open_with_format_fallback(format, |requested| {
+        let mut builder = rodio::DeviceSinkBuilder::from_device(device.clone())?;
+        if let Some(format) = requested {
+            builder = builder
+                .with_sample_rate(format.rate)
+                .with_channels(format.channels)
+                // Do not retain the frame count calculated for CPAL's default rate.
+                .with_buffer_size(cpal::BufferSize::Fixed(output_buffer_frames(format.rate)));
+        }
+        let health = health.clone();
+        builder
+            .with_error_callback(move |error| health.record(&error))
+            .open_stream()
+            .map_err(anyhow::Error::from)
+    })
+}
+
+fn output_buffer_frames(rate: rodio::SampleRate) -> u32 {
+    // Approximately 50 ms, rounded to the nearest power of two, like Rodio's default.
+    let frames = (rate.get() / 20).max(1);
+    let upper = frames.next_power_of_two();
+    let lower = (upper / 2).max(1);
+    if frames - lower < upper - frames {
+        lower
+    } else {
+        upper
+    }
+}
+
+fn open_with_format_fallback<T>(
+    format: Option<AudioFormat>,
+    mut open: impl FnMut(Option<AudioFormat>) -> Result<T>,
+) -> Result<T> {
+    if let Some(format) = format {
+        match open(Some(format)) {
+            Ok(output) => return Ok(output),
+            Err(error) => {
+                tracing::warn!(?format, %error, "audio: source format unavailable; trying device default")
+            }
+        }
+    }
+    open(None)
+}
+
+/// Enumerate host PCM outputs without opening streams or changing routing.
+pub(crate) fn output_devices() -> Result<Vec<(String, String)>> {
+    let host = cpal::default_host();
+    let mut devices = Vec::new();
+    for device in host.output_devices()? {
+        let id = pcm_id(&device);
+        if id.is_empty() || id == NULL_PCM || devices.iter().any(|(existing, _)| existing == &id) {
+            continue;
+        }
+        let name = device
+            .description()
+            .map(|description| description.name().to_owned())
+            .unwrap_or_else(|_| id.clone());
+        devices.push((id, name));
+    }
+    Ok(devices)
 }
 
 /// Enumeration only identifies candidates; a device is usable only after its stream opens.

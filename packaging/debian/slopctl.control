@@ -1,0 +1,11 @@
+Package: slopctl
+Version: {version}
+Architecture: {architecture}
+Section: devel
+Priority: optional
+Maintainer: Lev Gorodetskii <slopworld@drsr.io>
+Homepage: https://github.com/droserasprout/slopworld
+Depends: {shared_libraries}
+Suggests: systemd
+Description: Command-line client for local or remote SlopWorld daemons
+ Does not require RimWorld or the SlopWorld game client.
