@@ -23,6 +23,7 @@ impl OutputFactory for FakeOutputFactory {
         &self,
         _: &crate::config::AudioOutputSettings,
         _: &[String],
+        _: super::station::AudioFormat,
     ) -> anyhow::Result<Box<dyn AudioOutput>> {
         self.0.opens.fetch_add(1, Ordering::AcqRel);
         Ok(Box::new(FakeOutput(self.0.clone())))

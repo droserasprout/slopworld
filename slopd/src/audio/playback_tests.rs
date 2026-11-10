@@ -457,3 +457,46 @@ fn output_preferences_fall_back_without_using_null_or_repeating_devices() {
     assert_eq!(preferred_ids(&settings), ["default", "pipewire", "pulse"]);
     assert_eq!(preferred_ids(&AudioOutputSettings::default()), SERVER_PCMS);
 }
+
+#[test]
+fn source_format_is_preferred_and_only_rejection_uses_device_default() {
+    let format = AudioFormat {
+        channels: rodio::ChannelCount::new(1).unwrap(),
+        rate: rodio::SampleRate::new(22050).unwrap(),
+    };
+    let mut attempts = Vec::new();
+    open_with_format_fallback(Some(format), |requested| {
+        attempts.push(requested);
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(attempts, [Some(format)]);
+    attempts.clear();
+    open_with_format_fallback(Some(format), |requested| {
+        attempts.push(requested);
+        anyhow::ensure!(requested.is_none(), "unsupported format");
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(attempts, [Some(format), None]);
+    let error =
+        open_with_format_fallback::<()>(Some(format), |_| anyhow::bail!("unavailable device"))
+            .unwrap_err();
+    assert!(error.to_string().contains("unavailable device"));
+}
+
+#[test]
+fn output_buffer_duration_stays_bounded_across_source_rates() {
+    for rate in [8000, 22050, 44100, 48000, 96000, 192000] {
+        let frames = output_buffer_frames(rodio::SampleRate::new(rate).unwrap());
+        let milliseconds = f64::from(frames) * 1000.0 / f64::from(rate);
+        assert!(
+            (33.0..=67.0).contains(&milliseconds),
+            "{rate}: {milliseconds} ms"
+        );
+    }
+    assert_eq!(
+        output_buffer_frames(rodio::SampleRate::new(22050).unwrap()),
+        1024
+    );
+}

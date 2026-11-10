@@ -116,6 +116,7 @@ impl OutputFactory for PanicFactory {
         &self,
         _: &crate::config::AudioOutputSettings,
         _: &[String],
+        _: station::AudioFormat,
     ) -> anyhow::Result<Box<dyn playback::AudioOutput>> {
         Ok(Box::new(PanicOutput(self.0.clone())))
     }

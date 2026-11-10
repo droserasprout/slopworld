@@ -40,6 +40,11 @@ recovery budget remain separate. Control owns request identity and narrow playba
 publication operations, registering cancellation before the worker starts an opener.
 CPAL handles ordinary underruns. Audio handoff uses preallocated atomic sample
 blocks: steady-state callbacks must not allocate, free, lock, or wake the feeder.
+Output opening requests the decoded source rate and channel count before falling back
+to the device default. Matching source formats reuse the output; a format change
+retires it before reopening, with buffer frames recalculated for the requested rate.
+The opener owns the output during this handoff; stale completions cannot publish it.
+Source and negotiated output formats are logged so fallback conversion is visible.
 Each fixed-format run gets a separate mixer input, so converter buffers are created
 on the worker rather than rebuilt at callback span boundaries.
 The worker logs aggregated output underruns and source starvation separately.

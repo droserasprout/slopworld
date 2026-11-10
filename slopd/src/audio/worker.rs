@@ -113,6 +113,7 @@ struct AudioWorker {
     tx: Sender<WorkerMsg>,
     factory: Arc<dyn OutputFactory>,
     output: Option<Box<dyn AudioOutput>>,
+    output_format: Option<station::AudioFormat>,
     source: SourcePhase,
     recovery: OutputRecovery,
     settings: AudioOutputSettings,
@@ -135,6 +136,7 @@ pub(super) fn run(
         tx,
         factory,
         output: None,
+        output_format: None,
         source: SourcePhase::Idle,
         recovery: OutputRecovery::default(),
         settings: AudioOutputSettings::default(),
@@ -171,6 +173,7 @@ impl AudioWorker {
                 self.recovery.failed_devices.push(id);
             }
             drop(self.output.take());
+            self.output_format = None;
             self.state
                 .lock()
                 .unwrap_or_else(|p| p.into_inner())
@@ -300,7 +303,6 @@ impl AudioWorker {
             self.control.clone(),
         );
         let cancel = title.cancelled.clone();
-        let needs_output = self.output.is_none();
         let volume = self.control.volume();
         let disposition = self.control.prepare_play(
             &self.state,
@@ -325,12 +327,18 @@ impl AudioWorker {
                     generation,
                     cancel,
                 });
+                self.recovery.healthy_since = None;
+                self.state
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .output_device = None;
                 spawn_open(
                     OpenRequest {
                         source,
                         generation,
                         title,
-                        needs_output,
+                        output: self.output.take(),
+                        output_format: self.output_format.take(),
                         settings: self.settings.clone(),
                         excluded: self.recovery.failed_devices.clone(),
                     },
@@ -350,6 +358,7 @@ impl AudioWorker {
         // completion cannot restore the old device, even when source generation is unchanged.
         self.source.retire();
         drop(self.output.take());
+        self.output_format = None;
         self.state
             .lock()
             .unwrap_or_else(|p| p.into_inner())
@@ -404,6 +413,7 @@ impl AudioWorker {
         }
 
         if let Some(opened_output) = opened_output {
+            self.output_format = result.as_ref().ok().map(|opened| opened.format);
             self.state
                 .lock()
                 .unwrap_or_else(|p| p.into_inner())
@@ -483,9 +493,27 @@ struct OpenRequest {
     source: String,
     generation: u64,
     title: station::TitleSink,
-    needs_output: bool,
+    output: Option<Box<dyn AudioOutput>>,
+    output_format: Option<station::AudioFormat>,
     settings: AudioOutputSettings,
     excluded: Vec<String>,
+}
+
+/// Drop an incompatible output before opening another: physical PCMs may be exclusive.
+/// The opener owns this handoff, and stale completions are discarded by cancellation identity.
+fn reuse_or_open_output(
+    output: Option<Box<dyn AudioOutput>>,
+    previous_format: Option<station::AudioFormat>,
+    format: station::AudioFormat,
+    open: impl FnOnce() -> anyhow::Result<Box<dyn AudioOutput>>,
+) -> anyhow::Result<Box<dyn AudioOutput>> {
+    if let Some(output) = output {
+        if previous_format == Some(format) && !output.failed() {
+            return Ok(output);
+        }
+        drop(output);
+    }
+    open()
 }
 
 fn spawn_open(request: OpenRequest, factory: Arc<dyn OutputFactory>, tx: &Sender<WorkerMsg>) {
@@ -507,7 +535,8 @@ fn spawn_open_with(
         source,
         generation,
         title,
-        needs_output,
+        output,
+        output_format,
         settings,
         excluded,
     } = request;
@@ -519,13 +548,12 @@ fn spawn_open_with(
     let spawned = spawn(Box::new(move || {
         let (result, output) = match playback::open(&thread_source, title) {
             Ok(opened) => {
-                if needs_output {
-                    match factory.open(&settings, &excluded) {
-                        Ok(output) => (Ok(opened), Some(output)),
-                        Err(error) => (Err(error), None),
-                    }
-                } else {
-                    (Ok(opened), None)
+                let output = reuse_or_open_output(output, output_format, opened.format, || {
+                    factory.open(&settings, &excluded, opened.format)
+                });
+                match output {
+                    Ok(output) => (Ok(opened), Some(output)),
+                    Err(error) => (Err(error), None),
                 }
             }
             Err(error) => (Err(error), None),

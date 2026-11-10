@@ -47,7 +47,11 @@ fn a_fake_output_factory_can_commit_a_probed_source() {
     let title = TitleSink::pending(Some(Arc::new(Mutex::new(AudioState::default()))), 0);
     let opened = super::playback::open(&source, title).unwrap();
     let output = FakeOutputFactory(state.clone())
-        .open(&crate::config::AudioOutputSettings::default(), &[])
+        .open(
+            &crate::config::AudioOutputSettings::default(),
+            &[],
+            opened.format,
+        )
         .unwrap();
     let committed = super::playback::commit(opened, output.as_ref(), 0.73)
         .unwrap()

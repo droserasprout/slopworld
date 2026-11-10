@@ -37,6 +37,7 @@ fn failed_opener_start_clears_the_pending_identity_and_allows_retry() {
         tx: tx.clone(),
         factory: factory.clone(),
         output: None,
+        output_format: None,
         source: SourcePhase::Opening(SourceRun {
             source: "fixture".into(),
             generation,
@@ -50,7 +51,8 @@ fn failed_opener_start_clears_the_pending_identity_and_allows_retry() {
             source: "fixture".into(),
             generation,
             title,
-            needs_output: true,
+            output: None,
+            output_format: None,
             settings: AudioOutputSettings::default(),
             excluded: Vec::new(),
         },
@@ -127,6 +129,7 @@ fn recovering_worker() -> (AudioWorker, Receiver<WorkerMsg>, Arc<AtomicUsize>) {
             volumes: Mutex::new(Vec::new()),
         }))),
         output: Some(Box::new(BrokenOutput(dropped.clone()))),
+        output_format: None,
         source: SourcePhase::Playing(SourceRun {
             source: control.snapshot().0.unwrap(),
             generation,
@@ -216,7 +219,19 @@ fn request_retired_during_backoff_is_not_restarted() {
 #[test]
 fn stable_output_restores_the_recovery_budget() {
     let (mut worker, _rx, _) = recovering_worker();
-    worker.output = Some(worker.factory.open(&worker.settings, &[]).unwrap());
+    worker.output = Some(
+        worker
+            .factory
+            .open(
+                &worker.settings,
+                &[],
+                station::AudioFormat {
+                    channels: rodio::ChannelCount::new(2).unwrap(),
+                    rate: rodio::SampleRate::new(44100).unwrap(),
+                },
+            )
+            .unwrap(),
+    );
     worker.recovery.recoveries = MAX_RECOVERIES;
     let now = Instant::now();
     worker.recovery.healthy_since = Some(now);
@@ -521,6 +536,7 @@ fn failed_system_default_is_excluded_from_reopen_without_rejecting_station() {
             &self,
             settings: &AudioOutputSettings,
             excluded: &[String],
+            format: station::AudioFormat,
         ) -> anyhow::Result<Box<dyn AudioOutput>> {
             anyhow::ensure!(
                 settings.backend == crate::config::AudioBackend::Default,
@@ -535,7 +551,7 @@ fn failed_system_default_is_excluded_from_reopen_without_rejecting_station() {
                 appends: AtomicUsize::new(0),
                 volumes: Mutex::new(Vec::new()),
             }))
-            .open(settings, excluded)
+            .open(settings, excluded, format)
         }
     }
     let (mut worker, rx, _) = recovering_worker();
@@ -552,4 +568,100 @@ fn failed_system_default_is_excluded_from_reopen_without_rejecting_station() {
     assert!(state.playing);
     assert!(state.error.is_none());
     assert_eq!(state.source, requested.0);
+}
+
+struct TrackedOutput(Arc<AtomicUsize>);
+impl Drop for TrackedOutput {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::AcqRel);
+    }
+}
+impl AudioOutput for TrackedOutput {
+    fn append(&self, _: Box<dyn rodio::Source + Send>) {}
+    fn set_volume(&self, _: f32) {}
+    fn play(&self) {}
+}
+
+#[test]
+fn matching_source_format_reuses_output_but_rate_or_channels_change_retires_it_first() {
+    let mono = station::AudioFormat {
+        channels: rodio::ChannelCount::new(1).unwrap(),
+        rate: rodio::SampleRate::new(22050).unwrap(),
+    };
+    let dropped = Arc::new(AtomicUsize::new(0));
+    let output = reuse_or_open_output(
+        Some(Box::new(TrackedOutput(dropped.clone()))),
+        Some(mono),
+        mono,
+        || panic!("matching format must reuse output"),
+    )
+    .unwrap();
+    assert_eq!(dropped.load(Ordering::Acquire), 0);
+    drop(output);
+    for changed in [
+        station::AudioFormat {
+            rate: rodio::SampleRate::new(48000).unwrap(),
+            ..mono
+        },
+        station::AudioFormat {
+            channels: rodio::ChannelCount::new(2).unwrap(),
+            ..mono
+        },
+    ] {
+        let before = dropped.load(Ordering::Acquire);
+        let error = reuse_or_open_output(
+            Some(Box::new(TrackedOutput(dropped.clone()))),
+            Some(mono),
+            changed,
+            || {
+                assert_eq!(
+                    dropped.load(Ordering::Acquire),
+                    before + 1,
+                    "release exclusive PCM before reopening"
+                );
+                anyhow::bail!("replacement unavailable")
+            },
+        )
+        .err()
+        .unwrap();
+        assert!(error.to_string().contains("replacement unavailable"));
+    }
+}
+
+#[test]
+fn opener_passes_decoded_format_to_factory_and_discards_stale_replacement() {
+    struct RecordingFactory(Arc<Mutex<Vec<station::AudioFormat>>>, Arc<AtomicUsize>);
+    impl OutputFactory for RecordingFactory {
+        fn open(
+            &self,
+            _: &AudioOutputSettings,
+            _: &[String],
+            format: station::AudioFormat,
+        ) -> anyhow::Result<Box<dyn AudioOutput>> {
+            self.0
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .push(format);
+            Ok(Box::new(TrackedOutput(self.1.clone())))
+        }
+    }
+    let (mut worker, rx, _) = recovering_worker();
+    let formats = Arc::new(Mutex::new(Vec::new()));
+    let dropped = Arc::new(AtomicUsize::new(0));
+    worker.factory = Arc::new(RecordingFactory(formats.clone(), dropped.clone()));
+    let source = worker.control.snapshot().0.unwrap();
+    let expected = playback::open(&source, station::TitleSink::pending(None, 0))
+        .unwrap()
+        .format;
+    worker.control.stop();
+    let generation = worker.control.play(&source);
+    worker.play(source, generation);
+    let completion = rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(*formats.lock().unwrap(), [expected]);
+    let stopped = worker.control.stop();
+    worker.stop(stopped);
+    worker.handle(completion);
+    assert_eq!(dropped.load(Ordering::Acquire), 1);
+    assert!(worker.output.is_none());
+    assert!(!worker.state.lock().unwrap().playing);
 }

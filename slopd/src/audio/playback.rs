@@ -53,6 +53,7 @@ pub(crate) trait OutputFactory: Send + Sync {
         &self,
         settings: &AudioOutputSettings,
         excluded: &[String],
+        format: AudioFormat,
     ) -> Result<Box<dyn AudioOutput>>;
 }
 
@@ -63,9 +64,10 @@ impl OutputFactory for RodioOutputFactory {
         &self,
         settings: &AudioOutputSettings,
         excluded: &[String],
+        format: AudioFormat,
     ) -> Result<Box<dyn AudioOutput>> {
         let health = Arc::new(OutputHealth::new());
-        let (id, sink) = open_device_with_health(&health, settings, excluded)?;
+        let (id, sink) = open_device_with_health(&health, settings, excluded, Some(format))?;
         Ok(Box::new(RodioOutput {
             _sink: sink,
             id,
@@ -128,6 +130,7 @@ pub(crate) fn open_device() -> Result<rodio::MixerDeviceSink> {
         &Arc::new(OutputHealth::new()),
         &AudioOutputSettings::default(),
         &[],
+        None,
     )
     .map(|(_, sink)| sink)
 }
@@ -136,6 +139,7 @@ fn open_device_with_health(
     health: &Arc<OutputHealth>,
     settings: &AudioOutputSettings,
     excluded: &[String],
+    format: Option<AudioFormat>,
 ) -> Result<(String, rodio::MixerDeviceSink)> {
     let host = cpal::default_host();
 
@@ -155,20 +159,16 @@ fn open_device_with_health(
                 .map(|device| (pcm_id(&device), device))
                 .filter(|(id, _)| !excluded.contains(id))
         },
-        |device| {
-            let health = health.clone();
-            rodio::DeviceSinkBuilder::from_device(device)
-                .and_then(|b| {
-                    b.with_error_callback(move |error| {
-                        health.record(&error);
-                    })
-                    .open_stream()
-                })
-                .map_err(anyhow::Error::from)
-        },
+        |device| open_formatted_device(&device, health, format),
     )?;
 
-    tracing::info!("audio: output device {id:?}");
+    tracing::info!(
+        device = id,
+        source_format = ?format,
+        output_rate = sink.config().sample_rate().get(),
+        output_channels = sink.config().channel_count().get(),
+        "audio: output opened"
+    );
     Ok((id, sink))
 }
 
@@ -186,6 +186,57 @@ pub(crate) fn preferred_ids(settings: &AudioOutputSettings) -> Vec<String> {
     };
     ids.extend(backends.iter().map(|id| (*id).to_owned()));
     ids
+}
+
+/// Try the decoded format before the device default. Server PCMs can resample directly
+/// to their graph; physical PCMs may need Rodio's supported-format fallback.
+fn open_formatted_device(
+    device: &cpal::Device,
+    health: &Arc<OutputHealth>,
+    format: Option<AudioFormat>,
+) -> Result<rodio::MixerDeviceSink> {
+    open_with_format_fallback(format, |requested| {
+        let mut builder = rodio::DeviceSinkBuilder::from_device(device.clone())?;
+        if let Some(format) = requested {
+            builder = builder
+                .with_sample_rate(format.rate)
+                .with_channels(format.channels)
+                // Do not retain the frame count calculated for CPAL's default rate.
+                .with_buffer_size(cpal::BufferSize::Fixed(output_buffer_frames(format.rate)));
+        }
+        let health = health.clone();
+        builder
+            .with_error_callback(move |error| health.record(&error))
+            .open_stream()
+            .map_err(anyhow::Error::from)
+    })
+}
+
+fn output_buffer_frames(rate: rodio::SampleRate) -> u32 {
+    // Approximately 50 ms, rounded to the nearest power of two, like Rodio's default.
+    let frames = (rate.get() / 20).max(1);
+    let upper = frames.next_power_of_two();
+    let lower = (upper / 2).max(1);
+    if frames - lower < upper - frames {
+        lower
+    } else {
+        upper
+    }
+}
+
+fn open_with_format_fallback<T>(
+    format: Option<AudioFormat>,
+    mut open: impl FnMut(Option<AudioFormat>) -> Result<T>,
+) -> Result<T> {
+    if let Some(format) = format {
+        match open(Some(format)) {
+            Ok(output) => return Ok(output),
+            Err(error) => {
+                tracing::warn!(?format, %error, "audio: source format unavailable; trying device default")
+            }
+        }
+    }
+    open(None)
 }
 
 /// Enumerate host PCM outputs without opening streams or changing routing.
