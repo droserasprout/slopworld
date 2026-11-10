@@ -308,25 +308,25 @@ namespace SlopWorld
             );
         }
 
-        // Place beside the parent, never over it. Prefer the right side, then the left, and
-        // narrow to the roomier side when neither can hold the requested width. Recompute
-        // every frame because scrolling or edge clamping can move the anchor row.
+        // Recompute after scrolling, resizing or asynchronous option updates.
         void Place()
         {
-            var p = _parent.windowRect;
-            float roomRight = UI.screenWidth - p.xMax;
-            float roomLeft = p.x;
-
-            bool onRight = _want.x <= roomRight || roomRight >= roomLeft;
-            float w = Mathf.Min(_want.x, Mathf.Max(onRight ? roomRight : roomLeft, MinW));
-            float x = onRight ? p.xMax - Slab.LineW : p.x - w + Slab.LineW;
-
-            windowRect = new Rect(
-                Mathf.Max(0f, x),
-                Mathf.Max(0f, Mathf.Min(_anchor, UI.screenHeight - _want.y)),
-                w,
-                _want.y
+            windowRect = MenuPlacement.Place(
+                _parent.windowRect,
+                AncestorBounds(),
+                _want,
+                _anchor,
+                UI.screenWidth,
+                UI.screenHeight,
+                MinW,
+                Slab.LineW
             );
+        }
+
+        IEnumerable<Rect> AncestorBounds()
+        {
+            for (var menu = _parent; menu != null; menu = menu._parent)
+                yield return menu.windowRect;
         }
 
         public override void DoWindowContents(Rect rect)
