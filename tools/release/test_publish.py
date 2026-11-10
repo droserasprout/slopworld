@@ -252,22 +252,25 @@ def test_native_packages_are_included_in_checksums_and_outputs(inputs: Path, tmp
 
     with (
         patch(
-            'tools.release.container.package',
-            side_effect=lambda distribution, directory, *args: native(
-                'slopworld-1.0.0-'
-                + {'arch': 'x86_64.pkg.tar.zst', 'debian': 'amd64.deb', 'fedora': 'x86_64.rpm'}[distribution]
-            )(directory),
+            'tools.release.container.package_native',
+            side_effect=lambda distribution, directory, *args: [
+                native(
+                    f'{product}-1.0.0-'
+                    + {'arch': 'x86_64.pkg.tar.zst', 'debian': 'amd64.deb', 'fedora': 'x86_64.rpm'}[distribution]
+                )(directory)
+                for product in staging.NATIVE_PRODUCTS
+            ],
         ),
     ):
         assets = publish.package(output, 'revision', '1.0.0', notes='Release notes\n', native_packages=True)
     names = [path.name for path in assets]
-    assert names[1:4] == [
-        'slopworld-1.0.0-x86_64.pkg.tar.zst',
-        'slopworld-1.0.0-amd64.deb',
-        'slopworld-1.0.0-x86_64.rpm',
+    assert names[1:10] == [
+        f'{product}-1.0.0-{suffix}'
+        for suffix in ('x86_64.pkg.tar.zst', 'amd64.deb', 'x86_64.rpm')
+        for product in staging.NATIVE_PRODUCTS
     ]
     assert names[-1] == 'SHA256SUMS'
-    assert len(assets[-1].read_text().splitlines()) == 9
+    assert len(assets[-1].read_text().splitlines()) == 15
     for line in assets[-1].read_text().splitlines():
         digest, name = line.split('  ')
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
@@ -289,13 +292,13 @@ def test_native_package_failure_preserves_entire_previous_release(
 
     failing = False
 
-    def container_package(distribution: str, directory: Path, *args: object) -> Path:
+    def container_package(distribution: str, directory: Path, *args: object) -> list[Path]:
         if failing and distribution == failed_package:
             raise ValueError('native build failed')
-        return native(distribution + '.archive')(directory)
+        return [native(distribution + f'-{product}.archive')(directory) for product in staging.NATIVE_PRODUCTS]
 
     with (
-        patch('tools.release.container.package', side_effect=container_package),
+        patch('tools.release.container.package_native', side_effect=container_package),
     ):
         assets = publish.package(output, 'revision', '1.0.0', notes='Previous notes\n', native_packages=True)
         previous = {path.name: path.read_bytes() for path in (*assets, output / 'release-notes.md')}

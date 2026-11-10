@@ -1,6 +1,17 @@
 SlopWorld on Debian 13+ and Ubuntu 26.10+
 =======================================
 
+Packages have separate owners: slopworld contains the game launcher, mod and assets;
+slopd contains the daemon and user service and requires slopctl; slopctl is a
+standalone local/remote CLI. Install all three for a local native setup, only
+slopworld on a remote game desktop, or only slopd and slopctl on a server.
+For a container setup, install slopworld and the independent slopcar launcher.
+Run the game/mod steps below on the client and service steps on the server.
+The tmux, pager and server audio dependencies belong to slopd; fontconfig and
+clipboard helpers belong to slopworld. Configuration and user data are preserved
+when removing any individual package.
+
+
 SlopWorld requires tmux 3.7 or newer for emoji widths and terminal state
 recovery. Debian 13 ships tmux 3.5a: enable trixie-backports and install
 tmux/trixie-backports. Debian testing (forky), unstable (sid), and Ubuntu 26.10

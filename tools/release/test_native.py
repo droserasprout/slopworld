@@ -3,6 +3,7 @@
 import platform
 import subprocess
 from pathlib import Path
+from unittest.mock import call
 from unittest.mock import patch
 
 import pytest
@@ -42,9 +43,10 @@ def test_local_build_precedes_packaging(
         else:
             native.main()
             assert commands[-1] == ['just', 'BUILD=release', 'VERSION=1.0.0', 'build']
-            package.assert_called_once_with(
-                tmp_path, 'revision', '1.0.0', 'amd64' if distribution == 'debian' else 'x86_64'
-            )
+            assert package.call_args_list == [
+                call(tmp_path, 'revision', '1.0.0', 'amd64' if distribution == 'debian' else 'x86_64', product=product)
+                for product in ('slopworld', 'slopd', 'slopctl')
+            ]
 
 
 @pytest.mark.parametrize('distribution', ['arch', 'debian', 'fedora'])
@@ -75,6 +77,14 @@ def test_stage_only_uses_supplied_inputs_without_building(
     ):
         native.main()
         assert all(call.args[0] == ['dpkg', '--print-architecture'] for call in run.call_args_list)
-        package.assert_called_once_with(
-            tmp_path, 'revision', '1.0.0', 'amd64' if distribution == 'debian' else 'x86_64', tmp_path
-        )
+        assert package.call_args_list == [
+            call(
+                tmp_path,
+                'revision',
+                '1.0.0',
+                'amd64' if distribution == 'debian' else 'x86_64',
+                tmp_path,
+                product=product,
+            )
+            for product in ('slopworld', 'slopd', 'slopctl')
+        ]

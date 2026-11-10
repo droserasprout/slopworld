@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 from tools import ROOT
+from tools.release import staging
 from tools.release.arch import arch_version
 from tools.release.debian import debian_version
 from tools.release.fedora import rpm_version
@@ -25,22 +26,36 @@ def package(
     product: str = 'slopworld',
     architecture: str = 'amd64',
 ) -> Path:
-    if product not in ('slopworld', 'slopcar') or architecture not in ('amd64', 'arm64'):
-        raise ValueError('Unsupported product or architecture')
+    return package_products(distribution, output, revision, version, product=product, architecture=architecture)[0]
+
+
+def package_native(distribution: str, output: Path, revision: str, version: str) -> list[Path]:
+    """Build once per distribution, then publish the three native products together."""
+    return package_products(distribution, output, revision, version, product='native')
+
+
+def archive_names(distribution: str, version: str, product: str, architecture: str) -> tuple[str, str]:
     machine = 'x86_64' if architecture == 'amd64' else 'aarch64'
-    if distribution == 'arch' and architecture != 'amd64':
-        raise ValueError('Arch packages require amd64')
     if distribution == 'arch':
+        if architecture != 'amd64':
+            raise ValueError('Arch packages require amd64')
         arch_version(version)
-        generated_name = archive_name = f'{product}-{version}-{machine}.pkg.tar.zst'
-    elif distribution == 'debian':
-        generated_name = f'{product}_{debian_version(version)}_{architecture}.deb'
-        archive_name = f'{product}-{version}-{architecture}.deb'
-    elif distribution == 'fedora':
-        generated_name = f'{product}-{rpm_version(version)}-1.{machine}.rpm'
-        archive_name = f'{product}-{version}-{machine}.rpm'
-    else:
-        raise ValueError(f'Unsupported distribution: {distribution}')
+        name = f'{product}-{version}-{machine}.pkg.tar.zst'
+        return name, name
+    if distribution == 'debian':
+        return f'{product}_{debian_version(version)}_{architecture}.deb', f'{product}-{version}-{architecture}.deb'
+    if distribution == 'fedora':
+        return f'{product}-{rpm_version(version)}-1.{machine}.rpm', f'{product}-{version}-{machine}.rpm'
+    raise ValueError(f'Unsupported distribution: {distribution}')
+
+
+def package_products(
+    distribution: str, output: Path, revision: str, version: str, *, product: str, architecture: str = 'amd64'
+) -> list[Path]:
+    if product not in ('native', *staging.PRODUCTS) or architecture not in ('amd64', 'arm64'):
+        raise ValueError('Unsupported product or architecture')
+    products = staging.NATIVE_PRODUCTS if product == 'native' else (product,)
+    names = [archive_names(distribution, version, name, architecture) for name in products]
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     # Fresh output prevents stale package reuse; the same filesystem allows atomic rename.
@@ -51,12 +66,17 @@ def package(
         # to reach its own writable staging directory. TemporaryDirectory is 0700.
         workspace.chmod(0o755)
         compile_package(ROOT, distribution, workspace, revision, version, product=product, architecture=architecture)
-        generated = workspace / generated_name
-        if not generated.is_file() or generated.stat().st_size == 0:
-            raise ValueError(f'Missing or empty container package: {generated_name}')
-        archive = output / archive_name
-        generated.replace(archive)
-    return archive
+        # Validate the whole set before replacing any previous artifact.
+        for generated_name, _ in names:
+            generated = workspace / generated_name
+            if not generated.is_file() or generated.stat().st_size == 0:
+                raise ValueError(f'Missing or empty container package: {generated_name}')
+        archives = []
+        for generated_name, archive_name in names:
+            archive = output / archive_name
+            (workspace / generated_name).replace(archive)
+            archives.append(archive)
+    return archives
 
 
 def compile_package(

@@ -5,41 +5,25 @@
 # The mod half links against the game's own assemblies, so RIMWORLD must point at
 # a real Linux install (default ~/.local/share/Steam/steamapps/common/RimWorld, override in the environment).
 
-pkgname=slopworld-git
+pkgbase=slopworld-git
+pkgname=('slopworld-git' 'slopd-git' 'slopctl-git')
 pkgver=0.0.14.r0.gHEAD
 pkgrel=1
 pkgdesc="RimWorld with the colony sim replaced by live AI coding agents (git)"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('MIT')
-depends=('alsa-lib' 'bash' 'bat' 'bubblewrap' 'dbus' 'fontconfig' 'git' 'less' 'micro' 'passt' 'ripgrep' 'systemd' 'tmux>=3.7' 'xclip')
-makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv')
-optdepends=(
-  'rtkit: real-time jukebox audio scheduling'
-  'glib2: desktop application associations and portal access'
-  'gtk3: native Open With chooser'
-  'highlight: alternative syntax highlighter'
-  'moor: recommended pager'
-  'ncspot: Spotify playback'
-  'procps-ng: fallback process inspection'
-  'python-gobject: native Open With chooser'
-  'python-pygments: alternative syntax highlighter'
-  'songrec: jukebox song recognition'
-  'xdg-desktop-portal: Open With fallback (requires a desktop portal backend)'
-  'xsel: clipboard and PRIMARY selection (fallback)'
-)
-provides=('slopworld' 'slopd')
-conflicts=('slopworld')
+makedepends=('cargo' 'git' 'dotnet-sdk' 'lld' 'just' 'protobuf' 'python' 'uv' 'alsa-lib' 'dbus' 'systemd')
 options=('!strip' '!debug')
-source=("$pkgname::git+https://github.com/droserasprout/slopworld.git#branch=main")
+source=("$pkgbase::git+https://github.com/droserasprout/slopworld.git#branch=main")
 sha256sums=('SKIP')
-install=slopworld.install
+source "$startdir/packages.sh"
 
 : "${RIMWORLD:=$HOME/.local/share/Steam/steamapps/common/RimWorld}"
 _managed="${MANAGED:-$RIMWORLD}"
 
 pkgver() {
-  cd "$srcdir/$pkgname" || return
+  cd "$srcdir/$pkgbase" || return
   local _v
   _v="$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)"
   printf '%s.r%s.g%s' "$_v" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
@@ -50,7 +34,7 @@ prepare() {
     echo "no RimWorld install at $RIMWORLD; set RIMWORLD=<path>" >&2
     return 1
   }
-  cd "$srcdir/$pkgname" || return
+  cd "$srcdir/$pkgbase" || return
   # Keep daemon, mod and check versions identical even across a UTC date change.
   python -m tools.version.mod_version \
     > .slopworld-build-version
@@ -60,7 +44,7 @@ prepare() {
 }
 
 build() {
-  cd "$srcdir/$pkgname" || return
+  cd "$srcdir/$pkgbase" || return
   local _version
   _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
@@ -68,7 +52,7 @@ build() {
 }
 
 check() {
-  cd "$srcdir/$pkgname" || return
+  cd "$srcdir/$pkgbase" || return
   local _version
   _version="$(cat .slopworld-build-version)"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
@@ -76,28 +60,30 @@ check() {
   cargo test --release --frozen
 }
 
-package() {
-  cd "$srcdir/$pkgname" || return
+package_slopworld-git() {
+  pkgdesc="${_slopworld_desc}"
+  depends=("${_slopworld_depends[@]}")
+  optdepends=("${_slopworld_optional[@]}")
+  provides=('slopworld')
+  conflicts=('slopworld')
+  install=slopworld.install
+  _package_native slopworld
+}
 
-  install -Dm755 target/release/slopd "$pkgdir/usr/bin/slopd"
-  install -Dm755 target/release/slopctl "$pkgdir/usr/bin/slopctl"
-  install -Dm755 target/release/slopworld "$pkgdir/usr/bin/slopworld"
+package_slopd-git() {
+  pkgdesc="${_slopd_desc}"
+  depends=("${_slopd_depends[@]}" 'slopctl-git')
+  optdepends=("${_slopd_optional[@]}")
+  provides=('slopd')
+  conflicts=('slopd')
+  _package_native slopd
+}
 
-  install -Dm644 slopd/slopd.service "$pkgdir/usr/lib/systemd/user/slopd.service"
-  sed -i 's|%h/.local/bin/slopd|/usr/bin/slopd|' \
-    "$pkgdir/usr/lib/systemd/user/slopd.service"
-
-  local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
-  UV_OFFLINE=true just package-stage-mod "$_mod"
-  find "$_mod" -type d -exec chmod 755 {} +
-  find "$_mod" -type f -exec chmod 644 {} +
-
-  install -Dm644 packaging/slopworld.desktop \
-    "$pkgdir/usr/share/applications/slopworld.desktop"
-  install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png \
-    "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
-
-  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  cp -r licenses "$pkgdir/usr/share/licenses/$pkgname/third-party"
+package_slopctl-git() {
+  pkgdesc="${_slopctl_desc}"
+  depends=("${_slopctl_depends[@]}")
+  optdepends=("${_slopctl_optional[@]}")
+  provides=('slopctl')
+  conflicts=('slopctl')
+  _package_native slopctl
 }

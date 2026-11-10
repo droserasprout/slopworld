@@ -64,7 +64,18 @@ assembly path. See
 [C# tests](test-csharp.md) for game-free coverage and [IPC benchmarks](../bench/ipc/README.md)
 for benchmark scope. Saved reports live under `bench/results/`.
 
-`tools/release/staging.py` owns shared payloads and runtime DLL allowlists. Package
+`tools/release/staging.py` owns product payloads and runtime DLL allowlists.
+Native distribution builds compile once and emit three packages: `slopworld`
+owns the mod/assets, launcher and desktop integration; `slopd` owns the daemon
+and service and depends on `slopctl`; `slopctl` owns the independent CLI and its
+completions. `slopcar` remains a fourth, independent host launcher package.
+Packages have disjoint file ownership and retain coordinated versions. Each
+native product carries canonical notices under its own documentation/license
+path; notice inventories remain conservative while the Rust crate is shared.
+Arch runtime metadata and source payload ownership live in `packaging/arch/packages.sh`.
+Source installs mirror these owners: `daemon-install` includes `cli-install`,
+`install-mod` installs the launcher, and `daemon-uninstall` retains the CLI.
+The root `install`/`uninstall` recipes combine native components. Package
 only tracked runtime assets and [notices](core-attribution.md). Build Debian packages
 on the target distribution; RPM discovery must exclude private mod assemblies.
 Container output publishes only after checks pass. Its temporary mount needs 0755

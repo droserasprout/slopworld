@@ -112,7 +112,10 @@ tag to use the verifiable CI flow. Local commands never commit changes or move t
 
 ## Distribution packages
 
-These commands build a local package without publishing or installing it.
+These commands compile once and build separate `slopworld`, `slopd`, and `slopctl`
+packages without publishing or installing them. `slopcar` remains independently packaged.
+Use `just package-product debian slopctl` (or another distro/product) to build only
+one package. Server and CLI packaging do not build the mod.
 Each needs the [build prerequisites](build.md#prerequisites) and its distribution's
 native packaging tools. The installed game supplies compilation references; set `MANAGED` to select
 a separate assembly directory. Commit changes before
@@ -129,7 +132,7 @@ Install `base-devel` and `bubblewrap` on Arch, then run:
 just package-arch
 ```
 
-The package goes to `dist/arch/`; override with `ARCH_DIR`.
+The packages go to `dist/arch/`; override with `ARCH_DIR`.
 
 ### Debian packages
 
@@ -139,7 +142,7 @@ Install `libasound2-dev` and `dpkg-dev` on Debian or Ubuntu, then run:
 just package-debian
 ```
 
-The package goes to `dist/debian/`; override with `DEB_DIR`.
+The packages go to `dist/debian/`; override with `DEB_DIR`.
 
 ### Fedora packages
 
@@ -149,6 +152,6 @@ Install `alsa-lib-devel`, `rpm-build`, and `redhat-rpm-config` on Fedora, then r
 just package-fedora
 ```
 
-The package goes to `dist/fedora/`; override with `RPM_DIR`.
+The packages go to `dist/fedora/`; override with `RPM_DIR`.
 Follow [Linux installation](../installation/linux.md) to install a package,
 attach the mod, and start the daemon.

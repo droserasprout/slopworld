@@ -16,6 +16,7 @@ from tools.release import changelog
 from tools.release import gates
 from tools.release import publish
 from tools.release import sidecar
+from tools.release import staging
 from tools.utils import command
 from tools.utils import log
 from tools.utils import run
@@ -61,9 +62,11 @@ def preflight(release: gates.Release) -> None:
 def asset_names(version: str) -> list[str]:
     return [
         f'slopworld-{version}-mod.zip',
-        f'slopworld-{version}-x86_64.pkg.tar.zst',
-        f'slopworld-{version}-amd64.deb',
-        f'slopworld-{version}-x86_64.rpm',
+        *(
+            f'{product}-{version}-{suffix}'
+            for suffix in ('x86_64.pkg.tar.zst', 'amd64.deb', 'x86_64.rpm')
+            for product in staging.NATIVE_PRODUCTS
+        ),
         *(name for architecture in sidecar.ARCHITECTURES for name in sidecar.asset_names(version, architecture)),
         'SHA256SUMS',
         'release-notes.md',

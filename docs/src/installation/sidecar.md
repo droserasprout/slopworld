@@ -10,6 +10,10 @@ remains on the host and connects to the sidecar over a loopback port.
 Sidecar mode disables desktop file opening, daemon audio (radio and Spotify),
 and per-session resource limits. The bundled soundtrack still plays in the game.
 
+The game host needs the `slopworld` client package and `slopcar` launcher package.
+It does not need the native `slopd` package; the image contains the daemon and CLI.
+Install `slopctl` separately if you want CLI access from the host.
+
 ## Install the host launcher
 
 The minimum supported host-library baseline is **Debian 13 (Trixie)**. Use a

@@ -16,6 +16,7 @@ def test_local_source_snapshot_excludes_build_output_and_keeps_sources(
     root = tmp_path / 'checkout'
     start = root / 'packaging/arch'
     staging.copy_file(Path(__file__).parents[2] / 'packaging/arch/PKGBUILD.local', start / 'PKGBUILD.local')
+    staging.copy_file(Path(__file__).parents[2] / 'packaging/arch/packages.sh', start / 'packages.sh')
     excluded = (
         'slopd/target',
         'slopcar/target',
@@ -72,6 +73,7 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     shutil.copytree(Path(__file__).parents[2] / 'packaging/completions', root / 'packaging/completions')
     for relative in (
         'packaging/arch/PKGBUILD.local',
+        'packaging/arch/packages.sh',
         'packaging/arch/slopworld.install',
         'packaging/slopworld.desktop',
         'README.md',
@@ -100,7 +102,9 @@ def test_real_arch_package_metadata_and_safe_payload(tmp_path: Path, monkeypatch
     result = execute(['bsdtar', '-tf', str(archive)], capture_output=True, text=True)
     assert '.BUILDINFO' in result.stdout and '.MTREE' in result.stdout
     assert 'usr/share/slopworld/SlopWorld/VERSION' in result.stdout
-    assert 'usr/bin/slopd' in result.stdout
+    assert 'usr/bin/slopworld' in result.stdout
+    assert 'usr/bin/slopd' not in result.stdout
+    assert 'usr/bin/slopctl' not in result.stdout
 
 
 def test_repeated_builds_and_failed_validation_preserve_published_package(

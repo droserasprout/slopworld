@@ -31,7 +31,7 @@ def package(
     mod: Path | None = None,
     product: str = 'slopworld',
 ) -> Path:
-    if product not in ('slopworld', 'slopcar'):
+    if product not in staging.PRODUCTS:
         raise ValueError(f'Unsupported product: {product}')
     arch_version(version)
     if architecture != 'x86_64':
@@ -64,18 +64,27 @@ def build_archive(
     if product == 'slopcar':
         staging.stage_sidecar(payload, binary_dir, revision, version)
     else:
-        assert mod is not None
-        staging.stage_system(payload, binary_dir)
-        shutil.copytree(mod, payload / 'usr/share/slopworld/SlopWorld')
-        staging.copy_file(ROOT / 'README.md', payload / 'usr/share/doc/slopworld/README.md')
-        staging.stage_notices(payload)
-        staging.copy_file(ROOT / 'packaging/arch/slopworld.install', workspace / 'slopworld.install')
+        staging.stage_system(payload, binary_dir, product)
+        if product == 'slopworld':
+            assert mod is not None
+            shutil.copytree(mod, payload / 'usr/share/slopworld/SlopWorld')
+            staging.copy_file(ROOT / 'packaging/arch/slopworld.install', workspace / 'slopworld.install')
+        staging.copy_file(ROOT / 'README.md', payload / f'usr/share/doc/{product}/README.md')
+        staging.metadata(payload / f'usr/share/doc/{product}', revision, version)
+        staging.stage_notices(payload, f'usr/share/licenses/{product}/LICENSE')
+    if product != 'slopcar':
+        staging.copy_file(ROOT / 'packaging/arch/packages.sh', workspace / 'packages.sh')
     # The metadata and install hook stay owned by PKGBUILD.local. The trusted
     # repository file is sourced by Bash, as it is for ordinary makepkg builds.
     (workspace / 'PKGBUILD').write_text(
         f'source "$RELEASE_SOURCE/packaging/arch/{"PKGBUILD.slopcar" if product == "slopcar" else "PKGBUILD.local"}"\n'
-        'unset -f pkgver prepare build check\n'
-        'pkgver="$RELEASE_VERSION"\n'
+        'unset -f pkgver prepare build check package_slopworld package_slopd package_slopctl\n'
+        + (
+            f'unset pkgname\npkgname={product}\npkgbase={product}\n_package_metadata {product}\n'
+            if product != 'slopcar'
+            else ''
+        )
+        + 'pkgver="$RELEASE_VERSION"\n'
         'package() { cp -r --preserve=mode,timestamps "$startdir/payload/." "$pkgdir/"; }\n'
     )
     environment = os.environ.copy()

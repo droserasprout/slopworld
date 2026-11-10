@@ -9,6 +9,7 @@ from tools import ROOT
 from tools.release import arch
 from tools.release import debian
 from tools.release import fedora
+from tools.release import staging
 from tools.utils import log
 from tools.utils import run
 from tools.utils import run_main
@@ -19,7 +20,7 @@ from tools.version.resolve import from_git
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('distribution', choices=('arch', 'debian', 'fedora'))
-    parser.add_argument('--product', choices=('slopworld', 'slopcar'), default='slopworld')
+    parser.add_argument('--product', choices=('native', *staging.PRODUCTS), default='native')
     parser.add_argument('--stage-only', action='store_true')
     parser.add_argument('--binary-dir', type=Path)
     parser.add_argument('--output', type=Path)
@@ -39,9 +40,13 @@ def main() -> None:
         architecture = platform.machine()
     if architecture not in supported:
         raise ValueError(f'Unsupported {args.distribution} architecture: {architecture}')
-    extra = {'product': args.product} if args.product == 'slopcar' else {}
+    products = staging.NATIVE_PRODUCTS if args.product == 'native' else (args.product,)
     if args.stage_only:
-        result = packager.package(args.output, args.revision, args.version, architecture, args.binary_dir, **extra)
+        for product in products:
+            result = packager.package(
+                args.output, args.revision, args.version, architecture, args.binary_dir, product=product
+            )
+            log(f'{args.distribution} package: {result}')
     else:
         # Probe native tools before compiling against this distribution's libraries.
         for tool in tools:
@@ -54,14 +59,17 @@ def main() -> None:
                 os.environ['JUST_CMD'],
                 'BUILD=release',
                 f'VERSION={version}',
-                'sidecar-build' if args.product == 'slopcar' else 'build',
+                'sidecar-build'
+                if args.product == 'slopcar'
+                else ('build' if 'slopworld' in products else 'daemon-build'),
             ]
         )
         output = Path(os.environ.get(output_setting, f'dist/{args.distribution}'))
         if not output.is_absolute():
             output = ROOT / output
-        result = packager.package(output, revision, version, architecture, **extra)
-    log(f'{args.distribution} package: {result}')
+        for product in products:
+            result = packager.package(output, revision, version, architecture, product=product)
+            log(f'{args.distribution} package: {result}')
 
 
 if __name__ == '__main__':

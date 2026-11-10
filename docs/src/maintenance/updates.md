@@ -8,7 +8,7 @@ For a source checkout, see [Build from source](../development/build.md).
 
 See the [Changelog](../resources/changelog.md) for changes in each release.
 
-To update, download the replacement package and follow the
+To update, download the replacement packages for the components you installed and follow the
 [package installation](../installation/linux.md#get-binaries) steps. Refresh the installed
 mod, then reload and restart the daemon as your
 normal user:
@@ -26,7 +26,8 @@ Your existing agent/shell sessions in tmux keep running.
 
 ## Removing
 
-Before removing the package, close all tmux sessions, stop the daemon, and uninstall the mod:
+For a full local uninstall, close all tmux sessions, stop the daemon, and uninstall the mod.
+On client-only or server-only machines, run only the steps for installed components:
 
 ```sh
 # Disable daemon, unlink mod
@@ -36,13 +37,13 @@ slopworld mod uninstall
 # Uninstall package
 
 ## Debian / Ubuntu
-sudo apt remove slopworld
+sudo apt remove slopworld slopd slopctl
 
 ## Arch
-sudo pacman -R slopworld
+sudo pacman -R slopworld slopd slopctl
 
 ## Fedora
-sudo dnf remove slopworld
+sudo dnf remove slopworld slopd slopctl
 ```
 
 Per-user configuration, sessions, and saves are preserved; see [Paths and files](../reference/paths.md).
