@@ -28,7 +28,7 @@ builds the mod ZIP and Arch, Debian, and Fedora packages. Executables are
 distributed as distro packages; the mod ZIP supports manual game installation.
 Separate native amd64 and arm64 jobs build independent
 `slopcar` Debian/Fedora packages; the amd64 job also builds its Arch package. The final bundle
-includes all launcher packages and their checksums. The sidecar host-library
+includes all launcher packages, the standalone `install.py` installer, and their checksums. The sidecar host-library
 baseline is Debian 13, using the existing Trixie builder for DEBs and native
 Fedora/Arch builders for those formats. Native
 packages compile in their distribution containers. The build consumes committed

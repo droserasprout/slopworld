@@ -62,6 +62,9 @@ def package(
                     for name in sidecar.asset_names(version, architecture):
                         staging.copy_file(sidecar_directory / name, workspace / name)
                 names.extend(sidecar.asset_names(version, architecture))
+        if native_packages:
+            staging.copy_file(ROOT / 'tools/host/release_installer.py', workspace / 'install.py')
+            names.append('install.py')
         checksums = []
         for name in names:
             with (workspace / name).open('rb') as stream:

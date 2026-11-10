@@ -3,7 +3,7 @@ Version: {version}
 Section: utils
 Priority: optional
 Architecture: {architecture}
-Maintainer: Lev Gorodetskii <aur@drsr.io>
+Maintainer: Lev Gorodetskii <slopworld@drsr.io>
 Depends: {shared_libraries}, docker.io | docker-ce-cli
 Homepage: https://github.com/droserasprout/slopworld
 Description: Host launcher for the SlopWorld Linux sidecar

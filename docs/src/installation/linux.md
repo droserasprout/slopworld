@@ -10,6 +10,66 @@ for the role of each machine. To run it in a container, see
 - **RimWorld 1.7** installed separately. Locate the folder containing the `RimWorld` binary.
 - **Runtime dependencies**, including Bubblewrap, passt, and tmux 3.7+. The package manager installs these.
 
+## Interactive installer
+
+Download `install.py` from the
+[latest release](https://github.com/droserasprout/slopworld/releases/latest), then run:
+
+```sh
+python3 install.py
+```
+
+The installer requires Python 3.10 or newer, with no additional Python packages.
+If Python is missing, install `python3` with apt or dnf, or `python` with pacman.
+It selects Debian/Ubuntu, Fedora, or Arch packages using the distribution identity
+and ancestry, including derivatives such as CachyOS. For unrecognized distributions,
+it detects apt, dnf, or pacman; ambiguous detection stops with an error. Package
+library requirements and distribution-specific prerequisites below still apply.
+
+Use Up/Down to move between component checkboxes and Space to toggle them.
+Press Enter to apply changes, or Q/Esc to cancel. If terminal controls are
+unavailable, the installer falls back to numbered toggles.
+Installed components are preselected and their versions are shown alongside the
+target release. **Unchecking an installed component uninstalls it.** Selecting
+`slopd` also selects its required `slopctl` package. On ARM64, only `slopcar` is
+available, on Debian/Ubuntu and Fedora.
+
+The installer downloads the selected packages and checksums from one GitHub release
+into a private directory under `/tmp`, verifies every package, and invokes the
+system package manager. Run it as your normal user; it uses `sudo` for installation.
+The package manager shows its transaction and resolves runtime dependencies.
+Temporary downloads are removed on completion, failure, or cancellation.
+Checksums detect damaged downloads; they do not independently establish provenance.
+See [release verification](../development/releases.md#verify-a-download) for attestation checks.
+
+Run it again to update selected components. Add `--version VERSION` to an
+explicit `--install` command to select a specific stable release. Installation does not attach the mod or start
+services; continue with [Attach the mod and launch](#attach-the-mod-and-launch).
+
+### Without the menu
+
+Explicit actions skip the menu and leave unmentioned components unchanged:
+
+```sh
+python3 install.py --install slopworld slopd
+python3 install.py --remove slopd slopctl
+python3 install.py --install slopcar --remove slopd
+```
+
+`--install` installs or updates; selecting `slopd` also installs/updates `slopctl`.
+To remove `slopctl` while `slopd` is installed, remove both. Removal preserves user
+configuration and does not request dependency cleanup or purge. Removing packages
+does not detach an already attached game mod.
+
+Running without arguments opens the menu. Any arguments select noninteractive
+mode and require `--install` or `--remove` (except `--help`). Package-manager
+prompts are accepted automatically; existing configuration is retained. Sudo uses
+`-n` and fails if authentication is needed, so authenticate beforehand with
+`sudo -v` or run with sufficient privileges. `--no-tui` is an optional explicit
+marker for this mode. Removal-only commands do not contact GitHub. Mixed commands verify and
+install downloads before removing packages. These are separate transactions: if
+removal fails, successful installations remain applied.
+
 ## Get binaries
 
 Install a Linux binary package from the

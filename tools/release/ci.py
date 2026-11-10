@@ -68,6 +68,7 @@ def asset_names(version: str) -> list[str]:
             for product in staging.NATIVE_PRODUCTS
         ),
         *(name for architecture in sidecar.ARCHITECTURES for name in sidecar.asset_names(version, architecture)),
+        'install.py',
         'SHA256SUMS',
         'release-notes.md',
     ]

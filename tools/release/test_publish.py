@@ -28,6 +28,9 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         for name in sidecar.asset_names(version, architecture):
             (directory / name).write_bytes(b'sidecar package')
 
+    installer = root / 'tools/host/release_installer.py'
+    installer.parent.mkdir(parents=True)
+    shutil.copyfile(Path(__file__).parents[1] / 'host/release_installer.py', installer)
     monkeypatch.setattr(sidecar, 'build', fake_sidecar)
     monkeypatch.setattr(publish, 'ROOT', root)
     monkeypatch.setattr(staging, 'ROOT', root)
@@ -269,8 +272,9 @@ def test_native_packages_are_included_in_checksums_and_outputs(inputs: Path, tmp
         for suffix in ('x86_64.pkg.tar.zst', 'amd64.deb', 'x86_64.rpm')
         for product in staging.NATIVE_PRODUCTS
     ]
-    assert names[-1] == 'SHA256SUMS'
-    assert len(assets[-1].read_text().splitlines()) == 15
+    assert names[-2:] == ['install.py', 'SHA256SUMS']
+    assert (output / 'install.py').read_bytes() == (inputs / 'tools/host/release_installer.py').read_bytes()
+    assert len(assets[-1].read_text().splitlines()) == 16
     for line in assets[-1].read_text().splitlines():
         digest, name = line.split('  ')
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()

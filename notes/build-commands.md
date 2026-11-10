@@ -94,3 +94,14 @@ project and build configuration through `dotnet run --no-build`, so framework
 changes cannot select stale binaries.
 
 `mod-clean` removes the mod DLL and all mod, runtime-package, and test project bin/obj directories.
+
+`tools/host/release_installer.py` is a standalone standard-library-only Python entry
+point shipped as `install.py` in native release bundles, covered by checksums and
+attestations. Keep it independent of checkout imports. It owns component selection
+and downloads; native package managers own installation and dependency resolution.
+Host detection prefers OS identity and ancestry, then an unambiguous installed
+package manager. Checkbox selection describes desired installation state; cancellation
+is distinct from an empty selection. Explicit CLI actions leave unmentioned products
+unchanged. Any CLI arguments select noninteractive mode with non-prompting sudo;
+only an argument-free invocation opens the menu. Downloads and installation finish before removals; the transactions are
+not jointly atomic. It does not attach the mod or change service lifecycle.
