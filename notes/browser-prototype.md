@@ -2,7 +2,9 @@
 
 [`experiments/browser/`](../experiments/browser/README.md) owns the local-only
 Waylith/RimWorld WASM investigation. `just/browser.just` exposes its checks.
-Production mod startup, daemon runtime, and packaging remain independent.
+Production mod startup and daemon runtime remain independent. `slopweb/` owns the
+installed launcher; `tools/release/slopweb.py` stages redistributable tools and mod
+UI content. Local game preparation belongs to the launcher, never package staging.
 Installed assemblies, derived assets, saves, and reports stay in ignored output.
 
 The workspace starts in loaded Entry without creating a game, world, or map.
@@ -29,6 +31,12 @@ the socket rather than blocking the browser thread. Shutdown flush reports false
 while a write is pending. [Client](mod-client.md) and [wire](protocol-wire.md)
 contracts still apply.
 
+BrowserTerminalSize admits resize requests only when local requested geometry,
+the session run, or transport generation changes. Screen dimensions can reflect
+another client's legitimate resize; they are not an acknowledgment to retry
+forever. This browser boundary prevents fights with an already-running desktop
+client without changing the daemon or requiring that game client to restart.
+
 ## Entry workspace and GUI
 
 BrowserWorkspace pumps engine time, client completions, SessionHub, and the real
@@ -54,6 +62,8 @@ null map selection in Entry. Ordinary metadata joins session-only row eligibilit
 without changing SessionInfo or wire data. BrowserModContent mounts authored
 textures/themes after Core startup using the real ModContentPack/content holder.
 Host PNG decoding supplies readable Unity pixels; ContentFinder retains lookup.
+BrowserAvatars supplies authored robot faceplates for session-only agent rows,
+using a stable name hash for color. No pawn creation or simulation is involved.
 
 BrowserModKeys loads authored KeyBindings.xml through Verse's XML/reference loader
 after Core, assigns the real mod content pack, and binds only ModDefOf key fields.
@@ -83,11 +93,17 @@ UTF-16 units stay in one batch until the actual terminal input flush. Modifier
 shortcuts use physical keys; ordinary text does not duplicate physical keydown.
 Printable events retain their physical key on the same text-bearing event so native
 binding capture can identify a letter without generating a second character.
-Focus loss clears native button capture as well as GUI focus. Clipboard and full IME
-remain incomplete. BrowserInput/input.js separately feed Waylith and Unity device
+Focus loss clears native button capture as well as GUI focus. BrowserClipboard
+replaces desktop clipboard operations while retaining native paste callbacks and
+their pane/run guards. DOM paste supplies text once; both GUI and physical input
+adapters must allow the browser's Ctrl+V default action. Copy/context-menu dispatch
+flushes during user activation. Async permission failure clears the native fallback
+buffer; PRIMARY remains local. Clipboard images and full IME remain incomplete.
+BrowserInput/input.js separately feed Waylith and Unity device
 state. The end-to-end harness sends DOM input only into its newly created temporary
 host shells, observes the actual SessionHub ScreenBuf, and removes only those
-shells. Existing coding-agent attachment is read-only; host credentials remain
+shells. Clipboard checks use a real Chromium Ctrl+V shortcut and verify native
+selection against the browser clipboard. Existing coding-agent attachment is read-only; host credentials remain
 outside diagnostic scripts and reports.
 
 Workspace runs disable managed debugging by default so Mono's Jiterpreter can run.

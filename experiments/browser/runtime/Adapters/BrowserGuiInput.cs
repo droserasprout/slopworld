@@ -24,6 +24,11 @@ public static class BrowserGuiInput
         foreach (var item in json.RootElement.EnumerateArray())
         {
             var kind = item.GetProperty("kind").GetString();
+            if (kind == "clipboard")
+            {
+                BrowserClipboard.Supply(item.GetProperty("text").GetString() ?? "");
+                continue;
+            }
             if (kind == "reset")
             {
                 // Installed ResetGlobalState resets drawing state, not pointer capture.
@@ -88,6 +93,7 @@ public static class BrowserGuiInput
             Event.current = ev;
             GUIUtility.ResetControlIds();
             draw();
+            BrowserClipboard.EndEvent();
             target.Discard(); // Input passes change state; only repaint commands are presented.
         }
         GUI.matrix = Matrix4x4.identity;

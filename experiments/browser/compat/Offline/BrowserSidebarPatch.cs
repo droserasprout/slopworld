@@ -7,6 +7,27 @@ internal static class BrowserSidebarPatch
     {
         using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
         var adapter = adapters.MainModule.GetType("BrowserAdapters.BrowserSidebar");
+        var label = mod
+            .MainModule.GetType("SlopWorld.SidebarRowRenderer")
+            .Methods.Single(m => m.Name == "DrawGhostLabel");
+        if (
+            !label.IsStatic
+            || label.Parameters[0].ParameterType.FullName != "UnityEngine.Rect"
+            || label.Parameters[1].ParameterType.FullName != "SlopWorld.SessionInfo"
+        )
+            throw new InvalidOperationException("Session row avatar boundary changed");
+        var portrait = adapters
+            .MainModule.GetType("BrowserAdapters.BrowserAvatars")
+            .Methods.Single(m => m.Name == "Draw");
+        var labelIl = label.Body.GetILProcessor();
+        var labelStart = label.Body.Instructions[0];
+        labelIl.InsertBefore(labelStart, Instruction.Create(OpCodes.Ldarg_0));
+        labelIl.InsertBefore(labelStart, Instruction.Create(OpCodes.Ldarg_1));
+        labelIl.InsertBefore(
+            labelStart,
+            Instruction.Create(OpCodes.Call, mod.MainModule.ImportReference(portrait))
+        );
+        labelIl.InsertBefore(labelStart, Instruction.Create(OpCodes.Starg, label.Parameters[0]));
         var strip = mod.MainModule.GetType("SlopWorld.ColonistBarStrip");
         foreach (var (name, replacement) in new[] { ("Draw", "Draw"), ("get_BarShown", "Visible") })
         {

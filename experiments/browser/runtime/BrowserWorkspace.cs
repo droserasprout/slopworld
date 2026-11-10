@@ -5,6 +5,14 @@ using System.Text.Json;
 public partial class Probe
 {
     [JSExport]
+    public static string ClipboardTake() =>
+        (string)Invoke("Adapters", "BrowserAdapters.BrowserClipboard", "Take")!;
+
+    [JSExport]
+    public static void ClipboardComplete(int id, string text, string error) =>
+        Invoke("Adapters", "BrowserAdapters.BrowserClipboard", "Complete", id, text, error);
+
+    [JSExport]
     public static string WorkspaceState() =>
         (string)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Snapshot")!;
 

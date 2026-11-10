@@ -81,6 +81,7 @@ import 'just/trace.just'
 import 'just/sidecar.just'
 import 'just/game.just'
 import 'just/browser.just'
+import 'just/web.just'
 
 # Install the mod and its launcher
 [group('Build and run')]

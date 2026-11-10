@@ -2,7 +2,10 @@
 
 Use `just` to discover recipes and `just --show RECIPE` to inspect them.
 The local-only [browser prototype](browser-prototype.md) has separate experimental
-recipes and is excluded from production builds and packaging.
+recipes. The independent `slopweb` product packages its browser tooling and mod UI
+assets; the installed launcher prepares game-derived files in the user's private
+cache. `package-web` selects Arch, Debian, or Fedora without adding browser builds
+to the ordinary native product group. [slopweb](../slopweb/README.md) owns usage.
 [Build from source](../docs/src/development/build.md) owns setup and validation;
 [releases](../docs/src/development/releases.md) owns publication procedures.
 
@@ -70,7 +73,7 @@ for benchmark scope. Saved reports live under `bench/results/`.
 Native distribution builds compile once and emit three packages: `slopworld`
 owns the mod/assets, launcher and desktop integration; `slopd` owns the daemon
 and service and depends on `slopctl`; `slopctl` owns the independent CLI and its
-completions. `slopcar` remains a fourth, independent host launcher package.
+completions. `slopcar` and `slopweb` are independent sidecar and browser packages.
 Packages have disjoint file ownership and retain coordinated versions. Each
 native product carries canonical notices under its own documentation/license
 path; notice inventories remain conservative while the Rust crate is shared.

@@ -12,8 +12,17 @@ from tools import cli_completions
 from tools.utils import run
 
 NATIVE_PRODUCTS = ('slopworld', 'slopd', 'slopctl')
-PRODUCTS = (*NATIVE_PRODUCTS, 'slopcar')
+PRODUCTS = (*NATIVE_PRODUCTS, 'slopcar', 'slopweb')
 BINARIES = NATIVE_PRODUCTS
+
+
+def stage_slopweb(payload: Path, revision: str, version: str, bundle: Path | None = None) -> None:
+    from tools.release import slopweb
+
+    slopweb.stage(payload, revision, version, bundle or slopweb.OUTPUT)
+    normalize_permissions(payload, payload / 'usr/bin')
+
+
 MOD_DIRECTORIES = ('About', 'Defs', 'Patches', 'Sounds', 'Textures', 'Themes')
 MOD_ASSEMBLIES = (
     'SlopWorld',

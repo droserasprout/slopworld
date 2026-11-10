@@ -1,0 +1,12 @@
+# Release staging supplies redistributable tools only, never local game data.
+pkgname=slopweb
+pkgver=0
+pkgrel=1
+pkgdesc='Local browser Eco workspace for SlopWorld coding agents'
+arch=('x86_64')
+url='https://github.com/droserasprout/slopworld'
+license=('MIT')
+depends=('nodejs>=22' 'python>=3.11' 'dotnet-runtime>=10')
+optdepends=('slopd: local agent session daemon')
+options=('!strip' '!debug')
+source=()

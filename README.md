@@ -74,6 +74,10 @@ slopworld
 
 `RIMWORLD` defaults to `~/.local/share/Steam/steamapps/common/RimWorld`.
 
+For the local browser Eco workspace, use `just slopweb-install`, then `slopweb`.
+See [slopweb installation and packaging](slopweb/README.md). It runs without loading
+a colony and prepares game files privately from your own installation.
+
 Always start the "game" with `slopworld`. The mod only activates in a separate profile and should stay disabled in vanilla installation.
 
 ## License

@@ -299,3 +299,7 @@ browser-workspace-ui-check profile:
 [group('browser prototype')]
 browser-workspace-e2e-check profile:
     PROBE_EVALUATE_TIMEOUT_MS=120000 just browser-evaluate {{quote(profile)}} experiments/browser/harness/workspace-e2e.js
+
+[group('browser prototype')]
+browser-clipboard-check profile:
+    PROBE_CLIPBOARD=1 PROBE_EVALUATE_TIMEOUT_MS=120000 just browser-evaluate {{quote(profile)}} experiments/browser/harness/workspace-e2e.js

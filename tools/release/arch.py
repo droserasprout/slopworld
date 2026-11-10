@@ -47,7 +47,15 @@ def package(
         archive = build_archive(
             workspace,
             version,
-            binary_dir or ROOT / ('slopcar/target/release' if product == 'slopcar' else 'slopd/target/release'),
+            binary_dir
+            or ROOT
+            / (
+                'slopweb/out'
+                if product == 'slopweb'
+                else 'slopcar/target/release'
+                if product == 'slopcar'
+                else 'slopd/target/release'
+            ),
             mod,
             revision=revision,
             product=product,
@@ -63,6 +71,8 @@ def build_archive(
     payload = workspace / 'payload'
     if product == 'slopcar':
         staging.stage_sidecar(payload, binary_dir, revision, version)
+    elif product == 'slopweb':
+        staging.stage_slopweb(payload, revision, version, binary_dir)
     else:
         staging.stage_system(payload, binary_dir, product)
         if product == 'slopworld':
@@ -72,16 +82,16 @@ def build_archive(
         staging.copy_file(ROOT / 'README.md', payload / f'usr/share/doc/{product}/README.md')
         staging.metadata(payload / f'usr/share/doc/{product}', revision, version)
         staging.stage_notices(payload, f'usr/share/licenses/{product}/LICENSE')
-    if product != 'slopcar':
+    if product not in ('slopcar', 'slopweb'):
         staging.copy_file(ROOT / 'packaging/arch/packages.sh', workspace / 'packages.sh')
     # The metadata and install hook stay owned by PKGBUILD.local. The trusted
     # repository file is sourced by Bash, as it is for ordinary makepkg builds.
     (workspace / 'PKGBUILD').write_text(
-        f'source "$RELEASE_SOURCE/packaging/arch/{"PKGBUILD.slopcar" if product == "slopcar" else "PKGBUILD.local"}"\n'
+        f'source "$RELEASE_SOURCE/packaging/arch/{"PKGBUILD." + product if product in ("slopcar", "slopweb") else "PKGBUILD.local"}"\n'
         'unset -f pkgver prepare build check package_slopworld package_slopd package_slopctl\n'
         + (
             f'unset pkgname\npkgname={product}\npkgbase={product}\n_package_metadata {product}\n'
-            if product != 'slopcar'
+            if product not in ('slopcar', 'slopweb')
             else ''
         )
         + 'pkgver="$RELEASE_VERSION"\n'

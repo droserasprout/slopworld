@@ -17,6 +17,10 @@ buffer, and erased it without submitting. No colony is loaded during these check
 
 ## Manual testing
 
+For an installed command and native packages, see [slopweb](../../slopweb/README.md).
+`just slopweb-install` installs the independent launcher; `slopweb` prepares local
+game data and serves the workspace. Packages never contain those game files.
+
 Requirements: repository .NET 10 SDK, Just, Node.js with built-in WebSocket support
 (tested with Node 26), Python/uv, Chromium for automated checks, and a local RimWorld
 1.7 installation. First restore requires network access. No additional .NET workload
@@ -59,6 +63,8 @@ just browser-workspace-e2e-check PROFILE
 # Creates two temporary host shells through the sidebar, checks command output,
 # Backspace/Enter and session switching, attaches to the agent read-only, and
 # removes only the shells created by this check. Use the default sidebar layout.
+just browser-clipboard-check PROFILE
+# Also exercises real Chromium Ctrl+V, Unicode paste, and native selection copy.
 just browser-close PROFILE
 
 just browser-gui
@@ -101,7 +107,9 @@ guarantee.
   loading and authored key definitions run; full ModBootstrap and simulation
   definitions are not initialized. Desktop-only shortcut actions remain unsupported.
 - GUI metrics are approximate. Rich text/wrapping, overlapping-window hit routing,
-  clipboard, full IME, and material/primitive drawing remain incomplete.
+  clipboard images, full IME, and material/primitive drawing remain incomplete.
+  Text copy/paste uses the browser clipboard; context-menu actions require browser
+  clipboard permission. Session-only avatars use authored robot faceplates.
 - Mod settings pages are present, but desktop system fonts, window-manager controls,
   and audio are not browser implementations. Profile settings use an in-memory
   filesystem and do not survive reload.
@@ -138,7 +146,8 @@ See [runtime](runtime/README.md), [graphics](graphics/README.md), and
 `compat/Offline/` owns build-time hooks. `graphics/` and `webgpu/` own rendering
 probes. `harness/` owns serving, bridge isolation, and Chromium validation.
 [Ownership notes](../../notes/browser-prototype.md) record cross-boundary traps.
-Production daemon and mod source remain unchanged.
+Production daemon and mod source remain unchanged. `slopweb/` owns local runtime
+preparation and installation; `tools/release/slopweb.py` owns its package payload.
 
 Only source and dependency locks belong in Git. Runtime/compatibility/graphics output
 and `artifacts/` contain copied assemblies and derived local content.

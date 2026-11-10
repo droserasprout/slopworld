@@ -50,6 +50,8 @@ def package(
             shared.stage_sidecar(
                 workspace / 'SOURCES/payload', binary_dir or ROOT / 'slopcar/target/release', revision, version
             )
+        elif product == 'slopweb':
+            shared.stage_slopweb(workspace / 'SOURCES/payload', revision, version, binary_dir)
         else:
             stage_payload(workspace / 'SOURCES/payload', revision, version, binary_dir, product)
         archive = build_archive(

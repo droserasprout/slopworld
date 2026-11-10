@@ -1,0 +1,13 @@
+Package: slopweb
+Version: {version}
+Section: utils
+Priority: optional
+Architecture: {architecture}
+Maintainer: Lev Gorodetskii <slopworld@drsr.io>
+Depends: nodejs (>= 22), python3 (>= 3.11), dotnet-runtime-10.0
+Suggests: slopd
+Homepage: https://github.com/droserasprout/slopworld
+Description: Local browser Eco workspace for SlopWorld coding agents
+ Runs the actual mod and game code locally in WebAssembly. Requires a local
+ Waylith/RimWorld 1.7 installation; game data is prepared privately at launch
+ and is not included in this package. Connects to a local or remote slopd.

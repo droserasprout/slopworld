@@ -1,8 +1,19 @@
 import { renderGui } from './gui.js';
+import { clipboardBridge } from './clipboard.js';
 
 export function attachGuiInput(canvas, managed) {
   const abort = new AbortController();
   let queue = [];
+  const clipboard = clipboardBridge(managed);
+  let clipboardEvent;
+  const frame = () => {
+    const batch=queue; queue=[];
+    const result = JSON.parse(managed.GuiInputFrame(JSON.stringify(batch)));
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    renderGui(canvas, result.commands);
+    clipboard(clipboardEvent);
+    return result;
+  };
   const listen = (name, callback) => canvas.addEventListener(name, callback, { signal: abort.signal, passive: false });
   const enqueue = event => { if (queue.length >= 4096) queue = [{kind:'reset'}]; queue.push(event); };
   const modifiers = event => ({ shift: event.shiftKey, control: event.ctrlKey, alt: event.altKey, command: event.metaKey });
@@ -23,10 +34,20 @@ export function attachGuiInput(canvas, managed) {
       event.preventDefault();
       if (kind === 'down') { canvas.focus(); if (event.isTrusted) canvas.setPointerCapture(event.pointerId); }
       enqueue({ kind: kind === 'move' && event.buttons ? 'drag' : kind, ...point(event), button: [0, 2, 1][event.button] ?? 0, ...modifiers(event) });
+      // Context-menu clipboard actions need the initiating user activation.
+      if (managed.ClipboardTake && kind !== 'move') frame();
     });
   }
   listen('keydown', event => {
     if (event.isComposing || ['Dead', 'Process'].includes(event.key)) return;
+    const shortcut = (event.ctrlKey || event.metaKey) && !event.altKey;
+    // Let the browser deliver ClipboardEvent data. Sending V now would race
+    // that event and could paste a previous native clipboard value twice.
+    if (managed.ClipboardTake && shortcut && event.code === 'KeyV') return;
+    if (managed.ClipboardTake && shortcut && event.code === 'KeyC') {
+      enqueue({kind:'key',key:'C',control:true,shift:event.shiftKey});
+      event.preventDefault(); frame(); return;
+    }
     const keys = { Backspace: 'Backspace', Delete: 'Delete', Insert:'Insert', ArrowLeft: 'LeftArrow', ArrowRight: 'RightArrow', ArrowUp:'UpArrow', ArrowDown:'DownArrow', PageUp:'PageUp', PageDown:'PageDown', Home: 'Home', End: 'End', Enter: 'Return', Escape:'Escape', Tab:'Tab' };
     const punctuation = {Space:'Space', BracketLeft:'LeftBracket', BracketRight:'RightBracket', Backslash:'Backslash', Minus:'Minus', Backquote:'BackQuote', Equal:'Equals', Semicolon:'Semicolon', Quote:'Quote', Comma:'Comma', Period:'Period', Slash:'Slash'};
     const physical = /^Key[A-Z]$/.test(event.code) ? event.code.slice(3) : /^Digit[0-9]$/.test(event.code) ? 'Alpha' + event.code.slice(5) : punctuation[event.code];
@@ -38,6 +59,19 @@ export function attachGuiInput(canvas, managed) {
     else return;
     event.preventDefault();
   });
+  listen('paste', event => {
+    if (!managed.ClipboardTake || !event.clipboardData) return;
+    event.preventDefault();
+    enqueue({kind:'clipboard',text:event.clipboardData.getData('text/plain')});
+    enqueue({kind:'key',key:'V',control:true});
+    frame();
+  });
+  listen('copy', event => {
+    if (!managed.ClipboardTake) return;
+    clipboardEvent=event;
+    try { enqueue({kind:'key',key:'C',control:true}); frame(); }
+    finally { clipboardEvent=null; }
+  });
   listen('compositionend', event => text(event.data, event));
   listen('wheel', event => {
     event.preventDefault();
@@ -47,12 +81,7 @@ export function attachGuiInput(canvas, managed) {
   listen('blur', () => { queue = [{ kind: 'reset' }]; });
   listen('pointercancel', () => { queue = [{ kind: 'reset' }]; });
   return {
-    frame() {
-      const result = JSON.parse(managed.GuiInputFrame(JSON.stringify(queue))); queue = [];
-      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-      renderGui(canvas, result.commands);
-      return result;
-    },
+    frame,
     dispose() { abort.abort(); managed.GuiInputFrame('[{"kind":"reset"}]'); }
   };
 }

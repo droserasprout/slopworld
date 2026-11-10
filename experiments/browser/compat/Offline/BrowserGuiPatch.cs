@@ -15,6 +15,10 @@ internal static class BrowserGuiPatch
             new ReaderParameters { InMemory = true, AssemblyResolver = resolver }
         );
         using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
+        var clipboard = adapters.MainModule.GetType("BrowserAdapters.BrowserClipboard");
+        var utility = target.MainModule.GetType("UnityEngine.GUIUtility");
+        BrowserClipboardPatch.Redirect(utility, clipboard, "get_systemCopyBuffer", "Get");
+        BrowserClipboardPatch.Redirect(utility, clipboard, "set_systemCopyBuffer", "Set");
         var method = target
             .MainModule.GetType("UnityEngine.SystemInfo")
             .Methods.Single(m => m.Name == "get_copyTextureSupport");

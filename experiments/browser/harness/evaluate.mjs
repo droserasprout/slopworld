@@ -7,19 +7,43 @@ const page = targets.find(t => t.type === 'page' && t.url.startsWith('http://127
 if (!page) throw new Error('No live local workspace page');
 const socket = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
+let serial=0; const pending=new Map();
+const call=(method,params={})=>new Promise((resolve,reject)=>{
+  const id=++serial;
+  const timer=setTimeout(()=>{pending.delete(id);reject(new Error('Browser evaluation timed out; runtime may still be working'));},Number(process.env.PROBE_EVALUATE_TIMEOUT_MS??30000));
+  pending.set(id,{resolve,reject,timer});socket.send(JSON.stringify({id,method,params}));
+});
+socket.onmessage=({data})=>{
+  const message=JSON.parse(data), entry=pending.get(message.id);
+  if(entry){pending.delete(message.id);clearTimeout(entry.timer);if(message.error)entry.reject(new Error(JSON.stringify(message.error)));else entry.resolve(message.result);}
+  if(message.method==='Runtime.bindingCalled' && message.params.name==='__clipboardKey') {
+    // This is a real Chromium shortcut, not a synthetic paste event. The binding
+    // accepts only this test action, never arbitrary CDP methods.
+    (async()=>{
+      await call('Input.dispatchKeyEvent',{type:'keyDown',modifiers:2,key:'v',code:'KeyV',windowsVirtualKeyCode:86});
+      await call('Input.dispatchKeyEvent',{type:'keyUp',modifiers:0,key:'v',code:'KeyV',windowsVirtualKeyCode:86});
+    })().catch(error=>{console.error(String(error));process.exitCode=1;});
+  }
+};
 try {
-  const expression = await readFile(script, 'utf8');
-  const result = await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Browser evaluation timed out; runtime may still be working')), Number(process.env.PROBE_EVALUATE_TIMEOUT_MS ?? 30000));
-    socket.onmessage = ({ data }) => {
-      const message = JSON.parse(data);
-      if (message.id !== 1) return;
-      clearTimeout(timeout);
-      if (message.error) reject(new Error(JSON.stringify(message.error)));
-      else resolve(message.result);
-    };
-    socket.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }));
-  });
-  console.log(JSON.stringify(result, null, 2));
-  if (result.exceptionDetails) process.exitCode = 1;
-} finally { socket.close(); }
+  if(process.env.PROBE_CLIPBOARD==='1') {
+    await call('Runtime.enable');
+    await call('Browser.grantPermissions',{origin:new URL(page.url).origin,permissions:['clipboardReadWrite','clipboardSanitizedWrite']});
+    await call('Page.bringToFront');
+    await call('Emulation.setFocusEmulationEnabled',{enabled:true});
+    await call('Runtime.addBinding',{name:'__clipboardKey'});
+    await call('Runtime.evaluate',{expression:`window.__checkClipboard=true;
+      window.__trustedPaste=()=>new Promise((resolve,reject)=>{
+        const canvas=document.querySelector('canvas');canvas.focus();
+        const timeout=setTimeout(()=>reject(new Error('Browser did not deliver Ctrl+V paste')),5000);
+        canvas.addEventListener('paste',()=>{clearTimeout(timeout);queueMicrotask(resolve);},{once:true});
+        window.__clipboardKey('paste');
+      });`});
+  }
+  const result=await call('Runtime.evaluate',{expression:await readFile(script,'utf8'),awaitPromise:true,returnByValue:true});
+  console.log(JSON.stringify(result,null,2));
+  if(result.exceptionDetails)process.exitCode=1;
+} finally {
+  for(const entry of pending.values())clearTimeout(entry.timer);
+  socket.close();
+}

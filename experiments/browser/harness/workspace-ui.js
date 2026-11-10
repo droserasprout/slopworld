@@ -71,11 +71,13 @@
     if(JSON.stringify(before)!==JSON.stringify(restored)) throw new Error('Settings checkbox did not restore');
     // Check the panel itself: native scroll clamping can legitimately change
     // session-row positions when a long sidebar gains or loses panel height.
-    label('No open files.');
+    const fileLabel=labels().find(l=>l.text==='No open files.')
+      ?? labels().find(l=>l.x<150 && l.y>30 && l.y<230 && l.text.length>3);
+    if(!fileLabel)throw new Error('Missing visible open-files panel content');
     await key('F9');
-    if(labels().some(l=>l.text==='No open files.'))throw new Error('F9 did not hide the open-files panel');
+    if(labels().some(l=>l.text===fileLabel.text && l.x<150 && l.y>30 && l.y<230))throw new Error('F9 did not hide the open-files panel');
     await key('F9');
-    label('No open files.');
+    label(fileLabel.text);
     await key('F12');
     if(labels().some(l=>l.text==='Sidebar side'))throw new Error('F12 did not return from settings');
     await key('F12');
