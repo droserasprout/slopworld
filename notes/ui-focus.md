@@ -2,8 +2,11 @@
 
 `WorkspacePanelOwner` owns panel focus. `FieldLifetime` owns editable-field state in
 Settings, shared dialogs, the command palette, Search, Library, and WorkspaceWindow.
-Closing a lifetime makes delayed edits inert and retires selection gestures; it
-need not cancel an outstanding clipboard request.
+Closing a lifetime makes delayed edits inert, retires selection gestures, and
+releases native keyboard focus still owned by that form. `FieldKeyboardFocus`
+tracks both native acquisition and restored focus; retiring an older form must
+preserve a newer field's focus. Cancellation need not cancel an outstanding
+clipboard request.
 
 `FieldFocusScope` owns focus memory in Settings, shared dialogs, and eligible
 WorkspaceWindow content. When a form regains input, restore its remembered field only

@@ -482,6 +482,38 @@ namespace SlopWorld.Tests
                 );
                 count++;
 
+                // A retiring form clears keyboardControl. Exercise the native filter
+                // with no focused control; this path does not query OS keyboard state.
+                var keyboardControl = gui.GetType("UnityEngine.GUIUtility", throwOnError: true)
+                    .GetProperty("keyboardControl", BindingFlags.Static | BindingFlags.Public);
+                var textFocus = gui.GetType("UnityStubs.Internal.TextFocus", throwOnError: true);
+                object previousControl = keyboardControl.GetValue(null);
+                try
+                {
+                    keyboardControl.SetValue(null, 0);
+                    Require(
+                        !(bool)
+                            AccessTools
+                                .PropertyGetter(textFocus, "CapturesText")
+                                .Invoke(null, null),
+                        "retired field must release native text capture"
+                    );
+                    var keyCode = gui.GetType("UnityEngine.KeyCode", throwOnError: true);
+                    foreach (string key in new[] { "T", "S", "L", "E", "D", "Delete" })
+                        Require(
+                            !(bool)
+                                AccessTools
+                                    .Method(textFocus, "Consumes")
+                                    .Invoke(null, new[] { Enum.Parse(keyCode, key) }),
+                            "retired field must release agent action key " + key
+                        );
+                }
+                finally
+                {
+                    keyboardControl.SetValue(null, previousControl);
+                }
+                count++;
+
                 // The installed engine's readonly heuristic is based on style names,
                 // not GUI.enabled. Verify our backgroundless editors avoid that branch.
                 var nativeField = gui.GetType("UnityEngine.GUI", throwOnError: true)

@@ -96,6 +96,7 @@
     <Compile Include="../Source/SlopWorld/Platform/Windowing/LinuxWindowRecovery.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiAreaResize.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/FieldLifetime.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/FieldKeyboardFocus.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/SelectionCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/DocumentSelectionLine.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/DocumentSelection.cs" />

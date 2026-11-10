@@ -560,6 +560,7 @@ namespace UnityEngine
         }
 
         public static int hotControl;
+        public static int keyboardControl;
 
         public static int GetControlID(int hint, FocusType focus) => hint == 0 ? 1 : hint;
 

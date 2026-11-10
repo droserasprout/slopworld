@@ -18,6 +18,7 @@ namespace SlopWorld
             if (!_alive)
                 return;
             _alive = false;
+            FieldKeyboardFocus.Retire(this);
             CancelResize?.Invoke();
             TextFieldSelection.Retire(this);
         }

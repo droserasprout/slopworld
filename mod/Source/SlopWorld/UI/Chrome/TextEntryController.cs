@@ -132,6 +132,7 @@ namespace SlopWorld
                 }
                 var content = new GUIContent(source);
                 DrawNativeTextField(r, input.ControlId, content, area, -1, input.Style);
+                FieldKeyboardFocus.Track(lifetime, name, input.ControlId);
                 var editor = ReconcileEditor(name, source, readOnly, input, lifetime);
                 string result =
                     editor == null ? content.text
