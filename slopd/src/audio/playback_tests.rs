@@ -377,3 +377,45 @@ fn retirement_during_output_io_discards_ring_and_releases_gated_feeder() {
         }
     }
 }
+
+/// Exercise both Linux sound-server bridges with the production decoder/queue/mixer.
+/// Run explicitly with pw-profiler alongside it: graph xruns need not reach CPAL.
+/// Muted output keeps this diagnostic from playing a second audible soundtrack.
+#[test]
+#[ignore = "requires live sound servers; observe their graph errors with pw-profiler"]
+fn compares_sound_server_bridges() {
+    let host = cpal::default_host();
+    let devices: Vec<_> = host.output_devices().unwrap().collect();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/OST");
+    let mut runs = Vec::new();
+    for id in ["pipewire", "pulse"] {
+        let device = devices.iter().find(|d| pcm_id(d) == id).unwrap().clone();
+        let health = Arc::new(OutputHealth::new());
+        let callback_health = health.clone();
+        let sink = rodio::DeviceSinkBuilder::from_device(device)
+            .unwrap()
+            .with_error_callback(move |error| callback_health.record(&error))
+            .open_stream()
+            .unwrap();
+        let output = RodioOutput {
+            _sink: sink,
+            volume: Arc::new(AtomicU32::new(0.0f32.to_bits())),
+            health,
+        };
+        let title = TitleSink::pending(None, 0);
+        let opened = open(source.to_str().unwrap(), title.clone()).unwrap();
+        assert!(commit(opened, &output, 0.0).unwrap().is_some());
+        runs.push((id, output, title));
+    }
+    println!("bridge diagnostic ready: pid={}", std::process::id());
+    std::thread::sleep(Duration::from_secs(60));
+    for (id, output, title) in &runs {
+        title.cancel();
+        println!(
+            "{id}: backend_underruns={} source_underruns={} failed={}",
+            output.health.backend_underruns.load(Ordering::Relaxed),
+            output.health.source_underruns.load(Ordering::Relaxed),
+            output.failed(),
+        );
+    }
+}

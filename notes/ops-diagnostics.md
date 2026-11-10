@@ -18,3 +18,11 @@ The game mixes mod and vanilla work on Unity's main thread.
 Trace timers measure elapsed time, not thread CPU; counters measure work. Use CPU
 samples and stacks for attribution. [Redeploy](daemon-redeploy.md) owns service
 lifetimes; [sandbox](sandbox-isolation.md) owns resource limits.
+
+Audio health warnings cover CPAL-reported output errors and the daemon's source queue.
+PipeWire graph deadline misses can remain invisible to both; compare `pw-profiler`
+or `pw-top` counters with the daemon logs before ruling out playback glitches.
+Capture output-connection lifetime and suspend/resume when comparing runs: a fresh
+connection can behave differently from a long-lived one under the same graph quantum.
+The ignored `compares_sound_server_bridges` audio test drives both ALSA server paths
+with muted OST through the production queue; external graph counters remain necessary.
