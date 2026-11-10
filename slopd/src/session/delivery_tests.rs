@@ -2,9 +2,9 @@ use super::*;
 use crate::application::launch::Launches;
 
 #[test]
-fn auto_resume_types_the_command_and_two_enters_in_order() {
+fn auto_resume_opens_picker_without_premature_confirmation() {
     let input = auto_resume_inputs();
-    assert_eq!(input.len(), 5);
+    assert_eq!(input.len(), 3);
     assert!(matches!(
         &input[0],
         Input::Bytes(bytes) if bytes == b"/resume"
@@ -12,11 +12,6 @@ fn auto_resume_types_the_command_and_two_enters_in_order() {
     assert!(matches!(&input[1], Input::Gap(_)));
     assert!(matches!(
         &input[2],
-        Input::Keys { keys, literal: false } if keys == &["Enter"]
-    ));
-    assert!(matches!(&input[3], Input::Gap(_)));
-    assert!(matches!(
-        &input[4],
         Input::Keys { keys, literal: false } if keys == &["Enter"]
     ));
 }
@@ -224,6 +219,7 @@ async fn every_delivery_intent_rechecks_ownership_after_waiting_for_admission() 
         DeliveryIntent::Followup("stale"),
         DeliveryIntent::ScheduledPrompt("stale"),
         DeliveryIntent::AutoResume,
+        DeliveryIntent::ResumeSelection(0),
     ] {
         let (manager, mut rx) = delivery_fixture().await;
         let target = manager.delivery_target("worker").await.unwrap();
@@ -413,7 +409,7 @@ async fn delivery_retries_readiness_lost_while_waiting_for_admission() {
         assert!(rx.try_recv().is_err());
         if recover {
             emu.lock().unwrap().feed(b"\x1b[?2004h");
-            assert!(matches!(delivery.await, super::Ready::Settled));
+            assert!(matches!(delivery.await, super::Ready::Settled(_)));
             assert_prompt_submission(&mut rx, "retry prompt").await;
         } else {
             assert!(matches!(delivery.await, super::Ready::Timeout));
@@ -457,14 +453,33 @@ async fn queued_auto_resume_submits_current_run_and_publishes_completion() {
             .auto_resume_pending
     );
     manager.queue_auto_resume("worker", run_id).await;
+    let capture = manager.clone();
     let consumer = tokio::spawn(async move {
         let mut actual = Vec::new();
+        let mut opened = false;
         while let Some(input) = rx.recv().await {
             if let Input::Fence(done) = input.command {
+                if opened {
+                    let mut emu = crate::emu::SessionEmu::new(80, 24);
+                    emu.feed(b"restored conversation> ");
+                    capture.apply_frame("worker", emu.render()).await;
+                    done.send(()).unwrap();
+                    break;
+                }
                 done.send(()).unwrap();
-                break;
+                // Loading takes longer than the old fixed Enter gap. No confirmation
+                // may be queued until a new picker frame has appeared and settled.
+                tokio::time::sleep(ENTER_GAP * 2).await;
+                assert!(rx.try_recv().is_err());
+                let mut emu = crate::emu::SessionEmu::new(80, 24);
+                emu.feed(b"Resume session: saved conversation");
+                capture.apply_frame("worker", emu.render()).await;
+                tokio::time::sleep(ENTER_GAP * 2).await;
+                assert!(rx.try_recv().is_err(), "picker must settle before Enter");
+                opened = true;
+            } else {
+                actual.push(input);
             }
-            actual.push(input);
         }
         actual
     });
@@ -483,12 +498,10 @@ async fn queued_auto_resume_submits_current_run_and_publishes_completion() {
             .auto_resume_pending
     );
     let actual = consumer.await.unwrap();
-    assert_eq!(actual.len(), 5);
+    assert_eq!(actual.len(), 4);
     assert!(matches!(&actual[0].command, Input::Bytes(bytes) if bytes == b"/resume"));
-    for index in [1, 3] {
-        assert!(matches!(&actual[index].command, Input::Gap(gap) if *gap == ENTER_GAP));
-    }
-    for index in [2, 4] {
+    assert!(matches!(&actual[1].command, Input::Gap(gap) if *gap == ENTER_GAP));
+    for index in [2, 3] {
         assert!(
             matches!(&actual[index].command, Input::Keys { keys, literal: false } if keys == &["Enter"])
         );
@@ -1056,4 +1069,84 @@ async fn scheduled_admission_rechecks_idle_turn_after_waiting_for_the_boundary()
         assert_eq!(admission.await, Admission::Retry);
         assert!(rx.try_recv().is_err());
     }
+}
+
+#[tokio::test]
+async fn resume_confirmation_rechecks_the_settled_frame_after_admission_wait() {
+    let (manager, mut rx) = delivery_fixture().await;
+    let target = manager.delivery_target("worker").await.unwrap();
+    let seq = manager.live.read().await["worker"].seq;
+    let guard = manager.session_boundary.write().await;
+    let mut admission = Box::pin(manager.admit_settled_delivery(
+        &target,
+        DeliveryIntent::ResumeSelection(0),
+        tokio::time::Instant::now() + READY_TIMEOUT,
+        Some(seq),
+    ));
+    assert!(futures::poll!(admission.as_mut()).is_pending());
+    manager.live.write().await.get_mut("worker").unwrap().seq += 1;
+    drop(guard);
+    assert_eq!(admission.await, Admission::Retry);
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn resume_without_a_post_confirmation_frame_times_out_without_repeating_enter() {
+    let (manager, mut rx) = delivery_fixture().await;
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("worker")
+        .unwrap()
+        .input
+        .auto_resume_pending = true;
+    let target = manager.delivery_target("worker").await.unwrap();
+    let producer = manager.clone();
+    let task = tokio::spawn(async move {
+        producer
+            .resume_until(
+                &target,
+                tokio::time::Instant::now() + Duration::from_secs(3),
+            )
+            .await;
+    });
+    let mut fences = 0;
+    let mut enters = 0;
+    while fences < 2 {
+        let input = tokio::time::timeout(Duration::from_secs(4), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        match input.command {
+            Input::Keys { keys, .. } if keys == ["Enter"] => enters += 1,
+            Input::Fence(done) => {
+                fences += 1;
+                if fences == 1 {
+                    let mut emu = crate::emu::SessionEmu::new(80, 24);
+                    emu.feed(b"Resume session: saved conversation");
+                    manager.apply_frame("worker", emu.render()).await;
+                }
+                done.send(()).unwrap();
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(enters, 2);
+    assert!(
+        manager.live.read().await["worker"]
+            .input
+            .auto_resume_pending
+    );
+    task.await.unwrap();
+    assert!(
+        !manager.live.read().await["worker"]
+            .input
+            .auto_resume_pending
+    );
+    assert!(matches!(
+        rx.try_recv().unwrap().command,
+        Input::Keys { keys, literal: false } if keys == ["Escape"]
+    ));
+    assert!(rx.try_recv().is_err());
 }

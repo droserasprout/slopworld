@@ -38,8 +38,10 @@ input checks run identity. See [stores](daemon-config-stores.md),
 
 `session/lifecycle/resume.rs` gates automatic `/resume` on nonempty private transcript
 files for supported commands (Codex, Claude, Pi). Missing, empty, or deleted history and
-unknown commands start fresh. Discovery is bounded and ignores symlinks. Delivery waits
-for queued resume input to drain, then checks readiness with a deadline; timeout dismisses
+unknown commands start fresh. Discovery is bounded and ignores symlinks. Delivery opens
+the picker first, waits for a newer nonblank frame to settle, then confirms once.
+Admission rechecks the settled frame and run identity. Completion requires another
+frame and a ready composer after the confirmation drains; timeout dismisses
 the picker for the same run, releases startup input, and records a warning. A queue fence
 alone is not evidence that a conversation resumed. Manual Resume uses the same startup
 sequence under lifecycle admission, requires a saved non-worker agent and supported
