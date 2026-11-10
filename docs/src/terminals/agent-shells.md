@@ -25,9 +25,8 @@ See [Command presets](../workspace/command-presets.md) for managing available co
 
 ## Shell configuration
 
-Choosing a shell preset does not share host dotfiles. The `bash`, `zsh`, `fish`,
-`nu`, and `pwsh` presets each have an optional `*-userdata` sandbox preset;
-`sh` has none. Enable the matching preset in the
+Choosing a shell preset does not share host dotfiles. Where a matching
+`*-userdata` sandbox preset is available, enable it in the
 [agent editor](../agents/configuring-agents.md#agent-settings) to include the shell's host files.
 
 These presets expose startup and configuration files as read-only, and history

@@ -33,10 +33,8 @@ Use the same pattern for a project's build or test command.
 Choose the project and execution settings before starting an errand. The project
 supplies its working directory and mounts; a temporary project starts empty.
 
-| Run using | Effect |
-| --- | --- |
-| **Host** | Runs outside the sandbox |
-| **Agent template: [name]** | Copies the template's command, sandbox additions, network, DNS, limits, and private-state choices |
+Choose **Host** only when the errand should run outside the sandbox. Choose an
+agent template to give it that template's execution settings and sandbox access.
 
 Shell errands keep their shell executable. Prompt errands use the template's
 command unless you supply an override.
@@ -69,12 +67,8 @@ Actions also appear in Git and Search context menus. They run on the daemon
 host, outside the agent's sandbox. Commands can use `{{ absolute_path }}` and
 `{{ relative_path }}` for the selected path.
 
-| Mode | Result |
-| --- | --- |
-| Omitted (**Ask**) | Choose on each invocation; the choice is not saved |
-| `nothing` | Run without opening a result pane |
-| `show_result` | Show captured output in an alert |
-| `open_terminal` | Open an interactive temporary terminal |
+Choose how to present results based on whether the command needs interaction.
+Leave the mode at **Ask** to decide each time; that choice is not saved.
 
 ## Library management
 
@@ -84,13 +78,9 @@ Manage [command presets](command-presets.md) in **Settings > Commands**.
 
 ## Timers
 
-Create **+ > Library > Timer** and choose an **Action**:
-
-| Action | Settings |
-| --- | --- |
-| **Prompt** | A running agent and a Library Prompt to send |
-| **Worker** | An agent template, project, and Library Prompt for the task |
-| **Shell script** | A shell script from the Library |
+Create **+ > Library > Timer** using a saved prompt or shell script. Send a prompt
+to an existing agent when it needs that conversation's context; spawn a worker
+when each occurrence should start a separate task.
 
 Timer prompts resolve `{{ random_tip }}` from the shared loading-tip catalog even
 while the game is closed. These unattended draws use unmarked tips.
@@ -101,14 +91,8 @@ Shell actions use the selected item's execution settings and saved project or
 temporary location. Set a saved location on scripts configured to **Ask** before
 using them with a Timer.
 
-Select **When**:
-
-| Trigger | Schedule |
-| --- | --- |
-| **Calendar** | Daily or selected weekdays at a named-zone local time |
-| **After daemon startup** | Once, a duration after slopd starts |
-| **After activation** | Once, a duration after enabling the timer |
-| **Repeat interval** | Repeatedly, a duration after activation and each interval boundary |
+Choose a calendar schedule for work tied to local clock time. Use a delay or
+interval for work tied to daemon startup or timer activation.
 
 Durations accept `s`, `min`, `h`, and `d`, including combinations such as `1h 30min`.
 Use a duration between one second and 366 days. The first interval occurs after a
@@ -128,8 +112,7 @@ in your Settings time zone. It does not save or run the Timer.
 
 Enable the Timer to schedule it. Its Library menu offers **Enable**, **Disable**, and
 **Run now**. Run now executes the action even when disabled and leaves the scheduled
-deadline unchanged. Details show whether the timer is Waiting, Elapsed, Disabled,
-Activating, or Invalid, plus its last attempt, outcome, and next occurrence.
+deadline unchanged. Check its details for the last attempt, outcome, and next occurrence.
 
 The daemon schedules Timers independently of the game, checking at approximately
 one-second resolution. Calendar schedules use wall time; delays and intervals use

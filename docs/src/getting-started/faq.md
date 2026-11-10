@@ -101,7 +101,7 @@ To get some peace of mind using SlopWorld, try this:
 
 ### How do I configure an agent's network access? {#host-network}
 
-You can choose from `host`, `private` and `none` in the agent editor. See [Network configuration](../agents/configuring-agents.md#network) for details.
+Configure network access in the agent editor. See [Network configuration](../agents/configuring-agents.md#network) for isolation and resolver behavior.
 
 Granular access with a DNS proxy is not available yet, but it's planned.
 

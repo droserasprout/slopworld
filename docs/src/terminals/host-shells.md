@@ -12,12 +12,9 @@ for typing, splitting the view, and closing panes.
 
 ## Stop, restart, or remove a tab
 
-For a saved project shell, right-click its tab to open the context menu:
-
-- **Stop** ends the shell and keeps the tab and its saved working directory.
-- **Start** launches a stopped tab in its last saved working directory.
-- **Terminal** opens the running shell's terminal.
-- **Remove** ends the shell and deletes the saved tab.
+Use the tab's context menu to stop a project shell while keeping its saved tab and
+working directory. Starting it again uses that directory. **Remove** ends the shell
+and deletes the saved tab.
 
 The unscoped `~` shell is temporary: its tab disappears when stopped or exited.
 Project host tabs remain after their shell stops. After a reboot, saved project

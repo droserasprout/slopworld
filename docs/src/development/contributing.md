@@ -54,5 +54,8 @@ Use repository URLs for files outside the book: relative links to source or note
 will not exist on the published site. Preserve incoming anchors when moving sections.
 
 Keep user procedures in the book and implementation constraints in `notes/`.
+Explain workflows and non-obvious behavior; do not transcribe menus, preset lists,
+or every editor field. Exact option inventories belong only in references where
+readers need them to use an API or write configuration.
 Tours and FAQ should link to the guide that owns each procedure. Edit generated
 API inventories through their generator rather than changing the output directly.

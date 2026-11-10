@@ -6,12 +6,9 @@ Open the map jukebox or status-bar jukebox control. The OST is a built-in source
 RimWorld always plays the bundled OST locally. The daemon plays radio and Spotify.
 Switching back to OST waits for the daemon to stop, so the two players do not overlap.
 
-While music plays, a greyed-out artist and title row appears above the
-**Previous**, **Pause/Play**, **Next**, and **Shuffle** controls.
-For OST, these choose tracks. For radio, they choose visible stations and preserve
-the closest available bitrate. Previous/next wrap around; shuffle chooses another
-track or station when available. Pause stops playback; Play restarts the selected
-source. Spotify track selection remains in its terminal.
+Playback controls act on tracks for OST and on stations for radio. Switching radio
+stations preserves the closest available bitrate. Pausing stops playback; playing
+restarts the selected source. Spotify track selection stays in its terminal.
 
 For daemon audio playback, install `rtkit` on the machine running the daemon
 and make its system D-Bus available so the daemon
@@ -26,8 +23,7 @@ Add a radio station with **Settings > Audio > Add source**. Edit or remove sourc
 in the Sources table. ICY metadata supplies the track display. Volume multiplies
 RimWorld's audio settings; pause stops daemon playback and downloads.
 
-The full menu offers song recognition through `songrec`, Like, and History.
-Install `songrec` on the game machine; recognition uses its local audio output,
+For song recognition, install `songrec` on the game machine; it uses local audio output,
 with `pactl` selecting the default output monitor.
 Likes are saved locally; see [Paths and files](../reference/paths.md) for stations
 and liked-song locations.

@@ -17,20 +17,9 @@ Open **+ > Agent** to create an agent, or open an existing agent's settings to e
 Each agent belongs to a project and names a command preset. The command preset
 identifies the software so the sandbox can mount its configuration paths.
 
-| Field | Description |
-| --- | --- |
-| `command` | A command preset name. |
-| `cmd` | Optional raw command line, used instead of the preset's default. |
-| `args` | Extra arguments appended to the preset, daemon default, or overridden command line. Quote values containing spaces. |
-| `sandbox` | Additional sandbox presets for this agent. |
-| `network` | Network mode for this agent: `none`, `private`, or `host`. |
-| `dns` | `resolved` to use the daemon's current resolver, or one or two explicit IPv4 server addresses. |
-| `limits` | Process limits: `memory_mb`, `pids`, `nofile`, `cpu_pct`. Unset means no cap. |
-| `persistent_tmp` | Keep a private `/tmp` across restarts. |
-| `autostart` | Start this agent automatically when the daemon starts. |
-| `auto_resume` | Resume the last conversation after a fresh process starts. |
-
-Without `command`, `cmd` does not inherit the command preset's sandbox dependencies.
+Keep a command preset selected when overriding its command line so the agent
+retains the preset's sandbox dependencies. A raw command without a preset receives
+no CLI-specific configuration.
 
 Use **Arguments** in the agent or template editor to extend the command without replacing it.
 For example, `args = '--model "my model"'` adds two arguments to the preset command.

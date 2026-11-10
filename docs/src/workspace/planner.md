@@ -9,12 +9,11 @@ start work.
 
 Open **Planner** with the chess table button beside Settings or the chess table on the map.
 Use **Add a task** for quick entry, check a task to complete it, and select a row to
-edit its title, priority, due date, projects, or contexts. Quick-add and checkboxes save
+edit its details. Quick-add and checkboxes save
 immediately. The details pane uses **Save changes** and **Discard edits**.
 
-The list filters by date, completion, project (`+project`), and context (`@context`).
-Search matches titles, projects, and contexts; sort by due date, priority, or title.
-The **Projects** dropdown accepts multiple TODO or configured projects. Smaller windows
+Use projects (`+project`) and contexts (`@context`) to group work for filtering
+and search. The **Projects** dropdown accepts multiple TODO or configured projects. Smaller windows
 use filter menus and open details separately.
 
 Use the Markdown field beneath the title for notes, checklists, and code blocks.

@@ -8,20 +8,10 @@ active terminal or content view, and top bar.
 On the map, select an agent and press T or choose **Terminal** from its context
 menu. With the terminal window open, clicking a session switches to it.
 Drag the grip to resize the sidebar.
-The tabs appear in this order:
-
-- **Agents** groups sessions by project. Open a row's context menu for session actions.
-  Shell opens a shell using the agent's settings; see [Agent shells](../terminals/agent-shells.md).
-- **Files** shows foldable project and checkout trees. Right-click to view, edit,
-  diff, or run file actions. **Open in** lists associated applications and **Other**.
-- **Git** browses changes, stages files, commits staged changes, and opens diffs.
-- **Search** finds workspace text and groups matches by project and checkout.
-- **Tasks** shows the global task mailbox. Click to read a dialogue, Ctrl+click to
-  select rows, or Shift+click for a range. Context menus offer task actions; see
-  [Agent collaboration](../agents/agent-collaboration.md).
-- **Library** stores templates, prompts, shell scripts, and file
-  actions, plus project, worktree, and preset entries. It has its own project filter;
-  see [Library items and errands](../workspace/library.md).
+Use the sidebar to switch sessions and browse project work. Session context menus
+include access to an [agent shell](../terminals/agent-shells.md).
+[Tasks](../agents/agent-collaboration.md) track assignments and progress;
+[Library](library.md) keeps reusable prompts, commands, and templates.
 
 The shared Project filter scopes project-oriented views. Tasks is global and
 Library has an independent filter. See [Browse checkouts](../workspace/project-worktrees.md#browse-several-checkouts)
@@ -54,6 +44,5 @@ buttons appear when enabled and their map objects exist.
 
 ## Settings
 
-Open **Settings > Display** for fullscreen, the frame limiter, VSync, and smooth scrolling;
-see [Settings](../customization/settings.md). [Eco mode](gameplay.md#eco-mode) pauses the
+See [Settings](../customization/settings.md) for display behavior and when changes apply. [Eco mode](gameplay.md#eco-mode) pauses the
 game simulation while agents continue running.
