@@ -1822,11 +1822,12 @@ async fn live_intake_socket() -> (App, ClientSocket, JoinHandle<()>, JoinHandle<
         let root = running.config_authority.root_generation();
         ws_run(socket, running, Cap::Root, generation, root).await;
     });
-    // The final initial catalog is the marker for completed socket initialization.
+    // Playback follows the jukebox catalog. Drain the complete initial snapshot
+    // so the next receive belongs to the command under test, not startup audio.
     loop {
         if matches!(
             receive(&mut client).await,
-            crate::shared::wire::event::Payload::Jukebox(_)
+            crate::shared::wire::event::Payload::Audio(_)
         ) {
             break;
         }
