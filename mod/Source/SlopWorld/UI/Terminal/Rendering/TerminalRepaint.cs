@@ -131,15 +131,6 @@ namespace SlopWorld
         }
     }
 
-    internal struct TerminalScrollCopy
-    {
-        public int SourceTop,
-            DestinationTop,
-            Height,
-            FirstRow,
-            EndRow;
-    }
-
     internal struct TerminalCacheKey
     {
         public ScreenBuf Buffer;
@@ -219,57 +210,6 @@ namespace SlopWorld
                 )
                     return 0;
             return count;
-        }
-
-        // Only fully available rows can skip painting. A clipped source edge must be
-        // redrawn when it moves into view, even when the corresponding text matches.
-        public static bool TryPlan(
-            TerminalCacheKey old,
-            TerminalCacheKey next,
-            float scaleY,
-            float originY,
-            TerminalCacheRegion region,
-            out TerminalScrollCopy copy
-        )
-        {
-            copy = default(TerminalScrollCopy);
-            int count = MatchingRows(old, next);
-            if (count == 0 || !PixelAligned(old.Offset, next.Offset, next.CellH, scaleY))
-                return false;
-            int delta = next.Offset - old.Offset;
-            int pixels = (int)Math.Round(delta * (double)next.CellH * scaleY);
-            int height = region.Height - Math.Abs(pixels);
-            if (pixels == 0 || height <= 0)
-                return false;
-            int destinationTop = Math.Max(0, pixels);
-            int first = Math.Max(0, delta);
-            int end = first + count;
-            double top = (next.Y - next.Lead) * scaleY + originY;
-            double rowHeight = next.CellH * scaleY;
-            // Repaint the boundary rows too: glyph overhang and clipped glyphs must
-            // not be mistaken for a complete reusable row.
-            while (
-                first < end
-                && Math.Round(top + first * rowHeight) < region.Y + destinationTop + rowHeight
-            )
-                first++;
-            while (
-                end > first
-                && Math.Round(top + end * rowHeight)
-                    > region.Y + destinationTop + height - rowHeight
-            )
-                end--;
-            if (end <= first)
-                return false;
-            copy = new TerminalScrollCopy
-            {
-                SourceTop = Math.Max(0, -pixels),
-                DestinationTop = destinationTop,
-                Height = height,
-                FirstRow = first,
-                EndRow = end,
-            };
-            return true;
         }
 
         public static bool PixelAligned(

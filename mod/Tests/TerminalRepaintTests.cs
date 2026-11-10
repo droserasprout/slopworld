@@ -26,10 +26,6 @@ namespace SlopWorld.Tests
                 TerminalCrop
             );
             yield return (
-                "terminal scroll copy only retains fully available rows",
-                TerminalCopyPlan
-            );
-            yield return (
                 "terminal keeps cursor-only pixels and fully repaints sparse edits",
                 TerminalDamage
             );
@@ -89,104 +85,6 @@ namespace SlopWorld.Tests
                 4L * (left.Width * left.Height + right.Width * right.Height),
                 "two half-screen retained textures occupy one screen"
             );
-        }
-
-        static void TerminalCopyPlan()
-        {
-            var old = new TerminalCacheKey
-            {
-                Buffer = new ScreenBuf
-                {
-                    Off = 10,
-                    Cols = 160,
-                    Rows = 80,
-                    Lines = Enumerable.Range(0, 80).Select(i => "row" + i).ToArray(),
-                    LinksKnown = true,
-                },
-                Offset = 10,
-                Session = "test",
-                Width = 1280,
-                Height = 1600,
-                CellH = 20,
-            };
-            foreach (int delta in new[] { -3, -1, 1, 3 })
-            {
-                var next = old;
-                next.Offset += delta;
-                next.Buffer = new ScreenBuf
-                {
-                    Off = next.Offset,
-                    Cols = 160,
-                    Rows = 80,
-                    Lines = Enumerable.Range(0, 80).Select(i => "row" + (i - delta)).ToArray(),
-                    LinksKnown = true,
-                };
-                var region = TerminalCacheRegion.Crop(0, 0, 1280, 1600, 1920, 1600);
-                AssertEx.True(
-                    TerminalScrollReuse.TryPlan(old, next, 1, 0, region, out var plan),
-                    "matching scroll"
-                );
-                AssertEx.Equal(1600 - Math.Abs(delta) * 20, plan.Height, "copied pixel height");
-                AssertEx.Equal(
-                    80 - Math.Abs(delta) - 2,
-                    plan.EndRow - plan.FirstRow,
-                    "exposed rows and two boundary rows repaint"
-                );
-                var clipped = TerminalCacheRegion.Crop(0, 9.25f, 1280, 1591.5f, 1920, 1600);
-                AssertEx.True(
-                    TerminalScrollReuse.TryPlan(old, next, 1, 0, clipped, out var clippedPlan),
-                    "clipped viewport retains its interior"
-                );
-                for (int row = clippedPlan.FirstRow; row < clippedPlan.EndRow; row++)
-                {
-                    AssertEx.True(
-                        row * 20 >= clipped.Y + clippedPlan.DestinationTop + 20,
-                        "clipped source top is repainted"
-                    );
-                    AssertEx.True(
-                        (row + 1) * 20
-                            <= clipped.Y + clippedPlan.DestinationTop + clippedPlan.Height - 20,
-                        "clipped source bottom is repainted"
-                    );
-                }
-                next.Buffer.Cols++;
-                AssertEx.False(
-                    TerminalScrollReuse.TryPlan(old, next, 1, 0, region, out _),
-                    "column resize falls back"
-                );
-                next.Buffer.Cols--;
-
-                AssertEx.Equal(Math.Max(0, delta * 20), plan.DestinationTop, "destination top");
-                AssertEx.Equal(Math.Max(0, -delta * 20), plan.SourceTop, "source top");
-                for (int row = plan.FirstRow; row < plan.EndRow; row++)
-                {
-                    AssertEx.Equal(
-                        old.Buffer.Lines[row - delta],
-                        next.Buffer.Lines[row],
-                        "reused row text"
-                    );
-                    AssertEx.True(row * 20 >= plan.DestinationTop + 20, "top boundary repainted");
-                    AssertEx.True(
-                        (row + 1) * 20 <= plan.DestinationTop + plan.Height - 20,
-                        "bottom boundary repainted"
-                    );
-                }
-                AssertEx.False(
-                    TerminalScrollReuse.TryPlan(old, next, 1.013f, 0, region, out _),
-                    "fractional pixels fall back"
-                );
-                next.Buffer.HasLinks = true;
-                AssertEx.False(
-                    TerminalScrollReuse.TryPlan(old, next, 1, 0, region, out _),
-                    "wrapped links fall back"
-                );
-                next.Buffer.HasLinks = false;
-                next.Buffer.Lines[40] = "edited";
-                AssertEx.False(
-                    TerminalScrollReuse.TryPlan(old, next, 1, 0, region, out _),
-                    "edited overlap falls back"
-                );
-            }
         }
 
         static ScreenBuf Screen(int[] changed) =>

@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 using Verse;
@@ -23,7 +22,6 @@ namespace SlopWorld
             _cacheScaleY,
             _cacheOriginX,
             _cacheOriginY;
-        int[] _scrollPaintRows = Array.Empty<int>();
 
         // Cache the pane between screen frames: the daemon updates more slowly than the monitor.
         // Retain only the pane crop; paint through a temporary screen-sized target so
@@ -152,18 +150,6 @@ namespace SlopWorld
             var body = new Rect(key.X, key.Y - key.Lead, key.Width, key.Height + key.Lead);
             if (_cacheRegion.Height == 0)
                 return;
-            var scroll = default(TerminalScrollCopy);
-            bool reuse =
-                repaintAll
-                && canCopy
-                && TerminalScrollReuse.TryPlan(
-                    _cacheKey,
-                    key,
-                    _snapSy,
-                    _snapOy,
-                    _cacheRegion,
-                    out scroll
-                );
             if (repaintAll)
             {
                 TraceCacheScrollReuse(key);
@@ -192,43 +178,16 @@ namespace SlopWorld
                     target = scratch;
                 }
                 RenderTexture.active = target;
-                if (reuse)
-                {
-                    CopyPixels(
-                        _cache,
-                        0,
-                        scroll.SourceTop,
-                        _cacheRegion.Width,
-                        scroll.Height,
-                        target,
-                        _cacheRegion.X,
-                        _cacheRegion.Y + scroll.DestinationTop
-                    );
-                }
                 _cacheLead = key.Lead;
-                if (reuse)
-                {
-                    int count = buf.Runs.Length - (scroll.EndRow - scroll.FirstRow);
-                    if (_scrollPaintRows.Length != count)
-                        _scrollPaintRows = new int[count];
-                    int index = 0;
-                    for (int row = 0; row < buf.Runs.Length; row++)
-                        if (row < scroll.FirstRow || row >= scroll.EndRow)
-                            _scrollPaintRows[index++] = row;
-                    PaintRows(body, buf, key.CellW, key.CellH, _scrollPaintRows);
-                    PerfTrace.Count(
-                        "terminal-cache-scroll-rows-reused",
-                        scroll.EndRow - scroll.FirstRow
-                    );
-                    PerfTrace.Count("terminal-cache-rows-repainted", count);
-                }
-                else
-                    TerminalCachePaint.Full(
-                        target,
-                        body,
-                        SolidTerminalBackground,
-                        () => Paint(body, buf, key.CellW, key.CellH)
-                    );
+                // History changes repaint the whole target, just like live edits.
+                // Copying old pixels into a separate native GUI batch can retain a
+                // blank interior indefinitely once the history view stops changing.
+                TerminalCachePaint.Full(
+                    target,
+                    body,
+                    SolidTerminalBackground,
+                    () => Paint(body, buf, key.CellW, key.CellH)
+                );
                 if (canCopy)
                     TerminalCachePaint.CopyCompleted(
                         was,
@@ -250,11 +209,7 @@ namespace SlopWorld
                 RenderTexture.active = was;
                 if (scratch != null)
                     RenderTexture.ReleaseTemporary(scratch);
-                PerfTrace.End(
-                    reuse ? "terminal-cache-scroll-paint" : "terminal-cache-full-paint",
-                    started,
-                    1
-                );
+                PerfTrace.End("terminal-cache-full-paint", started, 1);
             }
             // The key retains the font revision from before Paint: atlas rebuilds during
             // glyph submission must force another full paint on the following frame.

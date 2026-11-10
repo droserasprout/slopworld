@@ -41,10 +41,10 @@ Painting uses a pooled, temporary screen-sized target so IMGUI clipping and glyp
 sampling keep their existing screen coordinates; this scratch contributes to peak
 GPU storage. Close the scratch GUI draw target before copying its pixels: Waylith's
 GPU copy does not flush pending GUI commands. Backends without copy support retain
-the screen-sized cache. History
-scrolls reuse matching, link-free rows only at integer physical-pixel shifts;
-exposed and boundary rows repaint. Scale, origin, surface or content mismatches
-fall back to a full repaint. CopyTexture coordinates are bottom-origin even when
+the screen-sized cache. History scrolling repaints the complete pane, including
+matching interior rows. Do not seed a partial GUI repaint with pixels copied through
+a separate GPU command stream; a damaged interior can persist in a pinned view.
+CopyTexture coordinates are bottom-origin even when
 the backend reports top-origin UVs; sampling and copy conversion are separate contracts.
 
 Selection painting retains byte geometry under weak immutable-row keys. Replacement
