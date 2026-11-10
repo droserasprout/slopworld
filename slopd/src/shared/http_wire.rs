@@ -229,6 +229,7 @@ const ROUTES: &[Route] = &[
         Resp::SandboxReport,
     ),
     ("POST /api/sessions/:name/start", Req::Empty, Resp::Ack),
+    ("POST /api/sessions/:name/resume", Req::Empty, Resp::Ack),
     ("POST /api/sessions/:name/stop", Req::Empty, Resp::Ack),
     ("POST /api/sessions/:name/restart", Req::Empty, Resp::Ack),
     ("PUT /api/sessions/:name/label", Req::LabelReq, Resp::Ack),

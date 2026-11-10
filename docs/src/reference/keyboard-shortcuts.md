@@ -46,6 +46,7 @@ filtered out, navigation starts at the first item (next) or last item (previous)
 | --- | --- | --- |
 | T | Open agent terminal | yes |
 | S | Start/stop agent | yes |
+| R | Resume stopped agent conversation | yes |
 | E | Edit agent | yes |
 | D | Duplicate agent | yes |
 | L | Label selected session | yes |

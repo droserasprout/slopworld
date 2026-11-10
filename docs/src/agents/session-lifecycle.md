@@ -11,6 +11,7 @@ lifetimes.
 | Close and reopen the game | Agents continue while their daemon host remains running, unless [Stop active sessions](../customization/settings.md#on-exit) is enabled. | Reopening reconnects to the workspace. |
 | Restart the daemon | Existing tmux sessions survive and are adopted. | Private state and configuration remain. |
 | Stop an agent | Ends its process. | The configured agent remains Down with its private state. |
+| Resume an agent | Starts a stopped Codex, Claude, or Pi agent and restores its last conversation. | Requires saved conversation history; leaves the auto-resume preference unchanged. |
 | Restart an agent | Starts a fresh process with saved settings. | Reuses its private state and project files. |
 | Reboot the daemon host | Ends running processes. | Saved agents can start again according to autostart settings. |
 | Reset private state | Stops the configured agent. | Moves private state to trash; the next start creates fresh state. |
@@ -27,6 +28,11 @@ sandbox, network, or mount edits before restarting; see
 it does not run when the daemon adopts a terminal that is already running.
 Resume compatibility depends on the CLI. See
 [Configuring agents](configuring-agents.md#preview-and-restart).
+
+Select a stopped agent and choose **Resume**, or press **R** while agent actions have
+focus. The shortcut is rebindable in Settings. Resume is also available in the agent
+row menu and command palette, and opens the terminal after startup. Missing history
+reports an error; use Start to begin normally. Workers and host shells cannot Resume.
 
 ## Private state and recovery
 

@@ -20,6 +20,7 @@ pub(crate) mod routes {
     pub(crate) const SESSION_CWD: &str = "/api/sessions/:name/cwd";
     pub(crate) const SESSION_SANDBOX: &str = "/api/sessions/:name/sandbox";
     pub(crate) const SESSION_START: &str = "/api/sessions/:name/start";
+    pub(crate) const SESSION_RESUME: &str = "/api/sessions/:name/resume";
     pub(crate) const SESSION_STOP: &str = "/api/sessions/:name/stop";
     pub(crate) const SESSION_RESTART: &str = "/api/sessions/:name/restart";
     pub(crate) const SESSION_LABEL: &str = "/api/sessions/:name/label";

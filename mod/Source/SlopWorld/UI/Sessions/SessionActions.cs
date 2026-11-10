@@ -17,6 +17,21 @@ namespace SlopWorld
         public static void Start(string name) =>
             SessionHub.Instance.SessionStore.Start(name, message => StartFailed(name, message));
 
+        public static bool CanResume(SessionInfo info) =>
+            SessionGizmoEligibility.CanResume(info)
+            && !SessionHub.Instance.SessionStore.IsResuming(info.Name);
+
+        public static void Resume(string name)
+        {
+            if (!CanResume(SessionHub.Instance.Get(name)))
+                return;
+            SessionHub.Instance.SessionStore.Resume(
+                name,
+                () => WorkspaceWindow.Open(name),
+                message => StartFailed(name, message)
+            );
+        }
+
         public static void Restart(string name) =>
             SessionHub.Instance.SessionStore.Restart(name, message => StartFailed(name, message));
 

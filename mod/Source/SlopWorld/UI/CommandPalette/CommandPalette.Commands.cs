@@ -55,6 +55,12 @@ namespace SlopWorld
                 s => SessionActions.Start(s.Name)
             ),
             CommandDef.ForAgent(
+                "agent.resume",
+                "Agent: Resume",
+                () => AgentOptions(SessionActions.CanResume, "(no agents available to resume)"),
+                s => SessionActions.Resume(s.Name)
+            ),
+            CommandDef.ForAgent(
                 "agent.stop",
                 "Agent: Stop",
                 () => AgentsSub(AgentState.Working, AgentState.Idle),

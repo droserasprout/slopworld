@@ -77,6 +77,13 @@
     <defaultKeyCodeA>BackQuote</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <KeyBindingDef>
+    <defName>SlopResumeSession</defName>
+    <label>Resume agent conversation</label>
+    <category>SlopAgent</category>
+    <defaultKeyCodeA>R</defaultKeyCodeA>
+  </KeyBindingDef>
+
   <!-- S is free after StripKeys leaves only arrow keys on the camera. -->
   <KeyBindingDef>
     <defName>SlopToggleSession</defName>

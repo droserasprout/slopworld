@@ -69,6 +69,12 @@ http:
       path: "/api/sessions/:name/start"
       methods: [POST]
       scope: scoped
+    session_resume:
+      protobuf:
+        POST: [Empty, Ack]
+      path: "/api/sessions/:name/resume"
+      methods: [POST]
+      scope: scoped
     session_stop:
       protobuf:
         POST: [Empty, Ack]

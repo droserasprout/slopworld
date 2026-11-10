@@ -5,4 +5,4 @@ mod reconcile;
 pub(super) mod start;
 pub(super) mod stop;
 
-mod resume;
+pub(super) mod resume;

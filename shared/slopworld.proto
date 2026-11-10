@@ -206,6 +206,7 @@ message SessionLaunchView {
   repeated Mount mounts = 10;
   bool autostart = 11;
   bool auto_resume = 12;
+  bool resume_supported = 19;
   optional string args = 13;
   WorkerPolicy workers = 14;
   AgentPermissions permissions = 18;

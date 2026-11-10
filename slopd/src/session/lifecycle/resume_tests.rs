@@ -13,6 +13,7 @@ fn supported_commands_discover_only_their_provider_transcripts() {
     for (provider, relative) in providers {
         let session = SessionCfg::default();
         let root = crate::sandbox::state_dir(&session).unwrap();
+        assert!(supports_resume(provider));
         assert!(!has_history(provider, &session));
         let directory = root.join(relative).join("project/date");
         std::fs::create_dir_all(&directory).unwrap();
@@ -63,6 +64,7 @@ fn unknown_empty_and_malformed_commands_start_fresh_despite_history() {
         "codex 'unfinished",
         "claude \"unfinished",
     ] {
+        assert!(!supports_resume(command), "{command:?}");
         assert!(!has_history(command, &session), "{command:?}");
     }
 }

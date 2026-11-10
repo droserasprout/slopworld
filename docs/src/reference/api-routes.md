@@ -108,6 +108,7 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `PUT` | `/api/sessions/:name/permissions` | `root-only` | `AgentPermissionsReq` | `Ack` |
 | `PUT` | `/api/sessions/:name/reader-pinned` | `scoped` | `ReaderPinnedReq` | `Ack` |
 | `POST` | `/api/sessions/:name/restart` | `scoped` | `Empty` | `Ack` |
+| `POST` | `/api/sessions/:name/resume` | `scoped` | `Empty` | `Ack` |
 | `GET` | `/api/sessions/:name/sandbox` | `scoped` | `Empty` | `SandboxReport` |
 | `POST` | `/api/sessions/:name/start` | `scoped` | `Empty` | `Ack` |
 | `POST` | `/api/sessions/:name/state/reset` | `scoped` | `Empty` | `Ack` |

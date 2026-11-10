@@ -41,7 +41,10 @@ files for supported commands (Codex, Claude, Pi). Missing, empty, or deleted his
 unknown commands start fresh. Discovery is bounded and ignores symlinks. Delivery waits
 for queued resume input to drain, then checks readiness with a deadline; timeout dismisses
 the picker for the same run, releases startup input, and records a warning. A queue fence
-alone is not evidence that a conversation resumed.
+alone is not evidence that a conversation resumed. Manual Resume uses the same startup
+sequence under lifecycle admission, requires a saved non-worker agent and supported
+history, and overrides auto-resume only in the launch plan. Missing history rejects
+the request before launch; the saved auto-resume preference remains unchanged.
 
 `session/delivery.rs` keeps captured destination identity and readiness separate from
 submission intent. Startup prompts capture titles; follow-ups and scheduled prompts

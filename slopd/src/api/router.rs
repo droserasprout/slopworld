@@ -39,6 +39,7 @@ fn scoped_routes(m: App) -> Router<App> {
         .route(routes::SESSION_CWD, get(cwd))
         .route(routes::SESSION_SANDBOX, get(sandbox))
         .route(routes::SESSION_START, post(start))
+        .route(routes::SESSION_RESUME, post(resume))
         .route(routes::SESSION_STOP, post(stop))
         .route(routes::SESSION_RESTART, post(restart))
         .route(routes::SESSION_LABEL, put(set_label))

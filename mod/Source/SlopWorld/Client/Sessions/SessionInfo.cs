@@ -50,6 +50,7 @@ namespace SlopWorld
         public List<MountEntry> Mounts = new List<MountEntry>();
         public bool Autostart;
         public bool AutoResume;
+        public bool ResumeSupported;
         public string InitialPrompt = "";
         public string StateId = "";
 

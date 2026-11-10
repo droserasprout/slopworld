@@ -3,22 +3,27 @@
 use crate::config::SessionCfg;
 use std::path::Path;
 
-pub(super) fn has_history(command: &str, session: &SessionCfg) -> bool {
-    let Ok(argv) = crate::sandbox::shell_split(command) else {
-        return false;
-    };
-    let Some(executable) = argv
+fn history_path(command: &str) -> Option<&'static str> {
+    let argv = crate::sandbox::shell_split(command).ok()?;
+    let executable = argv
         .first()
         .and_then(|s| Path::new(s).file_name())
-        .and_then(|s| s.to_str())
-    else {
-        return false;
-    };
-    let relative = match executable {
+        .and_then(|s| s.to_str())?;
+    Some(match executable {
         "codex" => "home/.codex/sessions",
         "claude" => "home/.claude/projects",
         "pi" => "home/.pi/agent/sessions",
-        _ => return false,
+        _ => return None,
+    })
+}
+
+pub(in crate::session) fn supports_resume(command: &str) -> bool {
+    history_path(command).is_some()
+}
+
+pub(super) fn has_history(command: &str, session: &SessionCfg) -> bool {
+    let Some(relative) = history_path(command) else {
+        return false;
     };
     let Ok(root) = crate::sandbox::state_dir(session) else {
         return false;

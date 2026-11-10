@@ -224,7 +224,7 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
         cfg.sessions[0].cmd = None;
         cfg.sessions[0].command = format!("missing-{}", uuid::Uuid::new_v4());
     }
-    let error = manager.prepare_start("agent").await.err().unwrap();
+    let error = manager.prepare_start("agent", false).await.err().unwrap();
     assert!(error.to_string().contains("has no command"));
     for (parent, task) in [("", "task"), ("parent", " ")] {
         {
@@ -235,7 +235,7 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
             session.parent = parent.into();
             session.task_id = task.into();
         }
-        let error = manager.prepare_start("agent").await.err().unwrap();
+        let error = manager.prepare_start("agent", false).await.err().unwrap();
         assert!(
             error
                 .to_string()
@@ -247,7 +247,7 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
         cfg.sessions[0].task_id = "task".into();
         cfg.sessions[0].network = NetworkMode::None;
     }
-    let error = manager.prepare_start("agent").await.err().unwrap();
+    let error = manager.prepare_start("agent", false).await.err().unwrap();
     assert!(error.to_string().contains("needs network access"));
     assert!(!manager.tmux.exists("agent").await);
 }
@@ -269,7 +269,7 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
     let remembered = live.host_path.clone();
     manager.config_authority.write().await.sessions.clear();
     manager.live.write().await.insert("agent".into(), live);
-    let plan = manager.prepare_start("agent").await.unwrap();
+    let plan = manager.prepare_start("agent", false).await.unwrap();
     assert!(plan.role.is_host());
     assert!(plan.session.daemon_token.is_none());
     assert_eq!(manager.config_authority.grant_count().await, 0);
@@ -289,7 +289,7 @@ async fn host_preparation_prefers_remembered_directory_and_falls_back_if_removed
         .with_extension("missing")
         .to_string_lossy()
         .into_owned();
-    let plan = manager.prepare_start("agent").await.unwrap();
+    let plan = manager.prepare_start("agent", false).await.unwrap();
     assert_eq!(plan.dir, cfg.projects[0].dir);
 }
 
@@ -471,7 +471,7 @@ async fn start_rejects_retained_incompatible_identities_before_launch() {
             live.cfg.state_id = crate::storage_id::draft_identity();
         }
         manager.live.write().await.insert("agent".into(), live);
-        let error = manager.prepare_start("agent").await.err().unwrap();
+        let error = manager.prepare_start("agent", false).await.err().unwrap();
         assert!(
             error.to_string().contains("incompatible live identity"),
             "{error:#}"
@@ -506,7 +506,7 @@ async fn malformed_commands_reject_before_tmux_creation_and_revoke_worker_creden
                 .count(),
             0
         );
-        let error = manager.prepare_start("agent").await.err().unwrap();
+        let error = manager.prepare_start("agent", false).await.err().unwrap();
         assert!(error.to_string().contains("invalid command"), "{error:#}");
         assert_eq!(
             manager
@@ -560,7 +560,7 @@ async fn start_plan_snapshots_reader_context_and_publishes_recoverable_metadata(
         .create_test_errand_session(&cfg, &item, &want, true, false, "")
         .await
         .unwrap();
-    let plan = manager.prepare_start(&name).await.unwrap();
+    let plan = manager.prepare_start(&name, false).await.unwrap();
     assert_eq!(plan.context.reader, want.context.reader);
     assert_eq!(plan.context.original_label, "file.rs");
     manager.launch_tmux(&name, &plan).await.unwrap();
@@ -695,7 +695,7 @@ async fn ordinary_launch_failure_revokes_only_automatic_authority_and_retry_rota
     );
     // A sandbox planning error follows the same targeted rollback.
     manager.config_authority.write().await.sessions[0].sandbox = vec!["missing-preset".into()];
-    assert!(manager.prepare_start("agent").await.is_err());
+    assert!(manager.prepare_start("agent", false).await.is_err());
     assert_eq!(manager.config_authority.grant_count().await, 1);
     assert!(
         manager
@@ -721,7 +721,7 @@ async fn ordinary_preparation_injects_self_credentials_and_redacts_diagnostics()
         cfg.sessions[0].command = "bash".into();
         cfg.sessions[0].network = NetworkMode::None;
     }
-    let plan = manager.prepare_start("agent").await.unwrap();
+    let plan = manager.prepare_start("agent", false).await.unwrap();
     assert!(!plan.session.worker);
     let token = plan.session.daemon_token.as_deref().unwrap();
     let cap = manager
@@ -805,4 +805,72 @@ async fn ordinary_command_failure_redacts_errors_and_stop_revokes_only_launch_gr
         );
         assert!(!manager.tmux.exists("agent").await);
     }
+}
+
+#[tokio::test]
+async fn manual_resume_requires_history_and_overrides_only_the_launch_plan() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let manager = manager_for_start();
+    let project = root.join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    let executable = root.join("codex");
+    std::fs::copy("/bin/true", &executable).unwrap();
+    {
+        let mut cfg = manager.config_authority.write().await;
+        cfg.projects[0].dir = project.to_string_lossy().into_owned();
+        cfg.sessions[0].command = "bash".into();
+        cfg.sessions[0].cmd = Some(executable.to_string_lossy().into_owned());
+        cfg.sessions[0].sandbox.clear();
+        cfg.sessions[0].network = NetworkMode::None;
+    }
+    let error = manager.resume("agent").await.unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("No supported saved conversation")
+    );
+    assert!(!manager.tmux.exists("agent").await);
+    assert_eq!(manager.config_authority.grant_count().await, 0);
+
+    let session = manager.config().await.sessions[0].clone();
+    let history = crate::sandbox::state_dir(&session)
+        .unwrap()
+        .join("home/.codex/sessions");
+    std::fs::create_dir_all(&history).unwrap();
+    std::fs::write(history.join("conversation.jsonl"), "{}\n").unwrap();
+    let plan = manager.prepare_start("agent", true).await.unwrap();
+    assert!(plan.session.auto_resume);
+    assert!(!manager.config().await.sessions[0].auto_resume);
+    manager.cleanup_failed_start("agent", false).await;
+    let normal = manager.prepare_start("agent", false).await.unwrap();
+    assert!(!normal.session.auto_resume);
+    manager.cleanup_failed_start("agent", false).await;
+
+    std::fs::remove_dir_all(history).unwrap();
+    assert!(manager.prepare_start("agent", true).await.is_err());
+    assert_eq!(manager.config_authority.grant_count().await, 0);
+}
+
+#[tokio::test]
+async fn manual_resume_rejects_host_and_worker_sessions() {
+    let manager = manager_for_start();
+    let session = manager.config().await.sessions[0].clone();
+    let mut live = Live::new(session, TitleCapture::default());
+    live.role = SessionRole::HostAction;
+    manager.live.write().await.insert("agent".into(), live);
+    let error = manager.resume("agent").await.unwrap_err();
+    assert!(error.to_string().contains("saved, non-worker"));
+    manager.live.write().await.clear();
+    {
+        let mut cfg = manager.config_authority.write().await;
+        cfg.sessions[0].worker = true;
+        cfg.sessions[0].parent = "parent".into();
+        cfg.sessions[0].task_id = "task".into();
+        cfg.sessions[0].network = NetworkMode::Host;
+    }
+    let error = manager.resume("agent").await.unwrap_err();
+    assert!(error.to_string().contains("saved, non-worker"));
+    assert_eq!(manager.config_authority.grant_count().await, 0);
 }

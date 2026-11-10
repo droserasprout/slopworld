@@ -235,6 +235,7 @@ fn view(name: &str) -> SessionView {
             mounts: Vec::new(),
             autostart: false,
             auto_resume: false,
+            resume_supported: false,
             initial_prompt: String::new(),
             state_id: String::new(),
         },
