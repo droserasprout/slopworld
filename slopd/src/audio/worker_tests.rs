@@ -143,6 +143,10 @@ fn backend_failure_retires_output_then_reopens_current_source_and_volume() {
     assert_eq!(dropped.load(Ordering::Acquire), 1);
     assert!(cancel.load(Ordering::Acquire));
     assert!(!worker.state.lock().unwrap().playing);
+    assert!(
+        worker.state.lock().unwrap().error.is_none(),
+        "recovery must not trigger client OST fallback"
+    );
     worker
         .control
         .volume

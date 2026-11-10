@@ -195,7 +195,7 @@ impl AudioWorker {
         }
         self.recovery.recoveries += 1;
         self.control
-            .publish_recovery(&self.state, &source, generation, why);
+            .publish_recovery(&self.state, &source, generation);
         tracing::warn!(
             attempt = self.recovery.recoveries,
             "audio: {why}; reopening output"

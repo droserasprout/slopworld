@@ -23,7 +23,8 @@ after adoption. Tmux markers identify managed players and preserve applied volum
 
 Daemon audio tries preferred ALSA devices then default, excluding null sinks and
 repeated IDs. Backend failure retires the device and restarts the source after bounded
-backoff; stop/replacement cancels delayed recovery. Reopening restarts files/reconnects
+backoff. Recovery publishes no terminal error, so the mod retains the station;
+exhausted retries publish the failure. Stop/replacement cancels delayed recovery. Reopening restarts files/reconnects
 stations. The audio worker owns one idle/opening/playing/backoff source phase; each live
 run carries its source, generation, and cancellation together. Output-device lifetime and
 recovery budget remain separate. Control owns request identity and narrow playback/title
