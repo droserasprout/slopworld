@@ -21,6 +21,8 @@ internal static class EcoWorkspace
         BrowserSocketPatch.Apply(mod, root);
         BrowserSidebarPatch.Apply(mod, root);
         BrowserKeysPatch.Apply(mod, root);
+        BrowserClipboardPatch.Apply(mod, root);
+        BrowserTerminalSizePatch.Apply(mod, root);
         // The browser has no audio decoder. MusicUpdate otherwise throws from
         // Root_Play.Update and prevents a clean workspace frame. Keep this silence
         // policy isolated to Eco staging, with the rest of Root_Play untouched.

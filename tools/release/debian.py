@@ -46,6 +46,8 @@ def package(
         staging = workspace / product
         if product == 'slopcar':
             shared.stage_sidecar(staging, binary_dir or ROOT / 'slopcar/target/release', revision, version)
+        elif product == 'slopweb':
+            shared.stage_slopweb(staging, revision, version, binary_dir)
         else:
             shared.stage_system(staging, binary_dir or ROOT / 'slopd/target/release', product)
             if product == 'slopworld':
@@ -58,21 +60,25 @@ def package(
         source_control.parent.mkdir()
         source_control.write_text(f'Source: {product}\n\nPackage: {product}\nArchitecture: any\n')
         binaries = (product,)
-        result = run(
-            ['dpkg-shlibdeps', '-O', *(str(staging / 'usr/bin' / binary) for binary in binaries)],
-            cwd=workspace,
-            capture_output=True,
-            text=True,
+        result = (
+            run(
+                ['dpkg-shlibdeps', '-O', *(str(staging / 'usr/bin' / binary) for binary in binaries)],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+            )
+            if product != 'slopweb'
+            else None
         )
         dependencies = next(
             (
                 line.removeprefix('shlibs:Depends=')
-                for line in result.stdout.splitlines()
+                for line in (result.stdout.splitlines() if result else [])
                 if line.startswith('shlibs:Depends=')
             ),
             '',
         )
-        if not dependencies:
+        if not dependencies and product != 'slopweb':
             raise ValueError('dpkg-shlibdeps returned no shared-library dependencies')
         control = staging / 'DEBIAN/control'
         control.parent.mkdir()

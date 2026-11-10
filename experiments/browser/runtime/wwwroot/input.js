@@ -1,6 +1,6 @@
 // Browser event source for installed Waylith.Input.InputState. The frame owner
 // must drain after BeginFrame and before game Update; no native loop is started.
-export function attachInput(canvas, managed) {
+export function attachInput(canvas, managed, browserClipboard = false) {
     const aliases = { ShiftLeft: 'LeftShift', ShiftRight: 'RightShift',
         ControlLeft: 'LeftCtrl', ControlRight: 'RightCtrl', AltLeft: 'LeftAlt', AltRight: 'RightAlt',
         MetaLeft: 'LeftMeta', MetaRight: 'RightMeta', ArrowLeft: 'LeftArrow', ArrowRight: 'RightArrow',
@@ -23,7 +23,8 @@ export function attachInput(canvas, managed) {
     for (const type of ['keydown', 'keyup']) listen(canvas, type, event => {
         const key = aliases[event.code] ?? (/^Key[A-Z]$/.test(event.code) ? event.code.slice(3) : ordinary.test(event.code) ? event.code : null);
         if (!key) return;
-        event.preventDefault();
+        if (!(browserClipboard && (event.ctrlKey || event.metaKey) && !event.altKey && event.code === 'KeyV'))
+            event.preventDefault();
         enqueue({ kind: event.repeat ? 'repeat' : 'key', key, down: type === 'keydown' });
     });
     listen(canvas, 'pointermove', event => enqueue({ kind: 'move', ...position(event) }));
