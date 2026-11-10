@@ -13,6 +13,8 @@ changes after the mouse is released and on teardown; the embedded Settings view
 does not run the vanilla options dialog's close lifecycle.
 Daemon radio output on the same page uses the endpoint-scoped Save/Discard draft;
 its device catalog is a refreshable snapshot and never controls native game audio.
+The output status appears only when the snapshot reports an open radio device;
+an absent active device does not mean routing is unavailable.
 `OptionLabels.Auto` owns the shared `Auto (detected option)` label format; callers
 supply detection results and omit the suffix while the result is unknown.
 

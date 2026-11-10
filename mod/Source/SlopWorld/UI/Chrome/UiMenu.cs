@@ -193,7 +193,7 @@ namespace SlopWorld
 
         // Preferred width from menu labels. Selectors also reserve their arrow space and
         // pass the resulting control width back to the opened menu.
-        public static float WidthFor(IEnumerable<string> labels)
+        public static float WidthFor(IEnumerable<string> labels, float maxWidth = MaxW)
         {
             using (WidgetState.Save())
             {
@@ -204,11 +204,11 @@ namespace SlopWorld
                     foreach (var label in labels)
                     {
                         widest = Mathf.Max(widest, UiTheme.Wide(label));
-                        if (widest + PadX * 2f >= MaxW)
+                        if (widest + PadX * 2f >= maxWidth)
                             break;
                     }
                 }
-                return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
+                return Mathf.Clamp(widest + PadX * 2f, Mathf.Min(MinW, maxWidth), maxWidth);
             }
         }
 
@@ -235,7 +235,7 @@ namespace SlopWorld
 
         // Checkbox columns and submenu arrows consume the same row width as the label.
         // Selectors must measure these too before fixing the popup to the control width.
-        public static float WidthFor(IEnumerable<FloatMenuOption> options)
+        public static float WidthFor(IEnumerable<FloatMenuOption> options, float maxWidth = MaxW)
         {
             using (WidgetState.Save())
             {
@@ -251,10 +251,10 @@ namespace SlopWorld
                             + o.extraPartWidth
                             + (o is UiSubmenu ? ArrowW + UiTheme.GapXS : 0f)
                     );
-                    if (w + PadX * 2f >= MaxW)
+                    if (w + PadX * 2f >= maxWidth)
                         break;
                 }
-                return Mathf.Clamp(w + PadX * 2f, MinW, MaxW);
+                return Mathf.Clamp(w + PadX * 2f, Mathf.Min(MinW, maxWidth), maxWidth);
             }
         }
 

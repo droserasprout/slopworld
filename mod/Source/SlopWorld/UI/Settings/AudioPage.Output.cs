@@ -46,15 +46,15 @@ namespace SlopWorld
 
         void DrawOutput(Listing_Standard l)
         {
-            UiLayout.SectionHeading(l, "Daemon radio output");
+            UiLayout.SectionHeading(l, "Radio output");
             if (!SessionHub.Instance.Capabilities.AudioPlayback)
             {
-                UiLayout.Note(l, "Daemon audio output is unavailable on this host.");
+                UiLayout.Note(l, "Radio playback is unavailable on this host.");
                 return;
             }
             if (!_loaded || _cfg == null)
             {
-                UiLayout.Note(l, _error ?? "Waiting for daemon settings");
+                UiLayout.Note(l, _error ?? "Loading audio settings…");
                 return;
             }
             // Capture this endpoint's draft, never mutate whichever endpoint is current when
@@ -85,37 +85,30 @@ namespace SlopWorld
                     ? AutoOutputLabel(outputs, config.AudioBackend)
                 : selected != null ? DeviceLabel(selected)
                 : config.AudioDevice + " (unavailable)";
-            UiControls.Select(l, "Output", label, devices, out _);
+            UiControls.Select(l, "Device", label, devices, out _);
 
             var backends = new List<FloatMenuOption>
             {
-                new FloatMenuOption(
-                    AutoOutputLabel(outputs, "auto"),
-                    () => config.AudioBackend = "auto"
-                ),
-                new FloatMenuOption("PulseAudio-compatible", () => config.AudioBackend = "pulse"),
+                new FloatMenuOption(AutoBackendLabel(outputs), () => config.AudioBackend = "auto"),
+                new FloatMenuOption("PulseAudio", () => config.AudioBackend = "pulse"),
                 new FloatMenuOption("PipeWire", () => config.AudioBackend = "pipewire"),
                 new FloatMenuOption("System default", () => config.AudioBackend = "default"),
             };
             string backend =
-                config.AudioBackend == "pulse" ? "PulseAudio-compatible"
+                config.AudioBackend == "pulse" ? "PulseAudio"
                 : config.AudioBackend == "pipewire" ? "PipeWire"
                 : config.AudioBackend == "default" ? "System default"
-                : AutoOutputLabel(outputs, "auto");
-            UiControls.Select(l, "Backend", backend, backends, out _);
-            if (outputs != null)
+                : AutoBackendLabel(outputs);
+            UiControls.Select(l, "Audio system", backend, backends, out _);
+            if (!string.IsNullOrEmpty(outputs?.ActiveDevice))
             {
                 var active = outputs.Devices.FirstOrDefault(device =>
                     device.Id == outputs.ActiveDevice
                 );
+                // An unopened radio stream has no active device, even when routing is valid.
                 UiLayout.Note(
                     l,
-                    "Active: "
-                        + (
-                            string.IsNullOrEmpty(outputs.ActiveDevice) ? "none"
-                            : active == null ? outputs.ActiveDevice
-                            : DeviceLabel(active)
-                        )
+                    "Using: " + (active == null ? outputs.ActiveDevice : DeviceLabel(active))
                 );
             }
             if (_outputsEndpoint == endpoint && !string.IsNullOrEmpty(_outputsError))
@@ -124,8 +117,8 @@ namespace SlopWorld
                 UiLayout.Button(
                     l,
                     _outputsLoading && _outputsEndpoint == endpoint
-                        ? "Refresh outputs (loading)"
-                        : "Refresh outputs"
+                        ? "Refreshing…"
+                        : "Refresh devices"
                 )
             )
                 RefreshOutputs();
@@ -140,10 +133,26 @@ namespace SlopWorld
             )
                 return OptionLabels.Auto();
             var device = outputs.Devices.FirstOrDefault(candidate => candidate.Id == id);
-            return OptionLabels.Auto(device == null ? id : device.Name);
+            return OptionLabels.Auto(device == null ? id : DeviceLabel(device));
+        }
+
+        static string AutoBackendLabel(Wire.AudioOutputs outputs)
+        {
+            if (outputs == null || !outputs.AutoDevices.TryGetValue("auto", out string id))
+                return OptionLabels.Auto();
+            return OptionLabels.Auto(
+                id == "pipewire" ? "PipeWire"
+                : id == "pulse" ? "PulseAudio"
+                : id == "default" ? "System default"
+                : null
+            );
         }
 
         static string DeviceLabel(Wire.AudioOutputDevice device) =>
-            device.Name == device.Id ? device.Id : device.Name + " (" + device.Id + ")";
+            device.Id == "pipewire" ? "PipeWire"
+            : device.Id == "pulse" ? "PulseAudio"
+            : device.Id == "default" ? "System default"
+            : device.Name == device.Id ? device.Id
+            : device.Name + " (" + device.Id + ")";
     }
 }

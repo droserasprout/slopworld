@@ -393,9 +393,8 @@ namespace SlopWorld
             var label = new Rect(r.x, r.y, r.width, labelH);
             float chevron = Mathf.Round(LineH * 0.55f);
             // Menu width does not include the selector's arrow and divider space.
-            float valueWidth =
-                Mathf.Max(Wide(value) + ButtonPadX * 2f, ButtonMinW) + chevron + GapS;
-            float boxW = Mathf.Min(r.width, Mathf.Max(forcedWidth, valueWidth));
+            float valueWidth = Mathf.Max(Wide(value) + ButtonPadX * 2f, ButtonMinW);
+            float boxW = Mathf.Min(r.width, Mathf.Max(forcedWidth, valueWidth) + chevron + GapS);
             box = inline ? r : new Rect(r.x, r.y + labelH + GapXS, boxW, CompactH);
             UiMenu.ObserveSelectorInput();
             bool shownOpen = open || UiMenu.IsSelectorOpenAt(MenuAt(box));
