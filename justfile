@@ -80,6 +80,7 @@ import 'just/bench.just'
 import 'just/trace.just'
 import 'just/sidecar.just'
 import 'just/game.just'
+import 'just/browser.just'
 
 # Install the mod and its launcher
 [group('Build and run')]

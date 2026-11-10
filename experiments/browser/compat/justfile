@@ -1,0 +1,64 @@
+set shell := ["bash", "-euc"]
+set quiet
+set default-list
+
+game := env("RIMWORLD", env("HOME") + "/.local/share/Steam/steamapps/common/RimWorld")
+
+offline-restore:
+    dotnet restore Offline/Offline.csproj
+
+offline root:
+    dotnet restore Offline/Offline.csproj --locked-mode
+    dotnet run --project Offline/Offline.csproj --no-restore -- {{quote(root)}} ../../../mod/Assemblies/SlopWorld.dll
+
+core root probe:
+    dotnet restore Offline/Offline.csproj --locked-mode
+    dotnet run --project Offline/Offline.csproj --no-restore -- --core {{quote(root)}} {{quote(probe)}}
+
+# Format the compatibility summarizer using the repository's locked tooling.
+format:
+    uv run --project ../../.. --locked ruff format summarize.py
+
+# Read PE metadata and IL operands without loading or executing game assemblies.
+inspect game=game:
+    dotnet build Inspect.csproj --nologo --verbosity quiet
+    mkdir -p out
+    dotnet bin/Debug/net10.0/Inspect.dll "{{game}}" ../../../mod/Assemblies > out/inventory.json
+
+# Inspect all IL instructions of one method/type (substring match).
+trace assembly pattern:
+    dotnet build Inspect.csproj --nologo --verbosity quiet
+    dotnet bin/Debug/net10.0/Inspect.dll --trace "{{assembly}}" "{{pattern}}"
+
+# Generate a compact snapshot; raw metadata remains ignored in out/.
+summary: inspect
+    python3 summarize.py
+
+# Run shared capability checks on the host as a control, never the game.
+host-probe:
+    dotnet build HostProbe.csproj --nologo --verbosity quiet
+    mkdir -p out
+    dotnet bin/Debug/net10.0/HostProbe.dll > out/host-probe.json
+    python3 -m json.tool out/host-probe.json
+
+# Refresh a small curated result; keep raw inventories and stack traces ignored.
+record: summary host-probe browser-probe
+    python3 summarize.py --record
+
+# Stage the browser probe and existing mod DLL; run root `just mod-build` first.
+browser-build:
+    test -f ../../../mod/Assemblies/SlopWorld.dll || { echo 'Missing mod/Assemblies/SlopWorld.dll; run just mod-build from the repository root.' >&2; exit 1; }
+    dotnet build Browser/BrowserProbe.csproj --nologo --verbosity quiet -p:RestoreLockedMode=true
+    rm -rf out/browser
+    mkdir -p out/browser
+    cp -r Browser/bin/Debug/net10.0/wwwroot/. out/browser/
+    cp Browser/wwwroot/* out/browser/
+    mkdir -p out/browser/mod
+    cp ../../../mod/Assemblies/SlopWorld.dll out/browser/mod/
+
+# Execute the shared capability checks in Chromium with the primary-owned harness.
+browser-probe: browser-build
+    node ../harness/validate.mjs out/browser / out/browser-probe.json
+
+eco root:
+    dotnet run --project Offline/Offline.csproj -- --eco {{quote(root)}} ../../../mod/Assemblies/SlopWorld.dll

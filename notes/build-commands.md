@@ -1,6 +1,8 @@
 # Build boundaries
 
 Use `just` to discover recipes and `just --show RECIPE` to inspect them.
+The local-only [browser prototype](browser-prototype.md) has separate experimental
+recipes and is excluded from production builds and packaging.
 [Build from source](../docs/src/development/build.md) owns setup and validation;
 [releases](../docs/src/development/releases.md) owns publication procedures.
 

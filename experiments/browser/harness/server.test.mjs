@@ -1,0 +1,127 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, writeFile, symlink, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { serve } from './server.mjs';
+
+test('local assets are isolated and credentialed health rejects foreign requests', async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'wasm-server-test-'));
+  const { server, url } = await serve(temporary);
+  try {
+    await writeFile(path.join(temporary, 'index.html'), '<h1>probe</h1>');
+    await symlink('/etc/passwd', path.join(temporary, 'escape'));
+    const page = await fetch(url);
+    assert.equal(await page.text(), '<h1>probe</h1>');
+    assert.equal(page.headers.get('cross-origin-embedder-policy'), 'require-corp');
+    assert.equal((await fetch(url + '/escape')).status, 403);
+    assert.equal((await fetch(url + '/host/health')).status, 403);
+    assert.equal((await fetch(url, { method: 'POST' })).status, 403);
+    assert.equal((await fetch(url + '/missing')).status, 404);
+  } finally {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test('HTTP bridge preserves protobuf and status, supplies only host credentials, and rejects foreign mutations', async () => {
+  const { createServer } = await import('node:http');
+  const seen = [];
+  const upstream = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    seen.push({ url: req.url, method: req.method, headers: req.headers, body: Buffer.concat(chunks) });
+    res.writeHead(409, { 'x-slop-token': 'must-not-forward' }).end(Buffer.from([8, 1, 255]));
+  });
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'wasm-bridge-test-'));
+  const { server, url } = await serve(temporary, 0, {
+    endpoint: `http://127.0.0.1:${upstream.address().port}`, token: 'host-secret',
+  });
+  try {
+    for (const headers of [{}, { 'sec-fetch-site': 'cross-site' },
+      { 'sec-fetch-site': 'same-origin', origin: 'http://evil.invalid' }]) {
+      assert.equal((await fetch(url + '/host/api/sessions', { method: 'POST', headers })).status, 403);
+    }
+    assert.equal(seen.length, 0);
+    const response = await fetch(url + '/host/api/sessions', {
+      method: 'POST', body: Buffer.from([10, 2, 97, 98]),
+      headers: { 'sec-fetch-site': 'same-origin', origin: url, 'x-slop-token': 'browser-secret', cookie: 'private=1' },
+    });
+    assert.equal(response.status, 409);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from([8, 1, 255]));
+    assert.equal(response.headers.get('x-slop-token'), null);
+    assert.equal(seen[0].url, '/api/sessions');
+    assert.equal(seen[0].method, 'POST');
+    assert.equal(seen[0].headers['x-slop-token'], 'host-secret');
+    assert.equal(seen[0].headers.cookie, undefined);
+    assert.deepEqual(seen[0].body, Buffer.from([10, 2, 97, 98]));
+    assert.equal((await fetch(url + '/host/api/health?token=bad', {
+      headers: { 'sec-fetch-site': 'same-origin' },
+    })).status, 400);
+    assert.equal(seen.length, 1);
+  } finally {
+    server.closeAllConnections(); upstream.closeAllConnections();
+    await Promise.all([new Promise(resolve => server.close(resolve)), new Promise(resolve => upstream.close(resolve))]);
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test('WebSocket bridge rejects foreign origins and relays masked binary traffic with host authentication', async () => {
+  const { createServer } = await import('node:http');
+  const { createHash } = await import('node:crypto');
+  const { openSocket } = await import('./websocket-client.mjs');
+  let upgrades = 0;
+  let remote;
+  const upstream = createServer();
+  upstream.on('upgrade', (req, socket) => {
+    upgrades++;
+    remote = socket;
+    socket.on('end', () => socket.destroy());
+    assert.equal(req.url, '/ws');
+    assert.equal(req.headers['x-slop-token'], 'host-secret');
+    assert.equal(req.headers.origin, undefined);
+    const accept = createHash('sha1').update(req.headers['sec-websocket-key'] +
+      '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\nSec-WebSocket-Protocol: slopworld.protobuf.v2\r\n\r\n`);
+    let received = Buffer.alloc(0);
+    socket.on('data', chunk => {
+      received = Buffer.concat([received, chunk]);
+      if (received.length < 2) return;
+      const length = received[1] & 127;
+      if (received.length < length + 6) return;
+      assert.equal(received[0], 0x82);
+      assert.equal(received[1] & 128, 128);
+      const data = Buffer.from(received.subarray(6, 6 + length));
+      for (let i = 0; i < length; i++) data[i] ^= received[2 + i % 4];
+      socket.write(Buffer.concat([Buffer.from([0x82, length]), data]));
+      received = received.subarray(6 + length);
+    });
+  });
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'wasm-socket-test-'));
+  const { server, url } = await serve(temporary, 0, {
+    endpoint: `http://127.0.0.1:${upstream.address().port}`, token: 'host-secret',
+  });
+  let client;
+  try {
+    await assert.rejects(openSocket(url, 'http://evil.invalid'), /403/);
+    assert.equal(upgrades, 0);
+    client = await openSocket(url);
+    const data = Buffer.from([10, 0, 255, 128]);
+    client.send(data);
+    const frame = await client.frame();
+    assert.equal(frame.opcode, 2);
+    assert.deepEqual(frame.payload, data);
+    assert.equal(upgrades, 1);
+    const closed = new Promise(resolve => remote.once('close', resolve));
+    client.socket.destroy();
+    await closed;
+  } finally {
+    client?.socket.destroy(); remote?.destroy();
+    server.closeAllConnections(); upstream.closeAllConnections();
+    await Promise.all([new Promise(resolve => server.close(resolve)), new Promise(resolve => upstream.close(resolve))]);
+    await rm(temporary, { recursive: true, force: true });
+  }
+});

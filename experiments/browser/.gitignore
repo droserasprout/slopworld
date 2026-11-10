@@ -1,0 +1,11 @@
+artifacts/
+.sdk/
+**/bin/
+**/obj/
+**/node_modules/
+**/out/
+**/publish/
+**/*.dll
+**/*.so
+**/*.wasm
+**/*.zip
