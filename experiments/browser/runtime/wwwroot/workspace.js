@@ -7,8 +7,10 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   canvas.style.cssText = 'display:block;width:100%;max-width:1280px;outline:none';
   document.body.prepend(canvas);
   const started = performance.now();
-  const device = attachInput(canvas, managed);
+  const device = attachInput(canvas, managed, true);
   const gui = attachGuiInput(canvas, {
+    ClipboardTake: () => managed.ClipboardTake(),
+    ClipboardComplete: (...args) => managed.ClipboardComplete(...args),
     GuiInputFrame: batch => managed.WorkspaceUpdate(batch, initialTime + (performance.now() - started) / 1000),
   });
   let stopped = false, frame = 0;
