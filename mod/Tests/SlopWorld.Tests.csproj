@@ -14,6 +14,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Patches/Chrome/KeyboardEventQueue.cs" />
+    <Compile Include="../Source/SlopWorld/Settings/RenderSchedule.cs" />
+    <Compile Include="../Source/SlopWorld/Patches/Eco/RenderLoopRewrite.cs" />
     <EmbeddedResource Include="../../shared/loading-tips.txt" LogicalName="SlopWorld.LoadingTips" />
     <EmbeddedResource Include="../../assets/unicode/emoji-test.txt" LogicalName="SlopWorld.EmojiTests" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/Rendering/TerminalSelectionGeometry.cs" />

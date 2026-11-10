@@ -26,7 +26,8 @@ namespace SlopWorld
             });
     }
 
-    // Keep foreground frame timing independent of Eco. Apply the background limit when the application loses focus.
+    // Select render timing independently of Eco. RenderPacing consumes the target
+    // without letting the engine's native FPS throttle delay input or updates.
     public static class BackgroundFrames
     {
         static readonly FramePolicy Policy = new FramePolicy();

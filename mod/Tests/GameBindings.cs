@@ -27,10 +27,112 @@ namespace SlopWorld.Tests
                         "Assembly-CSharp.dll",
                         "RimWorld.dll",
                         "Waylith.dll",
+                        "UnityStubs.dll",
+                        "Brutal.Glfw.dll",
                     }
                 )
                     context.LoadFromAssemblyPath(Path.Combine(Path.GetFullPath(managed), assembly));
                 int count = 0;
+                var pacingLoop = (MethodBase)Invoke(mod, "Patch_RenderPacing", "TargetMethod");
+                var loopGenerator = PatchProcessor.CreateILGenerator(pacingLoop);
+                // Exercise the queue counter binding without constructing an engine,
+                // starting a render thread, or calling a native game method.
+                var pacingApp =
+                    System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(
+                        pacingLoop.DeclaringType
+                    );
+                var renderThreadField = pacingLoop.DeclaringType.GetField(
+                    "_renderThread",
+                    BindingFlags.Instance | BindingFlags.NonPublic
+                );
+                var pacingThread =
+                    System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(
+                        renderThreadField.FieldType
+                    );
+                renderThreadField.SetValue(pacingApp, pacingThread);
+                var pendingFrames = renderThreadField.FieldType.GetField(
+                    "_pendingFrames",
+                    BindingFlags.Instance | BindingFlags.NonPublic
+                );
+                foreach (int pending in new[] { 0, 1, 2, 8 })
+                {
+                    pendingFrames.SetValue(pacingThread, pending);
+                    Require(
+                        (bool)Invoke(mod, "RenderPacing", "QueueAvailable", pacingApp)
+                            == (pending <= 1),
+                        "native render admission must preserve the bounded queue without waiting"
+                    );
+                }
+                var originalLoop = PatchProcessor.GetOriginalInstructions(
+                    pacingLoop,
+                    loopGenerator
+                );
+                var pacedLoop = (
+                    (IEnumerable<CodeInstruction>)
+                        Invoke(mod, "Patch_RenderPacing", "Transpiler", originalLoop, loopGenerator)
+                ).ToList();
+                Require(
+                    originalLoop.Count(i =>
+                        i.operand is MethodInfo m && m.Name == "ThrottleToTargetFrameRate"
+                    ) == 3,
+                    "unexpected native frame throttle sites"
+                );
+                Require(
+                    !pacedLoop.Any(i =>
+                        i.operand is MethodInfo m && m.Name == "ThrottleToTargetFrameRate"
+                    ),
+                    "render-only pacing cannot leave a main-thread frame throttle"
+                );
+                Require(
+                    pacedLoop.Count(i => i.operand is MethodInfo m && m.Name == "FinishIteration")
+                        == 3,
+                    "missing render-loop completion paths"
+                );
+                int inputPump = pacedLoop.FindIndex(i =>
+                    i.operand is MethodInfo m && m.Name == "PumpEvents"
+                );
+                int inputReset = pacedLoop.FindIndex(i =>
+                    i.operand is MethodInfo m
+                    && m.Name == "BeginFrame"
+                    && m.DeclaringType.FullName == "Waylith.Input.InputState"
+                );
+                int gameUpdate = pacedLoop.FindIndex(i =>
+                    i.operand is FieldInfo f && f.Name == "OnUpdate"
+                );
+                int renderGate = pacedLoop.FindIndex(i =>
+                    i.operand is MethodInfo m && m.Name == "AdmitFrame"
+                );
+                int captureFrame = pacedLoop.FindIndex(i =>
+                    i.operand is MethodInfo m && m.Name == "CaptureFrame"
+                );
+                Require(
+                    inputReset >= 0
+                        && inputPump > inputReset
+                        && gameUpdate > inputPump
+                        && renderGate > gameUpdate
+                        && captureFrame > renderGate,
+                    "render admission must follow input reset, event dispatch and game updates"
+                );
+                Require(
+                    pacedLoop.Count(i => i.operand is MethodInfo m && m.Name == "EndFrame")
+                        == originalLoop.Count(i =>
+                            i.operand is MethodInfo m && m.Name == "EndFrame"
+                        ),
+                    "skipped rendering must retain native frame cleanup"
+                );
+                var combinedCloseLoop = (
+                    (IEnumerable<CodeInstruction>)
+                        Invoke(mod, "Patch_NativeWindowClose", "Transpiler", pacedLoop)
+                ).ToList();
+                Require(
+                    combinedCloseLoop.Any(i =>
+                        i.operand is MethodInfo m
+                        && m.Name == "ShouldClose"
+                        && m.DeclaringType.Name == "Patch_NativeWindowClose"
+                    ),
+                    "render pacing must compose with deferred window close"
+                );
+                count++;
                 foreach (
                     MethodBase target in (IEnumerable)Invoke(
                         mod,
@@ -276,6 +378,71 @@ namespace SlopWorld.Tests
                 Require(
                     keys.Count(i => i.operand is MethodInfo m && m.Name == "ConsumesGameKey") == 1,
                     "missing native workspace key filter"
+                );
+                count++;
+
+                foreach (
+                    var (owner, arguments) in new[]
+                    {
+                        ("Patch_OrderedKeyChange", new[] { "key", "isPressed" }),
+                        ("Patch_OrderedKeyRepeat", new[] { "key" }),
+                        ("Patch_OrderedText", new[] { "character" }),
+                    }
+                )
+                {
+                    var target = (MethodBase)Invoke(mod, owner, "TargetMethod");
+                    Require(
+                        target != null
+                            && target.GetParameters().Select(p => p.Name).SequenceEqual(arguments),
+                        "unexpected ordered keyboard hook: " + owner
+                    );
+                    Require(
+                        target.GetMethodBody() != null,
+                        "keyboard capture requires a managed hook"
+                    );
+                    count++;
+                }
+                foreach (
+                    MethodBase target in (IEnumerable)Invoke(
+                        mod,
+                        "Patch_OrderedKeyboardReset",
+                        "TargetMethods"
+                    )
+                )
+                {
+                    Require(
+                        target != null && target.GetParameters().Length == 0,
+                        "unexpected native keyboard reset"
+                    );
+                    count++;
+                }
+                var nativeDispatcher = dispatch.DeclaringType;
+                Require(
+                    nativeDispatcher
+                        .GetField("_typedChars", BindingFlags.Instance | BindingFlags.NonPublic)
+                        ?.FieldType == typeof(List<char>),
+                    "ordered dispatch must clear the native duplicate text buffer"
+                );
+                var runKey = nativeDispatcher.GetMethod(
+                    "RunKeyPass",
+                    BindingFlags.Instance | BindingFlags.NonPublic
+                );
+                Require(
+                    runKey != null
+                        && runKey
+                            .GetParameters()
+                            .Select(p => p.ParameterType.FullName)
+                            .SequenceEqual(
+                                new[]
+                                {
+                                    "UnityEngine.KeyCode",
+                                    "System.Char",
+                                    "UnityEngine.Vector2",
+                                    "UnityEngine.EventModifiers",
+                                    "UnityEngine.EventType",
+                                }
+                            ),
+                    "unexpected ordered keyboard GUI dispatch signature"
                 );
                 count++;
 

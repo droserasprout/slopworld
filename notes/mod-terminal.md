@@ -27,6 +27,14 @@ Ctrl+Alt letters and control punctuation retain both modifiers; Shift does not a
 a separate modifier to these character shortcuts. Ctrl+V remains reserved for paste.
 Printable input, including punctuation, follows native character events. Polling
 physical key state must not synthesize a second text stream.
+Literal input flushes at the end of native keyboard dispatch, independently of
+repaint. Keep each dispatch batch together so UTF-16 surrogate pairs survive;
+named keys flush preceding text before being sent.
+While a terminal workspace owns input, IMGUI replays accepted native keyboard
+events in arrival order with event-time modifiers, including repeats. Frame key
+polling must not collapse multiple presses, sort Enter ahead of later text, or
+apply a later Shift/Ctrl/Alt state to an earlier event. Focus reset and a new native
+input frame discard undispatched events; fields and modal windows retain native routing.
 
 Wheel input updates local history and application input without preparing a displayed
 history view or renderer. [Shared scrolling](mod-ui-scrolling.md) owns queue admission,

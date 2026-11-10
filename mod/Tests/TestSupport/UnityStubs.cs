@@ -243,6 +243,7 @@ namespace UnityEngine
     {
         ScrollWheel,
         KeyDown,
+        KeyUp,
         MouseDown,
         Layout,
         Used,

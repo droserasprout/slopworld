@@ -2,12 +2,12 @@ using System;
 
 namespace SlopWorld
 {
-    // Select native presentation and target FPS. Unfocused windows always use 15 FPS.
+    // Select native presentation and target render FPS. RenderPacing owns scheduling.
     public sealed class FramePolicy
     {
         public const string Auto = "auto",
             Limit = "limit";
-        public static readonly int[] Presets = { 15, 30, 60, 120, 144, 240 };
+        public static readonly int[] Presets = { 5, 15, 30, 60, 120, 144, 240 };
 
         // Missing or unknown settings use the monitor-matched FPS limit.
         public static string Normalize(string mode) => mode == Limit ? Limit : Auto;

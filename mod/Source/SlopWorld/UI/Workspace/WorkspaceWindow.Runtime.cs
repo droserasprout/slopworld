@@ -15,6 +15,20 @@ namespace SlopWorld
         bool ITerminalPanelHost.InputAvailable =>
             Verse.Find.WindowStack == null || Verse.Find.WindowStack.GetsInput(this);
 
+        internal static void FlushTerminalInput() =>
+            Verse.Find.WindowStack?.WindowOfType<WorkspaceWindow>()?._terminals.Flush();
+
+        internal static bool HasTerminalKeyboardInput
+        {
+            get
+            {
+                var window = Verse.Find.WindowStack?.WindowOfType<WorkspaceWindow>();
+                return window != null
+                    && window.TerminalVisible
+                    && Verse.Find.WindowStack.GetsInput(window);
+            }
+        }
+
         void ITerminalPanelHost.ClosePanel(TerminalPanel panel)
         {
             // A menu action can outlive an ephemeral session. Never close its replacement.
