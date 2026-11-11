@@ -12,7 +12,7 @@ Waylith/RimWorld installation:
 ```sh
 just slopweb-install
 slopweb
-# Open http://127.0.0.1:8787/index.html?entry&assets&eco&workspace&live&app
+# Open http://127.0.0.1:8787/
 ```
 
 Source installation defaults to `~/.local`; ensure `~/.local/bin` is on PATH.

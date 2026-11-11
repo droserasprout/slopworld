@@ -32,6 +32,12 @@ slopweb-uninstall prefix=(env('HOME') + '/.local'):
 slopweb-run *args:
     python3 slopweb/out/launch.py "$@"
 
+# Use the desktop user's game, fonts, profile and daemon endpoint from an agent sandbox.
+[group('web')]
+[positional-arguments]
+slopweb-host-run *args:
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} "$@"
+
 [group('web')]
 slopweb-format:
     uv run --locked ruff check --select I --fix slopweb tools/release
