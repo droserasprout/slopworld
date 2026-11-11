@@ -40,6 +40,25 @@ test('expanded tint retention preserves draws and invalidates on replacement and
     assert.equal(gui.guiTintProfile().imageMisses,20);
     gui.renderGui(screen,[upload,...commands]);
     assert.equal(gui.guiTintProfile().imageMisses,40);
+    // Canvas pixels are mocked; declared dimensions exercise the production
+    // retention policy without allocating dozens of large native surfaces.
+    for(const [size,capacity] of [[512,32],[1024,8],[4096,1]]) {
+      const palette=Array.from({length:capacity+1},(_,i)=>({kind:'imageTexture',value:{
+        id,color:[i/64,.8,.6,1],uv:[0,0,1,1],rect:[0,0,1,1]
+      }}));
+      gui.configureGuiTintProfile(true);
+      gui.renderGui(screen,[{...upload,value:{...upload.value,width:size,height:size}},...palette.slice(0,capacity)]);
+      assert.equal(gui.guiTintProfile().imageMisses,capacity);
+      // Refresh the oldest entry, overflow, then check actual LRU eviction.
+      gui.renderGui(screen,[palette[0],palette[capacity]]);
+      assert.equal(gui.guiTintProfile().imageMisses,capacity+1);
+      if(capacity>1) {
+        gui.renderGui(screen,[palette[0]]);
+        assert.equal(gui.guiTintProfile().imageMisses,capacity+1);
+        gui.renderGui(screen,[palette[1]]);
+      } else gui.renderGui(screen,[palette[0]]);
+      assert.equal(gui.guiTintProfile().imageMisses,capacity+2);
+    }
     gui.renderGui(screen,[{kind:'releaseImage',value:id}]);
     assert.throws(()=>gui.renderGui(screen,commands),/Missing GUI image/);
   } finally {
