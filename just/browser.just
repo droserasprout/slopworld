@@ -519,3 +519,6 @@ browser-font-styles-check root='experiments/browser/runtime/out/wwwroot-eco':
 [group('browser prototype')]
 browser-test-keybindings:
     just --justfile experiments/browser/runtime/KeyBindingsTests/justfile test
+
+browser-host-keybindings-check profile:
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/keybindings-check.mjs')}} {{quote(profile)}}
