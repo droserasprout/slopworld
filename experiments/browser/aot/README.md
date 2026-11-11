@@ -2,8 +2,8 @@
 
 This opt-in experiment consumes an **already final, patched** private prepared
 Eco root. It does not prepare IL, install a toolchain, launch a browser/game, or
-change launcher defaults or release packaging. The parent owns runtime correctness
-and comparative performance measurements.
+change launcher defaults or release packaging. Build success does not establish
+runtime correctness or performance; use browser checks and comparative benchmarks.
 
 Use absolute paths for an existing .NET SDK `dotnet` executable with matching
 `wasm-tools`, the prepared root, and a fresh output directory **inside this
@@ -43,8 +43,13 @@ publishing; generate a new snapshot for any managed code or hook change.
 
 The SDK, Emscripten and native AOT pipeline require substantial disk, compile time
 and peak memory; compilation can take many minutes. Runtime memory and workload
-improvements require separate measurement. Failed or repeated publishes require a
-new output directory; retained logs prevent overlapping writes and preserve failure
-evidence. Nothing under the ignored output, including DLLs, generated sources,
+improvements require separate measurement. Retry failed or interrupted publishes
+in the same output directory to reuse compiled cache. Attempt logs append to
+`publish.log`; `publish.binlog` describes the latest attempt. A nonblocking Linux
+file lock rejects overlapping publish/stage operations and releases on exception
+or process exit (an orphaned compiler retains it until that compiler exits). Each
+publish clears the completion marker first and restores it only on success.
+Staging still refuses an existing `wwwroot`; use a fresh experiment for another
+staged root. Nothing under the ignored output, including DLLs, generated sources,
 assets or logs, may be committed, packaged or distributed. No release tooling
 consumes this directory.

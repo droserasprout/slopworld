@@ -1,10 +1,14 @@
 """Private mixed-AOT snapshots; never prepare game IL or change launcher output."""
 
 import argparse
+import fcntl
 import json
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
@@ -152,14 +156,27 @@ def prepare(prepared: Path, output: Path, sdk: Path) -> None:
     (output / 'experiment.json').write_text(json.dumps({'sdk': str(sdk), 'prepared_root': str(prepared)}, indent=2))
 
 
+@contextmanager
+def publish_lock(output: Path):
+    # Keep the lock file inode stable. Closing releases flock even on exceptions.
+    with (output / 'publish.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise RuntimeError('Publish or stage is already active for this output') from error
+        yield lock
+
+
 def publish(output: Path, sdk: Path) -> None:
     output = private_output(output)
     sdk = checked_sdk(sdk)
     manifest = json.loads((output / 'experiment.json').read_text())
     if manifest['sdk'] != str(sdk):
         raise ValueError('Publish must use the SDK selected during prepare')
-    # The exclusive log prevents overlapping/repeated publishes into one candidate.
-    with (output / 'publish.log').open('x') as log:
+    with publish_lock(output) as lock, (output / 'publish.log').open('a') as log:
+        (output / 'publish.complete').unlink(missing_ok=True)
+        log.write(f'\n--- Publish attempt {datetime.now(UTC).isoformat()} ---\n')
+        log.flush()
         subprocess.run(
             [
                 str(sdk),
@@ -179,25 +196,28 @@ def publish(output: Path, sdk: Path) -> None:
             stdout=log,
             stderr=subprocess.STDOUT,
             check=True,
+            # An orphaned compiler retains the lock until it exits too.
+            pass_fds=(lock.fileno(),),
         )
-    (output / 'publish.complete').touch()
+        (output / 'publish.complete').touch()
 
 
 def stage(output: Path) -> None:
     output = private_output(output)
-    if not (output / 'publish.complete').is_file():
-        raise ValueError('Publish must finish successfully before staging')
-    published = output / 'published/wwwroot'
-    if not (published / '_framework/dotnet.js').is_file() or not list(
-        (published / '_framework').glob('dotnet.native*.wasm')
-    ):
-        raise ValueError('Published framework is incomplete')
-    destination = output / 'wwwroot'
-    destination.mkdir()  # Refuse to merge with an old runtime.
-    shutil.copytree(output / 'snapshot', destination, dirs_exist_ok=True)
-    shutil.rmtree(destination / '_framework')
-    shutil.copytree(published, destination, dirs_exist_ok=True)
-    shutil.copy2(output / 'snapshot/main.js', destination / 'main.js')
+    with publish_lock(output):
+        if not (output / 'publish.complete').is_file():
+            raise ValueError('Publish must finish successfully before staging')
+        published = output / 'published/wwwroot'
+        if not (published / '_framework/dotnet.js').is_file() or not list(
+            (published / '_framework').glob('dotnet.native*.wasm')
+        ):
+            raise ValueError('Published framework is incomplete')
+        destination = output / 'wwwroot'
+        destination.mkdir()  # Refuse to merge with an old runtime.
+        shutil.copytree(output / 'snapshot', destination, dirs_exist_ok=True)
+        shutil.rmtree(destination / '_framework')
+        shutil.copytree(published, destination, dirs_exist_ok=True)
+        shutil.copy2(output / 'snapshot/main.js', destination / 'main.js')
 
 
 def main() -> None:

@@ -161,16 +161,66 @@ class MixedAotTests(unittest.TestCase):
             run.assert_not_called()
         self.assertFalse((self.output / 'publish.log').exists())
 
-    def test_publish_uses_explicit_sdk_and_excludes_concurrent_retries(self):
+    def test_publish_uses_explicit_sdk_and_reuses_cache_after_failure(self):
         self.prepare()
+        cached = self.output / 'candidate/cached.o'
+        cached.write_bytes(b'expensive compilation')
         with patch.object(aot.subprocess, 'run') as run:
             aot.publish(self.output, self.sdk)
             command = run.call_args.args[0]
             self.assertEqual(command[0], str(self.sdk))
             self.assertIn('Release', command)
-            with self.assertRaises(FileExistsError):
+        for failure in (RuntimeError('failed compile'), KeyboardInterrupt()):
+            with self.subTest(failure=type(failure).__name__):
+                with (
+                    patch.object(aot.subprocess, 'run', side_effect=failure),
+                    self.assertRaises(type(failure)),
+                ):
+                    aot.publish(self.output, self.sdk)
+                self.assertFalse((self.output / 'publish.complete').exists())
+                with patch.object(aot.subprocess, 'run') as run:
+                    aot.publish(self.output, self.sdk)
+                    run.assert_called_once()
+                self.assertTrue((self.output / 'publish.complete').exists())
+                self.assertEqual(cached.read_bytes(), b'expensive compilation')
+        self.assertEqual((self.output / 'publish.log').read_text().count('--- Publish attempt '), 5)
+
+    def test_active_publish_rejects_publish_and_stage_without_mutation(self):
+        self.prepare()
+        complete = self.output / 'publish.complete'
+        complete.touch()
+        with aot.publish_lock(self.output), patch.object(aot.subprocess, 'run') as run:
+            with self.assertRaisesRegex(RuntimeError, 'already active'):
                 aot.publish(self.output, self.sdk)
-            self.assertEqual(run.call_count, 1)
+            with self.assertRaisesRegex(RuntimeError, 'already active'):
+                aot.stage(self.output)
+            run.assert_not_called()
+            self.assertTrue(complete.exists())
+            self.assertFalse((self.output / 'publish.log').exists())
+            self.assertFalse((self.output / 'wwwroot').exists())
+        # Leaving the owning context releases the real flock.
+        with patch.object(aot.subprocess, 'run') as run:
+            aot.publish(self.output, self.sdk)
+            run.assert_called_once()
+
+    def test_stage_holds_publish_lock_during_copy(self):
+        self.prepare()
+        framework = self.output / 'published/wwwroot/_framework'
+        framework.mkdir(parents=True)
+        (framework / 'dotnet.js').touch()
+        (framework / 'dotnet.native.wasm').touch()
+        (self.output / 'publish.complete').touch()
+        original_copytree = aot.shutil.copytree
+
+        def copy_with_overlap(*args, **kwargs):
+            with self.assertRaisesRegex(RuntimeError, 'already active'):
+                aot.publish(self.output, self.sdk)
+            return original_copytree(*args, **kwargs)
+
+        with patch.object(aot.shutil, 'copytree', side_effect=copy_with_overlap):
+            aot.stage(self.output)
+        with aot.publish_lock(self.output):
+            self.assertTrue((self.output / 'wwwroot').is_dir())
 
     def test_publish_failure_does_not_allow_staging(self):
         self.prepare()
