@@ -8,8 +8,14 @@ import {serve} from './server.mjs';
 import {cpuQuota, summarizeProcesses} from './browser-process-cpu.mjs';
 import {jiterpreterSnapshot} from './browser-jiterpreter.mjs';
 
-const [directory, output, phaseList='idle,output,typing,keystrokes,scrolling,switching',page='/workspace.html'] = process.argv.slice(2);
+const [directory, output, phaseList='idle,output,typing,keystrokes,scrolling,switching',page='/workspace.html',comparison='none'] = process.argv.slice(2);
 const phases=phaseList.split(',');
+const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath'}[comparison];
+if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
+  throw Error('Comparison requires a known mode and four identical phases');
+const comparisonCall=['tint','clip'].includes(comparison)
+  ? `(async enabled => (await import("/gui.js")).${comparisonExport}(enabled))` : `window.__managedProbe.${comparisonExport}`;
+
 if(!directory || !output || phases.some(p=>!['idle','output','typing','cyrillic','keystrokes','scrolling','switching'].includes(p)))
   throw Error('Usage: firefox-benchmark.mjs RUNTIME OUTPUT [PHASES] [PAGE]');
 if(!page.startsWith('/') || page.startsWith('//') || /token|credential|authorization/i.test(page))
@@ -40,6 +46,7 @@ async function sample(root) {
   return {time:performance.now(),processes:rows.filter(row=>included.has(row.pid)).map(({parent,...row})=>row)};
 }
 let driver, session, base, server, installed=false;
+let previousComparison,previousTintProfile;
 let stopping=false;
 const interrupt=()=>{stopping=true;};
 process.on('SIGTERM',interrupt);process.on('SIGINT',interrupt);
@@ -134,10 +141,16 @@ try {
   const fixture=path.resolve(new URL('./benchmark-fixture.py',import.meta.url).pathname);
   const fixtureCommand="python3 -u '"+fixture.replaceAll("'","'\\''")+"'";
   report.fixture=await evaluate(`window.__benchmark.prepare(${JSON.stringify(fixtureCommand)})`);
+  report.configuration.comparison=comparison;
+  if(comparisonExport)previousComparison=await evaluate(`${comparisonCall}(true)`);
+  if(comparison==='tint')previousTintProfile=await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
   console.log('Firefox workspace and benchmark fixtures ready');
-  for(const phase of phases) {
+  for(const [index,phase] of phases.entries()) {
     if(stopping)throw Error('Interrupted');
-    if(phase==='keystrokes')await evaluate('window.__benchmark.reset()');
+    const comparisonEnabled=comparisonExport?[false,true,true,false][index]:null;
+    if(comparisonExport)await evaluate(`${comparisonCall}(${comparisonEnabled})`);
+    if(comparisonExport || phase==='keystrokes')await evaluate('window.__benchmark.reset()');
+    if(comparison==='tint')await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const before=await sample(root);
     const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)})`);
@@ -145,19 +158,20 @@ try {
     const stageMeans=Object.fromEntries(Object.keys(result.stages[0]??{}).map(key=>
       [key,result.stages.reduce((sum,s)=>sum+s[key],0)/result.stages.length]));
     const targetRepaints=result.stages.filter(stage=>stage.targetWrites>0);
-    const summary={phase,durationMs:result.durationMs,frameMs:distribution(result.intervals),
+    const summary={phase,comparisonEnabled,durationMs:result.durationMs,frameMs:distribution(result.intervals),
       drawFrameMs:distribution(result.drawIntervals),latencyMs:distribution(result.latencyMs),stageMeans,
       targetRepaintMs:Object.fromEntries(['managedMs','repaintMs','serializationMs','canvasMs'].map(key=>[key,distribution(targetRepaints.map(s=>s[key]))])),
       latencyDefinition:phase==='keystrokes'?'Single DOM key dispatch to byte-verified echo in native receive buffer'
         :['typing','cyrillic'].includes(phase)?'DOM command dispatch to matching reply in native receive buffer'
         :phase==='switching'?'Native Open to selected pane draw submission':null,
       browserProcesses:summarizeProcesses(before,after,ticks,pageSize)};
+    if(comparison==='tint')summary.tint=await evaluate('(async()=> (await import("/gui.js")).guiTintProfile())()');
     report.phases.push({summary,result,jiterpreterBefore,jiterpreterAfter:await evaluate(`(${jiterpreterSnapshot.toString()})()`)});
     console.log(JSON.stringify(summary));
     if(process.env.PROBE_SCREENSHOTS==='1') {
       const png=await request('GET',`/session/${session}/screenshot`);
       await mkdir(path.dirname(output),{recursive:true});
-      await writeFile(output+'.'+phase+'.png',Buffer.from(png,'base64'));
+      await writeFile(output+'.'+phase+(comparisonExport?'.'+index:'')+'.png',Buffer.from(png,'base64'));
     }
   }
   // The invocation-owned driver permits about:support navigation. Read only
@@ -198,6 +212,13 @@ finally {
       }
       report.fixtureFallbackCleanup=true;
     } catch(error){report.fixtureFallbackCleanupError=String(error);process.exitCode=1;}
+  }
+  for(const [value,expression] of [
+    [previousComparison,`${comparisonCall}(${previousComparison})`],
+    [previousTintProfile,`(async()=> (await import("/gui.js")).configureGuiTintProfile(${previousTintProfile}))()`],
+  ])if(value!==undefined) {
+    try {await evaluate(expression);}
+    catch(error){(report.restoreErrors??=[]).push(String(error));process.exitCode=1;}
   }
   if(session) {
     try {await request('DELETE',`/session/${session}`,undefined,20000);report.browserCleanup=true;}

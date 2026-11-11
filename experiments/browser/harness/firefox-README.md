@@ -26,6 +26,12 @@ when available. Match dimensions, quota, workload, rendering and runtime setting
 before comparing browsers. The runner compensates for window decoration to request
 the same inner viewport as Chromium; use reported dimensions as the authority.
 
+The final optional `comparison` argument accepts `input`, `glyph`, `cell`, `tint`,
+`command` or `clip` with four identical phases. It runs off/on/on/off against the
+same fixtures, resets their screen before each phase, and restores the prior
+switch values on cleanup. Tint comparisons also report cache misses and pixel
+counts; screenshots include phase indices so repeated phases do not overwrite.
+
 The runner creates a fresh browser profile and only sends workload input to its
 own disposable sessions. Cleanup restores the prior selected session, removes
 fixture sessions, deletes the WebDriver session, terminates its owned process
