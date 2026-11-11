@@ -1,0 +1,24 @@
+set shell := ["bash", "-euc"]
+set quiet
+
+# All paths are explicit; output must be fresh, ignored experiments/browser/artifacts output.
+prepare sdk prepared_root output:
+    python3 mixed_aot.py prepare --sdk {{quote(sdk)}} --prepared-root {{quote(prepared_root)}} --output {{quote(output)}}
+
+# Expensive opt-in compile only; no toolchain installation or game/browser launch.
+publish sdk output:
+    python3 mixed_aot.py publish --sdk {{quote(sdk)}} --output {{quote(output)}}
+
+stage output:
+    python3 mixed_aot.py stage --output {{quote(output)}}
+
+test:
+    python3 -m unittest -q test_mixed_aot
+
+lint:
+    uv run --locked ruff check mixed_aot.py test_mixed_aot.py
+    uv run --locked ruff format --check mixed_aot.py test_mixed_aot.py
+
+format:
+    uv run --locked ruff check --fix mixed_aot.py test_mixed_aot.py
+    uv run --locked ruff format mixed_aot.py test_mixed_aot.py
