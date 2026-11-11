@@ -32,6 +32,9 @@ to 8787. First launch prepares local game files under `$XDG_CACHE_HOME/slopweb`
 (default `~/.cache/slopweb`); subsequent launches reuse that private runtime.
 `--prepare` prepares without serving; `--rebuild` refreshes after game data changes.
 The server binds only to 127.0.0.1. Stop it with Ctrl+C; agents continue running.
+From an agent sandbox, `just slopweb-host-run` starts the launcher on the host.
+Interactive invocations use a controlling terminal so Ctrl+C also stops the
+host service; noninteractive invocations retain piped output.
 The printed root URL applies desktop defaults without redirecting. Preparation
 imports only allowlisted appearance preferences from the local profile and bakes
 its UI and terminal fonts through the installed native rasterizer. Font files and
