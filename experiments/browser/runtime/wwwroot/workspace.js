@@ -5,6 +5,7 @@ import { workspaceViewport, workspaceParameters, workspaceOption } from './works
 import { loadBackground } from './loading-background.js';
 import { attachWorkspaceCursor } from './workspace-cursor.js';
 import { attachWorkspaceFullscreen } from './workspace-fullscreen.js';
+import { attachWorkspaceAudio } from './workspace-audio.js';
 import { WorkspaceScheduler } from './workspace-scheduler.js';
 
 export function startWorkspace(managed, canvas, initialTime = 0) {
@@ -37,6 +38,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   const device = attachInput(canvas, managed, true);
   const cursor = attachWorkspaceCursor(canvas, managed);
   const fullscreen = attachWorkspaceFullscreen(managed);
+  const audio = attachWorkspaceAudio(managed);
   // Opt-in bounded measurements; ordinary presentation does not retain per-frame data.
   let profile = parameters.has('profile') ? [] : null;
   managed.WorkspaceProfile(profile !== null);
@@ -83,7 +85,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     stopped = true; scheduler.stop();activity.abort();managed.WorkspaceClearWake();
     backgroundAbort.abort();background?.dispose();background=null;
     device.dispose(); gui.dispose();
-    cursor.dispose(); fullscreen.dispose();
+    cursor.dispose(); fullscreen.dispose(); audio.dispose();
   };
   const update = () => {
     if (stopped) return;
@@ -92,6 +94,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
       resize();
       const result = gui.frame();
       cursor.frame();
+      audio.frame();
       state.commands = result.commands.length;
       if (state.frames % 60 === 0) {
         state.game = JSON.parse(managed.GameSnapshot());

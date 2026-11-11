@@ -104,6 +104,10 @@ def build(destination: Path = OUTPUT) -> None:
         content = runtime / 'out/wwwroot-eco/mod/Content.zip'
         validate_content(content, tracked_mod_files())
         copy_file(content, bundle / 'mod/Content.zip')
+        # Only authored SlopWorld music is shipped; game audio stays in private runtime data.
+        for name in sorted(tracked_mod_files()):
+            if Path(name).parent == Path('Sounds/SlopWorld/OST') and Path(name).suffix == '.ogg':
+                copy_file(ROOT / 'mod' / name, bundle / 'ost' / Path(name).name)
         copy_file(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', bundle / 'mod/LoadingFont.png')
         copy_file(ROOT / 'shared/loading-tips.txt', bundle / 'mod/loading-tips.txt')
         for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs'):

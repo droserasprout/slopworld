@@ -44,6 +44,7 @@ internal static class EcoWorkspace
         BrowserTerminalSizePatch.Apply(mod, root);
         BrowserPreferencesPatch.Apply(mod, root);
         BrowserWindowPatch.Apply(mod, root);
+        BrowserAudioPatch.Apply(mod, root);
         using (var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll")))
             BrowserClipboardPatch.Redirect(
                 mod.MainModule.GetType("SlopWorld.FontconfigFonts"),
@@ -51,9 +52,9 @@ internal static class EcoWorkspace
                 "Families",
                 "Families"
             );
-        // The browser has no audio decoder. MusicUpdate otherwise throws from
-        // Root_Play.Update and prevents a clean workspace frame. Keep this silence
-        // policy isolated to Eco staging, with the rest of Root_Play untouched.
+        // Native Unity audio is disabled: MusicUpdate would throw from Root_Play.Update.
+        // BrowserAudio owns authored OST decoding through the DOM transport; keep
+        // this native-manager suppression isolated from the rest of Root_Play.
         var music = game
             .MainModule.GetType("RimWorld.MusicManagerPlay")
             .Methods.Single(m => m.Name == "MusicUpdate");

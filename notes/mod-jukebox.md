@@ -66,7 +66,9 @@ deadline: continuous traffic or playback backpressure must not force reconnects.
 Catalog reload failure retains the valid snapshot for retry. Mutation errors distinguish
 saved disk changes from failed activation so repaired definitions can activate later.
 
-The game owns all OST assets and playback through its bundled SongDefs. The daemon
+Native OST playback uses the bundled SongDefs. In the browser workspace,
+`BrowserAudioPatch` replaces the local music adapter with DOM playback of authored
+SlopWorld OST; Radio keeps the same source, volume, and stop-ack policy. The daemon
 rejects file playback selections and plays radio/Spotify only. Source changes stop
 native music before sending a daemon selection. Returning to OST requires the
 current unique stop token to be acknowledged after the daemon worker retires its

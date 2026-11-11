@@ -107,7 +107,7 @@ public static class BrowserWorkspaceDoors
             .GetMethod("OpenWorkspaceMenu")!
             .CreateDelegate<Action>();
         var radio = mod.GetType("SlopWorld.Radio")!;
-        radio.GetProperty("LocalPlaybackSupported")!.SetValue(null, false);
+        radio.GetProperty("LocalPlaybackSupported")!.SetValue(null, true);
         radioUpdate = radio.GetMethod("Update")!.CreateDelegate<Action>();
         installed = true;
     }
