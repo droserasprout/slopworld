@@ -61,6 +61,11 @@ slopweb-host-check-browser runtime rendering='auto':
     systemd-run --user --pipe --wait --collect --setenv=PROBE_RENDERING={{quote(rendering)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}}
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/installed-startup.json workspace
 
+# Retain a prepared runtime under the same two-core bound used by workload comparisons.
+[group('web')]
+slopweb-host-workspace-bounded runtime rendering='auto' screenshots='0':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_RENDERING={{quote(rendering)}} --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}} 1
+
 # Package the independent browser launcher using the selected native format.
 [group('package')]
 package-web distribution:
