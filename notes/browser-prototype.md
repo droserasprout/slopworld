@@ -486,8 +486,9 @@ glyph playback comparison with exact pixel checks, alternating source order and
 separate submission/readback timing under the same two-core bound.
 The Firefox workload recipe's optional `canvas_profile` argument installs aggregate
 Canvas method and frame-reuse preparation timing after startup. It distinguishes
-screen/target calls and coarse source/destination image sizes without retaining
-pixels or command contents. This instrumented diagnostic includes timer overhead;
+screen/target calls and coarse source/destination image sizes. Expensive small
+sources retain bounded dimension, uniform-color and draw-opacity summaries;
+nonuniform image contents and commands are not recorded. This diagnostic includes timer overhead;
 use an uninstrumented comparison to establish a workload speedup.
 Its injected diagnostics execute in the document realm: WebDriver's isolated module
 map would otherwise create a second GUI image bank. It owns its browser/process
@@ -551,6 +552,16 @@ are discarded with their source upload. `configureGuiTintCache` exposes the
 for immutable-image misses and mutable-target tint work without retaining pixels
 or command contents. The benchmark's `tint` mode runs four identical phases in
 off/on/on/off order and records those counters. Mutable render targets must still read their current pixels.
+Constant immutable uploads and tint variants of at most 256 texels can use a
+synchronous 1x1 Canvas backing for drawing. The original Canvas still owns tint
+readback and cache sizing. Weak source keys bound the equivalent backing to its
+upload/tint lifetime; mutable targets never qualify. Normalized UVs, alpha,
+clipping and transforms still flow through `drawImage`. This path defaults on;
+`configureGuiUniformImages(false)` selects the original sources for diagnostics.
+The Firefox benchmark's `solid` mode compares it off/on/on/off.
+`browser-host-firefox-solid-check` and `browser-host-solid-check` verify real
+Firefox/Chromium pixels, including alpha quantization, fractional geometry,
+signed/out-of-bounds crops, replacement and nonuniform fallback, without WASM.
 Screen-space clips use a direct physical-space `clipScreen` path by default:
 rectangle corners retain signed/fractional coordinates directly, while `group` and `clip` still map corners through the active transform.
 `configureGuiScreenClipFastPath(false)` selects the transformed reference for diagnostics.

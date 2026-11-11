@@ -617,11 +617,19 @@ browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-wor
 browser-host-firefox-bitmap-check output='experiments/browser/artifacts/firefox-bitmap.json':
     systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=180 node {{quote(justfile_directory() / 'experiments/browser/harness/bitmap-paint-check.mjs')}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}}
 
+browser-host-firefox-solid-check output='experiments/browser/artifacts/firefox-solid.json':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=180 node {{quote(justfile_directory() / 'experiments/browser/harness/bitmap-paint-check.mjs')}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}} solid
+
+browser-host-solid-check rendering='auto':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_RENDERING={{quote(rendering)}} node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} solid
+
 browser-firefox-harness-check:
     node --check experiments/browser/harness/firefox-benchmark.mjs
     node --check experiments/browser/harness/bitmap-paint-check.mjs
     node --check experiments/browser/harness/bitmap-paint-check.js
     node --check experiments/browser/harness/canvas-call-profile.js
+    node --check experiments/browser/harness/solid-texture-check.js
+    node --check experiments/browser/harness/rendering-check.mjs
     node --check experiments/browser/runtime/wwwroot/gui.js
     uv run --locked ruff check --quiet experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
     uv run --locked ruff format --quiet --check experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py

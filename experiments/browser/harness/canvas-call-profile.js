@@ -1,8 +1,10 @@
 // Opt-in diagnostic only: method timing includes instrumentation overhead and
-// measures synchronous submission, not GPU completion. Never record image data.
+// measures synchronous submission, not GPU completion. Source summaries retain
+// dimensions and a uniform texel's RGBA only, never nonuniform image contents.
 (async() => {
   const prototype=CanvasRenderingContext2D.prototype;
   const screen=document.querySelector('canvas'),originals=new Map();
+  const sourceDescriptions=new WeakMap();
   let rows={};
   for(const method of ['drawImage','clearRect','fill','fillRect','stroke','clip','save','restore',
     'beginPath','rect','roundRect','moveTo','lineTo','closePath','setTransform','resetTransform','getTransform',
@@ -25,6 +27,19 @@
       if(dimensions) {
         row.dimensions??=[];
         if(row.dimensions.length<8 && !row.dimensions.some(d=>d.every((v,i)=>v===dimensions[i])))row.dimensions.push(dimensions);
+        if(key.includes('small.canvas.largeDestination')) {
+          row.alphas??=[];
+          if(row.alphas.length<8 && !row.alphas.includes(this.globalAlpha))row.alphas.push(this.globalAlpha);
+          const source=args[0];let description=sourceDescriptions.get(source);
+          if(!description && source instanceof HTMLCanvasElement) {
+            const data=Reflect.apply(originals.get('getImageData'),source.getContext('2d'),[0,0,source.width,source.height]).data;
+            const uniform=data.every((v,i)=>v===data[i%4]);
+            description={width:source.width,height:source.height,uniform,rgba:uniform?Array.from(data.slice(0,4)):null};
+            sourceDescriptions.set(source,description);
+          }
+          row.sources??=[];
+          if(description && row.sources.length<8 && !row.sources.some(d=>JSON.stringify(d)===JSON.stringify(description)))row.sources.push(description);
+        }
       }
       const start=performance.now();
       try{return Reflect.apply(original,this,args);}
