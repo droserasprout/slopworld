@@ -523,7 +523,7 @@ namespace SlopWorld
                 "Game: Hint",
                 "Game",
                 _ => CoreTip.ShowHint(),
-                enabled: Playing
+                enabled: CoreTip.CanShowHint
             ),
             new CommandDef(
                 "game.nextplanet",
