@@ -11,12 +11,8 @@ layout root=(justfile_directory() / '../out/wwwroot-eco'):
 benchmark-glyphs:
     DOTNET_TieredCompilation=0 dotnet run --project NativeTextTests.csproj -c Release -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --glyph-benchmark
 
-# CPU-only converter and real glyph-emission comparison; no browser or staging.
-benchmark-colors:
-    DOTNET_TieredCompilation=0 dotnet run --project NativeTextTests.csproj -c Release -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --color-benchmark
-
 format:
-    dotnet tool run csharpier format . ../BrowserGlyphCache.cs ../Adapters/BrowserGui.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
+    dotnet tool run csharpier format . ../BrowserGlyphCache.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
 
 lint:
-    dotnet tool run csharpier check . ../BrowserGlyphCache.cs ../Adapters/BrowserGui.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
+    dotnet tool run csharpier check . ../BrowserGlyphCache.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs

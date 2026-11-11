@@ -94,27 +94,9 @@ public sealed partial class BrowserGui : IGuiBackend
 
     static float[] Box(Rect r) => new[] { r.x, r.y, r.width, r.height };
 
-    static bool colorFastPathEnabled;
-
-    public static bool ConfigureColorFastPath(bool enabled)
-    {
-        bool previous = colorFastPathEnabled;
-        colorFastPathEnabled = enabled;
-        return previous;
-    }
-
     // Native ImGui submits byte vertex colors, including alpha. Preserve that
     // quantization before Canvas blends; raw floats shift even flat panel colors.
-    static float ColorChannel(float value)
-    {
-        float scaled = Math.Clamp(value, 0f, 1f) * 255f + .5f;
-        // Finite clamped inputs produce [0.5, 255.5], where truncating to int
-        // matches byte exactly. Avoid conv.u1.r4 on that opt-in Jiterpreter path.
-        // NaN retains the reference conversion, whose result is runtime-specific.
-        return colorFastPathEnabled && !float.IsNaN(scaled)
-            ? (int)scaled / 255f
-            : (byte)scaled / 255f;
-    }
+    static float ColorChannel(float value) => (byte)(Math.Clamp(value, 0f, 1f) * 255f + .5f) / 255f;
 
     static float[] Rgba(Color c) =>
         new[] { ColorChannel(c.r), ColorChannel(c.g), ColorChannel(c.b), ColorChannel(c.a) };

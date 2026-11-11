@@ -67,14 +67,6 @@ layout path; terminal columns, sprites and input remain mod-owned.
 compares actual serialized draw packets and uploaded RGBA bytes across both paths;
 `benchmark-glyphs` includes thousands of single-cell labels with stable and moving
 positions. This CPU evidence does not establish browser frame-time or screenshot parity.
-
-`WorkspaceColorFastPath` separately exposes the default-off adapter color-conversion
-experiment. It preserves byte-quantized channels across fills, textures and text;
-NaN retains the runtime's reference byte conversion. `NativeTextTests` checks
-bit-exact reference output and real packets across both modes. Its
-`benchmark-colors` recipe measures conversion and actual glyph emission on the
-native CPU; browser Jiterpreter and workload comparisons own the default decision.
-
 Covered axis-aligned text uses the installed renderer's glyph-quad clipping rules,
 including ascender overhang and first-line bottom clipping. It does not add a Canvas
 clip scope per label. BrowserCommandState suppresses unchanged serialized transforms
@@ -450,7 +442,7 @@ The workload recipe's `early_input` argument compares the native input flush
 before repaint with the previous after-serialization boundary in one browser;
 cleanup restores the prior mode. Reported typing latency still measures DOM input
 to native receive-buffer echo, not physical display latency.
-The optional `comparison` mode (`input`, `glyph`, `cell` or `color`) requires four identical
+The optional `comparison` mode (`input`, `glyph` or `cell`) requires four identical
 phases and toggles off/on/on/off while retaining the same fixture sessions.
 Before each measured phase it repaints the same fixture screen and waits for its
 unique acknowledgment outside the timing/CPU window, avoiding content drift.

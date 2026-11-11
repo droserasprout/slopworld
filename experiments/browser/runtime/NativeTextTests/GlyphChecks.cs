@@ -9,7 +9,7 @@ using UnityStubs.Gui;
 static class GlyphChecks
 {
     [MethodImpl(MethodImplOptions.NoInlining)]
-    internal static void Run(bool benchmark, bool colorBenchmark)
+    internal static void Run(bool benchmark)
     {
         const int index = 99;
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
@@ -189,7 +189,6 @@ static class GlyphChecks
             "Real glyph packets match with cache off/on across clips, scales, anchors, scroll offsets, batching, image mutation and discarded uploads."
         );
         CellChecks.Run(index, texture, benchmark);
-        ColorChecks.Run(index, texture, benchmark || colorBenchmark);
         if (benchmark)
             Benchmark(index);
         BrowserGui.ConfigureGlyphCache(false);
