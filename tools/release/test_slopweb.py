@@ -217,6 +217,14 @@ def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_fil
     assert refreshed != ready and (ready / '.ready').is_file()
     assert launcher.prepare(bundle, game, cache) == refreshed
 
+    # Updated browser tooling must not reuse a ready runtime patched by an older
+    # bundle, even when all installed game inputs and preferences are unchanged.
+    (bundle / 'BUILD_ID').write_text('updated compatibility tooling')
+    upgraded = launcher.prepare(bundle, game, cache)
+    assert upgraded not in (ready, refreshed)
+    assert (refreshed / '.ready').is_file()
+    assert launcher.prepare(bundle, game, cache) == upgraded
+
     def fail(args: list[str], **kwargs: Any) -> None:
         raise subprocess.CalledProcessError(1, args)
 
@@ -224,7 +232,7 @@ def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_fil
     with pytest.raises(subprocess.CalledProcessError):
         launcher.prepare(bundle, game, cache, True)
     assert (ready / '.ready').is_file()
-    assert launcher.prepare(bundle, game, cache) == refreshed
+    assert launcher.prepare(bundle, game, cache) == upgraded
     assert not list(cache.glob('.prepare-*'))
 
 
