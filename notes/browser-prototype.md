@@ -36,6 +36,8 @@ UI candidate selection, terminal family resolution and glyph baking. Package sta
 allowlists the helper executable and metadata because its build directory also
 contains installed game references; those references must never be bundled.
 Private font preparation uses native settings defaults when no profile value exists;
+an unavailable saved UI family falls back to Auto in the private startup snapshot
+without changing the desktop profile. Failure to resolve Auto still aborts preparation.
 an explicit UI size zero retains the original 11/13/15 tiers. A mismatched
 terminal bake size forces ordinary text through the slow fallback renderer.
 It bakes normal, bold, italic and bold-italic variants of the selected UI and
