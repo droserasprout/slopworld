@@ -12,7 +12,7 @@ const [directory, output, phaseList='idle,output,typing,keystrokes,scrolling,swi
 const phases=phaseList.split(',');
 const stageProfile=process.env.PROBE_STAGE_PROFILE!=='0';
 if(!stageProfile && phases.includes('cyrillic'))throw Error('Cyrillic coverage checks require stage profiling');
-const comparisonExport={glyph:'WorkspaceGlyphCache',tail:'WorkspaceGlyphTailClip',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath',solid:'configureGuiUniformImages'}[comparison];
+const comparisonExport={discard:'WorkspaceDiscardedDrawing',glyph:'WorkspaceGlyphCache',tail:'WorkspaceGlyphTailClip',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath',solid:'configureGuiUniformImages'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
   throw Error('Comparison requires a known mode and four identical phases');
 const comparisonCall=['tint','clip','solid'].includes(comparison)
