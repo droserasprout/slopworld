@@ -5,20 +5,18 @@ import fcntl
 import json
 import shutil
 import subprocess
-import xml.etree.ElementTree as ET
+import sys
 from contextlib import contextmanager
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
-PACKAGES = {
-    'Newtonsoft.Json': '13.0.3',
-    'Tmds.DBus.Protocol': '0.95.1',
-    'StbImageSharp': '2.27.13',
-    'StbImageWriteSharp': '1.16.7',
-}
-INTERPRETED = ('Waylith', 'Waylith.Injection', 'RimWorldWaylith.PrepatcherCompat')
+sys.path.insert(0, str(REPO / 'slopweb'))
+import aot as compiler
+
+PACKAGES = compiler.PACKAGES
+INTERPRETED = compiler.INTERPRETED
 
 
 def private_output(output: Path) -> Path:
@@ -36,29 +34,6 @@ def checked_sdk(sdk: Path) -> Path:
     return sdk
 
 
-def published_loader(main: str) -> str:
-    marker = '    const loaded = [];'
-    if main.count(marker) != 1 or 'LoadPublishedAssembly' in main:
-        raise ValueError('Unrecognized prepared main.js loading boundary')
-    main = main.replace(
-        marker,
-        marker + '\n    const loadPublished = response => exports.Probe.LoadPublishedAssembly('
-        "decodeURIComponent(new URL(response.url).pathname.split('/').pop()).replace(/\\.dll$/, ''));",
-    )
-    for variable in ('response', 'adapters'):
-        main = main.replace(
-            f'exports.Probe.LoadAssembly(new Uint8Array(await {variable}.arrayBuffer()))',
-            f'loadPublished({variable})',
-        )
-    if 'Probe.LoadAssembly(' in main or 'loadPublished(response)' not in main:
-        raise ValueError('Unrecognized stream assembly load; refusing mixed identities')
-    # A published assembly has one body. Alternate skip-logger IL is not this snapshot.
-    return main.replace(
-        "const bypassLogger = parameters.has('skipLogger') && item.file === 'RimWorld.dll';",
-        'const bypassLogger = false; // Published final IL only.',
-    )
-
-
 def prepare(prepared: Path, output: Path, sdk: Path) -> None:
     sdk = checked_sdk(sdk)
     prepared = prepared.resolve(strict=True)
@@ -67,23 +42,8 @@ def prepare(prepared: Path, output: Path, sdk: Path) -> None:
         raise ValueError('Prepared root and output must be disjoint')
     if output.exists():
         raise FileExistsError(output)
-    for required in ('main.js', 'game/manifest.json', 'game/Assembly-CSharp.dll', 'mod/SlopWorld.dll', 'Adapters.dll'):
-        if not (prepared / required).is_file():
-            raise ValueError(f'Missing final prepared input: {required}')
-    # Reject aliases before copytree follows links, including links to host secrets.
-    if any(path.is_symlink() for path in prepared.rglob('*')):
-        raise ValueError('Prepared snapshots must not contain symlinks')
-    main = published_loader((prepared / 'main.js').read_text())
-    dlls = {}
-    for folder in (prepared / 'game', prepared / 'mod', prepared):
-        for dll in sorted(folder.glob('*.dll')):
-            if dll.stem in dlls:
-                raise ValueError(f'Duplicate assembly name: {dll.stem}')
-            dlls[dll.stem] = dll
-    if set(dlls) & ({'Probe'} | set(PACKAGES)):
-        raise ValueError('Prepared assemblies collide with Probe or pinned package references')
-    if not set(INTERPRETED).issubset(dlls):
-        raise ValueError('Prepared root is missing custom CLR owners')
+    dlls = compiler.assemblies(prepared)
+    main = compiler.published_loader((prepared / 'main.js').read_text())
 
     # Exclusive creation reserves output. On failure keep diagnostics; never delete a caller path.
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -91,68 +51,7 @@ def prepare(prepared: Path, output: Path, sdk: Path) -> None:
     shutil.copytree(prepared, output / 'snapshot')
     (output / 'snapshot/main.js').write_text(main)
     candidate = output / 'candidate'
-    assemblies = candidate / 'assemblies'
-    assemblies.mkdir(parents=True)
-    runtime = REPO / 'experiments/browser/runtime'
-    project = ET.parse(runtime / 'Probe.csproj')
-    props = project.getroot().find('PropertyGroup')
-    for name, value in {
-        'RunAOTCompilation': 'true',
-        'PublishTrimmed': 'true',
-        'BlazorWebAssemblyEnableLinking': 'true',
-        'WasmStripILAfterAOT': 'false',
-        'JsonSerializerIsReflectionEnabledByDefault': 'true',
-        'RestorePackagesWithLockFile': 'false',
-        'CompressionEnabled': 'false',
-        'BlazorEnableCompression': 'false',
-    }.items():
-        item = props.find(name)
-        if item is None:
-            item = ET.SubElement(props, name)
-        item.text = value
-    sources = candidate / 'src'
-    sources.mkdir()
-    for compile_item in project.findall('.//Compile'):
-        name = compile_item.get('Include')
-        source = (runtime / name).read_text()
-        if name == 'Program.cs':
-            marker = '    // Geometry stays coupled'
-            if source.count(marker) != 1 or 'LoadPublishedAssembly' in source:
-                raise ValueError('Unrecognized Probe export boundary')
-            source = source.replace(
-                marker,
-                '    [JSExport]\n'
-                '    public static string LoadPublishedAssembly(string name) => Assembly.Load(name).FullName!;\n\n'
-                + marker,
-            )
-        (sources / name).write_text(source)
-        compile_item.set('Include', f'src/{name}')
-    group = ET.SubElement(project.getroot(), 'ItemGroup')
-    for name, dll in sorted(dlls.items()):
-        shutil.copy2(dll, assemblies / dll.name)
-        reference = ET.SubElement(group, 'Reference', Include=name)
-        ET.SubElement(reference, 'HintPath').text = f'assemblies/{dll.name}'
-        ET.SubElement(reference, 'Private').text = 'true'
-    for name, version in PACKAGES.items():
-        ET.SubElement(group, 'PackageReference', Include=name, Version=version)
-    for name in sorted(set(dlls) | set(PACKAGES) | {'Probe'}):
-        ET.SubElement(group, 'TrimmerRootAssembly', Include=name)
-    ET.indent(project)
-    project.write(candidate / 'Probe.csproj', encoding='unicode')
-    targets = ET.Element('Project')
-    target = ET.SubElement(
-        targets, 'Target', Name='KeepCustomClrOwnersInterpreted', AfterTargets='_GetDefaultWasmAssembliesToBundle'
-    )
-    items = ET.SubElement(target, 'ItemGroup')
-    item = ET.SubElement(
-        items,
-        'WasmAssembliesToBundle',
-        Update='@(WasmAssembliesToBundle)',
-        Condition=' or '.join(f"'%(Filename)' == '{name}'" for name in INTERPRETED),
-    )
-    ET.SubElement(item, 'AOT_InternalForceToInterpret').text = 'true'
-    ET.indent(targets)
-    ET.ElementTree(targets).write(candidate / 'Directory.Build.targets', encoding='unicode')
+    compiler.write_candidate(REPO / 'experiments/browser/runtime', candidate, dlls)
     (output / 'experiment.json').write_text(json.dumps({'sdk': str(sdk), 'prepared_root': str(prepared)}, indent=2))
 
 

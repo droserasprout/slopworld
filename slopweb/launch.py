@@ -13,6 +13,7 @@ import tomllib
 import uuid
 from pathlib import Path
 
+import aot
 from appearance import preferences
 from appearance import prepare_fonts
 from portraits import host_snapshot
@@ -111,6 +112,7 @@ def main() -> None:
     )
     parser.add_argument('--prepare', action='store_true', help='Prepare local game assets and exit')
     parser.add_argument('--rebuild', action='store_true', help='Refresh local game data after a game update')
+    parser.add_argument('--aot-sdk', type=Path, help='Opt in to mixed AOT with an existing .NET 10 SDK and wasm-tools')
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error('--port must be between 1 and 65535')
@@ -119,6 +121,8 @@ def main() -> None:
     try:
         env = environment(args) if not args.prepare else os.environ.copy()
         root = prepare(bundle, args.game.expanduser().resolve(), args.cache.expanduser().resolve(), args.rebuild)
+        if args.aot_sdk:
+            root = aot.prepare(bundle, root, args.cache.expanduser().resolve(), args.aot_sdk)
         if args.prepare:
             print(f'Prepared local runtime: {root}')
             return
