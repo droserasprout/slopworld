@@ -610,12 +610,19 @@ browser-fonts-test:
 
 # Fresh Firefox via direct WebDriver HTTP; owns browser, bridge and temporary sessions.
 [group('browser prototype')]
-browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-workloads.json' phases='idle,output,typing,keystrokes,scrolling,switching' root='experiments/browser/runtime/out/wwwroot-eco' page='/workspace.html' screenshots='1' headless='1' comparison='none' stage_profile='1':
-    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_STAGE_PROFILE={{quote(stage_profile)}} --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_HEADLESS={{quote(headless)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox-host.py')}} {{quote(if root =~ '^/' { root } else { justfile_directory() / root })}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}} {{quote(phases)}} {{quote(page)}} {{quote(comparison)}}
+browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-workloads.json' phases='idle,output,typing,keystrokes,scrolling,switching' root='experiments/browser/runtime/out/wwwroot-eco' page='/workspace.html' screenshots='1' headless='1' comparison='none' stage_profile='1' canvas_profile='0':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_CANVAS_PROFILE={{quote(canvas_profile)}} --setenv=PROBE_STAGE_PROFILE={{quote(stage_profile)}} --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_HEADLESS={{quote(headless)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox-host.py')}} {{quote(if root =~ '^/' { root } else { justfile_directory() / root })}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}} {{quote(phases)}} {{quote(page)}} {{quote(comparison)}}
 
 [group('browser prototype')]
+browser-host-firefox-bitmap-check output='experiments/browser/artifacts/firefox-bitmap.json':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=180 node {{quote(justfile_directory() / 'experiments/browser/harness/bitmap-paint-check.mjs')}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}}
+
 browser-firefox-harness-check:
     node --check experiments/browser/harness/firefox-benchmark.mjs
+    node --check experiments/browser/harness/bitmap-paint-check.mjs
+    node --check experiments/browser/harness/bitmap-paint-check.js
+    node --check experiments/browser/harness/canvas-call-profile.js
+    node --check experiments/browser/runtime/wwwroot/gui.js
     uv run --locked ruff check --quiet experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
     uv run --locked ruff format --quiet --check experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
     python3 -m unittest discover -s experiments/browser/harness -p 'firefox_cleanup_test.py' -q

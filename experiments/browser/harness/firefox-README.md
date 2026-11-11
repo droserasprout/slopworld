@@ -32,7 +32,7 @@ same fixtures, resets their screen before each phase, and restores the prior
 switch values on cleanup. Tint comparisons also report cache misses and pixel
 counts; screenshots include phase indices so repeated phases do not overwrite.
 
-Both host benchmark recipes accept a final `stage_profile` argument (default `1`).
+Both host benchmark recipes accept a `stage_profile` argument (default `1`).
 Use `0` to measure latency without per-frame managed and Canvas profiling. Reports
 record this setting and retain workload, wire timing and frame interval results;
 stage samples are empty. Compare runs with the same setting. The `cyrillic` phase
@@ -49,6 +49,17 @@ A hard kill of the entire systemd unit cannot run JavaScript cleanup; avoid kill
 the unit while fixtures are active. SIGINT/SIGTERM request a stop between phases.
 
 `just browser-firefox-harness-check` checks runner syntax without starting a browser.
+
+`just browser-host-firefox-bitmap-check` compares Canvas and ImageBitmap atlas
+sources in a separate headless Firefox without starting WASM or daemon fixtures.
+It checks exact rendered bytes for integer/fractional glyph geometry and records
+submission, forced readback, and bitmap promotion time separately.
+
+The workload recipe's final `canvas_profile` argument defaults to `0`. Set it to
+`1` to aggregate synchronous Canvas method timing/counts and frame-reuse
+preparation timing. Screen and target calls are separate; image calls use coarse
+source and destination size buckets. This is diagnostic instrumentation with
+timer overhead, not an uninstrumented performance comparison.
 
 WebDriver sandbox evaluation has its own ES module map in Firefox. Workloads
 execute through temporary document-realm module scripts so `gui.js` shares the
