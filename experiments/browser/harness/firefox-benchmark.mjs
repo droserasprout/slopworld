@@ -103,10 +103,15 @@ try {
   if(!report.cpuQuota.available || report.cpuQuota.cores===null || report.cpuQuota.cores>bound)
     throw Error('Firefox escaped required CPU quota');
   await command('/timeouts',{script:180000,pageLoad:180000});
-  await command('/window/rect',{width:Number(process.env.PROBE_WIDTH??1536),height:Number(process.env.PROBE_HEIGHT??864)});
-  const decoration=await evaluate('({width:outerWidth-innerWidth,height:outerHeight-innerHeight})');
-  await command('/window/rect',{width:Number(process.env.PROBE_WIDTH??1536)+decoration.width,
-    height:Number(process.env.PROBE_HEIGHT??864)+decoration.height});
+  const width=Number(process.env.PROBE_WIDTH??1536),height=Number(process.env.PROBE_HEIGHT??864);
+  await command('/window/rect',{width,height});
+  // Fractional desktop scaling can round a decoration adjustment by one CSS
+  // pixel. Correct the observed inner size before the workspace allocates targets.
+  for(let attempt=0;attempt<4;attempt++) {
+    const size=await evaluate('({width:innerWidth,height:innerHeight,outerWidth,outerHeight})');
+    if(size.width===width && size.height===height)break;
+    await command('/window/rect',{width:size.outerWidth+width-size.width,height:size.outerHeight+height-size.height});
+  }
   const navigating=performance.now();
   await command('/url',{url:serving.url+page});
   await evaluate(`(async()=>{const end=performance.now()+170000;
