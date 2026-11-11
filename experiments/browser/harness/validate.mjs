@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { serve } from './server.mjs';
+import { fontProvider } from './fonts.mjs';
 import {renderingFlags,browserGpuInfo} from './browser-rendering.mjs';
 import {processSampler} from './browser-process-cpu.mjs';
 
@@ -15,7 +16,12 @@ const rendering=renderingFlags(renderingMode);
 const cpuLimit=process.env.PROBE_CPU_LIMIT_CORES===undefined?null:Number(process.env.PROBE_CPU_LIMIT_CORES);
 if(cpuLimit!==null&&(!Number.isFinite(cpuLimit)||cpuLimit<=0))throw new Error('Invalid PROBE_CPU_LIMIT_CORES');
 const profile = await mkdtemp(path.join(os.tmpdir(), 'slopworld-wasm-'));
-const { server, url } = await serve(directory);
+const fonts = process.env.SLOPWEB_FONT_HELPER ? fontProvider({
+  helper: process.env.SLOPWEB_FONT_HELPER,
+  game: process.env.SLOPWEB_FONT_GAME,
+  cache: process.env.SLOPWEB_FONT_CACHE,
+}) : null;
+const { server, url } = await serve(directory, 0, undefined, fonts);
 const events = [];
 let socket, chrome;
 try {

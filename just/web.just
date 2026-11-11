@@ -72,6 +72,16 @@ slopweb-host-check-browser runtime rendering='auto':
 slopweb-host-workspace-bounded runtime rendering='auto' screenshots='0':
     systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_RENDERING={{quote(rendering)}} --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}} 1
 
+# Reversible UI/font checks and real OST decoding in an owned diagnostic browser.
+[group('web')]
+slopweb-host-features-check profile:
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_EVALUATE_TIMEOUT_MS=240000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-features-check.js')}}
+
+# Exercise autoplay recovery without sending input to any terminal.
+[group('web')]
+slopweb-host-audio-check profile:
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_USER_GESTURE=1 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-audio-check.js')}}
+
 # Package the independent browser launcher using the selected native format.
 [group('package')]
 package-web distribution:
