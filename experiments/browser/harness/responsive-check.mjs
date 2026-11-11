@@ -16,6 +16,7 @@ const evaluate=async expression=>{
   const result=await call('Runtime.evaluate',{expression,returnByValue:true});
   if(result.exceptionDetails)throw new Error(JSON.stringify(result.exceptionDetails));return result.result.value;
 };
+const original=await evaluate('({width:innerWidth,height:innerHeight,deviceScaleFactor:devicePixelRatio,mobile:false})');
 try {
   await call('Page.navigate',{url:new URL('/',page.url).href});
   const deadline=Date.now()+180000;
@@ -33,13 +34,16 @@ try {
       state=await evaluate(`({url:location.href,canvas:[document.querySelector('canvas').width,document.querySelector('canvas').height],state:JSON.parse(window.__managedProbe.WorkspaceState())})`);
       if(Date.now()>limit)throw new Error('Resize failed: '+JSON.stringify(state));
     } while(state.state.screenWidth!==width*deviceScaleFactor || state.state.screenHeight!==height*deviceScaleFactor || state.state.uiScale!==deviceScaleFactor);
+    const geometry=state.state.terminalGeometry;
+    if(geometry?.bounds && (geometry.rows*geometry.cellHeight>geometry.bounds[3]+.01 || geometry.bounds[1]+geometry.bounds[3]>height+.01))
+      throw new Error('Terminal bottom exceeds viewport: '+JSON.stringify(geometry));
     if(state.url!==new URL('/',page.url).href)throw new Error('Root URL was rewritten: '+state.url);
     if(state.state.game.hasGame||state.state.game.hasWorld||state.state.game.ticks)throw new Error('Unexpected simulation');
     results.push({size:state.canvas,scale:state.state.uiScale,session:state.state.session,url:state.url});
   }
   console.log(JSON.stringify({responsive:true,results}));
 } finally {
-  await call('Emulation.clearDeviceMetricsOverride').catch(()=>{});
+  await call('Emulation.setDeviceMetricsOverride',original).catch(()=>{});
   for(const entry of pending.values())clearTimeout(entry.timer);
   socket.close();
 }

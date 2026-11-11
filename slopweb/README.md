@@ -62,8 +62,8 @@ files are read from the user's own installation during local preparation.
 ## Interface
 
 The sidebar selects agents; `+` creates sessions. Session-only agent rows share
-native text presentation but currently lack pawn portraits. Ctrl+V pastes browser text; selected
-terminal text copies with Ctrl+C or Ctrl+Shift+C. Without a selection, Ctrl+C still
+native text presentation but currently lack pawn portraits. Ctrl+V pastes browser
+text, plus PNG images in ready Codex agents; selected terminal text copies with Ctrl+C or Ctrl+Shift+C. Without a selection, Ctrl+C still
 interrupts the terminal process. Browser clipboard permissions apply to context
 menu actions. Settings are available through the gear icon.
 
@@ -73,12 +73,14 @@ size. A shared tmux session still has one grid, so a wider client can leave cont
 outside a smaller pane's visible area.
 
 This remains a prototype: an existing live session is required at startup. Covered
-plain text uses native font metrics and atlases; rich, wrapped, and unsupported
-runs still use approximate rendering. Atlases are baked at 5/3 density and resampled
-at other display scales. The installed launcher exports a matching native background
+text, including styled and wrapped runs, uses native font metrics and
+atlases. Unsupported sizes and characters still use approximate rendering.
+Atlases are prepared at densities 1, 5/3 and 2 and resampled at other display scales.
+The installed launcher exports a matching native background
 cache when available; generating missing frames on cold startup remains incomplete.
-Image paste has adapter/browser checks, but complete agent
-image delivery and full IME remain unverified.
+Text copy/paste and PNG attachment delivery have browser-to-agent checks. Wait for
+the Codex composer to finish initializing before pasting an image; its provisional
+startup input can retain image paths as text. Full IME remains unverified.
 Profile settings do not survive reload. Reconnect recovery and the full agent
 launch/edit dialog have not been exhaustively validated. See the checkout's
 `experiments/browser/README.md` for focused checks and implementation boundaries.

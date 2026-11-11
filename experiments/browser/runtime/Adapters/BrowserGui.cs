@@ -163,9 +163,12 @@ public sealed partial class BrowserGui : IGuiBackend
         );
     }
 
+    // GUIStyle.lineHeight is also the terminal's cell box. The native rounded
+    // first line must fit inside it; fractional font spacing can clip descenders
+    // at density 1/2 even though the pane admits the requested number of rows.
     public float LineSpacing(int fontIndex, float fontSize) =>
         BrowserFontBank.TryFace(fontIndex, fontSize, out var face)
-            ? face.Spacing
+            ? Math.Max(face.Spacing, face.FirstLine)
             : (fontSize > 0 ? fontSize : 16) * 1.2f;
 
     public void FontMetrics(

@@ -100,8 +100,11 @@ just browser-workspace-e2e-check PROFILE
 # removes only the shells created by this check. Use the default sidebar layout.
 # UI/e2e label targeting currently requires the diagnostic text-command renderer;
 # those checks have not yet been adapted to the nativeFonts glyph-only UI.
-just browser-clipboard-check PROFILE
-# Also exercises real Chromium Ctrl+V, Unicode paste, and native selection copy.
+just browser-host-clipboard-check PROFILE
+just browser-host-image-paste-check PROFILE
+# Trusted Chromium text/Unicode paste and native selection copy with prepared fonts.
+# Image check clones a temporary Codex agent, attaches one PNG without submission,
+# restores the previous selection/clipboard and deletes only its own fixture.
 just browser-close PROFILE
 
 just browser-gui
@@ -148,7 +151,7 @@ guarantee.
   loading and authored key definitions run; full ModBootstrap and simulation
   definitions are not initialized. Desktop-only shortcut actions remain unsupported.
 - GUI metrics are approximate. Rich text/wrapping, overlapping-window hit routing,
-  clipboard images, full IME, and material/primitive drawing remain incomplete.
+  full IME and material/primitive drawing remain incomplete.
   Text copy/paste uses the browser clipboard; context-menu actions require browser
   clipboard permission. Session-only avatars use authored robot faceplates.
 - Mod settings pages are present, but desktop system fonts, window-manager controls,
@@ -173,7 +176,7 @@ just --justfile experiments/browser/runtime/justfile font-probe \
 The ignored output contains glyph advances, bounds, UVs, native line metrics, and
 atlas pixels. This probe covers Latin-1 and U+2000–U+27FF and reports native fallback
 use. The optional `nativeFonts` workspace path renders covered plain text from these
-bakes; rich layout, styled faces and complete Unicode fallback remain incomplete.
+bakes; normal and styled native faces share the prepared family; complete Unicode fallback remains incomplete.
 `browser-workspace-font-reference FONT SESSION SIZE` stages the selected UI family
 and resolves the terminal family through the actual mod's host font catalog and
 fontconfig order. Host font files and derived pixels stay in ignored local output.
@@ -205,7 +208,8 @@ See [runtime](runtime/README.md), [graphics](graphics/README.md), and
 `compat/Offline/` owns build-time hooks. `graphics/` and `webgpu/` own rendering
 probes. `harness/` owns serving, bridge isolation, and Chromium validation.
 [Ownership notes](../../notes/browser-prototype.md) record cross-boundary traps.
-Production daemon and mod source remain unchanged. `slopweb/` owns local runtime
+Browser adapters preserve daemon ownership; shared terminal selection geometry
+lives in the mod. `slopweb/` owns local runtime
 preparation and installation; `tools/release/slopweb.py` owns its package payload.
 
 Only source and dependency locks belong in Git. Runtime/compatibility/graphics output

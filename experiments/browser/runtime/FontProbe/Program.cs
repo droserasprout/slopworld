@@ -8,9 +8,9 @@ using System.Runtime.Loader;
 using System.Text.Json;
 using Brutal.ImGuiApi;
 
-if (args.Length != 5)
+if (args.Length is not (5 or 6))
     throw new ArgumentException(
-        "GAME FONT OUTPUT SIZE DENSITY or GAME --resolve MOD FAMILY OUTPUT_DIRECTORY"
+        "GAME FONT OUTPUT SIZE DENSITY [STYLE] or GAME --resolve MOD FAMILY OUTPUT_DIRECTORY"
     );
 string game = Path.GetFullPath(args[0]);
 AssemblyLoadContext.Default.Resolving += (_, name) =>
@@ -90,12 +90,22 @@ static void Execute(string[] args, string game)
         args[1],
         args[2],
         float.Parse(args[3], CultureInfo.InvariantCulture),
-        float.Parse(args[4], CultureInfo.InvariantCulture)
+        float.Parse(args[4], CultureInfo.InvariantCulture),
+        args.Length == 6 ? int.Parse(args[5], CultureInfo.InvariantCulture) : 0
     );
 }
 
-static unsafe void Run(string game, string fontPath, string output, float size, float density)
+static unsafe void Run(
+    string game,
+    string fontPath,
+    string output,
+    float size,
+    float density,
+    int style
+)
 {
+    if (style is < 0 or > 3)
+        throw new ArgumentOutOfRangeException(nameof(style));
     if (!float.IsFinite(size) || size <= 0 || size > 128)
         throw new ArgumentOutOfRangeException(nameof(size));
     if (!float.IsFinite(density) || density < .5f || density > 4f)
@@ -111,12 +121,19 @@ static unsafe void Run(string game, string fontPath, string output, float size, 
             NativeLibrary.GetExport(library, "GetFontLoader");
         io.Fonts.SetFontLoader(loader());
         // Ask the installed game for its config instead of reproducing its flags.
-        var flags = host.GetMethod("LoaderFlagsFor", BindingFlags.Static | BindingFlags.NonPublic)!
-            .Invoke(null, [0]);
+        const BindingFlags privateStatic = BindingFlags.Static | BindingFlags.NonPublic;
+        uint flags = (uint)host.GetMethod("LoaderFlagsFor", privateStatic)!.Invoke(null, [0])!;
+        // Rendering mode and FontStyle are different enums. Match StyledFont's
+        // synthetic styles on the selected source using the installed constants.
+        if ((style & 1) != 0)
+            flags |= (uint)host.GetField("FreeTypeBold", privateStatic)!.GetRawConstantValue()!;
+        if ((style & 2) != 0)
+            flags |= (uint)host.GetField("FreeTypeOblique", privateStatic)!.GetRawConstantValue()!;
         var config = (ImFontConfig)
             host.GetMethod("NewFontConfig", BindingFlags.Static | BindingFlags.NonPublic)!
                 .Invoke(null, [flags])!;
         var font = io.Fonts.AddFontFromFileTTF(fontPath, size, new ImFontConfigPtr(&config));
+        host.GetMethod("KeepFractionalAdvances", privateStatic)!.Invoke(null, [io]);
         var baked = font.GetFontBaked(size, density);
         var metricsType = assembly.GetType("RimWorldWaylith.Imgui.FaceMetrics", true)!;
         var metrics = metricsType
@@ -175,6 +192,8 @@ static unsafe void Run(string game, string fontPath, string output, float size, 
                     fontPath,
                     size,
                     density,
+                    style,
+                    loaderFlags = flags,
                     rasterizerDensity = baked.RasterizerDensity,
                     lineMetrics,
                     ascent = baked.Ascent,

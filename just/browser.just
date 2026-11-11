@@ -10,6 +10,7 @@ browser-validate directory page='/' report='experiments/browser/artifacts/browse
 
 [group('browser prototype')]
 browser-test-harness:
+    node --test experiments/browser/harness/workspace-cursor.test.mjs
     node --test experiments/browser/harness/portraits.test.mjs
     node --test experiments/browser/harness/workspace-scheduler.test.mjs
     node --test experiments/browser/harness/gui-frame-reuse.test.mjs
@@ -139,6 +140,7 @@ browser-host-font family='monospace':
 # Reuse staged redistributable font tooling with the actual host profile/resolver.
 browser-host-font-bakes: slopweb-stage
     systemd-run --user --pipe --wait --collect just --justfile {{quote(justfile_directory() / 'justfile')}} slopweb-check-fonts {{quote(env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld')}} {{quote(justfile_directory() / 'experiments/browser/runtime/out/wwwroot-eco')}}
+    just browser-font-styles-check
 
 browser-host-font-density-check profile:
     just browser-host-evaluate {{quote(profile)}} experiments/browser/harness/font-density-check.js
@@ -149,12 +151,12 @@ browser-host-discarded-drawing-check profile:
 browser-host-profile profile output seconds='15':
     systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/profile.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(seconds)}}
 
-browser-host-benchmark profile output phases='idle,output,typing,scrolling,switching' quad_cache='on' canvas_reuse='keep' packet_cache='keep' idle_yield='keep' discarded_drawing='keep':
-    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/benchmark.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(phases)}} {{quote(quad_cache)}} {{quote(canvas_reuse)}} {{quote(packet_cache)}} {{quote(idle_yield)}} {{quote(discarded_drawing)}}
+browser-host-benchmark profile output phases='idle,output,typing,scrolling,switching' quad_cache='on' canvas_reuse='keep' packet_cache='keep' idle_yield='keep' discarded_drawing='keep' screenshots='1':
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} node {{quote(justfile_directory() / 'experiments/browser/harness/benchmark.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(phases)}} {{quote(quad_cache)}} {{quote(canvas_reuse)}} {{quote(packet_cache)}} {{quote(idle_yield)}} {{quote(discarded_drawing)}}
 
 [group('browser prototype')]
-browser-host-workspace-bounded session='slop-al-7' width='1536' height='864' scale='1.666666667' color_type='unorm8':
-    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_WIDTH={{quote(width)}} --setenv=PROBE_HEIGHT={{quote(height)}} --setenv=PROBE_DPR={{quote(scale)}} --setenv=PROBE_CANVAS_COLOR_TYPE={{quote(color_type)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-workspace {{quote(session)}} 1
+browser-host-workspace-bounded session='slop-al-7' width='1536' height='864' scale='1.666666667' color_type='unorm8' screenshots='1':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_WIDTH={{quote(width)}} --setenv=PROBE_HEIGHT={{quote(height)}} --setenv=PROBE_DPR={{quote(scale)}} --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_CANVAS_COLOR_TYPE={{quote(color_type)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-workspace {{quote(session)}} 1
 
 # Capture the existing native game window without input or geometry changes.
 [group('browser prototype')]
@@ -461,3 +463,21 @@ browser-clipboard-check profile:
 
 browser-host-responsive-check profile:
     systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/responsive-check.mjs')}} {{quote(profile)}}
+
+# Native-font-compatible clipboard check through trusted Chromium shortcuts.
+browser-host-clipboard-check profile:
+    python3 -c 'from pathlib import Path; import json; p=Path("experiments/browser/harness"); command="python3 -u " + str((p/"benchmark-fixture.py").resolve()); Path("experiments/browser/artifacts/clipboard-integrated.js").write_text("(async()=>{await " + (p/"benchmark-workload.js").read_text().strip().removesuffix(";") + ";window.__clipboardFixtureCommand=" + json.dumps(command) + ";return await " + (p/"clipboard-workspace.js").read_text().strip().removesuffix(";") + ";})()")'
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_CLIPBOARD=1 --setenv=PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/artifacts/clipboard-integrated.js')}}
+
+# Paste a PNG into an invocation-owned Codex composer without submitting a prompt.
+browser-host-image-paste-check profile:
+    python3 -c 'from pathlib import Path; p=Path("experiments/browser/harness"); Path("experiments/browser/artifacts/clipboard-image-integrated.js").write_text("(async()=>{await " + (p/"benchmark-workload.js").read_text().strip().removesuffix(";") + ";return await " + (p/"clipboard-image-workspace.js").read_text().strip().removesuffix(";") + ";})()")'
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_CLIPBOARD=1 --setenv=PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/artifacts/clipboard-image-integrated.js')}}
+
+# Keep disposable edge-row fixtures for visual capture; finish with benchmark cleanup.
+browser-host-terminal-visual-check profile:
+    python3 -c 'from pathlib import Path; import json; p=Path("experiments/browser/harness"); command="python3 -u " + str((p/"benchmark-fixture.py").resolve()); Path("experiments/browser/artifacts/terminal-visual.js").write_text("(async()=>{await " + (p/"benchmark-workload.js").read_text().strip().removesuffix(";") + ";window.__clipboardFixtureCommand=" + json.dumps(command) + ";return await " + (p/"terminal-visual-check.js").read_text().strip().removesuffix(";") + ";})()")'
+    just browser-host-evaluate {{quote(profile)}} experiments/browser/artifacts/terminal-visual.js
+
+browser-font-styles-check root='experiments/browser/runtime/out/wwwroot-eco':
+    uv run --locked python experiments/browser/harness/font-styles-check.py {{quote(root)}}
