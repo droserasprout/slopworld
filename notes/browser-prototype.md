@@ -139,6 +139,15 @@ Prototype server/probe startup refreshes that snapshot through the same allowlis
 the installed launcher. `just browser-host-appearance` refreshes an existing server's
 snapshot; reload its browser page to apply it. This does not rebake fonts when the
 selected family or size changes; prepare matching font assets separately.
+The app workspace overlays a versioned, origin-local presentation snapshot after
+that host seed. `BrowserPreferences` owns the explicit scalar allowlist; staged
+`ProfileSettings.Write` redirects to this sink while native dirty timing remains.
+Entry pumps the native deferred save, and page hiding flushes pending presentation
+values before reload. Unavailable storage and malformed values retain defaults.
+Credentials, daemon configuration, commands and `hostHome` never enter this snapshot;
+it does not write the host profile. Explicit diagnostic workspaces stay ephemeral;
+`localPreferences=off` also disables the app snapshot for reference comparisons.
+Prepared font assets still belong to the host and are not rebaked by local changes.
 Any requested initial
 session is resolved before opening a terminal, so startup does not temporarily
 attach or resize an unrelated session. With no explicit session, an authoritative
