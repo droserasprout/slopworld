@@ -141,7 +141,12 @@ snapshot; reload its browser page to apply it. This does not rebake fonts when t
 selected family or size changes; prepare matching font assets separately.
 Any requested initial
 session is resolved before opening a terminal, so startup does not temporarily
-attach or resize an unrelated session. Captures must match physical dimensions and effective scale before a pixel
+attach or resize an unrelated session. With no explicit session, an authoritative
+empty catalog renders the underlying native sidebar and TopBar immediately; a
+connection deadline also falls back to that UI, preserving the normal reconnect
+pump. An explicit missing session remains a startup error.
+`just browser-test-startup` checks these admission paths and underlying UI dispatch.
+Captures must match physical dimensions and effective scale before a pixel
 comparison is meaningful; matching dimensions alone does not prove parity.
 `just browser-native-window-reference` captures only the existing X11 game window,
 verifies its process ownership, and records its geometry beside the image. It does
