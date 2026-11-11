@@ -439,8 +439,13 @@ their managed cache entries. Weak ownership and release commands retire native
 resources. Pixel conversion reverses Unity's bottom-up rows using bulk copies.
 Every frame's commands must reach Canvas, including initial uploads later frames use.
 Immutable uploaded images retain one Canvas readback for tint variants, preserving
-Canvas alpha quantization. Tint variants use bounded LRU ownership and are discarded
-with their source upload. Mutable render targets must still read their current pixels.
+Canvas alpha quantization. Tint variants retain at most 32 colors per image, also bounded by the existing
+32 MiB per-image budget (with one variant allowed for an oversized source), and
+are discarded with their source upload. `configureGuiTintCache` exposes the
+16-entry reference for diagnostics; `configureGuiTintProfile` enables counters
+for immutable-image misses and mutable-target tint work without retaining pixels
+or command contents. The benchmark's `tint` mode runs four identical phases in
+off/on/on/off order and records those counters. Mutable render targets must still read their current pixels.
 `tint.test.mjs` protects byte rounding; `tint-check.js` compares the old and new pixel
 loops in Chrome, excluding Canvas upload and complete workspace repaint costs.
 

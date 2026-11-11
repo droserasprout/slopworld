@@ -8,6 +8,27 @@ export const guiRenderRevision=()=>renderRevision;
 export const guiTargetCount = () => renderTargets.size;
 export const guiImageCount = () => images.size;
 
+// Opt-in counters distinguish atlas churn from mutable-target tinting without
+// retaining pixels, colors, or command contents. Enabling starts a fresh sample.
+let tintProfile = null;
+export function configureGuiTintProfile(enabled) {
+  const previous = tintProfile !== null;
+  tintProfile = enabled ? {imageMisses:0,targetMisses:0,imagePixels:0,targetPixels:0} : null;
+  return previous;
+}
+export const guiTintProfile = () => tintProfile ? {...tintProfile} : null;
+
+// Keep up to 32 colors for small atlases; the existing per-image byte budget
+// still limits larger images. Sixteen entries churn on normal agent UI colors.
+let expandedTintCache = true;
+export function configureGuiTintCache(enabled) {
+  const previous = expandedTintCache;
+  expandedTintCache = !!enabled;
+  // Comparison phases start cold, including repeated enabled phases.
+  for(const entry of images.values())entry.tints.clear();
+  return previous;
+}
+
 function tintImage(source, color, cachedPixels = null) {
   const tinted = document.createElement('canvas'); tinted.width = source.width; tinted.height = source.height;
   const pixels = cachedPixels ?? source.getContext('2d').getImageData(0, 0, source.width, source.height).data;
@@ -62,11 +83,12 @@ export function renderGui(canvas, commands) {
         if (v.color.slice(0,3).some(channel => channel !== 1)) {
           const key = v.color.slice(0,3).join(',');
           if (!entry.tints.has(key)) {
-            const limit = Math.max(1, Math.min(16, Math.floor(32 * 1024 * 1024 / (source.width * source.height * 4))));
+            const limit = Math.max(1, Math.min(expandedTintCache ? 32 : 16, Math.floor(32 * 1024 * 1024 / (source.width * source.height * 4))));
             if (entry.tints.size >= limit) entry.tints.delete(entry.tints.keys().next().value);
             // Read back once per immutable upload. Using the Canvas round trip
             // retains its premultiplied-alpha quantization from the old path.
             entry.pixels ??= source.getContext('2d').getImageData(0, 0, source.width, source.height).data;
+            if(tintProfile){tintProfile.imageMisses++;tintProfile.imagePixels+=source.width*source.height;}
             entry.tints.set(key, tintImage(source, v.color, entry.pixels));
           }
           source = entry.tints.get(key);
@@ -104,7 +126,10 @@ export function renderGui(canvas, commands) {
       case 'targetTexture': {
         let source = renderTargets.get(v.id);
         if (!source) throw new Error(`Missing GUI render target ${v.id}`);
-        if (v.color.slice(0,3).some(channel => channel !== 1)) source = tintImage(source, v.color);
+        if (v.color.slice(0,3).some(channel => channel !== 1)) {
+          if(tintProfile){tintProfile.targetMisses++;tintProfile.targetPixels+=source.width*source.height;}
+          source = tintImage(source, v.color);
+        }
         ctx.save(); ctx.globalAlpha = v.color[3]; ctx.imageSmoothingEnabled = false;
         sample(source, v); ctx.restore(); break;
       }
