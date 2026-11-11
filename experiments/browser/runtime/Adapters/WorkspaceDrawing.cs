@@ -142,6 +142,7 @@ public static class WorkspaceDrawing
                 elapsed = Time.unscaledTime,
                 windowOpen = window != null,
                 doors = BrowserWorkspaceDoors.Snapshot(),
+                sidebar = BrowserSidebar.Snapshot(),
                 underlying = BrowserUnderlyingWorkspace.Snapshot(),
                 session = window
                     ?.GetType()
