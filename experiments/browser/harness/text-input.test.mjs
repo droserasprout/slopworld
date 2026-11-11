@@ -115,6 +115,25 @@ test('clipboard stays on the editable proxy in the initiating event',()=>{
   }finally{gui.dispose();device.dispose();}
 });
 
+test('refocus does not revive a canceled composition or its trailing input',async()=>{
+  const f=fixture();
+  try {
+    f.canvas.focus();
+    emit(f.target,'compositionstart');
+    emit(f.target,'blur',{relatedTarget:null});
+    emit(f.target,'focus');
+    emit(f.target,'compositionend',{data:'old pane'});
+    emit(f.target,'input',{data:'old pane',inputType:'insertText'});
+    assert.deepEqual(f.frame(),[{kind:'reset'}]);
+    await Promise.resolve();
+    emit(f.target,'input',{data:'fresh',inputType:'insertText'});
+    assert.equal(chars(f.frame()),'fresh');
+    emit(f.target,'compositionstart');
+    emit(f.target,'compositionend',{data:'new composition'});
+    assert.equal(chars(f.frame()),'new composition');
+  } finally {f.dispose();}
+});
+
 
 test('window refocus resumes direct input and disposal prevents additional frames',()=>{
   const f=fixture();
