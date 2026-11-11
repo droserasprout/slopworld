@@ -51,12 +51,12 @@
   const select = async session => {
     await wheel(-10000);
     for (let attempt=0;attempt<30;attempt++) {
-      // Match the left-hand identity, not a right-hand command-preset label
-      // such as "zsh" belonging to a different existing session.
-      const [x,y,w,h]=uiBox('body');
-      const row=labels().find(l=>[session.name,session.label].includes(l.text)&&l.x>=x&&l.x<x+w/2&&l.y>=y&&l.y<y+h);
-      if (row) {
-        await click(row.x,row.y);
+      // Host titles can be identical paths or change with the foreground
+      // process. Target the native row's identity and clipped scroll geometry.
+      const row=JSON.parse(managed.WorkspaceSidebarRows()).find(r=>r.session===session.name);
+      if (row?.rect?.[2]>0 && row.rect[3]>4) {
+        const [x,y,w,h]=row.rect,scale=state().uiScale;
+        await click((x+w/2)*scale,(y+h/2)*scale);
         await until(()=>state().session===session.name&&state().terminalDrawn,'select '+session.name);
         visited.push(session.name); return;
       }
@@ -190,8 +190,10 @@
         if(!response.ok)failures.push(session.name+': HTTP '+response.status);
       } catch(error){failures.push(session.name+': '+error);}
     }
-    const remaining=await catalog();
-    for(const session of created)if(remaining.some(s=>s.name===session.name))failures.push(session.name+': still present');
-    if(failures.length)throw new Error('Test shell cleanup failed: '+failures.join(', '));
+    try {
+      const remaining=await catalog();
+      for(const session of created)if(remaining.some(s=>s.name===session.name))failures.push(session.name+': still present');
+    } catch(error){failures.push('Cleanup verification: '+error);}
+    if(failures.length)throw new Error('Workflow cleanup failed: '+failures.join(', '));
   }
 })()
