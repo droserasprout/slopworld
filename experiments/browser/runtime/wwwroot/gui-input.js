@@ -66,6 +66,14 @@ export function attachGuiInput(canvas, managed) {
   }
   listen('keydown', event => {
     if (event.isComposing || ['Dead', 'Process'].includes(event.key)) return;
+    // AltGr is text production, even on platforms exposing it as Ctrl+Alt.
+    // Do not carry those synthetic modifiers or a binding key into native text
+    // dispatch: they would turn e.g. AltGr+Q's @ into a terminal shortcut.
+    if (event.getModifierState?.('AltGraph') && !event.metaKey && Array.from(event.key).length === 1) {
+      text(event.key, {shiftKey:event.shiftKey,ctrlKey:false,altKey:false,metaKey:false});
+      event.preventDefault();
+      return;
+    }
     const shortcut = (event.ctrlKey || event.metaKey) && !event.altKey;
     // Let the browser deliver ClipboardEvent data. Sending V now would race
     // that event and could paste a previous native clipboard value twice.
@@ -137,6 +145,8 @@ export async function verifyGuiInput(managed) {
     if (state.text !== 'agen') throw new Error(`GUI editing failed: ${state.text}`);
     key('💡'); state = input.frame();
     if (state.text !== 'agen💡') throw new Error('UTF-16 input batch lost a supplementary character');
+    key('@', {code:'KeyQ',ctrlKey:true,altKey:true,modifierAltGraph:true}); state=input.frame();
+    if(state.text !== 'agen💡@') throw new Error('AltGr text was interpreted as a native shortcut');
     key('a', {code:'KeyA', ctrlKey:true}); input.frame();
     for (const character of 'agen') key(character);
     state = input.frame();
