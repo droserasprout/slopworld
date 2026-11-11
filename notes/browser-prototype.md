@@ -59,6 +59,14 @@ retain direct emission. Text-run eviction releases projected geometry too;
 `NativeTextTests` check compares real adapter packets with reuse disabled/enabled;
 its `benchmark-glyphs` recipe measures stable and moving labels without starting
 an engine or browser. Native CPU timings do not establish WASM or workload latency.
+Single covered ASCII labels bypass text-run caching and line traversal in the browser
+adapter. They retain independently rounded label origins, native face/style/density
+selection and the same glyph clipping/upload rules. Other text keeps the general
+layout path; terminal columns, sprites and input remain mod-owned.
+`WorkspaceCellFastPath` exposes a diagnostic reference switch. `NativeTextTests`
+compares actual serialized draw packets and uploaded RGBA bytes across both paths;
+`benchmark-glyphs` includes thousands of single-cell labels with stable and moving
+positions. This CPU evidence does not establish browser frame-time or screenshot parity.
 Covered axis-aligned text uses the installed renderer's glyph-quad clipping rules,
 including ascender overhang and first-line bottom clipping. It does not add a Canvas
 clip scope per label. BrowserCommandState suppresses unchanged serialized transforms
