@@ -25,6 +25,7 @@
     <Compile Include="BrowserEntry.cs" />
     <Compile Include="BrowserHub.cs" />
     <Compile Include="BrowserWorkspace.cs" />
+    <Compile Include="BrowserGlyphCache.cs" />
     <Compile Include="BrowserCursor.cs" />
     <Compile Include="BrowserShortcutFixtures.cs" />
     <SupportedPlatform Include="browser" />
