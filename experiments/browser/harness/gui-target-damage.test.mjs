@@ -20,11 +20,12 @@ const warm = (commands=body(),options={}) => {
   return planner;
 };
 
-test('identical ordered rows preserve integer interiors and always replay fractional reset/row fringe',()=>{
+test('identical ordered rows preserve reset interiors including unchanged fractional row boundaries',()=>{
   const planner=warm(), plan=prepare(planner);
   assert.ok(contains(plan,10,10));
+  assert.ok(contains(plan,10,19));assert.ok(contains(plan,10,20));
   for(const box of plan.preserved)assert.ok(box.every(Number.isInteger));
-  for(const point of [[0,10],[1,10],[10,0],[10,1],[10,19],[10,20],[100,10],[110,110]])
+  for(const point of [[0,10],[1,10],[10,0],[10,1],[100,10],[110,110]])
     assert.equal(contains(plan,...point),false,`must replay ${point}`);
 });
 
