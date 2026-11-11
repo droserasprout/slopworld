@@ -410,7 +410,12 @@ inside each batch. The GUI probe compares clipped, transformed and alpha-overlap
 batch pixels with individual draws. The host benchmark owns disposable Python
 fixtures, guarded DOM input, per-phase measurements and cleanup; it restores the
 original session without sending it input. Its switching phase invokes native Open
-and measures attachment, so it does not replace sidebar-control verification.
+and measures attachment, so it does not replace sidebar-control verification. The
+`typing` phase sends whole commands; `keystrokes` separately sends one ASCII key
+at a time to an invocation-owned PTY in noncanonical mode and verifies its byte
+reply without Enter. Both measure native receive-buffer observation, including
+20 ms predicate polling, rather than physical display latency. The fixture restores
+canonical input after each keystroke phase.
 Large batches use packed little-endian double tables and ordered indices; the transport preserves the numbers
 the original float JSON parsed into JavaScript, rather than substituting raw float32
 values. Canvas decodes before playback and profiling. The focused command tests own

@@ -161,7 +161,7 @@
       let pendingWire=null;
       const bytes=value=>value instanceof ArrayBuffer?new Uint8Array(value)
         :ArrayBuffer.isView(value)?new Uint8Array(value.buffer,value.byteOffset,value.byteLength):null;
-      const typing=phase==='typing'||phase==='cyrillic';
+      const typing=['typing','cyrillic','keystrokes'].includes(phase);
       if(typing)WebSocket.prototype.send=function(data) {
         const payload=bytes(data);
         if(pendingWire && payload?.[0]===34) {
@@ -185,6 +185,10 @@
       };
       const runId=(++runSerial).toString().padStart(4,'0');
       samples.length = 0;
+      if(phase==='keystrokes') {
+        send('keys '+runId);
+        await output('KEYS_READY_'+runId);
+      }
       window.__workspace.setProfiling(true);
       let running = true, last;
       const intervals = [], drawIntervals = [], scrollTrace = [];
@@ -206,12 +210,18 @@
         else if (phase === 'output') { send('stream '+runId); await output('BENCH_STREAM_DONE_'+runId); }
         else if (typing) {
           for (let i=0; i<20; i++) {
-            const marker = 'TYPE_' + runId + '_' + i.toString().padStart(2,'0') +
+            const key=String.fromCharCode(97+i);
+            const marker = phase==='keystrokes' ? 'KEY_'+runId+'_'+i.toString().padStart(2,'0')+'_'+key.charCodeAt(0).toString(16) : 'TYPE_' + runId + '_' + i.toString().padStart(2,'0') +
               (phase==='cyrillic'?' В evince smooth scrolling не работает, Ёжик ёжик АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ абвгдежзийклмнопрстуфхцчшщъыьэюя':'');
             const start = performance.now();
-            pendingWire={name:owned(),marker:'ACK_'+marker};
-            send('echo ' + marker);
-            await output('ACK_' + marker);
+            pendingWire={name:owned(),marker:phase==='keystrokes'?marker:'ACK_'+marker};
+            if(phase==='keystrokes') {
+              owned();canvas.focus();
+              const code='Key'+key.toUpperCase();
+              canvas.dispatchEvent(new KeyboardEvent('keydown',{key,code,bubbles:true}));
+              canvas.dispatchEvent(new KeyboardEvent('keyup',{key,code,bubbles:true}));
+            } else send('echo ' + marker);
+            await output(pendingWire.marker);
             const observed=performance.now();samples.push(observed-start);
             wireTimings.push({dispatchToSendMs:pendingWire.sent===undefined?null:pendingWire.sent-start,
               sendToMessageMs:pendingWire.received===undefined||pendingWire.sent===undefined?null:pendingWire.received-pendingWire.sent,
@@ -219,6 +229,7 @@
             pendingWire=null;
             await pause(100);
           }
+          if(phase==='keystrokes')await output('KEYS_DONE_'+runId);
         } else if (phase === 'scrolling') {
           owned(); const bounds=canvas.getBoundingClientRect();
           scrollTrace.push({step:-1, elapsedMs:performance.now()-started, ...state().terminalScroll});
