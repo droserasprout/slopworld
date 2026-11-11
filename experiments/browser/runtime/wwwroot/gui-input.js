@@ -8,7 +8,7 @@ export function attachGuiInput(canvas, managed) {
   const abort = new AbortController();
   const proxy = acquireTextInput(canvas);
   let disposed = false, composing = false, cancelled = false, pendingText = null, committed = null;
-  let queue = [];
+  let queue = [], queuedAt = null;
   const clipboard = clipboardBridge(managed);
   let clipboardEvent;
   const reuse=new GuiFrameReuse();
@@ -16,6 +16,7 @@ export function attachGuiInput(canvas, managed) {
     if (disposed) return;
     managed.beforeFrame?.();
     const batch=queue; queue=[];
+    const inputQueueMs=queuedAt===null?0:performance.now()-queuedAt;queuedAt=null;
     const profiling = managed.profileFrame;
     const started = profiling ? performance.now() : 0;
     const raw = managed.GuiInputFrame(JSON.stringify(batch));
@@ -39,13 +40,17 @@ export function attachGuiInput(canvas, managed) {
       targetWrites: result.commands.filter(c => c.kind === 'target' && c.value.id).length,
       targetBlits: result.commands.filter(c => c.kind === 'targetTexture').length,
       imageQuads: result.commands.reduce((count,c) => count + (c.kind === 'imageBatch' ? decodeGuiQuads(c.value.quads).length/8 : c.kind === 'imageTexture' ? 1 : 0), 0),
-      inputEvents: batch.length });
+      inputEvents: batch.length, inputQueueMs });
     return result;
   };
   const listen = (name, callback) => proxy.listen(name, callback, { signal: abort.signal, passive: false });
   listen('contextlost',()=>reuse.invalidate());
   listen('contextrestored',()=>reuse.invalidate());
-  const enqueue = event => { if (queue.length >= 4096) queue = [{kind:'reset'}]; queue.push(event); };
+  const enqueue = event => {
+    if(queue.length===0 && managed.profileFrame)queuedAt=performance.now();
+    if (queue.length >= 4096) queue = [{kind:'reset'}];
+    queue.push(event);
+  };
   const modifiers = event => ({ shift: event.shiftKey, control: event.ctrlKey, alt: event.altKey, command: event.metaKey });
   const text = (value, event, key) => {
     // Numeric UTF-16 units survive JSON individually; the mod flushes the whole
@@ -148,7 +153,7 @@ export function attachGuiInput(canvas, managed) {
   });
   const reset = () => {
     composing = false; cancelled = true; pendingText = null; committed = null;
-    proxy.element.value = ''; queue = [{kind:'reset'}];
+    proxy.element.value = ''; queue = []; queuedAt=null; enqueue({kind:'reset'});
   };
   listen('focus', () => { cancelled = false; });
   listen('blur', event => { if (!proxy.owns(event.relatedTarget)) reset(); });

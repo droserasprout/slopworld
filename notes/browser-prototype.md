@@ -355,7 +355,11 @@ with the reference serializer and checks recovery after failed and oversized wri
 The CommandTests `benchmark` recipe compares both paths on a synthetic output-shaped
 packet with packed-quad caching enabled and disabled; host timing does not establish
 WASM or end-to-end workspace speed. Opt-in `profile`
-workspace URLs retain bounded stage timings. The serialization diagnostic alternates
+workspace URLs retain bounded stage timings. `inputQueueMs` measures the oldest
+queued DOM event through the start of managed dispatch, including the device update.
+Inspect frames with `inputEvents > 0`; empty frames report zero. This client-only
+interval is separate from command/echo round trips and daemon capture timing.
+The serialization diagnostic alternates
 all writers against one identical live packet; it measures transport only and must
 not be reported as an end-to-end workspace benchmark.
 Adjacent image quads sharing texture and tint form a flat numeric batch. Any
