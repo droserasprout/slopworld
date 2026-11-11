@@ -473,6 +473,10 @@ Composition commits enter one ordered UTF-16 batch, without a binding identity o
 synthetic Ctrl/Alt modifiers. Canvas-targeted synthetic key events remain diagnostic
 inputs. The proxy is positioned at the last pointer press, not the native caret;
 accurate candidate-window placement and full OS IME parity remain unverified.
+`browser-host-composition-check` drives Chromium preedit/update/commit and ordinary
+key events into disposable terminals. An ASCII hex reply verifies the exact received
+UTF-8 bytes independently of screen escape sequences and glyph coverage; cancellation
+and composing Enter must not leak input. This does not exercise an OS candidate UI.
 BrowserInput/input.js separately feed Waylith and Unity device
 state. The end-to-end harness sends DOM input only into its newly created temporary
 host shells, observes the actual SessionHub ScreenBuf, and removes only those

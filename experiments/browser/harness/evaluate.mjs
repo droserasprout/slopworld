@@ -38,8 +38,11 @@ try {
     await call('Runtime.evaluate',{expression:`window.__checkClipboard=true;
       window.__trustedPaste=()=>new Promise((resolve,reject)=>{
         const canvas=document.querySelector('canvas');canvas.focus();
-        const timeout=setTimeout(()=>reject(new Error('Browser did not deliver Ctrl+V paste')),5000);
-        canvas.addEventListener('paste',()=>{clearTimeout(timeout);queueMicrotask(resolve);},{once:true});
+        const target=document.activeElement;
+        if(target!==canvas && !target?.matches('textarea[data-slopworld-text-input]'))throw new Error('Workspace does not own clipboard focus');
+        const received=()=>{clearTimeout(timeout);queueMicrotask(resolve);};
+        const timeout=setTimeout(()=>{target.removeEventListener('paste',received);reject(new Error('Browser did not deliver Ctrl+V paste'));},5000);
+        target.addEventListener('paste',received,{once:true});
         window.__clipboardKey('paste');
       });`});
   }

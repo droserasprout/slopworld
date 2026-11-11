@@ -37,6 +37,8 @@ def main() -> None:
             print('BENCH_STREAM_DONE' + suffix, flush=True)
         elif command.startswith('echo '):
             print('ACK_' + command[5:], flush=True)
+        elif command.startswith('echohex '):
+            print('HEX_' + command[8:].encode('utf-8').hex() + '_END', flush=True)
 
 
 if __name__ == '__main__':
