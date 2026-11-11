@@ -21,7 +21,7 @@ const comparisonExport={discard:'WorkspaceDiscardedDrawing',tail:'WorkspaceGlyph
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
   throw new Error('Comparison must be discard, tail, glyph, input, cell, tint, command or clip with four identical workload phases');
 const comparisonCall=['tint','clip'].includes(comparison) ? `(async enabled => (await import("/gui.js")).${comparisonExport}(enabled))` : `window.__managedProbe.${comparisonExport}`;
-if (phases.some(phase=>!['idle','output','typing','cyrillic','keystrokes','scrolling','switching'].includes(phase)))
+if (phases.some(phase=>!['idle','output','typing','cyrillic','keystrokes','inlinekeystrokes','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
 if (!profile || !output) throw new Error('Usage: benchmark.mjs PROFILE OUTPUT');
 const port = (await readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0];
@@ -115,7 +115,7 @@ try {
     if(comparisonExport)await evaluate(`${comparisonCall}(${comparisonEnabled})`);
     // Repeated phases must start with the same screen instead of gradually
     // replacing the 200-line fixture with shorter echo acknowledgments.
-    if(comparisonExport || phase==='keystrokes')await evaluate('window.__benchmark.reset()');
+    if(comparisonExport || ['keystrokes','inlinekeystrokes'].includes(phase))await evaluate('window.__benchmark.reset()');
     if(comparison==='tint')await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const processBefore=await processCpu.sample();
@@ -140,7 +140,7 @@ try {
       wireLatencyMs:result.wireTimings?.length ? Object.fromEntries(
         ['dispatchToSendMs','sendToMessageMs','messageToObservedMs'].map(key=>
           [key,distribution(result.wireTimings.map(row=>row[key]).filter(value=>value!==null))])) : null,
-      latencyDefinition:phase==='keystrokes'?'Single DOM key dispatch to byte-verified echo in native receive buffer'
+      latencyDefinition:['keystrokes','inlinekeystrokes'].includes(phase)?'Single DOM key dispatch to byte-verified echo in native receive buffer'
         :['typing','cyrillic'].includes(phase)?'DOM command dispatch to matching reply in native receive buffer'
         :phase==='switching'?'Native Open to selected pane draw submission':null,
       rendererTaskCpuPercent:100*(after.TaskDuration-before.TaskDuration)/(after.Timestamp-before.Timestamp),
