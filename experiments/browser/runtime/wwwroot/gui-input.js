@@ -109,6 +109,9 @@ export function attachGuiInput(canvas, managed) {
     }
     else return;
     event.preventDefault();
+    // Window commands may require transient user activation. Dispatch native bindings
+    // here, before returning from the DOM key event, rather than on the next RAF.
+    if (managed.activationFrame) frame();
   });
   listen('paste', event => {
     if (!managed.ClipboardTake || !event.clipboardData) return;
@@ -145,6 +148,7 @@ export function attachGuiInput(canvas, managed) {
     const value = event.data ?? proxy.element.value;
     if (value && value !== committed) text(value, pendingText?.event ?? {}, pendingText?.key);
     pendingText = null; committed = null; proxy.element.value = '';
+    if (managed.activationFrame) frame();
   });
   listen('wheel', event => {
     event.preventDefault();

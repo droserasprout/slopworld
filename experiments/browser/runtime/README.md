@@ -311,8 +311,9 @@ pointer cancellation, queue overflow and disposal reset held input.
 
 The browser check verifies press/hold/release through both installed owners,
 mouse coordinates, right-button mapping, wheel, focus loss, and repeated cleanup.
-This does not establish playability. Text/IME, layout labels, touch/gamepads,
-fullscreen shortcuts and integration with the game update loop remain unfinished.
+This does not establish playability or touch/gamepad support. The Entry workspace
+adds text/IME and native rebindable fullscreen intent; its DOM fullscreen boundary
+retains user activation and reports actual state, including browser/Escape exits.
 
 ## Inspection commands
 

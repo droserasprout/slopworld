@@ -26,7 +26,9 @@ namespace SlopWorld
                 l,
                 "Fullscreen",
                 S.fullscreen,
-                "Use window-manager fullscreen while keeping the renderer windowed."
+                ClientPlatform.IsBrowser
+                    ? "Use browser fullscreen. Escape leaves fullscreen."
+                    : "Use window-manager fullscreen while keeping the renderer windowed."
             );
             if (fullscreen != S.fullscreen)
                 LinuxGameWindow.Set(fullscreen);

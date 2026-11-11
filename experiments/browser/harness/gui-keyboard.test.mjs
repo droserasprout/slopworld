@@ -60,3 +60,31 @@ test('input profiling measures oldest queued event without changing the managed 
     assert.deepEqual(batch,[{kind:'reset'}]);
   } finally {input.dispose();globalThis.performance=previousPerformance;}
 });
+
+
+test('workspace dispatches native fullscreen binding inside the initiating key event',()=>{
+  const canvas=installInputDom().canvas();
+  let dispatching=false, frames=0;
+  const input=attachGuiInput(canvas,{
+    activationFrame:true,
+    GuiInputFrame(value) {
+      const batch=JSON.parse(value);
+      if(batch.some(event=>event.kind!=='reset')) {
+        assert.equal(dispatching,true);
+        assert.equal(batch[0].key,'F11');
+        frames++;
+      }
+      return '{"commands":[]}';
+    }
+  });
+  try {
+    dispatching=true;
+    const event=Object.assign(new Event('keydown',{cancelable:true}),{key:'F11',code:'F11'});
+    canvas.dispatchEvent(event);
+    dispatching=false;
+    assert.equal(frames,1);
+    assert.equal(event.defaultPrevented,true);
+    input.frame();
+    assert.equal(frames,1);
+  } finally {input.dispose();}
+});
