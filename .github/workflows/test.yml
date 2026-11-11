@@ -150,6 +150,41 @@ jobs:
       - name: Check Python and tooling
         run: just ci-tools
 
+  browser:
+    name: Browser tooling (game-free)
+    needs: revision
+    runs-on: ubuntu-24.04
+    env:
+      RIMWORLD: /nonexistent/rimworld
+      MANAGED: /nonexistent/rimworld-managed
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.revision.outputs.commit }}
+
+      - uses: ./.github/actions/setup-build-tools
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            experiments/browser/**/packages.lock.json
+            .config/dotnet-tools.json
+
+      - name: Check browser tooling and game-free harnesses
+        run: just ci-browser
+
+      - name: Install WebAssembly build workload
+        run: dotnet workload install wasm-tools
+
+      - name: Build redistributable browser bundle without installed game files
+        run: just slopweb-build
+
   mod:
     name: C#
     needs: revision

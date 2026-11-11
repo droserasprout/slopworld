@@ -2,7 +2,7 @@
 
 # Run all game-free CI checks
 [group('Check and fix')]
-ci: ci-tools ci-rust ci-mod
+ci: ci-tools ci-rust ci-mod ci-browser
 
 # Check daemon and sidecar Rust, collecting daemon coverage
 [group('CI')]
@@ -15,3 +15,7 @@ ci-tools: generate-check-protocol tools-lint test-tools
 # Compile against pinned references, check C# formatting and collect game-free coverage
 [group('CI')]
 ci-mod: mod-lint (mod-build 'rimref' 'release' 'true') mod-coverage
+
+# Check browser tooling and game-free Node/managed harnesses without launching a browser
+[group('CI')]
+ci-browser: mod-restore-tools browser-lint slopweb-lint slopweb-test browser-test-harness browser-test-input browser-test-commands browser-test-preferences browser-test-startup

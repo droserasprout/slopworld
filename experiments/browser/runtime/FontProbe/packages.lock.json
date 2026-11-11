@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "Krafs.Rimworld.Ref": {
+        "type": "Direct",
+        "requested": "[1.7.5000-unstable, 1.7.5000-unstable]",
+        "resolved": "1.7.5000-unstable",
+        "contentHash": "ESTEH9VQPZG/Q8k560DU7JtRG6s3z5B3u78ba7mGmtkx0i+bCuuRs3qCNa6ZK1EdaP1qFYAG+Ll5iiTKx7iAuA=="
+      }
+    }
+  }
+}

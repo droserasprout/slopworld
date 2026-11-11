@@ -125,6 +125,12 @@ jobs:
           cache-dependency-path: |
             mod/Source/SlopWorld/packages.lock.json
             mod/Dependencies/packages.lock.json
+            experiments/browser/**/packages.lock.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install WebAssembly build workload
+        run: dotnet workload install wasm-tools
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
         with:
           build-warnings: ''
@@ -139,7 +145,7 @@ jobs:
           pattern: slopcar-${{ needs.prepare.outputs.commit }}-*
           path: dist/sidecar
           merge-multiple: true
-      - name: Build mod ZIP and native packages
+      - name: Build mod ZIP, native packages and browser packages
         run: just release-ci-package "$MODE"
       - name: Attest exact release files
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
