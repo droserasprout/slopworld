@@ -27,6 +27,7 @@ public sealed partial class BrowserGui
         benchmarkRequested = false;
         var samples = new List<object>();
         var numericSamples = new List<object>();
+        var directSamples = new List<object>();
         var numericCommands = commands
             .Select(c =>
                 c.value is ImageBatchCommand b
@@ -37,26 +38,28 @@ public sealed partial class BrowserGui
         string Reference() => JsonSerializer.Serialize(commands);
         string Generated() =>
             JsonSerializer.Serialize(commands, BrowserGuiJson.Default.ListCommand);
+        string Direct() => BrowserCommandWriter.Serialize(commands);
         string Numeric() =>
             JsonSerializer.Serialize(numericCommands, BrowserGuiJson.Default.ListCommand);
-        if (Reference() != Generated())
+        if (Reference() != Generated() || Reference() != Direct())
             throw new InvalidOperationException("GUI JSON writers disagree");
         Numeric();
         // Identical immutable packet, alternating order, after warming all writers.
         // This isolates transport cost; it is not a whole-workspace benchmark.
         for (int round = 0; round < 6; round++)
         {
-            foreach (int mode in round % 2 == 0 ? new[] { 0, 1, 2 } : new[] { 2, 1, 0 })
+            foreach (int mode in round % 2 == 0 ? new[] { 0, 1, 2, 3 } : new[] { 3, 2, 1, 0 })
             {
                 long allocated = GC.GetAllocatedBytesForCurrentThread();
                 long started = Stopwatch.GetTimestamp();
                 string packet =
-                    mode == 2 ? Numeric()
+                    mode == 3 ? Direct()
+                    : mode == 2 ? Numeric()
                     : mode == 1 ? Generated()
                     : Reference();
                 double ms = (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
-                if (mode == 2)
-                    numericSamples.Add(
+                if (mode >= 2)
+                    (mode == 3 ? directSamples : numericSamples).Add(
                         new
                         {
                             ms,
@@ -83,6 +86,7 @@ public sealed partial class BrowserGui
                 equivalent = true,
                 samples,
                 numericSamples,
+                directSamples,
             }
         );
     }

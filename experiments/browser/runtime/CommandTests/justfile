@@ -3,10 +3,14 @@ check:
     GUI_QUAD_FIXTURE=bin/quad-fixture.json node --test ../../harness/gui-quads.test.mjs ../../harness/gui-probe.test.mjs
 
 format:
-    dotnet tool run csharpier format ../Adapters/BrowserQuadWriter.cs ../Adapters/BrowserGui.Commands.cs .
+    dotnet tool run csharpier format ../Adapters/BrowserQuadWriter.cs ../Adapters/BrowserGui.Commands.cs ../Adapters/BrowserCommandWriter.cs .
 
 lint:
-    dotnet tool run csharpier check ../Adapters/BrowserQuadWriter.cs ../Adapters/BrowserGui.Commands.cs .
+    dotnet tool run csharpier check ../Adapters/BrowserQuadWriter.cs ../Adapters/BrowserGui.Commands.cs ../Adapters/BrowserCommandWriter.cs .
     node --check ../wwwroot/gui-quads.js
     node --check ../wwwroot/gui.js
     node --check ../../harness/serialization-check.js
+
+# Workload-shaped managed transport benchmark; no browser or native game.
+benchmark:
+    DOTNET_TieredCompilation=0 dotnet run --project CommandTests.csproj -c Release -- --benchmark
