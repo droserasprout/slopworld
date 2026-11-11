@@ -149,8 +149,10 @@ verify root='out/wwwroot' report='out/browser.json':
     python3 verify.py {{quote(game)}} {{quote(root)}} {{quote(report)}}
 
 copy-eco:
-    rm -rf out/wwwroot-eco
-    cp -r out/wwwroot-core out/wwwroot-eco
+    uv run --locked python refresh_prepared.py out/wwwroot-core out/wwwroot-eco
+
+check-refresh:
+    uv run --locked python -m unittest test_refresh_prepared
 
 copy-http:
     rm -rf out/wwwroot-http

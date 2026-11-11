@@ -6,6 +6,10 @@ Production mod startup and daemon runtime remain independent. `slopweb/` owns th
 installed launcher; `tools/release/slopweb.py` stages redistributable tools and mod
 UI content. Local game preparation belongs to the launcher, never package staging.
 Installed assemblies, derived assets, saves, and reports stay in ignored output.
+Prototype `copy-eco` rebuilds preserve explicitly prepared fonts, background frames,
+portrait snapshots and reference appearance through `refresh_prepared.py`; other
+old files are replaced. Refresh those snapshots explicitly when their native source
+changes. Production launcher preparation still creates a fresh immutable runtime.
 
 The optional `nativeFonts` workspace parameter loads `assets/fonts/manifest.json`
 from the local prepared root. `runtime/justfile`'s `font-pack` recipe bakes a selected
