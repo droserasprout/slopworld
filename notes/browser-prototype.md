@@ -11,6 +11,17 @@ portrait snapshots and reference appearance through `refresh_prepared.py`; other
 old files are replaced. Refresh those snapshots explicitly when their native source
 changes. Production launcher preparation still creates a fresh immutable runtime.
 
+`slopweb/aot.py` owns shared mixed-AOT project generation, publish-name loading,
+and the installed launcher's compilation cache/runtime composition. The separate
+`aot/` experiment delegates compiler-input construction to that owner. The
+launcher's interpreted preparation remains the owner of final patched game IL and
+current private assets. AOT compilation keys exclude appearance and browser assets;
+composition joins those current assets with a successfully published framework.
+A stable per-compilation lock spans candidate creation, publish and composition,
+and is inherited by the compiler so interruption cannot admit another writer.
+Release staging allowlists Probe's authored project and declared sources, never
+private compiler directories; changes to its compile list require package review.
+
 The optional `nativeFonts` workspace parameter loads `assets/fonts/manifest.json`
 from the local prepared root. `runtime/justfile`'s `font-pack` recipe bakes a selected
 font's three UI tiers using the installed ImGui/FreeType implementation; run it

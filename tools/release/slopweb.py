@@ -5,6 +5,7 @@ import hashlib
 import json
 import shutil
 import tempfile
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
@@ -14,6 +15,25 @@ from tools.utils import run
 from tools.utils import run_main
 
 OUTPUT = ROOT / 'slopweb/out'
+
+# Reviewed authored inputs only. Never copy a compiler/build directory wholesale.
+AOT_SOURCES = (
+    'Program.cs',
+    'BrowserInput.cs',
+    'BrowserLifecycle.cs',
+    'BrowserJobs.cs',
+    'OfflineHook.cs',
+    'BrowserDraws.cs',
+    'BrowserTerrain.cs',
+    'PackedTexture.cs',
+    'BrowserScene.cs',
+    'BrowserEntry.cs',
+    'BrowserHub.cs',
+    'BrowserWorkspace.cs',
+    'BrowserGlyphCache.cs',
+    'BrowserCursor.cs',
+    'BrowserShortcutFixtures.cs',
+)
 
 
 def tracked_mod_files() -> set[str]:
@@ -29,6 +49,18 @@ def validate_content(archive: Path, tracked: set[str]) -> None:
                 raise ValueError(f'Package content is not a tracked mod asset: {source}')
 
 
+def stage_aot_sources(runtime: Path, bundle: Path) -> None:
+    """Ship the reviewed authored compile set, never neighboring private files."""
+    declared = [item.get('Include', '') for item in ET.parse(runtime / 'Probe.csproj').findall('.//Compile')]
+    if sorted(declared) != sorted(AOT_SOURCES):
+        raise ValueError('Probe compiler sources changed; review the slopweb AOT source allowlist')
+    for name in ('Probe.csproj', *AOT_SOURCES):
+        source = runtime / name
+        if source.is_symlink():
+            raise ValueError(f'AOT compiler source must not be a symlink: {source}')
+        copy_file(source, bundle / 'aot-src' / name)
+
+
 def build(destination: Path = OUTPUT) -> None:
     runtime = ROOT / 'experiments/browser/runtime'
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -37,6 +69,7 @@ def build(destination: Path = OUTPUT) -> None:
         bundle.mkdir()
         for source, target in (
             (ROOT / 'slopweb/launch.py', 'launch.py'),
+            (ROOT / 'slopweb/aot.py', 'aot.py'),
             (ROOT / 'slopweb/appearance.py', 'appearance.py'),
             (ROOT / 'slopweb/portraits.py', 'portraits.py'),
             (runtime / 'core_pack.py', 'core_pack.py'),
@@ -44,6 +77,7 @@ def build(destination: Path = OUTPUT) -> None:
             (runtime / 'Adapters/bin/Debug/net10.0/Adapters.dll', 'Adapters.dll'),
         ):
             copy_file(source, bundle / target)
+        stage_aot_sources(runtime, bundle)
         # FontProbe's build directory also contains installed game references.
         # Ship only our executable and its runtime metadata, never that directory.
         for helper, directory in (('FontProbe', 'font-probe'), ('BackgroundProbe', 'background-probe')):
