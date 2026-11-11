@@ -184,8 +184,8 @@ browser-host-discarded-drawing-check profile:
 browser-host-profile profile output seconds='15':
     systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/profile.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(seconds)}}
 
-browser-host-benchmark profile output phases='idle,output,typing,scrolling,switching' quad_cache='on' canvas_reuse='keep' packet_cache='keep' idle_yield='keep' discarded_drawing='keep' screenshots='1' early_input='keep':
-    systemd-run --user --pipe --wait --collect --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} node {{quote(justfile_directory() / 'experiments/browser/harness/benchmark.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(phases)}} {{quote(quad_cache)}} {{quote(canvas_reuse)}} {{quote(packet_cache)}} {{quote(idle_yield)}} {{quote(discarded_drawing)}} {{quote(early_input)}}
+browser-host-benchmark profile output phases='idle,output,typing,scrolling,switching' quad_cache='on' canvas_reuse='keep' packet_cache='keep' idle_yield='keep' discarded_drawing='keep' screenshots='1' early_input='keep' comparison='none':
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} node {{quote(justfile_directory() / 'experiments/browser/harness/benchmark.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(phases)}} {{quote(quad_cache)}} {{quote(canvas_reuse)}} {{quote(packet_cache)}} {{quote(idle_yield)}} {{quote(discarded_drawing)}} {{quote(early_input)}} {{quote(comparison)}}
 
 [group('browser prototype')]
 browser-host-workspace-bounded session='slop-al-7' width='1536' height='864' scale='1.666666667' color_type='unorm8' screenshots='1':

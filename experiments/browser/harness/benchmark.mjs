@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {processSampler} from './browser-process-cpu.mjs';
 import {browserGpuInfo} from './browser-rendering.mjs';
 
-const [profile, output, phaseList='idle,output,typing,scrolling,switching',quadCache='on',canvasReuse='keep',packetCache='keep',idleYield='keep',discardedDrawing='keep',earlyInput='keep'] = process.argv.slice(2);
+const [profile, output, phaseList='idle,output,typing,scrolling,switching',quadCache='on',canvasReuse='keep',packetCache='keep',idleYield='keep',discardedDrawing='keep',earlyInput='keep',comparison='none'] = process.argv.slice(2);
 if(!['keep','on','off'].includes(earlyInput))throw new Error('Early input flush must be keep, on or off');
 if(!['keep','on','off'].includes(discardedDrawing))throw new Error('Discarded drawing suppression must be keep, on or off');
 if(!['keep','on','off'].includes(idleYield))throw new Error('Idle yield must be keep, on or off');
@@ -14,6 +14,9 @@ if(!['keep','on','off'].includes(packetCache))throw new Error('Packet cache must
 if(!['keep','on','off'].includes(canvasReuse))throw new Error('Canvas reuse must be keep, on or off');
 if(!['on','off'].includes(quadCache))throw new Error('Quad cache must be on or off');
 const phases=phaseList.split(',');
+const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint'}[comparison];
+if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
+  throw new Error('Comparison must be glyph or input with four identical workload phases');
 if (phases.some(phase=>!['idle','output','typing','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
 if (!profile || !output) throw new Error('Usage: benchmark.mjs PROFILE OUTPUT');
@@ -57,6 +60,7 @@ let previousPacketCache;
 let previousIdleYield;
 let previousDiscardedDrawing;
 let previousEarlyInput;
+let previousComparison;
 await mkdir(path.dirname(output),{recursive:true});
 try {
   report.browser=await call('Browser.getVersion');
@@ -95,9 +99,13 @@ try {
   const fixturePath=fileURLToPath(new URL('./benchmark-fixture.py',import.meta.url));
   const command="python3 -u '"+fixturePath.replaceAll("'", "'\\''")+"'";
   report.fixture=await evaluate(`window.__benchmark.prepare(${JSON.stringify(command)})`);
+  report.configuration.comparison=comparison;
+  if(comparisonExport)previousComparison=await evaluate(`window.__managedProbe.${comparisonExport}(true)`);
   console.log('Benchmark fixtures ready');
   await call('Performance.enable');
-  for (const phase of phases) {
+  for (const [index,phase] of phases.entries()) {
+    const comparisonEnabled=comparisonExport ? [false,true,true,false][index] : null;
+    if(comparisonExport)await evaluate(`window.__managedProbe.${comparisonExport}(${comparisonEnabled})`);
     const processBefore=await processCpu.sample();
     const before=metrics(await call('Performance.getMetrics'));
     const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)})`);
@@ -106,7 +114,7 @@ try {
     const stageMeans={};
     for (const key of Object.keys(result.stages[0]??{}))
       stageMeans[key]=result.stages.reduce((sum,stage)=>sum+stage[key],0)/result.stages.length;
-    const summary={phase,durationMs:result.durationMs,frameMs:distribution(result.intervals),
+    const summary={phase,comparisonEnabled,durationMs:result.durationMs,frameMs:distribution(result.intervals),
       drawFrameMs:distribution(result.drawIntervals),
       latencyMs:distribution(result.latencyMs),
       latencyDefinition:phase==='typing'?'DOM key dispatch to matching text in native receive buffer'
@@ -136,6 +144,8 @@ try {
     await evaluate(`window.__managedProbe.WorkspacePacketCache(${previousPacketCache})`).catch(error=>{report.packetRestoreError=String(error);process.exitCode=1;});
   if(previousIdleYield!==undefined)
     await evaluate(`window.__workspace.setIdleYield(${previousIdleYield})`).catch(error=>{report.idleRestoreError=String(error);process.exitCode=1;});
+  if(previousComparison!==undefined)
+    await evaluate(`window.__managedProbe.${comparisonExport}(${previousComparison})`).catch(error=>{report.comparisonRestoreError=String(error);process.exitCode=1;});
   if(previousEarlyInput!==undefined)
     await evaluate(`window.__managedProbe.WorkspaceInputFlushBeforeRepaint(${previousEarlyInput})`).catch(error=>{report.inputRestoreError=String(error);process.exitCode=1;});
   if(previousDiscardedDrawing!==undefined)
