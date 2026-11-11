@@ -89,6 +89,15 @@
     }
     for (const name of created) {
       try {
+        const existing=await fetch('/host/api/sessions/' + encodeURIComponent(name));
+        const metadata=new Uint8Array(await existing.arrayBuffer());
+        if(existing.status === 404)continue; // Ephemeral processes can exit during input checks.
+        if(existing.ok && fields(metadata).get(27)!==1) {
+          await api('sessions/' + encodeURIComponent(name) + '/stop', {method:'POST'});
+          const stopped=await fetch('/host/api/sessions/' + encodeURIComponent(name));
+          await stopped.arrayBuffer();
+          if(stopped.status===404)continue;
+        }
         await api('sessions/' + encodeURIComponent(name), {method:'DELETE'});
         const check=await fetch('/host/api/sessions/' + encodeURIComponent(name));
         await check.arrayBuffer();
@@ -101,6 +110,23 @@
   };
   window.__benchmark = {
     version: 1, created, cleanup, select,
+    async prepareImage() {
+      if(created.length || !initial)throw Error('Image fixture requires a source and no active fixtures');
+      const body=new Uint8Array([...string(4,'shell'),...string(5,'codex'),
+        ...string(9,'slopweb-image-'+crypto.randomUUID().slice(0,8)),...string(14,initial),80,1]);
+      const result=await api('run',{method:'POST',headers:{'Content-Type':'application/x-protobuf'},body});
+      const name=new TextDecoder().decode(result.get(2));
+      if(!name)throw Error('Image fixture launch returned no session');
+      created.push(name);
+      const metadata=await api('sessions/'+encodeURIComponent(name));
+      const launch=fields(metadata.get(45));
+      if(metadata.get(26)!==1 || metadata.get(27)===1 || new TextDecoder().decode(launch.get(2))!=='codex')
+        throw Error('Image fixture must be a temporary sandboxed Codex agent');
+      await select(name);
+      await until(()=>managed.WorkspaceTerminalContains(name,'Ask Codex'), 'Codex composer ready');
+      await pause(2000); // The initial composer can precede model/session initialization.
+      return name;
+    },
     async prepare(command) {
       if (created.length) throw new Error('Benchmark fixtures already exist');
       for (let index = 0; index < 2; index++) {

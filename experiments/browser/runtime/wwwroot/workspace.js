@@ -41,6 +41,9 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   if (profile) window.__workspaceProfile = profile;
   const recordFrame = sample => { if (profile.length === 4096) profile.shift(); profile.push(sample); };
   const gui = attachGuiInput(canvas, {
+    // Clipboard activation flushes synchronously on pointer/key events too.
+    // Native capture must see the matching physical button state in that frame.
+    beforeFrame: () => device.frame(),
     get allowFrameReuse() { return reuseCanvas && !managed.WorkspaceBackgroundVisible(); },
     drawBackground(context) {
       if (!managed.WorkspaceBackgroundVisible() || !background) return;
@@ -83,7 +86,6 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     try {
       state.frameStarted=performance.now();
       resize();
-      device.frame();
       const result = gui.frame();
       cursor.frame();
       state.commands = result.commands.length;

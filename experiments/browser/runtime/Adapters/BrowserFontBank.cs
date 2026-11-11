@@ -12,6 +12,7 @@ public sealed class BrowserFontBank : ITextMeshProBackend
     public sealed class Face
     {
         public required string Hash;
+        public FontStyle Style;
         public required float Size,
             Density,
             Ascent,
@@ -30,7 +31,7 @@ public sealed class BrowserFontBank : ITextMeshProBackend
     public static readonly BrowserFontBank Instance = new();
     readonly Dictionary<int, Face> faces = new();
     readonly List<Face> variants = new();
-    readonly Dictionary<(int, float), Face> resolved = new();
+    readonly Dictionary<(int, float, FontStyle), Face> resolved = new();
     float density = 1;
     readonly Dictionary<string, string> paths = new();
     static Dictionary<string, string[]> familyChains = new(StringComparer.OrdinalIgnoreCase);
@@ -66,7 +67,9 @@ public sealed class BrowserFontBank : ITextMeshProBackend
                         texture = selected.Texture.GetInstanceID(),
                         available = Instance
                             .variants.Where(face =>
-                                face.Hash == selected.Hash && face.Size == selected.Size
+                                face.Hash == selected.Hash
+                                && face.Size == selected.Size
+                                && face.Style == FontStyle.Normal
                             )
                             .Select(face => face.Density),
                     };
@@ -130,6 +133,9 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         var face = new Face
         {
             Hash = hash,
+            Style = root.TryGetProperty("style", out var style)
+                ? (FontStyle)style.GetInt32()
+                : FontStyle.Normal,
             Size = root.GetProperty("size").GetSingle(),
             Density = root.GetProperty("density").GetSingle(),
             Ascent = root.GetProperty("ascent").GetSingle(),
@@ -195,9 +201,13 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         return -1;
     }
 
-    public static bool TryFace(int index, float size, out Face face)
+    public static bool TryFace(int index, float size, out Face face) =>
+        TryFace(index, size, FontStyle.Normal, out face);
+
+    public static bool TryFace(int index, float size, FontStyle style, out Face face)
     {
-        if (Instance.resolved.TryGetValue((index, size), out face!))
+        face = null!;
+        if (Instance.resolved.TryGetValue((index, size, style), out face!))
             return true;
         if (Instance.faces.TryGetValue(index, out var basis))
         {
@@ -206,6 +216,7 @@ public sealed class BrowserFontBank : ITextMeshProBackend
             foreach (var candidate in Instance.variants)
                 if (
                     candidate.Hash == basis.Hash
+                    && candidate.Style == style
                     && Math.Abs(targetSize - candidate.Size) < .001f
                     && Math.Abs(Instance.density - candidate.Density) < distance
                 )
@@ -217,7 +228,7 @@ public sealed class BrowserFontBank : ITextMeshProBackend
             {
                 if (Instance.resolved.Count >= 256)
                     Instance.resolved.Clear();
-                Instance.resolved[(index, size)] = face;
+                Instance.resolved[(index, size, style)] = face;
                 return true;
             }
         }

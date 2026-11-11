@@ -126,8 +126,10 @@ try {
     // A failed startup may have no canvas. Preserve its original failure report
     // and capture the page instead of replacing it with a screenshot error.
   }
-  const screenshot = await call('Page.captureScreenshot', { format: 'png', ...(clip ? {clip, captureBeyondViewport: true} : {}) });
-  await writeFile(output.replace(/\.json$/, '') + '.png', Buffer.from(screenshot.data, 'base64'));
+  if (process.env.PROBE_SCREENSHOTS !== '0') {
+    const screenshot = await call('Page.captureScreenshot', { format: 'png', ...(clip ? {clip, captureBeyondViewport: true} : {}) });
+    await writeFile(output.replace(/\.json$/, '') + '.png', Buffer.from(screenshot.data, 'base64'));
+  }
   console.log(JSON.stringify({ completed: report.completed, status: result?.status,
     error: result?.error, graphics: result?.graphics, host: result?.host,
     checks: (result?.checks ?? result?.managed?.checks)?.map(({ name, ok, pass, value, errors }) =>

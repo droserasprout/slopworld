@@ -20,8 +20,11 @@ socket.onmessage=({data})=>{
     // This is a real Chromium shortcut, not a synthetic paste event. The binding
     // accepts only this test action, never arbitrary CDP methods.
     (async()=>{
-      await call('Input.dispatchKeyEvent',{type:'keyDown',modifiers:2,key:'v',code:'KeyV',windowsVirtualKeyCode:86});
-      await call('Input.dispatchKeyEvent',{type:'keyUp',modifiers:0,key:'v',code:'KeyV',windowsVirtualKeyCode:86});
+      const copy=message.params.payload==='copy';
+      if(!copy && message.params.payload!=='paste')throw new Error('Unknown clipboard action');
+      const key=copy?'c':'v', code=copy?'KeyC':'KeyV', windowsVirtualKeyCode=copy?67:86;
+      await call('Input.dispatchKeyEvent',{type:'keyDown',modifiers:2,key,code,windowsVirtualKeyCode});
+      await call('Input.dispatchKeyEvent',{type:'keyUp',modifiers:0,key,code,windowsVirtualKeyCode});
     })().catch(error=>{console.error(String(error));process.exitCode=1;});
   }
 };
