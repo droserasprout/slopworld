@@ -525,3 +525,6 @@ browser-host-keybindings-check profile:
 
 browser-host-reconnect-check profile:
     systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/reconnect-check.mjs')}} {{quote(profile)}}
+
+browser-host-composition-check profile reload='0':
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/composition-check.mjs')}} {{quote(profile)}} {{quote(reload)}}
