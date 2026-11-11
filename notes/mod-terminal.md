@@ -27,6 +27,8 @@ Ctrl+Alt letters and control punctuation retain both modifiers; Shift does not a
 a separate modifier to these character shortcuts. Ctrl+V remains reserved for paste.
 Printable input, including punctuation, follows native character events. Polling
 physical key state must not synthesize a second text stream.
+Opening a terminal discards keyboard events for that frame: the opening shortcut
+and its separate native text event belong to the previous input owner.
 Literal input flushes at the end of native keyboard dispatch, independently of
 repaint. Keep each dispatch batch together so UTF-16 surrogate pairs survive;
 named keys flush preceding text before being sent.

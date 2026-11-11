@@ -84,6 +84,17 @@ namespace SlopWorld
             EventType eventType = Event.current.type;
             try
             {
+                // A gizmo can open this window before the native dispatcher delivers
+                // the shortcut's separate text event. The opening frame belongs to
+                // the previous input owner, even when Unity restores a consumed key.
+                if (
+                    _terminalOpenedFrame == Time.frameCount
+                    && (eventType == EventType.KeyDown || eventType == EventType.KeyUp)
+                )
+                {
+                    Event.current.Use();
+                    return;
+                }
                 using (FieldLifetimeScope.Push(_fieldLifetime))
                 {
                     var hub = SessionHub.Instance;

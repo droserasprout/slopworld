@@ -6,6 +6,8 @@ namespace SlopWorld
 {
     public partial class WorkspaceWindow
     {
+        int _terminalOpenedFrame = -1;
+
         public static WorkspaceWindow Open(string name)
         {
             // The current session follows the pane.
@@ -17,11 +19,13 @@ namespace SlopWorld
             var existing = Find.WindowStack.WindowOfType<WorkspaceWindow>();
             if (existing != null)
             {
+                existing._terminalOpenedFrame = Time.frameCount;
                 existing.SwitchTo(name);
                 return existing;
             }
 
             var w = new WorkspaceWindow(name);
+            w._terminalOpenedFrame = Time.frameCount;
             Find.WindowStack.Add(w);
             TerminalRecall.Remember(name);
             return w;
