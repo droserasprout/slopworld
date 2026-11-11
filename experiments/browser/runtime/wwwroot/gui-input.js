@@ -123,9 +123,12 @@ export function attachGuiInput(canvas, managed) {
   });
   listen('compositionstart', () => { composing = true; cancelled = false; pendingText = null; committed = null; });
   listen('compositionend', event => {
+    // Refocus permits fresh typing, but cannot revive preedit canceled on blur.
+    const accepted = composing && !cancelled;
     composing = false; pendingText = null;
-    if (!cancelled && event.data) text(event.data, {});
-    committed = cancelled ? null : event.data;
+    if (accepted && event.data) text(event.data, {});
+    // Suppress the same-operation trailing input even for a rejected commit.
+    committed = event.data;
     // Some engines send the final insertText after compositionend in the same
     // edit operation. Ignore that duplicate, but allow a later identical commit.
     const value = committed;
