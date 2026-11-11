@@ -134,14 +134,23 @@ try {
                     exports.Probe.WorkspaceFontChains(await chains.text());
                     const manifest = await fetch('./assets/fonts/manifest.json');
                     if (!manifest.ok) throw new Error('Local native font bakes are missing');
+                    // Styles and densities share font bytes. Retain them only for
+                    // this installation pass, avoiding repeated fetch/body copies.
+                    const fonts = new Map();
+                    const loadFont = async url => {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error('Local native font bake is incomplete');
+                        return new Uint8Array(await response.arrayBuffer());
+                    };
                     for (const face of await manifest.json()) {
                         const base = new URL('./assets/fonts/', location.href);
                         const fontUrl = new URL(face.font, base), bakeUrl = new URL(face.bake, base);
                         if (!fontUrl.href.startsWith(base.href) || !bakeUrl.href.startsWith(base.href))
                             throw new Error('Font manifest path escapes local font directory');
-                        const [font, bake] = await Promise.all([fetch(fontUrl), fetch(bakeUrl)]);
-                        if (!font.ok || !bake.ok) throw new Error('Local native font bake is incomplete');
-                        exports.Probe.WorkspaceFont(new Uint8Array(await font.arrayBuffer()), await bake.text(), face.index ?? -1);
+                        if (!fonts.has(fontUrl.href)) fonts.set(fontUrl.href, loadFont(fontUrl));
+                        const [font, bake] = await Promise.all([fonts.get(fontUrl.href), fetch(bakeUrl)]);
+                        if (!bake.ok) throw new Error('Local native font bake is incomplete');
+                        exports.Probe.WorkspaceFont(font, await bake.text(), face.index ?? -1);
                     }
                 }
                     for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn']) {
