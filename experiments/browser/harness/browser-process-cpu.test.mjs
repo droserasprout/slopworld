@@ -20,6 +20,17 @@ test('CPU quota includes tighter parent limits and distinguishes unlimited from 
   values.set('/proc/42/cgroup','1:cpu:/legacy');
   assert.equal((await cpuQuota(42,read)).available,false);
 });
+test('root cgroup membership terminates at the mount without walking filesystem parents',async()=>{
+  const reads=[];
+  const read=async file=>{
+    reads.push(file);
+    if(file==='/proc/42/cgroup')return '0::/\n';
+    assert.equal(file,'/sys/fs/cgroup/cpu.max');
+    return 'max 100000';
+  };
+  assert.deepEqual(await cpuQuota(42,read),{available:true,cores:null});
+  assert.equal(reads.length,2);
+});
 test('Chrome process titles and ordinary argv identify the exact profile',()=>{
   for(const separator of ['\0',' ']) {
     const cmd=['chromium','--type=gpu-process','--user-data-dir=/tmp/fixture','--headless'].join(separator);
