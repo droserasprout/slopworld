@@ -4,12 +4,22 @@ namespace BrowserAdapters;
 
 internal sealed class BrowserTextCache<T>(
     IReadOnlyDictionary<char, T> glyphs,
-    Func<T, float> advance
+    Func<T, float> advance,
+    Func<T, float>? leftBearing = null,
+    Func<T, bool>? drawingBounds = null,
+    Func<T, float>? maximumMagnitude = null
 )
     where T : struct
 {
     internal sealed record Line(T[] Glyphs, float Width)
     {
+        // Bounds describe the immutable metrics, independent of draw scale or origin.
+        // A negative advance disables tail termination even if one density rounds it to zero.
+        internal bool NonnegativeAdvances { get; init; }
+        internal float MinimumLeftBearing { get; init; }
+        internal bool SafeDrawingBounds { get; init; }
+        internal float MaximumMetricMagnitude { get; init; }
+
         // Eviction of the text run also releases its last projected geometry.
         internal BrowserGlyphRun? Drawing;
         float[]? carets;
@@ -104,6 +114,10 @@ internal sealed class BrowserTextCache<T>(
         {
             var values = new List<T>(line.Length);
             float width = 0;
+            bool nonnegative = leftBearing != null;
+            float minimumLeft = float.PositiveInfinity;
+            bool safeDrawing = drawingBounds != null && maximumMagnitude != null;
+            float magnitude = 0;
             foreach (char c in line)
             {
                 if (c == '\r')
@@ -111,9 +125,26 @@ internal sealed class BrowserTextCache<T>(
                 if (!glyphs.TryGetValue(c, out var glyph))
                     return null;
                 values.Add(glyph);
-                width += advance(glyph);
+                float step = advance(glyph);
+                float left = leftBearing?.Invoke(glyph) ?? float.NaN;
+                magnitude = Math.Max(
+                    magnitude,
+                    maximumMagnitude?.Invoke(glyph) ?? float.PositiveInfinity
+                );
+                safeDrawing &= drawingBounds?.Invoke(glyph) ?? false;
+                nonnegative &= float.IsFinite(step) && step >= 0 && float.IsFinite(left);
+                minimumLeft = Math.Min(minimumLeft, left);
+                width += step;
             }
-            lines.Add(new Line(values.ToArray(), width));
+            lines.Add(
+                new Line(values.ToArray(), width)
+                {
+                    NonnegativeAdvances = nonnegative,
+                    MinimumLeftBearing = minimumLeft,
+                    SafeDrawingBounds = safeDrawing,
+                    MaximumMetricMagnitude = magnitude,
+                }
+            );
             maximum = Math.Max(maximum, width);
         }
         return new Run(lines.ToArray(), maximum);
