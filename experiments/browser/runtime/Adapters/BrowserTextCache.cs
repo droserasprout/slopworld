@@ -10,6 +10,8 @@ internal sealed class BrowserTextCache<T>(
 {
     internal sealed record Line(T[] Glyphs, float Width)
     {
+        // Eviction of the text run also releases its last projected geometry.
+        internal BrowserGlyphRun? Drawing;
         float[]? carets;
         float caretScale;
         float measuredScale;
