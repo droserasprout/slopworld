@@ -97,6 +97,15 @@ namespace BrowserAdapters
 {
     public class BrowserGui
     {
+        public long ProfileBakedTicks,
+            ProfileNativeTicks;
+        public int ProfileBakedRuns,
+            ProfileBakedCharacters,
+            ProfileNativeRuns,
+            ProfileFallbackRuns;
+
+        public void ResetTextProfile() { }
+
         public bool SuppressDrawing;
         public double LastResourceSweepMs,
             LastSerializationMs;
