@@ -57,7 +57,7 @@ prints the private cache and publish log paths. NuGet restore may download the
 project's pinned package dependencies.
 
 Compilation is reused for identical final patched DLLs, authored compiler inputs,
-settings, and SDK/runtime identity. Font, appearance, portrait, and JavaScript
+settings, and SDK/runtime identity. Font, appearance, and JavaScript
 changes compose a new runtime using the existing compiled framework. Failed or
 interrupted publishes resume in the same private compilation directory on retry.
 Only successful complete runtimes are served, and existing serving roots survive
@@ -94,13 +94,11 @@ files are read from the user's own installation during local preparation.
 ## Interface
 
 The sidebar selects agents; `+` creates sessions. Session-only agent rows share
-native text presentation. Portraits use validated snapshots exported by the native
-colony, preserving the real session identities. With an older running native mod,
-prepare from an existing isolated export using
-`SLOPWEB_PORTRAITS=/path/to/snapshot slopweb --prepare`; the directory must contain
-its native `manifest.json` and pixel files. Missing native exports leave rows without
-portraits. Core and Jukebox doors open native menus without a colony; map actions
-and local OST playback are unavailable. Radio/Spotify controls use the host daemon's
+native text presentation and the existing worker icon, without per-session portrait
+preparation. Core and Jukebox doors open native menus without a colony; map actions
+are unavailable. Jukebox OST plays in the browser with normal source, transport,
+and volume controls. Browser autoplay restrictions may require a click or key press
+before music starts. Radio/Spotify controls use the host daemon's
 capabilities and audio output. Ctrl+V pastes browser
 text, plus PNG images in ready Codex agents; selected terminal text copies with Ctrl+C or Ctrl+Shift+C. Without a selection, Ctrl+C still
 interrupts the terminal process. Browser clipboard permissions apply to context

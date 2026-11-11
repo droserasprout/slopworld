@@ -16,7 +16,6 @@ from pathlib import Path
 import aot
 from appearance import preferences
 from appearance import prepare_fonts
-from portraits import host_snapshot
 
 PAGE = '/'
 
@@ -30,8 +29,6 @@ def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False) -> Pat
     identity.append(('bundle', (bundle / 'BUILD_ID').read_text(), 0))
     appearance = preferences()
     identity.append(('appearance', json.dumps(appearance, sort_keys=True), 0))
-    portraits = host_snapshot()
-    identity.append(('portraits', portraits.identity, 0))
     key = hashlib.sha256(json.dumps(identity).encode()).hexdigest()[:24]
     cache.mkdir(parents=True, exist_ok=True, mode=0o700)
     destination = cache / key
@@ -61,7 +58,7 @@ def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False) -> Pat
             shutil.copytree(bundle / 'mod', root / 'mod')
             run('dotnet', bundle / 'offline/Offline.dll', '--eco', root, bundle / 'mod/SlopWorld.dll')
             prepare_fonts(bundle, game, root, appearance)
-            portraits.write(root)
+            shutil.copytree(bundle / 'ost', root / 'assets/ost')
             run(
                 'dotnet',
                 bundle / 'background-probe/BackgroundProbe.dll',

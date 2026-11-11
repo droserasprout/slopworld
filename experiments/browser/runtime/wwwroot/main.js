@@ -158,7 +158,8 @@ try {
                         if (!response.ok) throw new Error('Missing workspace dependency ' + name);
                         exports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer()));
                     }
-                    const portraits = await (await import('./workspace-portraits.js')).loadWorkspacePortraits(exports.Probe);
+                    // Session rows use the shared worker icon without snapshot assets.
+                    const portraits = 0;
                     let commands = JSON.parse(await exports.Probe.WorkspaceFrame(location.origin, parameters.get('session') ?? ''));
                     const drawing = await import('./gui.js');
                     const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;

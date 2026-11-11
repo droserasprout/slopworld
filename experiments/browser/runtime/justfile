@@ -164,6 +164,8 @@ workspace-dependencies:
     cp wwwroot/main.js out/wwwroot-eco/main.js
     cp ../../../mod/Assemblies/{0Harmony,Google.Protobuf,Markdig,AngleSharp,Tomlyn}.dll out/wwwroot-eco/mod/
     uv run --locked python mod_pack.py ../../../mod out/wwwroot-eco/mod/Content.zip
+    mkdir -p out/wwwroot-eco/assets/ost
+    cp ../../../mod/Sounds/SlopWorld/OST/*.ogg out/wwwroot-eco/assets/ost/
 
 # Refresh browser-only rendering without replacing prepared local assets.
 refresh-web root='out/wwwroot-eco':
@@ -198,3 +200,9 @@ stage-door-check source: adapters
 # Pack authored UI definitions/textures into a private runtime.
 mod-content root:
     uv run --locked python mod_pack.py ../../../mod {{quote(root + '/mod/Content.zip')}}
+
+# Compile browser audio boundaries and exercise the DOM decoder contract without a game/browser.
+audio-check: adapters build
+    dotnet run --project AudioTests/AudioTests.csproj
+    dotnet build ../compat/Offline/Offline.csproj --nologo -v minimal -p:RestoreLockedMode=true
+    node --test ../harness/workspace-audio.test.mjs

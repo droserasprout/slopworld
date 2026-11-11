@@ -218,6 +218,8 @@ def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_fil
     (bundle / 'BUILD_ID').write_text('build')
     (bundle / 'Adapters.dll').write_text('our adapter')
     (bundle / 'mod').mkdir()
+    (bundle / 'ost').mkdir()
+    (bundle / 'ost/pace-20261012.ogg').write_bytes(b'authored music')
     game.mkdir()
     for name in ('RimWorld.dll', 'Assembly-CSharp.dll', 'UnityStubs.dll', 'Waylith.dll', 'Assets.zip'):
         (game / name).write_text('private game input')
@@ -231,6 +233,8 @@ def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_fil
     monkeypatch.setattr(launcher, 'prepare_fonts', lambda *args: None)
     ready = launcher.prepare(bundle, game, cache)
     assert (ready / '.ready').is_file()
+    assert (ready / 'assets/ost/pace-20261012.ogg').read_bytes() == b'authored music'
+    assert not (ready / 'assets/portraits').exists()
     assert len(calls) == 5
     assert launcher.prepare(bundle, game, cache) == ready
     assert len(calls) == 5
@@ -280,6 +284,7 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         'experiments/browser/compat/Offline/bin/Debug/net10.0/Offline.dll',
         'experiments/browser/runtime/out/wwwroot-eco/mod/Content.zip',
         'mod/Textures/SlopWorld/LoadingFont.png',
+        'mod/Sounds/SlopWorld/OST/pace-20261012.ogg',
         'shared/loading-tips.txt',
     ]
     inputs += [
@@ -298,7 +303,10 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         (runtime / name).write_text('must never ship')
     with zipfile.ZipFile(runtime / 'out/wwwroot-eco/mod/Content.zip', 'w') as content:
         content.writestr('Textures/face.rgba', b'authored UI pixels')
-    monkeypatch.setattr(slopweb, 'tracked_mod_files', lambda: {'Textures/face.png'})
+    monkeypatch.setattr(
+        slopweb, 'tracked_mod_files', lambda: {'Textures/face.png', 'Sounds/SlopWorld/OST/pace-20261012.ogg'}
+    )
+    (root / 'mod/Sounds/SlopWorld/OST/private.ogg').write_text('must never ship')
     package = tmp_path / 'nuget/microsoft.netcore.app.runtime.mono.browser-wasm/10.0.14'
     package.mkdir(parents=True)
     for name in ('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT'):
@@ -337,6 +345,8 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
     monkeypatch.setattr(slopweb, 'ROOT', root)
     output = tmp_path / 'bundle'
     slopweb.build(output)
+    assert (output / 'ost/pace-20261012.ogg').is_file()
+    assert not (output / 'ost/private.ogg').exists()
     assert (output / 'BUILD_ID').is_file()
     assert {path.name for path in (output / 'aot-src').iterdir()} == {'Probe.csproj', *slopweb.AOT_SOURCES}
     assert (output / 'aot.py').is_file()
@@ -511,3 +521,15 @@ def test_missing_portrait_snapshot_can_be_imported_again(launcher, tmp_path):
     snapshot.write(tmp_path)
     assert portraits.read_snapshot(tmp_path / 'assets/portraits').identity == snapshot.identity
     assert json.loads(snapshot.manifest)['entries'] == []
+
+
+def test_browser_ost_catalog_matches_authored_songs_and_files() -> None:
+    import re
+    import xml.etree.ElementTree as ET
+
+    source = (ROOT / 'experiments/browser/runtime/Adapters/BrowserAudio.cs').read_text()
+    tracks = re.findall(r'"([a-z]+-\d{8})"', source)
+    definitions = ET.parse(ROOT / 'mod/Defs/Songs.xml').getroot()
+    songs = [node.text.rsplit('/', 1)[-1] for node in definitions.findall('./SongDef/clipPath')]
+    assert tracks == songs
+    assert sorted(tracks) == sorted(path.stem for path in (ROOT / 'mod/Sounds/SlopWorld/OST').glob('*.ogg'))
