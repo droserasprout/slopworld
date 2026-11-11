@@ -10,7 +10,7 @@ browser-validate directory page='/' report='experiments/browser/artifacts/browse
 
 [group('browser prototype')]
 browser-test-harness:
-    node --test experiments/browser/harness/gui-keyboard.test.mjs
+    node --test experiments/browser/harness/gui-keyboard.test.mjs experiments/browser/harness/text-input.test.mjs experiments/browser/harness/clipboard.test.mjs
     node --test experiments/browser/harness/workspace-cursor.test.mjs
     node --test experiments/browser/harness/portraits.test.mjs
     node --test experiments/browser/harness/workspace-scheduler.test.mjs

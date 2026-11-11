@@ -2,8 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {attachGuiInput} from '../runtime/wwwroot/gui-input.js';
 
+import {installInputDom} from './input-dom-fixture.mjs';
+
 function fixture() {
-  const canvas=Object.assign(new EventTarget(),{width:100,height:100,getContext:()=>({clearRect(){},resetTransform(){}})});
+  const canvas=installInputDom().canvas();
   let batch;
   const input=attachGuiInput(canvas,{GuiInputFrame(value){batch=JSON.parse(value);return '{"commands":[]}';}});
   return {
