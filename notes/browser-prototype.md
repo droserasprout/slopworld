@@ -101,6 +101,14 @@ the socket rather than blocking the browser thread. Shutdown flush reports false
 while a write is pending. [Client](mod-client.md) and [wire](protocol-wire.md)
 contracts still apply.
 
+`browser-host-reconnect-check` reloads a retained diagnostic page with temporary
+socket tracking, then blocks page HTTP and closes its transport twice. It checks
+native offline/online state, continued offline frames, and fresh DOM-input echoes
+through recovered subscriptions in invocation-owned fixtures. Cleanup restores
+network access, the original selection and socket constructor, and deletes the
+fixtures. The host daemon is never stopped; daemon restart and run replacement
+are separate recovery cases.
+
 BrowserTerminalSize admits resize requests only when local requested geometry,
 the session run, or transport generation changes. Screen dimensions can reflect
 another client's legitimate resize; they are not an acknowledgment to retry

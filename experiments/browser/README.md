@@ -105,6 +105,10 @@ just browser-host-image-paste-check PROFILE
 # Trusted Chromium text/Unicode paste and native selection copy with prepared fonts.
 # Image check clones a temporary Codex agent, attaches one PNG without submission,
 # restores the previous selection/clipboard and deletes only its own fixture.
+just browser-host-reconnect-check PROFILE
+# Reloads this diagnostic page with transport tracking, interrupts its network twice,
+# checks offline UI updates and recovered terminal echoes, and deletes its fixtures.
+# The host daemon remains running. Results are saved in artifacts/reconnect-check.json.
 just browser-close PROFILE
 
 just browser-gui
