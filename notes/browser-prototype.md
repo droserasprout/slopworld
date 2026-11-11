@@ -77,6 +77,19 @@ Partially visible quads retain their original geometry and UVs for Canvas clippi
 render targets inherit the same physical clips. The GUI probe checks empty nested
 clips, later visibility/upload, and restoration.
 
+`Probe.WorkspaceObserveLabels(bool)` opts into read-only DrawText observations and
+returns the previous setting; it defaults off. `WorkspaceLabels()` returns JSON
+`[{text,x,y,width,height}]` from the latest repaint, independent of fallback text
+commands or native-font glyph batches. Coordinates are physical screen bounding
+rectangles intersected with drawing/fine clips and screen bounds, not glyph ink
+or hit-test rectangles. Native glyph admission rejects fully culled text; offscreen
+render-target draws, whitespace, transparent labels and input/layout passes are
+excluded. Reading does not drain or repaint. Every repaint clears the snapshot,
+including an empty repaint. Retention keeps the latest 4096 calls under 262144 UTF-16
+units, truncating each text to 4096 units, so later dialogs survive terminal cell
+traffic. Disabling releases retained text. The observations do not establish
+occlusion visibility when a later control paints over an earlier label.
+
 The workspace starts in loaded Entry without creating a game, world, or map.
 `WorkspaceDrawing.RequireEntry` checks that boundary at startup and every update;
 workspace URLs reject play/load/save flags. Ordinary agent sessions use actual
