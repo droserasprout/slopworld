@@ -610,8 +610,8 @@ browser-fonts-test:
 
 # Fresh Firefox via direct WebDriver HTTP; owns browser, bridge and temporary sessions.
 [group('browser prototype')]
-browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-workloads.json' phases='idle,output,typing,keystrokes,scrolling,switching' root='experiments/browser/runtime/out/wwwroot-eco' page='/workspace.html' screenshots='1' headless='1':
-    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_HEADLESS={{quote(headless)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox-host.py')}} {{quote(if root =~ '^/' { root } else { justfile_directory() / root })}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}} {{quote(phases)}} {{quote(page)}}
+browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-workloads.json' phases='idle,output,typing,keystrokes,scrolling,switching' root='experiments/browser/runtime/out/wwwroot-eco' page='/workspace.html' screenshots='1' headless='1' comparison='none':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_HEADLESS={{quote(headless)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox-host.py')}} {{quote(if root =~ '^/' { root } else { justfile_directory() / root })}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}} {{quote(phases)}} {{quote(page)}} {{quote(comparison)}}
 
 [group('browser prototype')]
 browser-firefox-harness-check:
