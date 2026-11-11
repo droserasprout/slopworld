@@ -35,9 +35,12 @@ The installed launcher's private preparation uses the same FontProbe for native
 UI candidate selection, terminal family resolution and glyph baking. Package staging
 allowlists the helper executable and metadata because its build directory also
 contains installed game references; those references must never be bundled.
-Private font preparation bakes normal, bold, italic and bold-italic variants of
-the selected UI and terminal files through the native loader at densities 1, 5/3
-and 2. Rendering-mode flags are distinct from style flags; the native bold/oblique
+Private font preparation uses native settings defaults when no profile value exists;
+an explicit UI size zero retains the original 11/13/15 tiers. A mismatched
+terminal bake size forces ordinary text through the slow fallback renderer.
+It bakes normal, bold, italic and bold-italic variants of the selected UI and
+terminal files through the native loader at densities 1, 5/3 and 2.
+Rendering-mode flags are distinct from style flags; the native bold/oblique
 constants extend the normal rendering mode. `browser-font-styles-check` compares
 actual ink, line metrics and italic advances across all prepared variants.
 Style is part of face lookup, so styled runs retain family and native metrics.
