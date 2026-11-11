@@ -90,6 +90,17 @@ static class Check
         });
         settings.FlushIfDue(_ => writes++);
         Expect(writes == 1, "Native dirty save did not flush once");
+        int fontChanges = 0;
+        BrowserPreferences.Fonts = _ => fontChanges++;
+        BrowserPreferences.Changed(settings);
+        BrowserPreferences.Changed(settings);
+        settings.uiScheme = "other";
+        BrowserPreferences.Changed(settings);
+        Expect(fontChanges == 1, "Unrelated settings repeated font work");
+        settings.fontSize++;
+        BrowserPreferences.Changed(settings);
+        Expect(fontChanges == 2, "Dirty font change was not published before persistence");
+        BrowserPreferences.Fonts = null;
         CheckPatch();
         Console.WriteLine(
             "Preferences: allowlist round trip, malformed input, native debounce and staged save sink passed."
@@ -204,6 +215,13 @@ static class Check
                 module.TypeSystem.Object
             );
             module.Types.Add(settings);
+            var dirty = new MethodDefinition(
+                "MarkDirty",
+                MethodAttributes.Public,
+                module.TypeSystem.Void
+            );
+            dirty.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+            settings.Methods.Add(dirty);
             var profile = new TypeDefinition(
                 "SlopWorld",
                 "ProfileSettings",
@@ -227,6 +245,12 @@ static class Check
                     && call.DeclaringType.FullName == "BrowserAdapters.BrowserPreferences"
                     && call.Name == "Write",
                 "Native save was not redirected"
+            );
+            Expect(
+                dirty.Body.Instructions.Count == 3
+                    && dirty.Body.Instructions[1].Operand is MethodReference changed
+                    && changed.Name == "Changed",
+                "Dirty event did not notify font selection"
             );
             write.Parameters.Clear();
             bool rejected = false;

@@ -1,5 +1,5 @@
-// Replace only the profile's persistence sink. Native dirty timing and callers
-// remain intact; browser writes never serialize the full TOML profile.
+// Own browser presentation persistence and event-driven font notifications.
+// Native save timing remains intact; dirty events schedule font work separately.
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -25,6 +25,25 @@ internal static class BrowserPreferencesPatch
             || target.Parameters[0].ParameterType.FullName != "System.Object"
         )
             throw new InvalidOperationException("Browser profile save boundary changed");
+        var dirty = mod
+            .MainModule.GetType("SlopWorld.ModSettings")
+            .Methods.Single(m => m.Name == "MarkDirty");
+        if (dirty.IsStatic || dirty.Parameters.Count != 0 || !dirty.HasBody)
+            throw new InvalidOperationException("Browser settings change boundary changed");
+        var dirtyIl = dirty.Body.GetILProcessor();
+        var first = dirty.Body.Instructions[0];
+        dirtyIl.InsertBefore(first, dirtyIl.Create(OpCodes.Ldarg_0));
+        dirtyIl.InsertBefore(
+            first,
+            dirtyIl.Create(
+                OpCodes.Call,
+                mod.MainModule.ImportReference(
+                    adapters
+                        .MainModule.GetType("BrowserAdapters.BrowserPreferences")
+                        .Methods.Single(m => m.Name == "Changed")
+                )
+            )
+        );
         write.Body = new MethodBody(write);
         var il = write.Body.GetILProcessor();
         il.Emit(OpCodes.Ldarg_0);

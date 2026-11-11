@@ -71,6 +71,7 @@ def build(destination: Path = OUTPUT) -> None:
             (ROOT / 'slopweb/launch.py', 'launch.py'),
             (ROOT / 'slopweb/aot.py', 'aot.py'),
             (ROOT / 'slopweb/appearance.py', 'appearance.py'),
+            (ROOT / 'slopweb/fonts.py', 'fonts.py'),
             (ROOT / 'slopweb/portraits.py', 'portraits.py'),
             (runtime / 'core_pack.py', 'core_pack.py'),
             (runtime / 'bin/Debug/net10.0/Probe.dll', 'Probe.dll'),
@@ -110,7 +111,7 @@ def build(destination: Path = OUTPUT) -> None:
                 copy_file(ROOT / 'mod' / name, bundle / 'ost' / Path(name).name)
         copy_file(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', bundle / 'mod/LoadingFont.png')
         copy_file(ROOT / 'shared/loading-tips.txt', bundle / 'mod/loading-tips.txt')
-        for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs'):
+        for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs', 'fonts.mjs'):
             copy_file(ROOT / 'experiments/browser/harness' / name, bundle / 'server' / name)
         assets = json.loads((runtime / 'obj/project.assets.json').read_text())
         dependency = next(

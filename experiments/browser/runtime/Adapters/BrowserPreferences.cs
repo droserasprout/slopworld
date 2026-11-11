@@ -8,6 +8,20 @@ namespace BrowserAdapters;
 public static class BrowserPreferences
 {
     public static Action<string>? Persist;
+    public static Action<string>? Fonts;
+    static string? lastFonts;
+
+    public static string FontSelection(object settings) =>
+        JsonSerializer.Serialize(
+            new Dictionary<string, object?>
+            {
+                ["uiFontName"] = Field(settings, "uiFontName").GetValue(settings),
+                ["fontName"] = Field(settings, "fontName").GetValue(settings),
+                ["uiFontSize"] = Field(settings, "uiFontSize").GetValue(settings),
+                ["fontSize"] = Field(settings, "fontSize").GetValue(settings),
+            }
+        );
+
     static readonly string[] Allowed =
     [
         "sidebarHidden",
@@ -47,8 +61,22 @@ public static class BrowserPreferences
         "dateFormat",
     ];
 
+    public static void Changed(object settings)
+    {
+        if (Fonts != null)
+        {
+            string selected = FontSelection(settings);
+            if (selected != lastFonts)
+            {
+                lastFonts = selected;
+                Fonts(selected);
+            }
+        }
+    }
+
     public static void Write(object settings)
     {
+        Changed(settings);
         if (Persist == null)
             return;
         var values = new Dictionary<string, object?>();

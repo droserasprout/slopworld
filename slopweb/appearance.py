@@ -63,6 +63,7 @@ def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
             env=env,
         )
 
+    probe('--catalog', bundle / 'mod/SlopWorld.dll', '', fonts)
     probe('--resolve-ui', bundle / 'mod/SlopWorld.dll', values.get('uiFontName') or '', fonts)
     probe('--resolve', bundle / 'mod/SlopWorld.dll', values.get('fontName') or 'monospace', fonts)
     # Missing preferences retain ModSettings' defaults. UI size zero explicitly

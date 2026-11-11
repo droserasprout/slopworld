@@ -119,19 +119,24 @@ try {
                 const textures = exports.Probe.InstallModContent(new Uint8Array(await content.arrayBuffer()));
                 console.log('Browser: mounted ' + textures + ' mod textures');
                 await initializeEco();
+                let fontDefaults = null, fontChains = null;
                 if (parameters.has('referenceAppearance')) {
                     const appearance = await fetch('./assets/reference-appearance.json');
                     if (!appearance.ok) throw new Error('Reference appearance is missing');
-                    exports.Probe.WorkspaceAppearance(await appearance.text());
+                    fontDefaults = await appearance.text();
+                    exports.Probe.WorkspaceAppearance(fontDefaults);
                 }
                 if (app && parameters.get('localPreferences') !== 'off') {
                     (await import('./workspace-preferences.js')).installWorkspacePreferences(exports.Probe);
                     (await import('./workspace-keybindings.js')).installWorkspaceKeyBindings(exports.Probe);
                 }
                 if (parameters.has('nativeFonts')) {
+                    const catalog = await fetch('./assets/fonts/catalog.json');
+                    if (catalog.ok) exports.Probe.WorkspaceFontCatalog(await catalog.text());
                     const chains = await fetch('./assets/fonts/chains.json');
                     if (!chains.ok) throw new Error('Host font family order is missing');
-                    exports.Probe.WorkspaceFontChains(await chains.text());
+                    fontChains = await chains.text();
+                    exports.Probe.WorkspaceFontChains(fontChains);
                     const manifest = await fetch('./assets/fonts/manifest.json');
                     if (!manifest.ok) throw new Error('Local native font bakes are missing');
                     // Styles and densities share font bytes. Retain them only for
@@ -161,6 +166,11 @@ try {
                     // Session rows use the shared worker icon without snapshot assets.
                     const portraits = 0;
                     let commands = JSON.parse(await exports.Probe.WorkspaceFrame(location.origin, parameters.get('session') ?? ''));
+                    if (parameters.has('nativeFonts')) {
+                        const fontLoader = await import('./workspace-fonts.js');
+                        const fonts = fontLoader.dynamicFonts(exports.Probe, globalThis.fetch, () => workspaceViewport(parameters).uiScale, undefined, fontDefaults ? {selection:fontDefaults, chains:fontChains} : null);
+                        void fonts(exports.Probe.WorkspaceDynamicFonts(fontLoader.debounceFonts(fonts)));
+                    }
                     const drawing = await import('./gui.js');
                     const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
                     // Select before the first context exists. Keep experimental until

@@ -191,7 +191,7 @@ public sealed partial class BrowserGui : IGuiBackend
     }
 
     public int RegisterFont(string name, byte[] fontData, float importSize, int renderingMode) =>
-        BrowserFontBank.Register(fontData, importSize);
+        BrowserFontBank.RegisterAvailable(fontData, importSize);
 
     public int TextIndexAt(
         int fontIndex,

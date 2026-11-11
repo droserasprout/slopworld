@@ -51,7 +51,7 @@ slopweb-lint:
 
 [group('web')]
 slopweb-test:
-    uv run --locked pytest tools/release/test_slopweb.py tools/release/test_slopweb_aot.py -q
+    uv run --locked pytest tools/release/test_slopweb.py tools/release/test_slopweb_aot.py tools/release/test_slopweb_fonts.py -q
 
 # Exercise the installed launcher and its private game preparation.
 [group('web')]

@@ -50,6 +50,32 @@ advance atlas revision. Returning to a density reuses its texture. Other densiti
 still resample. `just browser-host-font-bakes` refreshes the prototype through the
 staged private-preparation helper, and `browser-host-font-density-check` verifies
 selection, invalidation and texture reuse in a running diagnostic browser.
+`slopweb/fonts.py` owns on-demand host baking; `fonts.mjs` validates same-origin
+requests and serializes subprocesses. The launcher supplies host-only game/cache
+context after interpreted or AOT preparation; neither paths nor credentials enter
+font responses. The host catalog includes installed families and monospace flags
+without mounting every font. Native settings dirty events notify the browser,
+which debounces changes and keeps one request active with only the newest pending
+selection. Startup seeds this cache from already mounted fonts. Display resize
+requests only the nearest prepared density; drawing never starts discovery or I/O.
+Successful installs rescan mounted files and reapply UI/terminal owners before waking
+the workspace. Old usable faces remain while work runs. Superseded responses do
+not publish; returning to an installed selection restores its family chain.
+
+Font state is bounded independently: 64 atomic private disk entries per serving
+runtime, eight host responses (including short-lived failures), 1024 native atlas
+variants, and 384 MiB of retained RGBA atlas pixels. Admission checks reject a new
+selection before installation when its conservative allocation exceeds that budget;
+existing native styles and packets keep their textures. Identical variants reuse
+indices/textures. Native face hits and misses are cached, and temporary size
+registrations are bounded. Failure restores the previous settings, displays a retry
+message, and never retries from a frame; an explicit click can retry a failed host
+operation. Successful selection clears that message. Font coverage remains the
+FontProbe scalar set: U+0020–U+00FF, U+0400–U+052F and U+2000–U+27FF, filtered
+through actual face coverage. Other characters and unprepared rich-text sizes retain
+the diagnostic fallback. Font files changed on the host require a rebuilt private
+runtime to refresh its font cache.
+
 Plain covered runs use baked glyphs at matching density. Prepared coverage
 includes Cyrillic U+0400–U+052F; an omitted scalar otherwise takes the
 approximate text path even when the host font contains it. The benchmark's
@@ -224,8 +250,9 @@ recipe imports only allowlisted presentation preferences into the browser's memo
 it does not copy an entire profile or change the host settings.
 Prototype server/probe startup refreshes that snapshot through the same allowlist as
 the installed launcher. `just browser-host-appearance` refreshes an existing server's
-snapshot; reload its browser page to apply it. This does not rebake fonts when the
-selected family or size changes; prepare matching font assets separately.
+snapshot; reload its browser page to apply it. Installed slopweb serves selected font
+changes through its on-demand host baker; standalone prototype servers require
+matching prepared font assets.
 The app workspace overlays a versioned, origin-local presentation snapshot after
 that host seed. `BrowserPreferences` owns the explicit scalar allowlist; staged
 `ProfileSettings.Write` redirects to this sink while native dirty timing remains.
