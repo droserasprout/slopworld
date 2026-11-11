@@ -198,6 +198,10 @@ WindowStack without colony updates. Waylith's deferred GUI window input/drawing
 callbacks remain necessary. Never invoke the baseline executable-entry diagnostic
 after workspace startup: it resets engine globals. Native rejection messages draw
 after deferred windows so the terminal cannot cover them.
+The custom Entry traversal also pumps native tooltips before window traversal:
+the tooltip handler owns hover delay and expiry, and its ImmediateWindows must
+join the deferred window drawing pass. Input regression checks exercise this
+ordering and stationary-pointer repaints without a game or browser.
 
 `BrowserUnderlyingWorkspace` dispatches native TopBar, sidebar and selected-session
 gizmos when the fullscreen WorkspaceWindow is absent. SessionSelectable and the
