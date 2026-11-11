@@ -141,10 +141,11 @@ static unsafe void Run(
             .Invoke(null, [fontPath, font, size]);
         var lineMetrics = metricsType.GetMethod("At")!.Invoke(metrics, [size]);
         var glyphs = new List<object>();
-        // Include common terminal punctuation, arrows, box drawing and symbols.
+        // Include Cyrillic text alongside common terminal punctuation and symbols.
         // Coverage is reported per scalar; missing glyphs are never claimed present.
         uint[] scalars = Enumerable
             .Range(32, 224)
+            .Concat(Enumerable.Range(0x0400, 0x0130))
             .Concat(Enumerable.Range(0x2000, 0x800))
             .Select(value => (uint)value)
             .ToArray();

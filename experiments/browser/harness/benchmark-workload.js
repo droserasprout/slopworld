@@ -161,7 +161,8 @@
       let pendingWire=null;
       const bytes=value=>value instanceof ArrayBuffer?new Uint8Array(value)
         :ArrayBuffer.isView(value)?new Uint8Array(value.buffer,value.byteOffset,value.byteLength):null;
-      if(phase==='typing')WebSocket.prototype.send=function(data) {
+      const typing=phase==='typing'||phase==='cyrillic';
+      if(typing)WebSocket.prototype.send=function(data) {
         const payload=bytes(data);
         if(pendingWire && payload?.[0]===34) {
           const keys=fields(fields(payload).get(4));
@@ -203,9 +204,10 @@
       try {
         if (phase === 'idle') await pause(5000);
         else if (phase === 'output') { send('stream '+runId); await output('BENCH_STREAM_DONE_'+runId); }
-        else if (phase === 'typing') {
+        else if (typing) {
           for (let i=0; i<20; i++) {
-            const marker = 'TYPE_' + runId + '_' + i.toString().padStart(2,'0');
+            const marker = 'TYPE_' + runId + '_' + i.toString().padStart(2,'0') +
+              (phase==='cyrillic'?' В evince smooth scrolling не работает, Ёжик ёжик АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ абвгдежзийклмнопрстуфхцчшщъыьэюя':'');
             const start = performance.now();
             pendingWire={name:owned(),marker:'ACK_'+marker};
             send('echo ' + marker);
@@ -236,12 +238,15 @@
           }
         } else throw new Error('Unknown workload phase');
         const game=state().game;
+        if(phase==='cyrillic' && (!window.__workspaceProfile.some(sample=>sample.targetWrites>0)
+          || window.__workspaceProfile.some(sample=>sample.fallbackTextRuns>0)))
+          throw new Error('Cyrillic terminal output must repaint with native baked glyphs, without fallback text');
         if (game.hasGame || game.hasWorld || game.maps !== null || game.ticks !== 0)
           throw new Error('Benchmark created a colony');
         return {phase, durationMs:performance.now()-started, intervals, drawIntervals, latencyMs:[...samples],
           stages:[...window.__workspaceProfile], game, scrollTrace, wireTimings, terminalCache:state().terminalCache};
       } finally {
-        if(phase==='typing')WebSocket.prototype.send=originalSend;
+        if(typing)WebSocket.prototype.send=originalSend;
         for(const [socket,listener] of listeners)socket.removeEventListener('message',listener);
         running=false; window.__workspace.setProfiling(false);
       }
