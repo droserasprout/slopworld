@@ -84,6 +84,9 @@ cache when available; generating missing frames on cold startup remains incomple
 Text copy/paste and PNG attachment delivery have browser-to-agent checks. Wait for
 the Codex composer to finish initializing before pasting an image; its provisional
 startup input can retain image paths as text. Full IME remains unverified.
-Profile settings do not survive reload. Reconnect recovery and the full agent
+Presentation settings persist in this browser origin when local storage is available;
+`localPreferences=off` disables this for reference comparisons. Other profile fields
+are not persisted. Font choices still require matching host-prepared font assets.
+Reconnect recovery and the full agent
 launch/edit dialog have not been exhaustively validated. See the checkout's
 `experiments/browser/README.md` for focused checks and implementation boundaries.
