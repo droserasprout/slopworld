@@ -86,7 +86,9 @@ the Codex composer to finish initializing before pasting an image; its provision
 startup input can retain image paths as text. Full IME remains unverified.
 Presentation settings persist in this browser origin when local storage is available;
 `localPreferences=off` disables this for reference comparisons. Other profile fields
-are not persisted. Font choices still require matching host-prepared font assets.
+are not persisted. Authored SlopWorld keyboard bindings also persist in this origin,
+including both binding slots and reset-to-default changes. Font choices still
+require matching host-prepared font assets.
 Reconnect recovery and the full agent
 launch/edit dialog have not been exhaustively validated. See the checkout's
 `experiments/browser/README.md` for focused checks and implementation boundaries.
