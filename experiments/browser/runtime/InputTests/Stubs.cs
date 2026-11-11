@@ -12,6 +12,7 @@ namespace UnityEngine
         MouseMove,
         Layout,
         Repaint,
+        Used,
     }
 
     public enum KeyCode
@@ -41,6 +42,11 @@ namespace UnityEngine
             y = y,
             width = width,
             height = height;
+
+        public float xMin => x;
+        public float yMin => y;
+        public float xMax => x + width;
+        public float yMax => y + height;
     }
 
     public struct Matrix4x4
@@ -67,6 +73,13 @@ namespace UnityEngine
     {
         public static Matrix4x4 matrix;
 
+        public static Action? OnDispatchInput,
+            OnProcessWindows;
+
+        public static void DispatchInputToWindows() => OnDispatchInput?.Invoke();
+
+        public static void ProcessPendingWindows() => OnProcessWindows?.Invoke();
+
         public static void Label(Rect rect, string text) { }
 
         public static bool Button(Rect rect, string text) => false;
@@ -89,7 +102,7 @@ namespace UnityStubs.Gui
 {
     public static class GuiBackend
     {
-        public static object? Current;
+        public static object Current = null!;
     }
 }
 
@@ -97,6 +110,8 @@ namespace BrowserAdapters
 {
     public class BrowserGui
     {
+        public static string? OutsideTargetTrace;
+
         public void BeginLabelRepaint() { }
 
         public long ProfileBakedTicks,
