@@ -241,6 +241,7 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
     runtime = root / 'experiments/browser/runtime'
     inputs = [
         'slopweb/launch.py',
+        'slopweb/aot.py',
         'slopweb/appearance.py',
         'slopweb/portraits.py',
         'experiments/browser/runtime/FontProbe/bin/Debug/net10.0/FontProbe.dll',
@@ -269,6 +270,11 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('redistributable fixture')
+    shutil.copyfile(ROOT / 'experiments/browser/runtime/Probe.csproj', runtime / 'Probe.csproj')
+    for name in slopweb.AOT_SOURCES:
+        (runtime / name).write_text('authored C# fixture')
+    for name in ('unlisted.cs', 'packages.lock.json', 'private.dll'):
+        (runtime / name).write_text('must never ship')
     with zipfile.ZipFile(runtime / 'out/wwwroot-eco/mod/Content.zip', 'w') as content:
         content.writestr('Textures/face.rgba', b'authored UI pixels')
     monkeypatch.setattr(slopweb, 'tracked_mod_files', lambda: {'Textures/face.png'})
@@ -311,6 +317,8 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
     output = tmp_path / 'bundle'
     slopweb.build(output)
     assert (output / 'BUILD_ID').is_file()
+    assert {path.name for path in (output / 'aot-src').iterdir()} == {'Probe.csproj', *slopweb.AOT_SOURCES}
+    assert (output / 'aot.py').is_file()
     assert all(b'must never ship' not in path.read_bytes() for path in output.rglob('*') if path.is_file())
     assert not (output / 'game').exists()
     assert not (output / 'web/assets').exists()
@@ -425,3 +433,33 @@ def test_real_arch_archive_contains_only_distributable_web_payload(tmp_path: Pat
     subprocess.run(['tar', '--zstd', '-xf', str(archive), '-C', str(tmp_path)], check=True)
     result = subprocess.run([str(tmp_path / 'usr/bin/slopweb'), '--help'], check=True, capture_output=True, text=True)
     assert '--prepare' in result.stdout and '--token-file' in result.stdout
+
+
+@pytest.mark.parametrize('change', ['extra', 'missing', 'duplicate', 'symlink'])
+def test_aot_source_payload_requires_reviewed_compile_set(tmp_path: Path, change: str) -> None:
+    import xml.etree.ElementTree as ET
+
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    source = ROOT / 'experiments/browser/runtime'
+    shutil.copyfile(source / 'Probe.csproj', runtime / 'Probe.csproj')
+    for name in slopweb.AOT_SOURCES:
+        (runtime / name).write_text('authored source')
+    if change == 'symlink':
+        (runtime / 'Program.cs').unlink()
+        (runtime / 'Program.cs').symlink_to(source / 'Program.cs')
+    else:
+        project = ET.parse(runtime / 'Probe.csproj')
+        group = project.find('.//ItemGroup')
+        assert group is not None
+        if change == 'extra':
+            ET.SubElement(group, 'Compile', Include='../private.cs')
+        elif change == 'duplicate':
+            ET.SubElement(group, 'Compile', Include='Program.cs')
+        else:
+            item = group.find('Compile')
+            assert item is not None
+            group.remove(item)
+        project.write(runtime / 'Probe.csproj')
+    with pytest.raises(ValueError, match=r'allowlist|symlink'):
+        slopweb.stage_aot_sources(runtime, tmp_path / 'bundle')

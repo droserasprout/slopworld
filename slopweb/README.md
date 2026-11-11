@@ -38,6 +38,38 @@ its UI and terminal fonts through the installed native rasterizer. Font files an
 atlases stay in the private cache; changed appearance preferences select a new
 cache. Use `--rebuild` after changing installed font files.
 
+## Optional mixed AOT
+
+The default runtime uses the interpreter. Pass `--aot-sdk PATH` to both preparation
+and serving to select mixed AOT instead:
+
+```sh
+slopweb --aot-sdk /private/dotnet/dotnet --prepare
+slopweb --aot-sdk /private/dotnet/dotnet
+```
+
+PATH selects an existing .NET 10 SDK directory or its `dotnet` executable with
+matching `wasm-tools`, including the WebAssembly SDK and browser cross compiler
+packs for that SDK's runtime patch. The launcher validates the toolchain and pins
+the selected SDK and target runtime for publishing. It never installs tools.
+Initial compilation requires substantial time, disk and memory; the launcher
+prints the private cache and publish log paths. NuGet restore may download the
+project's pinned package dependencies.
+
+Compilation is reused for identical final patched DLLs, authored compiler inputs,
+settings, and SDK/runtime identity. Font, appearance, portrait, and JavaScript
+changes compose a new runtime using the existing compiled framework. Failed or
+interrupted publishes resume in the same private compilation directory on retry.
+Only successful complete runtimes are served, and existing serving roots survive
+refreshes. `--rebuild` refreshes game preparation; unchanged compiler inputs still
+reuse compiled AOT. All compilation output and logs stay under `--cache` in
+`aot-builds/`; immutable serving roots live in `aot-runtimes/`.
+
+Mixed AOT retains application IL and reflection metadata, roots all application
+assemblies, and keeps Waylith, Waylith.Injection, and
+RimWorldWaylith.PrepatcherCompat interpreted. Its loader resolves published
+assembly identities by name; the `skipLogger` alternate DLL option is disabled.
+
 ## Packages
 
 ```sh

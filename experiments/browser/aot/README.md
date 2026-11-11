@@ -2,8 +2,10 @@
 
 This opt-in experiment consumes an **already final, patched** private prepared
 Eco root. It does not prepare IL, install a toolchain, launch a browser/game, or
-change launcher defaults or release packaging. Build success does not establish
-runtime correctness or performance; use browser checks and comparative benchmarks.
+change launcher defaults. The installed launcher offers `--aot-sdk`;
+`slopweb/aot.py` owns shared project generation and loader adaptation. Release
+packaging ships only that helper and authored compiler inputs. Build success
+does not establish runtime correctness or performance; use browser checks and comparative benchmarks.
 
 Use absolute paths for an existing .NET SDK `dotnet` executable with matching
 `wasm-tools`, the prepared root, and a fresh output directory **inside this
