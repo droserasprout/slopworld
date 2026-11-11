@@ -64,6 +64,11 @@ browser-test-commands:
 browser-bench-quad-decode:
     node experiments/browser/harness/gui-quads-bench.mjs
 
+# Node-only RGBA upload decode comparison; no browser or native game.
+[group('browser prototype')]
+browser-bench-pixel-decode:
+    node experiments/browser/harness/gui-pixels-bench.mjs
+
 [group('browser prototype')]
 browser-window-check:
     node experiments/browser/harness/fullscreen-check.mjs
