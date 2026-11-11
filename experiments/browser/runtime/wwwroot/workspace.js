@@ -70,7 +70,6 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   const state = { status: 'starting', frames: 0, source: 'SlopWorld WindowStack', game: JSON.parse(managed.GameSnapshot()) };
   state.setCanvasReuse=enabled=>{const previous=reuseCanvas;reuseCanvas=enabled;return previous;};
   state.setIdleYield=enabled=>scheduler.setEnabled(enabled);
-  state.setTaskYield=enabled=>scheduler.setTaskYield(enabled);
   state.setProfiling = enabled => {
     profile = enabled ? [] : null;
     window.__workspaceProfile = profile;
