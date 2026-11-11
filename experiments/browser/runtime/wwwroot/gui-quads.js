@@ -2,7 +2,7 @@
 // Keep numeric arrays for small batches and existing diagnostic producers.
 const littleEndian = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
 
-export function decodeGuiQuads(value) {
+function unpackGuiQuads(value) {
   if (typeof value !== 'string') return value;
   const bytes = typeof Uint8Array.fromBase64 === 'function'
     ? Uint8Array.fromBase64(value)
@@ -27,3 +27,41 @@ export function decodeGuiQuads(value) {
   }
   return quads;
 }
+
+// Geometry is immutable after decoding. Native packets often retain the same
+// glyph batches while other commands change; keep this cache independent of
+// texture identity, tint and Canvas resource lifetime. Callers must only read
+// the returned arrays. Bound both entry count and encoded + decoded storage.
+export class GuiQuadCache {
+  #entries = new Map();
+  #bytes = 0;
+  constructor(entryLimit = 512, byteLimit = 8 * 1024 * 1024) {
+    this.entryLimit = entryLimit;
+    this.byteLimit = byteLimit;
+  }
+  get size() { return this.#entries.size; }
+  get retainedBytes() { return this.#bytes; }
+  decode(value) {
+    if (typeof value !== 'string') return value;
+    const previous = this.#entries.get(value);
+    if (previous) {
+      this.#entries.delete(value);
+      this.#entries.set(value, previous);
+      return previous.quads;
+    }
+    const quads = unpackGuiQuads(value);
+    const bytes = value.length * 2 + quads.byteLength;
+    if (this.entryLimit <= 0 || bytes > this.byteLimit) return quads;
+    while (this.#entries.size >= this.entryLimit || this.#bytes + bytes > this.byteLimit) {
+      const oldest = this.#entries.keys().next().value;
+      this.#bytes -= this.#entries.get(oldest).bytes;
+      this.#entries.delete(oldest);
+    }
+    this.#entries.set(value, {quads, bytes});
+    this.#bytes += bytes;
+    return quads;
+  }
+}
+
+const quadCache = new GuiQuadCache();
+export function decodeGuiQuads(value) { return quadCache.decode(value); }

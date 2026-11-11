@@ -288,6 +288,11 @@ the original float JSON parsed into JavaScript, rather than substituting raw flo
 values. Canvas decodes before playback and profiling. The focused command tests own
 numeric equivalence and ordered Canvas calls; the opt-in serialization diagnostic
 also reports the previous numeric batch writer against the same live packet.
+Canvas retains decoded packed geometry under independent entry and byte bounds,
+keyed by the complete encoded payload. This shares immutable coordinates across
+changing frames without retaining textures or suppressing resource commands.
+The Node-only `browser-bench-quad-decode` recipe measures repeated decoding;
+it does not measure browser rendering or whole-workspace latency.
 `BrowserPacketCache` retains one bounded,
 deep-copied command snapshot and its JSON. It compares command order, all payload
 fields and exact float bits; it never suppresses native drawing or resource playback.

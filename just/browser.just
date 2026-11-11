@@ -20,6 +20,7 @@ browser-test-harness:
     node --test experiments/browser/harness/viewport.test.mjs
     node --test experiments/browser/harness/tint.test.mjs
     node --test experiments/browser/harness/gui-probe.test.mjs
+    node --test experiments/browser/harness/gui-quads.test.mjs
     node --test experiments/browser/harness/loading-quotes.test.mjs
 
 [group('browser prototype')]
@@ -33,6 +34,11 @@ browser-host-canvas-reuse-check:
 [group('browser prototype')]
 browser-test-commands:
     dotnet run --project experiments/browser/runtime/CommandTests/CommandTests.csproj
+
+# Node-only packed glyph decode microbenchmark; no browser or native game.
+[group('browser prototype')]
+browser-bench-quad-decode:
+    node experiments/browser/harness/gui-quads-bench.mjs
 
 [group('browser prototype')]
 browser-test-startup:

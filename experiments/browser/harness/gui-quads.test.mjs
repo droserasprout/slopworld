@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { decodeGuiQuads } from '../runtime/wwwroot/gui-quads.js';
+import { decodeGuiQuads, GuiQuadCache } from '../runtime/wwwroot/gui-quads.js';
 import { renderGui } from '../runtime/wwwroot/gui.js';
 
 const pack = values => {
@@ -28,6 +28,7 @@ test('managed packed packet decodes to the exact original numeric JSON values', 
 });
 
 test('native base64 path handles unaligned buffers and rejects invalid tables', () => {
+  const decodeGuiQuads = value => new GuiQuadCache(0).decode(value);
   const original = Uint8Array.fromBase64;
   const values = [.1, -.1, -0, 0, 1e-45, 3.4028235e38, .03125, 720.1234];
   try {
@@ -45,11 +46,53 @@ test('native base64 path handles unaligned buffers and rejects invalid tables', 
   } finally { Uint8Array.fromBase64 = original; }
 });
 
+test('decoded geometry reuses exact packets and preserves signed zero and changed coordinates', () => {
+  const cache = new GuiQuadCache();
+  const values = [-0, 0, .1, -.1, 3, 4, 5, 6], packet = pack(values);
+  const first = cache.decode(packet);
+  assert.equal(cache.decode((' ' + packet).slice(1)), first);
+  assert.deepEqual(Array.from(first), values);
+  assert.notEqual(cache.decode(pack([0, ...values.slice(1)])), first);
+  assert.equal(cache.decode(values), values);
+  assert.equal(cache.size, 2);
+});
+
+test('decoded geometry evicts least recently used entries and bounds encoded and decoded bytes', () => {
+  const cache = new GuiQuadCache(2);
+  const packets = [1, 2, 3].map(x => pack(Array(8).fill(x)));
+  const first = cache.decode(packets[0]), second = cache.decode(packets[1]);
+  assert.equal(cache.decode(packets[0]), first);
+  cache.decode(packets[2]);
+  assert.equal(cache.size, 2);
+  assert.equal(cache.decode(packets[0]), first);
+  assert.notEqual(cache.decode(packets[1]), second);
+  const bytes = packets[0].length * 2 + first.byteLength;
+  const bounded = new GuiQuadCache(100, bytes);
+  bounded.decode(packets[0]); bounded.decode(packets[1]);
+  assert.equal(bounded.size, 1);
+  assert.equal(bounded.retainedBytes, bytes);
+  bounded.decode(pack(Array(16).fill(1)));
+  assert.equal(bounded.size, 1);
+  assert.equal(bounded.retainedBytes, bytes);
+  const disabled = new GuiQuadCache(0);
+  assert.notEqual(disabled.decode(packets[0]), disabled.decode(packets[0]));
+  assert.equal(disabled.retainedBytes, 0);
+});
+
+test('invalid geometry is rejected repeatedly without evicting retained valid geometry', () => {
+  const cache = new GuiQuadCache(1), packet = pack(Array(8).fill(1));
+  const first = cache.decode(packet);
+  for (let i = 0; i < 2; i++) assert.throws(() => cache.decode('AAAAAA=='), /quad header/);
+  assert.equal(cache.size, 1);
+  assert.equal(cache.decode(packet), first);
+});
+
 test('packed and numeric batches issue identical ordered Canvas calls across clips and targets', () => {
   const previousDocument = globalThis.document;
   const calls = [];
   const context = () => new Proxy({}, {get: (_, method) => (...args) => {
     if (method === 'getTransform') return {a:1,b:0,c:0,d:1,e:0,f:0};
+    if (method === 'getContextAttributes') return {colorType:'unorm8'};
     calls.push([method, ...args.map(v => typeof v === 'object' ? 'source' : v)]);
   }});
   const canvas = () => ({width:80,height:60,getContext:() => context()});
@@ -80,6 +123,11 @@ test('packed and numeric batches issue identical ordered Canvas calls across cli
     renderGui(canvas(), packed);
     assert.deepEqual(calls, expected);
     assert.deepEqual(Array.from(packed[4].value.quads), values);
+    // A fresh frame, upload and render target must still replay all Canvas calls
+    // when geometry comes from the cross-frame cache.
+    calls.length = 0;
+    renderGui(canvas(), commands(pack(values)));
+    assert.deepEqual(calls, expected);
   } finally {
     globalThis.document = previousDocument;
     globalThis.ImageData = previousImageData;
