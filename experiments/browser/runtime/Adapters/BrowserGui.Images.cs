@@ -15,6 +15,7 @@ public sealed partial class BrowserGui
 
     sealed record ImageState(
         WeakReference<Texture2D> Texture,
+        ImageVersion Identity,
         int Version,
         int Width,
         int Height,
@@ -22,6 +23,36 @@ public sealed partial class BrowserGui
     );
 
     static readonly ConditionalWeakTable<Texture2D, ImageVersion> imageVersions = new();
+    static bool imageVersionCacheEnabled;
+
+    // GUI-thread-only, bounded to one draw pass. Keep the mutable version object:
+    // Apply may run between adjacent draws of this same texture.
+    Texture2D? lastImageTexture;
+    ImageVersion? lastImageVersion;
+
+    public static bool ConfigureImageVersionCache(bool enabled)
+    {
+        bool previous = imageVersionCacheEnabled;
+        imageVersionCacheEnabled = enabled;
+        return previous;
+    }
+
+    void ClearImageVersionCache()
+    {
+        lastImageTexture = null;
+        lastImageVersion = null;
+    }
+
+    ImageVersion CachedImageVersion(Texture2D texture)
+    {
+        if (!ReferenceEquals(lastImageTexture, texture))
+        {
+            lastImageTexture = texture;
+            lastImageVersion = imageVersions.GetOrCreateValue(texture);
+        }
+        return lastImageVersion!;
+    }
+
     readonly Dictionary<int, ImageState> images = new();
     readonly HashSet<int> pendingImages = new();
 
@@ -40,10 +71,16 @@ public sealed partial class BrowserGui
 
     void UploadImage(Texture2D texture)
     {
-        int id = texture.GetInstanceID(),
-            version = imageVersions.GetOrCreateValue(texture).Value;
+        int id = texture.GetInstanceID();
+        var identity = imageVersionCacheEnabled
+            ? CachedImageVersion(texture)
+            : imageVersions.GetOrCreateValue(texture);
+        int version = identity.Value;
         if (
             images.TryGetValue(id, out var previous)
+            // The per-texture version object also protects against recycled IDs,
+            // without another weak-reference lookup on every cell.
+            && ReferenceEquals(previous.Identity, identity)
             && previous.Version == version
             && previous.Width == texture.width
             && previous.Height == texture.height
@@ -66,6 +103,7 @@ public sealed partial class BrowserGui
         );
         images[id] = new ImageState(
             new WeakReference<Texture2D>(texture),
+            identity,
             version,
             texture.width,
             texture.height,

@@ -8,6 +8,16 @@ public partial class Probe
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureGlyphCache", enabled)!;
 
     [JSExport]
+    public static bool WorkspaceImageVersionCache(bool enabled) =>
+        (bool)
+            Invoke(
+                "Adapters",
+                "BrowserAdapters.BrowserGui",
+                "ConfigureImageVersionCache",
+                enabled
+            )!;
+
+    [JSExport]
     public static bool WorkspaceCellFastPath(bool enabled) =>
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureCellFastPath", enabled)!;
 }

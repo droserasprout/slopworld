@@ -190,6 +190,7 @@ static class GlyphChecks
         );
         LabelChecks.Run(index);
         CellChecks.Run(index, texture, benchmark);
+        ImageChecks.RunCells(index);
         if (benchmark)
             Benchmark(index);
         BrowserGui.ConfigureGlyphCache(false);
