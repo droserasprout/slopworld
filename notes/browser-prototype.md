@@ -110,7 +110,11 @@ and WebSocket framing/backpressure. Credentials never enter browser assets or UR
 An agent token cannot authorize root-only session/configuration routes; the bridge
 does not elevate that identity.
 
-BrowserHttpPatch adapts staged HTTP construction/base URL. BrowserSocketPatch
+BrowserHttpPatch adapts staged HTTP construction/base URL. Both ConnectionInfo and
+DaemonClient base-URL getters use BrowserTransport directly; shared config reads
+must not resolve the native endpoint descriptor before returning the bridge URL.
+The host bridge owns endpoint credentials and native descriptor discovery is unchanged.
+BrowserSocketPatch
 substitutes asynchronous browser WebSockets for raw sockets. Actual DaemonClient
 admission/deadlines/completion pumping, HubTransport serial checks/bounded queues,
 SessionHub catalogs, and TerminalIO subscriptions retain ownership. Overload closes
