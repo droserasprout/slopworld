@@ -27,7 +27,7 @@ before comparing browsers. The runner compensates for window decoration to reque
 the same inner viewport as Chromium; use reported dimensions as the authority.
 
 The final optional `comparison` argument accepts `input`, `glyph`, `tail`, `cell`, `tint`,
-`command` or `clip` with four identical phases. It runs off/on/on/off against the
+`command`, `clip` or `solid` with four identical phases. It runs off/on/on/off against the
 same fixtures, resets their screen before each phase, and restores the prior
 switch values on cleanup. Tint comparisons also report cache misses and pixel
 counts; screenshots include phase indices so repeated phases do not overwrite.
@@ -58,8 +58,16 @@ submission, forced readback, and bitmap promotion time separately.
 The workload recipe's final `canvas_profile` argument defaults to `0`. Set it to
 `1` to aggregate synchronous Canvas method timing/counts and frame-reuse
 preparation timing. Screen and target calls are separate; image calls use coarse
-source and destination size buckets. This is diagnostic instrumentation with
+source and destination size buckets. Expensive small sources include bounded
+dimension, uniform-color and draw-opacity summaries. This is diagnostic instrumentation with
 timer overhead, not an uninstrumented performance comparison.
+
+`just browser-host-firefox-solid-check` and `just browser-host-solid-check` compare
+the uniform-upload optimization against the original Canvas path in fresh
+headless Firefox and Chromium respectively, without WASM or daemon fixtures.
+They check exact bytes for tint/alpha, transforms/clips, signed/out-of-bounds UVs,
+upload replacement, nonuniform sources and source-size eligibility. The `solid`
+workload comparison selects `configureGuiUniformImages` in the live renderer.
 
 WebDriver sandbox evaluation has its own ES module map in Firefox. Workloads
 execute through temporary document-realm module scripts so `gui.js` shares the
