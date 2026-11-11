@@ -478,10 +478,10 @@ are discarded with their source upload. `configureGuiTintCache` exposes the
 for immutable-image misses and mutable-target tint work without retaining pixels
 or command contents. The benchmark's `tint` mode runs four identical phases in
 off/on/on/off order and records those counters. Mutable render targets must still read their current pixels.
-`configureGuiScreenClipFastPath` defaults off and exposes a narrow physical-space
-`clipScreen` path: rectangle corners retain signed/fractional coordinates directly,
-while `group` and `clip` still map corners through the active transform. Both paths
-retain the same physical clip stack for render-target inheritance. The benchmark's
+Screen-space clips use a direct physical-space `clipScreen` path by default:
+rectangle corners retain signed/fractional coordinates directly, while `group` and `clip` still map corners through the active transform.
+`configureGuiScreenClipFastPath(false)` selects the transformed reference for diagnostics.
+Both paths retain the same physical clip stack for render-target inheritance. The benchmark's
 `clip` comparison uses off/on/on/off and restores the prior mode;
 `browser-host-screen-clip-check` compares real Canvas pixels for nested transformed
 clips, empty/negative/fractional rectangles, pops and target transitions without

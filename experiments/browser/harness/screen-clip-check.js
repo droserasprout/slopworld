@@ -38,7 +38,7 @@ function fixture(rect,targets) {
 try {
   const make=()=>{const canvas=document.createElement('canvas');canvas.width=128;canvas.height=96;return canvas;};
   const previous=configureGuiScreenClipFastPath(false);
-  if(previous!==false)throw new Error('Screen clip fast path must default off');
+  if(previous!==true)throw new Error('Screen clip fast path must default on');
   const cases=[[8,7,87,65],[94.5,76.25,-80.25,-62.5],[-8.75,-2.5,66.25,57.75],
     [18,12,0,45],[18,12,45,0],[18,12,0,0],[200,180,20,20],[9.125,7.875,.5,.25]];
   let scenarios=0;
