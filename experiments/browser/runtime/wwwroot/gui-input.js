@@ -1,4 +1,6 @@
-import { renderGui } from './gui.js';
+import { renderGui, guiRenderRevision } from './gui.js';
+import { GuiFrameReuse } from './gui-frame-reuse.js';
+import { decodeGuiQuads } from './gui-quads.js';
 import { clipboardBridge } from './clipboard.js';
 
 export function attachGuiInput(canvas, managed) {
@@ -6,15 +8,38 @@ export function attachGuiInput(canvas, managed) {
   let queue = [];
   const clipboard = clipboardBridge(managed);
   let clipboardEvent;
+  const reuse=new GuiFrameReuse();
   const frame = () => {
     const batch=queue; queue=[];
-    const result = JSON.parse(managed.GuiInputFrame(JSON.stringify(batch)));
-    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-    renderGui(canvas, result.commands);
+    const profiling = managed.profileFrame;
+    const started = profiling ? performance.now() : 0;
+    const raw = managed.GuiInputFrame(JSON.stringify(batch));
+    const managedEnd = profiling ? performance.now() : 0;
+    const result = JSON.parse(raw);
+    const parsed = profiling ? performance.now() : 0;
+    const replay=reuse.prepare(result.commands,canvas.width,canvas.height,guiRenderRevision(),managed.allowFrameReuse===true);
+    if(!replay.skip) {
+      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+      managed.drawBackground?.(canvas.getContext('2d'));
+      renderGui(canvas, result.commands);
+      reuse.commit(replay.key,canvas.width,canvas.height,guiRenderRevision());
+    }
+    const painted = profiling ? performance.now() : 0;
+    result.presentationUnchanged=replay.skip;
     clipboard(clipboardEvent);
+    if (profiling) profiling({ ...result.profile, managedMs: managedEnd-started,
+      parseMs: parsed-managedEnd, canvasMs: painted-parsed, clipboardMs: performance.now()-painted,
+      commands: result.commands.length,
+      canvasReused: replay.skip?1:0,
+      targetWrites: result.commands.filter(c => c.kind === 'target' && c.value.id).length,
+      targetBlits: result.commands.filter(c => c.kind === 'targetTexture').length,
+      imageQuads: result.commands.reduce((count,c) => count + (c.kind === 'imageBatch' ? decodeGuiQuads(c.value.quads).length/8 : c.kind === 'imageTexture' ? 1 : 0), 0),
+      inputEvents: batch.length });
     return result;
   };
   const listen = (name, callback) => canvas.addEventListener(name, callback, { signal: abort.signal, passive: false });
+  listen('contextlost',()=>reuse.invalidate());
+  listen('contextrestored',()=>reuse.invalidate());
   const enqueue = event => { if (queue.length >= 4096) queue = [{kind:'reset'}]; queue.push(event); };
   const modifiers = event => ({ shift: event.shiftKey, control: event.ctrlKey, alt: event.altKey, command: event.metaKey });
   const text = (value, event, key) => {
@@ -62,9 +87,12 @@ export function attachGuiInput(canvas, managed) {
   listen('paste', event => {
     if (!managed.ClipboardTake || !event.clipboardData) return;
     event.preventDefault();
-    enqueue({kind:'clipboard',text:event.clipboardData.getData('text/plain')});
+    enqueue({kind:'clipboard',text:event.clipboardData.getData('text/plain'),
+      image:Array.from(event.clipboardData.items).some(item=>item.kind === 'file' && item.type === 'image/png')});
     enqueue({kind:'key',key:'V',control:true});
-    frame();
+    clipboardEvent=event;
+    try { frame(); }
+    finally { clipboardEvent=null; }
   });
   listen('copy', event => {
     if (!managed.ClipboardTake) return;

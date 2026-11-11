@@ -17,12 +17,36 @@ internal static class EcoWorkspace
         var targetPath = Path.Combine(root, "game", "Assembly-CSharp.dll");
         using var game = AssemblyDefinition.ReadAssembly(targetPath, options);
         using var mod = AssemblyDefinition.ReadAssembly(modPath, options);
+        // Browser viewport configuration already supplies physical pixels and
+        // the complete CSS-to-physical scale. Desktop DPI/minimum-resolution
+        // inference would apply a second scale and shrink small browser windows.
+        var resolveScale = game
+            .MainModule.GetType("RimWorld.ResolutionUtility")
+            .Methods.Single(m => m.Name == "ResolveUIScale");
+        if (
+            !resolveScale.IsStatic
+            || resolveScale.Parameters.Count != 1
+            || resolveScale.Parameters[0].ParameterType.FullName != "System.Single"
+            || resolveScale.ReturnType.FullName != "System.Single"
+        )
+            throw new InvalidOperationException("Browser UI scale boundary changed");
+        resolveScale.Body = new MethodBody(resolveScale);
+        resolveScale.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_0));
+        resolveScale.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         BrowserHttpPatch.Apply(mod, root);
         BrowserSocketPatch.Apply(mod, root);
         BrowserSidebarPatch.Apply(mod, root);
         BrowserKeysPatch.Apply(mod, root);
         BrowserClipboardPatch.Apply(mod, root);
+        BrowserCursorPatch.Apply(mod, root);
         BrowserTerminalSizePatch.Apply(mod, root);
+        using (var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll")))
+            BrowserClipboardPatch.Redirect(
+                mod.MainModule.GetType("SlopWorld.FontconfigFonts"),
+                adapters.MainModule.GetType("BrowserAdapters.BrowserFontBank"),
+                "Families",
+                "Families"
+            );
         // The browser has no audio decoder. MusicUpdate otherwise throws from
         // Root_Play.Update and prevents a clean workspace frame. Keep this silence
         // policy isolated to Eco staging, with the rest of Root_Play untouched.

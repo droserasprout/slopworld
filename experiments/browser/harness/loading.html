@@ -1,0 +1,39 @@
+<!doctype html><html><meta charset="utf-8"><title>Loading screen check</title>
+<style>body{margin:0;background:black}canvas{display:block;max-width:100vw;height:auto}</style>
+<body><script type="module">
+import {startLoading} from './loading.js';
+try {
+  const loading=await startLoading(new URLSearchParams('width=2560&height=1440&uiScale=1.666666667&referenceAppearance'));
+  const canvas=document.getElementById('loading-screen');
+  const deadline=performance.now()+10000;
+  let lit=0;
+  while(!lit || canvas.dataset.atlas!=='ready') {
+    const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+    for(let i=0;i<pixels.length;i+=4) if(pixels[i]||pixels[i+1]||pixels[i+2]) lit++;
+    if(performance.now()>deadline) throw new Error('Loading atlas failed to paint');
+    if(!lit) await new Promise(resolve=>setTimeout(resolve,50));
+  }
+  loading.status('Loading game assemblies...');
+  if(canvas.getAttribute('aria-label')!=='Loading game assemblies...') throw new Error('Status failed');
+  while(canvas.dataset.background!=='native-cache') {
+    if(performance.now()>deadline) throw new Error('Native background did not load');
+    await new Promise(resolve=>setTimeout(resolve,50));
+  }
+  const sample=()=>canvas.getContext('2d').getImageData(0,0,1000,1440).data;
+  const before=sample();
+  await new Promise(resolve=>setTimeout(resolve,800));
+  const after=sample();
+  if(!after.some((value,index)=>value!==before[index])) throw new Error('Native background did not animate');
+  const quoteDeadline=performance.now()+12000;
+  while(!(Number(canvas.dataset.quoteScrolls)>0)) {
+    if(performance.now()>quoteDeadline)throw new Error('Loading quotes did not scroll');
+    await new Promise(resolve=>setTimeout(resolve,50));
+  }
+  const evidence=document.createElement('canvas');evidence.width=canvas.width;evidence.height=canvas.height;
+  evidence.getContext('2d').drawImage(canvas,0,0);
+  loading.finish();
+  if(document.getElementById('loading-screen')||document.body.classList.contains('loading')) throw new Error('Teardown failed');
+  document.body.prepend(evidence);
+  window.__probeResult={status:'pass',atlasPainted:true,litPixels:lit,backgroundAnimated:true,quotesScrolled:true,teardown:true};
+} catch(error) {window.__probeResult={status:'fail',error:String(error)};}
+</script></body></html>

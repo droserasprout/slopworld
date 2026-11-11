@@ -263,6 +263,7 @@
     <Compile Include="../Source/SlopWorld/UI/Usage/UsageRowsCache.cs" Link="Source/UI/Usage/UsageRowsCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/ClockTextCache.cs" Link="Source/UI/Usage/ClockTextCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/AgentStatusSelection.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Sidebar/PortraitExportRequests.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarProjectState.cs" Link="Source/UI/Sidebar/SidebarProjectState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/SidebarAgentRows.cs" Link="Source/UI/Sidebar/SidebarAgentRows.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sidebar/Sidebar.LayoutState.cs" />

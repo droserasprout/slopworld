@@ -32,6 +32,11 @@ to 8787. First launch prepares local game files under `$XDG_CACHE_HOME/slopweb`
 (default `~/.cache/slopweb`); subsequent launches reuse that private runtime.
 `--prepare` prepares without serving; `--rebuild` refreshes after game data changes.
 The server binds only to 127.0.0.1. Stop it with Ctrl+C; agents continue running.
+The printed root URL applies desktop defaults without redirecting. Preparation
+imports only allowlisted appearance preferences from the local profile and bakes
+its UI and terminal fonts through the installed native rasterizer. Font files and
+atlases stay in the private cache; changed appearance preferences select a new
+cache. Use `--rebuild` after changing installed font files.
 
 ## Packages
 
@@ -42,6 +47,12 @@ just package-web fedora
 # Equivalent: just package-product DISTRIBUTION slopweb
 ```
 
+For an already-built bundle, `just slopweb-package-staged DISTRIBUTION VERSION REVISION`
+creates a local archive without rebuilding the private development runtime. Pass
+a Git revision (or `HEAD`) for reproducible package timestamps. This does not
+publish or install the archive. `just slopweb-test` inspects the newest local Arch
+archive when present, including its extracted launcher and private-asset exclusions.
+
 Use the corresponding distribution's packaging tools. slopweb is independent of
 the ordinary native package group. Packages include our browser tools, mod UI
 assets, and redistributable dependencies. They exclude game assemblies, Core
@@ -50,8 +61,8 @@ files are read from the user's own installation during local preparation.
 
 ## Interface
 
-The sidebar selects agents; `+` creates sessions. Session-only agent rows use the
-mod's robot-face artwork without colony pawns. Ctrl+V pastes browser text; selected
+The sidebar selects agents; `+` creates sessions. Session-only agent rows share
+native text presentation but currently lack pawn portraits. Ctrl+V pastes browser text; selected
 terminal text copies with Ctrl+C or Ctrl+Shift+C. Without a selection, Ctrl+C still
 interrupts the terminal process. Browser clipboard permissions apply to context
 menu actions. Settings are available through the gear icon.
@@ -61,8 +72,13 @@ geometry changes or reconnect, and does not continually override another client'
 size. A shared tmux session still has one grid, so a wider client can leave content
 outside a smaller pane's visible area.
 
-This remains a prototype: an existing live session is required at startup, font
-metrics are approximate, and clipboard images/full IME remain unsupported.
+This remains a prototype: an existing live session is required at startup. Covered
+plain text uses native font metrics and atlases; rich, wrapped, and unsupported
+runs still use approximate rendering. Atlases are baked at 5/3 density and resampled
+at other display scales. The installed launcher exports a matching native background
+cache when available; generating missing frames on cold startup remains incomplete.
+Image paste has adapter/browser checks, but complete agent
+image delivery and full IME remain unverified.
 Profile settings do not survive reload. Reconnect recovery and the full agent
 launch/edit dialog have not been exhaustively validated. See the checkout's
 `experiments/browser/README.md` for focused checks and implementation boundaries.

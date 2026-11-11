@@ -8,6 +8,9 @@ Catalog scheduling retains the next eligible refresh deadline; completion, inval
 project/filter changes, and hidden-project demand must wake it. Session filtering uses
 an index rebuilt with the project revision. Git polling retains enabled checkout keys
 by catalog revision while checking fold state live.
+`HubCatalog.ProjectsRevision` advances only after publishing the accepted project
+list. Request-generation changes must not mark an empty browse catalog current
+while its first project response is still pending.
 
 All is a mode that includes future entries. Deselecting one entry materializes the
 remaining selection; explicit empty selection must stay distinct from All. Unknown

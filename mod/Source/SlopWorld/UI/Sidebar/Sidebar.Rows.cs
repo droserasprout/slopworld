@@ -379,6 +379,8 @@ namespace SlopWorld
         // Draw: agent rows keep the badge, name/time, summary and click target ordered.
         static void DrawAgentRow(Row row, SessionInfo info, AgentState state, Color tint)
         {
+            if (row.Pawn == null)
+                SessionPortraits.Draw(row.Session, row.Face, state);
             DrawStateBadge(row.Face, row.Text, state);
             SidebarRowRenderer.DrawAgentText(
                 row.Text,

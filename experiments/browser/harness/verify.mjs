@@ -69,7 +69,8 @@ if (mode === 'mod-http') {
   process.exit(0);
 }
 if (mode === 'gui') {
-  assert.deepEqual(result.gui.targets, { retained: true, recreated: true, released: true });
+  assert.deepEqual(result.gui.targets, { retained: true, recreated: true, released: true,
+    batching: { byteIdentical: true, pixels: 4800 } });
   assert.equal(result.gui.input.clicks, 1);
   assert.equal(result.gui.input.text, 'agen');
   assert.equal(result.gui.input.syntheticDomEvents, true);

@@ -3,6 +3,27 @@ namespace BrowserAdapters;
 
 public static class BrowserTransport
 {
+    sealed class ActivityHandler : System.Net.Http.DelegatingHandler
+    {
+        public ActivityHandler(System.Net.Http.HttpMessageHandler inner)
+            : base(inner) { }
+
+        protected override async Task<System.Net.Http.HttpResponseMessage> SendAsync(
+            System.Net.Http.HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
+        {
+            try
+            {
+                return await base.SendAsync(request, cancellationToken);
+            }
+            finally
+            {
+                BrowserActivity.Notify();
+            }
+        }
+    }
+
     public static string BaseUrl { get; private set; } = "";
 
     public static void Configure(string origin)
@@ -19,6 +40,31 @@ public static class BrowserTransport
         BaseUrl = origin.TrimEnd('/') + "/host";
     }
 
-    public static System.Net.Http.HttpClient CreateHttp() =>
-        new() { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Reliability",
+        "CA2000",
+        Justification = "The returned HttpClient owns both handlers; failed construction disposes the chain."
+    )]
+    public static System.Net.Http.HttpClient CreateHttp()
+    {
+        var inner = new System.Net.Http.HttpClientHandler();
+        ActivityHandler? handler = null;
+        try
+        {
+            handler = new ActivityHandler(inner);
+            // HttpClient owns the whole handler chain after successful construction.
+            return new System.Net.Http.HttpClient(handler, disposeHandler: true)
+            {
+                Timeout = System.Threading.Timeout.InfiniteTimeSpan,
+            };
+        }
+        catch
+        {
+            if (handler != null)
+                handler.Dispose();
+            else
+                inner.Dispose();
+            throw;
+        }
+    }
 }

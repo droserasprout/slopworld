@@ -29,13 +29,33 @@ namespace SlopWorld.Tests
                 fixture.Refresh(catalog);
                 fixture.Refresh(catalog);
                 AssertEx.Equal(0, fixture.Hub.Revision, "pending reads preserve view");
+                AssertEx.Equal(
+                    0,
+                    fixture.Hub.ProjectsRevision,
+                    "pending reads preserve Files catalog revision"
+                );
                 fixture.Requests[0].Ok(Snapshot("stale", catalog));
                 AssertEx.Equal(0, fixture.Hub.Revision, "stale snapshot preserves view");
+                AssertEx.Equal(
+                    0,
+                    fixture.Hub.ProjectsRevision,
+                    "stale reads preserve Files catalog revision"
+                );
                 fixture.Requests[1].Ok(Snapshot("winner", catalog));
                 AssertEx.Equal(1, fixture.Hub.Revision, "winning snapshot invalidates view");
+                AssertEx.Equal(
+                    catalog == 0 ? 1 : 0,
+                    fixture.Hub.ProjectsRevision,
+                    "published projects invalidate Files catalog"
+                );
                 fixture.Refresh(catalog);
                 fixture.Requests[2].Fail("offline");
                 AssertEx.Equal(1, fixture.Hub.Revision, "failed read retains view");
+                AssertEx.Equal(
+                    catalog == 0 ? 1 : 0,
+                    fixture.Hub.ProjectsRevision,
+                    "failed reads preserve Files catalog revision"
+                );
                 fixture.Hub.RefreshTemplates();
                 fixture.Requests[3].Ok(JVal.Parse("{}"));
                 AssertEx.Equal(2, fixture.Hub.Revision, "template publication invalidates view");

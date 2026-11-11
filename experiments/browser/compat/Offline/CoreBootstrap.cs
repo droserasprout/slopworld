@@ -45,6 +45,7 @@ internal static class CoreBootstrap
                 throw new InvalidOperationException("Core bootstrap callback signature changed");
             site.Operand = target.MainModule.ImportReference(method);
         }
+        BrowserTextLayoutPatch.Apply(target, root);
         target.Write(path + ".partial");
         File.Move(path + ".partial", path, true);
         var manifestPath = Path.Combine(root, "game", "manifest.json");
@@ -57,6 +58,7 @@ internal static class CoreBootstrap
         adaptations.Add(
             "Core-only bootstrap: custom CLR injection callbacks replaced with guards rejecting mod assemblies"
         );
+        adaptations.Add(BrowserTextLayoutPatch.Description);
         File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
         PatchRuntimeServices(root, resolver);
         PatchCoreLoading(root, resolver);

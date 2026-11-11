@@ -1,0 +1,8 @@
+game := env("RIMWORLD", env("HOME") + "/.local/share/Steam/steamapps/common/RimWorld")
+check:
+    dotnet run --project NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}}
+
+layout root=(justfile_directory() / '../out/wwwroot-eco'):
+    just --justfile ../justfile refresh-adapters {{quote(root)}}
+    just --justfile ../../compat/justfile text-layout {{quote(root)}}
+    dotnet run --project NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} {{quote(root / 'game/RimWorld.dll')}}

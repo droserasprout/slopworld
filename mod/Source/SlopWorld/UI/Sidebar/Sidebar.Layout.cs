@@ -157,6 +157,14 @@ namespace SlopWorld
             // screen-fixed and never enters this coordinate space.
             float room = Body.height;
             int rows = 0;
+            foreach (var session in Layout.TopGhosts)
+                if (SessionAgent(session))
+                    rows++;
+            foreach (var group in Layout.Ghosts)
+                if (!Folded.Contains(group.Key))
+                    foreach (var session in group.Value)
+                        if (SessionAgent(session))
+                            rows++;
             foreach (var key in Layout.Order)
                 if (!Folded.Contains(key) && Layout.Buckets.TryGetValue(key, out var b))
                     rows += b.Count;
@@ -183,7 +191,7 @@ namespace SlopWorld
             float width = Width;
             float y = Pad;
             foreach (var g in Layout.TopGhosts)
-                y = GhostRow(g, width, y);
+                y = GhostRow(g, width, y, measure);
 
             foreach (var key in Layout.Order)
                 y = LayoutGroup(key, entries, locs, width, y, measure);
@@ -229,7 +237,7 @@ namespace SlopWorld
                 foreach (var worker in workers)
                     y = WorkerRow(worker, width, y, 0);
             foreach (var g in ghosts)
-                y = GhostRow(g, width, y);
+                y = GhostRow(g, width, y, measure);
             foreach (int i in bucket)
             {
                 LayoutAgent(entries, locs, i, width, y, measure);
@@ -273,6 +281,26 @@ namespace SlopWorld
                 y + (measure.RowH - measure.Cell) / 2f
             );
 
+            var row = AgentRow(
+                entries[index].pawn,
+                Session(entries[index].pawn),
+                width,
+                y,
+                measure
+            );
+            Layout.Rows.Add(row);
+            // Duplicate pawn entries retain the first portrait's hit target.
+            Layout.Faces.TryAdd(entries[index].pawn, row.Face);
+        }
+
+        static Row AgentRow(
+            Pawn pawn,
+            string session,
+            float width,
+            float y,
+            PlacementMeasure measure
+        )
+        {
             // Keep the three text lines at the same gap from the portrait after the
             // portrait column moves to the screen edge. Headings and chrome retain
             // their CellX inset.
@@ -284,18 +312,14 @@ namespace SlopWorld
                 measure.Face,
                 measure.Face
             );
-            Layout.Rows.Add(
-                new Row
-                {
-                    Session = Session(entries[index].pawn),
-                    Pawn = entries[index].pawn,
-                    Line = line,
-                    Text = new Rect(tx, y + (measure.RowH - TextH) / 2f, width - tx - Pad, TextH),
-                    Face = face,
-                }
-            );
-            // Duplicate pawn entries retain the first portrait's hit target.
-            Layout.Faces.TryAdd(entries[index].pawn, face);
+            return new Row
+            {
+                Session = session,
+                Pawn = pawn,
+                Line = line,
+                Text = new Rect(tx, y + (measure.RowH - TextH) / 2f, width - tx - Pad, TextH),
+                Face = face,
+            };
         }
 
         static float Pitch(float s) =>
@@ -322,13 +346,18 @@ namespace SlopWorld
 
         static float GhostRoom()
         {
-            float h = Layout.TopGhosts.Count * GhostH;
+            float h = 0;
+            foreach (var session in Layout.TopGhosts)
+                if (!SessionAgent(session))
+                    h += GhostH;
             foreach (var kv in Layout.WorkersByProject)
                 if (!Folded.Contains(kv.Key))
                     h += kv.Value.Count * WorkerH;
             foreach (var kv in Layout.Ghosts)
                 if (!Folded.Contains(kv.Key))
-                    h += kv.Value.Count * GhostH;
+                    foreach (var session in kv.Value)
+                        if (!SessionAgent(session))
+                            h += GhostH;
             foreach (var kv in Layout.WorkerCountsByProject)
                 if (!Folded.Contains(kv.Key))
                     h += kv.Value * WorkerH;

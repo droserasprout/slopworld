@@ -69,6 +69,7 @@ public static class BrowserSocket
         }
         var results = Field(hub, "_connectResults")!;
         results.GetType().GetMethod("Enqueue")!.Invoke(results, new[] { result });
+        BrowserActivity.Notify();
     }
 
     static async Task Receive(State state)
@@ -108,6 +109,7 @@ public static class BrowserSocket
                     .Invoke(state.Incoming, new object[] { payload });
                 if (accepted?.ToString() != "Accepted")
                     throw new IOException("Event queue closed");
+                BrowserActivity.Notify();
             }
         }
         catch (Exception e)
@@ -191,5 +193,6 @@ public static class BrowserSocket
         (Field(owner, "_sendSignal") as IDisposable)?.Dispose();
         (Field(owner, "_rng") as IDisposable)?.Dispose();
         state.Stop.Dispose();
+        BrowserActivity.Notify();
     }
 }

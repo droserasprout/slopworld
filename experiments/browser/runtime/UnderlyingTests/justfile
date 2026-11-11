@@ -1,0 +1,8 @@
+set quiet
+
+test:
+    dotnet run --project UnderlyingTests.csproj
+    node --check ../../harness/workspace-underlying.js
+
+format:
+    dotnet tool run csharpier format Program.cs ../Adapters/BrowserUnderlyingWorkspace.cs ../Adapters/WorkspaceDrawing.cs

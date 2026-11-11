@@ -2,10 +2,25 @@
 [group('web')]
 slopweb-build: browser-eco-build
     just --justfile experiments/browser/runtime/justfile workspace-dependencies
+    just --justfile experiments/browser/runtime/justfile font-probe-build
+    just --justfile experiments/browser/runtime/justfile background-probe-build
+    just slopweb-stage
+
+# Stage already-built redistributable tools without replacing private game roots.
+[group('web')]
+slopweb-stage:
     uv run --locked python -m tools.release.slopweb build
 
 [group('web')]
+slopweb-check-fonts game=(env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld') output='experiments/browser/runtime/out/installed-font-check':
+    python3 slopweb/out/appearance.py {{quote(game)}} {{quote(output)}}
+
+[group('web')]
 slopweb-install prefix=(env('HOME') + '/.local'): slopweb-build
+    just slopweb-install-staged {{quote(prefix)}}
+
+[group('web')]
+slopweb-install-staged prefix=(env('HOME') + '/.local'):
     uv run --locked python -m tools.release.slopweb install --prefix {{quote(prefix)}}
 
 [group('web')]
@@ -37,7 +52,21 @@ slopweb-test:
 slopweb-check-install prefix=(env('HOME') + '/.local'):
     {{quote(prefix + '/bin/slopweb')}} --prepare
 
+[group('web')]
+slopweb-host-check-install prefix=(env('HOME') + '/.local'):
+    systemd-run --user --pipe --wait --collect {{quote(prefix + '/bin/slopweb')}} --prepare
+
+[group('web')]
+slopweb-host-check-browser runtime:
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}}
+    node experiments/browser/harness/verify.mjs experiments/browser/artifacts/installed-startup.json workspace
+
 # Package the independent browser launcher using the selected native format.
 [group('package')]
 package-web distribution:
     just package-product {{quote(distribution)}} slopweb
+
+# Inspect a local package from the current tooling bundle without restaging game data.
+[group('web')]
+slopweb-package-staged distribution version revision:
+    uv run --locked python -m tools.release.native {{quote(distribution)}} --product slopweb --stage-only --binary-dir {{quote(justfile_directory() / 'slopweb/out')}} --output {{quote(justfile_directory() / 'dist' / distribution)}} --version {{quote(version)}} --revision {{quote(revision)}}

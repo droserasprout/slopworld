@@ -1,0 +1,17 @@
+check:
+    dotnet run --project ClipboardTests.csproj -c Release
+    node --test ../../harness/clipboard.test.mjs
+
+format:
+    dotnet tool run csharpier format ../Adapters/BrowserClipboard.cs .
+
+lint:
+    dotnet tool run csharpier check ../Adapters/BrowserClipboard.cs .
+    node --check ../wwwroot/clipboard.js
+    node --check ../wwwroot/gui-input.js
+    node --check ../../harness/clipboard.test.mjs
+    node --check ../../harness/clipboard-chrome.mjs
+
+# Disposable, game-free Chrome canvas; no sessions, screenshots or staged assets.
+chrome-check:
+    node ../../harness/clipboard-chrome.mjs

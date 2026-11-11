@@ -1,12 +1,13 @@
 import { dotnet } from './_framework/dotnet.js';
 import { verifyInput } from './input.js';
+import { workspaceViewport, workspaceParameters } from './workspace-viewport.js';
 let workspace = null;
 let entry = null, gameSession = null, gameDraws = null, savedGame = null, terrain = null;
-const parameters = new URLSearchParams(location.search);
+const parameters = workspaceParameters();
 const app = parameters.has('workspace') && parameters.has('app');
 if (app) {
     document.title = 'SlopWorld';
-    document.body.className = 'workspace-app';
+    document.body.classList.add('workspace-app');
     document.querySelector('h1').textContent = 'SlopWorld';
     document.getElementById('result').textContent = 'Loading the workspace…';
 }
@@ -18,12 +19,13 @@ try {
     const runtime = await (parameters.has('workspace') && !parameters.has('managedDebug')
         ? dotnet.withDebugging(0) : dotnet).create();
     const exports = await runtime.getAssemblyExports('Probe.dll');
+    window.__loading?.status('Loading game assemblies...');
     const manifest = await fetch('./game/manifest.json').then(r => r.json());
     const loaded = [];
     const loadErrors = [];
     for (const item of manifest) {
         try {
-            const bypassLogger = new URLSearchParams(location.search).has('skipLogger') && item.file === 'RimWorld.dll';
+            const bypassLogger = parameters.has('skipLogger') && item.file === 'RimWorld.dll';
             const response = await fetch(`./game/${bypassLogger ? 'skip-logger/' : ''}${item.file}`);
             if (!response.ok) throw new Error(`${item.file}: HTTP ${response.status}`);
             loaded.push(exports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer())));
@@ -33,17 +35,17 @@ try {
     }
     const missingDependencies = await fetch('./game/missing.json').then(r => r.json());
     const adaptations = await fetch('./game/adaptations.json').then(r => r.json());
-    if (new URLSearchParams(location.search).has('skipLogger')) adaptations.push('InitLogger body replaced with ret');
+    if (parameters.has('skipLogger')) adaptations.push('InitLogger body replaced with ret');
     window.__managedProbe = exports.Probe;
     let offlineManifest = null;
-    if (new URLSearchParams(location.search).has('patched')) {
+    if (parameters.has('patched')) {
         const response = await fetch('./mod/SlopWorld.dll');
         if (!response.ok) throw new Error(`SlopWorld.dll: HTTP ${response.status}`);
         loaded.push(exports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer())));
         offlineManifest = await fetch('./mod/offline.json').then(r => r.json());
     }
     let gui = null;
-    if (new URLSearchParams(location.search).has('gui')) {
+    if (parameters.has('gui')) {
         const response = await fetch('./Adapters.dll');
         if (!response.ok) throw new Error('GUI adapter missing');
         exports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer()));
@@ -53,7 +55,7 @@ try {
         gui.targets = (await import('./gui-targets.js')).verifyGuiTargets(exports.Probe);
     }
     let modHttp = null, modSocket = null, modHub = null;
-    if (new URLSearchParams(location.search).has('modHttp')) {
+    if (parameters.has('modHttp')) {
         for (const file of ['Adapters.dll', 'mod/Google.Protobuf.dll', 'mod/SlopWorld.dll']) {
             const response = await fetch('./' + file);
             if (!response.ok) throw new Error('Missing ' + file);
@@ -71,10 +73,10 @@ try {
         exports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer()));
         eco = JSON.parse(exports.Probe.InitializeEco());
     }
-    if (new URLSearchParams(location.search).has('eco') && !new URLSearchParams(location.search).has('entry')) await initializeEco();
-    const offline = new URLSearchParams(location.search).has('offline') ? JSON.parse(exports.Probe.OfflineHook()) : null;
+    if (parameters.has('eco') && !parameters.has('entry')) await initializeEco();
+    const offline = parameters.has('offline') ? JSON.parse(exports.Probe.OfflineHook()) : null;
     let assetTransfer = null;
-    if (new URLSearchParams(location.search).has('assets')) {
+    if (parameters.has('assets')) {
         const response = await fetch('./assets/Assets.zip');
         if (!response.ok) throw new Error(`Assets.zip: HTTP ${response.status}`);
         exports.Probe.BeginAssetUpload();
@@ -93,8 +95,8 @@ try {
             if (!committed) exports.Probe.EndAssetUpload(false);
         }
     }
-    const draws = new URLSearchParams(location.search).has('draws') ? await (await import('./draws.js')).renderSubmissions(exports.Probe) : null;
-    if (new URLSearchParams(location.search).has('entry')) {
+    const draws = parameters.has('draws') ? await (await import('./draws.js')).renderSubmissions(exports.Probe) : null;
+    if (parameters.has('entry')) {
         const adapters = await fetch('./Adapters.dll');
         if (!adapters.ok) throw new Error(`Adapters.dll: HTTP ${adapters.status}`);
         loaded.push(exports.Probe.LoadAssembly(new Uint8Array(await adapters.arrayBuffer())));
@@ -108,21 +110,52 @@ try {
                 entry = JSON.parse(exports.Probe.EntryFrame(frame));
             }
             entry.files = files;
-            if (entry.loaded && new URLSearchParams(location.search).has('workspace')) {
-                exports.Probe.ConfigureGameViewport(1280, 720);
+            if (entry.loaded && parameters.has('workspace')) {
+                const viewport = workspaceViewport(parameters);
+                exports.Probe.ConfigureWorkspaceViewport(viewport.width, viewport.height, viewport.uiScale);
+                document.documentElement.style.setProperty('--workspace-aspect', viewport.width / viewport.height);
                 const content = await fetch('./mod/Content.zip');
                 if (!content.ok) throw new Error('Workspace mod content is missing');
                 const textures = exports.Probe.InstallModContent(new Uint8Array(await content.arrayBuffer()));
                 console.log('Browser: mounted ' + textures + ' mod textures');
                 await initializeEco();
+                if (parameters.has('referenceAppearance')) {
+                    const appearance = await fetch('./assets/reference-appearance.json');
+                    if (!appearance.ok) throw new Error('Reference appearance is missing');
+                    exports.Probe.WorkspaceAppearance(await appearance.text());
+                }
+                if (parameters.has('nativeFonts')) {
+                    const chains = await fetch('./assets/fonts/chains.json');
+                    if (!chains.ok) throw new Error('Host font family order is missing');
+                    exports.Probe.WorkspaceFontChains(await chains.text());
+                    const manifest = await fetch('./assets/fonts/manifest.json');
+                    if (!manifest.ok) throw new Error('Local native font bakes are missing');
+                    for (const face of await manifest.json()) {
+                        const base = new URL('./assets/fonts/', location.href);
+                        const fontUrl = new URL(face.font, base), bakeUrl = new URL(face.bake, base);
+                        if (!fontUrl.href.startsWith(base.href) || !bakeUrl.href.startsWith(base.href))
+                            throw new Error('Font manifest path escapes local font directory');
+                        const [font, bake] = await Promise.all([fetch(fontUrl), fetch(bakeUrl)]);
+                        if (!font.ok || !bake.ok) throw new Error('Local native font bake is incomplete');
+                        exports.Probe.WorkspaceFont(new Uint8Array(await font.arrayBuffer()), await bake.text(), face.index ?? -1);
+                    }
+                }
                     for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn']) {
                         const response = await fetch(`./mod/${name}.dll`);
                         if (!response.ok) throw new Error('Missing workspace dependency ' + name);
                         exports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer()));
                     }
-                    let commands = JSON.parse(await exports.Probe.WorkspaceFrame(location.origin));
+                    const portraits = await (await import('./workspace-portraits.js')).loadWorkspacePortraits(exports.Probe);
+                    let commands = JSON.parse(await exports.Probe.WorkspaceFrame(location.origin, parameters.get('session') ?? ''));
                     const drawing = await import('./gui.js');
-                    const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 720;
+                    const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
+                    // Select before the first context exists. Keep experimental until
+                    // whole-workspace pixels, memory and replay costs are measured.
+                    if(parameters.has('floatCanvas')) {
+                        const context=canvas.getContext('2d',{colorType:'float16'});
+                        if(context.getContextAttributes().colorType!=='float16')
+                            throw new Error('This browser does not support float16 Canvas');
+                    }
                     document.body.prepend(canvas);
                     drawing.renderGui(canvas, commands);
                     console.log('Browser: workspace opened');
@@ -134,16 +167,21 @@ try {
                     }
                     workspace = drawing.renderGuiProbe(commands, false, canvas);
                     workspace.frames = 30;
+                    workspace.portraits = portraits;
+                    workspace.fonts = JSON.parse(exports.Probe.WorkspaceFontSnapshot());
                     workspace.textures = textures;
                     workspace.game = JSON.parse(exports.Probe.GameSnapshot());
                     workspace.state = JSON.parse(exports.Probe.WorkspaceState());
-                    if (new URLSearchParams(location.search).has('live')) workspace.live = (await import('./workspace.js')).startWorkspace(exports.Probe, canvas, 30 / 60);
-                    if (app) document.body.classList.add('ready');
+                    if (parameters.has('live')) workspace.live = (await import('./workspace.js')).startWorkspace(exports.Probe, canvas, 30 / 60);
+                    if (app) {
+                        document.body.classList.add('ready');
+                        window.__loading?.finish();
+                    }
                 }
 
-            if (new URLSearchParams(location.search).has('play') && entry.loaded) {
+            if (parameters.has('play') && entry.loaded) {
                 exports.Probe.ConfigureGameViewport(1280, 720);
-                if (new URLSearchParams(location.search).has('load')) {
+                if (parameters.has('load')) {
                     const save = await fetch('./assets/BrowserColony.rws');
                     if (!save.ok) throw new Error(`BrowserColony.rws: HTTP ${save.status}`);
                     exports.Probe.LoadGame(new Uint8Array(await save.arrayBuffer()));
@@ -156,7 +194,7 @@ try {
                     const snapshot = JSON.parse(exports.Probe.GameSnapshot());
                     gameSession.push(snapshot);
                     if (!resumed && snapshot.programState === 'Playing' && snapshot.maps?.length > 0) {
-                        if (new URLSearchParams(location.search).has('eco')) await initializeEco();
+                        if (parameters.has('eco')) await initializeEco();
                         exports.Probe.ResumePlay();
                         resumed = true;
                     }
@@ -167,8 +205,8 @@ try {
                     if (frame % 60 === 14) gameSession.push(JSON.parse(exports.Probe.GameSnapshot()));
                 }
                 gameDraws = JSON.parse(exports.Probe.DrawInventory());
-                if (resumed && new URLSearchParams(location.search).has('terrain')) {
-                    const objects = new URLSearchParams(location.search).has('objects');
+                if (resumed && parameters.has('terrain')) {
+                    const objects = parameters.has('objects');
                     const frame = JSON.parse(objects ? exports.Probe.CaptureObjects() : exports.Probe.CaptureTerrain());
                     const canvas = document.createElement('canvas');
                     canvas.width = frame.camera.width;
@@ -181,7 +219,7 @@ try {
                             camera: frame.camera, source: 'installed game draw snapshot', mipLevels: 1 };
                     } finally { renderer.dispose(); }
                 }
-                if (resumed && new URLSearchParams(location.search).has('save')) {
+                if (resumed && parameters.has('save')) {
                     const bytes = exports.Probe.SaveGame();
                     const chunks = [];
                     for (let i = 0; i < bytes.length; i += 16384)
@@ -190,13 +228,13 @@ try {
                     savedGame = { bytes: bytes.length, name: 'BrowserColony.rws' };
                 }
             }
-        } finally { if (!new URLSearchParams(location.search).has('live')) exports.Probe.StopEntry(); }
+        } finally { if (!parameters.has('live')) exports.Probe.StopEntry(); }
     }
-    const jobs = new URLSearchParams(location.search).has('jobs') ? JSON.parse(exports.Probe.Jobs()) : null;
-    const engineScene = new URLSearchParams(location.search).has('scene') ? await (await import('./scene.js')).runScene(exports.Probe) : null;
-    const lifecycle = new URLSearchParams(location.search).has('lifecycle') ? JSON.parse(exports.Probe.BootstrapHeadless()) : null;
-    const input = new URLSearchParams(location.search).has('input') ? verifyInput(exports.Probe) : null;
-    const deep = new URLSearchParams(location.search).has('deep') ? JSON.parse(exports.Probe.Deep()) : null;
+    const jobs = parameters.has('jobs') ? JSON.parse(exports.Probe.Jobs()) : null;
+    const engineScene = parameters.has('scene') ? await (await import('./scene.js')).runScene(exports.Probe) : null;
+    const lifecycle = parameters.has('lifecycle') ? JSON.parse(exports.Probe.BootstrapHeadless()) : null;
+    const input = parameters.has('input') ? verifyInput(exports.Probe) : null;
+    const deep = parameters.has('deep') ? JSON.parse(exports.Probe.Deep()) : null;
     // The baseline probe invokes the executable entry point and resets global engine
     // state. Never run it after opening the live workspace.
     const baseline = parameters.has('workspace') ? {} : JSON.parse(exports.Probe.Run());
@@ -221,6 +259,7 @@ try {
 }
 document.getElementById('result').textContent = JSON.stringify(window.__probeResult, null, 2);
 if (app && window.__probeResult.error) {
+    window.__loading?.finish();
     document.body.classList.remove('ready');
     document.getElementById('result').textContent = 'Workspace could not start.\n' + window.__probeResult.error;
 }

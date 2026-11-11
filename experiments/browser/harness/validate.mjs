@@ -5,9 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { serve } from './server.mjs';
+import {renderingFlags,browserGpuInfo} from './browser-rendering.mjs';
+import {processSampler} from './browser-process-cpu.mjs';
 
 const [directory, page = '/', output = 'experiments/browser/artifacts/browser.json'] = process.argv.slice(2);
 if (!directory) throw new Error('Usage: validate.mjs BUILD_DIRECTORY [PAGE] [REPORT]');
+const renderingMode=process.env.PROBE_RENDERING??'auto';
+const rendering=renderingFlags(renderingMode);
+const cpuLimit=process.env.PROBE_CPU_LIMIT_CORES===undefined?null:Number(process.env.PROBE_CPU_LIMIT_CORES);
+if(cpuLimit!==null&&(!Number.isFinite(cpuLimit)||cpuLimit<=0))throw new Error('Invalid PROBE_CPU_LIMIT_CORES');
 const profile = await mkdtemp(path.join(os.tmpdir(), 'slopworld-wasm-'));
 const { server, url } = await serve(directory);
 const events = [];
@@ -16,9 +22,13 @@ try {
   chrome = spawn(process.env.CHROMIUM ?? 'chromium', [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
     '--no-first-run', '--no-default-browser-check', '--disable-dev-shm-usage',
-    '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
+    ...rendering,
     ...(process.env.PROBE_WEBGPU === '1' ? ['--enable-unsafe-webgpu'] : []), 'about:blank',
-  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  ], { stdio: ['ignore', 'ignore', 'pipe'],
+    // Chromium can ask the desktop bus to migrate it into an uncapped app scope.
+    // Bounded diagnostics need no desktop integration; retain the launcher cgroup.
+    env:cpuLimit===null?process.env:{...process.env,DBUS_SESSION_BUS_ADDRESS:'unix:path=/dev/null'},
+  });
   let stderr = '';
   chrome.stderr.on('data', data => { stderr = (stderr + data).slice(-16000); });
   chrome.on('error', error => { stderr += String(error); });
@@ -28,10 +38,14 @@ try {
     catch { await delay(100); }
   }
   if (!port) throw new Error(`Chromium did not start: ${stderr}`);
+  const cpuQuota=await processSampler(profile).quota();
+  if(cpuLimit!==null&&(!cpuQuota.available||cpuQuota.cores===null||cpuQuota.cores>cpuLimit))
+    throw new Error('Diagnostic browser escaped its required CPU quota: '+JSON.stringify(cpuQuota));
   const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
   socket = new WebSocket(targets.find(target => target.type === 'page').webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
   let serial = 0;
+  let loadingStages = 0;
   const pending = new Map();
   socket.onmessage = ({ data }) => {
     const message = JSON.parse(data);
@@ -45,7 +59,12 @@ try {
       events.push(message);
       if (process.env.PROBE_PROGRESS === '1' && message.method === 'Runtime.consoleAPICalled') {
         const value = message.params.args?.[0]?.value;
-        if (typeof value === 'string' && /^(Entry:|Loading stage:|Browser:)/.test(value)) console.log(value);
+        if (typeof value === 'string' && /^(Entry:|Loading stage:|Browser:)/.test(value)) {
+          // Retained runs may reload repeatedly while their parent is not reading
+          // stdout. Keep constructor progress bounded so logs cannot stall CDP.
+          if (!value.startsWith('Loading stage:') || ++loadingStages % 100 === 1)
+            console.log(value);
+        }
       }
     }
   };
@@ -61,6 +80,15 @@ try {
   await call('Runtime.enable');
   await call('Page.enable');
   await call('Log.enable');
+  if (process.env.PROBE_WIDTH || process.env.PROBE_HEIGHT || process.env.PROBE_DPR) {
+    const width = Number(process.env.PROBE_WIDTH ?? 1280);
+    const height = Number(process.env.PROBE_HEIGHT ?? 720);
+    const deviceScaleFactor = Number(process.env.PROBE_DPR ?? 1);
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 ||
+        !Number.isFinite(deviceScaleFactor) || deviceScaleFactor <= 0)
+      throw new Error('Invalid PROBE_WIDTH, PROBE_HEIGHT or PROBE_DPR');
+    await call('Emulation.setDeviceMetricsOverride', {width,height,deviceScaleFactor,mobile:false});
+  }
   await call('Page.navigate', { url: url + page });
   let result;
   const deadline = Date.now() + Number(process.env.PROBE_TIMEOUT_MS ?? 180000);
@@ -74,7 +102,8 @@ try {
     await delay(250);
   }
   const dom = await call('Runtime.evaluate', { expression: 'document.body.innerText', returnByValue: true });
-  const report = { url: url + page, completed: result !== undefined, result, body: dom.result.value, events };
+  const gpu=await browserGpuInfo(profile).catch(error=>({error:String(error)}));
+  const report = { url: url + page, completed: result !== undefined, renderingMode, cpuQuota, gpu, result, body: dom.result.value, events };
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, JSON.stringify(report, null, 2) + '\n');
   if (process.env.PROBE_SAVE_FILE && report.completed && !result?.error) {

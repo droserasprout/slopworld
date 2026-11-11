@@ -1,0 +1,12 @@
+check:
+    just --justfile ../justfile adapters
+    dotnet build ../../compat/Offline/Offline.csproj -p:RestoreLockedMode=true --nologo -v minimal
+    node --test cursor.test.mjs
+
+format:
+    dotnet tool restore
+    dotnet tool run csharpier format ../Adapters/BrowserCursor.cs ../BrowserCursor.cs ../../compat/Offline/BrowserCursorPatch.cs
+
+lint:
+    dotnet tool run csharpier check ../Adapters/BrowserCursor.cs ../BrowserCursor.cs ../../compat/Offline/BrowserCursorPatch.cs
+    node --check ../wwwroot/workspace-cursor.js

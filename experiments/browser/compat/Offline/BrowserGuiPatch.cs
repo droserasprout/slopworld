@@ -30,6 +30,30 @@ internal static class BrowserGuiPatch
         var installed = adapters
             .MainModule.GetType("BrowserAdapters.BrowserGui")
             .Methods.Single(m => m.Name == "IsInstalled");
+        // The real mod still parses family names and chooses its preferred face.
+        // Only OS discovery changes: WASM sees fonts mounted from local bakes.
+        var fontPaths = target
+            .MainModule.GetType("UnityEngine.Font")
+            .Methods.Single(m => m.Name == "GetPathsToOSFonts" && m.Parameters.Count == 0);
+        var pathsStart = fontPaths.Body.Instructions[0];
+        var pathsIl = fontPaths.Body.GetILProcessor();
+        pathsIl.InsertBefore(
+            pathsStart,
+            pathsIl.Create(OpCodes.Call, target.MainModule.ImportReference(installed))
+        );
+        pathsIl.InsertBefore(pathsStart, pathsIl.Create(OpCodes.Brfalse, pathsStart));
+        pathsIl.InsertBefore(
+            pathsStart,
+            pathsIl.Create(
+                OpCodes.Call,
+                target.MainModule.ImportReference(
+                    adapters
+                        .MainModule.GetType("BrowserAdapters.BrowserFontBank")
+                        .Methods.Single(m => m.Name == "Paths")
+                )
+            )
+        );
+        pathsIl.InsertBefore(pathsStart, pathsIl.Create(OpCodes.Ret));
         var first = method.Body.Instructions[0];
         var il = method.Body.GetILProcessor();
         il.InsertBefore(
@@ -73,6 +97,9 @@ internal static class BrowserGuiPatch
         );
         adaptations.Add(
             "Texture2D.Apply/LoadImage invalidate browser image uploads; original pixel update and lifetime bodies remain"
+        );
+        adaptations.Add(
+            "Browser font discovery enumerates locally mounted native-baked fonts; native OS discovery remains outside BrowserGui"
         );
         File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
     }

@@ -9,11 +9,12 @@ public static class BrowserClipboard
     static string buffer = "",
         primary = "";
     static bool supplied;
+    static bool suppliedImage;
     static int serial;
     static readonly List<object> requests = new();
     static readonly Dictionary<
         int,
-        (Action<string>? receive, Action? ok, Action<string>? fail)
+        (Action<string>? receive, Action<byte[]>? image, Action? ok, Action<string>? fail)
     > pending = new();
 
     public static string Get() => buffer;
@@ -22,10 +23,11 @@ public static class BrowserClipboard
 
     public static bool UsesX11() => true; // Select native asynchronous clipboard policy.
 
-    public static void Supply(string text)
+    public static void Supply(string text, bool hasImage = false)
     {
         buffer = text;
         supplied = true;
+        suppliedImage = hasImage;
     }
 
     public static void EndEvent() => supplied = false;
@@ -34,7 +36,7 @@ public static class BrowserClipboard
         Action<string> text,
         Action<byte[]>? image,
         Action<string>? fail
-    ) => ReadLocal(false, text, fail);
+    ) => ReadClipboard(text, image, fail);
 
     public static void ReadLocal(bool isPrimary, Action<string> receive, Action<string>? fail)
     {
@@ -43,22 +45,40 @@ public static class BrowserClipboard
             receive(primary);
             return;
         }
-        if (supplied)
+        ReadClipboard(receive, null, fail);
+    }
+
+    static void ReadClipboard(Action<string> receive, Action<byte[]>? image, Action<string>? fail)
+    {
+        bool fromEvent = supplied;
+        if (fromEvent)
         {
             supplied = false;
-            receive(buffer);
-            return;
+            if (buffer.Length > 0 || image == null || !suppliedImage)
+            {
+                receive(buffer);
+                return;
+            }
         }
+        // Allocate the reply owner during the original native key dispatch. File
+        // reads must never redispatch V against whichever pane is selected later.
         int id = ++serial;
-        pending.Add(id, (receive, null, fail));
-        requests.Add(new { id, kind = "read" });
+        pending.Add(id, (receive, image, null, fail));
+        requests.Add(
+            new
+            {
+                id,
+                kind = fromEvent ? "eventImage" : "read",
+                images = image != null,
+            }
+        );
     }
 
     public static void Copy(string text, Action? ok, Action<string>? fail)
     {
         buffer = text;
         int id = ++serial;
-        pending.Add(id, (null, ok, fail));
+        pending.Add(id, (null, null, ok, fail));
         requests.Add(
             new
             {
@@ -103,5 +123,27 @@ public static class BrowserClipboard
             callback.receive(text);
         }
         callback.ok?.Invoke();
+    }
+
+    public static void CompleteImage(int id, string base64, string error)
+    {
+        if (error.Length > 0)
+        {
+            Complete(id, "", error);
+            return;
+        }
+        if (!pending.Remove(id, out var callback))
+            return;
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(base64);
+        }
+        catch (FormatException)
+        {
+            callback.fail?.Invoke("Invalid clipboard PNG encoding");
+            return;
+        }
+        callback.image?.Invoke(bytes);
     }
 }
