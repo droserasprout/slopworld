@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {installInputDom,emit} from './input-dom-fixture.mjs';
 import assert from 'node:assert/strict';
 import {clipboardBridge} from '../runtime/wwwroot/clipboard.js';
 import {attachGuiInput} from '../runtime/wwwroot/gui-input.js';
@@ -17,7 +18,7 @@ function fixture(requests) {
 function navigatorWith(clipboard) {
   Object.defineProperty(globalThis,'navigator',{value:{clipboard},configurable:true});
 }
-globalThis.document={createElement:()=>({setAttribute(){},style:{},remove(){}}),body:{append(){}}};
+installInputDom();
 // Error banners should not hold the test runner open for eight seconds.
 const originalTimeout=globalThis.setTimeout;
 globalThis.setTimeout=(fn,delay)=>originalTimeout(fn,delay).unref();
@@ -73,9 +74,8 @@ test('copy still writes text and completes once',async()=>{
 });
 
 test('DOM paste dispatches native V before asynchronous image conversion',async()=>{
-  const f=fixture([]), listeners={}, batches=[];
-  const canvas={width:1,height:1,getContext:()=>({clearRect(){},save(){},restore(){},resetTransform(){}}),
-    addEventListener:(name,fn)=>{listeners[name]=fn}};
+  const f=fixture([]), batches=[];
+  const canvas=installInputDom().canvas();
   let requests=[];
   f.managed.GuiInputFrame=raw=>{
     batches.push(JSON.parse(raw));
@@ -84,11 +84,10 @@ test('DOM paste dispatches native V before asynchronous image conversion',async(
   };
   f.managed.ClipboardTake=()=>JSON.stringify(requests.splice(0));
   const input=attachGuiInput(canvas,f.managed);
-  let prevented=false;
-  listeners.paste({preventDefault(){prevented=true},clipboardData:{getData:()=>'',items:[
+  const paste=emit(input.textInput,'paste',{clipboardData:{getData:()=>'',items:[
     {kind:'file',type:'image/png',getAsFile:()=>new Blob([bytes])},
   ]}});
-  assert.ok(prevented);
+  assert.ok(paste.defaultPrevented);
   assert.deepEqual(batches[0],[{kind:'clipboard',text:'',image:true},{kind:'key',key:'V',control:true}]);
   assert.deepEqual(f.images,[]);
   await tick();
@@ -99,16 +98,14 @@ test('DOM paste dispatches native V before asynchronous image conversion',async(
 
 
 test('synchronous pointer frames pump physical input before native selection dispatch',()=>{
-  const listeners={}, order=[];
-  const canvas={width:1,height:1,focus(){},getBoundingClientRect:()=>({left:0,top:0,width:1,height:1}),
-    getContext:()=>({clearRect(){},save(){},restore(){},resetTransform(){}}),
-    addEventListener:(name,fn)=>{listeners[name]=fn}};
+  const order=[];
+  const canvas=installInputDom().canvas();
   const input=attachGuiInput(canvas,{
     beforeFrame:()=>order.push('physical'),
     GuiInputFrame:()=>{order.push('native');return '{"commands":[]}';},
     ClipboardTake:()=> '[]',
   });
-  listeners.pointerdown({preventDefault(){},clientX:0,clientY:0,button:0});
+  emit(canvas,'pointerdown',{clientX:0,clientY:0,button:0});
   assert.deepEqual(order,['physical','native']);
   input.dispose();
 });

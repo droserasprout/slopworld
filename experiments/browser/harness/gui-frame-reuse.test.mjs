@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {installInputDom} from './input-dom-fixture.mjs';
 import assert from 'node:assert/strict';
 import {GuiFrameReuse} from '../runtime/wwwroot/gui-frame-reuse.js';
 import {attachGuiInput} from '../runtime/wwwroot/gui-input.js';
@@ -31,7 +32,7 @@ test('uploads, target writes, releases, animations and context loss invalidate r
 test('reuse skips Canvas work while native dispatch and clipboard pumping continue',()=>{
   let clears=0,draws=0,updates=0,clipboard=0;
   const context={resetTransform(){},clearRect(){clears++;},beginPath(){},roundRect(){},fill(){draws++;}};
-  const canvas=Object.assign(new EventTarget(),{width:100,height:100,getContext:()=>context});
+  const canvas=Object.assign(installInputDom().canvas(),{getContext:()=>context});
   const commands=[{kind:'fill',value:{rect:[0,0,100,100],rounding:0,color:[1,0,0,1]}}];
   const samples=[];
   const input=attachGuiInput(canvas,{

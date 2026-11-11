@@ -1,3 +1,4 @@
+import { acquireTextInput, composingKey } from './text-input.js';
 import { renderGui, guiRenderRevision } from './gui.js';
 import { GuiFrameReuse } from './gui-frame-reuse.js';
 import { decodeGuiQuads } from './gui-quads.js';
@@ -5,11 +6,14 @@ import { clipboardBridge } from './clipboard.js';
 
 export function attachGuiInput(canvas, managed) {
   const abort = new AbortController();
+  const proxy = acquireTextInput(canvas);
+  let disposed = false, composing = false, cancelled = false, pendingText = null, committed = null;
   let queue = [];
   const clipboard = clipboardBridge(managed);
   let clipboardEvent;
   const reuse=new GuiFrameReuse();
   const frame = () => {
+    if (disposed) return;
     managed.beforeFrame?.();
     const batch=queue; queue=[];
     const profiling = managed.profileFrame;
@@ -38,7 +42,7 @@ export function attachGuiInput(canvas, managed) {
       inputEvents: batch.length });
     return result;
   };
-  const listen = (name, callback) => canvas.addEventListener(name, callback, { signal: abort.signal, passive: false });
+  const listen = (name, callback) => proxy.listen(name, callback, { signal: abort.signal, passive: false });
   listen('contextlost',()=>reuse.invalidate());
   listen('contextrestored',()=>reuse.invalidate());
   const enqueue = event => { if (queue.length >= 4096) queue = [{kind:'reset'}]; queue.push(event); };
@@ -58,19 +62,24 @@ export function attachGuiInput(canvas, managed) {
   for (const [name, kind] of [['pointerdown', 'down'], ['pointerup', 'up'], ['pointermove', 'move']]) {
     listen(name, event => {
       event.preventDefault();
-      if (kind === 'down') { canvas.focus(); if (event.isTrusted) canvas.setPointerCapture(event.pointerId); }
+      if (kind === 'down') { cancelled = false; proxy.focus(event); if (event.isTrusted) canvas.setPointerCapture(event.pointerId); }
       enqueue({ kind: kind === 'move' && event.buttons ? 'drag' : kind, ...point(event), button: [0, 2, 1][event.button] ?? 0, ...modifiers(event) });
       // Context-menu clipboard actions need the initiating user activation.
       if (managed.ClipboardTake && kind !== 'move') frame();
     });
   }
   listen('keydown', event => {
-    if (event.isComposing || ['Dead', 'Process'].includes(event.key)) return;
+    pendingText = null;
+    if (composingKey(event, composing)) return;
+    cancelled = false;
+    const editable = event.target === proxy.element && event.isTrusted;
     // AltGr is text production, even on platforms exposing it as Ctrl+Alt.
     // Do not carry those synthetic modifiers or a binding key into native text
     // dispatch: they would turn e.g. AltGr+Q's @ into a terminal shortcut.
     if (event.getModifierState?.('AltGraph') && !event.metaKey && Array.from(event.key).length === 1) {
-      text(event.key, {shiftKey:event.shiftKey,ctrlKey:false,altKey:false,metaKey:false});
+      const modifiers = {shiftKey:event.shiftKey,ctrlKey:false,altKey:false,metaKey:false};
+      if (editable) { pendingText = {event:modifiers}; return; }
+      text(event.key, modifiers);
       event.preventDefault();
       return;
     }
@@ -89,7 +98,10 @@ export function attachGuiInput(canvas, managed) {
     if (!key && (event.ctrlKey || event.altKey || event.metaKey))
       key = physical;
     if (key) enqueue({kind:'key', key, ...modifiers(event)});
-    else if (Array.from(event.key).length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) text(event.key, event, physical);
+    else if (Array.from(event.key).length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (editable) { pendingText = {event, key:physical}; return; }
+      text(event.key, event, physical);
+    }
     else return;
     event.preventDefault();
   });
@@ -109,17 +121,42 @@ export function attachGuiInput(canvas, managed) {
     try { enqueue({kind:'key',key:'C',control:true}); frame(); }
     finally { clipboardEvent=null; }
   });
-  listen('compositionend', event => text(event.data, event));
+  listen('compositionstart', () => { composing = true; cancelled = false; pendingText = null; committed = null; });
+  listen('compositionend', event => {
+    composing = false; pendingText = null;
+    if (!cancelled && event.data) text(event.data, {});
+    committed = cancelled ? null : event.data;
+    // Some engines send the final insertText after compositionend in the same
+    // edit operation. Ignore that duplicate, but allow a later identical commit.
+    const value = committed;
+    queueMicrotask(() => { if (committed === value) committed = null; });
+    proxy.element.value = '';
+  });
+  listen('input', event => {
+    if (cancelled || composing || event.isComposing || event.inputType === 'insertCompositionText') return;
+    const value = event.data ?? proxy.element.value;
+    if (value && value !== committed) text(value, pendingText?.event ?? {}, pendingText?.key);
+    pendingText = null; committed = null; proxy.element.value = '';
+  });
   listen('wheel', event => {
     event.preventDefault();
     const scale = event.deltaMode === 1 ? 1 : event.deltaMode === 2 ? canvas.height / 16 : .03;
     enqueue({kind:'wheel', ...point(event), dx:event.deltaX * scale, dy:event.deltaY * scale, ...modifiers(event)});
   });
-  listen('blur', () => { queue = [{ kind: 'reset' }]; });
-  listen('pointercancel', () => { queue = [{ kind: 'reset' }]; });
+  const reset = () => {
+    composing = false; cancelled = true; pendingText = null; committed = null;
+    proxy.element.value = ''; queue = [{kind:'reset'}];
+  };
+  listen('focus', () => { cancelled = false; });
+  listen('blur', event => { if (!proxy.owns(event.relatedTarget)) reset(); });
+  listen('pointercancel', reset);
+  window.addEventListener('blur', reset, {signal:abort.signal});
+  window.addEventListener('focus', () => { cancelled = false; }, {signal:abort.signal});
+  document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); }, {signal:abort.signal});
   return {
     frame,
-    dispose() { abort.abort(); managed.GuiInputFrame('[{"kind":"reset"}]'); }
+    textInput: proxy.element,
+    dispose() { if (disposed) return; disposed = true; abort.abort(); proxy.release(); managed.GuiInputFrame('[{"kind":"reset"}]'); }
   };
 }
 
