@@ -11,11 +11,28 @@ public static class BrowserSidebar
 {
     static readonly List<ColonistBar.Entry> entries = new();
     static readonly List<Vector2> locations = new();
+    static string hostHome = "";
+
+    public static void ConfigureHome(string home)
+    {
+        if (home.Length > 4096 || !home.StartsWith('/') || home.Contains('\0'))
+            throw new ArgumentException("Invalid host display home directory", nameof(home));
+        hostHome = home;
+    }
+
+    // Only the native sidebar's cwd-label formatter calls this boundary. It
+    // conveys no browser filesystem access and does not change process HOME.
+    public static string HomeFolder(Environment.SpecialFolder folder) =>
+        folder == Environment.SpecialFolder.UserProfile
+            ? hostHome
+            : throw new InvalidOperationException("Unexpected sidebar folder request");
 
     public static Selector? MapSelection() =>
         Current.ProgramState != ProgramState.Playing ? null : Find.Selector;
 
-    public static bool Visible() => UI.screenWidth >= 800 && UI.screenHeight >= 500;
+    // WorkspaceLayout owns available space and the user's hidden-sidebar choice.
+    // An independent minimum here leaves a reserved but blank sidebar on resize.
+    public static bool Visible() => UI.screenWidth > 0 && UI.screenHeight > 0;
 
     public static void Draw(bool interactive)
     {

@@ -1,17 +1,21 @@
 // Drawing commands originate in the installed Unity GUI controls through IGuiBackend.
+import { tintPixels } from './gui-tint.js';
+import { decodeGuiQuads } from './gui-quads.js';
 const renderTargets = new Map();
 const images = new Map();
+let renderRevision=0;
+export const guiRenderRevision=()=>renderRevision;
 export const guiTargetCount = () => renderTargets.size;
 export const guiImageCount = () => images.size;
 
-function tintImage(source, color) {
+function tintImage(source, color, cachedPixels = null) {
   const tinted = document.createElement('canvas'); tinted.width = source.width; tinted.height = source.height;
-  const pixels = source.getContext('2d').getImageData(0, 0, source.width, source.height);
-  for (let i = 0; i < pixels.data.length; i++) if (i % 4 !== 3) pixels.data[i] *= color[i % 4];
-  tinted.getContext('2d').putImageData(pixels, 0, 0);
+  const pixels = cachedPixels ?? source.getContext('2d').getImageData(0, 0, source.width, source.height).data;
+  tinted.getContext('2d').putImageData(new ImageData(tintPixels(pixels, color), source.width, source.height), 0, 0);
   return tinted;
 }
 export function renderGui(canvas, commands) {
+  renderRevision++;
   const screen = canvas.getContext('2d');
   let ctx = screen, activeTarget = 0;
   const clips = [], clipDepths = [];
@@ -48,9 +52,10 @@ export function renderGui(canvas, commands) {
         const source = document.createElement('canvas'); source.width = v.width; source.height = v.height;
         const data = Uint8ClampedArray.from(atob(v.pixels), c => c.charCodeAt(0));
         source.getContext('2d').putImageData(new ImageData(data, v.width, v.height), 0, 0);
-        images.set(v.id, { source, tints: new Map() }); break;
+        images.set(v.id, { source, tints: new Map(), pixels: null }); break;
       }
-      case 'imageTexture': {
+      case 'imageTexture':
+      case 'imageBatch': {
         const entry = images.get(v.id);
         if (!entry) throw new Error(`Missing GUI image ${v.id}`);
         let source = entry.source;
@@ -59,11 +64,24 @@ export function renderGui(canvas, commands) {
           if (!entry.tints.has(key)) {
             const limit = Math.max(1, Math.min(16, Math.floor(32 * 1024 * 1024 / (source.width * source.height * 4))));
             if (entry.tints.size >= limit) entry.tints.delete(entry.tints.keys().next().value);
-            entry.tints.set(key, tintImage(source, v.color));
+            // Read back once per immutable upload. Using the Canvas round trip
+            // retains its premultiplied-alpha quantization from the old path.
+            entry.pixels ??= source.getContext('2d').getImageData(0, 0, source.width, source.height).data;
+            entry.tints.set(key, tintImage(source, v.color, entry.pixels));
           }
           source = entry.tints.get(key);
+          entry.tints.delete(key); entry.tints.set(key, source);
         }
-        ctx.save(); ctx.globalAlpha = v.color[3]; sample(source, v); ctx.restore(); break;
+        ctx.save(); ctx.globalAlpha = v.color[3];
+        if (kind === 'imageBatch') {
+          const q=decodeGuiQuads(v.quads), width=source.width, height=source.height;
+          // Retain decoded geometry for profiling and any repeat playback.
+          v.quads=q;
+          for (let i=0; i<q.length; i+=8)
+            ctx.drawImage(source, q[i+4]*width, (1-q[i+5]-q[i+7])*height,
+              q[i+6]*width, q[i+7]*height, q[i], q[i+1], q[i+2], q[i+3]);
+        } else sample(source, v);
+        ctx.restore(); break;
       }
       case 'releaseImage': images.delete(v); break;
       case 'target': {
@@ -74,7 +92,7 @@ export function renderGui(canvas, commands) {
         let target = renderTargets.get(v.id);
         if (!target) { target = document.createElement('canvas'); renderTargets.set(v.id, target); }
         if (target.width !== v.width || target.height !== v.height) { target.width = v.width; target.height = v.height; }
-        ctx = target.getContext('2d'); ctx.save(); ctx.resetTransform();
+        ctx = target.getContext('2d', {colorType: screen.getContextAttributes?.().colorType ?? 'unorm8'}); ctx.save(); ctx.resetTransform();
         // Native GUI targets inherit the current physical clip and transform.
         for (const points of clips) {
           ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
@@ -114,6 +132,11 @@ export function renderGuiProbe(commands, controls = true, existing = null) {
     if (rgb(455, 22) !== '0,0,255' || rgb(455, 37) !== '255,0,0') throw new Error('Unity texture rows were not converted to Canvas orientation');
   }
   const visible = pixels.filter((value, i) => i % 4 === 3 && value !== 0).length;
-  if (!visible || !commands.some(c => c.kind === 'text')) throw new Error('Installed controls produced no text pixels');
+  if (!visible) throw new Error('Installed GUI produced no visible pixels');
+  // The controls diagnostic exercises the fallback text command. A workspace
+  // uses native atlas image batches and retained terminal targets instead;
+  // command spelling cannot establish whether its text rendered correctly.
+  if (controls && !commands.some(c => c.kind === 'text'))
+    throw new Error('Installed controls produced no text commands');
   return { commands: commands.length, visiblePixels: visible, source: controls ? 'UnityEngine.GUI.Label/Box → IGuiBackend → Canvas2D' : 'SlopWorld.WorkspaceWindow → IGuiBackend → Canvas2D' };
 }

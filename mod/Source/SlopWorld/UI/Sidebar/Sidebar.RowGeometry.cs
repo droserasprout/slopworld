@@ -101,6 +101,11 @@ namespace SlopWorld
 
         static void BucketRuntimeSessions()
         {
+            // Resolve parent membership before workers: catalog order must not
+            // change nesting when a visible agent has no pawn-backed entry.
+            foreach (var session in SessionHub.Instance.Sessions)
+                if (SessionAgent(session) && RuntimeRowVisible(session))
+                    Layout.VisibleSessions.Add(session.Name);
             foreach (var s in SessionHub.Instance.Sessions)
             {
                 if (s.Worker)
@@ -116,12 +121,7 @@ namespace SlopWorld
                     );
                     continue;
                 }
-                if (
-                    (!s.Ephemeral && !s.Host)
-                    || IsRouted(s)
-                    || !SidebarScopes.SessionChosen(s)
-                    || !PassesStatus(s)
-                )
+                if (!RuntimeRowVisible(s))
                     continue;
                 if (string.IsNullOrEmpty(s.Project))
                 {
@@ -134,6 +134,12 @@ namespace SlopWorld
                 list.Add(s);
             }
         }
+
+        static bool RuntimeRowVisible(SessionInfo session) =>
+            (session.Ephemeral || session.Host)
+            && !IsRouted(session)
+            && SidebarScopes.SessionChosen(session)
+            && PassesStatus(session);
 
         static void OrderBuckets()
         {
@@ -176,8 +182,16 @@ namespace SlopWorld
         static readonly List<int> Empty = new List<int>();
         static readonly List<SessionInfo> EmptyGhosts = new List<SessionInfo>();
 
-        static float GhostRow(SessionInfo s, float width, float y)
+        static bool SessionAgent(SessionInfo s) =>
+            s != null && !s.Host && !s.Ephemeral && !s.Worker && !string.IsNullOrEmpty(s.Agent);
+
+        static float GhostRow(SessionInfo s, float width, float y, PlacementMeasure measure)
         {
+            if (SessionAgent(s))
+            {
+                Layout.Rows.Add(AgentRow(null, s.Name, width, y, measure));
+                return LayoutWorkers(s.Name, width, y + measure.Pitch, 0);
+            }
             // Agent ghost rows draw their own leading mark, if any. The routed view owns the
             // separate action-slot layout. Reserving it here needlessly shortens host paths.
             float tx = CellX;
@@ -218,8 +232,16 @@ namespace SlopWorld
             return y + WorkerH;
         }
 
-        static int ByName(SessionInfo a, SessionInfo b) =>
-            string.CompareOrdinal(a?.Name ?? "", b?.Name ?? "");
+        static int ByName(SessionInfo a, SessionInfo b)
+        {
+            bool agentA = SessionAgent(a),
+                agentB = SessionAgent(b);
+            if (agentA != agentB)
+                return agentA ? 1 : -1;
+            return agentA
+                ? AgentColony.CompareNames(a.Name, b.Name)
+                : string.CompareOrdinal(a?.Name ?? "", b?.Name ?? "");
+        }
 
         static void Increment(Dictionary<string, int> counts, string key)
         {

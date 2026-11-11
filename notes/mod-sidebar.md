@@ -14,6 +14,9 @@ worker identity belongs to its task. Ordinary agent editing excludes host and
 non-worker ephemeral sessions.
 
 Vanilla supplies pawn identities; the sidebar sorts indices and assigns geometry.
+Ordinary agents admitted without a pawn share agent-row geometry and text presentation,
+including state age, summary, indicators and fitting. Host/temporary rows retain compact
+geometry. A session-only row does not invent a pawn or portrait identity.
 Hiding it suppresses portraits and hit tests. Check for a live world during teardown.
 Park folded/filtered entries offscreen, and retain screen-space positions for external
 hit tests after restoring vanilla geometry. Nested swaps and exceptions must restore
@@ -27,7 +30,9 @@ insets must also reach vanilla buttons, inspect panes, gizmos, and colonist hit 
 changing drawing alone leaves invisible targets. Internal split changes must not
 resize terminals. The tab and open-files pane scroll independently.
 
-Worker hierarchy comes from daemon metadata. Children of missing or filtered
+Worker hierarchy comes from daemon metadata. Visible session-only agent parents are
+registered before workers are placed, independently of catalog enumeration order.
+Children of missing or filtered
 parents appear at the top level of their own project group and follow its folding and row
 sizing. Host, temporary, and worker rows do not count as ordinary project agents.
 Rename handoffs preserve membership until HTTP and WebSocket agree. Expand truncated

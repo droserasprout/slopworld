@@ -37,11 +37,21 @@ def build(destination: Path = OUTPUT) -> None:
         bundle.mkdir()
         for source, target in (
             (ROOT / 'slopweb/launch.py', 'launch.py'),
+            (ROOT / 'slopweb/appearance.py', 'appearance.py'),
+            (ROOT / 'slopweb/portraits.py', 'portraits.py'),
             (runtime / 'core_pack.py', 'core_pack.py'),
             (runtime / 'bin/Debug/net10.0/Probe.dll', 'Probe.dll'),
             (runtime / 'Adapters/bin/Debug/net10.0/Adapters.dll', 'Adapters.dll'),
         ):
             copy_file(source, bundle / target)
+        # FontProbe's build directory also contains installed game references.
+        # Ship only our executable and its runtime metadata, never that directory.
+        for helper, directory in (('FontProbe', 'font-probe'), ('BackgroundProbe', 'background-probe')):
+            for suffix in ('.dll', '.deps.json', '.runtimeconfig.json'):
+                copy_file(
+                    runtime / helper / 'bin/Debug/net10.0' / (helper + suffix),
+                    bundle / directory / (helper + suffix),
+                )
         # These are unmodified build outputs of our projects, NOT staged game roots.
         shutil.copytree(runtime / 'bin/Debug/net10.0/wwwroot', bundle / 'web')
         for path in (runtime / 'wwwroot').iterdir():
@@ -60,6 +70,8 @@ def build(destination: Path = OUTPUT) -> None:
         content = runtime / 'out/wwwroot-eco/mod/Content.zip'
         validate_content(content, tracked_mod_files())
         copy_file(content, bundle / 'mod/Content.zip')
+        copy_file(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', bundle / 'mod/LoadingFont.png')
+        copy_file(ROOT / 'shared/loading-tips.txt', bundle / 'mod/loading-tips.txt')
         for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs'):
             copy_file(ROOT / 'experiments/browser/harness' / name, bundle / 'server' / name)
         assets = json.loads((runtime / 'obj/project.assets.json').read_text())

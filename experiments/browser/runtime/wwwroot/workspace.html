@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>SlopWorld</title>
+<body style="background:#171510;color:#e6dfce">Loading SlopWorld…
+<script type="module">
+import {workspaceParameters} from './workspace-viewport.js';
+// Stable bookmark for the locally prepared native-reference workspace.
+const options = workspaceParameters({pathname:'/',search:location.search});
+location.replace('./index.html?' + options);
+</script></body></html>

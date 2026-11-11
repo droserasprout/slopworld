@@ -56,6 +56,41 @@ just browser-workspace
 
 just browser-workspace-live
 # Prints a retained diagnostic browser PROFILE and URL.
+just browser-profile PROFILE experiments/browser/artifacts/baseline-observe.json 15
+# Read-only observation: Chrome CPU profile, frame intervals, renderer task CPU,
+# JS heap, viewport/DPI, browser version and workspace state. Repeat with identical
+# session output and configuration. This is not a controlled idle/input benchmark;
+# JS heap excludes WASM memory, and CPU sampling adds measurement overhead.
+# Use browser-workspace-profile instead of browser-workspace-live to enable
+# bounded per-frame native input/layout/repaint/drain, managed allocation/GC,
+# JSON parse and Canvas timings. The same browser-profile command collects them.
+just browser-serialization-check PROFILE
+# Compare generated/reference JSON writers on one identical live drawing packet
+# inside WASM. Verifies byte equivalence and alternates measurement order.
+just browser-test-commands
+# Game-free coverage of all wire payload types, escaping and numeric coordinates.
+just browser-host-inspect
+# Run read-only native process/path inspection through the host user service manager.
+just browser-native-reference
+# Capture through the host desktop screenshot portal (approve its dialog if shown).
+# Requires host PyGObject; writes the local native-reference.png without game input.
+just browser-workspace-reference SESSION
+# Host-backed reference at 2560x1440, 5/3 display scale, using an allowlisted copy
+# of local profile appearance preferences and read-only selection of a live session.
+# This matches the captured host display; browser/native font and portrait parity
+# are still incomplete. The host profile is never modified.
+just browser-host-serve
+# Serve the prepared runtime on port 8787 using the host local endpoint descriptor.
+# This deliberately uses host-mode configuration rather than an inherited agent token.
+just browser-host-url-check
+# Stable bookmark after native font/reference preparation:
+# http://127.0.0.1:8787/workspace.html?session=SESSION
+just browser-host-benchmark PROFILE experiments/browser/artifacts/workloads.json
+# Two invocation-owned temporary host sessions run benchmark-fixture.py. Records
+# fixed idle/output/typing/scrolling/switching workloads, stage timings, frame and
+# latency distributions, renderer task CPU, JS heap and per-phase screenshots.
+# Restores the original session and verifies fixture deletion. Switching measures
+# the native Open/attach path, not a DOM sidebar click. JS heap excludes WASM memory.
 just browser-workspace-ui-check PROFILE
 # Checks settings, key rebinding, F9 layout toggling, and F12 close/reopen.
 just browser-workspace-e2e-check PROFILE
@@ -63,6 +98,8 @@ just browser-workspace-e2e-check PROFILE
 # Creates two temporary host shells through the sidebar, checks command output,
 # Backspace/Enter and session switching, attaches to the agent read-only, and
 # removes only the shells created by this check. Use the default sidebar layout.
+# UI/e2e label targeting currently requires the diagnostic text-command renderer;
+# those checks have not yet been adapted to the nativeFonts glyph-only UI.
 just browser-clipboard-check PROFILE
 # Also exercises real Chromium Ctrl+V, Unicode paste, and native selection copy.
 just browser-close PROFILE
@@ -99,6 +136,10 @@ guarantee.
 
 ## Remaining limits
 
+- Early loading-screen and background parity are required alongside the workspace.
+  The current pre-WASM page still uses diagnostic HTML. Derived assets must be baked
+  from the local installation into the private cache; they must not enter packages.
+
 - Reconnect recovery and the complete agent launch/edit configuration dialog remain
   unverified. Shell creation, terminal input/output, live-session switching, and
   attachment to an existing coding agent are verified. Startup currently requires
@@ -118,6 +159,24 @@ guarantee.
   startup. Avatar pawn graphics and map simulation are not required for this path.
 
 ## Separate engine probes
+
+`runtime/FontProbe` is a host-only native font bake probe. It calls the installed
+game's font configuration and line metrics and its ImGui/FreeType rasterizer without
+starting a renderer or colony. For example:
+
+```sh
+just --justfile experiments/browser/runtime/justfile font-probe \
+  /usr/share/fonts/TTF/ttf-google-fonts-typewolf/PT_Sans-Web-Regular.ttf \
+  out/font-probe.json 15
+```
+
+The ignored output contains glyph advances, bounds, UVs, native line metrics, and
+atlas pixels. This probe covers Latin-1 and U+2000–U+27FF and reports native fallback
+use. The optional `nativeFonts` workspace path renders covered plain text from these
+bakes; rich layout, styled faces and complete Unicode fallback remain incomplete.
+`browser-workspace-font-reference FONT SESSION SIZE` stages the selected UI family
+and resolves the terminal family through the actual mod's host font catalog and
+fontconfig order. Host font files and derived pixels stay in ignored local output.
 
 Existing colony/rendering experiments remain independent of the Entry workspace:
 

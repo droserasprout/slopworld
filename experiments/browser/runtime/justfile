@@ -58,9 +58,6 @@ entry-source:
 source assembly type output:
     .local/tools/ilspycmd -t {{quote(type)}} {{quote(game + "/" + assembly + ".dll")}} > {{quote(output)}}
 
-types assembly:
-    .local/tools/ilspycmd -l c {{quote(game + "/" + assembly + ".dll")}}
-
 asset-sizes:
     du -sh {{quote(game + "/Assets.zip")}} {{quote(game + "/Data/Core")}}
 
@@ -91,8 +88,39 @@ stage-jobs: build
 il assembly type output:
     .local/tools/ilspycmd -il -t {{quote(type)}} {{quote(game + "/" + assembly + ".dll")}} > {{quote(output)}}
 
+types assembly:
+    .local/tools/ilspycmd -l c {{quote(game + "/" + assembly + ".dll")}}
+
 adapters:
     dotnet build Adapters/Adapters.csproj -p:GameDirectory={{quote(game)}} --nologo -v minimal
+
+font-probe font output size='15' density='1':
+    LD_LIBRARY_PATH={{quote(game)}} dotnet run --project FontProbe/FontProbe.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} {{quote(font)}} {{quote(output)}} {{quote(size)}} {{quote(density)}}
+
+font-probe-build:
+    dotnet build FontProbe/FontProbe.csproj -p:GameDirectory={{quote(game)}} --nologo -v minimal
+
+font-resolve family output:
+    LD_LIBRARY_PATH={{quote(game)}} dotnet run --project FontProbe/FontProbe.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --resolve ../../../mod/Assemblies/SlopWorld.dll {{quote(family)}} {{quote(output)}}
+
+background-cache output='out/wwwroot-eco/assets/background':
+    LD_LIBRARY_PATH={{quote(game)}} dotnet run --project BackgroundProbe/BackgroundProbe.csproj -- {{quote(game)}} ../../../mod/Assemblies/SlopWorld.dll {{quote(output)}}
+
+background-probe-build:
+    dotnet build BackgroundProbe/BackgroundProbe.csproj --nologo -v minimal
+
+# Prepare a selected UI family's three native tiers in an already staged local root.
+font-pack font size='15' density='1.666666667' root='out/wwwroot-eco':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    destination={{quote(root)}}/assets/fonts
+    mkdir -p "$destination"
+    cp {{quote(font)}} "$destination/ui.ttf"
+    for tier in -2 0 2; do
+        pixels=$(( {{size}} + tier ))
+        just font-probe {{quote(font)}} "$destination/ui-$pixels.json" "$pixels" {{quote(density)}}
+    done
+    python3 -c 'import json,pathlib,sys; p=pathlib.Path(sys.argv[1]); size=int(sys.argv[2]); (p/"manifest.json").write_text(json.dumps([{"font":"ui.ttf","bake":f"ui-{size+offset}.json","index":index} for index,offset in enumerate([-2,0,2])]))' "$destination" {{quote(size)}}
 
 stage-core: stage-jobs
     rm -rf out/wwwroot-core
@@ -134,3 +162,22 @@ workspace-dependencies:
     cp wwwroot/main.js out/wwwroot-eco/main.js
     cp ../../../mod/Assemblies/{0Harmony,Google.Protobuf,Markdig,AngleSharp,Tomlyn}.dll out/wwwroot-eco/mod/
     uv run --locked python mod_pack.py ../../../mod out/wwwroot-eco/mod/Content.zip
+
+# Refresh browser-only rendering without replacing prepared local assets.
+refresh-web root='out/wwwroot-eco':
+    cp wwwroot/* {{quote(root)}}/
+
+# Refresh an adapter-only change without replacing prepared fonts or game assets.
+refresh-adapters root='out/wwwroot-eco': adapters
+    cp Adapters/bin/Debug/net10.0/Adapters.dll {{quote(root)}}/
+
+# Refresh managed probe exports and their generated boot resources together.
+refresh-runtime root='out/wwwroot-eco': build
+    cp -r bin/Debug/net10.0/wwwroot/. {{quote(root)}}/
+    cp wwwroot/* {{quote(root)}}/
+
+# Reapply Eco hooks from the clean Core assembly without dropping local assets/fonts.
+refresh-eco:
+    cp out/wwwroot-core/game/Assembly-CSharp.dll out/wwwroot-eco/game/Assembly-CSharp.dll
+    cp out/wwwroot-core/game/manifest.json out/wwwroot-eco/game/manifest.json
+    just --justfile ../compat/justfile eco ../runtime/out/wwwroot-eco

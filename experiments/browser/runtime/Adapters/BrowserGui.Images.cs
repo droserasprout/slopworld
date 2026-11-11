@@ -62,13 +62,7 @@ public sealed partial class BrowserGui
                 .CopyTo(bytes.AsSpan(row * stride));
         Emit(
             "image",
-            new
-            {
-                id,
-                width = texture.width,
-                height = texture.height,
-                pixels = Convert.ToBase64String(bytes),
-            }
+            new ImageCommand(id, texture.width, texture.height, Convert.ToBase64String(bytes))
         );
         images[id] = new ImageState(
             new WeakReference<Texture2D>(texture),
