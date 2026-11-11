@@ -30,10 +30,31 @@ foreach (var packet in new[] { new List<BrowserGui.Command>(), commands })
 {
     string expected = JsonSerializer.Serialize(packet);
     string actual = JsonSerializer.Serialize(packet, BrowserGuiJson.Default.ListCommand);
-    if (actual != expected)
+    if (actual != expected || BrowserCommandWriter.Serialize(packet) != expected)
         throw new Exception("Generated command writer changed the wire packet");
 }
-Console.WriteLine("Generated command packets match the original JSON contract.");
+
+// Reuse after a failed or oversized packet must start a clean JSON document.
+try
+{
+    BrowserCommandWriter.Serialize([new("matrix", new[] { float.NaN })]);
+    throw new Exception("Non-finite drawing coordinate was accepted");
+}
+catch (ArgumentException) { }
+var large = new List<BrowserGui.Command>
+{
+    new("image", new BrowserGui.ImageCommand(7, 1, 1, new string('a', 2200000))),
+};
+if (
+    BrowserCommandWriter.Serialize(large)
+        != JsonSerializer.Serialize(large, BrowserGuiJson.Default.ListCommand)
+    || BrowserCommandWriter.Serialize(commands)
+        != JsonSerializer.Serialize(commands, BrowserGuiJson.Default.ListCommand)
+)
+    throw new Exception("Writer did not recover after failed or oversized packets");
+Console.WriteLine(
+    "Direct and generated packets match the original JSON contract and recover after failed/oversized writes."
+);
 PacketCacheTests.Run(commands);
 
 var quad = new BrowserGlyphQuad(-2, -3, 10, 9, 0, 0, 1, 1);
@@ -179,3 +200,5 @@ if (
 Console.WriteLine(
     "Packed cache preserves bit identity, collision checks, detached storage and LRU bounds."
 );
+
+CommandWriterBenchmark.Run(args.Contains("--benchmark"));

@@ -64,7 +64,7 @@ public sealed partial class BrowserGui : IGuiBackend
         LastPacketReused = result != null;
         if (result == null)
         {
-            result = JsonSerializer.Serialize(commands, BrowserGuiJson.Default.ListCommand);
+            result = BrowserCommandWriter.Serialize(commands);
             if (packetCacheEnabled)
                 packetCache.Store(commands, result);
         }
