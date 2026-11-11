@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -56,12 +57,80 @@ namespace SlopWorld.Tests
         }
 
         [Test]
+        public void OpeningShortcutDiscardsDelayedTextAndRepeatsAcrossFrames()
+        {
+            var queue = new KeyboardEventQueue();
+            queue.Key(KeyCode.T, true, false, 0);
+            queue.Drain(); // The map's native key pass opens the terminal.
+            queue.SuppressOpeningKey(KeyCode.T);
+            queue.Clear(); // Waylith begins another frame before the text callback.
+            queue.Text('t', 0);
+            queue.Key(KeyCode.T, true, true, 0);
+            queue.Text('t', 0);
+            queue.Key(KeyCode.T, false, false, 0);
+            queue.Text('t', 0);
+            Assert.That(Delivered(queue), Is.Empty);
+
+            queue.Key(KeyCode.T, true, false, 0);
+            queue.Text('t', 0);
+            Assert.That(Delivered(queue).Select(e => e.Character), Is.EqualTo(new[] { '\0', 't' }));
+        }
+
+        [Test]
+        public void OpeningDuringReplayPreservesFollowingPressInSameBatch()
+        {
+            var queue = new KeyboardEventQueue();
+            queue.Key(KeyCode.T, true, false, 0);
+            queue.Text('t', 0);
+            queue.Key(KeyCode.T, false, false, 0);
+            queue.Key(KeyCode.T, true, false, 0);
+            queue.Text('t', 0);
+            var batch = queue.Drain();
+            queue.Dispatch(batch[0], () => queue.SuppressOpeningKey(KeyCode.T));
+            var delivered = new List<KeyboardEventQueue.Entry>();
+            foreach (var input in batch.Skip(1))
+                queue.Dispatch(input, () => delivered.Add(input));
+            Assert.That(delivered.Select(e => e.Character), Is.EqualTo(new[] { '\0', 't' }));
+        }
+
+        [Test]
+        public void ReboundOpeningKeyDoesNotDiscardAnotherKeysText()
+        {
+            var queue = new KeyboardEventQueue();
+            queue.Key(KeyCode.O, true, false, 0);
+            queue.SuppressOpeningKey(KeyCode.O);
+            queue.Text('ö', 0);
+            queue.Key(KeyCode.A, true, false, 0);
+            queue.Text('a', 0);
+            Assert.That(Delivered(queue).Select(e => e.Character), Is.EqualTo(new[] { '\0', 'a' }));
+        }
+
+        [Test]
+        public void FocusResetClearsOpeningStrokeSuppression()
+        {
+            var queue = new KeyboardEventQueue();
+            queue.Key(KeyCode.T, true, false, 0);
+            queue.SuppressOpeningKey(KeyCode.T);
+            queue.Reset();
+            queue.Text('t', 0);
+            Assert.That(Delivered(queue).Single().Character, Is.EqualTo('t'));
+        }
+
+        static List<KeyboardEventQueue.Entry> Delivered(KeyboardEventQueue queue)
+        {
+            var delivered = new List<KeyboardEventQueue.Entry>();
+            foreach (var input in queue.Drain())
+                queue.Dispatch(input, () => delivered.Add(input));
+            return delivered;
+        }
+
+        [Test]
         public void FocusResetDiscardsUndispatchedInput()
         {
             var queue = new KeyboardEventQueue();
             queue.Text('.', 0);
             queue.Key(KeyCode.Return, true, false, EventModifiers.Shift);
-            queue.Clear();
+            queue.Reset();
             queue.Text('x', 0);
             Assert.That(queue.Drain().Single().Character, Is.EqualTo('x'));
         }

@@ -99,6 +99,12 @@ namespace SlopWorld
             yield return OrderedKeyboard.RuntimeMethod("ResetAllInput");
         }
 
-        static void Prefix() => OrderedKeyboard.Events.Clear();
+        static void Prefix(MethodBase __originalMethod)
+        {
+            if (__originalMethod.Name == "ResetAllInput")
+                OrderedKeyboard.Events.Reset();
+            else
+                OrderedKeyboard.Events.Clear();
+        }
     }
 }

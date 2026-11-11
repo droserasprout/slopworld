@@ -6,10 +6,17 @@ namespace SlopWorld
 {
     public partial class WorkspaceWindow
     {
-        int _terminalOpenedFrame = -1;
-
         public static WorkspaceWindow Open(string name)
         {
+            // Waylith's Use() overwrites rawType too, but retains the key code.
+            // The consumed gizmo key still owns its separate native text callback.
+            var openingEvent = Event.current;
+            if (
+                openingEvent != null
+                && (openingEvent.type == EventType.KeyDown || openingEvent.type == EventType.Used)
+            )
+                OrderedKeyboard.Events.SuppressOpeningKey(openingEvent.keyCode);
+
             // The current session follows the pane.
             SessionSelectable.Current = name;
 
@@ -19,13 +26,11 @@ namespace SlopWorld
             var existing = Find.WindowStack.WindowOfType<WorkspaceWindow>();
             if (existing != null)
             {
-                existing._terminalOpenedFrame = Time.frameCount;
                 existing.SwitchTo(name);
                 return existing;
             }
 
             var w = new WorkspaceWindow(name);
-            w._terminalOpenedFrame = Time.frameCount;
             Find.WindowStack.Add(w);
             TerminalRecall.Remember(name);
             return w;

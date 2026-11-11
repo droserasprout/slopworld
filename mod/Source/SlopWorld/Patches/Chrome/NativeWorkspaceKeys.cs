@@ -95,9 +95,20 @@ namespace SlopWorld
                             continue;
                     }
                 }
-                RunKey.Invoke(
-                    __instance,
-                    new object[] { key, input.Character, physMouse, input.Modifiers, input.Type }
+                OrderedKeyboard.Events.Dispatch(
+                    input,
+                    () =>
+                        RunKey.Invoke(
+                            __instance,
+                            new object[]
+                            {
+                                key,
+                                input.Character,
+                                physMouse,
+                                input.Modifiers,
+                                input.Type,
+                            }
+                        )
                 );
             }
             return false;
