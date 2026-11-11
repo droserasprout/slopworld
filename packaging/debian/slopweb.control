@@ -4,7 +4,7 @@ Section: utils
 Priority: optional
 Architecture: {architecture}
 Maintainer: Lev Gorodetskii <slopworld@drsr.io>
-Depends: nodejs (>= 22), python3 (>= 3.11), dotnet-runtime-10.0
+Depends: nodejs (>= 22), python3 (>= 3.11), dotnet-runtime-10.0, libfontconfig1
 Suggests: slopd
 Homepage: https://github.com/droserasprout/slopworld
 Description: Local browser Eco workspace for SlopWorld coding agents

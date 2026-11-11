@@ -418,6 +418,7 @@ def test_package_formats_stage_only_web_payload(
     )
     assert result.read_bytes() == b'fixture package'
     assert 'nodejs' in metadata[0] and 'python' in metadata[0] and 'dotnet-runtime' in metadata[0]
+    assert ('libfontconfig1' if distribution == 'debian' else 'fontconfig') in metadata[0]
 
 
 def test_uninstall_preserves_unrelated_files_and_private_cache(tmp_path: Path) -> None:
