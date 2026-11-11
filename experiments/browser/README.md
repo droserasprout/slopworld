@@ -109,6 +109,10 @@ just browser-host-reconnect-check PROFILE
 # Reloads this diagnostic page with transport tracking, interrupts its network twice,
 # checks offline UI updates and recovered terminal echoes, and deletes its fixtures.
 # The host daemon remains running. Results are saved in artifacts/reconnect-check.json.
+just browser-host-composition-check PROFILE
+# Chromium IME preedit/update, Unicode commit, cancellation and ordinary typing
+# reach disposable terminals. The fixture reports exact received UTF-8 bytes.
+# Results are saved in artifacts/composition-check.json; full OS IME is not covered.
 just browser-close PROFILE
 
 just browser-gui

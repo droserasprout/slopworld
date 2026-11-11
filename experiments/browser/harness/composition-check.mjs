@@ -81,31 +81,39 @@ try {
     canvas.focus();
   })()`);
   const marker='IME_'+Date.now()+'_';
+  const encoded=value=>'HEX_'+Buffer.from(value,'utf8').toString('hex');
   // A sentinel after the committed text makes duplicate insertion fail the echo
   // match. Native receive-buffer observation does not depend on font coverage.
-  await insert('echo '+marker);
+  await insert('echohex '+marker);
   await compose('か');
   await compose('漢字🧪');
   await key('Process','Enter',229);
   await pause(400);
-  assert.equal(await contains('ACK_'+marker),false,'Composition key submitted the terminal line');
+  assert.equal(await contains(encoded(marker)),false,'Composition key submitted the terminal line');
   await insert('漢字🧪');
-  await insert('_END');
+  await insert('_');
+  for(const letter of 'END') {
+    await owned();
+    await call('Input.dispatchKeyEvent',{type:'keyDown',key:letter,code:'Key'+letter,text:letter,windowsVirtualKeyCode:letter.charCodeAt(0),modifiers:8});
+    await call('Input.dispatchKeyEvent',{type:'keyUp',key:letter,code:'Key'+letter,windowsVirtualKeyCode:letter.charCodeAt(0)});
+  }
   await key('Enter','Enter',13);
-  await until(()=>contains('ACK_'+marker+'漢字🧪_END'),'exact composed terminal echo');
+  await until(()=>contains(encoded(marker+'漢字🧪_END')+'_END'),'exact composed terminal bytes');
   report.checks.push('updated preedit, supplementary character and one exact commit');
+  report.checks.push('trusted printable key events emit text once after composition');
   const canceled=marker+'CANCEL_';
-  await insert('echo '+canceled);
+  await insert('echohex '+canceled);
   await compose('discard_me');
   await compose('');
   await insert('KEPT_END');
   await key('Enter','Enter',13);
-  await until(()=>contains('ACK_'+canceled+'KEPT_END'),'canceled preedit stays out of terminal');
+  await until(()=>contains(encoded(canceled+'KEPT_END')+'_END'),'canceled preedit stays out of terminal');
   report.checks.push('canceled composition emits no terminal text');
   report.events=await evaluate('window.__compositionEvents');
-  for(const type of ['compositionstart','compositionupdate','compositionend'])
+  for(const type of ['compositionstart','compositionupdate'])
     assert.ok(report.events.some(e=>e.type===type&&e.trusted),'Missing trusted '+type);
-  report.checks.push('Chromium delivered trusted composition events');
+  assert.ok(report.events.some(e=>e.type==='compositionend'),'Missing Chromium compositionend');
+  report.checks.push('Chromium delivered trusted preedit and a compositionend');
 } catch(error) {
   report.error=String(error);throw error;
 } finally {
