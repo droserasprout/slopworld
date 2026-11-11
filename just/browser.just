@@ -25,8 +25,8 @@ browser-test-harness:
     node --test experiments/browser/harness/loading-quotes.test.mjs
 
 [group('browser prototype')]
-browser-host-rendering-check:
-    systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}}
+browser-host-rendering-check rendering='auto':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 --setenv=PROBE_RENDERING={{quote(rendering)}} node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}}
 
 [group('browser prototype')]
 browser-host-canvas-reuse-check:
@@ -188,8 +188,8 @@ browser-host-benchmark profile output phases='idle,output,typing,scrolling,switc
     systemd-run --user --pipe --wait --collect --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} node {{quote(justfile_directory() / 'experiments/browser/harness/benchmark.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(phases)}} {{quote(quad_cache)}} {{quote(canvas_reuse)}} {{quote(packet_cache)}} {{quote(idle_yield)}} {{quote(discarded_drawing)}} {{quote(early_input)}} {{quote(comparison)}}
 
 [group('browser prototype')]
-browser-host-workspace-bounded session='slop-al-7' width='1536' height='864' scale='1.666666667' color_type='unorm8' screenshots='1':
-    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_WIDTH={{quote(width)}} --setenv=PROBE_HEIGHT={{quote(height)}} --setenv=PROBE_DPR={{quote(scale)}} --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_CANVAS_COLOR_TYPE={{quote(color_type)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-workspace {{quote(session)}} 1
+browser-host-workspace-bounded session='slop-al-7' width='1536' height='864' scale='1.666666667' color_type='unorm8' screenshots='1' rendering='auto':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_WIDTH={{quote(width)}} --setenv=PROBE_HEIGHT={{quote(height)}} --setenv=PROBE_DPR={{quote(scale)}} --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_CANVAS_COLOR_TYPE={{quote(color_type)}} --setenv=PROBE_RENDERING={{quote(rendering)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-workspace {{quote(session)}} 1
 
 # Capture the existing native game window without input or geometry changes.
 [group('browser prototype')]
