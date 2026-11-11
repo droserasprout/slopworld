@@ -7,6 +7,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Adapters/Adapters.csproj" />
+    <Reference Include="Waylith">
+      <HintPath>$(GameDirectory)/Waylith.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityStubs">
       <HintPath>$(GameDirectory)/UnityStubs.dll</HintPath>
       <Private>false</Private>
