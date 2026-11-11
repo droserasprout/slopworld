@@ -31,7 +31,7 @@ export function configureGuiTintCache(enabled) {
 
 // Only clipScreen resets to physical coordinates before recording its rectangle.
 // Keep the generic transformed path available for diagnostics and other clips.
-let screenClipFastPath = false;
+let screenClipFastPath = true;
 export function configureGuiScreenClipFastPath(enabled) {
   const previous = screenClipFastPath;
   screenClipFastPath = !!enabled;
