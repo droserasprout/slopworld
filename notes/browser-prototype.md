@@ -453,6 +453,13 @@ measurements. `/?idleYield=off&packetCache=off` restores continuous scheduling a
 serialization for comparison. Explicit probe URLs opt in by including those flags.
 This does not establish complete animation equivalence or visual parity.
 
+The default-off `window.__workspace.setTaskYield(enabled)` diagnostic returns its
+previous setting and inserts a zero-delay task before requesting the next active
+animation frame. Idle yielding retains its longer stable-frame delay; input and
+transport activity cancel either wait and coalesce into one animation frame,
+including activity during native drawing. This scheduling experiment leaves
+native update/input ownership intact; it does not establish a latency benefit.
+
 Render textures retain Canvas backing across frames for the actual mod terminal
 cache. Browser capability reporting disables GPU CopyTexture so that cache selects
 its full-screen repaint branch. Image uploads follow native identity and
