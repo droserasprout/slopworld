@@ -47,7 +47,9 @@ wrapped and rich editing uses the installed layout's hit testing and caret posit
 selection follows its line geometry. Unsupported coverage still uses the diagnostic fallback.
 Plain-run measurement and horizontal alignment use per-glyph rounded advances too;
 rounding only the final total can disagree with the rendered endpoint.
-Each bounded plain-text cache line retains at most one projected glyph run. Its
+The opt-in projected-glyph cache lets each bounded plain-text cache line retain
+at most one projected glyph run. It stays off by default: real idle/output
+comparisons have not established a frame-time benefit. Its
 identity includes pen/origin, scale, the complete transform and scroll offset,
 fine text clipping and the current physical drawing clip. Reuse skips repeated
 glyph projection/culling but still validates image uploads and emits the original

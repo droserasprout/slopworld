@@ -380,35 +380,52 @@ public sealed partial class BrowserGui : IGuiBackend
     {
         if (SuppressDrawing)
             return;
-        if (
-            DrawBakedText(
-                rect,
-                text,
-                fontIndex,
-                fontSize,
-                fontStyle,
-                anchor,
-                wordWrap,
-                color,
-                clipRect,
-                richText
-            )
-        )
+        long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
+        bool baked = DrawBakedText(
+            rect,
+            text,
+            fontIndex,
+            fontSize,
+            fontStyle,
+            anchor,
+            wordWrap,
+            color,
+            clipRect,
+            richText
+        );
+        if (BrowserGuiInput.Profile)
+        {
+            ProfileBakedTicks += Stopwatch.GetTimestamp() - started;
+            if (baked)
+            {
+                ProfileBakedRuns++;
+                ProfileBakedCharacters += text.Length;
+            }
+            started = Stopwatch.GetTimestamp();
+        }
+        if (baked)
             return;
-        if (
-            DrawNativeText(
-                rect,
-                text,
-                fontIndex,
-                fontSize,
-                fontStyle,
-                anchor,
-                wordWrap,
-                color,
-                clipRect,
-                richText
-            )
-        )
+        bool native = DrawNativeText(
+            rect,
+            text,
+            fontIndex,
+            fontSize,
+            fontStyle,
+            anchor,
+            wordWrap,
+            color,
+            clipRect,
+            richText
+        );
+        if (BrowserGuiInput.Profile)
+        {
+            ProfileNativeTicks += Stopwatch.GetTimestamp() - started;
+            if (native)
+                ProfileNativeRuns++;
+            else
+                ProfileFallbackRuns++;
+        }
+        if (native)
             return;
         Emit(
             "text",

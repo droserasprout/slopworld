@@ -7,7 +7,9 @@ namespace BrowserAdapters;
 
 public sealed partial class BrowserGui
 {
-    static bool glyphCacheEnabled = true;
+    // Real workspace comparisons have not established a frame-time benefit.
+    // Keep projected-run reuse available for diagnostics, without default retention.
+    static bool glyphCacheEnabled;
 
     // Diagnostic comparison switch; disabling retains the original emission path.
     public static bool ConfigureGlyphCache(bool enabled)

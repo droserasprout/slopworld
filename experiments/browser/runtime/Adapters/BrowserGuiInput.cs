@@ -219,6 +219,8 @@ public static class BrowserGuiInput
         DrawUnpresented(target, draw);
         target.Discard();
         long layoutEnd = Profile ? Stopwatch.GetTimestamp() : 0;
+        if (Profile)
+            target.ResetTextProfile();
         GUI.matrix = Matrix4x4.identity;
         Event.current = new Event
         {
@@ -243,6 +245,12 @@ public static class BrowserGuiInput
                         inputMs = Ms(started, inputEnd),
                         layoutMs = Ms(inputEnd, layoutEnd),
                         repaintMs = Ms(layoutEnd, repaintEnd),
+                        bakedTextMs = target.ProfileBakedTicks * 1000d / Stopwatch.Frequency,
+                        nativeTextMs = target.ProfileNativeTicks * 1000d / Stopwatch.Frequency,
+                        bakedTextRuns = target.ProfileBakedRuns,
+                        bakedTextCharacters = target.ProfileBakedCharacters,
+                        nativeTextRuns = target.ProfileNativeRuns,
+                        fallbackTextRuns = target.ProfileFallbackRuns,
                         drainMs = Ms(repaintEnd, serializationEnd),
                         resourceSweepMs = target.LastResourceSweepMs,
                         serializationMs = target.LastSerializationMs,
