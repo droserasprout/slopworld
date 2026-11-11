@@ -39,6 +39,16 @@ public partial class Probe
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigurePacketCache", enabled)!;
 
     [JSExport]
+    public static bool WorkspaceCommandValueCache(bool enabled) =>
+        (bool)
+            Invoke(
+                "Adapters",
+                "BrowserAdapters.BrowserGui",
+                "ConfigureCommandValueCache",
+                enabled
+            )!;
+
+    [JSExport]
     public static bool WorkspaceQuadCache(bool enabled) =>
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureQuadCache", enabled)!;
 

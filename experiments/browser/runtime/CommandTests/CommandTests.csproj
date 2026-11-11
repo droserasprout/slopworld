@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Adapters/BrowserCommandValueCache.cs" Link="BrowserCommandValueCache.cs" />
     <Compile Include="../Adapters/BrowserCommandWriter.cs" Link="BrowserCommandWriter.cs" />
     <Compile Include="../Adapters/BrowserPacketCache.cs" Link="BrowserPacketCache.cs" />
     <Compile Include="../Adapters/BrowserQuadWriter.cs" Link="BrowserQuadWriter.cs" />
