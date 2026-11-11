@@ -24,6 +24,7 @@ browser-test-harness:
     node --test experiments/browser/harness/tint.test.mjs
     node --test experiments/browser/harness/gui-probe.test.mjs
     node --test experiments/browser/harness/gui-quads.test.mjs
+    node --test experiments/browser/harness/gui-pixels.test.mjs
     node --test experiments/browser/harness/loading-quotes.test.mjs
 
 [group('browser prototype')]
@@ -68,6 +69,16 @@ browser-bench-quad-decode:
 [group('browser prototype')]
 browser-bench-pixel-decode:
     node experiments/browser/harness/gui-pixels-bench.mjs
+
+# Real Chromium Canvas upload equivalence and CPU timing; no game or screenshots.
+[group('browser prototype')]
+browser-host-pixel-upload-check rendering='auto':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Stream authored probe sources: worker worktrees may be private to a sandbox.
+    tar -C {{quote(justfile_directory())}} -cf - experiments/browser/harness experiments/browser/runtime/wwwroot | \
+      systemd-run --user --pipe --wait --collect -p CPUQuota=200% --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_RENDERING={{quote(rendering)}} \
+      bash -c 'set -euo pipefail; probe_root=$(mktemp -d); trap '\''rm -rf "$probe_root"'\'' EXIT; tar -xf - -C "$probe_root"; node "$probe_root/experiments/browser/harness/rendering-check.mjs" pixels'
 
 [group('browser prototype')]
 browser-window-check:

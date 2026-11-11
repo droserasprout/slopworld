@@ -1,17 +1,7 @@
 // Synthetic upload decoding only; excludes Canvas, WASM and workspace latency.
 import assert from 'node:assert/strict';
 
-// Keep the candidate local until upload-heavy workspace measurements justify a
-// production change. A decode microbenchmark cannot establish frame-time gains.
-const decodeGuiPixels = value => {
-  if (typeof Uint8Array.fromBase64 === 'function') {
-    const bytes = Uint8Array.fromBase64(value);
-    return new Uint8ClampedArray(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  }
-  const binary = atob(value), pixels = new Uint8ClampedArray(binary.length);
-  for (let i = 0; i < binary.length; i++) pixels[i] = binary.charCodeAt(i);
-  return pixels;
-};
+import { decodeGuiPixels } from '../runtime/wwwroot/gui-pixels.js';
 
 const nativeDecoder = Uint8Array.fromBase64;
 const reference = value => Uint8ClampedArray.from(atob(value), c => c.charCodeAt(0));
