@@ -60,6 +60,13 @@ Resize, scale and mode changes invalidate pending results; disabling or destroyi
 the overlay cancels workers and releases textures. Cursor dimming must preserve the
 original hotspot.
 
+`UiBubble` owns transient hint/advice presentation and one shared real-time sequence.
+Callers supply text, a fixed screen anchor, optional following text, and an optional
+request lifetime guard. Map components and Entry workspaces share this presenter;
+bubble visibility never requires a map, core cell, or simulation update. The GUI
+post-window hook draws above opaque panes and below CRT effects. A fresh request
+replaces the sequence; expiry or a retired owner releases its callbacks.
+
 `TooltipLayout` freezes wrapping because GUI transforms can change native line breaks.
 Invalidate for content or metrics, not pointer motion. `Window.Margin` translates the
 GUI group rather than adding padding. Native Tiny text can draw as Small; use shared

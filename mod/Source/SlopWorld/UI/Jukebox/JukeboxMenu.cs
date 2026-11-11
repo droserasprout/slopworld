@@ -13,10 +13,12 @@ namespace SlopWorld
             string now = Radio.CachedNowPlaying;
             if (string.IsNullOrEmpty(now))
                 return "Jukebox";
-            string song = "\u266A " + now;
+            // Keep tooltip text in the UI face: decorative glyphs can force an entire
+            // label onto a fallback face whose advances differ from native measurement.
+            string song = "Now playing: " + now;
             return !Radio.Spotify && Radio.Picked == null
                 ? song
-                : "\u25C9 " + Radio.Source + "\n" + song;
+                : "Source: " + Radio.Source + "\n" + song;
         }
 
         // Open the same menu from the map jukebox and status bar.

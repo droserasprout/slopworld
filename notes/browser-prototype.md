@@ -197,6 +197,11 @@ client without changing the daemon or requiring that game client to restart.
 
 ## Entry workspace and GUI
 
+`WorkspaceDrawing` explicitly invokes shared `UiBubble` chrome after queued GUI
+windows. Offline WASM installs selected hooks, so the native Harmony post-window
+patch alone cannot present bubbles there. The door check exercises Advice expiry
+and the Hint sequence through DOM clicks without creating a colony.
+
 `bootstrap.js` paints the pre-runtime loading screen before importing the WASM
 entry module. Its authored LoadingFont atlas is staged separately from Content.zip
 and included in redistributable tooling; it contains no game-derived content.

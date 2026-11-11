@@ -71,6 +71,8 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowTarget.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/UiBubbleSequence.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/UiBubblePlacement.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/NativeTextLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/NativeTextScope.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Chrome/NativeText.cs" />
