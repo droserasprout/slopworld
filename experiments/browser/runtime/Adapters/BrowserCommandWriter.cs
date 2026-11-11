@@ -13,6 +13,18 @@ internal static class BrowserCommandWriter
     static ArrayBufferWriter<byte>? buffer;
     static readonly BrowserQuadWriter quads = new();
 
+    [ThreadStatic]
+    static BrowserCommandValueCache? values;
+    internal static bool ValueCacheEnabled { get; private set; }
+
+    internal static bool ConfigureValueCache(bool enabled)
+    {
+        bool previous = ValueCacheEnabled;
+        ValueCacheEnabled = enabled;
+        values = null;
+        return previous;
+    }
+
     internal static string Serialize(List<Command> commands)
     {
         var output = buffer ??= new ArrayBufferWriter<byte>(16384);
@@ -20,13 +32,15 @@ internal static class BrowserCommandWriter
         try
         {
             using var writer = new Utf8JsonWriter(output);
+            var valueCache = ValueCacheEnabled ? values ??= new BrowserCommandValueCache() : null;
             writer.WriteStartArray();
             foreach (var command in commands)
             {
                 writer.WriteStartObject();
                 writer.WriteString("kind"u8, command.kind);
                 writer.WritePropertyName("value"u8);
-                Write(writer, command.value);
+                if (valueCache == null || !valueCache.TryWrite(writer, command.value))
+                    Write(writer, command.value);
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();
@@ -50,7 +64,7 @@ internal static class BrowserCommandWriter
         writer.WriteEndArray();
     }
 
-    static void Write(Utf8JsonWriter writer, object value)
+    internal static void Write(Utf8JsonWriter writer, object value)
     {
         if (value is int number)
         {

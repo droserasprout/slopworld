@@ -55,6 +55,7 @@ if (
 Console.WriteLine(
     "Direct and generated packets match the original JSON contract and recover after failed/oversized writes."
 );
+CommandValueCacheTests.Run();
 PacketCacheTests.Run(commands);
 GlyphRunTests.Run();
 

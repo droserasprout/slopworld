@@ -104,5 +104,91 @@ internal static class CommandWriterBenchmark
                 }
             )
         );
+        ValueCacheBenchmark(commands);
+    }
+
+    static void ValueCacheBenchmark(List<BrowserGui.Command> commands)
+    {
+        commands.Add(new("matrix", new float[] { 1, 0, 0, 1, 0, 0 }));
+        commands.Add(new("clipScreen", new float[] { 0, 0, 1536, 864 }));
+        commands.Add(new("target", new BrowserGui.TargetCommand(0, 0, 0)));
+        int changingIndex = commands.Count;
+        commands.Add(new("releaseImage", 0));
+        var fills = commands.Select(c => c.value).OfType<BrowserGui.FillCommand>().ToArray();
+        var samples = new List<object>();
+        bool previous = BrowserCommandWriter.ValueCacheEnabled;
+        try
+        {
+            // A changing integer makes each packet different even when all cached
+            // geometry repeats. No whole-packet cache participates in this benchmark.
+            foreach (string workload in new[] { "repeated", "quarter-moving", "all-moving" })
+            {
+                for (int round = 0; round < 6; round++)
+                    foreach (
+                        bool enabled in round % 2 == 0
+                            ? new[] { false, true }
+                            : new[] { true, false }
+                    )
+                    {
+                        BrowserCommandWriter.ConfigureValueCache(enabled);
+                        void Prepare(int frame)
+                        {
+                            commands[changingIndex] = new("releaseImage", frame);
+                            int count =
+                                workload == "repeated" ? 0
+                                : workload == "quarter-moving" ? fills.Length / 4
+                                : fills.Length;
+                            for (int j = 0; j < count; j++)
+                                fills[j].rect[0] = j * 9.1f + frame * .3f;
+                        }
+                        for (int frame = 0; frame < 30; frame++)
+                        {
+                            Prepare(frame);
+                            string expected = JsonSerializer.Serialize(
+                                commands,
+                                BrowserGuiJson.Default.ListCommand
+                            );
+                            if (BrowserCommandWriter.Serialize(commands) != expected)
+                                throw new Exception("Value cache changed benchmark packet");
+                        }
+                        long allocated = GC.GetAllocatedBytesForCurrentThread();
+                        long started = Stopwatch.GetTimestamp();
+                        int chars = 0;
+                        for (int frame = 30; frame < 130; frame++)
+                        {
+                            Prepare(frame);
+                            chars = BrowserCommandWriter.Serialize(commands).Length;
+                        }
+                        samples.Add(
+                            new
+                            {
+                                workload,
+                                enabled,
+                                msPerPacket = Stopwatch.GetElapsedTime(started).TotalMilliseconds
+                                    / 100,
+                                allocatedBytesPerPacket = (
+                                    GC.GetAllocatedBytesForCurrentThread() - allocated
+                                ) / 100,
+                                chars,
+                            }
+                        );
+                    }
+            }
+        }
+        finally
+        {
+            BrowserCommandWriter.ConfigureValueCache(previous);
+        }
+        Console.WriteLine(
+            JsonSerializer.Serialize(
+                new
+                {
+                    benchmark = "small-command-values",
+                    commandCount = commands.Count,
+                    equivalent = true,
+                    samples,
+                }
+            )
+        );
     }
 }
