@@ -26,6 +26,10 @@ Requirements: repository .NET 10 SDK, Just, Node.js with built-in WebSocket supp
 1.7 installation. First restore requires network access. No additional .NET workload
 was needed for this interpreter build.
 
+The [private mixed AOT experiment](aot/README.md) offers separate opt-in recipes
+for an existing wasm-tools SDK and final prepared root. Its expensive build and
+game-derived output stay isolated from launcher defaults and release packaging.
+
 Configure `SLOPD_URL` and `SLOPD_TOKEN` in the host server environment. Use a root
 token for session creation and daemon configuration; agent tokens retain their
 restrictions. Never place credentials in browser files or URLs. From the repo root:
