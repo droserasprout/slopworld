@@ -11,6 +11,7 @@ browser-validate directory page='/' report='experiments/browser/artifacts/browse
 [group('browser prototype')]
 browser-test-harness:
     python3 -m unittest discover -s experiments/browser/harness -p 'benchmark_fixture_test.py' -q
+    node --test experiments/browser/harness/benchmark-workload.test.mjs
     node --test experiments/browser/harness/gui-keyboard.test.mjs experiments/browser/harness/text-input.test.mjs experiments/browser/harness/clipboard.test.mjs
     node --test experiments/browser/harness/workspace-fullscreen.test.mjs
     node --test experiments/browser/harness/workspace-cursor.test.mjs

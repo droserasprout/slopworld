@@ -428,9 +428,15 @@ original session without sending it input. Its switching phase invokes native Op
 and measures attachment, so it does not replace sidebar-control verification. The
 `typing` phase sends whole commands; `keystrokes` separately sends one ASCII key
 at a time to an invocation-owned PTY in noncanonical mode and verifies its byte
-reply without Enter. Both measure native receive-buffer observation, including
-20 ms predicate polling, rather than physical display latency. The fixture restores
-canonical input after each keystroke phase.
+reply without Enter. Each reply in `keystrokes` ends with a newline, stressing
+full-viewport scrolling. The separate `inlinekeystrokes` phase overwrites one line
+with carriage returns and fixed-width, unique byte markers. Its raw-mode setup and
+explicit Enter/final newline happen outside input timing and profiled frames.
+Both single-key phases reset the same fixed screen before running, retain wire
+timing, and measure native receive-buffer observation, including 20 ms predicate
+polling, rather than physical display latency. The fixture restores prior terminal
+settings on completion or read failure. The inline phase complements the scrolling
+stress workload; it does not replace the broader workload and correctness gates.
 Large batches use packed little-endian double tables and ordered indices; the transport preserves the numbers
 the original float JSON parsed into JavaScript, rather than substituting raw float32
 values. Canvas decodes before playback and profiling. The focused command tests own
