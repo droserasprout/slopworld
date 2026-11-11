@@ -7,7 +7,7 @@ test('root defaults are internal and explicit probe URLs remain explicit', () =>
   const defaults=workspaceParameters(root);
   for(const key of ['entry','assets','eco','workspace','live','app','referenceAppearance','nativeFonts','responsive','idleYield','packetCache'])
     assert.equal(defaults.has(key),true,key);
-  assert.equal(defaults.get('session'),'slop-al-7');
+  assert.equal(defaults.has('session'),false,'Default startup must work with any host catalog');
   assert.equal(root.search,'');
   const explicit=workspaceParameters({pathname:'/',search:'?session=fixture&width=1000&height=700&uiScale=1'});
   assert.equal(explicit.get('session'),'fixture');

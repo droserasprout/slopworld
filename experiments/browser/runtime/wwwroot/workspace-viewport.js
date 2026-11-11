@@ -3,7 +3,7 @@
 export function workspaceParameters(address = globalThis.location) {
   const requested = new URLSearchParams(address.search);
   if (address.pathname !== '/') return requested;
-  const parameters = new URLSearchParams('entry&assets&eco&workspace&live&app&referenceAppearance&nativeFonts&responsive&idleYield&packetCache&session=slop-al-7');
+  const parameters = new URLSearchParams('entry&assets&eco&workspace&live&app&referenceAppearance&nativeFonts&responsive&idleYield&packetCache');
   if (['width','height','uiScale'].some(key=>requested.has(key))) parameters.delete('responsive');
   for (const [key,value] of requested) parameters.set(key,value);
   return parameters;

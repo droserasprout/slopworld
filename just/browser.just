@@ -39,6 +39,16 @@ browser-test-startup:
     just --justfile experiments/browser/runtime/StartupTests/justfile test
     just --justfile experiments/browser/runtime/UnderlyingTests/justfile test
 
+# Exercise startup recovery without contacting or stopping the user's daemon.
+[group('browser prototype')]
+browser-host-offline-startup-check:
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=SLOPD_URL= --setenv=SLOPD_TOKEN= --setenv=PROBE_PROGRESS=1 --setenv=PROBE_COMMAND_TIMEOUT_MS=540000 --setenv=PROBE_TIMEOUT_MS=540000 node {{ quote(justfile_directory() / 'experiments/browser/harness/validate.mjs') }} {{ quote(justfile_directory() / 'experiments/browser/runtime/out/wwwroot-eco') }} / {{ quote(justfile_directory() / 'experiments/browser/artifacts/offline-startup.json') }}
+    just browser-offline-startup-check
+
+[group('browser prototype')]
+browser-offline-startup-check report='experiments/browser/artifacts/offline-startup.json':
+    node experiments/browser/harness/offline-startup-check.mjs {{quote(report)}}
+
 [group('browser prototype')]
 browser-serialization-check profile:
     just browser-evaluate {{quote(profile)}} experiments/browser/harness/serialization-check.js
