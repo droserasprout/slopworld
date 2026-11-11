@@ -25,7 +25,27 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         public readonly Dictionary<char, TmpGlyphMetrics> Glyphs = new();
         BrowserTextCache<TmpGlyphMetrics>? textRuns;
         internal BrowserTextCache<TmpGlyphMetrics> TextRuns =>
-            textRuns ??= new(Glyphs, glyph => glyph.advanceX);
+            textRuns ??= new(
+                Glyphs,
+                glyph => glyph.advanceX,
+                glyph => glyph.x0,
+                glyph =>
+                    float.IsFinite(glyph.x1)
+                    && glyph.x1 >= glyph.x0
+                    && float.IsFinite(glyph.x1 - glyph.x0)
+                    && float.IsFinite(glyph.y0)
+                    && float.IsFinite(glyph.y1)
+                    && glyph.y1 >= glyph.y0
+                    && float.IsFinite(glyph.y1 - glyph.y0),
+                glyph =>
+                    Math.Max(
+                        Math.Abs(glyph.advanceX),
+                        Math.Max(
+                            Math.Max(Math.Abs(glyph.x0), Math.Abs(glyph.x1)),
+                            Math.Max(Math.Abs(glyph.y0), Math.Abs(glyph.y1))
+                        )
+                    )
+            );
     }
 
     public static readonly BrowserFontBank Instance = new();

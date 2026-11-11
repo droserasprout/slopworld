@@ -12,7 +12,7 @@ benchmark-glyphs:
     DOTNET_TieredCompilation=0 dotnet run --project NativeTextTests.csproj -c Release -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --glyph-benchmark
 
 format:
-    dotnet tool run csharpier format . ../BrowserGlyphCache.cs ../Adapters/BrowserGui.Images.cs ../Adapters/BrowserGui.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
+    dotnet tool run csharpier format . ../BrowserGlyphCache.cs ../Adapters/BrowserFontBank.cs ../Adapters/BrowserGui.Images.cs ../Adapters/BrowserGui.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
 
 lint:
-    dotnet tool run csharpier check . ../BrowserGlyphCache.cs ../Adapters/BrowserGui.Images.cs ../Adapters/BrowserGui.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
+    dotnet tool run csharpier check . ../BrowserGlyphCache.cs ../Adapters/BrowserFontBank.cs ../Adapters/BrowserGui.Images.cs ../Adapters/BrowserGui.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
