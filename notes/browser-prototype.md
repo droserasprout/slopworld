@@ -471,6 +471,14 @@ Bounded host probes disable the diagnostic browser's desktop session bus so Chro
 cannot move itself into an uncapped application scope. They verify the effective
 quota before navigating to the workspace and fail if the requested bound is absent.
 The Firefox workload runner uses direct geckodriver HTTP and the same fixture script.
+`browser-host-firefox-bitmap-check` runs a game-free, headless Canvas/ImageBitmap
+glyph playback comparison with exact pixel checks, alternating source order and
+separate submission/readback timing under the same two-core bound.
+The Firefox workload recipe's optional `canvas_profile` argument installs aggregate
+Canvas method and frame-reuse preparation timing after startup. It distinguishes
+screen/target calls and coarse source/destination image sizes without retaining
+pixels or command contents. This instrumented diagnostic includes timer overhead;
+use an uninstrumented comparison to establish a workload speedup.
 Its injected diagnostics execute in the document realm: WebDriver's isolated module
 map would otherwise create a second GUI image bank. It owns its browser/process
 group and temporary sessions; the recovery recipe checks host/temporary metadata
