@@ -10,7 +10,7 @@ import {jiterpreterSnapshot} from './browser-jiterpreter.mjs';
 
 const [directory, output, phaseList='idle,output,typing,scrolling,switching',page='/workspace.html'] = process.argv.slice(2);
 const phases=phaseList.split(',');
-if(!directory || !output || phases.some(p=>!['idle','output','typing','cyrillic','scrolling','switching'].includes(p)))
+if(!directory || !output || phases.some(p=>!['idle','output','typing','cyrillic','keystrokes','scrolling','switching'].includes(p)))
   throw Error('Usage: firefox-benchmark.mjs RUNTIME OUTPUT [PHASES] [PAGE]');
 if(!page.startsWith('/') || page.startsWith('//') || /token|credential|authorization/i.test(page))
   throw Error('PAGE must be a local path without credentials');
@@ -147,7 +147,8 @@ try {
     const summary={phase,durationMs:result.durationMs,frameMs:distribution(result.intervals),
       drawFrameMs:distribution(result.drawIntervals),latencyMs:distribution(result.latencyMs),stageMeans,
       targetRepaintMs:Object.fromEntries(['managedMs','repaintMs','serializationMs','canvasMs'].map(key=>[key,distribution(targetRepaints.map(s=>s[key]))])),
-      latencyDefinition:['typing','cyrillic'].includes(phase)?'DOM key dispatch to matching text in native receive buffer'
+      latencyDefinition:phase==='keystrokes'?'Single DOM key dispatch to byte-verified echo in native receive buffer'
+        :['typing','cyrillic'].includes(phase)?'DOM command dispatch to matching reply in native receive buffer'
         :phase==='switching'?'Native Open to selected pane draw submission':null,
       browserProcesses:summarizeProcesses(before,after,ticks,pageSize)};
     report.phases.push({summary,result,jiterpreterBefore,jiterpreterAfter:await evaluate(`(${jiterpreterSnapshot.toString()})()`)});
