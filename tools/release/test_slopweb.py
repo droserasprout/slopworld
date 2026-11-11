@@ -77,8 +77,17 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
     assert 'private' not in (root / 'assets/reference-appearance.json').read_text()
 
 
-@pytest.mark.parametrize('values, sizes', [({}, [12, 14, 16, 14]), ({'uiFontSize': 0}, [11, 13, 15, 14])])
-def test_font_preparation_without_profile_matches_native_defaults(
+@pytest.mark.parametrize(
+    'values, sizes',
+    [
+        ({}, [12, 14, 16, 14]),
+        ({'uiFontSize': 0}, [11, 13, 15, 14]),
+        ({'uiFontSize': -1, 'fontSize': 0}, [11, 13, 15, 8]),
+        ({'uiFontSize': 1, 'fontSize': -1}, [1, 1, 3, 8]),
+        ({'uiFontSize': 99, 'fontSize': 99}, [46, 48, 50, 28]),
+    ],
+)
+def test_font_preparation_matches_native_defaults_and_size_limits(
     launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, values: dict, sizes: list[int]
 ) -> None:
     import appearance
