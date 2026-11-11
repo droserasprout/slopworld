@@ -36,16 +36,21 @@ internal static class BrowserHttpPatch
                 mod.MainModule.ImportReference(owner.Methods.Single(m => m.Name == "CreateHttp"))
             )
         );
-        var baseUrl = mod
-            .MainModule.GetType("SlopWorld.ConnectionInfo")
-            .Methods.Single(m => m.Name == "get_BaseUrl");
-        baseUrl.Body = new MethodBody(baseUrl);
-        baseUrl.Body.Instructions.Add(
-            Instruction.Create(
-                OpCodes.Call,
-                mod.MainModule.ImportReference(owner.Methods.Single(m => m.Name == "get_BaseUrl"))
-            )
-        );
-        baseUrl.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+        // Both getters describe the browser bridge. Patching only ConnectionInfo
+        // still makes every shared-config read resolve the absent host descriptor.
+        foreach (string type in new[] { "SlopWorld.ConnectionInfo", "SlopWorld.DaemonClient" })
+        {
+            var baseUrl = mod.MainModule.GetType(type).Methods.Single(m => m.Name == "get_BaseUrl");
+            baseUrl.Body = new MethodBody(baseUrl);
+            baseUrl.Body.Instructions.Add(
+                Instruction.Create(
+                    OpCodes.Call,
+                    mod.MainModule.ImportReference(
+                        owner.Methods.Single(m => m.Name == "get_BaseUrl")
+                    )
+                )
+            );
+            baseUrl.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+        }
     }
 }
