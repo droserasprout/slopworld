@@ -466,25 +466,28 @@ namespace SlopWorld
                 return order;
             }
 
-            // Tree views clear geometry. Read the colonist inventory independently so
-            // Alt+number works even before the Agents tab has ever been laid out.
+            // Tree views clear geometry. Native games use the colonist inventory;
+            // Entry workspaces have only daemon sessions and no MapUI/ColonistBar.
+            // Keep navigation available before the Agents tab has been laid out.
             var agents = new List<SessionInfo>();
-            var bar = Find.ColonistBar;
-            if (bar != null)
-                foreach (var entry in bar.Entries)
-                {
-                    var info = SnapshotGet(Session(entry.pawn));
-                    if (
-                        info != null
-                        && !info.Host
-                        && !info.Ephemeral
-                        && !info.Worker
-                        && !IsRouted(info)
-                        && SidebarScopes.SessionChosen(info)
-                        && PassesStatus(info)
-                    )
-                        agents.Add(info);
-                }
+            IEnumerable<SessionInfo> inventory =
+                Current.ProgramState == ProgramState.Playing && Current.Game != null
+                    ? Find.ColonistBar?.Entries.Select(entry => SnapshotGet(Session(entry.pawn)))
+                        ?? Enumerable.Empty<SessionInfo>()
+                    : SessionHub.Instance.Sessions;
+            foreach (var info in inventory)
+            {
+                if (
+                    info != null
+                    && !info.Host
+                    && !info.Ephemeral
+                    && !info.Worker
+                    && !IsRouted(info)
+                    && SidebarScopes.SessionChosen(info)
+                    && PassesStatus(info)
+                )
+                    agents.Add(info);
+            }
             return SidebarAgentRows.OrderAgents(agents, AgentColony.CompareNames);
         }
 

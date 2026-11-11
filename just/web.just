@@ -82,6 +82,11 @@ slopweb-host-features-check profile:
 slopweb-host-audio-check profile:
     systemd-run --user --pipe --wait --collect --setenv=PROBE_USER_GESTURE=1 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-audio-check.js')}}
 
+# Exercise stopped panes and F12 fallback on every sidebar tab in an owned browser.
+[group('web')]
+slopweb-host-entry-navigation-check profile:
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/entry-navigation-check.js')}}
+
 # Package the independent browser launcher using the selected native format.
 [group('package')]
 package-web distribution:

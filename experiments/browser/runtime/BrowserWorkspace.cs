@@ -131,6 +131,32 @@ public partial class Probe
         (string)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "SidebarRows")!;
 
     [JSExport]
+    public static string WorkspaceSessionOrder() =>
+        JsonSerializer.Serialize(Invoke("SlopWorld", "SlopWorld.Sidebar", "Sessions"));
+
+    // Select an existing stopped session locally for Entry drawing regression
+    // checks. This never stops, restarts or sends input to a daemon session.
+    [JSExport]
+    public static string WorkspaceObserveStoppedSession()
+    {
+        Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "RequireEntry");
+        var hub = Type("SlopWorld", "SlopWorld.SessionHub").GetField("Instance")!.GetValue(null)!;
+        var sessions = (IEnumerable)hub.GetType().GetProperty("Sessions")!.GetValue(hub)!;
+        var stopped = sessions
+            .Cast<object>()
+            .FirstOrDefault(session =>
+                (bool)session.GetType().GetProperty("Gone")!.GetValue(session)!
+            );
+        if (stopped == null)
+            throw new InvalidOperationException(
+                "Entry regression needs an existing stopped session"
+            );
+        string name = (string)stopped.GetType().GetField("Name")!.GetValue(stopped)!;
+        Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "Open", name);
+        return name;
+    }
+
+    [JSExport]
     public static void WorkspaceAppearance(string json)
     {
         // Only presentation preferences cross this boundary. Endpoint, credentials,
