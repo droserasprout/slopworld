@@ -145,6 +145,7 @@ try {
   report.fixture=await evaluate(`window.__benchmark.prepare(${JSON.stringify(fixtureCommand)})`);
   report.configuration.comparison=comparison;
   report.configuration.stageProfile=stageProfile;
+  if(process.env.PROBE_CANVAS_PROFILE==='1')await evaluate(await readFile(new URL('./canvas-call-profile.js',import.meta.url),'utf8'));
   if(comparisonExport)previousComparison=await evaluate(`${comparisonCall}(true)`);
   if(comparison==='tint')previousTintProfile=await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
   console.log('Firefox workspace and benchmark fixtures ready');
@@ -156,12 +157,14 @@ try {
     if(comparison==='tint')await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const before=await sample(root);
+    if(process.env.PROBE_CANVAS_PROFILE==='1')await evaluate('window.__canvasCallProfile.reset()');
     const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)},{stageProfile:${stageProfile}})`);
+    const canvasCalls=process.env.PROBE_CANVAS_PROFILE==='1'?await evaluate('window.__canvasCallProfile.take()'):undefined;
     const after=await sample(root);
     const stageMeans=Object.fromEntries(Object.keys(result.stages[0]??{}).map(key=>
       [key,result.stages.reduce((sum,s)=>sum+s[key],0)/result.stages.length]));
     const targetRepaints=result.stages.filter(stage=>stage.targetWrites>0);
-    const summary={phase,comparisonEnabled,durationMs:result.durationMs,frameMs:distribution(result.intervals),
+    const summary={phase,comparisonEnabled,canvasCalls,durationMs:result.durationMs,frameMs:distribution(result.intervals),
       drawFrameMs:distribution(result.drawIntervals),latencyMs:distribution(result.latencyMs),stageMeans,
       wireLatencyMs:result.wireTimings?.length ? Object.fromEntries(
         ['dispatchToSendMs','sendToMessageMs','messageToObservedMs'].map(key=>
