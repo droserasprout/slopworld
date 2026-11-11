@@ -37,5 +37,6 @@ Console.WriteLine(
 if (args.Length > 1 && args[1] != "--glyph-benchmark")
     LayoutChecks.Run();
 
+FontChecks.Run();
 ImageChecks.Run();
 GlyphChecks.Run(args.Contains("--glyph-benchmark"));

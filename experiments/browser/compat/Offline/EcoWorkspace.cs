@@ -52,6 +52,34 @@ internal static class EcoWorkspace
                 "Families",
                 "Families"
             );
+        using (
+            var fontAdapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"))
+        )
+        {
+            var bank = fontAdapters.MainModule.GetType("BrowserAdapters.BrowserFontBank");
+            var names = mod
+                .MainModule.GetType("SlopWorld.NativeFonts")
+                .Methods.Single(m => m.Name == "Names");
+            var il = names.Body.GetILProcessor();
+            var first = names.Body.Instructions[0];
+            il.InsertBefore(
+                first,
+                il.Create(
+                    OpCodes.Call,
+                    mod.MainModule.ImportReference(bank.Methods.Single(m => m.Name == "HasCatalog"))
+                )
+            );
+            il.InsertBefore(first, il.Create(OpCodes.Brfalse, first));
+            il.InsertBefore(first, il.Create(OpCodes.Ldarg_0));
+            il.InsertBefore(
+                first,
+                il.Create(
+                    OpCodes.Call,
+                    mod.MainModule.ImportReference(bank.Methods.Single(m => m.Name == "Names"))
+                )
+            );
+            il.InsertBefore(first, il.Create(OpCodes.Ret));
+        }
         // Native Unity audio is disabled: MusicUpdate would throw from Root_Play.Update.
         // BrowserAudio owns authored OST decoding through the DOM transport; keep
         // this native-manager suppression isolated from the rest of Root_Play.

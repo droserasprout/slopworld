@@ -50,7 +50,7 @@ def test_endpoint_credentials_stay_in_host_environment(
 def test_font_preparation_filters_profile_and_uses_private_native_bakes(
     launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import appearance
+    appearance = importlib.import_module('appearance')
 
     profile = tmp_path / 'slopworld/profiles/local/Config/SlopWorld.toml'
     profile.parent.mkdir(parents=True)
@@ -70,8 +70,8 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
         for style in (0, 1, 2, 3)
         for face in ('ui-13', 'ui-15', 'ui-17', 'terminal')
     ]
-    assert len(calls) == 50
-    assert [float(call[0][-2]) for call in calls[2:]] == [density for density in (1, 5 / 3, 2) for _ in range(16)]
+    assert len(calls) == 51
+    assert [float(call[0][-2]) for call in calls[3:]] == [density for density in (1, 5 / 3, 2) for _ in range(16)]
     assert all(call[1]['check'] for call in calls)
     assert all(call[1]['env']['LD_LIBRARY_PATH'].startswith(str(tmp_path / 'game')) for call in calls)
     assert 'private' not in (root / 'assets/reference-appearance.json').read_text()
@@ -88,25 +88,25 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
     ],
 )
 def test_font_preparation_matches_native_defaults_and_size_limits(
-    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, values: dict, sizes: list[int]
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, values: dict[str, Any], sizes: list[int]
 ) -> None:
-    import appearance
+    appearance = importlib.import_module('appearance')
 
     calls = []
     monkeypatch.setattr(appearance.subprocess, 'run', lambda args, **kwargs: calls.append(args))
     appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', tmp_path / 'runtime', values)
-    assert [int(call[-3]) for call in calls[2:]] == sizes * 12
+    assert [int(call[-3]) for call in calls[3:]] == sizes * 12
 
 
 def test_portrait_snapshot_preserves_pixels_and_identity_without_host_metadata(launcher: Any, tmp_path: Path) -> None:
-    import portraits
+    portraits = importlib.import_module('portraits')
 
     source = tmp_path / 'native'
     source.mkdir()
     pixels = struct.pack('<ii', 2, 1) + bytes([11, 22, 33, 255, 44, 55, 66, 128])
     name = hashlib.sha256(pixels).hexdigest() + '.rgba'
     (source / name).write_bytes(pixels)
-    manifest = {
+    manifest: dict[str, Any] = {
         'version': 1,
         'uiScale': 2,
         'private': 'must-not-copy',
@@ -132,7 +132,7 @@ def test_portrait_snapshot_preserves_pixels_and_identity_without_host_metadata(l
 def test_portrait_request_ignores_stale_ack_and_reads_only_published_snapshot(
     launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import portraits
+    portraits = importlib.import_module('portraits')
 
     now = [0.0]
     monkeypatch.setattr(portraits.time, 'monotonic', lambda: now[0])
@@ -156,7 +156,7 @@ def test_portrait_request_ignores_stale_ack_and_reads_only_published_snapshot(
 def test_portrait_request_failure_is_bounded_and_preserves_other_requests(
     launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
 ) -> None:
-    import portraits
+    portraits = importlib.import_module('portraits')
 
     now = [0.0]
     monkeypatch.setattr(portraits.time, 'monotonic', lambda: now[0])
@@ -196,9 +196,9 @@ def test_portrait_request_failure_is_bounded_and_preserves_other_requests(
     ],
 )
 def test_portrait_snapshot_rejects_unsafe_paths_and_inconsistent_geometry(
-    launcher: Any, tmp_path: Path, change: dict
+    launcher: Any, tmp_path: Path, change: dict[str, Any]
 ) -> None:
-    import portraits
+    portraits = importlib.import_module('portraits')
 
     pixels = struct.pack('<ii', 1, 1) + bytes([0, 0, 0, 255])
     name = hashlib.sha256(pixels).hexdigest() + '.rgba'
@@ -268,6 +268,7 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         'slopweb/launch.py',
         'slopweb/aot.py',
         'slopweb/appearance.py',
+        'slopweb/fonts.py',
         'slopweb/portraits.py',
         'experiments/browser/runtime/FontProbe/bin/Debug/net10.0/FontProbe.dll',
         'experiments/browser/runtime/FontProbe/bin/Debug/net10.0/FontProbe.deps.json',
@@ -291,7 +292,7 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         f'mod/Assemblies/{name}.dll'
         for name in ('SlopWorld', '0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn')
     ]
-    inputs += [f'experiments/browser/harness/{name}.mjs' for name in ('server', 'bridge', 'websocket')]
+    inputs += [f'experiments/browser/harness/{name}.mjs' for name in ('server', 'bridge', 'websocket', 'fonts')]
     for name in inputs:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -496,8 +497,10 @@ def test_aot_source_payload_requires_reviewed_compile_set(tmp_path: Path, change
         slopweb.stage_aot_sources(runtime, tmp_path / 'bundle')
 
 
-def test_explicit_portrait_source_is_validated_and_never_requests_live_capture(launcher, tmp_path, monkeypatch):
-    import portraits
+def test_explicit_portrait_source_is_validated_and_never_requests_live_capture(
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    portraits = importlib.import_module('portraits')
 
     monkeypatch.setenv('SLOPWEB_PORTRAITS', '')
     with pytest.raises(ValueError, match='cannot be empty'):
@@ -514,8 +517,8 @@ def test_explicit_portrait_source_is_validated_and_never_requests_live_capture(l
         portraits.host_snapshot()
 
 
-def test_missing_portrait_snapshot_can_be_imported_again(launcher, tmp_path):
-    import portraits
+def test_missing_portrait_snapshot_can_be_imported_again(launcher: Any, tmp_path: Path) -> None:
+    portraits = importlib.import_module('portraits')
 
     snapshot = portraits.read_snapshot(tmp_path / 'missing')
     snapshot.write(tmp_path)
@@ -530,6 +533,9 @@ def test_browser_ost_catalog_matches_authored_songs_and_files() -> None:
     source = (ROOT / 'experiments/browser/runtime/Adapters/BrowserAudio.cs').read_text()
     tracks = re.findall(r'"([a-z]+-\d{8})"', source)
     definitions = ET.parse(ROOT / 'mod/Defs/Songs.xml').getroot()
-    songs = [node.text.rsplit('/', 1)[-1] for node in definitions.findall('./SongDef/clipPath')]
+    songs = []
+    for node in definitions.findall('./SongDef/clipPath'):
+        assert node.text is not None
+        songs.append(node.text.rsplit('/', 1)[-1])
     assert tracks == songs
     assert sorted(tracks) == sorted(path.stem for path in (ROOT / 'mod/Sounds/SlopWorld/OST').glob('*.ogg'))

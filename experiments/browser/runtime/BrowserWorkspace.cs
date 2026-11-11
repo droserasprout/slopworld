@@ -67,6 +67,46 @@ public partial class Probe
         (string)Invoke("Adapters", "BrowserAdapters.BrowserGuiInput", "DiscardedDrawingProbe")!;
 
     [JSExport]
+    public static string WorkspaceDynamicFonts(
+        [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> changed
+    )
+    {
+        Type("Adapters", "BrowserAdapters.BrowserPreferences")
+            .GetField("Fonts")!
+            .SetValue(null, changed);
+        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
+        return (string)
+            Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "FontSelection", settings)!;
+    }
+
+    [JSExport]
+    public static bool WorkspaceFontCapacity(int bytes) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "Capacity", bytes)!;
+
+    [JSExport]
+    public static void WorkspaceFontRestore(string json)
+    {
+        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
+        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Apply", settings, json);
+        WorkspaceFontsReady();
+        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Write", settings);
+    }
+
+    [JSExport]
+    public static void WorkspaceFontsReady()
+    {
+        Invoke("Adapters", "BrowserAdapters.BrowserGui", "Install");
+        Invoke("SlopWorld", "SlopWorld.InstalledFonts", "Rescan");
+        Invoke("SlopWorld", "SlopWorld.UiFont", "Apply");
+        Invoke("SlopWorld", "SlopWorld.TerminalFont", "Invalidate");
+        Invoke("Adapters", "BrowserAdapters.BrowserActivity", "Notify");
+    }
+
+    [JSExport]
+    public static void WorkspaceFontCatalog(string json) =>
+        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "InstallCatalog", json);
+
+    [JSExport]
     public static void WorkspaceFontChains(string json) =>
         Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "InstallChains", json);
 

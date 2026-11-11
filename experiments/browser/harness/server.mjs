@@ -1,12 +1,13 @@
 // Loopback-only asset server. The selected build directory is its entire authority.
 import http from 'node:http';
+import { fontProvider, fontHttp } from './fonts.mjs';
 import { daemonHttp } from './bridge.mjs';
 import { daemonSocket } from './websocket.mjs';
 import { realpath, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export async function serve(directory, port = 0, daemon = { endpoint: process.env.SLOPD_URL, token: process.env.SLOPD_TOKEN }) {
+export async function serve(directory, port = 0, daemon = { endpoint: process.env.SLOPD_URL, token: process.env.SLOPD_TOKEN }, fonts = null) {
   const root = await realpath(directory);
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
     '.json': 'application/json', '.wasm': 'application/wasm', '.css': 'text/css' };
@@ -16,6 +17,9 @@ export async function serve(directory, port = 0, daemon = { endpoint: process.en
     res.setHeader('Cache-Control', 'no-store');
     if (!/^127\.0\.0\.1:\d+$/.test(req.headers.host ?? '')) {
       res.writeHead(403).end(); return;
+    }
+    if (req.url === '/host/fonts') {
+      await fontHttp(req, res, fonts); return;
     }
     if (req.url === '/host/health' || req.url.startsWith('/host/api/')) {
       await daemonHttp(req, res, daemon.endpoint, daemon.token);
@@ -46,6 +50,10 @@ export async function serve(directory, port = 0, daemon = { endpoint: process.en
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { url } = await serve(process.argv[2], Number(process.argv[3] ?? 8787));
+  const fonts = process.env.SLOPWEB_FONT_GAME ? fontProvider({
+    helper: path.resolve(path.dirname(process.argv[1]), '../fonts.py'),
+    game: process.env.SLOPWEB_FONT_GAME, cache: process.env.SLOPWEB_FONT_CACHE,
+  }) : null;
+  const { url } = await serve(process.argv[2], Number(process.argv[3] ?? 8787), undefined, fonts);
   console.log(url);
 }

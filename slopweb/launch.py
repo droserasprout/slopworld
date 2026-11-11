@@ -123,6 +123,10 @@ def main() -> None:
         if args.prepare:
             print(f'Prepared local runtime: {root}')
             return
+        env.update(
+            SLOPWEB_FONT_GAME=str(args.game.expanduser().resolve()),
+            SLOPWEB_FONT_CACHE=str(args.cache.expanduser().resolve() / 'fonts' / root.name),
+        )
         print(f'Open http://127.0.0.1:{args.port}{PAGE}', flush=True)
         os.execvpe('node', ['node', str(bundle / 'server/server.mjs'), str(root), str(args.port)], env)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
