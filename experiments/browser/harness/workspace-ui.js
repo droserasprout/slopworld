@@ -3,27 +3,16 @@
 (async () => {
   const managed = window.__managedProbe, canvas = document.querySelector('canvas');
   if (window.__workspace?.status !== 'running') throw new Error('Workspace is not running');
-  const original = managed.WorkspaceUpdate;
   const initial = JSON.parse(managed.WorkspaceState());
-  let commands = [];
-  managed.WorkspaceUpdate = (...args) => {
-    const value = original(...args); commands = JSON.parse(value).commands; return value;
-  };
-  const wait = () => new Promise(resolve => setTimeout(resolve, 250));
-  const labels = () => {
-    let matrix = new DOMMatrix(); const stack = [], labels = [];
-    for (const {kind,value:v} of commands) {
-      if (kind === 'matrix') matrix = new DOMMatrix(v);
-      else if (kind === 'group') {stack.push(matrix);matrix=matrix.translate(v.rect[0]-v.offset[0],v.rect[1]-v.offset[1]);}
-      else if (kind === 'clip' || kind === 'clipScreen') stack.push(matrix);
-      else if (kind === 'pop') matrix=stack.pop();
-      else if (kind === 'text') {
-        const p = new DOMPoint(v.rect[0]+5, v.rect[1]+10).matrixTransform(matrix);
-        labels.push({text:v.text,x:p.x,y:p.y});
-      }
-    }
-    return labels;
-  };
+  managed.WorkspaceSavePreferences();
+  const preferenceKey='slopworld.presentation.v1',bindingKey='slopworld.keybindings.v1';
+  const savedPreferences=localStorage.getItem(preferenceKey),savedBindings=localStorage.getItem(bindingKey);
+  let bindingTouched=false;
+  const previousLabels = managed.WorkspaceObserveLabels(true);
+  const wait = () => new Promise(resolve => setTimeout(resolve, 350));
+  const labels = () => JSON.parse(managed.WorkspaceLabels()).map(l => ({
+    text:l.text, x:l.x+Math.min(l.width/2,5*initial.uiScale), y:l.y+l.height/2
+  }));
   const click = async (x,y) => {
     const r=canvas.getBoundingClientRect();
     for (const type of ['pointerdown','pointerup']) {
@@ -44,13 +33,18 @@
   };
   try {
     await wait();
-    if (!labels().some(l=>l.text==='Appearance')) await click(1264,15);
+    if (!labels().some(l=>l.text==='Appearance')) {
+      const door=JSON.parse(managed.WorkspaceState()).doors.config;
+      if(!door.visible)throw new Error('Settings door is not visible');
+      const [x,y,w,h]=door.rect;await click((x+w/2)*initial.uiScale,(y+h/2)*initial.uiScale);
+    }
     const keyboard=label('Keyboard'); await click(keyboard.x,keyboard.y);
     label('Open/close agent terminal'); label('F12');
     const bindingLabel=label('Duplicate selected agent');
     const bindingButton=()=>labels().find(l=>l.x>bindingLabel.x+300 && Math.abs(l.y-bindingLabel.y)<1);
     if(bindingButton()?.text!=='D')throw new Error('Expected authored D binding for the reversible key check');
     await click(bindingButton().x,bindingButton().y); label('Press a key');
+    bindingTouched=true;
     await key('F13');
     if(bindingButton()?.text!=='F13')throw new Error('Function-key rebind failed');
     await click(bindingButton().x,bindingButton().y); label('Press a key');
@@ -89,5 +83,18 @@
     if(state.frame<=initial.frame || state.elapsed<=initial.elapsed || state.game.ticks!==0)
       throw new Error('UI clock did not advance independently of simulation');
     return {settings:true,authoredBindings:true,keyReboundAndRestored:true,preferenceChangedAndRestored:true,keyboardLayoutToggle:true,terminalReopened:true,uiClockAdvanced:true,game:state.game};
-  } finally {managed.WorkspaceUpdate=original;}
+  } finally {
+    managed.WorkspaceObserveLabels(previousLabels);
+    if(savedPreferences!==null) {
+      localStorage.setItem(preferenceKey,savedPreferences);
+      managed.WorkspacePreferences(JSON.stringify(JSON.parse(savedPreferences).preferences),json=>{
+        localStorage.setItem(preferenceKey,JSON.stringify({version:1,preferences:JSON.parse(json)}));
+      });
+    }
+    if(bindingTouched) {
+      localStorage.setItem(bindingKey,savedBindings??JSON.stringify({version:1,bindings:{SlopDuplicateSession:{a:'D'}}}));
+      (await import('/workspace-keybindings.js')).installWorkspaceKeyBindings(managed);
+      if(savedBindings===null)localStorage.removeItem(bindingKey);
+    }
+  }
 })()
