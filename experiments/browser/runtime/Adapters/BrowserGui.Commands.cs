@@ -11,6 +11,9 @@ public sealed partial class BrowserGui
     public static bool ConfigureQuadCache(bool enabled) =>
         BrowserQuadWriter.ConfigureCache(enabled);
 
+    public static bool ConfigureCommandValueCache(bool enabled) =>
+        BrowserCommandWriter.ConfigureValueCache(enabled);
+
     static bool benchmarkRequested;
     public static string SerializationBenchmark { get; private set; } = "null";
 

@@ -383,6 +383,16 @@ the prior setting after cleanup. Repeated idle packets benefit, but changing pac
 allocate snapshot copies; evaluate whole-workspace latency and CPU separately from
 serialization timing. The plain workspace URL enables it with idle yielding;
 explicit probe URLs remain opt-in.
+`BrowserCommandValueCache` independently reuses small serialized fill, matrix,
+clip and target values across changed packets. It defaults off;
+`Probe.WorkspaceCommandValueCache(bool)` returns the previous diagnostic setting
+and clears retained values. Keys contain structural integer fields and exact float
+bits, without retaining caller arrays. Entry and payload-byte bounds exclude
+uploads and large geometry. The direct writer still owns JSON formatting and
+command order; resource playback is unchanged. `CommandTests` checks exact bytes,
+mutation, signed zero and failure recovery; its `benchmark` recipe measures
+repeated and moving values on desktop. Miss-heavy workloads can cost more, and
+these CPU measurements do not establish WASM or whole-workspace benefit.
 `BrowserQuadCache` retains packed coordinates under entry/value bounds and verifies
 the original float bits after hash lookup, including signed zero. Image identity,
 tint and draw state remain outside the cache. The workload recipe accepts an on/off
