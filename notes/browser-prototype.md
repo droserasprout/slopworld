@@ -279,11 +279,16 @@ explicit byte readback and writes its context/capture metadata beside the PNG.
 The reference comparison reports dominant colors alongside pixel errors so broad
 flat-color differences are distinguishable from layout and text mismatches.
 
-`BrowserGui.Commands` owns typed drawing payloads and their generated JSON writers.
-All payload types must be registered in its serializer context; the game-free
-command check compares packets with the reference serializer. Opt-in `profile`
+`BrowserGui.Commands` owns typed drawing payloads and their generated reference writers.
+`BrowserCommandWriter` writes production packets directly into a reusable UTF-8
+buffer with bounded retained capacity, preserving property order, escaping and float formatting. New payloads
+must be added to both writers; the game-free command check compares exact packets
+with the reference serializer and checks recovery after failed and oversized writes.
+The CommandTests `benchmark` recipe compares both paths on a synthetic output-shaped
+packet with packed-quad caching enabled and disabled; host timing does not establish
+WASM or end-to-end workspace speed. Opt-in `profile`
 workspace URLs retain bounded stage timings. The serialization diagnostic alternates
-both writers against one identical live packet; it measures transport only and must
+all writers against one identical live packet; it measures transport only and must
 not be reported as an end-to-end workspace benchmark.
 Adjacent image quads sharing texture and tint form a flat numeric batch. Any
 intervening state/resource command ends it; Canvas preserves individual draw order
