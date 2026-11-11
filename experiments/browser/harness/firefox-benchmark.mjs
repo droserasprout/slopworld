@@ -160,6 +160,9 @@ try {
     const targetRepaints=result.stages.filter(stage=>stage.targetWrites>0);
     const summary={phase,comparisonEnabled,durationMs:result.durationMs,frameMs:distribution(result.intervals),
       drawFrameMs:distribution(result.drawIntervals),latencyMs:distribution(result.latencyMs),stageMeans,
+      wireLatencyMs:result.wireTimings?.length ? Object.fromEntries(
+        ['dispatchToSendMs','sendToMessageMs','messageToObservedMs'].map(key=>
+          [key,distribution(result.wireTimings.map(row=>row[key]))])) : null,
       targetRepaintMs:Object.fromEntries(['managedMs','repaintMs','serializationMs','canvasMs'].map(key=>[key,distribution(targetRepaints.map(s=>s[key]))])),
       latencyDefinition:phase==='keystrokes'?'Single DOM key dispatch to byte-verified echo in native receive buffer'
         :['typing','cyrillic'].includes(phase)?'DOM command dispatch to matching reply in native receive buffer'
