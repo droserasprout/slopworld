@@ -2,6 +2,30 @@ use super::*;
 use crate::emu::SessionEmu;
 
 #[test]
+fn git_status_tab_is_blank_and_preserves_filename_column() {
+    let mut e = SessionEmu::new(40, 2);
+    e.feed(b"\t\x1b[31mslopweb/\x1b[m");
+    let f = e.render();
+    assert_eq!(f.lines[0].as_ref(), "\x1b[0m        \x1b[0;31mslopweb/");
+}
+
+#[test]
+fn custom_tab_stops_preserve_existing_cells() {
+    let mut e = SessionEmu::new(40, 2);
+    e.feed(b"\x1b[3g\x1b[6G\x1bH\rabc\r\tX");
+    let f = e.render();
+    assert_eq!(f.lines[0].as_ref(), "\x1b[0mabc  X");
+}
+
+#[test]
+fn trims_trailing_default_tab_cells() {
+    let mut e = SessionEmu::new(40, 2);
+    e.feed(b"ab\t");
+    let f = e.render();
+    assert_eq!(f.lines[0].as_ref(), "\x1b[0mab");
+}
+
+#[test]
 fn maps_color_to_index_sgr() {
     let mut e = SessionEmu::new(20, 2);
     e.feed(b"\x1b[1;31mX\x1b[0m");

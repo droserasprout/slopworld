@@ -31,6 +31,8 @@ including lines buffered in the current transport chunk, and rechecks the deadli
 
 The mirror bounds each cell's combining tail. Discarded scalars still advance cluster
 parsing so standalone text after an oversized cluster keeps its columns.
+Row serialization emits retained tab cells as spaces: the emulator grid already
+resolves tab stops, and clients receive drawable cells rather than tab controls.
 
 Reader disconnect is not process exit. Failed status queries cannot declare exit;
 missing panes require a checked session listing. Confirmed exit records evidence

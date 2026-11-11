@@ -110,7 +110,7 @@ pub(super) fn serialize_row(row: &[Slot]) -> String {
 
     let last = row.iter().rposition(|s| match s {
         Slot::Ch(c, marks, fg, bg, flags, link) => {
-            !(*c == ' '
+            !(matches!(*c, ' ' | '\t')
                 && marks.is_none()
                 && ink(*fg) == Ink::Unsaid
                 && ink(*bg) == Ink::Unsaid
@@ -137,7 +137,9 @@ pub(super) fn serialize_row(row: &[Slot]) -> String {
             Slot::Spacer => continue,
             Slot::Blank => (' ', None, Pen::default(), ""),
             Slot::Ch(c, marks, fg, bg, flags, link) => (
-                *c,
+                // Alacritty retains HT in the starting cell for selection. Its grid
+                // already resolves tab stops; the wire carries drawable cells only.
+                if *c == '\t' { ' ' } else { *c },
                 marks.as_deref(),
                 Pen::of(*fg, *bg, *flags),
                 link.as_ref().map(|h| h.uri()).unwrap_or_default(),
