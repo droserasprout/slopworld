@@ -6,7 +6,8 @@ import {fileURLToPath} from 'node:url';
 import {processSampler} from './browser-process-cpu.mjs';
 import {browserGpuInfo} from './browser-rendering.mjs';
 
-const [profile, output, phaseList='idle,output,typing,scrolling,switching',quadCache='on',canvasReuse='keep',packetCache='keep',idleYield='keep',discardedDrawing='keep'] = process.argv.slice(2);
+const [profile, output, phaseList='idle,output,typing,scrolling,switching',quadCache='on',canvasReuse='keep',packetCache='keep',idleYield='keep',discardedDrawing='keep',earlyInput='keep'] = process.argv.slice(2);
+if(!['keep','on','off'].includes(earlyInput))throw new Error('Early input flush must be keep, on or off');
 if(!['keep','on','off'].includes(discardedDrawing))throw new Error('Discarded drawing suppression must be keep, on or off');
 if(!['keep','on','off'].includes(idleYield))throw new Error('Idle yield must be keep, on or off');
 if(!['keep','on','off'].includes(packetCache))throw new Error('Packet cache must be keep, on or off');
@@ -55,6 +56,7 @@ let previousCanvasReuse;
 let previousPacketCache;
 let previousIdleYield;
 let previousDiscardedDrawing;
+let previousEarlyInput;
 await mkdir(path.dirname(output),{recursive:true});
 try {
   report.browser=await call('Browser.getVersion');
@@ -81,6 +83,8 @@ try {
   report.configuration.canvasReuse=canvasReuse;
   report.configuration.packetCache=packetCache;
   report.configuration.idleYield=idleYield;
+  report.configuration.earlyInput=earlyInput;
+  if(earlyInput!=='keep')previousEarlyInput=await evaluate(`window.__managedProbe.WorkspaceInputFlushBeforeRepaint(${earlyInput==='on'})`);
   report.configuration.discardedDrawing=discardedDrawing;
   if(discardedDrawing!=='keep')previousDiscardedDrawing=await evaluate(`window.__managedProbe.WorkspaceDiscardedDrawing(${discardedDrawing==='on'})`);
   if(idleYield!=='keep')previousIdleYield=await evaluate(`window.__workspace.setIdleYield(${idleYield==='on'})`);
@@ -132,6 +136,8 @@ try {
     await evaluate(`window.__managedProbe.WorkspacePacketCache(${previousPacketCache})`).catch(error=>{report.packetRestoreError=String(error);process.exitCode=1;});
   if(previousIdleYield!==undefined)
     await evaluate(`window.__workspace.setIdleYield(${previousIdleYield})`).catch(error=>{report.idleRestoreError=String(error);process.exitCode=1;});
+  if(previousEarlyInput!==undefined)
+    await evaluate(`window.__managedProbe.WorkspaceInputFlushBeforeRepaint(${previousEarlyInput})`).catch(error=>{report.inputRestoreError=String(error);process.exitCode=1;});
   if(previousDiscardedDrawing!==undefined)
     await evaluate(`window.__managedProbe.WorkspaceDiscardedDrawing(${previousDiscardedDrawing})`).catch(error=>{report.drawingRestoreError=String(error);process.exitCode=1;});
   await mkdir(path.dirname(output),{recursive:true});

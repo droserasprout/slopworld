@@ -398,6 +398,10 @@ shortcuts use physical keys; ordinary text does not duplicate physical keydown.
 AltGraph printable keys enter the text path with synthetic Ctrl/Alt modifiers
 removed, preserving layout-generated characters without invoking bindings.
 Ordinary Ctrl+Alt chords retain their shortcut behavior.
+The workload recipe's `early_input` argument compares the native input flush
+before repaint with the previous after-serialization boundary in one browser;
+cleanup restores the prior mode. Reported typing latency still measures DOM input
+to native receive-buffer echo, not physical display latency.
 Installed Waylith stores Event.alt and Event.shift separately from Event.modifiers;
 populate both representations before native shortcut dispatch.
 Printable events retain their physical key on the same text-bearing event so native
