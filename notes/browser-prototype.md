@@ -478,6 +478,14 @@ are discarded with their source upload. `configureGuiTintCache` exposes the
 for immutable-image misses and mutable-target tint work without retaining pixels
 or command contents. The benchmark's `tint` mode runs four identical phases in
 off/on/on/off order and records those counters. Mutable render targets must still read their current pixels.
+`configureGuiScreenClipFastPath` defaults off and exposes a narrow physical-space
+`clipScreen` path: rectangle corners retain signed/fractional coordinates directly,
+while `group` and `clip` still map corners through the active transform. Both paths
+retain the same physical clip stack for render-target inheritance. The benchmark's
+`clip` comparison uses off/on/on/off and restores the prior mode;
+`browser-host-screen-clip-check` compares real Canvas pixels for nested transformed
+clips, empty/negative/fractional rectangles, pops and target transitions without
+starting the game. This correctness check makes no workspace performance claim.
 `tint.test.mjs` protects byte rounding; `tint-check.js` compares the old and new pixel
 loops in Chrome, excluding Canvas upload and complete workspace repaint costs.
 
