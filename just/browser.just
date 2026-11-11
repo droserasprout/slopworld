@@ -484,6 +484,9 @@ browser-screenshot profile output='experiments/browser/artifacts/workspace-curre
 browser-workspace-ui-check profile:
     just browser-evaluate {{quote(profile)}} experiments/browser/harness/workspace-ui.js
 
+browser-host-workspace-ui-check profile:
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/workspace-ui.js')}}
+
 # Create two disposable host shells through native controls, verify input/output,
 # switch sessions, attach an existing coding agent read-only, then remove test shells.
 [group('browser prototype')]
