@@ -13,6 +13,26 @@ def paint(suffix: str = '') -> None:
     print('BENCH_READY' + suffix, flush=True)
 
 
+def keystrokes(marker: str) -> None:
+    descriptor = sys.stdin.fileno()
+    previous = termios.tcgetattr(descriptor)
+    settings = termios.tcgetattr(descriptor)
+    settings[3] &= ~(termios.ICANON | termios.ECHO)
+    settings[6][termios.VMIN] = 1
+    settings[6][termios.VTIME] = 0
+    try:
+        termios.tcsetattr(descriptor, termios.TCSANOW, settings)
+        print('KEYS_READY_' + marker, flush=True)
+        for index in range(20):
+            value = os.read(descriptor, 1)
+            if not value:
+                raise EOFError('Keystroke fixture input closed')
+            print(f'KEY_{marker}_{index:02d}_{value.hex()}', flush=True)
+    finally:
+        termios.tcsetattr(descriptor, termios.TCSANOW, previous)
+    print('KEYS_DONE_' + marker, flush=True)
+
+
 def main() -> None:
     settings = termios.tcgetattr(sys.stdin.fileno())
     settings[3] &= ~termios.ECHO
@@ -35,6 +55,8 @@ def main() -> None:
                 time.sleep(0.05)
             suffix = '_' + command[7:] if command.startswith('stream ') else ''
             print('BENCH_STREAM_DONE' + suffix, flush=True)
+        elif command.startswith('keys '):
+            keystrokes(command[5:])
         elif command.startswith('echo '):
             print('ACK_' + command[5:], flush=True)
         elif command.startswith('echohex '):
