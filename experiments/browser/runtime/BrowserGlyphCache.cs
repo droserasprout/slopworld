@@ -8,6 +8,10 @@ public partial class Probe
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureGlyphCache", enabled)!;
 
     [JSExport]
+    public static bool WorkspaceGlyphTailClip(bool enabled) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureGlyphTailClip", enabled)!;
+
+    [JSExport]
     public static bool WorkspaceCellFastPath(bool enabled) =>
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureCellFastPath", enabled)!;
 }

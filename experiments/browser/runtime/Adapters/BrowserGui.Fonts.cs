@@ -19,6 +19,16 @@ public sealed partial class BrowserGui
         return previous;
     }
 
+    // Diagnostic reference switch for exact packets and real workload comparisons.
+    static bool glyphTailClipEnabled = true;
+
+    public static bool ConfigureGlyphTailClip(bool enabled)
+    {
+        bool previous = glyphTailClipEnabled;
+        glyphTailClipEnabled = enabled;
+        return previous;
+    }
+
     static bool cellFastPathEnabled = true;
 
     // Diagnostic reference path for byte-equivalence checks and CPU benchmarks.
@@ -250,9 +260,69 @@ public sealed partial class BrowserGui
             }
             drawing.Begin(key);
         }
-        Span<float> values = stackalloc float[8];
-        foreach (var glyph in line.Glyphs)
+        bool hasDrawingClip = drawingClips.TryPeek(out var tailBounds);
+        if (
+            glyphTailClipEnabled
+            && hasDrawingClip
+            && (tailBounds.width <= 0 || tailBounds.height <= 0)
+        )
         {
+            // Empty scopes reject every destination, including backward runs.
+            TraceClippedGlyphTail(
+                line.Glyphs,
+                penX,
+                penY,
+                scale,
+                fineClip,
+                screenClip,
+                clipBottom,
+                drawing
+            );
+            drawing?.Complete();
+            return;
+        }
+        Span<float> values = stackalloc float[8];
+        bool monotoneTail =
+            glyphTailClipEnabled && line.NonnegativeAdvances && float.IsFinite(scale) && scale > 0;
+        bool drawingTail =
+            monotoneTail
+            && line.SafeDrawingBounds
+            && matrix.m01 == 0
+            && matrix.m10 == 0
+            && hasDrawingClip
+            && FiniteGlyphTail(line, penX, penY, scale, origin);
+        bool stopAtRight = monotoneTail && (fineClip || drawingTail);
+        float minimumLeft = line.MinimumLeftBearing * scale;
+        for (int glyphIndex = 0; glyphIndex < line.Glyphs.Length; glyphIndex++)
+        {
+            var glyph = line.Glyphs[glyphIndex];
+            if (stopAtRight)
+            {
+                float lowerLeft = Snap(penX + minimumLeft);
+                if (fineClip && lowerLeft >= screenClip.xMax)
+                    break;
+                // The device quad is divided back into GUI coordinates before
+                // OutsideDrawingClip transforms it again. Reproduce that round trip
+                // for the lower bound; ideal screen coordinates differ at clip edges.
+                if (
+                    drawingTail
+                    && lowerLeft >= tailBounds.xMax - 1
+                    && Device(new Vector2((lowerLeft - origin.x) / scale, 0)).x >= tailBounds.xMax
+                )
+                {
+                    TraceClippedGlyphTail(
+                        line.Glyphs.AsSpan(glyphIndex),
+                        penX,
+                        penY,
+                        scale,
+                        fineClip,
+                        screenClip,
+                        clipBottom,
+                        drawing
+                    );
+                    break;
+                }
+            }
             if (glyph.visible)
             {
                 float left = Snap(penX + glyph.x0 * scale),
@@ -316,6 +386,85 @@ public sealed partial class BrowserGui
         {
             drawing.Complete();
             EmitGlyphRun(drawing, face, textureId, color, ref uploaded);
+        }
+    }
+
+    bool FiniteGlyphTail(
+        BrowserTextCache<TmpGlyphMetrics>.Line line,
+        float penX,
+        float penY,
+        float scale,
+        Vector2 origin
+    )
+    {
+        // Bound all remaining device coordinates, their GUI reconstruction and
+        // their projection before using monotonicity. NaN/overflow inputs retain
+        // the reference loop, including its observable rejection behavior.
+        // Twice the maximum step bounds rounded nonnegative pen accumulation;
+        // the extra units account for Snap and rectangle edge reconstruction.
+        double extent =
+            (line.MaximumMetricMagnitude * (double)scale + 1) * (2d * line.Glyphs.Length + 8);
+        double device =
+            Math.Abs((double)penX)
+            + Math.Abs((double)penY)
+            + Math.Abs((double)origin.x)
+            + Math.Abs((double)origin.y)
+            + extent;
+        double local = device / scale + Math.Abs((double)offset.x) + Math.Abs((double)offset.y);
+        double projected =
+            local * (scale + Math.Abs((double)matrix.m11))
+            + Math.Abs((double)matrix.m03)
+            + Math.Abs((double)matrix.m13);
+        return device < float.MaxValue / 16d
+            && local < float.MaxValue / 16d
+            && projected < float.MaxValue / 16d;
+    }
+
+    // Drawing-clip rejection historically counts every fine-clip-admitted glyph,
+    // even though no packet is emitted. Keep that diagnostic contract and cached
+    // trace replay, but omit destination construction, transforms and upload work.
+    void TraceClippedGlyphTail(
+        ReadOnlySpan<TmpGlyphMetrics> glyphs,
+        float penX,
+        float penY,
+        float scale,
+        bool fineClip,
+        Rect screenClip,
+        float clipBottom,
+        BrowserGlyphRun? drawing
+    )
+    {
+        if (!BrowserGuiInput.Profile && drawing == null)
+            return;
+        foreach (var glyph in glyphs)
+        {
+            if (glyph.visible)
+            {
+                bool admitted = true;
+                if (fineClip)
+                {
+                    float left = Snap(penX + glyph.x0 * scale),
+                        top = Snap(penY + glyph.y0 * scale);
+                    var quad = new BrowserGlyphQuad(
+                        left,
+                        top,
+                        left + (glyph.x1 - glyph.x0) * scale,
+                        top + (glyph.y1 - glyph.y0) * scale,
+                        glyph.u0,
+                        glyph.v0,
+                        glyph.u1,
+                        glyph.v1
+                    );
+                    admitted = quad.Clip(screenClip.xMin, screenClip.xMax, clipBottom);
+                }
+                if (admitted)
+                {
+                    TraceTextureDraw();
+                    if (drawing != null)
+                        drawing.TraceCount++;
+                }
+            }
+            penX += Snap(glyph.advanceX * scale);
         }
     }
 

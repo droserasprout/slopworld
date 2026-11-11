@@ -108,6 +108,16 @@ retain direct emission. Text-run eviction releases projected geometry too;
 `NativeTextTests` check compares real adapter packets with reuse disabled/enabled;
 its `benchmark-glyphs` recipe measures stable and moving labels without starting
 an engine or browser. Native CPU timings do not establish WASM or workload latency.
+Baked runs may stop at a fine text clip or nested drawing clip only when immutable
+metrics prove nonnegative advances and include conservative negative overhang.
+Drawing-tail bounds replay the actual GUI/device round trip and retain the reference
+path for unsafe metrics, nonfinite coordinate ranges and transformed text. Empty
+drawing scopes can reject whole runs independently of their advances. Skipped tails
+still count fine-clip-admitted glyphs for diagnostic traces and projected-cache replay;
+ordinary unprofiled drawing avoids that traversal. Culling is enabled by default;
+`WorkspaceGlyphTailClip(false)` selects the reference path for packet and headless
+workload comparisons. Faded-label slices
+narrow drawing clips through nested groups while retaining full-span fine text clips.
 Single covered ASCII labels bypass text-run caching and line traversal in the browser
 adapter. They retain independently rounded label origins, native face/style/density
 selection and the same glyph clipping/upload rules. Other text keeps the general

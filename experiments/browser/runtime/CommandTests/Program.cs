@@ -166,6 +166,7 @@ var oversized = new string('a', 20000);
 if (ReferenceEquals(textCache.Get(oversized), textCache.Get(oversized)))
     throw new Exception("Text cache retained an oversized run");
 Console.WriteLine("Text runs preserve metrics, coverage and bounded LRU ownership.");
+TextBoundsTests.Run();
 
 var packetCache = new BrowserQuadCache(2, 4);
 float[] packetValues = [0f, 1f];
