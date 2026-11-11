@@ -485,15 +485,25 @@ namespace SlopWorld
             float line = Mathf.Max(UiFont.LineHeight(detailStyle), UiFont.LineHeight(nameStyle));
             float gap = ColumnGap;
             columns = Mathf.Clamp(Mathf.FloorToInt((rect.width + gap) / (200f + gap)), 1, columns);
-            int rows = (credits.Length + columns - 1) / columns;
             var widths = new float[columns];
-            float naturalWidth = gap * (columns - 1);
-            for (int column = 0; column < columns; column++)
+            int rows;
+            float naturalWidth;
+            while (true)
             {
-                int start = column * rows;
-                int end = Mathf.Min(credits.Length, start + rows);
-                widths[column] = CreditColumnWidth(credits, start, end, detailStyle, nameStyle);
-                naturalWidth += widths[column];
+                rows = (credits.Length + columns - 1) / columns;
+                naturalWidth = gap * (columns - 1);
+                for (int column = 0; column < columns; column++)
+                {
+                    int start = column * rows;
+                    int end = Mathf.Min(credits.Length, start + rows);
+                    widths[column] = CreditColumnWidth(credits, start, end, detailStyle, nameStyle);
+                    naturalWidth += widths[column];
+                }
+                // Reflow before clipping: the nominal column minimum cannot account
+                // for the selected font or the longest right-aligned description.
+                if (naturalWidth <= rect.width || columns == 1)
+                    break;
+                columns--;
             }
 
             bool fits = naturalWidth <= rect.width;
