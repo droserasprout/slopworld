@@ -30,6 +30,16 @@ const fullscreen=async expected=>{
   }
   throw Error('Native fullscreen binding did not settle to '+expected);
 };
+const click=async point=>{
+  await call('Input.dispatchMouseEvent',{type:'mouseMoved',...point});
+  await call('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
+  await call('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});
+  await delay();
+};
+const clickLabel=async text=>{
+  const point=await evaluate(`(()=>{const label=JSON.parse(window.__managedProbe.WorkspaceLabels()).find(l=>l.text===${JSON.stringify(text)});if(!label)throw Error('Missing native label '+${JSON.stringify(text)});const canvas=document.querySelector('canvas:not(#loading-screen)'),r=canvas.getBoundingClientRect();return {x:r.left+(label.x+5)*r.width/canvas.width,y:r.top+(label.y+label.height/2)*r.height/canvas.height};})()`);
+  await click(point);
+};
 let stored;
 try {
   assert.equal(await evaluate('window.__workspace?.status'),'running');
@@ -47,9 +57,14 @@ try {
   const escapeExited=await evaluate('!document.fullscreenElement');
   assert.equal(escapeExited,true,'Escape did not leave workspace fullscreen');
   await fullscreen(false);
+  await evaluate('window.__managedProbe.WorkspaceObserveLabels(true)');
+  await click(await evaluate(`(()=>{const state=JSON.parse(window.__managedProbe.WorkspaceState()),[x,y,w,h]=state.doors.config.rect,r=document.querySelector('canvas:not(#loading-screen)').getBoundingClientRect();return {x:r.left+(x+w/2)*r.width/state.uiWidth,y:r.top+(y+h/2)*r.height/state.uiHeight};})()`));
+  await clickLabel('Display');
+  await clickLabel('Fullscreen');await fullscreen(true);
+  await clickLabel('Fullscreen');await fullscreen(false);
   const state=await evaluate('JSON.parse(window.__managedProbe.WorkspaceState())');
   assert.equal(state.game.hasGame,false);assert.equal(state.game.hasWorld,false);
-  console.log(JSON.stringify({nativeDefault:true,nativePrintableRebind:true,browserExit:true,escapeExited,game:state.game}));
+  console.log(JSON.stringify({nativeDefault:true,nativePrintableRebind:true,settingsToggle:true,browserExit:true,escapeExited,game:state.game}));
 } finally {
   try {
     await evaluate('document.fullscreenElement ? document.exitFullscreen() : null');
