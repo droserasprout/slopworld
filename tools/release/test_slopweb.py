@@ -68,10 +68,15 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
         f'{face}-style{style}@{density}.json'
         for density in ('1', '1.66667', '2')
         for style in (0, 1, 2, 3)
-        for face in ('ui-13', 'ui-15', 'ui-17', 'terminal')
+        for face in (
+            ('ui-13', 'ui-15', 'ui-17', 'ui-14', 'ui-22', 'ui-28', 'terminal')
+            if style == 0
+            else ('ui-13', 'ui-15', 'ui-17', 'terminal')
+        )
     ]
-    assert len(calls) == 51
-    assert [float(call[0][-2]) for call in calls[3:]] == [density for density in (1, 5 / 3, 2) for _ in range(16)]
+    assert len(calls) == 60
+    assert [float(call[0][-2]) for call in calls[3:]] == [density for density in (1, 5 / 3, 2) for _ in range(19)]
+    assert all('index' not in face for face in manifest if face['bake'].startswith(('ui-14-', 'ui-22-', 'ui-28-')))
     assert all(call[1]['check'] for call in calls)
     assert all(call[1]['env']['LD_LIBRARY_PATH'].startswith(str(tmp_path / 'game')) for call in calls)
     assert 'private' not in (root / 'assets/reference-appearance.json').read_text()
@@ -96,7 +101,7 @@ def test_startup_font_failure_falls_back_without_changing_host_preferences(
     published = json.loads((root / 'assets/reference-appearance.json').read_text())
     assert published == {**values, 'uiFontName': ''}
     assert values['uiFontName'] == 'Removed font'
-    assert len(json.loads((root / 'assets/fonts/manifest.json').read_text())) == 48
+    assert len(json.loads((root / 'assets/fonts/manifest.json').read_text())) == 57
 
 
 @pytest.mark.parametrize('family', ['', 'Removed font'])
@@ -138,7 +143,14 @@ def test_font_preparation_matches_native_defaults_and_size_limits(
     calls = []
     monkeypatch.setattr(appearance.subprocess, 'run', lambda args, **kwargs: calls.append(args))
     appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', tmp_path / 'runtime', values)
-    assert [int(call[-3]) for call in calls[3:]] == sizes * 12
+    expected = []
+    for _ in range(3):
+        for style in range(4):
+            expected.extend(sizes[:3])
+            if style == 0:
+                expected.extend(size for size in (14, 22, 28) if size not in sizes[:3])
+            expected.append(sizes[3])
+    assert [int(call[-3]) for call in calls[3:]] == expected
 
 
 def test_portrait_snapshot_preserves_pixels_and_identity_without_host_metadata(launcher: Any, tmp_path: Path) -> None:

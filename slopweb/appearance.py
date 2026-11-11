@@ -7,6 +7,8 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+from fonts import ui_sizes
+
 
 def preferences() -> dict:
     data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/share')))
@@ -87,11 +89,16 @@ def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
     for density in (1, 5 / 3, 2):
         suffix = f'{density:.6g}'
         for style in (0, 1, 2, 3):
-            for index, offset in enumerate((-2, 0, 2)):
-                pixels = max(1, size + offset)
+            tiers = [max(1, size + offset) for offset in (-2, 0, 2)]
+            variants = [(pixels, index) for index, pixels in enumerate(tiers)]
+            variants.extend((pixels, None) for pixels in ui_sizes(size, style) if pixels not in tiers)
+            for pixels, index in variants:
                 bake = f'ui-{pixels}-style{style}@{suffix}.json'
                 probe(fonts / 'ui.ttf', fonts / bake, pixels, density, style)
-                manifest.append({'font': 'ui.ttf', 'bake': bake, 'index': index})
+                face = {'font': 'ui.ttf', 'bake': bake}
+                if index is not None:
+                    face['index'] = index
+                manifest.append(face)
             bake = f'terminal-style{style}@{suffix}.json'
             probe(fonts / 'terminal.ttf', fonts / bake, terminal_size, density, style)
             manifest.append({'font': 'terminal.ttf', 'bake': bake})

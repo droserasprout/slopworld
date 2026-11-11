@@ -42,6 +42,10 @@ an explicit UI size zero retains the original 11/13/15 tiers. A mismatched
 terminal bake size forces ordinary text through the slow fallback renderer.
 It bakes normal, bold, italic and bold-italic variants of the selected UI and
 terminal files through the native loader at densities 1, 5/3 and 2.
+Startup and on-demand preparation share the UI size policy in `slopweb/fonts.py`:
+profile tiers retain all four styles; authored fixed UI sizes 14, 22 and 28 also
+receive normal faces independently of the profile. Overlapping sizes reuse their
+tier bakes. These extra UI faces do not enlarge terminal bakes.
 Rendering-mode flags are distinct from style flags; the native bold/oblique
 constants extend the normal rendering mode. `browser-font-styles-check` compares
 actual ink, line metrics and italic advances across all prepared variants.

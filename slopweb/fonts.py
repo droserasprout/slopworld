@@ -11,6 +11,14 @@ import time
 from pathlib import Path
 
 
+def ui_sizes(size: int, style: int) -> list[int]:
+    """Keep profile tiers styled, plus fixed normal UI typography (AboutPage)."""
+    tiers = [max(1, size + offset) for offset in (-2, 0, 2)]
+    # Authored sizes stay independent of the profile. They currently use normal
+    # text only; baking every style would needlessly grow retained RGBA atlases.
+    return list(dict.fromkeys(tiers + ([14, 22, 28] if style == 0 else [])))
+
+
 def selection(value: dict) -> dict:
     result = {}
     for name, default in (('uiFontName', ''), ('fontName', 'monospace')):
@@ -64,12 +72,9 @@ def prepare(bundle: Path, game: Path, cache: Path, value: dict) -> Path:
             # Bake only the requested prepared density. Resize events request a
             # new variant; ordinary drawing only selects installed textures.
             ui_size = values['uiFontSize'] or 13
-            for font, sizes in (
-                ('ui.ttf', {max(1, ui_size + offset) for offset in (-2, 0, 2)}),
-                ('terminal.ttf', {values['fontSize']}),
-            ):
-                for size in sorted(sizes):
-                    for style in range(4):
+            for font in ('ui.ttf', 'terminal.ttf'):
+                for style in range(4):
+                    for size in ui_sizes(ui_size, style) if font == 'ui.ttf' else [values['fontSize']]:
                         bake = f'{font}-{size}-{style}.json'
                         probe(root / font, root / bake, size, values['density'], style)
                         manifest.append({'font': font, 'bake': bake})
