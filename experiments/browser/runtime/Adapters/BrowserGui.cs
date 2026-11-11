@@ -52,7 +52,6 @@ public sealed partial class BrowserGui : IGuiBackend
     public string Drain()
     {
         long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
-        ClearImageVersionCache();
         CollectImages();
         foreach (var pair in targets.ToArray())
             if (!pair.Value.TryGetTarget(out var target) || target == null || !target.IsCreated())
@@ -84,7 +83,6 @@ public sealed partial class BrowserGui : IGuiBackend
 
     public void Discard()
     {
-        ClearImageVersionCache();
         // Discarded layout/input draws never delivered their image definitions.
         foreach (int id in pendingImages)
             images.Remove(id);
