@@ -484,3 +484,30 @@ def test_aot_source_payload_requires_reviewed_compile_set(tmp_path: Path, change
         project.write(runtime / 'Probe.csproj')
     with pytest.raises(ValueError, match=r'allowlist|symlink'):
         slopweb.stage_aot_sources(runtime, tmp_path / 'bundle')
+
+
+def test_explicit_portrait_source_is_validated_and_never_requests_live_capture(launcher, tmp_path, monkeypatch):
+    import portraits
+
+    monkeypatch.setenv('SLOPWEB_PORTRAITS', '')
+    with pytest.raises(ValueError, match='cannot be empty'):
+        portraits.host_snapshot()
+    monkeypatch.setenv('SLOPWEB_PORTRAITS', str(tmp_path))
+    monkeypatch.setattr(portraits, 'request_snapshot', lambda *args: pytest.fail('Unexpected live capture'))
+    with pytest.raises(ValueError, match='Explicit portrait source'):
+        portraits.host_snapshot()
+    (tmp_path / 'manifest.json').write_text('{"version":1,"uiScale":2,"entries":[]}')
+    snapshot = portraits.host_snapshot()
+    assert json.loads(snapshot.manifest)['uiScale'] == 2
+    (tmp_path / 'manifest.json').write_text('{"version":2,"entries":[]}')
+    with pytest.raises(ValueError, match='Invalid portrait manifest'):
+        portraits.host_snapshot()
+
+
+def test_missing_portrait_snapshot_can_be_imported_again(launcher, tmp_path):
+    import portraits
+
+    snapshot = portraits.read_snapshot(tmp_path / 'missing')
+    snapshot.write(tmp_path)
+    assert portraits.read_snapshot(tmp_path / 'assets/portraits').identity == snapshot.identity
+    assert json.loads(snapshot.manifest)['entries'] == []

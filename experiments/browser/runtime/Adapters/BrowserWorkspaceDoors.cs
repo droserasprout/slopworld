@@ -9,6 +9,26 @@ namespace BrowserAdapters;
 public static class BrowserWorkspaceDoors
 {
     static bool installed;
+    static Action? coreMenu;
+    static Action? radioUpdate;
+
+    public static bool Available(Map? map)
+    {
+        WorkspaceDrawing.RequireEntry();
+        return installed;
+    }
+
+    public static void OpenCore()
+    {
+        WorkspaceDrawing.RequireEntry();
+        coreMenu!();
+    }
+
+    public static void Update()
+    {
+        WorkspaceDrawing.RequireEntry();
+        radioUpdate!();
+    }
 
     public static object Snapshot()
     {
@@ -53,23 +73,42 @@ public static class BrowserWorkspaceDoors
         var pack =
             BrowserModContent.Current()
             ?? throw new InvalidOperationException("Mount mod content before doors");
-        var xml = new XmlDocument();
-        xml.Load(Path.Combine(pack.RootDir, "Defs", "PlannerBench.xml"));
-        var node = xml.DocumentElement!.ChildNodes.OfType<XmlElement>().Single();
-        var planner = DirectXmlToObject.ObjectFromXml<ThingDef>(node, false);
-        if (planner.defName != "SlopPlannerBench")
-            throw new InvalidDataException("Unexpected workspace door definition");
-        planner.modContentPack = pack;
-        DefDatabase<ThingDef>.Add(planner);
-        planner.PostLoad();
-        DirectXmlCrossRefLoader.ResolveAllWantedCrossReferences(FailMode.LogErrors);
-        planner.ResolveReferences();
         var mod = AppDomain
             .CurrentDomain.GetAssemblies()
             .Single(a => a.GetName().Name == "SlopWorld");
-        // BrowserModKeys has already initialized the native DefOf owner under its
-        // binding guard. Bind only the presentation dependency used by Planner.
-        mod.GetType("SlopWorld.ModDefOf")!.GetField("SlopPlannerBench")!.SetValue(null, planner);
+        var defOf = mod.GetType("SlopWorld.ModDefOf")!;
+        // Only authored presentation definitions are loaded. Core's genuine
+        // computer definition is already available from Core startup.
+        foreach (
+            var (file, name) in new[]
+            {
+                ("PlannerBench.xml", "SlopPlannerBench"),
+                ("Jukebox.xml", "SlopJukebox"),
+            }
+        )
+        {
+            var xml = new XmlDocument();
+            xml.Load(Path.Combine(pack.RootDir, "Defs", file));
+            var node = xml.DocumentElement!.ChildNodes.OfType<XmlElement>().Single();
+            var definition = DirectXmlToObject.ObjectFromXml<ThingDef>(node, false);
+            if (definition.defName != name)
+                throw new InvalidDataException("Unexpected workspace door definition");
+            definition.modContentPack = pack;
+            DefDatabase<ThingDef>.Add(definition);
+            definition.PostLoad();
+            DirectXmlCrossRefLoader.ResolveAllWantedCrossReferences(FailMode.LogErrors);
+            definition.ResolveReferences();
+            defOf.GetField(name)!.SetValue(null, definition);
+        }
+        defOf
+            .GetField("Ship_ComputerCore")!
+            .SetValue(null, DefDatabase<ThingDef>.GetNamed("Ship_ComputerCore"));
+        coreMenu = mod.GetType("SlopWorld.CoreTip")!
+            .GetMethod("OpenWorkspaceMenu")!
+            .CreateDelegate<Action>();
+        var radio = mod.GetType("SlopWorld.Radio")!;
+        radio.GetProperty("LocalPlaybackSupported")!.SetValue(null, false);
+        radioUpdate = radio.GetMethod("Update")!.CreateDelegate<Action>();
         installed = true;
     }
 }

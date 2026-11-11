@@ -317,7 +317,11 @@ validates the snapshot before copying it into private assets; the snapshot ident
 participates in installed runtime preparation. `just browser-host-portraits` imports
 the current local profile snapshot into the prototype, requesting a fresh capture
 when a live native exporter advertises support. Installed preparation uses the same
-path. Older native mod processes remain import-only until restarted. Missing exports produce an
+path. `SLOPWEB_PORTRAITS` explicitly selects a validated snapshot directory during
+installed preparation, including an isolated copied-save export when the live mod
+predates the exporter. It never writes back to the native profile cache; a missing
+explicit manifest is an error. The snapshot identity changes the private preparation
+key and AOT composition without changing compiler inputs. Older native mod processes remain import-only until restarted. Missing exports produce an
 empty inventory rather than invented identities. The browser verifies content hashes,
 dimensions and inventory bounds before admitting each texture, reverses exported
 top-down pixels into Unity storage, and shares native portrait framing and stopped-agent
@@ -346,8 +350,16 @@ validate and import that explicit snapshot without replacing the live profile ca
 
 BrowserWorkspaceDoors loads the authored PlannerBench
 definition and binds its native ModDefOf field so TopBar can draw and toggle the
-actual Planner view. It creates no building instance. Core and Jukebox doors still
-depend on map presence and are absent in Entry. Read-only door geometry in the
+actual Planner view. It also binds authored Jukebox and Core's computer definitions,
+without creating a building instance. `BrowserWorkspaceDoorsPatch` redirects only
+TopBar's presence checks and Core menu action; map presence and arrival retain their
+native contracts. Core's native Entry menu supplies Hint/Advice dialogs and Keyboard
+shortcuts, with colony-dependent actions disabled. Jukebox opens the native menu and
+pumps native Radio updates against the host daemon. Local OST is unavailable because
+the browser has no audio decoder: its source/transport controls are disabled, and an
+unavailable default OST selection never stops existing host audio. Host radio/Spotify
+still require daemon capabilities and successful playback reports; a door/menu check
+alone is not playback validation. Read-only door geometry in the
 workspace snapshot supports DOM input checks without depending on fallback text
 commands.
 
