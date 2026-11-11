@@ -13,6 +13,27 @@ public static class BrowserSidebar
     static readonly List<Vector2> locations = new();
     static string hostHome = "";
 
+    // Read native UI-space geometry for diagnostic pointer targeting. Layout and
+    // hit testing remain in Sidebar, including side and open-files preferences.
+    public static object Snapshot()
+    {
+        var sidebar = AppDomain
+            .CurrentDomain.GetAssemblies()
+            .Single(a => a.GetName().Name == "SlopWorld")
+            .GetType("SlopWorld.Sidebar")!;
+        float[] Box(string name)
+        {
+            var rect = (Rect)sidebar.GetProperty(name)!.GetValue(null)!;
+            return [rect.x, rect.y, rect.width, rect.height];
+        }
+        return new
+        {
+            panel = Box("Panel"),
+            body = Box("Body"),
+            add = Box("AddBar"),
+        };
+    }
+
     public static void ConfigureHome(string home)
     {
         if (home.Length > 4096 || !home.StartsWith('/') || home.Contains('\0'))
