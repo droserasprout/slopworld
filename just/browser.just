@@ -522,3 +522,6 @@ browser-test-keybindings:
 
 browser-host-keybindings-check profile:
     systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/keybindings-check.mjs')}} {{quote(profile)}}
+
+browser-host-reconnect-check profile:
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/reconnect-check.mjs')}} {{quote(profile)}}

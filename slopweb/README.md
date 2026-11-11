@@ -89,6 +89,7 @@ Presentation settings persist in this browser origin when local storage is avail
 are not persisted. Authored SlopWorld keyboard bindings also persist in this origin,
 including both binding slots and reset-to-default changes. Font choices still
 require matching host-prepared font assets.
-Reconnect recovery and the full agent
-launch/edit dialog have not been exhaustively validated. See the checkout's
+Repeated page-network interruption and terminal recovery have browser checks;
+daemon restart, run replacement, and the full agent launch/edit dialog have not
+been exhaustively validated. See the checkout's
 `experiments/browser/README.md` for focused checks and implementation boundaries.
