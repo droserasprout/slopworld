@@ -6,6 +6,11 @@ using Mono.Cecil.Cil;
 
 // Deliberately one explicit hook contract, not a Harmony attribute interpreter.
 // Preserve original target body and invoke the actual mod prefix by reference.
+if (args[0] == "--text-layout")
+{
+    BrowserTextLayoutPatch.Refresh(args[1]);
+    return;
+}
 if (args[0] == "--eco")
 {
     EcoWorkspace.Apply(args[1], args[2]);

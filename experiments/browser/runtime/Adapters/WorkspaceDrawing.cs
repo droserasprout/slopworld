@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using System.Text.Json;
 using UnityEngine;
@@ -10,6 +11,55 @@ namespace BrowserAdapters;
 // after installed Entry/UI initialization and browser GUI installation.
 public static class WorkspaceDrawing
 {
+    public static string SidebarRows()
+    {
+        var mod = AppDomain
+            .CurrentDomain.GetAssemblies()
+            .Single(a => a.GetName().Name == "SlopWorld");
+        var sidebar = mod.GetType("SlopWorld.Sidebar")!;
+        var layout = sidebar
+            .GetField("Layout", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetValue(null)!;
+        const BindingFlags fields =
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var rows = (IEnumerable)layout.GetType().GetField("Rows", fields)!.GetValue(layout)!;
+        return JsonSerializer.Serialize(
+            rows.Cast<object>()
+                .Select(row =>
+                {
+                    var type = row.GetType();
+                    var line = (Rect)type.GetField("Line", fields)!.GetValue(row)!;
+                    var text = (Rect)type.GetField("Text", fields)!.GetValue(row)!;
+                    return new
+                    {
+                        session = type.GetField("Session", fields)!.GetValue(row),
+                        ghost = type.GetField("Ghost", fields)!.GetValue(row),
+                        hasPawn = type.GetField("Pawn", fields)!.GetValue(row) != null,
+                        rowHeight = line.height,
+                        textHeight = text.height,
+                    };
+                })
+        );
+    }
+
+    public static void ConfigureViewport(int width, int height, float scale)
+    {
+        RequireEntry();
+        if (
+            width < 320
+            || width > 7680
+            || height < 200
+            || height > 4320
+            || !float.IsFinite(scale)
+            || scale < .5f
+            || scale > 4f
+        )
+            throw new ArgumentOutOfRangeException(nameof(scale), "Invalid workspace viewport");
+        Prefs.UIScale = scale;
+        BrowserFontBank.ConfigureDensity(scale);
+        GameSession.ConfigureViewport(width, height);
+    }
+
     static Action? shortcuts;
     static Action? applyLayout;
     static float timeOrigin,
@@ -18,6 +68,7 @@ public static class WorkspaceDrawing
     public static void Initialize()
     {
         RequireEntry();
+        BrowserPortraits.Bind();
         var mod = AppDomain
             .CurrentDomain.GetAssemblies()
             .Single(a => a.GetName().Name == "SlopWorld");
@@ -56,18 +107,51 @@ public static class WorkspaceDrawing
         );
         const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
         var panel = window?.GetType().GetProperty("_terminal", privateInstance)!.GetValue(window);
+        object? PanelField(string name) =>
+            panel?.GetType().GetField(name, privateInstance)!.GetValue(panel);
+        var cache = PanelField("_cache") as RenderTexture;
+        var cacheKey = PanelField("_cacheKey");
         return JsonSerializer.Serialize(
             new
             {
                 game = JsonDocument.Parse(GameSession.Snapshot()).RootElement,
                 frame = Time.frameCount,
+                screenWidth = Screen.width,
+                screenHeight = Screen.height,
+                uiWidth = UI.screenWidth,
+                uiHeight = UI.screenHeight,
+                uiScale = Prefs.UIScale,
                 elapsed = Time.unscaledTime,
                 windowOpen = window != null,
+                doors = BrowserWorkspaceDoors.Snapshot(),
+                underlying = BrowserUnderlyingWorkspace.Snapshot(),
                 session = window
                     ?.GetType()
                     .GetProperty("SessionName", privateInstance)!
                     .GetValue(window),
                 terminalDrawn = panel?.GetType().GetProperty("DrewScreen")!.GetValue(panel),
+                terminalScroll = new
+                {
+                    offset = PanelField("_scrollOff"),
+                    pixels = PanelField("_historyLastPixels"),
+                    maximumPixels = PanelField("_historyMax"),
+                    wanted = PanelField("_wantedScrollOff"),
+                    sent = PanelField("_sentScrollOff"),
+                    pending = PanelField("_scrollPending"),
+                    requests = (
+                        PanelField("_historyRequests") as System.Collections.IDictionary
+                    )?.Count,
+                    viewReady = PanelField("_historyViewReady"),
+                },
+                terminalCache = new
+                {
+                    disabled = PanelField("_noCache"),
+                    exists = cache != null,
+                    created = cache != null && cache.IsCreated(),
+                    session = cacheKey?.GetType().GetField("Session")!.GetValue(cacheKey),
+                    revision = PanelField("_cacheContentRevision"),
+                    outsideTargetTrace = BrowserGui.OutsideTargetTrace,
+                },
                 errors = RuntimeServices.Errors,
             }
         );
@@ -99,6 +183,7 @@ public static class WorkspaceDrawing
                 shortcuts?.Invoke();
                 if (Event.current.type != EventType.Used)
                     GUI.DispatchInputToWindows();
+                BrowserUnderlyingWorkspace.Draw();
                 Find.WindowStack.WindowStackOnGUI();
                 GUI.ProcessPendingWindows();
                 // The Entry workspace owns the foreground. Draw native rejection

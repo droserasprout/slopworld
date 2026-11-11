@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Brutal.ImGui;Brutal.Core.Numerics;Brutal.Core.Common">
+      <HintPath>$(GameDirectory)/%(Identity).dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

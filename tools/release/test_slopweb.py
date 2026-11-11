@@ -1,9 +1,12 @@
 """Guard package boundaries, install ownership, and private runtime preparation."""
 
 import argparse
+import fcntl
+import hashlib
 import importlib.util
 import json
 import shutil
+import struct
 import subprocess
 import zipfile
 from pathlib import Path
@@ -16,7 +19,8 @@ from tools.release import slopweb
 
 
 @pytest.fixture
-def launcher() -> Any:
+def launcher(monkeypatch: pytest.MonkeyPatch) -> Any:
+    monkeypatch.syspath_prepend(str(ROOT / 'slopweb'))
     spec = importlib.util.spec_from_file_location('slopweb_launch', ROOT / 'slopweb/launch.py')
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -43,6 +47,146 @@ def test_endpoint_credentials_stay_in_host_environment(
     assert descriptor.read_text().endswith('"fixture-secret"\n')
 
 
+def test_font_preparation_filters_profile_and_uses_private_native_bakes(
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import appearance
+
+    profile = tmp_path / 'slopworld/profiles/local/Config/SlopWorld.toml'
+    profile.parent.mkdir(parents=True)
+    profile.write_text('uiFontSize = 15\nfontSize = 14\nfontName = "monospace"\ntoken = "private"\n')
+    monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path))
+    values = appearance.preferences()
+    assert 'token' not in values
+    assert values['hostHome'] == str(Path.home())
+    calls = []
+    monkeypatch.setattr(appearance.subprocess, 'run', lambda args, **kwargs: calls.append((args, kwargs)))
+    root = tmp_path / 'private-runtime'
+    appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', root, values)
+    manifest = json.loads((root / 'assets/fonts/manifest.json').read_text())
+    assert [face['bake'] for face in manifest] == [
+        f'{face}@{density}.json'
+        for density in ('1', '1.66667', '2')
+        for face in ('ui-13', 'ui-15', 'ui-17', 'terminal')
+    ]
+    assert len(calls) == 14
+    assert [float(call[0][-1]) for call in calls[2:]] == [density for density in (1, 5 / 3, 2) for _ in range(4)]
+    assert all(call[1]['check'] for call in calls)
+    assert all(call[1]['env']['LD_LIBRARY_PATH'].startswith(str(tmp_path / 'game')) for call in calls)
+    assert 'private' not in (root / 'assets/reference-appearance.json').read_text()
+
+
+def test_portrait_snapshot_preserves_pixels_and_identity_without_host_metadata(launcher: Any, tmp_path: Path) -> None:
+    import portraits
+
+    source = tmp_path / 'native'
+    source.mkdir()
+    pixels = struct.pack('<ii', 2, 1) + bytes([11, 22, 33, 255, 44, 55, 66, 128])
+    name = hashlib.sha256(pixels).hexdigest() + '.rgba'
+    (source / name).write_bytes(pixels)
+    manifest = {
+        'version': 1,
+        'uiScale': 2,
+        'private': 'must-not-copy',
+        'entries': [{'session': 'agent-a', 'file': name, 'width': 2, 'height': 1, 'token': 'must-not-copy'}],
+    }
+    (source / 'manifest.json').write_text(json.dumps(manifest))
+    snapshot = portraits.read_snapshot(source)
+    assert snapshot.files[name] == pixels
+    assert b'must-not-copy' not in snapshot.manifest
+    root = tmp_path / 'runtime'
+    snapshot.write(root)
+    assert (root / 'assets/portraits' / name).read_bytes() == pixels
+    assert (root / 'assets/portraits/manifest.json').read_bytes() == snapshot.manifest
+    first = snapshot.identity
+    manifest['entries'][0]['session'] = 'renamed-agent'
+    (source / 'manifest.json').write_text(json.dumps(manifest))
+    assert portraits.read_snapshot(source).identity != first
+    (source / name).write_bytes(pixels[:-1])
+    with pytest.raises(ValueError, match='truncated or changed'):
+        portraits.read_snapshot(source)
+
+
+def test_portrait_request_ignores_stale_ack_and_reads_only_published_snapshot(
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import portraits
+
+    now = [0.0]
+    monkeypatch.setattr(portraits.time, 'monotonic', lambda: now[0])
+    (tmp_path / 'response').write_text(json.dumps({'version': 1, 'id': 'old', 'ok': True}))
+
+    def native_poll(delay: float) -> None:
+        now[0] += delay
+        identity = (tmp_path / 'request').read_text()
+        assert len(identity) == 32
+        (tmp_path / 'manifest.json').write_text(json.dumps({'version': 1, 'uiScale': 2, 'entries': []}))
+        (tmp_path / 'response').write_text(json.dumps({'version': 1, 'id': identity, 'ok': True}))
+
+    monkeypatch.setattr(portraits.time, 'sleep', native_poll)
+    snapshot = portraits.request_snapshot(tmp_path)
+    assert json.loads(snapshot.manifest)['uiScale'] == 2
+    assert now[0] > 0
+    assert not (tmp_path / 'request').exists()
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'native', 'missing_snapshot', 'locked'])
+def test_portrait_request_failure_is_bounded_and_preserves_other_requests(
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    import portraits
+
+    now = [0.0]
+    monkeypatch.setattr(portraits.time, 'monotonic', lambda: now[0])
+
+    def native_poll(delay: float) -> None:
+        now[0] += delay
+        if failure in ('native', 'missing_snapshot'):
+            identity = (tmp_path / 'request').read_text()
+            (tmp_path / 'response').write_text(
+                json.dumps(
+                    {'version': 1, 'id': identity, 'ok': failure == 'missing_snapshot', 'error': 'readback failed'}
+                )
+            )
+
+    monkeypatch.setattr(portraits.time, 'sleep', native_poll)
+    with (tmp_path / '.request.lock').open('a') as lock:
+        if failure == 'locked':
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            (tmp_path / 'request').write_text('another-owner')
+        with pytest.raises((TimeoutError, RuntimeError)):
+            portraits.request_snapshot(tmp_path, timeout=0.2)
+    assert now[0] <= 0.2
+    if failure == 'locked':
+        assert (tmp_path / 'request').read_text() == 'another-owner'
+    else:
+        assert not (tmp_path / 'request').exists()
+
+
+@pytest.mark.parametrize(
+    'change',
+    [
+        {'file': '../secret'},
+        {'width': 4096},
+        {'width': True},
+        {'height': 2},
+        {'session': ''},
+    ],
+)
+def test_portrait_snapshot_rejects_unsafe_paths_and_inconsistent_geometry(
+    launcher: Any, tmp_path: Path, change: dict
+) -> None:
+    import portraits
+
+    pixels = struct.pack('<ii', 1, 1) + bytes([0, 0, 0, 255])
+    name = hashlib.sha256(pixels).hexdigest() + '.rgba'
+    (tmp_path / name).write_bytes(pixels)
+    entry = {'session': 'agent', 'file': name, 'width': 1, 'height': 1, **change}
+    (tmp_path / 'manifest.json').write_text(json.dumps({'version': 1, 'uiScale': 2, 'entries': [entry]}))
+    with pytest.raises(ValueError):
+        portraits.read_snapshot(tmp_path)
+
+
 def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_files(
     launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -61,11 +205,13 @@ def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_fil
         calls.append(args)
 
     monkeypatch.setattr(launcher.subprocess, 'run', run)
+    monkeypatch.setattr(launcher, 'preferences', dict)
+    monkeypatch.setattr(launcher, 'prepare_fonts', lambda *args: None)
     ready = launcher.prepare(bundle, game, cache)
     assert (ready / '.ready').is_file()
-    assert len(calls) == 4
+    assert len(calls) == 5
     assert launcher.prepare(bundle, game, cache) == ready
-    assert len(calls) == 4
+    assert len(calls) == 5
     refreshed = launcher.prepare(bundle, game, cache, True)
     assert refreshed != ready and (ready / '.ready').is_file()
     assert launcher.prepare(bundle, game, cache) == refreshed
@@ -86,6 +232,14 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
     runtime = root / 'experiments/browser/runtime'
     inputs = [
         'slopweb/launch.py',
+        'slopweb/appearance.py',
+        'slopweb/portraits.py',
+        'experiments/browser/runtime/FontProbe/bin/Debug/net10.0/FontProbe.dll',
+        'experiments/browser/runtime/FontProbe/bin/Debug/net10.0/FontProbe.deps.json',
+        'experiments/browser/runtime/FontProbe/bin/Debug/net10.0/FontProbe.runtimeconfig.json',
+        'experiments/browser/runtime/BackgroundProbe/bin/Debug/net10.0/BackgroundProbe.dll',
+        'experiments/browser/runtime/BackgroundProbe/bin/Debug/net10.0/BackgroundProbe.deps.json',
+        'experiments/browser/runtime/BackgroundProbe/bin/Debug/net10.0/BackgroundProbe.runtimeconfig.json',
         'experiments/browser/runtime/core_pack.py',
         'experiments/browser/runtime/bin/Debug/net10.0/Probe.dll',
         'experiments/browser/runtime/Adapters/bin/Debug/net10.0/Adapters.dll',
@@ -94,6 +248,8 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         'experiments/browser/runtime/Scanner/bin/Debug/net10.0/Scanner.dll',
         'experiments/browser/compat/Offline/bin/Debug/net10.0/Offline.dll',
         'experiments/browser/runtime/out/wwwroot-eco/mod/Content.zip',
+        'mod/Textures/SlopWorld/LoadingFont.png',
+        'shared/loading-tips.txt',
     ]
     inputs += [
         f'mod/Assemblies/{name}.dll'
@@ -131,10 +287,17 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
             }
         )
     )
-    for name in ('game/RimWorld.dll', 'assets/Core.zip', 'assets/Assets.zip', 'credentials.toml'):
+    for name in (
+        'game/RimWorld.dll',
+        'assets/Core.zip',
+        'assets/Assets.zip',
+        'assets/portraits/private.rgba',
+        'credentials.toml',
+    ):
         path = runtime / 'out/wwwroot-eco' / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('must never ship')
+    (runtime / 'FontProbe/bin/Debug/net10.0/Brutal.ImGui.dll').write_text('must never ship')
     monkeypatch.setattr(slopweb, 'ROOT', root)
     output = tmp_path / 'bundle'
     slopweb.build(output)
@@ -235,11 +398,18 @@ def test_real_arch_archive_contains_only_distributable_web_payload(tmp_path: Pat
         'Waylith.dll',
         'Assets.zip',
         'Core.zip',
+        'Brutal.ImGui.dll',
+        'Brutal.Core.Numerics.dll',
+        'ui.ttf',
+        'terminal.ttf',
         '.ready',
     }
     assert all(Path(name).name not in forbidden for name in names)
     assert 'usr/bin/slopweb' in names
     assert 'usr/share/slopweb/licenses/dotnet/THIRD-PARTY-NOTICES.TXT' in names
+    for helper, directory in (('FontProbe', 'font-probe'), ('BackgroundProbe', 'background-probe')):
+        assert f'usr/share/slopweb/{directory}/{helper}.dll' in names
+    assert not any('/assets/fonts/' in name or '/assets/background/' in name for name in names)
     assert not any(name.startswith(('usr/share/slopworld/', 'usr/lib/systemd/')) for name in names)
     # Execute the actual archived launcher and relative install layout without
     # touching the installed copy or requiring proprietary game data.

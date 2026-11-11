@@ -15,6 +15,9 @@ core root probe:
     dotnet restore Offline/Offline.csproj --locked-mode
     dotnet run --project Offline/Offline.csproj --no-restore -- --core {{quote(root)}} {{quote(probe)}}
 
+text-layout root:
+    dotnet run --project Offline/Offline.csproj -- --text-layout {{quote(root)}}
+
 # Format the compatibility summarizer using the repository's locked tooling.
 format:
     uv run --project ../../.. --locked ruff format summarize.py

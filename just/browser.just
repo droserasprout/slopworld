@@ -10,7 +10,32 @@ browser-validate directory page='/' report='experiments/browser/artifacts/browse
 
 [group('browser prototype')]
 browser-test-harness:
+    node --test experiments/browser/harness/portraits.test.mjs
+    node --test experiments/browser/harness/workspace-scheduler.test.mjs
+    node --test experiments/browser/harness/gui-frame-reuse.test.mjs
+    node --test experiments/browser/harness/browser-rendering.test.mjs
+    node --test experiments/browser/harness/browser-process-cpu.test.mjs
     node --test experiments/browser/harness/server.test.mjs
+    node --test experiments/browser/harness/viewport.test.mjs
+    node --test experiments/browser/harness/tint.test.mjs
+    node --test experiments/browser/harness/gui-probe.test.mjs
+    node --test experiments/browser/harness/loading-quotes.test.mjs
+
+[group('browser prototype')]
+browser-host-rendering-check:
+    systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}}
+
+[group('browser prototype')]
+browser-host-canvas-reuse-check:
+    systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} reuse
+
+[group('browser prototype')]
+browser-test-commands:
+    dotnet run --project experiments/browser/runtime/CommandTests/CommandTests.csproj
+
+[group('browser prototype')]
+browser-serialization-check profile:
+    just browser-evaluate {{quote(profile)}} experiments/browser/harness/serialization-check.js
 
 # Check whether a long interpreter frame is working or waiting.
 [group('browser prototype')]
@@ -20,6 +45,130 @@ browser-processes:
 [group('browser prototype')]
 browser-console profile:
     node experiments/browser/harness/console.mjs {{quote(profile)}}
+
+# Observe the selected session without sending input; save Chrome CPU samples and frame intervals.
+[group('browser prototype')]
+browser-profile profile output='experiments/browser/artifacts/baseline.json' seconds='15':
+    node experiments/browser/harness/profile.mjs {{quote(profile)}} {{quote(output)}} {{quote(seconds)}}
+
+# Inspect the running host game and paths without printing daemon credentials.
+[group('browser prototype')]
+browser-host-inspect:
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_reference.py')}}
+
+[group('browser prototype')]
+browser-host-display:
+    systemd-run --user --pipe --wait --collect gdbus call --session --dest org.gnome.Mutter.DisplayConfig --object-path /org/gnome/Mutter/DisplayConfig --method org.gnome.Mutter.DisplayConfig.GetCurrentState
+
+[group('browser prototype')]
+browser-host-stop unit:
+    systemctl --user stop {{quote(unit)}}
+
+browser-host-status unit:
+    systemctl --user show {{quote(unit)}} --property=ActiveState,SubState,Result,ExecMainStatus,MainPID
+
+[group('browser prototype')]
+browser-host-close profile:
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/close.mjs')}} {{quote(profile)}}
+
+[group('browser prototype')]
+browser-host-serve port='8787':
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} {{quote(justfile_directory() / 'experiments/browser/runtime/out/wwwroot-eco')}} {{quote(port)}}
+
+browser-host-url-check port='8787':
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/url-check.mjs')}} {{quote('http://127.0.0.1:' + port)}}
+
+browser-host-appearance:
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --appearance
+
+browser-host-portraits source='':
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --portraits {{quote(source)}}
+
+# Read genuine portraits from an offline copy without replacing the live mod.
+browser-host-native-portraits scale='2':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p MemoryMax=6G -p RuntimeMaxSec=300 python3 {{quote(justfile_directory() / 'experiments/browser/harness/native-portraits.py')}} {{quote(scale)}}
+
+[group('browser prototype')]
+browser-host-bridge-check:
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check
+
+# Reproduce the captured host display: 2560x1440 physical pixels, 5/3 desktop scale.
+[group('browser prototype')]
+browser-workspace-reference session='': browser-eco-build
+    just --justfile experiments/browser/runtime/justfile workspace-dependencies
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --reference {{quote(session)}}
+
+browser-workspace-font-reference font session='' size='15': browser-eco-build
+    just --justfile experiments/browser/runtime/justfile workspace-dependencies
+    just --justfile experiments/browser/runtime/justfile font-pack {{quote(font)}} {{quote(size)}}
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --reference {{quote(session)}} nativeFonts
+
+browser-host-evaluate profile script:
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / script)}}
+
+browser-host-native-text-check profile:
+    just browser-host-evaluate {{quote(profile)}} experiments/browser/harness/native-text-check.js
+
+browser-host-screenshot profile output:
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/screenshot.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}}
+
+browser-host-canvas-reference profile output:
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/screenshot.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} canvas
+
+browser-host-shortcuts-check profile:
+    python3 -c 'from pathlib import Path; p=Path("experiments/browser/harness"); Path("experiments/browser/artifacts/shortcuts-check.js").write_text("(async()=>{await " + (p/"benchmark-workload.js").read_text().strip().removesuffix(";") + ";return await " + (p/"shortcuts-check.js").read_text().lstrip(";").strip().removesuffix(";") + ";})()")'
+    just browser-host-evaluate {{quote(profile)}} experiments/browser/artifacts/shortcuts-check.js
+
+browser-host-wake profile:
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/wake.mjs')}} {{quote(profile)}}
+
+browser-host-background:
+    systemd-run --user --pipe --wait --collect --working-directory={{quote(justfile_directory())}} just --justfile experiments/browser/runtime/justfile background-cache
+
+browser-host-workspace-check session='' keep='0':
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-workspace {{quote(session)}} {{quote(keep)}}
+
+browser-loading-check:
+    just --justfile experiments/browser/runtime/justfile refresh-web
+    cp experiments/browser/harness/loading.html experiments/browser/runtime/out/wwwroot-eco/loading-probe.html
+    just browser-validate experiments/browser/runtime/out/wwwroot-eco /loading-probe.html experiments/browser/artifacts/loading.json
+
+browser-host-font family='monospace':
+    systemd-run --user --pipe --wait --collect fc-match --format '%{family}\n%{file}\n' {{quote(family)}}
+
+# Reuse staged redistributable font tooling with the actual host profile/resolver.
+browser-host-font-bakes: slopweb-stage
+    systemd-run --user --pipe --wait --collect just --justfile {{quote(justfile_directory() / 'justfile')}} slopweb-check-fonts {{quote(env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld')}} {{quote(justfile_directory() / 'experiments/browser/runtime/out/wwwroot-eco')}}
+
+browser-host-font-density-check profile:
+    just browser-host-evaluate {{quote(profile)}} experiments/browser/harness/font-density-check.js
+
+browser-host-discarded-drawing-check profile:
+    just browser-host-evaluate {{quote(profile)}} experiments/browser/harness/discarded-drawing-check.js
+
+browser-host-profile profile output seconds='15':
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/profile.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(seconds)}}
+
+browser-host-benchmark profile output phases='idle,output,typing,scrolling,switching' quad_cache='on' canvas_reuse='keep' packet_cache='keep' idle_yield='keep' discarded_drawing='keep':
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/benchmark.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / output)}} {{quote(phases)}} {{quote(quad_cache)}} {{quote(canvas_reuse)}} {{quote(packet_cache)}} {{quote(idle_yield)}} {{quote(discarded_drawing)}}
+
+[group('browser prototype')]
+browser-host-workspace-bounded session='slop-al-7' width='1536' height='864' scale='1.666666667' color_type='unorm8':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_WIDTH={{quote(width)}} --setenv=PROBE_HEIGHT={{quote(height)}} --setenv=PROBE_DPR={{quote(scale)}} --setenv=PROBE_CANVAS_COLOR_TYPE={{quote(color_type)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-workspace {{quote(session)}} 1
+
+# Capture the existing native game window without input or geometry changes.
+[group('browser prototype')]
+browser-native-reference:
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/native_reference.py')}} {{quote(justfile_directory() / 'experiments/browser/artifacts/native-reference.png')}}
+
+# Capture the game window only, without changing focus or including other desktop apps.
+[group('browser prototype')]
+browser-native-window-reference:
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/native_window_reference.py')}} {{quote(justfile_directory() / 'experiments/browser/artifacts/native-window-reference.png')}}
+
+[group('browser prototype')]
+browser-compare native browser output *args:
+    uv run --locked python experiments/browser/harness/compare_reference.py {{quote(native)}} {{quote(browser)}} {{quote(output)}} {{args}}
 
 # Exercise DOM events through installed Waylith and Unity input in WASM.
 [group('browser prototype')]
@@ -271,6 +420,12 @@ browser-workspace-live: browser-eco-build
     just --justfile experiments/browser/runtime/justfile workspace-dependencies
     PROBE_KEEP_OPEN=1 PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-eco '/index.html?entry&assets&eco&workspace&live' experiments/browser/artifacts/workspace-live.json
 
+# Opt-in managed allocation/drawing and browser presentation timings.
+[group('browser prototype')]
+browser-workspace-profile: browser-eco-build
+    just --justfile experiments/browser/runtime/justfile workspace-dependencies
+    PROBE_KEEP_OPEN=1 PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-eco '/index.html?entry&assets&eco&workspace&live&profile' experiments/browser/artifacts/workspace-profile.json
+
 # Manual Entry-only work interface. Credentials stay in this host server's environment.
 [group('browser prototype')]
 browser-workspace-run port='8787': browser-eco-build
@@ -303,3 +458,6 @@ browser-workspace-e2e-check profile:
 [group('browser prototype')]
 browser-clipboard-check profile:
     PROBE_CLIPBOARD=1 PROBE_EVALUATE_TIMEOUT_MS=120000 just browser-evaluate {{quote(profile)}} experiments/browser/harness/workspace-e2e.js
+
+browser-host-responsive-check profile:
+    systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/responsive-check.mjs')}} {{quote(profile)}}

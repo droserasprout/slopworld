@@ -1,5 +1,6 @@
 // Browser GUI boundary: installed Unity controls retain layout and event ownership.
 // Commands carry drawing only; unsupported GPU paths fail explicitly.
+using System.Diagnostics;
 using System.Text.Json;
 using UnityEngine;
 using UnityStubs.Gui;
@@ -10,16 +11,34 @@ namespace BrowserAdapters;
 
 public sealed partial class BrowserGui : IGuiBackend
 {
-    readonly record struct Command(string kind, object value);
-
     readonly List<Command> commands = new();
+    static readonly BrowserPacketCache packetCache = new();
+    static bool packetCacheEnabled;
+    internal bool SuppressDrawing;
+
+    public static bool ConfigurePacketCache(bool enabled)
+    {
+        bool previous = packetCacheEnabled;
+        packetCacheEnabled = enabled;
+        packetCache.Clear();
+        return previous;
+    }
+
+    readonly BrowserCommandState commandState = new();
+    int outsideTargetQuads;
+    bool drawingTarget;
+    public static string? OutsideTargetTrace { get; private set; }
     readonly Dictionary<int, WeakReference<RenderTexture>> targets = new();
     readonly List<(Rect rect, Vector2 origin)> groups = new();
     Matrix4x4 matrix = Matrix4x4.identity;
     Vector2 offset;
     readonly Stack<Vector2> offsets = new();
     readonly Stack<Rect> hitClips = new();
+    readonly Stack<Rect> drawingClips = new();
     int windowDepth;
+    public double LastResourceSweepMs { get; private set; }
+    public double LastSerializationMs { get; private set; }
+    public bool LastPacketReused { get; private set; }
 
     public static BrowserGui Install()
     {
@@ -32,6 +51,7 @@ public sealed partial class BrowserGui : IGuiBackend
 
     public string Drain()
     {
+        long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
         CollectImages();
         foreach (var pair in targets.ToArray())
             if (!pair.Value.TryGetTarget(out var target) || target == null || !target.IsCreated())
@@ -39,8 +59,24 @@ public sealed partial class BrowserGui : IGuiBackend
                 Emit("releaseTarget", pair.Key);
                 targets.Remove(pair.Key);
             }
-        var result = JsonSerializer.Serialize(commands);
+        long swept = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
+        var result = packetCacheEnabled ? packetCache.Find(commands) : null;
+        LastPacketReused = result != null;
+        if (result == null)
+        {
+            result = JsonSerializer.Serialize(commands, BrowserGuiJson.Default.ListCommand);
+            if (packetCacheEnabled)
+                packetCache.Store(commands, result);
+        }
+        if (BrowserGuiInput.Profile)
+        {
+            LastResourceSweepMs = (swept - started) * 1000d / Stopwatch.Frequency;
+            LastSerializationMs = (Stopwatch.GetTimestamp() - swept) * 1000d / Stopwatch.Frequency;
+        }
+        BenchmarkSerialization(commands);
         commands.Clear();
+        commandState.Clear();
+        outsideTargetQuads = 0;
         pendingImages.Clear();
         return result;
     }
@@ -52,13 +88,31 @@ public sealed partial class BrowserGui : IGuiBackend
             images.Remove(id);
         pendingImages.Clear();
         commands.Clear();
+        commandState.Clear();
+        outsideTargetQuads = 0;
     }
 
     static float[] Box(Rect r) => new[] { r.x, r.y, r.width, r.height };
 
-    static float[] Rgba(Color c) => new[] { c.r, c.g, c.b, c.a };
+    // Native ImGui submits byte vertex colors, including alpha. Preserve that
+    // quantization before Canvas blends; raw floats shift even flat panel colors.
+    static float ColorChannel(float value) => (byte)(Math.Clamp(value, 0f, 1f) * 255f + .5f) / 255f;
 
-    void Emit(string kind, object value) => commands.Add(new Command(kind, value));
+    static float[] Rgba(Color c) =>
+        new[] { ColorChannel(c.r), ColorChannel(c.g), ColorChannel(c.b), ColorChannel(c.a) };
+
+    void Emit(string kind, object value)
+    {
+        if (SuppressDrawing)
+            return;
+        if (!commandState.Accept(kind, value))
+            return;
+        // Adjacent transforms have no drawing or saved state between them.
+        if (kind == "matrix" && commands.Count > 0 && commands[^1].kind == "matrix")
+            commands[^1] = new Command(kind, value);
+        else
+            commands.Add(new Command(kind, value));
+    }
 
     public int GroupCount => groups.Count;
     public bool InlineControlsObscured => false;
@@ -67,7 +121,7 @@ public sealed partial class BrowserGui : IGuiBackend
         && hitClips.Count > 0
         && !hitClips.Peek().Contains(Device(Event.current.mousePosition));
 
-    // Initial monospace metrics; browser font metrics and rich text are still required.
+    // Installed layout handles prepared wrapped/rich runs; unsupported fonts retain fallback.
     public Vector2 MeasureText(
         int fontIndex,
         float fontSize,
@@ -77,6 +131,29 @@ public sealed partial class BrowserGui : IGuiBackend
         bool richText = true
     )
     {
+        if (BakedFace(fontIndex, fontSize, fontStyle, text, richText, out var face, out var run))
+        {
+            float width = run.Measure(
+                static glyph => glyph.advanceX,
+                Math.Max(.001f, Math.Abs(matrix.m00))
+            );
+            if (wrapWidth <= 0 || width <= wrapWidth)
+                return new Vector2(width, face.FirstLine + (run.Lines.Length - 1) * face.Pitch);
+        }
+        if (
+            NativeLayout(
+                fontIndex,
+                fontSize,
+                fontStyle,
+                text,
+                wrapWidth,
+                Color.white,
+                richText,
+                Math.Max(.001f, Math.Abs(matrix.m00)),
+                out var native
+            )
+        )
+            return new Vector2(native.Width, native.Height);
         if (fontSize <= 0)
             fontSize = 16;
         var lines = text.Split('\n');
@@ -87,7 +164,9 @@ public sealed partial class BrowserGui : IGuiBackend
     }
 
     public float LineSpacing(int fontIndex, float fontSize) =>
-        (fontSize > 0 ? fontSize : 16) * 1.2f;
+        BrowserFontBank.TryFace(fontIndex, fontSize, out var face)
+            ? face.Spacing
+            : (fontSize > 0 ? fontSize : 16) * 1.2f;
 
     public void FontMetrics(
         int fontIndex,
@@ -96,12 +175,20 @@ public sealed partial class BrowserGui : IGuiBackend
         out float lineSpacing
     )
     {
+        if (BrowserFontBank.TryFace(fontIndex, 0, out var face))
+        {
+            importSize = face.Size;
+            ascent = face.LineAscent;
+            lineSpacing = face.Spacing;
+            return;
+        }
         importSize = 16;
         ascent = 13;
         lineSpacing = 19.2f;
     }
 
-    public int RegisterFont(string name, byte[] fontData, float importSize, int renderingMode) => 0;
+    public int RegisterFont(string name, byte[] fontData, float importSize, int renderingMode) =>
+        BrowserFontBank.Register(fontData, importSize);
 
     public int TextIndexAt(
         int fontIndex,
@@ -111,12 +198,41 @@ public sealed partial class BrowserGui : IGuiBackend
         float wrapWidth,
         Vector2 local,
         bool richText = true
-    ) =>
-        Math.Clamp(
+    )
+    {
+        if (
+            BakedCaret(
+                fontIndex,
+                fontSize,
+                fontStyle,
+                text,
+                wrapWidth,
+                richText,
+                out _,
+                out var line
+            )
+        )
+            return line.IndexAt(local.x, static glyph => glyph.advanceX, matrix.m00);
+        if (
+            NativeLayout(
+                fontIndex,
+                fontSize,
+                fontStyle,
+                text,
+                wrapWidth,
+                Color.white,
+                richText,
+                matrix.m00,
+                out _
+            )
+        )
+            return nativeText!.IndexAt(local);
+        return Math.Clamp(
             (int)Math.Round(local.x / ((fontSize > 0 ? fontSize : 16) * .6f)),
             0,
             text.Length
         );
+    }
 
     public Vector2 TextCursorPos(
         int fontIndex,
@@ -129,6 +245,45 @@ public sealed partial class BrowserGui : IGuiBackend
         bool richText = true
     )
     {
+        if (
+            BakedCaret(
+                fontIndex,
+                fontSize,
+                fontStyle,
+                text,
+                wrapWidth,
+                richText,
+                out var face,
+                out var line
+            )
+        )
+        {
+            lineHeight = face.Pitch;
+            return new Vector2(
+                line.Carets(static glyph => glyph.advanceX, matrix.m00)[
+                    Math.Clamp(index, 0, text.Length)
+                ],
+                0
+            );
+        }
+        if (
+            !string.IsNullOrEmpty(text)
+            && NativeLayout(
+                fontIndex,
+                fontSize,
+                fontStyle,
+                text,
+                wrapWidth,
+                Color.white,
+                richText,
+                matrix.m00,
+                out var layout
+            )
+        )
+        {
+            lineHeight = layout.Lines[nativeText!.LineOf(index)].Pitch;
+            return nativeText.PositionOf(index);
+        }
         lineHeight = LineSpacing(fontIndex, fontSize);
         return new Vector2(index * (fontSize > 0 ? fontSize : 16) * .6f, 0);
     }
@@ -143,7 +298,60 @@ public sealed partial class BrowserGui : IGuiBackend
         int to,
         List<Rect> rects,
         bool richText = true
-    ) =>
+    )
+    {
+        rects.Clear();
+        if (string.IsNullOrEmpty(text) || to <= from)
+            return;
+        if (
+            BakedCaret(
+                fontIndex,
+                fontSize,
+                fontStyle,
+                text,
+                wrapWidth,
+                richText,
+                out var face,
+                out var line
+            )
+        )
+        {
+            var positions = line.Carets(static glyph => glyph.advanceX, matrix.m00);
+            int start = Math.Clamp(from, 0, text.Length);
+            int end = Math.Clamp(to, 0, text.Length);
+            if (end > start)
+                rects.Add(
+                    new Rect(positions[start], 0, positions[end] - positions[start], face.Pitch)
+                );
+            return;
+        }
+        if (
+            NativeLayout(
+                fontIndex,
+                fontSize,
+                fontStyle,
+                text,
+                wrapWidth,
+                Color.white,
+                richText,
+                matrix.m00,
+                out var layout
+            )
+        )
+        {
+            var start = nativeText!.PositionOf(from);
+            var end = nativeText.PositionOf(to);
+            int first = nativeText.LineOf(from),
+                last = nativeText.LineOf(to);
+            for (int row = first; row <= last && row < layout.Lines.Length; row++)
+            {
+                var current = layout.Lines[row];
+                float left = row == first ? start.x : 0;
+                float right = row == last ? end.x : MathF.Max(current.Width, 4);
+                rects.Add(new Rect(left, current.Top, MathF.Max(0, right - left), current.Pitch));
+            }
+            return;
+        }
         rects.Add(
             new Rect(
                 from * (fontSize > 0 ? fontSize : 16) * .6f,
@@ -152,6 +360,7 @@ public sealed partial class BrowserGui : IGuiBackend
                 LineSpacing(fontIndex, fontSize)
             )
         );
+    }
 
     public void DrawText(
         Rect rect,
@@ -164,41 +373,54 @@ public sealed partial class BrowserGui : IGuiBackend
         Color color,
         Rect clipRect = default,
         bool richText = true
-    ) =>
+    )
+    {
+        if (SuppressDrawing)
+            return;
+        if (
+            DrawBakedText(
+                rect,
+                text,
+                fontIndex,
+                fontSize,
+                fontStyle,
+                anchor,
+                wordWrap,
+                color,
+                clipRect,
+                richText
+            )
+        )
+            return;
+        if (
+            DrawNativeText(
+                rect,
+                text,
+                fontIndex,
+                fontSize,
+                fontStyle,
+                anchor,
+                wordWrap,
+                color,
+                clipRect,
+                richText
+            )
+        )
+            return;
         Emit(
             "text",
-            new
-            {
-                rect = Box(rect),
-                text,
-                fontSize,
-                style = (int)fontStyle,
-                anchor = (int)anchor,
-                color = Rgba(color),
-            }
+            new TextCommand(Box(rect), text, fontSize, (int)fontStyle, (int)anchor, Rgba(color))
         );
+    }
 
-    public void FillRect(Rect rect, Color color) =>
-        Emit(
-            "fill",
-            new
-            {
-                rect = Box(rect),
-                color = Rgba(color),
-                rounding = 0f,
-            }
-        );
+    public void FillRect(Rect rect, Color color) => FillRectRounded(rect, color, 0f);
 
-    public void FillRectRounded(Rect rect, Color color, float rounding) =>
-        Emit(
-            "fill",
-            new
-            {
-                rect = Box(rect),
-                color = Rgba(color),
-                rounding,
-            }
-        );
+    public void FillRectRounded(Rect rect, Color color, float rounding)
+    {
+        if (SuppressDrawing)
+            return;
+        Emit("fill", new FillCommand(Box(rect), Rgba(color), rounding));
+    }
 
     public void DrawTexture(
         Rect rect,
@@ -214,34 +436,54 @@ public sealed partial class BrowserGui : IGuiBackend
         Color color
     )
     {
+        if (SuppressDrawing)
+            return;
+        TraceTextureDraw();
+        if (OutsideDrawingClip(rect))
+            return;
         if (image is RenderTexture target)
         {
             RememberTarget(target);
             Emit(
                 "targetTexture",
-                new
-                {
-                    id = target.GetInstanceID(),
-                    rect = Box(rect),
-                    uv = Box(texCoords),
-                    color = Rgba(color),
-                }
+                new TextureCommand(target.GetInstanceID(), Box(rect), Box(texCoords), Rgba(color))
             );
             return;
         }
         if (image is not UnityEngine.Texture2D texture)
             throw new NotSupportedException("Browser GUI render texture");
         UploadImage(texture);
-        Emit(
-            "imageTexture",
-            new
-            {
-                id = texture.GetInstanceID(),
-                rect = Box(rect),
-                uv = Box(texCoords),
-                color = Rgba(color),
-            }
+        AppendImageBatch(
+            commands,
+            texture.GetInstanceID(),
+            ColorChannel(color.r),
+            ColorChannel(color.g),
+            ColorChannel(color.b),
+            ColorChannel(color.a),
+            [
+                rect.x,
+                rect.y,
+                rect.width,
+                rect.height,
+                texCoords.x,
+                texCoords.y,
+                texCoords.width,
+                texCoords.height,
+            ]
         );
+    }
+
+    void TraceTextureDraw()
+    {
+        // One opt-in stack sample locates unexpected uncached drawing without
+        // collecting terminal text or allocating a trace on ordinary frames.
+        if (
+            BrowserGuiInput.Profile
+            && !drawingTarget
+            && ++outsideTargetQuads == 500
+            && OutsideTargetTrace == null
+        )
+            OutsideTargetTrace = Environment.StackTrace;
     }
 
     public void DrawTextureWithMaterial(
@@ -275,19 +517,52 @@ public sealed partial class BrowserGui : IGuiBackend
 
     Rect Bounds(Rect rect)
     {
-        var points = new[]
-        {
-            Device(new Vector2(rect.xMin, rect.yMin)),
-            Device(new Vector2(rect.xMax, rect.yMin)),
-            Device(new Vector2(rect.xMin, rect.yMax)),
-            Device(new Vector2(rect.xMax, rect.yMax)),
-        };
+        var a = Device(new Vector2(rect.xMin, rect.yMin));
+        var d = Device(new Vector2(rect.xMax, rect.yMax));
+        if (matrix.m01 == 0 && matrix.m10 == 0)
+            return Rect.MinMaxRect(
+                Math.Min(a.x, d.x),
+                Math.Min(a.y, d.y),
+                Math.Max(a.x, d.x),
+                Math.Max(a.y, d.y)
+            );
+        var b = Device(new Vector2(rect.xMax, rect.yMin));
+        var c = Device(new Vector2(rect.xMin, rect.yMax));
         return Rect.MinMaxRect(
-            points.Min(p => p.x),
-            points.Min(p => p.y),
-            points.Max(p => p.x),
-            points.Max(p => p.y)
+            Math.Min(Math.Min(a.x, b.x), Math.Min(c.x, d.x)),
+            Math.Min(Math.Min(a.y, b.y), Math.Min(c.y, d.y)),
+            Math.Max(Math.Max(a.x, b.x), Math.Max(c.x, d.x)),
+            Math.Max(Math.Max(a.y, b.y), Math.Max(c.y, d.y))
         );
+    }
+
+    bool OutsideDrawingClip(Rect rect)
+    {
+        if (!drawingClips.TryPeek(out var clip))
+            return false;
+        if (clip.width <= 0 || clip.height <= 0)
+            return true;
+        var bounds = Bounds(rect);
+        return bounds.xMax <= clip.xMin
+            || bounds.xMin >= clip.xMax
+            || bounds.yMax <= clip.yMin
+            || bounds.yMin >= clip.yMax;
+    }
+
+    void PushDrawingClip(Rect clip)
+    {
+        if (drawingClips.TryPeek(out var parent))
+        {
+            float left = Math.Max(clip.xMin, parent.xMin),
+                top = Math.Max(clip.yMin, parent.yMin);
+            clip = new Rect(
+                left,
+                top,
+                Math.Max(0, Math.Min(clip.xMax, parent.xMax) - left),
+                Math.Max(0, Math.Min(clip.yMax, parent.yMax) - top)
+            );
+        }
+        drawingClips.Push(clip);
     }
 
     void EmitMatrix()
@@ -314,6 +589,7 @@ public sealed partial class BrowserGui : IGuiBackend
     {
         var pointer = Event.current == null ? Vector2.zero : Device(Event.current.mousePosition);
         var clip = Bounds(clipRect);
+        PushDrawingClip(clip);
         Emit("clipScreen", Box(clip));
         if (hitClips.TryPeek(out var parent))
             clip = Rect.MinMaxRect(
@@ -337,6 +613,7 @@ public sealed partial class BrowserGui : IGuiBackend
         groups.RemoveAt(groups.Count - 1);
         offset = offsets.Pop();
         hitClips.Pop();
+        drawingClips.Pop();
         if (Event.current != null)
             Event.current.mousePosition = Local(pointer);
         Emit("pop", 0);
@@ -351,10 +628,16 @@ public sealed partial class BrowserGui : IGuiBackend
     public void EndWindowContent() => windowDepth = Math.Max(0, windowDepth - 1);
 
     // Draw-only clips do not affect hit testing in the installed backend.
-    public void PushClipRect(Rect rect) => Emit("clipScreen", Box(Bounds(rect)));
+    public void PushClipRect(Rect rect)
+    {
+        var clip = Bounds(rect);
+        PushDrawingClip(clip);
+        Emit("clipScreen", Box(clip));
+    }
 
     public void PopClipRect()
     {
+        drawingClips.Pop();
         Emit("pop", 0);
         EmitMatrix();
     }
@@ -368,16 +651,16 @@ public sealed partial class BrowserGui : IGuiBackend
 
     public void ActiveRenderTextureChanged(UnityEngine.RenderTexture active)
     {
+        drawingTarget = active != null;
         if (active != null)
             RememberTarget(active);
         Emit(
             "target",
-            new
-            {
-                id = active == null ? 0 : active.GetInstanceID(),
-                width = active?.width ?? 0,
-                height = active?.height ?? 0,
-            }
+            new TargetCommand(
+                active == null ? 0 : active.GetInstanceID(),
+                active?.width ?? 0,
+                active?.height ?? 0
+            )
         );
     }
 
@@ -423,6 +706,32 @@ public sealed partial class BrowserGui : IGuiBackend
         try
         {
             texture.SetPixels32(new Color32[] { Color.red, Color.red, Color.blue, Color.blue });
+            backend.PushClipRect(new Rect(0, 0, 10, 10));
+            backend.DrawTextureWithTexCoords(
+                new Rect(20, 20, 2, 2),
+                texture,
+                new Rect(0, 0, 1, 1),
+                Color.white
+            );
+            backend.PushClipRect(new Rect(20, 20, 10, 10));
+            backend.DrawTextureWithTexCoords(
+                new Rect(21, 21, 2, 2),
+                texture,
+                new Rect(0, 0, 1, 1),
+                Color.white
+            );
+            backend.PopClipRect();
+            if (backend.images.ContainsKey(texture.GetInstanceID()))
+                throw new InvalidOperationException("Fully clipped images must not upload");
+            backend.DrawTextureWithTexCoords(
+                new Rect(9, 9, 2, 2),
+                texture,
+                new Rect(0, 0, 1, 1),
+                Color.white
+            );
+            if (!backend.images.ContainsKey(texture.GetInstanceID()))
+                throw new InvalidOperationException("Partially visible images must upload");
+            backend.PopClipRect();
             GUI.DrawTexture(new Rect(450, 20, 20, 20), texture);
         }
         finally

@@ -7,27 +7,17 @@ internal static class BrowserSidebarPatch
     {
         using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
         var adapter = adapters.MainModule.GetType("BrowserAdapters.BrowserSidebar");
-        var label = mod
+        var home = mod
             .MainModule.GetType("SlopWorld.SidebarRowRenderer")
-            .Methods.Single(m => m.Name == "DrawGhostLabel");
-        if (
-            !label.IsStatic
-            || label.Parameters[0].ParameterType.FullName != "UnityEngine.Rect"
-            || label.Parameters[1].ParameterType.FullName != "SlopWorld.SessionInfo"
-        )
-            throw new InvalidOperationException("Session row avatar boundary changed");
-        var portrait = adapters
-            .MainModule.GetType("BrowserAdapters.BrowserAvatars")
-            .Methods.Single(m => m.Name == "Draw");
-        var labelIl = label.Body.GetILProcessor();
-        var labelStart = label.Body.Instructions[0];
-        labelIl.InsertBefore(labelStart, Instruction.Create(OpCodes.Ldarg_0));
-        labelIl.InsertBefore(labelStart, Instruction.Create(OpCodes.Ldarg_1));
-        labelIl.InsertBefore(
-            labelStart,
-            Instruction.Create(OpCodes.Call, mod.MainModule.ImportReference(portrait))
+            .Methods.Single(m => m.Name == "RestoreHostPath")
+            .Body.Instructions.Single(i =>
+                i.Operand is MethodReference m
+                && m.DeclaringType.FullName == "System.Environment"
+                && m.Name == "GetFolderPath"
+            );
+        home.Operand = mod.MainModule.ImportReference(
+            adapter.Methods.Single(m => m.Name == "HomeFolder")
         );
-        labelIl.InsertBefore(labelStart, Instruction.Create(OpCodes.Starg, label.Parameters[0]));
         var strip = mod.MainModule.GetType("SlopWorld.ColonistBarStrip");
         foreach (var (name, replacement) in new[] { ("Draw", "Draw"), ("get_BarShown", "Visible") })
         {
@@ -51,6 +41,9 @@ internal static class BrowserSidebarPatch
                 ("SlopWorld.SessionSelectable", "set_Current"),
                 ("SlopWorld.SessionGizmoSelection", "SyncFromMapSelection"),
                 ("SlopWorld.WorkspaceHotkeys", "SelectedLive"),
+                // Session walking clears pawn selection before opening its target.
+                // Entry has no map selector, just like direct sidebar selection.
+                ("SlopWorld.TerminalInputController", "SelectAdjacentSession"),
             }
         )
         {
@@ -68,7 +61,7 @@ internal static class BrowserSidebarPatch
         // This modifies a single eligibility read, not SessionInfo or its wire data.
         var bucket = mod
             .MainModule.GetType("SlopWorld.Sidebar")
-            .Methods.Single(m => m.Name == "BucketRuntimeSessions");
+            .Methods.Single(m => m.Name == "RuntimeRowVisible");
         var site = bucket.Body.Instructions.Single(i =>
             i.OpCode == OpCodes.Ldfld && i.Operand is FieldReference f && f.Name == "Ephemeral"
         );
