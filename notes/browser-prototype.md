@@ -186,8 +186,9 @@ slopweb and a checked, locked Eco control because only Entry runs here.
 `BrowserWindowPatch` redirects the existing fullscreen setter while keeping native
 settings, palette and rebindable hotkey intent. `workspace-fullscreen.js` owns the
 DOM Fullscreen API and reports actual state back to native settings, including
-Escape and rejected requests. GUI key dispatch runs synchronously in its DOM event
-so fullscreen admission retains user activation. Fullscreen is not persisted or
+Escape and rejected requests. Only keys matching the live native fullscreen slots
+dispatch synchronously in their DOM keydown event, including printable rebinds.
+Ordinary text remains batched; slot edits and resets take effect before saving. Fullscreen is not persisted or
 restored automatically in the browser. `just browser-test-window` checks that bridge;
 `just browser-window-check` exercises trusted key admission and browser-owned exit
 in an isolated Chromium document without loading the game.

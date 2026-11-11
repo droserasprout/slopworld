@@ -144,6 +144,10 @@ public partial class Probe
     }
 
     [JSExport]
+    public static bool WorkspaceFullscreenKey(string key) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserKeyBindings", "FullscreenKey", key)!;
+
+    [JSExport]
     public static void WorkspaceWindow(
         [JSMarshalAs<JSType.Function<JSType.Boolean>>] Action<bool> request
     ) =>

@@ -96,10 +96,55 @@ static class Check
         );
         BrowserKeyBindings.Persist = null;
         DefDatabase<KeyBindingDef>.Clear();
+        CheckFullscreenAdmission();
         CheckPatch(args[0]);
         Console.WriteLine(
             "Key bindings: installed slots/reset, authored allowlist, malformed input, save hook passed."
         );
+    }
+
+    static void CheckFullscreenAdmission()
+    {
+        var definition = new KeyBindingDef
+        {
+            defName = "SlopToggleFullscreen",
+            defaultKeyCodeA = KeyCode.F11,
+        };
+        KeyPrefs.KeyPrefsData = new KeyPrefsData();
+        KeyPrefs.KeyPrefsData.keyPrefs.Add(
+            definition,
+            new KeyBindingData(KeyCode.F11, KeyCode.None)
+        );
+        BrowserKeyBindings.Configure([definition]);
+        Expect(BrowserKeyBindings.FullscreenKey("F11"), "Default fullscreen admission lost");
+        Expect(
+            !BrowserKeyBindings.FullscreenKey("A")
+                && !BrowserKeyBindings.FullscreenKey("None")
+                && !BrowserKeyBindings.FullscreenKey("unknown"),
+            "Ordinary text or empty binding admitted"
+        );
+        KeyPrefs.KeyPrefsData.SetBinding(definition, KeyPrefs.BindingSlot.A, KeyCode.G);
+        KeyPrefs.KeyPrefsData.SetBinding(definition, KeyPrefs.BindingSlot.B, KeyCode.F8);
+        Expect(
+            BrowserKeyBindings.FullscreenKey("G")
+                && BrowserKeyBindings.FullscreenKey("F8")
+                && !BrowserKeyBindings.FullscreenKey("F11"),
+            "Live rebound slots require a save/reload"
+        );
+        KeyPrefs.KeyPrefsData.SetBinding(definition, KeyPrefs.BindingSlot.A, KeyCode.None);
+        Expect(
+            !BrowserKeyBindings.FullscreenKey("G") && BrowserKeyBindings.FullscreenKey("F8"),
+            "Cleared slot remained active"
+        );
+        DefDatabase<KeyBindingDef>.Add(definition);
+        KeyPrefs.KeyPrefsData.ResetToDefaults();
+        Expect(
+            BrowserKeyBindings.FullscreenKey("F11") && !BrowserKeyBindings.FullscreenKey("F8"),
+            "Reset admission stayed stale"
+        );
+        DefDatabase<KeyBindingDef>.Clear();
+        BrowserKeyBindings.Configure([]);
+        Expect(!BrowserKeyBindings.FullscreenKey("F11"), "Unconfigured definition admitted");
     }
 
     static void CheckPatch(string gamePath)

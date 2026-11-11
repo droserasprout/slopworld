@@ -102,6 +102,12 @@ export function attachGuiInput(canvas, managed) {
     let key = keys[event.key] ?? (/^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key : null);
     if (!key && (event.ctrlKey || event.altKey || event.metaKey))
       key = physical;
+    const candidate = key ?? physical;
+    const activation = !!candidate && managed.activationKey?.(candidate) === true;
+    // A printable fullscreen rebind must execute in keydown too: waiting for the
+    // editable proxy's input event can lose activation. Native routing still decides
+    // whether the shortcut is eligible, and preventDefault suppresses duplicate text.
+    if (activation) key = candidate;
     if (key) enqueue({kind:'key', key, ...modifiers(event)});
     else if (Array.from(event.key).length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
       if (editable) { pendingText = {event, key:physical}; return; }
@@ -111,7 +117,7 @@ export function attachGuiInput(canvas, managed) {
     event.preventDefault();
     // Window commands may require transient user activation. Dispatch native bindings
     // here, before returning from the DOM key event, rather than on the next RAF.
-    if (managed.activationFrame) frame();
+    if (activation) frame();
   });
   listen('paste', event => {
     if (!managed.ClipboardTake || !event.clipboardData) return;
@@ -148,7 +154,6 @@ export function attachGuiInput(canvas, managed) {
     const value = event.data ?? proxy.element.value;
     if (value && value !== committed) text(value, pendingText?.event ?? {}, pendingText?.key);
     pendingText = null; committed = null; proxy.element.value = '';
-    if (managed.activationFrame) frame();
   });
   listen('wheel', event => {
     event.preventDefault();
