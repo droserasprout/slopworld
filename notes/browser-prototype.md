@@ -67,6 +67,12 @@ layout path; terminal columns, sprites and input remain mod-owned.
 compares actual serialized draw packets and uploaded RGBA bytes across both paths;
 `benchmark-glyphs` includes thousands of single-cell labels with stable and moving
 positions. This CPU evidence does not establish browser frame-time or screenshot parity.
+`WorkspaceImageVersionCache` exposes an opt-in, default-off comparison switch for
+repeated texture-version lookup within one GUI draw pass. Each adapter retains the
+last texture and its mutable Apply version until drain/discard; upload validation
+still checks texture identity, CPU backing and dimensions. `NativeTextTests` compares
+real packets with the switch off/on across mutation, replacement, ID reuse and
+discarded uploads. Browser workload timings remain a separate requirement.
 Covered axis-aligned text uses the installed renderer's glyph-quad clipping rules,
 including ascender overhang and first-line bottom clipping. It does not add a Canvas
 clip scope per label. BrowserCommandState suppresses unchanged serialized transforms
