@@ -15,10 +15,10 @@ if(!['keep','on','off'].includes(packetCache))throw new Error('Packet cache must
 if(!['keep','on','off'].includes(canvasReuse))throw new Error('Canvas reuse must be keep, on or off');
 if(!['on','off'].includes(quadCache))throw new Error('Quad cache must be on or off');
 const phases=phaseList.split(',');
-const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache'}[comparison];
+const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',taskYield:'setTaskYield'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
-  throw new Error('Comparison must be glyph, input, cell, tint or command with four identical workload phases');
-const comparisonCall=comparison==='tint' ? '(async enabled => (await import("/gui.js")).configureGuiTintCache(enabled))' : `window.__managedProbe.${comparisonExport}`;
+  throw new Error('Comparison must be glyph, input, cell, tint, command or taskYield with four identical workload phases');
+const comparisonCall=comparison==='tint' ? '(async enabled => (await import("/gui.js")).configureGuiTintCache(enabled))' : comparison==='taskYield' ? 'window.__workspace.setTaskYield' : `window.__managedProbe.${comparisonExport}`;
 if (phases.some(phase=>!['idle','output','typing','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
 if (!profile || !output) throw new Error('Usage: benchmark.mjs PROFILE OUTPUT');
@@ -127,6 +127,9 @@ try {
     const summary={phase,comparisonEnabled,durationMs:result.durationMs,frameMs:distribution(result.intervals),
       drawFrameMs:distribution(result.drawIntervals),
       latencyMs:distribution(result.latencyMs),
+      wireLatencyMs:result.wireTimings?.length ? Object.fromEntries(
+        ['dispatchToSendMs','sendToMessageMs','messageToObservedMs'].map(key=>
+          [key,distribution(result.wireTimings.map(row=>row[key]).filter(value=>value!==null))])) : null,
       latencyDefinition:phase==='typing'?'DOM key dispatch to matching text in native receive buffer'
         :phase==='switching'?'Native Open to selected pane draw submission':null,
       rendererTaskCpuPercent:100*(after.TaskDuration-before.TaskDuration)/(after.Timestamp-before.Timestamp),

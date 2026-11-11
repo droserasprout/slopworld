@@ -157,6 +157,31 @@
       await pause(1500);
     },
     async run(phase) {
+      const wireTimings=[],listeners=new Map(),originalSend=WebSocket.prototype.send;
+      let pendingWire=null;
+      const bytes=value=>value instanceof ArrayBuffer?new Uint8Array(value)
+        :ArrayBuffer.isView(value)?new Uint8Array(value.buffer,value.byteOffset,value.byteLength):null;
+      if(phase==='typing')WebSocket.prototype.send=function(data) {
+        const payload=bytes(data);
+        if(pendingWire && payload?.[0]===34) {
+          const keys=fields(fields(payload).get(4));
+          if(new TextDecoder().decode(keys.get(1))===pendingWire.name) {
+            pendingWire.sent??=performance.now();
+            if(!listeners.has(this)) {
+              const receive=event=>{
+                const packet=bytes(event.data);
+                if(!pendingWire || packet?.[0]!==42)return;
+                const screenBytes=fields(packet).get(5),screen=fields(screenBytes);
+                if(new TextDecoder().decode(screen.get(1))===pendingWire.name
+                    && new TextDecoder().decode(screenBytes).includes(pendingWire.marker))
+                  pendingWire.received??=performance.now();
+              };
+              this.addEventListener('message',receive);listeners.set(this,receive);
+            }
+          }
+        }
+        return originalSend.call(this,data);
+      };
       const runId=(++runSerial).toString().padStart(4,'0');
       samples.length = 0;
       window.__workspace.setProfiling(true);
@@ -181,8 +206,15 @@
         else if (phase === 'typing') {
           for (let i=0; i<20; i++) {
             const marker = 'TYPE_' + runId + '_' + i.toString().padStart(2,'0');
-            const start = performance.now(); send('echo ' + marker);
-            await output('ACK_' + marker); samples.push(performance.now()-start);
+            const start = performance.now();
+            pendingWire={name:owned(),marker:'ACK_'+marker};
+            send('echo ' + marker);
+            await output('ACK_' + marker);
+            const observed=performance.now();samples.push(observed-start);
+            wireTimings.push({dispatchToSendMs:pendingWire.sent===undefined?null:pendingWire.sent-start,
+              sendToMessageMs:pendingWire.received===undefined||pendingWire.sent===undefined?null:pendingWire.received-pendingWire.sent,
+              messageToObservedMs:pendingWire.received===undefined?null:observed-pendingWire.received});
+            pendingWire=null;
             await pause(100);
           }
         } else if (phase === 'scrolling') {
@@ -207,8 +239,12 @@
         if (game.hasGame || game.hasWorld || game.maps !== null || game.ticks !== 0)
           throw new Error('Benchmark created a colony');
         return {phase, durationMs:performance.now()-started, intervals, drawIntervals, latencyMs:[...samples],
-          stages:[...window.__workspaceProfile], game, scrollTrace, terminalCache:state().terminalCache};
-      } finally { running=false; window.__workspace.setProfiling(false); }
+          stages:[...window.__workspaceProfile], game, scrollTrace, wireTimings, terminalCache:state().terminalCache};
+      } finally {
+        if(phase==='typing')WebSocket.prototype.send=originalSend;
+        for(const [socket,listener] of listeners)socket.removeEventListener('message',listener);
+        running=false; window.__workspace.setProfiling(false);
+      }
     },
   };
   return {installed:true};
