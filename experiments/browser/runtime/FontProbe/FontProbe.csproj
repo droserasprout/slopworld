@@ -6,9 +6,11 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <Import Project="../GameReferences.props" />
   <ItemGroup>
     <Reference Include="Brutal.ImGui;Brutal.Core.Numerics;Brutal.Core.Common">
-      <HintPath>$(GameDirectory)/%(Identity).dll</HintPath>
+      <Private>false</Private>
+      <HintPath>$(GameReferencePath)/%(Identity).dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
