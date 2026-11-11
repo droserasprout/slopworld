@@ -51,6 +51,7 @@ def write_preferences(root: Path, values: dict) -> None:
 
 
 def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
+    values = dict(values)
     fonts = root / 'assets/fonts'
     fonts.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -64,7 +65,16 @@ def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
         )
 
     probe('--catalog', bundle / 'mod/SlopWorld.dll', '', fonts)
-    probe('--resolve-ui', bundle / 'mod/SlopWorld.dll', values.get('uiFontName') or '', fonts)
+    try:
+        probe('--resolve-ui', bundle / 'mod/SlopWorld.dll', values.get('uiFontName') or '', fonts)
+    except subprocess.CalledProcessError:
+        if not values.get('uiFontName'):
+            raise
+        # A removed desktop font must not prevent opening browser settings.
+        # Publish Auto with its bakes so startup does not retry the stale family;
+        # the desktop profile and interactive font-request policy remain separate.
+        probe('--resolve-ui', bundle / 'mod/SlopWorld.dll', '', fonts)
+        values['uiFontName'] = ''
     probe('--resolve', bundle / 'mod/SlopWorld.dll', values.get('fontName') or 'monospace', fonts)
     # Missing preferences retain ModSettings' defaults. UI size zero explicitly
     # selects RimWorld's original 11/13/15 tiers instead.
