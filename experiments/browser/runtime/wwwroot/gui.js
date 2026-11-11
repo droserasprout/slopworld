@@ -42,21 +42,17 @@ export class GuiTargetDamagePlanner {
       for (const group of [old.groups[i], next.groups[i]])
         if (group) changed.push([Math.floor(group.box[1]) - 2, Math.ceil(group.box[3]) + 2]);
     }
-    const safe = [];
-    for (let i = 0; i < next.groups.length; i++) {
-      const group = next.groups[i];
-      if (group.key !== old.groups[i]?.key) continue;
-      const box = intersectBox(next.interior, group.box);
-      // Leave a physical pixel guard at every fractional clip/reset boundary.
-      const x0 = Math.ceil(box[0]) + 1, x1 = Math.floor(box[2]) - 1;
-      let bands = [[Math.ceil(box[1]) + 1, Math.floor(box[3]) - 1]];
-      for (const [top, bottom] of changed) bands = bands.flatMap(([a,b]) =>
-        bottom <= a || top >= b ? [[a,b]] : [[a,Math.min(b,top)],[Math.max(a,bottom),b]]);
-      for (const [a,b] of bands) if (x1 > x0 && b > a) {
-        if (safe.length >= 4096) return null;
-        safe.push([x0,a,x1,b]);
-      }
-    }
+    // Every admitted operation after the opaque reset belongs to a bounded row
+    // group. Outside changed OLD and NEW group footprints, the complete ordered
+    // raster sequence is identical, including fractional row clip edges. Preserve
+    // the reset interior there, rather than introducing a hole per row.
+    if (!next.groups.some((group,i) => group.key === old.groups[i]?.key)) return null;
+    const box = next.interior;
+    const x0 = Math.ceil(box[0]) + 1, x1 = Math.floor(box[2]) - 1;
+    let bands = [[Math.ceil(box[1]) + 1, Math.floor(box[3]) - 1]];
+    for (const [top,bottom] of changed) bands = bands.flatMap(([a,b]) =>
+      bottom <= a || top >= b ? [[a,b]] : [[a,Math.min(b,top)],[Math.max(a,bottom),b]]);
+    const safe = x1 > x0 ? bands.filter(([a,b]) => b > a).map(([a,b]) => [x0,a,x1,b]) : [];
     // Turn possibly overlapping row interiors into disjoint rectangles. Nonzero
     // winding clipping then paints the complement without overlapping holes.
     const edges = [...new Set(safe.flatMap(b => [b[1],b[3]]))].sort((a,b) => a-b);
