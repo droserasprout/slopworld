@@ -56,6 +56,7 @@ public static class BrowserModKeys
         foreach (var definition in definitions)
             definition.ResolveReferences();
         KeyPrefs.Init();
+        BrowserKeyBindings.Configure(definitions.OfType<KeyBindingDef>());
 
         var mod = AppDomain
             .CurrentDomain.GetAssemblies()

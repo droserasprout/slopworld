@@ -139,6 +139,18 @@ public partial class Probe
     }
 
     [JSExport]
+    public static void WorkspaceKeyBindings(
+        string json,
+        [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> persist
+    )
+    {
+        Invoke("Adapters", "BrowserAdapters.BrowserKeyBindings", "Apply", json);
+        Type("Adapters", "BrowserAdapters.BrowserKeyBindings")
+            .GetField("Persist")!
+            .SetValue(null, persist);
+    }
+
+    [JSExport]
     public static void WorkspaceSavePreferences()
     {
         var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;

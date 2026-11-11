@@ -159,6 +159,18 @@ values before reload. Unavailable storage and malformed values retain defaults.
 Credentials, daemon configuration, commands and `hostHome` never enter this snapshot;
 it does not write the host profile. Explicit diagnostic workspaces stay ephemeral;
 `localPreferences=off` also disables the app snapshot for reference comparisons.
+`BrowserKeyBindings` separately persists both slots of only the definitions loaded
+from the authored `Defs/KeyBindings.xml`, under an origin-local versioned key.
+Restoration waits until `BrowserModKeys` finishes native `KeyPrefs.Init`; the initial
+native save cannot overwrite the pending snapshot. Native slot setters, conflict
+validation, reset-to-defaults and `KeyPrefs.Save` retain ownership. A staged save
+hook publishes the authored subset after native saving; no XML, unresolved game
+bindings, host profile or arbitrary definition is copied into browser storage.
+Malformed/unknown codes retain defaults, explicit `None` clears a slot, and saving
+a reset replaces previous customizations. Diagnostic workspaces and
+`localPreferences=off` leave this persistence disabled too.
+`just browser-test-keybindings` checks origin storage, installed managed slots/reset,
+and the staged save hook without starting the game or browser.
 Prepared font assets still belong to the host and are not rebaked by local changes.
 `browser-host-preferences-check` uses F9 in a retained diagnostic browser, waits for
 the native debounced save, reloads, checks restored native state, and restores the
