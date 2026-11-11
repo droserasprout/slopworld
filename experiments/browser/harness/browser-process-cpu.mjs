@@ -10,7 +10,11 @@ export async function cpuQuota(pid, read=readFile) {
   const group=membership.split('\n').find(line=>line.startsWith('0::'))?.slice(3);
   if(group===undefined)return {available:false,reason:'No unified cgroup membership'};
   const root='/sys/fs/cgroup';
-  let directory=path.join(root,group), cores=null;
+  // Root membership must compare equal to root (without a trailing slash),
+  // otherwise walking parents reaches / and never terminates in containers.
+  let directory=path.resolve(root,'.'+group), cores=null;
+  if(directory!==root&&!directory.startsWith(root+'/'))
+    return {available:false,reason:'Cgroup membership escapes mounted hierarchy'};
   for(;;) {
     try {
       const [quota,period]=(await read(path.join(directory,'cpu.max'),'utf8')).trim().split(/\s+/);
