@@ -67,7 +67,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   const scheduler=new WorkspaceScheduler(()=>update());
   const activity=new AbortController();
   for (const target of [canvas, gui.textInput])
-  for(const event of ['input','compositionstart','compositionupdate','keydown','keyup','pointerdown','pointerup','pointermove','wheel','paste','copy','compositionend','blur'])
+  for(const event of ['input','compositionstart','compositionupdate','keydown','keyup','pointerdown','pointerup','pointermove','pointercancel','wheel','paste','copy','compositionend','blur'])
     target.addEventListener(event,()=>scheduler.wake(true),{signal:activity.signal});
   for(const event of ['resize','focus','blur'])window.addEventListener(event,()=>scheduler.wake(true),{signal:activity.signal});
   document.addEventListener('visibilitychange',()=>scheduler.wake(true),{signal:activity.signal});
