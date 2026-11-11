@@ -32,6 +32,18 @@ browser-host-rendering-check rendering='auto':
 browser-host-canvas-reuse-check:
     systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} reuse
 
+# Tiny real-Canvas clip equivalence; no game or WASM startup.
+[group('browser prototype')]
+browser-host-screen-clip-check:
+    systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} clip
+
+[group('browser prototype')]
+browser-screen-clip-lint:
+    node --check experiments/browser/runtime/wwwroot/gui.js
+    node --check experiments/browser/harness/screen-clip-check.js
+    node --check experiments/browser/harness/rendering-check.mjs
+    node --check experiments/browser/harness/benchmark.mjs
+
 [group('browser prototype')]
 browser-test-input:
     dotnet run --project experiments/browser/runtime/InputTests/InputTests.csproj

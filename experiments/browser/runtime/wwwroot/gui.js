@@ -29,6 +29,15 @@ export function configureGuiTintCache(enabled) {
   return previous;
 }
 
+// Only clipScreen resets to physical coordinates before recording its rectangle.
+// Keep the generic transformed path available for diagnostics and other clips.
+let screenClipFastPath = false;
+export function configureGuiScreenClipFastPath(enabled) {
+  const previous = screenClipFastPath;
+  screenClipFastPath = !!enabled;
+  return previous;
+}
+
 function tintImage(source, color, cachedPixels = null) {
   const tinted = document.createElement('canvas'); tinted.width = source.width; tinted.height = source.height;
   const pixels = cachedPixels ?? source.getContext('2d').getImageData(0, 0, source.width, source.height).data;
@@ -42,9 +51,17 @@ export function renderGui(canvas, commands) {
   const clips = [], clipDepths = [];
   ctx.resetTransform();
   const color = c => `rgba(${c[0] * 255},${c[1] * 255},${c[2] * 255},${c[3]})`;
-  const clip = rect => {
-    const [x, y, w, h] = rect, matrix = ctx.getTransform();
-    const points = [[x,y],[x+w,y],[x+w,y+h],[x,y+h]].map(([x,y]) => new DOMPoint(x,y).matrixTransform(matrix));
+  const clip = (rect, physical = false) => {
+    const [x, y, w, h] = rect;
+    let points;
+    if (physical) {
+      // Preserve corner order, signed extents and fractional coordinates for
+      // target inheritance. The Canvas path below still owns raster clipping.
+      points = [{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
+    } else {
+      const matrix = ctx.getTransform();
+      points = [[x,y],[x+w,y],[x+w,y+h],[x,y+h]].map(([x,y]) => new DOMPoint(x,y).matrixTransform(matrix));
+    }
     clips.push(points);
     ctx.beginPath(); ctx.rect(...rect); ctx.clip();
   };
@@ -136,7 +153,7 @@ export function renderGui(canvas, commands) {
       case 'releaseTarget': renderTargets.delete(v); break;
       case 'matrix': ctx.setTransform(...v); break;
       case 'group': ctx.save(); clipDepths.push(clips.length); clip(v.rect); ctx.translate(v.rect[0] - v.offset[0], v.rect[1] - v.offset[1]); break;
-      case 'clipScreen': { const transform = ctx.getTransform(); ctx.save(); clipDepths.push(clips.length); ctx.resetTransform(); clip(v); ctx.setTransform(transform); break; }
+      case 'clipScreen': { const transform = ctx.getTransform(); ctx.save(); clipDepths.push(clips.length); ctx.resetTransform(); clip(v, screenClipFastPath); ctx.setTransform(transform); break; }
       case 'clip': ctx.save(); clipDepths.push(clips.length); clip(v); break;
       case 'pop': ctx.restore(); clips.length = clipDepths.pop(); break;
       default: throw new Error(`Unknown GUI command: ${kind}`);

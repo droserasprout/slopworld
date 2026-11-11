@@ -15,10 +15,10 @@ if(!['keep','on','off'].includes(packetCache))throw new Error('Packet cache must
 if(!['keep','on','off'].includes(canvasReuse))throw new Error('Canvas reuse must be keep, on or off');
 if(!['on','off'].includes(quadCache))throw new Error('Quad cache must be on or off');
 const phases=phaseList.split(',');
-const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache'}[comparison];
+const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
-  throw new Error('Comparison must be glyph, input, cell, tint or command with four identical workload phases');
-const comparisonCall=comparison==='tint' ? '(async enabled => (await import("/gui.js")).configureGuiTintCache(enabled))' : `window.__managedProbe.${comparisonExport}`;
+  throw new Error('Comparison must be glyph, input, cell, tint, command or clip with four identical workload phases');
+const comparisonCall=['tint','clip'].includes(comparison) ? `(async enabled => (await import("/gui.js")).${comparisonExport}(enabled))` : `window.__managedProbe.${comparisonExport}`;
 if (phases.some(phase=>!['idle','output','typing','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
 if (!profile || !output) throw new Error('Usage: benchmark.mjs PROFILE OUTPUT');
