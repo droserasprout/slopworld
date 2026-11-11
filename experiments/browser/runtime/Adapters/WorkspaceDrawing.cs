@@ -109,6 +109,11 @@ public static class WorkspaceDrawing
         var panel = window?.GetType().GetProperty("_terminal", privateInstance)!.GetValue(window);
         object? PanelField(string name) =>
             panel?.GetType().GetField(name, privateInstance)!.GetValue(panel);
+        var bounds = panel?.GetType().GetProperty("Bounds")!.GetValue(panel);
+        var font = panel?.GetType().Assembly.GetType("SlopWorld.TerminalFont");
+        var terminalState = PanelField("_state");
+        object? Shape(string name) =>
+            terminalState?.GetType().GetField(name)!.GetValue(terminalState);
         var cache = PanelField("_cache") as RenderTexture;
         var cacheKey = PanelField("_cacheKey");
         return JsonSerializer.Serialize(
@@ -130,6 +135,17 @@ public static class WorkspaceDrawing
                     .GetProperty("SessionName", privateInstance)!
                     .GetValue(window),
                 terminalDrawn = panel?.GetType().GetProperty("DrewScreen")!.GetValue(panel),
+                terminalGeometry = new
+                {
+                    bounds = bounds == null
+                        ? null
+                        : new[] { "X", "Y", "Width", "Height" }
+                            .Select(n => bounds.GetType().GetField(n)!.GetValue(bounds))
+                            .ToArray(),
+                    cellHeight = font?.GetProperty("CellH")!.GetValue(null),
+                    rows = Shape("Rows"),
+                    cols = Shape("Cols"),
+                },
                 terminalScroll = new
                 {
                     offset = PanelField("_scrollOff"),

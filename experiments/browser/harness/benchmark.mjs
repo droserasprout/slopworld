@@ -112,8 +112,10 @@ try {
       jsHeapUsed:after.JSHeapUsedSize,jsHeapTotal:after.JSHeapTotalSize,stageMeans};
     report.phases.push({summary, result, before, after});
     console.log(JSON.stringify(summary));
-    const screenshot=await call('Page.captureScreenshot',{format:'png'});
-    await writeFile(output+'.'+phase+'.png',Buffer.from(screenshot.data,'base64'));
+    if (process.env.PROBE_SCREENSHOTS !== '0') {
+      const screenshot=await call('Page.captureScreenshot',{format:'png'});
+      await writeFile(output+'.'+phase+'.png',Buffer.from(screenshot.data,'base64'));
+    }
   }
 } catch(error) {
   report.error=String(error);process.exitCode=1;

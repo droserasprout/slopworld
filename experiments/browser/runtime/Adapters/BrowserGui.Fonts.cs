@@ -50,9 +50,8 @@ public sealed partial class BrowserGui
         face = null!;
         run = null!;
         if (
-            style != FontStyle.Normal
-            || (rich && BrowserNativeText.HasMarkup(text))
-            || !BrowserFontBank.TryFace(index, size, out face)
+            (rich && BrowserNativeText.HasMarkup(text))
+            || !BrowserFontBank.TryFace(index, size, style, out face)
         )
             return false;
         run = face.TextRuns.Get(text)!;
@@ -93,9 +92,8 @@ public sealed partial class BrowserGui
         float y = rect.y + (rect.height - height) * vertical / 2;
         bool fineClip = clip.width > 0;
         Rect screenClip = fineClip ? Bounds(clip) : default;
-        // The transform is constant throughout a label, including all glyphs in
-        // each faded sidebar slice; no per-glyph inversion is needed.
-        var inverse = matrix.inverse;
+        // Axis-aligned uniform transforms map device quads back with subtraction
+        // and division. Avoid a full matrix inverse for every terminal cell.
         var origin = Device(Vector2.zero);
         // This atlas cannot mutate during a synchronous label draw. Validate its
         // upload on the first visible glyph, rather than repeating weak-table,
@@ -128,7 +126,7 @@ public sealed partial class BrowserGui
                 penX,
                 penY,
                 scale,
-                inverse,
+                origin,
                 color,
                 fineClip,
                 screenClip,
@@ -145,7 +143,7 @@ public sealed partial class BrowserGui
         float penX,
         float penY,
         float scale,
-        Matrix4x4 inverse,
+        Vector2 origin,
         Color color,
         bool fineClip,
         Rect screenClip,
@@ -172,12 +170,9 @@ public sealed partial class BrowserGui
                 );
                 if (!fineClip || quad.Clip(screenClip.xMin, screenClip.xMax, clipBottom))
                 {
-                    var position =
-                        (Vector2)inverse.MultiplyPoint3x4(new Vector2(quad.Left, quad.Top))
-                        - offset;
                     var destination = new Rect(
-                        position.x,
-                        position.y,
+                        (quad.Left - origin.x) / scale,
+                        (quad.Top - origin.y) / scale,
                         (quad.Right - quad.Left) / scale,
                         (quad.Bottom - quad.Top) / scale
                     );

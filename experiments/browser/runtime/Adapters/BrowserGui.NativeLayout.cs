@@ -10,6 +10,48 @@ public sealed partial class BrowserGui
     public static string NativeTextProbe()
     {
         var gui = new BrowserGui { matrix = Matrix4x4.Scale(new Vector3(5f / 3, 5f / 3, 1)) };
+        foreach (var index in new[] { 0, 1, 2, 3 })
+        foreach (
+            var style in new[]
+            {
+                FontStyle.Normal,
+                FontStyle.Bold,
+                FontStyle.Italic,
+                FontStyle.BoldAndItalic,
+            }
+        )
+        {
+            if (!BrowserFontBank.TryFace(index, 0, style, out var face))
+                throw new InvalidOperationException("Missing prepared style " + style);
+            if (gui.LineSpacing(index, 0) < face.FirstLine)
+                throw new InvalidOperationException("Terminal line box clips the first line");
+            var actual = gui.MeasureText(index, 0, style, "Mg", -1, false);
+            if (actual.y != face.FirstLine)
+                throw new InvalidOperationException("Styled measurement lost native metrics");
+            gui.DrawText(
+                new Rect(0, 0, 100, 100),
+                "Mg",
+                index,
+                0,
+                style,
+                TextAnchor.UpperLeft,
+                false,
+                Color.white,
+                default,
+                false
+            );
+            using var styled = System.Text.Json.JsonDocument.Parse(gui.Drain());
+            if (
+                styled
+                    .RootElement.EnumerateArray()
+                    .Any(c => c.GetProperty("kind").GetString() == "text")
+            )
+                throw new InvalidOperationException("Styled text lost its selected family");
+        }
+        // The style assertions drain packets without presenting them. Start a new
+        // upload owner so the returned visual probe is independently replayable.
+        gui = new BrowserGui { matrix = Matrix4x4.Scale(new Vector3(5f / 3, 5f / 3, 1)) };
+        gui.EmitMatrix();
         const string text = "<color=red>alpha beta</color> gamma delta";
         if (
             !gui.NativeLayout(
@@ -60,6 +102,28 @@ public sealed partial class BrowserGui
             true,
             Color.white
         );
+        foreach (var index in new[] { 1, 3 })
+        foreach (
+            var style in new[]
+            {
+                FontStyle.Normal,
+                FontStyle.Bold,
+                FontStyle.Italic,
+                FontStyle.BoldAndItalic,
+            }
+        )
+            gui.DrawText(
+                new Rect(index == 1 ? 5 : 255, 160 + (int)style * 32, 245, 32),
+                style + " Agyp 0123",
+                index,
+                0,
+                style,
+                TextAnchor.UpperLeft,
+                false,
+                Color.white,
+                default,
+                false
+            );
         var packet = gui.Drain();
         using var commands = System.Text.Json.JsonDocument.Parse(packet);
         if (
@@ -77,7 +141,7 @@ public sealed partial class BrowserGui
 
     static BrowserNativeLayout.Metrics NativeMetrics(int font, float size, FontStyle style)
     {
-        if (style != FontStyle.Normal || !BrowserFontBank.TryFace(font, size, out var face))
+        if (!BrowserFontBank.TryFace(font, size, style, out var face))
             throw new UnpreparedTextException();
         return new(
             face.Size,
@@ -167,10 +231,7 @@ public sealed partial class BrowserGui
             var piece = layout.Pieces[i];
             if (piece.IsSpace)
                 continue;
-            if (
-                piece.Style != FontStyle.Normal
-                || !BrowserFontBank.TryFace(font, piece.Size, out var face)
-            )
+            if (!BrowserFontBank.TryFace(font, piece.Size, piece.Style, out var face))
                 return false;
             var run = face.TextRuns.Get(text.Substring(piece.Start, piece.Length));
             if (run == null || run.Lines.Length != 1)
@@ -183,7 +244,6 @@ public sealed partial class BrowserGui
         bool fineClip = clip.width > 0;
         Rect screenClip = fineClip ? Bounds(clip) : default;
         var origin = Device(Vector2.zero);
-        var inverse = matrix.inverse;
         for (int row = 0; row < layout.Lines.Length; row++)
         {
             var line = layout.Lines[row];
@@ -215,7 +275,7 @@ public sealed partial class BrowserGui
                     penX,
                     penY,
                     scale,
-                    inverse,
+                    origin,
                     piece.Color,
                     fineClip,
                     screenClip,

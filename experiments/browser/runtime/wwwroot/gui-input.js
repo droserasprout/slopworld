@@ -10,6 +10,7 @@ export function attachGuiInput(canvas, managed) {
   let clipboardEvent;
   const reuse=new GuiFrameReuse();
   const frame = () => {
+    managed.beforeFrame?.();
     const batch=queue; queue=[];
     const profiling = managed.profileFrame;
     const started = profiling ? performance.now() : 0;

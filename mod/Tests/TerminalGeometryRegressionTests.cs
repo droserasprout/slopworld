@@ -32,6 +32,16 @@ namespace SlopWorld.Tests
             Assert.That(TerminalPanelGeometry.SelectionEdgeRow(0, 1), Is.EqualTo(0));
         }
 
+        public static void UnusedPaneBottomSelectsLastRowWithoutMaskingMissingHistory()
+        {
+            var screen = new ScreenBuf { Rows = 2, Lines = new[] { "first", "gyp" } };
+            var history = new TerminalHistory();
+            int endpoint = TerminalPanelGeometry.SelectionEdgeRow(2, screen.Rows);
+            Assert.That(history.SelectionText(screen, 0, 0, 2, endpoint), Is.EqualTo("first\ngyp"));
+            screen.Lines = new[] { "first" };
+            Assert.That(history.SelectionText(screen, 0, 0, 2, endpoint), Is.Null.Or.Empty);
+        }
+
         public static void RejectsNonFiniteGeometry()
         {
             foreach (

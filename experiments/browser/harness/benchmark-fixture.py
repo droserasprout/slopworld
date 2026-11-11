@@ -1,5 +1,6 @@
 """Deterministic terminal traffic for invocation-owned temporary host sessions."""
 
+import os
 import sys
 import termios
 import time
@@ -21,6 +22,13 @@ def main() -> None:
         command = line.strip()
         if command == 'paint':
             paint()
+        elif command == 'edges':
+            rows = os.get_terminal_size().lines
+            print('\x1b[2J\x1b[H', end='')
+            for row in range(rows):
+                label = 'BOTTOM_gyp_Mj' if row == rows - 1 else f'{row:03d} Agyp Mj'
+                print(f'\x1b[{row + 1};1H{label}', end='')
+            sys.stdout.flush()
         elif command == 'stream':
             for row in range(100):
                 print(f'{row:03d} | output workload | 0123456789 abcdefghijklmnopqrstuvwxyz', flush=True)

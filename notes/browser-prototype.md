@@ -20,19 +20,26 @@ The installed launcher's private preparation uses the same FontProbe for native
 UI candidate selection, terminal family resolution and glyph baking. Package staging
 allowlists the helper executable and metadata because its build directory also
 contains installed game references; those references must never be bundled.
-Private font preparation bakes UI tiers and the terminal face at densities 1, 5/3
-and 2. `BrowserFontBank` keeps font indices stable while selecting the nearest
+Private font preparation bakes normal, bold, italic and bold-italic variants of
+the selected UI and terminal files through the native loader at densities 1, 5/3
+and 2. Rendering-mode flags are distinct from style flags; the native bold/oblique
+constants extend the normal rendering mode. `browser-font-styles-check` compares
+actual ink, line metrics and italic advances across all prepared variants.
+Style is part of face lookup, so styled runs retain family and native metrics.
+`BrowserFontBank` keeps font indices stable while selecting the nearest
 prepared density; viewport changes invalidate its bounded face lookup cache and
 advance atlas revision. Returning to a density reuses its texture. Other densities
 still resample. `just browser-host-font-bakes` refreshes the prototype through the
 staged private-preparation helper, and `browser-host-font-density-check` verifies
 selection, invalidation and texture reuse in a running diagnostic browser.
-Plain covered runs use baked glyphs at matching density. Prepared normal-style
+Plain covered runs use baked glyphs at matching density. Prepared
 wrapped text and rich color spans use the installed `TextLayout` through bounded
 font-access hooks, then share the baked glyph emitter. The layout/parser/wrapping
-algorithms remain in the installed assembly. Styles, sizes and characters absent
+algorithms remain in the installed assembly. Sizes and characters absent
 from the prepared bank still use the approximate diagnostic renderer; this does
 not establish visual parity or complete terminal font support.
+Terminal line boxes accommodate the native rounded first-line height as well as
+fractional spacing, so row admission does not clip descenders.
 Covered single-line editing uses the same glyph advances and device-pixel rounding
 for caret hit testing and selection. Caret tables are allocated lazily within the
 bounded text-run cache and replaced when display scale changes. Prepared multiline,
@@ -150,8 +157,10 @@ recipe deliberately rejects differing image sizes rather than resampling either.
 
 Native `GameCursor` owns cursor appearance, animation and hotspots. Browser staging
 redirects its CPU readback and final Unity cursor call; the browser presents those
-pixels as a CSS cursor and bounds its retained frame URLs. Loading transfers its
-decoded background frames to the workspace presenter, which disposes them on exit.
+pixels in a pointer-transparent overlay scaled from device pixels to CSS pixels.
+Viewport clipping keeps the same cursor near an edge, where browser CSS bitmap
+cursors can fall back to the system arrow. Retained frames are bounded. Loading
+transfers its decoded background frames to the workspace presenter, which disposes them on exit.
 
 EngineApplication and UnityRuntime maintain separate clocks. Advance UnityRuntime's
 BeginFrame explicitly without its world Update: frozen Unity time also freezes
@@ -362,8 +371,11 @@ adapters must allow the browser's Ctrl+V default action. Copy/context-menu dispa
 flushes during user activation. Async permission failure clears the native fallback
 buffer; PRIMARY remains local. PNG paste captures the event's file before async
 reading and completes the original native request; host terminals remain text-only.
-Trusted Chrome DOM and adapter checks cover delayed completion, but integrated
-agent image delivery and full IME still need verification.
+Synchronous clipboard frames pump physical input before native dispatch so mouse
+selection capture sees the current buttons. Trusted Chrome checks exercise Unicode
+text, native selection copy and PNG delivery into a disposable Codex composer,
+without submitting a prompt. Wait for composer initialization: Codex can treat
+image paths pasted during startup as provisional text. Full IME remains unverified.
 BrowserInput/input.js separately feed Waylith and Unity device
 state. The end-to-end harness sends DOM input only into its newly created temporary
 host shells, observes the actual SessionHub ScreenBuf, and removes only those

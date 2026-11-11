@@ -152,6 +152,18 @@ namespace SlopWorld
             return _selectionCoordinator.CellAt(body, m);
         }
 
+        // A pane can end with unused pixels below its final row. Selection gestures
+        // clamp to the displayed grid, while links and application mouse reports
+        // retain CellAt's raw hit coordinates. Missing interior history stays missing.
+        internal Vector2Int SelectionCellAt(Rect body, Vector2 mouse)
+        {
+            var cell = CellAt(body, mouse);
+            var displayed = DisplayedBuf();
+            if (displayed != null && displayed.Rows > 0)
+                cell.y = TerminalPanelGeometry.SelectionEdgeRow(cell.y, displayed.Rows);
+            return cell;
+        }
+
         ScreenBuf DisplayedBuf() => DisplayedScreen();
 
         void OrderedSel(out Vector2Int a, out Vector2Int b)

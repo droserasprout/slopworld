@@ -96,3 +96,19 @@ test('DOM paste dispatches native V before asynchronous image conversion',async(
   assert.equal(batches.length,1);
   input.dispose();
 });
+
+
+test('synchronous pointer frames pump physical input before native selection dispatch',()=>{
+  const listeners={}, order=[];
+  const canvas={width:1,height:1,focus(){},getBoundingClientRect:()=>({left:0,top:0,width:1,height:1}),
+    getContext:()=>({clearRect(){},save(){},restore(){},resetTransform(){}}),
+    addEventListener:(name,fn)=>{listeners[name]=fn}};
+  const input=attachGuiInput(canvas,{
+    beforeFrame:()=>order.push('physical'),
+    GuiInputFrame:()=>{order.push('native');return '{"commands":[]}';},
+    ClipboardTake:()=> '[]',
+  });
+  listeners.pointerdown({preventDefault(){},clientX:0,clientY:0,button:0});
+  assert.deepEqual(order,['physical','native']);
+  input.dispose();
+});

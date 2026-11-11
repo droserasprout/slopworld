@@ -35,7 +35,7 @@ namespace SlopWorld
             if (clickCount < 2)
                 return false;
 
-            var cell = _panel.CellAt(body, e.mousePosition);
+            var cell = _panel.SelectionCellAt(body, e.mousePosition);
             bool selected =
                 clickCount >= 3 ? _panel.TripleClickSelect(cell.y) : _panel.DoubleClickSelect(cell);
             if (!selected)
@@ -73,7 +73,7 @@ namespace SlopWorld
         {
             if (!body.Contains(e.mousePosition))
                 return;
-            _panel.SelectionA = _panel.SelectionB = _panel.CellAt(body, e.mousePosition);
+            _panel.SelectionA = _panel.SelectionB = _panel.SelectionCellAt(body, e.mousePosition);
             _panel.SelectionMouse = e.mousePosition;
             _panel.SelectionEdgeDirection = 0;
             _panel.SelectionEdgeFrame = -1;
@@ -108,7 +108,7 @@ namespace SlopWorld
 
         Vector2Int SelectionCell(Rect body, Event e)
         {
-            var cell = _panel.CellAt(body, e.mousePosition);
+            var cell = _panel.SelectionCellAt(body, e.mousePosition);
             if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
             {
                 int rows = Mathf.Max(

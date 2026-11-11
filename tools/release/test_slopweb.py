@@ -65,12 +65,13 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
     appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', root, values)
     manifest = json.loads((root / 'assets/fonts/manifest.json').read_text())
     assert [face['bake'] for face in manifest] == [
-        f'{face}@{density}.json'
+        f'{face}-style{style}@{density}.json'
         for density in ('1', '1.66667', '2')
+        for style in (0, 1, 2, 3)
         for face in ('ui-13', 'ui-15', 'ui-17', 'terminal')
     ]
-    assert len(calls) == 14
-    assert [float(call[0][-1]) for call in calls[2:]] == [density for density in (1, 5 / 3, 2) for _ in range(4)]
+    assert len(calls) == 50
+    assert [float(call[0][-2]) for call in calls[2:]] == [density for density in (1, 5 / 3, 2) for _ in range(16)]
     assert all(call[1]['check'] for call in calls)
     assert all(call[1]['env']['LD_LIBRARY_PATH'].startswith(str(tmp_path / 'game')) for call in calls)
     assert 'private' not in (root / 'assets/reference-appearance.json').read_text()

@@ -64,7 +64,9 @@ Shift+Enter travels as a named key, not literal escape bytes. The daemon owns it
 foreground-shell fallback and legacy application compatibility; prompt title capture
 tracks it as a newline without submission.
 
-Selection across missing rows leaves the clipboard unchanged. Translate endpoints
+Selection across missing rows leaves the clipboard unchanged. Gesture endpoints
+clamp to the displayed row count, including the unused pixel strip below the final
+row; that strip must not become a nonexistent selected row. Translate endpoints
 and drag anchors with history growth so highlights stay on text. Edge scrolling keeps
 the pointer-row endpoint, clamping only outside displayed rows. Closing/rebinding
 must end the old draw before resources can be recreated. Session navigation preserves

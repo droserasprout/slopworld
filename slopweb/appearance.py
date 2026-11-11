@@ -71,14 +71,15 @@ def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
     # together on viewport changes; other densities use the nearest native bake.
     for density in (1, 5 / 3, 2):
         suffix = f'{density:.6g}'
-        for index, offset in enumerate((-2, 0, 2)):
-            pixels = max(1, size + offset)
-            bake = f'ui-{pixels}@{suffix}.json'
-            probe(fonts / 'ui.ttf', fonts / bake, pixels, density)
-            manifest.append({'font': 'ui.ttf', 'bake': bake, 'index': index})
-        bake = f'terminal@{suffix}.json'
-        probe(fonts / 'terminal.ttf', fonts / bake, values.get('fontSize') or 13, density)
-        manifest.append({'font': 'terminal.ttf', 'bake': bake})
+        for style in (0, 1, 2, 3):
+            for index, offset in enumerate((-2, 0, 2)):
+                pixels = max(1, size + offset)
+                bake = f'ui-{pixels}-style{style}@{suffix}.json'
+                probe(fonts / 'ui.ttf', fonts / bake, pixels, density, style)
+                manifest.append({'font': 'ui.ttf', 'bake': bake, 'index': index})
+            bake = f'terminal-style{style}@{suffix}.json'
+            probe(fonts / 'terminal.ttf', fonts / bake, values.get('fontSize') or 13, density, style)
+            manifest.append({'font': 'terminal.ttf', 'bake': bake})
     (fonts / 'manifest.json').write_text(json.dumps(manifest))
     write_preferences(root, values)
 
