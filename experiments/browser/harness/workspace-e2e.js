@@ -7,17 +7,16 @@
   if (window.__workspace?.status !== 'running') throw new Error('Workspace is not running');
   if (!managed.WorkspaceTerminalContains) throw new Error('Rebuild the workspace for terminal observations');
   const state = () => JSON.parse(managed.WorkspaceState());
-  const initial = state(), original = managed.WorkspaceUpdate;
+  const initial = state();
+  if(!managed.WorkspaceObserveLabels || !initial.sidebar)throw new Error('Refresh the runtime for native-font UI observations');
   if (!initial.windowOpen) throw new Error('Open the workspace with F12 before running this check');
   const originalClipboard=window.__checkClipboard ? await navigator.clipboard.readText() : null;
   const created = [], visited = [], markers = [];
-  let commands = [], attachedAgent;
-  managed.WorkspaceUpdate = (...args) => {
-    const value = original(...args); commands = JSON.parse(value).commands; return value;
-  };
+  let attachedAgent;
+  const previousLabels=managed.WorkspaceObserveLabels(true);
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const until = async (condition, description) => {
-    const deadline = Date.now() + 8000;
+    const deadline = Date.now() + 20000;
     do {
       if (window.__workspace.status !== 'running') throw new Error('Workspace stopped: ' + description);
       if (condition()) return;
@@ -26,18 +25,13 @@
     throw new Error('Timed out: ' + description);
   };
   const labels = () => {
-    let matrix = new DOMMatrix(); const stack = [], result = [];
-    for (const {kind,value:v} of commands) {
-      if (kind === 'matrix') matrix = new DOMMatrix(v);
-      else if (kind === 'group') {stack.push(matrix);matrix=matrix.translate(v.rect[0]-v.offset[0],v.rect[1]-v.offset[1]);}
-      else if (kind === 'clip' || kind === 'clipScreen') stack.push(matrix);
-      else if (kind === 'pop') matrix=stack.pop();
-      else if (kind === 'text') {
-        const p = new DOMPoint(v.rect[0]+5, v.rect[1]+10).matrixTransform(matrix);
-        result.push({text:v.text,x:p.x,y:p.y});
-      }
-    }
-    return result;
+    const scale=state().uiScale;
+    return JSON.parse(managed.WorkspaceLabels()).map(l=>({...l,
+      x:l.x+Math.min(l.width/2,5*scale),y:l.y+l.height/2}));
+  };
+  const uiBox = name => {
+    const current=state(),rect=current.sidebar[name];
+    return rect.map(value=>value*current.uiScale);
   };
   const point = (x,y) => {
     const r=canvas.getBoundingClientRect();
@@ -50,7 +44,8 @@
     }
   };
   const wheel = async deltaY => {
-    canvas.dispatchEvent(new WheelEvent('wheel',{deltaY,...point(100,550),bubbles:true}));
+    const [x,y,w,h]=uiBox('body');
+    canvas.dispatchEvent(new WheelEvent('wheel',{deltaY,...point(x+w/2,y+h/2),bubbles:true}));
     await wait(200);
   };
   const select = async session => {
@@ -58,7 +53,8 @@
     for (let attempt=0;attempt<30;attempt++) {
       // Match the left-hand identity, not a right-hand command-preset label
       // such as "zsh" belonging to a different existing session.
-      const row=labels().find(l=>[session.name,session.label].includes(l.text)&&l.x<80&&l.y>30&&l.y<680);
+      const [x,y,w,h]=uiBox('body');
+      const row=labels().find(l=>[session.name,session.label].includes(l.text)&&l.x>=x&&l.x<x+w/2&&l.y>=y&&l.y<y+h);
       if (row) {
         await click(row.x,row.y);
         await until(()=>state().session===session.name&&state().terminalDrawn,'select '+session.name);
@@ -111,9 +107,11 @@
     before=await catalog();
     const agent=before.find(s=>s.alive&&!s.host&&s.agent);
     if(!agent)throw new Error('An existing live coding agent is required for the read-only attach check');
-    await until(()=>commands.length>0,'first GUI frame');
+    await until(()=>labels().length>0,'first observed GUI frame');
     for(let index=0;index<2;index++) {
-      if(!labels().some(l=>l.text==='Host shell')) await click(97,705);
+      if(!labels().some(l=>l.text==='Host shell')) {
+        const [x,y,w,h]=uiBox('add');await click(x+w/2,y+h/2);
+      }
       await until(()=>labels().some(l=>l.text==='Host shell'),'Host shell menu');
       const host=labels().find(l=>l.text==='Host shell');
       canvas.dispatchEvent(new PointerEvent('pointermove',{...point(host.x,host.y)}));
@@ -178,13 +176,19 @@
     if(later.frame<=initial.frame||later.elapsed<=initial.elapsed)throw new Error('UI clock did not advance');
     return {created:created.map(s=>s.name),typedOutputVerified:true,backspaceAndEnter:true,clipboard:!!window.__checkClipboard,sharedTerminalSizeStable:true,visited,attachedAgent,agentReadOnly:true,uiClockAdvanced:true,game:later.game,cleanup:'completed before return'};
   } finally {
-    if(originalClipboard!==null)await navigator.clipboard.writeText(originalClipboard);
-    managed.WorkspaceUpdate=original;
     const failures=[];
+    try {if(originalClipboard!==null)await navigator.clipboard.writeText(originalClipboard);}
+    catch(error){failures.push('Clipboard restore: '+error);}
+    try {managed.WorkspaceObserveLabels(previousLabels);}
+    catch(error){failures.push('Observation restore: '+error);}
+    try {if(initial.session)managed.WorkspaceSelect(initial.session);}
+    catch(error){failures.push('Selection restore: '+error);}
     for(const session of created) {
-      const response=await fetch('/host/api/sessions/'+encodeURIComponent(session.name),{method:'DELETE'});
-      await response.arrayBuffer();
-      if(!response.ok)failures.push(session.name+': HTTP '+response.status);
+      try {
+        const response=await fetch('/host/api/sessions/'+encodeURIComponent(session.name),{method:'DELETE'});
+        await response.arrayBuffer();
+        if(!response.ok)failures.push(session.name+': HTTP '+response.status);
+      } catch(error){failures.push(session.name+': '+error);}
     }
     const remaining=await catalog();
     for(const session of created)if(remaining.some(s=>s.name===session.name))failures.push(session.name+': still present');
