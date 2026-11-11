@@ -373,6 +373,9 @@ and restores the previous value after fixture cleanup. It is not a demonstrated
 material speedup and remains off.
 UTF-16 units stay in one batch until the actual terminal input flush. Modifier
 shortcuts use physical keys; ordinary text does not duplicate physical keydown.
+AltGraph printable keys enter the text path with synthetic Ctrl/Alt modifiers
+removed, preserving layout-generated characters without invoking bindings.
+Ordinary Ctrl+Alt chords retain their shortcut behavior.
 Installed Waylith stores Event.alt and Event.shift separately from Event.modifiers;
 populate both representations before native shortcut dispatch.
 Printable events retain their physical key on the same text-bearing event so native
