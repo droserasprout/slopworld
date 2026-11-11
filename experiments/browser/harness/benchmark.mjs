@@ -15,9 +15,10 @@ if(!['keep','on','off'].includes(packetCache))throw new Error('Packet cache must
 if(!['keep','on','off'].includes(canvasReuse))throw new Error('Canvas reuse must be keep, on or off');
 if(!['on','off'].includes(quadCache))throw new Error('Quad cache must be on or off');
 const phases=phaseList.split(',');
-const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath'}[comparison];
+const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
-  throw new Error('Comparison must be glyph, input or cell with four identical workload phases');
+  throw new Error('Comparison must be glyph, input, cell or tint with four identical workload phases');
+const comparisonCall=comparison==='tint' ? '(async enabled => (await import("/gui.js")).configureGuiTintCache(enabled))' : `window.__managedProbe.${comparisonExport}`;
 if (phases.some(phase=>!['idle','output','typing','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
 if (!profile || !output) throw new Error('Usage: benchmark.mjs PROFILE OUTPUT');
@@ -62,6 +63,7 @@ let previousIdleYield;
 let previousDiscardedDrawing;
 let previousEarlyInput;
 let previousComparison;
+let previousTintProfile;
 await mkdir(path.dirname(output),{recursive:true});
 try {
   report.browser=await call('Browser.getVersion');
@@ -101,15 +103,17 @@ try {
   const command="python3 -u '"+fixturePath.replaceAll("'", "'\\''")+"'";
   report.fixture=await evaluate(`window.__benchmark.prepare(${JSON.stringify(command)})`);
   report.configuration.comparison=comparison;
-  if(comparisonExport)previousComparison=await evaluate(`window.__managedProbe.${comparisonExport}(true)`);
+  if(comparisonExport)previousComparison=await evaluate(`${comparisonCall}(true)`);
+  if(comparison==='tint')previousTintProfile=await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
   console.log('Benchmark fixtures ready');
   await call('Performance.enable');
   for (const [index,phase] of phases.entries()) {
     const comparisonEnabled=comparisonExport ? [false,true,true,false][index] : null;
-    if(comparisonExport)await evaluate(`window.__managedProbe.${comparisonExport}(${comparisonEnabled})`);
+    if(comparisonExport)await evaluate(`${comparisonCall}(${comparisonEnabled})`);
     // Repeated phases must start with the same screen instead of gradually
     // replacing the 200-line fixture with shorter echo acknowledgments.
     if(comparisonExport)await evaluate('window.__benchmark.reset()');
+    if(comparison==='tint')await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const processBefore=await processCpu.sample();
     const before=metrics(await call('Performance.getMetrics'));
@@ -128,6 +132,7 @@ try {
       rendererTaskCpuPercent:100*(after.TaskDuration-before.TaskDuration)/(after.Timestamp-before.Timestamp),
       browserProcesses:processCpu.summarize(processBefore,processAfter),
       jsHeapUsed:after.JSHeapUsedSize,jsHeapTotal:after.JSHeapTotalSize,stageMeans};
+    if(comparison==='tint')summary.tint=await evaluate('(async()=> (await import("/gui.js")).guiTintProfile())()');
     report.phases.push({summary, result, before, after,jiterpreterBefore,jiterpreterAfter});
     console.log(JSON.stringify(summary));
     if (process.env.PROBE_SCREENSHOTS !== '0') {
@@ -142,6 +147,7 @@ try {
     try {await evaluate('window.__benchmark.cleanup()');report.cleanup=true;}
     catch(error) {report.cleanupError=String(error);process.exitCode=1;}
   }
+  if(previousTintProfile!==undefined)await evaluate(`(async()=> (await import("/gui.js")).configureGuiTintProfile(${previousTintProfile}))()`).catch(error=>{report.tintProfileRestoreError=String(error);process.exitCode=1;});
   if(previousQuadCache!==undefined)
     await evaluate(`window.__managedProbe.WorkspaceQuadCache(${previousQuadCache})`).catch(error=>{report.cacheRestoreError=String(error);process.exitCode=1;});
   if(previousCanvasReuse!==undefined)
@@ -151,7 +157,7 @@ try {
   if(previousIdleYield!==undefined)
     await evaluate(`window.__workspace.setIdleYield(${previousIdleYield})`).catch(error=>{report.idleRestoreError=String(error);process.exitCode=1;});
   if(previousComparison!==undefined)
-    await evaluate(`window.__managedProbe.${comparisonExport}(${previousComparison})`).catch(error=>{report.comparisonRestoreError=String(error);process.exitCode=1;});
+    await evaluate(`${comparisonCall}(${previousComparison})`).catch(error=>{report.comparisonRestoreError=String(error);process.exitCode=1;});
   if(previousEarlyInput!==undefined)
     await evaluate(`window.__managedProbe.WorkspaceInputFlushBeforeRepaint(${previousEarlyInput})`).catch(error=>{report.inputRestoreError=String(error);process.exitCode=1;});
   if(previousDiscardedDrawing!==undefined)
