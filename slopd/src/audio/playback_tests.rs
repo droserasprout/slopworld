@@ -70,7 +70,7 @@ fn backend_failure_is_latched_but_recoverable_underruns_do_not_retire_output() {
 fn unavailable_preferred_devices_fall_back_in_order() {
     let mut attempted = Vec::new();
     let (id, ()) = open_first_available(
-        [("pipewire".into(), 1), ("pulse".into(), 2)],
+        [("headphones".into(), 1), ("pulse".into(), 2)],
         || Some(("default".into(), 3)),
         |device| {
             attempted.push(device);
@@ -89,12 +89,12 @@ fn unavailable_preferred_devices_fall_back_in_order() {
 fn successful_preferred_device_does_not_probe_default() {
     let mut attempted = Vec::new();
     let (id, ()) = open_first_available(
-        [("pipewire".into(), 1), ("pulse".into(), 2)],
+        [("headphones".into(), 1), ("pulse".into(), 2)],
         || panic!("default must not be queried after success"),
         |device| {
             attempted.push(device);
             if device == 1 {
-                anyhow::bail!("pipewire unavailable");
+                anyhow::bail!("headphones unavailable");
             }
             Ok(())
         },
@@ -108,7 +108,7 @@ fn successful_preferred_device_does_not_probe_default() {
 fn failed_devices_report_each_error_without_retrying_default_alias() {
     let mut attempted = Vec::new();
     let error = open_first_available(
-        [("pipewire".into(), 1), ("pulse".into(), 2)],
+        [("headphones".into(), 1), ("pulse".into(), 2)],
         || Some(("pulse".into(), 2)),
         |device| -> Result<()> {
             attempted.push(device);
@@ -118,7 +118,7 @@ fn failed_devices_report_each_error_without_retrying_default_alias() {
     .unwrap_err();
     assert_eq!(attempted, [1, 2]);
     let message = error.to_string();
-    assert!(message.contains("pipewire"));
+    assert!(message.contains("headphones"));
     assert!(message.contains("failure 1"));
     assert!(message.contains("pulse"));
     assert!(message.contains("failure 2"));
@@ -386,25 +386,25 @@ fn retirement_during_output_io_discards_ring_and_releases_gated_feeder() {
 fn compares_sound_server_bridges() {
     let host = cpal::default_host();
     let devices: Vec<_> = host.output_devices().unwrap().collect();
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/OST");
+    let source = std::env::var("SLOPD_AUDIO_TEST_SOURCE").unwrap_or_else(|_| {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../mod/Sounds/SlopWorld/OST")
+            .to_string_lossy()
+            .into_owned()
+    });
     let mut runs = Vec::new();
     for id in ["pipewire", "pulse"] {
         let device = devices.iter().find(|d| pcm_id(d) == id).unwrap().clone();
         let health = Arc::new(OutputHealth::new());
-        let callback_health = health.clone();
-        let sink = rodio::DeviceSinkBuilder::from_device(device)
-            .unwrap()
-            .with_error_callback(move |error| callback_health.record(&error))
-            .open_stream()
-            .unwrap();
+        let title = TitleSink::pending(None, 0);
+        let opened = open(&source, title.clone()).unwrap();
+        let sink = open_formatted_device(&device, &health, Some(opened.format)).unwrap();
         let output = RodioOutput {
             id: "test".into(),
             _sink: sink,
             volume: Arc::new(AtomicU32::new(0.0f32.to_bits())),
             health,
         };
-        let title = TitleSink::pending(None, 0);
-        let opened = open(source.to_str().unwrap(), title.clone()).unwrap();
         assert!(commit(opened, &output, 0.0).unwrap().is_some());
         runs.push((id, output, title));
     }
@@ -428,10 +428,7 @@ fn output_preferences_fall_back_without_using_null_or_repeating_devices() {
         backend: AudioBackend::Pulse,
         device: "headphones".into(),
     };
-    assert_eq!(
-        preferred_ids(&settings),
-        ["headphones", "pulse", "pipewire", "default"]
-    );
+    assert_eq!(preferred_ids(&settings), ["headphones", "pulse", "default"]);
     let mut attempts = Vec::new();
     let (id, ()) = open_first_available(
         preferred_ids(&settings)
@@ -440,7 +437,7 @@ fn output_preferences_fall_back_without_using_null_or_repeating_devices() {
         || Some(("default".into(), "default".into())),
         |id| {
             attempts.push(id.clone());
-            if id == "pipewire" {
+            if id == "default" {
                 Ok(())
             } else {
                 Err(anyhow!("unavailable"))
@@ -448,13 +445,13 @@ fn output_preferences_fall_back_without_using_null_or_repeating_devices() {
         },
     )
     .unwrap();
-    assert_eq!(id, "pipewire");
-    assert_eq!(attempts, ["headphones", "pulse", "pipewire"]);
+    assert_eq!(id, "default");
+    assert_eq!(attempts, ["headphones", "pulse", "default"]);
     let settings = AudioOutputSettings {
         backend: AudioBackend::Default,
         device: "null".into(),
     };
-    assert_eq!(preferred_ids(&settings), ["default", "pipewire", "pulse"]);
+    assert_eq!(preferred_ids(&settings), ["default", "pulse"]);
     assert_eq!(preferred_ids(&AudioOutputSettings::default()), SERVER_PCMS);
 }
 
@@ -499,4 +496,32 @@ fn output_buffer_duration_stays_bounded_across_source_rates() {
         output_buffer_frames(rodio::SampleRate::new(22050).unwrap()),
         1024
     );
+}
+
+#[test]
+fn direct_pipewire_is_never_opened_even_when_explicit_or_default() {
+    let settings = AudioOutputSettings {
+        device: "pipewire".into(),
+        ..AudioOutputSettings::default()
+    };
+    assert_eq!(preferred_ids(&settings), ["pulse", "default"]);
+    let mut attempted = Vec::new();
+    let (id, ()) = open_first_available(
+        [("pipewire".into(), 1), ("pulse".into(), 2)],
+        || panic!("Pulse succeeds"),
+        |device| {
+            attempted.push(device);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(id, "pulse");
+    assert_eq!(attempted, [2]);
+    let error = open_first_available(
+        [],
+        || Some(("pipewire".into(), ())),
+        |()| -> Result<()> { panic!("direct PipeWire must not open") },
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("no usable output device"));
 }

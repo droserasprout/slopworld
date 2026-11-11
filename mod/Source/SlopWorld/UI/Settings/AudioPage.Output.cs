@@ -91,12 +91,10 @@ namespace SlopWorld
             {
                 new FloatMenuOption(AutoBackendLabel(outputs), () => config.AudioBackend = "auto"),
                 new FloatMenuOption("PulseAudio", () => config.AudioBackend = "pulse"),
-                new FloatMenuOption("PipeWire", () => config.AudioBackend = "pipewire"),
                 new FloatMenuOption("System default", () => config.AudioBackend = "default"),
             };
             string backend =
                 config.AudioBackend == "pulse" ? "PulseAudio"
-                : config.AudioBackend == "pipewire" ? "PipeWire"
                 : config.AudioBackend == "default" ? "System default"
                 : AutoBackendLabel(outputs);
             UiControls.Select(l, "Audio system", backend, backends, out _);
@@ -141,16 +139,14 @@ namespace SlopWorld
             if (outputs == null || !outputs.AutoDevices.TryGetValue("auto", out string id))
                 return OptionLabels.Auto();
             return OptionLabels.Auto(
-                id == "pipewire" ? "PipeWire"
-                : id == "pulse" ? "PulseAudio"
+                id == "pulse" ? "PulseAudio"
                 : id == "default" ? "System default"
                 : null
             );
         }
 
         static string DeviceLabel(Wire.AudioOutputDevice device) =>
-            device.Id == "pipewire" ? "PipeWire"
-            : device.Id == "pulse" ? "PulseAudio"
+            device.Id == "pulse" ? "PulseAudio"
             : device.Id == "default" ? "System default"
             : device.Name == device.Id ? device.Id
             : device.Name + " (" + device.Id + ")";

@@ -26,7 +26,10 @@ preference and an optional host PCM ID. Empty device follows server/default rout
 The output catalog is read-only and endpoint-local; physical sound-server sink routing
 remains with the desktop. These settings do not control native OST or ncspot.
 Saving retires the current radio output and reconnects the requested stream; stale
-openers cannot restore the previous device. Auto retains PipeWire-first ordering.
+openers cannot restore the previous device. Auto prefers the buffered Pulse PCM, then the system default. Direct PipeWire
+is excluded from the catalog and opening policy, including saved device IDs.
+The old `pipewire` backend value deserializes as `pulse`; PipeWire desktops use
+their Pulse-compatible server.
 An explicit PCM is tried first, then the backend preference and system default.
 
 Daemon audio tries preferred ALSA devices then default, excluding null sinks and

@@ -135,3 +135,12 @@ fn audio_output_patch_preserves_other_settings_and_reset_restores_automatic() {
     let invalid = toml::from_str("[daemon.audio_output]\nbackend = 'unknown'\n").unwrap();
     assert!(document::patch(&old, &text, invalid).is_err());
 }
+
+#[test]
+fn saved_pipewire_backend_loads_as_pulse_and_serializes_canonical_name() {
+    let settings: AudioOutputSettings =
+        toml::from_str("backend = 'pipewire'\ndevice = 'pipewire'\n").unwrap();
+    assert_eq!(settings.backend, AudioBackend::Pulse);
+    let encoded = toml::to_string(&settings).unwrap();
+    assert!(encoded.contains("backend = \"pulse\""));
+}

@@ -23,7 +23,7 @@ const PREFILL_SECS: usize = 1;
 
 /// ALSA PCM devices for sound servers, in preference order.
 /// cpal uses ALSA on Linux. These PCM plugins connect it to sound servers such as PipeWire.
-pub(crate) const SERVER_PCMS: [&str; 3] = ["pipewire", "pulse", "default"];
+pub(crate) const SERVER_PCMS: [&str; 2] = ["pulse", "default"];
 
 /// ALSA's `null` PCM accepts and discards every sample, so selecting it looks like playback
 /// with no sound. Never use it as a fallback.
@@ -175,14 +175,12 @@ fn open_device_with_health(
 /// Explicit devices lead the backend fallback policy; automatic prefers sound servers.
 pub(crate) fn preferred_ids(settings: &AudioOutputSettings) -> Vec<String> {
     let mut ids = Vec::new();
-    if !settings.device.is_empty() && settings.device != NULL_PCM {
+    if !settings.device.is_empty() && supported_pcm(&settings.device) {
         ids.push(settings.device.clone());
     }
     let backends: &[&str] = match settings.backend {
-        AudioBackend::Auto => &SERVER_PCMS,
-        AudioBackend::Pulse => &["pulse", "pipewire", "default"],
-        AudioBackend::Pipewire => &["pipewire", "pulse", "default"],
-        AudioBackend::Default => &["default", "pipewire", "pulse"],
+        AudioBackend::Auto | AudioBackend::Pulse => &SERVER_PCMS,
+        AudioBackend::Default => &["default", "pulse"],
     };
     ids.extend(backends.iter().map(|id| (*id).to_owned()));
     ids
@@ -239,13 +237,23 @@ fn open_with_format_fallback<T>(
     open(None)
 }
 
+// Direct PipeWire ties this client to every graph deadline, even with a large ALSA
+// buffer. Pulse supplies server-side buffering; PipeWire desktops expose it through
+// pipewire-pulse. Exclude the direct PCM even from saved selections/default IDs.
+fn supported_pcm(id: &str) -> bool {
+    id != NULL_PCM && id != "pipewire"
+}
+
 /// Enumerate host PCM outputs without opening streams or changing routing.
 pub(crate) fn output_devices() -> Result<Vec<(String, String)>> {
     let host = cpal::default_host();
     let mut devices = Vec::new();
     for device in host.output_devices()? {
         let id = pcm_id(&device);
-        if id.is_empty() || id == NULL_PCM || devices.iter().any(|(existing, _)| existing == &id) {
+        if id.is_empty()
+            || !supported_pcm(&id)
+            || devices.iter().any(|(existing, _)| existing == &id)
+        {
             continue;
         }
         let name = device
@@ -270,7 +278,7 @@ fn open_first_available<D, O>(
         .into_iter()
         .chain(std::iter::once_with(default).flatten())
     {
-        if id == NULL_PCM || attempted.contains(&id) {
+        if !supported_pcm(&id) || attempted.contains(&id) {
             continue;
         }
         attempted.push(id.clone());
@@ -281,7 +289,7 @@ fn open_first_available<D, O>(
     }
     if failures.is_empty() {
         return Err(anyhow!(
-            "no usable output device (excluding ALSA's null sink)"
+            "no usable output device (excluding null and direct PipeWire)"
         ));
     }
     Err(anyhow!("opening output devices: {}", failures.join("; ")))
