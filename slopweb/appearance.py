@@ -65,7 +65,9 @@ def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
 
     probe('--resolve-ui', bundle / 'mod/SlopWorld.dll', values.get('uiFontName') or '', fonts)
     probe('--resolve', bundle / 'mod/SlopWorld.dll', values.get('fontName') or 'monospace', fonts)
-    size = max(1, min(48, int(values.get('uiFontSize') or 13)))
+    # Missing preferences retain ModSettings' defaults. UI size zero explicitly
+    # selects RimWorld's original 11/13/15 tiers instead.
+    size = max(1, min(48, int(values.get('uiFontSize', 14) or 13)))
     manifest = []
     # Keep common desktop densities local. The runtime switches atlas/metrics
     # together on viewport changes; other densities use the nearest native bake.
@@ -78,7 +80,7 @@ def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
                 probe(fonts / 'ui.ttf', fonts / bake, pixels, density, style)
                 manifest.append({'font': 'ui.ttf', 'bake': bake, 'index': index})
             bake = f'terminal-style{style}@{suffix}.json'
-            probe(fonts / 'terminal.ttf', fonts / bake, values.get('fontSize') or 13, density, style)
+            probe(fonts / 'terminal.ttf', fonts / bake, values.get('fontSize', 14) or 13, density, style)
             manifest.append({'font': 'terminal.ttf', 'bake': bake})
     (fonts / 'manifest.json').write_text(json.dumps(manifest))
     write_preferences(root, values)

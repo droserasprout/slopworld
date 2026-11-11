@@ -77,6 +77,18 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
     assert 'private' not in (root / 'assets/reference-appearance.json').read_text()
 
 
+@pytest.mark.parametrize('values, sizes', [({}, [12, 14, 16, 14]), ({'uiFontSize': 0}, [11, 13, 15, 14])])
+def test_font_preparation_without_profile_matches_native_defaults(
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, values: dict, sizes: list[int]
+) -> None:
+    import appearance
+
+    calls = []
+    monkeypatch.setattr(appearance.subprocess, 'run', lambda args, **kwargs: calls.append(args))
+    appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', tmp_path / 'runtime', values)
+    assert [int(call[-3]) for call in calls[2:]] == sizes * 12
+
+
 def test_portrait_snapshot_preserves_pixels_and_identity_without_host_metadata(launcher: Any, tmp_path: Path) -> None:
     import portraits
 
