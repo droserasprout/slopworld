@@ -37,6 +37,7 @@ internal static class EcoWorkspace
         BrowserSocketPatch.Apply(mod, root);
         BrowserSidebarPatch.Apply(mod, root);
         BrowserKeysPatch.Apply(mod, root);
+        BrowserWorkspaceDoorsPatch.Apply(mod, root);
         BrowserKeyBindingsPatch.Apply(game, root);
         BrowserClipboardPatch.Apply(mod, root);
         BrowserCursorPatch.Apply(mod, root);

@@ -4,8 +4,45 @@ using NUnit.Framework;
 
 namespace SlopWorld.Tests
 {
+    [TestFixture]
     static class RadioPlaybackIntegrationTests
     {
+        [Test]
+        public static void BrowserWithoutLocalAudioLeavesHostPlaybackUntilADaemonSourceIsSelected()
+        {
+            using var socket = new Socket();
+            var transport = new HubTransport(() => socket, action => action());
+            try
+            {
+                Radio.ResetSpotifyTest();
+                Radio.LocalPlaybackSupported = false;
+                SessionHub.Instance.Capabilities = DaemonCapabilities.FromWire(
+                    new Wire.Capabilities { AudioPlayback = true }
+                );
+                SessionHub.Instance.Audio = new AudioBus(transport);
+                transport.Connect();
+                transport.Update();
+                Radio.SelectPlaybackTest();
+                Radio.UpdatePlaybackTest(0, 0.5f);
+                Assert.That(socket.Sent.Count, Is.EqualTo(0));
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                Assert.That(Radio.TransportAvailable, Is.False);
+                Radio.SelectPlaybackTest(spotify: true);
+                Assert.That(Radio.TransportAvailable, Is.True);
+                Radio.UpdatePlaybackTest(1, 0.5f);
+                Assert.That(socket.Sent[0].Selection.Ncspot, Is.True);
+                Radio.MutePlaybackTest();
+                Radio.UpdatePlaybackTest(2, 0.5f);
+                Assert.That(socket.Sent[1].Stop, Is.Not.Null);
+            }
+            finally
+            {
+                transport.Disconnect();
+                Radio.LocalPlaybackSupported = true;
+                Radio.ResetSpotifyTest();
+            }
+        }
+
         public static void OstAlwaysStaysLocalWhileOtherSourcesUseDaemon()
         {
             string saved = Environment.GetEnvironmentVariable("SLOPWORLD_INITIAL_AUDIO");

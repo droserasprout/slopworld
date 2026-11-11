@@ -199,6 +199,7 @@ public static class WorkspaceDrawing
     public static void Update()
     {
         RequireEntry();
+        BrowserWorkspaceDoors.Update();
         Find.WindowStack.WindowsUpdate();
         Messages.Update();
     }

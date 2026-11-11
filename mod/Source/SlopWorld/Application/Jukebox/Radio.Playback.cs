@@ -2,6 +2,13 @@ namespace SlopWorld
 {
     public static partial class Radio
     {
+        // The browser has host radio transport but no native OST decoder.
+        // Platform initialization sets this before the first workspace frame.
+        public static bool LocalPlaybackSupported { get; set; } = true;
+        public static bool TransportAvailable =>
+            (!LocalOst && SessionHub.Instance.Capabilities.AudioPlayback)
+            || (LocalOst && LocalPlaybackSupported);
+
         // Resolve the selected source and dispatch cadence decisions through the audio transport.
         // NativeJukebox adapts game music; Radio owns metadata.
         static readonly RadioPlayback Playback = new RadioPlayback();
@@ -13,7 +20,8 @@ namespace SlopWorld
         static bool LocalOst => !_spotify && _station == null;
 
         internal static bool NativePlaybackAllowed =>
-            !_quit
+            LocalPlaybackSupported
+            && !_quit
             && !_muted
             && LocalOst
             && (_catalogReady || string.IsNullOrEmpty(Settings.Radio) || Settings.Radio == "ost")
@@ -66,6 +74,11 @@ namespace SlopWorld
                 && Settings.Radio != "ost"
                 && Settings.Radio != "ncspot"
             )
+                return;
+            // A client without local audio starts as an observer. Its unavailable
+            // default OST must not stop a host stream merely by opening a tab.
+            // Explicit station pause still sends Stop because it retains _station.
+            if (!LocalPlaybackSupported && LocalOst)
                 return;
             switch (Playback.Step(now, hub.Online, PlaybackPlan, volume, out var plan))
             {

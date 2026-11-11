@@ -205,6 +205,27 @@ namespace SlopWorld
             comp.Open(Event.current.mousePosition, Cell(map));
         }
 
+        // Entry workspaces have no colony component. Reuse native menus and dialogs
+        // for the independent actions, keeping map/pawn mutations unavailable.
+        public static void OpenWorkspaceMenu()
+        {
+            void Message(string text) => WorkspaceWindow.OpenOverPane(new Dialog_MessageBox(text));
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Hint", () => Message(Patch_LoadingTips.RandomTip)),
+                new FloatMenuOption(
+                    "Advice",
+                    () => Message(AdviceAnswers[Rand.Range(0, AdviceAnswers.Length)])
+                ),
+                new FloatMenuOption("Keyboard shortcuts", ShortcutHelpView.Toggle),
+            };
+            if (!Settings.GrandmaMode)
+                options.Add(new FloatMenuOption("Kill something (requires colony)", null));
+            options.Add(new FloatMenuOption("New looks (requires colony)", null));
+            options.Add(new FloatMenuOption("Next planet (requires colony)", null));
+            WorkspaceWindow.OpenOverPane(new UiMenu(options));
+        }
+
         // Palette commands do not have the core's opening click to supply an anchor. Use the
         // current pointer and the current core, which keeps the same bubble visible over the
         // map or an opaque terminal.

@@ -561,3 +561,15 @@ browser-host-reconnect-check profile:
 
 browser-host-composition-check profile reload='0':
     systemd-run --user --pipe --wait --collect node {{quote(justfile_directory() / 'experiments/browser/harness/composition-check.mjs')}} {{quote(profile)}} {{quote(reload)}}
+
+# Inspect private native snapshot and prepared portrait inventories without loading a game.
+browser-host-portrait-inventory root='':
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/portrait-inventory.py')}} {{quote(root)}}
+
+# Retain an isolated door-check browser with no daemon access or audio mutation.
+browser-host-workspace-doors-run root:
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_SCREENSHOTS=0 --setenv=PROBE_KEEP_OPEN=1 --setenv=PROBE_TIMEOUT_MS=300000 --setenv=PROBE_COMMAND_TIMEOUT_MS=300000 --setenv=SLOPD_URL=http://127.0.0.1:1 --setenv=SLOPD_TOKEN=offline-door-check node {{quote(justfile_directory() / 'experiments/browser/harness/validate.mjs')}} {{quote(root)}} /workspace.html {{quote(justfile_directory() / 'experiments/browser/artifacts/workspace-doors-startup.json')}}
+
+# Exercise native door menus through DOM input without starting playback.
+browser-host-workspace-doors-check profile:
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/workspace-doors-check.js')}}

@@ -81,3 +81,10 @@ package-web distribution:
 [group('web')]
 slopweb-package-staged distribution version revision:
     uv run --locked python -m tools.release.native {{quote(distribution)}} --product slopweb --stage-only --binary-dir {{quote(justfile_directory() / 'slopweb/out')}} --output {{quote(justfile_directory() / 'dist' / distribution)}} --version {{quote(version)}} --revision {{quote(revision)}}
+
+# Prepare/serve an explicit native snapshot without changing the live profile cache.
+[group('web')]
+[positional-arguments]
+slopweb-host-run-portraits source *args:
+    test -n {{quote(source)}}
+    systemd-run --user --pipe --wait --collect --setenv=SLOPWEB_PORTRAITS={{quote(source)}} python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} "$@"

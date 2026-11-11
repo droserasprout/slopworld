@@ -36,7 +36,7 @@ namespace SlopWorld
         static double _cachedNowPlayingAt = double.NegativeInfinity;
         static int _cachedNowPlayingVersion = -1;
 
-        static bool NativeAudio => LocalOst;
+        static bool NativeAudio => LocalOst && LocalPlaybackSupported;
 
         internal static Func<NativeTrackSnapshot> NativeTrackProvider =
             NativeJukebox.ReadNativeTrack;

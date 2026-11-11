@@ -35,7 +35,7 @@ class PortraitSnapshot:
 def read_snapshot(source: Path) -> PortraitSnapshot:
     manifest = source / 'manifest.json'
     if not manifest.exists():
-        return PortraitSnapshot(b'{"version":1,"entries":[]}', {})
+        return PortraitSnapshot(json.dumps({'version': 1, 'uiScale': 1, 'entries': []}, sort_keys=True).encode(), {})
     with manifest.open('rb') as stream:
         raw = stream.read(1024 * 1024 + 1)
     if len(raw) > 1024 * 1024:
@@ -187,5 +187,13 @@ def exporter_available(source: Path) -> bool:
 
 
 def host_snapshot() -> PortraitSnapshot:
+    explicit = os.environ.get('SLOPWEB_PORTRAITS')
+    if explicit is not None:
+        if not explicit.strip():
+            raise ValueError('Explicit portrait source cannot be empty')
+        source = Path(explicit).expanduser()
+        if not (source / 'manifest.json').is_file():
+            raise ValueError('Explicit portrait source must contain a native snapshot manifest')
+        return read_snapshot(source)
     source = host_source()
     return request_snapshot(source) if exporter_available(source) else read_snapshot(source)

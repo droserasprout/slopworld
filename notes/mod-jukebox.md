@@ -6,6 +6,10 @@ deduplication. Pending selections send immediately; idle frames do not resolve p
 A saved station waits for the first catalog before sending playback commands.
 Connection snapshots send the catalog before audio state so restoring a selection
 cannot erase the report for a stream that kept playing across game restarts.
+Clients without a native audio decoder set `Radio.LocalPlaybackSupported` before
+workspace startup. OST source/transport actions are unavailable there, and the default
+OST state observes host playback without sending a stop. Selecting a supported daemon
+source activates normal transport policy, including explicit pause/stop.
 `Sim/Jukebox/` adapts map presence and native music. `UI/Jukebox/` owns menus/actions
 and notice presentation, connected once by Bootstrap. Recognition policy stays in
 application; bounded child execution belongs to `Platform/Processes/`.

@@ -94,7 +94,14 @@ files are read from the user's own installation during local preparation.
 ## Interface
 
 The sidebar selects agents; `+` creates sessions. Session-only agent rows share
-native text presentation but currently lack pawn portraits. Ctrl+V pastes browser
+native text presentation. Portraits use validated snapshots exported by the native
+colony, preserving the real session identities. With an older running native mod,
+prepare from an existing isolated export using
+`SLOPWEB_PORTRAITS=/path/to/snapshot slopweb --prepare`; the directory must contain
+its native `manifest.json` and pixel files. Missing native exports leave rows without
+portraits. Core and Jukebox doors open native menus without a colony; map actions
+and local OST playback are unavailable. Radio/Spotify controls use the host daemon's
+capabilities and audio output. Ctrl+V pastes browser
 text, plus PNG images in ready Codex agents; selected terminal text copies with Ctrl+C or Ctrl+Shift+C. Without a selection, Ctrl+C still
 interrupts the terminal process. Browser clipboard permissions apply to context
 menu actions. Settings are available through the gear icon.

@@ -183,3 +183,18 @@ refresh-eco:
     cp out/wwwroot-core/game/Assembly-CSharp.dll out/wwwroot-eco/game/Assembly-CSharp.dll
     cp out/wwwroot-core/game/manifest.json out/wwwroot-eco/game/manifest.json
     just --justfile ../compat/justfile eco ../runtime/out/wwwroot-eco
+
+# Reuse private interpreter assets for a door-only check; never compile AOT or replace a running root.
+stage-door-check source: adapters
+    mkdir -p out
+    test ! -e out/workspace-door-check
+    cp -a --reflink=auto {{quote(source + '/wwwroot-eco')}} out/workspace-door-check
+    cp {{quote(source + '/wwwroot-core/game/Assembly-CSharp.dll')}} out/workspace-door-check/game/
+    cp {{quote(source + '/wwwroot-core/game/manifest.json')}} out/workspace-door-check/game/
+    cp Adapters/bin/Debug/net10.0/Adapters.dll out/workspace-door-check/
+    just mod-content out/workspace-door-check
+    just --justfile ../compat/justfile eco ../runtime/out/workspace-door-check
+
+# Pack authored UI definitions/textures into a private runtime.
+mod-content root:
+    uv run --locked python mod_pack.py ../../../mod {{quote(root + '/mod/Content.zip')}}
