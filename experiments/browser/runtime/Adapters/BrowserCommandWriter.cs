@@ -15,7 +15,7 @@ internal static class BrowserCommandWriter
 
     [ThreadStatic]
     static BrowserCommandValueCache? values;
-    internal static bool ValueCacheEnabled { get; private set; }
+    internal static bool ValueCacheEnabled { get; private set; } = true;
 
     internal static bool ConfigureValueCache(bool enabled)
     {
