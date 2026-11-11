@@ -7,7 +7,7 @@ import {processSampler} from './browser-process-cpu.mjs';
 import {browserGpuInfo} from './browser-rendering.mjs';
 import {jiterpreterSnapshot} from './browser-jiterpreter.mjs';
 
-const [profile, output, phaseList='idle,output,typing,scrolling,switching',quadCache='on',canvasReuse='keep',packetCache='keep',idleYield='keep',discardedDrawing='keep',earlyInput='keep',comparison='none'] = process.argv.slice(2);
+const [profile, output, phaseList='idle,output,typing,keystrokes,scrolling,switching',quadCache='on',canvasReuse='keep',packetCache='keep',idleYield='keep',discardedDrawing='keep',earlyInput='keep',comparison='none'] = process.argv.slice(2);
 if(!['keep','on','off'].includes(earlyInput))throw new Error('Early input flush must be keep, on or off');
 if(!['keep','on','off'].includes(discardedDrawing))throw new Error('Discarded drawing suppression must be keep, on or off');
 if(!['keep','on','off'].includes(idleYield))throw new Error('Idle yield must be keep, on or off');
@@ -112,7 +112,7 @@ try {
     if(comparisonExport)await evaluate(`${comparisonCall}(${comparisonEnabled})`);
     // Repeated phases must start with the same screen instead of gradually
     // replacing the 200-line fixture with shorter echo acknowledgments.
-    if(comparisonExport)await evaluate('window.__benchmark.reset()');
+    if(comparisonExport || phase==='keystrokes')await evaluate('window.__benchmark.reset()');
     if(comparison==='tint')await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const processBefore=await processCpu.sample();
