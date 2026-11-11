@@ -14,7 +14,7 @@ try {
   }
   await writeFile(`${root}/index.html`,reuse?'<!doctype html><script type="module" src="./canvas-reuse-check.js"></script>':'<!doctype html><script>globalThis.__probeResult={status:"ok"}</script>');
   await promisify(execFile)(process.execPath,[fileURLToPath(new URL('./validate.mjs',import.meta.url)),root,'/',output],{
-    env:{...process.env,PROBE_RENDERING:'auto',PROBE_KEEP_OPEN:'0',PROBE_TIMEOUT_MS:'10000'},maxBuffer:1024*1024,
+    env:{...process.env,PROBE_RENDERING:process.env.PROBE_RENDERING??'auto',PROBE_KEEP_OPEN:'0',PROBE_TIMEOUT_MS:'10000'},maxBuffer:1024*1024,
   });
   const report=JSON.parse(await readFile(output,'utf8'));
   if(!report.completed||report.result?.status!=='ok'||report.gpu.error||!report.gpu.devices?.length)throw new Error(JSON.stringify({error:'Rendering check failed',result:report.result}));

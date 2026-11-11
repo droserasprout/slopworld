@@ -57,8 +57,8 @@ slopweb-host-check-install prefix=(env('HOME') + '/.local'):
     systemd-run --user --pipe --wait --collect {{quote(prefix + '/bin/slopweb')}} --prepare
 
 [group('web')]
-slopweb-host-check-browser runtime:
-    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}}
+slopweb-host-check-browser runtime rendering='auto':
+    systemd-run --user --pipe --wait --collect --setenv=PROBE_RENDERING={{quote(rendering)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}}
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/installed-startup.json workspace
 
 # Package the independent browser launcher using the selected native format.

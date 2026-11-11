@@ -428,6 +428,8 @@ GPU devices and feature status; `auto` does not establish hardware acceleration.
 Chrome's driver blocklist. This can enable hardware Canvas in headless Chromium
 where `auto` selects SwiftShader. It does not guarantee hardware on another host;
 check the reported device and Canvas/compositing feature status for every run.
+The host rendering check, bounded workspace launcher, and installed-runtime check
+accept a final rendering-mode argument and forward it through systemd explicitly.
 Do not compare performance across different rendering backends as a code speedup.
 `browser-host-rendering-check` verifies reporting on a blank page under a one-core
 CPU quota and closes the browser; it does not exercise the game workspace.
