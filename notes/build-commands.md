@@ -33,6 +33,7 @@ Release gates recheck checkout identity and cleanliness after validation. Public
 uses the exact verified package artifact without rebuilding or overwriting releases.
 Tags must identify the built commit; detached releases must belong to fetched main.
 Preview bundles cannot publish. CI uses committed artwork; local releases regenerate.
+New release runs cancel older runs for the same Git ref; different tags run independently.
 Sidecar publication also checks its tag against the workflow commit.
 
 Keep Cargo targets separate per checkout; shared fingerprints can reuse another

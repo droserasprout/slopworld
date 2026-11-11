@@ -157,7 +157,7 @@ def test_release_workflow_gates_publication_and_downloads_exact_artifact() -> No
     assert steps[-1]['run'] == 'just release-ci-publish'
     assert jobs['package']['permissions']['contents'] == 'read'
     assert jobs['publish']['permissions']['contents'] == 'write'
-    assert workflow['concurrency']['cancel-in-progress'] == 'false'
+    assert workflow['concurrency']['cancel-in-progress'] == 'true'
 
 
 @pytest.mark.parametrize('state', ['published', 'missing', 'moved', 'matching'])
