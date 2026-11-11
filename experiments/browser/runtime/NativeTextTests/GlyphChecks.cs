@@ -56,6 +56,40 @@ static class GlyphChecks
                     .GetField("variants", flags)!
                     .GetValue(BrowserFontBank.Instance)!
         ).Add(face);
+        // Distinct metrics make accidental style/density reuse observable in packets.
+        foreach (FontStyle style in Enum.GetValues<FontStyle>())
+        foreach (float density in new[] { 1f, 5f / 3, 2f })
+        {
+            if (style == FontStyle.Normal && density == 1)
+                continue;
+            var variant = new BrowserFontBank.Face
+            {
+                Hash = face.Hash,
+                Style = style,
+                Size = face.Size,
+                Density = density,
+                Ascent = face.Ascent + (int)style * .1f,
+                LineAscent = face.LineAscent,
+                Descent = face.Descent,
+                FirstLine = face.FirstLine,
+                Pitch = face.Pitch,
+                Spacing = face.Spacing,
+                Texture = texture,
+            };
+            foreach (var pair in face.Glyphs)
+            {
+                var glyph = pair.Value;
+                glyph.x0 += (int)style * .2f + density * .1f;
+                glyph.advanceX += (int)style * .1f;
+                variant.Glyphs.Add(pair.Key, glyph);
+            }
+            (
+                (List<BrowserFontBank.Face>)
+                    typeof(BrowserFontBank)
+                        .GetField("variants", flags)!
+                        .GetValue(BrowserFontBank.Instance)!
+            ).Add(variant);
+        }
         var original = new BrowserGui();
         var cached = new BrowserGui();
         var text = "glyph clipping Agyp 0123";
@@ -154,9 +188,10 @@ static class GlyphChecks
         Console.WriteLine(
             "Real glyph packets match with cache off/on across clips, scales, anchors, scroll offsets, batching, image mutation and discarded uploads."
         );
+        CellChecks.Run(index, texture, benchmark);
         if (benchmark)
             Benchmark(index);
-        BrowserGui.ConfigureGlyphCache(true);
+        BrowserGui.ConfigureGlyphCache(false);
     }
 
     static void Benchmark(int index)

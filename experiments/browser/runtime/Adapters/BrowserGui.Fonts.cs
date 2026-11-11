@@ -19,6 +19,16 @@ public sealed partial class BrowserGui
         return previous;
     }
 
+    static bool cellFastPathEnabled = true;
+
+    // Diagnostic reference path for byte-equivalence checks and CPU benchmarks.
+    public static bool ConfigureCellFastPath(bool enabled)
+    {
+        bool previous = cellFastPathEnabled;
+        cellFastPathEnabled = enabled;
+        return previous;
+    }
+
     bool BakedCaret(
         int index,
         float size,
@@ -83,6 +93,26 @@ public sealed partial class BrowserGui
         bool rich
     )
     {
+        // Native terminal labels are usually one ASCII cell. Resolve its metrics
+        // directly: no text-cache LRU mutation, line arrays, width cache or run loop.
+        // Placement still starts from this label's independently rounded origin.
+        if (
+            cellFastPathEnabled
+            && text.Length == 1
+            && text[0] >= ' '
+            && text[0] <= '~'
+            && matrix.m01 == 0
+            && matrix.m10 == 0
+            && matrix.m00 > 0
+            && Math.Abs(matrix.m11 - matrix.m00) <= .001f
+            && BrowserFontBank.TryFace(index, size, style, out var cellFace)
+            && cellFace.Glyphs.TryGetValue(text[0], out var cell)
+            && (!wrap || Snap(cell.advanceX * matrix.m00) / matrix.m00 <= rect.width)
+        )
+        {
+            DrawBakedCell(rect, cellFace, cell, anchor, color, clip);
+            return true;
+        }
         if (!BakedFace(index, size, style, text, rich, out var face, out var run))
             return false;
         float scale = Math.Abs(matrix.m00);
@@ -284,6 +314,81 @@ public sealed partial class BrowserGui
         {
             drawing.Complete();
             EmitGlyphRun(drawing, face, textureId, color, ref uploaded);
+        }
+    }
+
+    void DrawBakedCell(
+        Rect rect,
+        BrowserFontBank.Face face,
+        TmpGlyphMetrics glyph,
+        TextAnchor anchor,
+        Color color,
+        Rect clip
+    )
+    {
+        if (!glyph.visible)
+            return;
+        float scale = matrix.m00;
+        int horizontal = (int)anchor % 3,
+            vertical = (int)anchor / 3;
+        float y = rect.y + (rect.height - face.FirstLine) * vertical / 2;
+        float width = Snap(glyph.advanceX * scale) / scale;
+        float x = rect.x + (rect.width - width) * horizontal / 2;
+        var origin = Device(Vector2.zero);
+        float penX = Snap(origin.x) + Snap(x * scale);
+        float penY =
+            Snap(origin.y) + Snap(y * scale) + Snap(face.LineAscent * scale) - face.Ascent * scale;
+        bool fineClip = clip.width > 0;
+        Rect screenClip = fineClip ? Bounds(clip) : default;
+        float clipBottom =
+            fineClip && y + face.FirstLine > clip.yMax + .5f ? screenClip.yMax : float.MaxValue;
+        // Keep the general DrawGlyphRun loop inline too, avoiding an added call
+        // per glyph on interpreted WASM. Packet equivalence tests guard the same
+        // rounding/clipping contract in this specialized path.
+        int textureId = face.Texture.GetInstanceID();
+        Span<float> values = stackalloc float[8];
+        float left = Snap(penX + glyph.x0 * scale),
+            top = Snap(penY + glyph.y0 * scale);
+        var quad = new BrowserGlyphQuad(
+            left,
+            top,
+            left + (glyph.x1 - glyph.x0) * scale,
+            top + (glyph.y1 - glyph.y0) * scale,
+            glyph.u0,
+            glyph.v0,
+            glyph.u1,
+            glyph.v1
+        );
+        if (!fineClip || quad.Clip(screenClip.xMin, screenClip.xMax, clipBottom))
+        {
+            var destination = new Rect(
+                (quad.Left - origin.x) / scale,
+                (quad.Top - origin.y) / scale,
+                (quad.Right - quad.Left) / scale,
+                (quad.Bottom - quad.Top) / scale
+            );
+            TraceTextureDraw();
+            if (!OutsideDrawingClip(destination))
+            {
+                UploadImage(face.Texture);
+                values[0] = destination.x;
+                values[1] = destination.y;
+                values[2] = destination.width;
+                values[3] = destination.height;
+                values[4] = quad.U0;
+                values[5] = 1 - quad.V1;
+                values[6] = quad.U1 - quad.U0;
+                values[7] = quad.V1 - quad.V0;
+                AppendImageBatch(
+                    commands,
+                    textureId,
+                    ColorChannel(color.r),
+                    ColorChannel(color.g),
+                    ColorChannel(color.b),
+                    ColorChannel(color.a),
+                    values
+                );
+            }
         }
     }
 
