@@ -52,6 +52,7 @@ browser-screen-clip-lint:
 [group('browser prototype')]
 browser-test-input:
     dotnet run --project experiments/browser/runtime/InputTests/InputTests.csproj
+    dotnet run --project experiments/browser/runtime/WorkspaceFrameTests/WorkspaceFrameTests.csproj
 
 [group('browser prototype')]
 browser-test-commands:

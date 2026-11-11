@@ -1,0 +1,11 @@
+set quiet
+
+test:
+    dotnet run --project WorkspaceFrameTests.csproj
+
+format:
+    dotnet tool restore
+    dotnet tool run csharpier format . ../InputTests/Stubs.cs ../Adapters/WorkspaceDrawing.cs
+
+lint:
+    dotnet tool run csharpier check . ../InputTests/Stubs.cs ../Adapters/WorkspaceDrawing.cs

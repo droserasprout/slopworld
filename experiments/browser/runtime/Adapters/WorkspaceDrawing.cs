@@ -225,6 +225,10 @@ public static class WorkspaceDrawing
                 if (Event.current.type != EventType.Used)
                     GUI.DispatchInputToWindows();
                 BrowserUnderlyingWorkspace.Draw();
+                // UIRoot normally pumps tooltips before WindowStackOnGUI. Keep
+                // that order: native tips enqueue ImmediateWindows, whose deferred
+                // callbacks must join this pass before ProcessPendingWindows.
+                TooltipHandler.DoTooltipGUI();
                 Find.WindowStack.WindowStackOnGUI();
                 GUI.ProcessPendingWindows();
                 // The Entry workspace owns the foreground. Draw native rejection
