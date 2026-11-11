@@ -92,8 +92,11 @@ just browser-host-benchmark PROFILE experiments/browser/artifacts/workloads.json
 # Restores the original session and verifies fixture deletion. Switching measures
 # the native Open/attach path, not a DOM sidebar click. JS heap excludes WASM memory.
 just browser-workspace-ui-check PROFILE
+just browser-host-workspace-ui-check PROFILE
 # Checks settings, key rebinding, F9 layout toggling, and F12 close/reopen.
-# This settings check still requires the diagnostic text-command renderer.
+# Uses native-font label observations and native settings-door geometry.
+# Requires authored D/F9/F12 bindings and the default open-files panel layout.
+# Restores presentation preferences and the tested binding on failure as well.
 just browser-workspace-e2e-check PROFILE
 just browser-host-workspace-e2e-check PROFILE
 # Requires a root-authorized bridge and an existing live coding agent.
