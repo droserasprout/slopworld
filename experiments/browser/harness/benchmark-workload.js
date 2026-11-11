@@ -149,6 +149,13 @@
       await select(created[0]); await pause(1500);
       return {created, fixture:'200 fixed lines; 120x40 initial host grid', game:state().game};
     },
+    async reset() {
+      const marker='RESET_'+(++runSerial).toString().padStart(4,'0');
+      await select(created[0]);
+      send('paint '+marker);
+      await output('BENCH_READY_'+marker);
+      await pause(1500);
+    },
     async run(phase) {
       const runId=(++runSerial).toString().padStart(4,'0');
       samples.length = 0;

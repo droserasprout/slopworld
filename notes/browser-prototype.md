@@ -414,6 +414,8 @@ cleanup restores the prior mode. Reported typing latency still measures DOM inpu
 to native receive-buffer echo, not physical display latency.
 The optional `comparison` mode (`input` or `glyph`) requires four identical
 phases and toggles off/on/on/off while retaining the same fixture sessions.
+Before each measured phase it repaints the same fixture screen and waits for its
+unique acknowledgment outside the timing/CPU window, avoiding content drift.
 Phase-specific echo/completion markers prevent earlier screen contents from
 satisfying a later run; cleanup restores all diagnostic switches.
 Installed Waylith stores Event.alt and Event.shift separately from Event.modifiers;
