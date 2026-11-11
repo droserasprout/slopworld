@@ -34,6 +34,16 @@ descriptor = tomllib.loads((config / 'endpoints/local.toml').read_text())
 environment = dict(os.environ, SLOPD_URL=descriptor['url'], SLOPD_TOKEN=descriptor['token'])
 if sys.argv[1:2] in (['--check-workspace'], ['--check-installed']):
     installed = sys.argv[1] == '--check-installed'
+    if installed:
+        # Installed checks use the same staged host helper as the launcher, so
+        # settings exercise real on-demand font preparation rather than a 404.
+        environment.update(
+            SLOPWEB_FONT_HELPER=str(root / 'slopweb/out/fonts.py'),
+            SLOPWEB_FONT_GAME=str(
+                Path(environment.get('RIMWORLD', str(Path.home() / '.local/share/Steam/steamapps/common/RimWorld')))
+            ),
+            SLOPWEB_FONT_CACHE=str(Path(sys.argv[2]).resolve().parent / 'diagnostic-fonts'),
+        )
     color_type = environment.get('PROBE_CANVAS_COLOR_TYPE', 'unorm8')
     if color_type not in ('unorm8', 'float16'):
         raise ValueError('Expected unorm8 or float16 Canvas')

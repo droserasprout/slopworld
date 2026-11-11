@@ -29,7 +29,8 @@
       if(!core.includes(label))throw new Error('Missing native Core menu label: '+label);
     await key();await click('jukebox');
     const jukebox=labels();
-    for(const label of ['OST unavailable','Settings'])
+    if(jukebox.some(text=>text.startsWith('OST unavailable')))throw new Error('Browser OST transport is disabled');
+    for(const label of ['Settings'])
       if(!jukebox.some(text=>text.startsWith(label)))throw new Error('Missing native Jukebox menu label: '+label+'; rendered: '+JSON.stringify(jukebox));
     await key();
     const final=state();

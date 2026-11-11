@@ -46,7 +46,8 @@ try {
         window.__clipboardKey('paste');
       });`});
   }
-  const result=await call('Runtime.evaluate',{expression:await readFile(script,'utf8'),awaitPromise:true,returnByValue:true});
+  const result=await call('Runtime.evaluate',{expression:await readFile(script,'utf8'),awaitPromise:true,returnByValue:true,
+    userGesture:process.env.PROBE_USER_GESTURE==='1'});
   console.log(JSON.stringify(result,null,2));
   if(result.exceptionDetails)process.exitCode=1;
 } finally {
