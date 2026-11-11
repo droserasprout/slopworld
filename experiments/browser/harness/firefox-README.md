@@ -32,6 +32,12 @@ same fixtures, resets their screen before each phase, and restores the prior
 switch values on cleanup. Tint comparisons also report cache misses and pixel
 counts; screenshots include phase indices so repeated phases do not overwrite.
 
+Both host benchmark recipes accept a final `stage_profile` argument (default `1`).
+Use `0` to measure latency without per-frame managed and Canvas profiling. Reports
+record this setting and retain workload, wire timing and frame interval results;
+stage samples are empty. Compare runs with the same setting. The `cyrillic` phase
+requires profiling to verify that text uses baked glyphs without fallback.
+
 The runner creates a fresh browser profile and only sends workload input to its
 own disposable sessions. Cleanup restores the prior selected session, removes
 fixture sessions, deletes the WebDriver session, terminates its owned process

@@ -10,6 +10,8 @@ import {jiterpreterSnapshot} from './browser-jiterpreter.mjs';
 
 const [directory, output, phaseList='idle,output,typing,keystrokes,scrolling,switching',page='/workspace.html',comparison='none'] = process.argv.slice(2);
 const phases=phaseList.split(',');
+const stageProfile=process.env.PROBE_STAGE_PROFILE!=='0';
+if(!stageProfile && phases.includes('cyrillic'))throw Error('Cyrillic coverage checks require stage profiling');
 const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
   throw Error('Comparison requires a known mode and four identical phases');
@@ -142,6 +144,7 @@ try {
   const fixtureCommand="python3 -u '"+fixture.replaceAll("'","'\\''")+"'";
   report.fixture=await evaluate(`window.__benchmark.prepare(${JSON.stringify(fixtureCommand)})`);
   report.configuration.comparison=comparison;
+  report.configuration.stageProfile=stageProfile;
   if(comparisonExport)previousComparison=await evaluate(`${comparisonCall}(true)`);
   if(comparison==='tint')previousTintProfile=await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
   console.log('Firefox workspace and benchmark fixtures ready');
@@ -153,7 +156,7 @@ try {
     if(comparison==='tint')await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const before=await sample(root);
-    const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)})`);
+    const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)},{stageProfile:${stageProfile}})`);
     const after=await sample(root);
     const stageMeans=Object.fromEntries(Object.keys(result.stages[0]??{}).map(key=>
       [key,result.stages.reduce((sum,s)=>sum+s[key],0)/result.stages.length]));
