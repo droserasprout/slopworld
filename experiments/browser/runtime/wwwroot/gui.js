@@ -4,6 +4,22 @@ import { decodeGuiQuads } from './gui-quads.js';
 import { decodeGuiPixels } from './gui-pixels.js';
 const renderTargets = new Map();
 const images = new Map();
+// A constant upload has the same normalized samples at every resolution.
+// Keep drawImage's clipping, edge coverage and opacity path, but expose a 1x1
+// backing so software Canvas can avoid filtering a stretched multi-pixel source.
+// Weak keys follow immutable upload/tint lifetime; mutable targets never qualify.
+const uniformSources=new WeakMap();
+let uniformImagesEnabled=true;
+export function configureGuiUniformImages(enabled) {
+  const previous=uniformImagesEnabled;uniformImagesEnabled=!!enabled;renderRevision++;return previous;
+}
+function rememberUniformSource(source,pixels) {
+  if(pixels.length>16*16*4 || pixels.length<=4)return;
+  for(let i=4;i<pixels.length;i++)if(pixels[i]!==pixels[i%4])return;
+  const single=document.createElement('canvas');single.width=1;single.height=1;
+  single.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixels.slice(0,4)),1,1),0,0);
+  uniformSources.set(source,single);
+}
 let renderRevision=0;
 export const guiRenderRevision=()=>renderRevision;
 export const guiTargetCount = () => renderTargets.size;
@@ -42,7 +58,9 @@ export function configureGuiScreenClipFastPath(enabled) {
 function tintImage(source, color, cachedPixels = null) {
   const tinted = document.createElement('canvas'); tinted.width = source.width; tinted.height = source.height;
   const pixels = cachedPixels ?? source.getContext('2d').getImageData(0, 0, source.width, source.height).data;
-  tinted.getContext('2d').putImageData(new ImageData(tintPixels(pixels, color), source.width, source.height), 0, 0);
+  const data=tintPixels(pixels,color);
+  tinted.getContext('2d').putImageData(new ImageData(data, source.width, source.height), 0, 0);
+  rememberUniformSource(tinted,data);
   return tinted;
 }
 export function renderGui(canvas, commands) {
@@ -91,6 +109,7 @@ export function renderGui(canvas, commands) {
         const source = document.createElement('canvas'); source.width = v.width; source.height = v.height;
         const data = decodeGuiPixels(v.pixels);
         source.getContext('2d').putImageData(new ImageData(data, v.width, v.height), 0, 0);
+        rememberUniformSource(source,data);
         images.set(v.id, { source, tints: new Map(), pixels: null }); break;
       }
       case 'imageTexture':
@@ -112,6 +131,7 @@ export function renderGui(canvas, commands) {
           source = entry.tints.get(key);
           entry.tints.delete(key); entry.tints.set(key, source);
         }
+        if(uniformImagesEnabled)source=uniformSources.get(source)??source;
         ctx.save(); ctx.globalAlpha = v.color[3];
         if (kind === 'imageBatch') {
           const q=decodeGuiQuads(v.quads), width=source.width, height=source.height;
