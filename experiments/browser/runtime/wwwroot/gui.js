@@ -1,6 +1,7 @@
 // Drawing commands originate in the installed Unity GUI controls through IGuiBackend.
 import { tintPixels } from './gui-tint.js';
 import { decodeGuiQuads } from './gui-quads.js';
+import { decodeGuiPixels } from './gui-pixels.js';
 const renderTargets = new Map();
 const images = new Map();
 let renderRevision=0;
@@ -88,7 +89,7 @@ export function renderGui(canvas, commands) {
       }
       case 'image': {
         const source = document.createElement('canvas'); source.width = v.width; source.height = v.height;
-        const data = Uint8ClampedArray.from(atob(v.pixels), c => c.charCodeAt(0));
+        const data = decodeGuiPixels(v.pixels);
         source.getContext('2d').putImageData(new ImageData(data, v.width, v.height), 0, 0);
         images.set(v.id, { source, tints: new Map(), pixels: null }); break;
       }

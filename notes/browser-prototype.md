@@ -419,6 +419,14 @@ also reports the previous numeric batch writer against the same live packet.
 Canvas retains decoded packed geometry under independent entry and byte bounds,
 keyed by the complete encoded payload. This shares immutable coordinates across
 changing frames without retaining textures or suppressing resource commands.
+`gui-pixels.js` decodes immutable RGBA uploads using native base64 support when
+available, sharing the returned buffer with ImageData's clamped byte view. Older
+runtimes use an indexed byte-copy loop. Canvas retains conversion and tint ownership.
+`browser-host-pixel-upload-check` compares decoded bytes and real Canvas pixels
+against the callback decoder, including transparent texels and production drawing.
+It times fresh Canvas allocation, decoding, ImageData and putImageData; readback,
+GPU completion and whole-workspace latency are excluded. Its authored sources stream
+to a disposable host directory so isolated worker paths need not exist on the host.
 The Node-only `browser-bench-quad-decode` recipe measures repeated decoding;
 it does not measure browser rendering or whole-workspace latency.
 `BrowserPacketCache` retains one bounded,
