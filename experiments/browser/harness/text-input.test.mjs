@@ -150,3 +150,23 @@ test('window refocus resumes direct input and disposal prevents additional frame
     assert.equal(f.batches.length,count);
   }finally{f.dispose();}
 });
+
+test('window blur and hidden tabs release shared IME ownership before physical keys resume',()=>{
+  for(const reason of ['window','hidden']) {
+    const f=fixture();
+    try {
+      f.canvas.focus();
+      emit(f.target,'compositionstart');
+      f.frame();
+      if(reason==='window')emit(window,'blur');
+      else {document.hidden=true;emit(document,'visibilitychange');}
+      assert.deepEqual(f.frame(),[{kind:'reset'}]);
+      assert.deepEqual(f.devices.at(-1),[{kind:'reset'}]);
+      document.hidden=false;
+      emit(window,'focus');
+      f.key('ArrowDown',{code:'ArrowDown'});
+      assert.equal(f.frame()[0].key,'DownArrow');
+      assert.deepEqual(f.devices.at(-1),[{kind:'key',key:'DownArrow',down:true}]);
+    } finally {f.dispose();}
+  }
+});

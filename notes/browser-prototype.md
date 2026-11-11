@@ -468,6 +468,8 @@ image paths pasted during startup as provisional text.
 pointer presses hand keyboard focus to it; GUI and physical adapters treat that
 handoff as internal, while outside focus loss cancels preedit and resets capture.
 Refocus admits fresh typing without reviving a canceled composition's delayed end.
+Window blur and tab hiding release shared IME ownership even if the textarea
+remains the active element, so physical keys resume with GUI input on return.
 Trusted typing uses DOM input commits with the originating physical binding identity;
 composition preedit and IME-owned physical keys never enter native dispatch.
 Composition commits enter one ordered UTF-16 batch, without a binding identity or

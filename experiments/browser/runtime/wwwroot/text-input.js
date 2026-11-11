@@ -26,7 +26,12 @@ export function acquireTextInput(canvas) {
     listen(canvas, 'focus', () => shared.focus());
     listen(element, 'compositionstart', () => { shared.composing = true; });
     listen(element, 'compositionend', () => { shared.composing = false; });
-    listen(element, 'blur', () => { shared.composing = false; element.value = ''; });
+    const cancel = () => { shared.composing = false; element.value = ''; };
+    listen(element, 'blur', cancel);
+    // Window focus and visibility can change while the textarea remains the
+    // active element. Both adapters must then see composition ownership released.
+    listen(window, 'blur', cancel);
+    listen(document, 'visibilitychange', () => { if (document.hidden) cancel(); });
     shared.destroy = () => { abort.abort(); element.remove(); proxies.delete(canvas); };
     proxies.set(canvas, shared);
     if (document.activeElement === canvas) shared.focus();
