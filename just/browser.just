@@ -599,7 +599,7 @@ browser-fonts-test:
 # Fresh Firefox via direct WebDriver HTTP; owns browser, bridge and temporary sessions.
 [group('browser prototype')]
 browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-workloads.json' phases='idle,output,typing,scrolling,switching' root='experiments/browser/runtime/out/wwwroot-eco' page='/workspace.html' screenshots='1' headless='1':
-    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_HEADLESS={{quote(headless)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox-host.py')}} {{quote(justfile_directory() / root)}} {{quote(justfile_directory() / output)}} {{quote(phases)}} {{quote(page)}}
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_HEADLESS={{quote(headless)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox-host.py')}} {{quote(if root =~ '^/' { root } else { justfile_directory() / root })}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}} {{quote(phases)}} {{quote(page)}}
 
 [group('browser prototype')]
 browser-firefox-harness-check:
@@ -611,7 +611,7 @@ browser-firefox-harness-check:
 # Recover only verified temporary host fixtures from this harness's report.
 [group('browser prototype')]
 browser-host-firefox-cleanup report:
-    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox_cleanup.py')}} {{quote(justfile_directory() / report)}}
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox_cleanup.py')}} {{quote(if report =~ '^/' { report } else { justfile_directory() / report })}}
 
 [group('browser prototype')]
 browser-firefox-harness-format:

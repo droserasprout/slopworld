@@ -95,6 +95,10 @@ just browser-host-benchmark PROFILE experiments/browser/artifacts/workloads.json
 # latency distributions, renderer task CPU, JS heap and per-phase screenshots.
 # Restores the original session and verifies fixture deletion. Switching measures
 # the native Open/attach path, not a DOM sidebar click. JS heap excludes WASM memory.
+# Firefox uses a fresh owned profile through installed geckodriver (no extra SDK).
+just browser-host-firefox-benchmark
+# Pass the final headless argument as 0 for a visible hardware-rendered comparison;
+# see harness/firefox-README.md for arguments, backend reporting and recovery.
 just browser-workspace-ui-check PROFILE
 just browser-host-workspace-ui-check PROFILE
 # Checks settings, key rebinding, F9 layout toggling, and F12 close/reopen.

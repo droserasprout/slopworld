@@ -457,6 +457,12 @@ quota is distinct from unavailable cgroup accounting.
 Bounded host probes disable the diagnostic browser's desktop session bus so Chromium
 cannot move itself into an uncapped application scope. They verify the effective
 quota before navigating to the workspace and fail if the requested bound is absent.
+The Firefox workload runner uses direct geckodriver HTTP and the same fixture script.
+Its injected diagnostics execute in the document realm: WebDriver's isolated module
+map would otherwise create a second GUI image bank. It owns its browser/process
+group and temporary sessions; the recovery recipe checks host/temporary metadata
+before deleting reported fixtures. Headless and visible Firefox can use different
+Canvas backends; reports include allowlisted about:support graphics rows.
 Validation defaults to Chrome's backend selection. Set `PROBE_RENDERING=swiftshader`
 to reproduce the software-rendering configuration explicitly. Reports include actual
 GPU devices and feature status; `auto` does not establish hardware acceleration.
