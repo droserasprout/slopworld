@@ -39,3 +39,24 @@ test('ordinary Ctrl+Alt shortcuts and composing keys retain their distinct paths
     assert.equal(f.key('q').batch[0].key,'Q');
   } finally {f.dispose();}
 });
+
+test('input profiling measures oldest queued event without changing the managed batch',()=>{
+  const previousPerformance=globalThis.performance;
+  let now=100;globalThis.performance={now:()=>now};
+  const canvas=installInputDom().canvas(),samples=[];let batch;
+  const input=attachGuiInput(canvas,{
+    profileFrame:sample=>samples.push(sample),
+    GuiInputFrame:value=>{batch=JSON.parse(value);return '{"commands":[]}';}
+  });
+  const press=()=>canvas.dispatchEvent(Object.assign(new Event('keydown',{cancelable:true}),{key:'q',code:'KeyQ'}));
+  try {
+    press();now=120;press();now=150;input.frame();
+    assert.equal(samples.at(-1).inputQueueMs,50);
+    assert.equal(batch.length,2);
+    assert.ok(batch.every(event=>!('queuedAt' in event)));
+    now=200;input.frame();assert.equal(samples.at(-1).inputQueueMs,0);
+    press();now=300;window.dispatchEvent(new Event('blur'));
+    now=310;input.frame();assert.equal(samples.at(-1).inputQueueMs,10);
+    assert.deepEqual(batch,[{kind:'reset'}]);
+  } finally {input.dispose();globalThis.performance=previousPerformance;}
+});
