@@ -359,6 +359,12 @@ workspace URLs retain bounded stage timings. `inputQueueMs` measures the oldest
 queued DOM event through the start of managed dispatch, including the device update.
 Inspect frames with `inputEvents > 0`; empty frames report zero. This client-only
 interval is separate from command/echo round trips and daemon capture timing.
+Typing benchmarks also observe the first WebSocket keys send and delivery of the
+matching acknowledgement screen for invocation-owned fixtures. These timestamps
+share the browser clock. Message delivery is a JavaScript callback, not network
+arrival, and delivery-to-observation includes managed continuation, hub pumping,
+rendering and the benchmark's polling delay. Observers retain timings only and
+restore the socket send method and message listeners after each phase.
 The serialization diagnostic alternates
 all writers against one identical live packet; it measures transport only and must
 not be reported as an end-to-end workspace benchmark.
