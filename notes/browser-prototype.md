@@ -434,7 +434,7 @@ The workload recipe's `early_input` argument compares the native input flush
 before repaint with the previous after-serialization boundary in one browser;
 cleanup restores the prior mode. Reported typing latency still measures DOM input
 to native receive-buffer echo, not physical display latency.
-The optional `comparison` mode (`input` or `glyph`) requires four identical
+The optional `comparison` mode (`input`, `glyph` or `cell`) requires four identical
 phases and toggles off/on/on/off while retaining the same fixture sessions.
 Before each measured phase it repaints the same fixture screen and waits for its
 unique acknowledgment outside the timing/CPU window, avoiding content drift.
