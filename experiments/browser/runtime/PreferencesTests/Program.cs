@@ -14,6 +14,7 @@ static class Check
 
     static void Main()
     {
+        CheckWindowPatch();
         string saved = "";
         BrowserPreferences.Persist = json => saved = json;
         var settings = new ModSettings
@@ -93,6 +94,91 @@ static class Check
         Console.WriteLine(
             "Preferences: allowlist round trip, malformed input, native debounce and staged save sink passed."
         );
+    }
+
+    static void CheckWindowPatch()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "slopworld-window-" + Guid.NewGuid());
+        Directory.CreateDirectory(root);
+        try
+        {
+            File.Copy(typeof(BrowserWindow).Assembly.Location, Path.Combine(root, "Adapters.dll"));
+            using var mod = AssemblyDefinition.CreateAssembly(
+                new AssemblyNameDefinition("TestMod", new Version(1, 0)),
+                "TestMod",
+                ModuleKind.Dll
+            );
+            var module = mod.MainModule;
+            var capability = new TypeDefinition(
+                "SlopWorld",
+                "ClientPlatform",
+                TypeAttributes.Public,
+                module.TypeSystem.Object
+            );
+            module.Types.Add(capability);
+            var getter = new MethodDefinition(
+                "get_IsBrowser",
+                MethodAttributes.Public | MethodAttributes.Static,
+                module.TypeSystem.Boolean
+            );
+            getter.Body.Instructions.Add(Instruction.Create(OpCodes.Ldc_I4_0));
+            getter.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+            capability.Methods.Add(getter);
+            var window = new TypeDefinition(
+                "SlopWorld",
+                "LinuxGameWindow",
+                TypeAttributes.Public,
+                module.TypeSystem.Object
+            );
+            module.Types.Add(window);
+            var setter = new MethodDefinition(
+                "Set",
+                MethodAttributes.Public | MethodAttributes.Static,
+                module.TypeSystem.Void
+            );
+            setter.Parameters.Add(new ParameterDefinition(module.TypeSystem.Boolean));
+            setter.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+            window.Methods.Add(setter);
+            BrowserWindowPatch.Apply(mod, root);
+            Expect(
+                getter.Body.Instructions[0].OpCode == OpCodes.Ldc_I4_1,
+                "Browser capability not enabled"
+            );
+            Expect(
+                setter.Body.Instructions.Count == 3
+                    && setter.Body.Instructions[0].OpCode == OpCodes.Ldarg
+                    && setter.Body.Instructions[1].Operand is MethodReference call
+                    && call.DeclaringType.FullName == "BrowserAdapters.BrowserWindow"
+                    && call.Name == "Set",
+                "Fullscreen intent not redirected"
+            );
+            setter.Parameters.Clear();
+            bool rejected = false;
+            try
+            {
+                BrowserWindowPatch.Apply(mod, root);
+            }
+            catch (InvalidOperationException)
+            {
+                rejected = true;
+            }
+            Expect(rejected, "Changed window setter signature accepted");
+            bool? requested = null;
+            BrowserWindow.Request = value => requested = value;
+            BrowserWindow.Set(true);
+            Expect(requested == true, "Fullscreen request lost");
+            BrowserWindow.Set(false);
+            Expect(requested == false, "Exit request lost");
+            BrowserWindow.Request = null;
+            BrowserWindow.Set(true);
+            Console.WriteLine(
+                "Window: staged capability, validated setter redirection and intent delivery passed."
+            );
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     static void CheckPatch()

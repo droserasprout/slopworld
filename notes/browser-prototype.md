@@ -180,6 +180,18 @@ but browser JPEG decoding versus native BC1 playback and random timeline parity
 remain unverified. It decodes a complete set before publishing and cancels pending
 loads/releases ImageBitmaps on workspace handoff.
 
+`ClientPlatform.IsBrowser` identifies the client independently of the daemon's host
+or sidecar runtime. Browser staging replaces that capability getter; General shows
+slopweb and a checked, locked Eco control because only Entry runs here.
+`BrowserWindowPatch` redirects the existing fullscreen setter while keeping native
+settings, palette and rebindable hotkey intent. `workspace-fullscreen.js` owns the
+DOM Fullscreen API and reports actual state back to native settings, including
+Escape and rejected requests. GUI key dispatch runs synchronously in its DOM event
+so fullscreen admission retains user activation. Fullscreen is not persisted or
+restored automatically in the browser. `just browser-test-window` checks that bridge;
+`just browser-window-check` exercises trusted key admission and browser-owned exit
+in an isolated Chromium document without loading the game.
+
 BrowserWorkspace pumps engine time, client completions, SessionHub, and the real
 WindowStack without colony updates. Waylith's deferred GUI window input/drawing
 callbacks remain necessary. Never invoke the baseline executable-entry diagnostic

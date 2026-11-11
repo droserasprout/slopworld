@@ -144,6 +144,18 @@ public partial class Probe
     }
 
     [JSExport]
+    public static void WorkspaceWindow(
+        [JSMarshalAs<JSType.Function<JSType.Boolean>>] Action<bool> request
+    ) =>
+        Type("Adapters", "BrowserAdapters.BrowserWindow")
+            .GetField("Request")!
+            .SetValue(null, request);
+
+    [JSExport]
+    public static void WorkspaceFullscreenState(bool fullscreen) =>
+        Invoke("Adapters", "BrowserAdapters.BrowserWindow", "UpdateState", fullscreen);
+
+    [JSExport]
     public static void WorkspacePreferences(
         string json,
         [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> persist

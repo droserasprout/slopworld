@@ -4,6 +4,7 @@ import { attachInput } from './input.js';
 import { workspaceViewport, workspaceParameters, workspaceOption } from './workspace-viewport.js';
 import { loadBackground } from './loading-background.js';
 import { attachWorkspaceCursor } from './workspace-cursor.js';
+import { attachWorkspaceFullscreen } from './workspace-fullscreen.js';
 import { WorkspaceScheduler } from './workspace-scheduler.js';
 
 export function startWorkspace(managed, canvas, initialTime = 0) {
@@ -35,6 +36,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   };
   const device = attachInput(canvas, managed, true);
   const cursor = attachWorkspaceCursor(canvas, managed);
+  const fullscreen = attachWorkspaceFullscreen(managed);
   // Opt-in bounded measurements; ordinary presentation does not retain per-frame data.
   let profile = parameters.has('profile') ? [] : null;
   managed.WorkspaceProfile(profile !== null);
@@ -44,6 +46,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     // Clipboard activation flushes synchronously on pointer/key events too.
     // Native capture must see the matching physical button state in that frame.
     beforeFrame: () => device.frame(),
+    activationFrame: true,
     get allowFrameReuse() { return reuseCanvas && !managed.WorkspaceBackgroundVisible(); },
     drawBackground(context) {
       if (!managed.WorkspaceBackgroundVisible() || !background) return;
@@ -80,7 +83,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     stopped = true; scheduler.stop();activity.abort();managed.WorkspaceClearWake();
     backgroundAbort.abort();background?.dispose();background=null;
     device.dispose(); gui.dispose();
-    cursor.dispose();
+    cursor.dispose(); fullscreen.dispose();
   };
   const update = () => {
     if (stopped) return;
