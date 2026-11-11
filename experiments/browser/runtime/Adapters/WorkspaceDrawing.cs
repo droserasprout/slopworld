@@ -233,6 +233,7 @@ public static class WorkspaceDrawing
     public static string Repaint(object owner)
     {
         var window = (Window)owner;
+        ((BrowserGui)GuiBackend.Current).BeginLabelRepaint();
         GUIUtility.ResetControlIds();
         Event.current = new Event { type = EventType.Repaint, rawType = EventType.Repaint };
         UI.ApplyUIScale();

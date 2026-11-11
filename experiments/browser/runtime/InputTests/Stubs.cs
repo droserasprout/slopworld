@@ -97,6 +97,8 @@ namespace BrowserAdapters
 {
     public class BrowserGui
     {
+        public void BeginLabelRepaint() { }
+
         public long ProfileBakedTicks,
             ProfileNativeTicks;
         public int ProfileBakedRuns,
