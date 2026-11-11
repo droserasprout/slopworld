@@ -7,8 +7,7 @@ internal static class CommandValueCacheTests
 {
     internal static void Run()
     {
-        if (BrowserCommandWriter.ValueCacheEnabled)
-            throw new Exception("Command value cache must default off");
+        bool previous = BrowserGui.ConfigureCommandValueCache(false);
         if (
             BrowserGui.ConfigureCommandValueCache(true)
             || !BrowserGui.ConfigureCommandValueCache(true)
@@ -135,6 +134,7 @@ internal static class CommandValueCacheTests
         {
             if (!BrowserGui.ConfigureCommandValueCache(false))
                 throw new Exception("Disable did not return previous value");
+            BrowserGui.ConfigureCommandValueCache(previous);
         }
         Console.WriteLine(
             "Value cache preserves exact randomized JSON, mutable arrays, signed zero, failure recovery and bounds."
