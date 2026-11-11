@@ -46,7 +46,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     // Clipboard activation flushes synchronously on pointer/key events too.
     // Native capture must see the matching physical button state in that frame.
     beforeFrame: () => device.frame(),
-    activationFrame: true,
+    activationKey: key => managed.WorkspaceFullscreenKey(key),
     get allowFrameReuse() { return reuseCanvas && !managed.WorkspaceBackgroundVisible(); },
     drawBackground(context) {
       if (!managed.WorkspaceBackgroundVisible() || !background) return;

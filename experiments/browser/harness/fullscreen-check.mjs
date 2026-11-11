@@ -40,10 +40,19 @@ try {
     const {attachWorkspaceFullscreen}=await import('/workspace-fullscreen.js');
     window.states=[];
     window.bridge=attachWorkspaceFullscreen({WorkspaceWindow:callback=>window.requestWindow=callback,WorkspaceFullscreenState:value=>states.push(value)});
-    document.addEventListener('keydown',event=>{if(event.code==='F11'){event.preventDefault();requestWindow(!document.fullscreenElement);}});
-    document.querySelector('canvas').focus();
+    const {attachGuiInput}=await import('/gui-input.js');
+    window.bound='F11';window.frames=0;
+    window.gui=attachGuiInput(document.querySelector('canvas'),{
+      activationKey:key=>key===bound,
+      GuiInputFrame:raw=>{
+        frames++;
+        if(JSON.parse(raw).some(event=>event.key===bound))requestWindow(!document.fullscreenElement);
+        return '{"commands":[]}';
+      }
+    });
+    gui.textInput.focus();
   })()`);
-  const key=async()=>{await call('Input.dispatchKeyEvent',{type:'keyDown',key:'F11',code:'F11',windowsVirtualKeyCode:122});await call('Input.dispatchKeyEvent',{type:'keyUp',key:'F11',code:'F11',windowsVirtualKeyCode:122});};
+  const key=async(key='F11',code='F11',windowsVirtualKeyCode=122)=>{await call('Input.dispatchKeyEvent',{type:'keyDown',key,code,windowsVirtualKeyCode});await call('Input.dispatchKeyEvent',{type:'keyUp',key,code,windowsVirtualKeyCode});};
   const waitState=async value=>{
     for(let i=0;i<100;i++){if(await evaluate(`states.at(-1)===${value} && (document.fullscreenElement===document.documentElement)===${value}`))return;await delay(50);}
     throw Error('Fullscreen state did not settle: '+await evaluate('JSON.stringify(states)'));
@@ -53,7 +62,13 @@ try {
   await key();await waitState(true);
   // Browser-owned exit uses the same fullscreenchange path as Escape/browser chrome.
   await evaluate('document.exitFullscreen()');await waitState(false);
-  console.log(JSON.stringify({trustedKeyEnter:true,trustedKeyExit:true,browserExit:true,states:await evaluate('states')}));
+  const baseline=await evaluate('frames');
+  for(const letter of 'abc')await key(letter,'Key'+letter.toUpperCase(),letter.toUpperCase().charCodeAt(0));
+  assert.equal(await evaluate('frames'),baseline,'Ordinary text flushed an eager frame');
+  await evaluate("bound='G'");
+  await key('g','KeyG',71);await waitState(true);
+  await key('g','KeyG',71);await waitState(false);
+  console.log(JSON.stringify({trustedKeyEnter:true,trustedKeyExit:true,browserExit:true,ordinaryTextBatched:true,printableRebind:true,states:await evaluate('states')}));
 } finally {
   for(const entry of pending.values())clearTimeout(entry.timer);
   socket?.close();chrome?.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));

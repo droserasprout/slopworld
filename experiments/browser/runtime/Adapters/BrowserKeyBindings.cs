@@ -10,6 +10,7 @@ public static class BrowserKeyBindings
 {
     public static Action<string>? Persist;
     static KeyBindingDef[] authored = [];
+    static KeyBindingDef? fullscreen;
     static string pending = "{}";
     static bool ready;
     static bool restoring;
@@ -20,9 +21,28 @@ public static class BrowserKeyBindings
     public static void Configure(IEnumerable<KeyBindingDef> definitions)
     {
         authored = definitions.ToArray();
+        fullscreen = authored.FirstOrDefault(definition =>
+            definition.defName == "SlopToggleFullscreen"
+        );
         ready = true;
         Apply(pending);
         pending = "{}";
+    }
+
+    // Admission only: native WindowStack/terminal routing still owns eligibility and
+    // execution. Read the live slots so edits and reset apply before the next save.
+    public static bool FullscreenKey(string key)
+    {
+        if (
+            fullscreen == null
+            || KeyPrefs.KeyPrefsData == null
+            || !Enum.TryParse<KeyCode>(key, out var code)
+            || code == KeyCode.None
+        )
+            return false;
+        var data = KeyPrefs.KeyPrefsData;
+        return data.GetBoundKeyCode(fullscreen, KeyPrefs.BindingSlot.A) == code
+            || data.GetBoundKeyCode(fullscreen, KeyPrefs.BindingSlot.B) == code;
     }
 
     public static void Apply(string json)
