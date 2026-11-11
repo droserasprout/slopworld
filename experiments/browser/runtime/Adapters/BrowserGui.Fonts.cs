@@ -280,6 +280,8 @@ public sealed partial class BrowserGui
                         drawing.TraceCount++;
                     if (!OutsideDrawingClip(destination))
                     {
+                        if (observeLabels)
+                            labelPainted = true;
                         if (!uploaded)
                         {
                             UploadImage(face.Texture);
@@ -370,6 +372,8 @@ public sealed partial class BrowserGui
             TraceTextureDraw();
             if (!OutsideDrawingClip(destination))
             {
+                if (observeLabels)
+                    labelPainted = true;
                 UploadImage(face.Texture);
                 values[0] = destination.x;
                 values[1] = destination.y;
@@ -402,6 +406,8 @@ public sealed partial class BrowserGui
     {
         if (drawing.Quads.IsEmpty)
             return;
+        if (observeLabels)
+            labelPainted = true;
         if (!uploaded)
         {
             UploadImage(face.Texture);

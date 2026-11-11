@@ -5,6 +5,14 @@ using System.Text.Json;
 public partial class Probe
 {
     [JSExport]
+    public static bool WorkspaceObserveLabels(bool enabled) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureObserveLabels", enabled)!;
+
+    [JSExport]
+    public static string WorkspaceLabels() =>
+        (string)Invoke("Adapters", "BrowserAdapters.BrowserGui", "Labels")!;
+
+    [JSExport]
     public static bool WorkspaceInputFlushBeforeRepaint(bool enabled) =>
         (bool)
             Invoke(

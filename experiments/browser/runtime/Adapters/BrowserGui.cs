@@ -380,6 +380,8 @@ public sealed partial class BrowserGui : IGuiBackend
     {
         if (SuppressDrawing)
             return;
+        if (observeLabels)
+            labelPainted = false;
         long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
         bool baked = DrawBakedText(
             rect,
@@ -404,7 +406,11 @@ public sealed partial class BrowserGui : IGuiBackend
             started = Stopwatch.GetTimestamp();
         }
         if (baked)
+        {
+            if (observeLabels && labelPainted)
+                ObserveLabel(rect, text, color, clipRect);
             return;
+        }
         bool native = DrawNativeText(
             rect,
             text,
@@ -426,11 +432,17 @@ public sealed partial class BrowserGui : IGuiBackend
                 ProfileFallbackRuns++;
         }
         if (native)
+        {
+            if (observeLabels && labelPainted)
+                ObserveLabel(rect, text, color, clipRect);
             return;
+        }
         Emit(
             "text",
             new TextCommand(Box(rect), text, fontSize, (int)fontStyle, (int)anchor, Rgba(color))
         );
+        if (observeLabels)
+            ObserveLabel(rect, text, color, clipRect);
     }
 
     public void FillRect(Rect rect, Color color) => FillRectRounded(rect, color, 0f);

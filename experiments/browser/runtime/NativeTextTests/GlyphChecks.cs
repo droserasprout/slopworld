@@ -188,6 +188,7 @@ static class GlyphChecks
         Console.WriteLine(
             "Real glyph packets match with cache off/on across clips, scales, anchors, scroll offsets, batching, image mutation and discarded uploads."
         );
+        LabelChecks.Run(index);
         CellChecks.Run(index, texture, benchmark);
         if (benchmark)
             Benchmark(index);
