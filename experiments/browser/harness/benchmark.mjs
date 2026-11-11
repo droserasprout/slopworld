@@ -19,7 +19,7 @@ const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBe
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
   throw new Error('Comparison must be glyph, input, cell, tint, command or clip with four identical workload phases');
 const comparisonCall=['tint','clip'].includes(comparison) ? `(async enabled => (await import("/gui.js")).${comparisonExport}(enabled))` : `window.__managedProbe.${comparisonExport}`;
-if (phases.some(phase=>!['idle','output','typing','scrolling','switching'].includes(phase)))
+if (phases.some(phase=>!['idle','output','typing','cyrillic','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
 if (!profile || !output) throw new Error('Usage: benchmark.mjs PROFILE OUTPUT');
 const port = (await readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0];
@@ -137,7 +137,7 @@ try {
       wireLatencyMs:result.wireTimings?.length ? Object.fromEntries(
         ['dispatchToSendMs','sendToMessageMs','messageToObservedMs'].map(key=>
           [key,distribution(result.wireTimings.map(row=>row[key]).filter(value=>value!==null))])) : null,
-      latencyDefinition:phase==='typing'?'DOM key dispatch to matching text in native receive buffer'
+      latencyDefinition:['typing','cyrillic'].includes(phase)?'DOM key dispatch to matching text in native receive buffer'
         :phase==='switching'?'Native Open to selected pane draw submission':null,
       rendererTaskCpuPercent:100*(after.TaskDuration-before.TaskDuration)/(after.Timestamp-before.Timestamp),
       browserProcesses:processCpu.summarize(processBefore,processAfter),

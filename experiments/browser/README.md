@@ -191,7 +191,7 @@ just --justfile experiments/browser/runtime/justfile font-probe \
 ```
 
 The ignored output contains glyph advances, bounds, UVs, native line metrics, and
-atlas pixels. This probe covers Latin-1 and U+2000–U+27FF and reports native fallback
+atlas pixels. This probe covers Latin-1, Cyrillic U+0400–U+052F, and U+2000–U+27FF and reports native fallback
 use. The optional `nativeFonts` workspace path renders covered plain text from these
 bakes; normal and styled native faces share the prepared family; complete Unicode fallback remains incomplete.
 `browser-workspace-font-reference FONT SESSION SIZE` stages the selected UI family

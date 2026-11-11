@@ -50,8 +50,11 @@ advance atlas revision. Returning to a density reuses its texture. Other densiti
 still resample. `just browser-host-font-bakes` refreshes the prototype through the
 staged private-preparation helper, and `browser-host-font-density-check` verifies
 selection, invalidation and texture reuse in a running diagnostic browser.
-Plain covered runs use baked glyphs at matching density. Prepared
-wrapped text and rich color spans use the installed `TextLayout` through bounded
+Plain covered runs use baked glyphs at matching density. Prepared coverage
+includes Cyrillic U+0400–U+052F; an omitted scalar otherwise takes the
+approximate text path even when the host font contains it. The benchmark's
+`cyrillic` phase echoes Russian text in owned terminals and rejects fallback draws.
+Prepared wrapped text and rich color spans use the installed `TextLayout` through bounded
 font-access hooks, then share the baked glyph emitter. The layout/parser/wrapping
 algorithms remain in the installed assembly. Sizes and characters absent
 from the prepared bank still use the approximate diagnostic renderer; this does
