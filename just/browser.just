@@ -595,3 +595,24 @@ browser-fonts-build:
 browser-fonts-test:
     node --test experiments/browser/harness/fonts.test.mjs
     just --justfile experiments/browser/runtime/NativeTextTests/justfile check
+
+# Fresh Firefox via direct WebDriver HTTP; owns browser, bridge and temporary sessions.
+[group('browser prototype')]
+browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-workloads.json' phases='idle,output,typing,scrolling,switching' root='experiments/browser/runtime/out/wwwroot-eco' page='/workspace.html' screenshots='1' headless='1':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} --setenv=PROBE_HEADLESS={{quote(headless)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox-host.py')}} {{quote(justfile_directory() / root)}} {{quote(justfile_directory() / output)}} {{quote(phases)}} {{quote(page)}}
+
+[group('browser prototype')]
+browser-firefox-harness-check:
+    node --check experiments/browser/harness/firefox-benchmark.mjs
+    uv run --locked ruff check --quiet experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
+    uv run --locked ruff format --quiet --check experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
+    python3 -m unittest discover -s experiments/browser/harness -p 'firefox_cleanup_test.py' -q
+
+# Recover only verified temporary host fixtures from this harness's report.
+[group('browser prototype')]
+browser-host-firefox-cleanup report:
+    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox_cleanup.py')}} {{quote(justfile_directory() / report)}}
+
+[group('browser prototype')]
+browser-firefox-harness-format:
+    uv run --locked ruff format --quiet experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
