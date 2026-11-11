@@ -19,7 +19,7 @@ Source installation defaults to `~/.local`; ensure `~/.local/bin` is on PATH.
 Pass a prefix to `just slopweb-install PREFIX` or `just slopweb-uninstall PREFIX`.
 Uninstall preserves private runtime caches and daemon configuration.
 
-Installed packages require the .NET 10 runtime, Node.js 22+, and Python 3.11+;
+Installed packages require the .NET 10 runtime, Node.js 22+, Python 3.11+, and Fontconfig;
 they do not need the SDK, Just, uv, or a checkout. Start slopd first. The launcher
 reads its host-side local endpoint descriptor, respecting `SLOPD_CONFIG_ROOT`
 and `SLOPD_ENDPOINT`. `SLOPD_URL` and `SLOPD_TOKEN` override that descriptor.

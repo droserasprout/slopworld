@@ -14,6 +14,7 @@ ExclusiveArch: x86_64 aarch64
 Requires: nodejs >= 22
 Requires: python3 >= 3.11
 Requires: dotnet-runtime-10.0
+Requires: fontconfig
 Suggests: slopd
 
 %description
