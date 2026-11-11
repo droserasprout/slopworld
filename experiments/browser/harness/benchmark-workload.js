@@ -8,6 +8,7 @@
   if (window.__benchmark) throw new Error('An earlier benchmark still owns sessions');
   const initial = JSON.parse(managed.WorkspaceState()).session;
   const created = [], samples = [];
+  let runSerial=0;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   const until = async (predicate, description) => {
     const deadline = performance.now() + 20000;
@@ -149,6 +150,7 @@
       return {created, fixture:'200 fixed lines; 120x40 initial host grid', game:state().game};
     },
     async run(phase) {
+      const runId=(++runSerial).toString().padStart(4,'0');
       samples.length = 0;
       window.__workspace.setProfiling(true);
       let running = true, last;
@@ -168,10 +170,10 @@
       const started = performance.now();
       try {
         if (phase === 'idle') await pause(5000);
-        else if (phase === 'output') { send('stream'); await output('BENCH_STREAM_DONE'); }
+        else if (phase === 'output') { send('stream '+runId); await output('BENCH_STREAM_DONE_'+runId); }
         else if (phase === 'typing') {
           for (let i=0; i<20; i++) {
-            const marker = 'TYPE_' + i.toString().padStart(2,'0');
+            const marker = 'TYPE_' + runId + '_' + i.toString().padStart(2,'0');
             const start = performance.now(); send('echo ' + marker);
             await output('ACK_' + marker); samples.push(performance.now()-start);
             await pause(100);
