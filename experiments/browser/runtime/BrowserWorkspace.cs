@@ -317,10 +317,27 @@ public partial class Probe
                     );
                 if (session != null)
                     break;
+                // An authoritative empty catalog is a usable native workspace:
+                // its sidebar and TopBar own session creation and connection UI.
+                // A named reference still waits for that exact live session.
+                if (
+                    string.IsNullOrEmpty(requestedSession)
+                    && (long)type.GetProperty("SessionsVersion")!.GetValue(hub)! > 0
+                )
+                    break;
                 await Task.Delay(16);
             }
             if (session == null)
-                throw new InvalidOperationException("No matching live session for workspace");
+            {
+                if (!string.IsNullOrEmpty(requestedSession))
+                    throw new InvalidOperationException("No matching live session for workspace");
+                // Keep the UI and normal update/reconnect pump available even if
+                // the daemon was unavailable throughout the startup deadline.
+                using var frame = JsonDocument.Parse(
+                    (string)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Frame", "[]")!
+                );
+                return frame.RootElement.GetProperty("commands").GetRawText();
+            }
             var name = (string)session.GetType().GetField("Name")!.GetValue(session)!;
             var window = Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "Open", name)!;
             return (string)

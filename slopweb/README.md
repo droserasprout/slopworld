@@ -72,7 +72,10 @@ geometry changes or reconnect, and does not continually override another client'
 size. A shared tmux session still has one grid, so a wider client can leave content
 outside a smaller pane's visible area.
 
-This remains a prototype: an existing live session is required at startup. Covered
+This remains a prototype. An empty session catalog opens the native sidebar and
+TopBar for session creation; startup also leaves these controls available when the
+daemon is unavailable. An explicit session URL still requires that live session.
+Covered
 text, including styled and wrapped runs, uses native font metrics and
 atlases. Unsupported sizes and characters still use approximate rendering.
 Atlases are prepared at densities 1, 5/3 and 2 and resampled at other display scales.

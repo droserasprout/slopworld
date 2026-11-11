@@ -1,0 +1,7 @@
+set quiet
+
+test:
+    dotnet run --project StartupTests.csproj
+
+format:
+    dotnet tool run csharpier format Program.cs StartupTests.csproj ../BrowserWorkspace.cs

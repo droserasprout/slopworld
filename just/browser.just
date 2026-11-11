@@ -35,6 +35,11 @@ browser-test-commands:
     dotnet run --project experiments/browser/runtime/CommandTests/CommandTests.csproj
 
 [group('browser prototype')]
+browser-test-startup:
+    just --justfile experiments/browser/runtime/StartupTests/justfile test
+    just --justfile experiments/browser/runtime/UnderlyingTests/justfile test
+
+[group('browser prototype')]
 browser-serialization-check profile:
     just browser-evaluate {{quote(profile)}} experiments/browser/harness/serialization-check.js
 
