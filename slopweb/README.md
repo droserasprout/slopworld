@@ -83,7 +83,9 @@ The installed launcher exports a matching native background
 cache when available; generating missing frames on cold startup remains incomplete.
 Text copy/paste and PNG attachment delivery have browser-to-agent checks. Wait for
 the Codex composer to finish initializing before pasting an image; its provisional
-startup input can retain image paths as text. Full IME remains unverified.
+startup input can retain image paths as text. Browser composition commits and
+cancellation have Chromium checks; full OS IME behavior and precise candidate-window
+positioning remain unverified.
 Presentation settings persist in this browser origin when local storage is available;
 `localPreferences=off` disables this for reference comparisons. Other profile fields
 are not persisted. Authored SlopWorld keyboard bindings also persist in this origin,
