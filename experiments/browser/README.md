@@ -93,13 +93,15 @@ just browser-host-benchmark PROFILE experiments/browser/artifacts/workloads.json
 # the native Open/attach path, not a DOM sidebar click. JS heap excludes WASM memory.
 just browser-workspace-ui-check PROFILE
 # Checks settings, key rebinding, F9 layout toggling, and F12 close/reopen.
+# This settings check still requires the diagnostic text-command renderer.
 just browser-workspace-e2e-check PROFILE
+just browser-host-workspace-e2e-check PROFILE
 # Requires a root-authorized bridge and an existing live coding agent.
 # Creates two temporary host shells through the sidebar, checks command output,
 # Backspace/Enter and session switching, attaches to the agent read-only, and
-# removes only the shells created by this check. Use the default sidebar layout.
-# UI/e2e label targeting currently requires the diagnostic text-command renderer;
-# those checks have not yet been adapted to the nativeFonts glyph-only UI.
+# removes only the shells created by this check and restores selection.
+# Native-font menu targeting uses opt-in label observations; session clicks use
+# native row identity and clipped scroll geometry. Host titles need not be unique.
 just browser-host-clipboard-check PROFILE
 just browser-host-image-paste-check PROFILE
 # Trusted Chromium text/Unicode paste and native selection copy with prepared fonts.
