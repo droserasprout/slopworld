@@ -4,7 +4,10 @@ import {readFile} from 'node:fs/promises';
 export function renderingFlags(mode='auto') {
   if(mode==='auto')return [];
   if(mode==='swiftshader')return ['--use-angle=swiftshader','--enable-unsafe-swiftshader'];
-  throw new Error('PROBE_RENDERING must be auto or swiftshader');
+  // Select ANGLE's GL backend without overriding Chrome's driver blocklist.
+  // Hardware availability still comes from the reported device/feature status.
+  if(mode==='angle-gl')return ['--use-angle=gl'];
+  throw new Error('PROBE_RENDERING must be auto, swiftshader or angle-gl');
 }
 
 export async function browserGpuInfo(profile) {

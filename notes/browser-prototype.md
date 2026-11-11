@@ -424,6 +424,10 @@ quota before navigating to the workspace and fail if the requested bound is abse
 Validation defaults to Chrome's backend selection. Set `PROBE_RENDERING=swiftshader`
 to reproduce the software-rendering configuration explicitly. Reports include actual
 GPU devices and feature status; `auto` does not establish hardware acceleration.
+`PROBE_RENDERING=angle-gl` explicitly selects ANGLE's GL backend without overriding
+Chrome's driver blocklist. This can enable hardware Canvas in headless Chromium
+where `auto` selects SwiftShader. It does not guarantee hardware on another host;
+check the reported device and Canvas/compositing feature status for every run.
 Do not compare performance across different rendering backends as a code speedup.
 `browser-host-rendering-check` verifies reporting on a blank page under a one-core
 CPU quota and closes the browser; it does not exercise the game workspace.
