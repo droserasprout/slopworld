@@ -124,8 +124,15 @@ try {
     const stageMeans={};
     for (const key of Object.keys(result.stages[0]??{}))
       stageMeans[key]=result.stages.reduce((sum,stage)=>sum+stage[key],0)/result.stages.length;
+    // Cache hits can dominate cadence. Keep actual target repaints separate so
+    // a higher hit rate cannot masquerade as cheaper changed-content rendering.
+    const targetRepaints=result.stages.filter(stage=>stage.targetWrites>0);
+    const targetRepaintMs=Object.fromEntries(
+      ['managedMs','repaintMs','serializationMs','canvasMs'].map(key=>
+        [key,distribution(targetRepaints.map(stage=>stage[key]).filter(Number.isFinite))]));
     const summary={phase,comparisonEnabled,durationMs:result.durationMs,frameMs:distribution(result.intervals),
       drawFrameMs:distribution(result.drawIntervals),
+      targetRepaintMs,
       latencyMs:distribution(result.latencyMs),
       wireLatencyMs:result.wireTimings?.length ? Object.fromEntries(
         ['dispatchToSendMs','sendToMessageMs','messageToObservedMs'].map(key=>
