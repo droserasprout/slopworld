@@ -9,7 +9,7 @@
 
 pkgbase=slopworld
 pkgname=('slopworld' 'slopd' 'slopctl')
-pkgver=0.0.14
+pkgver=0.1.0
 pkgrel=1
 pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')

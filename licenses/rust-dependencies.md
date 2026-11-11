@@ -60,7 +60,7 @@ and does not identify which crates are included in a particular binary.
 | coreaudio-rs | 0.14.2 | MIT/Apache-2.0 |
 | cpal | 0.17.3 | Apache-2.0 |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 |
-| crc32fast | 1.5.4 | MIT OR Apache-2.0 |
+| crc32fast | 1.5.5 | MIT OR Apache-2.0 |
 | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 |
 | crypto-common | 0.1.7 | MIT OR Apache-2.0 |
 | cursor-icon | 1.2.0 | MIT OR Apache-2.0 OR Zlib |
@@ -83,7 +83,7 @@ and does not identify which crates are included in a particular binary.
 | fastrand | 2.5.0 | Apache-2.0 OR MIT |
 | fdeflate | 0.3.7 | MIT OR Apache-2.0 |
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
-| fixedbitset | 0.5.7 | MIT OR Apache-2.0 |
+| fixedbitset | 0.5.9 | MIT OR Apache-2.0 |
 | flate2 | 1.1.11 | MIT OR Apache-2.0 |
 | foldhash | 0.1.5 | Zlib |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 |
@@ -126,11 +126,11 @@ and does not identify which crates are included in a particular binary.
 | image-webp | 0.2.4 | MIT OR Apache-2.0 |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT |
 | is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |
-| itertools | 0.14.0 | MIT OR Apache-2.0 |
-| itoa | 1.0.18 | MIT OR Apache-2.0 |
-| jiff | 0.2.40 | Unlicense OR MIT |
-| jiff-core | 0.1.3 | Unlicense OR MIT |
-| jiff-static | 0.2.40 | Unlicense OR MIT |
+| itertools | 0.15.0 | MIT OR Apache-2.0 |
+| itoa | 1.0.19 | MIT OR Apache-2.0 |
+| jiff | 0.2.43 | Unlicense OR MIT |
+| jiff-core | 0.1.5 | Unlicense OR MIT |
+| jiff-static | 0.2.43 | Unlicense OR MIT |
 | jiff-tzdb | 0.1.9 | Unlicense OR MIT |
 | jiff-tzdb-platform | 0.1.3 | Unlicense OR MIT |
 | jni | 0.21.1 | MIT/Apache-2.0 |
@@ -199,13 +199,13 @@ and does not identify which crates are included in a particular binary.
 | potential_utf | 0.1.6 | Unicode-3.0 |
 | powerfmt | 0.2.1 | MIT OR Apache-2.0 |
 | ppv-lite86 | 0.2.21 | MIT OR Apache-2.0 |
-| prettyplease | 0.2.37 | MIT OR Apache-2.0 |
+| prettyplease | 0.3.0 | MIT OR Apache-2.0 |
 | proc-macro-crate | 3.5.0 | MIT OR Apache-2.0 |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
-| prost | 0.14.4 | Apache-2.0 |
-| prost-build | 0.14.4 | Apache-2.0 |
-| prost-derive | 0.14.4 | Apache-2.0 |
-| prost-types | 0.14.4 | Apache-2.0 |
+| prost | 0.14.5 | Apache-2.0 |
+| prost-build | 0.14.5 | Apache-2.0 |
+| prost-derive | 0.14.5 | Apache-2.0 |
+| prost-types | 0.14.5 | Apache-2.0 |
 | pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 |
 | quick-error | 2.0.1 | MIT/Apache-2.0 |
 | quote | 1.0.47 | MIT OR Apache-2.0 |
@@ -223,7 +223,7 @@ and does not identify which crates are included in a particular binary.
 | rustix | 1.1.6 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | rustix-openpty | 0.2.0 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | rustls | 0.23.46 | Apache-2.0 OR ISC OR MIT |
-| rustls-pki-types | 1.15.1 | MIT OR Apache-2.0 |
+| rustls-pki-types | 1.16.0 | MIT OR Apache-2.0 |
 | rustls-webpki | 0.103.16 | ISC |
 | rustversion | 1.0.23 | MIT OR Apache-2.0 |
 | ryu | 1.0.23 | Apache-2.0 OR BSL-1.0 |
@@ -257,7 +257,7 @@ and does not identify which crates are included in a particular binary.
 | symphonia-metadata | 0.5.5 | MPL-2.0 |
 | symphonia-utils-xiph | 0.5.5 | MPL-2.0 |
 | syn | 2.0.119 | MIT OR Apache-2.0 |
-| syn | 3.0.9 | MIT OR Apache-2.0 |
+| syn | 3.0.10 | MIT OR Apache-2.0 |
 | sync_wrapper | 1.0.2 | Apache-2.0 |
 | synstructure | 0.14.0 | MIT |
 | tempfile | 3.27.0 | MIT OR Apache-2.0 |
@@ -302,7 +302,7 @@ and does not identify which crates are included in a particular binary.
 | utf8_iter | 1.1.0 | Apache-2.0 OR MIT |
 | utf8parse | 0.2.2 | Apache-2.0 OR MIT |
 | utf_types | 1.0.0 | Apache-2.0 OR MIT |
-| uuid | 1.29.1 | Apache-2.0 OR MIT |
+| uuid | 1.29.2 | Apache-2.0 OR MIT |
 | valuable | 0.1.1 | MIT |
 | version_check | 0.9.5 | MIT/Apache-2.0 |
 | vte | 0.15.0 | Apache-2.0 OR MIT |
@@ -314,7 +314,7 @@ and does not identify which crates are included in a particular binary.
 | wasm-bindgen-macro-support | 0.2.130 | MIT OR Apache-2.0 |
 | wasm-bindgen-shared | 0.2.130 | MIT OR Apache-2.0 |
 | web-sys | 0.3.107 | MIT OR Apache-2.0 |
-| webpki-roots | 1.0.11 | CDLA-Permissive-2.0 |
+| webpki-roots | 1.0.12 | CDLA-Permissive-2.0 |
 | weezl | 0.1.12 | MIT OR Apache-2.0 |
 | winapi-util | 0.1.11 | Unlicense OR MIT |
 | windows | 0.62.2 | MIT OR Apache-2.0 |

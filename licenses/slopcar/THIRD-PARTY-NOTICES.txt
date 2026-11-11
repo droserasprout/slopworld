@@ -551,7 +551,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-itoa 1.0.18 — MIT
+itoa 1.0.19 — MIT
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1000,7 +1000,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-syn 3.0.9 — MIT
+syn 3.0.10 — MIT
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated

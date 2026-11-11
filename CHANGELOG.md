@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
-## [Unreleased]
+## [0.1.0] - 2026-11-11
 
 ### Breaking changes
 
@@ -429,7 +429,8 @@ Initial release 🐈
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.0.14...HEAD
+[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.1.0'...HEAD
+[0.1.0]: https://github.com/droserasprout/slopworld/compare/v0.0.14...v0.1.0
 [0.0.14]: https://github.com/droserasprout/slopworld/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/droserasprout/slopworld/compare/v0.0.12...v0.0.13
 [0.0.12]: https://github.com/droserasprout/slopworld/compare/v0.0.11...v0.0.12
