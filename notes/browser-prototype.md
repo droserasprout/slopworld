@@ -463,7 +463,16 @@ Synchronous clipboard frames pump physical input before native dispatch so mouse
 selection capture sees the current buttons. Trusted Chrome checks exercise Unicode
 text, native selection copy and PNG delivery into a disposable Codex composer,
 without submitting a prompt. Wait for composer initialization: Codex can treat
-image paths pasted during startup as provisional text. Full IME remains unverified.
+image paths pasted during startup as provisional text.
+`text-input.js` owns one shared editable textarea per canvas. Canvas focus and
+pointer presses hand keyboard focus to it; GUI and physical adapters treat that
+handoff as internal, while outside focus loss cancels preedit and resets capture.
+Trusted typing uses DOM input commits with the originating physical binding identity;
+composition preedit and IME-owned physical keys never enter native dispatch.
+Composition commits enter one ordered UTF-16 batch, without a binding identity or
+synthetic Ctrl/Alt modifiers. Canvas-targeted synthetic key events remain diagnostic
+inputs. The proxy is positioned at the last pointer press, not the native caret;
+accurate candidate-window placement and full OS IME parity remain unverified.
 BrowserInput/input.js separately feed Waylith and Unity device
 state. The end-to-end harness sends DOM input only into its newly created temporary
 host shells, observes the actual SessionHub ScreenBuf, and removes only those
