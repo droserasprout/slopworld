@@ -17,9 +17,9 @@ if(!['on','off'].includes(quadCache))throw new Error('Quad cache must be on or o
 const phases=phaseList.split(',');
 const stageProfile=process.env.PROBE_STAGE_PROFILE!=='0';
 if(!stageProfile && phases.includes('cyrillic'))throw Error('Cyrillic coverage checks require stage profiling');
-const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath'}[comparison];
+const comparisonExport={tail:'WorkspaceGlyphTailClip',glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
-  throw new Error('Comparison must be glyph, input, cell, tint, command or clip with four identical workload phases');
+  throw new Error('Comparison must be tail, glyph, input, cell, tint, command or clip with four identical workload phases');
 const comparisonCall=['tint','clip'].includes(comparison) ? `(async enabled => (await import("/gui.js")).${comparisonExport}(enabled))` : `window.__managedProbe.${comparisonExport}`;
 if (phases.some(phase=>!['idle','output','typing','cyrillic','keystrokes','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
