@@ -11,6 +11,7 @@ browser-validate directory page='/' report='experiments/browser/artifacts/browse
 [group('browser prototype')]
 browser-test-harness:
     node --test experiments/browser/harness/gui-keyboard.test.mjs experiments/browser/harness/text-input.test.mjs experiments/browser/harness/clipboard.test.mjs
+    node --test experiments/browser/harness/workspace-fullscreen.test.mjs
     node --test experiments/browser/harness/workspace-cursor.test.mjs
     node --test experiments/browser/harness/portraits.test.mjs
     node --test experiments/browser/harness/workspace-scheduler.test.mjs
@@ -60,6 +61,16 @@ browser-test-commands:
 [group('browser prototype')]
 browser-bench-quad-decode:
     node experiments/browser/harness/gui-quads-bench.mjs
+
+[group('browser prototype')]
+browser-window-check:
+    node experiments/browser/harness/fullscreen-check.mjs
+
+[group('browser prototype')]
+browser-test-window:
+    just --justfile experiments/browser/runtime/PreferencesTests/justfile test
+    node --test experiments/browser/harness/gui-keyboard.test.mjs experiments/browser/harness/workspace-fullscreen.test.mjs
+    just --justfile experiments/browser/runtime/justfile build
 
 [group('browser prototype')]
 browser-test-preferences:
