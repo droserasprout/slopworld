@@ -8,7 +8,7 @@ import {serve} from './server.mjs';
 import {cpuQuota, summarizeProcesses} from './browser-process-cpu.mjs';
 import {jiterpreterSnapshot} from './browser-jiterpreter.mjs';
 
-const [directory, output, phaseList='idle,output,typing,scrolling,switching',page='/workspace.html'] = process.argv.slice(2);
+const [directory, output, phaseList='idle,output,typing,keystrokes,scrolling,switching',page='/workspace.html'] = process.argv.slice(2);
 const phases=phaseList.split(',');
 if(!directory || !output || phases.some(p=>!['idle','output','typing','cyrillic','keystrokes','scrolling','switching'].includes(p)))
   throw Error('Usage: firefox-benchmark.mjs RUNTIME OUTPUT [PHASES] [PAGE]');
@@ -137,6 +137,7 @@ try {
   console.log('Firefox workspace and benchmark fixtures ready');
   for(const phase of phases) {
     if(stopping)throw Error('Interrupted');
+    if(phase==='keystrokes')await evaluate('window.__benchmark.reset()');
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const before=await sample(root);
     const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)})`);

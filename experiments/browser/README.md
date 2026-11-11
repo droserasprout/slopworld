@@ -91,7 +91,7 @@ just browser-host-url-check
 # http://127.0.0.1:8787/workspace.html?session=SESSION
 just browser-host-benchmark PROFILE experiments/browser/artifacts/workloads.json
 # Two invocation-owned temporary host sessions run benchmark-fixture.py. Records
-# fixed idle/output/typing/scrolling/switching workloads, stage timings, frame and
+# fixed idle/output/command-typing/keystrokes/scrolling/switching workloads, stage timings, frame and
 # latency distributions, renderer task CPU, JS heap and per-phase screenshots.
 # Restores the original session and verifies fixture deletion. Switching measures
 # the native Open/attach path, not a DOM sidebar click. JS heap excludes WASM memory.
