@@ -24,6 +24,23 @@ Execute(args, game);
 [MethodImpl(MethodImplOptions.NoInlining)]
 static void Execute(string[] args, string game)
 {
+    if (args[1] == "--catalog")
+    {
+        var mod = Assembly.LoadFrom(Path.GetFullPath(args[2]));
+        var names = mod.GetType("SlopWorld.NativeFonts", true)!.GetMethod("Names")!;
+        Directory.CreateDirectory(args[4]);
+        File.WriteAllText(
+            Path.Combine(args[4], "catalog.json"),
+            JsonSerializer.Serialize(
+                new
+                {
+                    all = (string[])names.Invoke(null, [false])!,
+                    mono = (string[])names.Invoke(null, [true])!,
+                }
+            )
+        );
+        return;
+    }
     if (args[1] is "--resolve" or "--resolve-ui")
     {
         // Resolve using the same mod catalog and fontconfig policy as the desktop.

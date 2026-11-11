@@ -126,8 +126,12 @@ positioning remain unverified.
 Presentation settings persist in this browser origin when local storage is available;
 `localPreferences=off` disables this for reference comparisons. Other profile fields
 are not persisted. Authored SlopWorld keyboard bindings also persist in this origin,
-including both binding slots and reset-to-default changes. Font choices still
-require matching host-prepared font assets.
+including both binding slots and reset-to-default changes. Font family and size
+changes load native host fonts on demand after a short debounce. Existing fonts
+remain usable during preparation; a failed selection restores the previous settings
+and offers retry. The private cache and retained atlas memory are bounded; reload
+the page if the atlas budget is exhausted. Covered characters include Latin-1,
+Cyrillic and U+2000–U+27FF punctuation/symbols where the selected face supports them.
 Repeated page-network interruption and terminal recovery have browser checks;
 daemon restart, run replacement, and the full agent launch/edit dialog have not
 been exhaustively validated. See the checkout's

@@ -18,6 +18,7 @@ browser-test-harness:
     node --test experiments/browser/harness/gui-frame-reuse.test.mjs
     node --test experiments/browser/harness/browser-rendering.test.mjs
     node --test experiments/browser/harness/browser-process-cpu.test.mjs
+    node --test experiments/browser/harness/fonts.test.mjs
     node --test experiments/browser/harness/server.test.mjs
     node --test experiments/browser/harness/viewport.test.mjs
     node --test experiments/browser/harness/tint.test.mjs
@@ -577,3 +578,20 @@ browser-host-workspace-doors-run root:
 # Exercise native door menus through DOM input without starting playback.
 browser-host-workspace-doors-check profile:
     systemd-run --user --pipe --wait --collect --setenv=PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/workspace-doors-check.js')}}
+
+# Dynamic font pipeline checks never start a game or browser.
+[group('browser prototype')]
+browser-fonts-format: mod-restore-tools
+    dotnet tool run csharpier format experiments/browser/runtime/Adapters/BrowserFontBank.cs experiments/browser/runtime/Adapters/BrowserGui.cs experiments/browser/runtime/Adapters/BrowserPreferences.cs experiments/browser/runtime/BrowserWorkspace.cs experiments/browser/runtime/FontProbe/Program.cs experiments/browser/compat/Offline/EcoWorkspace.cs experiments/browser/compat/Offline/BrowserPreferencesPatch.cs experiments/browser/runtime/NativeTextTests/FontChecks.cs experiments/browser/runtime/NativeTextTests/Program.cs experiments/browser/runtime/PreferencesTests/Program.cs
+    just slopweb-format
+
+[group('browser prototype')]
+browser-fonts-build:
+    just --justfile experiments/browser/runtime/justfile build
+    just --justfile experiments/browser/runtime/justfile adapters
+    just --justfile experiments/browser/runtime/justfile font-probe-build
+
+[group('browser prototype')]
+browser-fonts-test:
+    node --test experiments/browser/harness/fonts.test.mjs
+    just --justfile experiments/browser/runtime/NativeTextTests/justfile check
