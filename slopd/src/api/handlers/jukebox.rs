@@ -135,7 +135,6 @@ pub(crate) async fn audio_outputs(State(m): State<App>) -> ApiResult<wire::Audio
     let auto_devices = [
         ("auto", AudioBackend::Auto),
         ("pulse", AudioBackend::Pulse),
-        ("pipewire", AudioBackend::Pipewire),
         ("default", AudioBackend::Default),
     ]
     .into_iter()

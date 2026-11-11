@@ -54,12 +54,12 @@ Internet radio, song recognition, and Spotify playback are not available.
 
 Settings → Audio → Daemon radio output selects where slopd plays radio. Leave
 Output and Backend on **Auto** for
-normal use. Auto shows the detected output in parentheses. The list contains outputs exposed by the daemon host's audio system.
+normal use. Auto prefers buffered PulseAudio-compatible output. Auto shows the detected output in parentheses. The list contains outputs exposed by the daemon host's audio system.
 With a sound-server output, use desktop sound settings to choose speakers or
 headphones. **Refresh outputs** updates the list and shows the currently open output.
 
 The advanced backend preference can favor PulseAudio-compatible output (including
-PipeWire's Pulse server), PipeWire, or the system default. If a selected output
+PipeWire's Pulse server) or the system default. Direct PipeWire output is not offered. If a selected output
 cannot open, the daemon falls back automatically. **Save** persists the choice on
 the daemon host and reconnects any playing radio stream; **Discard** restores the
 saved settings. These choices do not route RimWorld's OST/game sounds or Spotify.

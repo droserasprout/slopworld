@@ -25,4 +25,7 @@ or `pw-top` counters with the daemon logs before ruling out playback glitches.
 Capture output-connection lifetime and suspend/resume when comparing runs: a fresh
 connection can behave differently from a long-lived one under the same graph quantum.
 The ignored `compares_sound_server_bridges` audio test drives both ALSA server paths
-with muted OST through the production queue; external graph counters remain necessary.
+with muted OST through the production format negotiation and queue; set
+`SLOPD_AUDIO_TEST_SOURCE` to reproduce a particular stream format. Its direct PipeWire
+output is diagnostic-only and bypasses the supported-device policy. External graph
+counters remain necessary.

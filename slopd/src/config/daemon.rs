@@ -277,7 +277,8 @@ pub struct AudioOutputSettings {
 pub enum AudioBackend {
     #[default]
     Auto,
+    // Keep saved configurations readable while retiring the direct backend.
+    #[serde(alias = "pipewire")]
     Pulse,
-    Pipewire,
     Default,
 }
