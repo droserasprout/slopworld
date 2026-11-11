@@ -162,7 +162,10 @@
       let pendingWire=null;
       const bytes=value=>value instanceof ArrayBuffer?new Uint8Array(value)
         :ArrayBuffer.isView(value)?new Uint8Array(value.buffer,value.byteOffset,value.byteLength):null;
-      const typing=['typing','cyrillic','keystrokes'].includes(phase);
+      const singleKey=['keystrokes','inlinekeystrokes'].includes(phase);
+      const inlineKeys=phase==='inlinekeystrokes';
+      let keysComplete=false;
+      const typing=['typing','cyrillic','keystrokes','inlinekeystrokes'].includes(phase);
       if(typing)WebSocket.prototype.send=function(data) {
         const payload=bytes(data);
         if(pendingWire && payload?.[0]===34) {
@@ -186,11 +189,6 @@
       };
       const runId=(++runSerial).toString().padStart(4,'0');
       samples.length = 0;
-      if(phase==='keystrokes') {
-        send('keys '+runId);
-        await output('KEYS_READY_'+runId);
-      }
-      window.__workspace.setProfiling(stageProfile);
       let running = true, last;
       const intervals = [], drawIntervals = [], scrollTrace = [];
       let lastDraw, lastFrame;
@@ -204,19 +202,26 @@
         }
         requestAnimationFrame(frame);
       };
-      requestAnimationFrame(frame);
-      const started = performance.now();
       try {
+        if(singleKey) {
+          send((inlineKeys?'inlinekeys ':'keys ')+runId);
+          await output((inlineKeys?'INLINE_':'')+'KEYS_READY_'+runId);
+          // Settle the ready-line scroll before measuring same-row edits.
+          if(inlineKeys)await pause(1500);
+        }
+        window.__workspace.setProfiling(stageProfile);
+        requestAnimationFrame(frame);
+        const started = performance.now();
         if (phase === 'idle') await pause(5000);
         else if (phase === 'output') { send('stream '+runId); await output('BENCH_STREAM_DONE_'+runId); }
         else if (typing) {
           for (let i=0; i<20; i++) {
             const key=String.fromCharCode(97+i);
-            const marker = phase==='keystrokes' ? 'KEY_'+runId+'_'+i.toString().padStart(2,'0')+'_'+key.charCodeAt(0).toString(16) : 'TYPE_' + runId + '_' + i.toString().padStart(2,'0') +
+            const marker = singleKey ? (inlineKeys?'INLINE_':'')+'KEY_'+runId+'_'+i.toString().padStart(2,'0')+'_'+key.charCodeAt(0).toString(16) : 'TYPE_' + runId + '_' + i.toString().padStart(2,'0') +
               (phase==='cyrillic'?' В evince smooth scrolling не работает, Ёжик ёжик АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ абвгдежзийклмнопрстуфхцчшщъыьэюя':'');
             const start = performance.now();
-            pendingWire={name:owned(),marker:phase==='keystrokes'?marker:'ACK_'+marker};
-            if(phase==='keystrokes') {
+            pendingWire={name:owned(),marker:singleKey?marker:'ACK_'+marker};
+            if(singleKey) {
               owned();canvas.focus();
               const code='Key'+key.toUpperCase();
               canvas.dispatchEvent(new KeyboardEvent('keydown',{key,code,bubbles:true}));
@@ -230,6 +235,7 @@
             pendingWire=null;
             await pause(100);
           }
+          keysComplete=singleKey;
           if(phase==='keystrokes')await output('KEYS_DONE_'+runId);
         } else if (phase === 'scrolling') {
           owned(); const bounds=canvas.getBoundingClientRect();
@@ -261,6 +267,12 @@
         if(typing)WebSocket.prototype.send=originalSend;
         for(const [socket,listener] of listeners)socket.removeEventListener('message',listener);
         running=false; window.__workspace.setProfiling(false);
+        // The inline fixture waits for an explicit finish after all timing samples
+        // and profiling are captured. Its final newline must not scroll a measured frame.
+        if(inlineKeys && keysComplete) {
+          send('');
+          await output('INLINE_KEYS_DONE_'+runId);
+        }
       }
     },
   };

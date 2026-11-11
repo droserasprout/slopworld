@@ -13,7 +13,7 @@ def paint(suffix: str = '') -> None:
     print('BENCH_READY' + suffix, flush=True)
 
 
-def keystrokes(marker: str) -> None:
+def keystrokes(marker: str, *, inline: bool = False) -> None:
     descriptor = sys.stdin.fileno()
     previous = termios.tcgetattr(descriptor)
     settings = termios.tcgetattr(descriptor)
@@ -22,15 +22,19 @@ def keystrokes(marker: str) -> None:
     settings[6][termios.VTIME] = 0
     try:
         termios.tcsetattr(descriptor, termios.TCSANOW, settings)
-        print('KEYS_READY_' + marker, flush=True)
+        prefix = 'INLINE_' if inline else ''
+        print(prefix + 'KEYS_READY_' + marker, flush=True)
         for index in range(20):
             value = os.read(descriptor, 1)
             if not value:
                 raise EOFError('Keystroke fixture input closed')
-            print(f'KEY_{marker}_{index:02d}_{value.hex()}', flush=True)
+            reply = f'{prefix}KEY_{marker}_{index:02d}_{value.hex()}'
+            print('\r' + reply if inline else reply, end='' if inline else '\n', flush=True)
+        if inline and os.read(descriptor, 1) != b'\n':
+            raise ValueError('Inline keystroke fixture requires Enter to finish')
     finally:
         termios.tcsetattr(descriptor, termios.TCSANOW, previous)
-    print('KEYS_DONE_' + marker, flush=True)
+    print(('\nINLINE_' if inline else '') + 'KEYS_DONE_' + marker, flush=True)
 
 
 def main() -> None:
@@ -55,6 +59,8 @@ def main() -> None:
                 time.sleep(0.05)
             suffix = '_' + command[7:] if command.startswith('stream ') else ''
             print('BENCH_STREAM_DONE' + suffix, flush=True)
+        elif command.startswith('inlinekeys '):
+            keystrokes(command[11:], inline=True)
         elif command.startswith('keys '):
             keystrokes(command[5:])
         elif command.startswith('echo '):

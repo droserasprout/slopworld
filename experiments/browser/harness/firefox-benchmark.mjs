@@ -18,7 +18,7 @@ if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(pha
 const comparisonCall=['tint','clip','solid'].includes(comparison)
   ? `(async enabled => (await import("/gui.js")).${comparisonExport}(enabled))` : `window.__managedProbe.${comparisonExport}`;
 
-if(!directory || !output || phases.some(p=>!['idle','output','typing','cyrillic','keystrokes','scrolling','switching'].includes(p)))
+if(!directory || !output || phases.some(p=>!['idle','output','typing','cyrillic','keystrokes','inlinekeystrokes','scrolling','switching'].includes(p)))
   throw Error('Usage: firefox-benchmark.mjs RUNTIME OUTPUT [PHASES] [PAGE]');
 if(!page.startsWith('/') || page.startsWith('//') || /token|credential|authorization/i.test(page))
   throw Error('PAGE must be a local path without credentials');
@@ -153,7 +153,7 @@ try {
     if(stopping)throw Error('Interrupted');
     const comparisonEnabled=comparisonExport?[false,true,true,false][index]:null;
     if(comparisonExport)await evaluate(`${comparisonCall}(${comparisonEnabled})`);
-    if(comparisonExport || phase==='keystrokes')await evaluate('window.__benchmark.reset()');
+    if(comparisonExport || ['keystrokes','inlinekeystrokes'].includes(phase))await evaluate('window.__benchmark.reset()');
     if(comparison==='tint')await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const before=await sample(root);
@@ -170,7 +170,7 @@ try {
         ['dispatchToSendMs','sendToMessageMs','messageToObservedMs'].map(key=>
           [key,distribution(result.wireTimings.map(row=>row[key]))])) : null,
       targetRepaintMs:Object.fromEntries(['managedMs','repaintMs','serializationMs','canvasMs'].map(key=>[key,distribution(targetRepaints.map(s=>s[key]))])),
-      latencyDefinition:phase==='keystrokes'?'Single DOM key dispatch to byte-verified echo in native receive buffer'
+      latencyDefinition:['keystrokes','inlinekeystrokes'].includes(phase)?'Single DOM key dispatch to byte-verified echo in native receive buffer'
         :['typing','cyrillic'].includes(phase)?'DOM command dispatch to matching reply in native receive buffer'
         :phase==='switching'?'Native Open to selected pane draw submission':null,
       browserProcesses:summarizeProcesses(before,after,ticks,pageSize)};

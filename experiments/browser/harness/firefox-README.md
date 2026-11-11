@@ -35,6 +35,15 @@ The `discard` comparison suppresses drawing preparation in unpresented input/Lay
 passes while preserving dispatch and the presented Repaint; it restores the prior
 setting after the comparison and does not change the runtime default.
 
+The optional `inlinekeystrokes` phase sends twenty individual ASCII keys and
+verifies fixed-width unique byte replies written with carriage returns on one line.
+It preserves surrounding rows. `keystrokes` retains its newline-per-key replies
+and full-viewport scrolling stress. Both reset the fixed fixture screen, collect
+single-key and wire timing, and restore raw-mode settings. Inline setup and the
+explicit finish Enter/final newline are excluded from input timing and profiled
+frames. These are native receive-buffer measurements, not display latency; the
+inline phase complements rather than replaces the existing workload gates.
+
 Both host benchmark recipes accept a `stage_profile` argument (default `1`).
 Use `0` to measure latency without per-frame managed and Canvas profiling. Reports
 record this setting and retain workload, wire timing and frame interval results;
