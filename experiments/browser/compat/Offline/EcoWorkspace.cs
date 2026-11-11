@@ -40,6 +40,7 @@ internal static class EcoWorkspace
         BrowserClipboardPatch.Apply(mod, root);
         BrowserCursorPatch.Apply(mod, root);
         BrowserTerminalSizePatch.Apply(mod, root);
+        BrowserPreferencesPatch.Apply(mod, root);
         using (var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll")))
             BrowserClipboardPatch.Redirect(
                 mod.MainModule.GetType("SlopWorld.FontconfigFonts"),

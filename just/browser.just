@@ -42,6 +42,10 @@ browser-bench-quad-decode:
     node experiments/browser/harness/gui-quads-bench.mjs
 
 [group('browser prototype')]
+browser-test-preferences:
+    just --justfile experiments/browser/runtime/PreferencesTests/justfile test
+
+[group('browser prototype')]
 browser-test-startup:
     just --justfile experiments/browser/runtime/StartupTests/justfile test
     just --justfile experiments/browser/runtime/UnderlyingTests/justfile test

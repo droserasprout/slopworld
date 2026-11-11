@@ -116,6 +116,26 @@ public partial class Probe
     }
 
     [JSExport]
+    public static void WorkspacePreferences(
+        string json,
+        [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> persist
+    )
+    {
+        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
+        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Apply", settings, json);
+        Type("Adapters", "BrowserAdapters.BrowserPreferences")
+            .GetField("Persist")!
+            .SetValue(null, persist);
+    }
+
+    [JSExport]
+    public static void WorkspaceSavePreferences()
+    {
+        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
+        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Write", settings);
+    }
+
+    [JSExport]
     public static string WorkspaceSelect(string name)
     {
         Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "RequireEntry");
@@ -260,6 +280,11 @@ public partial class Probe
             var frame = (string)
                 Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Frame", batch)!;
             Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "FlushTerminalInput");
+            // Full ModBootstrap is absent in Entry. Preserve its native dirty-save pump.
+            var settings = Type("SlopWorld", "SlopWorld.Settings")
+                .GetProperty("S")!
+                .GetValue(null)!;
+            Invoke("SlopWorld", "SlopWorld.ProfileSettings", "FlushIfDue", settings);
             return frame;
         }
         catch (Exception e)

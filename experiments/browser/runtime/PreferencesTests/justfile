@@ -1,0 +1,5 @@
+set quiet
+
+test:
+    dotnet run --project PreferencesTests.csproj
+    node --test ../../harness/workspace-preferences.test.mjs

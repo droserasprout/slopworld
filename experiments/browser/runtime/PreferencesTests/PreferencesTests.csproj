@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>annotations</Nullable>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" Version="0.19.0" />
+    <ProjectReference Include="../../compat/Offline/Offline.csproj" />
+    <Compile Include="../Adapters/BrowserPreferences.cs" Link="BrowserPreferences.cs" />
+    <Compile Include="../../compat/Offline/BrowserPreferencesPatch.cs" Link="BrowserPreferencesPatch.cs" />
+    <Compile Include="../../../../mod/Source/SlopWorld/Settings/ModSettings.cs" Link="ModSettings.cs" />
+    <Compile Include="../../../../mod/Source/SlopWorld/Settings/WorkspacePreferences.cs" Link="WorkspacePreferences.cs" />
+    <Compile Include="../../../../mod/Source/SlopWorld/Settings/OptionLabels.cs" Link="OptionLabels.cs" />
+    <Compile Include="../../../../mod/Source/SlopWorld/Settings/PreferenceFormats.cs" Link="PreferenceFormats.cs" />
+    <Compile Include="../../../../mod/Source/SlopWorld/Settings/VisualEffectsMode.cs" Link="VisualEffectsMode.cs" />
+    <Compile Include="../../../../mod/Source/SlopWorld/Settings/FramePolicy.cs" Link="FramePolicy.cs" />
+    <Compile Include="../../../../mod/Source/SlopWorld/Serialization/Toml.cs" Link="Toml.cs" />
+  </ItemGroup>
+</Project>
