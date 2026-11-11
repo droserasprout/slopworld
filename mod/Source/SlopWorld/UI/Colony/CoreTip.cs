@@ -15,9 +15,6 @@ namespace SlopWorld
     // "Next planet" burns the map and lands a new colony.
     public class CoreTip : MapComponent
     {
-        // How long the sticky hint stays up before dismissing itself.
-        const float HintTimeout = 3f;
-
         // Both clients embed the same canonical answers; rolling needs no daemon connection.
         static readonly string[] AdviceAnswers = LoadAdviceAnswers();
 
@@ -37,24 +34,6 @@ namespace SlopWorld
         // Real seconds between lightning strikes in the kill sequence.
         const float MinStrikeDelay = 0.2f;
         const float MaxStrikeDelay = 0.33f;
-
-        // A sticky hint pinned to the core by the context menu.
-        bool _sticky;
-        string _stickyTip;
-        IntVec3 _stickyCell;
-        int _hintsLeft;
-
-        // Where on screen the bubble was pinned, and when.
-        Vector2 _stickyAt;
-        float _stickyAtTime;
-
-        // The mouse position when the context menu was opened, used by HintAction
-        // to place the bubble where the cursor was.
-        Vector2 _clickPos;
-
-        // The core's cell when the context menu was opened, so HintAction can record
-        // it without the mouse having moved to the menu item.
-        IntVec3 _menuCell;
 
         // Pending lightning strike sequence.
         int _strikesLeft;
@@ -114,109 +93,28 @@ namespace SlopWorld
             )
             {
                 Event.current.Use();
-                Open(Event.current.mousePosition, cell);
-            }
-
-            // Sticky hint: draw the tip bubble near the click position. Drawn from the map layer
-            // only when no terminal is up - a pane fills the screen opaque. Therefore, a bubble
-            // asked for over one would land behind it. WorkspaceWindow draws the same hint from its
-            // own contents, on top (see DrawHint).
-            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() == null)
-                DrawHint();
-        }
-
-        // The sticky tip bubble, wherever it is asked for. Drawn from the map layer over the map
-        // and from WorkspaceWindow over an open pane. Therefore, a hint from the persona core's menu
-        // is not buried under the terminal that answered it. Returns when there is nothing to show
-        // or the hint has dismissed itself.
-        public void DrawHint()
-        {
-            if (!_sticky || _stickyTip == null)
-                return;
-
-            // The core's own cell, not the cell under the mouse: the hint must
-            // survive the cursor leaving it.
-            var still = map.thingGrid.ThingAt(_stickyCell, ModDefOf.Ship_ComputerCore);
-            if (still == null)
-            {
-                _sticky = false;
-                _stickyTip = null;
-                _hintsLeft = 0;
-                return;
-            }
-
-            if (Time.realtimeSinceStartup - _stickyAtTime >= HintTimeout)
-            {
-                if (_hintsLeft <= 0)
-                {
-                    _sticky = false;
-                    _stickyTip = null;
-                    return;
-                }
-
-                // Keep the original anchor and give every new tip its full display time.
-                _hintsLeft--;
-                _stickyTip = Patch_LoadingTips.RandomTip;
-                _stickyAtTime = Time.realtimeSinceStartup;
-            }
-
-            using (WidgetState.Save())
-            {
-                Text.Font = GameFont.Small;
-                Text.WordWrap = true;
-                float w = 320f;
-                float h = Text.CalcHeight(_stickyTip, w - 16f) + 20f;
-                float margin = 8f;
-
-                // Place above the click position. If it hits the top edge, place below.
-                float y = _stickyAt.y - h - 12f;
-                if (y < margin)
-                    y = _stickyAt.y + 12f;
-                // Clamp bottom edge too.
-                if (y + h > UI.screenHeight - margin)
-                    y = UI.screenHeight - margin - h;
-                if (y < margin)
-                    y = margin; // last resort: top margin
-
-                var tipRect = new Rect(_stickyAt.x - w / 2f, y, w, h);
-                if (tipRect.x < margin)
-                    tipRect.x = margin;
-                if (tipRect.xMax > UI.screenWidth - margin)
-                    tipRect.x = UI.screenWidth - margin - w;
-
-                // A floating rectangular panel, not vanilla's window: this is a hint over the
-                // map, on the same surface the command palette uses.
-                Slab.Box(tipRect, UiTheme.PopoverBg, UiTheme.Edge);
-                var inner = tipRect.ContractedBy(8f);
-                Widgets.Label(inner, _stickyTip);
+                Open(Event.current.mousePosition);
             }
         }
 
-        // The status-bar button resolves the core cell, anchors the hint to that cell and
-        // places the bubble at the pointer. Map drawing covers the map. WorkspaceWindow
-        // repeats it over an opaque pane.
         public static void OpenMenu()
         {
-            var map = Find.CurrentMap;
-            var comp = map?.GetComponent<CoreTip>();
-            if (comp == null)
-                return;
-
-            comp.Open(Event.current.mousePosition, Cell(map));
+            var comp = Find.CurrentMap?.GetComponent<CoreTip>();
+            comp?.Open(UI.MousePositionOnUIInverted);
         }
 
-        // Entry workspaces have no colony component. Reuse native menus and dialogs
-        // for the independent actions, keeping map/pawn mutations unavailable.
+        // Entry actions capture the opening pointer just like the map menu. The
+        // callbacks must still belong to this workspace when the menu is answered.
         public static void OpenWorkspaceMenu()
         {
-            void Message(string text) => WorkspaceWindow.OpenOverPane(new Dialog_MessageBox(text));
+            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
+            if (window == null || Current.ProgramState != ProgramState.Entry)
+                return;
+            var at = UI.MousePositionOnUIInverted;
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Hint", () => Message(Patch_LoadingTips.RandomTip)),
-                new FloatMenuOption(
-                    "Advice",
-                    () => Message(AdviceAnswers[Rand.Range(0, AdviceAnswers.Length)])
-                ),
+                new FloatMenuOption("Hint", () => ShowWorkspaceBubble(window, at, false)),
+                new FloatMenuOption("Advice", () => ShowWorkspaceBubble(window, at, true)),
                 new FloatMenuOption("Keyboard shortcuts", ShortcutHelpView.Toggle),
             };
             if (!Settings.GrandmaMode)
@@ -226,19 +124,42 @@ namespace SlopWorld
             WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
-        // Palette commands do not have the core's opening click to supply an anchor. Use the
-        // current pointer and the current core, which keeps the same bubble visible over the
-        // map or an opaque terminal.
+        public static bool CanShowHint() =>
+            Current.ProgramState == ProgramState.Entry
+                ? Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null
+                : Current.ProgramState == ProgramState.Playing;
+
+        // Palette requests use the current pointer; menu requests retain their opening anchor.
         public static void ShowHint()
         {
-            var map = Find.CurrentMap;
-            var comp = map?.GetComponent<CoreTip>();
-            if (comp == null)
+            if (Current.ProgramState == ProgramState.Entry)
+            {
+                ShowWorkspaceBubble(
+                    Find.WindowStack?.WindowOfType<WorkspaceWindow>(),
+                    UI.MousePositionOnUIInverted,
+                    false
+                );
                 return;
+            }
+            if (Current.ProgramState == ProgramState.Playing)
+                HintAction(UI.MousePositionOnUIInverted);
+        }
 
-            comp._clickPos = UI.MousePositionOnUIInverted;
-            comp._menuCell = Cell(map);
-            comp.HintAction();
+        static void ShowWorkspaceBubble(WorkspaceWindow window, Vector2 at, bool advice)
+        {
+            if (
+                window == null
+                || Current.ProgramState != ProgramState.Entry
+                || Find.WindowStack?.WindowOfType<WorkspaceWindow>() != window
+            )
+                return;
+            StartBubble(
+                at,
+                advice,
+                () =>
+                    Current.ProgramState == ProgramState.Entry
+                    && Find.WindowStack?.WindowOfType<WorkspaceWindow>() == window
+            );
         }
 
         public static void KillSomething()
@@ -263,15 +184,12 @@ namespace SlopWorld
             }
         }
 
-        void Open(Vector2 at, IntVec3 cell)
+        void Open(Vector2 at)
         {
-            _clickPos = at;
-            _menuCell = cell;
-
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Hint", HintAction),
-                new FloatMenuOption("Advice", AdviceAction),
+                new FloatMenuOption("Hint", () => HintAction(at)),
+                new FloatMenuOption("Advice", () => AdviceAction(at)),
                 new FloatMenuOption("Keyboard shortcuts", ShortcutHelpView.Toggle),
             };
             // Grandma mode omits violence; Eco keeps unavailable actions discoverable.
@@ -296,33 +214,25 @@ namespace SlopWorld
             WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
-        // Where the core stands, or Invalid with none - which is a hint that dismisses itself
-        // on the next frame and two rows that never wanted a cell.
-        static IntVec3 Cell(Map map)
-        {
-            var cores = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore);
-            return cores.Count > 0 ? cores[0].Position : IntVec3.Invalid;
-        }
-
         // Whether this map has one. The status bar asks before it draws the icon: a door onto
         // a thing that is not there is not a door.
         public static bool On(Map map) =>
             map != null && map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore).Count > 0;
 
-        // A fresh request replaces any unfinished sequence.
-        void HintAction() => ShowBubble(Patch_LoadingTips.RandomTip, Rand.RangeInclusive(2, 4) - 1);
+        static void HintAction(Vector2 at) => StartBubble(at, false);
 
-        void AdviceAction() => ShowBubble(AdviceAnswers[Rand.Range(0, AdviceAnswers.Length)]);
+        static void AdviceAction(Vector2 at) => StartBubble(at, true);
 
-        void ShowBubble(string text, int hintsLeft = 0)
-        {
-            _sticky = true;
-            _stickyTip = text;
-            _hintsLeft = hintsLeft;
-            _stickyAt = _clickPos;
-            _stickyAtTime = Time.realtimeSinceStartup;
-            _stickyCell = _menuCell;
-        }
+        static void StartBubble(Vector2 at, bool advice, System.Func<bool> alive = null) =>
+            UiBubble.Show(
+                advice
+                    ? AdviceAnswers[Rand.Range(0, AdviceAnswers.Length)]
+                    : Patch_LoadingTips.RandomTip,
+                at,
+                advice ? 0 : Rand.RangeInclusive(2, 4) - 1,
+                () => Patch_LoadingTips.RandomTip,
+                alive
+            );
 
         // Arm 5-10 strikes, each choosing a random living thing independently.
         void KillAction()

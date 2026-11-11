@@ -72,6 +72,7 @@ public static class WorkspaceDrawing
     static Action? shortcuts;
     static Action? applyLayout;
     static Action? flushTerminalInput;
+    static Action? drawUiBubble;
     static bool flushInputBeforeRepaint = true;
 
     public static bool ConfigureInputFlushBeforeRepaint(bool enabled)
@@ -99,6 +100,9 @@ public static class WorkspaceDrawing
             .CreateDelegate<Action>();
         flushTerminalInput = mod.GetType("SlopWorld.WorkspaceWindow")!
             .GetMethod("FlushTerminalInput", BindingFlags.NonPublic | BindingFlags.Static)!
+            .CreateDelegate<Action>();
+        drawUiBubble = mod.GetType("SlopWorld.UiBubble")!
+            .GetMethod("DrawAfterWindows", BindingFlags.NonPublic | BindingFlags.Static)!
             .CreateDelegate<Action>();
         timeOrigin = lastTime = Time.unscaledTime;
         // Steam is explicitly unavailable in this browser host. A hidden desktop
@@ -231,6 +235,9 @@ public static class WorkspaceDrawing
                 TooltipHandler.DoTooltipGUI();
                 Find.WindowStack.WindowStackOnGUI();
                 GUI.ProcessPendingWindows();
+                // Offline WASM installs selected hooks instead of running Harmony. Use
+                // the same framework presenter as native, once after the window pass.
+                drawUiBubble?.Invoke();
                 // The Entry workspace owns the foreground. Draw native rejection
                 // messages after deferred windows so their backgrounds cannot cover them.
                 Messages.MessagesDoGUI();

@@ -110,7 +110,6 @@ namespace SlopWorld
                         return;
                     Rect body = DrawTopBar(rect, input);
                     DrawBody(body, input);
-                    Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
                     if (
                         TerminalVisible
                         && _showStopped
