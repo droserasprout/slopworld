@@ -301,56 +301,11 @@ does not change WASM process HOME or mount host files. Ordinary metadata joins s
 without changing SessionInfo or wire data. BrowserModContent mounts authored
 textures/themes after Core startup using the real ModContentPack/content holder.
 Host PNG decoding supplies readable Unity pixels; ContentFinder retains lookup.
-Ordinary session-only agent rows share native agent geometry and can draw a locally
-exported portrait through `SessionPortraits`. Compact rows retain native action marks and label geometry without
-invented portrait identity. Native agent appearance remains pawn-owned and is not
-currently exported by the daemon session contract.
-`WorkspacePortraitExport` provides a native debug action and a profile-local request
-mailbox to snapshot the sidebar's actual cached portrait textures. Its local cache contains
-content-addressed RGBA files and a manifest published only after every portrait is
-written. It exports all colony identities, independently of sidebar folding and
-filtering. It performs no recurring readback and exports no pawn/save serialization.
-The capture requires a native colony; it must never run in the browser. A native
-GUI-thread poll advertises capability and captures only new request IDs, at most
-once per second. Both the poll and capture reject an in-progress load: the colony
-component can exist before its saved pawn references have been populated.
-The host serializes requesters with a bounded lock wait, accepts
-only its own acknowledgment after publication, and removes its request on completion
-or timeout. Errors preserve the prior published manifest. `slopweb/portraits.py`
-validates the snapshot before copying it into private assets; the snapshot identity
-participates in installed runtime preparation. `just browser-host-portraits` imports
-the current local profile snapshot into the prototype, requesting a fresh capture
-when a live native exporter advertises support. Installed preparation uses the same
-path. `SLOPWEB_PORTRAITS` explicitly selects a validated snapshot directory during
-installed preparation, including an isolated copied-save export when the live mod
-predates the exporter. It never writes back to the native profile cache; a missing
-explicit manifest is an error. The snapshot identity changes the private preparation
-key and AOT composition without changing compiler inputs. Older native mod processes remain import-only until restarted. Missing exports produce an
-empty inventory rather than invented identities. The browser verifies content hashes,
-dimensions and inventory bounds before admitting each texture, reverses exported
-top-down pixels into Unity storage, and shares native portrait framing and stopped-agent
-tint. Startup loads this bank before the first workspace frame; refresh requires
-another native capture, private import and page reload. Empty-bank Chrome startup is
-verified colony-free. The isolated native export check has produced 24 distinct,
-nonempty textures from a copied save. Chrome has loaded and displayed that inventory
-while reporting no Game or World. Native exports at scales 1 and 2 have passed;
-the harness defaults to scale 2, writes only its copied preferences, and checks
-the effective scale in the returned manifest. Matched desktop pixel comparison
-remains separate, including scroll position, status timing and renderer precision. These
-derived files belong only in private runtime preparation, never package staging.
-
-`just browser-host-native-portraits` validates the export using a copied local save
-in ignored private output. It mounts the built mod only inside a disposable native
-process, with a read-only host filesystem, private writable profile/cache/temp paths,
-and a separate network namespace. Xvfb and the locally installed Chromium SwiftShader
-Vulkan driver provide an isolated display under a two-core CPU bound and a five-minute
-service deadline. Xvfb cannot present through the desktop GPU's DRI3 queue; native
-runtime patching also requires a writable private `/tmp`, beyond `TMPDIR` alone.
-The harness rejects missing saves, empty inventories and empty readbacks, and stops
-its own process group afterward. Copied-save appearance may lag unsaved live changes;
-software-driver pixels alone do not establish parity with the live desktop GPU.
-Pass its reported snapshot directory to `just browser-host-portraits SOURCE` to
-validate and import that explicit snapshot without replacing the live profile cache.
+Ordinary session-only agent rows share native agent geometry and draw the existing
+worker icon through `SessionPortraits`. `BrowserPortraits` binds that shared icon;
+installed preparation neither requests nor imports per-session portrait snapshots.
+Native pawn appearance remains pawn-owned. Native portrait export tools are explicit
+diagnostics and do not supply the browser workspace.
 
 BrowserWorkspaceDoors loads the authored PlannerBench
 definition and binds its native ModDefOf field so TopBar can draw and toggle the
@@ -359,10 +314,15 @@ without creating a building instance. `BrowserWorkspaceDoorsPatch` redirects onl
 TopBar's presence checks and Core menu action; map presence and arrival retain their
 native contracts. Core's native Entry menu supplies Hint/Advice dialogs and Keyboard
 shortcuts, with colony-dependent actions disabled. Jukebox opens the native menu and
-pumps native Radio updates against the host daemon. Local OST is unavailable because
-the browser has no audio decoder: its source/transport controls are disabled, and an
-unavailable default OST selection never stops existing host audio. Host radio/Spotify
-still require daemon capabilities and successful playback reports; a door/menu check
+pumps native Radio updates against the host daemon. `BrowserAudioPatch` redirects
+only `NativeJukebox` transport and metadata to `BrowserAudio`. Radio retains source,
+mute, navigation, music/master volume, and daemon stop-ack ownership. One DOM audio
+element decodes authored OST files staged under private runtime `assets/ost`;
+no game audio enters the redistributable bundle. Song order is checked against the
+authored SongDefs and files. Autoplay rejection waits for a pointer/key gesture;
+frames never retry blocked playback. Ended advances the track, while mute, source
+handoff, and workspace disposal retire decoding. Metadata follows actual browser
+playback. Host radio/Spotify still require daemon capabilities and successful playback reports; a door/menu check
 alone is not playback validation. Read-only door geometry in the
 workspace snapshot supports DOM input checks without depending on fallback text
 commands.

@@ -254,8 +254,16 @@ public partial class Probe
         (string)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Snapshot")!;
 
     [JSExport]
-    public static void WorkspacePortrait(string session, byte[] pixels) =>
-        Invoke("Adapters", "BrowserAdapters.BrowserPortraits", "Install", session, pixels);
+    public static string WorkspaceAudio() =>
+        (string)Invoke("Adapters", "BrowserAdapters.BrowserAudio", "Snapshot")!;
+
+    [JSExport]
+    public static void WorkspaceAudioPlaying(bool playing) =>
+        Invoke("Adapters", "BrowserAdapters.BrowserAudio", "Playing", playing);
+
+    [JSExport]
+    public static void WorkspaceAudioEnded() =>
+        Invoke("Adapters", "BrowserAdapters.BrowserAudio", "Ended");
 
     [JSExport]
     public static bool WorkspaceBackgroundVisible() =>

@@ -2,8 +2,8 @@ namespace SlopWorld
 {
     public static partial class Radio
     {
-        // The browser has host radio transport but no native OST decoder.
-        // Platform initialization sets this before the first workspace frame.
+        // Platform initialization enables this when a local OST transport exists
+        // (native music manager or browser decoder), before the first workspace frame.
         public static bool LocalPlaybackSupported { get; set; } = true;
         public static bool TransportAvailable =>
             (!LocalOst && SessionHub.Instance.Capabilities.AudioPlayback)
