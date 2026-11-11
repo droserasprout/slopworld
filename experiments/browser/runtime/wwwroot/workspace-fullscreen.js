@@ -24,6 +24,14 @@ export function attachWorkspaceFullscreen(managed, view = window) {
   };
   managed.WorkspaceWindow(request);
   doc.addEventListener('fullscreenchange', sync, {signal: abort.signal});
+  // Some browser/input paths deliver Escape to the page instead of consuming it
+  // as browser chrome. Leaving fullscreen must not also close a native panel.
+  doc.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || doc.fullscreenElement !== doc.documentElement) return;
+    event.preventDefault();
+    event.stopPropagation();
+    request(false);
+  }, {capture: true, signal: abort.signal});
   sync();
   return {dispose() { disposed = true; abort.abort(); managed.WorkspaceWindow(() => {}); }};
 }
