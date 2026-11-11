@@ -29,11 +29,12 @@ def main() -> None:
                 label = 'BOTTOM_gyp_Mj' if row == rows - 1 else f'{row:03d} Agyp Mj'
                 print(f'\x1b[{row + 1};1H{label}', end='')
             sys.stdout.flush()
-        elif command == 'stream':
+        elif command == 'stream' or command.startswith('stream '):
             for row in range(100):
                 print(f'{row:03d} | output workload | 0123456789 abcdefghijklmnopqrstuvwxyz', flush=True)
                 time.sleep(0.05)
-            print('BENCH_STREAM_DONE', flush=True)
+            suffix = '_' + command[7:] if command.startswith('stream ') else ''
+            print('BENCH_STREAM_DONE' + suffix, flush=True)
         elif command.startswith('echo '):
             print('ACK_' + command[5:], flush=True)
 

@@ -412,6 +412,10 @@ The workload recipe's `early_input` argument compares the native input flush
 before repaint with the previous after-serialization boundary in one browser;
 cleanup restores the prior mode. Reported typing latency still measures DOM input
 to native receive-buffer echo, not physical display latency.
+The optional `comparison` mode (`input` or `glyph`) requires four identical
+phases and toggles off/on/on/off while retaining the same fixture sessions.
+Phase-specific echo/completion markers prevent earlier screen contents from
+satisfying a later run; cleanup restores all diagnostic switches.
 Installed Waylith stores Event.alt and Event.shift separately from Event.modifiers;
 populate both representations before native shortcut dispatch.
 Printable events retain their physical key on the same text-bearing event so native
