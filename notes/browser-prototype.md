@@ -258,10 +258,11 @@ CSS pixels even when the canvas has a larger physical framebuffer. The compariso
 recipe deliberately rejects differing image sizes rather than resampling either.
 
 Native `GameCursor` owns cursor appearance, animation and hotspots. Browser staging
-redirects its CPU readback and final Unity cursor call; the browser presents those
-pixels in a pointer-transparent overlay scaled from device pixels to CSS pixels.
-Viewport clipping keeps the same cursor near an edge, where browser CSS bitmap
-cursors can fall back to the system arrow. Retained frames are bounded. Loading
+redirects its CPU readback and final Unity cursor call. Browser cursor images use
+the native pixels with a CUR-embedded physical hotspot and density-aware CSS
+image-set, so movement does not depend on page overlay updates. A pointer-transparent
+overlay remains at viewport edges, where Chromium rejects custom cursor images,
+and on browsers without this CSS support. Retained frames are bounded. Loading
 transfers its decoded background frames to the workspace presenter, which disposes them on exit.
 
 EngineApplication and UnityRuntime maintain separate clocks. Advance UnityRuntime's

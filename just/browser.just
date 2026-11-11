@@ -38,6 +38,10 @@ browser-host-screen-clip-check rendering='auto':
     systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 --setenv=PROBE_RENDERING={{quote(rendering)}} node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} clip
 
 [group('browser prototype')]
+browser-host-cursor-check rendering='auto':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 --setenv=PROBE_RENDERING={{quote(rendering)}} node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} cursor
+
+[group('browser prototype')]
 browser-screen-clip-lint:
     node --check experiments/browser/runtime/wwwroot/gui.js
     node --check experiments/browser/harness/screen-clip-check.js
