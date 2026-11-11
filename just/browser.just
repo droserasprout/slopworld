@@ -34,8 +34,8 @@ browser-host-canvas-reuse-check:
 
 # Tiny real-Canvas clip equivalence; no game or WASM startup.
 [group('browser prototype')]
-browser-host-screen-clip-check:
-    systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} clip
+browser-host-screen-clip-check rendering='auto':
+    systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 --setenv=PROBE_RENDERING={{quote(rendering)}} node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} clip
 
 [group('browser prototype')]
 browser-screen-clip-lint:
