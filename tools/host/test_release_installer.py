@@ -12,6 +12,25 @@ import pytest
 from tools.host import release_installer as installer
 
 
+def test_piped_menu_reconnects_subprocess_input_to_terminal() -> None:
+    with (
+        patch.object(sys, 'argv', ['-']),
+        patch.object(Path, 'open') as terminal,
+        patch('tools.host.release_installer.os.dup2') as duplicate,
+    ):
+        terminal.return_value.__enter__.return_value.fileno.return_value = 7
+        installer.connect_piped_terminal()
+    terminal.assert_called_once_with(encoding='utf-8')
+    duplicate.assert_called_once_with(7, 0)
+
+
+@pytest.mark.parametrize('arguments', [['install.py'], ['-', '--install', 'slopctl'], ['-', '--help']])
+def test_file_and_explicit_invocations_preserve_input(arguments: list[str]) -> None:
+    with patch.object(sys, 'argv', arguments), patch.object(Path, 'open') as terminal:
+        installer.connect_piped_terminal()
+    terminal.assert_not_called()
+
+
 @pytest.mark.parametrize(
     'identifier,machine,distribution,components',
     [

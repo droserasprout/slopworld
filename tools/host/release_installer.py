@@ -383,8 +383,17 @@ def main() -> None:
     print('https://slopworld.space/installation/linux.html#attach-the-mod-and-launch')
 
 
+def connect_piped_terminal() -> None:
+    # Python has consumed the script from the pipe. Reconnect fd 0 as well as
+    # Python input so curses and package-manager subprocesses share the terminal.
+    if sys.argv == ['-']:
+        with Path('/dev/tty').open(encoding='utf-8') as terminal:
+            os.dup2(terminal.fileno(), 0)
+
+
 if __name__ == '__main__':
     try:
+        connect_piped_terminal()
         main()
     except (KeyboardInterrupt, EOFError):
         print('\nCancelled.', file=sys.stderr)

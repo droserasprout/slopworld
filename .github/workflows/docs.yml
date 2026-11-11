@@ -10,6 +10,7 @@ on:
       - 'tools/__init__.py'
       - 'tools/utils.py'
       - 'tools/docs/**'
+      - 'tools/host/release_installer.py'
       - 'tools/version/**'
       - 'slopd/Cargo.toml'
       - 'justfile'

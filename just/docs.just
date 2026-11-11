@@ -2,6 +2,7 @@
 [group('docs')]
 docs-build:
     cd docs && mdbook build
+    cp tools/host/release_installer.py docs/book/install.py
     uv run --locked python -m tools.docs.check_book
 
 # Serve the book

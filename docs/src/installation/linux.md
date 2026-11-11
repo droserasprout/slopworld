@@ -12,8 +12,14 @@ for the role of each machine. To run it in a container, see
 
 ## Interactive installer
 
-Download `install.py` from the
-[latest release](https://github.com/droserasprout/slopworld/releases/latest), then run:
+Run the installer from your terminal:
+
+```sh
+curl -fsSL https://slopworld.space/install.py | python3 -
+```
+
+Alternatively, download [install.py](https://slopworld.space/install.py) or the
+installer from the [latest release](https://github.com/droserasprout/slopworld/releases/latest), then run:
 
 ```sh
 python3 install.py
