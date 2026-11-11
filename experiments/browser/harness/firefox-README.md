@@ -26,7 +26,7 @@ when available. Match dimensions, quota, workload, rendering and runtime setting
 before comparing browsers. The runner compensates for window decoration to request
 the same inner viewport as Chromium; use reported dimensions as the authority.
 
-The final optional `comparison` argument accepts `input`, `glyph`, `cell`, `tint`,
+The final optional `comparison` argument accepts `input`, `glyph`, `tail`, `cell`, `tint`,
 `command` or `clip` with four identical phases. It runs off/on/on/off against the
 same fixtures, resets their screen before each phase, and restores the prior
 switch values on cleanup. Tint comparisons also report cache misses and pixel
