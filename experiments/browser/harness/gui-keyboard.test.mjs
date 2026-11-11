@@ -66,7 +66,7 @@ test('workspace dispatches native fullscreen binding inside the initiating key e
   const canvas=installInputDom().canvas();
   let dispatching=false, frames=0;
   const input=attachGuiInput(canvas,{
-    activationFrame:true,
+    activationKey:key=>key==='F11',
     GuiInputFrame(value) {
       const batch=JSON.parse(value);
       if(batch.some(event=>event.kind!=='reset')) {
@@ -86,5 +86,47 @@ test('workspace dispatches native fullscreen binding inside the initiating key e
     assert.equal(event.defaultPrevented,true);
     input.frame();
     assert.equal(frames,1);
+  } finally {input.dispose();}
+});
+
+
+test('ordinary synthetic and editable text stays batched; live printable fullscreen rebind dispatches eagerly',()=>{
+  const canvas=installInputDom().canvas();
+  let bound='F11',frames=[];
+  const input=attachGuiInput(canvas,{
+    activationKey:key=>key===bound,
+    GuiInputFrame:value=>{frames.push(JSON.parse(value));return '{"commands":[]}';}
+  });
+  const key=(target,letter,trusted=false)=>{
+    const event=new Event('keydown',{cancelable:true});
+    for(const [name,value] of Object.entries({key:letter,code:'Key'+letter.toUpperCase(),isTrusted:trusted}))
+      Object.defineProperty(event,name,{value});
+    target.dispatchEvent(event);
+    return event;
+  };
+  const edit=(letter)=>{
+    const event=new Event('input');
+    Object.defineProperty(event,'data',{value:letter});
+    input.textInput.dispatchEvent(event);
+  };
+  try {
+    for(const letter of 'abc')key(canvas,letter);
+    for(const letter of 'def'){key(input.textInput,letter,true);edit(letter);}
+    assert.equal(frames.length,0);
+    input.frame();
+    assert.equal(frames.length,1);
+    assert.equal(String.fromCharCode(...frames[0].map(event=>event.character)),'abcdef');
+    bound='G';
+    const event=key(input.textInput,'g',true);
+    assert.equal(frames.length,2);
+    assert.deepEqual(frames[1].map(event=>({kind:event.kind,key:event.key})),[{kind:'key',key:'G'}]);
+    assert.equal(event.defaultPrevented,true);
+    bound='H';
+    key(canvas,'g');
+    assert.equal(frames.length,2);
+    key(canvas,'h');
+    assert.equal(frames.length,3);
+    assert.equal(frames[2][0].character,'g'.charCodeAt(0));
+    assert.equal(frames[2][1].key,'H');
   } finally {input.dispose();}
 });
