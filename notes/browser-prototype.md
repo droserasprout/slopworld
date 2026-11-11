@@ -67,12 +67,6 @@ layout path; terminal columns, sprites and input remain mod-owned.
 compares actual serialized draw packets and uploaded RGBA bytes across both paths;
 `benchmark-glyphs` includes thousands of single-cell labels with stable and moving
 positions. This CPU evidence does not establish browser frame-time or screenshot parity.
-`WorkspaceImageVersionCache` exposes an opt-in, default-off comparison switch for
-repeated texture-version lookup within one GUI draw pass. Each adapter retains the
-last texture and its mutable Apply version until drain/discard; upload validation
-still checks texture identity, CPU backing and dimensions. `NativeTextTests` compares
-real packets with the switch off/on across mutation, replacement, ID reuse and
-discarded uploads. Browser workload timings remain a separate requirement.
 Covered axis-aligned text uses the installed renderer's glyph-quad clipping rules,
 including ascender overhang and first-line bottom clipping. It does not add a Canvas
 clip scope per label. BrowserCommandState suppresses unchanged serialized transforms
@@ -432,7 +426,10 @@ This does not establish complete animation equivalence or visual parity.
 Render textures retain Canvas backing across frames for the actual mod terminal
 cache. Browser capability reporting disables GPU CopyTexture so that cache selects
 its full-screen repaint branch. Image uploads follow native identity and
-Apply/LoadImage revisions; subsequent commands reference uploaded images rather
+Apply/LoadImage revisions; version-object identity prevents recycled texture IDs
+from inheriting another texture's upload record. NativeTextTests cover mutation,
+backing/dimension replacement, discarded uploads, ID reuse and disposal.
+Subsequent commands reference uploaded images rather
 than copying an atlas per glyph. Discarded input/layout uploads must also discard
 their managed cache entries. Weak ownership and release commands retire native
 resources. Pixel conversion reverses Unity's bottom-up rows using bulk copies.
