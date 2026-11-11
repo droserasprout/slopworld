@@ -77,6 +77,49 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
     assert 'private' not in (root / 'assets/reference-appearance.json').read_text()
 
 
+def test_startup_font_failure_falls_back_without_changing_host_preferences(
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    appearance = importlib.import_module('appearance')
+    values = {'uiFontName': 'Removed font', 'fontName': 'monospace', 'uiFontSize': 15}
+    calls = []
+
+    def probe(args: list[str], **kwargs: object) -> None:
+        calls.append(args)
+        if args[3] == '--resolve-ui' and args[5] == 'Removed font':
+            raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(appearance.subprocess, 'run', probe)
+    root = tmp_path / 'runtime'
+    appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', root, values)
+    assert [args[5] for args in calls if args[3] == '--resolve-ui'] == ['Removed font', '']
+    published = json.loads((root / 'assets/reference-appearance.json').read_text())
+    assert published == {**values, 'uiFontName': ''}
+    assert values['uiFontName'] == 'Removed font'
+    assert len(json.loads((root / 'assets/fonts/manifest.json').read_text())) == 48
+
+
+@pytest.mark.parametrize('family', ['', 'Removed font'])
+def test_startup_font_failure_without_usable_defaults_does_not_publish(
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, family: str
+) -> None:
+    appearance = importlib.import_module('appearance')
+    calls = []
+
+    def probe(args: list[str], **kwargs: object) -> None:
+        if args[3] == '--resolve-ui':
+            calls.append(args[5])
+            raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(appearance.subprocess, 'run', probe)
+    root = tmp_path / 'runtime'
+    with pytest.raises(subprocess.CalledProcessError):
+        appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', root, {'uiFontName': family})
+    assert calls == ([family, ''] if family else [''])
+    assert not (root / 'assets/reference-appearance.json').exists()
+    assert not (root / 'assets/fonts/manifest.json').exists()
+
+
 @pytest.mark.parametrize(
     'values, sizes',
     [
