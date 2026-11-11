@@ -33,10 +33,11 @@ slopweb-run *args:
     python3 slopweb/out/launch.py "$@"
 
 # Use the desktop user's game, fonts, profile and daemon endpoint from an agent sandbox.
+# A terminal gets a controlling PTY so Ctrl+C reaches the service; automation keeps pipes.
 [group('web')]
 [positional-arguments]
 slopweb-host-run *args:
-    systemd-run --user --pipe --wait --collect python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} "$@"
+    systemd-run --user --pty --pipe --wait --collect python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} "$@"
 
 [group('web')]
 slopweb-format:
