@@ -17,7 +17,13 @@
       ms:numericSamples.reduce((sum,s) => sum+s.ms,0)/numericSamples.length,
       allocatedBytes:numericSamples.reduce((sum,s) => sum+s.allocatedBytes,0)/numericSamples.length,
     } : null;
-    return {...result, reference:mean(false), generated:mean(true), numeric,
+    const directSamples = result.directSamples ?? [];
+    const direct = directSamples.length ? {
+      ms:directSamples.reduce((sum,s) => sum+s.ms,0)/directSamples.length,
+      allocatedBytes:directSamples.reduce((sum,s) => sum+s.allocatedBytes,0)/directSamples.length,
+    } : null;
+    return {...result, reference:mean(false), generated:mean(true), numeric, direct,
+      generatedToDirectRatio:direct ? mean(true).ms / direct.ms : null,
       numericToPackedRatio:numeric ? numeric.ms / mean(true).ms : null};
   }
   throw new Error('Serialization benchmark has not completed; inspect the live runtime');

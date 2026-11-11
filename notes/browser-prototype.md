@@ -148,6 +148,9 @@ Credentials, daemon configuration, commands and `hostHome` never enter this snap
 it does not write the host profile. Explicit diagnostic workspaces stay ephemeral;
 `localPreferences=off` also disables the app snapshot for reference comparisons.
 Prepared font assets still belong to the host and are not rebaked by local changes.
+`browser-host-preferences-check` uses F9 in a retained diagnostic browser, waits for
+the native debounced save, reloads, checks restored native state, and restores the
+original layout. It does not send terminal text or change the host profile.
 Any requested initial
 session is resolved before opening a terminal, so startup does not temporarily
 attach or resize an unrelated session. With no explicit session, an authoritative
