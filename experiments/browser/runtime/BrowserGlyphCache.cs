@@ -10,4 +10,8 @@ public partial class Probe
     [JSExport]
     public static bool WorkspaceCellFastPath(bool enabled) =>
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureCellFastPath", enabled)!;
+
+    [JSExport]
+    public static bool WorkspaceColorFastPath(bool enabled) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureColorFastPath", enabled)!;
 }

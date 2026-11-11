@@ -67,6 +67,14 @@ layout path; terminal columns, sprites and input remain mod-owned.
 compares actual serialized draw packets and uploaded RGBA bytes across both paths;
 `benchmark-glyphs` includes thousands of single-cell labels with stable and moving
 positions. This CPU evidence does not establish browser frame-time or screenshot parity.
+
+`WorkspaceColorFastPath` separately exposes the default-off adapter color-conversion
+experiment. It preserves byte-quantized channels across fills, textures and text;
+NaN retains the runtime's reference byte conversion. `NativeTextTests` checks
+bit-exact reference output and real packets across both modes. Its
+`benchmark-colors` recipe measures conversion and actual glyph emission on the
+native CPU; browser Jiterpreter and workload comparisons own the default decision.
+
 Covered axis-aligned text uses the installed renderer's glyph-quad clipping rules,
 including ascender overhang and first-line bottom clipping. It does not add a Canvas
 clip scope per label. BrowserCommandState suppresses unchanged serialized transforms
