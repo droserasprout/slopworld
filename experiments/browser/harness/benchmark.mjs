@@ -15,6 +15,8 @@ if(!['keep','on','off'].includes(packetCache))throw new Error('Packet cache must
 if(!['keep','on','off'].includes(canvasReuse))throw new Error('Canvas reuse must be keep, on or off');
 if(!['on','off'].includes(quadCache))throw new Error('Quad cache must be on or off');
 const phases=phaseList.split(',');
+const stageProfile=process.env.PROBE_STAGE_PROFILE!=='0';
+if(!stageProfile && phases.includes('cyrillic'))throw Error('Cyrillic coverage checks require stage profiling');
 const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
   throw new Error('Comparison must be glyph, input, cell, tint, command or clip with four identical workload phases');
@@ -103,6 +105,7 @@ try {
   const command="python3 -u '"+fixturePath.replaceAll("'", "'\\''")+"'";
   report.fixture=await evaluate(`window.__benchmark.prepare(${JSON.stringify(command)})`);
   report.configuration.comparison=comparison;
+  report.configuration.stageProfile=stageProfile;
   if(comparisonExport)previousComparison=await evaluate(`${comparisonCall}(true)`);
   if(comparison==='tint')previousTintProfile=await evaluate('(async()=> (await import("/gui.js")).configureGuiTintProfile(true))()');
   console.log('Benchmark fixtures ready');
@@ -117,7 +120,7 @@ try {
     const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const processBefore=await processCpu.sample();
     const before=metrics(await call('Performance.getMetrics'));
-    const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)})`);
+    const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)},{stageProfile:${stageProfile}})`);
     const after=metrics(await call('Performance.getMetrics'));
     const processAfter=await processCpu.sample();
     const jiterpreterAfter=await evaluate(`(${jiterpreterSnapshot.toString()})()`);

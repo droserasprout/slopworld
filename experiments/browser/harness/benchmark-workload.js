@@ -156,7 +156,8 @@
       await output('BENCH_READY_'+marker);
       await pause(1500);
     },
-    async run(phase) {
+    async run(phase, {stageProfile=true}={}) {
+      if(phase==='cyrillic' && !stageProfile)throw new Error('Cyrillic coverage checks require stage profiling');
       const wireTimings=[],listeners=new Map(),originalSend=WebSocket.prototype.send;
       let pendingWire=null;
       const bytes=value=>value instanceof ArrayBuffer?new Uint8Array(value)
@@ -189,7 +190,7 @@
         send('keys '+runId);
         await output('KEYS_READY_'+runId);
       }
-      window.__workspace.setProfiling(true);
+      window.__workspace.setProfiling(stageProfile);
       let running = true, last;
       const intervals = [], drawIntervals = [], scrollTrace = [];
       let lastDraw, lastFrame;
@@ -254,8 +255,8 @@
           throw new Error('Cyrillic terminal output must repaint with native baked glyphs, without fallback text');
         if (game.hasGame || game.hasWorld || game.maps !== null || game.ticks !== 0)
           throw new Error('Benchmark created a colony');
-        return {phase, durationMs:performance.now()-started, intervals, drawIntervals, latencyMs:[...samples],
-          stages:[...window.__workspaceProfile], game, scrollTrace, wireTimings, terminalCache:state().terminalCache};
+        return {phase, stageProfile, durationMs:performance.now()-started, intervals, drawIntervals, latencyMs:[...samples],
+          stages:[...(window.__workspaceProfile??[])], game, scrollTrace, wireTimings, terminalCache:state().terminalCache};
       } finally {
         if(typing)WebSocket.prototype.send=originalSend;
         for(const [socket,listener] of listeners)socket.removeEventListener('message',listener);
