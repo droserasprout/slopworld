@@ -31,6 +31,7 @@ COMPONENTS = {
     'slopd': 'Native agent daemon (requires slopctl)',
     'slopctl': 'Command-line client',
     'slopcar': 'Docker sidecar launcher',
+    'slopweb': 'Browser workspace (requires a local RimWorld installation)',
 }
 MANAGERS = {'debian': 'apt', 'fedora': 'dnf', 'arch': 'pacman'}
 

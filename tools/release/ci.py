@@ -67,6 +67,7 @@ def asset_names(version: str) -> list[str]:
             for suffix in ('x86_64.pkg.tar.zst', 'amd64.deb', 'x86_64.rpm')
             for product in staging.NATIVE_PRODUCTS
         ),
+        *(f'slopweb-{version}-{suffix}' for suffix in ('x86_64.pkg.tar.zst', 'amd64.deb', 'x86_64.rpm')),
         *(name for architecture in sidecar.ARCHITECTURES for name in sidecar.asset_names(version, architecture)),
         'install.py',
         'SHA256SUMS',
@@ -117,6 +118,7 @@ def build(output: Path, release: gates.Release) -> None:
         ('generate-check-protocol', 'generate-licenses', 'generate-check-licenses', 'docs-build'),
         ('daemon-build',),
         ('mod-build', 'rimref'),
+        ('slopweb-build',),
     ):
         run([*just, *recipes])
         validate(release)

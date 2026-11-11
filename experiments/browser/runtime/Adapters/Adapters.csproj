@@ -4,21 +4,22 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <Import Project="../GameReferences.props" />
   <ItemGroup>
     <Reference Include="UnityStubs">
-      <HintPath>$(GameDirectory)/UnityStubs.dll</HintPath>
+      <HintPath>$(GameReferencePath)/UnityStubs.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(GameDirectory)/Assembly-CSharp.dll</HintPath>
+      <HintPath>$(GameReferencePath)/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Brutal.Core.Logging;Microsoft.Extensions.Logging;Microsoft.Extensions.Logging.Abstractions">
-      <HintPath>$(GameDirectory)/%(Identity).dll</HintPath>
+      <HintPath>$(GameReferencePath)/%(Identity).dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Waylith">
-      <HintPath>$(GameDirectory)/Waylith.dll</HintPath>
+      <HintPath>$(GameReferencePath)/Waylith.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

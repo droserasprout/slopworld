@@ -1,9 +1,12 @@
 # Build redistributable slopweb tooling; proprietary runtime stays in local output.
 [group('web')]
-slopweb-build: browser-eco-build
-    just --justfile experiments/browser/runtime/justfile workspace-dependencies
-    just --justfile experiments/browser/runtime/justfile font-probe-build
+slopweb-build: (mod-build 'rimref')
+    just --justfile experiments/browser/runtime/justfile build
+    dotnet build experiments/browser/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
+    dotnet build experiments/browser/runtime/FontProbe/FontProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
     just --justfile experiments/browser/runtime/justfile background-probe-build
+    dotnet build experiments/browser/runtime/Scanner/Scanner.csproj --nologo -v quiet -p:RestoreLockedMode=true
+    dotnet build experiments/browser/compat/Offline/Offline.csproj --nologo -v quiet -p:RestoreLockedMode=true
     just slopweb-stage
 
 # Stage already-built redistributable tools without replacing private game roots.

@@ -13,6 +13,8 @@ from unittest.mock import patch
 import pytest
 
 from tools.release import changelog
+from tools.release import ci
+from tools.release import container
 from tools.release import gates
 from tools.release import publish
 from tools.release import sidecar
@@ -32,6 +34,15 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     installer.parent.mkdir(parents=True)
     shutil.copyfile(Path(__file__).parents[1] / 'host/release_installer.py', installer)
     monkeypatch.setattr(sidecar, 'build', fake_sidecar)
+
+    def fake_web(distribution: str, directory: Path, revision: str, version: str, *, product: str) -> Path:
+        assert product == 'slopweb'
+        name = container.archive_names(distribution, version, product, 'amd64')[1]
+        path = directory / name
+        path.write_bytes(b'browser package')
+        return path
+
+    monkeypatch.setattr(container, 'package', fake_web)
     monkeypatch.setattr(publish, 'ROOT', root)
     monkeypatch.setattr(staging, 'ROOT', root)
     shutil.copytree(Path(__file__).parents[2] / 'packaging/completions', root / 'packaging/completions')
@@ -273,16 +284,18 @@ def test_native_packages_are_included_in_checksums_and_outputs(inputs: Path, tmp
         for product in staging.NATIVE_PRODUCTS
     ]
     assert names[-2:] == ['install.py', 'SHA256SUMS']
+    assert [*names, 'release-notes.md'] == ci.asset_names('1.0.0')
     assert (output / 'install.py').read_bytes() == (inputs / 'tools/host/release_installer.py').read_bytes()
-    assert len(assets[-1].read_text().splitlines()) == 16
+    assert len(assets[-1].read_text().splitlines()) == 19
     for line in assets[-1].read_text().splitlines():
         digest, name = line.split('  ')
         assert digest == hashlib.sha256((output / name).read_bytes()).hexdigest()
 
 
 @pytest.mark.parametrize('failed_package', ['arch', 'debian', 'fedora'])
+@pytest.mark.parametrize('failed_product', ['native', 'slopweb'])
 def test_native_package_failure_preserves_entire_previous_release(
-    inputs: Path, tmp_path: Path, failed_package: str
+    inputs: Path, tmp_path: Path, failed_package: str, failed_product: str
 ) -> None:
     output = tmp_path / 'release'
 
@@ -297,12 +310,18 @@ def test_native_package_failure_preserves_entire_previous_release(
     failing = False
 
     def container_package(distribution: str, directory: Path, *args: object) -> list[Path]:
-        if failing and distribution == failed_package:
+        if failing and failed_product == 'native' and distribution == failed_package:
             raise ValueError('native build failed')
         return [native(distribution + f'-{product}.archive')(directory) for product in staging.NATIVE_PRODUCTS]
 
+    def web_package(distribution: str, directory: Path, *args: object, **kwargs: object) -> Path:
+        if failing and failed_product == 'slopweb' and distribution == failed_package:
+            raise ValueError('native build failed')
+        return native(distribution + '-slopweb.archive')(directory)
+
     with (
         patch('tools.release.container.package_native', side_effect=container_package),
+        patch('tools.release.container.package', side_effect=web_package),
     ):
         assets = publish.package(output, 'revision', '1.0.0', notes='Previous notes\n', native_packages=True)
         previous = {path.name: path.read_bytes() for path in (*assets, output / 'release-notes.md')}

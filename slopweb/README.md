@@ -75,6 +75,10 @@ assembly identities by name; the `skipLogger` alternate DLL option is disabled.
 
 ## Packages
 
+`just slopweb-build` builds without an installed game, using pinned RimRef
+assemblies for compilation. These references never enter the package. RimWorld
+is required only when the installed launcher prepares and runs the workspace.
+
 ```sh
 just package-web arch
 just package-web debian
@@ -139,3 +143,13 @@ Repeated page-network interruption and terminal recovery have browser checks;
 daemon restart, run replacement, and the full agent launch/edit dialog have not
 been exhaustively validated. See the checkout's
 `experiments/browser/README.md` for focused checks and implementation boundaries.
+
+The standalone release installer also offers `slopweb` on x86-64 Linux:
+
+```sh
+python3 install.py --install slopweb
+python3 install.py --remove slopweb
+```
+
+Installation requires a published release containing the matching `slopweb` package
+and checksum. For locally built preview packages, use the distribution package manager.

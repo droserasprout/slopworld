@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
@@ -102,9 +103,10 @@ def build(destination: Path = OUTPUT) -> None:
         for name in ('SlopWorld', '0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn'):
             copy_file(ROOT / 'mod/Assemblies' / f'{name}.dll', bundle / 'mod' / f'{name}.dll')
         # Content.zip contains exclusively authored mod UI assets, never Core/game assets.
-        content = runtime / 'out/wwwroot-eco/mod/Content.zip'
+        content = bundle / 'mod/Content.zip'
+        content.parent.mkdir(parents=True, exist_ok=True)
+        run([sys.executable, str(runtime / 'mod_pack.py'), str(ROOT / 'mod'), str(content)])
         validate_content(content, tracked_mod_files())
-        copy_file(content, bundle / 'mod/Content.zip')
         # Only authored SlopWorld music is shipped; game audio stays in private runtime data.
         for name in sorted(tracked_mod_files()):
             if Path(name).parent == Path('Sounds/SlopWorld/OST') and Path(name).suffix == '.ogg':

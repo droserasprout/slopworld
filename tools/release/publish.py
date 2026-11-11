@@ -55,6 +55,8 @@ def package(
         if native_packages:
             for distribution in ('arch', 'debian', 'fedora'):
                 names.extend(path.name for path in container.package_native(distribution, workspace, revision, version))
+            for distribution in ('arch', 'debian', 'fedora'):
+                names.append(container.package(distribution, workspace, revision, version, product='slopweb').name)
             for architecture in sidecar.ARCHITECTURES:
                 if sidecar_directory is None:
                     sidecar.build(workspace, revision, version, architecture)

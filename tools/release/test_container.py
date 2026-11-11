@@ -1,5 +1,6 @@
 """Protect artifact handoff from container failures and stale output."""
 
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -109,3 +110,27 @@ def test_container_trusts_only_mounted_checkout_and_mounts_external_git_metadata
     assert (f'{common}:{common}:ro' in invocation) == linked_worktree
     assert archive.name == published
     assert archive.read_bytes() == b'fixture archive'
+
+
+@pytest.mark.parametrize('distribution', ['arch', 'debian', 'fedora'])
+def test_browser_container_consumes_prebuilt_bundle_from_read_only_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, distribution: str
+) -> None:
+    root = tmp_path / 'checkout with spaces'
+    calls: list[list[str]] = []
+
+    def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(arguments)
+        return subprocess.CompletedProcess(arguments, 0, '.git\n')
+
+    monkeypatch.setattr(container, 'run', run)
+    monkeypatch.setenv('CONTAINER', 'docker')
+    container.compile_package(root, distribution, tmp_path / 'output', 'revision', '1.0.0', product='slopweb')
+    invocation = calls[-1]
+    assert f'{root}:{root}:ro' in invocation
+    script = invocation[invocation.index('-euc') + 1]
+    assert 'cargo build' not in script
+    package = shlex.split(script.split('; ')[-1])
+    assert package[package.index('--binary-dir') + 1] == str(root / 'slopweb/out')
+    assert package[package.index('--product') + 1] == 'slopweb'
+    assert '--stage-only' in package

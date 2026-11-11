@@ -261,7 +261,10 @@ def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_fil
     assert not list(cache.glob('.prepare-*'))
 
 
-def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('private_runtime', [False, True])
+def test_distributable_build_never_reads_staged_game_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, private_runtime: bool
+) -> None:
     root = tmp_path / 'source'
     runtime = root / 'experiments/browser/runtime'
     inputs = [
@@ -283,7 +286,6 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         'experiments/browser/runtime/wwwroot/index.html',
         'experiments/browser/runtime/Scanner/bin/Debug/net10.0/Scanner.dll',
         'experiments/browser/compat/Offline/bin/Debug/net10.0/Offline.dll',
-        'experiments/browser/runtime/out/wwwroot-eco/mod/Content.zip',
         'mod/Textures/SlopWorld/LoadingFont.png',
         'mod/Sounds/SlopWorld/OST/pace-20261012.ogg',
         'shared/loading-tips.txt',
@@ -302,10 +304,21 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         (runtime / name).write_text('authored C# fixture')
     for name in ('unlisted.cs', 'packages.lock.json', 'private.dll'):
         (runtime / name).write_text('must never ship')
-    with zipfile.ZipFile(runtime / 'out/wwwroot-eco/mod/Content.zip', 'w') as content:
-        content.writestr('Textures/face.rgba', b'authored UI pixels')
+    shutil.copyfile(ROOT / 'experiments/browser/runtime/mod_pack.py', runtime / 'mod_pack.py')
+    shutil.copyfile(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', root / 'mod/Textures/SlopWorld/LoadingFont.png')
+    (root / 'mod/Defs').mkdir()
+    for name in ('KeyBindings.xml', 'PlannerBench.xml', 'Jukebox.xml'):
+        (root / 'mod/Defs' / name).write_text('<Defs/>')
     monkeypatch.setattr(
-        slopweb, 'tracked_mod_files', lambda: {'Textures/face.png', 'Sounds/SlopWorld/OST/pace-20261012.ogg'}
+        slopweb,
+        'tracked_mod_files',
+        lambda: {
+            'Textures/SlopWorld/LoadingFont.png',
+            'Defs/KeyBindings.xml',
+            'Defs/PlannerBench.xml',
+            'Defs/Jukebox.xml',
+            'Sounds/SlopWorld/OST/pace-20261012.ogg',
+        },
     )
     (root / 'mod/Sounds/SlopWorld/OST/private.ogg').write_text('must never ship')
     package = tmp_path / 'nuget/microsoft.netcore.app.runtime.mono.browser-wasm/10.0.14'
@@ -333,11 +346,15 @@ def test_distributable_build_never_reads_staged_game_root(tmp_path: Path, monkey
         )
     )
     for name in (
-        'game/RimWorld.dll',
-        'assets/Core.zip',
-        'assets/Assets.zip',
-        'assets/portraits/private.rgba',
-        'credentials.toml',
+        (
+            'game/RimWorld.dll',
+            'assets/Core.zip',
+            'assets/Assets.zip',
+            'assets/portraits/private.rgba',
+            'credentials.toml',
+        )
+        if private_runtime
+        else ()
     ):
         path = runtime / 'out/wwwroot-eco' / name
         path.parent.mkdir(parents=True, exist_ok=True)

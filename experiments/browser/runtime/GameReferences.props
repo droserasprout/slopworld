@@ -1,0 +1,15 @@
+<Project>
+  <!-- Compile against pinned references for packages; installed-game probes opt in
+       through GameDirectory. Neither mode copies game assemblies to output. -->
+  <PropertyGroup>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="[1.7.5000-unstable]"
+                      GeneratePathProperty="true" ExcludeAssets="all" PrivateAssets="all" />
+  </ItemGroup>
+  <PropertyGroup>
+    <GameReferencePath>$(GameDirectory)</GameReferencePath>
+    <GameReferencePath Condition="'$(GameDirectory)' == ''">$(PkgKrafs_Rimworld_Ref)/ref/net10.0</GameReferencePath>
+  </PropertyGroup>
+</Project>
