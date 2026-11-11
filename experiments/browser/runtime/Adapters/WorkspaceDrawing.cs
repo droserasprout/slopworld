@@ -23,6 +23,8 @@ public static class WorkspaceDrawing
         const BindingFlags fields =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         var rows = (IEnumerable)layout.GetType().GetField("Rows", fields)!.GetValue(layout)!;
+        var offset = (Vector2)sidebar.GetProperty("AgentContentOffset")!.GetValue(null)!;
+        var body = (Rect)sidebar.GetProperty("Body")!.GetValue(null)!;
         return JsonSerializer.Serialize(
             rows.Cast<object>()
                 .Select(row =>
@@ -30,6 +32,12 @@ public static class WorkspaceDrawing
                     var type = row.GetType();
                     var line = (Rect)type.GetField("Line", fields)!.GetValue(row)!;
                     var text = (Rect)type.GetField("Text", fields)!.GetValue(row)!;
+                    // Native rows remain content-local between passes. Use the
+                    // sidebar's own scroll offset, then clip to its visible body.
+                    float x = Math.Max(body.xMin, line.xMin + offset.x);
+                    float y = Math.Max(body.yMin, line.yMin + offset.y);
+                    float width = Math.Max(0, Math.Min(body.xMax, line.xMax + offset.x) - x);
+                    float height = Math.Max(0, Math.Min(body.yMax, line.yMax + offset.y) - y);
                     return new
                     {
                         session = type.GetField("Session", fields)!.GetValue(row),
@@ -37,6 +45,7 @@ public static class WorkspaceDrawing
                         hasPawn = type.GetField("Pawn", fields)!.GetValue(row) != null,
                         rowHeight = line.height,
                         textHeight = text.height,
+                        rect = new[] { x, y, width, height },
                     };
                 })
         );

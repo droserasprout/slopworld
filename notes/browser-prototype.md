@@ -89,6 +89,10 @@ including an empty repaint. Retention keeps the latest 4096 calls under 262144 U
 units, truncating each text to 4096 units, so later dialogs survive terminal cell
 traffic. Disabling releases retained text. The observations do not establish
 occlusion visibility when a later control paints over an earlier label.
+`WorkspaceSidebarRows()` adds a body-clipped `rect` in native UI coordinates to
+each row's session identity. It applies `Sidebar.AgentContentOffset` to the native
+content-local row; callers apply UI scale before dispatching physical pointer input.
+This avoids treating mutable or duplicate host titles as session identities.
 
 The workspace starts in loaded Entry without creating a game, world, or map.
 `WorkspaceDrawing.RequireEntry` checks that boundary at startup and every update;
