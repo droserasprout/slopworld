@@ -106,6 +106,9 @@ try {
   for (const [index,phase] of phases.entries()) {
     const comparisonEnabled=comparisonExport ? [false,true,true,false][index] : null;
     if(comparisonExport)await evaluate(`window.__managedProbe.${comparisonExport}(${comparisonEnabled})`);
+    // Repeated phases must start with the same screen instead of gradually
+    // replacing the 200-line fixture with shorter echo acknowledgments.
+    if(comparisonExport)await evaluate('window.__benchmark.reset()');
     const processBefore=await processCpu.sample();
     const before=metrics(await call('Performance.getMetrics'));
     const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)})`);
@@ -126,7 +129,7 @@ try {
     console.log(JSON.stringify(summary));
     if (process.env.PROBE_SCREENSHOTS !== '0') {
       const screenshot=await call('Page.captureScreenshot',{format:'png'});
-      await writeFile(output+'.'+phase+'.png',Buffer.from(screenshot.data,'base64'));
+      await writeFile(output+'.'+phase+(comparisonExport?'.'+index:'')+'.png',Buffer.from(screenshot.data,'base64'));
     }
   }
 } catch(error) {

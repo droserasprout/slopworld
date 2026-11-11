@@ -6,11 +6,11 @@ import termios
 import time
 
 
-def paint() -> None:
+def paint(suffix: str = '') -> None:
     print('\x1b[2J\x1b[H', end='')
     for row in range(200):
         print(f'{row:03d} | SlopWorld fixed terminal benchmark | 0123456789 abcdefghijklmnopqrstuvwxyz')
-    print('BENCH_READY', flush=True)
+    print('BENCH_READY' + suffix, flush=True)
 
 
 def main() -> None:
@@ -20,8 +20,8 @@ def main() -> None:
     paint()
     for line in sys.stdin:
         command = line.strip()
-        if command == 'paint':
-            paint()
+        if command == 'paint' or command.startswith('paint '):
+            paint('_' + command[6:] if command.startswith('paint ') else '')
         elif command == 'edges':
             rows = os.get_terminal_size().lines
             print('\x1b[2J\x1b[H', end='')
