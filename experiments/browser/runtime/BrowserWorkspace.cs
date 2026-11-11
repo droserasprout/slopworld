@@ -5,6 +5,16 @@ using System.Text.Json;
 public partial class Probe
 {
     [JSExport]
+    public static bool WorkspaceInputFlushBeforeRepaint(bool enabled) =>
+        (bool)
+            Invoke(
+                "Adapters",
+                "BrowserAdapters.WorkspaceDrawing",
+                "ConfigureInputFlushBeforeRepaint",
+                enabled
+            )!;
+
+    [JSExport]
     public static string WorkspaceNativeTextProbe() =>
         (string)Invoke("Adapters", "BrowserAdapters.BrowserGui", "NativeTextProbe")!;
 
@@ -279,7 +289,6 @@ public partial class Probe
             Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Update");
             var frame = (string)
                 Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Frame", batch)!;
-            Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "FlushTerminalInput");
             // Full ModBootstrap is absent in Entry. Preserve its native dirty-save pump.
             var settings = Type("SlopWorld", "SlopWorld.Settings")
                 .GetProperty("S")!

@@ -388,6 +388,11 @@ prior drawing state. `browser-host-discarded-drawing-check` compares installed-l
 repaint commands with the switch off/on; the benchmark's final argument controls it
 and restores the previous value after fixture cleanup. It is not a demonstrated
 material speedup and remains off.
+The workspace flushes terminal input once after the complete ordered DOM batch,
+before layout, repaint and command serialization, matching native keyboard dispatch.
+`WorkspaceInputFlushBeforeRepaint(false)` restores the post-serialization boundary
+for diagnostic A/B measurements and returns the previous setting; restore it after
+the measurement. Both paths use the native panel flush and transport guards.
 UTF-16 units stay in one batch until the actual terminal input flush. Modifier
 shortcuts use physical keys; ordinary text does not duplicate physical keydown.
 AltGraph printable keys enter the text path with synthetic Ctrl/Alt modifiers

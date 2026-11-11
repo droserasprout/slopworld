@@ -111,7 +111,12 @@ public static class BrowserGuiInput
         return Dispatch(batch, backend, Controls);
     }
 
-    public static string Dispatch(string batch, BrowserGui target, Action draw)
+    public static string Dispatch(
+        string batch,
+        BrowserGui target,
+        Action draw,
+        Action? afterInput = null
+    )
     {
         long started = Profile ? Stopwatch.GetTimestamp() : 0;
         long allocated = Profile ? GC.GetAllocatedBytesForCurrentThread() : 0;
@@ -199,6 +204,9 @@ public static class BrowserGuiInput
             BrowserClipboard.EndEvent();
             target.Discard(); // Input passes change state; only repaint commands are presented.
         }
+        // Match the native keyboard-dispatch boundary: keep all UTF-16 units and
+        // named keys ordered, then send pending input before layout/repaint work.
+        afterInput?.Invoke();
         long inputEnd = Profile ? Stopwatch.GetTimestamp() : 0;
         GUI.matrix = Matrix4x4.identity;
         Event.current = new Event
