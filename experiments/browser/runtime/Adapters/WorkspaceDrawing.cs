@@ -62,6 +62,16 @@ public static class WorkspaceDrawing
 
     static Action? shortcuts;
     static Action? applyLayout;
+    static Action? flushTerminalInput;
+    static bool flushInputBeforeRepaint = true;
+
+    public static bool ConfigureInputFlushBeforeRepaint(bool enabled)
+    {
+        bool previous = flushInputBeforeRepaint;
+        flushInputBeforeRepaint = enabled;
+        return previous;
+    }
+
     static float timeOrigin,
         lastTime;
 
@@ -77,6 +87,9 @@ public static class WorkspaceDrawing
             .CreateDelegate<Action>();
         applyLayout = mod.GetType("SlopWorld.Sidebar")!
             .GetMethod("ApplyPendingLayoutChange", BindingFlags.NonPublic | BindingFlags.Static)!
+            .CreateDelegate<Action>();
+        flushTerminalInput = mod.GetType("SlopWorld.WorkspaceWindow")!
+            .GetMethod("FlushTerminalInput", BindingFlags.NonPublic | BindingFlags.Static)!
             .CreateDelegate<Action>();
         timeOrigin = lastTime = Time.unscaledTime;
         // Steam is explicitly unavailable in this browser host. A hidden desktop
@@ -188,8 +201,9 @@ public static class WorkspaceDrawing
             );
     }
 
-    public static string Frame(string batch) =>
-        BrowserGuiInput.Dispatch(
+    public static string Frame(string batch)
+    {
+        var frame = BrowserGuiInput.Dispatch(
             batch,
             (BrowserGui)GuiBackend.Current,
             () =>
@@ -205,8 +219,15 @@ public static class WorkspaceDrawing
                 // The Entry workspace owns the foreground. Draw native rejection
                 // messages after deferred windows so their backgrounds cannot cover them.
                 Messages.MessagesDoGUI();
-            }
+            },
+            flushInputBeforeRepaint ? flushTerminalInput : null
         );
+        // Diagnostic baseline for real-browser A/B measurements. Use exactly one
+        // boundary; flushing per event would split supplementary characters.
+        if (!flushInputBeforeRepaint)
+            flushTerminalInput?.Invoke();
+        return frame;
+    }
 
     public static string Repaint(object owner)
     {

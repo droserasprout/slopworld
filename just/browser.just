@@ -33,6 +33,10 @@ browser-host-canvas-reuse-check:
     systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}} reuse
 
 [group('browser prototype')]
+browser-test-input:
+    dotnet run --project experiments/browser/runtime/InputTests/InputTests.csproj
+
+[group('browser prototype')]
 browser-test-commands:
     dotnet run --project experiments/browser/runtime/CommandTests/CommandTests.csproj
 
