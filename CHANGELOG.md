@@ -429,7 +429,7 @@ Initial release 🐈
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.1.0'...HEAD
+[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/droserasprout/slopworld/compare/v0.0.14...v0.1.0
 [0.0.14]: https://github.com/droserasprout/slopworld/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/droserasprout/slopworld/compare/v0.0.12...v0.0.13
