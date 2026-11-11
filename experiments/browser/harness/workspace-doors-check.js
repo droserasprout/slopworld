@@ -21,17 +21,22 @@
     }
   };
   try{
-    await wait();await click('core');
+    await wait();
+    if(labels().some(text=>text==='Hint'||text.startsWith('OST unavailable')))await key();
+    await click('core');
     const core=labels();
     for(const label of ['Hint','Advice','Keyboard shortcuts','New looks (requires colony)','Next planet (requires colony)'])
       if(!core.includes(label))throw new Error('Missing native Core menu label: '+label);
     await key();await click('jukebox');
     const jukebox=labels();
-    for(const label of ['OST unavailable in this client','Settings'])
-      if(!jukebox.includes(label))throw new Error('Missing native Jukebox menu label: '+label);
+    for(const label of ['OST unavailable','Settings'])
+      if(!jukebox.some(text=>text.startsWith(label)))throw new Error('Missing native Jukebox menu label: '+label+'; rendered: '+JSON.stringify(jukebox));
     await key();
     const final=state();
     if(final.game.hasGame)throw new Error('Door created a colony');
     return {core,jukebox,doors:final.doors,game:final.game,playbackTested:false};
-  }finally{managed.WorkspaceObserveLabels(previous);}
+  }finally{
+    if(labels().some(text=>text==='Hint'||text.startsWith('OST unavailable')))await key();
+    managed.WorkspaceObserveLabels(previous);
+  }
 })()

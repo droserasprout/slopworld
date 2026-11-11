@@ -56,3 +56,15 @@ test('teardown ignores delayed fullscreen completions and detaches native reques
   f.change(true); complete(); await Promise.resolve(); f.request(true);
   assert.deepEqual(f.states,[false]);
 });
+
+test('delivered Escape exits only this workspace fullscreen and is consumed', () => {
+  const f=fixture();
+  const escape=()=>{const event=new Event('keydown',{cancelable:true});event.key='Escape';f.doc.dispatchEvent(event);return event;};
+  assert.equal(escape().defaultPrevented,false);
+  f.change(true);
+  assert.equal(escape().defaultPrevented,true);
+  assert.equal(f.exits(),1);
+  f.controller.dispose();
+  assert.equal(escape().defaultPrevented,false);
+  assert.equal(f.exits(),1);
+});

@@ -60,6 +60,8 @@ try {
   await key();await waitState(true);
   await key();await waitState(false);
   await key();await waitState(true);
+  await key('Escape','Escape',27);await waitState(false);
+  await key();await waitState(true);
   // Browser-owned exit uses the same fullscreenchange path as Escape/browser chrome.
   await evaluate('document.exitFullscreen()');await waitState(false);
   const baseline=await evaluate('frames');
@@ -68,7 +70,7 @@ try {
   await evaluate("bound='G'");
   await key('g','KeyG',71);await waitState(true);
   await key('g','KeyG',71);await waitState(false);
-  console.log(JSON.stringify({trustedKeyEnter:true,trustedKeyExit:true,browserExit:true,ordinaryTextBatched:true,printableRebind:true,states:await evaluate('states')}));
+  console.log(JSON.stringify({trustedKeyEnter:true,trustedKeyExit:true,escapeExit:true,browserExit:true,ordinaryTextBatched:true,printableRebind:true,states:await evaluate('states')}));
 } finally {
   for(const entry of pending.values())clearTimeout(entry.timer);
   socket?.close();chrome?.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));

@@ -44,10 +44,8 @@ try {
   await key('g','KeyG',71);await fullscreen(false);
   await key('g','KeyG',71);await fullscreen(true);
   await key('Escape','Escape',27);
-  // Headless Chromium may reserve Escape differently; verify the actual browser
-  // exit event separately instead of treating a synthetic DOM event as trusted.
   const escapeExited=await evaluate('!document.fullscreenElement');
-  if(!escapeExited)await evaluate('document.exitFullscreen()');
+  assert.equal(escapeExited,true,'Escape did not leave workspace fullscreen');
   await fullscreen(false);
   const state=await evaluate('JSON.parse(window.__managedProbe.WorkspaceState())');
   assert.equal(state.game.hasGame,false);assert.equal(state.game.hasWorld,false);
