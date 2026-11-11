@@ -13,6 +13,7 @@
     <Compile Include="../Adapters/BrowserTextCache.cs" Link="BrowserTextCache.cs" />
     <Compile Include="../Adapters/BrowserGui.Commands.cs" Link="BrowserGui.Commands.cs" />
     <Compile Include="../Adapters/BrowserGlyphQuad.cs" Link="BrowserGlyphQuad.cs" />
+    <Compile Include="../Adapters/BrowserGlyphRun.cs" Link="BrowserGlyphRun.cs" />
     <Compile Include="../Adapters/BrowserCommandState.cs" Link="BrowserCommandState.cs" />
     <Compile Include="../Adapters/BrowserGui.Batching.cs" Link="BrowserGui.Batching.cs" />
   </ItemGroup>

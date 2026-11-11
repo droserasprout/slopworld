@@ -8,7 +8,11 @@ AssemblyLoadContext.Default.Resolving += (_, name) =>
     File.Exists(Path.Combine(game, name.Name + ".dll"))
         ? AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(game, name.Name + ".dll"))
         : null;
-Assembly.LoadFrom(args.Length > 1 ? Path.GetFullPath(args[1]) : Path.Combine(game, "RimWorld.dll"));
+Assembly.LoadFrom(
+    args.Length > 1 && args[1] != "--glyph-benchmark"
+        ? Path.GetFullPath(args[1])
+        : Path.Combine(game, "RimWorld.dll")
+);
 string[] plain = ["plain text", "a < b", "<", "<unknown>name</unknown>", "List<T>", "<<unfinished"];
 string[] markup =
 [
@@ -30,5 +34,7 @@ foreach (string text in markup)
 Console.WriteLine(
     $"Installed parser preserved {plain.Length} literal and {markup.Length} markup cases."
 );
-if (args.Length > 1)
+if (args.Length > 1 && args[1] != "--glyph-benchmark")
     LayoutChecks.Run();
+
+GlyphChecks.Run(args.Contains("--glyph-benchmark"));

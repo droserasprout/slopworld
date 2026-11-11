@@ -7,6 +7,16 @@ namespace BrowserAdapters;
 
 public sealed partial class BrowserGui
 {
+    static bool glyphCacheEnabled = true;
+
+    // Diagnostic comparison switch; disabling retains the original emission path.
+    public static bool ConfigureGlyphCache(bool enabled)
+    {
+        bool previous = glyphCacheEnabled;
+        glyphCacheEnabled = enabled;
+        return previous;
+    }
+
     bool BakedCaret(
         int index,
         float size,
@@ -152,6 +162,63 @@ public sealed partial class BrowserGui
     )
     {
         int textureId = face.Texture.GetInstanceID();
+        // Short runs retain direct emission instead of paying a full context lookup.
+        var drawing =
+            glyphCacheEnabled && line.Glyphs.Length >= 8
+                ? line.Drawing ??= new BrowserGlyphRun()
+                : null;
+        if (drawing != null)
+        {
+            bool hasClip = drawingClips.TryPeek(out var drawingClip);
+            // Include the full transform/offset used by OutsideDrawingClip, not
+            // just the ideal device quad: its round-trip arithmetic is observable
+            // at clip edges. Fine text clipping has a separate bottom-only rule.
+            ReadOnlySpan<float> key = stackalloc float[]
+            {
+                penX,
+                penY,
+                scale,
+                origin.x,
+                origin.y,
+                fineClip ? 1 : 0,
+                screenClip.xMin,
+                screenClip.xMax,
+                clipBottom,
+                hasClip ? 1 : 0,
+                drawingClip.x,
+                drawingClip.y,
+                drawingClip.width,
+                drawingClip.height,
+                offset.x,
+                offset.y,
+                matrix.m00,
+                matrix.m01,
+                matrix.m02,
+                matrix.m03,
+                matrix.m10,
+                matrix.m11,
+                matrix.m12,
+                matrix.m13,
+                matrix.m20,
+                matrix.m21,
+                matrix.m22,
+                matrix.m23,
+                matrix.m30,
+                matrix.m31,
+                matrix.m32,
+                matrix.m33,
+            };
+            if (drawing.Matches(key))
+            {
+                if (BrowserGuiInput.Profile)
+                    for (int i = 0; i < drawing.TraceCount; i++)
+                        TraceTextureDraw();
+                EmitGlyphRun(drawing, face, textureId, color, ref uploaded);
+                return;
+            }
+            drawing.Begin(key);
+        }
+        Span<float> values = stackalloc float[8];
         foreach (var glyph in line.Glyphs)
         {
             if (glyph.visible)
@@ -177,6 +244,8 @@ public sealed partial class BrowserGui
                         (quad.Bottom - quad.Top) / scale
                     );
                     TraceTextureDraw();
+                    if (drawing != null)
+                        drawing.TraceCount++;
                     if (!OutsideDrawingClip(destination))
                     {
                         if (!uploaded)
@@ -184,29 +253,62 @@ public sealed partial class BrowserGui
                             UploadImage(face.Texture);
                             uploaded = true;
                         }
-                        AppendImageBatch(
-                            commands,
-                            textureId,
-                            ColorChannel(color.r),
-                            ColorChannel(color.g),
-                            ColorChannel(color.b),
-                            ColorChannel(color.a),
-                            [
-                                destination.x,
-                                destination.y,
-                                destination.width,
-                                destination.height,
-                                quad.U0,
-                                1 - quad.V1,
-                                quad.U1 - quad.U0,
-                                quad.V1 - quad.V0,
-                            ]
-                        );
+                        values[0] = destination.x;
+                        values[1] = destination.y;
+                        values[2] = destination.width;
+                        values[3] = destination.height;
+                        values[4] = quad.U0;
+                        values[5] = 1 - quad.V1;
+                        values[6] = quad.U1 - quad.U0;
+                        values[7] = quad.V1 - quad.V0;
+                        if (drawing != null)
+                            drawing.Add(values);
+                        else
+                            AppendImageBatch(
+                                commands,
+                                textureId,
+                                ColorChannel(color.r),
+                                ColorChannel(color.g),
+                                ColorChannel(color.b),
+                                ColorChannel(color.a),
+                                values
+                            );
                     }
                 }
             }
             penX += Snap(glyph.advanceX * scale);
         }
+        if (drawing != null)
+        {
+            drawing.Complete();
+            EmitGlyphRun(drawing, face, textureId, color, ref uploaded);
+        }
+    }
+
+    void EmitGlyphRun(
+        BrowserGlyphRun drawing,
+        BrowserFontBank.Face face,
+        int textureId,
+        Color color,
+        ref bool uploaded
+    )
+    {
+        if (drawing.Quads.IsEmpty)
+            return;
+        if (!uploaded)
+        {
+            UploadImage(face.Texture);
+            uploaded = true;
+        }
+        AppendImageBatch(
+            commands,
+            textureId,
+            ColorChannel(color.r),
+            ColorChannel(color.g),
+            ColorChannel(color.b),
+            ColorChannel(color.a),
+            drawing.Quads
+        );
     }
 
     static float Snap(float value) => MathF.Floor(value + .5f);

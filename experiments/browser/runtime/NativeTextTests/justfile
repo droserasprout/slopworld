@@ -6,3 +6,13 @@ layout root=(justfile_directory() / '../out/wwwroot-eco'):
     just --justfile ../justfile refresh-adapters {{quote(root)}}
     just --justfile ../../compat/justfile text-layout {{quote(root)}}
     dotnet run --project NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} {{quote(root / 'game/RimWorld.dll')}}
+
+# CPU-only real glyph emission; no engine, browser, font rasterizer or staging.
+benchmark-glyphs:
+    DOTNET_TieredCompilation=0 dotnet run --project NativeTextTests.csproj -c Release -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --glyph-benchmark
+
+format:
+    dotnet tool run csharpier format . ../BrowserGlyphCache.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
+
+lint:
+    dotnet tool run csharpier check . ../BrowserGlyphCache.cs ../Adapters/BrowserGui.Fonts.cs ../Adapters/BrowserGui.Batching.cs ../Adapters/BrowserGlyphRun.cs ../Adapters/BrowserTextCache.cs
