@@ -27,10 +27,13 @@ before comparing browsers. The runner compensates for window decoration to reque
 the same inner viewport as Chromium; use reported dimensions as the authority.
 
 The final optional `comparison` argument accepts `input`, `glyph`, `tail`, `cell`, `tint`,
-`command`, `clip` or `solid` with four identical phases. It runs off/on/on/off against the
+`command`, `clip`, `solid` or `discard` with four identical phases. It runs off/on/on/off against the
 same fixtures, resets their screen before each phase, and restores the prior
 switch values on cleanup. Tint comparisons also report cache misses and pixel
 counts; screenshots include phase indices so repeated phases do not overwrite.
+The `discard` comparison suppresses drawing preparation in unpresented input/Layout
+passes while preserving dispatch and the presented Repaint; it restores the prior
+setting after the comparison and does not change the runtime default.
 
 Both host benchmark recipes accept a `stage_profile` argument (default `1`).
 Use `0` to measure latency without per-frame managed and Canvas profiling. Reports
