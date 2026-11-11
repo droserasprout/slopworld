@@ -559,6 +559,15 @@ than copying an atlas per glyph. Discarded input/layout uploads must also discar
 their managed cache entries. Weak ownership and release commands retire native
 resources. Pixel conversion reverses Unity's bottom-up rows using bulk copies.
 Every frame's commands must reach Canvas, including initial uploads later frames use.
+`gui.js` owns an off-by-default selective target replay experiment through
+`configureGuiTargetDamage`. Its bounded snapshots certify opaque resets and exact
+ordered immutable-image row groups under positive axis-aligned transforms. Only
+integer interiors qualify; fractional fringe and changed or unsupported regions
+retain replay, including reset and intersecting draws in their original order.
+Resource, target, display, context and rendering-setting changes invalidate reuse.
+Native terminal cache policy and packet production are unchanged. Node planner
+tests protect the certificate and invalidation; they do not establish real Canvas
+pixel parity or a workload speedup.
 Immutable uploaded images retain one Canvas readback for tint variants, preserving
 Canvas alpha quantization. Tint variants retain at most 32 colors per image, also bounded by the existing
 32 MiB per-image budget (with one variant allowed for an oversized source), and

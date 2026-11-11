@@ -18,6 +18,7 @@ browser-test-harness:
     node --test experiments/browser/harness/workspace-audio.test.mjs
     node --test experiments/browser/harness/workspace-scheduler.test.mjs
     node --test experiments/browser/harness/gui-frame-reuse.test.mjs
+    node --test experiments/browser/harness/gui-target-damage.test.mjs
     node --test experiments/browser/harness/browser-rendering.test.mjs
     node --test experiments/browser/harness/browser-process-cpu.test.mjs
     node --test experiments/browser/harness/fonts.test.mjs
@@ -32,6 +33,12 @@ browser-test-harness:
 [group('browser prototype')]
 browser-host-rendering-check rendering='auto':
     systemd-run --user --pipe --wait --collect -p CPUQuota=100% --setenv=PROBE_CPU_LIMIT_CORES=1 --setenv=PROBE_RENDERING={{quote(rendering)}} node {{quote(justfile_directory() / 'experiments/browser/harness/rendering-check.mjs')}}
+
+# Pure planner and Canvas state tests; never starts a browser or game.
+[group('browser prototype')]
+browser-test-target-damage:
+    node --check experiments/browser/runtime/wwwroot/gui.js
+    node --test experiments/browser/harness/gui-target-damage.test.mjs
 
 [group('browser prototype')]
 browser-host-canvas-reuse-check:

@@ -4,6 +4,183 @@ import { decodeGuiQuads } from './gui-quads.js';
 import { decodeGuiPixels } from './gui-pixels.js';
 const renderTargets = new Map();
 const images = new Map();
+
+// This experiment owns only Canvas replay. Native cache invalidation, row layout,
+// command order and target sampling remain unchanged. Snapshots contain exact
+// command strings, never pixels or references to mutable packet arrays.
+export class GuiTargetDamagePlanner {
+  constructor(entryLimit = 8, byteLimit = 2 * 1024 * 1024) {
+    this.entryLimit = entryLimit; this.byteLimit = byteLimit;
+    this.entries = new Map(); this.retainedBytes = 0;
+    this.rejections = {};
+  }
+  invalidate() { this.entries.clear(); this.retainedBytes = 0; }
+  forget(id) {
+    const old = this.entries.get(id);
+    if (old) this.retainedBytes -= old.bytes;
+    this.entries.delete(id);
+  }
+  prepare(id, width, height, matrix, clips, body, resources, generation) {
+    const reject = reason => {
+      this.rejections[reason] = Math.min(Number.MAX_SAFE_INTEGER,(this.rejections[reason]??0)+1);
+      return null;
+    };
+    const next = certifyTarget(width, height, matrix, clips, body, resources, generation,reject);
+    const old = this.entries.get(id);
+    this.forget(id);
+    if (!next || next.bytes > this.byteLimit || this.entryLimit <= 0) return null;
+    while (this.entries.size >= this.entryLimit || this.retainedBytes + next.bytes > this.byteLimit)
+      this.forget(this.entries.keys().next().value);
+    this.entries.set(id, next); this.retainedBytes += next.bytes;
+    if (!old || old.header !== next.header) return null;
+
+    // A removed/reordered group damages its OLD footprint too. Comparing at the
+    // same ordered position deliberately gives up reuse after an insertion.
+    const changed = [];
+    for (let i = 0; i < Math.max(old.groups.length, next.groups.length); i++) {
+      if (old.groups[i]?.key === next.groups[i]?.key) continue;
+      for (const group of [old.groups[i], next.groups[i]])
+        if (group) changed.push([Math.floor(group.box[1]) - 2, Math.ceil(group.box[3]) + 2]);
+    }
+    const safe = [];
+    for (let i = 0; i < next.groups.length; i++) {
+      const group = next.groups[i];
+      if (group.key !== old.groups[i]?.key) continue;
+      const box = intersectBox(next.interior, group.box);
+      // Leave a physical pixel guard at every fractional clip/reset boundary.
+      const x0 = Math.ceil(box[0]) + 1, x1 = Math.floor(box[2]) - 1;
+      let bands = [[Math.ceil(box[1]) + 1, Math.floor(box[3]) - 1]];
+      for (const [top, bottom] of changed) bands = bands.flatMap(([a,b]) =>
+        bottom <= a || top >= b ? [[a,b]] : [[a,Math.min(b,top)],[Math.max(a,bottom),b]]);
+      for (const [a,b] of bands) if (x1 > x0 && b > a) {
+        if (safe.length >= 4096) return null;
+        safe.push([x0,a,x1,b]);
+      }
+    }
+    // Turn possibly overlapping row interiors into disjoint rectangles. Nonzero
+    // winding clipping then paints the complement without overlapping holes.
+    const edges = [...new Set(safe.flatMap(b => [b[1],b[3]]))].sort((a,b) => a-b);
+    const preserved = [];
+    for (let i = 1; i < edges.length; i++) {
+      const top = edges[i-1], bottom = edges[i];
+      const spans = safe.filter(b => b[1] <= top && b[3] >= bottom).map(b => [b[0],b[2]]).sort((a,b) => a[0]-b[0]);
+      const merged = [];
+      for (const span of spans) {
+        const last = merged.at(-1);
+        if (last && span[0] <= last[1]) last[1] = Math.max(last[1],span[1]);
+        else merged.push([...span]);
+      }
+      for (const [left,right] of merged) {
+        if (preserved.length >= 4096) return null;
+        preserved.push([left,top,right,bottom]);
+      }
+    }
+    return preserved.length ? {preserved, width, height} : null;
+  }
+}
+
+const finiteArray = (v,n) => (Array.isArray(v) || ArrayBuffer.isView(v)) && v.length === n && Array.from(v).every(Number.isFinite);
+const exactKey = v => JSON.stringify(v,(_key,value) => Object.is(value,-0) ? 'negative-zero' : value);
+const axisMatrix = m => finiteArray(m,6) && m[0] > 0 && m[3] > 0 && m[1] === 0 && m[2] === 0;
+const positiveRect = r => finiteArray(r,4) && r[2] > 0 && r[3] > 0;
+const intersectBox = (a,b) => [Math.max(a[0],b[0]),Math.max(a[1],b[1]),Math.min(a[2],b[2]),Math.min(a[3],b[3])];
+const rectBox = (r,m) => [r[0]*m[0]+m[4],r[1]*m[3]+m[5],(r[0]+r[2])*m[0]+m[4],(r[1]+r[3])*m[3]+m[5]];
+const physicalBox = r => [r[0],r[1],r[0]+r[2],r[1]+r[3]];
+function imageGeometry(kind, v, resources, reset = false) {
+  const entry = resources.get(v.id);
+  if (!entry || !Number.isSafeInteger(entry.generation) || !finiteArray(v.color,4) || v.color.some(c => c < 0 || c > 1)) return null;
+  let quads;
+  if (kind === 'imageBatch') quads = Array.from(decodeGuiQuads(v.quads));
+  else if (kind === 'imageTexture' && finiteArray(v.rect,4) && finiteArray(v.uv,4)) quads = [...v.rect,...v.uv];
+  else return null;
+  if (!quads.length || quads.length % 8 || !quads.every(Number.isFinite)) return null;
+  for (let i=0;i<quads.length;i+=8) {
+    if (quads[i+2] < 0 || quads[i+3] < 0) return null;
+    // Only the reset needs a proof of opaque sampling. Row UVs stay exact,
+    // including native float-rounded atlas edges outside [0,1], signed source
+    // crops and zero-area no-ops. The enclosing row clip bounds their damage.
+    if (reset && (quads[i+2] === 0 || quads[i+3] === 0 || quads[i+6] <= 0 || quads[i+7] <= 0 ||
+        quads[i+4] < 0 || quads[i+5] < 0 || quads[i+4]+quads[i+6] > 1 || quads[i+5]+quads[i+7] > 1)) return null;
+  }
+  return {quads, key:[kind,v.id,entry.generation,v.color,quads], entry};
+}
+function certifyTarget(width, height, entryMatrix, clips, body, resources, generation,reject) {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0 || !axisMatrix(entryMatrix) || body.length > 16384) return reject('entry');
+  let matrix = [...entryMatrix], interior = [0,0,width,height];
+  for (const points of clips) {
+    if (points.length !== 4 || !points.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)) ||
+        points[0].y !== points[1].y || points[1].x !== points[2].x || points[2].y !== points[3].y || points[3].x !== points[0].x ||
+        points[2].x <= points[0].x || points[2].y <= points[0].y) return reject('entryClip');
+    interior = intersectBox(interior,[points[0].x,points[0].y,points[2].x,points[2].y]);
+  }
+  const prefix = [], groups = [], stack = [];
+  let reset = null, group = null;
+  for (const {kind,value:v} of body) {
+    if (kind === 'matrix') {
+      if (!axisMatrix(v)) return reject('matrix');
+      matrix = [...v];
+      if (group) group.commands.push([kind,v]);
+      else if (!reset) prefix.push([kind,v]);
+      continue;
+    }
+    if (!reset) {
+      let rect, key;
+      if (kind === 'fill' && v.rounding === 0 && positiveRect(v.rect) && finiteArray(v.color,4) && v.color.every(c => c >= 0 && c <= 1) && v.color[3] === 1) {
+        rect = v.rect; key = [kind,v.rect,v.color];
+      } else {
+        const image = imageGeometry(kind,v,resources,true);
+        if (!image) return reject('resetShapeOrResource');
+        if (image.quads.length !== 8) return reject('resetBatch');
+        if (!image.entry.opaqueUniform || v.color[3] !== 1) return reject('resetOpacity');
+        rect = image.quads.slice(0,4); key = image.key;
+      }
+      reset = [prefix,matrix,key];
+      interior = intersectBox(interior,rectBox(rect,matrix));
+      continue;
+    }
+    if (kind === 'clipScreen') {
+      if (!positiveRect(v)) return reject('rowClip');
+      if (!group) group = {box:physicalBox(v), commands:[['entry',matrix]]};
+      group.commands.push([kind,v]); stack.push(matrix); continue;
+    }
+    if (kind === 'pop') {
+      if (!stack.length) return reject('unbalancedPop');
+      group.commands.push([kind,v]); matrix = stack.pop();
+      if (!stack.length) { groups.push({box:group.box,key:exactKey(group.commands)}); group = null; }
+      continue;
+    }
+    if (!group) return reject('ungroupedDraw');
+    const image = imageGeometry(kind,v,resources);
+    if (!image) return reject('rowShapeOrResource');
+    group.commands.push(image.key);
+  }
+  if (!reset || stack.length || !groups.length || groups.length > 2048 || interior.some(v => !Number.isFinite(v))) return reject('incomplete');
+  const header = exactKey([width,height,generation,entryMatrix,clips,reset]);
+  const bytes = 2 * (header.length + groups.reduce((n,g) => n+g.key.length+64,0));
+  return {header,groups,interior,bytes};
+}
+
+let targetDamageEnabled = false, imageGeneration = 0;
+const targetDamage = new GuiTargetDamagePlanner();
+let targetDamageCounters = {writes:0,planned:0,preservedPixels:0,skippedDraws:0};
+export function configureGuiTargetDamage(enabled) {
+  const previous = targetDamageEnabled; targetDamageEnabled = !!enabled;
+  targetDamage.invalidate(); renderRevision++;
+  targetDamage.rejections = {};
+  targetDamageCounters = {writes:0,planned:0,preservedPixels:0,skippedDraws:0};
+  return previous;
+}
+export const guiTargetDamageStats = () => ({...targetDamageCounters, snapshots:targetDamage.entries.size, retainedBytes:targetDamage.retainedBytes,rejections:{...targetDamage.rejections}});
+const countDamage = (key,n=1) => { targetDamageCounters[key] = Math.min(Number.MAX_SAFE_INTEGER,targetDamageCounters[key]+n); };
+let damageScreen = null;
+const damageCanvases = new WeakSet();
+const targetGenerations = new WeakMap();
+let targetGeneration = 0;
+function watchDamageCanvas(canvas) {
+  if (damageCanvases.has(canvas)) return;
+  damageCanvases.add(canvas);
+  for (const event of ['contextlost','contextrestored']) canvas.addEventListener?.(event,() => { targetDamage.invalidate(); renderRevision++; });
+}
 // A constant upload has the same normalized samples at every resolution.
 // Keep drawImage's clipping, edge coverage and opacity path, but expose a 1x1
 // backing so software Canvas can avoid filtering a stretched multi-pixel source.
@@ -11,7 +188,7 @@ const images = new Map();
 const uniformSources=new WeakMap();
 let uniformImagesEnabled=true;
 export function configureGuiUniformImages(enabled) {
-  const previous=uniformImagesEnabled;uniformImagesEnabled=!!enabled;renderRevision++;return previous;
+  const previous=uniformImagesEnabled;uniformImagesEnabled=!!enabled;targetDamage.invalidate();renderRevision++;return previous;
 }
 function rememberUniformSource(source,pixels) {
   if(pixels.length>16*16*4 || pixels.length<=4)return;
@@ -43,6 +220,7 @@ export function configureGuiTintCache(enabled) {
   expandedTintCache = !!enabled;
   // Comparison phases start cold, including repeated enabled phases.
   for(const entry of images.values())entry.tints.clear();
+  targetDamage.invalidate(); renderRevision++;
   return previous;
 }
 
@@ -52,6 +230,7 @@ let screenClipFastPath = true;
 export function configureGuiScreenClipFastPath(enabled) {
   const previous = screenClipFastPath;
   screenClipFastPath = !!enabled;
+  targetDamage.invalidate(); renderRevision++;
   return previous;
 }
 
@@ -64,9 +243,20 @@ function tintImage(source, color, cachedPixels = null) {
   return tinted;
 }
 export function renderGui(canvas, commands) {
+  if (targetDamageEnabled) {
+    const dimensions = [canvas,canvas.width,canvas.height];
+    if (!damageScreen || dimensions.some((v,i) => v !== damageScreen[i])) targetDamage.invalidate();
+    damageScreen = dimensions;
+    watchDamageCanvas(canvas);
+  }
+  try { renderGuiCommands(canvas,commands); }
+  catch (error) { targetDamage.invalidate(); throw error; }
+}
+function renderGuiCommands(canvas, commands) {
   renderRevision++;
   const screen = canvas.getContext('2d');
   let ctx = screen, activeTarget = 0;
+  let damage = null;
   const clips = [], clipDepths = [];
   ctx.resetTransform();
   const color = c => `rgba(${c[0] * 255},${c[1] * 255},${c[2] * 255},${c[3]})`;
@@ -88,7 +278,29 @@ export function renderGui(canvas, commands) {
     const [u, t, w, h] = v.uv;
     ctx.drawImage(source, u * source.width, (1 - t - h) * source.height, w * source.width, h * source.height, ...v.rect);
   };
-  for (const { kind, value: v } of commands) {
+  const preservedDraw = (x,y,w,h,m) => {
+    if (!damage) return false;
+    // Include a physical pixel for sampling/edge coverage. A draw wholly inside
+    // one preserved rectangle cannot contribute to the damage complement.
+    const left=x*m.a+m.e-1, top=y*m.d+m.f-1, right=(x+w)*m.a+m.e+1, bottom=(y+h)*m.d+m.f+1;
+    // Bands are sorted vertically. Find the last possible band, then inspect
+    // only its disjoint horizontal spans rather than scanning every row.
+    const boxes=damage.preserved;
+    let lo=0,hi=boxes.length;
+    while(lo<hi) { const mid=(lo+hi)>>>1; if(boxes[mid][1]<=top)lo=mid+1;else hi=mid; }
+    let skip=false;
+    if (lo) {
+      const bandTop=boxes[lo-1][1];
+      for(let i=lo-1;i>=0 && boxes[i][1]===bandTop;i--) {
+        const b=boxes[i];
+        if(left>=b[0] && right<=b[2] && bottom<=b[3]) { skip=true;break; }
+      }
+    }
+    if (skip) countDamage('skippedDraws');
+    return skip;
+  };
+  for (let commandIndex=0;commandIndex<commands.length;commandIndex++) {
+    const {kind,value:v} = commands[commandIndex];
     switch (kind) {
       case 'fill':
         ctx.fillStyle = color(v.color);
@@ -106,11 +318,13 @@ export function renderGui(canvas, commands) {
         ctx.restore(); break;
       }
       case 'image': {
+        targetDamage.invalidate();
         const source = document.createElement('canvas'); source.width = v.width; source.height = v.height;
         const data = decodeGuiPixels(v.pixels);
         source.getContext('2d').putImageData(new ImageData(data, v.width, v.height), 0, 0);
         rememberUniformSource(source,data);
-        images.set(v.id, { source, tints: new Map(), pixels: null }); break;
+        const opaqueUniform = data.length <= 16*16*4 && data[3] === 255 && data.every((channel,i) => channel === data[i%4]);
+        images.set(v.id, { source, tints: new Map(), pixels: null, generation:++imageGeneration, opaqueUniform }); break;
       }
       case 'imageTexture':
       case 'imageBatch': {
@@ -135,29 +349,56 @@ export function renderGui(canvas, commands) {
         ctx.save(); ctx.globalAlpha = v.color[3];
         if (kind === 'imageBatch') {
           const q=decodeGuiQuads(v.quads), width=source.width, height=source.height;
+          const matrix=damage ? ctx.getTransform() : null;
           // Retain decoded geometry for profiling and any repeat playback.
           v.quads=q;
-          for (let i=0; i<q.length; i+=8)
+          for (let i=0; i<q.length; i+=8) {
+            if (damage && preservedDraw(q[i],q[i+1],q[i+2],q[i+3],matrix)) continue;
             ctx.drawImage(source, q[i+4]*width, (1-q[i+5]-q[i+7])*height,
               q[i+6]*width, q[i+7]*height, q[i], q[i+1], q[i+2], q[i+3]);
-        } else sample(source, v);
+          }
+        } else if (!damage || !preservedDraw(...v.rect,ctx.getTransform())) sample(source, v);
         ctx.restore(); break;
       }
-      case 'releaseImage': images.delete(v); break;
+      case 'releaseImage': targetDamage.invalidate(); images.delete(v); break;
       case 'target': {
         const transform = ctx.getTransform();
         if (activeTarget) ctx.restore();
+        damage = null;
         activeTarget = v.id;
         if (!v.id) { ctx = screen; ctx.setTransform(transform); break; }
         let target = renderTargets.get(v.id);
         if (!target) { target = document.createElement('canvas'); renderTargets.set(v.id, target); }
-        if (target.width !== v.width || target.height !== v.height) { target.width = v.width; target.height = v.height; }
+        if (!targetGenerations.has(target)) targetGenerations.set(target,++targetGeneration);
+        if (targetDamageEnabled) watchDamageCanvas(target);
+        if (target.width !== v.width || target.height !== v.height) { targetDamage.forget(v.id); target.width = v.width; target.height = v.height; }
         ctx = target.getContext('2d', {colorType: screen.getContextAttributes?.().colorType ?? 'unorm8'}); ctx.save(); ctx.resetTransform();
         // Native GUI targets inherit the current physical clip and transform.
         for (const points of clips) {
           ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
           for (const point of points.slice(1)) ctx.lineTo(point.x, point.y);
           ctx.closePath(); ctx.clip();
+        }
+        if (targetDamageEnabled) {
+          countDamage('writes');
+          let end = commandIndex+1;
+          while (end < commands.length && commands[end].kind !== 'target') end++;
+          // Never cache an unterminated write, even before error handling runs.
+          if (end < commands.length) damage = targetDamage.prepare(v.id,target.width,target.height,
+            [transform.a,transform.b,transform.c,transform.d,transform.e,transform.f],clips,
+            commands.slice(commandIndex+1,end),images,targetGenerations.get(target));
+          else targetDamage.forget(v.id);
+          if (damage) {
+            countDamage('planned');
+            ctx.beginPath(); ctx.rect(0,0,target.width,target.height);
+            for (const [left,top,right,bottom] of damage.preserved) {
+              countDamage('preservedPixels',(right-left)*(bottom-top));
+              // Reverse winding cuts disjoint integer holes out of the original
+              // target clip. Its fractional inherited edges still replay fully.
+              ctx.rect(right,top,left-right,bottom-top);
+            }
+            ctx.clip();
+          }
         }
         ctx.setTransform(transform); break;
       }
@@ -171,7 +412,7 @@ export function renderGui(canvas, commands) {
         ctx.save(); ctx.globalAlpha = v.color[3]; ctx.imageSmoothingEnabled = false;
         sample(source, v); ctx.restore(); break;
       }
-      case 'releaseTarget': renderTargets.delete(v); break;
+      case 'releaseTarget': targetDamage.forget(v); renderTargets.delete(v); break;
       case 'matrix': ctx.setTransform(...v); break;
       case 'group': ctx.save(); clipDepths.push(clips.length); clip(v.rect); ctx.translate(v.rect[0] - v.offset[0], v.rect[1] - v.offset[1]); break;
       case 'clipScreen': { const transform = ctx.getTransform(); ctx.save(); clipDepths.push(clips.length); ctx.resetTransform(); clip(v, screenClipFastPath); ctx.setTransform(transform); break; }
