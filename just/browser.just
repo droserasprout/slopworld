@@ -45,6 +45,9 @@ browser-bench-quad-decode:
 browser-test-preferences:
     just --justfile experiments/browser/runtime/PreferencesTests/justfile test
 
+browser-host-preferences-check profile:
+    systemd-run --user --pipe --wait --collect node {{ quote(justfile_directory() / 'experiments/browser/harness/preferences-check.mjs') }} {{quote(profile)}}
+
 [group('browser prototype')]
 browser-test-startup:
     just --justfile experiments/browser/runtime/StartupTests/justfile test
