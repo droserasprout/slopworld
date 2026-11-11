@@ -5,6 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {processSampler} from './browser-process-cpu.mjs';
 import {browserGpuInfo} from './browser-rendering.mjs';
+import {jiterpreterSnapshot} from './browser-jiterpreter.mjs';
 
 const [profile, output, phaseList='idle,output,typing,scrolling,switching',quadCache='on',canvasReuse='keep',packetCache='keep',idleYield='keep',discardedDrawing='keep',earlyInput='keep',comparison='none'] = process.argv.slice(2);
 if(!['keep','on','off'].includes(earlyInput))throw new Error('Early input flush must be keep, on or off');
@@ -14,9 +15,9 @@ if(!['keep','on','off'].includes(packetCache))throw new Error('Packet cache must
 if(!['keep','on','off'].includes(canvasReuse))throw new Error('Canvas reuse must be keep, on or off');
 if(!['on','off'].includes(quadCache))throw new Error('Quad cache must be on or off');
 const phases=phaseList.split(',');
-const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath'}[comparison];
+const comparisonExport={glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',color:'WorkspaceColorFastPath'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
-  throw new Error('Comparison must be glyph, input or cell with four identical workload phases');
+  throw new Error('Comparison must be glyph, input, cell or color with four identical workload phases');
 if (phases.some(phase=>!['idle','output','typing','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
 if (!profile || !output) throw new Error('Usage: benchmark.mjs PROFILE OUTPUT');
@@ -109,11 +110,13 @@ try {
     // Repeated phases must start with the same screen instead of gradually
     // replacing the 200-line fixture with shorter echo acknowledgments.
     if(comparisonExport)await evaluate('window.__benchmark.reset()');
+    const jiterpreterBefore=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const processBefore=await processCpu.sample();
     const before=metrics(await call('Performance.getMetrics'));
     const result=await evaluate(`window.__benchmark.run(${JSON.stringify(phase)})`);
     const after=metrics(await call('Performance.getMetrics'));
     const processAfter=await processCpu.sample();
+    const jiterpreterAfter=await evaluate(`(${jiterpreterSnapshot.toString()})()`);
     const stageMeans={};
     for (const key of Object.keys(result.stages[0]??{}))
       stageMeans[key]=result.stages.reduce((sum,stage)=>sum+stage[key],0)/result.stages.length;
@@ -125,7 +128,7 @@ try {
       rendererTaskCpuPercent:100*(after.TaskDuration-before.TaskDuration)/(after.Timestamp-before.Timestamp),
       browserProcesses:processCpu.summarize(processBefore,processAfter),
       jsHeapUsed:after.JSHeapUsedSize,jsHeapTotal:after.JSHeapTotalSize,stageMeans};
-    report.phases.push({summary, result, before, after});
+    report.phases.push({summary, result, before, after,jiterpreterBefore,jiterpreterAfter});
     console.log(JSON.stringify(summary));
     if (process.env.PROBE_SCREENSHOTS !== '0') {
       const screenshot=await call('Page.captureScreenshot',{format:'png'});
