@@ -86,5 +86,8 @@ slopweb-package-staged distribution version revision:
 [group('web')]
 [positional-arguments]
 slopweb-host-run-portraits source *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
     test -n {{quote(source)}}
+    shift
     systemd-run --user --pipe --wait --collect --setenv=SLOPWEB_PORTRAITS={{quote(source)}} python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} "$@"
