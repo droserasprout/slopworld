@@ -18,6 +18,48 @@ function fixture() {
 }
 const chars=batch=>String.fromCharCode(...batch.filter(e=>e.kind==='text').map(e=>e.character));
 
+test('composition input before compositionend commits once without requiring trailing input',()=>{
+  const f=fixture();
+  try {
+    f.canvas.focus();
+    emit(f.target,'compositionstart');
+    emit(f.target,'input',{data:'日本💡',inputType:'insertCompositionText',isComposing:true});
+    assert.deepEqual(f.frame(),[]);
+    emit(f.target,'compositionend',{data:'日本💡'});
+    assert.equal(chars(f.frame()),'日本💡');
+    assert.deepEqual(f.frame(),[]);
+    f.key('q');
+    emit(f.target,'input',{data:'q',inputType:'insertText'});
+    assert.equal(chars(f.frame()),'q');
+  } finally {f.dispose();}
+});
+
+test('both wheel adapters read deltaMode before deltas and preserve pixel, line and page units',()=>{
+  const f=fixture();
+  try {
+    for(const [mode,guiScale,deviceScale] of [[0,.03,.01],[1,1,1/3],[2,100/16,1]]) {
+      const event=new Event('wheel',{cancelable:true});
+      let reads=0;
+      Object.defineProperties(event,{
+        deltaMode:{get(){reads++;return mode;}},
+        deltaX:{get(){assert.ok(reads>0);return 6;}},
+        deltaY:{get(){assert.ok(reads>0);return 12;}},
+        clientX:{value:20},clientY:{value:30},
+      });
+      f.canvas.dispatchEvent(event);
+      const batch=f.frame();
+      assert.equal(event.defaultPrevented,true);
+      assert.equal(batch[0].kind,'wheel');
+      assert.equal(batch[0].dx,6*guiScale);
+      assert.equal(batch[0].dy,12*guiScale);
+      const device=f.devices.at(-1)[0];
+      assert.equal(device.kind,'scroll');
+      assert.equal(device.dx,-6*deviceScale);
+      assert.equal(device.dy,-12*deviceScale);
+    }
+  } finally {f.dispose();}
+});
+
 test('canvas focus and pointer ownership use a shared editable proxy without a reset',()=>{
   const f=fixture();
   try {
