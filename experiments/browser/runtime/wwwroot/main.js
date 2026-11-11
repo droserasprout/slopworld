@@ -124,8 +124,10 @@ try {
                     if (!appearance.ok) throw new Error('Reference appearance is missing');
                     exports.Probe.WorkspaceAppearance(await appearance.text());
                 }
-                if (app && parameters.get('localPreferences') !== 'off')
+                if (app && parameters.get('localPreferences') !== 'off') {
                     (await import('./workspace-preferences.js')).installWorkspacePreferences(exports.Probe);
+                    (await import('./workspace-keybindings.js')).installWorkspaceKeyBindings(exports.Probe);
+                }
                 if (parameters.has('nativeFonts')) {
                     const chains = await fetch('./assets/fonts/chains.json');
                     if (!chains.ok) throw new Error('Host font family order is missing');

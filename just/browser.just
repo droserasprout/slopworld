@@ -514,3 +514,8 @@ browser-host-terminal-visual-check profile:
 
 browser-font-styles-check root='experiments/browser/runtime/out/wwwroot-eco':
     uv run --locked python experiments/browser/harness/font-styles-check.py {{quote(root)}}
+
+# Installed managed binding APIs and origin storage, without game/browser startup.
+[group('browser prototype')]
+browser-test-keybindings:
+    just --justfile experiments/browser/runtime/KeyBindingsTests/justfile test
