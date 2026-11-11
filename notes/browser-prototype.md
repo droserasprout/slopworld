@@ -146,6 +146,9 @@ empty catalog renders the underlying native sidebar and TopBar immediately; a
 connection deadline also falls back to that UI, preserving the normal reconnect
 pump. An explicit missing session remains a startup error.
 `just browser-test-startup` checks these admission paths and underlying UI dispatch.
+The root defaults never name a host session. `just browser-host-offline-startup-check`
+verifies the prepared runtime with an unconfigured bridge, without stopping the
+host daemon, and requires visible interactive chrome and continued Entry updates.
 Captures must match physical dimensions and effective scale before a pixel
 comparison is meaningful; matching dimensions alone does not prove parity.
 `just browser-native-window-reference` captures only the existing X11 game window,
