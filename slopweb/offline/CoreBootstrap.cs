@@ -62,6 +62,7 @@ internal static class CoreBootstrap
         File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
         PatchRuntimeServices(root, resolver);
         PatchCoreLoading(root, resolver);
+        BrowserSteamPatch.Apply(root, resolver);
         BrowserGuiPatch.Apply(root, resolver);
     }
 

@@ -13,6 +13,8 @@ the installed Python launcher must remain independent of checkout tooling.
 `runtime/` owns Entry-only WASM execution, browser assets, adapters, and native preparation
 helpers; `offline/` patches private copies of assemblies. `server/` owns asset
 delivery, font delivery, and the host-authenticated daemon bridge.
+The offline Steam boundary disables startup and removes Steamworks native callback
+markers from the private copy so WASM AOT does not generate desktop callback wrappers.
 `tools/release/slopweb.py` stages reviewed redistributable inputs. Installed game
 assemblies, derived assets, fonts, and credentials never enter release payloads.
 
