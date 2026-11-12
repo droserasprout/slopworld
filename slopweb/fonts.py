@@ -8,6 +8,7 @@ import math
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -61,7 +62,7 @@ def prepare(bundle: Path, game: Path, cache: Path, value: dict[str, Any]) -> Pat
                     ['dotnet', str(bundle / 'font-probe/FontProbe.dll'), str(game), *map(str, args)],
                     check=True,
                     env=env,
-                    stdout=subprocess.DEVNULL,
+                    stdout=sys.stderr,
                     timeout=max(0.1, min(30, deadline - time.monotonic())),
                 )
 

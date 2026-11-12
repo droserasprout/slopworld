@@ -571,3 +571,60 @@ def test_different_revisions_serialize_shared_workspace_until_publication(
     assert (roots[1] / 'mod/SlopWorld.dll').read_text() == 'second revision'
     assert len(list(inputs.cache.glob('aot-workspaces/*'))) == 1
     assert len(inputs.calls) == 2
+
+
+@pytest.mark.parametrize('exit_code', [0, 3])
+def test_publish_streams_before_exit_and_retains_log_on_failure(
+    aot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int
+) -> None:
+    import io
+
+    entry = tmp_path / 'workspace'
+    (entry / 'candidate').mkdir(parents=True)
+    log = entry / 'publish.log'
+    log.write_text('previous attempt\n')
+    gate = entry / 'observed'
+    done = entry / 'done'
+    sdk = tmp_path / 'dotnet'
+    sdk.write_text(
+        f'#!{sys.executable}\n'
+        'import os, pathlib, sys, time\n'
+        f'gate = pathlib.Path({str(gate)!r})\n'
+        'os.write(1, b"ready \\xce")\n'
+        'time.sleep(0.15)\n'
+        'os.write(2, b"\\xa9\\ncompiler diagnostic\\n")\n'
+        'deadline = time.monotonic() + 5\n'
+        'while not gate.exists():\n'
+        '    if time.monotonic() > deadline: sys.exit(91)\n'
+        '    time.sleep(0.01)\n'
+        f'pathlib.Path({str(done)!r}).touch()\n'
+        'root = pathlib.Path(sys.argv[sys.argv.index("-o") + 1]) / "wwwroot/_framework"\n'
+        'root.mkdir(parents=True)\n'
+        '(root / "dotnet.js").touch()\n'
+        '(root / "dotnet.native.wasm").touch()\n'
+        'os.write(1, b"final output without newline")\n'
+        f'sys.exit({exit_code})\n'
+    )
+    sdk.chmod(0o700)
+
+    class Terminal(io.StringIO):
+        def write(self, value: str) -> int:
+            result = super().write(value)
+            if 'ready Ω' in self.getvalue() and not gate.exists():
+                assert not done.exists(), 'Output must arrive while the compiler is still running'
+                gate.touch()
+            return result
+
+    terminal = Terminal()
+    monkeypatch.setattr(aot.sys, 'stderr', terminal)
+    with aot.build_lock(entry) as lock:
+        if exit_code:
+            with pytest.raises(ValueError, match='AOT publish failed'):
+                aot.compile_entry(entry, sdk, lock)
+        else:
+            aot.compile_entry(entry, sdk, lock)
+    assert done.exists()
+    assert terminal.getvalue() == 'ready Ω\ncompiler diagnostic\nfinal output without newline'
+    assert log.read_text().startswith('previous attempt\n')
+    assert terminal.getvalue() in log.read_text()
+    assert (entry / 'publish.complete').exists() == (exit_code == 0)

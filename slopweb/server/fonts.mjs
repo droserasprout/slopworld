@@ -3,8 +3,13 @@ import { sameOrigin } from './bridge.mjs';
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
-const execute = promisify(execFile);
+// stdout carries the cache path; diagnostics stream only to the host terminal.
+const execute = (file, args, options) => new Promise((resolve, reject) => {
+  const child = execFile(file, args, options, (error, stdout) => {
+    if (error) reject(error); else resolve({ stdout });
+  });
+  child.stderr.pipe(process.stderr, { end: false });
+});
 
 export function fontSelection(value) {
   if (value.face) throw Error('Host glyph rasterization is not supported');

@@ -107,7 +107,8 @@ missing or mismatched `wasm-tools`, pinning the workload set to the selected SDK
 version. Protected system SDKs use `sudo` and may prompt for a password; writable
 private SDKs install directly.
 Initial compilation requires substantial time, disk and memory; the launcher
-prints the private cache and publish log paths. NuGet restore may download the
+prints the private cache and publish log paths. Compiler output streams live to the
+terminal while remaining in `publish.log`; failures and retries retain earlier attempts. NuGet restore may download the
 project's pinned package dependencies.
 
 Compilation is reused for identical generated compiler inputs, final patched DLLs,
