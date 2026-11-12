@@ -35,24 +35,23 @@ slopweb-uninstall prefix=(env('HOME') + '/.local'):
 slopweb-run *args:
     python3 slopweb/just_launch.py "$@"
 
-# Use the desktop user's game, fonts, profile and daemon endpoint from an agent sandbox.
-# A terminal gets a controlling PTY so Ctrl+C reaches the service; automation keeps pipes.
+# Run directly in the calling terminal and environment.
 [group('web')]
 [positional-arguments]
 slopweb-host-run *args:
-    systemd-run --user --pty --pipe --wait --collect python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} "$@"
+    python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} "$@"
 
 # Prepare an immutable AOT runtime without starting a browser or replacing a server.
-# Bound compiler parallelism as well as CPU time to leave the host usable.
+# Limit compiler parallelism; resource limits come from the calling environment.
 [group('web')]
 slopweb-host-prepare-aot sdk cache cores='2':
     @python3 -c 'import re, sys; sys.exit(0 if re.fullmatch(r"[1-9][0-9]*", sys.argv[1]) else "cores must be a positive integer")' {{quote(cores)}}
-    systemd-run --user --pipe --wait --collect -p CPUQuota={{quote(cores + '00%')}} --setenv=DOTNET_PROCESSOR_COUNT={{quote(cores)}} --setenv=BINARYEN_CORES={{quote(cores)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
+    DOTNET_PROCESSOR_COUNT={{quote(cores)}} BINARYEN_CORES={{quote(cores)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
 
 # Read only the compiler log; do not attach to a browser or running workspace.
 [group('web')]
 slopweb-host-aot-log key cache=(env('HOME') + '/.cache/slopweb'):
-    systemd-run --user --pipe --wait --collect tail -n 12 {{quote(cache / 'aot-builds' / key / 'publish.log')}}
+    tail -n 12 {{quote(cache / 'aot-builds' / key / 'publish.log')}}
 
 [group('web')]
 slopweb-format:
@@ -76,32 +75,32 @@ slopweb-check-install prefix=(env('HOME') + '/.local'):
 
 [group('web')]
 slopweb-host-check-install prefix=(env('HOME') + '/.local'):
-    systemd-run --user --pipe --wait --collect {{quote(prefix + '/bin/slopweb')}} --prepare
+    {{quote(prefix + '/bin/slopweb')}} --prepare
 
 [group('web')]
 slopweb-host-check-browser runtime rendering='auto':
-    systemd-run --user --pipe --wait --collect --setenv=PROBE_RENDERING={{quote(rendering)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}}
+    PROBE_RENDERING={{quote(rendering)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}}
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/installed-startup.json workspace
 
-# Retain a prepared runtime under the same two-core bound used by workload comparisons.
+# Retain a prepared diagnostic runtime in the calling environment.
 [group('web')]
 slopweb-host-workspace-bounded runtime rendering='auto' screenshots='0':
-    systemd-run --user --pipe --wait --collect -p CPUQuota=200% -p RuntimeMaxSec=600 --setenv=PROBE_CPU_LIMIT_CORES=2 --setenv=PROBE_RENDERING={{quote(rendering)}} --setenv=PROBE_SCREENSHOTS={{quote(screenshots)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}} 1
+    PROBE_RENDERING={{quote(rendering)}} PROBE_SCREENSHOTS={{quote(screenshots)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}} 1
 
 # Reversible UI/font checks and real OST decoding in an owned diagnostic browser.
 [group('web')]
 slopweb-host-features-check profile:
-    systemd-run --user --pipe --wait --collect --setenv=PROBE_EVALUATE_TIMEOUT_MS=240000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-features-check.js')}}
+    PROBE_EVALUATE_TIMEOUT_MS=240000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-features-check.js')}}
 
 # Exercise autoplay recovery without sending input to any terminal.
 [group('web')]
 slopweb-host-audio-check profile:
-    systemd-run --user --pipe --wait --collect --setenv=PROBE_USER_GESTURE=1 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-audio-check.js')}}
+    PROBE_USER_GESTURE=1 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-audio-check.js')}}
 
 # Exercise stopped panes and F12 fallback on every sidebar tab in an owned browser.
 [group('web')]
 slopweb-host-entry-navigation-check profile:
-    systemd-run --user --pipe --wait --collect --setenv=PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/entry-navigation-check.js')}}
+    PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/entry-navigation-check.js')}}
 
 # Package the independent browser launcher using the selected native format.
 [group('package')]
@@ -121,4 +120,4 @@ slopweb-host-run-portraits source *args:
     set -euo pipefail
     test -n {{quote(source)}}
     shift
-    systemd-run --user --pipe --wait --collect --setenv=SLOPWEB_PORTRAITS={{quote(source)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} "$@"
+    SLOPWEB_PORTRAITS={{quote(source)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} "$@"

@@ -20,7 +20,8 @@ just --justfile experiments/browser/aot/justfile test
 
 Validate the resulting private runtime with `just slopweb-host-check-browser OUTPUT/wwwroot`.
 For workload comparisons, `just slopweb-host-workspace-bounded OUTPUT/wwwroot angle-gl`
-retains a diagnostic browser under a two-core quota. Use the returned profile with
+retains a diagnostic browser in the calling environment. Set resource limits externally
+when comparing bounded workloads. Use the returned profile with
 `browser-host-benchmark`, then `browser-host-close`. Compare the same explicit
 rendering mode and reported GPU features against the interpreted prepared root;
 backend selection itself is not an AOT speedup.
