@@ -172,54 +172,18 @@ public partial class Probe
     [JSExport]
     public static void WorkspaceAppearance(string json)
     {
-        // Only presentation preferences cross this boundary. Endpoint, credentials,
-        // commands and the host profile file itself never enter the browser.
-        string[] allowed =
-        [
-            "sidebarHidden",
-            "sidebarWidth",
-            "sidebarOpenFilesVisible",
-            "sidebarFilesOpenFraction",
-            "sidebarSide",
-            "uiDensity",
-            "foldedProjects",
-            "sidebarTab",
-            "sidebarAgentStatus",
-            "sidebarFilter",
-            "sidebarWorktrees",
-            "fontSize",
-            "fontName",
-            "uiFontSize",
-            "uiFontName",
-            "uiScheme",
-            "theme",
-            "grandmaMode",
-            "cursor",
-            "cursorGrayscale",
-            "visualEffects",
-        ];
+        // Host imports and origin storage share one presentation validator. Keep
+        // display-only host metadata separate from persisted preferences.
         var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
         using var document = JsonDocument.Parse(json);
-        foreach (var property in document.RootElement.EnumerateObject())
-        {
-            if (property.Name == "hostHome")
-            {
-                Invoke(
-                    "Adapters",
-                    "BrowserAdapters.BrowserSidebar",
-                    "ConfigureHome",
-                    property.Value.GetString()!
-                );
-                continue;
-            }
-            if (!allowed.Contains(property.Name))
-                throw new InvalidOperationException("Unsupported browser appearance preference");
-            var field = settings.GetType().GetField(property.Name)!;
-            field.SetValue(
-                settings,
-                JsonSerializer.Deserialize(property.Value.GetRawText(), field.FieldType)
+        if (document.RootElement.TryGetProperty("hostHome", out var home))
+            Invoke(
+                "Adapters",
+                "BrowserAdapters.BrowserSidebar",
+                "ConfigureHome",
+                home.GetString()!
             );
-        }
+        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Apply", settings, json);
     }
 
     [JSExport]

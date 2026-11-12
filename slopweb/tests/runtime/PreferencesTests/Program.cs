@@ -61,7 +61,14 @@ static class Check
                 Expect(!snapshot.RootElement.TryGetProperty(name, out _), "Leaked " + name);
         }
         var restored = new ModSettings();
-        BrowserPreferences.Apply(restored, saved);
+        AppearanceSettings.S = restored;
+        // Exercise the real startup export with every preference emitted by the
+        // persistence owner, plus host metadata and an unrelated field.
+        var imported = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(saved)!;
+        imported["hostHome"] = JsonSerializer.SerializeToElement("/home/example");
+        imported["commandPaletteHistory"] = JsonSerializer.SerializeToElement("private-command");
+        Probe.WorkspaceAppearance(JsonSerializer.Serialize(imported));
+        Expect(Probe.HostHome == "/home/example", "Host display home was not imported");
         Expect(
             restored.uiScheme == settings.uiScheme
                 && restored.fontSize == 19
