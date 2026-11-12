@@ -42,6 +42,12 @@ slopweb-run *args:
 slopweb-host-run *args:
     systemd-run --user --pty --pipe --wait --collect python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} "$@"
 
+# Prepare an immutable AOT runtime without starting a browser or replacing a server.
+# Bound compiler parallelism as well as CPU time to leave the host usable.
+[group('web')]
+slopweb-host-prepare-aot sdk cache:
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% --setenv=DOTNET_PROCESSOR_COUNT=2 --setenv=BINARYEN_CORES=2 python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
+
 [group('web')]
 slopweb-format:
     uv run --locked ruff check --select I --fix slopweb tools/release
