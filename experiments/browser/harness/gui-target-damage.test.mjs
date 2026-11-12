@@ -41,6 +41,25 @@ test('changed and erased glyphs damage both old and new footprints',()=>{
   assert.equal(contains(movedPlan,10,80),false);
 });
 
+test('certified rows reuse only exact commands, entry transforms and live image generations',()=>{
+  const planner=warm(), previous=planner.entries.get(1).groups;
+  assert.ok(prepare(planner));
+  assert.equal(planner.entries.get(1).groups[0],previous[0]);
+  const changed=body();changed[2].value.color=[.5,1,1,1];
+  prepare(planner,changed);
+  const next=planner.entries.get(1).groups;
+  assert.notEqual(next[0],previous[0]);assert.equal(next[1],previous[1]);
+  const replaced=resources();replaced.get(2).generation++;
+  prepare(planner,changed,{resources:replaced});
+  assert.notEqual(planner.entries.get(1).groups[1],previous[1]);
+  const signed=body();signed[2].value.quads[0]=-0;
+  const invalid=structuredClone(signed);invalid[2].value.quads[0]='n:-0';
+  assert.equal(prepare(warm(signed),invalid),null,'strings cannot impersonate signed numeric zero');
+  const missing=resources();missing.delete(2);
+  assert.equal(prepare(planner,changed,{resources:missing}),null);
+  assert.equal(planner.entries.size,0);
+});
+
 test('all-row changes bypass certification without reusing a certificate across skipped writes',()=>{
   const planner=warm(), changed=body();
   for(const item of changed)if(item.kind==='imageBatch')item.value.color=[.5,1,1,1];

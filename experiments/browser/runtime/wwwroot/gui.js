@@ -12,7 +12,7 @@ export class GuiTargetDamagePlanner {
   constructor(entryLimit = 8, byteLimit = 2 * 1024 * 1024) {
     this.entryLimit = entryLimit; this.byteLimit = byteLimit;
     this.entries = new Map(); this.retainedBytes = 0;
-    this.rejections = {}; this.bypassed = 0;
+    this.rejections = {}; this.bypassed = 0; this.reusedRows = 0;
   }
   invalidate() { this.entries.clear(); this.retainedBytes = 0; }
   forget(id) {
@@ -32,13 +32,13 @@ export class GuiTargetDamagePlanner {
     // merely to discover that there is nothing to preserve. A declined frame
     // replaces the old certificate: later reuse cannot bridge unexamined writes.
     const raw = rawRowKeys(body);
-    const bypass = raw && old?.raw && !raw.some((key,i) => key === old.raw[i]);
+    const bypass = raw && old?.raw && !raw.some((key,i) => key.key === old.raw[i]?.key);
     let next;
     if (bypass) {
       this.bypassed = Math.min(Number.MAX_SAFE_INTEGER,this.bypassed+1);
       next = {header:null,groups:[],bytes:0};
-    } else next = certifyTarget(width, height, matrix, clips, body, resources, generation,reject);
-    if (next) { next.raw = raw; next.bytes += raw?.reduce((n,key) => n+key.length*2+16,0) ?? 0; }
+    } else next = certifyTarget(width, height, matrix, clips, body, resources, generation,reject,raw,old,()=>{this.reusedRows=Math.min(Number.MAX_SAFE_INTEGER,this.reusedRows+1);});
+    if (next) { next.raw = raw; next.bytes += raw?.reduce((n,key) => n+key.key.length*2+32,0) ?? 0; }
     if (!next || next.bytes > this.byteLimit || this.entryLimit <= 0) return null;
     while (this.entries.size >= this.entryLimit || this.retainedBytes + next.bytes > this.byteLimit)
       this.forget(this.entries.keys().next().value);
@@ -79,14 +79,15 @@ function rawRowKeys(body) {
     if(body[i].kind==='clipScreen') { if(depth++===0)start=i; }
     else if(body[i].kind==='pop') {
       if(!depth)return null;
-      if(--depth===0)rows.push(JSON.stringify(body.slice(start,i+1)));
+      if(--depth===0)rows.push({key:exactKey(body.slice(start,i+1)),start,end:i});
     }
   }
   return !depth && rows.length && rows.length<=2048 ? rows : null;
 }
 
 const finiteArray = (v,n) => (Array.isArray(v) || ArrayBuffer.isView(v)) && v.length === n && Array.from(v).every(Number.isFinite);
-const exactKey = v => JSON.stringify(v,(_key,value) => Object.is(value,-0) ? 'negative-zero' : value);
+const exactKey = v => JSON.stringify(v,(_key,value) =>
+  typeof value==='string' ? 's:'+value : Object.is(value,-0) ? 'n:-0' : value);
 const axisMatrix = m => finiteArray(m,6) && m[0] > 0 && m[3] > 0 && m[1] === 0 && m[2] === 0;
 const positiveRect = r => finiteArray(r,4) && r[2] > 0 && r[3] > 0;
 const intersectBox = (a,b) => [Math.max(a[0],b[0]),Math.max(a[1],b[1]),Math.min(a[2],b[2]),Math.min(a[3],b[3])];
@@ -110,7 +111,7 @@ function imageGeometry(kind, v, resources, reset = false) {
   }
   return {quads, key:[kind,v.id,entry.generation,v.color,quads], entry};
 }
-function certifyTarget(width, height, entryMatrix, clips, body, resources, generation,reject) {
+function certifyTarget(width, height, entryMatrix, clips, body, resources, generation,reject,raw,old,reused) {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0 || !axisMatrix(entryMatrix) || body.length > 16384) return reject('entry');
   let matrix = [...entryMatrix], interior = [0,0,width,height];
   for (const points of clips) {
@@ -121,7 +122,8 @@ function certifyTarget(width, height, entryMatrix, clips, body, resources, gener
   }
   const prefix = [], groups = [], stack = [];
   let reset = null, group = null;
-  for (const {kind,value:v} of body) {
+  for (let commandIndex=0;commandIndex<body.length;commandIndex++) {
+    const {kind,value:v}=body[commandIndex];
     if (kind === 'matrix') {
       if (!axisMatrix(v)) return reject('matrix');
       matrix = [...v];
@@ -146,23 +148,35 @@ function certifyTarget(width, height, entryMatrix, clips, body, resources, gener
     }
     if (kind === 'clipScreen') {
       if (!positiveRect(v)) return reject('rowClip');
-      if (!group) group = {box:physicalBox(v), commands:[['entry',matrix]]};
+      if (!group) {
+        const previous=old?.groups[groups.length], source=raw?.[groups.length];
+        // Only the immediately preceding certified row can be reused. Exact raw
+        // commands, entry transform and each image generation must still match.
+        // A balanced row restores its entry matrix, so skipping its validation
+        // leaves the outer state exactly as a full walk would.
+        if(previous && source?.start===commandIndex && source.key===old.raw?.[groups.length]?.key &&
+            previous.matrixKey===exactKey(matrix) && previous.resources.every(([id,version])=>resources.get(id)?.generation===version)) {
+          reused();groups.push(previous);commandIndex=source.end;continue;
+        }
+        group = {box:physicalBox(v), commands:[['entry',matrix]],matrixKey:exactKey(matrix),resources:new Map()};
+      }
       group.commands.push([kind,v]); stack.push(matrix); continue;
     }
     if (kind === 'pop') {
       if (!stack.length) return reject('unbalancedPop');
       group.commands.push([kind,v]); matrix = stack.pop();
-      if (!stack.length) { groups.push({box:group.box,key:exactKey(group.commands)}); group = null; }
+      if (!stack.length) { groups.push({box:group.box,key:exactKey(group.commands),matrixKey:group.matrixKey,resources:[...group.resources]}); group = null; }
       continue;
     }
     if (!group) return reject('ungroupedDraw');
     const image = imageGeometry(kind,v,resources);
     if (!image) return reject('rowShapeOrResource');
     group.commands.push(image.key);
+    group.resources.set(v.id,image.entry.generation);
   }
   if (!reset || stack.length || !groups.length || groups.length > 2048 || interior.some(v => !Number.isFinite(v))) return reject('incomplete');
   const header = exactKey([width,height,generation,entryMatrix,clips,reset]);
-  const bytes = 2 * (header.length + groups.reduce((n,g) => n+g.key.length+64,0));
+  const bytes = 2 * (header.length + groups.reduce((n,g) => n+g.key.length+g.matrixKey.length+g.resources.length*32+64,0));
   return {header,groups,interior,bytes};
 }
 
@@ -175,11 +189,12 @@ export function configureGuiTargetDamage(enabled) {
   targetDamage.invalidate(); renderRevision++;
   targetDamage.rejections = {};
   targetDamage.bypassed = 0;
+  targetDamage.reusedRows = 0;
   if (!targetDamageEnabled) damageScratch = null;
   targetDamageCounters = {writes:0,planned:0,preservedPixels:0,skippedDraws:0};
   return previous;
 }
-export const guiTargetDamageStats = () => ({...targetDamageCounters, snapshots:targetDamage.entries.size, retainedBytes:targetDamage.retainedBytes,rejections:{...targetDamage.rejections},bypassed:targetDamage.bypassed,scratchBytes:damageScratch ? damageScratch.width*damageScratch.height*4 : 0});
+export const guiTargetDamageStats = () => ({...targetDamageCounters, snapshots:targetDamage.entries.size, retainedBytes:targetDamage.retainedBytes,rejections:{...targetDamage.rejections},bypassed:targetDamage.bypassed,reusedRows:targetDamage.reusedRows,scratchBytes:damageScratch ? damageScratch.width*damageScratch.height*4 : 0});
 const countDamage = (key,n=1) => { targetDamageCounters[key] = Math.min(Number.MAX_SAFE_INTEGER,targetDamageCounters[key]+n); };
 let damageScreen = null;
 const damageCanvases = new WeakSet();
