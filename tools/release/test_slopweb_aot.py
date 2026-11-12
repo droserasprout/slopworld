@@ -229,13 +229,15 @@ def test_compiler_inherits_lock_until_it_exits(aot: Any, tmp_path: Path) -> None
         pass
 
 
-@pytest.mark.parametrize('mode', ['default', 'prepare', 'serve'])
-def test_launcher_selects_opt_in_root_for_prepare_and_server(
+@pytest.mark.parametrize('prepare_only', [False, True])
+@pytest.mark.parametrize('mode', ['default', 'explicit', 'environment', 'interpreted', 'missing'])
+def test_launcher_selects_aot_by_default(
     aot: Any,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     mode: str,
+    prepare_only: bool,
 ) -> None:
     launch = importlib.import_module('launch')
     calls = []
@@ -243,6 +245,10 @@ def test_launcher_selects_opt_in_root_for_prepare_and_server(
     monkeypatch.setattr(launch, 'prepare', lambda *args: interpreted)
     monkeypatch.setattr(launch, 'environment', lambda args: {})
     monkeypatch.setattr(launch.os, 'umask', lambda value: None)
+    monkeypatch.setattr(launch.shutil, 'which', lambda name: None if mode == 'missing' else '/path/dotnet')
+    monkeypatch.setenv('SLOPWEB_AOT_SDK', '/environment/dotnet')
+    if mode in ('default', 'missing'):
+        monkeypatch.delenv('SLOPWEB_AOT_SDK')
 
     def select(*args: Any) -> Path:
         calls.append(args)
@@ -251,20 +257,34 @@ def test_launcher_selects_opt_in_root_for_prepare_and_server(
     monkeypatch.setattr(launch.aot, 'prepare', select)
     served = []
     monkeypatch.setattr(launch.os, 'execvpe', lambda *args: served.append(args))
-    arguments = ['slopweb', '--prepare'] if mode in ('default', 'prepare') else ['slopweb']
-    if mode != 'default':
+    arguments = ['slopweb'] + (['--prepare'] if prepare_only else [])
+    if mode == 'explicit':
         arguments += ['--aot-sdk', str(tmp_path / 'sdk')]
+    elif mode == 'interpreted':
+        arguments += ['--interpreted']
     monkeypatch.setattr(sys, 'argv', arguments)
+    if mode == 'missing':
+        with pytest.raises(SystemExit, match='1'):
+            launch.main()
+        assert not served and not calls
+        assert '--aot-sdk' in capsys.readouterr().err
+        return
     launch.main()
-    if mode == 'default':
+    selected = interpreted if mode == 'interpreted' else native
+    if mode == 'interpreted':
         assert not calls
-        assert str(interpreted) in capsys.readouterr().out
     else:
         assert calls[0][1] == interpreted
-        if mode == 'prepare':
-            assert str(native) in capsys.readouterr().out
-        else:
-            assert str(native) in served[0][1]
+        expected_sdk = (
+            tmp_path / 'sdk'
+            if mode == 'explicit'
+            else Path('/environment/dotnet' if mode == 'environment' else '/path/dotnet')
+        )
+        assert calls[0][3] == expected_sdk
+    if prepare_only:
+        assert str(selected) in capsys.readouterr().out
+    else:
+        assert str(selected) in served[0][1]
 
 
 @pytest.fixture

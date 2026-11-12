@@ -20,7 +20,8 @@ Pass a prefix to `just slopweb-install PREFIX` or `just slopweb-uninstall PREFIX
 Uninstall preserves private runtime caches and daemon configuration.
 
 Installed packages require the .NET 10 runtime, Node.js 22+, Python 3.11+, and Fontconfig;
-they do not need the SDK, Just, uv, or a checkout. Start slopd first. The launcher
+Just, uv, and a checkout are unnecessary. Default AOT preparation additionally
+requires the .NET 10 SDK with matching `wasm-tools`; `--interpreted` needs only the runtime. Start slopd first. The launcher
 reads its host-side local endpoint descriptor, respecting `SLOPD_CONFIG_ROOT`
 and `SLOPD_ENDPOINT`. `SLOPD_URL` and `SLOPD_TOKEN` override that descriptor.
 Use a root token for session creation and configuration. `--endpoint URL` and
@@ -41,15 +42,18 @@ its UI and terminal fonts through the installed native rasterizer. Font files an
 atlases stay in the private cache; changed appearance preferences select a new
 cache. Use `--rebuild` after changing installed font files.
 
-## Optional mixed AOT
+## Default mixed AOT
 
-The default runtime uses the interpreter. Pass `--aot-sdk PATH` to both preparation
-and serving to select mixed AOT instead:
+Preparation and serving use mixed AOT by default, selecting `dotnet` from PATH.
+Set `SLOPWEB_AOT_SDK` or pass `--aot-sdk PATH` to select a separate toolchain:
 
 ```sh
 slopweb --aot-sdk /private/dotnet/dotnet --prepare
 slopweb --aot-sdk /private/dotnet/dotnet
 ```
+
+`--interpreted` explicitly selects the interpreter for preparation or serving.
+Missing AOT tools cause an error rather than silently falling back.
 
 PATH selects an existing .NET 10 SDK directory or its `dotnet` executable with
 matching `wasm-tools`, including the WebAssembly SDK and browser cross compiler
