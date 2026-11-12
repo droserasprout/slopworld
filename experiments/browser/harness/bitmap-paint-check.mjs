@@ -2,7 +2,7 @@
 import {spawn} from 'node:child_process';
 import {readFile,writeFile,mkdir,mkdtemp,copyFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {serve} from './server.mjs';
+import {serve} from '../../../slopweb/server/server.mjs';
 import path from 'node:path';
 import {setTimeout as pause} from 'node:timers/promises';
 import {cpuQuota} from './browser-process-cpu.mjs';
@@ -40,7 +40,7 @@ try {
   if(solid||damage) {
     directory=await mkdtemp(path.join(tmpdir(),'slop-solid-'));
     for(const file of ['gui.js','gui-pixels.js','gui-tint.js','gui-quads.js'])
-      await copyFile(new URL('../runtime/wwwroot/'+file,import.meta.url),path.join(directory,file));
+      await copyFile(new URL('../../../slopweb/runtime/wwwroot/'+file,import.meta.url),path.join(directory,file));
     const check=damage?'target-damage-check.js':'solid-texture-check.js';
     await copyFile(new URL('./'+check,import.meta.url),path.join(directory,check));
     if(damage){const file=path.join(directory,'gui.js');await writeFile(file,(await readFile(file,'utf8'))+`\nexport const auditTarget=id=>{const c=renderTargets.get(id);return c.getContext('2d').getImageData(0,0,c.width,c.height).data;};\n`);}

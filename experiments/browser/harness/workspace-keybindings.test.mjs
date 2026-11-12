@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {installWorkspaceKeyBindings} from '../runtime/wwwroot/workspace-keybindings.js';
+import {installWorkspaceKeyBindings} from '../../../slopweb/runtime/wwwroot/workspace-keybindings.js';
 
 function fixture(stored = null) {
   let current = stored;

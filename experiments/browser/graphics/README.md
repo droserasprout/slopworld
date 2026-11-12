@@ -129,7 +129,7 @@ UnityWorld updates. Its MeshRendererDriver supplies draws during PostLateUpdate,
 and browser animation callbacks own presentation. Visibility changes, transforms,
 frame counters and shutdown are checked. This advances beyond direct DrawMesh
 probe calls while remaining a test scene without RimWorld bootstrap or native
-render passes; see [runtime lifecycle ownership](../runtime/README.md).
+render passes; see [runtime lifecycle ownership](../../../slopweb/runtime/README.md).
 
 `inspect/` reads PE metadata, without loading game assemblies or executing their
 initializers. `out/native.json` records assembly hashes, native imports, selected

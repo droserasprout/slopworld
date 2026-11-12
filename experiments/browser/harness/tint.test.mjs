@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tintPixels } from '../runtime/wwwroot/gui-tint.js';
+import { tintPixels } from '../../../slopweb/runtime/wwwroot/gui-tint.js';
 
 test('tint pixels retain the original byte rounding, alpha and source', () => {
   const pixels = Uint8ClampedArray.from({length: 4096}, (_, i) => (i * 73 + (i >> 2)) % 256);
@@ -14,7 +14,7 @@ test('tint pixels retain the original byte rounding, alpha and source', () => {
 });
 
 test('expanded tint retention preserves draws and invalidates on replacement and release', async () => {
-  const gui=await import('../runtime/wwwroot/gui.js');
+  const gui=await import('../../../slopweb/runtime/wwwroot/gui.js');
   const previousDocument=globalThis.document,previousImageData=globalThis.ImageData;
   const drawn=[];
   const canvas=()=>{

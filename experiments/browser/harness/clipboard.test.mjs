@@ -1,8 +1,8 @@
 import test from 'node:test';
 import {installInputDom,emit} from './input-dom-fixture.mjs';
 import assert from 'node:assert/strict';
-import {clipboardBridge} from '../runtime/wwwroot/clipboard.js';
-import {attachGuiInput} from '../runtime/wwwroot/gui-input.js';
+import {clipboardBridge} from '../../../slopweb/runtime/wwwroot/clipboard.js';
+import {attachGuiInput} from '../../../slopweb/runtime/wwwroot/gui-input.js';
 
 const tick = () => new Promise(resolve=>setImmediate(resolve));
 const bytes = new Uint8Array([137,80,78,71,13,10,26,10]);

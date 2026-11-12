@@ -6,10 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
-import {serve} from './server.mjs';
+import {serve} from '../../../slopweb/server/server.mjs';
 
 const profile=await mkdtemp(path.join(os.tmpdir(),'slopworld-clipboard-'));
-const root=fileURLToPath(new URL('../runtime/wwwroot/',import.meta.url));
+const root=fileURLToPath(new URL('../../../slopweb/runtime/wwwroot/',import.meta.url));
 const {server,url}=await serve(root);
 let chrome,socket;
 const pending=new Map();

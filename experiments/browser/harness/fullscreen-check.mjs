@@ -5,9 +5,9 @@ import {tmpdir} from 'node:os';
 import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
-import {serve} from './server.mjs';
+import {serve} from '../../../slopweb/server/server.mjs';
 const profile=await mkdtemp(`${tmpdir()}/slopweb-fullscreen-`);
-const {server,url}=await serve(fileURLToPath(new URL('../runtime/wwwroot',import.meta.url)));
+const {server,url}=await serve(fileURLToPath(new URL('../../../slopweb/runtime/wwwroot',import.meta.url)));
 let chrome,socket;
 const pending=new Map();
 try {

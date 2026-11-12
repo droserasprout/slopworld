@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../runtime/Adapters/BrowserCommandValueCache.cs" Link="BrowserCommandValueCache.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserCommandWriter.cs" Link="BrowserCommandWriter.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserPacketCache.cs" Link="BrowserPacketCache.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserQuadWriter.cs" Link="BrowserQuadWriter.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserQuadCache.cs" Link="BrowserQuadCache.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserTextCache.cs" Link="BrowserTextCache.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserGui.Commands.cs" Link="BrowserGui.Commands.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserGlyphQuad.cs" Link="BrowserGlyphQuad.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserGlyphRun.cs" Link="BrowserGlyphRun.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserCommandState.cs" Link="BrowserCommandState.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserGui.Batching.cs" Link="BrowserGui.Batching.cs" />
+  </ItemGroup>
+</Project>
