@@ -12,7 +12,8 @@ const [directory, output, phaseList='idle,output,typing,keystrokes,scrolling,swi
 const phases=phaseList.split(',');
 const stageProfile=process.env.PROBE_STAGE_PROFILE!=='0';
 if(!stageProfile && phases.includes('cyrillic'))throw Error('Cyrillic coverage checks require stage profiling');
-const comparisonExport={damage:'configureGuiTargetDamage',discard:'WorkspaceDiscardedDrawing',glyph:'WorkspaceGlyphCache',tail:'WorkspaceGlyphTailClip',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath',solid:'configureGuiUniformImages'}[comparison];
+if(comparison==='rows' && stageProfile)throw Error('Row replay comparison requires PROBE_STAGE_PROFILE=0');
+const comparisonExport={rows:'WorkspaceRowCommands',damage:'configureGuiTargetDamage',discard:'WorkspaceDiscardedDrawing',glyph:'WorkspaceGlyphCache',tail:'WorkspaceGlyphTailClip',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath',solid:'configureGuiUniformImages'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
   throw Error('Comparison requires a known mode and four identical phases');
 const comparisonCall=['damage','tint','clip','solid'].includes(comparison)
@@ -175,6 +176,7 @@ try {
         :phase==='switching'?'Native Open to selected pane draw submission':null,
       browserProcesses:summarizeProcesses(before,after,ticks,pageSize)};
     if(comparison==='tint')summary.tint=await evaluate('(async()=> (await import("/gui.js")).guiTintProfile())()');
+    if(comparison==='rows')summary.rows=await evaluate('window.__workspace.rowCommandStats()');
     if(comparison==='damage')summary.damage=await evaluate('(async()=> (await import("/gui.js")).guiTargetDamageStats())()');
     report.phases.push({summary,result,jiterpreterBefore,jiterpreterAfter:await evaluate(`(${jiterpreterSnapshot.toString()})()`)});
     console.log(JSON.stringify(summary));
