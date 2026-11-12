@@ -22,18 +22,11 @@ AOT_SOURCES = (
     'Program.cs',
     'BrowserInput.cs',
     'BrowserLifecycle.cs',
-    'BrowserJobs.cs',
-    'OfflineHook.cs',
-    'BrowserDraws.cs',
-    'BrowserTerrain.cs',
-    'PackedTexture.cs',
-    'BrowserScene.cs',
+    'BrowserMod.cs',
     'BrowserEntry.cs',
-    'BrowserHub.cs',
     'BrowserWorkspace.cs',
     'BrowserGlyphCache.cs',
     'BrowserCursor.cs',
-    'BrowserShortcutFixtures.cs',
 )
 
 
@@ -117,8 +110,9 @@ def build(destination: Path = OUTPUT) -> None:
                     runtime / helper / 'bin/Debug/net10.0' / (helper + suffix),
                     bundle / directory / (helper + suffix),
                 )
-        # These are unmodified build outputs of our projects, NOT staged game roots.
-        shutil.copytree(runtime / 'bin/Debug/net10.0/wwwroot', bundle / 'web')
+        # Only framework build output is shipped. Copy current authored assets below;
+        # stale experimental pages in an incremental build directory must not survive.
+        shutil.copytree(runtime / 'bin/Debug/net10.0/wwwroot/_framework', bundle / 'web/_framework')
         for path in (runtime / 'wwwroot').iterdir():
             if path.is_file():
                 copy_file(path, bundle / 'web' / path.name)

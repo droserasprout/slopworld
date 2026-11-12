@@ -48,7 +48,8 @@ def read_snapshot(source: Path) -> PortraitSnapshot:
     if (
         type(value.get('version')) is not int
         or value['version'] != 1
-        or type(scale) not in (int, float)
+        or not isinstance(scale, (int, float))
+        or isinstance(scale, bool)
         or not math.isfinite(scale)
         or not 0.5 <= scale <= 4
         or not isinstance(entries, list)

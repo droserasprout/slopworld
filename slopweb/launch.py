@@ -47,7 +47,7 @@ def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False) -> Pat
     for inputs in (font_inputs, background_inputs):
         inputs.update({f'game/{name}': path for name, path in (game_dlls | native).items()})
     background_inputs.update(input_files(game, 'Assets.zip'))
-    font_settings = {
+    font_settings: dict[str, object] = {
         name: appearance[name] for name in ('fontName', 'fontSize', 'uiFontName', 'uiFontSize') if name in appearance
     }
     # Bump a phase's version when its preparation ordering or output contract changes.

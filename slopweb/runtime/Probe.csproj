@@ -16,18 +16,11 @@
     <Compile Include="Program.cs" />
     <Compile Include="BrowserInput.cs" />
     <Compile Include="BrowserLifecycle.cs" />
-    <Compile Include="BrowserJobs.cs" />
-    <Compile Include="OfflineHook.cs" />
-    <Compile Include="BrowserDraws.cs" />
-    <Compile Include="BrowserTerrain.cs" />
-    <Compile Include="PackedTexture.cs" />
-    <Compile Include="BrowserScene.cs" />
+    <Compile Include="BrowserMod.cs" />
     <Compile Include="BrowserEntry.cs" />
-    <Compile Include="BrowserHub.cs" />
     <Compile Include="BrowserWorkspace.cs" />
     <Compile Include="BrowserGlyphCache.cs" />
     <Compile Include="BrowserCursor.cs" />
-    <Compile Include="BrowserShortcutFixtures.cs" />
     <SupportedPlatform Include="browser" />
   </ItemGroup>
 </Project>

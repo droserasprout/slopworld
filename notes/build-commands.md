@@ -9,6 +9,10 @@ to the ordinary native product group. [slopweb](../slopweb/README.md) owns usage
 [Build from source](../docs/src/development/build.md) owns setup and validation;
 [releases](../docs/src/development/releases.md) owns publication procedures.
 
+Root format/lint/test/clean cover the browser product alongside native components.
+`slopweb-restore` and `deps-update-web` cover every browser helper/runtime/test project;
+private probes are excluded. `slopweb-clean` preserves compiler caches and private runtimes.
+
 Component justfiles own tool commands; the root owns aggregates and `just/ci.just`
 owns CI groups. Imports share one namespace and repository-root working directory.
 Use native dependencies for ordering. Python owns substantive generation, staging,

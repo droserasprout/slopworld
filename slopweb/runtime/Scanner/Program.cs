@@ -212,7 +212,7 @@ if (args.Length >= 3 && args[1] == "--stage")
     }
     File.WriteAllText(
         Path.Combine(args[2], "manifest.json"),
-        JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true })
+        JsonSerializer.Serialize(manifest, ScannerJson.Options)
     );
     File.WriteAllText(Path.Combine(args[2], "missing.json"), JsonSerializer.Serialize(missing));
     File.WriteAllText(
@@ -361,9 +361,9 @@ foreach (
             || name.Contains("GenDate")
             || name.Contains("IntVec3")
             || name.Contains("VersionControl")
-            || name.EndsWith("Glfw")
-            || name.EndsWith("Application")
-            || name.EndsWith("Program");
+            || name.EndsWith("Glfw", StringComparison.Ordinal)
+            || name.EndsWith("Application", StringComparison.Ordinal)
+            || name.EndsWith("Program", StringComparison.Ordinal);
         foreach (var mh in t.GetMethods())
         {
             var m = md.GetMethodDefinition(mh);
@@ -378,4 +378,9 @@ foreach (
             }
         }
     }
+}
+
+file static class ScannerJson
+{
+    internal static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 }

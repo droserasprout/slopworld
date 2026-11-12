@@ -174,7 +174,7 @@ namespace BrowserAdapters
         public static void ConfigureDensity(float scale) { }
     }
 
-    public static class GameSession
+    public static class WorkspaceScene
     {
         public static void ConfigureViewport(int width, int height) { }
 

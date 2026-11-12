@@ -123,7 +123,7 @@ def test_compilation_hit_and_asset_only_changes_reuse_publish(aot: Any, inputs: 
     assert (root / 'assets/_framework/asset.txt').read_text() == 'ordinary asset'
     assert 'Probe.LoadAssembly(' not in (root / 'main.js').read_text()
     assert 'LoadPublishedAssembly' in (root / 'main.js').read_text()
-    assert 'const bypassLogger = false;' in (root / 'main.js').read_text()
+    assert 'skipLogger' not in (root / 'main.js').read_text()
     for name in ('assets/fonts/private.ttf', 'assets/appearance.json', 'main.js'):
         with (inputs.prepared / name).open('a') as stream:
             stream.write('\n// updated asset')

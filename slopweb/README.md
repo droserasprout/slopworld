@@ -16,8 +16,12 @@ and font tests. Package and archive assertions stay in `tools/release/`.
 All test recipes live in `just/web.just`: `just slopweb-test` runs the game-free
 managed, Node, and Python suites; `just slopweb-test-runtime` runs the managed
 and related Node contracts. Native installation and font checks have explicit `slopweb-test-native-*`,
-`slopweb-test-keybindings`, and `slopweb-test-local-fonts` recipes. Formatting and linting use
-`just slopweb-format` and `just slopweb-lint`.
+`slopweb-test-keybindings`, and `slopweb-test-local-fonts` recipes.
+`slopweb-check-native-build` compiles native fidelity checks without executing them. Formatting and linting use
+`just slopweb-format` and `just slopweb-lint`, also included in root maintenance
+commands. `just slopweb-clean` removes build output while preserving compiler caches
+and installed/private runtimes. `just slopweb-restore` restores reviewed project locks;
+`just deps-update-web` updates those graphs.
 `out/` is the generated redistributable bundle, assembled by
 `tools/release/slopweb.py`; edit its source owners instead.
 

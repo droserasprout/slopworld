@@ -22,12 +22,19 @@ public static class BrowserModContent
             throw new InvalidOperationException("Install mod content once after Core loading");
         const string root = "/BrowserMod/SlopWorld/";
         using var zip = new ZipArchive(new MemoryStream(archive));
-        foreach (var entry in zip.Entries.Where(e => !e.FullName.EndsWith(".rgba")))
+        foreach (
+            var entry in zip.Entries.Where(e =>
+                !e.FullName.EndsWith(".rgba", StringComparison.Ordinal)
+            )
+        )
         {
             var path = Path.GetFullPath(root + entry.FullName);
             if (
                 !path.StartsWith(root, StringComparison.Ordinal)
-                || !(path.EndsWith(".xml") || path.EndsWith(".toml"))
+                || !(
+                    path.EndsWith(".xml", StringComparison.Ordinal)
+                    || path.EndsWith(".toml", StringComparison.Ordinal)
+                )
             )
                 throw new InvalidOperationException("Unexpected mod content path");
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -51,7 +58,7 @@ public static class BrowserModContent
         foreach (
             var entry in zip.Entries.Where(e =>
                 e.FullName.StartsWith("Textures/", StringComparison.Ordinal)
-                && e.FullName.EndsWith(".rgba")
+                && e.FullName.EndsWith(".rgba", StringComparison.Ordinal)
             )
         )
         {

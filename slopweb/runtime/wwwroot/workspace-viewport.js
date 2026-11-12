@@ -1,9 +1,8 @@
-// Explicit dimensions retain reproducible reference probes; the bookmark uses
+// Explicit dimensions retain fixed layouts; every product entry page uses
 // physical browser pixels with CSS-pixel UI geometry on any display density.
 export function workspaceParameters(address = globalThis.location) {
   const requested = new URLSearchParams(address.search);
-  if (address.pathname !== '/') return requested;
-  const parameters = new URLSearchParams('entry&assets&eco&workspace&live&app&referenceAppearance&nativeFonts&responsive&idleYield&packetCache&rowCommands=1');
+  const parameters = new URLSearchParams('referenceAppearance&nativeFonts&responsive&idleYield&packetCache&rowCommands=1');
   if (['width','height','uiScale'].some(key=>requested.has(key))) parameters.delete('responsive');
   for (const [key,value] of requested) parameters.set(key,value);
   return parameters;

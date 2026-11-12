@@ -107,38 +107,4 @@ public partial class Probe
             }
         }
     }
-
-    [JSExport]
-    public static string InputSnapshot(string key)
-    {
-        var input = Type("Waylith", "Waylith.Input.InputState");
-        object? Property(string name) => input.GetProperty(name)!.GetValue(null);
-        var position = (Vector2)Property("MousePosition")!;
-        var scroll = (Vector2)Property("ScrollDelta")!;
-        var code = InputKey(key);
-        var unityKey = Enum.Parse(Type("UnityStubs", "UnityEngine.KeyCode"), key);
-        var unityPosition = Type("UnityStubs", "UnityEngine.Input")
-            .GetProperty("mousePosition")!
-            .GetValue(null)!;
-        return JsonSerializer.Serialize(
-            new
-            {
-                down = InputCall("IsKeyDown", code),
-                pressed = InputCall("WasKeyPressedThisFrame", code),
-                released = InputCall("WasKeyReleasedThisFrame", code),
-                unityDown = Invoke("UnityStubs", "UnityEngine.Input", "GetKey", unityKey),
-                unityX = unityPosition.GetType().GetField("x")!.GetValue(unityPosition),
-                unityY = unityPosition.GetType().GetField("y")!.GetValue(unityPosition),
-                shift = Property("ShiftDown"),
-                x = position.X,
-                y = position.Y,
-                scrollX = scroll.X,
-                scrollY = scroll.Y,
-                rightButton = InputCall(
-                    "IsMouseButtonDown",
-                    Enum.ToObject(Type("Waylith", "Waylith.Input.MouseButton"), 1)
-                ),
-            }
-        );
-    }
 }

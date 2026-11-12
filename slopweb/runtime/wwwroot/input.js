@@ -72,37 +72,3 @@ export function attachInput(canvas, managed, browserClipboard = false) {
         }
     };
 }
-
-export function verifyInput(managed) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 800; canvas.height = 400; canvas.tabIndex = 0;
-    canvas.style.cssText = 'position:fixed;left:0;top:0;width:400px;height:200px';
-    document.body.append(canvas);
-    const input = attachInput(canvas, managed);
-    const checks = [];
-    const check = (name, condition) => { if (!condition) throw new Error(`${name}: ${managed.InputSnapshot('A')}`); checks.push(name); };
-    const snapshot = () => JSON.parse(managed.InputSnapshot('A'));
-    const key = (type, code, repeat = false) => canvas.dispatchEvent(new KeyboardEvent(type, { code, repeat }));
-    try {
-        canvas.focus();
-        key('keydown', 'ShiftLeft'); key('keydown', 'KeyA'); input.frame();
-        let state = snapshot();
-        check('installed Waylith and Unity key-down', state.down && state.pressed && state.unityDown && state.shift);
-        key('keydown', 'KeyA', true); input.frame(); state = snapshot();
-        check('held key survives frame; repeat is not a new press', state.down && !state.pressed);
-        key('keyup', 'KeyA'); input.frame(); state = snapshot();
-        check('release reaches installed input', !state.down && state.released && !state.unityDown);
-        const rect = canvas.getBoundingClientRect();
-        const at = { clientX: rect.left + 40, clientY: rect.top + 30 };
-        canvas.dispatchEvent(new PointerEvent('pointerdown', { ...at, button: 2 }));
-        canvas.dispatchEvent(new WheelEvent('wheel', { ...at, deltaY: 3, deltaMode: 1 }));
-        input.frame(); state = snapshot();
-        check('framebuffer coordinates, right-button mapping and wheel', state.x === 80 && state.y === 60 && state.unityX === 80 && state.unityY === 340 && state.rightButton && state.scrollY === -1);
-        key('keydown', 'KeyA'); canvas.dispatchEvent(new Event('blur')); input.frame(); state = snapshot();
-        check('focus loss clears queued and held input', !state.down && !state.shift && !state.rightButton);
-        key('keydown', 'KeyA'); input.frame(); input.dispose(); input.dispose();
-        key('keydown', 'KeyA'); input.frame();
-        check('dispose releases keys and detaches listeners', !snapshot().down);
-        return { status: 'pass', checks, source: 'installed Waylith.Input.InputState and UnityEngine.Input', syntheticDomEvents: true };
-    } finally { input.dispose(); canvas.remove(); }
-}

@@ -2,10 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {workspaceViewport,workspaceParameters,workspaceOption} from '../../runtime/wwwroot/workspace-viewport.js';
 
-test('root defaults are internal and explicit probe URLs remain explicit', () => {
+test('product entry pages share defaults and preserve explicit geometry', () => {
   const root=Object.freeze({pathname:'/',search:''});
   const defaults=workspaceParameters(root);
-  for(const key of ['entry','assets','eco','workspace','live','app','referenceAppearance','nativeFonts','responsive','idleYield','packetCache'])
+  for(const key of ['referenceAppearance','nativeFonts','responsive','idleYield','packetCache'])
     assert.equal(defaults.has(key),true,key);
   assert.equal(defaults.has('session'),false,'Default startup must work with any host catalog');
   assert.equal(root.search,'');
@@ -14,14 +14,15 @@ test('root defaults are internal and explicit probe URLs remain explicit', () =>
   const explicit=workspaceParameters({pathname:'/',search:'?session=fixture&width=1000&height=700&uiScale=1'});
   assert.equal(explicit.get('session'),'fixture');
   assert.equal(explicit.has('responsive'),false);
-  assert.equal(workspaceParameters({pathname:'/index.html',search:'?gui'}).toString(),'gui=');
+  assert.equal(workspaceParameters({pathname:'/index.html',search:''}).toString(),defaults.toString());
+  assert.equal(workspaceParameters({pathname:'/workspace.html',search:''}).toString(),defaults.toString());
 });
 
-test('root performance defaults have explicit opt-outs while probes stay opt-in',()=>{
+test('performance defaults have explicit opt-outs on every product page',()=>{
   for(const name of ['idleYield','packetCache']) {
     assert.equal(workspaceOption(workspaceParameters({pathname:'/',search:''}),name),true);
     assert.equal(workspaceOption(workspaceParameters({pathname:'/',search:'?'+name+'=off'}),name),false);
-    assert.equal(workspaceOption(workspaceParameters({pathname:'/index.html',search:'?workspace'}),name),false);
+    assert.equal(workspaceOption(workspaceParameters({pathname:'/index.html',search:'?'+name+'=off'}),name),false);
   }
 });
 

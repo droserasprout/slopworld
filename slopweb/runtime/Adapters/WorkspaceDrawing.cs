@@ -66,7 +66,7 @@ public static class WorkspaceDrawing
             throw new ArgumentOutOfRangeException(nameof(scale), "Invalid workspace viewport");
         Prefs.UIScale = scale;
         BrowserFontBank.ConfigureDensity(scale);
-        GameSession.ConfigureViewport(width, height);
+        WorkspaceScene.ConfigureViewport(width, height);
     }
 
     static Action? shortcuts;
@@ -145,7 +145,7 @@ public static class WorkspaceDrawing
         return JsonSerializer.Serialize(
             new
             {
-                game = JsonDocument.Parse(GameSession.Snapshot()).RootElement,
+                game = JsonDocument.Parse(WorkspaceScene.Snapshot()).RootElement,
                 frame = Time.frameCount,
                 screenWidth = Screen.width,
                 screenHeight = Screen.height,

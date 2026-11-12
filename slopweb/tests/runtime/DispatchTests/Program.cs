@@ -84,7 +84,7 @@ static class DispatchChecks
         string lateName = "DispatchLate" + Guid.NewGuid().ToString("N");
         Expect(
             Outcome(() => Probe.Resolve(lateName, "Late"))
-                .StartsWith("System.IO.FileNotFoundException:"),
+                .StartsWith("System.IO.FileNotFoundException:", StringComparison.Ordinal),
             "Expected missing assembly"
         );
         var late = AssemblyBuilder.DefineDynamicAssembly(
@@ -98,7 +98,7 @@ static class DispatchChecks
         {
             Expect(
                 Outcome(() => Probe.Resolve(lateName, "Late"))
-                    .StartsWith("System.TypeLoadException:"),
+                    .StartsWith("System.TypeLoadException:", StringComparison.Ordinal),
                 "Expected missing type"
             );
             var module = late.DefineDynamicModule("LateModule");

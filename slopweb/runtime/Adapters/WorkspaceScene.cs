@@ -4,9 +4,8 @@ using Verse;
 
 namespace BrowserAdapters;
 
-// Enter the installed quick-test/new-game path. No synthetic world, map, pawn,
-// or tick results: all state below comes from Current.Game and its map owners.
-public static class GameSession
+// Own viewport configuration and read-only native scene state for the Entry workspace.
+public static class WorkspaceScene
 {
     public static void ConfigureViewport(int width, int height)
     {
@@ -20,13 +19,6 @@ public static class GameSession
         // Native OnGUI normally refreshes these values. Map section culling also
         // needs them; without a browser handoff its aspect ratio becomes 0/0.
         UI.ApplyUIScale();
-    }
-
-    public static void RequestPlay()
-    {
-        if (!PlayDataLoader.Loaded || Current.Game != null)
-            throw new InvalidOperationException("A fresh loaded Entry scene is required");
-        SceneManager.LoadScene("Play");
     }
 
     public static string Snapshot()
@@ -67,35 +59,6 @@ public static class GameSession
                     })
                     .ToArray(),
                 rendered = false,
-            }
-        );
-    }
-
-    public static void Resume()
-    {
-        if (
-            Current.ProgramState != ProgramState.Playing
-            || Current.Game == null
-            || Current.Game.Maps.Count == 0
-        )
-            throw new InvalidOperationException("No initialized colony to resume");
-        Current.Game.tickManager.CurTimeSpeed = TimeSpeed.Normal;
-    }
-
-    public static string Camera()
-    {
-        var camera = Find.Camera;
-        var matrix = camera.projectionMatrix * camera.worldToCameraMatrix;
-        var columns = new float[16];
-        for (int column = 0; column < 4; column++)
-        for (int row = 0; row < 4; row++)
-            columns[column * 4 + row] = matrix[row, column];
-        return JsonSerializer.Serialize(
-            new
-            {
-                width = camera.pixelWidth,
-                height = camera.pixelHeight,
-                viewProjection = columns,
             }
         );
     }
