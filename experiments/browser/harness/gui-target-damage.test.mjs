@@ -225,6 +225,12 @@ test('Canvas integration keeps state/reset order, culls interior images and inva
     assert.ok(restored.length);assert.ok(restored.every(([,args])=>args.slice(1).every(Number.isInteger)));
     assert.equal(target.context.calls.some(([kind,path])=>kind==='clip' && path.some(r=>r[2]<0)),false);
     assert.equal(target.context.calls.filter(([kind])=>kind==='reset').length,2);
+    scratch.context.isContextLost=()=>true;
+    const beforeLost=guiTargetDamageStats().planned;
+    renderGui(screen,packet());assert.equal(guiTargetDamageStats().planned,beforeLost);
+    assert.equal(guiTargetDamageStats().scratchBytes,0);
+    renderGui(screen,packet());assert.equal(guiTargetDamageStats().planned,beforeLost);
+    renderGui(screen,packet());assert.equal(guiTargetDamageStats().planned,beforeLost+1);
     const fullThenPlan = invalidate => {
       const planned=guiTargetDamageStats().planned;invalidate();renderGui(screen,packet());
       assert.equal(guiTargetDamageStats().planned,planned);

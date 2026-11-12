@@ -203,6 +203,19 @@ function watchDamageCanvas(canvas) {
   damageCanvases.add(canvas);
   for (const event of ['contextlost','contextrestored']) canvas.addEventListener?.(event,() => { targetDamage.invalidate(); renderRevision++; });
 }
+function copyDamageTarget(target) {
+  damageScratch ??= document.createElement('canvas');
+  watchDamageCanvas(damageScratch);
+  if(damageScratch.width!==target.width || damageScratch.height!==target.height) {
+    damageScratch.width=target.width;damageScratch.height=target.height;
+  }
+  const saved=damageScratch.getContext('2d');
+  if(!saved || saved.isContextLost?.()) { damageScratch=null;return false; }
+  saved.resetTransform();saved.globalCompositeOperation='copy';
+  saved.globalAlpha=1;saved.imageSmoothingEnabled=false;saved.drawImage(target,0,0);
+  if(saved.isContextLost?.()) { damageScratch=null;return false; }
+  return true;
+}
 // A constant upload has the same normalized samples at every resolution.
 // Keep drawImage's clipping, edge coverage and opacity path, but expose a 1x1
 // backing so software Canvas can avoid filtering a stretched multi-pixel source.
@@ -420,20 +433,14 @@ function renderGuiCommands(canvas, commands) {
           while (end < commands.length && commands[end].kind !== 'target') end++;
           // Never cache an unterminated write, even before error handling runs.
           const storageFits = target.width*target.height*4<=64*1024*1024 &&
-            (ctx.getContextAttributes?.().colorType??'unorm8')==='unorm8';
+            (ctx.getContextAttributes?.().colorType??'unorm8')==='unorm8' && !ctx.isContextLost?.();
           if (end < commands.length && storageFits) damage = targetDamage.prepare(v.id,target.width,target.height,
             [transform.a,transform.b,transform.c,transform.d,transform.e,transform.f],clips,
             commands.slice(commandIndex+1,end),images,targetGenerations.get(target));
           else targetDamage.forget(v.id);
+          if(damage && !copyDamageTarget(target)) { targetDamage.forget(v.id);damage=null; }
           if (damage) {
             countDamage('planned');
-            damageScratch ??= document.createElement('canvas');
-            if(damageScratch.width!==target.width || damageScratch.height!==target.height) {
-              damageScratch.width=target.width;damageScratch.height=target.height;
-            }
-            const saved=damageScratch.getContext('2d');saved.resetTransform();
-            saved.globalCompositeOperation='copy';saved.globalAlpha=1;saved.imageSmoothingEnabled=false;
-            saved.drawImage(target,0,0);
             for (const [left,top,right,bottom] of damage.preserved) {
               countDamage('preservedPixels',(right-left)*(bottom-top));
             }
