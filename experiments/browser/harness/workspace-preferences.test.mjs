@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {installWorkspacePreferences} from '../runtime/wwwroot/workspace-preferences.js';
+import {installWorkspacePreferences} from '../../../slopweb/runtime/wwwroot/workspace-preferences.js';
 
 function fixture(stored = null) {
   const events = new Map(), documentEvents = new Map();

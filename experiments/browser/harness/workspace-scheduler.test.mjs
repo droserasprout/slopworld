@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {WorkspaceScheduler} from '../runtime/wwwroot/workspace-scheduler.js';
+import {WorkspaceScheduler} from '../../../slopweb/runtime/wwwroot/workspace-scheduler.js';
 
 function fixture(draw=()=>true) {
   let time=0,id=0;

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { decodeGuiQuads, GuiQuadCache } from '../runtime/wwwroot/gui-quads.js';
-import { renderGui } from '../runtime/wwwroot/gui.js';
+import { decodeGuiQuads, GuiQuadCache } from '../../../slopweb/runtime/wwwroot/gui-quads.js';
+import { renderGui } from '../../../slopweb/runtime/wwwroot/gui.js';
 
 const pack = values => {
   const bytes = new Uint8Array(8 + values.length * 10), view = new DataView(bytes.buffer);

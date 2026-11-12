@@ -17,7 +17,7 @@ locations = [source / 'manifest.json']
 for base in (
     Path.home() / '.cache/slopworld',
     Path.home() / '.cache/slopweb',
-    inspection_root / 'experiments/browser/runtime/out',
+    inspection_root / 'slopweb/runtime/out',
     inspection_root / 'experiments/browser/artifacts',
 ):
     if base.exists():

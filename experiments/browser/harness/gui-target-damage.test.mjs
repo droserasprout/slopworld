@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {GuiTargetDamagePlanner, configureGuiTargetDamage, guiTargetDamageStats, renderGui,
-  configureGuiUniformImages, configureGuiTintCache, configureGuiScreenClipFastPath} from '../runtime/wwwroot/gui.js';
+  configureGuiUniformImages, configureGuiTintCache, configureGuiScreenClipFastPath} from '../../../slopweb/runtime/wwwroot/gui.js';
 
 const identity = [1,0,0,1,0,0];
 const command = (kind,value) => ({kind,value});

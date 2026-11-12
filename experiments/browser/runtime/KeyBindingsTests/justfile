@@ -1,6 +1,0 @@
-set quiet
-game := env("RIMWORLD", env("HOME") + "/.local/share/Steam/steamapps/common/RimWorld")
-
-test:
-    dotnet run --project KeyBindingsTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}}
-    node --test ../../harness/workspace-keybindings.test.mjs

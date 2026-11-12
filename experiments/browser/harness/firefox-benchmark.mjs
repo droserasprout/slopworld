@@ -4,7 +4,7 @@ import {spawn, execFileSync} from 'node:child_process';
 import {readFile, readdir, mkdir, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {setTimeout as pause} from 'node:timers/promises';
-import {serve} from './server.mjs';
+import {serve} from '../../../slopweb/server/server.mjs';
 import {cpuQuota, summarizeProcesses} from './browser-process-cpu.mjs';
 import {jiterpreterSnapshot} from './browser-jiterpreter.mjs';
 

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {workspaceViewport,workspaceParameters,workspaceOption} from '../runtime/wwwroot/workspace-viewport.js';
+import {workspaceViewport,workspaceParameters,workspaceOption} from '../../../slopweb/runtime/wwwroot/workspace-viewport.js';
 
 test('root defaults are internal and explicit probe URLs remain explicit', () => {
   const root=Object.freeze({pathname:'/',search:''});

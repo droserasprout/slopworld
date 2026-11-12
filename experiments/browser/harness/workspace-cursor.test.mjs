@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {attachWorkspaceCursor} from '../runtime/wwwroot/workspace-cursor.js';
-import {cursorImage} from '../runtime/wwwroot/cursor-image.js';
+import {attachWorkspaceCursor} from '../../../slopweb/runtime/wwwroot/workspace-cursor.js';
+import {cursorImage} from '../../../slopweb/runtime/wwwroot/cursor-image.js';
 
 for(const supported of [true,false])test(`cursor retains size/hotspot at density and edges (native=${supported})`,()=>{
   const keys=['document','ImageData','devicePixelRatio','addEventListener','CSS','innerWidth','innerHeight'];

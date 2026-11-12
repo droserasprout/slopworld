@@ -16,7 +16,7 @@ from portraits import host_snapshot
 from portraits import read_snapshot
 
 os.chdir(root)
-prepared = root / 'experiments/browser/runtime/out/wwwroot-eco'
+prepared = root / 'slopweb/runtime/out/wwwroot-eco'
 if sys.argv[1:2] in (['--appearance'], ['--check-workspace'], ['--reference']) or (
     len(sys.argv) > 1 and Path(sys.argv[1]).resolve() == prepared
 ):
@@ -66,7 +66,7 @@ if sys.argv[1:2] in (['--check-workspace'], ['--check-installed']):
         [
             'node',
             str(root / 'experiments/browser/harness/validate.mjs'),
-            str(Path(sys.argv[2]).resolve() if installed else root / 'experiments/browser/runtime/out/wwwroot-eco'),
+            str(Path(sys.argv[2]).resolve() if installed else root / 'slopweb/runtime/out/wwwroot-eco'),
             page,
             str(
                 root
@@ -79,8 +79,8 @@ if sys.argv[1:2] in (['--check-workspace'], ['--check-installed']):
 if sys.argv[1:2] == ['--reference']:
     appearance = preferences()
     if sys.argv[3:4] == ['nativeFonts']:
-        fonts = root / 'experiments/browser/runtime/out/wwwroot-eco/assets/fonts'
-        recipes = root / 'experiments/browser/runtime/justfile'
+        fonts = root / 'slopweb/runtime/out/wwwroot-eco/assets/fonts'
+        recipes = root / 'slopweb/runtime/justfile'
         family = appearance.get('fontName') or 'monospace'
         subprocess.run(['just', '--justfile', str(recipes), 'font-resolve', family, str(fonts)], check=True)
         subprocess.run(
@@ -115,7 +115,7 @@ if sys.argv[1:2] == ['--reference']:
         [
             'node',
             str(root / 'experiments/browser/harness/validate.mjs'),
-            str(root / 'experiments/browser/runtime/out/wwwroot-eco'),
+            str(root / 'slopweb/runtime/out/wwwroot-eco'),
             '/index.html?entry&assets&eco&workspace&live&app&referenceAppearance&width=2560&height=1440&uiScale=1.666666667'
             + ('&session=' + quote(sys.argv[2], safe='') if len(sys.argv) > 2 and sys.argv[2] else '')
             + ('&nativeFonts' if sys.argv[3:4] == ['nativeFonts'] else ''),
@@ -126,6 +126,4 @@ if sys.argv[1:2] == ['--reference']:
 if sys.argv[1:] == ['--check']:
     environment['REQUIRE_WORKSPACE_WRITE_ACCESS'] = '1'
     os.execvpe('node', ['node', str(root / 'experiments/browser/harness/bridge-check.mjs')], environment)
-os.execvpe(
-    'node', ['node', str(root / 'experiments/browser/harness/server.mjs'), sys.argv[1], sys.argv[2]], environment
-)
+os.execvpe('node', ['node', str(root / 'slopweb/server/server.mjs'), sys.argv[1], sys.argv[2]], environment)

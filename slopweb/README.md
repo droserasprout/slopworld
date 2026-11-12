@@ -4,6 +4,27 @@ Local browser Eco workspace using the installed Waylith/RimWorld 1.7 game and
 SlopWorld mod in WebAssembly. No colony is created or loaded. Agent processes,
 tmux, sandboxes, and daemon credentials stay on the host.
 
+## Source layout
+
+The root Python modules own local preparation, compilation caching, and launch.
+`runtime/` owns managed WASM execution, adapters, browser assets, and native helpers.
+`offline/` owns assembly preparation hooks. `server/` owns the Node asset server,
+host-authenticated daemon bridge, and font delivery.
+`tests/runtime/` holds managed test projects and runtime preparation tests;
+`tests/server/` holds Node tests; `tests/launcher/` holds Python launcher, AOT,
+and font tests. Package and archive assertions stay in `tools/release/`.
+All test recipes live in `just/web.just`: `just slopweb-test` runs the game-free
+managed, Node, and Python suites; `just slopweb-test-runtime` runs the managed
+and related Node contracts. Native installation checks and browser checks have
+explicit `slopweb-test-native-*`, `slopweb-test-keybindings`, and
+`slopweb-test-clipboard-browser` recipes. Formatting and linting use
+`just slopweb-format` and `just slopweb-lint`.
+`out/` is the generated redistributable bundle, assembled by
+`tools/release/slopweb.py`; edit its source owners instead.
+
+Rendering and compatibility experiments and the shared diagnostic harness remain
+in `experiments/browser/`. Private runtime caches remain outside the source tree.
+
 ## Install and run
 
 From a checkout with the .NET 10 SDK, Node.js 22+, Emscripten 7.0.0, Python/uv, Just, and a local
