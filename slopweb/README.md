@@ -50,8 +50,9 @@ Just, uv, and a checkout are unnecessary. Default AOT preparation additionally
 requires the .NET 10 SDK with matching `wasm-tools`; `--interpreted` needs only the runtime. Start slopd first. The launcher
 reads its host-side local endpoint descriptor, respecting `SLOPD_CONFIG_ROOT`
 and `SLOPD_ENDPOINT`. `SLOPD_URL` and `SLOPD_TOKEN` override that descriptor.
-Use a root token for session creation and configuration. `--endpoint URL` and
-`--token-file PATH` also select a host-side connection. Tokens are never placed
+Use a root token for session creation and configuration. `--endpoint NAME` selects a saved endpoint ahead of environment overrides.
+Explicit connections require both `--url URL` and `--token-file PATH`.
+Descriptor and token-file changes apply to subsequent requests and WebSocket reconnects. Tokens are never placed
 in browser assets or URLs.
 
 `--game PATH` (or `RIMWORLD`) selects another game installation. `--port` defaults

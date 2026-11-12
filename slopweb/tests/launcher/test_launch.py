@@ -35,12 +35,29 @@ def test_endpoint_credentials_stay_in_host_environment(
     monkeypatch.delenv('SLOPD_TOKEN', raising=False)
     args = argparse.Namespace(endpoint=None, token_file=None)
     env = launcher.environment(args)
-    assert env['SLOPD_TOKEN'] == 'fixture-secret'
-    assert env['SLOPD_URL'] == 'http://127.0.0.1:7717'
-    token = tmp_path / 'token'
-    token.write_text('override\n')
-    args.token_file = str(token)
-    assert launcher.environment(args)['SLOPD_TOKEN'] == 'override'
+    assert env['SLOPWEB_ENDPOINT_FILE'] == str(descriptor)
+    assert 'SLOPD_TOKEN' not in env
+    assert launcher.connection(env)['token'] == 'fixture-secret'
+    monkeypatch.setenv('SLOPD_URL', 'http://other.invalid')
+    with pytest.raises(ValueError, match='together'):
+        launcher.environment(args)
+    monkeypatch.setenv('SLOPD_TOKEN', 'paired')
+    assert launcher.connection(launcher.environment(args))['token'] == 'paired'
+    monkeypatch.setenv('SLOPD_CONFIG_ROOT', str(tmp_path))
+    (tmp_path / 'endpoints').mkdir()
+    (tmp_path / 'endpoints/remote.toml').write_text('url = "https://remote.invalid"\ntoken = "remote"\n')
+    args.endpoint = 'remote'
+    assert launcher.connection(launcher.environment(args)) == {'endpoint': 'https://remote.invalid', 'token': 'remote'}
+    args.endpoint = '../local'
+    with pytest.raises(ValueError, match='endpoint name'):
+        launcher.environment(args)
+    args.endpoint = None
+    args.token_file = str(tmp_path / 'token')
+    Path(args.token_file).write_text('explicit')
+    with pytest.raises(ValueError, match='together'):
+        launcher.environment(args)
+    args.url = 'https://explicit.invalid'
+    assert launcher.connection(launcher.environment(args))['token'] == 'explicit'
     assert descriptor.read_text().endswith('"fixture-secret"\n')
 
 

@@ -21,6 +21,7 @@ def test_distributable_build_never_reads_staged_game_root(
     runtime = root / 'slopweb/runtime'
     inputs = [
         'slopweb/launch.py',
+        'slopweb/endpoint.py',
         'slopweb/aot.py',
         'slopweb/appearance.py',
         'slopweb/fonts.py',
@@ -49,7 +50,7 @@ def test_distributable_build_never_reads_staged_game_root(
         f'mod/Assemblies/{name}.dll'
         for name in ('SlopWorld', '0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn')
     ]
-    inputs += [f'slopweb/server/{name}.mjs' for name in ('server', 'bridge', 'websocket', 'fonts')]
+    inputs += [f'slopweb/server/{name}.mjs' for name in ('server', 'bridge', 'websocket', 'fonts', 'endpoint')]
     for name in inputs:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
