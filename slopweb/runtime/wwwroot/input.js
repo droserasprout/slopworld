@@ -37,6 +37,12 @@ export function attachInput(canvas, managed, browserClipboard = false) {
     listen(canvas, 'pointermove', event => enqueue({ kind: 'move', ...position(event) }));
     for (const type of ['pointerdown', 'pointerup']) listen(canvas, type, event => {
         if (event.button < 0 || event.button > 4) return;
+        // The GUI paste event owns browser PRIMARY; do not cancel its default
+        // action or expose a second middle-button gesture to managed input.
+        if (browserClipboard && event.button === 1) {
+            if (type === 'pointerdown') proxy.focus(event);
+            return;
+        }
         if (type === 'pointerdown') {
             proxy ? proxy.focus(event) : canvas.focus();
             if (event.isTrusted) canvas.setPointerCapture(event.pointerId);

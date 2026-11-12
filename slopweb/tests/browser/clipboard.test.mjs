@@ -2,6 +2,7 @@ import test from 'node:test';
 import {installInputDom,emit} from './input-dom-fixture.mjs';
 import assert from 'node:assert/strict';
 import {clipboardBridge} from '../../runtime/wwwroot/clipboard.js';
+import {attachInput} from '../../runtime/wwwroot/input.js';
 import {attachGuiInput} from '../../runtime/wwwroot/gui-input.js';
 
 const tick = () => new Promise(resolve=>setImmediate(resolve));
@@ -108,4 +109,28 @@ test('synchronous pointer frames pump physical input before native selection dis
   emit(canvas,'pointerdown',{clientX:0,clientY:0,button:0});
   assert.deepEqual(order,['physical','native']);
   input.dispose();
+});
+
+test('middle click leaves desktop PRIMARY paste to the DOM without pasting stale native selection',()=>{
+  const {canvas:makeCanvas,document}=installInputDom();
+  const canvas=makeCanvas(), guiBatches=[], physicalBatches=[];
+  const physical=attachInput(canvas,{InputFrame:raw=>physicalBatches.push(JSON.parse(raw))},true);
+  const gui=attachGuiInput(canvas,{
+    beforeFrame:()=>physical.frame(),
+    GuiInputFrame:raw=>{guiBatches.push(JSON.parse(raw));return '{"commands":[]}';},
+    ClipboardTake:()=> '[]',
+  });
+  for(const type of ['pointerdown','pointerup']) {
+    const event=emit(canvas,type,{button:1,clientX:10,clientY:20,pointerId:1});
+    assert.equal(event.defaultPrevented,false);
+  }
+  assert.equal(document.activeElement,gui.textInput);
+  const paste=emit(gui.textInput,'paste',{clipboardData:{getData:()=> 'desktop selection',items:[]}});
+  assert.ok(paste.defaultPrevented);
+  assert.deepEqual(guiBatches,[[
+    {kind:'clipboard',text:'desktop selection',image:false},
+    {kind:'key',key:'V',control:true},
+  ]]);
+  assert.deepEqual(physicalBatches,[[]]);
+  gui.dispose(); physical.dispose();
 });
