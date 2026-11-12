@@ -12,7 +12,10 @@ old files are replaced. Refresh those snapshots explicitly when their native sou
 changes. Production launcher preparation still creates a fresh immutable runtime.
 
 `slopweb/aot.py` owns shared mixed-AOT project generation, publish-name loading,
-and the installed launcher's compilation cache/runtime composition. The separate
+and the installed launcher's compilation cache/runtime composition. Normal launch
+and preparation select mixed AOT using `--aot-sdk`, `SLOPWEB_AOT_SDK`, or PATH's
+`dotnet`, in that order. `--interpreted` explicitly bypasses AOT; toolchain failures
+never silently fall back. The separate
 `aot/` experiment delegates compiler-input construction to that owner. The
 launcher's interpreted preparation remains the owner of final patched game IL and
 current private assets. AOT compilation keys exclude appearance and browser assets;
