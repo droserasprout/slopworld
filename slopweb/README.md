@@ -6,10 +6,11 @@ tmux, sandboxes, and daemon credentials stay on the host.
 
 ## Install and run
 
-From a checkout with the .NET 10 SDK, Node.js 22+, Python/uv, Just, and a local
+From a checkout with the .NET 10 SDK, Node.js 22+, Emscripten 7.0.0, Python/uv, Just, and a local
 Waylith/RimWorld installation:
 
 ```sh
+just browser-local-fonts-sdk # Install the pinned compiler locally if needed.
 just slopweb-install
 slopweb
 # Open http://127.0.0.1:8787/
@@ -37,8 +38,9 @@ From an agent sandbox, `just slopweb-host-run` starts the launcher on the host.
 Interactive invocations use a controlling terminal so Ctrl+C also stops the
 host service; noninteractive invocations retain piped output.
 The printed root URL applies desktop defaults without redirecting. Preparation
-imports only allowlisted appearance preferences from the local profile and bakes
-its UI and terminal fonts through the installed native rasterizer. Font files and
+imports only allowlisted appearance preferences from the local profile and prepares
+its UI and terminal font metrics through the installed native rasterizer. Glyphs
+are rasterized on demand from the text actually displayed. Font files and
 atlases stay in the private cache; changed appearance preferences select a new
 cache. Use `--rebuild` after changing installed font files.
 
@@ -127,10 +129,9 @@ outside a smaller pane's visible area.
 This remains a prototype. An empty session catalog opens the native sidebar and
 TopBar for session creation; startup also leaves these controls available when the
 daemon is unavailable. An explicit session URL still requires that live session.
-Covered
-text, including styled and wrapped runs, uses native font metrics and
-atlases. Unsupported sizes and characters still use approximate rendering.
-Atlases are prepared at densities 1, 5/3 and 2 and resampled at other display scales.
+Text requests native glyphs, sizes, styles and display densities on demand;
+startup prepares only font metrics. There is no fixed script/block coverage list.
+Text can temporarily use approximate rendering while its atlas is prepared.
 The installed launcher exports a matching native background
 cache when available; generating missing frames on cold startup remains incomplete.
 Text copy/paste and PNG attachment delivery have browser-to-agent checks. Wait for
@@ -142,11 +143,13 @@ Presentation settings persist in this browser origin when local storage is avail
 `localPreferences=off` disables this for reference comparisons. Other profile fields
 are not persisted. Authored SlopWorld keyboard bindings also persist in this origin,
 including both binding slots and reset-to-default changes. Font family and size
-changes load native host fonts on demand after a short debounce. Existing fonts
+changes load host font files on demand. Glyphs rasterize synchronously in local
+FreeType WASM at the observed size, style and display density. Existing fonts
 remain usable during preparation; a failed selection restores the previous settings
 and offers retry. The private cache and retained atlas memory are bounded; reload
-the page if the atlas budget is exhausted. Covered characters include Latin-1,
-Cyrillic and U+2000–U+27FF punctuation/symbols where the selected face supports them.
+the page if the atlas budget is exhausted. Coverage depends on the selected font. The native text adapter still uses UTF-16
+characters: missing font glyphs and supplementary text outside the existing
+terminal emoji path use approximate rendering. This does not add a shaping engine.
 Repeated page-network interruption and terminal recovery have browser checks;
 daemon restart, run replacement, and the full agent launch/edit dialog have not
 been exhaustively validated. See the checkout's
@@ -161,3 +164,5 @@ python3 install.py --remove slopweb
 
 Installation requires a published release containing the matching `slopweb` package
 and checksum. For locally built preview packages, use the distribution package manager.
+
+Local glyph rasterization uses the FreeType Project (https://freetype.org), under the FreeType License. Build it with `just browser-local-fonts-build` using Emscripten with the reviewed FreeType 2.14.3/zlib 1.3.2 ports. `just slopweb-build` includes this step and stages the result for `just slopweb-host-run --port 8787`.

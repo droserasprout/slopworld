@@ -1,25 +1,21 @@
-"""Bounded, atomic host font bakes. Paths and resolver diagnostics stay on the host."""
+"""Bounded, atomic host font discovery and file delivery. Paths and resolver diagnostics stay on the host."""
 
 import argparse
 import fcntl
 import hashlib
 import json
+import math
 import os
+import shutil
 import subprocess
 import tempfile
 import time
 from pathlib import Path
 
 
-def ui_sizes(size: int, style: int) -> list[int]:
-    """Keep profile tiers styled, plus fixed normal UI typography (AboutPage)."""
-    tiers = [max(1, size + offset) for offset in (-2, 0, 2)]
-    # Authored sizes stay independent of the profile. They currently use normal
-    # text only; baking every style would needlessly grow retained RGBA atlases.
-    return list(dict.fromkeys(tiers + ([14, 22, 28] if style == 0 else [])))
-
-
 def selection(value: dict) -> dict:
+    if 'face' in value:
+        raise ValueError('Host glyph rasterization is not supported')
     result = {}
     for name, default in (('uiFontName', ''), ('fontName', 'monospace')):
         text = value.get(name, default)
@@ -32,7 +28,7 @@ def selection(value: dict) -> dict:
             raise ValueError('Invalid font size')
         result[name] = size
     density = value.get('density', 1)
-    if type(density) not in (int, float) or density not in (1, 5 / 3, 2):
+    if type(density) not in (int, float) or not math.isfinite(density) or not 0.5 <= density <= 4:
         raise ValueError('Invalid font density')
     result['density'] = density
     return result
@@ -47,9 +43,11 @@ def prepare(bundle: Path, game: Path, cache: Path, value: dict) -> Path:
         fcntl.flock(lock, fcntl.LOCK_EX)
         target = cache / key
         if (target / 'manifest.json').is_file():
+            (target / 'manifest.json').touch()
             return target
-        if len(list(cache.glob('*/manifest.json'))) >= 64:
-            raise ValueError('Font cache is full; restart after clearing the private fonts cache')
+        entries = sorted(cache.glob('*/manifest.json'), key=lambda path: path.stat().st_mtime)
+        for entry in entries[:-63]:
+            shutil.rmtree(entry.parent)
         with tempfile.TemporaryDirectory(prefix='.bake-', dir=cache) as temporary:
             root = Path(temporary)
             env = os.environ.copy()
@@ -66,18 +64,20 @@ def prepare(bundle: Path, game: Path, cache: Path, value: dict) -> Path:
                     timeout=max(0.1, min(30, deadline - time.monotonic())),
                 )
 
+            manifest = []
             probe('--resolve-ui', bundle / 'mod/SlopWorld.dll', values['uiFontName'], root)
             probe('--resolve', bundle / 'mod/SlopWorld.dll', values['fontName'], root)
-            manifest = []
-            # Bake only the requested prepared density. Resize events request a
-            # new variant; ordinary drawing only selects installed textures.
-            ui_size = values['uiFontSize'] or 13
+            config = json.loads((root / 'font-config.json').read_text())
             for font in ('ui.ttf', 'terminal.ttf'):
-                for style in range(4):
-                    for size in ui_sizes(ui_size, style) if font == 'ui.ttf' else [values['fontSize']]:
-                        bake = f'{font}-{size}-{style}.json'
-                        probe(root / font, root / bake, size, values['density'], style)
-                        manifest.append({'font': font, 'bake': bake})
+                sizes = (
+                    [max(1, (values['uiFontSize'] or 13) + offset) for offset in (-2, 0, 2)]
+                    if font == 'ui.ttf'
+                    else [values['fontSize']]
+                )
+                for size in dict.fromkeys(sizes):
+                    descriptor = f'{font}-{size}.json'
+                    (root / descriptor).write_text(json.dumps({**config, 'size': size}))
+                    manifest.append({'font': font, 'bake': descriptor})
             (root / 'manifest.json').write_text(json.dumps(manifest))
             root.rename(target)
     return target

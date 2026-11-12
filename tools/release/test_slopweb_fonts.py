@@ -16,20 +16,11 @@ spec.loader.exec_module(fonts)
 
 
 @pytest.mark.parametrize(
-    'value', [{'fontSize': 7}, {'fontSize': True}, {'uiFontSize': 49}, {'fontName': 'bad\n'}, {'density': 3}]
+    'value', [{'fontSize': 7}, {'fontSize': True}, {'uiFontSize': 49}, {'fontName': 'bad\n'}, {'density': 5}]
 )
 def test_selection_rejects_invalid_input(value: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         fonts.selection(value)
-
-
-@pytest.mark.parametrize('size', [1, 13, 14, 15, 22, 28, 48])
-def test_fixed_ui_sizes_preserve_profile_styles_without_duplicate_bakes(size: int) -> None:
-    tiers = {max(1, size + offset) for offset in (-2, 0, 2)}
-    for style in range(4):
-        prepared = fonts.ui_sizes(size, style)
-        assert set(prepared) == tiers | ({14, 22, 28} if style == 0 else set())
-        assert len(prepared) == len(set(prepared))
 
 
 def test_atomic_bake_cache_and_recovery(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -45,19 +36,19 @@ def test_atomic_bake_cache_and_recovery(tmp_path: Path, monkeypatch: pytest.Monk
             root = Path(args[-1])
             (root / ('ui.ttf' if args[3] == '--resolve-ui' else 'terminal.ttf')).write_bytes(b'font')
             (root / 'chains.json').write_text('{}')
+            (root / 'font-config.json').write_text('{"loaderFlags":513}')
         else:
             Path(args[4]).write_text('{}')
 
     monkeypatch.setattr(fonts.subprocess, 'run', probe)
     selected = {'uiFontSize': 0, 'density': 5 / 3}
     root = fonts.prepare(bundle, game, cache, selected)
-    assert len(calls) == 21
-    assert {int(args[5]) for args in calls[2:-4]} == {11, 13, 14, 15, 22, 28}
-    assert all(args[7] == '0' for args in calls[2:-4] if int(args[5]) in (14, 22, 28))
-    assert all(args[6] == str(5 / 3) for args in calls[2:])
-    assert len(json.loads((root / 'manifest.json').read_text())) == 19
+    assert len(calls) == 2
+    assert all(args[3].startswith('--resolve') for args in calls)
+    manifest = json.loads((root / 'manifest.json').read_text())
+    assert [json.loads((root / face['bake']).read_text())['size'] for face in manifest] == [11, 13, 15, 14]
     assert fonts.prepare(bundle, game, cache, selected) == root
-    assert len(calls) == 21
+    assert len(calls) == 2
 
     def fail(*args: object, **kwargs: object) -> None:
         raise subprocess.CalledProcessError(1, 'probe')
@@ -79,3 +70,8 @@ def test_prepared_runtime_fits_atlas_budget(runtime: str) -> None:
         atlas = json.loads((root / face['bake']).read_text())['atlas']
         total += atlas['width'] * atlas['height'] * 4
     assert total <= 384 * 1024 * 1024
+
+
+def test_host_rejects_glyph_requests() -> None:
+    with pytest.raises(ValueError, match='not supported'):
+        fonts.selection({'face': {}})

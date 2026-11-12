@@ -37,6 +37,7 @@ Console.WriteLine(
 if (args.Length > 1 && !args[1].StartsWith("--", StringComparison.Ordinal))
     LayoutChecks.Run();
 
+LocalFontChecks.Run(game);
 FontChecks.Run();
 ImageChecks.Run();
 GlyphChecks.Run(args.Contains("--glyph-benchmark"));

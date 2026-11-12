@@ -12,9 +12,12 @@ inspect:
     ls -d /usr/share/dotnet/packs/* "$HOME/.dotnet/packs/"* 2>/dev/null || true
 
 # Compile the standalone interpreter probe; dependencies stay in ignored build output.
-build:
+build: local-fonts
     dotnet restore Probe.csproj --locked-mode --nologo -v quiet
     dotnet build Probe.csproj -c Debug --no-restore --nologo -v minimal
+
+local-fonts:
+    python3 LocalFonts/build.py
 
 # Produce a local-only static root, including actual installed managed assemblies.
 stage: build
@@ -94,8 +97,8 @@ types assembly:
 adapters:
     dotnet build Adapters/Adapters.csproj -p:GameDirectory={{quote(game)}} --nologo -v minimal
 
-font-probe font output size='15' density='1':
-    LD_LIBRARY_PATH={{quote(game)}} dotnet run --project FontProbe/FontProbe.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} {{quote(font)}} {{quote(output)}} {{quote(size)}} {{quote(density)}}
+font-probe font output size='15' density='1' style='0' scalars='':
+    LD_LIBRARY_PATH={{quote(game)}} dotnet run --project FontProbe/FontProbe.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} {{quote(font)}} {{quote(output)}} {{quote(size)}} {{quote(density)}} {{quote(style)}} {{if scalars == "" { "" } else { quote(scalars) }}}
 
 font-probe-build:
     dotnet build FontProbe/FontProbe.csproj -p:GameDirectory={{quote(game)}} --nologo -v minimal

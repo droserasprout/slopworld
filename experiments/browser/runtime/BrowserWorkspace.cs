@@ -5,6 +5,18 @@ using System.Text.Json;
 public partial class Probe
 {
     [JSExport]
+    public static void WorkspaceRasterizer(
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.String>>] Func<string, string> rasterize
+    ) =>
+        Type("Adapters", "BrowserAdapters.BrowserFontBank")
+            .GetField("Rasterize")!
+            .SetValue(null, rasterize);
+
+    [JSExport]
+    public static void WorkspaceFontsDispose() =>
+        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "DisposeFonts");
+
+    [JSExport]
     public static bool WorkspaceObserveLabels(bool enabled) =>
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureObserveLabels", enabled)!;
 
@@ -84,6 +96,14 @@ public partial class Probe
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "Capacity", bytes)!;
 
     [JSExport]
+    public static void WorkspaceFontHold(string json)
+    {
+        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
+        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "HoldFonts", settings, json);
+        WorkspaceFontsReady();
+    }
+
+    [JSExport]
     public static void WorkspaceFontRestore(string json)
     {
         var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
@@ -95,7 +115,8 @@ public partial class Probe
     [JSExport]
     public static void WorkspaceFontsReady()
     {
-        Invoke("Adapters", "BrowserAdapters.BrowserGui", "Install");
+        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "RetryRasterization");
+        Invoke("Adapters", "BrowserAdapters.BrowserGui", "FontsChanged");
         Invoke("SlopWorld", "SlopWorld.InstalledFonts", "Rescan");
         Invoke("SlopWorld", "SlopWorld.UiFont", "Apply");
         Invoke("SlopWorld", "SlopWorld.TerminalFont", "Invalidate");

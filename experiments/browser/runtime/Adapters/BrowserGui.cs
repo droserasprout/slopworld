@@ -93,6 +93,7 @@ public sealed partial class BrowserGui : IGuiBackend
         commandState.Clear();
         outsideTargetQuads = 0;
         pendingImages.Clear();
+        pendingAtlasImages.Clear();
         return result;
     }
 
@@ -104,6 +105,7 @@ public sealed partial class BrowserGui : IGuiBackend
         foreach (int id in pendingImages)
             images.Remove(id);
         pendingImages.Clear();
+        pendingAtlasImages.Clear();
         commands.Clear();
         commandState.Clear();
         outsideTargetQuads = 0;

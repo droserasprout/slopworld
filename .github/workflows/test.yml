@@ -183,7 +183,9 @@ jobs:
         run: dotnet workload install wasm-tools
 
       - name: Build redistributable browser bundle without installed game files
-        run: just slopweb-build
+        run: |
+          just browser-local-fonts-sdk
+          just slopweb-build
 
   mod:
     name: C#
