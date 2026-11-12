@@ -24,6 +24,7 @@ public sealed partial class BrowserFontBank : ITextMeshProBackend
             Spacing;
         public required Texture2D Texture;
         internal uint LoaderFlags;
+        internal readonly HashSet<char> Substituted = new();
         internal readonly HashSet<char> Unsupported = new();
         internal readonly HashSet<char> Failed = new();
         internal Color32[]? Pixels;
@@ -462,7 +463,7 @@ public sealed partial class BrowserFontBank : ITextMeshProBackend
         if (!TryFace(index, size, out var face))
             return false;
         ascent = face.Ascent;
-        return face.Glyphs.TryGetValue(c, out glyph);
+        return !face.Substituted.Contains(c) && face.Glyphs.TryGetValue(c, out glyph);
     }
 
     public string GetCharacters(int index) =>

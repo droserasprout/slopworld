@@ -61,7 +61,14 @@ def test_endpoint_credentials_stay_in_host_environment(
     assert descriptor.read_text().endswith('"fixture-secret"\n')
 
 
-def test_font_preparation_filters_profile_and_uses_private_native_bakes(
+def font_config_fixture(args: list[str]) -> None:
+    if args[3] in ('--resolve-ui', '--resolve'):
+        root = Path(args[-1])
+        name = 'ui-config.json' if args[3] == '--resolve-ui' else 'terminal-config.json'
+        (root / name).write_text('{"loaderFlags":513,"family":"Test"}')
+
+
+def test_font_preparation_filters_profile_and_delivers_font_files_without_baking(
     launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     appearance = importlib.import_module('appearance')
@@ -74,14 +81,15 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
     assert 'token' not in values
     assert values['hostHome'] == str(Path.home())
     calls = []
-    monkeypatch.setattr(appearance.subprocess, 'run', lambda args, **kwargs: calls.append((args, kwargs)))
+    monkeypatch.setattr(
+        appearance.subprocess, 'run', lambda args, **kwargs: (calls.append((args, kwargs)), font_config_fixture(args))
+    )
     root = tmp_path / 'private-runtime'
     appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', root, values)
     manifest = json.loads((root / 'assets/fonts/manifest.json').read_text())
     assert [face['bake'] for face in manifest] == ['ui-13.json', 'ui-15.json', 'ui-17.json', 'terminal.json']
-    assert len(calls) == 7
-    assert all(float(call[0][-2]) == 1 for call in calls[3:])
-    assert all(int(call[0][-1]) == 0 for call in calls[3:])
+    assert len(calls) == 3
+    assert all(call[0][3].startswith('--') for call in calls)
     assert all(call[1]['check'] for call in calls)
     assert all(call[1]['env']['LD_LIBRARY_PATH'].startswith(str(tmp_path / 'game')) for call in calls)
     assert 'private' not in (root / 'assets/reference-appearance.json').read_text()
@@ -96,6 +104,7 @@ def test_startup_font_failure_falls_back_without_changing_host_preferences(
 
     def probe(args: list[str], **kwargs: object) -> None:
         calls.append(args)
+        font_config_fixture(args)
         if args[3] == '--resolve-ui' and args[5] == 'Removed font':
             raise subprocess.CalledProcessError(1, args)
 
@@ -146,9 +155,14 @@ def test_font_preparation_matches_native_defaults_and_size_limits(
     appearance = importlib.import_module('appearance')
 
     calls = []
-    monkeypatch.setattr(appearance.subprocess, 'run', lambda args, **kwargs: calls.append(args))
+    monkeypatch.setattr(
+        appearance.subprocess, 'run', lambda args, **kwargs: (calls.append(args), font_config_fixture(args))
+    )
     appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', tmp_path / 'runtime', values)
-    assert [int(call[-3]) for call in calls[3:]] == sizes
+    root = tmp_path / 'runtime/assets/fonts'
+    manifest = json.loads((root / 'manifest.json').read_text())
+    assert [json.loads((root / entry['bake']).read_text())['size'] for entry in manifest] == sizes
+    assert len(calls) == 3
 
 
 def test_portrait_snapshot_preserves_pixels_and_identity_without_host_metadata(launcher: Any, tmp_path: Path) -> None:

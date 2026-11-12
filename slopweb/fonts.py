@@ -18,6 +18,21 @@ from typing import Any
 def selection(value: dict[str, Any]) -> dict[str, Any]:
     if 'face' in value:
         raise ValueError('Host glyph rasterization is not supported')
+    if 'fallback' in value:
+        fallback = value['fallback']
+        if not isinstance(fallback, dict):
+            raise ValueError('Invalid fallback request')
+        family = fallback.get('family')
+        scalars = fallback.get('scalars')
+        if not isinstance(family, str) or len(family) > 256 or any(ord(c) < 32 for c in family):
+            raise ValueError('Invalid font family')
+        if (
+            not isinstance(scalars, list)
+            or not 1 <= len(scalars) <= 256
+            or any(type(c) is not int or c < 0 or c > 0x10FFFF or 0xD800 <= c <= 0xDFFF for c in scalars)
+        ):
+            raise ValueError('Invalid fallback scalars')
+        return {'fallback': {'family': family, 'scalars': sorted(set(scalars))}}
     result: dict[str, Any] = {}
     for name, default in (('uiFontName', ''), ('fontName', 'monospace')):
         text = value.get(name, default)
@@ -66,11 +81,15 @@ def prepare(bundle: Path, game: Path, cache: Path, value: dict[str, Any]) -> Pat
                     timeout=max(0.1, min(30, deadline - time.monotonic())),
                 )
 
+            if 'fallback' in values:
+                probe('--fallback', bundle / 'mod/SlopWorld.dll', json.dumps(values['fallback']), root)
+                root.rename(target)
+                return target
             manifest = []
             probe('--resolve-ui', bundle / 'mod/SlopWorld.dll', values['uiFontName'], root)
             probe('--resolve', bundle / 'mod/SlopWorld.dll', values['fontName'], root)
-            config = json.loads((root / 'font-config.json').read_text())
             for font in ('ui.ttf', 'terminal.ttf'):
+                config = json.loads((root / font.replace('.ttf', '-config.json')).read_text())
                 sizes = (
                     [max(1, (values['uiFontSize'] or 13) + offset) for offset in (-2, 0, 2)]
                     if font == 'ui.ttf'

@@ -13,6 +13,12 @@ const execute = (file, args, options) => new Promise((resolve, reject) => {
 
 export function fontSelection(value) {
   if (value.face) throw Error('Host glyph rasterization is not supported');
+  if ('fallback' in value) {
+    const f=value.fallback;
+    if (!f || typeof f.family !== 'string' || f.family.length>256 || /[\x00-\x1f]/.test(f.family)) throw Error('Invalid font family');
+    if (!Array.isArray(f.scalars) || !f.scalars.length || f.scalars.length>256 || f.scalars.some(c=>!Number.isInteger(c)||c<0||c>0x10ffff||(c>=0xd800&&c<=0xdfff))) throw Error('Invalid fallback scalars');
+    return {fallback:{family:f.family,scalars:[...new Set(f.scalars)].sort((a,b)=>a-b)}};
+  }
   const result = {};
   for (const [key, fallback] of [['uiFontName', ''], ['fontName', 'monospace']]) {
     const text = value[key] ?? fallback;
@@ -52,7 +58,7 @@ export function fontProvider({helper, game, cache}, run = execute, now = Date.no
       let bytes = 0;
       const faces = [];
       for (const face of manifest) {
-        if (!/^(ui|terminal|face)\.ttf$/.test(face.font) || !/^[\w.-]+\.json$/.test(face.bake)) throw Error('Invalid font manifest');
+        if (!/^(ui|terminal|face[0-9]*)\.ttf$/.test(face.font) || !/^[\w.-]+\.json$/.test(face.bake)) throw Error('Invalid font manifest');
         if (!fonts[face.font]) {
           fonts[face.font] = (await readFile(path.join(root, face.font))).toString('base64');
           bytes += fonts[face.font].length;
@@ -62,7 +68,7 @@ export function fontProvider({helper, game, cache}, run = execute, now = Date.no
         if (bytes > 64 * 1024 * 1024) throw Error('Font response too large');
         faces.push({font: face.font, bake});
       }
-      return {fonts, faces, chains: JSON.parse(await readFile(path.join(root, 'chains.json')))};
+      return {fonts, faces, assignments: selected.fallback ? JSON.parse(await readFile(path.join(root, 'assignments.json'))) : undefined, chains: JSON.parse(await readFile(path.join(root, 'chains.json')))};
     })();
     const entry = {promise:pending, failedAt:0};
     requests.set(key, entry);

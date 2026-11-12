@@ -147,3 +147,11 @@ test('host accepts a complete styled manifest beyond the old sixteen-face limit'
     assert.equal((await provider({uiFontName:'Fira Sans'})).faces.length,19);
   } finally {await rm(cache,{recursive:true,force:true});}
 });
+
+test('coverage requests accept Unicode scalars and reject malformed or excessive batches', () => {
+  assert.deepEqual(fontSelection({fallback:{family:'sans-serif',scalars:[0x2928,65,65]}}),
+    {fallback:{family:'sans-serif',scalars:[65,0x2928]}});
+  for (const scalars of [[],[0xd800],[0x110000],[1.2],Array(257).fill(65)])
+    assert.throws(()=>fontSelection({fallback:{family:'sans-serif',scalars}}));
+  assert.throws(()=>fontSelection({fallback:{family:'bad\n',scalars:[65]}}));
+});
