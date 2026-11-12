@@ -64,7 +64,9 @@ Host preparation composes immutable runtimes from independently cached patched
 assemblies, archives, fonts, and backgrounds. `aot.py` owns compiler inputs and
 toolchain identity. Publication locks span composition; workspace locks span input
 synchronization, compilation, and output capture, including orphaned compiler
-processes. Only completed publications are served. Mixed AOT is required; packages
+processes. Compiler output writes directly to its durable log and is mirrored live
+to the host terminal; dynamic font diagnostics also stream to the host, while helper
+stdout remains a machine-readable cache path. Only completed publications are served. Mixed AOT is required; packages
 depend on the .NET SDK and users provision its matching wasm-tools workload.
 Installed launchers validate SDKs before game preparation; the checkout's
 `just_launch.py` owns explicit workload provisioning.
