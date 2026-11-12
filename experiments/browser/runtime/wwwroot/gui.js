@@ -64,23 +64,10 @@ export class GuiTargetDamagePlanner {
     for (const [top,bottom] of changed) bands = bands.flatMap(([a,b]) =>
       bottom <= a || top >= b ? [[a,b]] : [[a,Math.min(b,top)],[Math.max(a,bottom),b]]);
     const safe = x1 > x0 ? bands.filter(([a,b]) => b > a).map(([a,b]) => [x0,a,x1,b]) : [];
-    // Keep restoration rectangles disjoint and vertically ordered for culling.
-    const edges = [...new Set(safe.flatMap(b => [b[1],b[3]]))].sort((a,b) => a-b);
-    const preserved = [];
-    for (let i = 1; i < edges.length; i++) {
-      const top = edges[i-1], bottom = edges[i];
-      const spans = safe.filter(b => b[1] <= top && b[3] >= bottom).map(b => [b[0],b[2]]).sort((a,b) => a[0]-b[0]);
-      const merged = [];
-      for (const span of spans) {
-        const last = merged.at(-1);
-        if (last && span[0] <= last[1]) last[1] = Math.max(last[1],span[1]);
-        else merged.push([...span]);
-      }
-      for (const [left,right] of merged) {
-        if (preserved.length >= 4096) return null;
-        preserved.push([left,top,right,bottom]);
-      }
-    }
+    // Subtracting intervals above preserves order and disjointness. Every band
+    // shares the same x bounds, so no second edge sweep or span merge is needed.
+    const preserved = safe;
+    if (preserved.length > 4096) return null;
     return preserved.length ? {preserved, width, height} : null;
   }
 }
