@@ -64,6 +64,23 @@ internal static class BrowserCommandWriter
         writer.WriteEndArray();
     }
 
+    static void ImagePixels(Utf8JsonWriter writer, string pixels)
+    {
+        writer.WritePropertyName("pixels"u8);
+        // Base64 '+' is escaped by the default JSON encoder. Passing an entire
+        // atlas to WriteString rents a worst-case escape buffer proportional to
+        // its size, exhausting WASM memory alongside the pixels and packet.
+        // Segments preserve the encoder and wire bytes with bounded scratch space.
+        ReadOnlySpan<char> remaining = pixels;
+        const int segmentLength = 4096;
+        while (remaining.Length > segmentLength)
+        {
+            writer.WriteStringValueSegment(remaining[..segmentLength], isFinalSegment: false);
+            remaining = remaining[segmentLength..];
+        }
+        writer.WriteStringValueSegment(remaining, isFinalSegment: true);
+    }
+
     internal static void Write(Utf8JsonWriter writer, object value)
     {
         if (value is int number)
@@ -105,7 +122,7 @@ internal static class BrowserCommandWriter
                 writer.WriteNumber("id"u8, image.id);
                 writer.WriteNumber("width"u8, image.width);
                 writer.WriteNumber("height"u8, image.height);
-                writer.WriteString("pixels"u8, image.pixels);
+                ImagePixels(writer, image.pixels);
                 break;
             case ImageBatchCommand batch:
                 writer.WriteNumber("id"u8, batch.id);
