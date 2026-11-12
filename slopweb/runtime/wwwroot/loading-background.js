@@ -28,11 +28,25 @@ export function backgroundAnimation(tuning, random=Math.random) {
   };
 }
 
-export async function loadBackground(signal) {
+export async function loadBackground(signal, showOriginal=value=>value.dispose()) {
   const base=new URL('./assets/background/',location.href);
   const response=await fetch(new URL('manifest.json',base),{signal});
   if(!response.ok) return null;
   const manifest=await response.json();
+  if(manifest.original) {
+    const response=await fetch(new URL(manifest.original,base),{signal});
+    if(!response.ok) throw new Error('Original background unavailable');
+    const image=await createImageBitmap(await response.blob());
+    if(signal.aborted) {image.close();throw new DOMException('Aborted','AbortError');}
+    showOriginal({
+      draw(context,width,height) {
+        const aspect=manifest.width/manifest.height;
+        const w=Math.max(width,height*aspect), h=w/aspect;
+        context.drawImage(image,(width-w)/2,(height-h)/2,w,h);
+      },
+      dispose() {image.close();},
+    });
+  }
   if(!manifest.cached || !manifest.animation || !manifest.frames.length) return null;
   const images=[];
   try {

@@ -46,3 +46,27 @@ test('workspace dimming shades the completed backdrop and leaves loading undimme
   background.dispose();
   assert.equal(closed, 1);
 });
+
+test('original background publishes before frame decoding and survives an unavailable cache', async t => {
+  const manifest = {original:'original.png',width:100,height:50,cached:false};
+  const closed=[];
+  t.mock.method(globalThis,'fetch',async url=>String(url).endsWith('manifest.json')
+    ? {ok:true,json:async()=>manifest} : {ok:true,blob:async()=>String(url)});
+  const location=Object.getOwnPropertyDescriptor(globalThis,'location');
+  const bitmap=Object.getOwnPropertyDescriptor(globalThis,'createImageBitmap');
+  Object.defineProperty(globalThis,'location',{configurable:true,value:{href:'http://localhost/'}});
+  Object.defineProperty(globalThis,'createImageBitmap',{configurable:true,value:async name=>({name,close(){closed.push(name);}})});
+  t.after(()=>{
+    for(const [key,value] of [['location',location],['createImageBitmap',bitmap]])
+      if(value)Object.defineProperty(globalThis,key,value);else delete globalThis[key];
+  });
+  let original;
+  const animation=await loadBackground(new AbortController().signal,value=>{original=value;});
+  assert.equal(animation,null);
+  const draws=[];
+  original.draw({drawImage:(...args)=>draws.push(args)},100,100);
+  assert.deepEqual(draws[0].slice(1),[-50,0,200,100]);
+  assert.equal(closed.length,0);
+  original.dispose();
+  assert.equal(closed.length,1);
+});

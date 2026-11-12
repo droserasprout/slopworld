@@ -48,7 +48,11 @@ configuration ownership. Adapters substitute platform services and rendering;
 the daemon retains processes, tmux, sandboxes, and credentials. See the
 [client boundary](mod-client.md) and [wire contract](protocol-wire.md).
 Host appearance import and browser persistence share a tested presentation
-allowlist. Browser backdrop rendering consumes the native dimming preference;
+allowlist. Offline UI hooks invoke the mod’s action-caption backdrop and translated settings-row
+filters; the browser does not duplicate their theme or visibility policy. Loading
+publishes the original game background while frames decode, then starts animation
+and quote scrolling together once their presentation assets are ready.
+Browser backdrop rendering consumes the native dimming preference;
 profile files stay read-only and browser changes remain local to its origin.
 
 The server binds IPv4 loopback and validates Host separately from browser
