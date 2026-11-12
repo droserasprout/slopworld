@@ -51,18 +51,19 @@ def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False) -> Pat
         name: appearance[name] for name in ('fontName', 'fontSize', 'uiFontName', 'uiFontSize') if name in appearance
     }
     # Bump a phase's version when its preparation ordering or output contract changes.
+    contents: dict[Path, str] = {}
     keys = {
-        'managed': aot.digest_files(managed_inputs, 'managed-v1'),
-        'assets': aot.digest_files(assets_inputs, 'assets-v1'),
-        'fonts': aot.digest_files(font_inputs, ['fonts-v1', str(game), font_settings]),
-        'background': aot.digest_files(background_inputs, ['background-v1', str(game)]),
+        'managed': aot.digest_manifest(managed_inputs, 'managed-v1', contents),
+        'assets': aot.digest_manifest(assets_inputs, 'assets-v1', contents),
+        'fonts': aot.digest_manifest(font_inputs, ['fonts-v1', str(game), font_settings], contents),
+        'background': aot.digest_manifest(background_inputs, ['background-v1', str(game)], contents),
     }
     # Runtime composition includes authored assets, but not unrelated server code.
     assets = input_files(bundle, 'web', 'ost')
     assets.update(
         {str(p.relative_to(bundle)): p for p in (bundle / 'mod').rglob('*') if p.is_file() and p.suffix != '.dll'}
     )
-    key = aot.digest_files(assets, [keys, appearance])[:24]
+    key = aot.digest_manifest(assets, [keys, appearance], contents)[:24]
     cache.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (cache / '.prepare.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
