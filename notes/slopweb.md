@@ -40,7 +40,10 @@ the daemon retains processes, tmux, sandboxes, and credentials. See the
 
 The server binds IPv4 loopback and validates Host separately from browser
 provenance. Its same-origin HTTP and WebSocket bridges inject host credentials;
-credentials never enter page assets or URLs. Remote access requires an
+credentials never enter page assets or URLs. Named endpoints take precedence over
+paired URL/token environment overrides, then `SLOPD_ENDPOINT`, then local.
+The host reads descriptor credentials for each operation and WebSocket reconnect;
+failed reads fail closed, and mutations are never replayed after authentication failure. Remote access requires an
 authenticated proxy. Browser transport keeps native request admission, deadlines,
 completion delivery, connection generations, and bounded queues. Overload closes
 the socket rather than blocking the UI thread.

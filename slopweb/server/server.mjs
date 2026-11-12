@@ -1,5 +1,6 @@
 // Loopback asset server and credentialed bridge; remote access needs an authenticated proxy.
 import http from 'node:http';
+import { endpointProvider } from './endpoint.mjs';
 import { fontProvider, fontHttp } from './fonts.mjs';
 import { daemonHttp } from './bridge.mjs';
 import { daemonSocket } from './websocket.mjs';
@@ -8,8 +9,9 @@ import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export async function serve(directory, port = 0, daemon = { endpoint: process.env.SLOPD_URL, token: process.env.SLOPD_TOKEN }, fonts = null) {
+export async function serve(directory, port = 0, daemon = endpointProvider(), fonts = null) {
   const root = await realpath(directory);
+  const resolveDaemon = typeof daemon === 'function' ? daemon : async () => daemon;
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
     '.json': 'application/json', '.wasm': 'application/wasm', '.css': 'text/css' };
   const server = http.createServer(async (req, res) => {
@@ -21,7 +23,8 @@ export async function serve(directory, port = 0, daemon = { endpoint: process.en
       await fontHttp(req, res, fonts); return;
     }
     if (req.url === '/host/health' || req.url.startsWith('/host/api/')) {
-      await daemonHttp(req, res, daemon.endpoint, daemon.token);
+      const snapshot = await resolveDaemon();
+      await daemonHttp(req, res, snapshot.endpoint, snapshot.token);
       return;
     }
     if (!['GET', 'HEAD'].includes(req.method)) {
@@ -53,12 +56,13 @@ export async function serve(directory, port = 0, daemon = { endpoint: process.en
     const port = server.address().port;
     return [`127.0.0.1:${port}`, `localhost:${port}`].includes(req.headers.host);
   }
-  server.on('upgrade', (req, socket, head) => {
+  server.on('upgrade', async (req, socket, head) => {
     if (!localHost(req)) {
       socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
       return;
     }
-    daemonSocket(req, socket, head, daemon);
+    const snapshot = await resolveDaemon();
+    if (!socket.destroyed) daemonSocket(req, socket, head, snapshot);
   });
   await new Promise((resolve, reject) => {
     server.once('error', reject);

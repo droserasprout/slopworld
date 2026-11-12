@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { sameOrigin } from '../../server/bridge.mjs';
 import { request } from 'node:http';
+import { endpointProvider } from '../../server/endpoint.mjs';
 import { serve } from '../../server/server.mjs';
 
 test('local assets are isolated and credentialed health rejects foreign requests', async () => {
@@ -100,7 +101,7 @@ test('WebSocket bridge rejects foreign origins and relays masked binary traffic 
     remote = socket;
     socket.on('end', () => socket.destroy());
     assert.equal(req.url, '/ws');
-    assert.equal(req.headers['x-slop-token'], 'host-secret');
+    assert.equal(req.headers['x-slop-token'], upgrades === 1 ? 'host-secret' : 'rotated');
     assert.equal(req.headers.origin, undefined);
     const accept = createHash('sha1').update(req.headers['sec-websocket-key'] +
       '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
@@ -121,9 +122,10 @@ test('WebSocket bridge rejects foreign origins and relays masked binary traffic 
   });
   await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'wasm-socket-test-'));
-  const { server, url } = await serve(temporary, 0, {
-    endpoint: `http://127.0.0.1:${upstream.address().port}`, token: 'host-secret',
-  });
+  const descriptor = path.join(temporary, 'endpoint.toml');
+  const writeToken = token => writeFile(descriptor, `url = "http://127.0.0.1:${upstream.address().port}"\ntoken = "${token}"\n`);
+  await writeToken('host-secret');
+  const { server, url } = await serve(temporary, 0, endpointProvider({ ...process.env, SLOPWEB_ENDPOINT_FILE: descriptor }));
   let client;
   try {
     await assert.rejects(openSocket(url, 'http://evil.invalid'), /403/);
@@ -140,6 +142,9 @@ test('WebSocket bridge rejects foreign origins and relays masked binary traffic 
     const closed = new Promise(resolve => remote.once('close', resolve));
     client.socket.destroy();
     await closed;
+    await writeToken('rotated');
+    client = await openSocket(url, url, new URL(url).host);
+    assert.equal(upgrades, 2);
   } finally {
     client?.socket.destroy(); remote?.destroy();
     server.closeAllConnections(); upstream.closeAllConnections();

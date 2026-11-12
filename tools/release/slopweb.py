@@ -92,6 +92,7 @@ def build(destination: Path = OUTPUT) -> None:
         bundle.mkdir()
         for source, target in (
             (ROOT / 'slopweb/launch.py', 'launch.py'),
+            (ROOT / 'slopweb/endpoint.py', 'endpoint.py'),
             (ROOT / 'slopweb/aot.py', 'aot.py'),
             (ROOT / 'slopweb/appearance.py', 'appearance.py'),
             (ROOT / 'slopweb/fonts.py', 'fonts.py'),
@@ -140,7 +141,7 @@ def build(destination: Path = OUTPUT) -> None:
                 copy_file(ROOT / 'mod' / name, bundle / 'ost' / Path(name).name)
         copy_file(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', bundle / 'mod/LoadingFont.png')
         copy_file(ROOT / 'shared/loading-tips.txt', bundle / 'mod/loading-tips.txt')
-        for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs', 'fonts.mjs'):
+        for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs', 'fonts.mjs', 'endpoint.mjs'):
             copy_file(ROOT / 'slopweb/server' / name, bundle / 'server' / name)
         package = runtime_package(runtime)
         for name in ('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT'):

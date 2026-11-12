@@ -4,11 +4,11 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
-import tomllib
 import uuid
 from pathlib import Path
 
@@ -16,6 +16,7 @@ import aot
 from appearance import preferences
 from appearance import prepare_fonts
 from appearance import write_preferences
+from endpoint import connection
 
 PAGE = '/'
 
@@ -171,17 +172,30 @@ def environment(args: argparse.Namespace) -> dict[str, str]:
     config = Path(
         env.get('SLOPD_CONFIG_ROOT', str(Path(env.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'slopworld'))
     ).expanduser()
-    descriptor = Path(env.get('SLOPD_ENDPOINT', str(config / 'endpoints/local.toml'))).expanduser()
-    values = tomllib.loads(descriptor.read_text()) if descriptor.is_file() else {}
-    endpoint = args.endpoint or env.get('SLOPD_URL') or values.get('url')
-    token = (
-        Path(args.token_file).expanduser().read_text().strip()
-        if args.token_file
-        else env.get('SLOPD_TOKEN') or values.get('token')
-    )
-    if not endpoint or not token:
-        raise ValueError('Configure SLOPD_URL and SLOPD_TOKEN, or start slopd to write its local endpoint descriptor.')
-    env.update(SLOPD_URL=endpoint, SLOPD_TOKEN=token)
+    env.pop('SLOPWEB_ENDPOINT_FILE', None)
+    env.pop('SLOPWEB_TOKEN_FILE', None)
+    if args.endpoint is not None:
+        if args.token_file or getattr(args, 'url', None):
+            raise ValueError('--endpoint cannot be combined with --url or --token-file')
+        if not re.fullmatch(r'[A-Za-z0-9_-]+', args.endpoint):
+            raise ValueError("endpoint name must contain only letters, digits, '-' or '_'")
+        descriptor = config / 'endpoints' / (args.endpoint + '.toml')
+    elif getattr(args, 'url', None) or args.token_file:
+        if not getattr(args, 'url', None) or not args.token_file:
+            raise ValueError('--url and --token-file must be supplied together')
+        env.update(SLOPD_URL=args.url, SLOPWEB_TOKEN_FILE=str(Path(args.token_file).expanduser().resolve()))
+        env.pop('SLOPD_TOKEN', None)
+        connection(env)
+        return env
+    elif 'SLOPD_URL' in env:
+        connection(env)
+        return env
+    else:
+        descriptor = Path(env.get('SLOPD_ENDPOINT', str(config / 'endpoints/local.toml'))).expanduser()
+    env.pop('SLOPD_URL', None)
+    env.pop('SLOPD_TOKEN', None)
+    env['SLOPWEB_ENDPOINT_FILE'] = str(descriptor.resolve())
+    connection(env)
     return env
 
 
@@ -193,7 +207,8 @@ def main() -> None:
         default=Path(os.environ.get('RIMWORLD', str(Path.home() / '.local/share/Steam/steamapps/common/RimWorld'))),
     )
     parser.add_argument('--port', type=int, default=8787)
-    parser.add_argument('--endpoint', help='Daemon HTTP URL (credentials remain on the host)')
+    parser.add_argument('--endpoint', help='Saved daemon endpoint name (default: local)')
+    parser.add_argument('--url', help='Daemon URL; requires --token-file')
     parser.add_argument('--token-file', help='Read a host-only daemon token file')
     parser.add_argument(
         '--cache', type=Path, default=Path(os.environ.get('XDG_CACHE_HOME', str(Path.home() / '.cache'))) / 'slopweb'
