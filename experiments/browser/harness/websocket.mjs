@@ -6,7 +6,6 @@ import https from 'node:https';
 export function daemonSocket(req, socket, head, daemon) {
   const reject = (status = 403) => socket.end(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
   if (req.url !== '/host/ws' || req.method !== 'GET' ||
-      !/^127\.0\.0\.1:\d+$/.test(req.headers.host ?? '') ||
       req.headers.origin !== `http://${req.headers.host}` ||
       req.headers['sec-websocket-protocol'] !== 'slopworld.protobuf.v2' ||
       req.headers['sec-websocket-version'] !== '13' ||

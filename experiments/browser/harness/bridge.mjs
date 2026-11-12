@@ -1,9 +1,21 @@
 // Host-only HTTP boundary. Browser callers supply protobuf, never daemon credentials.
 // WebSocket adaptation and the managed mod client remain separate owners.
+// Plain HTTP browsers omit Fetch Metadata. Require an explicit matching Origin
+// or Referer in that case; never treat missing browser provenance as same-origin.
+export function sameOrigin(req) {
+  const expected = `http://${req.headers.host}`;
+  const site = req.headers['sec-fetch-site'];
+  if (site && site !== 'same-origin') return false;
+  if (req.headers.origin) return req.headers.origin === expected;
+  if (req.headers.referer) {
+    try { return new URL(req.headers.referer).origin === expected; }
+    catch { return false; }
+  }
+  return site === 'same-origin';
+}
+
 export async function daemonHttp(req, res, endpoint, token) {
-  const origin = `http://${req.headers.host}`;
-  if (req.headers['sec-fetch-site'] !== 'same-origin' ||
-      (req.headers.origin && req.headers.origin !== origin) ||
+  if (!sameOrigin(req) ||
       !['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
     res.writeHead(403).end(); return;
   }

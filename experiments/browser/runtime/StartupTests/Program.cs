@@ -12,6 +12,45 @@ static class Check
 
     static async Task Main()
     {
+        foreach (
+            var origin in new[]
+            {
+                "http://127.0.0.1:8787",
+                "http://localhost:8787",
+                "http://g14.tail86ccc.ts.net:8787",
+                "https://g14.tail86ccc.ts.net",
+                "http://[::1]:8787",
+            }
+        )
+        {
+            BrowserAdapters.BrowserTransport.Configure(origin);
+            Expect(
+                BrowserAdapters.BrowserTransport.BaseUrl == origin + "/host",
+                "Browser origin was not preserved"
+            );
+        }
+        foreach (
+            var origin in new[]
+            {
+                "ftp://localhost",
+                "http://localhost/path",
+                "http://localhost/?query",
+                "http://localhost/#fragment",
+                "http://user@localhost/",
+            }
+        )
+        {
+            bool invalid = false;
+            try
+            {
+                BrowserAdapters.BrowserTransport.Configure(origin);
+            }
+            catch (ArgumentException)
+            {
+                invalid = true;
+            }
+            Expect(invalid, "Non-origin URL was accepted");
+        }
         var hub = Hub.Instance;
         var timer = Stopwatch.StartNew();
         Expect(

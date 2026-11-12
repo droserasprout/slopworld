@@ -1,4 +1,4 @@
-// Loopback-only asset server. The selected build directory is its entire authority.
+// Network-accessible asset server. The selected build directory is its entire authority.
 import http from 'node:http';
 import { fontProvider, fontHttp } from './fonts.mjs';
 import { daemonHttp } from './bridge.mjs';
@@ -15,9 +15,6 @@ export async function serve(directory, port = 0, daemon = { endpoint: process.en
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
     res.setHeader('Cache-Control', 'no-store');
-    if (!/^127\.0\.0\.1:\d+$/.test(req.headers.host ?? '')) {
-      res.writeHead(403).end(); return;
-    }
     if (req.url === '/host/fonts') {
       await fontHttp(req, res, fonts); return;
     }
@@ -44,7 +41,7 @@ export async function serve(directory, port = 0, daemon = { endpoint: process.en
   server.on('upgrade', (req, socket, head) => daemonSocket(req, socket, head, daemon));
   await new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(port, '127.0.0.1', resolve);
+    server.listen(port, '0.0.0.0', resolve);
   });
   return { server, url: `http://127.0.0.1:${server.address().port}` };
 }

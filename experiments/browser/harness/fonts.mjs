@@ -1,4 +1,5 @@
 // Host-only font preparation: one subprocess, bounded queue/cache, no shell.
+import { sameOrigin } from './bridge.mjs';
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -70,7 +71,7 @@ export function fontProvider({helper, game, cache}, run = execute, now = Date.no
 
 export async function fontHttp(req, res, provider) {
   if (!provider) { res.writeHead(404).end(); return; }
-  if (req.method !== 'POST' || req.headers.origin !== `http://${req.headers.host}` || req.headers['sec-fetch-site'] !== 'same-origin') {
+  if (req.method !== 'POST' || !sameOrigin(req)) {
     res.writeHead(403).end(); return;
   }
   try {
