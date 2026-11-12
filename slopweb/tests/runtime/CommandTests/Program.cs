@@ -55,6 +55,22 @@ if (
 Console.WriteLine(
     "Direct and generated packets match the original JSON contract and recover after failed/oversized writes."
 );
+
+// Real base64 uploads contain '+'; an all-'a' fixture misses the encoder's
+// worst-case escape scratch allocation. Cover empty, exact and partial segments.
+foreach (int length in new[] { 0, 4095, 4096, 4097, 2200000 })
+{
+    string pixels = length == 0 ? "" : new string('+', length - 4) + "/w==";
+    var packet = new List<BrowserGui.Command>
+    {
+        new("image", new BrowserGui.ImageCommand(8, 1, 1, pixels)),
+    };
+    if (
+        BrowserCommandWriter.Serialize(packet)
+        != JsonSerializer.Serialize(packet, BrowserGuiJson.Default.ListCommand)
+    )
+        throw new Exception("Segmented image upload changed base64 escaping");
+}
 CommandValueCacheTests.Run();
 PacketCacheTests.Run(commands);
 GlyphRunTests.Run();
