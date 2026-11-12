@@ -39,6 +39,9 @@ and cache tests. Packaging assertions remain under `tools/release/`. `ci-web`
 runs game-free checks; native font fidelity checks are explicit opt-ins.
 
 The browser workspace stays in Entry without creating a game, world, or map.
+Browser middle-click paste is owned by the DOM paste event carrying desktop PRIMARY;
+both browser input adapters suppress the corresponding managed button gesture to
+avoid also pasting the adapter's saved local selection.
 The mod retains sidebar, terminal, native text layout, session catalog, and
 configuration ownership. Adapters substitute platform services and rendering;
 the daemon retains processes, tmux, sandboxes, and credentials. See the
