@@ -253,6 +253,7 @@ static class GlyphChecks
         BrowserGui.ConfigureGlyphTailClip(true);
         LabelChecks.Run(index);
         CellChecks.Run(index, texture, benchmark);
+        RowChecks.Run(index, texture);
         if (benchmark)
             Benchmark(index);
         BrowserGui.ConfigureGlyphCache(false);

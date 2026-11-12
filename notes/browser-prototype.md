@@ -122,6 +122,29 @@ ordinary unprofiled drawing avoids that traversal. Culling is enabled by default
 `WorkspaceGlyphTailClip(false)` selects the reference path for packet and headless
 workload comparisons. Faded-label slices
 narrow drawing clips through nested groups while retaining full-span fine text clips.
+
+The default-off terminal row command recorder is enabled by `rowCommands=1` or
+`Probe.WorkspaceRowCommands(true)` (`window.__workspace.setRowCommands` also toggles
+it). `window.__workspace.rowCommandStats()` reports hits, misses, diagnostic
+bypasses and retained row/byte counts without enabling managed profiling. It records
+operations before `Emit` state filtering and image-batch coalescing,
+and replays through those same emitters. Only final decorated ASCII rows whose text
+uses baked faces qualify. Mod placement/snap/theme/font identity is combined with
+the full backend transform, physical clip, tint, target, style and font bank
+revisions. `ResolutionVersion` also invalidates temporary size registration, which
+can change lookup results without changing atlas pixels. Texture dependencies check
+managed identity, Apply version, dimensions and CPU backing; cold uploads cannot
+qualify. Weak row identities and weak upload-state dependencies avoid retaining
+parsed text or retired CPU pixel backing. Successful packet serialization publishes
+candidates; discarded, failed and oversized captures never publish. Retention bounds
+are 256 rows/4 MiB each for pending and committed operations,
+plus one active capture capped at 4096 operations/4 MiB. Unused committed rows expire
+after 120 drained passes. Disabling releases the current backend's retained rows.
+Managed drawing profiling and label observation bypass reuse to preserve diagnostics;
+measure presentation timing separately when comparing this switch. The CPU-only
+`just browser-test-row-commands` compares actual packets and exercises the compiled
+mod delegate bridge; it establishes neither browser latency nor visual parity.
+
 Single covered ASCII labels bypass text-run caching and line traversal in the browser
 adapter. They retain independently rounded label origins, native face/style/density
 selection and the same glyph clipping/upload rules. Other text keeps the general

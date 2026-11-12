@@ -23,6 +23,8 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   }).catch(error=>{if(error.name!=='AbortError') console.warn('Workspace background unavailable:',String(error));});
   const parameters = workspaceParameters();
   managed.WorkspacePacketCache(workspaceOption(parameters,'packetCache'));
+  let rowCommands=parameters.get('rowCommands')==='1';
+  if(rowCommands) managed.WorkspaceRowCommands(true);
   const idleYield=workspaceOption(parameters,'idleYield');
   let reuseCanvas=workspaceOption(parameters,'reuseCanvas')||idleYield;
   let scale = workspaceViewport(parameters).uiScale;
@@ -73,6 +75,8 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   document.addEventListener('visibilitychange',()=>scheduler.wake(true),{signal:activity.signal});
   managed.WorkspaceWake(()=>scheduler.wake());
   const state = { status: 'starting', frames: 0, source: 'SlopWorld WindowStack', game: JSON.parse(managed.GameSnapshot()) };
+  state.rowCommandStats=()=>JSON.parse(managed.WorkspaceRowCommandsStats());
+  state.setRowCommands=enabled=>{const previous=managed.WorkspaceRowCommands(enabled);rowCommands=enabled;return previous;};
   state.setCanvasReuse=enabled=>{const previous=reuseCanvas;reuseCanvas=enabled;return previous;};
   state.setIdleYield=enabled=>scheduler.setEnabled(enabled);
   state.setProfiling = enabled => {
@@ -83,6 +87,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   const stop = () => {
     if (stopped) return;
     stopped = true; scheduler.stop();activity.abort();managed.WorkspaceClearWake();
+    if(rowCommands) managed.WorkspaceRowCommands(false);
     backgroundAbort.abort();background?.dispose();background=null;
     device.dispose(); gui.dispose();
     cursor.dispose(); fullscreen.dispose(); audio.dispose();

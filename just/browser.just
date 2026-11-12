@@ -660,3 +660,8 @@ browser-host-firefox-cleanup report:
 [group('browser prototype')]
 browser-firefox-harness-format:
     uv run --locked ruff format --quiet experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
+
+# CPU-only row replay plus the actual mod delegate boundary; no browser or game.
+[group('browser prototype')]
+browser-test-row-commands: mod-check-build
+    just --justfile experiments/browser/runtime/NativeTextTests/justfile rows {{quote(justfile_directory() / 'mod/Assemblies/SlopWorld.dll')}}
