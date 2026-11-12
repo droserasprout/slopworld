@@ -102,6 +102,17 @@ def build_identity() -> tuple[str, str]:
     return revision, version
 
 
+def bundle_identity(bundle: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(bundle.rglob('*')):
+        if path.is_file() and path != bundle / 'BUILD_ID':
+            digest.update(path.relative_to(bundle).as_posix().encode())
+            with path.open('rb') as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                    digest.update(chunk)
+    return digest.hexdigest() + '\n'
+
+
 def build(destination: Path = OUTPUT) -> None:
     runtime = ROOT / 'slopweb/runtime'
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -109,20 +120,12 @@ def build(destination: Path = OUTPUT) -> None:
         bundle = Path(temporary) / 'bundle'
         bundle.mkdir()
         for source, target in (
-            (ROOT / 'slopweb/launch.py', 'launch.py'),
-            (ROOT / 'slopweb/application_paths.py', 'application_paths.py'),
-            (ROOT / 'slopweb/cli.py', 'cli.py'),
-            (ROOT / 'slopweb/timings.py', 'timings.py'),
-            (ROOT / 'slopweb/endpoint.py', 'endpoint.py'),
-            (ROOT / 'slopweb/aot.py', 'aot.py'),
-            (ROOT / 'slopweb/appearance.py', 'appearance.py'),
-            (ROOT / 'slopweb/fonts.py', 'fonts.py'),
-            (ROOT / 'slopweb/portraits.py', 'portraits.py'),
-            (runtime / 'core_pack.py', 'core_pack.py'),
+            (ROOT / 'slopweb/host/target/release/slopweb', 'slopweb-host'),
             (runtime / 'bin/Debug/net10.0/Probe.dll', 'Probe.dll'),
             (runtime / 'Adapters/bin/Debug/net10.0/Adapters.dll', 'Adapters.dll'),
         ):
             copy_file(source, bundle / target)
+        (bundle / 'slopweb-host').chmod(0o755)
         stage_aot_sources(runtime, bundle)
         # FontProbe's build directory also contains installed game references.
         # Ship only our executable and its runtime metadata, never that directory.
@@ -162,20 +165,11 @@ def build(destination: Path = OUTPUT) -> None:
                 copy_file(ROOT / 'mod' / name, bundle / 'ost' / Path(name).name)
         copy_file(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', bundle / 'mod/LoadingFont.png')
         copy_file(ROOT / 'shared/loading-tips.txt', bundle / 'mod/loading-tips.txt')
-        for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs', 'fonts.mjs', 'endpoint.mjs'):
-            copy_file(ROOT / 'slopweb/server' / name, bundle / 'server' / name)
         package = runtime_package(runtime)
         for name in ('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT'):
             copy_file(package / name, bundle / 'licenses/dotnet' / name)
         metadata(bundle, *build_identity())
-        digest = hashlib.sha256()
-        for path in sorted(bundle.rglob('*')):
-            if path.is_file():
-                digest.update(path.relative_to(bundle).as_posix().encode())
-                with path.open('rb') as stream:
-                    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
-                        digest.update(chunk)
-        (bundle / 'BUILD_ID').write_text(digest.hexdigest() + '\n')
+        (bundle / 'BUILD_ID').write_text(bundle_identity(bundle))
         if destination.exists():
             shutil.rmtree(destination)
         bundle.rename(destination)
@@ -186,6 +180,13 @@ def stage(payload: Path, revision: str, version: str, bundle: Path = OUTPUT) -> 
         raise ValueError('Missing slopweb build; run just web-build')
     shutil.copytree(bundle, payload / 'usr/share/slopweb')
     metadata(payload / 'usr/share/slopweb', revision, version)
+    # Distribution containers compile the native host against their own libc and
+    # architecture. Managed/WASM assets remain the reviewed prebuilt bundle.
+    if native := os.environ.get('SLOPWEB_HOST_BINARY'):
+        installed = payload / 'usr/share/slopweb'
+        copy_file(Path(native), installed / 'slopweb-host')
+        (installed / 'BUILD_ID').write_text(bundle_identity(installed))
+    (payload / 'usr/share/slopweb/slopweb-host').chmod(0o755)
     copy_file(ROOT / 'slopweb/slopweb', payload / 'usr/bin/slopweb')
     (payload / 'usr/bin/slopweb').chmod(0o755)
     cli_completions.stage(ROOT / 'packaging/completions', payload / 'usr/share', ('slopweb',))

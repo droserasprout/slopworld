@@ -1,16 +1,17 @@
 # Build redistributable slopweb tooling; proprietary runtime stays in local output.
 [group('web')]
 web-build:
-    python3 slopweb/build_tools.py
+    uv run --locked python -m tools.web_build
 
 # Stage already-built redistributable tools without replacing private game roots.
 [group('web')]
 web-stage:
     uv run --locked python -m tools.release.slopweb build
 
+# Inspect selected host font descriptors without starting the workspace.
 [group('web')]
 web-check-fonts game=(env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld') output='slopweb/runtime/out/installed-font-check':
-    python3 slopweb/out/appearance.py {{quote(game)}} {{quote(output)}}
+    slopweb/out/slopweb-host check-fonts {{quote(game)}} {{quote(output)}}
 
 [group('web')]
 web-install prefix=(env('HOME') + '/.local'): web-build (web-install-staged prefix)
@@ -26,14 +27,14 @@ web-uninstall prefix=(env('HOME') + '/.local'):
 [group('web')]
 [positional-arguments]
 web-run *args: web-build
-    python3 slopweb/just_launch.py "$@"
+    slopweb/out/slopweb-host --ensure-workload "$@"
 
 # Prepare an immutable AOT runtime without starting a browser or replacing a server.
 # Limit compiler parallelism; resource limits come from the calling environment.
 [group('web')]
 web-prepare-aot sdk cache cores='2': web-build
     @python3 -c 'import re, sys; sys.exit(0 if re.fullmatch(r"[1-9][0-9]*", sys.argv[1]) else "cores must be a positive integer")' {{quote(cores)}}
-    DOTNET_PROCESSOR_COUNT={{quote(cores)}} BINARYEN_CORES={{quote(cores)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
+    DOTNET_PROCESSOR_COUNT={{quote(cores)}} BINARYEN_CORES={{quote(cores)}} {{quote(justfile_directory() / 'slopweb/out/slopweb-host')}} --ensure-workload --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
 
 # Read only the compiler log; do not attach to a browser or running workspace.
 [group('web')]
@@ -41,21 +42,21 @@ web-aot-log key cache=(env('HOME') + '/.cache/slopweb'):
     tail -n 12 {{quote(cache / 'aot-builds' / key / 'publish.log')}}
 
 [group('web')]
-web-format:
+web-format: web-host-format
     rg --files slopweb/runtime slopweb/offline slopweb/tests/runtime -g '*.cs' -g '*.csproj' -0 | xargs -0 dotnet tool run csharpier format
     uv run --locked ruff check --select I --fix slopweb
     uv run --locked ruff format slopweb
 
 [group('web')]
-web-lint: web-check-types
+web-lint: web-host-lint web-check-types
     rg --files slopweb/runtime slopweb/offline slopweb/tests/runtime -g '*.cs' -g '*.csproj' -0 | xargs -0 dotnet tool run csharpier check
-    while IFS= read -r file; do node --check "$file"; done < <(rg --files slopweb/runtime slopweb/server slopweb/tests -g '*.js' -g '*.mjs')
+    while IFS= read -r file; do node --check "$file"; done < <(rg --files slopweb/runtime slopweb/tests -g '*.js' -g '*.mjs')
     uv run --locked ruff check slopweb
     uv run --locked ruff format --check slopweb
 
 [group('web')]
-web-test: web-test-runtime web-test-server
-    uv run --locked pytest slopweb/tests tools/release/test_slopweb.py -q
+web-test: web-host-build web-host-test web-test-runtime
+    uv run --locked pytest tools/release/test_slopweb.py tools/test_web_local_fonts.py -q
 
 # Managed and Node contracts; no installed game or browser required.
 [group('web')]
@@ -115,7 +116,7 @@ web-run-portraits source *args: web-build
     set -euo pipefail
     test -n {{quote(source)}}
     shift
-    SLOPWEB_PORTRAITS={{quote(source)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} "$@"
+    SLOPWEB_PORTRAITS={{quote(source)}} {{quote(justfile_directory() / 'slopweb/out/slopweb-host')}} --ensure-workload "$@"
 
 [group('web')]
 web-local-fonts-build:
@@ -132,18 +133,15 @@ web-test-local-fonts: web-local-fonts-build
     node slopweb/tests/browser/native/local-fonts.mjs
     just web-test-native-text
 
-# Check installed Python tools independently of repository packaging modules.
+# Check browser build scripts.
 [group('web')]
 web-check-types:
-    MYPYPATH=slopweb uv run --locked mypy --no-error-summary --no-namespace-packages slopweb/*.py slopweb/runtime/*.py slopweb/runtime/LocalFonts/build.py
-
-[group('web')]
-web-test-server:
-    node --test slopweb/tests/server/*.test.mjs
+    uv run --locked mypy --no-error-summary slopweb/runtime/mod_pack.py slopweb/runtime/LocalFonts/build.py
 
 # Restore every reviewed browser project lock without installed game assemblies.
 [group('web')]
 web-restore:
+    cargo fetch --manifest-path slopweb/host/Cargo.toml --locked
     for project in $(rg --files slopweb -g '*.csproj' | sort); do dotnet restore "$project" --locked-mode --nologo -v quiet; done
 
 # Remove authored build output; installed caches and private research are separate.
@@ -157,7 +155,32 @@ web-check-native-build game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/s
     dotnet build slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj --nologo -v quiet -p:RestoreLockedMode=true -p:GameDirectory={{quote(game)}}
     dotnet build slopweb/tests/runtime/KeyBindingsTests/KeyBindingsTests.csproj --nologo -v quiet -p:RestoreLockedMode=true -p:GameDirectory={{quote(game)}}
 
-# Installed fonts/assemblies only: exercise on-demand file delivery without a browser.
+# Exercise a running native host and local rasterizer without a browser.
 [group('web')]
-web-test-font-delivery: web-build
-    node slopweb/tests/browser/native/font-delivery.mjs
+web-test-font-delivery url='http://127.0.0.1:8787': web-local-fonts-build
+    node slopweb/tests/browser/native/font-delivery.mjs {{quote(url)}}
+
+[group('web')]
+web-host-build:
+    cargo build --manifest-path slopweb/host/Cargo.toml --locked --quiet
+
+[group('web')]
+web-host-test *args:
+    cargo test --manifest-path slopweb/host/Cargo.toml --locked --quiet {{args}}
+
+[group('web')]
+web-host-format:
+    cargo fmt --manifest-path slopweb/host/Cargo.toml
+
+[group('web')]
+web-host-lint:
+    cargo fmt --manifest-path slopweb/host/Cargo.toml --check
+    cargo clippy --manifest-path slopweb/host/Cargo.toml --locked --all-targets --quiet -- -D warnings
+
+[group('web')]
+web-host-release:
+    cargo build --manifest-path slopweb/host/Cargo.toml --locked --release --quiet
+
+[group('web')]
+web-test-browser:
+    node --test slopweb/tests/browser/*.test.mjs

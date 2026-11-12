@@ -101,13 +101,13 @@ try {
                     fontChains = await chains.text();
                     exports.Probe.WorkspaceFontChains(fontChains);
                     const manifest = await fetch('./assets/fonts/manifest.json');
-                    if (!manifest.ok) throw new Error('Local native font bakes are missing');
+                    if (!manifest.ok) throw new Error('Host font descriptors are missing');
                     // Styles and densities share font bytes. Retain them only for
                     // this installation pass, avoiding repeated fetch/body copies.
-                    const fonts = new Map();
+                    const fonts = new Map(), families = new Set();
                     const loadFont = async url => {
                         const response = await fetch(url);
-                        if (!response.ok) throw new Error('Local native font bake is incomplete');
+                        if (!response.ok) throw new Error('Host font file is unavailable');
                         return new Uint8Array(await response.arrayBuffer());
                     };
                     for (const face of await manifest.json()) {
@@ -115,11 +115,17 @@ try {
                         const fontUrl = new URL(face.font, base), bakeUrl = new URL(face.bake, base);
                         if (!fontUrl.href.startsWith(base.href) || !bakeUrl.href.startsWith(base.href))
                             throw new Error('Font manifest path escapes local font directory');
-                        if (!fonts.has(fontUrl.href)) fonts.set(fontUrl.href, loadFont(fontUrl));
+                        if (!fonts.has(fontUrl.href)) fonts.set(fontUrl.href, face.hash
+                            ? (await import('./host-fonts.js')).hostFonts(exports.Probe).file(face.hash)
+                            : loadFont(fontUrl));
                         const [font, bake] = await Promise.all([fonts.get(fontUrl.href), fetch(bakeUrl)]);
-                        if (!bake.ok) throw new Error('Local native font bake is incomplete');
-                        exports.Probe.WorkspaceFont(font, await bake.text(), face.index ?? -1);
+                        if (!bake.ok) throw new Error('Host font descriptor is unavailable');
+                        const descriptor=await bake.text();
+                        exports.Probe.WorkspaceFont(font, descriptor, face.index ?? -1);
+                        const family=JSON.parse(descriptor).family;
+                        if (family) families.add(family);
                     }
+                    await (await import('./font-delivery.js')).warmWorkspaceFonts(exports.Probe,[...families]);
                 }
                 for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn']) {
                     const response = await fetch(`./mod/${name}.dll`);
@@ -134,6 +140,8 @@ try {
                     void fonts(exports.Probe.WorkspaceDynamicFonts(fonts));
                 }
                 let commands = JSON.parse(await exports.Probe.WorkspaceFrame(location.origin, parameters.get('session') ?? ''));
+                if (parameters.has('nativeFonts') && await (await import('./font-delivery.js')).warmWorkspaceFonts(exports.Probe))
+                    commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', 0)).commands;
                 const drawing = await import('./gui.js');
                 const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
                 document.body.prepend(canvas);
@@ -142,6 +150,8 @@ try {
                 for (let frame = 0; frame < 30; frame++) {
                     await new Promise(requestAnimationFrame);
                     commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', frame / 60)).commands;
+                    if (parameters.has('nativeFonts') && await (await import('./font-delivery.js')).warmWorkspaceFonts(exports.Probe))
+                        commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', frame / 60)).commands;
                     drawing.renderGui(canvas, commands);
                     if (frame % 10 === 9) console.log('Browser: workspace frame ' + (frame + 1));
                 }

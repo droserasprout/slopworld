@@ -7,6 +7,7 @@ import { attachWorkspaceCursor } from './workspace-cursor.js';
 import { attachWorkspaceFullscreen } from './workspace-fullscreen.js';
 import { attachWorkspaceAudio } from './workspace-audio.js';
 import { fallbackFonts } from './font-delivery.js';
+import { hostFonts } from './host-fonts.js';
 import { WorkspaceScheduler } from './workspace-scheduler.js';
 
 export function startWorkspace(managed, canvas, initialTime = 0) {
@@ -77,6 +78,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   document.addEventListener('visibilitychange',()=>scheduler.wake(true),{signal:activity.signal});
   managed.WorkspaceWake(()=>scheduler.wake());
   const state = { status: 'starting', frames: 0, source: 'SlopWorld WindowStack', game: JSON.parse(managed.GameSnapshot()) };
+  state.fontTimings=()=>({...hostFonts(managed).timings});
   state.rowCommandStats=()=>JSON.parse(managed.WorkspaceRowCommandsStats());
   state.setRowCommands=enabled=>{const previous=managed.WorkspaceRowCommands(enabled);rowCommands=enabled;return previous;};
   state.setCanvasReuse=enabled=>{const previous=reuseCanvas;reuseCanvas=enabled;return previous;};

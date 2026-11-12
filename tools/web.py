@@ -18,7 +18,7 @@ def clean(root: Path = ROOT) -> None:
             for path in owner.glob('*/*.csproj')
             if path.parent.name not in ('out', 'bin', 'obj', '.local') and not path.parent.is_symlink()
         )
-    directories = [component / 'out']
+    directories = [component / 'out', component / 'host/target']
     directories.extend(project / name for project in projects for name in ('bin', 'obj'))
     for path in directories:
         if path.is_symlink():

@@ -3,7 +3,6 @@
 import argparse
 import os
 import shutil
-import sys
 from pathlib import Path
 
 from tools import ROOT
@@ -40,7 +39,7 @@ def main() -> None:
     if args.action == 'generate':
         for binary in args.binaries:
             if binary == 'slopweb':
-                command = [sys.executable, str(ROOT / 'slopweb/launch.py')]
+                command = [str(ROOT / 'slopweb/host/target/release/slopweb')]
             else:
                 executable = (
                     ROOT / os.environ['SLOPCAR'] if binary == 'slopcar' else ROOT / os.environ['TARGET'] / binary

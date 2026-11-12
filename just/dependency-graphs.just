@@ -29,4 +29,5 @@ deps-update-mod:
 # Update all browser runtime, helper, and test dependency locks.
 [group('deps-update')]
 deps-update-web:
+    cargo update --manifest-path slopweb/host/Cargo.toml
     for project in $(rg --files slopweb -g '*.csproj' | sort); do dotnet restore "$project" --force-evaluate -p:RestoreLockedMode=false --nologo -v quiet; done

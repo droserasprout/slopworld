@@ -113,7 +113,7 @@ def test_container_trusts_only_mounted_checkout_and_mounts_external_git_metadata
 
 
 @pytest.mark.parametrize('distribution', ['arch', 'debian', 'fedora'])
-def test_browser_container_consumes_prebuilt_bundle_from_read_only_checkout(
+def test_browser_container_rebuilds_native_host_and_reuses_wasm_from_read_only_checkout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, distribution: str
 ) -> None:
     root = tmp_path / 'checkout with spaces'
@@ -129,7 +129,8 @@ def test_browser_container_consumes_prebuilt_bundle_from_read_only_checkout(
     invocation = calls[-1]
     assert f'{root}:{root}:ro' in invocation
     script = invocation[invocation.index('-euc') + 1]
-    assert 'cargo build' not in script
+    assert 'cargo build --manifest-path slopweb/host/Cargo.toml --release --locked' in script
+    assert 'SLOPWEB_HOST_BINARY=/build/target/release/slopweb' in script
     package = shlex.split(script.split('; ')[-1])
     assert package[package.index('--binary-dir') + 1] == str(root / 'slopweb/out')
     assert package[package.index('--product') + 1] == 'slopweb'

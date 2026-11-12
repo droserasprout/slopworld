@@ -1,35 +1,186 @@
 #compdef slopweb
+
+autoload -U is-at-least
+
 _slopweb() {
-    local context state state_descr line
     typeset -A opt_args
-    _arguments -C \
-        '-h[show this help message and exit]' \
-        '--help[show this help message and exit]' \
-        '-V[show programs version number and exit]' \
-        '--version[show programs version number and exit]' \
-        '--game[RimWorld install (SLOPWORLD_GAME, game.toml, usual locations)]:value:_files' \
-        '--port[]:value:_files' \
-        '--endpoint[Saved daemon endpoint name (default: local)]:value:_files' \
-        '--url[Daemon URL; requires --token-file]:value:_files' \
-        '--token-file[Read a host-only daemon token file]:value:_files' \
-        '--cache[Private browser runtime cache (default: XDG_CACHE_HOME/slopweb)]:value:_files' \
-        '--profile[Profile directory (default: SLOPWORLD_PROFILE or endpoint profile)]:value:_files' \
-        '--sidecar[Use sidecar paths]' \
-        '--prepare[Prepare local game assets and exit]' \
-        '--rebuild[Refresh local game data after a game update]' \
-        '--public-origin[Exact HTTPS origin of an authenticated reverse proxy]:value:_files' \
-        '--interpreted[Use the interpreter (default; overrides SLOPWEB_AOT_SDK)]' \
-        '--aot[Enable mixed AOT using wasm-tools]' \
-        '--aot-sdk[Select the .NET 10 SDK with wasm-tools (default: SLOPWEB_AOT_SDK or dotnet on PATH)]:value:_files' \
-        '1:command:->command' \
-        '*:value:->value'
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'--game=[]:GAME:_files' \
+'--port=[]:PORT:_default' \
+'(--url --token-file)--endpoint=[]:ENDPOINT:_default' \
+'--url=[]:URL:_default' \
+'--token-file=[]:TOKEN_FILE:_files' \
+'--cache=[]:CACHE:_files' \
+'--profile=[]:PROFILE:_files' \
+'--public-origin=[]:PUBLIC_ORIGIN:_default' \
+'--aot-sdk=[]:AOT_SDK:_files' \
+'--sidecar[]' \
+'--prepare[]' \
+'--rebuild[]' \
+'(--aot --aot-sdk)--interpreted[]' \
+'--aot[]' \
+'--ensure-workload[Provision a missing AOT workload for checkout development only]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_slopweb_commands" \
+"*::: :->slopweb" \
+&& ret=0
     case $state in
-        command) compadd paths completions ;;
-        value)
-            case $line[1] in
-                paths) compadd config data cache endpoint profile game-log web-cache game ;;
-                completions) compadd bash zsh fish ;;
-            esac ;;
-    esac
+    (slopweb)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopweb-command-$line[1]:"
+        case $line[1] in
+            (paths)
+_arguments "${_arguments_options[@]}" : \
+'--game=[]:GAME:_files' \
+'(--url --token-file)--endpoint=[]:ENDPOINT:_default' \
+'--url=[]:URL:_default' \
+'--token-file=[]:TOKEN_FILE:_files' \
+'--cache=[]:CACHE:_files' \
+'--profile=[]:PROFILE:_files' \
+'--sidecar[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:(config data cache endpoint profile game-log web-cache game)' \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+'--game=[]:GAME:_files' \
+'(--url --token-file)--endpoint=[]:ENDPOINT:_default' \
+'--url=[]:URL:_default' \
+'--token-file=[]:TOKEN_FILE:_files' \
+'--cache=[]:CACHE:_files' \
+'--profile=[]:PROFILE:_files' \
+'--sidecar[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':shell:(bash elvish fish powershell zsh)' \
+&& ret=0
+;;
+(check-fonts)
+_arguments "${_arguments_options[@]}" : \
+'--game=[]:GAME:_files' \
+'(--url --token-file)--endpoint=[]:ENDPOINT:_default' \
+'--url=[]:URL:_default' \
+'--token-file=[]:TOKEN_FILE:_files' \
+'--cache=[]:CACHE:_files' \
+'--profile=[]:PROFILE:_files' \
+'--sidecar[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':install:_files' \
+':output:_files' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_slopweb__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopweb-help-command-$line[1]:"
+        case $line[1] in
+            (paths)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(check-fonts)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
 }
-_slopweb "$@"
+
+(( $+functions[_slopweb_commands] )) ||
+_slopweb_commands() {
+    local commands; commands=(
+'paths:Print an absolute host path without preparing runtime state' \
+'completions:Generate shell completions from the command tree' \
+'check-fonts:Prepare native font delivery descriptors without starting a browser' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'slopweb commands' commands "$@"
+}
+(( $+functions[_slopweb__subcmd__check-fonts_commands] )) ||
+_slopweb__subcmd__check-fonts_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopweb check-fonts commands' commands "$@"
+}
+(( $+functions[_slopweb__subcmd__completions_commands] )) ||
+_slopweb__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopweb completions commands' commands "$@"
+}
+(( $+functions[_slopweb__subcmd__help_commands] )) ||
+_slopweb__subcmd__help_commands() {
+    local commands; commands=(
+'paths:Print an absolute host path without preparing runtime state' \
+'completions:Generate shell completions from the command tree' \
+'check-fonts:Prepare native font delivery descriptors without starting a browser' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'slopweb help commands' commands "$@"
+}
+(( $+functions[_slopweb__subcmd__help__subcmd__check-fonts_commands] )) ||
+_slopweb__subcmd__help__subcmd__check-fonts_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopweb help check-fonts commands' commands "$@"
+}
+(( $+functions[_slopweb__subcmd__help__subcmd__completions_commands] )) ||
+_slopweb__subcmd__help__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopweb help completions commands' commands "$@"
+}
+(( $+functions[_slopweb__subcmd__help__subcmd__help_commands] )) ||
+_slopweb__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopweb help help commands' commands "$@"
+}
+(( $+functions[_slopweb__subcmd__help__subcmd__paths_commands] )) ||
+_slopweb__subcmd__help__subcmd__paths_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopweb help paths commands' commands "$@"
+}
+(( $+functions[_slopweb__subcmd__paths_commands] )) ||
+_slopweb__subcmd__paths_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopweb paths commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_slopweb" ]; then
+    _slopweb "$@"
+else
+    compdef _slopweb slopweb
+fi

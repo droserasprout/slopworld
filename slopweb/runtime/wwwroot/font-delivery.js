@@ -1,5 +1,5 @@
-// Serialize selection and coverage requests through response consumption. The
-// host has one bounded font-file preparation worker per workspace server.
+import {hostFonts} from './host-fonts.js';
+// Serialize selection requests through response consumption and publication.
 const queues = new WeakMap();
 export function fontRequests(fetchFont) {
   return (...args) => {
@@ -20,7 +20,7 @@ export function fallbackFonts(probe, wake, fetchFont = globalThis.fetch, report 
     status.style.cssText='position:fixed;bottom:0;left:0;z-index:10;background:#222;color:white;padding:8px';document.body.append(status); }
   status.textContent=message+' Click to retry.';status.onclick=retry;
 }) {
-  const request=fontRequests(fetchFont);
+  const fonts=hostFonts(probe,fetchFont);
   let running=false, disposed=false, failed=false;
   async function frame() {
     if (running || disposed || failed) return;
@@ -29,26 +29,11 @@ export function fallbackFonts(probe, wake, fetchFont = globalThis.fetch, report 
     const {id,family,scalars}=JSON.parse(pending);
     running=true;
     try {
-      const response=await request('/host/fonts',{method:'POST',headers:{'Content-Type':'application/json','x-slop-font-retry':'1'},body:JSON.stringify({fallback:{family,scalars}})});
-      if (!response.ok) throw Error('Font file delivery failed');
-      const result=await response.json();
-      const fonts=new Map();
-      for (const [name,encoded] of Object.entries(result.fonts)) {
-        const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
-        const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),c=>c.toString(16).padStart(2,'0')).join('').toUpperCase();
-        fonts.set(name,{bytes,hash});
-      }
-      const assignments={};
-      for (const scalar of scalars) {
-        const name=result.assignments?.[scalar];
-        if (name !== null && !fonts.has(name)) throw Error('Incomplete font coverage response');
-        assignments[scalar]=name === null ? null : fonts.get(name).hash;
-      }
+      const assignments=await fonts.resolve(family,scalars);
       if (disposed) return;
       // Publish synchronously after all decoding: no frame can observe half a reply.
-      for (const face of result.faces) probe.WorkspaceFont(fonts.get(face.font).bytes,face.bake,-1);
       probe.WorkspaceFontFallbackComplete(JSON.stringify({id,assignments}));
-      report(''); wake();
+      report(''); wake(); return true;
     } catch {
       if (!disposed) {
         failed=true;
@@ -59,5 +44,17 @@ export function fallbackFonts(probe, wake, fetchFont = globalThis.fetch, report 
       }
     } finally {running=false;}
   }
-  return {frame,dispose(){disposed=true;}};
+  return {frame,dispose(){disposed=true;fonts.dispose();}};
+}
+
+// Drain coverage observed by real startup frames before revealing the workspace.
+// There is no authored glyph list and no host rasterization.
+export async function warmWorkspaceFonts(probe,families=[]) {
+  await hostFonts(probe).warm(families);
+  let failure;
+  const loader=fallbackFonts(probe,()=>{},globalThis.fetch,(message)=>{if(message)failure=message;});
+  let changed=false;
+  for (let pass=0;pass<32;pass++) if (!await loader.frame()) break; else changed=true;
+  if (failure) {probe.WorkspaceFontFallbackRetry();throw Error(failure);}
+  return changed;
 }

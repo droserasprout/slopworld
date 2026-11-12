@@ -5,24 +5,26 @@ owns usage. Private experiments, research reports, browser automation, and retai
 diagnostic runtimes belong in ignored `priv/`. Public builds, tests, packaging,
 and CI must work without private files.
 
-The root Python modules own host preparation, compilation caching, and launch.
-`application_paths.py` mirrors the native shared path resolver for application
-roots, endpoint profiles, and saved game discovery. Keep those contracts aligned
-with `slopd/src/shared/application_paths.rs` and the native launcher's game resolver;
-the installed Python launcher must remain independent of checkout tooling.
-`runtime/` owns Entry-only WASM execution, browser assets, adapters, and native preparation
-helpers; `offline/` patches private copies of assemblies. `server/` owns asset
-delivery, font delivery, and the host-authenticated daemon bridge.
+`host/src/launcher/` owns preparation, compilation caching and launch; its CLI uses
+`slopd/src/shared/application_paths.rs` for shared roots and endpoint/profile paths.
+`host/src/server/` owns asset delivery and the authenticated daemon bridge.
+`host/src/fonts/` owns native font discovery, coverage and immutable font files.
+`runtime/` owns Entry-only WASM execution, browser assets, adapters and native
+preparation helpers; `offline/` patches private copies of assemblies.
 The offline Steam boundary disables startup and removes Steamworks native callback
 markers from the private copy so WASM AOT does not generate desktop callback wrappers.
 `tools/release/slopweb.py` stages reviewed redistributable inputs. Installed game
 assemblies, derived assets, fonts, and credentials never enter release payloads.
+Distribution containers reuse the managed/WASM bundle and compile the Rust host
+for their own architecture and libc. `SLOPWEB_HOST_BINARY` selects that staged
+replacement; it also regenerates the bundle identity. Packagers preserve its
+executable mode under `usr/share/slopweb` and discover its native dependencies.
 
 `just/web.just` owns product builds and checks. Root format, lint, test, clean,
 and dependency recipes include slopweb. Python tests run once through the shared
 pytest inventory; component tests remain independently runnable. All browser project
 locks participate in restore/update, and managed projects inherit the shared analyzer
-policy. Installed Python tools receive strict type checking independently of packaging.
+policy. The installed application has no Python or Node runtime dependency; Python owns build scripts and Node runs JavaScript tests.
 Cleanup removes project bin/obj, the redistributable bundle, and generated font-module
 outputs; compiler caches and retained private runtimes remain separate.
 
@@ -32,11 +34,10 @@ and presentation exports. Colony creation/saves, compatibility experiments, synt
 controls, and benchmark fixtures belong in private probe projects. Package staging copies
 only the framework subtree from build output and current authored web assets, so stale
 experimental pages cannot leak from incremental build directories.
- `tests/runtime/` owns managed
-contracts, `tests/browser/` owns browser JavaScript contracts exercised in Node,
-`tests/server/` owns host server contracts, and `tests/launcher/` owns preparation
-and cache tests. Packaging assertions remain under `tools/release/`. `ci-web`
-runs game-free checks; native font fidelity checks are explicit opt-ins.
+ `tests/runtime/` owns managed contracts, `tests/browser/` owns browser JavaScript
+contracts exercised in Node, and Rust tests sit beside their owners under `host/src/`.
+Packaging assertions remain under `tools/release/`. `ci-web` runs game-free checks;
+native font fidelity checks are explicit opt-ins.
 
 The browser workspace stays in Entry without creating a game, world, or map.
 Browser middle-click paste is owned by the DOM paste event carrying desktop PRIMARY;
@@ -64,7 +65,7 @@ completion delivery, connection generations, and bounded queues. Overload closes
 the socket rather than blocking the UI thread.
 
 Host preparation composes immutable runtimes from independently cached patched
-assemblies, archives, fonts, and backgrounds. `aot.py` owns compiler inputs and
+assemblies, archives, fonts, and backgrounds. `host/src/launcher/aot.rs` owns compiler inputs and
 toolchain identity. Publication locks span composition; workspace locks span input
 synchronization, compilation, and output capture, including orphaned compiler
 processes. Compiler output writes directly to its durable log and is mirrored live
@@ -73,21 +74,27 @@ stdout remains a machine-readable cache path. Only completed publications are se
 `SLOPWEB_AOT_SDK` select mixed AOT, while `--interpreted` overrides the environment.
 Packages depend on the .NET SDK; AOT additionally needs its matching wasm-tools workload.
 Installed launchers validate AOT SDKs before game preparation; the checkout's
-`just_launch.py` provisions workloads only for AOT. `build_tools.py` coordinates timed source
-builds; `timings.py` reports wall times, and launch prints preparation results before its URL.
+launcher `--ensure-workload` switch provisions workloads only for AOT.
+`tools/web_build.py` coordinates timed source builds; launch prints preparation results before its URL.
 
-Host font preparation uses the installed mod catalog and native resolver for
-font selection and file delivery; startup does not bake glyph images. Coverage misses
-request fallback files in Fontconfig order, with remaining installed families checked
-for otherwise uncovered characters. `FontProbe/FontCoverage` reads cmap coverage without
-rasterizing. `BrowserFontBank.Fallbacks` owns pending requests and maps resolved fonts
-into the primary atlas at its baseline; host replies never carry paths or glyph pixels.
-Selection and fallback requests share one serialized browser delivery queue.
-`LocalFonts/` supplies the independent FreeType WASM
-module; browser adapters own atlas lifetime and rasterization, while native mod
-text layout retains wrapping and caret policy. Private font bytes and derived
-pixels remain in local caches. Font changes commit after successful loading and
-reject stale responses; replacing installed font files requires a rebuild.
+Host font preparation writes outlines and native loader settings, never glyph images.
+The Rust service persists content-addressed standalone faces, cmap coverage and
+Fontconfig ordering independently of application builds. Source and configuration
+identities invalidate discovery; unchanged faces reuse coverage. A .NET helper reads
+native loader flags only when its game/helper identity changes, outside glyph requests.
+The browser fetches the index for each selected family, chooses coverage locally,
+and downloads only required immutable files. Fallback chains retain Fontconfig's
+monochrome filtering; catalog-only families must not be appended to them.
+Verified browser file storage is bounded
+and survives reloads. Generic preloads and actual initial-frame coverage settle before
+the workspace is shown; neither uses an authored glyph list.
+`BrowserFontBank.Fallbacks` owns pending requests and maps resolved fonts into the
+primary atlas at its baseline; replies never expose host paths or glyph pixels.
+`LocalFonts/` supplies FreeType WASM; browser adapters own rasterization and atlas
+lifetime, while native text layout retains wrapping and caret policy. Selection
+changes publish after loading and reject stale responses. Both execution modes use
+the same font pipeline; AOT only changes managed execution. Private font bytes and
+pixels remain in local caches. Reload after changing the installed host collection.
 
 Browser cursor presentation uses one DOM canvas overlay at every viewport position,
 with native animation pixels and device-pixel hotspots. Fullscreen uses F11; optional

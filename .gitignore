@@ -47,3 +47,5 @@ __pycache__/
 /slopweb/runtime/wwwroot/local-fonts.mjs
 /slopweb/runtime/wwwroot/local-fonts.wasm
 /slopweb/runtime/wwwroot/local-fonts.LICENSE.txt
+
+/slopweb/host/target/

@@ -24,6 +24,8 @@ class VersionFile:
 
 FILES = (
     VersionFile('slopd/Cargo.toml', r'^version = "(?P<version>[^"\n]+)"$'),
+    VersionFile('slopweb/host/Cargo.toml', r'^version = "(?P<version>[^"\n]+)"$'),
+    VersionFile('slopweb/host/Cargo.lock', r'^name = "slopweb"\nversion = "(?P<version>[^"\n]+)"$'),
     VersionFile('slopcar/Cargo.toml', r'^version = "(?P<version>[^"\n]+)"$'),
     VersionFile('slopd/Cargo.lock', r'^name = "slopd"\nversion = "(?P<version>[^"\n]+)"$'),
     VersionFile('slopcar/Cargo.lock', r'^name = "slopcar"\nversion = "(?P<version>[^"\n]+)"$'),
