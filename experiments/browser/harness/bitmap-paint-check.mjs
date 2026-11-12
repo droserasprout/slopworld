@@ -8,6 +8,7 @@ import {setTimeout as pause} from 'node:timers/promises';
 import {cpuQuota} from './browser-process-cpu.mjs';
 const output=process.argv[2];
 const solid=process.argv[3]==='solid';
+const damage=process.argv[3]==='damage';
 if(!output)throw Error('Expected output report path');
 let session,base,log='',directory,server;
 const driver=spawn('geckodriver',['--host','127.0.0.1','--port','0'],{
@@ -34,12 +35,14 @@ try {
   if(!launched.capabilities['moz:headless'])throw Error('Firefox must be headless');
   await request('POST',`/session/${session}/timeouts`,{script:180000});
   let script;
-  if(solid) {
+  if(solid||damage) {
     directory=await mkdtemp(path.join(tmpdir(),'slop-solid-'));
     for(const file of ['gui.js','gui-pixels.js','gui-tint.js','gui-quads.js'])
       await copyFile(new URL('../runtime/wwwroot/'+file,import.meta.url),path.join(directory,file));
-    await copyFile(new URL('./solid-texture-check.js',import.meta.url),path.join(directory,'solid-texture-check.js'));
-    await writeFile(path.join(directory,'index.html'),'<!doctype html><script type="module" src="./solid-texture-check.js"></script>');
+    const check=damage?'target-damage-check.js':'solid-texture-check.js';
+    await copyFile(new URL('./'+check,import.meta.url),path.join(directory,check));
+    if(damage){const file=path.join(directory,'gui.js');await writeFile(file,(await readFile(file,'utf8'))+`\nexport const auditTarget=id=>{const c=renderTargets.get(id);return c.getContext('2d').getImageData(0,0,c.width,c.height).data;};\n`);}
+    await writeFile(path.join(directory,'index.html'),`<!doctype html><script type="module" src="./${check}"></script>`);
     const serving=await serve(directory);server=serving.server;
     await request('POST',`/session/${session}/url`,{url:serving.url});
     script='async function bitmapPaintCheck(){const end=performance.now()+30000;while(!window.__probeResult){if(performance.now()>end)throw Error("Pixel check timed out");await new Promise(r=>setTimeout(r,20));}return window.__probeResult;}';
@@ -48,10 +51,10 @@ try {
     script:script+'\nconst done=arguments[arguments.length-1];bitmapPaintCheck().then(value=>done({value}),error=>done({error:String(error)}));',args:[],
   });
   if(result.error)throw Error(result.error);
-  if(solid && result.value.status!=='ok')throw Error(JSON.stringify(result.value));
+  if((solid||damage) && result.value.status!=='ok')throw Error(JSON.stringify(result.value));
   await mkdir(path.dirname(output),{recursive:true});
   await writeFile(output,JSON.stringify({headless:true,cpuQuota:quota,...result.value},null,2)+'\n');
-  console.log(JSON.stringify(solid?result.value:result.value.results.map(({samples,...row})=>row),null,2));
+  console.log(JSON.stringify(solid||damage?result.value:result.value.results.map(({samples,...row})=>row),null,2));
 } finally {
   if(session)await request('DELETE',`/session/${session}`).catch(()=>{});
   try{process.kill(-driver.pid,'SIGTERM');}catch{}
