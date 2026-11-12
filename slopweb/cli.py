@@ -1,6 +1,7 @@
 """Own launcher syntax and local informational commands, without preparing runtime state."""
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -56,6 +57,11 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--public-origin', type=public_origin, help='Exact HTTPS origin of an authenticated reverse proxy'
     )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        '--interpreted', action='store_true', help='Use the interpreter (default; overrides SLOPWEB_AOT_SDK)'
+    )
+    mode.add_argument('--aot', action='store_true', help='Enable mixed AOT using wasm-tools')
     parser.add_argument(
         '--aot-sdk',
         type=Path,
@@ -139,3 +145,12 @@ _slopweb "$@"
         "complete -c slopweb -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'",
     ]
     return '\n'.join(lines) + '\n'
+
+
+def use_aot(options: argparse.Namespace) -> bool:
+    """An explicit interpreter request overrides SDK environment configuration."""
+    if options.interpreted:
+        if options.aot_sdk:
+            raise ValueError('--interpreted cannot be combined with --aot-sdk')
+        return False
+    return bool(options.aot or options.aot_sdk or os.environ.get('SLOPWEB_AOT_SDK'))

@@ -272,7 +272,7 @@ def test_compiler_inherits_lock_until_it_exits(aot: Any, tmp_path: Path) -> None
 
 @pytest.mark.parametrize('prepare_only', [False, True])
 @pytest.mark.parametrize('mode', ['default', 'explicit', 'environment', 'missing'])
-def test_launcher_selects_aot_by_default(
+def test_launcher_defaults_to_interpreter_and_honors_aot_selection(
     aot: Any,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -302,6 +302,8 @@ def test_launcher_selects_aot_by_default(
     arguments = ['slopweb'] + (['--prepare'] if prepare_only else [])
     if mode == 'explicit':
         arguments += ['--aot-sdk', str(tmp_path / 'sdk')]
+    if mode == 'missing':
+        arguments += ['--aot']
     monkeypatch.setattr(sys, 'argv', arguments)
     if mode == 'missing':
         with pytest.raises(SystemExit, match='1'):
@@ -310,14 +312,13 @@ def test_launcher_selects_aot_by_default(
         assert '--aot-sdk' in capsys.readouterr().err
         return
     launch.main()
-    selected = native
-    assert calls[0][1] == interpreted
-    expected_sdk = (
-        tmp_path / 'sdk'
-        if mode == 'explicit'
-        else Path('/environment/dotnet' if mode == 'environment' else '/path/dotnet')
-    )
-    assert calls[0][3] == expected_sdk
+    selected = interpreted if mode == 'default' else native
+    if mode == 'default':
+        assert not calls
+    else:
+        assert calls[0][1] == interpreted
+        expected_sdk = tmp_path / 'sdk' if mode == 'explicit' else Path('/environment/dotnet')
+        assert calls[0][3] == expected_sdk
     if prepare_only:
         assert str(selected) in capsys.readouterr().out
     else:

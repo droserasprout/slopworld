@@ -66,10 +66,12 @@ toolchain identity. Publication locks span composition; workspace locks span inp
 synchronization, compilation, and output capture, including orphaned compiler
 processes. Compiler output writes directly to its durable log and is mirrored live
 to the host terminal; dynamic font diagnostics also stream to the host, while helper
-stdout remains a machine-readable cache path. Only completed publications are served. Mixed AOT is required; packages
-depend on the .NET SDK and users provision its matching wasm-tools workload.
-Installed launchers validate SDKs before game preparation; the checkout's
-`just_launch.py` owns explicit workload provisioning.
+stdout remains a machine-readable cache path. Only completed publications are served. Interpreted execution is the default; `--aot`, `--aot-sdk`, or
+`SLOPWEB_AOT_SDK` select mixed AOT, while `--interpreted` overrides the environment.
+Packages depend on the .NET SDK; AOT additionally needs its matching wasm-tools workload.
+Installed launchers validate AOT SDKs before game preparation; the checkout's
+`just_launch.py` provisions workloads only for AOT. `build_tools.py` coordinates timed source
+builds; `timings.py` reports wall times, and launch prints preparation results before its URL.
 
 Host font preparation uses the installed mod catalog and native resolver for
 font selection and metrics. `LocalFonts/` supplies the independent FreeType WASM

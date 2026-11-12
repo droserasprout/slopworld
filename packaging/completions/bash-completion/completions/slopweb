@@ -1,6 +1,6 @@
 _slopweb() {
     COMPREPLY=()
-    local words='-h --help -V --version --game --port --endpoint --url --token-file --cache --profile --sidecar --prepare --rebuild --public-origin --aot-sdk paths completions' previous="${COMP_WORDS[COMP_CWORD-1]}" word skip=0
+    local words='-h --help -V --version --game --port --endpoint --url --token-file --cache --profile --sidecar --prepare --rebuild --public-origin --interpreted --aot --aot-sdk paths completions' previous="${COMP_WORDS[COMP_CWORD-1]}" word skip=0
     case "$previous" in
         --game|--profile|--cache|--aot-sdk) mapfile -t COMPREPLY < <(compgen -d -- "${COMP_WORDS[COMP_CWORD]}"); return ;;
         --token-file) mapfile -t COMPREPLY < <(compgen -f -- "${COMP_WORDS[COMP_CWORD]}"); return ;;

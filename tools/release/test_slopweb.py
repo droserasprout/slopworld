@@ -41,6 +41,7 @@ def test_distributable_build_never_reads_staged_game_root(
         'slopweb/launch.py',
         'slopweb/application_paths.py',
         'slopweb/cli.py',
+        'slopweb/timings.py',
         'slopweb/endpoint.py',
         'slopweb/aot.py',
         'slopweb/appearance.py',
@@ -245,7 +246,7 @@ def test_installed_information_commands_need_no_checkout_or_game(tmp_path: Path)
     bundle = tmp_path / 'bundle'
     bundle.mkdir()
     (bundle / 'BUILD_ID').write_text('fixture')
-    for name in ('launch', 'application_paths', 'cli', 'endpoint', 'aot', 'appearance'):
+    for name in ('launch', 'application_paths', 'cli', 'endpoint', 'aot', 'appearance', 'timings'):
         shutil.copyfile(ROOT / 'slopweb' / f'{name}.py', bundle / f'{name}.py')
     payload = tmp_path / 'installed'
     slopweb.stage(payload, 'reviewed-revision', '1.2.3', bundle)

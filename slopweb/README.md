@@ -46,10 +46,10 @@ Pass a prefix to `just web-install PREFIX` or `just web-uninstall PREFIX`.
 Uninstall preserves private runtime caches and daemon configuration.
 
 Installed packages require the .NET 10 SDK, Node.js 22+, Python 3.11+, and Fontconfig;
-Just, uv, and a checkout are unnecessary. Mixed AOT is required. Before first launch,
-install the matching `wasm-tools` workload with `dotnet workload install wasm-tools`
+Just, uv, and a checkout are unnecessary. Interpreted mode is the default and needs no
+wasm-tools workload. For optional mixed AOT, install the matching `wasm-tools` workload with `dotnet workload install wasm-tools`
 for the selected SDK (system SDKs may require sudo). Package managers install the SDK;
-.NET owns its workloads. The launcher validates these tools before preparing game data. Start slopd first. The launcher
+.NET owns its workloads. The launcher validates AOT tools when AOT is selected, before preparing game data. Start slopd first. The launcher
 reads its host-side local endpoint descriptor, respecting `SLOPD_CONFIG_ROOT`
 and `SLOPD_ENDPOINT`. `SLOPD_URL` and `SLOPD_TOKEN` override that descriptor.
 Use a root token for session creation and configuration. `--endpoint NAME` selects a saved endpoint ahead of environment overrides.
@@ -72,6 +72,9 @@ Stop it with Ctrl+C; agents continue running.
 `just web-run` builds and stages current sources, then runs the launcher in the calling environment,
 with its existing terminal and environment variables. Run it from the desktop host
 when host game files, fonts, or daemon configuration are needed.
+Build scripts print per-step wall times and a total. The launcher prints preparation
+timings before the connection URL (also with `--prepare`); cache hits are reported as
+reuse, and the game-preparation subtotal includes its component steps.
 The printed root URL applies desktop defaults without redirecting. Preparation
 imports only allowlisted appearance preferences from the selected endpoint's profile and prepares
 its UI and terminal font metrics through the installed native rasterizer. Glyphs
@@ -86,22 +89,23 @@ storage and do not overwrite that desktop profile. `slopweb paths NAME` exposes 
 paths without preparing the game or connecting to the daemon. `slopweb --version`
 reports build metadata, and `slopweb completions bash|zsh|fish` emits shell completions.
 
-## Required mixed AOT
+## Optional mixed AOT
 
-Preparation and serving require mixed AOT, selecting `dotnet` from PATH.
-Set `SLOPWEB_AOT_SDK` or pass `--aot-sdk PATH` to select a separate toolchain:
+Preparation and serving use the interpreter by default. Pass `--aot` to enable mixed
+AOT with `dotnet` from PATH. Set `SLOPWEB_AOT_SDK` or pass `--aot-sdk PATH` to select a separate toolchain:
 
 ```sh
 slopweb --aot-sdk /private/dotnet/dotnet --prepare
 slopweb --aot-sdk /private/dotnet/dotnet
 ```
 
-Missing AOT tools cause an error; there is no interpreter-only launch mode.
+An explicit AOT request fails if its tools are missing. `--interpreted` selects the
+interpreter even when `SLOPWEB_AOT_SDK` is set; it cannot be combined with `--aot-sdk`.
 
 PATH selects an existing .NET 10 SDK directory or its `dotnet` executable with
 matching `wasm-tools`, including the WebAssembly SDK and browser cross compiler
 packs for that SDK's runtime patch. The launcher validates the toolchain and pins
-the selected SDK and target runtime for publishing. The installed launcher never installs tools. Checkout `just web-run`
+the selected SDK and target runtime for publishing. The installed launcher never installs tools. When AOT is selected, checkout `just web-run`
 and AOT preparation recipes automatically install
 missing or mismatched `wasm-tools`, pinning the workload set to the selected SDK
 version. Protected system SDKs use `sudo` and may prompt for a password; writable

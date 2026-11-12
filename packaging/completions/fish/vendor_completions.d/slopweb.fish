@@ -15,6 +15,8 @@ complete -c slopweb -l sidecar
 complete -c slopweb -l prepare
 complete -c slopweb -l rebuild
 complete -c slopweb -l public-origin -r -F
+complete -c slopweb -l interpreted
+complete -c slopweb -l aot
 complete -c slopweb -l aot-sdk -r -F
 complete -c slopweb -n '__fish_seen_subcommand_from paths' -a 'config data cache endpoint profile game-log web-cache game'
 complete -c slopweb -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'
