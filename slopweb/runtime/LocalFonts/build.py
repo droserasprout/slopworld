@@ -41,7 +41,7 @@ if sdk.exists():
 else:
     selected = shutil.which('emcc')
     if not selected:
-        raise SystemExit('Emscripten 7.0.0 is required; run just browser-local-fonts-sdk')
+        raise SystemExit('Emscripten 7.0.0 is required; run just slopweb-local-fonts-sdk')
     compiler = Path(selected).resolve()
 # Emscripten verifies these source archive hashes before compiling. Refuse an
 # unreviewed port upgrade rather than silently changing raster output on rebuild.

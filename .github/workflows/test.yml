@@ -173,18 +173,18 @@ jobs:
           global-json-file: global.json
           cache: true
           cache-dependency-path: |
-            experiments/browser/**/packages.lock.json
+            slopweb/**/packages.lock.json
             .config/dotnet-tools.json
 
-      - name: Check browser tooling and game-free harnesses
-        run: just ci-browser
+      - name: Check slopweb tooling and game-free contracts
+        run: just ci-web
 
       - name: Install WebAssembly build workload
         run: dotnet workload install wasm-tools
 
       - name: Build redistributable browser bundle without installed game files
         run: |
-          just browser-local-fonts-sdk
+          just slopweb-local-fonts-sdk
           just slopweb-build
 
   mod:

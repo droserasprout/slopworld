@@ -145,7 +145,7 @@ def test_failed_build_cannot_package(
             assert run.call_args.args[0][-1] == 'slopweb-build'
 
 
-def test_browser_ci_uses_resolved_commit_and_only_game_free_harnesses() -> None:
+def test_web_ci_uses_resolved_commit_and_only_product_game_free_checks() -> None:
     workflow = yaml.load((ROOT / '.github/workflows/test.yml').read_text(), Loader=yaml.BaseLoader)
     job = workflow['jobs']['browser']
     assert job['needs'] == 'revision'
@@ -154,12 +154,24 @@ def test_browser_ci_uses_resolved_commit_and_only_game_free_harnesses() -> None:
     assert job['env']['RIMWORLD'] == '/nonexistent/rimworld'
     assert job['env']['MANAGED'] == '/nonexistent/rimworld-managed'
     commands = [step['run'] for step in job['steps'] if 'run' in step]
-    assert commands == ['just ci-browser', 'dotnet workload install wasm-tools', 'just slopweb-build']
-    result = subprocess.run(['just', '--dry-run', 'ci-browser'], cwd=ROOT, capture_output=True, text=True, check=True)
+    assert commands == [
+        'just ci-web',
+        'dotnet workload install wasm-tools',
+        'just slopweb-local-fonts-sdk\njust slopweb-build\n',
+    ]
+    result = subprocess.run(['just', '--dry-run', 'ci-web'], cwd=ROOT, capture_output=True, text=True, check=True)
     assert 'node --test' in result.stderr
-    assert 'InputTests.csproj' in result.stderr
-    assert 'StartupTests/justfile test' in result.stderr
-    for native_dependency in ('KeyBindingsTests', 'NativeTextTests', 'Probe.csproj', 'validate.mjs'):
+    assert 'InputTests' in result.stderr
+    assert 'StartupTests' in result.stderr
+    assert 'slopweb/tests/browser/*.test.mjs' in result.stderr
+    for native_dependency in (
+        'KeyBindingsTests',
+        'NativeTextTests',
+        'Probe.csproj',
+        'validate.mjs',
+        'experiments/',
+        'priv/',
+    ):
         assert native_dependency not in result.stderr
 
 

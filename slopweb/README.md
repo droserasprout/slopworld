@@ -10,20 +10,20 @@ The root Python modules own local preparation, compilation caching, and launch.
 `runtime/` owns managed WASM execution, adapters, browser assets, and native helpers.
 `offline/` owns assembly preparation hooks. `server/` owns the Node asset server,
 host-authenticated daemon bridge, and font delivery.
-`tests/runtime/` holds managed test projects and runtime preparation tests;
-`tests/server/` holds Node tests; `tests/launcher/` holds Python launcher, AOT,
+`tests/runtime/` holds managed test projects; `tests/browser/` holds game-free
+JavaScript contracts and opt-in native font checks; `tests/server/` holds Node server tests; `tests/launcher/` holds Python launcher, AOT,
 and font tests. Package and archive assertions stay in `tools/release/`.
 All test recipes live in `just/web.just`: `just slopweb-test` runs the game-free
 managed, Node, and Python suites; `just slopweb-test-runtime` runs the managed
-and related Node contracts. Native installation checks and browser checks have
-explicit `slopweb-test-native-*`, `slopweb-test-keybindings`, and
-`slopweb-test-clipboard-browser` recipes. Formatting and linting use
+and related Node contracts. Native installation and font checks have explicit `slopweb-test-native-*`,
+`slopweb-test-keybindings`, and `slopweb-test-local-fonts` recipes. Formatting and linting use
 `just slopweb-format` and `just slopweb-lint`.
 `out/` is the generated redistributable bundle, assembled by
 `tools/release/slopweb.py`; edit its source owners instead.
 
-Rendering and compatibility experiments and the shared diagnostic harness remain
-in `experiments/browser/`. Private runtime caches remain outside the source tree.
+Private experiments, research reports, and browser automation belong in ignored
+`priv/`. Product builds, tests, and CI do not depend on that directory. Installed
+runtime caches remain outside the source tree.
 
 ## Install and run
 
@@ -31,7 +31,7 @@ From a checkout with the .NET 10 SDK, Node.js 22+, Emscripten 7.0.0, Python/uv, 
 Waylith/RimWorld installation:
 
 ```sh
-just browser-local-fonts-sdk # Install the pinned compiler locally if needed.
+just slopweb-local-fonts-sdk # Install the pinned compiler locally if needed.
 just slopweb-install
 slopweb
 # Open http://127.0.0.1:8787/
@@ -191,8 +191,7 @@ characters: missing font glyphs and supplementary text outside the existing
 terminal emoji path use approximate rendering. This does not add a shaping engine.
 Repeated page-network interruption and terminal recovery have browser checks;
 daemon restart, run replacement, and the full agent launch/edit dialog have not
-been exhaustively validated. See the checkout's
-`experiments/browser/README.md` for focused checks and implementation boundaries.
+been exhaustively validated. See [ownership boundaries](../notes/slopweb.md) for the product architecture.
 
 The standalone release installer also offers `slopweb` on x86-64 Linux:
 
@@ -204,4 +203,4 @@ python3 install.py --remove slopweb
 Installation requires a published release containing the matching `slopweb` package
 and checksum. For locally built preview packages, use the distribution package manager.
 
-Local glyph rasterization uses the FreeType Project (https://freetype.org), under the FreeType License. Build it with `just browser-local-fonts-build` using Emscripten with the reviewed FreeType 2.14.3/zlib 1.3.2 ports. `just slopweb-build` includes this step and stages the result for `just slopweb-host-run --port 8787`.
+Local glyph rasterization uses the FreeType Project (https://freetype.org), under the FreeType License. Build it with `just slopweb-local-fonts-build` using Emscripten with the reviewed FreeType 2.14.3/zlib 1.3.2 ports. `just slopweb-build` includes this step and stages the result for `just slopweb-host-run --port 8787`.

@@ -1,10 +1,11 @@
 # Build redistributable slopweb tooling; proprietary runtime stays in local output.
 [group('web')]
 slopweb-build: (mod-build 'rimref') && slopweb-stage
-    just --justfile slopweb/runtime/justfile build
+    python3 slopweb/runtime/LocalFonts/build.py
+    dotnet build slopweb/runtime/Probe.csproj --nologo -v quiet -p:RestoreLockedMode=true
     dotnet build slopweb/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
     dotnet build slopweb/runtime/FontProbe/FontProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    just --justfile slopweb/runtime/justfile background-probe-build
+    dotnet build slopweb/runtime/BackgroundProbe/BackgroundProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
     dotnet build slopweb/runtime/Scanner/Scanner.csproj --nologo -v quiet -p:RestoreLockedMode=true
     dotnet build slopweb/offline/Offline.csproj --nologo -v quiet -p:RestoreLockedMode=true
 
@@ -76,15 +77,13 @@ slopweb-test-runtime:
     dotnet build slopweb/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
     for project in AudioTests ClipboardTests DispatchTests InputTests PreferencesTests StartupTests UnderlyingTests WorkspaceFrameTests; do dotnet run --project "slopweb/tests/runtime/$project/$project.csproj" -c Release -p:RestoreLockedMode=true; done
     dotnet run --project slopweb/tests/runtime/CommandTests/CommandTests.csproj -c Release -p:RestoreLockedMode=true -- --quad-fixture slopweb/tests/runtime/CommandTests/bin/quad-fixture.json
-    GUI_QUAD_FIXTURE=slopweb/tests/runtime/CommandTests/bin/quad-fixture.json node --test experiments/browser/harness/gui-quads.test.mjs experiments/browser/harness/gui-probe.test.mjs
-    node --test slopweb/tests/runtime/CursorTests/cursor.test.mjs experiments/browser/harness/clipboard.test.mjs experiments/browser/harness/workspace-preferences.test.mjs experiments/browser/harness/workspace-audio.test.mjs
-    node --check experiments/browser/harness/workspace-underlying.js
+    GUI_QUAD_FIXTURE=slopweb/tests/runtime/CommandTests/bin/quad-fixture.json node --test slopweb/tests/browser/*.test.mjs
 
 # Installed game assemblies are required; these checks do not start the game.
 [group('web')]
 slopweb-test-keybindings game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
     dotnet run --project slopweb/tests/runtime/KeyBindingsTests/KeyBindingsTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}}
-    node --test experiments/browser/harness/workspace-keybindings.test.mjs
+    node --test slopweb/tests/browser/workspace-keybindings.test.mjs
 
 # Native font/adapter checks require the local game installation.
 [group('web')]
@@ -94,18 +93,6 @@ slopweb-test-native-text game=env('RIMWORLD', env('HOME') + '/.local/share/Steam
 [group('web')]
 slopweb-test-native-rows mod game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
     dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --row-mod={{quote(mod)}}
-
-# Patch an explicitly prepared private runtime and check native layout delegates.
-[group('web')]
-slopweb-test-native-layout root=(justfile_directory() / 'slopweb/runtime/out/wwwroot-eco') game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
-    RIMWORLD={{quote(game)}} just --justfile slopweb/runtime/justfile refresh-adapters {{quote(absolute_path(root))}}
-    just --justfile experiments/browser/compat/justfile text-layout {{quote(absolute_path(root))}}
-    dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} {{quote(absolute_path(root) / 'game/RimWorld.dll')}}
-
-# Explicit browser check; excluded from slopweb-test and CI.
-[group('web')]
-slopweb-test-clipboard-browser:
-    node experiments/browser/harness/clipboard-chrome.mjs
 
 [group('web')]
 slopweb-bench-commands:
@@ -128,31 +115,6 @@ slopweb-check-install prefix=(env('HOME') + '/.local'):
 [group('web')]
 slopweb-host-check-install prefix=(env('HOME') + '/.local'): (slopweb-check-install prefix)
 
-[group('web')]
-slopweb-host-check-browser runtime rendering='auto':
-    PROBE_RENDERING={{quote(rendering)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}}
-    node experiments/browser/harness/verify.mjs experiments/browser/artifacts/installed-startup.json workspace
-
-# Retain a prepared diagnostic runtime in the calling environment.
-[group('web')]
-slopweb-host-workspace-bounded runtime rendering='auto' screenshots='0':
-    PROBE_RENDERING={{quote(rendering)}} PROBE_SCREENSHOTS={{quote(screenshots)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-installed {{quote(runtime)}} 1
-
-# Reversible UI/font checks and real OST decoding in an owned diagnostic browser.
-[group('web')]
-slopweb-host-features-check profile:
-    PROBE_EVALUATE_TIMEOUT_MS=240000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-features-check.js')}}
-
-# Exercise autoplay recovery without sending input to any terminal.
-[group('web')]
-slopweb-host-audio-check profile:
-    PROBE_USER_GESTURE=1 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/slopweb-audio-check.js')}}
-
-# Exercise stopped panes and F12 fallback on every sidebar tab in an owned browser.
-[group('web')]
-slopweb-host-entry-navigation-check profile:
-    PROBE_EVALUATE_TIMEOUT_MS=120000 node {{quote(justfile_directory() / 'experiments/browser/harness/evaluate.mjs')}} {{quote(profile)}} {{quote(justfile_directory() / 'experiments/browser/harness/entry-navigation-check.js')}}
-
 # Package the independent browser launcher using the selected native format.
 [group('package')]
 package-web distribution: (package-product distribution 'slopweb')
@@ -171,3 +133,18 @@ slopweb-host-run-portraits source *args:
     test -n {{quote(source)}}
     shift
     SLOPWEB_PORTRAITS={{quote(source)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} "$@"
+
+[group('web')]
+slopweb-local-fonts-build:
+    python3 slopweb/runtime/LocalFonts/build.py
+
+[group('web')]
+slopweb-local-fonts-sdk:
+    python3 slopweb/runtime/LocalFonts/build.py --install-sdk
+
+# Native font fidelity; does not start a game or browser.
+[group('web')]
+slopweb-test-local-fonts: slopweb-local-fonts-build
+    dotnet build slopweb/runtime/FontProbe/FontProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
+    node slopweb/tests/browser/native/local-fonts.mjs
+    just slopweb-test-native-text
