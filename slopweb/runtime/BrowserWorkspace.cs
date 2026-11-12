@@ -5,6 +5,27 @@ using System.Text.Json;
 public partial class Probe
 {
     [JSExport]
+    public static string WorkspaceFontFallbackTake() =>
+        (string)Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "TakeFallbacks")!;
+
+    [JSExport]
+    public static void WorkspaceFontFallbackComplete(string json)
+    {
+        if (
+            !(bool)Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "CompleteFallbacks", json)!
+        )
+            return;
+        Invoke("Adapters", "BrowserAdapters.BrowserGui", "FontsChanged");
+        // Native pane textures retain terminal rows independently of GUI batches.
+        Invoke("SlopWorld", "SlopWorld.TerminalFont", "Invalidate");
+        Invoke("Adapters", "BrowserAdapters.BrowserActivity", "Notify");
+    }
+
+    [JSExport]
+    public static void WorkspaceFontFallbackRetry() =>
+        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "RetryFallbacks");
+
+    [JSExport]
     public static void WorkspaceRasterizer(
         [JSMarshalAs<JSType.Function<JSType.String, JSType.String>>] Func<string, string> rasterize
     ) =>

@@ -42,7 +42,7 @@ int font_size(Face *f, float size, float density, unsigned flags) {
 int font_glyph(Face *f, unsigned scalar, float size, float density, unsigned flags) {
     if (!f) return -1;
     FT_UInt index = FT_Get_Char_Index(f->face, scalar);
-    if (!index) return 0;
+    if (!index && scalar != 0) return 0;
     if (font_size(f, size, density, flags) < 0) return -1;
     FT_Int32 load = FT_LOAD_NO_BITMAP;
     if (flags & 1) load |= FT_LOAD_NO_HINTING;

@@ -255,6 +255,35 @@ def test_runtime_composition_holds_build_lock_and_recovers_from_copy_failure(
     assert len(inputs.calls) == 1
 
 
+def test_contended_build_lock_reports_wait_and_resumes(
+    aot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flock = fcntl.flock
+    waiting = threading.Event()
+
+    def observed_flock(fd: Any, operation: int) -> None:
+        if operation == fcntl.LOCK_EX:
+            waiting.set()
+        flock(fd, operation)
+
+    def acquire() -> None:
+        with aot.build_lock(tmp_path):
+            pass
+
+    monkeypatch.setattr(aot.fcntl, 'flock', observed_flock)
+    with concurrent.futures.ThreadPoolExecutor(1) as executor:
+        with aot.build_lock(tmp_path):
+            assert capsys.readouterr().out == ''
+            contender = executor.submit(acquire)
+            assert waiting.wait(10)
+            assert not contender.done()
+            output = capsys.readouterr().out
+            assert f'Waiting for another AOT build to release {tmp_path / "build.lock"}' in output
+            assert 'do not delete the lock file' in output
+        contender.result(timeout=10)
+    assert 'AOT build lock acquired; continuing:' in capsys.readouterr().out
+
+
 def test_compiler_inherits_lock_until_it_exits(aot: Any, tmp_path: Path) -> None:
     # A real harmless child proves the flock remains owned after Python closes its fd.
     with aot.build_lock(tmp_path) as lock:

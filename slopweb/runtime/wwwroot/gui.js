@@ -396,6 +396,10 @@ function renderGuiCommands(canvas, commands) {
         }
         if(uniformImagesEnabled)source=uniformSources.get(source)??source;
         ctx.save(); ctx.globalAlpha = v.color[3];
+        // Building icons shrink far below their source resolution; request the
+        // browser's downsampling filter instead of aliased single-pixel samples.
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         if (kind === 'imageBatch') {
           const q=decodeGuiQuads(v.quads), width=source.width, height=source.height;
           const matrix=damage ? ctx.getTransform() : null;

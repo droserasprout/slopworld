@@ -1,7 +1,5 @@
-// Native cursor pixels and hotspot are device pixels, independent of UI scale.
-// Native cursor movement does not wait behind WASM/Canvas work. The overlay is
-// retained only where the browser cannot present the custom cursor (viewport edges).
-import {cursorImage} from './cursor-image.js';
+// Keep one canvas cursor for every animation frame and viewport position.
+// Changing CSS cursor images can fall back to the system pointer during decoding.
 export function attachWorkspaceCursor(canvas, managed) {
   const previous = canvas.style.cursor;
   const frames = new Map();
@@ -10,23 +8,13 @@ export function attachWorkspaceCursor(canvas, managed) {
   overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;display:none;margin:0!important;max-width:none!important';
   document.body.append(overlay);
   const abort = new AbortController();
-  let current, image, point, inside = false, presentation;
+  let current, image, point, inside = false;
   function position() {
     const density = globalThis.devicePixelRatio || 1;
-    if(current && (!presentation || presentation.image!==image || presentation.density!==density)) {
-      const css=`image-set(url("${image.url}") ${density}x), auto`;
-      presentation={image,density,css,supported:!!globalThis.CSS?.supports('cursor',css)};
-    }
-    const viewport=globalThis.visualViewport;
-    const left=viewport?.offsetLeft??0,top=viewport?.offsetTop??0;
-    const right=left+(viewport?.width??globalThis.innerWidth),bottom=top+(viewport?.height??globalThis.innerHeight);
-    const edge=inside&&point&&current&&(point.x-current.x/density<left||point.y-current.y/density<top||
-      point.x+(current.width-current.x)/density>right||point.y+(current.height-current.y)/density>bottom);
-    const useOverlay=current&&(!presentation.supported||edge);
-    const css=current?(useOverlay?'none':presentation.css):previous;
-    if(canvas.style.cursor!==css)canvas.style.cursor=css;
-    overlay.style.display = useOverlay && inside ? 'block' : 'none';
-    if (!useOverlay || !point) return;
+    const css = current ? 'none' : previous;
+    if (canvas.style.cursor !== css) canvas.style.cursor = css;
+    overlay.style.display = current && inside ? 'block' : 'none';
+    if (!current || !point) return;
     overlay.style.setProperty('width', `${current.width / density}px`, 'important');
     overlay.style.setProperty('height', `${current.height / density}px`, 'important');
     overlay.style.left = `${point.x - current.x / density}px`;
@@ -48,10 +36,7 @@ export function attachWorkspaceCursor(canvas, managed) {
           if (!image) {
             const bytes = Uint8ClampedArray.from(atob(current.pixels), c => c.charCodeAt(0));
             const pixels = new ImageData(bytes, current.width, current.height);
-            overlay.width = current.width; overlay.height = current.height;
-            overlay.getContext('2d').putImageData(pixels, 0, 0);
-            const url=cursorImage(overlay.toDataURL('image/png'),current.width,current.height,current.x,current.y);
-            image={pixels,url};
+            image={pixels};
             if (frames.size >= 32) frames.delete(frames.keys().next().value);
             frames.set(key,image);
           }

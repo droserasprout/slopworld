@@ -12,6 +12,22 @@ static class Check
 
     static async Task Main()
     {
+        FontCoverageChecks.Run();
+        Probe.WorkspaceFontFallbackComplete("{}");
+        Expect(
+            Probe.Calls.SequenceEqual(
+                new[] { "CompleteFallbacks", "FontsChanged", "Invalidate", "Notify" }
+            ),
+            "Fallback publication must invalidate native terminal textures before waking presentation"
+        );
+        Probe.Calls.Clear();
+        Probe.AcceptFallback = false;
+        Probe.WorkspaceFontFallbackComplete("{}");
+        Expect(
+            Probe.Calls.SequenceEqual(new[] { "CompleteFallbacks" }),
+            "Stale fallback response changed presentation"
+        );
+        Probe.Calls.Clear();
         foreach (
             var origin in new[]
             {
@@ -133,11 +149,16 @@ public partial class Probe
 {
     static readonly object entryEngine = new();
     public static string? Opened;
+    public static readonly List<string> Calls = new();
+    public static bool AcceptFallback = true;
 
     static Type Type(string assembly, string name) => typeof(Hub);
 
     static object? Invoke(string assembly, string owner, string method, params object[] args)
     {
+        Calls.Add(method);
+        if (method == "CompleteFallbacks")
+            return AcceptFallback;
         if (method == "Paths")
             return Array.Empty<string>();
         if (method == "Open")
