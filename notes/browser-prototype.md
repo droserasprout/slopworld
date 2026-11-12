@@ -21,13 +21,21 @@ SDK before game preparation, then revalidate. SDK inspection and typed missing-w
 errors belong to `slopweb/aot.py`; the installed launcher never provisions tools.
 The separate
 `aot/` experiment delegates compiler-input construction to that owner. The
-launcher's interpreted preparation remains the owner of final patched game IL and
-current private assets. AOT compilation keys exclude appearance and browser assets;
-composition joins those current assets with a successfully published framework.
-A stable per-compilation lock spans candidate creation, publish and composition,
-and is inherited by the compiler so interruption cannot admit another writer.
-Release staging allowlists Probe's authored project and declared sources, never
-private compiler directories; changes to its compile list require package review.
+launcher's preparation caches final patched IL, game archives, font preparation,
+and backgrounds independently before composing immutable runtimes. Font settings
+invalidate font preparation; browser assets and other appearance fields only
+invalidate composition. Explicit rebuild refreshes host font/background inputs.
+AOT compilation identity covers generated project/source/assembly inputs and the
+selected SDK/WASM toolchain, excluding loader orchestration and unrelated workloads.
+Compatible revisions share a stable compiler workspace; MSBuild owns intermediate
+invalidation. Input updates preserve unchanged timestamps and remove obsolete inputs.
+A per-publication lock spans selection/composition; a separate workspace lock spans
+input synchronization, compilation, and immutable output capture. The compiler
+inherits the workspace lock, so orphaned work cannot race a subsequent revision.
+Only completed publications are composed or served; failed refreshes preserve
+existing roots. Release staging allowlists Probe's authored project and declared
+sources, never private compiler directories; changes to its compile list require
+package review.
 
 The `nativeFonts` workspace path mounts private host font files and native face
 metrics. The installed launcher seeds only the native UI tier indices and terminal
