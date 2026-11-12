@@ -15,7 +15,11 @@ changes. Production launcher preparation still creates a fresh immutable runtime
 and the installed launcher's compilation cache/runtime composition. Normal launch
 and preparation select mixed AOT using `--aot-sdk`, `SLOPWEB_AOT_SDK`, or PATH's
 `dotnet`, in that order. `--interpreted` explicitly bypasses AOT; toolchain failures
-never silently fall back. The separate
+never silently fall back. Checkout Just launch/preparation recipes use
+`slopweb/just_launch.py` to install missing or mismatched workloads for the selected
+SDK before game preparation, then revalidate. SDK inspection and typed missing-workload
+errors belong to `slopweb/aot.py`; the installed launcher never provisions tools.
+The separate
 `aot/` experiment delegates compiler-input construction to that owner. The
 launcher's interpreted preparation remains the owner of final patched game IL and
 current private assets. AOT compilation keys exclude appearance and browser assets;
