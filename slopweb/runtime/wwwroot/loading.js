@@ -21,6 +21,12 @@ export async function startLoading(parameters) {
   atlas.src='./mod/LoadingFont.png';
   const cancellation=new AbortController();
   let stopped=false, background=null, backgroundAt=0, animation=0, glyphs=null, quotes=null;
+  let original=null, started=false, backgroundReady=false;
+  const begin=()=>{
+    if(started || !backgroundReady || !glyphs || !quotes)return;
+    started=true;backgroundAt=performance.now();
+    quotes.advance(backgroundAt/1000);paint();
+  };
   let previousGlyphs=null, latestGlyphs=null;
   let fontSize=24, message='Loading SlopWorld...';
   // Patch_LoadingTips: 32x64 cells, one-pixel gutters, 16 columns,
@@ -38,7 +44,7 @@ export async function startLoading(parameters) {
     context.fillStyle='#000'; context.fillRect(0,0,canvas.width,canvas.height);
     const scale=viewport.uiScale, width=canvas.width/scale;
     context.setTransform(scale,0,0,scale,0,0);
-    background?.draw(context,width,canvas.height/scale);
+    (started && background ? background : original)?.draw(context,width,canvas.height/scale);
     if (!glyphs) return;
     const panel=Math.min(540, Math.max(280,width*.45), Math.max(1,width-40));
     const glyphWidth=fontSize*.8/2, glyphHeight=fontSize*.8;
@@ -73,21 +79,24 @@ export async function startLoading(parameters) {
       return surface;
     };
     previousGlyphs=variant(.75);latestGlyphs=variant(.55);
-    canvas.dataset.atlas='ready';
+    canvas.dataset.atlas='ready';begin();
     paint();
   };
-  loadBackground(cancellation.signal).then(value=>{
+  loadBackground(cancellation.signal,value=>{
+    if(stopped) {value.dispose();return;}
+    original=value;paint();
+  }).then(value=>{
     if(stopped) {value?.dispose();return;}
-    background=value;backgroundAt=performance.now();
+    background=value;backgroundReady=true;begin();
     if(!background) return;
     canvas.dataset.background='native-cache';
     paint();
-  }).catch(error=>{if(error.name!=='AbortError') canvas.dataset.background='unavailable';});
+  }).catch(error=>{if(error.name!=='AbortError') {canvas.dataset.background='unavailable';backgroundReady=true;begin();}});
   const update=()=>{
     if(stopped)return;
     const now=performance.now()/1000;
-    const backgroundChanged=background?.advance(now-backgroundAt/1000);
-    const quotesChanged=quotes?.advance(now);
+    const backgroundChanged=started && background?.advance(now-backgroundAt/1000);
+    const quotesChanged=started && quotes?.advance(now);
     if(backgroundChanged || quotesChanged)paint();
     animation=requestAnimationFrame(update);
   };
@@ -110,11 +119,11 @@ export async function startLoading(parameters) {
     const columns=Math.max(1,Math.floor((panel-32)/(fontSize*.4)));
     const lines=Math.max(1,Math.floor((height-32-fontSize*.8)/(fontSize*.8*60/64))+1);
     quotes=loadingQuotes(source,columns,lines,viewport.uiScale,settings?.grandmaMode??false);
-    canvas.dataset.quotes='ready';quotes.advance(performance.now()/1000);paint();
+    canvas.dataset.quotes='ready';begin();paint();
   }).catch(error=>{if(error.name!=='AbortError')canvas.dataset.quotes='unavailable';});
   const finish=()=>{
     stopped=true;cancellation.abort();cancelAnimationFrame(animation);
-    background?.dispose();canvas.remove();document.body.classList.remove('loading');
+    background?.dispose();original?.dispose();canvas.remove();document.body.classList.remove('loading');
   };
   // Allow this screen to reach the compositor before loading the runtime module.
   // Background/throttled tabs may receive no animation callbacks. They must
@@ -127,7 +136,7 @@ export async function startLoading(parameters) {
     takeBackground() {
       const retained=background;
       background=null;
-      return retained ? {animation:retained,started:backgroundAt/1000} : null;
+      return retained ? {animation:retained,started:started?backgroundAt/1000:performance.now()/1000} : null;
     },
     status(text) {message=text;canvas.setAttribute('aria-label',text);paint();},
     finish,

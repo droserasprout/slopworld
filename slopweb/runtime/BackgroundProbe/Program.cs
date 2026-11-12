@@ -76,6 +76,36 @@ int total = (int)preset.GetType().GetProperty("Total")!.GetValue(preset)!;
 var frames = Enumerable.Range(0, total).Select(i => $"{i:D2}.jpg").ToArray();
 bool cached = frames.All(name => File.Exists(Path.Combine(directory, name)));
 Directory.CreateDirectory(output);
+
+// Decode the original packed source without creating an engine or GPU target.
+object?[] load = [null];
+if (!(bool)sourceType.GetMethod("TryReadAll")!.Invoke(source, load)!)
+    throw new InvalidDataException("Installed background pixels could not be read");
+object loaded = load[0]!;
+object Get(object value, string name) => value.GetType().GetProperty(name)!.GetValue(value)!;
+coreType
+    .GetMethod("ReplaceCpuData")!
+    .Invoke(
+        core,
+        [
+            Get(loaded, "Width"),
+            Get(loaded, "Height"),
+            Get(loaded, "Format"),
+            Get(loaded, "Levels"),
+            Get(loaded, "MipCount"),
+            false,
+            false,
+        ]
+    );
+var cpu = Get(core, "CpuData");
+cpu.GetType().GetProperty("Swizzle")!.SetValue(cpu, Get(loaded, "Swizzle"));
+cpu.GetType().GetProperty("AlphaIsPremultiplied")!.SetValue(cpu, Get(source, "Premultiplied"));
+var originalBytes = (byte[])
+    unity
+        .GetType("UnityEngine.ImageConversion", true)!
+        .GetMethod("EncodeToPNG", [textureType])!
+        .Invoke(null, [texture])!;
+File.WriteAllBytes(Path.Combine(output, "original.png"), originalBytes);
 var tuning = mod.GetType("SlopWorld.MenuBackgroundTuning", true)!;
 object Tune(string name) => tuning.GetField(name, Static)!.GetValue(null)!;
 var offset = Tune("LayerOffset");
@@ -90,6 +120,7 @@ if (cached)
 var report = new
 {
     source = sourceName,
+    original = "original.png",
     width,
     height,
     key,

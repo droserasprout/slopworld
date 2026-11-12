@@ -90,6 +90,7 @@ internal static class EcoWorkspace
         music.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         var hooks = new List<string>();
         BrowserOptionsPatch.Apply(game, mod, hooks);
+        BrowserActionButtonsPatch.Apply(game, mod, hooks);
         TypeDefinition ModType(string name) =>
             mod.MainModule.GetType(name)
             ?? throw new InvalidOperationException("Missing mod type " + name);
