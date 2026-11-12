@@ -108,7 +108,11 @@ def build_archive(
     arguments = ['makepkg', '--nodeps', '--force']
     # makepkg deliberately refuses root. A user namespace gives it an ordinary
     # UID while keeping repository inputs read-only and writes inside staging.
-    staging.normalize_permissions(workspace, payload / 'usr/bin')
+    staging.normalize_permissions(
+        workspace,
+        payload / 'usr/bin',
+        (payload / 'usr/share/slopweb/slopweb-host',) if product == 'slopweb' else (),
+    )
     if os.geteuid() == 0:
         scratch = workspace / 'tmp'
         scratch.mkdir()

@@ -176,6 +176,11 @@ jobs:
             slopweb/**/packages.lock.json
             .config/dotnet-tools.json
 
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: rustfmt, clippy
+          cache-workspaces: slopweb/host -> target
+
       - name: Check slopweb tooling and game-free contracts
         run: just ci-web
 

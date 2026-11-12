@@ -6,17 +6,16 @@ tmux, sandboxes, and daemon credentials stay on the host.
 
 ## Source layout
 
-The root Python modules own local preparation, compilation caching, and launch.
-`runtime/` owns managed WASM execution, adapters, browser assets, and native helpers.
-`offline/` owns assembly preparation hooks. `server/` owns the Node asset server,
-host-authenticated daemon bridge, and font delivery.
-`tests/runtime/` holds managed test projects; `tests/browser/` holds game-free
-JavaScript contracts and opt-in native font checks; `tests/server/` holds Node server tests; `tests/launcher/` holds Python launcher, AOT,
-and font tests. Package and archive assertions stay in `tools/release/`.
-All test recipes live in `just/web.just`: `just web-test` runs the game-free
-managed, Node, and Python suites; `just web-test-runtime` runs the managed
-and related Node contracts. Native installation and font checks have explicit `web-test-native-*`,
-`web-test-keybindings`, `web-test-local-fonts`, and `web-test-font-delivery` recipes.
+`host/` owns the Rust launcher, phase and compiler caches, font index, HTTP server,
+and authenticated daemon bridge. `runtime/` owns managed WASM execution, adapters,
+browser assets, and native preparation helpers; `offline/` owns assembly preparation.
+Rust tests live beside their owners in `host/src/`. `tests/runtime/` holds managed
+contracts; `tests/browser/` holds JavaScript contracts and native rasterizer checks.
+Packaging tests and Python build scripts live under `tools/`.
+`just web-test` runs the host, managed, browser JavaScript and packaging suites.
+`just web-host-test` tests the Rust host independently; `just web-test-runtime`
+runs managed and browser contracts. Native checks use `web-test-native-*`,
+`web-test-keybindings`, `web-test-local-fonts`, and `web-test-font-delivery`.
 `web-check-native-build` compiles native fidelity checks without executing them. Formatting and linting use
 `just web-format` and `just web-lint`, also included in root maintenance
 commands. `just web-clean` removes build output while preserving compiler caches
@@ -31,7 +30,7 @@ runtime caches remain outside the source tree.
 
 ## Install and run
 
-From a checkout with the .NET 10 SDK, Node.js 22+, Emscripten 7.0.0, Python/uv, Just, and a local
+From a checkout with Rust, the .NET 10 SDK, Node.js 22+ (tests), Emscripten 7.0.0, Python/uv, Just, and a local
 Waylith/RimWorld installation:
 
 ```sh
@@ -45,7 +44,7 @@ Source installation defaults to `~/.local`; ensure `~/.local/bin` is on PATH.
 Pass a prefix to `just web-install PREFIX` or `just web-uninstall PREFIX`.
 Uninstall preserves private runtime caches and daemon configuration.
 
-Installed packages require the .NET 10 SDK, Node.js 22+, Python 3.11+, and Fontconfig;
+Installed packages require the .NET 10 SDK and Fontconfig;
 Just, uv, and a checkout are unnecessary. Interpreted mode is the default and needs no
 wasm-tools workload. For optional mixed AOT, install the matching `wasm-tools` workload with `dotnet workload install wasm-tools`
 for the selected SDK (system SDKs may require sudo). Package managers install the SDK;
@@ -81,7 +80,9 @@ its selected UI and terminal font files and native loader settings. No glyph ima
 are baked during preparation. Glyphs are rasterized on demand in the browser from
 the text actually displayed. Font files stay in the private host cache and glyph
 atlases stay in browser memory; changed appearance preferences select a new
-cache. Use `--rebuild` after changing installed font files.
+cache. The persistent font index detects changes to installed fonts and Fontconfig
+configuration; reload the page after changing the host font collection. Browser font
+files are verified by SHA-256 and reused across reloads and application builds.
 
 Profile discovery respects `SLOPD_DATA` and `SLOPWORLD_PROFILE`; `--profile PATH`
 selects an explicit profile directory. `--sidecar` selects the same sidecar endpoint
@@ -201,8 +202,10 @@ TopBar for session creation; startup also leaves these controls available when t
 daemon is unavailable. An explicit session URL still requires that live session.
 Text requests native glyphs, sizes, styles and display densities on demand;
 startup delivers font files and loader settings. There is no fixed script/block coverage list.
-Missing BMP characters temporarily use the selected face’s missing-glyph marker
-while matching host font files load.
+The host exports coverage and fallback order once per selected family. The browser
+chooses fallback files locally, preloads a bounded set of general fallback faces,
+and resolves the initial frames before revealing the workspace. New text can still
+briefly show a missing-glyph marker while an uncached face downloads.
 The installed launcher exports a matching native background
 cache when available; generating missing frames on cold startup remains incomplete.
 Text copy/paste and PNG attachment delivery have browser-to-agent checks. Wait for
@@ -218,8 +221,8 @@ changes load host font files on demand. Glyphs rasterize synchronously in local
 FreeType WASM at the observed size, style and display density. Existing fonts
 remain usable during preparation; a failed selection restores the previous settings
 and offers retry. The private cache and retained atlas memory are bounded; reload
-the page if the atlas budget is exhausted. Missing BMP glyphs request matching
-installed host fonts on demand, preserving
+the page if the atlas budget is exhausted. Missing BMP glyphs select matching
+installed host fonts locally from the coverage index, preserving
 Fontconfig order and then checking remaining catalog families. Downloaded outlines
 are rasterized locally into the requesting atlas; measurement and drawing share
 those metrics. An unavailable character keeps the face’s missing-glyph marker.

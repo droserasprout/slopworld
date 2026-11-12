@@ -38,7 +38,7 @@ lint: sidecar-lint tools-lint daemon-lint mod-lint web-lint
 
 # Run regular game-free tests
 [group('Check and fix')]
-test: daemon-test sidecar-test mod-test test-tools web-test-runtime web-test-server
+test: daemon-test sidecar-test mod-test web-host-build web-host-test test-tools web-test-runtime
 
 # Run all game-free Python, pager and benchmark-helper tests
 [group('Check and fix')]
