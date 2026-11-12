@@ -74,7 +74,7 @@ just browser-serialization-check PROFILE
 just browser-test-commands
 # Game-free coverage of all wire payload types, escaping and numeric coordinates.
 just browser-host-inspect
-# Run read-only native process/path inspection through the host user service manager.
+# Run read-only native process/path inspection in the calling environment.
 just browser-native-reference
 # Capture through the host desktop screenshot portal (approve its dialog if shown).
 # Requires host PyGObject; writes the local native-reference.png without game input.
