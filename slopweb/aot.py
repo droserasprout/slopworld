@@ -216,13 +216,6 @@ def toolchain(path: Path) -> tuple[Path, dict]:
         packs = sdk.parent / 'packs'
         if not packs.is_dir():
             raise MissingWorkload(sdk, version, 'wasm-tools compiler packs')
-        wasm_packs = sorted(
-            str(directory.relative_to(packs))
-            for pack in packs.iterdir()
-            if pack.is_dir()
-            for directory in pack.iterdir()
-            if directory.is_dir()
-        )
         wasm_sdk = any(
             (pack / runtime).is_dir()
             for pattern in ('Microsoft.NET.Runtime.WebAssembly.Sdk*', 'Microsoft.NET.Sdk.WebAssembly.Pack*')
@@ -233,19 +226,31 @@ def toolchain(path: Path) -> tuple[Path, dict]:
         )
         if not wasm_sdk or not cross:
             raise MissingWorkload(sdk, version, f'wasm-tools compiler packs matching runtime {runtime}')
-        manifests = {
-            str(item.relative_to(sdk.parent)): hashlib.sha256(item.read_bytes()).hexdigest()
-            for item in (sdk.parent / 'sdk-manifests').glob('**/WorkloadManifest.json')
-        }
+        # Only the selected SDK's WASM dependency graph affects compilation.
+        # Unrelated desktop runtimes and workload installations are not inputs.
+        selected_packs = {}
+        for pack in packs.iterdir():
+            if not (
+                pack.name.startswith(
+                    (
+                        'Microsoft.NET.Runtime.WebAssembly.Sdk',
+                        'Microsoft.NET.Sdk.WebAssembly.Pack',
+                        'Microsoft.NET.Runtime.Emscripten.',
+                    )
+                )
+                or pack.name.endswith('Cross.browser-wasm')
+                or pack.name == 'Microsoft.NETCore.App.Runtime.Mono.browser-wasm'
+            ):
+                continue
+            selected = pack / runtime
+            if selected.is_dir():
+                selected_packs[pack.name] = runtime
         identity = {
             'path': str(sdk),
             'version': version,
-            'runtimes': query('--list-runtimes'),
-            'workloads': workloads,
-            'packs': wasm_packs,
+            'packs': selected_packs,
             'target_runtime': runtime,
             'sdk_properties': hashlib.sha256(bundled.read_bytes()).hexdigest(),
-            'manifests': manifests,
         }
     return sdk, identity
 
@@ -272,19 +277,20 @@ def published_framework(entry: Path) -> Path:
     published = entry / 'published/wwwroot'
     framework = published / '_framework'
     if not (framework / 'dotnet.js').is_file() or not list(framework.glob('dotnet.native*.wasm')):
-        raise ValueError(f'AOT publish has incomplete framework: see {entry / "publish.log"}')
+        raise ValueError(f'AOT publish has incomplete framework: {entry}')
     return published
 
 
-def compile_entry(entry: Path, sdk: Path, lock) -> None:
+def compile_entry(entry: Path, sdk: Path, lock, logs: Path | None = None) -> None:
     """Resume in the same project/obj tree, marking complete only after validation."""
     if (entry / 'publish.complete').is_file():
         published_framework(entry)
         return
-    with (entry / 'publish.log').open('a') as log:
+    logs = logs or entry
+    with (logs / 'publish.log').open('a') as log:
         log.write(f'\n--- Publish attempt {datetime.now(UTC).isoformat()} ---\n')
         log.flush()
-        print(f'Publishing mixed AOT; log: {entry / "publish.log"}', flush=True)
+        print(f'Publishing mixed AOT; log: {logs / "publish.log"}', flush=True)
         try:
             subprocess.run(
                 [
@@ -299,7 +305,7 @@ def compile_entry(entry: Path, sdk: Path, lock) -> None:
                     '-v',
                     'minimal',
                     '-p:RestoreLockedMode=false',
-                    f'-bl:{entry / "publish.binlog"}',
+                    f'-bl:{logs / "publish.binlog"}',
                 ],
                 cwd=entry / 'candidate',
                 env=sdk_environment(sdk),
@@ -309,9 +315,28 @@ def compile_entry(entry: Path, sdk: Path, lock) -> None:
                 pass_fds=(lock.fileno(),),
             )
         except subprocess.CalledProcessError as error:
-            raise ValueError(f'AOT publish failed; retry to resume compilation. See {entry / "publish.log"}') from error
+            raise ValueError(f'AOT publish failed; retry to resume compilation. See {logs / "publish.log"}') from error
     published_framework(entry)
     (entry / 'publish.complete').touch()
+
+
+def sync_candidate(source: Path, destination: Path) -> None:
+    """Preserve timestamps for unchanged inputs; MSBuild owns bin/obj invalidation."""
+    destination.mkdir(parents=True, exist_ok=True)
+    for folder in ('src', 'assemblies'):
+        target = destination / folder
+        if target.exists():
+            for path in target.rglob('*'):
+                if path.is_file() and not (source / path.relative_to(destination)).exists():
+                    path.unlink()
+    for path in source.rglob('*'):
+        if not path.is_file():
+            continue
+        target = destination / path.relative_to(source)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.exists() or target.read_bytes() != path.read_bytes():
+            # New timestamps are required even when a copied input has an old mtime.
+            shutil.copyfile(path, target)
 
 
 def prepare(bundle: Path, prepared: Path, cache: Path, sdk_path: Path) -> Path:
@@ -319,25 +344,47 @@ def prepare(bundle: Path, prepared: Path, cache: Path, sdk_path: Path) -> Path:
     sdk, sdk_identity = toolchain(sdk_path)
     dlls = assemblies(prepared)
     main = published_loader((prepared / 'main.js').read_text())
-    sources = compiler_inputs(bundle / 'aot-src')
-    inputs = {f'assembly/{name}.dll': path for name, path in dlls.items()}
-    inputs.update({f'source/{path.name}': path for path in sources})
-    # This module owns generated properties, roots, targets, and export adaptation.
-    inputs['compiler/aot.py'] = Path(__file__)
-    key = digest_files(inputs, sdk_identity)
-    compilation = cache / 'aot-builds' / key
-    compilation.mkdir(parents=True, exist_ok=True, mode=0o700)
-    # Hold through composition: publication and selection must observe one success.
-    print(f'Checking mixed AOT cache: {compilation}', flush=True)
-    with build_lock(compilation) as lock:
-        candidate = compilation / 'candidate'
-        if not candidate.is_dir():
-            with tempfile.TemporaryDirectory(prefix='.candidate-', dir=compilation) as temporary:
-                project = Path(temporary) / 'candidate'
-                write_candidate(bundle / 'aot-src', project, dlls, sdk_identity['target_runtime'])
-                (project / 'global.json').write_text(sdk_selection(sdk_identity['version']))
-                project.rename(candidate)
-        compile_entry(compilation, sdk, lock)
+    compiler_inputs(bundle / 'aot-src')  # Validate the explicit source boundary before copying.
+    # Hash actual generated inputs: orchestration/loader edits do not change code.
+    cache.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with tempfile.TemporaryDirectory(prefix='.inputs-', dir=cache) as temporary:
+        generated = Path(temporary) / 'candidate'
+        write_candidate(bundle / 'aot-src', generated, dlls, sdk_identity['target_runtime'])
+        (generated / 'global.json').write_text(sdk_selection(sdk_identity['version']))
+        files = {str(path.relative_to(generated)): path for path in generated.rglob('*') if path.is_file()}
+        key = digest_files(files, sdk_identity)
+        # Keep workspace paths stable across source/assembly changes. Changes to
+        # compiler policy or toolchain get an isolated intermediate directory.
+        policy = {name: path for name, path in files.items() if name not in ('global.json',) and '/' not in name}
+        workspace_key = digest_files(policy, sdk_identity)
+        compilation = cache / 'aot-builds' / key
+        compilation.mkdir(parents=True, exist_ok=True, mode=0o700)
+        print(f'Checking mixed AOT cache: {compilation}', flush=True)
+        with build_lock(compilation):
+            if not (compilation / 'candidate').exists():
+                generated.rename(compilation / 'candidate')
+    # Hold through composition: publication and selection observe one success.
+    with build_lock(compilation):
+        if not (compilation / 'publish.complete').is_file():
+            workspace = cache / 'aot-workspaces' / workspace_key
+            workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
+            with build_lock(workspace) as lock:
+                # Invalidate before touching inputs, including after cancellation.
+                (workspace / 'publish.complete').unlink(missing_ok=True)
+                sync_candidate(compilation / 'candidate', workspace / 'candidate')
+                # Never let stale publish outputs survive a changed assembly set.
+                if (workspace / 'published').exists():
+                    shutil.rmtree(workspace / 'published')
+                compile_entry(workspace, sdk, lock, compilation)
+                with tempfile.TemporaryDirectory(prefix='.publish-', dir=compilation) as temporary:
+                    result = Path(temporary) / 'published'
+                    shutil.copytree(workspace / 'published', result)
+                    if (compilation / 'published').exists():
+                        shutil.rmtree(compilation / 'published')
+                    result.rename(compilation / 'published')
+                published_framework(compilation)
+                (compilation / 'publish.complete').touch()
+        published_framework(compilation)
         # Asset-only changes compose a fresh runtime without invoking dotnet publish.
         files = {str(path.relative_to(prepared)): path for path in prepared.rglob('*') if path.is_file()}
         runtime_key = digest_files(files, {'compilation': key, 'loader': main})

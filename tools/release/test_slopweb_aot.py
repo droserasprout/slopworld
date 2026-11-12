@@ -12,6 +12,7 @@ import threading
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
+from typing import cast
 
 import pytest
 
@@ -107,7 +108,10 @@ def test_compiler_identity_invalidates_only_on_compiler_inputs(inputs: Any, chan
         'source': inputs.bundle / 'aot-src/BrowserInput.cs',
         'project': inputs.bundle / 'aot-src/Probe.csproj',
     }
-    if change in paths:
+    if change == 'project':
+        path = paths[change]
+        path.write_text(path.read_text().replace('<Nullable>enable</Nullable>', '<Nullable>disable</Nullable>'))
+    elif change in paths:
         with paths[change].open('a') as stream:
             stream.write('\n')
     else:
@@ -142,7 +146,7 @@ def test_failed_publish_resumes_stable_candidate_and_never_selects_partial(
         inputs.run()
     assert not list(inputs.cache.glob('aot-runtimes/*/.ready'))
     assert not list(inputs.cache.glob('aot-builds/*/publish.complete'))
-    entry = next(inputs.cache.glob('aot-builds/*'))
+    entry = next(inputs.cache.glob('aot-workspaces/*'))
     inode = (entry / 'build.lock').stat().st_ino
     monkeypatch.setattr(aot.subprocess, 'run', inputs.publish)
     root = inputs.run()
@@ -150,7 +154,7 @@ def test_failed_publish_resumes_stable_candidate_and_never_selects_partial(
     assert attempts == [entry / 'candidate']
     assert (entry / 'candidate/cached.o').read_text() == 'expensive compiled object'
     assert (entry / 'build.lock').stat().st_ino == inode
-    assert (entry / 'publish.log').read_text().count('Publish attempt') == 2
+    assert next(inputs.cache.glob('aot-builds/*/publish.log')).read_text().count('Publish attempt') == 2
 
 
 def test_concurrent_publish_and_selection_share_one_success(
@@ -195,14 +199,14 @@ def test_runtime_composition_holds_build_lock_and_recovers_from_copy_failure(
     copytree = aot.shutil.copytree
     observed = []
 
-    def failed_copy(source: Path, destination: Path, **kwargs: Any) -> None:
+    def failed_copy(source: Path, destination: Path, *args: Any, **kwargs: Any) -> None:
         if source == inputs.prepared:
             entry = next(inputs.cache.glob('aot-builds/*'))
             with (entry / 'build.lock').open('a') as contender, pytest.raises(BlockingIOError):
                 fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
             observed.append(True)
             raise OSError('composition failed')
-        copytree(source, destination, **kwargs)
+        copytree(source, destination, *args, **kwargs)
 
     monkeypatch.setattr(aot.shutil, 'copytree', failed_copy)
     with pytest.raises(OSError, match='composition failed'):
@@ -338,7 +342,7 @@ def test_toolchain_uses_controlled_cwd_and_records_sdk_runtime_and_packs(aot: An
     assert identity['target_runtime'] == '10.0.14'
     assert identity['sdk_properties']
     assert len(identity['packs']) == 2
-    assert len(fake_sdk.calls) == 3
+    assert len(fake_sdk.calls) == 2
 
 
 @pytest.mark.parametrize('failure', ['workload', 'mismatched_pack'])
@@ -360,7 +364,7 @@ def test_just_installs_pinned_workload_and_revalidates(
 
     def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         if 'install' not in command:
-            return original(command, **kwargs)
+            return cast('subprocess.CompletedProcess[str]', original(command, **kwargs))
         installs.append(command)
         assert command == [
             *(['sudo'] if protected else []),
@@ -403,7 +407,7 @@ def test_just_does_not_continue_after_failed_or_incomplete_install(
 
     def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         if 'install' not in command:
-            return original(command, **kwargs)
+            return cast('subprocess.CompletedProcess[str]', original(command, **kwargs))
         if install_fails:
             raise subprocess.CalledProcessError(1, command)
         return subprocess.CompletedProcess(command, 0)
@@ -442,3 +446,96 @@ def test_failed_refresh_keeps_previous_serving_root(aot: Any, inputs: Any, monke
     assert (previous / '.ready').is_file()
     assert (previous / 'main.js').read_bytes() == old_loader
     assert list(inputs.cache.glob('aot-runtimes/*/.ready')) == [previous / '.ready']
+
+
+def test_source_and_dll_edits_reuse_workspace_without_touching_unchanged_inputs(inputs: Any) -> None:
+    original = inputs.run()
+    workspace = next(inputs.cache.glob('aot-workspaces/*'))
+    unchanged = workspace / 'candidate/assemblies/Assembly-CSharp.dll'
+    timestamp = unchanged.stat().st_mtime_ns
+    intermediate = workspace / 'candidate/obj/cached.o'
+    intermediate.parent.mkdir()
+    intermediate.write_text('compiler-owned intermediate')
+    for path in (inputs.bundle / 'aot-src/BrowserInput.cs', inputs.prepared / 'mod/SlopWorld.dll'):
+        path.write_text(path.read_text() + '\n// edit')
+        assert inputs.run() != original
+        assert unchanged.stat().st_mtime_ns == timestamp
+        assert intermediate.read_text() == 'compiler-owned intermediate'
+    assert len(list(inputs.cache.glob('aot-workspaces/*'))) == 1
+    assert len(inputs.calls) == 3
+    assert (original / '.ready').is_file()
+
+
+def test_generated_policy_changes_isolate_workspace_and_project_whitespace_does_not(inputs: Any) -> None:
+    original = inputs.run()
+    project = inputs.bundle / 'aot-src/Probe.csproj'
+    project.write_text(project.read_text() + '\n')
+    assert inputs.run() == original
+    assert len(inputs.calls) == 1
+    project.write_text(project.read_text().replace('<Nullable>enable</Nullable>', '<Nullable>disable</Nullable>'))
+    assert inputs.run() != original
+    assert len(list(inputs.cache.glob('aot-workspaces/*'))) == 2
+
+
+def test_sync_candidate_removes_deleted_inputs_but_keeps_compiler_state(aot: Any, tmp_path: Path) -> None:
+    source, destination = tmp_path / 'source', tmp_path / 'destination'
+    for root in (source, destination):
+        (root / 'assemblies').mkdir(parents=True)
+    (destination / 'assemblies/Removed.dll').write_text('obsolete')
+    (destination / 'obj').mkdir()
+    (destination / 'obj/state').write_text('owned by MSBuild')
+    aot.sync_candidate(source, destination)
+    assert not (destination / 'assemblies/Removed.dll').exists()
+    assert (destination / 'obj/state').is_file()
+
+
+def test_unrelated_sdk_installations_do_not_invalidate_toolchain(aot: Any, fake_sdk: Any) -> None:
+    _, original = aot.toolchain(fake_sdk.sdk)
+    (fake_sdk.sdk.parent / 'packs/Microsoft.Android.Sdk/99.0').mkdir(parents=True)
+    (fake_sdk.sdk.parent / 'packs/Microsoft.NET.Runtime.WebAssembly.Wasi.Sdk/10.0.14').mkdir(parents=True)
+    (fake_sdk.sdk.parent / 'packs/Microsoft.NET.Runtime.WebAssembly.Templates/10.0.14').mkdir(parents=True)
+    fake_sdk.answers['workload'] += '\nandroid 99.0'
+    fake_sdk.answers['--list-runtimes'] += '\nMicrosoft.NETCore.App 11.0.1'
+    assert aot.toolchain(fake_sdk.sdk)[1] == original
+
+
+def test_different_revisions_serialize_shared_workspace_until_publication(
+    aot: Any, inputs: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    second_prepared = inputs.prepared.with_name('second-prepared')
+    shutil.copytree(inputs.prepared, second_prepared)
+    (second_prepared / 'mod/SlopWorld.dll').write_text('second revision')
+    entered, contender, release = threading.Event(), threading.Event(), threading.Event()
+    real_lock = aot.build_lock
+
+    def observed_lock(entry: Path) -> Any:
+        if entry.parent.name == 'aot-workspaces' and entered.is_set():
+            contender.set()
+        return real_lock(entry)
+
+    def publish(args: list[str], **kwargs: Any) -> Any:
+        assembly = Path(kwargs['cwd']) / 'assemblies/SlopWorld.dll'
+        before = assembly.read_text()
+        if not entered.is_set():
+            entered.set()
+            assert release.wait(10)
+        assert assembly.read_text() == before
+        return inputs.publish(args, **kwargs)
+
+    monkeypatch.setattr(aot, 'build_lock', observed_lock)
+    monkeypatch.setattr(aot.subprocess, 'run', publish)
+    with concurrent.futures.ThreadPoolExecutor(2) as executor:
+        first = executor.submit(inputs.run)
+        assert entered.wait(10)
+        second = executor.submit(aot.prepare, inputs.bundle, second_prepared, inputs.cache, inputs.sdk)
+        try:
+            assert contender.wait(10)
+            assert not second.done()
+        finally:
+            release.set()
+        roots = first.result(timeout=10), second.result(timeout=10)
+    assert roots[0] != roots[1]
+    assert (roots[0] / 'mod/SlopWorld.dll').read_text() == 'mod/SlopWorld.dll'
+    assert (roots[1] / 'mod/SlopWorld.dll').read_text() == 'second revision'
+    assert len(list(inputs.cache.glob('aot-workspaces/*'))) == 1
+    assert len(inputs.calls) == 2

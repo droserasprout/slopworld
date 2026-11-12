@@ -269,7 +269,13 @@ def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_fil
 
     monkeypatch.setattr(launcher.subprocess, 'run', run)
     monkeypatch.setattr(launcher, 'preferences', dict)
-    monkeypatch.setattr(launcher, 'prepare_fonts', lambda *args: None)
+    font_calls = []
+
+    def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict[str, object]) -> None:
+        font_calls.append(values)
+        launcher.write_preferences(root, values)
+
+    monkeypatch.setattr(launcher, 'prepare_fonts', prepare_fonts)
     ready = launcher.prepare(bundle, game, cache)
     assert (ready / '.ready').is_file()
     assert (ready / 'assets/ost/pace-20261012.ogg').read_bytes() == b'authored music'
@@ -277,13 +283,38 @@ def test_failed_prepare_preserves_ready_runtime_and_does_not_publish_partial_fil
     assert len(calls) == 5
     assert launcher.prepare(bundle, game, cache) == ready
     assert len(calls) == 5
+    # Presentation and browser assets compose without rerunning native patchers.
+    (bundle / 'web/index.html').write_text('updated browser asset')
+    browser = launcher.prepare(bundle, game, cache)
+    assert browser != ready
+    assert len(calls) == 5
+    monkeypatch.setattr(launcher, 'preferences', lambda: {'sidebarHidden': True})
+    presentation = launcher.prepare(bundle, game, cache)
+    assert presentation != browser
+    assert len(calls) == 5
+    assert json.loads((presentation / 'assets/reference-appearance.json').read_text())['sidebarHidden']
+    assert len(font_calls) == 1
+    monkeypatch.setattr(launcher, 'preferences', lambda: {'sidebarHidden': True, 'fontSize': 18})
+    changed_font = launcher.prepare(bundle, game, cache)
+    assert len(font_calls) == 2 and len(calls) == 5
+    assert json.loads((changed_font / 'assets/reference-appearance.json').read_text())['fontSize'] == 18
+    # The archive is owned separately from the patched assemblies.
+    (game / 'Data/Core').mkdir(parents=True)
+    (game / 'Data/Core/data.xml').write_text('new game data')
+    launcher.prepare(bundle, game, cache)
+    assert len(calls) == 6
+    assert calls[-1][1].endswith('core_pack.py')
     refreshed = launcher.prepare(bundle, game, cache, True)
     assert refreshed != ready and (ready / '.ready').is_file()
     assert launcher.prepare(bundle, game, cache) == refreshed
+    assert len(font_calls) == 3
+    (bundle / 'web/index.html').write_text('another browser update')
+    launcher.prepare(bundle, game, cache)
+    assert len(font_calls) == 3
 
     # Updated browser tooling must not reuse a ready runtime patched by an older
     # bundle, even when all installed game inputs and preferences are unchanged.
-    (bundle / 'BUILD_ID').write_text('updated compatibility tooling')
+    (bundle / 'Adapters.dll').write_text('updated compatibility tooling')
     upgraded = launcher.prepare(bundle, game, cache)
     assert upgraded not in (ready, refreshed)
     assert (refreshed / '.ready').is_file()
