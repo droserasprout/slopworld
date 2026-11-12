@@ -129,11 +129,11 @@ internal static class CommandValueCacheTests
                 new("image", new BrowserGui.ImageCommand(1, 1, 1, new string('a', 2200000))),
             ]);
             BoundsAndExclusions();
+            if (!BrowserGui.ConfigureCommandValueCache(false))
+                throw new Exception("Disable did not return previous value");
         }
         finally
         {
-            if (!BrowserGui.ConfigureCommandValueCache(false))
-                throw new Exception("Disable did not return previous value");
             BrowserGui.ConfigureCommandValueCache(previous);
         }
         Console.WriteLine(

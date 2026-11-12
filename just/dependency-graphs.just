@@ -25,3 +25,8 @@ deps-update-mod:
     dotnet restore mod/Source/SlopWorld/SlopWorld.csproj --force-evaluate -p:RestoreLockedMode=false
     dotnet restore mod/Tests/SlopWorld.Tests.csproj --force-evaluate -p:RestoreLockedMode=false
     dotnet restore bench/ipc/csharp/IpcBench.csproj --force-evaluate -p:RestoreLockedMode=false
+
+# Update all browser runtime, helper, and test dependency locks.
+[group('deps-update')]
+deps-update-web:
+    for project in $(rg --files slopweb -g '*.csproj' | sort); do dotnet restore "$project" --force-evaluate -p:RestoreLockedMode=false --nologo -v quiet; done

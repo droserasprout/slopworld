@@ -238,7 +238,7 @@ static unsafe void Run(
                         pixels = Convert.ToBase64String(atlas),
                     },
                 },
-                new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }
+                FontJson.Options
             )
         );
         Console.WriteLine("Installed rasterizer metrics written to " + output);
@@ -247,4 +247,13 @@ static unsafe void Run(
     {
         ImGui.DestroyContext(context);
     }
+}
+
+file static class FontJson
+{
+    internal static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,
+        IncludeFields = true,
+    };
 }

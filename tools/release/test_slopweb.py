@@ -115,6 +115,7 @@ def test_distributable_build_never_reads_staged_game_root(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('must never ship')
     (runtime / 'FontProbe/bin/Debug/net10.0/Brutal.ImGui.dll').write_text('must never ship')
+    (runtime / 'bin/Debug/net10.0/wwwroot/old-probe.js').write_text('must never ship')
     monkeypatch.setattr(slopweb, 'ROOT', root)
     output = tmp_path / 'bundle'
     slopweb.build(output)

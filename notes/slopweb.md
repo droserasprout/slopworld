@@ -6,13 +6,27 @@ diagnostic runtimes belong in ignored `priv/`. Public builds, tests, packaging,
 and CI must work without private files.
 
 The root Python modules own host preparation, compilation caching, and launch.
-`runtime/` owns WASM execution, browser assets, adapters, and native preparation
+`runtime/` owns Entry-only WASM execution, browser assets, adapters, and native preparation
 helpers; `offline/` patches private copies of assemblies. `server/` owns asset
 delivery, font delivery, and the host-authenticated daemon bridge.
 `tools/release/slopweb.py` stages reviewed redistributable inputs. Installed game
 assemblies, derived assets, fonts, and credentials never enter release payloads.
 
-`just/web.just` owns product builds and checks. `tests/runtime/` owns managed
+`just/web.just` owns product builds and checks. Root format, lint, test, clean,
+and dependency recipes include slopweb. Python tests run once through the shared
+pytest inventory; component tests remain independently runnable. All browser project
+locks participate in restore/update, and managed projects inherit the shared analyzer
+policy. Installed Python tools receive strict type checking independently of packaging.
+Cleanup removes project bin/obj, the redistributable bundle, and generated font-module
+outputs; compiler caches and retained private runtimes remain separate.
+
+The `Probe` assembly/type name is retained as the managed export and offline bootstrap
+ABI. Its authored compiler allowlist contains only workspace startup, transport/input,
+and presentation exports. Colony creation/saves, compatibility experiments, synthetic
+controls, and benchmark fixtures belong in private probe projects. Package staging copies
+only the framework subtree from build output and current authored web assets, so stale
+experimental pages cannot leak from incremental build directories.
+ `tests/runtime/` owns managed
 contracts, `tests/browser/` owns browser JavaScript contracts exercised in Node,
 `tests/server/` owns host server contracts, and `tests/launcher/` owns preparation
 and cache tests. Packaging assertions remain under `tools/release/`. `ci-web`

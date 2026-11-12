@@ -11,19 +11,20 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 
-def selection(value: dict) -> dict:
+def selection(value: dict[str, Any]) -> dict[str, Any]:
     if 'face' in value:
         raise ValueError('Host glyph rasterization is not supported')
-    result = {}
+    result: dict[str, Any] = {}
     for name, default in (('uiFontName', ''), ('fontName', 'monospace')):
         text = value.get(name, default)
         if not isinstance(text, str) or len(text) > 256 or any(ord(c) < 32 for c in text):
             raise ValueError('Invalid font family')
         result[name] = text
-    for name, default, low, high in (('uiFontSize', 14, 0, 48), ('fontSize', 14, 8, 28)):
-        size = value.get(name, default)
+    for name, default_size, low, high in (('uiFontSize', 14, 0, 48), ('fontSize', 14, 8, 28)):
+        size = value.get(name, default_size)
         if type(size) is not int or not low <= size <= high:
             raise ValueError('Invalid font size')
         result[name] = size
@@ -34,7 +35,7 @@ def selection(value: dict) -> dict:
     return result
 
 
-def prepare(bundle: Path, game: Path, cache: Path, value: dict) -> Path:
+def prepare(bundle: Path, game: Path, cache: Path, value: dict[str, Any]) -> Path:
     values = selection(value)
     identity = [(str(game), (bundle / 'BUILD_ID').read_text()), values]
     key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
