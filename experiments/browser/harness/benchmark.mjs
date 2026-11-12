@@ -17,10 +17,10 @@ if(!['on','off'].includes(quadCache))throw new Error('Quad cache must be on or o
 const phases=phaseList.split(',');
 const stageProfile=process.env.PROBE_STAGE_PROFILE!=='0';
 if(!stageProfile && phases.includes('cyrillic'))throw Error('Cyrillic coverage checks require stage profiling');
-const comparisonExport={discard:'WorkspaceDiscardedDrawing',tail:'WorkspaceGlyphTailClip',glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath'}[comparison];
+const comparisonExport={damage:'configureGuiTargetDamage',discard:'WorkspaceDiscardedDrawing',tail:'WorkspaceGlyphTailClip',glyph:'WorkspaceGlyphCache',input:'WorkspaceInputFlushBeforeRepaint',cell:'WorkspaceCellFastPath',tint:'configureGuiTintCache',command:'WorkspaceCommandValueCache',clip:'configureGuiScreenClipFastPath'}[comparison];
 if(comparison!=='none' && (!comparisonExport || phases.length!==4 || new Set(phases).size!==1))
-  throw new Error('Comparison must be discard, tail, glyph, input, cell, tint, command or clip with four identical workload phases');
-const comparisonCall=['tint','clip'].includes(comparison) ? `(async enabled => (await import("/gui.js")).${comparisonExport}(enabled))` : `window.__managedProbe.${comparisonExport}`;
+  throw new Error('Comparison must be damage, discard, tail, glyph, input, cell, tint, command or clip with four identical workload phases');
+const comparisonCall=['damage','tint','clip'].includes(comparison) ? `(async enabled => (await import("/gui.js")).${comparisonExport}(enabled))` : `window.__managedProbe.${comparisonExport}`;
 if (phases.some(phase=>!['idle','output','typing','cyrillic','keystrokes','inlinekeystrokes','scrolling','switching'].includes(phase)))
   throw new Error('Unknown benchmark phase');
 if (!profile || !output) throw new Error('Usage: benchmark.mjs PROFILE OUTPUT');
@@ -147,6 +147,7 @@ try {
       browserProcesses:processCpu.summarize(processBefore,processAfter),
       jsHeapUsed:after.JSHeapUsedSize,jsHeapTotal:after.JSHeapTotalSize,stageMeans};
     if(comparison==='tint')summary.tint=await evaluate('(async()=> (await import("/gui.js")).guiTintProfile())()');
+    if(comparison==='damage')summary.damage=await evaluate('(async()=> (await import("/gui.js")).guiTargetDamageStats())()');
     report.phases.push({summary, result, before, after,jiterpreterBefore,jiterpreterAfter});
     console.log(JSON.stringify(summary));
     if (process.env.PROBE_SCREENSHOTS !== '0') {

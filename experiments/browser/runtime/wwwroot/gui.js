@@ -12,7 +12,7 @@ export class GuiTargetDamagePlanner {
   constructor(entryLimit = 8, byteLimit = 2 * 1024 * 1024) {
     this.entryLimit = entryLimit; this.byteLimit = byteLimit;
     this.entries = new Map(); this.retainedBytes = 0;
-    this.rejections = {};
+    this.rejections = {}; this.bypassed = 0;
   }
   invalidate() { this.entries.clear(); this.retainedBytes = 0; }
   forget(id) {
@@ -25,14 +25,25 @@ export class GuiTargetDamagePlanner {
       this.rejections[reason] = Math.min(Number.MAX_SAFE_INTEGER,(this.rejections[reason]??0)+1);
       return null;
     };
-    const next = certifyTarget(width, height, matrix, clips, body, resources, generation,reject);
     const old = this.entries.get(id);
     this.forget(id);
+    // This cheap comparison only declines optimization; it never certifies pixels.
+    // Scrolling changes every row, so avoid decoding and serializing each glyph
+    // merely to discover that there is nothing to preserve. A declined frame
+    // replaces the old certificate: later reuse cannot bridge unexamined writes.
+    const raw = rawRowKeys(body);
+    const bypass = raw && old?.raw && !raw.some((key,i) => key === old.raw[i]);
+    let next;
+    if (bypass) {
+      this.bypassed = Math.min(Number.MAX_SAFE_INTEGER,this.bypassed+1);
+      next = {header:null,groups:[],bytes:0};
+    } else next = certifyTarget(width, height, matrix, clips, body, resources, generation,reject);
+    if (next) { next.raw = raw; next.bytes += raw?.reduce((n,key) => n+key.length*2+16,0) ?? 0; }
     if (!next || next.bytes > this.byteLimit || this.entryLimit <= 0) return null;
     while (this.entries.size >= this.entryLimit || this.retainedBytes + next.bytes > this.byteLimit)
       this.forget(this.entries.keys().next().value);
     this.entries.set(id, next); this.retainedBytes += next.bytes;
-    if (!old || old.header !== next.header) return null;
+    if (!next.header || !old || old.header !== next.header) return null;
 
     // A removed/reordered group damages its OLD footprint too. Comparing at the
     // same ordered position deliberately gives up reuse after an insertion.
@@ -53,8 +64,7 @@ export class GuiTargetDamagePlanner {
     for (const [top,bottom] of changed) bands = bands.flatMap(([a,b]) =>
       bottom <= a || top >= b ? [[a,b]] : [[a,Math.min(b,top)],[Math.max(a,bottom),b]]);
     const safe = x1 > x0 ? bands.filter(([a,b]) => b > a).map(([a,b]) => [x0,a,x1,b]) : [];
-    // Turn possibly overlapping row interiors into disjoint rectangles. Nonzero
-    // winding clipping then paints the complement without overlapping holes.
+    // Keep restoration rectangles disjoint and vertically ordered for culling.
     const edges = [...new Set(safe.flatMap(b => [b[1],b[3]]))].sort((a,b) => a-b);
     const preserved = [];
     for (let i = 1; i < edges.length; i++) {
@@ -73,6 +83,19 @@ export class GuiTargetDamagePlanner {
     }
     return preserved.length ? {preserved, width, height} : null;
   }
+}
+
+function rawRowKeys(body) {
+  if (body.length > 16384) return null;
+  const rows=[]; let start=-1,depth=0;
+  for(let i=0;i<body.length;i++) {
+    if(body[i].kind==='clipScreen') { if(depth++===0)start=i; }
+    else if(body[i].kind==='pop') {
+      if(!depth)return null;
+      if(--depth===0)rows.push(JSON.stringify(body.slice(start,i+1)));
+    }
+  }
+  return !depth && rows.length && rows.length<=2048 ? rows : null;
 }
 
 const finiteArray = (v,n) => (Array.isArray(v) || ArrayBuffer.isView(v)) && v.length === n && Array.from(v).every(Number.isFinite);
@@ -158,15 +181,18 @@ function certifyTarget(width, height, entryMatrix, clips, body, resources, gener
 
 let targetDamageEnabled = false, imageGeneration = 0;
 const targetDamage = new GuiTargetDamagePlanner();
+let damageScratch = null;
 let targetDamageCounters = {writes:0,planned:0,preservedPixels:0,skippedDraws:0};
 export function configureGuiTargetDamage(enabled) {
   const previous = targetDamageEnabled; targetDamageEnabled = !!enabled;
   targetDamage.invalidate(); renderRevision++;
   targetDamage.rejections = {};
+  targetDamage.bypassed = 0;
+  if (!targetDamageEnabled) damageScratch = null;
   targetDamageCounters = {writes:0,planned:0,preservedPixels:0,skippedDraws:0};
   return previous;
 }
-export const guiTargetDamageStats = () => ({...targetDamageCounters, snapshots:targetDamage.entries.size, retainedBytes:targetDamage.retainedBytes,rejections:{...targetDamage.rejections}});
+export const guiTargetDamageStats = () => ({...targetDamageCounters, snapshots:targetDamage.entries.size, retainedBytes:targetDamage.retainedBytes,rejections:{...targetDamage.rejections},bypassed:targetDamage.bypassed,scratchBytes:damageScratch ? damageScratch.width*damageScratch.height*4 : 0});
 const countDamage = (key,n=1) => { targetDamageCounters[key] = Math.min(Number.MAX_SAFE_INTEGER,targetDamageCounters[key]+n); };
 let damageScreen = null;
 const damageCanvases = new WeakSet();
@@ -253,6 +279,18 @@ function renderGuiCommands(canvas, commands) {
   const screen = canvas.getContext('2d');
   let ctx = screen, activeTarget = 0;
   let damage = null;
+  const restorePreserved = () => {
+    if (!damage) return;
+    // Extra clipping changes accelerated Canvas edge rasterization. Keep the
+    // original clip and draw order instead, then restore only proven opaque
+    // integer interiors. Opaque source-over is an exact pixel replacement;
+    // using the copy operator here could clear pixels outside each rectangle.
+    ctx.save();ctx.resetTransform();ctx.globalAlpha=1;
+    ctx.globalCompositeOperation='source-over';ctx.imageSmoothingEnabled=false;
+    for(const [left,top,right,bottom] of damage.preserved)
+      ctx.drawImage(damageScratch,left,top,right-left,bottom-top,left,top,right-left,bottom-top);
+    ctx.restore();
+  };
   const clips = [], clipDepths = [];
   ctx.resetTransform();
   const color = c => `rgba(${c[0] * 255},${c[1] * 255},${c[2] * 255},${c[3]})`;
@@ -359,7 +397,7 @@ function renderGuiCommands(canvas, commands) {
       case 'releaseImage': targetDamage.invalidate(); images.delete(v); break;
       case 'target': {
         const transform = ctx.getTransform();
-        if (activeTarget) ctx.restore();
+        if (activeTarget) { restorePreserved();ctx.restore(); }
         damage = null;
         activeTarget = v.id;
         if (!v.id) { ctx = screen; ctx.setTransform(transform); break; }
@@ -368,7 +406,8 @@ function renderGuiCommands(canvas, commands) {
         if (!targetGenerations.has(target)) targetGenerations.set(target,++targetGeneration);
         if (targetDamageEnabled) watchDamageCanvas(target);
         if (target.width !== v.width || target.height !== v.height) { targetDamage.forget(v.id); target.width = v.width; target.height = v.height; }
-        ctx = target.getContext('2d', {colorType: screen.getContextAttributes?.().colorType ?? 'unorm8'}); ctx.save(); ctx.resetTransform();
+        // Retained drawing targets keep the same readback preference in probes.
+        ctx = target.getContext('2d', {willReadFrequently:false,colorType: screen.getContextAttributes?.().colorType ?? 'unorm8'}); ctx.save(); ctx.resetTransform();
         // Native GUI targets inherit the current physical clip and transform.
         for (const points of clips) {
           ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
@@ -380,20 +419,24 @@ function renderGuiCommands(canvas, commands) {
           let end = commandIndex+1;
           while (end < commands.length && commands[end].kind !== 'target') end++;
           // Never cache an unterminated write, even before error handling runs.
-          if (end < commands.length) damage = targetDamage.prepare(v.id,target.width,target.height,
+          const storageFits = target.width*target.height*4<=64*1024*1024 &&
+            (ctx.getContextAttributes?.().colorType??'unorm8')==='unorm8';
+          if (end < commands.length && storageFits) damage = targetDamage.prepare(v.id,target.width,target.height,
             [transform.a,transform.b,transform.c,transform.d,transform.e,transform.f],clips,
             commands.slice(commandIndex+1,end),images,targetGenerations.get(target));
           else targetDamage.forget(v.id);
           if (damage) {
             countDamage('planned');
-            ctx.beginPath(); ctx.rect(0,0,target.width,target.height);
+            damageScratch ??= document.createElement('canvas');
+            if(damageScratch.width!==target.width || damageScratch.height!==target.height) {
+              damageScratch.width=target.width;damageScratch.height=target.height;
+            }
+            const saved=damageScratch.getContext('2d');saved.resetTransform();
+            saved.globalCompositeOperation='copy';saved.globalAlpha=1;saved.imageSmoothingEnabled=false;
+            saved.drawImage(target,0,0);
             for (const [left,top,right,bottom] of damage.preserved) {
               countDamage('preservedPixels',(right-left)*(bottom-top));
-              // Reverse winding cuts disjoint integer holes out of the original
-              // target clip. Its fractional inherited edges still replay fully.
-              ctx.rect(right,top,left-right,bottom-top);
             }
-            ctx.clip();
           }
         }
         ctx.setTransform(transform); break;

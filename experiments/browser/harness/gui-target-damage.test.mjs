@@ -41,6 +41,20 @@ test('changed and erased glyphs damage both old and new footprints',()=>{
   assert.equal(contains(movedPlan,10,80),false);
 });
 
+test('all-row changes bypass certification without reusing a certificate across skipped writes',()=>{
+  const planner=warm(), changed=body();
+  for(const item of changed)if(item.kind==='imageBatch')item.value.color=[.5,1,1,1];
+  // A skipped certification must not even consult resource metadata.
+  const inaccessible={get(){throw Error('unexpected resource lookup');}};
+  assert.equal(prepare(planner,changed,{resources:inaccessible}),null);
+  assert.equal(planner.bypassed,1);
+  assert.equal(prepare(planner,changed),null,'first stable frame establishes a new certificate');
+  assert.ok(prepare(planner,changed),'second stable frame can reuse it');
+  const before=planner.bypassed;
+  assert.equal(prepare(planner),null);
+  assert.equal(planner.bypassed,before+1);
+});
+
 test('removed/reordered groups and overlapping changed rows cannot leave old pixels',()=>{
   const before=body();
   const removed=before.slice(0,-3), plan=prepare(warm(before),removed);
@@ -205,8 +219,11 @@ test('Canvas integration keeps state/reset order, culls interior images and inva
     assert.equal(guiTargetDamageStats().planned,1);assert.ok(guiTargetDamageStats().preservedPixels>0);
     assert.ok(guiTargetDamageStats().skippedDraws>0);
     const target=canvases[1];assert.equal(target.context.stack.length,0);
-    const holeClip=target.context.calls.find(([kind,path])=>kind==='clip' && path.some(r=>r[2]<0));
-    assert.ok(holeClip);assert.ok(holeClip[1].flat().every(Number.isInteger));
+    const scratch=canvases[2];
+    assert.ok(scratch.context.calls.some(([kind,args])=>kind==='draw' && args[0]===target));
+    const restored=target.context.calls.filter(([kind,args])=>kind==='draw' && args[0]===scratch);
+    assert.ok(restored.length);assert.ok(restored.every(([,args])=>args.slice(1).every(Number.isInteger)));
+    assert.equal(target.context.calls.some(([kind,path])=>kind==='clip' && path.some(r=>r[2]<0)),false);
     assert.equal(target.context.calls.filter(([kind])=>kind==='reset').length,2);
     const fullThenPlan = invalidate => {
       const planned=guiTargetDamageStats().planned;invalidate();renderGui(screen,packet());
@@ -225,6 +242,7 @@ test('Canvas integration keeps state/reset order, culls interior images and inva
     fullThenPlan(()=>assert.throws(()=>renderGui(screen,[command('unknown',null)]),/Unknown/));
     const stats=guiTargetDamageStats();stats.planned=-1;assert.notEqual(guiTargetDamageStats().planned,-1);
     assert.equal(configureGuiTargetDamage(false),true);assert.equal(guiTargetDamageStats().snapshots,0);
+    assert.equal(guiTargetDamageStats().scratchBytes,0);
     renderGui(screen,packet());assert.equal(guiTargetDamageStats().writes,0);
   } finally {
     configureGuiTargetDamage(false);globalThis.document=oldDocument;globalThis.ImageData=oldImageData;globalThis.DOMPoint=oldDOMPoint;

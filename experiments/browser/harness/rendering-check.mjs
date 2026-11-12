@@ -10,16 +10,18 @@ const clip=process.argv[2]==='clip';
 const cursor=process.argv[2]==='cursor';
 const pixels=process.argv[2]==='pixels';
 const solid=process.argv[2]==='solid';
-const harness=reuse?'canvas-reuse':clip?'screen-clip':cursor?'cursor':pixels?'pixel-upload':solid?'solid-texture':null;
+const damage=process.argv[2]==='damage';
+const harness=reuse?'canvas-reuse':clip?'screen-clip':cursor?'cursor':pixels?'pixel-upload':solid?'solid-texture':damage?'target-damage':null;
 const output=fileURLToPath(new URL(`../artifacts/${harness??'rendering'}-check.json`,import.meta.url));
 try {
   if(harness) {
     await cp(fileURLToPath(new URL('../runtime/wwwroot',import.meta.url)),root,{recursive:true});
     await copyFile(fileURLToPath(new URL(`./${harness}-check.js`,import.meta.url)),`${root}/${harness}-check.js`);
+    if(damage)await writeFile(`${root}/gui.js`,(await readFile(`${root}/gui.js`,'utf8'))+`\nexport const auditTarget=id=>{const c=renderTargets.get(id);return c.getContext('2d').getImageData(0,0,c.width,c.height).data;};\n`);
   }
   await writeFile(`${root}/index.html`,harness?`<!doctype html><script type="module" src="./${harness}-check.js"></script>`:'<!doctype html><script>globalThis.__probeResult={status:"ok"}</script>');
   await promisify(execFile)(process.execPath,[fileURLToPath(new URL('./validate.mjs',import.meta.url)),root,'/',output],{
-    env:{...process.env,PROBE_RENDERING:process.env.PROBE_RENDERING??'auto',PROBE_KEEP_OPEN:'0',PROBE_TIMEOUT_MS:(pixels||solid)?'60000':'10000',...((clip||cursor||pixels||solid)?{PROBE_SCREENSHOTS:'0'}:{})},maxBuffer:1024*1024,
+    env:{...process.env,PROBE_RENDERING:process.env.PROBE_RENDERING??'auto',PROBE_KEEP_OPEN:'0',PROBE_TIMEOUT_MS:(pixels||solid||damage)?'60000':'10000',...((clip||cursor||pixels||solid||damage)?{PROBE_SCREENSHOTS:'0'}:{})},maxBuffer:1024*1024,
   });
   const report=JSON.parse(await readFile(output,'utf8'));
   if(!report.completed||report.result?.status!=='ok'||report.gpu.error||!report.gpu.devices?.length)throw new Error(JSON.stringify({error:'Rendering check failed',result:report.result}));
