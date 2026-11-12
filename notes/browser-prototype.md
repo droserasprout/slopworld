@@ -599,6 +599,8 @@ formats and larger targets retain full replay.
 Target contexts explicitly prefer drawing over frequent readback. Pixel comparisons
 use the same preference for their reference: repeated reads can otherwise change
 Chromium rasterization even when the reference commands are identical.
+Fractional reset fringes can accumulate across otherwise identical repaints. Checks
+with different repaint counts must first establish a stable full-repaint reference.
 The preliminary all-row-change check can only decline reuse; a skipped write drops
 the certified predecessor so a later frame cannot reuse pixels across an unchecked write.
 An unchanged row can reuse its preceding validation only with exact raw commands,
