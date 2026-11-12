@@ -406,4 +406,28 @@ def test_prepare_uses_selected_profile_without_contacting_endpoint(
     monkeypatch.setattr(launcher.aot, 'prepare', lambda bundle, root, cache, sdk: root)
     monkeypatch.setattr(launcher.shutil, 'which', lambda name: '/sdk/dotnet')
     launcher.main()
-    assert selected[0][-1] == tmp_path / 'data/profiles/remote'
+    assert selected[0][4] == tmp_path / 'data/profiles/remote'
+
+
+@pytest.mark.parametrize('mode', [[], ['--aot']])
+def test_launch_prints_timings_before_url(
+    launcher: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mode: list[str],
+) -> None:
+    monkeypatch.delenv('SLOPWEB_AOT_SDK', raising=False)
+    monkeypatch.setattr('sys.argv', ['slopweb', *mode])
+    monkeypatch.setattr(launcher.application_paths, 'game_directory', lambda _: tmp_path)
+    monkeypatch.setattr(launcher, 'environment', lambda _: {})
+    monkeypatch.setattr(launcher, 'prepare', lambda *args: tmp_path)
+    selected = []
+    monkeypatch.setattr(launcher.aot, 'toolchain', lambda sdk: selected.append(sdk))
+    monkeypatch.setattr(launcher.aot, 'prepare', lambda *args: tmp_path)
+    monkeypatch.setattr(launcher.shutil, 'which', lambda _: '/sdk/dotnet')
+    monkeypatch.setattr(launcher.os, 'execvpe', lambda *args: None)
+    launcher.main()
+    output = capsys.readouterr().out
+    assert output.index('Runtime preparation summary') < output.index('Open http://')
+    assert bool(selected) == bool(mode)

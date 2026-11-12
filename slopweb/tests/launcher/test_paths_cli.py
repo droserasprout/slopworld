@@ -153,10 +153,24 @@ def test_public_origin_rejects_non_origin_urls(paths: Any, origin: str) -> None:
         cli.parser().parse_args(['--public-origin', origin])
 
 
-def test_interpreter_only_launch_is_rejected_before_workload_provisioning(
-    paths: Any, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize('arguments', [[], ['--interpreted']])
+def test_interpreted_launch_skips_workload_provisioning(
+    paths: Any, monkeypatch: pytest.MonkeyPatch, arguments: list[str]
 ) -> None:
     wrapper = importlib.import_module('just_launch')
-    monkeypatch.setattr(wrapper.aot, 'toolchain', lambda _: pytest.fail('Invalid options must not provision tools'))
-    with pytest.raises(SystemExit):
-        wrapper.ensure_workload(['--interpreted'])
+    monkeypatch.delenv('SLOPWEB_AOT_SDK', raising=False)
+    if arguments:
+        monkeypatch.setenv('SLOPWEB_AOT_SDK', '/unused/sdk')
+    monkeypatch.setattr(wrapper.aot, 'toolchain', lambda _: pytest.fail('Interpreter must not provision tools'))
+    wrapper.ensure_workload(arguments)
+
+
+@pytest.mark.parametrize('arguments', [['--aot'], ['--aot-sdk', '/sdk/dotnet']])
+def test_explicit_aot_selects_toolchain(paths: Any, monkeypatch: pytest.MonkeyPatch, arguments: list[str]) -> None:
+    wrapper = importlib.import_module('just_launch')
+    monkeypatch.delenv('SLOPWEB_AOT_SDK', raising=False)
+    monkeypatch.setattr(wrapper.shutil, 'which', lambda _: '/sdk/dotnet')
+    selected = []
+    monkeypatch.setattr(wrapper.aot, 'toolchain', lambda sdk: selected.append(sdk))
+    wrapper.ensure_workload(arguments)
+    assert selected == [Path('/sdk/dotnet')]

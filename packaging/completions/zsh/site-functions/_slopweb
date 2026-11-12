@@ -18,6 +18,8 @@ _slopweb() {
         '--prepare[Prepare local game assets and exit]' \
         '--rebuild[Refresh local game data after a game update]' \
         '--public-origin[Exact HTTPS origin of an authenticated reverse proxy]:value:_files' \
+        '--interpreted[Use the interpreter (default; overrides SLOPWEB_AOT_SDK)]' \
+        '--aot[Enable mixed AOT using wasm-tools]' \
         '--aot-sdk[Select the .NET 10 SDK with wasm-tools (default: SLOPWEB_AOT_SDK or dotnet on PATH)]:value:_files' \
         '1:command:->command' \
         '*:value:->value'

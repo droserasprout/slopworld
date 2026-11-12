@@ -15,6 +15,8 @@ def ensure_workload(arguments: list[str]) -> None:
     if any(value in arguments for value in ('--help', '-h', '--version', '-V', 'paths', 'completions')):
         return
     options = cli.parser().parse_args(arguments)
+    if not cli.use_aot(options):
+        return
     selected = options.aot_sdk or os.environ.get('SLOPWEB_AOT_SDK') or shutil.which('dotnet')
     if not selected:
         raise ValueError('Mixed AOT requires an installed .NET 10 SDK with wasm-tools')
