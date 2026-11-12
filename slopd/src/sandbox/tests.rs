@@ -1,5 +1,57 @@
 use super::*;
 use crate::desktop::Environment;
+
+#[test]
+fn invalid_preset_message_retains_the_path_failure() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let alias = root.join("runtime-alias");
+    std::os::unix::fs::symlink(root.join("missing-runtime"), &alias).unwrap();
+    let preset = SandboxPreset {
+        name: "runtime".into(),
+        ro: vec![alias.to_string_lossy().into_owned()],
+        ..Default::default()
+    };
+    let session = SessionCfg {
+        name: "agent".into(),
+        sandbox: vec![preset.name.clone()],
+        sandbox_snapshots: vec![preset],
+        ..Default::default()
+    };
+    let project = ProjectCfg {
+        name: "project".into(),
+        ..Default::default()
+    };
+    let error = presets_for(
+        &Config::default(),
+        &session,
+        &project,
+        &session.preset_table(),
+    )
+    .unwrap_err()
+    .to_string();
+    for detail in [
+        "agent",
+        "project",
+        "runtime",
+        "runtime-alias",
+        "unresolved safety path",
+    ] {
+        assert!(error.contains(detail), "{error}");
+    }
+    std::fs::create_dir(root.join("missing-runtime")).unwrap();
+    assert!(
+        presets_for(
+            &Config::default(),
+            &session,
+            &project,
+            &session.preset_table()
+        )
+        .is_ok()
+    );
+}
+
 /// A host errand runs without bwrap. Its argument list ends with the shell command.
 #[test]
 fn a_host_errand_is_not_sandboxed() {
