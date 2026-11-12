@@ -62,6 +62,35 @@ def stage_aot_sources(runtime: Path, bundle: Path) -> None:
         copy_file(source, bundle / 'aot-src' / name)
 
 
+def runtime_package(runtime: Path) -> Path:
+    """Use the runtime pack resolved by this build, including SDK workload packs."""
+    name = 'Microsoft.NETCore.App.Runtime.Mono.browser-wasm'
+    manifest = runtime / 'obj/Debug/net10.0/staticwebassets.build.json'
+    if manifest.is_file():
+        roots = set()
+        for asset in json.loads(manifest.read_text())['Assets']:
+            source = Path(asset.get('OriginalItemSpec', ''))
+            if source.name == 'dotnet.native.wasm' and len(source.parents) > 4:
+                package = source.parents[3]
+                if package.parent.name.lower() == name.lower():
+                    roots.add(package)
+        if len(roots) == 1:
+            return roots.pop()
+        if roots:
+            raise ValueError('Build resolved multiple browser runtime packs')
+    assets = json.loads((runtime / 'obj/project.assets.json').read_text())
+    for framework in assets['project']['frameworks'].values():
+        for dependency in framework.get('downloadDependencies', []):
+            if dependency['name'] != name:
+                continue
+            version = str(dependency['version']).strip('[]').split(',')[0].strip()
+            for folder in assets['packageFolders']:
+                package = Path(folder) / name.lower() / version
+                if package.is_dir():
+                    return package
+    raise ValueError('Cannot locate the browser runtime pack used by this build')
+
+
 def build(destination: Path = OUTPUT) -> None:
     runtime = ROOT / 'experiments/browser/runtime'
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -93,6 +122,9 @@ def build(destination: Path = OUTPUT) -> None:
         for path in (runtime / 'wwwroot').iterdir():
             if path.is_file():
                 copy_file(path, bundle / 'web' / path.name)
+        for name in ('local-fonts.mjs', 'local-fonts.wasm', 'local-fonts.LICENSE.txt'):
+            if not (bundle / 'web' / name).is_file():
+                raise ValueError('Missing local font rasterizer; run just browser-local-fonts-build')
         for source, target in (
             (runtime / 'Scanner/bin/Debug/net10.0', 'scanner'),
             (ROOT / 'experiments/browser/compat/Offline/bin/Debug/net10.0', 'offline'),
@@ -115,19 +147,7 @@ def build(destination: Path = OUTPUT) -> None:
         copy_file(ROOT / 'shared/loading-tips.txt', bundle / 'mod/loading-tips.txt')
         for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs', 'fonts.mjs'):
             copy_file(ROOT / 'experiments/browser/harness' / name, bundle / 'server' / name)
-        assets = json.loads((runtime / 'obj/project.assets.json').read_text())
-        dependency = next(
-            item
-            for framework in assets['project']['frameworks'].values()
-            for item in framework['downloadDependencies']
-            if item['name'] == 'Microsoft.NETCore.App.Runtime.Mono.browser-wasm'
-        )
-        version = dependency['version'].strip('[]').split(',')[0].strip()
-        package = next(
-            Path(folder) / dependency['name'].lower() / version
-            for folder in assets['packageFolders']
-            if (Path(folder) / dependency['name'].lower() / version).is_dir()
-        )
+        package = runtime_package(runtime)
         for name in ('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT'):
             copy_file(package / name, bundle / 'licenses/dotnet' / name)
         digest = hashlib.sha256()

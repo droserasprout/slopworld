@@ -19,7 +19,7 @@ static class FontChecks
         long previousBytes = (long)bytesField.GetValue(bank)!;
         rootField.SetValue(null, root);
         byte[] font = [1, 2, 3];
-        string Bake(int size) =>
+        string Bake(int size, int scalar = -1, float advance = 1, float density = 1) =>
             JsonSerializer.Serialize(
                 new
                 {
@@ -31,7 +31,7 @@ static class FontChecks
                         pixels = "/w==",
                     },
                     size,
-                    density = 1,
+                    density,
                     style = 0,
                     ascent = 1,
                     descent = 0,
@@ -42,7 +42,26 @@ static class FontChecks
                         Pitch = 2,
                         Spacing = 2,
                     },
-                    glyphs = Array.Empty<object>(),
+                    glyphs = scalar < 0
+                        ? Array.Empty<object>()
+                        : new object[]
+                        {
+                            new
+                            {
+                                scalar,
+                                fallback = false,
+                                visible = true,
+                                advance,
+                                x0 = 0,
+                                y0 = 0,
+                                x1 = 1,
+                                y1 = 1,
+                                u0 = 0,
+                                v0 = 0,
+                                u1 = 1,
+                                v1 = 1,
+                            },
+                        },
                 }
             );
         try
@@ -102,9 +121,54 @@ static class FontChecks
             var pendingSet = type.GetField("pendingSizes", Private)!.GetValue(bank)!;
             if ((int)pendingSet.GetType().GetProperty("Count")!.GetValue(pendingSet)! > 1024)
                 throw new Exception("Pending registrations are unbounded");
+            int beforeReplacement = bank.AtlasVersion;
+            BrowserFontBank.Install(font, Bake(14, '中', 3), -1);
+            if (
+                !BrowserFontBank.TryFace(old, 14, out var expanded)
+                || !expanded.Glyphs.TryGetValue('中', out var added)
+                || added.advanceX != 3
+                || expanded.Texture.GetInstanceID() == texture
+                || bank.AtlasVersion <= beforeReplacement
+                || (long)bytesField.GetValue(bank)! != previousBytes + 8
+            )
+                throw new Exception(
+                    "Atlas replacement lost glyphs, stable index, revision or memory accounting"
+                );
+            BrowserFontBank.Install(font, Bake(14), -1);
+            if (!bank.TryGetGlyph(old, '中', out var preserved) || preserved.advanceX != 3)
+                throw new Exception("Metrics-only selection erased learned coverage");
+            var gui = BrowserGui.Install();
+            gui.DrawText(
+                new Rect(0, 0, 100, 100),
+                "中",
+                old,
+                14,
+                FontStyle.Normal,
+                TextAnchor.UpperLeft,
+                false,
+                Color.white,
+                default,
+                false
+            );
+            gui.Drain();
+            BrowserFontBank.Install(font, Bake(14, '中', 5), -1);
+            if (!bank.TryGetGlyph(old, '中', out var changed) || changed.advanceX != 5)
+                throw new Exception("Replaced atlas retained stale metrics");
+            BrowserGui.FontsChanged();
+            if (
+                !ReferenceEquals(UnityStubs.Gui.GuiBackend.Current, gui)
+                || !gui.Drain().Contains("releaseImage")
+            )
+                throw new Exception("Font refresh orphaned the previous browser atlas");
+            BrowserFontBank.ConfigureDensity(1.25f);
+            BrowserFontBank.Install(font, Bake(14, '中', 5, 1.25f), -1);
+            if (!BrowserFontBank.TryFace(old, 14, out var scaled) || scaled.Density != 1.25f)
+                throw new Exception("Exact density did not replace resampled fallback");
+            BrowserFontBank.ConfigureDensity(1);
         }
         finally
         {
+            BrowserFontBank.ConfigureDensity(1);
             bytesField.SetValue(bank, previousBytes);
             rootField.SetValue(null, previousRoot);
             if (Directory.Exists(root))

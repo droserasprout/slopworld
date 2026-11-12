@@ -11,6 +11,12 @@ public static class BrowserPreferences
     public static Action<string>? Fonts;
     static string? lastFonts;
 
+    public static void HoldFonts(object settings, string json)
+    {
+        Apply(settings, json);
+        lastFonts = FontSelection(settings);
+    }
+
     public static string FontSelection(object settings) =>
         JsonSerializer.Serialize(
             new Dictionary<string, object?>

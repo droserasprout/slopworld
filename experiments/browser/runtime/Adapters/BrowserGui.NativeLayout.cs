@@ -138,6 +138,7 @@ public sealed partial class BrowserGui
     sealed class UnpreparedTextException : Exception { }
 
     BrowserNativeLayout? nativeText;
+    int nativeResolution = -1;
 
     static BrowserNativeLayout.Metrics NativeMetrics(int font, float size, FontStyle style)
     {
@@ -150,9 +151,14 @@ public sealed partial class BrowserGui
             face.Pitch,
             face.Spacing,
             c =>
-                face.Glyphs.TryGetValue(c, out var glyph)
-                    ? glyph.advanceX
-                    : throw new UnpreparedTextException()
+            {
+                if (face.Glyphs.TryGetValue(c, out var glyph))
+                    return glyph.advanceX;
+                BrowserFontBank.ObserveText(font, size, style, c.ToString());
+                if (face.Glyphs.TryGetValue(c, out glyph))
+                    return glyph.advanceX;
+                throw new UnpreparedTextException();
+            }
         );
     }
 
@@ -171,6 +177,11 @@ public sealed partial class BrowserGui
         result = null!;
         if (text.Any(char.IsSurrogate))
             return false;
+        if (nativeResolution != BrowserFontBank.Instance.ResolutionVersion)
+        {
+            nativeText = null;
+            nativeResolution = BrowserFontBank.Instance.ResolutionVersion;
+        }
         if (nativeText == null)
         {
             if (!BrowserNativeLayout.Available)

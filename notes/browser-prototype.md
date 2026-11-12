@@ -29,75 +29,71 @@ and is inherited by the compiler so interruption cannot admit another writer.
 Release staging allowlists Probe's authored project and declared sources, never
 private compiler directories; changes to its compile list require package review.
 
-The optional `nativeFonts` workspace parameter loads `assets/fonts/manifest.json`
-from the local prepared root. `runtime/justfile`'s `font-pack` recipe bakes a selected
-font's three UI tiers using the installed ImGui/FreeType implementation; run it
-after staging, which replaces the output directory. Font bytes and derived atlases
-remain local. BrowserFontBank owns coverage, metrics, atlas pixels and mounted paths;
-the mod's NativeFonts/UiFont retain family selection and style assignment. The host
-reference preparation calls the actual mod's NativeFonts catalog and FontconfigFonts
-resolver, mounts the selected terminal face, and passes family order to the staged
-fontconfig boundary. WASM never invokes host fontconfig directly.
-The installed launcher's private preparation uses the same FontProbe for native
-UI candidate selection, terminal family resolution and glyph baking. Package staging
-allowlists the helper executable and metadata because its build directory also
-contains installed game references; those references must never be bundled.
-Private font preparation uses native settings defaults when no profile value exists;
-an unavailable saved UI family falls back to Auto in the private startup snapshot
-without changing the desktop profile. Failure to resolve Auto still aborts preparation.
-an explicit UI size zero retains the original 11/13/15 tiers. A mismatched
-terminal bake size forces ordinary text through the slow fallback renderer.
-It bakes normal, bold, italic and bold-italic variants of the selected UI and
-terminal files through the native loader at densities 1, 5/3 and 2.
-Startup and on-demand preparation share the UI size policy in `slopweb/fonts.py`:
-profile tiers retain all four styles; authored fixed UI sizes 14, 22 and 28 also
-receive normal faces independently of the profile. Overlapping sizes reuse their
-tier bakes. These extra UI faces do not enlarge terminal bakes.
-Rendering-mode flags are distinct from style flags; the native bold/oblique
-constants extend the normal rendering mode. `browser-font-styles-check` compares
-actual ink, line metrics and italic advances across all prepared variants.
-Style is part of face lookup, so styled runs retain family and native metrics.
-`BrowserFontBank` keeps font indices stable while selecting the nearest
-prepared density; viewport changes invalidate its bounded face lookup cache and
-advance atlas revision. Returning to a density reuses its texture. Other densities
-still resample. `just browser-host-font-bakes` refreshes the prototype through the
-staged private-preparation helper, and `browser-host-font-density-check` verifies
-selection, invalidation and texture reuse in a running diagnostic browser.
-`slopweb/fonts.py` owns on-demand host baking; `fonts.mjs` validates same-origin
-requests and serializes subprocesses. The launcher supplies host-only game/cache
-context after interpreted or AOT preparation; neither paths nor credentials enter
-font responses. The host catalog includes installed families and monospace flags
-without mounting every font. Native settings dirty events notify the browser,
-which debounces changes and keeps one request active with only the newest pending
-selection. Startup seeds this cache from already mounted fonts. Display resize
-requests only the nearest prepared density; drawing never starts discovery or I/O.
-Successful installs rescan mounted files and reapply UI/terminal owners before waking
-the workspace. Old usable faces remain while work runs. Superseded responses do
-not publish; returning to an installed selection restores its family chain.
+The `nativeFonts` workspace path mounts private host font files and native face
+metrics. The installed launcher seeds only the native UI tier indices and terminal
+metrics at normal style and density one. It does not pre-bake character blocks,
+extra UI sizes, styles, or display densities. `FontProbe` accepts an explicit JSON
+scalar list; omitting it produces metrics only. Explicit diagnostic font probes
+can supply their own fixture coverage. Font files and derived pixels remain local.
 
-Font state is bounded independently: 64 atomic private disk entries per serving
-runtime, eight host responses (including short-lived failures), 1024 native atlas
-variants, and 384 MiB of retained RGBA atlas pixels. Admission checks reject a new
-selection before installation when its conservative allocation exceeds that budget;
-existing native styles and packets keep their textures. Identical variants reuse
-indices/textures. Native face hits and misses are cached, and temporary size
-registrations are bounded. Failure restores the previous settings, displays a retry
-message, and never retries from a frame; an explicit click can retry a failed host
-operation. Successful selection clears that message. Font coverage remains the
-FontProbe scalar set: U+0020–U+00FF, U+0400–U+052F and U+2000–U+27FF, filtered
-through actual face coverage. Other characters and unprepared rich-text sizes retain
-the diagnostic fallback. Font files changed on the host require a rebuilt private
-runtime to refresh its font cache.
+`BrowserFontBank` owns font identity, metrics, atlas textures and mounted paths;
+the mod's NativeFonts/UiFont retain family selection and terminal cell policy.
+Host preparation uses the actual mod catalog, Fontconfig resolver and native
+ImGui/FreeType loader. WASM never invokes host Fontconfig directly. A removed
+saved UI family falls back to Auto in the startup snapshot without changing the
+host profile; failure to resolve Auto still aborts preparation.
 
-Plain covered runs use baked glyphs at matching density. Prepared coverage
-includes Cyrillic U+0400–U+052F; an omitted scalar otherwise takes the
-approximate text path even when the host font contains it. The benchmark's
-`cyrillic` phase echoes Russian text in owned terminals and rejects fallback draws.
-Prepared wrapped text and rich color spans use the installed `TextLayout` through bounded
-font-access hooks, then share the baked glyph emitter. The layout/parser/wrapping
-algorithms remain in the installed assembly. Sizes and characters absent
-from the prepared bank still use the approximate diagnostic renderer; this does
-not establish visual parity or complete terminal font support.
+`LocalFonts/raster.c` uses FreeType in an independent WASM module shared by the
+interpreted and mixed-AOT runtimes. `workspace-rasterizer.js` owns cached FT_Face
+handles and their backing bytes; `BrowserFontBank.Local.cs` owns exact size/style/
+density variants, observed BMP coverage, incremental atlas packing and textures.
+The installed loader flags arrive with the font file. Nominal sizing, synthetic
+styles, no hinting, fractional advances and ImGui's rounded bake size match the
+native loader. Design line metrics still come from head/hhea at the requested size.
+
+Glyph lookup is synchronous after font-file installation. Missing coverage and
+raster failures have separate caches; explicit font refresh retries failures.
+Unsupported UTF-16 surrogate units never reach FreeType. This adapter does not
+implement supplementary-plane text, shaping, bidi, grapheme-aware editing, or a
+new fallback chain. Existing terminal emoji/symbol handling remains separate.
+The native TextLayout still owns rich spans, wrapping, caret and selection layout.
+Its advance requests rasterize the parsed character at that span's size/style;
+markup tags and unrelated styles are not treated as glyph demand.
+
+`slopweb/fonts.py` resolves selections and delivers font bytes/configuration only;
+interactive scalar/bake requests are rejected. `workspace-fonts.js` retains the
+previous committed selection during loading, rejects stale responses and permits
+explicit retry after failure. Loaded glyphs are measured and drawn from the same
+local cache before emitting any text. FontProbe remains an independent native
+fidelity oracle and startup configuration/metrics helper.
+
+Atlas growth preserves pixels and remaps cached UVs, invalidates text runs and
+advances row-cache revisions. Replaced/density-retired textures are destroyed;
+the existing image owner emits release commands. Density changes discard old
+variants. Source retention is capped at 128 faces/64 MiB, WASM memory at 256 MiB,
+managed atlas pixels at 384 MiB and 1024 variants, glyph/miss/failure entries at
+262144 total, with a 4096-square per-variant
+limit. CPU pixel buffers and browser textures have separate bounded copies.
+Exhausting a limit reports failure; a page reload releases all owners. Explicit
+font disposal is idempotent and also runs on page exit.
+Atlas uploads use the existing full-texture image protocol. Append-only glyph
+updates coalesce to one image definition per texture per frame; ordinary mutable
+images retain their ordered updates. Growth uses a new texture identity so earlier
+draws retain their original UVs and pixels until that frame is delivered.
+Replacing installed font files requires rebuilding the private runtime snapshot;
+the host delivery cache does not watch font-file mutations. Runs with unsupported
+coverage retain diagnostic fallback rendering rather than a new fallback/shaping engine.
+
+`just browser-local-fonts-test` compares observed glyph metrics and alpha pixels
+with actual installed FontProbe output, including Fira Sans/PT Sans, synthetic
+styles and fractional densities. `just browser-fonts-test` exercises managed
+atlas lifetimes, failure recovery, layout/terminal packets and selection handoffs.
+No game or browser is started by these checks. The local module build requires
+Emscripten with the reviewed FreeType 2.14.3 and zlib 1.3.2 ports; source archive
+hashes are checked before compiling. The .NET-bundled toolchain is unsuitable for
+this standalone build because its FreeType port fails to link setjmp symbols.
+The shipped module includes FreeType, zlib and Emscripten notices.
+
 Terminal line boxes accommodate the native rounded first-line height as well as
 fractional spacing, so row admission does not clip descenders.
 Covered single-line editing uses the same glyph advances and device-pixel rounding
@@ -305,8 +301,8 @@ it does not copy an entire profile or change the host settings.
 Prototype server/probe startup refreshes that snapshot through the same allowlist as
 the installed launcher. `just browser-host-appearance` refreshes an existing server's
 snapshot; reload its browser page to apply it. Installed slopweb serves selected font
-changes through its on-demand host baker; standalone prototype servers require
-matching prepared font assets.
+changes through its host font-file provider; standalone prototype servers require
+matching prepared font assets and the local rasterizer module.
 The app workspace overlays a versioned, origin-local presentation snapshot after
 that host seed. `BrowserPreferences` owns the explicit scalar allowlist; staged
 `ProfileSettings.Write` redirects to this sink while native dirty timing remains.
@@ -327,7 +323,7 @@ a reset replaces previous customizations. Diagnostic workspaces and
 `localPreferences=off` leave this persistence disabled too.
 `just browser-test-keybindings` checks origin storage, installed managed slots/reset,
 and the staged save hook without starting the game or browser.
-Prepared font assets still belong to the host and are not rebaked by local changes.
+Host font sources remain private; local font changes request files, and observed text rasterizes in WASM.
 `browser-host-preferences-check` uses F9 in a retained diagnostic browser, waits for
 the native debounced save, reloads, checks restored native state, and restores the
 original layout. It does not send terminal text or change the host profile.

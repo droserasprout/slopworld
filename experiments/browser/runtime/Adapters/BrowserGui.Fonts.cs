@@ -7,6 +7,15 @@ namespace BrowserAdapters;
 
 public sealed partial class BrowserGui
 {
+    // Preserve image-upload ownership so replaced atlases emit release commands
+    // on the next frame. Replacing the whole GUI would orphan browser textures.
+    public static void FontsChanged()
+    {
+        var gui = GuiBackend.Current as BrowserGui ?? Install();
+        gui.nativeText = null;
+        gui.ClearRows();
+    }
+
     // Real workspace comparisons have not established a frame-time benefit.
     // Keep projected-run reuse available for diagnostics, without default retention.
     static bool glyphCacheEnabled;
@@ -81,10 +90,10 @@ public sealed partial class BrowserGui
     {
         face = null!;
         run = null!;
-        if (
-            (rich && BrowserNativeText.HasMarkup(text))
-            || !BrowserFontBank.TryFace(index, size, style, out face)
-        )
+        if (rich && BrowserNativeText.HasMarkup(text))
+            return false;
+        BrowserFontBank.ObserveText(index, size, style, text);
+        if (!BrowserFontBank.TryFace(index, size, style, out face))
             return false;
         run = face.TextRuns.Get(text)!;
         return run != null;

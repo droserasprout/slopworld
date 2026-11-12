@@ -48,6 +48,11 @@ slopweb-host-run *args:
 slopweb-host-prepare-aot sdk cache:
     systemd-run --user --pipe --wait --collect -p CPUQuota=200% --setenv=DOTNET_PROCESSOR_COUNT=2 --setenv=BINARYEN_CORES=2 python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
 
+# Read only the compiler log; do not attach to a browser or running workspace.
+[group('web')]
+slopweb-host-aot-log key cache=(env('HOME') + '/.cache/slopweb'):
+    systemd-run --user --pipe --wait --collect tail -n 12 {{quote(cache / 'aot-builds' / key / 'publish.log')}}
+
 [group('web')]
 slopweb-format:
     uv run --locked ruff check --select I --fix slopweb tools/release

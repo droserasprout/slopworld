@@ -602,14 +602,27 @@ browser-host-workspace-doors-check profile:
 # Dynamic font pipeline checks never start a game or browser.
 [group('browser prototype')]
 browser-fonts-format: mod-restore-tools
-    dotnet tool run csharpier format experiments/browser/runtime/Adapters/BrowserFontBank.cs experiments/browser/runtime/Adapters/BrowserGui.cs experiments/browser/runtime/Adapters/BrowserPreferences.cs experiments/browser/runtime/BrowserWorkspace.cs experiments/browser/runtime/FontProbe/Program.cs experiments/browser/compat/Offline/EcoWorkspace.cs experiments/browser/compat/Offline/BrowserPreferencesPatch.cs experiments/browser/runtime/NativeTextTests/FontChecks.cs experiments/browser/runtime/NativeTextTests/Program.cs experiments/browser/runtime/PreferencesTests/Program.cs
+    dotnet tool run csharpier format experiments/browser/runtime/Adapters/BrowserFontBank.Local.cs experiments/browser/runtime/NativeTextTests/LocalFontChecks.cs experiments/browser/runtime/Adapters/BrowserGui.Fonts.cs experiments/browser/runtime/Adapters/BrowserGui.NativeLayout.cs experiments/browser/runtime/Adapters/BrowserFontBank.cs experiments/browser/runtime/Adapters/BrowserGui.cs experiments/browser/runtime/Adapters/BrowserPreferences.cs experiments/browser/runtime/BrowserWorkspace.cs experiments/browser/runtime/FontProbe/Program.cs experiments/browser/compat/Offline/EcoWorkspace.cs experiments/browser/compat/Offline/BrowserPreferencesPatch.cs experiments/browser/runtime/NativeTextTests/FontChecks.cs experiments/browser/runtime/NativeTextTests/Program.cs experiments/browser/runtime/PreferencesTests/Program.cs
     just slopweb-format
+    uv run --locked ruff check --select I --fix experiments/browser/runtime/LocalFonts
+    uv run --locked ruff format experiments/browser/runtime/LocalFonts
 
 [group('browser prototype')]
 browser-fonts-build:
     just --justfile experiments/browser/runtime/justfile build
     just --justfile experiments/browser/runtime/justfile adapters
     just --justfile experiments/browser/runtime/justfile font-probe-build
+
+browser-local-fonts-build:
+    python3 experiments/browser/runtime/LocalFonts/build.py
+
+browser-local-fonts-sdk:
+    python3 experiments/browser/runtime/LocalFonts/build.py --install-sdk
+
+browser-local-fonts-test: browser-local-fonts-build
+    just --justfile experiments/browser/runtime/justfile font-probe-build
+    node experiments/browser/harness/local-fonts.test.mjs
+    just --justfile experiments/browser/runtime/NativeTextTests/justfile check
 
 [group('browser prototype')]
 browser-fonts-test:
@@ -665,3 +678,8 @@ browser-firefox-harness-format:
 [group('browser prototype')]
 browser-test-row-commands: mod-check-build
     just --justfile experiments/browser/runtime/NativeTextTests/justfile rows {{quote(justfile_directory() / 'mod/Assemblies/SlopWorld.dll')}}
+
+# Exercise the actual staged host helper without starting a browser or engine.
+[group('browser prototype')]
+browser-font-provider-check family='Fira Sans' density='1.25':
+    node experiments/browser/harness/font-provider-check.mjs slopweb/out {{quote(env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'))}} {{quote(family)}} {{quote(density)}}

@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 const execute = promisify(execFile);
 
 export function fontSelection(value) {
+  if (value.face) throw Error('Host glyph rasterization is not supported');
   const result = {};
   for (const [key, fallback] of [['uiFontName', ''], ['fontName', 'monospace']]) {
     const text = value[key] ?? fallback;
@@ -18,7 +19,7 @@ export function fontSelection(value) {
     result[key] = size;
   }
   const density = value.density ?? 1;
-  if (![1, 5/3, 2].includes(density)) throw Error('Invalid font density');
+  if (!Number.isFinite(density) || density < .5 || density > 4) throw Error('Invalid font density');
   result.density = density;
   return result;
 }
@@ -40,12 +41,12 @@ export function fontProvider({helper, game, cache}, run = execute, now = Date.no
       const root = stdout.trim();
       if (path.dirname(root) !== path.resolve(cache) || !/^[a-f0-9]{64}$/.test(path.basename(root))) throw Error('Invalid font cache');
       const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json')));
-      if (!Array.isArray(manifest) || manifest.length > 16) throw Error('Invalid font manifest');
+      if (!Array.isArray(manifest) || manifest.length > 1024) throw Error('Invalid font manifest');
       const fonts = {};
       let bytes = 0;
       const faces = [];
       for (const face of manifest) {
-        if (!/^(ui|terminal)\.ttf$/.test(face.font) || !/^[\w.-]+\.json$/.test(face.bake)) throw Error('Invalid font manifest');
+        if (!/^(ui|terminal|face)\.ttf$/.test(face.font) || !/^[\w.-]+\.json$/.test(face.bake)) throw Error('Invalid font manifest');
         if (!fonts[face.font]) {
           fonts[face.font] = (await readFile(path.join(root, face.font))).toString('base64');
           bytes += fonts[face.font].length;
@@ -74,7 +75,7 @@ export async function fontHttp(req, res, provider) {
   }
   try {
     let body = '';
-    for await (const chunk of req) { body += chunk; if (body.length > 4096) throw Error('Font request too large'); }
+    for await (const chunk of req) { body += chunk; if (body.length > 512 * 1024) throw Error('Font request too large'); }
     const value = fontSelection(JSON.parse(body));
     const result = await provider(value, req.headers['x-slop-font-retry'] === '1');
     res.writeHead(200, {'Content-Type':'application/json'}).end(JSON.stringify(result));

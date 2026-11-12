@@ -7,8 +7,6 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-from fonts import ui_sizes
-
 
 def preferences() -> dict:
     data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/share')))
@@ -84,24 +82,14 @@ def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
     # TerminalFont clamps even explicitly configured zero/out-of-range sizes.
     terminal_size = max(8, min(28, int(values.get('fontSize', 14))))
     manifest = []
-    # Keep common desktop densities local. The runtime switches atlas/metrics
-    # together on viewport changes; other densities use the nearest native bake.
-    for density in (1, 5 / 3, 2):
-        suffix = f'{density:.6g}'
-        for style in (0, 1, 2, 3):
-            tiers = [max(1, size + offset) for offset in (-2, 0, 2)]
-            variants = [(pixels, index) for index, pixels in enumerate(tiers)]
-            variants.extend((pixels, None) for pixels in ui_sizes(size, style) if pixels not in tiers)
-            for pixels, index in variants:
-                bake = f'ui-{pixels}-style{style}@{suffix}.json'
-                probe(fonts / 'ui.ttf', fonts / bake, pixels, density, style)
-                face = {'font': 'ui.ttf', 'bake': bake}
-                if index is not None:
-                    face['index'] = index
-                manifest.append(face)
-            bake = f'terminal-style{style}@{suffix}.json'
-            probe(fonts / 'terminal.ttf', fonts / bake, terminal_size, density, style)
-            manifest.append({'font': 'terminal.ttf', 'bake': bake})
+    # Only seed the native UI indices and terminal metrics. Glyphs, styles,
+    # other sizes and display densities are requested by the running workspace.
+    for index, pixels in enumerate([max(1, size + offset) for offset in (-2, 0, 2)]):
+        bake = f'ui-{pixels}.json'
+        probe(fonts / 'ui.ttf', fonts / bake, pixels, 1, 0)
+        manifest.append({'font': 'ui.ttf', 'bake': bake, 'index': index})
+    probe(fonts / 'terminal.ttf', fonts / 'terminal.json', terminal_size, 1, 0)
+    manifest.append({'font': 'terminal.ttf', 'bake': 'terminal.json'})
     (fonts / 'manifest.json').write_text(json.dumps(manifest))
     write_preferences(root, values)
 

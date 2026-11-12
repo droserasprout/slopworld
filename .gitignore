@@ -44,3 +44,6 @@ __pycache__/
 /.ruff_cache/
 /.mypy_cache/
 /.coverage
+/experiments/browser/runtime/wwwroot/local-fonts.mjs
+/experiments/browser/runtime/wwwroot/local-fonts.wasm
+/experiments/browser/runtime/wwwroot/local-fonts.LICENSE.txt

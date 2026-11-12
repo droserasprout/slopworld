@@ -131,6 +131,7 @@ try {
                     (await import('./workspace-keybindings.js')).installWorkspaceKeyBindings(exports.Probe);
                 }
                 if (parameters.has('nativeFonts')) {
+                    await (await import('./workspace-rasterizer.js')).installLocalRasterizer(exports.Probe);
                     const catalog = await fetch('./assets/fonts/catalog.json');
                     if (catalog.ok) exports.Probe.WorkspaceFontCatalog(await catalog.text());
                     const chains = await fetch('./assets/fonts/chains.json');
@@ -165,12 +166,12 @@ try {
                     }
                     // Session rows use the shared worker icon without snapshot assets.
                     const portraits = 0;
-                    let commands = JSON.parse(await exports.Probe.WorkspaceFrame(location.origin, parameters.get('session') ?? ''));
                     if (parameters.has('nativeFonts')) {
                         const fontLoader = await import('./workspace-fonts.js');
                         const fonts = fontLoader.dynamicFonts(exports.Probe, globalThis.fetch, () => workspaceViewport(parameters).uiScale, undefined, fontDefaults ? {selection:fontDefaults, chains:fontChains} : null);
-                        void fonts(exports.Probe.WorkspaceDynamicFonts(fontLoader.debounceFonts(fonts)));
+                        void fonts(exports.Probe.WorkspaceDynamicFonts(fonts));
                     }
+                    let commands = JSON.parse(await exports.Probe.WorkspaceFrame(location.origin, parameters.get('session') ?? ''));
                     const drawing = await import('./gui.js');
                     const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
                     // Select before the first context exists. Keep experimental until
