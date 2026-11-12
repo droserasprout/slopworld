@@ -2,13 +2,13 @@ import {readFileSync, mkdirSync, writeFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import assert from 'node:assert/strict';
-import create from '../runtime/wwwroot/local-fonts.mjs';
-import {localRasterizer} from '../runtime/wwwroot/workspace-rasterizer.js';
+import create from '../../../slopweb/runtime/wwwroot/local-fonts.mjs';
+import {localRasterizer} from '../../../slopweb/runtime/wwwroot/workspace-rasterizer.js';
 
 const game = process.env.RIMWORLD ?? `${process.env.HOME}/.local/share/Steam/steamapps/common/RimWorld`;
-const out = resolve('experiments/browser/runtime/out/local-font-check');
+const out = resolve('slopweb/runtime/out/local-font-check');
 mkdirSync(out, {recursive:true});
-const wasm = await create({wasmBinary:readFileSync(new URL('../runtime/wwwroot/local-fonts.wasm', import.meta.url))});
+const wasm = await create({wasmBinary:readFileSync(new URL('../../../slopweb/runtime/wwwroot/local-fonts.wasm', import.meta.url))});
 const local = localRasterizer(wasm);
 const scalars = [...'Agyp WéЖΩĄẞⱣḀ€'].map(c => c.codePointAt(0));
 writeFileSync(`${out}/scalars.json`, JSON.stringify(scalars));
@@ -19,7 +19,7 @@ for (const family of ['Fira Sans', 'PT Sans']) {
   local.call(JSON.stringify({hash, font:readFileSync(path).toString('base64')}));
   for (const size of [13, 17.25, 17.5]) for (const density of [1, 1.25, 5/3]) for (const style of [0,1,2,3]) {
     const output = `${out}/${family.replaceAll(' ','-')}-${size}-${density}-${style}.json`;
-    execFileSync('dotnet', ['experiments/browser/runtime/FontProbe/bin/Debug/net10.0/FontProbe.dll',
+    execFileSync('dotnet', ['slopweb/runtime/FontProbe/bin/Debug/net10.0/FontProbe.dll',
       game, path, output, String(size), String(density), String(style), `${out}/scalars.json`],
       {env:{...process.env,LD_LIBRARY_PATH:game}, stdio:'pipe'});
     const native = JSON.parse(readFileSync(output)), pixels = Buffer.from(native.atlas.pixels,'base64');

@@ -92,7 +92,7 @@ def runtime_package(runtime: Path) -> Path:
 
 
 def build(destination: Path = OUTPUT) -> None:
-    runtime = ROOT / 'experiments/browser/runtime'
+    runtime = ROOT / 'slopweb/runtime'
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.slopweb-', dir=destination.parent) as temporary:
         bundle = Path(temporary) / 'bundle'
@@ -127,7 +127,7 @@ def build(destination: Path = OUTPUT) -> None:
                 raise ValueError('Missing local font rasterizer; run just browser-local-fonts-build')
         for source, target in (
             (runtime / 'Scanner/bin/Debug/net10.0', 'scanner'),
-            (ROOT / 'experiments/browser/compat/Offline/bin/Debug/net10.0', 'offline'),
+            (ROOT / 'slopweb/offline/bin/Debug/net10.0', 'offline'),
         ):
             for path in source.iterdir():
                 if path.suffix in ('.dll', '.json'):
@@ -147,7 +147,7 @@ def build(destination: Path = OUTPUT) -> None:
         copy_file(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', bundle / 'mod/LoadingFont.png')
         copy_file(ROOT / 'shared/loading-tips.txt', bundle / 'mod/loading-tips.txt')
         for name in ('server.mjs', 'bridge.mjs', 'websocket.mjs', 'fonts.mjs'):
-            copy_file(ROOT / 'experiments/browser/harness' / name, bundle / 'server' / name)
+            copy_file(ROOT / 'slopweb/server' / name, bundle / 'server' / name)
         package = runtime_package(runtime)
         for name in ('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT'):
             copy_file(package / name, bundle / 'licenses/dotnet' / name)

@@ -1,7 +1,7 @@
 // Synthetic upload decoding only; excludes Canvas, WASM and workspace latency.
 import assert from 'node:assert/strict';
 
-import { decodeGuiPixels } from '../runtime/wwwroot/gui-pixels.js';
+import { decodeGuiPixels } from '../../../slopweb/runtime/wwwroot/gui-pixels.js';
 
 const nativeDecoder = Uint8Array.fromBase64;
 const reference = value => Uint8ClampedArray.from(atob(value), c => c.charCodeAt(0));

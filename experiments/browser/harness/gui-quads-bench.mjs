@@ -1,5 +1,5 @@
 // Synthetic transport-only measurement, excluding WASM, Canvas and workspace latency.
-import {GuiQuadCache} from '../runtime/wwwroot/gui-quads.js';
+import {GuiQuadCache} from '../../../slopweb/runtime/wwwroot/gui-quads.js';
 import assert from 'node:assert/strict';
 
 const packets = Array.from({length:32}, (_, frame) => {

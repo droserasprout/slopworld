@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {attachWorkspaceAudio} from '../runtime/wwwroot/workspace-audio.js';
+import {attachWorkspaceAudio} from '../../../slopweb/runtime/wwwroot/workspace-audio.js';
 
 class Decoder extends EventTarget {
   paused = true; ended = false; volume = 1; src = ''; calls = 0; reject = false;

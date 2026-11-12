@@ -1,7 +1,7 @@
 # Experimental local WebAssembly probes; output may contain local game assemblies.
 [group('browser prototype')]
 browser-serve directory port='8787':
-    node experiments/browser/harness/server.mjs {{ quote(directory) }} {{ quote(port) }}
+    node slopweb/server/server.mjs {{ quote(directory) }} {{ quote(port) }}
 
 # Run a probe in Chromium; preserve JSON and screenshot evidence locally.
 [group('browser prototype')]
@@ -21,8 +21,6 @@ browser-test-harness:
     node --test experiments/browser/harness/gui-target-damage.test.mjs
     node --test experiments/browser/harness/browser-rendering.test.mjs
     node --test experiments/browser/harness/browser-process-cpu.test.mjs
-    node --test experiments/browser/harness/fonts.test.mjs
-    node --test experiments/browser/harness/server.test.mjs
     node --test experiments/browser/harness/viewport.test.mjs
     node --test experiments/browser/harness/tint.test.mjs
     node --test experiments/browser/harness/gui-probe.test.mjs
@@ -37,7 +35,7 @@ browser-host-rendering-check rendering='auto':
 # Pure planner and Canvas state tests; never starts a browser or game.
 [group('browser prototype')]
 browser-test-target-damage:
-    node --check experiments/browser/runtime/wwwroot/gui.js
+    node --check slopweb/runtime/wwwroot/gui.js
     node --test experiments/browser/harness/gui-target-damage.test.mjs
 
 [group('browser prototype')]
@@ -55,19 +53,10 @@ browser-host-cursor-check rendering='auto':
 
 [group('browser prototype')]
 browser-screen-clip-lint:
-    node --check experiments/browser/runtime/wwwroot/gui.js
+    node --check slopweb/runtime/wwwroot/gui.js
     node --check experiments/browser/harness/screen-clip-check.js
     node --check experiments/browser/harness/rendering-check.mjs
     node --check experiments/browser/harness/benchmark.mjs
-
-[group('browser prototype')]
-browser-test-input:
-    dotnet run --project experiments/browser/runtime/InputTests/InputTests.csproj
-    dotnet run --project experiments/browser/runtime/WorkspaceFrameTests/WorkspaceFrameTests.csproj
-
-[group('browser prototype')]
-browser-test-commands:
-    dotnet run --project experiments/browser/runtime/CommandTests/CommandTests.csproj
 
 # Node-only packed glyph decode microbenchmark; no browser or native game.
 [group('browser prototype')]
@@ -90,26 +79,17 @@ browser-window-check:
 
 [group('browser prototype')]
 browser-test-window:
-    just --justfile experiments/browser/runtime/PreferencesTests/justfile test
+    just slopweb-test-runtime
     node --test experiments/browser/harness/gui-keyboard.test.mjs experiments/browser/harness/workspace-fullscreen.test.mjs
-    just --justfile experiments/browser/runtime/justfile build
-
-[group('browser prototype')]
-browser-test-preferences:
-    just --justfile experiments/browser/runtime/PreferencesTests/justfile test
+    just --justfile slopweb/runtime/justfile build
 
 browser-host-preferences-check profile:
     node {{ quote(justfile_directory() / 'experiments/browser/harness/preferences-check.mjs') }} {{quote(profile)}}
 
-[group('browser prototype')]
-browser-test-startup:
-    just --justfile experiments/browser/runtime/StartupTests/justfile test
-    just --justfile experiments/browser/runtime/UnderlyingTests/justfile test
-
 # Exercise startup recovery without contacting or stopping the user's daemon.
 [group('browser prototype')]
 browser-host-offline-startup-check:
-    SLOPD_URL= SLOPD_TOKEN= PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=540000 PROBE_TIMEOUT_MS=540000 node {{ quote(justfile_directory() / 'experiments/browser/harness/validate.mjs') }} {{ quote(justfile_directory() / 'experiments/browser/runtime/out/wwwroot-eco') }} / {{ quote(justfile_directory() / 'experiments/browser/artifacts/offline-startup.json') }}
+    SLOPD_URL= SLOPD_TOKEN= PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=540000 PROBE_TIMEOUT_MS=540000 node {{ quote(justfile_directory() / 'experiments/browser/harness/validate.mjs') }} {{ quote(justfile_directory() / 'slopweb/runtime/out/wwwroot-eco') }} / {{ quote(justfile_directory() / 'experiments/browser/artifacts/offline-startup.json') }}
     just browser-offline-startup-check
 
 [group('browser prototype')]
@@ -156,7 +136,7 @@ browser-host-close profile:
 
 [group('browser prototype')]
 browser-host-serve port='8787':
-    python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} {{quote(justfile_directory() / 'experiments/browser/runtime/out/wwwroot-eco')}} {{quote(port)}}
+    python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} {{quote(justfile_directory() / 'slopweb/runtime/out/wwwroot-eco')}} {{quote(port)}}
 
 browser-host-url-check port='8787':
     node {{quote(justfile_directory() / 'experiments/browser/harness/url-check.mjs')}} {{quote('http://127.0.0.1:' + port)}}
@@ -178,12 +158,12 @@ browser-host-bridge-check:
 # Reproduce the captured host display: 2560x1440 physical pixels, 5/3 desktop scale.
 [group('browser prototype')]
 browser-workspace-reference session='': browser-eco-build
-    just --justfile experiments/browser/runtime/justfile workspace-dependencies
+    just --justfile slopweb/runtime/justfile workspace-dependencies
     python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --reference {{quote(session)}}
 
 browser-workspace-font-reference font session='' size='15': browser-eco-build
-    just --justfile experiments/browser/runtime/justfile workspace-dependencies
-    just --justfile experiments/browser/runtime/justfile font-pack {{quote(font)}} {{quote(size)}}
+    just --justfile slopweb/runtime/justfile workspace-dependencies
+    just --justfile slopweb/runtime/justfile font-pack {{quote(font)}} {{quote(size)}}
     python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --reference {{quote(session)}} nativeFonts
 
 browser-host-evaluate profile script:
@@ -206,22 +186,22 @@ browser-host-wake profile:
     node {{quote(justfile_directory() / 'experiments/browser/harness/wake.mjs')}} {{quote(profile)}}
 
 browser-host-background:
-    just --justfile experiments/browser/runtime/justfile background-cache
+    just --justfile slopweb/runtime/justfile background-cache
 
 browser-host-workspace-check session='' keep='0':
     python3 {{quote(justfile_directory() / 'experiments/browser/harness/host_serve.py')}} --check-workspace {{quote(session)}} {{quote(keep)}}
 
 browser-loading-check:
-    just --justfile experiments/browser/runtime/justfile refresh-web
-    cp experiments/browser/harness/loading.html experiments/browser/runtime/out/wwwroot-eco/loading-probe.html
-    just browser-validate experiments/browser/runtime/out/wwwroot-eco /loading-probe.html experiments/browser/artifacts/loading.json
+    just --justfile slopweb/runtime/justfile refresh-web
+    cp experiments/browser/harness/loading.html slopweb/runtime/out/wwwroot-eco/loading-probe.html
+    just browser-validate slopweb/runtime/out/wwwroot-eco /loading-probe.html experiments/browser/artifacts/loading.json
 
 browser-host-font family='monospace':
     fc-match --format '%{family}\n%{file}\n' {{quote(family)}}
 
 # Reuse staged redistributable font tooling with the actual host profile/resolver.
 browser-host-font-bakes: slopweb-stage
-    just --justfile {{quote(justfile_directory() / 'justfile')}} slopweb-check-fonts {{quote(env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld')}} {{quote(justfile_directory() / 'experiments/browser/runtime/out/wwwroot-eco')}}
+    just --justfile {{quote(justfile_directory() / 'justfile')}} slopweb-check-fonts {{quote(env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld')}} {{quote(justfile_directory() / 'slopweb/runtime/out/wwwroot-eco')}}
     just browser-font-styles-check
 
 browser-host-font-density-check profile:
@@ -257,77 +237,77 @@ browser-compare native browser output *args:
 # Exercise DOM events through installed Waylith and Unity input in WASM.
 [group('browser prototype')]
 browser-input:
-    just --justfile experiments/browser/runtime/justfile stage-adapted
-    just browser-validate experiments/browser/runtime/out/wwwroot-adapted '/index.html?input' experiments/browser/artifacts/input.json
+    just --justfile slopweb/runtime/justfile stage-adapted
+    just browser-validate slopweb/runtime/out/wwwroot-adapted '/index.html?input' experiments/browser/artifacts/input.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/input.json input
 
 # Run the actual engine constructor and RimWorld bootstrap without native rendering.
 [group('browser prototype')]
 browser-lifecycle:
-    just --justfile experiments/browser/runtime/justfile stage-adapted
-    just browser-validate experiments/browser/runtime/out/wwwroot-adapted '/index.html?lifecycle' experiments/browser/artifacts/lifecycle.json
+    just --justfile slopweb/runtime/justfile stage-adapted
+    just browser-validate slopweb/runtime/out/wwwroot-adapted '/index.html?lifecycle' experiments/browser/artifacts/lifecycle.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/lifecycle.json lifecycle
-    just --justfile experiments/browser/runtime/justfile stage-lifecycle
-    just browser-validate experiments/browser/runtime/out/wwwroot-lifecycle '/index.html?lifecycle' experiments/browser/artifacts/lifecycle-paths.json
+    just --justfile slopweb/runtime/justfile stage-lifecycle
+    just browser-validate slopweb/runtime/out/wwwroot-lifecycle '/index.html?lifecycle' experiments/browser/artifacts/lifecycle-paths.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/lifecycle-paths.json lifecycle-paths
 
 [group('browser prototype')]
 browser-assets:
-    just --justfile experiments/browser/runtime/justfile stage-assets
-    just browser-validate experiments/browser/runtime/out/wwwroot-lifecycle '/index.html?lifecycle&assets' experiments/browser/artifacts/lifecycle-assets.json
+    just --justfile slopweb/runtime/justfile stage-assets
+    just browser-validate slopweb/runtime/out/wwwroot-lifecycle '/index.html?lifecycle&assets' experiments/browser/artifacts/lifecycle-assets.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/lifecycle-assets.json lifecycle-assets
 
 [group('browser prototype')]
 browser-jobs:
-    just --justfile experiments/browser/runtime/justfile stage-jobs
-    just browser-validate experiments/browser/runtime/out/wwwroot-jobs '/index.html?jobs&lifecycle&assets' experiments/browser/artifacts/jobs.json
+    just --justfile slopweb/runtime/justfile stage-jobs
+    just browser-validate slopweb/runtime/out/wwwroot-jobs '/index.html?jobs&lifecycle&assets' experiments/browser/artifacts/jobs.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/jobs.json jobs
 
 [group('browser prototype')]
 browser-offline:
-    just --justfile experiments/browser/runtime/justfile stage-adapted
-    just browser-validate experiments/browser/runtime/out/wwwroot-adapted '/index.html?offline' experiments/browser/artifacts/offline-baseline.json
+    just --justfile slopweb/runtime/justfile stage-adapted
+    just browser-validate slopweb/runtime/out/wwwroot-adapted '/index.html?offline' experiments/browser/artifacts/offline-baseline.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/offline-baseline.json offline-baseline
-    just --justfile experiments/browser/runtime/justfile copy-offline
+    just --justfile slopweb/runtime/justfile copy-offline
     just --justfile experiments/browser/compat/justfile offline ../runtime/out/wwwroot-offline
-    just browser-validate experiments/browser/runtime/out/wwwroot-offline '/index.html?offline&patched' experiments/browser/artifacts/offline-patched.json
+    just browser-validate slopweb/runtime/out/wwwroot-offline '/index.html?offline&patched' experiments/browser/artifacts/offline-patched.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/offline-patched.json offline-patched
 
 [group('browser prototype')]
 browser-draws:
-    just --justfile experiments/browser/runtime/justfile stage-adapted
+    just --justfile slopweb/runtime/justfile stage-adapted
     just --justfile experiments/browser/graphics/justfile prepare
-    mkdir -p experiments/browser/runtime/out/wwwroot-adapted/graphics
-    cp experiments/browser/graphics/out/renderer.js experiments/browser/graphics/out/scene.*.glsl experiments/browser/runtime/out/wwwroot-adapted/graphics/
-    cp experiments/browser/graphics/out/SceneDefault.*.glsl experiments/browser/runtime/out/wwwroot-adapted/graphics/
-    just browser-validate experiments/browser/runtime/out/wwwroot-adapted '/index.html?draws' experiments/browser/artifacts/draws.json
+    mkdir -p slopweb/runtime/out/wwwroot-adapted/graphics
+    cp experiments/browser/graphics/out/renderer.js experiments/browser/graphics/out/scene.*.glsl slopweb/runtime/out/wwwroot-adapted/graphics/
+    cp experiments/browser/graphics/out/SceneDefault.*.glsl slopweb/runtime/out/wwwroot-adapted/graphics/
+    just browser-validate slopweb/runtime/out/wwwroot-adapted '/index.html?draws' experiments/browser/artifacts/draws.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/draws.json draws
 
 [group('browser prototype')]
 browser-textures: browser-draws
-    just --justfile experiments/browser/runtime/justfile copy-draw-assets
-    just browser-validate experiments/browser/runtime/out/wwwroot-adapted '/index.html?draws&textures&assets' experiments/browser/artifacts/textures.json
+    just --justfile slopweb/runtime/justfile copy-draw-assets
+    just browser-validate slopweb/runtime/out/wwwroot-adapted '/index.html?draws&textures&assets' experiments/browser/artifacts/textures.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/textures.json textures
 
 [group('browser prototype')]
 browser-scene:
-    just --justfile experiments/browser/runtime/justfile stage-jobs
+    just --justfile slopweb/runtime/justfile stage-jobs
     just --justfile experiments/browser/graphics/justfile prepare
-    mkdir -p experiments/browser/runtime/out/wwwroot-jobs/graphics
-    cp experiments/browser/graphics/out/renderer.js experiments/browser/graphics/out/scene.*.glsl experiments/browser/graphics/out/SceneDefault.*.glsl experiments/browser/runtime/out/wwwroot-jobs/graphics/
-    just browser-validate experiments/browser/runtime/out/wwwroot-jobs '/index.html?scene' experiments/browser/artifacts/scene.json
+    mkdir -p slopweb/runtime/out/wwwroot-jobs/graphics
+    cp experiments/browser/graphics/out/renderer.js experiments/browser/graphics/out/scene.*.glsl experiments/browser/graphics/out/SceneDefault.*.glsl slopweb/runtime/out/wwwroot-jobs/graphics/
+    just browser-validate slopweb/runtime/out/wwwroot-jobs '/index.html?scene' experiments/browser/artifacts/scene.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/scene.json scene
 
 [group('browser prototype')]
 browser-entry:
-    just --justfile experiments/browser/runtime/justfile stage-core
-    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=300000 PROBE_TIMEOUT_MS=600000 just browser-validate experiments/browser/runtime/out/wwwroot-core '/index.html?entry&assets' experiments/browser/artifacts/entry.json
+    just --justfile slopweb/runtime/justfile stage-core
+    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=300000 PROBE_TIMEOUT_MS=600000 just browser-validate slopweb/runtime/out/wwwroot-core '/index.html?entry&assets' experiments/browser/artifacts/entry.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/entry.json entry
 
 [group('browser prototype')]
 browser-play:
-    just --justfile experiments/browser/runtime/justfile stage-core
-    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-core '/index.html?entry&assets&play' experiments/browser/artifacts/play.json
+    just --justfile slopweb/runtime/justfile stage-core
+    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-core '/index.html?entry&assets&play' experiments/browser/artifacts/play.json
     just browser-play-check
 
 [group('browser prototype')]
@@ -337,17 +317,17 @@ browser-play-check:
 # Export a generated colony through the game's own save writer.
 [group('browser prototype')]
 browser-save:
-    just --justfile experiments/browser/runtime/justfile stage-core
-    PROBE_SAVE_FILE=experiments/browser/artifacts/BrowserColony.rws PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-core '/index.html?entry&assets&play&save' experiments/browser/artifacts/save.json
+    just --justfile slopweb/runtime/justfile stage-core
+    PROBE_SAVE_FILE=experiments/browser/artifacts/BrowserColony.rws PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-core '/index.html?entry&assets&play&save' experiments/browser/artifacts/save.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/save.json play
 
 # Reuse the local browser-generated save for further rendering work.
 [group('browser prototype')]
 browser-load:
     test -s experiments/browser/artifacts/BrowserColony.rws
-    just --justfile experiments/browser/runtime/justfile stage-core
-    cp experiments/browser/artifacts/BrowserColony.rws experiments/browser/runtime/out/wwwroot-core/assets/
-    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-core '/index.html?entry&assets&play&load' experiments/browser/artifacts/load.json
+    just --justfile slopweb/runtime/justfile stage-core
+    cp experiments/browser/artifacts/BrowserColony.rws slopweb/runtime/out/wwwroot-core/assets/
+    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-core '/index.html?entry&assets&play&load' experiments/browser/artifacts/load.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/load.json load experiments/browser/artifacts/save.json
 
 [group('browser prototype')]
@@ -363,23 +343,23 @@ browser-terrain-shaders:
 [group('browser prototype')]
 browser-terrain:
     test -s experiments/browser/artifacts/BrowserColony.rws
-    just --justfile experiments/browser/runtime/justfile stage-core
-    cp experiments/browser/artifacts/BrowserColony.rws experiments/browser/runtime/out/wwwroot-core/assets/
+    just --justfile slopweb/runtime/justfile stage-core
+    cp experiments/browser/artifacts/BrowserColony.rws slopweb/runtime/out/wwwroot-core/assets/
     just --justfile experiments/browser/graphics/justfile prepare
-    mkdir -p experiments/browser/runtime/out/wwwroot-core/graphics
-    cp experiments/browser/graphics/out/terrain-renderer.js experiments/browser/graphics/out/MapWorldUV.vert.glsl experiments/browser/graphics/out/Terrain*.glsl experiments/browser/runtime/out/wwwroot-core/graphics/
-    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-core '/index.html?entry&assets&play&load&terrain' experiments/browser/artifacts/terrain.json
+    mkdir -p slopweb/runtime/out/wwwroot-core/graphics
+    cp experiments/browser/graphics/out/terrain-renderer.js experiments/browser/graphics/out/MapWorldUV.vert.glsl experiments/browser/graphics/out/Terrain*.glsl slopweb/runtime/out/wwwroot-core/graphics/
+    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-core '/index.html?entry&assets&play&load&terrain' experiments/browser/artifacts/terrain.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/terrain.json terrain experiments/browser/artifacts/save.json
 
 [group('browser prototype')]
 browser-objects:
     test -s experiments/browser/artifacts/BrowserColony.rws
-    just --justfile experiments/browser/runtime/justfile stage-core
-    cp experiments/browser/artifacts/BrowserColony.rws experiments/browser/runtime/out/wwwroot-core/assets/
+    just --justfile slopweb/runtime/justfile stage-core
+    cp experiments/browser/artifacts/BrowserColony.rws slopweb/runtime/out/wwwroot-core/assets/
     just --justfile experiments/browser/graphics/justfile prepare
-    mkdir -p experiments/browser/runtime/out/wwwroot-core/graphics
-    cp experiments/browser/graphics/out/terrain-renderer.js experiments/browser/graphics/out/MapWorldUV.vert.glsl experiments/browser/graphics/out/Terrain*.glsl experiments/browser/graphics/out/Object.vert.glsl experiments/browser/graphics/out/PlantWindSway.vert.glsl experiments/browser/graphics/out/Cutout*.glsl experiments/browser/graphics/out/Transparent.frag.glsl experiments/browser/graphics/out/LightOverlay.frag.glsl experiments/browser/graphics/out/EdgeShadow.frag.glsl experiments/browser/graphics/out/FogOfWar.frag.glsl experiments/browser/runtime/out/wwwroot-core/graphics/
-    PROBE_CANVAS_SCREENSHOT=1 PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-core '/index.html?entry&assets&play&load&terrain&objects' experiments/browser/artifacts/objects.json
+    mkdir -p slopweb/runtime/out/wwwroot-core/graphics
+    cp experiments/browser/graphics/out/terrain-renderer.js experiments/browser/graphics/out/MapWorldUV.vert.glsl experiments/browser/graphics/out/Terrain*.glsl experiments/browser/graphics/out/Object.vert.glsl experiments/browser/graphics/out/PlantWindSway.vert.glsl experiments/browser/graphics/out/Cutout*.glsl experiments/browser/graphics/out/Transparent.frag.glsl experiments/browser/graphics/out/LightOverlay.frag.glsl experiments/browser/graphics/out/EdgeShadow.frag.glsl experiments/browser/graphics/out/FogOfWar.frag.glsl slopweb/runtime/out/wwwroot-core/graphics/
+    PROBE_CANVAS_SCREENSHOT=1 PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-core '/index.html?entry&assets&play&load&terrain&objects' experiments/browser/artifacts/objects.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/objects.json objects experiments/browser/artifacts/save.json
 
 [group('browser prototype')]
@@ -402,7 +382,7 @@ browser-lint:
 # Build actual managed game probes and derive shaders from the local installation.
 [group('browser prototype')]
 browser-build:
-    just --justfile experiments/browser/runtime/justfile stage
+    just --justfile slopweb/runtime/justfile stage
     just --justfile experiments/browser/graphics/justfile prepare
     uv run --locked python experiments/browser/integrate.py
 
@@ -436,8 +416,8 @@ browser-webgpu:
 # Preserve failures after bounded startup adaptations and exercise actual mod APIs.
 [group('browser prototype')]
 browser-diagnose: mod-build
-    just --justfile experiments/browser/runtime/justfile stage-adapted
-    just browser-validate experiments/browser/runtime/out/wwwroot-adapted '/index.html?deep' experiments/browser/artifacts/adapted.json
+    just --justfile slopweb/runtime/justfile stage-adapted
+    just browser-validate slopweb/runtime/out/wwwroot-adapted '/index.html?deep' experiments/browser/artifacts/adapted.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/adapted.json adapted
     just --justfile experiments/browser/compat/justfile browser-probe
     node experiments/browser/harness/verify.mjs experiments/browser/compat/out/browser-probe.json compat
@@ -455,8 +435,8 @@ browser-transport:
 # Exercise installed Unity GUI controls through the initial browser drawing backend.
 [group('browser prototype')]
 browser-gui:
-    just --justfile experiments/browser/runtime/justfile stage-core
-    just browser-validate experiments/browser/runtime/out/wwwroot-core '/index.html?gui' experiments/browser/artifacts/gui.json
+    just --justfile slopweb/runtime/justfile stage-core
+    just browser-validate slopweb/runtime/out/wwwroot-core '/index.html?gui' experiments/browser/artifacts/gui.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/gui.json gui
 
 [group('browser prototype')]
@@ -466,21 +446,21 @@ browser-gui-check:
 # Isolated Eco offline-hook stage; full mod startup is not yet supported.
 [group('browser prototype')]
 browser-eco-build: mod-build
-    just --justfile experiments/browser/runtime/justfile stage-core
-    just --justfile experiments/browser/runtime/justfile copy-eco
+    just --justfile slopweb/runtime/justfile stage-core
+    just --justfile slopweb/runtime/justfile copy-eco
     just --justfile experiments/browser/compat/justfile eco ../runtime/out/wwwroot-eco
 
 [group('browser prototype')]
 browser-eco: browser-eco-build
-    cp experiments/browser/artifacts/BrowserColony.rws experiments/browser/runtime/out/wwwroot-eco/assets/
-    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-eco '/index.html?entry&assets&play&load&eco' experiments/browser/artifacts/eco.json
+    cp experiments/browser/artifacts/BrowserColony.rws slopweb/runtime/out/wwwroot-eco/assets/
+    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-eco '/index.html?entry&assets&play&load&eco' experiments/browser/artifacts/eco.json
 
 [group('browser prototype')]
 browser-mod-http: mod-build
-    just --justfile experiments/browser/runtime/justfile stage-core
-    just --justfile experiments/browser/runtime/justfile copy-http
+    just --justfile slopweb/runtime/justfile stage-core
+    just --justfile slopweb/runtime/justfile copy-http
     just --justfile experiments/browser/compat/justfile eco ../runtime/out/wwwroot-http
-    just browser-validate experiments/browser/runtime/out/wwwroot-http '/index.html?modHttp' experiments/browser/artifacts/mod-http.json
+    just browser-validate slopweb/runtime/out/wwwroot-http '/index.html?modHttp' experiments/browser/artifacts/mod-http.json
     node experiments/browser/harness/verify.mjs experiments/browser/artifacts/mod-http.json mod-http
 
 [group('browser prototype')]
@@ -490,8 +470,8 @@ browser-mod-http-check:
 # Attempt actual WorkspaceWindow drawing from Entry, without loading a colony.
 [group('browser prototype')]
 browser-workspace: browser-eco-build
-    just --justfile experiments/browser/runtime/justfile workspace-dependencies
-    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-eco '/index.html?entry&assets&eco&workspace' experiments/browser/artifacts/workspace.json
+    just --justfile slopweb/runtime/justfile workspace-dependencies
+    PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-eco '/index.html?entry&assets&eco&workspace' experiments/browser/artifacts/workspace.json
     just browser-workspace-check
 
 [group('browser prototype')]
@@ -501,21 +481,21 @@ browser-workspace-check report='experiments/browser/artifacts/workspace.json':
 # Keep the Entry-only workspace runtime available for browser interaction and inspection.
 [group('browser prototype')]
 browser-workspace-live: browser-eco-build
-    just --justfile experiments/browser/runtime/justfile workspace-dependencies
-    PROBE_KEEP_OPEN=1 PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-eco '/index.html?entry&assets&eco&workspace&live' experiments/browser/artifacts/workspace-live.json
+    just --justfile slopweb/runtime/justfile workspace-dependencies
+    PROBE_KEEP_OPEN=1 PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-eco '/index.html?entry&assets&eco&workspace&live' experiments/browser/artifacts/workspace-live.json
 
 # Opt-in managed allocation/drawing and browser presentation timings.
 [group('browser prototype')]
 browser-workspace-profile: browser-eco-build
-    just --justfile experiments/browser/runtime/justfile workspace-dependencies
-    PROBE_KEEP_OPEN=1 PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate experiments/browser/runtime/out/wwwroot-eco '/index.html?entry&assets&eco&workspace&live&profile' experiments/browser/artifacts/workspace-profile.json
+    just --justfile slopweb/runtime/justfile workspace-dependencies
+    PROBE_KEEP_OPEN=1 PROBE_PROGRESS=1 PROBE_COMMAND_TIMEOUT_MS=900000 PROBE_TIMEOUT_MS=1800000 just browser-validate slopweb/runtime/out/wwwroot-eco '/index.html?entry&assets&eco&workspace&live&profile' experiments/browser/artifacts/workspace-profile.json
 
 # Manual Entry-only work interface. Credentials stay in this host server's environment.
 [group('browser prototype')]
 browser-workspace-run port='8787': browser-eco-build
-    just --justfile experiments/browser/runtime/justfile workspace-dependencies
+    just --justfile slopweb/runtime/justfile workspace-dependencies
     @echo 'Open http://127.0.0.1:{{port}}/index.html?entry&assets&eco&workspace&live&app'
-    just browser-serve experiments/browser/runtime/out/wwwroot-eco {{quote(port)}}
+    just browser-serve slopweb/runtime/out/wwwroot-eco {{quote(port)}}
 
 [group('browser prototype')]
 browser-evaluate profile script:
@@ -567,14 +547,10 @@ browser-host-terminal-visual-check profile:
     python3 -c 'from pathlib import Path; import json; p=Path("experiments/browser/harness"); command="python3 -u " + str((p/"benchmark-fixture.py").resolve()); Path("experiments/browser/artifacts/terminal-visual.js").write_text("(async()=>{await " + (p/"benchmark-workload.js").read_text().strip().removesuffix(";") + ";window.__clipboardFixtureCommand=" + json.dumps(command) + ";return await " + (p/"terminal-visual-check.js").read_text().strip().removesuffix(";") + ";})()")'
     just browser-host-evaluate {{quote(profile)}} experiments/browser/artifacts/terminal-visual.js
 
-browser-font-styles-check root='experiments/browser/runtime/out/wwwroot-eco':
+browser-font-styles-check root='slopweb/runtime/out/wwwroot-eco':
     uv run --locked python experiments/browser/harness/font-styles-check.py {{quote(root)}}
 
 # Installed managed binding APIs and origin storage, without game/browser startup.
-[group('browser prototype')]
-browser-test-keybindings:
-    just --justfile experiments/browser/runtime/KeyBindingsTests/justfile test
-
 browser-host-keybindings-check profile:
     node {{quote(justfile_directory() / 'experiments/browser/harness/keybindings-check.mjs')}} {{quote(profile)}}
 
@@ -602,36 +578,36 @@ browser-host-workspace-doors-check profile:
 # Dynamic font pipeline checks never start a game or browser.
 [group('browser prototype')]
 browser-fonts-format: mod-restore-tools
-    dotnet tool run csharpier format experiments/browser/runtime/Adapters/BrowserFontBank.Local.cs experiments/browser/runtime/NativeTextTests/LocalFontChecks.cs experiments/browser/runtime/Adapters/BrowserGui.Fonts.cs experiments/browser/runtime/Adapters/BrowserGui.NativeLayout.cs experiments/browser/runtime/Adapters/BrowserFontBank.cs experiments/browser/runtime/Adapters/BrowserGui.cs experiments/browser/runtime/Adapters/BrowserPreferences.cs experiments/browser/runtime/BrowserWorkspace.cs experiments/browser/runtime/FontProbe/Program.cs experiments/browser/compat/Offline/EcoWorkspace.cs experiments/browser/compat/Offline/BrowserPreferencesPatch.cs experiments/browser/runtime/NativeTextTests/FontChecks.cs experiments/browser/runtime/NativeTextTests/Program.cs experiments/browser/runtime/PreferencesTests/Program.cs
+    dotnet tool run csharpier format slopweb/runtime/Adapters/BrowserFontBank.Local.cs slopweb/tests/runtime/NativeTextTests/LocalFontChecks.cs slopweb/runtime/Adapters/BrowserGui.Fonts.cs slopweb/runtime/Adapters/BrowserGui.NativeLayout.cs slopweb/runtime/Adapters/BrowserFontBank.cs slopweb/runtime/Adapters/BrowserGui.cs slopweb/runtime/Adapters/BrowserPreferences.cs slopweb/runtime/BrowserWorkspace.cs slopweb/runtime/FontProbe/Program.cs slopweb/offline/EcoWorkspace.cs slopweb/offline/BrowserPreferencesPatch.cs slopweb/tests/runtime/NativeTextTests/FontChecks.cs slopweb/tests/runtime/NativeTextTests/Program.cs slopweb/tests/runtime/PreferencesTests/Program.cs
     just slopweb-format
-    uv run --locked ruff check --select I --fix experiments/browser/runtime/LocalFonts
-    uv run --locked ruff format experiments/browser/runtime/LocalFonts
+    uv run --locked ruff check --select I --fix slopweb/runtime/LocalFonts
+    uv run --locked ruff format slopweb/runtime/LocalFonts
 
 [group('browser prototype')]
 browser-fonts-build:
-    just --justfile experiments/browser/runtime/justfile build
-    just --justfile experiments/browser/runtime/justfile adapters
-    just --justfile experiments/browser/runtime/justfile font-probe-build
+    just --justfile slopweb/runtime/justfile build
+    just --justfile slopweb/runtime/justfile adapters
+    just --justfile slopweb/runtime/justfile font-probe-build
 
 browser-local-fonts-build:
-    python3 experiments/browser/runtime/LocalFonts/build.py
+    python3 slopweb/runtime/LocalFonts/build.py
 
 browser-local-fonts-sdk:
-    python3 experiments/browser/runtime/LocalFonts/build.py --install-sdk
+    python3 slopweb/runtime/LocalFonts/build.py --install-sdk
 
 browser-local-fonts-test: browser-local-fonts-build
-    just --justfile experiments/browser/runtime/justfile font-probe-build
+    just --justfile slopweb/runtime/justfile font-probe-build
     node experiments/browser/harness/local-fonts.test.mjs
-    just --justfile experiments/browser/runtime/NativeTextTests/justfile check
+    just slopweb-test-native-text
 
 [group('browser prototype')]
 browser-fonts-test:
-    node --test experiments/browser/harness/fonts.test.mjs
-    just --justfile experiments/browser/runtime/NativeTextTests/justfile check
+    node --test slopweb/tests/server/fonts.test.mjs
+    just slopweb-test-native-text
 
 # Fresh Firefox via direct WebDriver HTTP; owns browser, bridge and temporary sessions.
 [group('browser prototype')]
-browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-workloads.json' phases='idle,output,typing,keystrokes,scrolling,switching' root='experiments/browser/runtime/out/wwwroot-eco' page='/workspace.html' screenshots='1' headless='1' comparison='none' stage_profile='1' canvas_profile='0':
+browser-host-firefox-benchmark output='experiments/browser/artifacts/firefox-workloads.json' phases='idle,output,typing,keystrokes,scrolling,switching' root='slopweb/runtime/out/wwwroot-eco' page='/workspace.html' screenshots='1' headless='1' comparison='none' stage_profile='1' canvas_profile='0':
     PROBE_CANVAS_PROFILE={{quote(canvas_profile)}} PROBE_STAGE_PROFILE={{quote(stage_profile)}} PROBE_SCREENSHOTS={{quote(screenshots)}} PROBE_HEADLESS={{quote(headless)}} python3 {{quote(justfile_directory() / 'experiments/browser/harness/firefox-host.py')}} {{quote(if root =~ '^/' { root } else { justfile_directory() / root })}} {{quote(if output =~ '^/' { output } else { justfile_directory() / output })}} {{quote(phases)}} {{quote(page)}} {{quote(comparison)}}
 
 [group('browser prototype')]
@@ -660,7 +636,7 @@ browser-firefox-harness-check:
     node --check experiments/browser/harness/solid-texture-check.js
     node --check experiments/browser/harness/target-damage-check.js
     node --check experiments/browser/harness/rendering-check.mjs
-    node --check experiments/browser/runtime/wwwroot/gui.js
+    node --check slopweb/runtime/wwwroot/gui.js
     uv run --locked ruff check --quiet experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
     uv run --locked ruff format --quiet --check experiments/browser/harness/firefox-host.py experiments/browser/harness/firefox_cleanup.py experiments/browser/harness/firefox_cleanup_test.py
     python3 -m unittest discover -s experiments/browser/harness -p 'firefox_cleanup_test.py' -q
@@ -677,7 +653,7 @@ browser-firefox-harness-format:
 # CPU-only row replay plus the actual mod delegate boundary; no browser or game.
 [group('browser prototype')]
 browser-test-row-commands: mod-check-build
-    just --justfile experiments/browser/runtime/NativeTextTests/justfile rows {{quote(justfile_directory() / 'mod/Assemblies/SlopWorld.dll')}}
+    just slopweb-test-native-rows {{quote(justfile_directory() / 'mod/Assemblies/SlopWorld.dll')}}
 
 # Exercise the actual staged host helper without starting a browser or engine.
 [group('browser prototype')]

@@ -53,7 +53,7 @@ Whether each switch is necessary for a particular game path needs testing.
 The runtime's `browser-jobs` checkpoint now reaches an unconditional dependency:
 `PrepatcherCompat.Install` cannot load `Waylith.Injection.Injection` because its
 fields reference `WaylithClr.FieldInjectionBatch` in `System.Runtime`. Stock
-browser .NET lacks that type. See [runtime evidence](../runtime/README.md).
+browser .NET lacks that type. See [runtime evidence](../../../slopweb/runtime/README.md).
 
 Actual browser results below combine the primary's original game-entry-point
 probe with this directory's final capability probe, summarized in
@@ -128,7 +128,7 @@ so this failure is specific to the sockets handler rather than page availability
 ## Explicit offline hook
 
 `just browser-offline` demonstrates one actual SlopWorld hook without native
-detours. `Offline/` uses pinned Mono.Cecil 0.11.6 to insert a call to the real
+detours. `../../../slopweb/offline/` uses pinned Mono.Cecil 0.11.6 to insert a call to the real
 `SlopWorld.Patch_RunInBackground.Prefix(ref bool)` at the start of the installed
 `Verse.Prefs.set_RunInBackground(bool)`. The setter's original body is retained;
 only this prefix's visibility is widened in the copied mod to permit the call
@@ -151,13 +151,13 @@ patch changes and custom WaylithCLR field injection remain unimplemented.
 
 ## Core-only startup adaptations
 
-`Offline/CoreBootstrap.cs` separately adapts startup for a Core-only browser stage.
+`../../../slopweb/offline/CoreBootstrap.cs` separately adapts startup for a Core-only browser stage.
 It routes custom injection callbacks to explicit guards rejecting mod assemblies,
 preserves the installed synchronous loading/write paths, and delegates the
 blocking cross-reference helper to a serial implementation. It also records coarse
 loader progress and disables desktop Steam initialization. This stage does not
 apply the SlopWorld hook or implement arbitrary runtime patching; see the
-[Entry checkpoint](../runtime/README.md#core-only-entry-startup).
+[Entry checkpoint](../../../slopweb/runtime/README.md#core-only-entry-startup).
 
 ## Mod-specific adaptation owners
 
@@ -187,7 +187,7 @@ they cannot see the host installation without explicit mounting or asset deliver
 The anonymous mmap probe alone does not establish file-backed support. The
 separate runtime `browser-assets` checkpoint now transfers the installed pack
 into the browser VFS and opens it with the real `Waylith.Assets.AssetPack` reader;
-see [runtime evidence](../runtime/README.md). Other mapped asset paths still need
+see [runtime evidence](../../../slopweb/runtime/README.md). Other mapped asset paths still need
 their own coverage.
 
 ## Integration interfaces

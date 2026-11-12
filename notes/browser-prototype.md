@@ -3,8 +3,12 @@
 [`experiments/browser/`](../experiments/browser/README.md) owns the
 Waylith/RimWorld WASM investigation. `just/browser.just` exposes its checks.
 Production mod startup and daemon runtime remain independent. `slopweb/` owns the
-installed launcher; `tools/release/slopweb.py` stages redistributable tools and mod
-UI content. Local game preparation belongs to the launcher, never package staging.
+installed launcher, `runtime/` implementation, `offline/` assembly hooks, and
+`server/` host bridge; `tools/release/slopweb.py` stages redistributable tools and mod
+UI content. Product tests live under `slopweb/tests/{runtime,server,launcher}/`;
+package assertions remain in `tools/release/`. `just/web.just` owns their recipes;
+`slopweb-test` runs game-free checks, with native/browser checks explicitly opt-in.
+Local game preparation belongs to the launcher, never package staging.
 Installed assemblies, derived assets, saves, and reports stay in ignored output.
 Prototype `copy-eco` rebuilds preserve explicitly prepared fonts, background frames,
 portrait snapshots and reference appearance through `refresh_prepared.py`; other
@@ -121,7 +125,7 @@ ordered, size-bounded batches with the current tint. Runs shorter than eight gly
 retain direct emission. Text-run eviction releases projected geometry too;
 `WorkspaceGlyphCache` exposes the adapter diagnostic comparison switch to WASM. The CPU-only
 `NativeTextTests` check compares real adapter packets with reuse disabled/enabled;
-its `benchmark-glyphs` recipe measures stable and moving labels without starting
+the `slopweb-bench-glyphs` recipe measures stable and moving labels without starting
 an engine or browser. Native CPU timings do not establish WASM or workload latency.
 Baked runs may stop at a fine text clip or nested drawing clip only when immutable
 metrics prove nonnegative advances and include conservative negative overhang.
@@ -165,7 +169,7 @@ selection and the same glyph clipping/upload rules. Other text keeps the general
 layout path; terminal columns, sprites and input remain mod-owned.
 `WorkspaceCellFastPath` exposes a diagnostic reference switch. `NativeTextTests`
 compares actual serialized draw packets and uploaded RGBA bytes across both paths;
-`benchmark-glyphs` includes thousands of single-cell labels with stable and moving
+`slopweb-bench-glyphs` includes thousands of single-cell labels with stable and moving
 positions. This CPU evidence does not establish browser frame-time or screenshot parity.
 Covered axis-aligned text uses the installed renderer's glyph-quad clipping rules,
 including ascender overhang and first-line bottom clipping. It does not add a Canvas
@@ -334,7 +338,7 @@ bindings, host profile or arbitrary definition is copied into browser storage.
 Malformed/unknown codes retain defaults, explicit `None` clears a slot, and saving
 a reset replaces previous customizations. Diagnostic workspaces and
 `localPreferences=off` leave this persistence disabled too.
-`just browser-test-keybindings` checks origin storage, installed managed slots/reset,
+`just slopweb-test-keybindings` checks origin storage, installed managed slots/reset,
 and the staged save hook without starting the game or browser.
 Host font sources remain private; local font changes request files, and observed text rasterizes in WASM.
 `browser-host-preferences-check` uses F9 in a retained diagnostic browser, waits for
@@ -346,7 +350,7 @@ attach or resize an unrelated session. With no explicit session, an authoritativ
 empty catalog renders the underlying native sidebar and TopBar immediately; a
 connection deadline also falls back to that UI, preserving the normal reconnect
 pump. An explicit missing session remains a startup error.
-`just browser-test-startup` checks these admission paths and underlying UI dispatch.
+`just slopweb-test-runtime` checks these admission paths and underlying UI dispatch.
 The root defaults never name a host session. `just browser-host-offline-startup-check`
 verifies the prepared runtime with an unconfigured bridge, without stopping the
 host daemon, and requires visible interactive chrome and continued Entry updates.
@@ -377,7 +381,7 @@ BeginFrame explicitly without its world Update: frozen Unity time also freezes
 sidebar layout snapshots, cache pruning, and input timing. Deferred sidebar layout
 changes run before GUI dispatch against the next frame's geometry.
 
-`compat/Offline/` applies bounded hooks to isolated copies with manifests; this is
+`slopweb/offline/` applies bounded hooks to isolated copies with manifests; this is
 not general Harmony support. Actual ModEntry/profile loading remains, but desktop
 EarlyBootstrap and full ModBootstrap do not run. The workspace explicitly installs
 actual mod options categories; BrowserOptionsPatch connects their row/page/footer
@@ -449,7 +453,7 @@ flat-color differences are distinguishable from layout and text mismatches.
 buffer with bounded retained capacity, preserving property order, escaping and float formatting. New payloads
 must be added to both writers; the game-free command check compares exact packets
 with the reference serializer and checks recovery after failed and oversized writes.
-The CommandTests `benchmark` recipe compares both paths on a synthetic output-shaped
+The `slopweb-bench-commands` recipe compares both paths on a synthetic output-shaped
 packet with packed-quad caching enabled and disabled; host timing does not establish
 WASM or end-to-end workspace speed. Opt-in `profile`
 workspace URLs retain bounded stage timings. `inputQueueMs` measures the oldest

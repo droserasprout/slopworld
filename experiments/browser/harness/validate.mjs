@@ -4,8 +4,8 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { serve } from './server.mjs';
-import { fontProvider } from './fonts.mjs';
+import { serve } from '../../../slopweb/server/server.mjs';
+import { fontProvider } from '../../../slopweb/server/fonts.mjs';
 import {renderingFlags,browserGpuInfo} from './browser-rendering.mjs';
 import {processSampler} from './browser-process-cpu.mjs';
 

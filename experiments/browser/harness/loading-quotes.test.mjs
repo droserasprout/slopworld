@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {loadingQuotes} from '../runtime/wwwroot/loading-quotes.js';
+import {loadingQuotes} from '../../../slopweb/runtime/wwwroot/loading-quotes.js';
 
 test('loading stream fills, holds its half step and retains the incoming row',()=>{
   const stream=loadingQuotes('one two three\nfour five six',12,2,2,false,()=>0);

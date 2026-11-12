@@ -1,1 +1,7 @@
 /out/
+**/bin/
+**/obj/
+**/.local/
+**/out/
+**/publish/
+**/node_modules/

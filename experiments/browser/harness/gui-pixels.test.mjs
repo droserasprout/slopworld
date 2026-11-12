@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeGuiPixels } from '../runtime/wwwroot/gui-pixels.js';
+import { decodeGuiPixels } from '../../../slopweb/runtime/wwwroot/gui-pixels.js';
 
 test('RGBA decode preserves every byte, empty payloads and invalid-input failures', () => {
   const original = Uint8Array.fromBase64;

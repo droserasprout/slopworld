@@ -44,6 +44,10 @@ __pycache__/
 /.ruff_cache/
 /.mypy_cache/
 /.coverage
+/slopweb/runtime/wwwroot/local-fonts.mjs
+/slopweb/runtime/wwwroot/local-fonts.wasm
+/slopweb/runtime/wwwroot/local-fonts.LICENSE.txt
+
 /experiments/browser/runtime/wwwroot/local-fonts.mjs
 /experiments/browser/runtime/wwwroot/local-fonts.wasm
 /experiments/browser/runtime/wwwroot/local-fonts.LICENSE.txt

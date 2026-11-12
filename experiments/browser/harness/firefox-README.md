@@ -4,7 +4,7 @@
 geckodriver WebDriver HTTP, serves the prepared prototype, waits for the real WASM
 workspace, then runs `benchmark-workload.js`. It requires the local daemon endpoint
 descriptor and root workspace access, installed Firefox/geckodriver, and a prepared
-`experiments/browser/runtime/out/wwwroot-eco` directory. No Selenium or Playwright
+`slopweb/runtime/out/wwwroot-eco` directory. No Selenium or Playwright
 installation is needed.
 
 Arguments are output path, comma-separated phases, prepared root, page path and
@@ -89,7 +89,7 @@ is enabled by default. Pass screenshot toggle `0` to skip captures or headless
 toggle `0` to open a fresh owned Firefox window on the host display. For example:
 
 ```sh
-just browser-host-firefox-benchmark experiments/browser/artifacts/firefox-headful.json idle,output,typing experiments/browser/runtime/out/wwwroot-eco /workspace.html 1 0
+just browser-host-firefox-benchmark experiments/browser/artifacts/firefox-headful.json idle,output,typing slopweb/runtime/out/wwwroot-eco /workspace.html 1 0
 ```
 
 The loopback-only owned geckodriver uses `--allow-system-access` so current Firefox

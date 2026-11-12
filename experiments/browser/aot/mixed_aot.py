@@ -51,7 +51,7 @@ def prepare(prepared: Path, output: Path, sdk: Path) -> None:
     shutil.copytree(prepared, output / 'snapshot')
     (output / 'snapshot/main.js').write_text(main)
     candidate = output / 'candidate'
-    compiler.write_candidate(REPO / 'experiments/browser/runtime', candidate, dlls)
+    compiler.write_candidate(REPO / 'slopweb/runtime', candidate, dlls)
     (output / 'experiment.json').write_text(json.dumps({'sdk': str(sdk), 'prepared_root': str(prepared)}, indent=2))
 
 

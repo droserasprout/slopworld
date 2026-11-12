@@ -1,6 +1,6 @@
 // Exercise the actual configured daemon through the browser-facing HTTP boundary.
 import assert from 'node:assert/strict';
-import { serve } from './server.mjs';
+import { serve } from '../../../slopweb/server/server.mjs';
 import { openSocket } from './websocket-client.mjs';
 
 const { server, url } = await serve('experiments/browser/app');

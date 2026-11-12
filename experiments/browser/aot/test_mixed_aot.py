@@ -17,9 +17,9 @@ class MixedAotTests(unittest.TestCase):
         self.patch = patch.object(aot, 'REPO', self.repo)
         self.patch.start()
         self.addCleanup(self.patch.stop)
-        self.runtime = self.repo / 'experiments/browser/runtime'
+        self.runtime = self.repo / 'slopweb/runtime'
         self.runtime.mkdir(parents=True)
-        real_runtime = Path(__file__).resolve().parents[1] / 'runtime'
+        real_runtime = Path(__file__).resolve().parents[3] / 'slopweb/runtime'
         # Real compile declarations catch duplicate Program.cs inclusion and loader drift.
         project = ET.parse(real_runtime / 'Probe.csproj')
         (self.runtime / 'Probe.csproj').write_bytes((real_runtime / 'Probe.csproj').read_bytes())
@@ -113,6 +113,7 @@ class MixedAotTests(unittest.TestCase):
             self.prepare()
 
     def test_rejects_symlinked_artifacts_root(self):
+        self.output.parent.parent.mkdir(parents=True, exist_ok=True)
         self.output.parent.symlink_to(self.prepared, target_is_directory=True)
         with self.assertRaises(ValueError):
             self.prepare()

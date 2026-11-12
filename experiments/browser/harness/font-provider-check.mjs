@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
-import {fontProvider} from './fonts.mjs';
+import {fontProvider} from '../../../slopweb/server/fonts.mjs';
 const [bundle, game, family='Fira Sans', density='1.25'] = process.argv.slice(2);
 const cache=await mkdtemp(path.join(tmpdir(),'slopweb-font-provider-'));
 try {

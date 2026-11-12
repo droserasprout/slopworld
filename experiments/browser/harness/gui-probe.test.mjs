@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {renderGuiProbe} from '../runtime/wwwroot/gui.js';
+import {renderGuiProbe} from '../../../slopweb/runtime/wwwroot/gui.js';
 
 const canvas=alpha=>({width:1,height:1,getContext:()=>({
   getImageData:()=>({data:new Uint8ClampedArray([209,224,237,alpha])}),

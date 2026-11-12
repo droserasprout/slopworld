@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {attachGuiInput} from '../runtime/wwwroot/gui-input.js';
-import {attachInput} from '../runtime/wwwroot/input.js';
+import {attachGuiInput} from '../../../slopweb/runtime/wwwroot/gui-input.js';
+import {attachInput} from '../../../slopweb/runtime/wwwroot/input.js';
 import {installInputDom,emit} from './input-dom-fixture.mjs';
 
 function fixture() {

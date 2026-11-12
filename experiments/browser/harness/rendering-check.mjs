@@ -15,7 +15,7 @@ const harness=reuse?'canvas-reuse':clip?'screen-clip':cursor?'cursor':pixels?'pi
 const output=fileURLToPath(new URL(`../artifacts/${harness??'rendering'}-check.json`,import.meta.url));
 try {
   if(harness) {
-    await cp(fileURLToPath(new URL('../runtime/wwwroot',import.meta.url)),root,{recursive:true});
+    await cp(fileURLToPath(new URL('../../../slopweb/runtime/wwwroot',import.meta.url)),root,{recursive:true});
     await copyFile(fileURLToPath(new URL(`./${harness}-check.js`,import.meta.url)),`${root}/${harness}-check.js`);
     if(damage)await writeFile(`${root}/gui.js`,(await readFile(`${root}/gui.js`,'utf8'))+`\nexport const auditTarget=id=>{const c=renderTargets.get(id);return c.getContext('2d').getImageData(0,0,c.width,c.height).data;};\n`);
   }

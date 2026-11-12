@@ -1,12 +1,12 @@
 # Build redistributable slopweb tooling; proprietary runtime stays in local output.
 [group('web')]
 slopweb-build: (mod-build 'rimref') && slopweb-stage
-    just --justfile experiments/browser/runtime/justfile build
-    dotnet build experiments/browser/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    dotnet build experiments/browser/runtime/FontProbe/FontProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    just --justfile experiments/browser/runtime/justfile background-probe-build
-    dotnet build experiments/browser/runtime/Scanner/Scanner.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    dotnet build experiments/browser/compat/Offline/Offline.csproj --nologo -v quiet -p:RestoreLockedMode=true
+    just --justfile slopweb/runtime/justfile build
+    dotnet build slopweb/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
+    dotnet build slopweb/runtime/FontProbe/FontProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
+    just --justfile slopweb/runtime/justfile background-probe-build
+    dotnet build slopweb/runtime/Scanner/Scanner.csproj --nologo -v quiet -p:RestoreLockedMode=true
+    dotnet build slopweb/offline/Offline.csproj --nologo -v quiet -p:RestoreLockedMode=true
 
 # Stage already-built redistributable tools without replacing private game roots.
 [group('web')]
@@ -14,7 +14,7 @@ slopweb-stage:
     uv run --locked python -m tools.release.slopweb build
 
 [group('web')]
-slopweb-check-fonts game=(env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld') output='experiments/browser/runtime/out/installed-font-check':
+slopweb-check-fonts game=(env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld') output='slopweb/runtime/out/installed-font-check':
     python3 slopweb/out/appearance.py {{quote(game)}} {{quote(output)}}
 
 [group('web')]
@@ -53,18 +53,72 @@ slopweb-host-aot-log key cache=(env('HOME') + '/.cache/slopweb'):
 
 [group('web')]
 slopweb-format:
+    rg --files slopweb/runtime slopweb/offline slopweb/tests/runtime -g '*.cs' -g '*.csproj' -0 | xargs -0 dotnet tool run csharpier format
     uv run --locked ruff check --select I --fix slopweb tools/release
     uv run --locked ruff format slopweb tools/release
 
 [group('web')]
 slopweb-lint:
+    rg --files slopweb/runtime slopweb/offline slopweb/tests/runtime -g '*.cs' -g '*.csproj' -0 | xargs -0 dotnet tool run csharpier check
+    while IFS= read -r file; do node --check "$file"; done < <(rg --files slopweb/runtime slopweb/server slopweb/tests -g '*.js' -g '*.mjs')
     uv run --locked ruff check slopweb tools/release
     uv run --locked ruff format --check slopweb tools/release
     uv run --locked mypy --no-error-summary tools/release/slopweb.py
 
 [group('web')]
-slopweb-test:
-    uv run --locked pytest tools/release/test_slopweb.py tools/release/test_slopweb_aot.py tools/release/test_slopweb_fonts.py -q
+slopweb-test: slopweb-test-runtime
+    node --test slopweb/tests/server/*.test.mjs
+    uv run --locked pytest slopweb/tests tools/release/test_slopweb.py -q
+
+# Managed and Node contracts; no installed game or browser required.
+[group('web')]
+slopweb-test-runtime:
+    dotnet build slopweb/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
+    for project in AudioTests ClipboardTests DispatchTests InputTests PreferencesTests StartupTests UnderlyingTests WorkspaceFrameTests; do dotnet run --project "slopweb/tests/runtime/$project/$project.csproj" -c Release -p:RestoreLockedMode=true; done
+    dotnet run --project slopweb/tests/runtime/CommandTests/CommandTests.csproj -c Release -p:RestoreLockedMode=true -- --quad-fixture slopweb/tests/runtime/CommandTests/bin/quad-fixture.json
+    GUI_QUAD_FIXTURE=slopweb/tests/runtime/CommandTests/bin/quad-fixture.json node --test experiments/browser/harness/gui-quads.test.mjs experiments/browser/harness/gui-probe.test.mjs
+    node --test slopweb/tests/runtime/CursorTests/cursor.test.mjs experiments/browser/harness/clipboard.test.mjs experiments/browser/harness/workspace-preferences.test.mjs experiments/browser/harness/workspace-audio.test.mjs
+    node --check experiments/browser/harness/workspace-underlying.js
+
+# Installed game assemblies are required; these checks do not start the game.
+[group('web')]
+slopweb-test-keybindings game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+    dotnet run --project slopweb/tests/runtime/KeyBindingsTests/KeyBindingsTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}}
+    node --test experiments/browser/harness/workspace-keybindings.test.mjs
+
+# Native font/adapter checks require the local game installation.
+[group('web')]
+slopweb-test-native-text game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+    dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}}
+
+[group('web')]
+slopweb-test-native-rows mod game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+    dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --row-mod={{quote(mod)}}
+
+# Patch an explicitly prepared private runtime and check native layout delegates.
+[group('web')]
+slopweb-test-native-layout root=(justfile_directory() / 'slopweb/runtime/out/wwwroot-eco') game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+    RIMWORLD={{quote(game)}} just --justfile slopweb/runtime/justfile refresh-adapters {{quote(absolute_path(root))}}
+    just --justfile experiments/browser/compat/justfile text-layout {{quote(absolute_path(root))}}
+    dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} {{quote(absolute_path(root) / 'game/RimWorld.dll')}}
+
+# Explicit browser check; excluded from slopweb-test and CI.
+[group('web')]
+slopweb-test-clipboard-browser:
+    node experiments/browser/harness/clipboard-chrome.mjs
+
+[group('web')]
+slopweb-bench-commands:
+    DOTNET_TieredCompilation=0 dotnet run --project slopweb/tests/runtime/CommandTests/CommandTests.csproj -c Release -- --benchmark
+
+[group('web')]
+slopweb-bench-dispatch:
+    DOTNET_TieredCompilation=0 dotnet run --project slopweb/tests/runtime/DispatchTests/DispatchTests.csproj -c Release -- --benchmark
+
+# Native assemblies required; no engine or browser is started.
+[group('web')]
+slopweb-bench-glyphs game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+    DOTNET_TieredCompilation=0 dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -c Release -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --glyph-benchmark
 
 # Exercise the installed launcher and its private game preparation.
 [group('web')]

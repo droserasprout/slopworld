@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {attachWorkspaceFullscreen} from '../runtime/wwwroot/workspace-fullscreen.js';
+import {attachWorkspaceFullscreen} from '../../../slopweb/runtime/wwwroot/workspace-fullscreen.js';
 
 function fixture() {
   const doc = new EventTarget();

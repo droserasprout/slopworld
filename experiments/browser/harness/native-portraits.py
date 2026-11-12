@@ -30,7 +30,7 @@ def main():
     if not saves:
         raise RuntimeError('No existing save; refusing automatic new-colony creation')
     save = max(saves, key=lambda path: path.stat().st_mtime_ns)
-    output = ROOT / 'experiments/browser/runtime/out'
+    output = ROOT / 'slopweb/runtime/out'
     root = Path(tempfile.mkdtemp(prefix='native-portraits-', dir=output))
     profile = root / 'profile'
     (profile / 'Saves').mkdir(parents=True)

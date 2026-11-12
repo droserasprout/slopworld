@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {attachGuiInput} from '../runtime/wwwroot/gui-input.js';
+import {attachGuiInput} from '../../../slopweb/runtime/wwwroot/gui-input.js';
 
 import {installInputDom} from './input-dom-fixture.mjs';
 

@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import {installInputDom} from './input-dom-fixture.mjs';
 import assert from 'node:assert/strict';
-import {GuiFrameReuse} from '../runtime/wwwroot/gui-frame-reuse.js';
-import {attachGuiInput} from '../runtime/wwwroot/gui-input.js';
-import {renderGui} from '../runtime/wwwroot/gui.js';
+import {GuiFrameReuse} from '../../../slopweb/runtime/wwwroot/gui-frame-reuse.js';
+import {attachGuiInput} from '../../../slopweb/runtime/wwwroot/gui-input.js';
+import {renderGui} from '../../../slopweb/runtime/wwwroot/gui.js';
 const packet=[{kind:'matrix',value:[1,0,0,1,0,0]},{kind:'targetTexture',value:{id:1,rect:[0,0,10,10]}}];
 test('identical packets reuse only unchanged dimensions and resource revision',()=>{
   const cache=new GuiFrameReuse();

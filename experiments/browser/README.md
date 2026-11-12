@@ -71,7 +71,7 @@ just browser-profile PROFILE experiments/browser/artifacts/baseline-observe.json
 just browser-serialization-check PROFILE
 # Compare generated/reference JSON writers on one identical live drawing packet
 # inside WASM. Verifies byte equivalence and alternates measurement order.
-just browser-test-commands
+just slopweb-test-runtime
 # Game-free coverage of all wire payload types, escaping and numeric coordinates.
 just browser-host-inspect
 # Run read-only native process/path inspection in the calling environment.
@@ -184,12 +184,12 @@ guarantee.
 
 ## Separate engine probes
 
-`runtime/FontProbe` is a host-only native font bake probe. It calls the installed
+`slopweb/runtime/FontProbe` is a host-only native font bake probe. It calls the installed
 game's font configuration and line metrics and its ImGui/FreeType rasterizer without
 starting a renderer or colony. For example:
 
 ```sh
-just --justfile experiments/browser/runtime/justfile font-probe \
+just --justfile slopweb/runtime/justfile font-probe \
   /usr/share/fonts/TTF/ttf-google-fonts-typewolf/PT_Sans-Web-Regular.ttf \
   out/font-probe.json 15
 ```
@@ -225,14 +225,14 @@ Existing colony/rendering experiments remain independent of the Entry workspace:
 
 These checkpoints do not establish a playable rendered colony. Native GLFW, Vulkan,
 audio libraries, and custom WaylithCLR field injection remain unavailable as-is.
-See [runtime](runtime/README.md), [graphics](graphics/README.md), and
+See [runtime](../../slopweb/runtime/README.md), [graphics](graphics/README.md), and
 [compatibility](compat/README.md) for focused evidence.
 
 ## Ownership and local-only output
 
-`runtime/` owns assembly staging, adapters, WASM execution, and browser presentation;
-`compat/Offline/` owns build-time hooks. `graphics/` and `webgpu/` own rendering
-probes. `harness/` owns serving, bridge isolation, and Chromium validation.
+`../../slopweb/runtime/` owns assembly staging, adapters, WASM execution, and browser presentation;
+`../../slopweb/offline/` owns build-time hooks. `graphics/` and `webgpu/` own rendering
+probes. `../../slopweb/server/` owns serving and bridge isolation; `harness/` owns experimental checks and Chromium validation.
 [Ownership notes](../../notes/browser-prototype.md) record cross-boundary traps.
 Browser adapters preserve daemon ownership; shared terminal selection geometry
 lives in the mod. `slopweb/` owns local runtime
