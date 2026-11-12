@@ -27,6 +27,15 @@ PACKAGES = {
 INTERPRETED = ('Waylith', 'Waylith.Injection', 'RimWorldWaylith.PrepatcherCompat')
 
 
+class MissingWorkload(ValueError):
+    """A valid SDK needs matching workload installation before it can compile."""
+
+    def __init__(self, sdk: Path, version: str, reason: str):
+        self.sdk = sdk
+        self.version = version
+        super().__init__(f'AOT SDK {version} at {sdk} lacks {reason}; install it separately')
+
+
 def published_loader(main: str) -> str:
     marker = '    const loaded = [];'
     if main.count(marker) != 1 or 'LoadPublishedAssembly' in main:
@@ -192,7 +201,7 @@ def toolchain(path: Path) -> tuple[Path, dict]:
         (Path(temporary) / 'global.json').write_text(sdk_selection(version))
         workloads = query('workload', 'list')
         if not re.search(r'^wasm-tools(?:\s|$)', workloads, re.MULTILINE):
-            raise ValueError(f'AOT SDK {version} at {sdk} lacks matching wasm-tools; install it separately')
+            raise MissingWorkload(sdk, version, 'matching wasm-tools')
         bundled = sdk.parent / 'sdk' / version / 'Microsoft.NETCoreSdk.BundledVersions.props'
         runtime = next(
             (
@@ -206,7 +215,7 @@ def toolchain(path: Path) -> tuple[Path, dict]:
             raise ValueError(f'Cannot identify supported AOT target runtime in {bundled}')
         packs = sdk.parent / 'packs'
         if not packs.is_dir():
-            raise ValueError(f'AOT SDK {version} at {sdk} lacks wasm-tools compiler packs; install them separately')
+            raise MissingWorkload(sdk, version, 'wasm-tools compiler packs')
         wasm_packs = sorted(
             str(directory.relative_to(packs))
             for pack in packs.iterdir()
@@ -223,9 +232,7 @@ def toolchain(path: Path) -> tuple[Path, dict]:
             (pack / runtime).is_dir() for pack in packs.glob('Microsoft.NETCore.App.Runtime.AOT.*.Cross.browser-wasm')
         )
         if not wasm_sdk or not cross:
-            raise ValueError(
-                f'AOT SDK {version} at {sdk} lacks wasm-tools compiler packs matching runtime {runtime}; install them separately'
-            )
+            raise MissingWorkload(sdk, version, f'wasm-tools compiler packs matching runtime {runtime}')
         manifests = {
             str(item.relative_to(sdk.parent)): hashlib.sha256(item.read_bytes()).hexdigest()
             for item in (sdk.parent / 'sdk-manifests').glob('**/WorkloadManifest.json')

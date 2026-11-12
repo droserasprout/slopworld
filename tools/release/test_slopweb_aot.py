@@ -341,6 +341,78 @@ def test_toolchain_uses_controlled_cwd_and_records_sdk_runtime_and_packs(aot: An
     assert len(fake_sdk.calls) == 3
 
 
+@pytest.mark.parametrize('failure', ['workload', 'mismatched_pack'])
+@pytest.mark.parametrize('protected', [False, True])
+def test_just_installs_pinned_workload_and_revalidates(
+    aot: Any, fake_sdk: Any, monkeypatch: pytest.MonkeyPatch, failure: str, protected: bool
+) -> None:
+    launcher = importlib.import_module('just_launch')
+    if failure == 'workload':
+        fake_sdk.answers['workload'] = ''
+    else:
+        pack = next((fake_sdk.sdk.parent / 'packs').glob('Microsoft.NET.Runtime.WebAssembly.Sdk*/10.0.14'))
+        pack.rename(pack.with_name('10.0.15'))
+    original = aot.subprocess.run
+    installs = []
+    monkeypatch.setattr(launcher.os, 'geteuid', lambda: 1000)
+    access = launcher.os.access
+    monkeypatch.setattr(launcher.os, 'access', lambda path, mode: not protected if mode == 2 else access(path, mode))
+
+    def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if 'install' not in command:
+            return original(command, **kwargs)
+        installs.append(command)
+        assert command == [
+            *(['sudo'] if protected else []),
+            str(fake_sdk.sdk),
+            'workload',
+            'install',
+            'wasm-tools',
+            '--version',
+            '10.0.114',
+        ]
+        assert json.loads((Path(kwargs['cwd']) / 'global.json').read_text())['sdk']['version'] == '10.0.114'
+        fake_sdk.answers['workload'] = 'wasm-tools 10.0.114/10.0.100'
+        if failure == 'mismatched_pack':
+            pack.mkdir()
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(launcher.subprocess, 'run', run)
+    launcher.ensure_workload(['--aot-sdk', str(fake_sdk.sdk)])
+    assert len(installs) == 1
+    launcher.ensure_workload(['--aot-sdk', str(fake_sdk.sdk)])
+    assert len(installs) == 1
+
+
+@pytest.mark.parametrize('arguments', [['--interpreted'], ['--help'], ['-h']])
+def test_just_skips_toolchain_for_interpreter_and_help(
+    aot: Any, monkeypatch: pytest.MonkeyPatch, arguments: list[str]
+) -> None:
+    launcher = importlib.import_module('just_launch')
+    monkeypatch.setattr(aot, 'toolchain', lambda _: pytest.fail('unexpected SDK inspection'))
+    launcher.ensure_workload(arguments)
+
+
+@pytest.mark.parametrize('install_fails', [False, True])
+def test_just_does_not_continue_after_failed_or_incomplete_install(
+    aot: Any, fake_sdk: Any, monkeypatch: pytest.MonkeyPatch, install_fails: bool
+) -> None:
+    launcher = importlib.import_module('just_launch')
+    fake_sdk.answers['workload'] = ''
+    original = aot.subprocess.run
+
+    def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if 'install' not in command:
+            return original(command, **kwargs)
+        if install_fails:
+            raise subprocess.CalledProcessError(1, command)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(launcher.subprocess, 'run', run)
+    with pytest.raises(subprocess.CalledProcessError if install_fails else aot.MissingWorkload):
+        launcher.ensure_workload(['--aot-sdk', str(fake_sdk.sdk)])
+
+
 @pytest.mark.parametrize('failure', ['major', 'workload', 'mismatched_pack', 'not_executable'])
 def test_toolchain_reports_missing_or_unsupported_sdk_clearly(aot: Any, fake_sdk: Any, failure: str) -> None:
     if failure == 'major':
