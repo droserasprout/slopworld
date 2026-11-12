@@ -141,7 +141,9 @@ are 256 rows/4 MiB each for pending and committed operations,
 plus one active capture capped at 4096 operations/4 MiB. Unused committed rows expire
 after 120 drained passes. Disabling releases the current backend's retained rows.
 Managed drawing profiling and label observation bypass reuse to preserve diagnostics;
-measure presentation timing separately when comparing this switch. The CPU-only
+measure presentation timing separately when comparing this switch. Both workload
+runners support `rows` comparisons and require `stage_profile=0` for that mode;
+reports include replay counters to distinguish cache hits from a bypassed run. The CPU-only
 `just browser-test-row-commands` compares actual packets and exercises the compiled
 mod delegate bridge; it establishes neither browser latency nor visual parity.
 
