@@ -93,16 +93,17 @@ test('explicit retry recovers a failed selection and clears the visible error', 
   assert.equal(calls,2); assert.equal(cleared,true);
 });
 
-test('font HTTP requires same origin and hides host diagnostics', async () => {
+for (const publicOrigin of [null, 'https://workspace.example.com'])
+test(`font HTTP (${publicOrigin ?? 'loopback'}) requires same origin and hides host diagnostics`, async () => {
   const {mkdtemp,rm}=await import('node:fs/promises');
   const {tmpdir}=await import('node:os');
   const {serve}=await import('../../server/server.mjs');
   const root=await mkdtemp(tmpdir()+'/font-http-');
   let calls=0;
-  const {server,url}=await serve(root,0,{},async()=>{calls++;throw Error('/private/font-path secret');});
+  const {server,url}=await serve(root,0,{},async()=>{calls++;throw Error('/private/font-path secret');}, publicOrigin);
   try {
     assert.equal((await fetch(url+'/host/fonts',{method:'POST',body:'{}'})).status,403);
-    const response=await fetch(url+'/host/fonts',{method:'POST',body:'{}',headers:{origin:url,'sec-fetch-site':'same-origin'}});
+    const response=await fetch(url+'/host/fonts',{method:'POST',body:'{}',headers:{origin:publicOrigin ?? url,'sec-fetch-site':'same-origin'}});
     assert.equal(response.status,422); assert.equal(calls,1);
     assert.equal((await response.text()).includes('private'),false);
   } finally {

@@ -51,7 +51,10 @@ credentials never enter page assets or URLs. Named endpoints take precedence ove
 paired URL/token environment overrides, then `SLOPD_ENDPOINT`, then local.
 The host reads descriptor credentials for each operation and WebSocket reconnect;
 failed reads fail closed, and mutations are never replayed after authentication failure. Remote access requires an
-authenticated proxy. Browser transport keeps native request admission, deadlines,
+authenticated HTTPS proxy and explicit `--public-origin`; forwarded headers never
+select trusted origins. HTTP, font and WebSocket requests share that origin boundary.
+The managed client owns HTTP operation deadlines; browser cancellation aborts bridge
+I/O without replaying mutations. Browser transport keeps native request admission, deadlines,
 completion delivery, connection generations, and bounded queues. Overload closes
 the socket rather than blocking the UI thread.
 
@@ -59,8 +62,10 @@ Host preparation composes immutable runtimes from independently cached patched
 assemblies, archives, fonts, and backgrounds. `aot.py` owns compiler inputs and
 toolchain identity. Publication locks span composition; workspace locks span input
 synchronization, compilation, and output capture, including orphaned compiler
-processes. Only completed publications are served. Installed launchers inspect
-SDKs; the checkout's `just_launch.py` owns explicit workload provisioning.
+processes. Only completed publications are served. Mixed AOT is required; packages
+depend on the .NET SDK and users provision its matching wasm-tools workload.
+Installed launchers validate SDKs before game preparation; the checkout's
+`just_launch.py` owns explicit workload provisioning.
 
 Host font preparation uses the installed mod catalog and native resolver for
 font selection and metrics. `LocalFonts/` supplies the independent FreeType WASM

@@ -69,9 +69,9 @@ export function fontProvider({helper, game, cache}, run = execute, now = Date.no
   };
 }
 
-export async function fontHttp(req, res, provider) {
+export async function fontHttp(req, res, provider, origin) {
   if (!provider) { res.writeHead(404).end(); return; }
-  if (req.method !== 'POST' || !sameOrigin(req)) {
+  if (req.method !== 'POST' || !sameOrigin(req, origin)) {
     res.writeHead(403).end(); return;
   }
   try {

@@ -3,6 +3,7 @@
 import argparse
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import application_paths
 
@@ -19,6 +20,20 @@ def version() -> str:
 
         return from_git(package_version(bundle.parent), bundle.parent)
     return 'unknown'
+
+
+def public_origin(value: str) -> str:
+    """Accept one explicit browser origin, never proxy-supplied forwarding metadata."""
+    try:
+        uri = urlsplit(value)
+        host = uri.hostname or ''
+        host = f'[{host}]' if ':' in host else host
+        port = f':{uri.port}' if uri.port is not None and uri.port != 443 else ''
+        if not host or value != f'https://{host}{port}' or uri.username or uri.password:
+            raise ValueError('not an HTTPS origin')
+    except ValueError as error:
+        raise argparse.ArgumentTypeError('Expected an exact HTTPS origin without a path or credentials') from error
+    return value
 
 
 def parser() -> argparse.ArgumentParser:
@@ -38,9 +53,10 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument('--sidecar', action='store_true', help='Use sidecar paths')
     parser.add_argument('--prepare', action='store_true', help='Prepare local game assets and exit')
     parser.add_argument('--rebuild', action='store_true', help='Refresh local game data after a game update')
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument('--interpreted', action='store_true', help='Use the interpreter instead of default mixed AOT')
-    mode.add_argument(
+    parser.add_argument(
+        '--public-origin', type=public_origin, help='Exact HTTPS origin of an authenticated reverse proxy'
+    )
+    parser.add_argument(
         '--aot-sdk',
         type=Path,
         help='Select the .NET 10 SDK with wasm-tools (default: SLOPWEB_AOT_SDK or dotnet on PATH)',
@@ -72,12 +88,12 @@ def completion_script(shell: str) -> str:
     case "$previous" in
         --game|--profile|--cache|--aot-sdk) mapfile -t COMPREPLY < <(compgen -d -- "${{COMP_WORDS[COMP_CWORD]}}"); return ;;
         --token-file) mapfile -t COMPREPLY < <(compgen -f -- "${{COMP_WORDS[COMP_CWORD]}}"); return ;;
-        --endpoint|--url|--port) return ;;
+        --endpoint|--url|--public-origin|--port) return ;;
     esac
     for word in "${{COMP_WORDS[@]:1:COMP_CWORD-1}}"; do
         if ((skip)); then skip=0; continue; fi
         case "$word" in
-            --game|--profile|--cache|--aot-sdk|--token-file|--endpoint|--url|--port) skip=1 ;;
+            --game|--profile|--cache|--aot-sdk|--token-file|--endpoint|--url|--public-origin|--port) skip=1 ;;
             paths) words='{paths}'; break ;;
             completions) words='bash zsh fish'; break ;;
         esac

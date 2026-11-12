@@ -271,7 +271,7 @@ def test_compiler_inherits_lock_until_it_exits(aot: Any, tmp_path: Path) -> None
 
 
 @pytest.mark.parametrize('prepare_only', [False, True])
-@pytest.mark.parametrize('mode', ['default', 'explicit', 'environment', 'interpreted', 'missing'])
+@pytest.mark.parametrize('mode', ['default', 'explicit', 'environment', 'missing'])
 def test_launcher_selects_aot_by_default(
     aot: Any,
     tmp_path: Path,
@@ -296,13 +296,12 @@ def test_launcher_selects_aot_by_default(
         return native
 
     monkeypatch.setattr(launch.aot, 'prepare', select)
+    monkeypatch.setattr(launch.aot, 'toolchain', lambda sdk: {})
     served = []
     monkeypatch.setattr(launch.os, 'execvpe', lambda *args: served.append(args))
     arguments = ['slopweb'] + (['--prepare'] if prepare_only else [])
     if mode == 'explicit':
         arguments += ['--aot-sdk', str(tmp_path / 'sdk')]
-    elif mode == 'interpreted':
-        arguments += ['--interpreted']
     monkeypatch.setattr(sys, 'argv', arguments)
     if mode == 'missing':
         with pytest.raises(SystemExit, match='1'):
@@ -311,17 +310,14 @@ def test_launcher_selects_aot_by_default(
         assert '--aot-sdk' in capsys.readouterr().err
         return
     launch.main()
-    selected = interpreted if mode == 'interpreted' else native
-    if mode == 'interpreted':
-        assert not calls
-    else:
-        assert calls[0][1] == interpreted
-        expected_sdk = (
-            tmp_path / 'sdk'
-            if mode == 'explicit'
-            else Path('/environment/dotnet' if mode == 'environment' else '/path/dotnet')
-        )
-        assert calls[0][3] == expected_sdk
+    selected = native
+    assert calls[0][1] == interpreted
+    expected_sdk = (
+        tmp_path / 'sdk'
+        if mode == 'explicit'
+        else Path('/environment/dotnet' if mode == 'environment' else '/path/dotnet')
+    )
+    assert calls[0][3] == expected_sdk
     if prepare_only:
         assert str(selected) in capsys.readouterr().out
     else:
@@ -330,6 +326,7 @@ def test_launcher_selects_aot_by_default(
 
 @pytest.fixture
 def fake_sdk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, aot: Any) -> argparse.Namespace:
+    monkeypatch.setattr(importlib.import_module('cli'), 'version', lambda: 'test')
     sdk = tmp_path / 'sdk/dotnet'
     sdk.parent.mkdir()
     sdk.write_text('host fixture')
@@ -425,10 +422,8 @@ def test_just_installs_pinned_workload_and_revalidates(
     assert len(installs) == 1
 
 
-@pytest.mark.parametrize('arguments', [['--interpreted'], ['--help'], ['-h']])
-def test_just_skips_toolchain_for_interpreter_and_help(
-    aot: Any, monkeypatch: pytest.MonkeyPatch, arguments: list[str]
-) -> None:
+@pytest.mark.parametrize('arguments', [['--help'], ['-h']])
+def test_just_skips_toolchain_for_help(aot: Any, monkeypatch: pytest.MonkeyPatch, arguments: list[str]) -> None:
     launcher = importlib.import_module('just_launch')
     monkeypatch.setattr(aot, 'toolchain', lambda _: pytest.fail('unexpected SDK inspection'))
     launcher.ensure_workload(arguments)

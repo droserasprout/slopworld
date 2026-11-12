@@ -42,7 +42,8 @@ test('local assets are isolated and credentialed health rejects foreign requests
   }
 });
 
-test('HTTP bridge preserves protobuf and status, supplies only host credentials, and rejects foreign mutations', async () => {
+for (const publicOrigin of [null, 'https://workspace.example.com'])
+test(`HTTP bridge (${publicOrigin ?? 'loopback'}) preserves protobuf and status, supplies only host credentials, and rejects foreign mutations`, async () => {
   const { createServer } = await import('node:http');
   const seen = [];
   const upstream = createServer(async (req, res) => {
@@ -55,7 +56,7 @@ test('HTTP bridge preserves protobuf and status, supplies only host credentials,
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'wasm-bridge-test-'));
   const { server, url } = await serve(temporary, 0, {
     endpoint: `http://127.0.0.1:${upstream.address().port}`, token: 'host-secret',
-  });
+  }, null, publicOrigin);
   try {
     for (const headers of [{}, { 'sec-fetch-site': 'cross-site' },
       { 'sec-fetch-site': 'same-origin', origin: 'http://evil.invalid' }]) {
@@ -68,7 +69,7 @@ test('HTTP bridge preserves protobuf and status, supplies only host credentials,
     assert.equal(seen.length, 0);
     const response = await remoteFetch(url + '/host/api/sessions', {
       method: 'POST', body: Buffer.from([10, 2, 97, 98]),
-      headers: { host: new URL(url).host, origin: url, 'x-slop-token': 'browser-secret', cookie: 'private=1' },
+      headers: { host: new URL(url).host, origin: publicOrigin ?? url, 'x-slop-token': 'browser-secret', cookie: 'private=1' },
     });
     assert.equal(response.status, 409);
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from([8, 1, 255]));
@@ -89,7 +90,8 @@ test('HTTP bridge preserves protobuf and status, supplies only host credentials,
   }
 });
 
-test('WebSocket bridge rejects foreign origins and relays masked binary traffic with host authentication', async () => {
+for (const publicOrigin of [null, 'https://workspace.example.com'])
+test(`WebSocket bridge (${publicOrigin ?? 'loopback'}) rejects foreign origins and relays authenticated traffic`, async () => {
   const { createServer } = await import('node:http');
   const { createHash } = await import('node:crypto');
   const { openSocket } = await import('./websocket-client.mjs');
@@ -125,14 +127,14 @@ test('WebSocket bridge rejects foreign origins and relays masked binary traffic 
   const descriptor = path.join(temporary, 'endpoint.toml');
   const writeToken = token => writeFile(descriptor, `url = "http://127.0.0.1:${upstream.address().port}"\ntoken = "${token}"\n`);
   await writeToken('host-secret');
-  const { server, url } = await serve(temporary, 0, endpointProvider({ ...process.env, SLOPWEB_ENDPOINT_FILE: descriptor }));
+  const { server, url } = await serve(temporary, 0, endpointProvider({ ...process.env, SLOPWEB_ENDPOINT_FILE: descriptor }), null, publicOrigin);
   let client;
   try {
     await assert.rejects(openSocket(url, 'http://evil.invalid'), /403/);
     assert.equal(upgrades, 0);
     await assert.rejects(openSocket(url, 'http://evil.invalid', 'evil.invalid'), /403/);
     assert.equal(upgrades, 0);
-    client = await openSocket(url, url, new URL(url).host);
+    client = await openSocket(url, publicOrigin ?? url, new URL(publicOrigin ?? url).host);
     const data = Buffer.from([10, 0, 255, 128]);
     client.send(data);
     const frame = await client.frame();
@@ -143,7 +145,7 @@ test('WebSocket bridge rejects foreign origins and relays masked binary traffic 
     client.socket.destroy();
     await closed;
     await writeToken('rotated');
-    client = await openSocket(url, url, new URL(url).host);
+    client = await openSocket(url, publicOrigin ?? url, new URL(publicOrigin ?? url).host);
     assert.equal(upgrades, 2);
   } finally {
     client?.socket.destroy(); remote?.destroy();
@@ -177,3 +179,12 @@ function remoteFetch(url, options) {
     req.end(options.body);
   });
 }
+
+test('proxy origin must be explicitly configured and cannot come from forwarding headers', async () => {
+  for (const origin of ['http://example.com', 'https://example.com/path', 'https://user@example.com'])
+    await assert.rejects(serve('/unused', 0, {}, null, origin), /Public origin/);
+  assert.equal(sameOrigin({headers: {
+    host: 'localhost:8787', origin: 'https://evil.invalid',
+    'x-forwarded-host': 'evil.invalid', 'x-forwarded-proto': 'https',
+  }}), false);
+});

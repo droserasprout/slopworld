@@ -398,11 +398,12 @@ def test_prepare_uses_selected_profile_without_contacting_endpoint(
     monkeypatch.setenv('SLOPD_DATA', str(tmp_path / 'data'))
     monkeypatch.setenv('SLOPD_ENDPOINT', str(tmp_path / 'missing.toml'))
     monkeypatch.delenv('SLOPWORLD_PROFILE', raising=False)
-    monkeypatch.setattr(
-        'sys.argv', ['slopweb', '--prepare', '--interpreted', '--game', str(game), '--endpoint', 'remote']
-    )
+    monkeypatch.setattr('sys.argv', ['slopweb', '--prepare', '--game', str(game), '--endpoint', 'remote'])
     selected = []
     monkeypatch.setattr(launcher, 'prepare', lambda *args: selected.append(args) or tmp_path / 'runtime')
     monkeypatch.setattr(launcher, 'environment', lambda *args: pytest.fail('Preparation must remain offline'))
+    monkeypatch.setattr(launcher.aot, 'toolchain', lambda sdk: {})
+    monkeypatch.setattr(launcher.aot, 'prepare', lambda bundle, root, cache, sdk: root)
+    monkeypatch.setattr(launcher.shutil, 'which', lambda name: '/sdk/dotnet')
     launcher.main()
     assert selected[0][-1] == tmp_path / 'data/profiles/remote'

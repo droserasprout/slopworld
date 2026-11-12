@@ -135,3 +135,28 @@ def test_just_local_commands_skip_sdk_provisioning(
     monkeypatch.setattr(wrapper.aot, 'toolchain', lambda *args: pytest.fail('Local commands must not query an SDK'))
     monkeypatch.setattr(wrapper.shutil, 'which', lambda *args: pytest.fail('Local commands must not discover an SDK'))
     wrapper.ensure_workload(arguments)
+
+
+@pytest.mark.parametrize(
+    'origin',
+    [
+        'http://example.com',
+        'https://example.com/path',
+        'https://user@example.com',
+        'https://example.com?query',
+        'https://example.com#fragment',
+    ],
+)
+def test_public_origin_rejects_non_origin_urls(paths: Any, origin: str) -> None:
+    cli = importlib.import_module('cli')
+    with pytest.raises(SystemExit):
+        cli.parser().parse_args(['--public-origin', origin])
+
+
+def test_interpreter_only_launch_is_rejected_before_workload_provisioning(
+    paths: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wrapper = importlib.import_module('just_launch')
+    monkeypatch.setattr(wrapper.aot, 'toolchain', lambda _: pytest.fail('Invalid options must not provision tools'))
+    with pytest.raises(SystemExit):
+        wrapper.ensure_workload(['--interpreted'])

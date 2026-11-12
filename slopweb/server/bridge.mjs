@@ -2,8 +2,7 @@
 // WebSocket adaptation and the managed mod client remain separate owners.
 // Plain HTTP browsers omit Fetch Metadata. Require an explicit matching Origin
 // or Referer in that case; never treat missing browser provenance as same-origin.
-export function sameOrigin(req) {
-  const expected = `http://${req.headers.host}`;
+export function sameOrigin(req, expected = `http://${req.headers.host}`) {
   const site = req.headers['sec-fetch-site'];
   if (site && site !== 'same-origin') return false;
   if (req.headers.origin) return req.headers.origin === expected;
@@ -14,8 +13,8 @@ export function sameOrigin(req) {
   return site === 'same-origin';
 }
 
-export async function daemonHttp(req, res, endpoint, token) {
-  if (!sameOrigin(req) ||
+export async function daemonHttp(req, res, endpoint, token, origin) {
+  if (!sameOrigin(req, origin) ||
       !['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
     res.writeHead(403).end(); return;
   }
@@ -28,6 +27,12 @@ export async function daemonHttp(req, res, endpoint, token) {
       /(?:token|credential|authorization)=/i.test(route)) {
     res.writeHead(400).end(); return;
   }
+  // The managed transport owns operation deadlines (including 60-second worker
+  // spawns). A browser disconnect cancels upstream I/O, without replaying mutations.
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  req.once('aborted', cancel);
+  res.once('close', cancel);
   try {
     const target = new URL(route, endpoint);
     if (!target.pathname.startsWith('/api/')) {
@@ -46,10 +51,11 @@ export async function daemonHttp(req, res, endpoint, token) {
       method: req.method,
       headers: { 'x-slop-token': token, 'content-type': 'application/x-protobuf' },
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks),
-      redirect: 'error', signal: AbortSignal.timeout(30000),
+      redirect: 'error', signal: controller.signal,
     });
     const data = Buffer.from(await response.arrayBuffer());
     res.writeHead(response.status, { 'Content-Type': 'application/x-protobuf' });
     res.end(req.method === 'HEAD' ? undefined : data);
-  } catch { res.writeHead(502).end('Host daemon unavailable.'); }
+  } catch { if (!res.destroyed) res.writeHead(502).end('Host daemon unavailable.'); }
+  finally { req.off('aborted', cancel); res.off('close', cancel); }
 }

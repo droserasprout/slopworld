@@ -56,7 +56,7 @@ public static class BrowserSocket
             var state = new State { Owner = owner, Incoming = Field(owner, "Incoming")! };
             sockets.Add(owner, state);
             state.Socket.Options.AddSubProtocol("slopworld.protobuf.v2");
-            var uri = new Uri(BrowserTransport.BaseUrl.Replace("http://", "ws://") + "/ws");
+            var uri = BrowserTransport.SocketUri;
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(state.Stop.Token);
             deadline.CancelAfter(5000);
             await state.Socket.ConnectAsync(uri, deadline.Token);

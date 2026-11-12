@@ -45,9 +45,11 @@ Source installation defaults to `~/.local`; ensure `~/.local/bin` is on PATH.
 Pass a prefix to `just web-install PREFIX` or `just web-uninstall PREFIX`.
 Uninstall preserves private runtime caches and daemon configuration.
 
-Installed packages require the .NET 10 runtime, Node.js 22+, Python 3.11+, and Fontconfig;
-Just, uv, and a checkout are unnecessary. Default AOT preparation additionally
-requires the .NET 10 SDK with matching `wasm-tools`; `--interpreted` needs only the runtime. Start slopd first. The launcher
+Installed packages require the .NET 10 SDK, Node.js 22+, Python 3.11+, and Fontconfig;
+Just, uv, and a checkout are unnecessary. Mixed AOT is required. Before first launch,
+install the matching `wasm-tools` workload with `dotnet workload install wasm-tools`
+for the selected SDK (system SDKs may require sudo). Package managers install the SDK;
+.NET owns its workloads. The launcher validates these tools before preparing game data. Start slopd first. The launcher
 reads its host-side local endpoint descriptor, respecting `SLOPD_CONFIG_ROOT`
 and `SLOPD_ENDPOINT`. `SLOPD_URL` and `SLOPD_TOKEN` override that descriptor.
 Use a root token for session creation and configuration. `--endpoint NAME` selects a saved endpoint ahead of environment overrides.
@@ -60,7 +62,13 @@ the saved `<CONFIG>/game.toml`, then usual installation locations. `--port` defa
 to 8787. First launch prepares local game files under `$XDG_CACHE_HOME/slopweb`
 (default `~/.cache/slopweb`); subsequent launches reuse that private runtime.
 `--prepare` prepares without serving; `--rebuild` refreshes after game data changes.
-The server binds only to 127.0.0.1. Stop it with Ctrl+C; agents continue running.
+The server binds only to 127.0.0.1. For an authenticated HTTPS reverse proxy,
+pass `--public-origin https://workspace.example.com`. The proxy must authenticate
+all asset, HTTP, font, and WebSocket requests and forward them to the loopback server.
+Preserve the browser Origin/Referer and use either the configured public Host or the
+loopback upstream Host. Forwarded headers do not select trusted origins. Without this
+option, only loopback Host values and their HTTP origins are accepted.
+Stop it with Ctrl+C; agents continue running.
 `just web-run` builds and stages current sources, then runs the launcher in the calling environment,
 with its existing terminal and environment variables. Run it from the desktop host
 when host game files, fonts, or daemon configuration are needed.
@@ -78,9 +86,9 @@ storage and do not overwrite that desktop profile. `slopweb paths NAME` exposes 
 paths without preparing the game or connecting to the daemon. `slopweb --version`
 reports build metadata, and `slopweb completions bash|zsh|fish` emits shell completions.
 
-## Default mixed AOT
+## Required mixed AOT
 
-Preparation and serving use mixed AOT by default, selecting `dotnet` from PATH.
+Preparation and serving require mixed AOT, selecting `dotnet` from PATH.
 Set `SLOPWEB_AOT_SDK` or pass `--aot-sdk PATH` to select a separate toolchain:
 
 ```sh
@@ -88,8 +96,7 @@ slopweb --aot-sdk /private/dotnet/dotnet --prepare
 slopweb --aot-sdk /private/dotnet/dotnet
 ```
 
-`--interpreted` explicitly selects the interpreter for preparation or serving.
-Missing AOT tools cause an error rather than silently falling back.
+Missing AOT tools cause an error; there is no interpreter-only launch mode.
 
 PATH selects an existing .NET 10 SDK directory or its `dotnet` executable with
 matching `wasm-tools`, including the WebAssembly SDK and browser cross compiler
@@ -98,7 +105,7 @@ the selected SDK and target runtime for publishing. The installed launcher never
 and AOT preparation recipes automatically install
 missing or mismatched `wasm-tools`, pinning the workload set to the selected SDK
 version. Protected system SDKs use `sudo` and may prompt for a password; writable
-private SDKs install directly. `--interpreted` skips this step.
+private SDKs install directly.
 Initial compilation requires substantial time, disk and memory; the launcher
 prints the private cache and publish log paths. NuGet restore may download the
 project's pinned package dependencies.
