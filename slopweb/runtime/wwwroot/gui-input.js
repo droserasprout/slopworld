@@ -66,6 +66,13 @@ export function attachGuiInput(canvas, managed) {
   };
   for (const [name, kind] of [['pointerdown', 'down'], ['pointerup', 'up'], ['pointermove', 'move']]) {
     listen(name, event => {
+      // Linux middle-click delivers the desktop PRIMARY through a paste event.
+      // Native MouseDown would also paste BrowserClipboard's older local PRIMARY.
+      // Leave the browser default intact and let the paste handler dispatch once.
+      if (managed.ClipboardTake && event.button === 1 && kind !== 'move') {
+        if (kind === 'down') { cancelled = false; proxy.focus(event); }
+        return;
+      }
       event.preventDefault();
       if (kind === 'down') { cancelled = false; proxy.focus(event); if (event.isTrusted) canvas.setPointerCapture(event.pointerId); }
       enqueue({ kind: kind === 'move' && event.buttons ? 'drag' : kind, ...point(event), button: [0, 2, 1][event.button] ?? 0, ...modifiers(event) });
