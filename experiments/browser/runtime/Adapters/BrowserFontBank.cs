@@ -1,4 +1,4 @@
-// Local native-bake data owns glyph coverage, metrics and pixels. Neither font
+// Font identity, local glyph coverage, metrics and atlas resource ownership. Neither font
 // selection nor terminal cell policy belongs here; the actual mod retains both.
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -7,11 +7,12 @@ using UnityStubs.Gui;
 
 namespace BrowserAdapters;
 
-public sealed class BrowserFontBank : ITextMeshProBackend
+public sealed partial class BrowserFontBank : ITextMeshProBackend
 {
     public sealed class Face
     {
         public required string Hash;
+        public string BakeKey = "";
         public FontStyle Style;
         public required float Size,
             Density,
@@ -22,6 +23,16 @@ public sealed class BrowserFontBank : ITextMeshProBackend
             Pitch,
             Spacing;
         public required Texture2D Texture;
+        internal uint LoaderFlags;
+        internal readonly HashSet<char> Unsupported = new();
+        internal readonly HashSet<char> Failed = new();
+        internal Color32[]? Pixels;
+        internal int CursorX = 1,
+            CursorY = 1,
+            RowHeight;
+
+        internal void InvalidateRuns() => textRuns = null;
+
         public readonly Dictionary<char, TmpGlyphMetrics> Glyphs = new();
         BrowserTextCache<TmpGlyphMetrics>? textRuns;
         internal BrowserTextCache<TmpGlyphMetrics> TextRuns =>
@@ -65,15 +76,25 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         bytes >= 0 && Instance.atlasBytes + bytes <= AtlasBudget;
 
     readonly HashSet<(int, float)> pendingSizes = new();
-    public float BakePixelSize => 16;
+    public float BakePixelSize => faces.Values.FirstOrDefault()?.Size ?? 0;
     public int AtlasVersion { get; private set; }
     public int ResolutionVersion { get; private set; }
 
     public static void ConfigureDensity(float value)
     {
+        if (!float.IsFinite(value) || value < .5f || value > 4)
+            throw new ArgumentOutOfRangeException(nameof(value));
         if (Instance.density == value)
             return;
         Instance.density = value;
+        if (Rasterize != null)
+        {
+            foreach (var face in Instance.variants)
+                RetireLocalFace(face);
+            Instance.variants.Clear();
+            Instance.atlasBytes = 0;
+            Instance.glyphEntries = 0;
+        }
         Instance.ResolutionVersion++;
         Instance.resolved.Clear();
         Instance.missing.Clear();
@@ -88,6 +109,9 @@ public sealed class BrowserFontBank : ITextMeshProBackend
             {
                 density = Instance.density,
                 atlasVersion = Instance.AtlasVersion,
+                failedGlyphs = Instance.variants.Sum(face => face.Failed.Count),
+                unsupportedGlyphs = Instance.variants.Sum(face => face.Unsupported.Count),
+                glyphCacheFull = Instance.glyphEntries >= GlyphBudget,
                 faces = Instance.faces.Select(pair =>
                 {
                     TryFace(pair.Key, 0, out var selected);
@@ -142,6 +166,8 @@ public sealed class BrowserFontBank : ITextMeshProBackend
     // bake is prepared. Installation itself always uses exact identity matching.
     public static int RegisterAvailable(byte[] bytes, float size)
     {
+        if (Rasterize != null)
+            return RegisterLocal(bytes, size);
         int exact = Register(bytes, size);
         if (exact >= 0)
             return exact;
@@ -162,6 +188,8 @@ public sealed class BrowserFontBank : ITextMeshProBackend
 
     public static int Install(byte[] font, string json, int defaultIndex)
     {
+        if (Rasterize != null)
+            return InstallLocal(font, json, defaultIndex);
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         var atlas = root.GetProperty("atlas");
@@ -182,23 +210,41 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         var bakedStyle = root.TryGetProperty("style", out var bakedStyleValue)
             ? (FontStyle)bakedStyleValue.GetInt32()
             : FontStyle.Normal;
-        if (
-            Instance.variants.Any(old =>
-                old.Hash == identity
-                && old.Size == bakedSize
-                && old.Style == bakedStyle
-                && old.Density == bakedDensity
-            )
-        )
-            return defaultIndex >= 0 ? defaultIndex : Register(font, bakedSize);
+        string bakeKey = Convert.ToHexString(
+            SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json))
+        );
+        var previous = Instance.variants.FirstOrDefault(old =>
+            old.Hash == identity
+            && old.Size == bakedSize
+            && old.Style == bakedStyle
+            && old.Density == bakedDensity
+        );
         if (
             defaultIndex >= 0
             && Instance.faces.TryGetValue(defaultIndex, out var indexed)
             && (indexed.Hash != identity || Math.Abs(indexed.Size - bakedSize) >= .001f)
         )
             throw new InvalidOperationException("Font index already installed with another face");
+        // Selection/startup responses carry metrics only. They must never erase
+        // glyph coverage already learned for this exact immutable font variant.
+        if (
+            previous != null
+            && (
+                previous.BakeKey == bakeKey
+                || (root.GetProperty("glyphs").GetArrayLength() == 0 && previous.Glyphs.Count > 0)
+            )
+        )
+        {
+            if (defaultIndex >= 0 && !Instance.faces.ContainsKey(defaultIndex))
+                Instance.faces.Add(defaultIndex, previous);
+            return defaultIndex >= 0 ? defaultIndex : Register(font, bakedSize);
+        }
         int allocation = checked(width * height * 4);
-        if (!Capacity(allocation) || Instance.variants.Count >= 1024)
+        int released = previous == null ? 0 : previous.Texture.width * previous.Texture.height * 4;
+        if (
+            Instance.atlasBytes + allocation - released > AtlasBudget
+            || (previous == null && Instance.variants.Count >= 1024)
+        )
             throw new InvalidOperationException("Native font atlas memory limit reached");
         var data = Convert.FromBase64String(atlas.GetProperty("pixels").GetString()!);
         if (data.Length != checked(width * height * channels))
@@ -226,6 +272,7 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         var face = new Face
         {
             Hash = hash,
+            BakeKey = bakeKey,
             Style = root.TryGetProperty("style", out var style)
                 ? (FontStyle)style.GetInt32()
                 : FontStyle.Normal,
@@ -288,8 +335,20 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         }
         else
             Instance.faces.Add(index, face);
+        if (previous != null)
+        {
+            Instance.variants.Remove(previous);
+            foreach (
+                int key in Instance
+                    .faces.Where(pair => ReferenceEquals(pair.Value, previous))
+                    .Select(pair => pair.Key)
+                    .ToArray()
+            )
+                Instance.faces[key] = face;
+            UnityEngine.Object.Destroy(previous.Texture);
+        }
         Instance.variants.Add(face);
-        Instance.atlasBytes += allocation;
+        Instance.atlasBytes += allocation - released;
         Instance.ResolutionVersion++;
         Instance.resolved.Clear();
         Instance.missing.Clear();
@@ -308,11 +367,24 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         return -1;
     }
 
+    public static void ObserveText(int index, float size, FontStyle style, string text)
+    {
+        if (Rasterize != null)
+        {
+            if (TryFace(index, size, style, out var local))
+                EnsureGlyphs(local, text);
+            return;
+        }
+    }
+
     public static bool TryFace(int index, float size, out Face face) =>
         TryFace(index, size, FontStyle.Normal, out face);
 
     public static bool TryFace(int index, float size, FontStyle style, out Face face)
     {
+        if (Rasterize != null)
+            return TryLocalFace(index, size, style, out face);
+        ObserveText(index, size, style, "");
         face = null!;
         if (Instance.resolved.TryGetValue((index, size, style), out face!))
             return true;
@@ -384,6 +456,7 @@ public sealed class BrowserFontBank : ITextMeshProBackend
         out float ascent
     )
     {
+        ObserveText(index, size, FontStyle.Normal, c.ToString());
         glyph = default;
         ascent = 0;
         if (!TryFace(index, size, out var face))

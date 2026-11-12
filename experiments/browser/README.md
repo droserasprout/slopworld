@@ -195,9 +195,14 @@ just --justfile experiments/browser/runtime/justfile font-probe \
 ```
 
 The ignored output contains glyph advances, bounds, UVs, native line metrics, and
-atlas pixels. This probe covers Latin-1, Cyrillic U+0400–U+052F, and U+2000–U+27FF and reports native fallback
-use. The optional `nativeFonts` workspace path renders covered plain text from these
-bakes; normal and styled native faces share the prepared family; complete Unicode fallback remains incomplete.
+atlas pixels. The optional final scalar-list JSON argument selects explicit fixture coverage;
+without it the probe prepares only native metrics. The `nativeFonts` workspace
+path rasterizes observed glyphs synchronously with local FreeType WASM. FontProbe
+is the independent fidelity oracle, not an interactive glyph service.
+`just browser-local-fonts-test` compares metrics and alpha pixels without a game or
+browser; `just browser-fonts-test` covers atlas and selection lifetimes.
+Missing source glyphs retain diagnostic fallback; the adapter remains UTF-16/BMP
+and leaves existing terminal emoji/symbol rendering intact.
 `browser-workspace-font-reference FONT SESSION SIZE` stages the selected UI family
 and resolves the terminal family through the actual mod's host font catalog and
 fontconfig order. Host font files and derived pixels stay in ignored local output.

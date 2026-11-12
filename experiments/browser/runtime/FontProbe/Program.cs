@@ -8,9 +8,9 @@ using System.Runtime.Loader;
 using System.Text.Json;
 using Brutal.ImGuiApi;
 
-if (args.Length is not (5 or 6))
+if (args.Length is not (5 or 6 or 7))
     throw new ArgumentException(
-        "GAME FONT OUTPUT SIZE DENSITY [STYLE] or GAME --resolve MOD FAMILY OUTPUT_DIRECTORY"
+        "GAME FONT OUTPUT SIZE DENSITY [STYLE [SCALARS_JSON]] or GAME --resolve MOD FAMILY OUTPUT_DIRECTORY"
     );
 string game = Path.GetFullPath(args[0]);
 AssemblyLoadContext.Default.Resolving += (_, name) =>
@@ -80,6 +80,16 @@ static void Execute(string[] args, string game)
                 .Invoke(null, [File.ReadAllBytes(source.Path), source.Face])!;
         Directory.CreateDirectory(args[4]);
         File.WriteAllBytes(Path.Combine(args[4], ui ? "ui.ttf" : "terminal.ttf"), bytes);
+        var host = Assembly
+            .LoadFrom(Path.Combine(game, "RimWorld.dll"))
+            .GetType("RimWorldWaylith.Imgui.ImGuiHost", true)!;
+        uint flags = (uint)
+            host.GetMethod("LoaderFlagsFor", BindingFlags.Static | BindingFlags.NonPublic)!
+                .Invoke(null, [0])!;
+        File.WriteAllText(
+            Path.Combine(args[4], "font-config.json"),
+            JsonSerializer.Serialize(new { loaderFlags = flags })
+        );
         if (!ui)
             File.WriteAllText(
                 Path.Combine(args[4], "chains.json"),
@@ -108,7 +118,8 @@ static void Execute(string[] args, string game)
         args[2],
         float.Parse(args[3], CultureInfo.InvariantCulture),
         float.Parse(args[4], CultureInfo.InvariantCulture),
-        args.Length == 6 ? int.Parse(args[5], CultureInfo.InvariantCulture) : 0
+        args.Length >= 6 ? int.Parse(args[5], CultureInfo.InvariantCulture) : 0,
+        args.Length == 7 ? JsonSerializer.Deserialize<uint[]>(File.ReadAllText(args[6]))! : []
     );
 }
 
@@ -118,7 +129,8 @@ static unsafe void Run(
     string output,
     float size,
     float density,
-    int style
+    int style,
+    uint[] scalars
 )
 {
     if (style is < 0 or > 3)
@@ -158,14 +170,14 @@ static unsafe void Run(
             .Invoke(null, [fontPath, font, size]);
         var lineMetrics = metricsType.GetMethod("At")!.Invoke(metrics, [size]);
         var glyphs = new List<object>();
-        // Include Cyrillic text alongside common terminal punctuation and symbols.
-        // Coverage is reported per scalar; missing glyphs are never claimed present.
-        uint[] scalars = Enumerable
-            .Range(32, 224)
-            .Concat(Enumerable.Range(0x0400, 0x0130))
-            .Concat(Enumerable.Range(0x2000, 0x800))
-            .Select(value => (uint)value)
-            .ToArray();
+        // The caller supplies observed text, never Unicode blocks. An empty request
+        // prepares only native face metrics for startup and font selection.
+        if (
+            scalars.Length > 65536
+            || scalars.Any(c => c > 0x10FFFF || c is >= 0xD800 and <= 0xDFFF)
+        )
+            throw new ArgumentException("Invalid Unicode scalars");
+        scalars = scalars.Distinct().Order().ToArray();
         // Complete rasterization before reading UVs: atlas growth can relocate glyphs.
         foreach (uint scalar in scalars)
             baked.FindGlyph(scalar);
@@ -213,6 +225,7 @@ static unsafe void Run(
                     style,
                     loaderFlags = flags,
                     rasterizerDensity = baked.RasterizerDensity,
+                    bakedSize = baked.Size,
                     lineMetrics,
                     ascent = baked.Ascent,
                     descent = baked.Descent,

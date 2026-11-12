@@ -64,19 +64,10 @@ def test_font_preparation_filters_profile_and_uses_private_native_bakes(
     root = tmp_path / 'private-runtime'
     appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', root, values)
     manifest = json.loads((root / 'assets/fonts/manifest.json').read_text())
-    assert [face['bake'] for face in manifest] == [
-        f'{face}-style{style}@{density}.json'
-        for density in ('1', '1.66667', '2')
-        for style in (0, 1, 2, 3)
-        for face in (
-            ('ui-13', 'ui-15', 'ui-17', 'ui-14', 'ui-22', 'ui-28', 'terminal')
-            if style == 0
-            else ('ui-13', 'ui-15', 'ui-17', 'terminal')
-        )
-    ]
-    assert len(calls) == 60
-    assert [float(call[0][-2]) for call in calls[3:]] == [density for density in (1, 5 / 3, 2) for _ in range(19)]
-    assert all('index' not in face for face in manifest if face['bake'].startswith(('ui-14-', 'ui-22-', 'ui-28-')))
+    assert [face['bake'] for face in manifest] == ['ui-13.json', 'ui-15.json', 'ui-17.json', 'terminal.json']
+    assert len(calls) == 7
+    assert all(float(call[0][-2]) == 1 for call in calls[3:])
+    assert all(int(call[0][-1]) == 0 for call in calls[3:])
     assert all(call[1]['check'] for call in calls)
     assert all(call[1]['env']['LD_LIBRARY_PATH'].startswith(str(tmp_path / 'game')) for call in calls)
     assert 'private' not in (root / 'assets/reference-appearance.json').read_text()
@@ -101,7 +92,7 @@ def test_startup_font_failure_falls_back_without_changing_host_preferences(
     published = json.loads((root / 'assets/reference-appearance.json').read_text())
     assert published == {**values, 'uiFontName': ''}
     assert values['uiFontName'] == 'Removed font'
-    assert len(json.loads((root / 'assets/fonts/manifest.json').read_text())) == 57
+    assert len(json.loads((root / 'assets/fonts/manifest.json').read_text())) == 4
 
 
 @pytest.mark.parametrize('family', ['', 'Removed font'])
@@ -143,14 +134,7 @@ def test_font_preparation_matches_native_defaults_and_size_limits(
     calls = []
     monkeypatch.setattr(appearance.subprocess, 'run', lambda args, **kwargs: calls.append(args))
     appearance.prepare_fonts(tmp_path / 'bundle', tmp_path / 'game', tmp_path / 'runtime', values)
-    expected = []
-    for _ in range(3):
-        for style in range(4):
-            expected.extend(sizes[:3])
-            if style == 0:
-                expected.extend(size for size in (14, 22, 28) if size not in sizes[:3])
-            expected.append(sizes[3])
-    assert [int(call[-3]) for call in calls[3:]] == expected
+    assert [int(call[-3]) for call in calls[3:]] == sizes
 
 
 def test_portrait_snapshot_preserves_pixels_and_identity_without_host_metadata(launcher: Any, tmp_path: Path) -> None:
@@ -337,6 +321,9 @@ def test_distributable_build_never_reads_staged_game_root(
         'experiments/browser/runtime/core_pack.py',
         'experiments/browser/runtime/bin/Debug/net10.0/Probe.dll',
         'experiments/browser/runtime/Adapters/bin/Debug/net10.0/Adapters.dll',
+        'experiments/browser/runtime/wwwroot/local-fonts.mjs',
+        'experiments/browser/runtime/wwwroot/local-fonts.wasm',
+        'experiments/browser/runtime/wwwroot/local-fonts.LICENSE.txt',
         'experiments/browser/runtime/bin/Debug/net10.0/wwwroot/_framework/dotnet.js',
         'experiments/browser/runtime/wwwroot/index.html',
         'experiments/browser/runtime/Scanner/bin/Debug/net10.0/Scanner.dll',
@@ -612,3 +599,32 @@ def test_browser_ost_catalog_matches_authored_songs_and_files() -> None:
         songs.append(node.text.rsplit('/', 1)[-1])
     assert tracks == songs
     assert sorted(tracks) == sorted(path.stem for path in (ROOT / 'mod/Sounds/SlopWorld/OST').glob('*.ogg'))
+
+
+def test_runtime_notices_follow_resolved_sdk_pack(tmp_path: Path) -> None:
+    runtime = tmp_path / 'runtime'
+    obj = runtime / 'obj/Debug/net10.0'
+    obj.mkdir(parents=True)
+    package = tmp_path / 'sdk/packs/Microsoft.NETCore.App.Runtime.Mono.browser-wasm/10.0.14'
+    source = package / 'runtimes/browser-wasm/native/dotnet.native.wasm'
+    (obj / 'staticwebassets.build.json').write_text(json.dumps({'Assets': [{'OriginalItemSpec': str(source)}]}))
+    assert slopweb.runtime_package(runtime) == package
+
+
+def test_runtime_notices_reject_ambiguous_resolved_packs(tmp_path: Path) -> None:
+    obj = tmp_path / 'obj/Debug/net10.0'
+    obj.mkdir(parents=True)
+    assets = [
+        {
+            'OriginalItemSpec': str(
+                tmp_path
+                / 'packs/Microsoft.NETCore.App.Runtime.Mono.browser-wasm'
+                / version
+                / 'runtimes/browser-wasm/native/dotnet.native.wasm'
+            )
+        }
+        for version in ('10.0.14', '10.0.15')
+    ]
+    (obj / 'staticwebassets.build.json').write_text(json.dumps({'Assets': assets}))
+    with pytest.raises(ValueError, match='multiple'):
+        slopweb.runtime_package(tmp_path)

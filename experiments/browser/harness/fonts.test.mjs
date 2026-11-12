@@ -4,7 +4,7 @@ import {fontSelection, fontProvider} from './fonts.mjs';
 import {dynamicFonts} from '../runtime/wwwroot/workspace-fonts.js';
 
 test('host font input rejects invalid sizes, families and densities', () => {
-  for (const value of [{fontSize:7},{uiFontSize:49},{fontName:'a\n'},{fontName:[]},{density:3}])
+  for (const value of [{fontSize:7},{uiFontSize:49},{fontName:'a\n'},{fontName:[]},{density:5}])
     assert.throws(()=>fontSelection(value));
   assert.equal(fontSelection({uiFontSize:0,density:5/3}).uiFontSize,0);
 });
@@ -34,11 +34,12 @@ test('settings bursts coalesce, stale font data never publishes, failures do not
   const first=change('{}');
   await change('{}');
   await change('{"fontName":"new"}');
+  await new Promise(setImmediate);
   resolve({ok:true,json:async()=>({fonts:{},faces:[],chains:{}})});
   await new Promise(setImmediate);
   assert.equal(requests.length,2);
   assert.equal(published.length,0);
-  assert.equal(requests[1].density,5/3);
+  assert.equal(requests[1].density,undefined); // Density is handled synchronously in WASM.
   resolve({ok:true,json:async()=>({fonts:{'a':btoa('font')},faces:[{font:'a',bake:'{"atlas":{"width":1,"height":1}}'}],chains:{}})});
   await first;
   assert.equal(published.length,2);
@@ -65,6 +66,7 @@ test('A to B to A restores cached chains; in-flight A to B to A publishes A once
   const pending=dynamicFonts(probe, ()=>new Promise(done=>{release=done;}));
   const first=pending('{"fontName":"A"}');
   await pending('{"fontName":"B"}'); await pending('{"fontName":"A"}');
+  await new Promise(setImmediate);
   release(response('A')); await first;
   assert.equal(chains.at(-1).family,'A');
 });
@@ -108,11 +110,39 @@ test('font HTTP requires same origin and hides host diagnostics', async () => {
   }
 });
 
-test('slider event debounce requests only the final size', async () => {
-  const {debounceFonts}=await import('../runtime/wwwroot/workspace-fonts.js');
-  const seen=[];
-  const change=debounceFonts(json=>seen.push(json),5);
-  for(let size=8;size<=28;size++) change(String(size));
-  await new Promise(resolve=>setTimeout(resolve,15));
-  assert.deepEqual(seen,['28']);
+test('interactive host glyph requests are rejected', () => {
+  assert.throws(()=>fontSelection({face:{}}), /not supported/);
+});
+
+test('pending font files hold the committed selection and publish only after loading', async () => {
+  let complete;
+  const held=[], committed=[];
+  const a=JSON.stringify({fontName:'A'}), b=JSON.stringify({fontName:'B'});
+  const probe={WorkspaceFontHold:value=>held.push(JSON.parse(value).fontName),
+    WorkspaceFontRestore:value=>committed.push(JSON.parse(value).fontName),
+    WorkspaceFontsReady:()=>{}, WorkspaceFontChains:()=>{}};
+  const change=dynamicFonts(probe,()=>new Promise(resolve=>{complete=resolve;}),()=>1,()=>{}, {selection:a,chains:'{}'});
+  const pending=change(b);
+  assert.deepEqual(held,['A']); assert.deepEqual(committed,[]);
+  await new Promise(setImmediate);
+  complete({ok:true,json:async()=>({fonts:{},faces:[],chains:{B:['B']}})});
+  await pending;
+  assert.deepEqual(committed,['B']);
+});
+
+test('host accepts a complete styled manifest beyond the old sixteen-face limit', async () => {
+  const {mkdtemp,mkdir,writeFile,rm}=await import('node:fs/promises');
+  const {tmpdir}=await import('node:os');
+  const path=await import('node:path');
+  const cache=await mkdtemp(path.join(tmpdir(),'font-manifest-'));
+  const root=path.join(cache,'a'.repeat(64));
+  try {
+    await mkdir(root);
+    await writeFile(path.join(root,'ui.ttf'),'font');
+    await writeFile(path.join(root,'face.json'),'{}');
+    await writeFile(path.join(root,'chains.json'),'{}');
+    await writeFile(path.join(root,'manifest.json'),JSON.stringify(Array.from({length:19},()=>({font:'ui.ttf',bake:'face.json'}))));
+    const provider=fontProvider({helper:'/helper',game:'/game',cache},async()=>({stdout:root}));
+    assert.equal((await provider({uiFontName:'Fira Sans'})).faces.length,19);
+  } finally {await rm(cache,{recursive:true,force:true});}
 });

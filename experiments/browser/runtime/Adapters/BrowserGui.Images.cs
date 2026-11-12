@@ -23,6 +23,14 @@ public sealed partial class BrowserGui
     );
 
     static readonly ConditionalWeakTable<Texture2D, ImageVersion> imageVersions = new();
+    static readonly ConditionalWeakTable<Texture2D, ImageVersion> appendOnlyAtlases = new();
+    readonly Dictionary<int, (int CommandIndex, ImageVersion Identity)> pendingAtlasImages = new();
+
+    // Existing glyph texels never change within one atlas texture. A later upload
+    // can replace its earlier packet definition without changing earlier draws.
+    internal static void RegisterGlyphAtlas(Texture2D texture) =>
+        appendOnlyAtlases.GetOrCreateValue(texture);
+
     readonly Dictionary<int, ImageState> images = new();
     readonly HashSet<int> pendingImages = new();
 
@@ -80,10 +88,27 @@ public sealed partial class BrowserGui
             source
                 .Slice((texture.height - row - 1) * stride, stride)
                 .CopyTo(bytes.AsSpan(row * stride));
-        Emit(
-            "image",
-            new ImageCommand(id, texture.width, texture.height, Convert.ToBase64String(bytes))
+        var image = new ImageCommand(
+            id,
+            texture.width,
+            texture.height,
+            Convert.ToBase64String(bytes)
         );
+        bool appendOnly = appendOnlyAtlases.TryGetValue(texture, out _);
+        if (
+            appendOnly
+            && !SuppressDrawing
+            && pendingAtlasImages.TryGetValue(id, out var pending)
+            && ReferenceEquals(pending.Identity, identity)
+        )
+            commands[pending.CommandIndex] = new Command("image", image);
+        else
+        {
+            int before = commands.Count;
+            Emit("image", image);
+            if (appendOnly && commands.Count == before + 1)
+                pendingAtlasImages[id] = (before, identity);
+        }
         images[id] = new ImageState(
             new WeakReference<Texture2D>(texture),
             identity,
