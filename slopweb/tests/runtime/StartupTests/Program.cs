@@ -28,6 +28,15 @@ static class Check
                 BrowserAdapters.BrowserTransport.BaseUrl == origin + "/host",
                 "Browser origin was not preserved"
             );
+            var socket = BrowserAdapters.BrowserTransport.SocketUri;
+            var source = new Uri(origin);
+            Expect(
+                socket.Scheme == (source.Scheme == "https" ? "wss" : "ws")
+                    && socket.Host == source.Host
+                    && socket.Port == source.Port
+                    && socket.AbsolutePath == "/host/ws",
+                "Socket origin was not preserved"
+            );
         }
         foreach (
             var origin in new[]

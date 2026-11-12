@@ -26,6 +26,12 @@ public static class BrowserTransport
 
     public static string BaseUrl { get; private set; } = "";
 
+    public static Uri SocketUri =>
+        new UriBuilder(BaseUrl + "/ws")
+        {
+            Scheme = new Uri(BaseUrl).Scheme == "https" ? "wss" : "ws",
+        }.Uri;
+
     public static void Configure(string origin)
     {
         var uri = new Uri(origin);

@@ -13,7 +13,7 @@ URL: https://github.com/droserasprout/slopworld
 ExclusiveArch: x86_64 aarch64
 Requires: nodejs >= 22
 Requires: python3 >= 3.11
-Requires: dotnet-runtime-10.0
+Requires: dotnet-sdk-10.0
 Requires: fontconfig
 Suggests: slopd
 

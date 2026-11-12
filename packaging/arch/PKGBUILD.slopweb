@@ -6,7 +6,7 @@ pkgdesc='Local browser Eco workspace for SlopWorld coding agents'
 arch=('x86_64')
 url='https://github.com/droserasprout/slopworld'
 license=('MIT')
-depends=('nodejs>=22' 'python>=3.11' 'dotnet-runtime>=10' 'fontconfig')
+depends=('nodejs>=22' 'python>=3.11' 'dotnet-sdk>=10' 'fontconfig')
 optdepends=('slopd: local agent session daemon')
 options=('!strip' '!debug')
 source=()

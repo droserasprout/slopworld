@@ -228,17 +228,19 @@ def main() -> None:
         cache = application_paths.expand(args.cache, os.environ) if args.cache is not None else paths.web_cache
         env = environment(args) if not args.prepare else os.environ.copy()
         env['SLOPWORLD_PROFILE'] = str(paths.profile)
+        sdk = args.aot_sdk or os.environ.get('SLOPWEB_AOT_SDK') or shutil.which('dotnet')
+        if not sdk:
+            raise ValueError('Mixed AOT requires .NET 10 SDK with wasm-tools; select --aot-sdk PATH')
+        # Validate before expensive game preparation; installed launchers never provision SDKs.
+        aot.toolchain(Path(sdk))
         root = prepare(bundle, game, cache, args.rebuild, paths.profile)
-        if not args.interpreted:
-            sdk = args.aot_sdk or os.environ.get('SLOPWEB_AOT_SDK') or shutil.which('dotnet')
-            if not sdk:
-                raise ValueError(
-                    'Mixed AOT requires .NET 10 with wasm-tools; select --aot-sdk PATH or use --interpreted'
-                )
-            root = aot.prepare(bundle, root, cache, Path(sdk))
+        root = aot.prepare(bundle, root, cache, Path(sdk))
         if args.prepare:
             print(f'Prepared local runtime: {root}')
             return
+        env.pop('SLOPWEB_PUBLIC_ORIGIN', None)
+        if args.public_origin:
+            env['SLOPWEB_PUBLIC_ORIGIN'] = args.public_origin
         env.update(
             SLOPWEB_FONT_GAME=str(game),
             SLOPWEB_FONT_CACHE=str(cache / 'fonts' / root.name),

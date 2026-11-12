@@ -3,10 +3,10 @@
 import http from 'node:http';
 import https from 'node:https';
 
-export function daemonSocket(req, socket, head, daemon) {
+export function daemonSocket(req, socket, head, daemon, origin = `http://${req.headers.host}`) {
   const reject = (status = 403) => socket.end(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
   if (req.url !== '/host/ws' || req.method !== 'GET' ||
-      req.headers.origin !== `http://${req.headers.host}` ||
+      req.headers.origin !== origin ||
       req.headers['sec-websocket-protocol'] !== 'slopworld.protobuf.v2' ||
       req.headers['sec-websocket-version'] !== '13' ||
       !/^[A-Za-z0-9+/]{22}==$/.test(req.headers['sec-websocket-key'] ?? '')) {
