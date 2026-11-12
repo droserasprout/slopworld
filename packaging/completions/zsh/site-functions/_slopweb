@@ -1,0 +1,33 @@
+#compdef slopweb
+_slopweb() {
+    local context state state_descr line
+    typeset -A opt_args
+    _arguments -C \
+        '-h[show this help message and exit]' \
+        '--help[show this help message and exit]' \
+        '-V[show programs version number and exit]' \
+        '--version[show programs version number and exit]' \
+        '--game[RimWorld install (SLOPWORLD_GAME, game.toml, usual locations)]:value:_files' \
+        '--port[]:value:_files' \
+        '--endpoint[Saved daemon endpoint name (default: local)]:value:_files' \
+        '--url[Daemon URL; requires --token-file]:value:_files' \
+        '--token-file[Read a host-only daemon token file]:value:_files' \
+        '--cache[Private browser runtime cache (default: XDG_CACHE_HOME/slopweb)]:value:_files' \
+        '--profile[Profile directory (default: SLOPWORLD_PROFILE or endpoint profile)]:value:_files' \
+        '--sidecar[Use sidecar paths]' \
+        '--prepare[Prepare local game assets and exit]' \
+        '--rebuild[Refresh local game data after a game update]' \
+        '--interpreted[Use the interpreter instead of default mixed AOT]' \
+        '--aot-sdk[Select the .NET 10 SDK with wasm-tools (default: SLOPWEB_AOT_SDK or dotnet on PATH)]:value:_files' \
+        '1:command:->command' \
+        '*:value:->value'
+    case $state in
+        command) compadd paths completions ;;
+        value)
+            case $line[1] in
+                paths) compadd config data cache endpoint profile game-log web-cache game ;;
+                completions) compadd bash zsh fish ;;
+            esac ;;
+    esac
+}
+_slopweb "$@"

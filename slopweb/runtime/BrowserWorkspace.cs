@@ -338,6 +338,19 @@ public partial class Probe
         (bool)
             Invoke("Adapters", "BrowserAdapters.BrowserUnderlyingWorkspace", "BackgroundVisible")!;
 
+    [JSExport]
+    public static float WorkspaceBackgroundDimming()
+    {
+        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
+        return (float)
+            Invoke(
+                "Adapters",
+                "BrowserAdapters.BrowserPreferences",
+                "BackgroundDimming",
+                settings
+            )!;
+    }
+
     // Observe the catalog without calling SidebarScopes.Update: diagnostics must
     // not accidentally reconcile the very stale state being investigated.
     [JSExport]

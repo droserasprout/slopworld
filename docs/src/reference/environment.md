@@ -32,16 +32,18 @@ options take precedence where available. Build recipe settings belong to
 | `SLOPD_USAGE_URL` | Daemon | `https://api.anthropic.com/api/oauth/usage` | Anthropic usage endpoint. |
 | `SLOPWORLD_DAEMON_UNIT` | `slopctl logs` | `slopd.service` | Systemd user unit to read. |
 | `SLOPWORLD_DEBUG` | Daemon, mod | Disabled | Enables performance and terminal-latency instrumentation with `1` or `true` (case-insensitive). |
-| `SLOPWORLD_GAME` | `slopworld` | Saved or discovered game directory | Game directory when `--game` is absent. |
+| `SLOPWORLD_GAME` | `slopworld`, `slopweb` | Saved or discovered game directory | Game directory when `--game` is absent. |
 | `SLOPWORLD_GAME_LOG` | Launcher, `slopctl logs`, `just logs` | `<CACHE>/Player.log` | File where the launcher captures game stdout and stderr; sidecar defaults to `<CACHE>/sidecar/Player.log`. |
-| `SLOPWORLD_PROFILE` | `slopworld` | `<DATA>/profiles/<name>` | Override the selected peer’s profile when `--profile` is absent; sidecar profiles use `<DATA>/sidecar/profiles/<name>`. |
+| `SLOPWORLD_PROFILE` | `slopworld`, `slopweb` | `<DATA>/profiles/<name>` | Override the selected peer’s profile when `--profile` is absent; sidecar profiles use `<DATA>/sidecar/profiles/<name>`. |
 | `SLOPWORLD_PROJECT` | Session commands | Set by daemon | Project name supplied to agent and host-shell processes; the default for `slopctl --project` options. |
 | `SLOPWORLD_SESSION` | `slopctl` | `host` | Caller identity; supplied by the daemon to agent and host-shell processes. |
 | `SLOPWORLD_TASK_ID` | `slopctl` | Set for workers | Task ID used when a task command omits it. |
 
 [^paths]: Use absolute paths and the same roots for processes sharing an installation.
     Host `slopcar` also reads these roots and derives its paths beneath them;
-    container paths stay fixed. See [Sidecar mode](../installation/sidecar.md).
+    container paths stay fixed. `slopweb` reads the same roots for endpoint and
+    profile discovery; its browser runtime cache remains separate.
+    See [Sidecar mode](../installation/sidecar.md).
 
 [^connection]: The daemon publishes the local descriptor; `slopworld connect` stores
     named endpoints without changing the default `local` endpoint. `--endpoint NAME` overrides environment

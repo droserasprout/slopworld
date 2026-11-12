@@ -80,7 +80,7 @@ generate-fileicons:
 # Generate Bash, Zsh and Fish completions from the CLI command trees
 [group('generate')]
 generate-completions: daemon-build sidecar-build
-    uv run --locked python -m tools.cli_completions generate slopctl slopworld slopcar
+    uv run --locked python -m tools.cli_completions generate slopctl slopworld slopcar slopweb
 
 # Generate the geometric agent clown-nose overlay
 [group('generate')]

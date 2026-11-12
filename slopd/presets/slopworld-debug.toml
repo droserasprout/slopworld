@@ -3,13 +3,23 @@ name = "slopworld-debug"
 description = "Full SlopWorld game and mod development: game files, profile, displays, devices, desktop services, diagnostics and build caches"
 warning_level = "host_control"
 requires = ["slopworld-dev", "docker", "systemd", "wayland", "x11"]
+# Host browser preparation reuses private game/runtime data in this dedicated cache.
+# Launch creates missing cache directories; host SDKs remain read-only.
+cache = ["~/.cache/slopweb", "$XDG_CACHE_HOME/slopweb"]
 # These paths are writable so the debug agent can build and install the mod, run the game, and edit the profile.
 # The project directory has separate write access.
 rw = [
+    # Recipe overrides remain existing-only binds, including file-valued LOG.
+    "$BIN",
+    "$UNITS",
+    "$MODS",
+    "$PROFILE",
+    "$LOG",
     "$SLOPWORLD_PROFILE",
-    "$SLOPD_DATA/profile",
-    "$XDG_DATA_HOME/slopworld/profile",
-    "~/.local/share/slopworld/profile",
+    "$SLOPD_DATA/profiles",
+    "$XDG_DATA_HOME/slopworld/profiles",
+    "~/.local/share/slopworld/profiles",
+    "$RIMWORLD",
     "$SLOPWORLD_GAME",
     "~/RimWorld/game",
     "~/GOG Games/RimWorld/game",
@@ -58,6 +68,11 @@ tmux = true
 daemon_config = true
 escapes = "Can use the daemon root credential, control host terminals, start processes outside the sandbox, and modify host game files and profiles"
 env = [
+    "BIN",
+    "UNITS",
+    "MODS",
+    "PROFILE",
+    "LOG",
     "SLOPWORLD_PROFILE",
     "SLOPWORLD_GAME_LOG",
     "SLOPWORLD_DAEMON_UNIT",
@@ -66,6 +81,11 @@ env = [
     "SLOPD_CACHE",
     "SLOPCAR_CONTAINER",
     "SLOPCAR_PORT",
+    "SLOPCAR_IMAGE",
+    "SLOPCAR_MEMORY",
+    "SLOPCAR_CPUS",
+    "SLOPCAR_PIDS_LIMIT",
+    "SLOPCAR_WORKSPACE",
     "XDG_CACHE_HOME",
     "XDG_DATA_HOME",
     "XDG_CONFIG_HOME",

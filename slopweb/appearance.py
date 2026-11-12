@@ -9,12 +9,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from application_paths import profile_path
 
-def preferences() -> dict[str, Any]:
-    data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/share')))
-    profile = data / 'slopworld/profiles/local/Config/SlopWorld.toml'
-    values = tomllib.loads(profile.read_text()) if profile.is_file() else {}
-    allowed = {
+# Keep this boundary aligned with BrowserPreferences.Allowed; the contract test
+# checks both copies so installed Python never needs repository C# sources.
+PRESENTATION_PREFERENCES = frozenset(
+    {
         'sidebarHidden',
         'sidebarWidth',
         'sidebarOpenFilesVisible',
@@ -36,8 +36,31 @@ def preferences() -> dict[str, Any]:
         'cursor',
         'cursorGrayscale',
         'visualEffects',
+        'sidebarShowHidden',
+        'sidebarShowGitignored',
+        'cursorColor',
+        'smoothScrolling',
+        'statusbarUsage',
+        'statusbarSummaryPosition',
+        'statusbarClockPosition',
+        'statusbarPlanner',
+        'statusbarJukebox',
+        'statusbarGM',
+        'statusbarAgentIndicators',
+        'timeZone',
+        'timeFormat',
+        'dateFormat',
+        'ecoDim',
     }
-    result = {key: value for key, value in values.items() if key in allowed}
+)
+
+
+def preferences(profile: Path | None = None) -> dict[str, Any]:
+    """Import presentation from an explicitly selected or default profile directory."""
+    profile = profile if profile is not None else profile_path(os.environ)
+    settings = profile / 'Config/SlopWorld.toml'
+    values = tomllib.loads(settings.read_text()) if settings.is_file() else {}
+    result = {key: value for key, value in values.items() if key in PRESENTATION_PREFERENCES}
     # Display-only input for native abbreviated cwd titles; never a mounted path.
     result['hostHome'] = str(Path.home())
     return result

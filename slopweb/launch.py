@@ -4,7 +4,6 @@ import argparse
 import fcntl
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +12,8 @@ import uuid
 from pathlib import Path
 
 import aot
+import application_paths
+import cli
 from appearance import preferences
 from appearance import prepare_fonts
 from appearance import write_preferences
@@ -33,9 +34,9 @@ def input_files(root: Path, *names: str) -> dict[str, Path]:
     return result
 
 
-def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False) -> Path:
+def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False, profile: Path | None = None) -> Path:
     """Compose immutable phase outputs under one preparation transaction lock."""
-    appearance = preferences()
+    appearance = preferences(profile) if profile is not None else preferences()
     game_dlls = {p.name: p for p in game.glob('*.dll')}
     native = {p.name: p for p in game.glob('*.so*') if p.is_file()}
     managed_inputs = input_files(bundle, 'scanner', 'offline', 'Probe.dll', 'Adapters.dll')
@@ -169,17 +170,16 @@ def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False) -> Pat
 def environment(args: argparse.Namespace) -> dict[str, str]:
     """Read the established endpoint descriptor only on the host."""
     env = os.environ.copy()
-    config = Path(
-        env.get('SLOPD_CONFIG_ROOT', str(Path(env.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'slopworld'))
-    ).expanduser()
+    paths = application_paths.resolve(
+        env, args.endpoint, getattr(args, 'profile', None), getattr(args, 'sidecar', False)
+    )
+    env['SLOPWORLD_PROFILE'] = str(paths.profile)
     env.pop('SLOPWEB_ENDPOINT_FILE', None)
     env.pop('SLOPWEB_TOKEN_FILE', None)
     if args.endpoint is not None:
         if args.token_file or getattr(args, 'url', None):
             raise ValueError('--endpoint cannot be combined with --url or --token-file')
-        if not re.fullmatch(r'[A-Za-z0-9_-]+', args.endpoint):
-            raise ValueError("endpoint name must contain only letters, digits, '-' or '_'")
-        descriptor = config / 'endpoints' / (args.endpoint + '.toml')
+        descriptor = paths.endpoint
     elif getattr(args, 'url', None) or args.token_file:
         if not getattr(args, 'url', None) or not args.token_file:
             raise ValueError('--url and --token-file must be supplied together')
@@ -191,7 +191,7 @@ def environment(args: argparse.Namespace) -> dict[str, str]:
         connection(env)
         return env
     else:
-        descriptor = Path(env.get('SLOPD_ENDPOINT', str(config / 'endpoints/local.toml'))).expanduser()
+        descriptor = paths.endpoint
     env.pop('SLOPD_URL', None)
     env.pop('SLOPD_TOKEN', None)
     env['SLOPWEB_ENDPOINT_FILE'] = str(descriptor.resolve())
@@ -200,49 +200,48 @@ def environment(args: argparse.Namespace) -> dict[str, str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        '--game',
-        type=Path,
-        default=Path(os.environ.get('RIMWORLD', str(Path.home() / '.local/share/Steam/steamapps/common/RimWorld'))),
-    )
-    parser.add_argument('--port', type=int, default=8787)
-    parser.add_argument('--endpoint', help='Saved daemon endpoint name (default: local)')
-    parser.add_argument('--url', help='Daemon URL; requires --token-file')
-    parser.add_argument('--token-file', help='Read a host-only daemon token file')
-    parser.add_argument(
-        '--cache', type=Path, default=Path(os.environ.get('XDG_CACHE_HOME', str(Path.home() / '.cache'))) / 'slopweb'
-    )
-    parser.add_argument('--prepare', action='store_true', help='Prepare local game assets and exit')
-    parser.add_argument('--rebuild', action='store_true', help='Refresh local game data after a game update')
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument('--interpreted', action='store_true', help='Use the interpreter instead of default mixed AOT')
-    mode.add_argument(
-        '--aot-sdk',
-        type=Path,
-        help='Select the .NET 10 SDK with wasm-tools (default: SLOPWEB_AOT_SDK or dotnet on PATH)',
-    )
+    parser = cli.parser()
     args = parser.parse_args()
+    if args.command == 'completions':
+        print(cli.completion_script(args.shell), end='')
+        return
+    if args.command == 'paths':
+        try:
+            paths = application_paths.resolve(endpoint=args.endpoint, profile=args.profile, sidecar=args.sidecar)
+            if args.name == 'game':
+                selected = application_paths.game_directory(args.game)
+            elif args.name == 'web-cache' and args.cache is not None:
+                selected = application_paths.expand(args.cache, os.environ)
+            else:
+                selected = paths.query(args.name)
+            print(selected)
+        except (OSError, ValueError) as error:
+            parser.exit(1, f'slopweb: {error}\n')
+        return
     if not 1 <= args.port <= 65535:
         parser.error('--port must be between 1 and 65535')
     os.umask(0o077)
     bundle = Path(__file__).resolve().parent
     try:
+        paths = application_paths.resolve(endpoint=args.endpoint, profile=args.profile, sidecar=args.sidecar)
+        game = application_paths.game_directory(args.game)
+        cache = application_paths.expand(args.cache, os.environ) if args.cache is not None else paths.web_cache
         env = environment(args) if not args.prepare else os.environ.copy()
-        root = prepare(bundle, args.game.expanduser().resolve(), args.cache.expanduser().resolve(), args.rebuild)
+        env['SLOPWORLD_PROFILE'] = str(paths.profile)
+        root = prepare(bundle, game, cache, args.rebuild, paths.profile)
         if not args.interpreted:
             sdk = args.aot_sdk or os.environ.get('SLOPWEB_AOT_SDK') or shutil.which('dotnet')
             if not sdk:
                 raise ValueError(
                     'Mixed AOT requires .NET 10 with wasm-tools; select --aot-sdk PATH or use --interpreted'
                 )
-            root = aot.prepare(bundle, root, args.cache.expanduser().resolve(), Path(sdk))
+            root = aot.prepare(bundle, root, cache, Path(sdk))
         if args.prepare:
             print(f'Prepared local runtime: {root}')
             return
         env.update(
-            SLOPWEB_FONT_GAME=str(args.game.expanduser().resolve()),
-            SLOPWEB_FONT_CACHE=str(args.cache.expanduser().resolve() / 'fonts' / root.name),
+            SLOPWEB_FONT_GAME=str(game),
+            SLOPWEB_FONT_CACHE=str(cache / 'fonts' / root.name),
         )
         print(f'Open http://127.0.0.1:{args.port}{PAGE}', flush=True)
         os.execvpe('node', ['node', str(bundle / 'server/server.mjs'), str(root), str(args.port)], env)

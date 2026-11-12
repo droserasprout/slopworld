@@ -87,6 +87,17 @@ selected file. It passes `-NoFileLog` to disable the game's separate file logger
 `slopctl logs game` and `just logs` use the same default and environment override.
 Each launch replaces the log.
 
+## Browser workspace
+
+`slopweb` uses the same application roots, saved game directory, endpoint discovery,
+and profile selection. It reads presentation preferences from the selected profile
+without modifying it. Browser settings changes remain in browser storage.
+
+Its private compiled runtimes and game-derived assets live under
+`$XDG_CACHE_HOME/slopweb` (default `~/.cache/slopweb`), independently of `SLOPD_CACHE`.
+`--cache` overrides this browser cache. Use `slopweb paths NAME` to inspect shared
+paths, `paths web-cache` for the browser cache, and `paths game` for game discovery.
+
 ## tmux
 
 The default named socket is `slopworld`. `SLOPD_TMUX_SOCKET` overrides the name;

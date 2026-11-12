@@ -142,7 +142,7 @@ def test_failed_build_cannot_package(
         if failed_stage == 2:
             assert run.call_args.args[0][-2:] == ['mod-build', 'rimref']
         if failed_stage == 3:
-            assert run.call_args.args[0][-1] == 'slopweb-build'
+            assert run.call_args.args[0][-1] == 'web-build'
 
 
 def test_web_ci_uses_resolved_commit_and_only_product_game_free_checks() -> None:
@@ -157,7 +157,7 @@ def test_web_ci_uses_resolved_commit_and_only_product_game_free_checks() -> None
     assert commands == [
         'just ci-web',
         'dotnet workload install wasm-tools',
-        'just slopweb-local-fonts-sdk\njust slopweb-build\n',
+        'just web-local-fonts-sdk\njust web-build\n',
     ]
     result = subprocess.run(['just', '--dry-run', 'ci-web'], cwd=ROOT, capture_output=True, text=True, check=True)
     assert 'node --test' in result.stderr
@@ -190,6 +190,10 @@ def test_release_workflow_gates_publication_and_downloads_exact_artifact() -> No
     assert jobs['package']['permissions']['contents'] == 'read'
     assert jobs['publish']['permissions']['contents'] == 'write'
     assert workflow['concurrency']['cancel-in-progress'] == 'false'
+    commands = [step['run'] for step in jobs['package']['steps'] if 'run' in step]
+    package = commands.index('just release-ci-package "$MODE"')
+    assert commands.index('just web-local-fonts-sdk') < package
+    assert commands.index('dotnet workload install wasm-tools') < package
 
 
 @pytest.mark.parametrize('state', ['published', 'missing', 'moved', 'matching'])

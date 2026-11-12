@@ -56,7 +56,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
       if (!managed.WorkspaceBackgroundVisible() || !background) return;
       background.advance(performance.now()/1000-backgroundStarted);
       context.save();context.setTransform(scale,0,0,scale,0,0);
-      background.draw(context,canvas.width/scale,canvas.height/scale);
+      background.draw(context,canvas.width/scale,canvas.height/scale,managed.WorkspaceBackgroundDimming());
       context.restore();
     },
     get profileFrame() { return profile ? recordFrame : null; },

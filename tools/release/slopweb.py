@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -11,11 +12,22 @@ import zipfile
 from pathlib import Path
 
 from tools import ROOT
+from tools import cli_completions
 from tools.release.staging import copy_file
+from tools.release.staging import metadata
 from tools.utils import run
 from tools.utils import run_main
+from tools.version.metadata import package_version
+from tools.version.resolve import from_git
 
 OUTPUT = ROOT / 'slopweb/out'
+OWNED = (
+    'bin/slopweb',
+    'share/slopweb',
+    'share/doc/slopweb',
+    'share/licenses/slopweb',
+    *(str(Path('share') / cli_completions.relative_path(shell, 'slopweb')) for shell in cli_completions.SHELLS),
+)
 
 # Reviewed authored inputs only. Never copy a compiler/build directory wholesale.
 AOT_SOURCES = (
@@ -84,6 +96,12 @@ def runtime_package(runtime: Path) -> Path:
     raise ValueError('Cannot locate the browser runtime pack used by this build')
 
 
+def build_identity() -> tuple[str, str]:
+    version = os.environ.get('VERSION') or from_git(package_version(ROOT), ROOT)
+    revision = run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    return revision, version
+
+
 def build(destination: Path = OUTPUT) -> None:
     runtime = ROOT / 'slopweb/runtime'
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -92,6 +110,8 @@ def build(destination: Path = OUTPUT) -> None:
         bundle.mkdir()
         for source, target in (
             (ROOT / 'slopweb/launch.py', 'launch.py'),
+            (ROOT / 'slopweb/application_paths.py', 'application_paths.py'),
+            (ROOT / 'slopweb/cli.py', 'cli.py'),
             (ROOT / 'slopweb/endpoint.py', 'endpoint.py'),
             (ROOT / 'slopweb/aot.py', 'aot.py'),
             (ROOT / 'slopweb/appearance.py', 'appearance.py'),
@@ -119,7 +139,7 @@ def build(destination: Path = OUTPUT) -> None:
                 copy_file(path, bundle / 'web' / path.name)
         for name in ('local-fonts.mjs', 'local-fonts.wasm', 'local-fonts.LICENSE.txt'):
             if not (bundle / 'web' / name).is_file():
-                raise ValueError('Missing local font rasterizer; run just slopweb-local-fonts-build')
+                raise ValueError('Missing local font rasterizer; run just web-local-fonts-build')
         for source, target in (
             (runtime / 'Scanner/bin/Debug/net10.0', 'scanner'),
             (ROOT / 'slopweb/offline/bin/Debug/net10.0', 'offline'),
@@ -146,6 +166,7 @@ def build(destination: Path = OUTPUT) -> None:
         package = runtime_package(runtime)
         for name in ('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT'):
             copy_file(package / name, bundle / 'licenses/dotnet' / name)
+        metadata(bundle, *build_identity())
         digest = hashlib.sha256()
         for path in sorted(bundle.rglob('*')):
             if path.is_file():
@@ -161,14 +182,15 @@ def build(destination: Path = OUTPUT) -> None:
 
 def stage(payload: Path, revision: str, version: str, bundle: Path = OUTPUT) -> None:
     if not (bundle / 'BUILD_ID').is_file():
-        raise ValueError('Missing slopweb build; run just slopweb-build')
+        raise ValueError('Missing slopweb build; run just web-build')
     shutil.copytree(bundle, payload / 'usr/share/slopweb')
+    metadata(payload / 'usr/share/slopweb', revision, version)
     copy_file(ROOT / 'slopweb/slopweb', payload / 'usr/bin/slopweb')
     (payload / 'usr/bin/slopweb').chmod(0o755)
+    cli_completions.stage(ROOT / 'packaging/completions', payload / 'usr/share', ('slopweb',))
     documentation = payload / 'usr/share/doc/slopweb'
     copy_file(ROOT / 'slopweb/README.md', documentation / 'README.md')
-    (documentation / 'VERSION').write_text(version + '\n')
-    (documentation / 'REVISION').write_text(revision + '\n')
+    metadata(documentation, revision, version)
     copy_file(ROOT / 'LICENSE', payload / 'usr/share/licenses/slopweb/LICENSE')
     shutil.copytree(ROOT / 'licenses', payload / 'usr/share/licenses/slopweb/third-party')
 
@@ -176,7 +198,7 @@ def stage(payload: Path, revision: str, version: str, bundle: Path = OUTPUT) -> 
 def install(prefix: Path, uninstall: bool = False) -> None:
     # Install owns these paths only. Private generated caches and daemon config
     # are independent and deliberately survive uninstall.
-    owned = ('bin/slopweb', 'share/slopweb', 'share/doc/slopweb', 'share/licenses/slopweb')
+    owned = OWNED
     if uninstall:
         for relative in owned:
             path = prefix / relative
@@ -185,18 +207,40 @@ def install(prefix: Path, uninstall: bool = False) -> None:
             elif path.is_dir():
                 shutil.rmtree(path)
         return
-    with tempfile.TemporaryDirectory(prefix='slopweb-install-') as temporary:
+    # Prepare on the destination filesystem before touching any installed path.
+    # Rename whole owned trees so removed bundle files cannot survive an upgrade.
+    prefix.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='.slopweb-install-', dir=prefix) as temporary:
         payload = Path(temporary)
-        stage(payload, 'source', 'local')
+        stage(payload, (OUTPUT / 'REVISION').read_text().strip(), (OUTPUT / 'VERSION').read_text().strip())
         for relative in owned:
-            source, destination = payload / 'usr' / relative, prefix / relative
-            if destination.is_symlink():
-                raise ValueError(f'Refusing to replace symlink: {destination}')
+            destination = prefix / relative
+            for path in (Path(relative), *Path(relative).parents):
+                candidate = prefix / path
+                if candidate.is_symlink():
+                    raise ValueError(f'Refusing to replace symlink: {candidate}')
             destination.parent.mkdir(parents=True, exist_ok=True)
-            if source.is_dir():
-                shutil.copytree(source, destination, dirs_exist_ok=True)
-            else:
-                shutil.copy2(source, destination)
+        changed: list[tuple[Path, Path | None]] = []
+        try:
+            for relative in owned:
+                source, destination = payload / 'usr' / relative, prefix / relative
+                backup = payload / 'previous' / relative if destination.exists() else None
+                if backup is not None:
+                    backup.parent.mkdir(parents=True, exist_ok=True)
+                    destination.rename(backup)
+                changed.append((destination, backup))
+                source.rename(destination)
+        except BaseException:
+            # A failed handoff restores every previously installed owner, including
+            # the one whose new source could not be published.
+            for destination, backup in reversed(changed):
+                if destination.is_dir():
+                    shutil.rmtree(destination)
+                else:
+                    destination.unlink(missing_ok=True)
+                if backup is not None:
+                    backup.rename(destination)
+            raise
 
 
 def main() -> None:

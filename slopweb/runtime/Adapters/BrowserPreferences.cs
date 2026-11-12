@@ -65,7 +65,14 @@ public static class BrowserPreferences
         "timeZone",
         "timeFormat",
         "dateFormat",
+        "ecoDim",
     ];
+
+    public static float BackgroundDimming(object settings)
+    {
+        float dim = (float)Field(settings, "ecoDim").GetValue(settings)!;
+        return float.IsFinite(dim) ? Math.Clamp(dim, 0f, 0.8f) : 0.3f;
+    }
 
     public static void Changed(object settings)
     {
@@ -135,7 +142,12 @@ public static class BrowserPreferences
                     && value.TryGetSingle(out var number)
                     && float.IsFinite(number)
                     && number >= 0
-                    && number <= (name == "sidebarWidth" ? 7680 : 1)
+                    && number
+                        <= (
+                            name == "sidebarWidth" ? 7680
+                            : name == "ecoDim" ? 0.8f
+                            : 1
+                        )
                 )
                     field.SetValue(settings, number);
             }

@@ -22,6 +22,21 @@ static class Check
             uiScheme = "slopworld-cool",
             fontSize = 19,
             sidebarHidden = true,
+            sidebarShowHidden = true,
+            sidebarShowGitignored = true,
+            cursorColor = "#abcdef",
+            smoothScrolling = false,
+            statusbarUsage = false,
+            statusbarSummaryPosition = StatusbarSummaryMode.Center,
+            statusbarClockPosition = StatusbarClockMode.Hidden,
+            statusbarPlanner = false,
+            statusbarJukebox = false,
+            statusbarGM = false,
+            statusbarAgentIndicators = false,
+            timeZone = "UTC",
+            timeFormat = TimeFormat.TwelveHour,
+            dateFormat = DateFormat.DayFirst,
+            ecoDim = 0.65f,
             autoConnect = false,
             commandPaletteHistory = "secret-command",
             radio = "secret-station",
@@ -58,6 +73,40 @@ static class Check
                 && !restored.stopSessionsOnExit,
             "Non-presentation settings changed"
         );
+        Expect(
+            restored.sidebarShowHidden
+                && restored.sidebarShowGitignored
+                && restored.cursorColor == "#abcdef"
+                && !restored.smoothScrolling
+                && !restored.statusbarUsage
+                && restored.statusbarSummaryPosition == StatusbarSummaryMode.Center
+                && restored.statusbarClockPosition == StatusbarClockMode.Hidden
+                && !restored.statusbarPlanner
+                && !restored.statusbarJukebox
+                && !restored.statusbarGM
+                && !restored.statusbarAgentIndicators
+                && restored.timeZone == "UTC"
+                && restored.timeFormat == TimeFormat.TwelveHour
+                && restored.dateFormat == DateFormat.DayFirst
+                && BrowserPreferences.BackgroundDimming(restored) == 0.65f,
+            "Extended presentation preferences did not round trip"
+        );
+        foreach (string invalid in new[] { "-0.1", "0.81", "1e99", "null", "\"dark\"" })
+        {
+            BrowserPreferences.Apply(restored, "{\"ecoDim\":" + invalid + "}");
+            Expect(restored.ecoDim == 0.65f, "Malformed dimming changed the backdrop");
+        }
+        foreach (float dim in new[] { 0f, 0.8f })
+        {
+            settings.ecoDim = dim;
+            BrowserPreferences.Write(settings);
+            BrowserPreferences.Apply(restored, saved);
+            Expect(BrowserPreferences.BackgroundDimming(restored) == dim, "Dimming limit lost");
+        }
+        restored.ecoDim = float.NaN;
+        Expect(BrowserPreferences.BackgroundDimming(restored) == 0.3f, "Invalid dimming escaped");
+        restored.ecoDim = 10;
+        Expect(BrowserPreferences.BackgroundDimming(restored) == 0.8f, "Dimming was not bounded");
         BrowserPreferences.Apply(
             restored,
             """{"uiScheme":"custom","token":"secret","autoConnect":false,"commandPaletteHistory":"do-it","fontSize":"large","uiFontSize":999,"sidebarWidth":1e99,"sidebarFilesOpenFraction":-1,"cursorGrayscale":null} """

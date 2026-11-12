@@ -137,14 +137,15 @@ mounts; an existing process retains its original Android directory.
 ## SlopWorld development
 
 Use `slopworld-dev` for editing, builds, and game-free tests. It provides read-only
-RimWorld files from `SLOPWORLD_GAME` or the standard installation locations, plus
-Git configuration, Python packages, .NET and Rust tooling, and shared compiler
+RimWorld files from `SLOPWORLD_GAME`, `RIMWORLD`, `MANAGED`, or the standard
+installation locations, plus user fonts, the source-installed browser launcher
+payload, Git configuration, Node, Python, .NET and Rust tooling, and shared compiler
 caches. Rust access comes through `rust-sccache`, including writable installed
 toolchains from `rust-cache`. The project directory supplies write access for
 source and build outputs.
 
 `slopworld-debug` depends on `slopworld-dev` and adds installation and live debugging:
-writable game files, profiles and host installation directories, desktop services,
+writable game files, profiles, browser caches and host installation directories, desktop services,
 Docker, host terminals, and the daemon root credential. Select it only when those
 host-control capabilities are needed. The base preset does not grant them;
 other selected presets and the implicit global preset still contribute access.

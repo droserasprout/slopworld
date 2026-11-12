@@ -64,7 +64,7 @@ def build(release: Release) -> None:
         ('test',),
         ('generate-check-protocol', 'generate-check-licenses', 'docs-build'),
         ('build',),
-        ('slopweb-build',),
+        ('web-build',),
     ):
         run([*command, *recipes])
         validate(release)

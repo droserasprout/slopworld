@@ -184,8 +184,8 @@ jobs:
 
       - name: Build redistributable browser bundle without installed game files
         run: |
-          just slopweb-local-fonts-sdk
-          just slopweb-build
+          just web-local-fonts-sdk
+          just web-build
 
   mod:
     name: C#

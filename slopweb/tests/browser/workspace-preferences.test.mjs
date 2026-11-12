@@ -23,10 +23,13 @@ test('native snapshot survives a reload and overlays initial host defaults', () 
   const first = fixture();
   installWorkspacePreferences(first.probe, first.view);
   assert.deepEqual(first.loaded(), {});
-  first.save({uiScheme: 'custom', sidebarHidden: true, fontSize: 19});
+  const preferences = {uiScheme: 'custom', sidebarHidden: true, fontSize: 19, ecoDim: .65,
+    cursorColor: '#abcdef', smoothScrolling: false, statusbarClockPosition: 'hidden',
+    timeZone: 'UTC', timeFormat: '12-hour', dateFormat: 'dd/MM/yyyy'};
+  first.save(preferences);
   const second = fixture(first.stored());
   installWorkspacePreferences(second.probe, second.view);
-  assert.deepEqual(second.loaded(), {uiScheme: 'custom', sidebarHidden: true, fontSize: 19});
+  assert.deepEqual(second.loaded(), preferences);
 });
 
 test('malformed, oversized and unknown version snapshots keep defaults', () => {

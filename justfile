@@ -18,11 +18,11 @@ install: daemon-install install-mod
 # Install Bash, Zsh and Fish completions for all clients into user data directories
 [group('Build and run')]
 install-completions:
-    uv run --locked python -m tools.cli_completions install slopctl slopworld slopcar
+    uv run --locked python -m tools.cli_completions install slopctl slopworld slopcar slopweb
 
 # Remove ordinary build and coverage output
 [group('Build and run')]
-clean: sidecar-clean daemon-clean mod-clean slopweb-clean clean-coverage
+clean: sidecar-clean daemon-clean mod-clean web-clean clean-coverage
 
 # Remove installed files; preserve config and saves
 [group('Build and run')]
@@ -30,15 +30,15 @@ uninstall: daemon-uninstall cli-uninstall uninstall-mod
 
 # Format Python, Rust and C# sources
 [group('Check and fix')]
-format: sidecar-format tools-format daemon-format mod-format slopweb-format
+format: sidecar-format tools-format daemon-format mod-format web-format
 
 # Check sources without rewriting them
 [group('Check and fix')]
-lint: sidecar-lint tools-lint daemon-lint mod-lint slopweb-lint
+lint: sidecar-lint tools-lint daemon-lint mod-lint web-lint
 
 # Run regular game-free tests
 [group('Check and fix')]
-test: daemon-test sidecar-test mod-test test-tools slopweb-test-runtime slopweb-test-server
+test: daemon-test sidecar-test mod-test test-tools web-test-runtime web-test-server
 
 # Run all game-free Python, pager and benchmark-helper tests
 [group('Check and fix')]
@@ -98,7 +98,7 @@ uninstall-mod mods=MODS: daemon-build
 
 # Restore reviewed Python, runtime and .NET tool locks
 [group('Maintain')]
-deps-restore: tools-restore mod-restore mod-restore-tools slopweb-restore
+deps-restore: tools-restore mod-restore mod-restore-tools web-restore
 
 # Update every dependency graph, then regenerate and stage notices
 [group('Maintain')]

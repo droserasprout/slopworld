@@ -1,0 +1,19 @@
+_slopweb() {
+    COMPREPLY=()
+    local words='-h --help -V --version --game --port --endpoint --url --token-file --cache --profile --sidecar --prepare --rebuild --interpreted --aot-sdk paths completions' previous="${COMP_WORDS[COMP_CWORD-1]}" word skip=0
+    case "$previous" in
+        --game|--profile|--cache|--aot-sdk) mapfile -t COMPREPLY < <(compgen -d -- "${COMP_WORDS[COMP_CWORD]}"); return ;;
+        --token-file) mapfile -t COMPREPLY < <(compgen -f -- "${COMP_WORDS[COMP_CWORD]}"); return ;;
+        --endpoint|--url|--port) return ;;
+    esac
+    for word in "${COMP_WORDS[@]:1:COMP_CWORD-1}"; do
+        if ((skip)); then skip=0; continue; fi
+        case "$word" in
+            --game|--profile|--cache|--aot-sdk|--token-file|--endpoint|--url|--port) skip=1 ;;
+            paths) words='config data cache endpoint profile game-log web-cache game'; break ;;
+            completions) words='bash zsh fish'; break ;;
+        esac
+    done
+    COMPREPLY=( $(compgen -W "$words" -- "${COMP_WORDS[COMP_CWORD]}") )
+}
+complete -F _slopweb slopweb
