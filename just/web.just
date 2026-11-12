@@ -156,3 +156,8 @@ web-clean:
 web-check-native-build game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
     dotnet build slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj --nologo -v quiet -p:RestoreLockedMode=true -p:GameDirectory={{quote(game)}}
     dotnet build slopweb/tests/runtime/KeyBindingsTests/KeyBindingsTests.csproj --nologo -v quiet -p:RestoreLockedMode=true -p:GameDirectory={{quote(game)}}
+
+# Installed fonts/assemblies only: exercise on-demand file delivery without a browser.
+[group('web')]
+web-test-font-delivery: web-build
+    node slopweb/tests/browser/native/font-delivery.mjs

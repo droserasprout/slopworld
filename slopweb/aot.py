@@ -280,7 +280,17 @@ def digest_manifest(files: dict[str, Path], identity: object, contents: dict[Pat
 def build_lock(entry: Path) -> Iterator[TextIO]:
     # Never replace/unlink this inode: orphaned compilers retain it through pass_fds.
     with (entry / 'build.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print(
+                f'Waiting for another AOT build to release {entry / "build.lock"}\n'
+                'A compiler can retain this lock after its launcher exits. '
+                'Inspect the holder with lslocks; do not delete the lock file. Ctrl+C cancels this wait.',
+                flush=True,
+            )
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            print(f'AOT build lock acquired; continuing: {entry}', flush=True)
         yield lock
 
 

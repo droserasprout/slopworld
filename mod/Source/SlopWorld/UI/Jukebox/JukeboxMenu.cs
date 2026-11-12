@@ -13,12 +13,10 @@ namespace SlopWorld
             string now = Radio.CachedNowPlaying;
             if (string.IsNullOrEmpty(now))
                 return "Jukebox";
-            // Keep tooltip text in the UI face: decorative glyphs can force an entire
-            // label onto a fallback face whose advances differ from native measurement.
-            string song = "Now playing: " + now;
+            string song = "\u266A " + now;
             return !Radio.Spotify && Radio.Picked == null
                 ? song
-                : "Source: " + Radio.Source + "\n" + song;
+                : "\u25C9 " + Radio.Source + "\n" + song;
         }
 
         // Open the same menu from the map jukebox and status bar.
@@ -72,13 +70,7 @@ namespace SlopWorld
                 extraPartOnGUI = rect =>
                 {
                     // These symbols default to text; native labels render VS15 as a box.
-                    var icons = new[]
-                    {
-                        "\u23EE",
-                        Radio.Muted ? "\u25B6" : "\u23F8",
-                        "\u23ED",
-                        "\u2928",
-                    };
+                    var icons = new[] { "\u23EE", Radio.Muted ? "\u25B6" : "\u23F8", "\u23ED", "\u2928" };
                     var tips = new[]
                     {
                         "Previous",
@@ -102,14 +94,9 @@ namespace SlopWorld
                             rect.height
                         );
                         TooltipHandler.TipRegion(button, tips[i]);
-                        if (
-                            UiLayout.Button(
-                                button,
-                                icons[i],
-                                UiTheme.Btn.Ghost,
-                                Radio.TransportAvailable && (i == 1 || !Radio.Spotify)
-                            )
-                        )
+                        bool enabled = Radio.TransportAvailable && (i == 1 || !Radio.Spotify);
+                        bool clicked = UiLayout.Button(button, icons[i], UiTheme.Btn.Ghost, enabled);
+                        if (clicked)
                         {
                             UiMenu.CloseAll();
                             actions[i]();
@@ -189,6 +176,6 @@ namespace SlopWorld
         // Mark the playing source without disabling its row.
         // When paused, leave source rows unmarked.
         static string Mark(string label, bool playing) =>
-            playing && !Radio.Muted ? label + "  (playing)" : label;
+            playing && !Radio.Muted ? label + "  \u266A" : label;
     }
 }

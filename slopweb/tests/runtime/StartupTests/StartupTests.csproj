@@ -8,6 +8,7 @@
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../runtime/FontProbe/FontCoverage.cs" Link="FontCoverage.cs" />
     <Compile Include="../../../runtime/Adapters/BrowserTransport.cs" Link="BrowserTransport.cs" />
     <Compile Include="../../../runtime/Adapters/BrowserActivity.cs" Link="BrowserActivity.cs" />
     <Compile Include="../../../runtime/BrowserWorkspace.cs" Link="BrowserWorkspace.cs" />

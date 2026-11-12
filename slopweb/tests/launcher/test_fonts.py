@@ -36,7 +36,9 @@ def test_atomic_bake_cache_and_recovery(tmp_path: Path, monkeypatch: pytest.Monk
             root = Path(args[-1])
             (root / ('ui.ttf' if args[3] == '--resolve-ui' else 'terminal.ttf')).write_bytes(b'font')
             (root / 'chains.json').write_text('{}')
-            (root / 'font-config.json').write_text('{"loaderFlags":513}')
+            (root / ('ui-config.json' if args[3] == '--resolve-ui' else 'terminal-config.json')).write_text(
+                '{"loaderFlags":513,"family":"Test"}'
+            )
         else:
             Path(args[4]).write_text('{}')
 

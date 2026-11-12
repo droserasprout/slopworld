@@ -41,6 +41,11 @@ static void Execute(string[] args, string game)
         );
         return;
     }
+    if (args[1] == "--fallback")
+    {
+        FontDelivery.Deliver(args[2], args[3], args[4], game);
+        return;
+    }
     if (args[1] is "--resolve" or "--resolve-ui")
     {
         // Resolve using the same mod catalog and fontconfig policy as the desktop.
@@ -88,7 +93,11 @@ static void Execute(string[] args, string game)
                 .Invoke(null, [0])!;
         File.WriteAllText(
             Path.Combine(args[4], "font-config.json"),
-            JsonSerializer.Serialize(new { loaderFlags = flags })
+            JsonSerializer.Serialize(new { loaderFlags = flags, family = selected })
+        );
+        File.WriteAllText(
+            Path.Combine(args[4], ui ? "ui-config.json" : "terminal-config.json"),
+            JsonSerializer.Serialize(new { loaderFlags = flags, family = selected })
         );
         if (!ui)
             File.WriteAllText(

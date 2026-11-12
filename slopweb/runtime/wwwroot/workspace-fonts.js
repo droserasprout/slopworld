@@ -1,3 +1,4 @@
+import {fontRequests} from './font-delivery.js';
 // Font-file selections publish only after loading; glyphs are synchronous WASM work.
 export function dynamicFonts(probe, request = globalThis.fetch, density = () => globalThis.devicePixelRatio ?? 1,
   report = (message, retry) => {
@@ -15,17 +16,7 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
   }, seed = null) {
   // Keep selections serialized through publication, so a host
   // cache entry cannot be evicted while its response is being read.
-  const fetchFont = request;
-  let tail = Promise.resolve();
-  request = (...args) => {
-    const next = tail.then(async () => {
-      const response = await fetchFont(...args);
-      const result = response.ok ? await response.json() : null;
-      return {ok:response.ok, json:async()=>result};
-    });
-    tail = next.catch(()=>{});
-    return next;
-  };
+  request = fontRequests(request);
   const identity = json => {
     const values = JSON.parse(json);
     const selected = {uiFontName:values.uiFontName ?? '',fontName:values.fontName ?? 'monospace',

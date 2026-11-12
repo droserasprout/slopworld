@@ -111,9 +111,11 @@ def prepare_fonts(bundle: Path, game: Path, root: Path, values: Mapping[str, Any
     # other sizes and display densities are requested by the running workspace.
     for index, pixels in enumerate([max(1, size + offset) for offset in (-2, 0, 2)]):
         bake = f'ui-{pixels}.json'
-        probe(fonts / 'ui.ttf', fonts / bake, pixels, 1, 0)
+        config = json.loads((fonts / 'ui-config.json').read_text())
+        (fonts / bake).write_text(json.dumps({**config, 'size': pixels}))
         manifest.append({'font': 'ui.ttf', 'bake': bake, 'index': index})
-    probe(fonts / 'terminal.ttf', fonts / 'terminal.json', terminal_size, 1, 0)
+    config = json.loads((fonts / 'terminal-config.json').read_text())
+    (fonts / 'terminal.json').write_text(json.dumps({**config, 'size': terminal_size}))
     manifest.append({'font': 'terminal.ttf', 'bake': 'terminal.json'})
     (fonts / 'manifest.json').write_text(json.dumps(manifest))
     write_preferences(root, values)

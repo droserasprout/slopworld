@@ -74,7 +74,7 @@ static class LocalFontChecks
             BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A\uffff!😀");
             int initial = calls;
             BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A\uffff!😀");
-            if (calls != initial || initial != 3)
+            if (calls != initial || initial != 4)
                 throw new Exception("Coverage/failure/surrogate cache boundary");
             BrowserFontBank.TryFace(index, 15, out var face);
             if (
@@ -185,6 +185,7 @@ static class LocalFontChecks
             BrowserFontBank.DisposeFonts();
             if (dense.Texture != null || closes != 2 || BrowserFontBank.Paths().Length != 0)
                 throw new Exception("Repeated disposal leaked resources");
+            CheckFallbackDelivery(font);
             CheckNativeLineMetrics();
         }
         finally
@@ -199,6 +200,115 @@ static class LocalFontChecks
         Console.WriteLine(
             "Local glyph cache, atlas growth, style/density, fallback suppression, failure recovery and repeated disposal passed."
         );
+    }
+
+    static void CheckFallbackDelivery(byte[] primary)
+    {
+        byte[] fallback = (byte[])primary.Clone();
+        fallback[79] = 1;
+        string fallbackHash = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(fallback)
+        );
+        bool rejectMissing = false;
+        BrowserFontBank.Rasterize = request =>
+        {
+            using var doc = JsonDocument.Parse(request);
+            var v = doc.RootElement;
+            if (!v.TryGetProperty("scalar", out var scalar))
+                return v.TryGetProperty("size", out _) ? "{\"ascent\":13,\"descent\":-4}" : "{}";
+            int c = scalar.GetInt32();
+            if (c == 0 && rejectMissing)
+                throw new InvalidOperationException("Missing marker raster failure");
+            bool other = v.GetProperty("hash").GetString() == fallbackHash;
+            if (c is 0x2602 or 0x2603 && !other)
+                return "{\"missing\":true}";
+            return JsonSerializer.Serialize(
+                new
+                {
+                    advance = other ? 11 : 7,
+                    x = 0,
+                    y = -9,
+                    ascent = other ? 20 : 13,
+                    descent = -4,
+                    width = 1,
+                    height = 1,
+                    pixels = "/w==",
+                }
+            );
+        };
+        int index = BrowserFontBank.Install(
+            primary,
+            "{\"size\":15,\"loaderFlags\":513,\"family\":\"Primary\"}",
+            -1
+        );
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A☃");
+        BrowserFontBank.TryFace(index, 15, out var face);
+        if (face.Glyphs['☃'].advanceX != 7)
+            throw new Exception("Pending fallback must use primary missing glyph");
+        using var pending = JsonDocument.Parse(BrowserFontBank.TakeFallbacks());
+        long id = pending.RootElement.GetProperty("id").GetInt64();
+        if (BrowserFontBank.TakeFallbacks() != "")
+            throw new Exception("Duplicate fallback request");
+        string reply = JsonSerializer.Serialize(
+            new { id, assignments = new Dictionary<string, string?> { ["9731"] = fallbackHash } }
+        );
+        try
+        {
+            BrowserFontBank.CompleteFallbacks(reply);
+            throw new Exception("Uninstalled fallback accepted");
+        }
+        catch (InvalidDataException) { }
+        BrowserFontBank.Install(
+            fallback,
+            "{\"size\":15,\"loaderFlags\":513,\"family\":\"Fallback\"}",
+            -1
+        );
+        BrowserFontBank.CompleteFallbacks(reply);
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A☃");
+        if (
+            face.Glyphs['A'].advanceX != 7
+            || face.Glyphs['☃'].advanceX != 11
+            || face.Ascent != 13
+            || face.Glyphs['☃'].y0 != 4
+        )
+            throw new Exception("Fallback changed primary metrics or lost baseline alignment");
+        BrowserFontBank.CompleteFallbacks(reply);
+        if (BrowserFontBank.TakeFallbacks() != "")
+            throw new Exception("Resolved coverage requested again");
+        var gui = BrowserGui.Install();
+        gui.DrawText(
+            new Rect(0, 0, 100, 30),
+            "A☃",
+            index,
+            15,
+            FontStyle.Normal,
+            TextAnchor.UpperLeft,
+            false,
+            Color.white,
+            default,
+            false
+        );
+        if (gui.Drain().Contains("\"kind\":\"text\""))
+            throw new Exception("Mixed coverage escaped to CSS text");
+        rejectMissing = true;
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "☂");
+        using var recovery = JsonDocument.Parse(BrowserFontBank.TakeFallbacks());
+        BrowserFontBank.CompleteFallbacks(
+            JsonSerializer.Serialize(
+                new
+                {
+                    id = recovery.RootElement.GetProperty("id").GetInt64(),
+                    assignments = new Dictionary<string, string?> { ["9730"] = fallbackHash },
+                }
+            )
+        );
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "☂");
+        if (face.Glyphs['☂'].advanceX != 11)
+            throw new Exception("Failed missing marker blocked delivered fallback");
+        BrowserFontBank.DisposeFonts();
+        BrowserFontBank.CompleteFallbacks(reply);
+        if (BrowserFontBank.Paths().Length != 0)
+            throw new Exception("Stale reply revived disposed fonts");
     }
 
     static void CheckNativeLineMetrics()

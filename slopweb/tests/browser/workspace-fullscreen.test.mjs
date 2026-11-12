@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {attachWorkspaceFullscreen} from '../../runtime/wwwroot/workspace-fullscreen.js';
 
-function fixture() {
+function fixture(keyboard) {
   const doc = new EventTarget();
   let request, enters=0, exits=0;
   const states=[], warnings=[];
@@ -10,7 +10,7 @@ function fixture() {
   doc.fullscreenElement = null;
   doc.exitFullscreen = () => { exits++; return Promise.resolve(); };
   const managed = {WorkspaceWindow: callback => {request=callback;}, WorkspaceFullscreenState: value => states.push(value)};
-  const controller = attachWorkspaceFullscreen(managed, {document:doc, console:{warn: (...args)=>warnings.push(args)}});
+  const controller = attachWorkspaceFullscreen(managed, {document:doc, navigator:{keyboard}, console:{warn: (...args)=>warnings.push(args)}});
   return {doc, states, warnings, controller, request:value=>request(value), enters:()=>enters, exits:()=>exits,
     change(value) {doc.fullscreenElement=value?doc.documentElement:null;doc.dispatchEvent(new Event('fullscreenchange'));}};
 }
@@ -57,14 +57,40 @@ test('teardown ignores delayed fullscreen completions and detaches native reques
   assert.deepEqual(f.states,[false]);
 });
 
-test('delivered Escape exits only this workspace fullscreen and is consumed', () => {
+test('Escape passes through while F11 exits workspace fullscreen', () => {
   const f=fixture();
   const escape=()=>{const event=new Event('keydown',{cancelable:true});event.key='Escape';f.doc.dispatchEvent(event);return event;};
   assert.equal(escape().defaultPrevented,false);
   f.change(true);
-  assert.equal(escape().defaultPrevented,true);
+  assert.equal(escape().defaultPrevented,false);
+  assert.equal(f.exits(),0);
+  const f11=new Event('keydown',{cancelable:true});f11.key='F11';f.doc.dispatchEvent(f11);
+  assert.equal(f11.defaultPrevented,true);
   assert.equal(f.exits(),1);
   f.controller.dispose();
   assert.equal(escape().defaultPrevented,false);
   assert.equal(f.exits(),1);
+});
+
+test('keyboard capture follows fullscreen lifetime and tolerates denial', async () => {
+  const locks=[]; let unlocks=0;
+  const f=fixture({lock: keys=>{locks.push(keys);return Promise.reject(Error('denied'));},unlock:()=>unlocks++});
+  f.change(true);
+  assert.deepEqual(locks,[['Escape','F11']]);
+  f.change(true);
+  assert.equal(locks.length,1);
+  await Promise.resolve();
+  f.change(false);
+  assert.equal(unlocks,1);
+  f.change(true);
+  f.controller.dispose();
+  assert.equal(unlocks,2);
+});
+
+test('late keyboard capture is released after disposal', async () => {
+  let complete, unlocks=0;
+  const f=fixture({lock:()=>new Promise(resolve=>{complete=resolve;}),unlock:()=>unlocks++});
+  f.change(true); f.controller.dispose();
+  complete(); await Promise.resolve();
+  assert.equal(unlocks,2);
 });

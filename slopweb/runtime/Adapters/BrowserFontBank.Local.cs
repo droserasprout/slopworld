@@ -30,6 +30,8 @@ public sealed partial class BrowserFontBank
             && (old.Hash != hash || old.Size != size)
         )
             throw new InvalidOperationException("Font index already assigned");
+        if (root.TryGetProperty("family", out var family))
+            Instance.sourceFamilies[hash] = family.GetString()!;
         if (!Instance.sources.ContainsKey(hash))
         {
             uint flags = root.GetProperty("loaderFlags").GetUInt32() & ~96u;
@@ -175,6 +177,8 @@ public sealed partial class BrowserFontBank
         {
             foreach (char c in text)
             {
+                if (face.Substituted.Contains(c))
+                    WantFallback(face.Hash, c);
                 if (
                     c is '\r' or '\n'
                     || char.IsSurrogate(c)
@@ -189,20 +193,10 @@ public sealed partial class BrowserFontBank
                     break;
                 Instance.glyphEntries++;
                 string result;
+                bool substituted;
                 try
                 {
-                    result = Rasterize!(
-                        JsonSerializer.Serialize(
-                            new
-                            {
-                                hash = face.Hash,
-                                scalar = (int)c,
-                                size = face.Size,
-                                density = face.Density,
-                                flags = face.LoaderFlags,
-                            }
-                        )
-                    );
+                    result = RasterizeGlyph(face, c, out substituted);
                 }
                 catch
                 {
@@ -242,8 +236,6 @@ public sealed partial class BrowserFontBank
                         alpha[row * width + col]
                     );
                 float x0 = glyph.GetProperty("x").GetSingle();
-                face.Ascent = glyph.GetProperty("ascent").GetSingle();
-                face.Descent = glyph.GetProperty("descent").GetSingle();
                 float y0 = glyph.GetProperty("y").GetSingle() + face.Ascent;
                 face.Glyphs.Add(
                     c,
@@ -262,6 +254,8 @@ public sealed partial class BrowserFontBank
                         v1 = (float)(y + height) / edge,
                     }
                 );
+                if (substituted)
+                    face.Substituted.Add(c);
                 changed = true;
             }
         }
@@ -344,6 +338,10 @@ public sealed partial class BrowserFontBank
         Instance.variants.Clear();
         Instance.faces.Clear();
         Instance.sources.Clear();
+        Instance.sourceFamilies.Clear();
+        Instance.fallbackSources.Clear();
+        Instance.wantedFallbacks.Clear();
+        Instance.requestedFallbacks.Clear();
         Instance.paths.Clear();
         Instance.resolved.Clear();
         Instance.missing.Clear();
@@ -365,6 +363,7 @@ public sealed partial class BrowserFontBank
         face.Pixels = null;
         face.Glyphs.Clear();
         face.Glyphs.TrimExcess();
+        face.Substituted.Clear();
         face.Unsupported.Clear();
         face.Unsupported.TrimExcess();
         face.Failed.Clear();

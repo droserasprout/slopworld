@@ -77,8 +77,18 @@ Installed launchers validate AOT SDKs before game preparation; the checkout's
 builds; `timings.py` reports wall times, and launch prints preparation results before its URL.
 
 Host font preparation uses the installed mod catalog and native resolver for
-font selection and metrics. `LocalFonts/` supplies the independent FreeType WASM
+font selection and file delivery; startup does not bake glyph images. Coverage misses
+request fallback files in Fontconfig order, with remaining installed families checked
+for otherwise uncovered characters. `FontProbe/FontCoverage` reads cmap coverage without
+rasterizing. `BrowserFontBank.Fallbacks` owns pending requests and maps resolved fonts
+into the primary atlas at its baseline; host replies never carry paths or glyph pixels.
+Selection and fallback requests share one serialized browser delivery queue.
+`LocalFonts/` supplies the independent FreeType WASM
 module; browser adapters own atlas lifetime and rasterization, while native mod
 text layout retains wrapping and caret policy. Private font bytes and derived
 pixels remain in local caches. Font changes commit after successful loading and
 reject stale responses; replacing installed font files requires a rebuild.
+
+Browser cursor presentation uses one DOM canvas overlay at every viewport position,
+with native animation pixels and device-pixel hotspots. Fullscreen uses F11; optional
+Keyboard Lock keeps Escape available to native input when supported and permitted.

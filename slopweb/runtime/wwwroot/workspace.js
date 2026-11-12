@@ -6,6 +6,7 @@ import { loadBackground } from './loading-background.js';
 import { attachWorkspaceCursor } from './workspace-cursor.js';
 import { attachWorkspaceFullscreen } from './workspace-fullscreen.js';
 import { attachWorkspaceAudio } from './workspace-audio.js';
+import { fallbackFonts } from './font-delivery.js';
 import { WorkspaceScheduler } from './workspace-scheduler.js';
 
 export function startWorkspace(managed, canvas, initialTime = 0) {
@@ -67,6 +68,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   });
   let stopped = false;
   const scheduler=new WorkspaceScheduler(()=>update());
+  const fonts=fallbackFonts(managed,()=>scheduler.wake(true));
   const activity=new AbortController();
   for (const target of [canvas, gui.textInput])
   for(const event of ['input','compositionstart','compositionupdate','keydown','keyup','pointerdown','pointerup','pointermove','pointercancel','wheel','paste','copy','compositionend','blur'])
@@ -89,7 +91,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     stopped = true; scheduler.stop();activity.abort();managed.WorkspaceClearWake();
     if(rowCommands) managed.WorkspaceRowCommands(false);
     backgroundAbort.abort();background?.dispose();background=null;
-    device.dispose(); gui.dispose();
+    device.dispose(); gui.dispose(); fonts.dispose();
     cursor.dispose(); fullscreen.dispose(); audio.dispose();
   };
   const update = () => {
@@ -100,6 +102,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
       const result = gui.frame();
       cursor.frame();
       audio.frame();
+      void fonts.frame();
       state.commands = result.commands.length;
       if (state.frames % 60 === 0) {
         state.game = JSON.parse(managed.GameSnapshot());

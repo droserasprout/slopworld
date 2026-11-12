@@ -16,7 +16,7 @@ and font tests. Package and archive assertions stay in `tools/release/`.
 All test recipes live in `just/web.just`: `just web-test` runs the game-free
 managed, Node, and Python suites; `just web-test-runtime` runs the managed
 and related Node contracts. Native installation and font checks have explicit `web-test-native-*`,
-`web-test-keybindings`, and `web-test-local-fonts` recipes.
+`web-test-keybindings`, `web-test-local-fonts`, and `web-test-font-delivery` recipes.
 `web-check-native-build` compiles native fidelity checks without executing them. Formatting and linting use
 `just web-format` and `just web-lint`, also included in root maintenance
 commands. `just web-clean` removes build output while preserving compiler caches
@@ -77,9 +77,10 @@ timings before the connection URL (also with `--prepare`); cache hits are report
 reuse, and the game-preparation subtotal includes its component steps.
 The printed root URL applies desktop defaults without redirecting. Preparation
 imports only allowlisted appearance preferences from the selected endpoint's profile and prepares
-its UI and terminal font metrics through the installed native rasterizer. Glyphs
-are rasterized on demand from the text actually displayed. Font files and
-atlases stay in the private cache; changed appearance preferences select a new
+its selected UI and terminal font files and native loader settings. No glyph images
+are baked during preparation. Glyphs are rasterized on demand in the browser from
+the text actually displayed. Font files stay in the private host cache and glyph
+atlases stay in browser memory; changed appearance preferences select a new
 cache. Use `--rebuild` after changing installed font files.
 
 Profile discovery respects `SLOPD_DATA` and `SLOPWORLD_PROFILE`; `--profile PATH`
@@ -114,6 +115,11 @@ Initial compilation requires substantial time, disk and memory; the launcher
 prints the private cache and publish log paths. Compiler output streams live to the
 terminal while remaining in `publish.log`; failures and retries retain earlier attempts. NuGet restore may download the
 project's pinned package dependencies.
+
+When another build holds a cache or compiler workspace lock, the launcher prints
+the lock path and waits until it is released. A compiler may retain the lock after
+its launcher exits; use `lslocks` on the host to inspect the holder. Do not delete
+the lock file: it protects shared compiler output. Ctrl+C cancels the wait.
 
 Compilation is reused for identical generated compiler inputs, final patched DLLs,
 settings, and the selected SDK/WASM toolchain. Managed edits reuse a locked compiler
@@ -194,8 +200,9 @@ This remains a prototype. An empty session catalog opens the native sidebar and
 TopBar for session creation; startup also leaves these controls available when the
 daemon is unavailable. An explicit session URL still requires that live session.
 Text requests native glyphs, sizes, styles and display densities on demand;
-startup prepares only font metrics. There is no fixed script/block coverage list.
-Text can temporarily use approximate rendering while its atlas is prepared.
+startup delivers font files and loader settings. There is no fixed script/block coverage list.
+Missing BMP characters temporarily use the selected face’s missing-glyph marker
+while matching host font files load.
 The installed launcher exports a matching native background
 cache when available; generating missing frames on cold startup remains incomplete.
 Text copy/paste and PNG attachment delivery have browser-to-agent checks. Wait for
@@ -211,9 +218,14 @@ changes load host font files on demand. Glyphs rasterize synchronously in local
 FreeType WASM at the observed size, style and display density. Existing fonts
 remain usable during preparation; a failed selection restores the previous settings
 and offers retry. The private cache and retained atlas memory are bounded; reload
-the page if the atlas budget is exhausted. Coverage depends on the selected font. The native text adapter still uses UTF-16
-characters: missing font glyphs and supplementary text outside the existing
-terminal emoji path use approximate rendering. This does not add a shaping engine.
+the page if the atlas budget is exhausted. Missing BMP glyphs request matching
+installed host fonts on demand, preserving
+Fontconfig order and then checking remaining catalog families. Downloaded outlines
+are rasterized locally into the requesting atlas; measurement and drawing share
+those metrics. An unavailable character keeps the face’s missing-glyph marker.
+The native text adapter still uses UTF-16 characters: supplementary text outside
+the existing terminal emoji path uses approximate rendering. This does not add a
+shaping engine.
 Repeated page-network interruption and terminal recovery have browser checks;
 daemon restart, run replacement, and the full agent launch/edit dialog have not
 been exhaustively validated. See [ownership boundaries](../notes/slopweb.md) for the product architecture.
