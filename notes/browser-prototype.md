@@ -574,8 +574,11 @@ formats and larger targets retain full replay.
 Target contexts explicitly prefer drawing over frequent readback. Pixel comparisons
 use the same preference for their reference: repeated reads can otherwise change
 Chromium rasterization even when the reference commands are identical.
-The preliminary raw-row comparison can only decline reuse; a skipped write drops
+The preliminary all-row-change check can only decline reuse; a skipped write drops
 the certified predecessor so a later frame cannot reuse pixels across an unchecked write.
+An unchanged row can reuse its preceding validation only with exact raw commands,
+the same entry transform and live image generations. These detached certificates
+share the target snapshot budget; raw command identity alone never certifies pixels.
 Resource, target, display, context and rendering-setting changes invalidate reuse.
 Native terminal cache policy and packet production are unchanged. Node planner
 tests protect the certificate and invalidation; they do not establish real Canvas
