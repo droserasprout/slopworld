@@ -31,7 +31,9 @@ try {
     'moz:firefoxOptions':{binary:'/usr/bin/firefox',args:['-headless']}}}});
   session=launched.sessionId;
   const quota=await cpuQuota(launched.capabilities['moz:processID']);
-  if(!quota.available||quota.cores===null||quota.cores>2)throw Error('Missing two-core bound');
+  const bound=process.env.PROBE_CPU_LIMIT_CORES===undefined?null:Number(process.env.PROBE_CPU_LIMIT_CORES);
+  if(bound!==null&&(!Number.isFinite(bound)||bound<=0))throw Error('Invalid PROBE_CPU_LIMIT_CORES');
+  if(bound!==null&&(!quota.available||quota.cores===null||quota.cores>bound))throw Error('Missing required CPU bound');
   if(!launched.capabilities['moz:headless'])throw Error('Firefox must be headless');
   await request('POST',`/session/${session}/timeouts`,{script:180000});
   let script;

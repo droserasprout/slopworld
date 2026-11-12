@@ -533,13 +533,17 @@ churn marks interval accounting incomplete rather than implying zero cost.
 Reports record the effective cgroup CPU quota, including tighter ancestor limits;
 compare runs under the same quota as well as the same browser backend. An unlimited
 quota is distinct from unavailable cgroup accounting.
-Bounded host probes disable the diagnostic browser's desktop session bus so Chromium
+Browser and slopweb recipes run directly in the calling environment, inheriting its
+terminal, credentials, filesystem visibility, and resource limits. They do not create
+transient systemd services. Compiler worker counts limit parallelism, not CPU quota.
+Set `PROBE_CPU_LIMIT_CORES` only when an external cgroup limit should be verified.
+Explicitly bounded probes disable the diagnostic browser's desktop session bus so Chromium
 cannot move itself into an uncapped application scope. They verify the effective
 quota before navigating to the workspace and fail if the requested bound is absent.
 The Firefox workload runner uses direct geckodriver HTTP and the same fixture script.
 `browser-host-firefox-bitmap-check` runs a game-free, headless Canvas/ImageBitmap
 glyph playback comparison with exact pixel checks, alternating source order and
-separate submission/readback timing under the same two-core bound.
+separate submission/readback timing, recording the effective CPU quota.
 The Firefox workload recipe's optional `canvas_profile` argument installs aggregate
 Canvas method and frame-reuse preparation timing after startup. It distinguishes
 screen/target calls and coarse source/destination image sizes. Expensive small

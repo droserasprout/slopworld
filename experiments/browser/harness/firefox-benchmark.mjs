@@ -109,8 +109,9 @@ try {
   report.browser={name:caps.browserName,version:caps.browserVersion,headless:caps['moz:headless']};
   report.startup={browserReadyMs:performance.now()-started};
   report.cpuQuota=await cpuQuota(root);
-  const bound=Number(process.env.PROBE_CPU_LIMIT_CORES??2);
-  if(!report.cpuQuota.available || report.cpuQuota.cores===null || report.cpuQuota.cores>bound)
+  const bound=process.env.PROBE_CPU_LIMIT_CORES===undefined?null:Number(process.env.PROBE_CPU_LIMIT_CORES);
+  if(bound!==null&&(!Number.isFinite(bound)||bound<=0))throw Error('Invalid PROBE_CPU_LIMIT_CORES');
+  if(bound!==null&&(!report.cpuQuota.available || report.cpuQuota.cores===null || report.cpuQuota.cores>bound))
     throw Error('Firefox escaped required CPU quota');
   await command('/timeouts',{script:180000,pageLoad:180000});
   const width=Number(process.env.PROBE_WIDTH??1536),height=Number(process.env.PROBE_HEIGHT??864);

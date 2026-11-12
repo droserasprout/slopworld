@@ -34,9 +34,9 @@ to 8787. First launch prepares local game files under `$XDG_CACHE_HOME/slopweb`
 (default `~/.cache/slopweb`); subsequent launches reuse that private runtime.
 `--prepare` prepares without serving; `--rebuild` refreshes after game data changes.
 The server binds only to 127.0.0.1. Stop it with Ctrl+C; agents continue running.
-From an agent sandbox, `just slopweb-host-run` starts the launcher on the host.
-Interactive invocations use a controlling terminal so Ctrl+C also stops the
-host service; noninteractive invocations retain piped output.
+`just slopweb-host-run` runs the launcher directly in the calling environment,
+with its existing terminal and environment variables. Run it from the desktop host
+when host game files, fonts, or daemon configuration are needed.
 The printed root URL applies desktop defaults without redirecting. Preparation
 imports only allowlisted appearance preferences from the local profile and prepares
 its UI and terminal font metrics through the installed native rasterizer. Glyphs
@@ -85,8 +85,9 @@ Compiler intermediates stay under `--cache/aot-workspaces/`; completed publicati
 and per-input logs stay in `aot-builds/`. Immutable serving roots live in
 `aot-runtimes/`. Preparation components live in `prepared-components/`.
 
-The host preparation recipe defaults to two compiler cores. Pass a positive integer
-as its third argument to change both the CPU quota and compiler parallelism:
+The host preparation recipe defaults to two compiler workers. Pass a positive integer
+as its third argument to change .NET and Binaryen parallelism. Recipes inherit resource
+limits from the caller; they do not create systemd services or impose CPU quotas:
 
 ```sh
 just slopweb-host-prepare-aot /private/dotnet/dotnet /private/slopweb-cache 4
