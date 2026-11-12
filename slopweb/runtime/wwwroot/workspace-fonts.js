@@ -1,4 +1,5 @@
 import {fontRequests} from './font-delivery.js';
+import {hostFonts} from './host-fonts.js';
 // Font-file selections publish only after loading; glyphs are synchronous WASM work.
 export function dynamicFonts(probe, request = globalThis.fetch, density = () => globalThis.devicePixelRatio ?? 1,
   report = (message, retry) => {
@@ -14,8 +15,8 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
     status.textContent = message + (retry ? ' Click to retry.' : '');
     status.onclick = retry ?? null;
   }, seed = null) {
-  // Keep selections serialized through publication, so a host
-  // cache entry cannot be evicted while its response is being read.
+  const host=hostFonts(probe,request);
+  // Keep selections serialized through publication.
   request = fontRequests(request);
   const identity = json => {
     const values = JSON.parse(json);
@@ -56,12 +57,15 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
           const headers = {'Content-Type':'application/json'};
           if (retry) headers['x-slop-font-retry'] = '1';
           retry = false;
-          const response = await request('/host/fonts', {method:'POST', headers, body:selected});
+          const response = await request('/host/fonts', {method:'POST', headers, body:JSON.stringify({...JSON.parse(selected),protocol:2})});
           if (!response.ok) throw Error('Native font preparation unavailable');
           const result = await response.json();
           if (disposed || selected !== wanted) continue; // Stale work is never marked installed.
-          const fonts = new Map(Object.entries(result.fonts).map(([name, bytes]) =>
+          const fonts = result.files ? new Map(await Promise.all(Object.entries(result.files).map(async([name, hash])=>
+            [name,await host.file(hash)]))) : new Map(Object.entries(result.fonts).map(([name, bytes]) =>
             [name, Uint8Array.from(atob(bytes), c => c.charCodeAt(0))]));
+          if (result.files) await host.warm([...new Set(result.faces.map(face=>JSON.parse(face.bake).family))]);
+          if (disposed || selected !== wanted) continue;
           for (const face of result.faces) probe.WorkspaceFont(fonts.get(face.font), face.bake, -1);
           const chains = JSON.stringify(result.chains);
           probe.WorkspaceFontChains(chains);

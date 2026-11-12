@@ -59,26 +59,22 @@ def package(
         source_control = workspace / 'debian/control'
         source_control.parent.mkdir()
         source_control.write_text(f'Source: {product}\n\nPackage: {product}\nArchitecture: any\n')
-        binaries = (product,)
-        result = (
-            run(
-                ['dpkg-shlibdeps', '-O', *(str(staging / 'usr/bin' / binary) for binary in binaries)],
-                cwd=workspace,
-                capture_output=True,
-                text=True,
-            )
-            if product != 'slopweb'
-            else None
+        binary = staging / ('usr/share/slopweb/slopweb-host' if product == 'slopweb' else f'usr/bin/{product}')
+        result = run(
+            ['dpkg-shlibdeps', '-O', str(binary)],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
         )
         dependencies = next(
             (
                 line.removeprefix('shlibs:Depends=')
-                for line in (result.stdout.splitlines() if result else [])
+                for line in result.stdout.splitlines()
                 if line.startswith('shlibs:Depends=')
             ),
             '',
         )
-        if not dependencies and product != 'slopweb':
+        if not dependencies:
             raise ValueError('dpkg-shlibdeps returned no shared-library dependencies')
         control = staging / 'DEBIAN/control'
         control.parent.mkdir()
@@ -87,7 +83,7 @@ def package(
             .read_text()
             .format(version=version_field, architecture=architecture, shared_libraries=dependencies)
         )
-        shared.normalize_permissions(staging, staging / 'usr/bin')
+        shared.normalize_permissions(staging, staging / 'usr/bin', (binary,))
         archive = workspace / destination.name
         run(['dpkg-deb', '--root-owner-group', '--build', str(staging), str(archive)])
         archive.replace(destination)

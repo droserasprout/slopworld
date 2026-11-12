@@ -15,6 +15,27 @@ from tools import cli_completions
 from tools.release import slopweb
 
 
+def test_distribution_host_override_preserves_source_bundle_and_rekeys_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bundle = tmp_path / 'bundle'
+    bundle.mkdir()
+    (bundle / 'BUILD_ID').write_text('original')
+    (bundle / 'slopweb-host').write_bytes(b'host-libc')
+    replacement = tmp_path / 'target-host'
+    replacement.write_bytes(b'target-libc')
+    monkeypatch.setenv('SLOPWEB_HOST_BINARY', str(replacement))
+    payload = tmp_path / 'payload'
+    slopweb.stage(payload, 'revision', '1.2.3', bundle)
+    installed = payload / 'usr/share/slopweb'
+    assert (installed / 'slopweb-host').read_bytes() == b'target-libc'
+    assert (installed / 'slopweb-host').stat().st_mode & 0o777 == 0o755
+    assert (installed / 'BUILD_ID').read_text() == slopweb.bundle_identity(installed)
+    assert (bundle / 'slopweb-host').read_bytes() == b'host-libc'
+    assert (bundle / 'BUILD_ID').read_text() == 'original'
+
+
 @pytest.mark.parametrize('version', ['', '2.3.4'])
 def test_build_identity_uses_shared_version_resolution_and_explicit_override(
     monkeypatch: pytest.MonkeyPatch, version: str
@@ -38,22 +59,13 @@ def test_distributable_build_never_reads_staged_game_root(
     root = tmp_path / 'source'
     runtime = root / 'slopweb/runtime'
     inputs = [
-        'slopweb/launch.py',
-        'slopweb/application_paths.py',
-        'slopweb/cli.py',
-        'slopweb/timings.py',
-        'slopweb/endpoint.py',
-        'slopweb/aot.py',
-        'slopweb/appearance.py',
-        'slopweb/fonts.py',
-        'slopweb/portraits.py',
+        'slopweb/host/target/release/slopweb',
         'slopweb/runtime/FontProbe/bin/Debug/net10.0/FontProbe.dll',
         'slopweb/runtime/FontProbe/bin/Debug/net10.0/FontProbe.deps.json',
         'slopweb/runtime/FontProbe/bin/Debug/net10.0/FontProbe.runtimeconfig.json',
         'slopweb/runtime/BackgroundProbe/bin/Debug/net10.0/BackgroundProbe.dll',
         'slopweb/runtime/BackgroundProbe/bin/Debug/net10.0/BackgroundProbe.deps.json',
         'slopweb/runtime/BackgroundProbe/bin/Debug/net10.0/BackgroundProbe.runtimeconfig.json',
-        'slopweb/runtime/core_pack.py',
         'slopweb/runtime/bin/Debug/net10.0/Probe.dll',
         'slopweb/runtime/Adapters/bin/Debug/net10.0/Adapters.dll',
         'slopweb/runtime/wwwroot/local-fonts.mjs',
@@ -71,7 +83,6 @@ def test_distributable_build_never_reads_staged_game_root(
         f'mod/Assemblies/{name}.dll'
         for name in ('SlopWorld', '0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn')
     ]
-    inputs += [f'slopweb/server/{name}.mjs' for name in ('server', 'bridge', 'websocket', 'fonts', 'endpoint')]
     for name in inputs:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -146,9 +157,9 @@ def test_distributable_build_never_reads_staged_game_root(
     assert not (output / 'ost/private.ogg').exists()
     assert (output / 'BUILD_ID').is_file()
     assert {path.name for path in (output / 'aot-src').iterdir()} == {'Probe.csproj', *slopweb.AOT_SOURCES}
-    assert (output / 'aot.py').is_file()
-    assert (output / 'application_paths.py').is_file()
-    assert (output / 'cli.py').is_file()
+    assert (output / 'slopweb-host').is_file()
+    assert not list(output.rglob('*.py'))
+    assert not (output / 'server').exists()
     assert (output / 'VERSION').read_text() == '1.2.3-built\n'
     assert (output / 'REVISION').read_text() == 'built-revision\n'
     assert all(b'must never ship' not in path.read_bytes() for path in output.rglob('*') if path.is_file())
@@ -176,14 +187,16 @@ def test_package_formats_stage_only_web_payload(
     bundle = tmp_path / 'bundle'
     bundle.mkdir()
     (bundle / 'BUILD_ID').write_text('fixture')
-    (bundle / 'launch.py').write_text('fixture')
+    (bundle / 'slopweb-host').write_text('fixture')
     (bundle / 'VERSION').write_text('stale version')
     (bundle / 'REVISION').write_text('stale revision')
     monkeypatch.setenv('SOURCE_DATE_EPOCH', '1234567890')
     metadata = []
 
     def run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        assert args[0] != 'dpkg-shlibdeps', 'The Python launcher has no ELF dependency scan'
+        if args[0] == 'dpkg-shlibdeps':
+            assert args[-1].endswith('/usr/share/slopweb/slopweb-host')
+            return subprocess.CompletedProcess(args, 0, 'shlibs:Depends=libc6 (>= 2.39)\n')
         if args[0] == 'dpkg-deb':
             payload, output = Path(args[-2]), Path(args[-1])
             metadata.append((payload / 'DEBIAN/control').read_text())
@@ -202,6 +215,7 @@ def test_package_formats_stage_only_web_payload(
         else:
             return subprocess.CompletedProcess(args, 0, '')
         assert sorted(path.name for path in (payload / 'usr/bin').iterdir()) == ['slopweb']
+        assert (payload / 'usr/share/slopweb/slopweb-host').stat().st_mode & 0o777 == 0o755
         assert not (payload / 'usr/share/slopworld').exists()
         assert not (payload / 'usr/lib/systemd').exists()
         assert (payload / 'usr/share/slopweb/BUILD_ID').read_text() == 'fixture'
@@ -224,7 +238,7 @@ def test_package_formats_stage_only_web_payload(
         product='slopweb',
     )
     assert result.read_bytes() == b'fixture package'
-    assert 'nodejs' in metadata[0] and 'python' in metadata[0] and 'dotnet-sdk' in metadata[0]
+    assert 'nodejs' not in metadata[0] and 'python' not in metadata[0] and 'dotnet-sdk' in metadata[0]
     assert ('libfontconfig1' if distribution == 'debian' else 'fontconfig') in metadata[0]
 
 
@@ -246,8 +260,11 @@ def test_installed_information_commands_need_no_checkout_or_game(tmp_path: Path)
     bundle = tmp_path / 'bundle'
     bundle.mkdir()
     (bundle / 'BUILD_ID').write_text('fixture')
-    for name in ('launch', 'application_paths', 'cli', 'endpoint', 'aot', 'appearance', 'timings'):
-        shutil.copyfile(ROOT / 'slopweb' / f'{name}.py', bundle / f'{name}.py')
+    native = ROOT / 'slopweb/host/target/debug/slopweb'
+    if not native.is_file():
+        pytest.skip('Run just web-host-build to exercise the native installed launcher')
+    shutil.copyfile(native, bundle / 'slopweb-host')
+    (bundle / 'slopweb-host').chmod(0o755)
     payload = tmp_path / 'installed'
     slopweb.stage(payload, 'reviewed-revision', '1.2.3', bundle)
     launcher = payload / 'usr/bin/slopweb'

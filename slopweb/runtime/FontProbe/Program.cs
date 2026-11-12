@@ -24,6 +24,21 @@ Execute(args, game);
 [MethodImpl(MethodImplOptions.NoInlining)]
 static void Execute(string[] args, string game)
 {
+    if (args[1] == "--loader-flags")
+    {
+        var host = Assembly
+            .LoadFrom(Path.Combine(game, "RimWorld.dll"))
+            .GetType("RimWorldWaylith.Imgui.ImGuiHost", true)!;
+        uint flags = (uint)
+            host.GetMethod("LoaderFlagsFor", BindingFlags.Static | BindingFlags.NonPublic)!
+                .Invoke(null, [0])!;
+        Directory.CreateDirectory(args[4]);
+        File.WriteAllText(
+            Path.Combine(args[4], "font-config.json"),
+            JsonSerializer.Serialize(new { loaderFlags = flags })
+        );
+        return;
+    }
     if (args[1] == "--catalog")
     {
         var mod = Assembly.LoadFrom(Path.GetFullPath(args[2]));
