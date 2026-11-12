@@ -138,9 +138,10 @@ def build(destination: Path = OUTPUT) -> None:
         content = bundle / 'mod/Content.zip'
         content.parent.mkdir(parents=True, exist_ok=True)
         run([sys.executable, str(runtime / 'mod_pack.py'), str(ROOT / 'mod'), str(content)])
-        validate_content(content, tracked_mod_files())
+        tracked = tracked_mod_files()
+        validate_content(content, tracked)
         # Only authored SlopWorld music is shipped; game audio stays in private runtime data.
-        for name in sorted(tracked_mod_files()):
+        for name in sorted(tracked):
             if Path(name).parent == Path('Sounds/SlopWorld/OST') and Path(name).suffix == '.ogg':
                 copy_file(ROOT / 'mod' / name, bundle / 'ost' / Path(name).name)
         copy_file(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', bundle / 'mod/LoadingFont.png')
@@ -154,7 +155,9 @@ def build(destination: Path = OUTPUT) -> None:
         for path in sorted(bundle.rglob('*')):
             if path.is_file():
                 digest.update(path.relative_to(bundle).as_posix().encode())
-                digest.update(path.read_bytes())
+                with path.open('rb') as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                        digest.update(chunk)
         (bundle / 'BUILD_ID').write_text(digest.hexdigest() + '\n')
         if destination.exists():
             shutil.rmtree(destination)

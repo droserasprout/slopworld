@@ -1,9 +1,10 @@
-// Network-accessible asset server. The selected build directory is its entire authority.
+// Loopback asset server and credentialed bridge; remote access needs an authenticated proxy.
 import http from 'node:http';
 import { fontProvider, fontHttp } from './fonts.mjs';
 import { daemonHttp } from './bridge.mjs';
 import { daemonSocket } from './websocket.mjs';
-import { realpath, readFile, stat } from 'node:fs/promises';
+import { realpath, open } from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -12,6 +13,7 @@ export async function serve(directory, port = 0, daemon = { endpoint: process.en
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
     '.json': 'application/json', '.wasm': 'application/wasm', '.css': 'text/css' };
   const server = http.createServer(async (req, res) => {
+    if (!localHost(req)) { res.writeHead(403).end(); return; }
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
     res.setHeader('Cache-Control', 'no-store');
@@ -25,23 +27,42 @@ export async function serve(directory, port = 0, daemon = { endpoint: process.en
     if (!['GET', 'HEAD'].includes(req.method)) {
       res.writeHead(403).end(); return;
     }
+    let handle;
     try {
       let relative = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
       if (relative.endsWith('/')) relative += 'index.html';
       const file = await realpath(path.resolve(root, '.' + relative));
-      if (!file.startsWith(root + path.sep) || !(await stat(file)).isFile()) {
+      if (!file.startsWith(root + path.sep)) {
         res.writeHead(403).end(); return;
       }
-      const data = await readFile(file);
+      handle = await open(file);
+      const metadata = await handle.stat();
+      if (!metadata.isFile()) { res.writeHead(403).end(); return; }
       res.writeHead(200, { 'Content-Type': types[path.extname(file)] ?? 'application/octet-stream',
-        'Content-Length': data.length });
-      res.end(req.method === 'HEAD' ? undefined : data);
-    } catch { res.writeHead(404).end(); }
+        'Content-Length': metadata.size });
+      if (req.method === 'HEAD') res.end();
+      else await pipeline(handle.createReadStream({ autoClose: false }), res);
+    } catch {
+      if (res.headersSent || res.destroyed) res.destroy();
+      else res.writeHead(404).end();
+    } finally { await handle?.close(); }
   });
-  server.on('upgrade', (req, socket, head) => daemonSocket(req, socket, head, daemon));
+  // Validate Host independently of Origin to reject DNS rebinding. Header
+  // provenance is CSRF protection, not authentication for remote clients.
+  function localHost(req) {
+    const port = server.address().port;
+    return [`127.0.0.1:${port}`, `localhost:${port}`].includes(req.headers.host);
+  }
+  server.on('upgrade', (req, socket, head) => {
+    if (!localHost(req)) {
+      socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+      return;
+    }
+    daemonSocket(req, socket, head, daemon);
+  });
   await new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(port, '0.0.0.0', resolve);
+    server.listen(port, '127.0.0.1', resolve);
   });
   return { server, url: `http://127.0.0.1:${server.address().port}` };
 }

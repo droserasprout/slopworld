@@ -13,14 +13,27 @@ test('local assets are isolated and credentialed health rejects foreign requests
   try {
     await writeFile(path.join(temporary, 'index.html'), '<h1>probe</h1>');
     await symlink('/etc/passwd', path.join(temporary, 'escape'));
-    assert.equal(server.address().address, '0.0.0.0');
-    const page = await remoteFetch(url, { headers: { host: 'g14.tail86ccc.ts.net:8787' } });
+    assert.equal(server.address().address, '127.0.0.1');
+    assert.equal((await remoteFetch(url, { headers: { host: 'evil.invalid' } })).status, 403);
+    const page = await fetch(url);
     assert.equal(await page.text(), '<h1>probe</h1>');
     assert.equal(page.headers.get('cross-origin-embedder-policy'), 'require-corp');
     assert.equal((await fetch(url + '/escape')).status, 403);
     assert.equal((await fetch(url + '/host/health')).status, 403);
     assert.equal((await fetch(url, { method: 'POST' })).status, 403);
     assert.equal((await fetch(url + '/missing')).status, 404);
+    const data = Buffer.alloc(2 * 1024 * 1024, 37);
+    await writeFile(path.join(temporary, 'large.wasm'), data);
+    const head = await fetch(url + '/large.wasm', { method: 'HEAD' });
+    assert.equal(head.status, 200);
+    assert.equal(head.headers.get('content-length'), String(data.length));
+    assert.equal((await head.arrayBuffer()).byteLength, 0);
+    const download = await fetch(url + '/large.wasm');
+    assert.deepEqual(Buffer.from(await download.arrayBuffer()), data);
+    // Disconnect mid-stream; subsequent requests must still work.
+    const aborted = await fetch(url + '/large.wasm');
+    await aborted.body.cancel();
+    assert.equal((await fetch(url)).status, 200);
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
@@ -48,9 +61,13 @@ test('HTTP bridge preserves protobuf and status, supplies only host credentials,
       assert.equal((await fetch(url + '/host/api/sessions', { method: 'POST', headers })).status, 403);
     }
     assert.equal(seen.length, 0);
+    assert.equal((await remoteFetch(url + '/host/api/sessions', {
+      method: 'POST', headers: { host: 'evil.invalid', origin: 'http://evil.invalid' },
+    })).status, 403);
+    assert.equal(seen.length, 0);
     const response = await remoteFetch(url + '/host/api/sessions', {
       method: 'POST', body: Buffer.from([10, 2, 97, 98]),
-      headers: { host: 'g14.tail86ccc.ts.net:8787', origin: 'http://g14.tail86ccc.ts.net:8787', 'x-slop-token': 'browser-secret', cookie: 'private=1' },
+      headers: { host: new URL(url).host, origin: url, 'x-slop-token': 'browser-secret', cookie: 'private=1' },
     });
     assert.equal(response.status, 409);
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from([8, 1, 255]));
@@ -111,7 +128,9 @@ test('WebSocket bridge rejects foreign origins and relays masked binary traffic 
   try {
     await assert.rejects(openSocket(url, 'http://evil.invalid'), /403/);
     assert.equal(upgrades, 0);
-    client = await openSocket(url, 'http://g14.tail86ccc.ts.net:8787', 'g14.tail86ccc.ts.net:8787');
+    await assert.rejects(openSocket(url, 'http://evil.invalid', 'evil.invalid'), /403/);
+    assert.equal(upgrades, 0);
+    client = await openSocket(url, url, new URL(url).host);
     const data = Buffer.from([10, 0, 255, 128]);
     client.send(data);
     const frame = await client.frame();
@@ -141,7 +160,7 @@ test('plain HTTP provenance accepts same-origin requests and rejects foreign or 
   assert.equal(check({ 'sec-fetch-site': 'cross-site', origin: `http://${host}` }), false);
 });
 
-// Node fetch replaces Host; use HTTP directly to model a tailnet reverse proxy.
+// Node fetch replaces Host; use HTTP directly to exercise Host validation.
 function remoteFetch(url, options) {
   return new Promise((resolve, reject) => {
     const req = request(url, options, async res => {

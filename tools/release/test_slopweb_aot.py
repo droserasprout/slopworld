@@ -5,6 +5,7 @@ import concurrent.futures
 import fcntl
 import importlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,36 @@ from typing import cast
 import pytest
 
 from tools import ROOT
+
+
+def test_preparation_manifest_reads_shared_inputs_once_but_rechecks_next_invocation(
+    aot: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / 'game.dll'
+    source.write_bytes(b'first')
+    original = source.stat()
+    opened = []
+    open_file = Path.open
+
+    def observe(path: Path, *args: Any, **kwargs: Any) -> Any:
+        if path == source:
+            opened.append(path)
+        return open_file(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'open', observe)
+    contents: dict[Path, str] = {}
+    first = aot.digest_manifest({'game.dll': source}, 'phase', contents)
+    assert aot.digest_manifest({'game.dll': source}, 'phase', contents) == first
+    assert aot.digest_manifest({'renamed.dll': source}, 'phase', contents) != first
+    assert aot.digest_manifest({'game.dll': source}, 'other-phase', contents) != first
+    assert len(opened) == 1
+    source.write_bytes(b'other')
+    os.utime(source, ns=(original.st_atime_ns, original.st_mtime_ns))
+    opened.clear()
+    assert aot.digest_manifest({'game.dll': source}, 'phase', {}) != first
+    assert len(opened) == 1
 
 
 @pytest.fixture
@@ -80,10 +111,16 @@ def inputs(aot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> argpars
 
 
 def test_compilation_hit_and_asset_only_changes_reuse_publish(aot: Any, inputs: Any) -> None:
+    (inputs.prepared / '_framework/interpreter-only.wasm').write_bytes(b'unused interpreter')
+    nested = inputs.prepared / 'assets/_framework/asset.txt'
+    nested.parent.mkdir()
+    nested.write_text('ordinary asset')
     root = inputs.run()
     assert inputs.run() == root
     assert len(inputs.calls) == 1
     assert (root / '_framework/dotnet.js').read_text() == 'published framework'
+    assert not (root / '_framework/interpreter-only.wasm').exists()
+    assert (root / 'assets/_framework/asset.txt').read_text() == 'ordinary asset'
     assert 'Probe.LoadAssembly(' not in (root / 'main.js').read_text()
     assert 'LoadPublishedAssembly' in (root / 'main.js').read_text()
     assert 'const bypassLogger = false;' in (root / 'main.js').read_text()

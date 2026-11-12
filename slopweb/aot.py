@@ -265,6 +265,21 @@ def digest_files(files: dict[str, Path], identity: object) -> str:
     return digest.hexdigest()
 
 
+def digest_manifest(files: dict[str, Path], identity: object, contents: dict[Path, str]) -> str:
+    """Hash content manifests; callers may share file digests within one snapshot.
+
+    Never persist the memo: each preparation must read changed bytes even when
+    their size and timestamp match the previous invocation.
+    """
+    digest = hashlib.sha256(json.dumps(['content-manifest-v1', identity], sort_keys=True).encode())
+    for name, path in sorted(files.items()):
+        if path not in contents:
+            with path.open('rb') as stream:
+                contents[path] = hashlib.file_digest(stream, 'sha256').hexdigest()
+        digest.update(json.dumps([name, contents[path]]).encode())
+    return digest.hexdigest()
+
+
 @contextmanager
 def build_lock(entry: Path):
     # Never replace/unlink this inode: orphaned compilers retain it through pass_fds.
@@ -395,8 +410,13 @@ def prepare(bundle: Path, prepared: Path, cache: Path, sdk_path: Path) -> Path:
             return destination
         with tempfile.TemporaryDirectory(prefix='.compose-', dir=runtimes) as temporary:
             root = Path(temporary) / 'runtime'
-            shutil.copytree(prepared, root)
-            shutil.rmtree(root / '_framework')
+            # The interpreter framework is replaced by the publication. Avoid
+            # copying its large WASM payload only to immediately delete it.
+            shutil.copytree(
+                prepared,
+                root,
+                ignore=lambda directory, names: {'_framework'} if Path(directory) == prepared else set(),
+            )
             shutil.copytree(published_framework(compilation), root, dirs_exist_ok=True)
             (root / 'main.js').write_text(main)
             (root / '.ready').write_text(runtime_key + '\n')

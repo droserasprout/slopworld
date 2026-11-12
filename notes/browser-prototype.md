@@ -204,9 +204,10 @@ separate. [Eco](mod-eco.md) owns pause behavior where a colony exists.
 
 The browser executes installed game code and the actual mod locally. `slopd`
 retains process, tmux, sandbox, terminal, and credential ownership.
-The browser server binds all IPv4 interfaces and accepts remote Host names. Network
-reachability currently grants access with the configured host credentials; deployment
-must restrict reachability to trusted clients. HTTP without Fetch Metadata requires
+The browser server binds IPv4 loopback and accepts only localhost or 127.0.0.1
+Host headers with its listening port, including WebSocket upgrades. Remote access
+requires an authenticated proxy that rewrites Host and Origin to the local origin;
+the bridge does not authenticate remote clients. HTTP without Fetch Metadata requires
 a matching Origin or Referer. The server owns same-origin `/host/api/` and `/host/ws` bridges. It injects
 host credentials upstream, rejects foreign origins, and preserves protobuf bodies
 and WebSocket framing/backpressure. Credentials never enter browser assets or URLs.
