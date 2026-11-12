@@ -1,13 +1,12 @@
 # Build redistributable slopweb tooling; proprietary runtime stays in local output.
 [group('web')]
-slopweb-build: (mod-build 'rimref')
+slopweb-build: (mod-build 'rimref') && slopweb-stage
     just --justfile experiments/browser/runtime/justfile build
     dotnet build experiments/browser/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
     dotnet build experiments/browser/runtime/FontProbe/FontProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
     just --justfile experiments/browser/runtime/justfile background-probe-build
     dotnet build experiments/browser/runtime/Scanner/Scanner.csproj --nologo -v quiet -p:RestoreLockedMode=true
     dotnet build experiments/browser/compat/Offline/Offline.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    just slopweb-stage
 
 # Stage already-built redistributable tools without replacing private game roots.
 [group('web')]
@@ -19,8 +18,7 @@ slopweb-check-fonts game=(env('HOME') + '/.local/share/Steam/steamapps/common/Ri
     python3 slopweb/out/appearance.py {{quote(game)}} {{quote(output)}}
 
 [group('web')]
-slopweb-install prefix=(env('HOME') + '/.local'): slopweb-build
-    just slopweb-install-staged {{quote(prefix)}}
+slopweb-install prefix=(env('HOME') + '/.local'): slopweb-build (slopweb-install-staged prefix)
 
 [group('web')]
 slopweb-install-staged prefix=(env('HOME') + '/.local'):
@@ -74,8 +72,7 @@ slopweb-check-install prefix=(env('HOME') + '/.local'):
     {{quote(prefix + '/bin/slopweb')}} --prepare
 
 [group('web')]
-slopweb-host-check-install prefix=(env('HOME') + '/.local'):
-    {{quote(prefix + '/bin/slopweb')}} --prepare
+slopweb-host-check-install prefix=(env('HOME') + '/.local'): (slopweb-check-install prefix)
 
 [group('web')]
 slopweb-host-check-browser runtime rendering='auto':
@@ -104,8 +101,7 @@ slopweb-host-entry-navigation-check profile:
 
 # Package the independent browser launcher using the selected native format.
 [group('package')]
-package-web distribution:
-    just package-product {{quote(distribution)}} slopweb
+package-web distribution: (package-product distribution 'slopweb')
 
 # Inspect a local package from the current tooling bundle without restaging game data.
 [group('web')]
