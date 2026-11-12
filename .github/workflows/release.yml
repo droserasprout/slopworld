@@ -125,7 +125,7 @@ jobs:
           cache-dependency-path: |
             mod/Source/SlopWorld/packages.lock.json
             mod/Dependencies/packages.lock.json
-            experiments/browser/**/packages.lock.json
+            slopweb/**/packages.lock.json
       - uses: actions/setup-node@v6
         with:
           node-version: '22'

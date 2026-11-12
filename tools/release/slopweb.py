@@ -124,7 +124,7 @@ def build(destination: Path = OUTPUT) -> None:
                 copy_file(path, bundle / 'web' / path.name)
         for name in ('local-fonts.mjs', 'local-fonts.wasm', 'local-fonts.LICENSE.txt'):
             if not (bundle / 'web' / name).is_file():
-                raise ValueError('Missing local font rasterizer; run just browser-local-fonts-build')
+                raise ValueError('Missing local font rasterizer; run just slopweb-local-fonts-build')
         for source, target in (
             (runtime / 'Scanner/bin/Debug/net10.0', 'scanner'),
             (ROOT / 'slopweb/offline/bin/Debug/net10.0', 'offline'),

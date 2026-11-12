@@ -1,1 +1,0 @@
-(async()=>{const until=performance.now()+20000;while(!['running','fail'].includes(window.__workspace?.status) && !window.__probeResult?.error && performance.now()<until)await new Promise(resolve=>setTimeout(resolve,250));return {status:window.__workspace?.status??'loading',error:window.__workspace?.error??window.__probeResult?.error};})()
