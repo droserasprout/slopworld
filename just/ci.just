@@ -18,4 +18,4 @@ ci-mod: mod-lint (mod-build 'rimref' 'release' 'true') mod-coverage
 
 # Check slopweb tooling and game-free Node/managed contracts without launching a browser
 [group('CI')]
-ci-web: mod-restore-tools slopweb-lint slopweb-test-runtime slopweb-test-server
+ci-web: mod-restore-tools web-lint web-test-runtime web-test-server

@@ -387,3 +387,22 @@ def test_browser_ost_catalog_matches_authored_songs_and_files() -> None:
         songs.append(node.text.rsplit('/', 1)[-1])
     assert tracks == songs
     assert sorted(tracks) == sorted(path.stem for path in (ROOT / 'mod/Sounds/SlopWorld/OST').glob('*.ogg'))
+
+
+def test_prepare_uses_selected_profile_without_contacting_endpoint(
+    launcher: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    game = tmp_path / 'game'
+    game.mkdir()
+    (game / 'RimWorld').touch()
+    monkeypatch.setenv('SLOPD_DATA', str(tmp_path / 'data'))
+    monkeypatch.setenv('SLOPD_ENDPOINT', str(tmp_path / 'missing.toml'))
+    monkeypatch.delenv('SLOPWORLD_PROFILE', raising=False)
+    monkeypatch.setattr(
+        'sys.argv', ['slopweb', '--prepare', '--interpreted', '--game', str(game), '--endpoint', 'remote']
+    )
+    selected = []
+    monkeypatch.setattr(launcher, 'prepare', lambda *args: selected.append(args) or tmp_path / 'runtime')
+    monkeypatch.setattr(launcher, 'environment', lambda *args: pytest.fail('Preparation must remain offline'))
+    launcher.main()
+    assert selected[0][-1] == tmp_path / 'data/profiles/remote'

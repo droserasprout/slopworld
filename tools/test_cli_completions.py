@@ -70,6 +70,9 @@ def test_zsh_completes_launcher_commands_and_values(tmp_path: Path) -> None:
             try:
                 assert response() == 'ready'
                 for before, after in [
+                    ('slopweb pat', 'slopweb paths '),
+                    ('slopweb paths pro', 'slopweb paths profile '),
+                    ('slopweb --endpoint remote paths pro', 'slopweb --endpoint remote paths profile '),
                     ('slopworld pat', 'slopworld paths '),
                     ('slopworld mod ins', 'slopworld mod install '),
                     ('slopworld profile ini', 'slopworld profile init '),

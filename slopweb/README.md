@@ -13,14 +13,14 @@ host-authenticated daemon bridge, and font delivery.
 `tests/runtime/` holds managed test projects; `tests/browser/` holds game-free
 JavaScript contracts and opt-in native font checks; `tests/server/` holds Node server tests; `tests/launcher/` holds Python launcher, AOT,
 and font tests. Package and archive assertions stay in `tools/release/`.
-All test recipes live in `just/web.just`: `just slopweb-test` runs the game-free
-managed, Node, and Python suites; `just slopweb-test-runtime` runs the managed
-and related Node contracts. Native installation and font checks have explicit `slopweb-test-native-*`,
-`slopweb-test-keybindings`, and `slopweb-test-local-fonts` recipes.
-`slopweb-check-native-build` compiles native fidelity checks without executing them. Formatting and linting use
-`just slopweb-format` and `just slopweb-lint`, also included in root maintenance
-commands. `just slopweb-clean` removes build output while preserving compiler caches
-and installed/private runtimes. `just slopweb-restore` restores reviewed project locks;
+All test recipes live in `just/web.just`: `just web-test` runs the game-free
+managed, Node, and Python suites; `just web-test-runtime` runs the managed
+and related Node contracts. Native installation and font checks have explicit `web-test-native-*`,
+`web-test-keybindings`, and `web-test-local-fonts` recipes.
+`web-check-native-build` compiles native fidelity checks without executing them. Formatting and linting use
+`just web-format` and `just web-lint`, also included in root maintenance
+commands. `just web-clean` removes build output while preserving compiler caches
+and installed/private runtimes. `just web-restore` restores reviewed project locks;
 `just deps-update-web` updates those graphs.
 `out/` is the generated redistributable bundle, assembled by
 `tools/release/slopweb.py`; edit its source owners instead.
@@ -35,14 +35,14 @@ From a checkout with the .NET 10 SDK, Node.js 22+, Emscripten 7.0.0, Python/uv, 
 Waylith/RimWorld installation:
 
 ```sh
-just slopweb-local-fonts-sdk # Install the pinned compiler locally if needed.
-just slopweb-install
+just web-local-fonts-sdk # Install the pinned compiler locally if needed.
+just web-install
 slopweb
 # Open http://127.0.0.1:8787/
 ```
 
 Source installation defaults to `~/.local`; ensure `~/.local/bin` is on PATH.
-Pass a prefix to `just slopweb-install PREFIX` or `just slopweb-uninstall PREFIX`.
+Pass a prefix to `just web-install PREFIX` or `just web-uninstall PREFIX`.
 Uninstall preserves private runtime caches and daemon configuration.
 
 Installed packages require the .NET 10 runtime, Node.js 22+, Python 3.11+, and Fontconfig;
@@ -55,20 +55,28 @@ Explicit connections require both `--url URL` and `--token-file PATH`.
 Descriptor and token-file changes apply to subsequent requests and WebSocket reconnects. Tokens are never placed
 in browser assets or URLs.
 
-`--game PATH` (or `RIMWORLD`) selects another game installation. `--port` defaults
+Game discovery follows the native launcher: `--game PATH`, `SLOPWORLD_GAME`,
+the saved `<CONFIG>/game.toml`, then usual installation locations. `--port` defaults
 to 8787. First launch prepares local game files under `$XDG_CACHE_HOME/slopweb`
 (default `~/.cache/slopweb`); subsequent launches reuse that private runtime.
 `--prepare` prepares without serving; `--rebuild` refreshes after game data changes.
 The server binds only to 127.0.0.1. Stop it with Ctrl+C; agents continue running.
-`just slopweb-host-run` runs the launcher directly in the calling environment,
+`just web-run` builds and stages current sources, then runs the launcher in the calling environment,
 with its existing terminal and environment variables. Run it from the desktop host
 when host game files, fonts, or daemon configuration are needed.
 The printed root URL applies desktop defaults without redirecting. Preparation
-imports only allowlisted appearance preferences from the local profile and prepares
+imports only allowlisted appearance preferences from the selected endpoint's profile and prepares
 its UI and terminal font metrics through the installed native rasterizer. Glyphs
 are rasterized on demand from the text actually displayed. Font files and
 atlases stay in the private cache; changed appearance preferences select a new
 cache. Use `--rebuild` after changing installed font files.
+
+Profile discovery respects `SLOPD_DATA` and `SLOPWORLD_PROFILE`; `--profile PATH`
+selects an explicit profile directory. `--sidecar` selects the same sidecar endpoint
+and profile paths as the native clients. Browser settings changes stay in browser
+storage and do not overwrite that desktop profile. `slopweb paths NAME` exposes resolved
+paths without preparing the game or connecting to the daemon. `slopweb --version`
+reports build metadata, and `slopweb completions bash|zsh|fish` emits shell completions.
 
 ## Default mixed AOT
 
@@ -86,8 +94,8 @@ Missing AOT tools cause an error rather than silently falling back.
 PATH selects an existing .NET 10 SDK directory or its `dotnet` executable with
 matching `wasm-tools`, including the WebAssembly SDK and browser cross compiler
 packs for that SDK's runtime patch. The launcher validates the toolchain and pins
-the selected SDK and target runtime for publishing. The installed launcher never installs tools. Checkout `just slopweb-run`,
-`just slopweb-host-run`, and host AOT preparation recipes automatically install
+the selected SDK and target runtime for publishing. The installed launcher never installs tools. Checkout `just web-run`
+and AOT preparation recipes automatically install
 missing or mismatched `wasm-tools`, pinning the workload set to the selected SDK
 version. Protected system SDKs use `sudo` and may prompt for a password; writable
 private SDKs install directly. `--interpreted` skips this step.
@@ -116,7 +124,7 @@ as its third argument to change .NET and Binaryen parallelism. Recipes inherit r
 limits from the caller; they do not create systemd services or impose CPU quotas:
 
 ```sh
-just slopweb-host-prepare-aot /private/dotnet/dotnet /private/slopweb-cache 4
+just web-prepare-aot /private/dotnet/dotnet /private/slopweb-cache 4
 ```
 
 The local font rasterizer also caches successful builds by source, compiler, flags,
@@ -129,7 +137,7 @@ assembly identities by name; the `skipLogger` alternate DLL option is disabled.
 
 ## Packages
 
-`just slopweb-build` builds without an installed game, using pinned RimRef
+`just web-build` builds without an installed game, using pinned RimRef
 assemblies for compilation. These references never enter the package. RimWorld
 is required only when the installed launcher prepares and runs the workspace.
 
@@ -140,10 +148,10 @@ just package-web fedora
 # Equivalent: just package-product DISTRIBUTION slopweb
 ```
 
-For an already-built bundle, `just slopweb-package-staged DISTRIBUTION VERSION REVISION`
+For an already-built bundle, `just web-package-staged DISTRIBUTION VERSION REVISION`
 creates a local archive without rebuilding the private development runtime. Pass
 a Git revision (or `HEAD`) for reproducible package timestamps. This does not
-publish or install the archive. `just slopweb-test` inspects the newest local Arch
+publish or install the archive. `just web-test` inspects the newest local Arch
 archive when present, including its extracted launcher and private-asset exclusions.
 
 Use the corresponding distribution's packaging tools. slopweb is independent of
@@ -208,4 +216,4 @@ python3 install.py --remove slopweb
 Installation requires a published release containing the matching `slopweb` package
 and checksum. For locally built preview packages, use the distribution package manager.
 
-Local glyph rasterization uses the FreeType Project (https://freetype.org), under the FreeType License. Build it with `just slopweb-local-fonts-build` using Emscripten with the reviewed FreeType 2.14.3/zlib 1.3.2 ports. `just slopweb-build` includes this step and stages the result for `just slopweb-host-run --port 8787`.
+Local glyph rasterization uses the FreeType Project (https://freetype.org), under the FreeType License. Build it with `just web-local-fonts-build` using Emscripten with the reviewed FreeType 2.14.3/zlib 1.3.2 ports. `just web-build` includes this step and stages the result for `just web-run --port 8787`.
