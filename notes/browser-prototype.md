@@ -566,10 +566,24 @@ integer interiors of the opaque reset qualify; its fractional fringe, inherited
 clip edges and changed or unsupported regions retain replay, including reset and
 intersecting draws in their original order. Unchanged fractional row boundaries
 inside that reset can be preserved because their complete ordered drawing is identical.
+One reusable scratch surface preserves the old target; opaque integer regions are
+restored after replay, while wholly preserved image draws can be omitted. Extra
+damage clipping changes accelerated edge pixels on terminal-sized targets. The
+scratch is capped at 64 MiB of unorm8 pixels and released when disabled; other
+formats and larger targets retain full replay.
+Target contexts explicitly prefer drawing over frequent readback. Pixel comparisons
+use the same preference for their reference: repeated reads can otherwise change
+Chromium rasterization even when the reference commands are identical.
+The preliminary raw-row comparison can only decline reuse; a skipped write drops
+the certified predecessor so a later frame cannot reuse pixels across an unchecked write.
 Resource, target, display, context and rendering-setting changes invalidate reuse.
 Native terminal cache policy and packet production are unchanged. Node planner
 tests protect the certificate and invalidation; they do not establish real Canvas
 pixel parity or a workload speedup.
+Both workload runners accept the `damage` comparison for four identical phases,
+restoring the previous mode afterward. `inlinekeystrokes` measures same-row edits;
+the ordinary `keystrokes` phase scrolls after each echoed key. Compare both before
+enabling the experiment so planning overhead cannot hide behind row-reuse gains.
 Immutable uploaded images retain one Canvas readback for tint variants, preserving
 Canvas alpha quantization. Tint variants retain at most 32 colors per image, also bounded by the existing
 32 MiB per-image budget (with one variant allowed for an oversized source), and
