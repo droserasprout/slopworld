@@ -33,20 +33,20 @@ slopweb-uninstall prefix=(env('HOME') + '/.local'):
 [group('web')]
 [positional-arguments]
 slopweb-run *args:
-    python3 slopweb/out/launch.py "$@"
+    python3 slopweb/just_launch.py "$@"
 
 # Use the desktop user's game, fonts, profile and daemon endpoint from an agent sandbox.
 # A terminal gets a controlling PTY so Ctrl+C reaches the service; automation keeps pipes.
 [group('web')]
 [positional-arguments]
 slopweb-host-run *args:
-    systemd-run --user --pty --pipe --wait --collect python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} "$@"
+    systemd-run --user --pty --pipe --wait --collect python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} "$@"
 
 # Prepare an immutable AOT runtime without starting a browser or replacing a server.
 # Bound compiler parallelism as well as CPU time to leave the host usable.
 [group('web')]
 slopweb-host-prepare-aot sdk cache:
-    systemd-run --user --pipe --wait --collect -p CPUQuota=200% --setenv=DOTNET_PROCESSOR_COUNT=2 --setenv=BINARYEN_CORES=2 python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
+    systemd-run --user --pipe --wait --collect -p CPUQuota=200% --setenv=DOTNET_PROCESSOR_COUNT=2 --setenv=BINARYEN_CORES=2 python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
 
 [group('web')]
 slopweb-format:
@@ -115,4 +115,4 @@ slopweb-host-run-portraits source *args:
     set -euo pipefail
     test -n {{quote(source)}}
     shift
-    systemd-run --user --pipe --wait --collect --setenv=SLOPWEB_PORTRAITS={{quote(source)}} python3 {{quote(justfile_directory() / 'slopweb/out/launch.py')}} "$@"
+    systemd-run --user --pipe --wait --collect --setenv=SLOPWEB_PORTRAITS={{quote(source)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} "$@"

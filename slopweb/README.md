@@ -58,7 +58,11 @@ Missing AOT tools cause an error rather than silently falling back.
 PATH selects an existing .NET 10 SDK directory or its `dotnet` executable with
 matching `wasm-tools`, including the WebAssembly SDK and browser cross compiler
 packs for that SDK's runtime patch. The launcher validates the toolchain and pins
-the selected SDK and target runtime for publishing. It never installs tools.
+the selected SDK and target runtime for publishing. The installed launcher never installs tools. Checkout `just slopweb-run`,
+`just slopweb-host-run`, and host AOT preparation recipes automatically install
+missing or mismatched `wasm-tools`, pinning the workload set to the selected SDK
+version. Protected system SDKs use `sudo` and may prompt for a password; writable
+private SDKs install directly. `--interpreted` skips this step.
 Initial compilation requires substantial time, disk and memory; the launcher
 prints the private cache and publish log paths. NuGet restore may download the
 project's pinned package dependencies.
