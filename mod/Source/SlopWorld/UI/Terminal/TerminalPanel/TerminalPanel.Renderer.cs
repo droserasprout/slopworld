@@ -183,6 +183,68 @@ namespace SlopWorld
                 if (y + ch < body.y || y > body.yMax)
                     return;
 
+                var recorder = PerfTrace.Enabled ? null : TerminalRowCommands.TryReplay;
+                // Sprite/symbol paint can avoid DrawText entirely. Admit ASCII at
+                // the source boundary too, before any layout or atlas substitution.
+                if (recorder != null)
+                    foreach (var run in runs)
+                    foreach (char character in run.Text)
+                        if (character < ' ' || character > '~')
+                        {
+                            recorder = null;
+                            break;
+                        }
+                if (recorder == null)
+                {
+                    PaintRowContents(body, runs, cw, ch, y, style);
+                    return;
+                }
+                var key = new[]
+                {
+                    body.x,
+                    body.y,
+                    body.width,
+                    body.height,
+                    row,
+                    cw,
+                    ch,
+                    yShift,
+                    _panel._snapSx,
+                    _panel._snapSy,
+                    _panel._snapOx,
+                    _panel._snapOy,
+                    System.BitConverter.Int32BitsToSingle(TerminalTheme.Rev),
+                    System.BitConverter.Int32BitsToSingle(TerminalFont.Rev),
+                };
+                Color entryColor = style.normal.textColor;
+                if (recorder(runs, style, key))
+                {
+                    // Empty rows leave the incoming state untouched. Nonempty rows
+                    // finish with the final run's foreground, including whitespace.
+                    style.normal.textColor = runs.Count == 0 ? entryColor : runs[runs.Count - 1].Fg;
+                    return;
+                }
+                bool completed = false;
+                try
+                {
+                    PaintRowContents(body, runs, cw, ch, y, style);
+                    completed = true;
+                }
+                finally
+                {
+                    TerminalRowCommands.Complete(completed, style);
+                }
+            }
+
+            void PaintRowContents(
+                Rect body,
+                List<SgrRun> runs,
+                float cw,
+                float ch,
+                float y,
+                GUIStyle style
+            )
+            {
                 float bgTop = _panel.SnapY(y);
                 float bgBot = _panel.SnapY(y + ch);
                 foreach (var run in runs)

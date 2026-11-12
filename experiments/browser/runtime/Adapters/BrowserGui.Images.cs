@@ -54,7 +54,22 @@ public sealed partial class BrowserGui
             && previous.Height == texture.height
             && ReferenceEquals(previous.Data, texture.CoreTexture.CpuData)
         )
+        {
+            if (recordingRow is { Valid: true })
+            {
+                if (pendingImages.Contains(id))
+                    RejectRow();
+                else if (!recordingRow.Images.ContainsKey(id))
+                {
+                    // The recorder must not prolong the upload state's CPU pixel
+                    // backing after resource collection removes its live owner.
+                    recordingRow.Images.Add(id, new WeakReference<ImageState>(previous));
+                    recordingRow.Bytes += 64;
+                }
+            }
             return;
+        }
+        RejectRow();
         var pixels = texture.GetPixels32();
         var source = MemoryMarshal.AsBytes(pixels.AsSpan());
         var bytes = new byte[source.Length];

@@ -59,12 +59,17 @@ static class FontChecks
             // A previous miss must be invalidated by temporary registration.
             if (BrowserFontBank.TryFace(old, 18, out _))
                 throw new Exception("Unexpected size");
+            int resolution = bank.ResolutionVersion;
             if (
                 BrowserFontBank.RegisterAvailable(font, 18) != old
                 || !BrowserFontBank.TryFace(old, 18, out var pending)
                 || pending.Size != 14
             )
                 throw new Exception("Pending size lost its usable previous face");
+            if (bank.ResolutionVersion == resolution || bank.AtlasVersion != revision)
+                throw new Exception(
+                    "Temporary registration must invalidate resolution without changing atlas"
+                );
             int exact = BrowserFontBank.Install(font, Bake(18), -1);
             if (
                 exact == old

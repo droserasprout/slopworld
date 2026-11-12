@@ -87,5 +87,12 @@ capture to [capture](daemon-terminal-capture.md), asset regeneration to
 [shared text](mod-ui-text.md), and profiling
 to [latency diagnostics](terminal-latency.md).
 
+`Platform/TerminalRowCommands` is an optional drawing-only boundary around final
+parsed/decorated rows. Native delegates remain null. The renderer owns ASCII
+admission, placement/snap/theme/font identity and foreground exit state (empty rows
+preserve incoming color). The browser owns operation capture, resource validation
+and packet publication; it must never retain slices of mutable emitted batches.
+Mod profiling bypasses this boundary so text/layout measurements retain their meaning.
+
 Parsed wrapped-link decoration contributes to texture row damage, including
 unchanged source rows and edits retained across a repeated frame.

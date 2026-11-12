@@ -2,6 +2,10 @@ game := env("RIMWORLD", env("HOME") + "/.local/share/Steam/steamapps/common/RimW
 check:
     dotnet run --project NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}}
 
+# Optional actual-mod delegate bridge; compiled assemblies only, no engine startup.
+rows mod:
+    dotnet run --project NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --row-mod={{quote(mod)}}
+
 layout root=(justfile_directory() / '../out/wwwroot-eco'):
     just --justfile ../justfile refresh-adapters {{quote(root)}}
     just --justfile ../../compat/justfile text-layout {{quote(root)}}

@@ -368,8 +368,7 @@ public sealed partial class BrowserGui
                         if (drawing != null)
                             drawing.Add(values);
                         else
-                            AppendImageBatch(
-                                commands,
+                            AppendImages(
                                 textureId,
                                 ColorChannel(color.r),
                                 ColorChannel(color.g),
@@ -532,8 +531,7 @@ public sealed partial class BrowserGui
                 values[5] = 1 - quad.V1;
                 values[6] = quad.U1 - quad.U0;
                 values[7] = quad.V1 - quad.V0;
-                AppendImageBatch(
-                    commands,
+                AppendImages(
                     textureId,
                     ColorChannel(color.r),
                     ColorChannel(color.g),
@@ -562,8 +560,7 @@ public sealed partial class BrowserGui
             UploadImage(face.Texture);
             uploaded = true;
         }
-        AppendImageBatch(
-            commands,
+        AppendImages(
             textureId,
             ColorChannel(color.r),
             ColorChannel(color.g),

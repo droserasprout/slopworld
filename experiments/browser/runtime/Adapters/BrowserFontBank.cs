@@ -67,12 +67,14 @@ public sealed class BrowserFontBank : ITextMeshProBackend
     readonly HashSet<(int, float)> pendingSizes = new();
     public float BakePixelSize => 16;
     public int AtlasVersion { get; private set; }
+    public int ResolutionVersion { get; private set; }
 
     public static void ConfigureDensity(float value)
     {
         if (Instance.density == value)
             return;
         Instance.density = value;
+        Instance.ResolutionVersion++;
         Instance.resolved.Clear();
         Instance.missing.Clear();
         Instance.AtlasVersion++;
@@ -150,6 +152,7 @@ public sealed class BrowserFontBank : ITextMeshProBackend
                 if (Instance.pendingSizes.Count >= 1024)
                     Instance.pendingSizes.Clear();
                 Instance.pendingSizes.Add((pair.Key, size));
+                Instance.ResolutionVersion++;
                 Instance.resolved.Clear();
                 Instance.missing.Clear();
                 return pair.Key;
@@ -287,6 +290,7 @@ public sealed class BrowserFontBank : ITextMeshProBackend
             Instance.faces.Add(index, face);
         Instance.variants.Add(face);
         Instance.atlasBytes += allocation;
+        Instance.ResolutionVersion++;
         Instance.resolved.Clear();
         Instance.missing.Clear();
         Instance.paths[hash] = path;
