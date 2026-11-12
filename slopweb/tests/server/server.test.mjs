@@ -91,7 +91,7 @@ test('HTTP bridge preserves protobuf and status, supplies only host credentials,
 test('WebSocket bridge rejects foreign origins and relays masked binary traffic with host authentication', async () => {
   const { createServer } = await import('node:http');
   const { createHash } = await import('node:crypto');
-  const { openSocket } = await import('../../../experiments/browser/harness/websocket-client.mjs');
+  const { openSocket } = await import('./websocket-client.mjs');
   let upgrades = 0;
   let remote;
   const upstream = createServer();

@@ -1,8 +1,8 @@
 # Build boundaries
 
 Use `just` to discover recipes and `just --show RECIPE` to inspect them.
-The local-only [browser prototype](browser-prototype.md) has separate experimental
-recipes. The independent `slopweb` product builds against pinned RimRef assemblies without
+Private browser experiments and research belong in ignored `priv/`; public recipes
+and CI must not depend on them. The independent [slopweb](slopweb.md) product builds against pinned RimRef assemblies without
 an installed game and packages its browser tooling and authored mod UI assets; the installed launcher prepares game-derived files in the user's private
 cache. `package-web` selects Arch, Debian, or Fedora without adding browser builds
 to the ordinary native product group. [slopweb](../slopweb/README.md) owns usage.
