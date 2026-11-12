@@ -121,7 +121,7 @@ try {
                         const [font, bake] = await Promise.all([fonts.get(fontUrl.href), fetch(bakeUrl)]);
                         if (!bake.ok) throw new Error('Host font descriptor is unavailable');
                         const descriptor=await bake.text();
-                        exports.Probe.WorkspaceFont(font, descriptor, face.index ?? -1);
+                        await (await import('./workspace-rasterizer.js')).installWorkspaceFont(exports.Probe,font,descriptor,face.index??-1);
                         const family=JSON.parse(descriptor).family;
                         if (family) families.add(family);
                     }

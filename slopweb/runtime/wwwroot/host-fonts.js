@@ -1,5 +1,6 @@
 // Host coverage describes installed font files; the browser selects fallback faces
 // locally and persists verified immutable files independently of application builds.
+import {installWorkspaceFont} from './workspace-rasterizer.js';
 export function covers(ranges, scalar) {
   let low=0, high=ranges.length;
   while (low<high) { const middle=(low+high)>>>1; if (ranges[middle][1]<scalar) low=middle+1; else high=middle; }
@@ -89,7 +90,8 @@ export class HostFonts {
     const bytes=await this.file(face.hash);
     if (this.disposed || this.installed.has(face.hash)) return;
     const started=performance.now();
-    this.probe.WorkspaceFont(bytes,JSON.stringify({size:14,loaderFlags:face.loaderFlags,family:face.family}),-1);
+    await installWorkspaceFont(this.probe,bytes,JSON.stringify({size:14,loaderFlags:face.loaderFlags,family:face.family}),-1,()=>!this.disposed);
+    if (this.disposed) return;
     this.installed.add(face.hash);this.timings.installMs+=performance.now()-started;
   }
   async warm(families) {

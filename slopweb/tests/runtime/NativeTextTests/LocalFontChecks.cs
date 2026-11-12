@@ -32,6 +32,7 @@ static class LocalFontChecks
             loads = 0,
             closes = 0;
         bool fail = true;
+        bool pendingGlyph = true;
         BrowserFontBank.Rasterize = request =>
         {
             using var document = JsonDocument.Parse(request);
@@ -50,6 +51,8 @@ static class LocalFontChecks
                 return "{\"ascent\":13,\"descent\":-4}";
             calls++;
             int scalar = item.GetProperty("scalar").GetInt32();
+            if (scalar == 'Ж' && pendingGlyph)
+                return "{\"pending\":true}";
             if (scalar == 0xFFFF)
                 return "{\"missing\":true}";
             if (scalar == '!' && fail)
@@ -88,6 +91,14 @@ static class LocalFontChecks
             BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "!");
             if (!face.Glyphs.ContainsKey('!'))
                 throw new Exception("Failed raster did not recover");
+            BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "Ж");
+            if (face.Glyphs.ContainsKey('Ж'))
+                throw new Exception("Pending glyph was committed as a permanent result");
+            pendingGlyph = false;
+            BrowserFontBank.GlyphsReady();
+            BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "Ж");
+            if (!face.Glyphs.ContainsKey('Ж'))
+                throw new Exception("Completed worker glyph did not recover");
             var appendGui = BrowserGui.Install();
             foreach (string observed in new[] { "A", "B", "C" })
                 appendGui.DrawText(

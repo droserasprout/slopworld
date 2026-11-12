@@ -1,5 +1,5 @@
-// Local outline rasterization is synchronous once a font is installed. This owner
-// commits glyphs and atlas pixels together; the host only selects/delivers fonts.
+// Local outline callbacks return completed glyphs or pending worker requests.
+// This owner commits glyphs and atlas pixels together; the host delivers fonts.
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -36,9 +36,12 @@ public sealed partial class BrowserFontBank
         {
             uint flags = root.GetProperty("loaderFlags").GetUInt32() & ~96u;
             var source = ReadSource(bytes, flags);
-            Rasterize!(
-                JsonSerializer.Serialize(new { hash, font = Convert.ToBase64String(bytes) })
-            );
+            // Browser delivery installs raw bytes before entering managed code.
+            // Native fidelity fixtures retain the standalone base64 callback.
+            if (Rasterize!(JsonSerializer.Serialize(new { hash, registered = true })) != "true")
+                Rasterize!(
+                    JsonSerializer.Serialize(new { hash, font = Convert.ToBase64String(bytes) })
+                );
             string path = Path.Combine(mountRoot, hash + ".ttf");
             Directory.CreateDirectory(mountRoot);
             File.WriteAllBytes(path, bytes);
@@ -205,6 +208,11 @@ public sealed partial class BrowserFontBank
                 }
                 using var document = JsonDocument.Parse(result);
                 var glyph = document.RootElement;
+                if (glyph.TryGetProperty("pending", out _))
+                {
+                    Instance.glyphEntries--;
+                    continue;
+                }
                 if (glyph.TryGetProperty("missing", out _))
                 {
                     face.Unsupported.Add(c);
@@ -278,6 +286,14 @@ public sealed partial class BrowserFontBank
             Instance.glyphEntries -= face.Failed.Count;
             face.Failed.Clear();
         }
+    }
+
+    public static void GlyphsReady()
+    {
+        foreach (var face in Instance.variants)
+            face.InvalidateRuns();
+        Instance.ResolutionVersion++;
+        Instance.AtlasVersion++;
     }
 
     static void Place(Face face, int width, int height, out int x, out int y)
