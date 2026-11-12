@@ -1,4 +1,4 @@
-// Browser origin only; authentication is injected by the loopback host bridge.
+// Browser origin only; authentication is injected by the same-origin host bridge.
 namespace BrowserAdapters;
 
 public static class BrowserTransport
@@ -30,14 +30,15 @@ public static class BrowserTransport
     {
         var uri = new Uri(origin);
         if (
-            uri.Scheme != "http"
-            || uri.Host != "127.0.0.1"
+            (uri.Scheme != "http" && uri.Scheme != "https")
+            || uri.Host.Length == 0
             || uri.AbsolutePath != "/"
             || uri.Query.Length != 0
+            || uri.Fragment.Length != 0
             || uri.UserInfo.Length != 0
         )
-            throw new ArgumentException("Expected the loopback browser origin");
-        BaseUrl = origin.TrimEnd('/') + "/host";
+            throw new ArgumentException("Expected an HTTP(S) browser origin");
+        BaseUrl = uri.GetLeftPart(UriPartial.Authority) + "/host";
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(

@@ -1,6 +1,6 @@
 # Browser prototype boundary
 
-[`experiments/browser/`](../experiments/browser/README.md) owns the local-only
+[`experiments/browser/`](../experiments/browser/README.md) owns the
 Waylith/RimWorld WASM investigation. `just/browser.just` exposes its checks.
 Production mod startup and daemon runtime remain independent. `slopweb/` owns the
 installed launcher; `tools/release/slopweb.py` stages redistributable tools and mod
@@ -204,13 +204,17 @@ separate. [Eco](mod-eco.md) owns pause behavior where a colony exists.
 
 The browser executes installed game code and the actual mod locally. `slopd`
 retains process, tmux, sandbox, terminal, and credential ownership.
-The loopback server owns same-origin `/host/api/` and `/host/ws` bridges. It injects
+The browser server binds all IPv4 interfaces and accepts remote Host names. Network
+reachability currently grants access with the configured host credentials; deployment
+must restrict reachability to trusted clients. HTTP without Fetch Metadata requires
+a matching Origin or Referer. The server owns same-origin `/host/api/` and `/host/ws` bridges. It injects
 host credentials upstream, rejects foreign origins, and preserves protobuf bodies
 and WebSocket framing/backpressure. Credentials never enter browser assets or URLs.
 An agent token cannot authorize root-only session/configuration routes; the bridge
 does not elevate that identity.
 
-BrowserHttpPatch adapts staged HTTP construction/base URL. Both ConnectionInfo and
+BrowserTransport accepts HTTP(S) page origins, including localhost and remote hosts,
+and rejects credentials, paths, queries and fragments. BrowserHttpPatch adapts staged HTTP construction/base URL. Both ConnectionInfo and
 DaemonClient base-URL getters use BrowserTransport directly; shared config reads
 must not resolve the native endpoint descriptor before returning the bridge URL.
 The host bridge owns endpoint credentials and native descriptor discovery is unchanged.

@@ -2,7 +2,7 @@
 import net from 'node:net';
 import { randomBytes, createHash } from 'node:crypto';
 
-export async function openSocket(url, origin = url) {
+export async function openSocket(url, origin = url, host = new URL(url).host) {
   const target = new URL(url);
   const key = randomBytes(16).toString('base64');
   const socket = net.connect(Number(target.port), target.hostname);
@@ -23,7 +23,7 @@ export async function openSocket(url, origin = url) {
   };
   const timer = setTimeout(() => socket.destroy(new Error('WebSocket validation timeout')), 10000);
   socket.once('close', () => clearTimeout(timer));
-  socket.write(`GET /host/ws HTTP/1.1\r\nHost: ${target.host}\r\nOrigin: ${origin}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: slopworld.protobuf.v2\r\n\r\n`);
+  socket.write(`GET /host/ws HTTP/1.1\r\nHost: ${host}\r\nOrigin: ${origin}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: slopworld.protobuf.v2\r\n\r\n`);
   let headers = '';
   while (!headers.endsWith('\r\n\r\n')) headers += (await take(1)).toString();
   const expected = createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
