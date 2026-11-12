@@ -16,7 +16,7 @@ mod state;
 
 use std::path::Path;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Result, anyhow, bail};
 
 use crate::config::{Config, MountMode, ProjectCfg, SessionCfg, expand, mount_target};
 use crate::presets::{SandboxPreset, Table};
@@ -320,10 +320,11 @@ pub(crate) fn presets_with_environment<'a>(
                 p.name
             )
         })?;
-        paths::validate_name_with_environment(&name, t, environment).with_context(|| {
-            format!(
-                "session {:?} in project {:?} names invalid sandbox preset {name:?}",
-                s.name, p.name
+        paths::validate_name_with_environment(&name, t, environment).map_err(|error| {
+            anyhow!(
+                "session {:?} in project {:?} names invalid sandbox preset {name:?}: {error:#}",
+                s.name,
+                p.name
             )
         })?;
         resolved.push(preset);
