@@ -35,10 +35,6 @@ public partial class Probe
             )!;
 
     [JSExport]
-    public static string WorkspaceNativeTextProbe() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserGui", "NativeTextProbe")!;
-
-    [JSExport]
     public static void WorkspaceWake([JSMarshalAs<JSType.Function>] Action wake) =>
         Type("Adapters", "BrowserAdapters.BrowserActivity").GetField("Wake")!.SetValue(null, wake);
 
@@ -73,10 +69,6 @@ public partial class Probe
                 "ConfigureDiscardedDrawing",
                 skip
             )!;
-
-    [JSExport]
-    public static string WorkspaceDiscardedDrawingProbe() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserGuiInput", "DiscardedDrawingProbe")!;
 
     [JSExport]
     public static string WorkspaceDynamicFonts(
@@ -306,17 +298,6 @@ public partial class Probe
             height,
             scale
         );
-
-    [JSExport]
-    public static void RequestSerializationBenchmark() =>
-        Invoke("Adapters", "BrowserAdapters.BrowserGui", "RequestSerializationBenchmark");
-
-    [JSExport]
-    public static string SerializationBenchmark() =>
-        (string)
-            Type("Adapters", "BrowserAdapters.BrowserGui")
-                .GetProperty("SerializationBenchmark")!
-                .GetValue(null)!;
 
     [JSExport]
     public static void WorkspaceProfile(bool enabled) =>

@@ -31,7 +31,7 @@ tools-test *args:
 [group('tools')]
 tools-coverage:
     mkdir -p "$COVERAGE_DIR"
-    uv run --locked python -m pytest --quiet --cov=tools --cov=slopcar --cov=bench --cov-report=term-missing --cov-report=xml:"$COVERAGE_DIR/python.cobertura.xml"
+    uv run --locked python -m pytest --quiet --cov=tools --cov=slopcar --cov=slopweb --cov=bench --cov-report=term-missing --cov-report=xml:"$COVERAGE_DIR/python.cobertura.xml"
 
 # Check pager geometry with isolated tmux and less
 [group('tools')]

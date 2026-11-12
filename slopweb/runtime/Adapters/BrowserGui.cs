@@ -87,7 +87,6 @@ public sealed partial class BrowserGui : IGuiBackend
             LastResourceSweepMs = (swept - started) * 1000d / Stopwatch.Frequency;
             LastSerializationMs = (Stopwatch.GetTimestamp() - swept) * 1000d / Stopwatch.Frequency;
         }
-        BenchmarkSerialization(commands);
         CommitRows();
         commands.Clear();
         commandState.Clear();
@@ -727,71 +726,4 @@ public sealed partial class BrowserGui : IGuiBackend
         (Vector2)matrix.MultiplyPoint3x4(guiPoint) + offset;
 
     public Vector2 GuiToDevicePoint(Vector2 guiPoint) => Device(guiPoint);
-
-    public static string ControlProbe()
-    {
-        var backend = Install();
-        Event.current = new Event
-        {
-            type = EventType.MouseDown,
-            mousePosition = new Vector2(35, 45),
-        };
-        GUI.BeginGroup(new Rect(20, 30, 100, 100));
-        if (Event.current.mousePosition != new Vector2(15, 15) || backend.MouseOutsideHitClip)
-            throw new InvalidOperationException("Group pointer translation failed");
-        backend.PushScrollView(new Rect(0, 0, 10, 10), new Vector2(-5, -6));
-        if (!backend.MouseOutsideHitClip || Event.current.type != EventType.Ignore)
-            throw new InvalidOperationException("Nested hit clipping failed");
-        backend.GetGroup(1, out _, out var origin);
-        if (origin != new Vector2(15, 24))
-            throw new InvalidOperationException("Scroll origin contract failed");
-        backend.PopGroup();
-        GUI.EndGroup();
-        if (Event.current.mousePosition != new Vector2(35, 45) || backend.GroupCount != 0)
-            throw new InvalidOperationException("Group restoration failed");
-        backend.Drain();
-        Event.current = new Event { type = EventType.Repaint };
-        GUI.Label(new Rect(20, 20, 300, 40), "Actual Unity GUI in WASM");
-        GUI.Box(new Rect(20, 75, 300, 60), "Installed game control");
-        GUI.BeginGroup(new Rect(400, 20, 20, 20));
-        backend.FillRect(new Rect(-5, -5, 40, 40), Color.red);
-        GUI.EndGroup();
-        var texture = new UnityEngine.Texture2D(2, 2, TextureFormat.RGBA32, false);
-        try
-        {
-            texture.SetPixels32(new Color32[] { Color.red, Color.red, Color.blue, Color.blue });
-            backend.PushClipRect(new Rect(0, 0, 10, 10));
-            backend.DrawTextureWithTexCoords(
-                new Rect(20, 20, 2, 2),
-                texture,
-                new Rect(0, 0, 1, 1),
-                Color.white
-            );
-            backend.PushClipRect(new Rect(20, 20, 10, 10));
-            backend.DrawTextureWithTexCoords(
-                new Rect(21, 21, 2, 2),
-                texture,
-                new Rect(0, 0, 1, 1),
-                Color.white
-            );
-            backend.PopClipRect();
-            if (backend.images.ContainsKey(texture.GetInstanceID()))
-                throw new InvalidOperationException("Fully clipped images must not upload");
-            backend.DrawTextureWithTexCoords(
-                new Rect(9, 9, 2, 2),
-                texture,
-                new Rect(0, 0, 1, 1),
-                Color.white
-            );
-            if (!backend.images.ContainsKey(texture.GetInstanceID()))
-                throw new InvalidOperationException("Partially visible images must upload");
-            backend.PopClipRect();
-            GUI.DrawTexture(new Rect(450, 20, 20, 20), texture);
-        }
-        finally
-        {
-            texture.Dispose();
-        }
-        return backend.Drain();
-    }
 }

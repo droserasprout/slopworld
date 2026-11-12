@@ -34,82 +34,7 @@ public static class BrowserGuiInput
         }
     }
 
-    public static string DiscardedDrawingProbe()
-    {
-        var previousBackend = UnityStubs.Gui.GuiBackend.Current;
-        bool previousSkip = skipDiscardedDrawing,
-            previousProfile = Profile;
-        var previousEvent = Event.current;
-        var previousMatrix = GUI.matrix;
-        var previousPointer = pointer;
-        try
-        {
-            Profile = false;
-            string Paint(bool skip)
-            {
-                skipDiscardedDrawing = skip;
-                var gui = BrowserGui.Install();
-                int input = 0,
-                    layout = 0,
-                    repaint = 0;
-                var result = Dispatch(
-                    "[{\"kind\":\"move\",\"x\":-50,\"y\":-50}]",
-                    gui,
-                    () =>
-                    {
-                        if (Event.current.type == EventType.MouseMove)
-                            input++;
-                        if (Event.current.type == EventType.Layout)
-                            layout++;
-                        if (Event.current.type == EventType.Repaint)
-                            repaint++;
-                        GUI.Label(new Rect(20, 20, 250, 50), "Native discarded-pass check");
-                    }
-                );
-                if (input != 1 || layout != 1 || repaint != 1)
-                    throw new InvalidOperationException(
-                        "Suppression skipped native event dispatch"
-                    );
-                using var json = JsonDocument.Parse(result);
-                return json.RootElement.GetProperty("commands").GetRawText();
-            }
-            string baseline = Paint(false),
-                suppressed = Paint(true);
-            if (baseline != suppressed || baseline == "[]")
-                throw new InvalidOperationException(
-                    "Discarded-pass suppression changed repaint commands"
-                );
-            var target = BrowserGui.Install();
-            try
-            {
-                DrawUnpresented(target, () => throw new InvalidDataException("probe"));
-            }
-            catch (InvalidDataException) { }
-            if (target.SuppressDrawing)
-                throw new InvalidOperationException("Suppression leaked after a failed input pass");
-            return "ok";
-        }
-        finally
-        {
-            skipDiscardedDrawing = previousSkip;
-            Profile = previousProfile;
-            UnityStubs.Gui.GuiBackend.Current = previousBackend;
-            Event.current = previousEvent;
-            GUI.matrix = previousMatrix;
-            pointer = previousPointer;
-        }
-    }
-
-    static BrowserGui? backend;
-    static int clicks;
-    static string text = "";
     static Vector2 pointer;
-
-    public static string Frame(string batch)
-    {
-        backend ??= BrowserGui.Install();
-        return Dispatch(batch, backend, Controls);
-    }
 
     public static string Dispatch(
         string batch,
@@ -264,22 +189,6 @@ public static class BrowserGuiInput
         }
         // Commands are already JSON. Avoid parsing and serializing the entire frame
         // a second time solely to add the small control-check envelope.
-        return "{\"clicks\":"
-            + clicks
-            + ",\"text\":"
-            + JsonSerializer.Serialize(text)
-            + ",\"commands\":"
-            + commands
-            + timing
-            + "}";
-    }
-
-    static void Controls()
-    {
-        GUIUtility.ResetControlIds();
-        GUI.Label(new Rect(20, 10, 450, 30), "Installed Unity controls — browser input");
-        if (GUI.Button(new Rect(20, 50, 200, 40), $"Clicks: {clicks}"))
-            clicks++;
-        text = GUI.TextField(new Rect(20, 110, 450, 40), text);
+        return "{\"commands\":" + commands + timing + "}";
     }
 }

@@ -71,7 +71,7 @@ static class RowChecks
             gui.Drain();
             string? mod = Environment
                 .GetCommandLineArgs()
-                .FirstOrDefault(a => a.StartsWith("--row-mod="));
+                .FirstOrDefault(a => a.StartsWith("--row-mod=", StringComparison.Ordinal));
             if (mod != null)
             {
                 Assembly.LoadFrom(Path.GetFullPath(mod[10..]));

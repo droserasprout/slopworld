@@ -5,10 +5,12 @@ import json
 import os
 import subprocess
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 
-def preferences() -> dict:
+def preferences() -> dict[str, Any]:
     data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/share')))
     profile = data / 'slopworld/profiles/local/Config/SlopWorld.toml'
     values = tomllib.loads(profile.read_text()) if profile.is_file() else {}
@@ -41,7 +43,7 @@ def preferences() -> dict:
     return result
 
 
-def write_preferences(root: Path, values: dict) -> None:
+def write_preferences(root: Path, values: Mapping[str, Any]) -> None:
     """Publish the allowlisted snapshot atomically for concurrent local readers."""
     destination = root / 'assets/reference-appearance.json'
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -50,7 +52,7 @@ def write_preferences(root: Path, values: dict) -> None:
     temporary.replace(destination)
 
 
-def prepare_fonts(bundle: Path, game: Path, root: Path, values: dict) -> None:
+def prepare_fonts(bundle: Path, game: Path, root: Path, values: Mapping[str, Any]) -> None:
     values = dict(values)
     fonts = root / 'assets/fonts'
     fonts.mkdir(parents=True, exist_ok=True)

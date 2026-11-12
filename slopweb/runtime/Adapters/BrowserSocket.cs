@@ -10,6 +10,11 @@ public static class BrowserSocket
     const BindingFlags Fields =
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1001",
+        Justification = "BrowserSocket.Dispose owns cancellation and disposal after removing the state from the socket registry."
+    )]
     sealed class State
     {
         public readonly ClientWebSocket Socket = new();

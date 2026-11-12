@@ -13,10 +13,13 @@ import shutil
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
+from typing import Any
+from typing import TextIO
 
 PACKAGES = {
     'Newtonsoft.Json': '13.0.3',
@@ -52,11 +55,7 @@ def published_loader(main: str) -> str:
         )
     if 'Probe.LoadAssembly(' in main or 'loadPublished(response)' not in main:
         raise ValueError('Unrecognized stream assembly load; refusing mixed identities')
-    # A published assembly has one body. Alternate skip-logger IL is not this snapshot.
-    return main.replace(
-        "const bypassLogger = parameters.has('skipLogger') && item.file === 'RimWorld.dll';",
-        'const bypassLogger = false; // Published final IL only.',
-    )
+    return main
 
 
 def assemblies(prepared: Path) -> dict[str, Path]:
@@ -87,6 +86,8 @@ def write_candidate(runtime: Path, candidate: Path, dlls: dict[str, Path], runti
     (candidate / 'Directory.Build.props').write_text('<Project />\n')
     project = ET.parse(runtime / 'Probe.csproj')
     props = project.getroot().find('PropertyGroup')
+    if props is None:
+        raise ValueError('Runtime project has no compiler properties')
     for name, value in {
         'RunAOTCompilation': 'true',
         'PublishTrimmed': 'true',
@@ -106,18 +107,10 @@ def write_candidate(runtime: Path, candidate: Path, dlls: dict[str, Path], runti
     sources = candidate / 'src'
     sources.mkdir()
     for compile_item in project.findall('.//Compile'):
-        name = compile_item.get('Include')
+        name = compile_item.get('Include', '')
+        if not name:
+            raise ValueError('Runtime compile input has no path')
         source = (runtime / name).read_text()
-        if name == 'Program.cs':
-            marker = '    // Geometry stays coupled'
-            if source.count(marker) != 1 or 'LoadPublishedAssembly' in source:
-                raise ValueError('Unrecognized Probe export boundary')
-            source = source.replace(
-                marker,
-                '    [JSExport]\n'
-                '    public static string LoadPublishedAssembly(string name) => Assembly.Load(name).FullName!;\n\n'
-                + marker,
-            )
         (sources / name).write_text(source)
         compile_item.set('Include', f'src/{name}')
     group = ET.SubElement(project.getroot(), 'ItemGroup')
@@ -173,7 +166,7 @@ def sdk_selection(version: str) -> str:
     return json.dumps({'sdk': {'version': version, 'rollForward': 'disable', 'allowPrerelease': False}})
 
 
-def toolchain(path: Path) -> tuple[Path, dict]:
+def toolchain(path: Path) -> tuple[Path, dict[str, Any]]:
     """Inspect an existing SDK in isolation from checkout/global.json selection."""
     sdk = path.expanduser().resolve(strict=True)
     if sdk.is_dir():
@@ -281,7 +274,7 @@ def digest_manifest(files: dict[str, Path], identity: object, contents: dict[Pat
 
 
 @contextmanager
-def build_lock(entry: Path):
+def build_lock(entry: Path) -> Iterator[TextIO]:
     # Never replace/unlink this inode: orphaned compilers retain it through pass_fds.
     with (entry / 'build.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -296,7 +289,7 @@ def published_framework(entry: Path) -> Path:
     return published
 
 
-def compile_entry(entry: Path, sdk: Path, lock, logs: Path | None = None) -> None:
+def compile_entry(entry: Path, sdk: Path, lock: TextIO, logs: Path | None = None) -> None:
     """Resume in the same project/obj tree, marking complete only after validation."""
     if (entry / 'publish.complete').is_file():
         published_framework(entry)

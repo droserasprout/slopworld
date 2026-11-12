@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><meta charset="utf-8"><title>Local managed WASM probe</title>
+<html lang="en"><meta charset="utf-8"><title>SlopWorld</title>
 <style>
 .workspace-app { margin:0; background:#171510; color:#e6dfce; font:16px monospace; }
 .workspace-app h1,.workspace-app #result { margin:24px; white-space:pre-wrap; }
@@ -10,10 +10,6 @@
 .workspace-app.loading h1,.workspace-app.loading #result { display:none; }
 .workspace-app #loading-screen { position:fixed; inset:0; z-index:1; pointer-events:none; }
 </style>
-<body><h1>Local managed WASM probe</h1><pre id="result">Loading…</pre>
-<script>
-const startupParameters=new URLSearchParams(location.search);
-if(location.pathname==='/' || (startupParameters.has('workspace') && startupParameters.has('app')))
-  document.body.className='workspace-app loading';
-</script>
+<body class="workspace-app loading"><h1>SlopWorld</h1><pre id="result">Loading…</pre>
+
 <script type="module" src="bootstrap.js"></script></body></html>

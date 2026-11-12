@@ -73,7 +73,7 @@ static class PackedQuadTests
                         : new BrowserGui.NumericImageBatchCommand(7, [1, 1, 1, .5f], values)
                 ),
             },
-            BrowserGuiJson.Default.ListCommand
+            packed ? BrowserGuiJson.Default.ListCommand : CommandFixtureJson.Default.ListCommand
         );
 
     static void Check(List<float> values)
@@ -154,7 +154,7 @@ static class PackedQuadTests
         string Packet(bool packed) =>
             JsonSerializer.Serialize(
                 packed ? packedCommands : numericCommands,
-                BrowserGuiJson.Default.ListCommand
+                packed ? BrowserGuiJson.Default.ListCommand : CommandFixtureJson.Default.ListCommand
             );
         Packet(false);
         Packet(true);

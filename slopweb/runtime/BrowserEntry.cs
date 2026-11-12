@@ -6,36 +6,6 @@ using System.Text.Json;
 
 public partial class Probe
 {
-    [JSExport]
-    public static string GuiTargetFrame(int stage) =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserGuiTargets", "Frame", stage)!;
-
-    [JSExport]
-    public static string GuiControlProbe()
-    {
-        try
-        {
-            return (string)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ControlProbe")!;
-        }
-        catch (Exception e)
-        {
-            throw new InvalidOperationException(e.ToString());
-        }
-    }
-
-    [JSExport]
-    public static string GuiInputFrame(string batch)
-    {
-        try
-        {
-            return (string)Invoke("Adapters", "BrowserAdapters.BrowserGuiInput", "Frame", batch)!;
-        }
-        catch (Exception e)
-        {
-            throw new InvalidOperationException(e.ToString());
-        }
-    }
-
     private static IDisposable? entryEngine;
     private static bool coreInstalled;
     private static bool entryStarted;
@@ -97,103 +67,6 @@ public partial class Probe
         Environment.SetEnvironmentVariable("WAYLITH_NO_ASSET_PREFETCH", "1");
         Console.WriteLine("Entry: starting real bootstrap");
         Results.Clear();
-        Check(
-            "entry.cpu-texture-retention",
-            () =>
-                Invoke("Adapters", "BrowserAdapters.MaterialCapture", "VerifyCpuTextureRetention")!
-        );
-        Check(
-            "entry.serial-crossref-work",
-            () =>
-            {
-                var visited = new List<int>();
-                var source = new List<int> { 1, 2, 3 };
-                Action<int> callback = value =>
-                {
-                    visited.Add(value);
-                    if (value == 1)
-                        source.Add(99);
-                    if (value == 2)
-                        throw new InvalidOperationException("Expected serial-work failure");
-                };
-                var method = Type("Assembly-CSharp", "Verse.GenThreading")
-                    .GetMethod("ParallelForEach")!
-                    .MakeGenericMethod(typeof(int));
-                method.Invoke(null, new object[] { source, callback, -1 });
-                method.Invoke(
-                    null,
-                    new object[]
-                    {
-                        new List<int> { 4 },
-                        callback,
-                        -1,
-                    }
-                );
-                if (!visited.SequenceEqual(new[] { 1, 2, 3, 4 }))
-                    throw new InvalidOperationException("Work was lost");
-                return "1,2,3,4; continued after callback failure";
-            }
-        );
-        Check(
-            "entry.reject-mod-assemblies",
-            () =>
-            {
-                try
-                {
-                    RejectModAssemblies(new[] { typeof(Probe).Assembly });
-                }
-                catch (NotSupportedException)
-                {
-                    return "rejected";
-                }
-                throw new InvalidOperationException("Unexpected mod admission");
-            }
-        );
-        Check(
-            "entry.serial-range-work",
-            () =>
-            {
-                var visited = new List<int>();
-                Action<int> callback = value =>
-                {
-                    visited.Add(value);
-                    if (value == 1)
-                        throw new InvalidOperationException("Expected range-work failure");
-                };
-                Invoke("Assembly-CSharp", "Verse.GenThreading", "ParallelFor", 0, 4, callback, -1);
-                if (!visited.SequenceEqual(new[] { 0, 1, 2, 3 }))
-                    throw new InvalidOperationException("Range work was lost");
-                return "0,1,2,3; original batches completed after callback failure";
-            }
-        );
-        Check(
-            "entry.cache-write",
-            () =>
-            {
-                const string path = "/browser-cache-check/value";
-                Invoke(
-                    "Waylith",
-                    "Waylith.Runtime.CacheFileWriter",
-                    "Enqueue",
-                    path,
-                    new byte[] { 1 }
-                );
-                Invoke(
-                    "Waylith",
-                    "Waylith.Runtime.CacheFileWriter",
-                    "Enqueue",
-                    path,
-                    new byte[] { 2, 3 }
-                );
-                if (
-                    !File.ReadAllBytes(path).SequenceEqual(new byte[] { 2, 3 })
-                    || Directory.GetFiles("/browser-cache-check").Length != 1
-                )
-                    throw new InvalidOperationException("Cache replacement did not commit cleanly");
-                File.Delete(path);
-                return "atomic replacement; no temporary remains";
-            }
-        );
         Check(
             "entry.bootstrap",
             () =>
@@ -331,37 +204,8 @@ public partial class Probe
     }
 
     [JSExport]
-    public static string RequestPlay()
-    {
-        Check(
-            "game.request-play",
-            () =>
-            {
-                Invoke("Adapters", "BrowserAdapters.GameSession", "RequestPlay");
-                return "requested";
-            }
-        );
-        return EntryReport();
-    }
-
-    [JSExport]
     public static string GameSnapshot() =>
-        (string)Invoke("Adapters", "BrowserAdapters.GameSession", "Snapshot")!;
-
-    [JSExport]
-    public static void ResumePlay() => Invoke("Adapters", "BrowserAdapters.GameSession", "Resume");
-
-    [JSExport]
-    public static void ConfigureGameViewport(int width, int height) =>
-        Invoke("Adapters", "BrowserAdapters.GameSession", "ConfigureViewport", width, height);
-
-    [JSExport]
-    public static byte[] SaveGame() =>
-        (byte[])Invoke("Adapters", "BrowserAdapters.GameStorage", "Save")!;
-
-    [JSExport]
-    public static void LoadGame(byte[] contents) =>
-        Invoke("Adapters", "BrowserAdapters.GameStorage", "Load", contents);
+        (string)Invoke("Adapters", "BrowserAdapters.WorkspaceScene", "Snapshot")!;
 
     [JSExport]
     public static void StopEntry()

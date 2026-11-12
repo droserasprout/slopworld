@@ -55,20 +55,18 @@ slopweb-host-aot-log key cache=(env('HOME') + '/.cache/slopweb'):
 [group('web')]
 slopweb-format:
     rg --files slopweb/runtime slopweb/offline slopweb/tests/runtime -g '*.cs' -g '*.csproj' -0 | xargs -0 dotnet tool run csharpier format
-    uv run --locked ruff check --select I --fix slopweb tools/release
-    uv run --locked ruff format slopweb tools/release
+    uv run --locked ruff check --select I --fix slopweb
+    uv run --locked ruff format slopweb
 
 [group('web')]
-slopweb-lint:
+slopweb-lint: slopweb-check-types
     rg --files slopweb/runtime slopweb/offline slopweb/tests/runtime -g '*.cs' -g '*.csproj' -0 | xargs -0 dotnet tool run csharpier check
     while IFS= read -r file; do node --check "$file"; done < <(rg --files slopweb/runtime slopweb/server slopweb/tests -g '*.js' -g '*.mjs')
-    uv run --locked ruff check slopweb tools/release
-    uv run --locked ruff format --check slopweb tools/release
-    uv run --locked mypy --no-error-summary tools/release/slopweb.py
+    uv run --locked ruff check slopweb
+    uv run --locked ruff format --check slopweb
 
 [group('web')]
-slopweb-test: slopweb-test-runtime
-    node --test slopweb/tests/server/*.test.mjs
+slopweb-test: slopweb-test-runtime slopweb-test-server
     uv run --locked pytest slopweb/tests tools/release/test_slopweb.py -q
 
 # Managed and Node contracts; no installed game or browser required.
@@ -148,3 +146,28 @@ slopweb-test-local-fonts: slopweb-local-fonts-build
     dotnet build slopweb/runtime/FontProbe/FontProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
     node slopweb/tests/browser/native/local-fonts.mjs
     just slopweb-test-native-text
+
+# Check installed Python tools independently of repository packaging modules.
+[group('web')]
+slopweb-check-types:
+    MYPYPATH=slopweb uv run --locked mypy --no-error-summary --no-namespace-packages slopweb/*.py slopweb/runtime/*.py slopweb/runtime/LocalFonts/build.py
+
+[group('web')]
+slopweb-test-server:
+    node --test slopweb/tests/server/*.test.mjs
+
+# Restore every reviewed browser project lock without installed game assemblies.
+[group('web')]
+slopweb-restore:
+    for project in $(rg --files slopweb -g '*.csproj' | sort); do dotnet restore "$project" --locked-mode --nologo -v quiet; done
+
+# Remove authored build output; installed caches and private research are separate.
+[group('web')]
+slopweb-clean:
+    uv run --locked python -m tools.web clean
+
+# Compile native fidelity checks against installed assemblies without executing them.
+[group('web')]
+slopweb-check-native-build game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+    dotnet build slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj --nologo -v quiet -p:RestoreLockedMode=true -p:GameDirectory={{quote(game)}}
+    dotnet build slopweb/tests/runtime/KeyBindingsTests/KeyBindingsTests.csproj --nologo -v quiet -p:RestoreLockedMode=true -p:GameDirectory={{quote(game)}}
