@@ -69,14 +69,31 @@ Initial compilation requires substantial time, disk and memory; the launcher
 prints the private cache and publish log paths. NuGet restore may download the
 project's pinned package dependencies.
 
-Compilation is reused for identical final patched DLLs, authored compiler inputs,
-settings, and SDK/runtime identity. Font, appearance, and JavaScript
-changes compose a new runtime using the existing compiled framework. Failed or
-interrupted publishes resume in the same private compilation directory on retry.
-Only successful complete runtimes are served, and existing serving roots survive
-refreshes. `--rebuild` refreshes game preparation; unchanged compiler inputs still
-reuse compiled AOT. All compilation output and logs stay under `--cache` in
-`aot-builds/`; immutable serving roots live in `aot-runtimes/`.
+Compilation is reused for identical generated compiler inputs, final patched DLLs,
+settings, and the selected SDK/WASM toolchain. Managed edits reuse a locked compiler
+workspace and its incremental intermediates; compiler-policy or toolchain changes
+select a separate workspace. Published runtimes remain immutable.
+Game preparation caches patched assemblies, game archives, fonts, and backgrounds
+separately. Browser assets and appearance changes reuse unaffected components and
+compose a new runtime using the existing compiled framework. `--rebuild` refreshes
+all preparation components, including installed font and native background-cache
+changes; unchanged compiler inputs still reuse compiled AOT.
+Failed or interrupted publishes resume in the same compiler workspace. Only complete
+runtimes are served, and existing serving roots survive refreshes.
+
+Compiler intermediates stay under `--cache/aot-workspaces/`; completed publications
+and per-input logs stay in `aot-builds/`. Immutable serving roots live in
+`aot-runtimes/`. Preparation components live in `prepared-components/`.
+
+The host preparation recipe defaults to two compiler cores. Pass a positive integer
+as its third argument to change both the CPU quota and compiler parallelism:
+
+```sh
+just slopweb-host-prepare-aot /private/dotnet/dotnet /private/slopweb-cache 4
+```
+
+The local font rasterizer also caches successful builds by source, compiler, flags,
+and port identity, verifying all output files before reuse.
 
 Mixed AOT retains application IL and reflection metadata, roots all application
 assemblies, and keeps Waylith, Waylith.Injection, and

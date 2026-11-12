@@ -45,8 +45,9 @@ slopweb-host-run *args:
 # Prepare an immutable AOT runtime without starting a browser or replacing a server.
 # Bound compiler parallelism as well as CPU time to leave the host usable.
 [group('web')]
-slopweb-host-prepare-aot sdk cache:
-    systemd-run --user --pipe --wait --collect -p CPUQuota=200% --setenv=DOTNET_PROCESSOR_COUNT=2 --setenv=BINARYEN_CORES=2 python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
+slopweb-host-prepare-aot sdk cache cores='2':
+    @python3 -c 'import re, sys; sys.exit(0 if re.fullmatch(r"[1-9][0-9]*", sys.argv[1]) else "cores must be a positive integer")' {{quote(cores)}}
+    systemd-run --user --pipe --wait --collect -p CPUQuota={{quote(cores + '00%')}} --setenv=DOTNET_PROCESSOR_COUNT={{quote(cores)}} --setenv=BINARYEN_CORES={{quote(cores)}} python3 {{quote(justfile_directory() / 'slopweb/just_launch.py')}} --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
 
 # Read only the compiler log; do not attach to a browser or running workspace.
 [group('web')]
