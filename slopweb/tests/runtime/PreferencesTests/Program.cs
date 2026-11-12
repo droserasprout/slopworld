@@ -14,6 +14,7 @@ static class Check
 
     static void Main()
     {
+        SteamCallbackFixture.Check();
         CheckWindowPatch();
         string saved = "";
         BrowserPreferences.Persist = json => saved = json;
