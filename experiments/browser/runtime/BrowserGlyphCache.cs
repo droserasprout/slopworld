@@ -4,6 +4,14 @@ using System.Runtime.InteropServices.JavaScript;
 public partial class Probe
 {
     [JSExport]
+    public static bool WorkspaceRowCommands(bool enabled) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureTerminalRows", enabled)!;
+
+    [JSExport]
+    public static string WorkspaceRowCommandsStats() =>
+        (string)Invoke("Adapters", "BrowserAdapters.BrowserGui", "TerminalRowStats")!;
+
+    [JSExport]
     public static bool WorkspaceGlyphCache(bool enabled) =>
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureGlyphCache", enabled)!;
 

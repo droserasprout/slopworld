@@ -51,6 +51,20 @@ public sealed partial class BrowserGui : IGuiBackend
 
     public string Drain()
     {
+        try
+        {
+            return DrainCore();
+        }
+        catch
+        {
+            recordingRow = null;
+            pendingRows.Clear();
+            throw;
+        }
+    }
+
+    string DrainCore()
+    {
         long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
         CollectImages();
         foreach (var pair in targets.ToArray())
@@ -74,6 +88,7 @@ public sealed partial class BrowserGui : IGuiBackend
             LastSerializationMs = (Stopwatch.GetTimestamp() - swept) * 1000d / Stopwatch.Frequency;
         }
         BenchmarkSerialization(commands);
+        CommitRows();
         commands.Clear();
         commandState.Clear();
         outsideTargetQuads = 0;
@@ -83,6 +98,8 @@ public sealed partial class BrowserGui : IGuiBackend
 
     public void Discard()
     {
+        recordingRow = null;
+        pendingRows.Clear();
         // Discarded layout/input draws never delivered their image definitions.
         foreach (int id in pendingImages)
             images.Remove(id);
@@ -105,6 +122,7 @@ public sealed partial class BrowserGui : IGuiBackend
     {
         if (SuppressDrawing)
             return;
+        RecordEmit(kind, value);
         if (!commandState.Accept(kind, value))
             return;
         // Adjacent transforms have no drawing or saved state between them.
@@ -383,6 +401,8 @@ public sealed partial class BrowserGui : IGuiBackend
         if (observeLabels)
             labelPainted = false;
         long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
+        if (recordingRow != null && text.Any(c => c < ' ' || c > '~'))
+            RejectRow();
         bool baked = DrawBakedText(
             rect,
             text,
@@ -411,6 +431,7 @@ public sealed partial class BrowserGui : IGuiBackend
                 ObserveLabel(rect, text, color, clipRect);
             return;
         }
+        RejectRow();
         bool native = DrawNativeText(
             rect,
             text,
@@ -485,8 +506,7 @@ public sealed partial class BrowserGui : IGuiBackend
         if (image is not UnityEngine.Texture2D texture)
             throw new NotSupportedException("Browser GUI render texture");
         UploadImage(texture);
-        AppendImageBatch(
-            commands,
+        AppendImages(
             texture.GetInstanceID(),
             ColorChannel(color.r),
             ColorChannel(color.g),

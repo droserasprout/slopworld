@@ -9,7 +9,7 @@ AssemblyLoadContext.Default.Resolving += (_, name) =>
         ? AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(game, name.Name + ".dll"))
         : null;
 Assembly.LoadFrom(
-    args.Length > 1 && args[1] != "--glyph-benchmark"
+    args.Length > 1 && !args[1].StartsWith("--", StringComparison.Ordinal)
         ? Path.GetFullPath(args[1])
         : Path.Combine(game, "RimWorld.dll")
 );
@@ -34,7 +34,7 @@ foreach (string text in markup)
 Console.WriteLine(
     $"Installed parser preserved {plain.Length} literal and {markup.Length} markup cases."
 );
-if (args.Length > 1 && args[1] != "--glyph-benchmark")
+if (args.Length > 1 && !args[1].StartsWith("--", StringComparison.Ordinal))
     LayoutChecks.Run();
 
 FontChecks.Run();
