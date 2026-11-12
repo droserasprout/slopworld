@@ -10,8 +10,8 @@ to the ordinary native product group. [slopweb](../slopweb/README.md) owns usage
 [releases](../docs/src/development/releases.md) owns publication procedures.
 
 Root format/lint/test/clean cover the browser product alongside native components.
-`slopweb-restore` and `deps-update-web` cover every browser helper/runtime/test project;
-private probes are excluded. `slopweb-clean` preserves compiler caches and private runtimes.
+`web-restore` and `deps-update-web` cover every browser helper/runtime/test project;
+private probes are excluded. `web-clean` preserves compiler caches and private runtimes.
 
 Component justfiles own tool commands; the root owns aggregates and `just/ci.just`
 owns CI groups. Imports share one namespace and repository-root working directory.
@@ -25,7 +25,7 @@ belongs to each crate's manifest; `clippy.toml` owns thresholds and test allowan
 `slopcar/` owns Linux containers and their host launcher. Mod builds do not
 build Rust, so install/launch recipes must declare their launcher dependency.
 
-Shell completion scripts in `packaging/completions/` are generated from the three
+Shell completion scripts in `packaging/completions/` are generated from the four
 client command trees by `just generate-completions`. `tools/cli_completions.py` owns
 shell install paths; source installs and release staging consume those scripts.
 CLI integration tests check that packaged scripts match the current trees.

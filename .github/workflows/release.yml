@@ -129,6 +129,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
+      - name: Install pinned Emscripten font compiler
+        run: just web-local-fonts-sdk
       - name: Install WebAssembly build workload
         run: dotnet workload install wasm-tools
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2

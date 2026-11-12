@@ -6,6 +6,10 @@ diagnostic runtimes belong in ignored `priv/`. Public builds, tests, packaging,
 and CI must work without private files.
 
 The root Python modules own host preparation, compilation caching, and launch.
+`application_paths.py` mirrors the native shared path resolver for application
+roots, endpoint profiles, and saved game discovery. Keep those contracts aligned
+with `slopd/src/shared/application_paths.rs` and the native launcher's game resolver;
+the installed Python launcher must remain independent of checkout tooling.
 `runtime/` owns Entry-only WASM execution, browser assets, adapters, and native preparation
 helpers; `offline/` patches private copies of assemblies. `server/` owns asset
 delivery, font delivery, and the host-authenticated daemon bridge.
@@ -37,6 +41,9 @@ The mod retains sidebar, terminal, native text layout, session catalog, and
 configuration ownership. Adapters substitute platform services and rendering;
 the daemon retains processes, tmux, sandboxes, and credentials. See the
 [client boundary](mod-client.md) and [wire contract](protocol-wire.md).
+Host appearance import and browser persistence share a tested presentation
+allowlist. Browser backdrop rendering consumes the native dimming preference;
+profile files stay read-only and browser changes remain local to its origin.
 
 The server binds IPv4 loopback and validates Host separately from browser
 provenance. Its same-origin HTTP and WebSocket bridges inject host credentials;

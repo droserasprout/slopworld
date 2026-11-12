@@ -61,7 +61,7 @@ def main() -> None:
                 f'VERSION={version}',
                 'sidecar-build'
                 if args.product == 'slopcar'
-                else 'slopweb-build'
+                else 'web-build'
                 if args.product == 'slopweb'
                 else ('build' if 'slopworld' in products else 'daemon-build'),
             ]

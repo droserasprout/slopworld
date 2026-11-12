@@ -16,7 +16,9 @@ def ensure_workload(arguments: list[str]) -> None:
     parser.add_argument('--interpreted', action='store_true')
     parser.add_argument('--aot-sdk')
     options, _ = parser.parse_known_args(arguments)
-    if options.interpreted or '--help' in arguments or '-h' in arguments:
+    if options.interpreted or any(
+        value in arguments for value in ('--help', '-h', '--version', '-V', 'paths', 'completions')
+    ):
         return
     selected = options.aot_sdk or os.environ.get('SLOPWEB_AOT_SDK') or shutil.which('dotnet')
     if not selected:

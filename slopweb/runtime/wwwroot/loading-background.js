@@ -51,7 +51,7 @@ export async function loadBackground(signal) {
       const next=select(seconds), changed=next.current!==frame.current || next.previous!==frame.previous;
       frame=next;return changed;
     },
-    draw(context,width,height) {
+    draw(context,width,height,dimming=0) {
       const aspect=manifest.width/manifest.height;
       const w=Math.max(width,height*aspect), h=w/aspect;
       const x=Math.floor(width/2)-w/2, y=Math.floor(height/2)-h/2;
@@ -61,6 +61,13 @@ export async function loadBackground(signal) {
       context.drawImage(images[frame.previous],x-offsetX,y-offsetY,w,h);
       context.globalAlpha=.5;
       context.drawImage(images[frame.current],x+offsetX,y+offsetY,w,h);
+      // Dimming belongs to workspace preferences, after both animation layers.
+      // Loading retains the undimmed native menu background by default.
+      if(dimming>0) {
+        context.globalAlpha=Math.min(.8,dimming);
+        context.fillStyle='#000';
+        context.fillRect(0,0,width,height);
+      }
       context.restore();
     },
     dispose() {for(const image of images) image.close();},

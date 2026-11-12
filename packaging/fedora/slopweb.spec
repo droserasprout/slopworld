@@ -30,5 +30,8 @@ cp -a "%{_sourcedir}/payload/." "%{buildroot}/"
 %defattr(-,root,root,-)
 /usr/bin/slopweb
 /usr/share/slopweb
+/usr/share/bash-completion/completions/slopweb
+/usr/share/zsh/site-functions/_slopweb
+/usr/share/fish/vendor_completions.d/slopweb.fish
 %doc /usr/share/doc/slopweb
 %license /usr/share/licenses/slopweb
