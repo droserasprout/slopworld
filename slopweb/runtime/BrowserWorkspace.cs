@@ -126,6 +126,15 @@ public partial class Probe
     }
 
     [JSExport]
+    public static void WorkspaceGlyphsReady()
+    {
+        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "GlyphsReady");
+        Invoke("Adapters", "BrowserAdapters.BrowserGui", "FontsChanged");
+        Invoke("SlopWorld", "SlopWorld.TerminalFont", "Invalidate");
+        Invoke("Adapters", "BrowserAdapters.BrowserActivity", "Notify");
+    }
+
+    [JSExport]
     public static void WorkspaceFontsReady()
     {
         Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "RetryRasterization");

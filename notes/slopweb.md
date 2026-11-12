@@ -91,7 +91,13 @@ the workspace is shown; neither uses an authored glyph list.
 `BrowserFontBank.Fallbacks` owns pending requests and maps resolved fonts into the
 primary atlas at its baseline; replies never expose host paths or glyph pixels.
 `LocalFonts/` supplies FreeType WASM; browser adapters own rasterization and atlas
-lifetime, while native text layout retains wrapping and caret policy. Selection
+lifetime, while native text layout retains wrapping and caret policy. Non-ASCII
+glyphs rasterize in a worker and use bounded origin-local persistent storage keyed
+by font content, scalar, size, density, and loader flags. Pending glyphs remain
+retryable until completion invalidates native drawing. Font bytes are installed
+in both rasterizers before managed publication; the main thread retains synchronous
+metrics and ASCII rendering. Bump the glyph storage namespace when changing
+FreeType or its rasterization contract. Selection
 changes publish after loading and reject stale responses. Both execution modes use
 the same font pipeline; AOT only changes managed execution. Private font bytes and
 pixels remain in local caches. Reload after changing the installed host collection.

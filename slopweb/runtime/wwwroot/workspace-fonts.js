@@ -1,6 +1,7 @@
 import {fontRequests} from './font-delivery.js';
 import {hostFonts} from './host-fonts.js';
-// Font-file selections publish only after loading; glyphs are synchronous WASM work.
+import {installWorkspaceFont} from './workspace-rasterizer.js';
+// Font-file selections publish only after both rasterizers have loaded the bytes.
 export function dynamicFonts(probe, request = globalThis.fetch, density = () => globalThis.devicePixelRatio ?? 1,
   report = (message, retry) => {
     if (message) console.warn(message);
@@ -66,7 +67,8 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
             [name, Uint8Array.from(atob(bytes), c => c.charCodeAt(0))]));
           if (result.files) await host.warm([...new Set(result.faces.map(face=>JSON.parse(face.bake).family))]);
           if (disposed || selected !== wanted) continue;
-          for (const face of result.faces) probe.WorkspaceFont(fonts.get(face.font), face.bake, -1);
+          for (const face of result.faces) await installWorkspaceFont(probe,fonts.get(face.font),face.bake,-1,()=>!disposed&&selected===wanted);
+          if (disposed || selected !== wanted) continue;
           const chains = JSON.stringify(result.chains);
           probe.WorkspaceFontChains(chains);
           probe.WorkspaceFontsReady();

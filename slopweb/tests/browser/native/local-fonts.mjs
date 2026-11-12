@@ -2,6 +2,7 @@ import {readFileSync, mkdirSync, writeFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import assert from 'node:assert/strict';
+import {Worker} from 'node:worker_threads';
 import create from '../../../runtime/wwwroot/local-fonts.mjs';
 import {localRasterizer} from '../../../runtime/wwwroot/workspace-rasterizer.js';
 
@@ -47,6 +48,24 @@ for (const family of ['Fira Sans', 'PT Sans']) {
     }
   }
 }
+const worker=new Worker(new URL('./glyph-worker-harness.mjs',import.meta.url));
+let nextRequest=0;
+const send=message=>new Promise((resolve,reject)=>{
+  const error=reason=>{worker.off('message',receive);reject(reason);};
+  const receive=value=>{
+    worker.off('error',error);
+    if(value.error)reject(Error(value.error));else resolve(value.value);
+  };
+  worker.once('error',error);worker.once('message',receive);
+  worker.postMessage({...message,id:++nextRequest});
+});
+try {
+  const font=readFileSync(execFileSync('fc-match',['-f','%{file}','Fira Sans'],{encoding:'utf8'}));
+  await send({hash:'Fira Sans',font});
+  const request={hash:'Fira Sans',scalar:0x416,size:17.5,density:5/3,flags:513};
+  assert.deepEqual(JSON.parse(await send({request})),JSON.parse(local.call(JSON.stringify(request))));
+  console.log('Worker FreeType output matches synchronous glyph metrics and pixels.');
+} finally { await worker.terminate(); }
 local.close(); local.close();
 assert.throws(()=>local.call(JSON.stringify({hash:'Fira Sans',scalar:65,size:15,density:1,flags:513})),/not loaded/);
 assert.throws(()=>local.call(JSON.stringify({hash:'bad',font:Buffer.from('bad').toString('base64')})),/Invalid/);

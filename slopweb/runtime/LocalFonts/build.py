@@ -105,7 +105,7 @@ with (cache / 'raster-build.lock').open('a') as lock:
                 '-sUSE_FREETYPE=1',
                 '-sMODULARIZE=1',
                 '-sEXPORT_ES6=1',
-                '-sENVIRONMENT=web,node',
+                '-sENVIRONMENT=web,worker,node',
                 '-sALLOW_MEMORY_GROWTH=1',
                 '-sMAXIMUM_MEMORY=268435456',
                 '-sFILESYSTEM=0',
