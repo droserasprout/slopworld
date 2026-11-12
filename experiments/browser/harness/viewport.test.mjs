@@ -9,6 +9,8 @@ test('root defaults are internal and explicit probe URLs remain explicit', () =>
     assert.equal(defaults.has(key),true,key);
   assert.equal(defaults.has('session'),false,'Default startup must work with any host catalog');
   assert.equal(root.search,'');
+  assert.equal(defaults.get('rowCommands'),'1');
+  assert.equal(workspaceParameters({pathname:'/',search:'?rowCommands=0'}).get('rowCommands'),'0');
   const explicit=workspaceParameters({pathname:'/',search:'?session=fixture&width=1000&height=700&uiScale=1'});
   assert.equal(explicit.get('session'),'fixture');
   assert.equal(explicit.has('responsive'),false);

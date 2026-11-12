@@ -123,7 +123,8 @@ ordinary unprofiled drawing avoids that traversal. Culling is enabled by default
 workload comparisons. Faded-label slices
 narrow drawing clips through nested groups while retaining full-span fine text clips.
 
-The default-off terminal row command recorder is enabled by `rowCommands=1` or
+The terminal row command recorder defaults on for normal workspace startup;
+`rowCommands=0` disables it. Explicit diagnostic pages remain opt-in through `rowCommands=1` or
 `Probe.WorkspaceRowCommands(true)` (`window.__workspace.setRowCommands` also toggles
 it). `window.__workspace.rowCommandStats()` reports hits, misses, diagnostic
 bypasses and retained row/byte counts without enabling managed profiling. It records
