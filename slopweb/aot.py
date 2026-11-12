@@ -4,6 +4,7 @@ launch owns game preparation; this module consumes its final immutable DLLs.
 Release staging ships only declared authored compiler inputs, never private output.
 """
 
+import codecs
 import fcntl
 import hashlib
 import json
@@ -11,7 +12,9 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
+import threading
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -289,6 +292,40 @@ def published_framework(entry: Path) -> Path:
     return published
 
 
+@contextmanager
+def stream_log(path: Path) -> Iterator[None]:
+    """Mirror new log bytes while the compiler retains direct file/lock ownership."""
+    stopped = threading.Event()
+    with path.open('rb') as reader:
+        reader.seek(0, os.SEEK_END)
+
+        def forward() -> None:
+            decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
+            try:
+                while True:
+                    chunk = reader.read(8192)
+                    if chunk:
+                        sys.stderr.write(decoder.decode(chunk))
+                        sys.stderr.flush()
+                    elif stopped.is_set():
+                        sys.stderr.write(decoder.decode(b'', final=True))
+                        sys.stderr.flush()
+                        return
+                    else:
+                        stopped.wait(0.1)
+            except OSError:
+                # A closed terminal must not interrupt compilation or its durable log.
+                return
+
+        worker = threading.Thread(target=forward, name='slopweb-publish-log', daemon=True)
+        worker.start()
+        try:
+            yield
+        finally:
+            stopped.set()
+            worker.join()
+
+
 def compile_entry(entry: Path, sdk: Path, lock: TextIO, logs: Path | None = None) -> None:
     """Resume in the same project/obj tree, marking complete only after validation."""
     if (entry / 'publish.complete').is_file():
@@ -300,28 +337,29 @@ def compile_entry(entry: Path, sdk: Path, lock: TextIO, logs: Path | None = None
         log.flush()
         print(f'Publishing mixed AOT; log: {logs / "publish.log"}', flush=True)
         try:
-            subprocess.run(
-                [
-                    str(sdk),
-                    'publish',
-                    str(entry / 'candidate/Probe.csproj'),
-                    '-c',
-                    'Release',
-                    '-o',
-                    str(entry / 'published'),
-                    '--nologo',
-                    '-v',
-                    'minimal',
-                    '-p:RestoreLockedMode=false',
-                    f'-bl:{logs / "publish.binlog"}',
-                ],
-                cwd=entry / 'candidate',
-                env=sdk_environment(sdk),
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                check=True,
-                pass_fds=(lock.fileno(),),
-            )
+            with stream_log(logs / 'publish.log'):
+                subprocess.run(
+                    [
+                        str(sdk),
+                        'publish',
+                        str(entry / 'candidate/Probe.csproj'),
+                        '-c',
+                        'Release',
+                        '-o',
+                        str(entry / 'published'),
+                        '--nologo',
+                        '-v',
+                        'minimal',
+                        '-p:RestoreLockedMode=false',
+                        f'-bl:{logs / "publish.binlog"}',
+                    ],
+                    cwd=entry / 'candidate',
+                    env=sdk_environment(sdk),
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                    pass_fds=(lock.fileno(),),
+                )
         except subprocess.CalledProcessError as error:
             raise ValueError(f'AOT publish failed; retry to resume compilation. See {logs / "publish.log"}') from error
     published_framework(entry)
