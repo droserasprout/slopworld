@@ -18,6 +18,7 @@ from appearance import preferences
 from appearance import prepare_fonts
 from appearance import write_preferences
 from endpoint import connection
+from timings import Timings
 
 PAGE = '/'
 
@@ -34,8 +35,16 @@ def input_files(root: Path, *names: str) -> dict[str, Path]:
     return result
 
 
-def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False, profile: Path | None = None) -> Path:
+def prepare(
+    bundle: Path,
+    game: Path,
+    cache: Path,
+    rebuild: bool = False,
+    profile: Path | None = None,
+    timings: Timings | None = None,
+) -> Path:
     """Compose immutable phase outputs under one preparation transaction lock."""
+    timings = timings or Timings()
     appearance = preferences(profile) if profile is not None else preferences()
     game_dlls = {p.name: p for p in game.glob('*.dll')}
     native = {p.name: p for p in game.glob('*.so*') if p.is_file()}
@@ -77,6 +86,7 @@ def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False, profil
                 raise ValueError('Invalid private runtime cache pointer')
             destination = cache / selected
         if (destination / '.ready').is_file() and not rebuild:
+            print('Reusing prepared runtime', flush=True)
             return destination
 
         def run(*args: object) -> None:
@@ -131,14 +141,17 @@ def prepare(bundle: Path, game: Path, cache: Path, rebuild: bool = False, profil
                 with tempfile.TemporaryDirectory(prefix='.prepare-', dir=parent) as temporary:
                     root = Path(temporary) / 'runtime'
                     root.mkdir()
-                    build(root)
+                    with timings.step(f'Prepare {name}'):
+                        build(root)
                     (root / '.ready').write_text(keys[name])
                     root.rename(component)
+            else:
+                print(f'Reusing prepared {name}', flush=True)
             components.append(component)
             component_pointers.append((pointer, component.name))
         if destination.exists():
             destination = cache / (key + '-' + uuid.uuid4().hex[:12])
-        with tempfile.TemporaryDirectory(prefix='.prepare-', dir=cache) as temporary:
+        with timings.step('Compose runtime'), tempfile.TemporaryDirectory(prefix='.prepare-', dir=cache) as temporary:
             root = Path(temporary) / 'runtime'
             shutil.copytree(bundle / 'web', root)
             for component in components:
@@ -228,13 +241,23 @@ def main() -> None:
         cache = application_paths.expand(args.cache, os.environ) if args.cache is not None else paths.web_cache
         env = environment(args) if not args.prepare else os.environ.copy()
         env['SLOPWORLD_PROFILE'] = str(paths.profile)
-        sdk = args.aot_sdk or os.environ.get('SLOPWEB_AOT_SDK') or shutil.which('dotnet')
-        if not sdk:
-            raise ValueError('Mixed AOT requires .NET 10 SDK with wasm-tools; select --aot-sdk PATH')
-        # Validate before expensive game preparation; installed launchers never provision SDKs.
-        aot.toolchain(Path(sdk))
-        root = prepare(bundle, game, cache, args.rebuild, paths.profile)
-        root = aot.prepare(bundle, root, cache, Path(sdk))
+        timings = Timings()
+        try:
+            sdk = None
+            if cli.use_aot(args):
+                sdk_selection = args.aot_sdk or os.environ.get('SLOPWEB_AOT_SDK') or shutil.which('dotnet')
+                if not sdk_selection:
+                    raise ValueError('Mixed AOT requires .NET 10 SDK with wasm-tools; select --aot-sdk PATH')
+                sdk = Path(sdk_selection)
+                with timings.step('Validate AOT toolchain'):
+                    aot.toolchain(sdk)
+            with timings.step('Game preparation (including cache checks)'):
+                root = prepare(bundle, game, cache, args.rebuild, paths.profile, timings)
+            if sdk is not None:
+                with timings.step('Mixed AOT publish and composition (or cache reuse)'):
+                    root = aot.prepare(bundle, root, cache, sdk)
+        finally:
+            timings.summary('Runtime preparation summary')
         if args.prepare:
             print(f'Prepared local runtime: {root}')
             return

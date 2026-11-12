@@ -112,6 +112,7 @@ def build(destination: Path = OUTPUT) -> None:
             (ROOT / 'slopweb/launch.py', 'launch.py'),
             (ROOT / 'slopweb/application_paths.py', 'application_paths.py'),
             (ROOT / 'slopweb/cli.py', 'cli.py'),
+            (ROOT / 'slopweb/timings.py', 'timings.py'),
             (ROOT / 'slopweb/endpoint.py', 'endpoint.py'),
             (ROOT / 'slopweb/aot.py', 'aot.py'),
             (ROOT / 'slopweb/appearance.py', 'appearance.py'),

@@ -1,13 +1,7 @@
 # Build redistributable slopweb tooling; proprietary runtime stays in local output.
 [group('web')]
-web-build: (mod-build 'rimref') && web-stage
-    python3 slopweb/runtime/LocalFonts/build.py
-    dotnet build slopweb/runtime/Probe.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    dotnet build slopweb/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    dotnet build slopweb/runtime/FontProbe/FontProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    dotnet build slopweb/runtime/BackgroundProbe/BackgroundProbe.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    dotnet build slopweb/runtime/Scanner/Scanner.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    dotnet build slopweb/offline/Offline.csproj --nologo -v quiet -p:RestoreLockedMode=true
+web-build:
+    python3 slopweb/build_tools.py
 
 # Stage already-built redistributable tools without replacing private game roots.
 [group('web')]
