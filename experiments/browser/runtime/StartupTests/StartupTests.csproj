@@ -8,6 +8,8 @@
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Adapters/BrowserTransport.cs" Link="BrowserTransport.cs" />
+    <Compile Include="../Adapters/BrowserActivity.cs" Link="BrowserActivity.cs" />
     <Compile Include="../BrowserWorkspace.cs" Link="BrowserWorkspace.cs" />
   </ItemGroup>
 </Project>
