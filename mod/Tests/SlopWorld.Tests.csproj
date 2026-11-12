@@ -232,6 +232,7 @@
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiMetrics.cs" Link="Source/UI/Chrome/UiMetrics.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiLayoutRect.cs" Link="Source/UI/Chrome/UiLayoutRect.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SettingsPreviewGeometry.cs" Link="Source/UI/Settings/SettingsPreviewGeometry.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Forms/SandboxPreviewLayout.cs" Link="Source/UI/Forms/SandboxPreviewLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Scrolling/ScrollableGeometry.cs" Link="Source/UI/Scrolling/ScrollableGeometry.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/PresetHierarchy.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SandboxLayout.cs" Link="Source/UI/Settings/SandboxLayout.cs" />

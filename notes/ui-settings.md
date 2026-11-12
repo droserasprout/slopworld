@@ -29,6 +29,10 @@ require the saved endpoint to remain current; UI callbacks also require the curr
 `DaemonConfigEndpoint` resolves once per synchronous draw, including preparation;
 transport/callback guards still check the live endpoint. Effective previews come
 from the daemon. See [client](mod-client.md) and [configuration](daemon-config-stores.md).
+Each editor retains its resolved preview layout by reply identity, width, and text
+metrics. Preview replies are immutable after publication. Logical lines are separate
+rows, and only visible rows draw on repaint; scrolling must not remeasure or emit
+the entire settings document.
 
 Code appearance keeps a local Save/Discard draft. When commands change with the theme,
 commit profile preferences after daemon acceptance. [Reader replacement](mod-file-readers.md)

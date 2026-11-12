@@ -9,6 +9,7 @@ namespace SlopWorld
     {
         readonly AsyncLoadState<Wire.SettingsPreview> _load =
             new AsyncLoadState<Wire.SettingsPreview>();
+        readonly SandboxPreviewPanel _panel = new SandboxPreviewPanel();
 
         readonly struct PreviewKey : IEquatable<PreviewKey>
         {
@@ -75,7 +76,7 @@ namespace SlopWorld
                 UiText.PlainStatusLabel(rect, _load.Error ?? "Preview unavailable", UiTheme.Bad);
             }
             else
-                SandboxPreviewPanel.Draw(rect, ref scroll, _load.Value);
+                _panel.Draw(rect, ref scroll, _load.Value);
         }
     }
 }

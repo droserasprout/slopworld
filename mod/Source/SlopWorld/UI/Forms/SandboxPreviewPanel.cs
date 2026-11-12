@@ -1,93 +1,66 @@
-using System.Linq;
 using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // The same renderer serves every editor's daemon-resolved settings preview.
-    public static class SandboxPreviewPanel
+    // Each editor retains its reply layout; only visible rows enter native drawing.
+    public sealed class SandboxPreviewPanel
     {
-        public static void Draw(Rect outer, ref SmoothScroll scroll, Wire.SettingsPreview data)
+        readonly SandboxPreviewLayout _layout = new SandboxPreviewLayout();
+
+        public void Draw(Rect outer, ref SmoothScroll scroll, Wire.SettingsPreview data)
         {
             Slab.Box(outer, UiTheme.Well, UiTheme.Edge);
             var pad = outer.ContractedBy(UiTheme.GapS);
-            var view = new Rect(
-                0f,
-                0f,
-                pad.width - UiTheme.ScrollbarW,
-                Mathf.Max(Height(data, pad.width - UiTheme.ScrollbarW), pad.height)
+            float width = Mathf.Max(1f, pad.width - UiTheme.ScrollbarW);
+            _layout.Ensure(
+                data,
+                width,
+                UiMetrics.Revision,
+                // Browser fallback/glyph completion also advances this revision.
+                TerminalFont.Rev,
+                UiTheme.RowH,
+                UiTheme.GapXS,
+                UiTheme.GapS,
+                UiTheme.GapM,
+                (text, available) => UiText.PlainStatusLabelHeight(text, available)
             );
+            var view = new Rect(0f, 0f, width, Mathf.Max(_layout.Height, pad.height));
             using (scroll.Scope(pad, view))
             {
-                float y = 0f;
-                y = TextBlock(view.width, y, data.Title, UiTheme.Lead);
-                y += UiTheme.GapXS;
-                if (!string.IsNullOrEmpty(data.Subtitle))
+                // Scope consumes wheel input, but this read-only panel has no
+                // controls requiring text layout on input/layout passes.
+                if (Event.current.type != EventType.Repaint)
+                    return;
+                float top = scroll.Position.y;
+                for (int i = _layout.FirstVisible(top); i < _layout.Rows.Count; i++)
                 {
-                    y = TextBlock(view.width, y, data.Subtitle, UiTheme.Dim);
-                    y += UiTheme.GapXS;
+                    var row = _layout.Rows[i];
+                    if (row.Top >= top + pad.height)
+                        break;
+                    var rect = new Rect(0f, row.Top, width, row.Height);
+                    if (row.Style == SandboxPreviewLayout.Kind.Heading)
+                        UiLayout.SectionHeading(rect, row.Text);
+                    else
+                        UiText.PlainStatusLabel(rect, row.Text, ColorFor(row.Style));
                 }
-                if (data.Notes.Count > 0)
-                {
-                    y = TextBlock(
-                        view.width,
-                        y,
-                        string.Join("\n", data.Notes.ToArray()),
-                        UiTheme.Faint
-                    );
-                    y += UiTheme.GapS;
-                }
-
-                foreach (var field in data.Fields)
-                    y = Field(view.width, y, field);
             }
         }
 
-        static float Height(Wire.SettingsPreview data, float width)
+        static Color ColorFor(SandboxPreviewLayout.Kind kind)
         {
-            float y = 0f;
-            y += UiText.PlainStatusLabelHeight(data.Title, width) + UiTheme.GapXS;
-            if (!string.IsNullOrEmpty(data.Subtitle))
-                y += UiText.PlainStatusLabelHeight(data.Subtitle, width) + UiTheme.GapXS;
-            if (data.Notes.Count > 0)
-                y +=
-                    UiText.PlainStatusLabelHeight(string.Join("\n", data.Notes.ToArray()), width)
-                    + UiTheme.GapS;
-            foreach (var field in data.Fields)
+            switch (kind)
             {
-                string text =
-                    field.Values.Count == 0
-                        ? "(nothing)"
-                        : string.Join("\n", field.Values.ToArray());
-                y +=
-                    UiTheme.RowH
-                    + UiTheme.GapXS
-                    + UiText.PlainStatusLabelHeight(text, width)
-                    + UiTheme.GapM;
+                case SandboxPreviewLayout.Kind.Title:
+                    return UiTheme.Lead;
+                case SandboxPreviewLayout.Kind.Subtitle:
+                    return UiTheme.Dim;
+                case SandboxPreviewLayout.Kind.Note:
+                case SandboxPreviewLayout.Kind.Empty:
+                    return UiTheme.Faint;
+                default:
+                    return UiTheme.Name;
             }
-            return y + UiTheme.GapM;
-        }
-
-        static float Field(float width, float y, Wire.PreviewField field)
-        {
-            UiLayout.SectionHeading(new Rect(0f, y, width, UiTheme.RowH), field.Label);
-            y += UiTheme.RowH + UiTheme.GapXS;
-            string text =
-                field.Values.Count == 0 ? "(nothing)" : string.Join("\n", field.Values.ToArray());
-            float h = UiText.PlainStatusLabelHeight(text, width);
-            UiText.PlainStatusLabel(
-                new Rect(0f, y, width, h),
-                text,
-                field.Values.Count == 0 ? UiTheme.Faint : UiTheme.Name
-            );
-            return y + h + UiTheme.GapM;
-        }
-
-        static float TextBlock(float width, float y, string text, Color color)
-        {
-            float h = UiText.PlainStatusLabelHeight(text, width);
-            UiText.PlainStatusLabel(new Rect(0f, y, width, h), text, color);
-            return y + h;
         }
     }
 }
