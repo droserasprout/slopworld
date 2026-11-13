@@ -48,7 +48,8 @@ export function attachGuiInput(canvas, managed) {
   listen('contextrestored',()=>reuse.invalidate());
   const enqueue = event => {
     if(queue.length===0 && managed.profileFrame)queuedAt=performance.now();
-    if (queue.length >= 4096) queue = [{kind:'reset'}];
+    // Reserve one final reset so focus loss cannot overflow a full accepted batch.
+    if (queue.length >= 4096 && event.kind !== 'reset') queue = [{kind:'reset'}];
     queue.push(event);
   };
   const modifiers = event => ({ shift: event.shiftKey, control: event.ctrlKey, alt: event.altKey, command: event.metaKey });
@@ -169,7 +170,10 @@ export function attachGuiInput(canvas, managed) {
   });
   const reset = () => {
     composing = false; cancelled = true; pendingText = null; committed = null;
-    proxy.element.value = ''; queue = []; queuedAt=null; enqueue({kind:'reset'});
+    proxy.element.value = '';
+    // Preedit is canceled above; committed events must reach their native owner
+    // before focus is cleared. Window blur and visibility can report the same loss.
+    if (queue.at(-1)?.kind !== 'reset') enqueue({kind:'reset'});
   };
   listen('focus', () => { cancelled = false; });
   listen('blur', event => { if (!proxy.owns(event.relatedTarget)) reset(); });

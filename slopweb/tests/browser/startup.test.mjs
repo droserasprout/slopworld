@@ -10,7 +10,7 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 const run = new AsyncFunction('dotnet', 'workspaceViewport', 'workspaceParameters', 'fetch',
   'window', 'document', 'location', 'requestAnimationFrame', 'modules', 'console', source);
 
-async function start({query='', failAt='', incomplete=false}={}) {
+async function start({query='', failAt='', incomplete=false, reports={}}={}) {
   const calls=[];
   const state={checks:[{ok:true}],loaded:true};
   const result={textContent:''};
@@ -19,7 +19,7 @@ async function start({query='', failAt='', incomplete=false}={}) {
     documentElement:{style:{setProperty(){}}},querySelector:()=>result,getElementById:()=>result,
     createElement:()=>({})};
   const values={StartEntry:state,EntryFrame:state,InitializeEco:{checks:[]},
-    WorkspaceFrame:[],WorkspaceUpdate:{commands:[]},WorkspaceFontSnapshot:{},GameSnapshot:{},WorkspaceState:{}};
+    WorkspaceFrame:[],WorkspaceUpdate:{commands:[]},WorkspaceFontSnapshot:{},GameSnapshot:{},WorkspaceState:{},...reports};
   const managed=new Proxy({}, {get(_,name){
     return (...args)=>{
       calls.push([name,...args]);
@@ -75,4 +75,31 @@ test('failed workspace initialization releases Entry and never starts the live l
   assert.equal(calls.filter(c=>c[0]==='StopEntry').length,1);
   assert.equal(calls.includes('live'),false);
   assert.match(message,/Workspace could not start/);
+});
+
+test('reported bootstrap, frame and mod failures stop startup and preserve the cause',async()=>{
+  for (const name of ['StartEntry','EntryFrame','InitializeEco']) {
+    const report={checks:[{name:'native stage',ok:false,errors:['native failure']}],loaded:false};
+    const {calls,result,message}=await start({reports:{[name]:report}});
+    assert.match(result.error,/native stage: native failure/);
+    assert.match(message,/Workspace could not start/);
+    assert.equal(calls.filter(c=>c[0]==='StopEntry').length,1);
+    assert.equal(calls.filter(c=>c==='finish').length,1);
+    assert.equal(calls.some(c=>c[0]==='WorkspaceFrame'),false);
+    assert.equal(calls.includes('live'),false);
+    if(name==='StartEntry') assert.equal(calls.some(c=>c[0]==='EntryFrame'),false);
+    if(name==='EntryFrame') assert.equal(calls.filter(c=>c[0]==='EntryFrame').length,1);
+  }
+});
+
+test('unfinished Entry loading fails visibly and releases the engine',async()=>{
+  const report={checks:[{ok:true}],loaded:false};
+  const {calls,result,message}=await start({reports:{StartEntry:report,EntryFrame:report}});
+  assert.match(result.error,/Entry did not finish loading/);
+  assert.match(message,/Workspace could not start/);
+  assert.equal(calls.filter(c=>c[0]==='EntryFrame').length,5);
+  assert.equal(calls.filter(c=>c[0]==='StopEntry').length,1);
+  assert.equal(calls.filter(c=>c==='finish').length,1);
+  assert.equal(calls.some(c=>c[0]==='InitializeEco'),false);
+  assert.equal(calls.includes('live'),false);
 });
