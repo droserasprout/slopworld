@@ -22,6 +22,12 @@ static class RowChecks
 
     internal static void Run(int index, Texture2D texture)
     {
+        var cpuDataProperty = texture.CoreTexture.GetType().GetProperty("CpuData")!;
+        var originalCpuData = texture.CoreTexture.CpuData;
+        var originalWidth = texture.CoreTexture.width;
+        var originalHeight = texture.CoreTexture.height;
+        // Keep the borrowed backing alive until finally restores the shared atlas.
+        using var replacement = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         bool profile = BrowserGuiInput.Profile;
         bool labels = BrowserGui.ConfigureObserveLabels(false);
         BrowserGuiInput.Profile = false;
@@ -110,6 +116,9 @@ static class RowChecks
                 );
             }
             Enabled.SetValue(null, true);
+            CheckKeyReplay(style);
+            CheckPendingBudgetRecovery(style);
+
             var reference = new BrowserGui();
             Contents(reference, true);
             reference.Drain();
@@ -184,12 +193,8 @@ static class RowChecks
             Require(Draw(gui), "warm upload did not recover");
             gui.Drain();
             // Mutation without Apply still invalidates a retained dependency.
-            using var replacement = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             replacement.SetPixels32([Color.red, Color.green, Color.white, Color.blue]);
-            texture
-                .CoreTexture.GetType()
-                .GetProperty("CpuData")!
-                .SetValue(texture.CoreTexture, replacement.CoreTexture.CpuData);
+            cpuDataProperty.SetValue(texture.CoreTexture, replacement.CoreTexture.CpuData);
             Require(!Draw(gui), "CPU backing change hit");
             gui.Drain();
             Require(!Draw(gui), "changed backing cold capture published");
@@ -313,11 +318,108 @@ static class RowChecks
         }
         finally
         {
+            cpuDataProperty.SetValue(texture.CoreTexture, originalCpuData);
+            texture.CoreTexture.width = originalWidth;
+            texture.CoreTexture.height = originalHeight;
             Enabled.SetValue(null, false);
             BrowserGuiInput.Profile = profile;
             BrowserGui.ConfigureObserveLabels(labels);
             GUI.color = Color.white;
             BrowserFontBank.ConfigureDensity(1);
+        }
+    }
+
+    static void CheckKeyReplay(GUIStyle style)
+    {
+        var gui = new BrowserGui();
+        var identity = new object();
+        float[] placement = [0f, BitConverter.Int32BitsToSingle(0x7fc00001)];
+        void Capture()
+        {
+            Require(!gui.TryRow(identity, style, placement), "changed key replayed");
+            gui.EndRow(true, style);
+            gui.Drain();
+            Require(gui.TryRow(identity, style, placement), "bit-identical key missed");
+        }
+        Capture();
+        placement[0] = BitConverter.Int32BitsToSingle(unchecked((int)0x80000000));
+        Capture();
+        placement[1] = BitConverter.Int32BitsToSingle(0x7fc00002);
+        Capture();
+        placement = [.. placement, 1];
+        Capture();
+        // Empty rows isolate key lookup from operation replay/packet allocations.
+        for (int i = 0; i < 200; i++)
+            Require(gui.TryRow(identity, style, placement), "warmup missed");
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 1000; i++)
+            Require(gui.TryRow(identity, style, placement), "stable key missed");
+        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        Require(bytes < 64 * 1000, "row key hit path allocated arrays");
+        Console.WriteLine($"Row key replay: {bytes / 1000.0:F2} allocated bytes/hit.");
+        gui.Discard();
+        // Admission must recover after both successful publication and discard.
+        for (int pass = 0; pass < 3; pass++)
+        {
+            for (int i = 0; i < 260; i++)
+            {
+                Require(!gui.TryRow(new object(), style, placement), "fresh identity replayed");
+                gui.EndRow(true, style);
+            }
+            if (pass == 1)
+                gui.Discard();
+            else
+                gui.Drain();
+            identity = new object();
+            Capture();
+        }
+    }
+
+    static void CheckPendingBudgetRecovery(GUIStyle style)
+    {
+        foreach (bool fail in new[] { false, true })
+        {
+            var gui = new BrowserGui();
+            void Capture(object identity)
+            {
+                Require(!gui.TryRow(identity, style, []), "new pending row replayed");
+                for (int i = 0; i < 3000; i++)
+                    gui.FillRect(new Rect(i, 0, 1, 1), Color.white);
+                gui.EndRow(true, style);
+            }
+            // Cumulative captures exceed the byte cap; each abandoned packet
+            // must release its full budget, independently for both failure paths.
+            for (int pass = 0; pass < 24; pass++)
+            {
+                Capture(new object());
+                if (!fail)
+                    gui.Discard();
+                else
+                {
+                    var commands = (IList)
+                        typeof(BrowserGui).GetField("commands", Private)!.GetValue(gui)!;
+                    commands.Add(
+                        Activator.CreateInstance(
+                            typeof(BrowserGui).GetNestedType("Command", BindingFlags.NonPublic)!,
+                            "unsupported-budget-test",
+                            new object()
+                        )
+                    );
+                    try
+                    {
+                        gui.Drain();
+                        throw new Exception("Writer accepted unsupported budget command");
+                    }
+                    catch (InvalidOperationException) { }
+                    // Do not use Discard: failed Drain owns this cleanup itself.
+                    commands.Clear();
+                }
+            }
+            var identity = new object();
+            Capture(identity);
+            gui.Drain();
+            Require(gui.TryRow(identity, style, []), "discard/failure leaked pending row budget");
+            gui.Discard();
         }
     }
 

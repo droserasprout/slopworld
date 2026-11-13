@@ -32,9 +32,9 @@ web-run *args: web-build
 # Prepare an immutable AOT runtime without starting a browser or replacing a server.
 # Limit compiler parallelism; resource limits come from the calling environment.
 [group('web')]
-web-prepare-aot sdk cache cores='2': web-build
+web-prepare-aot sdk cache cores='8': web-build
     @python3 -c 'import re, sys; sys.exit(0 if re.fullmatch(r"[1-9][0-9]*", sys.argv[1]) else "cores must be a positive integer")' {{quote(cores)}}
-    DOTNET_PROCESSOR_COUNT={{quote(cores)}} BINARYEN_CORES={{quote(cores)}} {{quote(justfile_directory() / 'slopweb/out/slopweb-host')}} --ensure-workload --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
+    DOTNET_PROCESSOR_COUNT={{quote(cores)}} BINARYEN_CORES={{quote(cores)}} EMCC_CORES={{quote(cores)}} {{quote(justfile_directory() / 'slopweb/out/slopweb-host')}} --ensure-workload --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
 
 # Read only the compiler log; do not attach to a browser or running workspace.
 [group('web')]

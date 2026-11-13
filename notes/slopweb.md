@@ -79,7 +79,13 @@ stdout remains a machine-readable cache path. Only completed publications are se
 Packages depend on the .NET SDK; AOT additionally needs its matching wasm-tools workload.
 Installed launchers validate AOT SDKs before game preparation; the checkout's
 launcher `--ensure-workload` switch provisions workloads only for AOT.
-`tools/web_build.py` coordinates timed source builds; launch prints preparation results before its URL.
+`tools/web_build.py` coordinates timed source builds. Independent managed helpers build
+concurrently (up to six; `SLOPWEB_BUILD_JOBS` overrides the limit), with a completion
+barrier before staging. Adding shared project outputs requires revisiting that graph.
+The checkout AOT recipe defaults to eight compiler workers; its `cores` argument
+sets the .NET, Binaryen, and Emscripten limits together.
+Content archives use canonical ZIP metadata so identical payloads retain runtime identity.
+Launch prints preparation results before its URL.
 
 Host font preparation writes outlines and native loader settings, never glyph images.
 The Rust service persists content-addressed standalone faces, cmap coverage and

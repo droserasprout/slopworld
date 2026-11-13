@@ -138,8 +138,8 @@ Compiler intermediates stay under `--cache/aot-workspaces/`; completed publicati
 and per-input logs stay in `aot-builds/`. Immutable serving roots live in
 `aot-runtimes/`. Preparation components live in `prepared-components/`.
 
-The host preparation recipe defaults to two compiler workers. Pass a positive integer
-as its third argument to change .NET and Binaryen parallelism. Recipes inherit resource
+The host preparation recipe defaults to eight compiler workers. Pass a positive integer
+as its third argument to change .NET, Binaryen, and Emscripten parallelism. Recipes inherit resource
 limits from the caller; they do not create systemd services or impose CPU quotas:
 
 ```sh

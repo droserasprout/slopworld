@@ -11,6 +11,7 @@ namespace BrowserAdapters;
 public sealed partial class BrowserGui
 {
     const int RowLimit = 256;
+    const int RowContextLength = 54;
     const int RowByteLimit = 4 * 1024 * 1024;
     const int RowOperationLimit = 4096;
     static bool rowsEnabled;
@@ -19,6 +20,7 @@ public sealed partial class BrowserGui
     readonly List<RecordedRow> pendingRows = new();
     RecordedRow? recordingRow;
     int rowBytes;
+    int pendingRowBytes;
     long rowFrame,
         rowHits,
         rowMisses,
@@ -106,11 +108,12 @@ public sealed partial class BrowserGui
             rowBypasses++;
             return false;
         }
-        float[] key = RowKey(placement, style);
+        Span<float> context = stackalloc float[RowContextLength];
+        WriteRowContext(style, context);
         if (
             recordedRows.TryGetValue(identity, out var saved)
             && ReferenceEquals(saved.Style, style)
-            && BitsEqual(saved.Key, key)
+            && RowKeyMatches(saved.Key, placement, context)
             && RowImagesCurrent(saved)
         )
         {
@@ -132,6 +135,9 @@ public sealed partial class BrowserGui
             return true;
         }
         rowMisses++;
+        float[] key = new float[placement.Length + RowContextLength];
+        placement.CopyTo(key, 0);
+        context.CopyTo(key.AsSpan(placement.Length));
         recordingRow = new RecordedRow
         {
             Identity = new WeakReference<object>(identity),
@@ -148,31 +154,27 @@ public sealed partial class BrowserGui
     {
         var row = recordingRow;
         recordingRow = null;
-        if (
-            row == null
-            || !success
-            || !row.Valid
-            || !RowImagesCurrent(row)
-            || !BitsEqual(row.Key, RowKey(row.Placement, style))
-        )
+        if (row == null || !success || !row.Valid || !RowImagesCurrent(row))
+            return;
+        Span<float> context = stackalloc float[RowContextLength];
+        WriteRowContext(style, context);
+        if (!RowKeyMatches(row.Key, row.Placement, context))
             return;
         row.ExitColor = style.normal.textColor;
         // Provisional memory is bounded independently of the retained cache.
-        if (
-            pendingRows.Count >= RowLimit
-            || pendingRows.Sum(r => r.Bytes) + row.Bytes > RowByteLimit
-        )
+        if (pendingRows.Count >= RowLimit || pendingRowBytes + row.Bytes > RowByteLimit)
             return;
         pendingRows.Add(row);
+        pendingRowBytes += row.Bytes;
     }
 
     // Full backend transform (not only its 2D serialized subset), physical clipping,
     // target and font resolution all participate. Mod placement includes snap state
     // and terminal theme/font revisions. TerminalFont owns the immutable style setup.
-    float[] RowKey(float[] placement, GUIStyle style)
+    void WriteRowContext(GUIStyle style, Span<float> destination)
     {
         bool clipped = drawingClips.TryPeek(out var clip);
-        float[] context =
+        ReadOnlySpan<float> context =
         [
             matrix.m00,
             matrix.m01,
@@ -231,11 +233,21 @@ public sealed partial class BrowserGui
             style.fixedWidth,
             style.fixedHeight,
         ];
-        return [.. placement, .. context];
+        context.CopyTo(destination);
     }
 
-    static bool BitsEqual(float[] a, float[] b) =>
-        MemoryMarshal.AsBytes(a.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(b.AsSpan()));
+    // Compare raw bits: IDs can encode NaNs, and signed zero must remain distinct.
+    static bool RowKeyMatches(
+        ReadOnlySpan<float> key,
+        ReadOnlySpan<float> placement,
+        ReadOnlySpan<float> context
+    ) =>
+        key.Length == placement.Length + context.Length
+        && BitsEqual(key[..placement.Length], placement)
+        && BitsEqual(key[placement.Length..], context);
+
+    static bool BitsEqual(ReadOnlySpan<float> a, ReadOnlySpan<float> b) =>
+        MemoryMarshal.AsBytes(a).SequenceEqual(MemoryMarshal.AsBytes(b));
 
     bool RowImagesCurrent(RecordedRow row)
     {
@@ -333,7 +345,7 @@ public sealed partial class BrowserGui
             liveRows.Add(row);
             rowBytes += row.Bytes;
         }
-        pendingRows.Clear();
+        ClearPendingRows();
         foreach (
             var row in liveRows
                 .Where(r => !r.Identity.TryGetTarget(out _) || rowFrame - r.Frame > 120)
@@ -350,11 +362,17 @@ public sealed partial class BrowserGui
         rowBytes -= row.Bytes;
     }
 
+    void ClearPendingRows()
+    {
+        pendingRows.Clear();
+        pendingRowBytes = 0;
+    }
+
     void ClearRows()
     {
         recordedRows.Clear();
         liveRows.Clear();
-        pendingRows.Clear();
+        ClearPendingRows();
         recordingRow = null;
         rowBytes = 0;
         rowHits = rowMisses = rowBypasses = 0;
