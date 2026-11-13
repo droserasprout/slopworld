@@ -22,5 +22,9 @@
       <HintPath>$(GameReferencePath)/Waylith.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Brutal.Core.Numerics">
+      <HintPath>$(GameReferencePath)/Brutal.Core.Numerics.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 </Project>

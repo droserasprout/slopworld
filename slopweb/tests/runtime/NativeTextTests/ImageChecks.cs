@@ -10,6 +10,7 @@ static class ImageChecks
 
     internal static void Run()
     {
+        CheckScaleModes();
         var reference = new BrowserGui();
         using var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         texture.SetPixels32([Color.red, Color.green, Color.blue, Color.white]);
@@ -107,6 +108,119 @@ static class ImageChecks
         Console.WriteLine(
             "Image uploads track Apply, CPU backing, dimensions, switches, discard, ID reuse and disposal."
         );
+    }
+
+    static void CheckScaleModes()
+    {
+        var gui = new BrowserGui();
+        using var wide = new Texture2D(8, 4, TextureFormat.RGBA32, false);
+        using var tall = new Texture2D(4, 8, TextureFormat.RGBA32, false);
+        var rect = new Rect(10, 20, 40, 40);
+        var full = new Rect(0, 0, 1, 1);
+        foreach (var image in new[] { wide, tall })
+        {
+            Check(image, rect, ScaleMode.StretchToFill, rect, full);
+            Check(
+                image,
+                rect,
+                ScaleMode.ScaleToFit,
+                image == wide ? new Rect(10, 30, 40, 20) : new Rect(20, 20, 20, 40),
+                full
+            );
+            Check(
+                image,
+                rect,
+                ScaleMode.ScaleAndCrop,
+                rect,
+                image == wide ? new Rect(.25f, 0, .5f, 1) : new Rect(0, .25f, 1, .5f)
+            );
+            foreach (var mode in Enum.GetValues<ScaleMode>())
+            {
+                var matching = new Rect(1.25f, 2.5f, image.width * 3, image.height * 3);
+                Check(image, matching, mode, matching, full);
+                // Native fitting leaves nonpositive destination dimensions unchanged.
+                foreach (var empty in new[] { new Rect(10, 20, 0, 40), new Rect(10, 20, 40, -1) })
+                    Check(image, empty, mode, empty, full);
+            }
+        }
+
+        // Fitting happens before clip rejection: a visible letterbox is not an image.
+        gui.PushClipRect(new Rect(10, 20, 40, 5));
+        gui.DrawTexture(rect, wide, ScaleMode.ScaleToFit, Color.white);
+        using (var clipped = JsonDocument.Parse(gui.Drain()))
+            if (
+                clipped
+                    .RootElement.EnumerateArray()
+                    .Any(c => c.GetProperty("kind").GetString() == "imageBatch")
+            )
+                throw new Exception("ScaleToFit emitted an image outside the fitted drawing clip");
+        gui.PopClipRect();
+        gui.Discard();
+
+        // The RenderTexture command path must receive the same fitted geometry.
+        using var target = new RenderTexture(8, 4, 0);
+        foreach (var mode in Enum.GetValues<ScaleMode>())
+            Check(
+                target,
+                rect,
+                mode,
+                mode == ScaleMode.ScaleToFit ? new Rect(10, 30, 40, 20) : rect,
+                mode == ScaleMode.ScaleAndCrop ? new Rect(.25f, 0, .5f, 1) : full
+            );
+        Console.WriteLine(
+            "Texture scale modes preserve fitted destinations and cropped UVs through real adapter packets."
+        );
+
+        void Check(Texture image, Rect input, ScaleMode mode, Rect destination, Rect uv)
+        {
+            var tint = new Color(.3f, .6f, .9f, .5f);
+            gui.DrawTexture(input, image, mode, tint);
+            using var packet = JsonDocument.Parse(gui.Drain());
+            string kind = image is RenderTexture ? "targetTexture" : "imageBatch";
+            var value = packet
+                .RootElement.EnumerateArray()
+                .Single(c => c.GetProperty("kind").GetString() == kind)
+                .GetProperty("value");
+            float[] actual;
+            if (image is RenderTexture)
+                actual = value
+                    .GetProperty("rect")
+                    .EnumerateArray()
+                    .Concat(value.GetProperty("uv").EnumerateArray())
+                    .Select(n => n.GetSingle())
+                    .ToArray();
+            else
+                actual = value
+                    .GetProperty("quads")
+                    .EnumerateArray()
+                    .Select(n => n.GetSingle())
+                    .ToArray();
+            float[] expected =
+            [
+                destination.x,
+                destination.y,
+                destination.width,
+                destination.height,
+                uv.x,
+                uv.y,
+                uv.width,
+                uv.height,
+            ];
+            if (
+                actual.Length != expected.Length
+                || actual.Where((n, i) => Math.Abs(n - expected[i]) > .00001f).Any()
+            )
+                throw new Exception(
+                    $"Wrong {mode} geometry for {image.width}x{image.height}: [{string.Join(", ", actual)}]"
+                );
+            float[] colors = value
+                .GetProperty("color")
+                .EnumerateArray()
+                .Select(n => n.GetSingle())
+                .ToArray();
+            if (colors.Length != 4 || Math.Abs(colors[3] - 128f / 255) > .00001f)
+                throw new Exception($"Texture {mode} lost tint alpha");
+        }
     }
 
     static void Paint(BrowserGui gui, Texture2D texture) =>

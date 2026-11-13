@@ -476,12 +476,15 @@ public sealed partial class BrowserGui : IGuiBackend
         Emit("fill", new FillCommand(Box(rect), Rgba(color), rounding));
     }
 
-    public void DrawTexture(
-        Rect rect,
-        UnityEngine.Texture image,
-        ScaleMode scaleMode,
-        Color color
-    ) => DrawTextureWithTexCoords(rect, image, new Rect(0, 0, 1, 1), color);
+    public void DrawTexture(Rect rect, UnityEngine.Texture image, ScaleMode scaleMode, Color color)
+    {
+        if (SuppressDrawing)
+            return;
+        var texCoords = new Rect(0, 0, 1, 1);
+        if (scaleMode != ScaleMode.StretchToFill)
+            FitTexture(rect, image, scaleMode, out rect, out texCoords);
+        DrawTextureWithTexCoords(rect, image, texCoords, color);
+    }
 
     public void DrawTextureWithTexCoords(
         Rect rect,
