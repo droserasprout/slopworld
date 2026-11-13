@@ -3,6 +3,12 @@ import { workspaceViewport, workspaceParameters } from './workspace-viewport.js'
 let workspace = null;
 let entry = null;
 const parameters = workspaceParameters();
+function requireChecks(report, stage) {
+    const failed = report.checks.filter(check => !check.ok);
+    if (failed.length)
+        throw new Error(`${stage} failed: ` + failed.map(check =>
+            `${check.name}: ${(check.errors ?? []).join('; ')}`).join('\n'));
+}
 document.title = 'SlopWorld';
 document.body.classList.add('workspace-app');
 document.querySelector('h1').textContent = 'SlopWorld';
@@ -36,6 +42,7 @@ try {
         if (!response.ok) throw new Error('Eco mod missing');
         exports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer()));
         eco = JSON.parse(exports.Probe.InitializeEco());
+        requireChecks(eco, 'Workspace initialization');
     }
     let assetTransfer = null;
     {
@@ -67,9 +74,11 @@ try {
         const files = exports.Probe.InstallCore(new Uint8Array(await response.arrayBuffer()));
         try {
             entry = JSON.parse(exports.Probe.StartEntry());
-            if (entry.checks.every(c => c.ok)) for (let frame = 0; frame < 5; frame++) {
+            requireChecks(entry, 'Entry initialization');
+            for (let frame = 0; frame < 5; frame++) {
                 await new Promise(requestAnimationFrame);
                 entry = JSON.parse(exports.Probe.EntryFrame(frame));
+                requireChecks(entry, 'Entry initialization');
             }
             entry.files = files;
             if (entry.loaded) {
@@ -165,7 +174,7 @@ try {
                 workspace.live = (await import('./workspace.js')).startWorkspace(exports.Probe, canvas, 30 / 60);
                 document.body.classList.add('ready');
                 window.__loading?.finish();
-            }
+            } else throw new Error('Entry did not finish loading during startup');
 
         } catch (error) { exports.Probe.StopEntry(); throw error; }
     }

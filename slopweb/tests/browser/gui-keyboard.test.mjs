@@ -56,8 +56,9 @@ test('input profiling measures oldest queued event without changing the managed 
     assert.ok(batch.every(event=>!('queuedAt' in event)));
     now=200;input.frame();assert.equal(samples.at(-1).inputQueueMs,0);
     press();now=300;window.dispatchEvent(new Event('blur'));
-    now=310;input.frame();assert.equal(samples.at(-1).inputQueueMs,10);
-    assert.deepEqual(batch,[{kind:'reset'}]);
+    now=310;input.frame();assert.equal(samples.at(-1).inputQueueMs,110);
+    assert.equal(batch[0].character,113);
+    assert.deepEqual(batch.slice(1),[{kind:'reset'}]);
   } finally {input.dispose();globalThis.performance=previousPerformance;}
 });
 

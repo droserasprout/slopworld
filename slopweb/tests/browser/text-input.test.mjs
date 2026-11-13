@@ -18,6 +18,58 @@ function fixture() {
 }
 const chars=batch=>String.fromCharCode(...batch.filter(e=>e.kind==='text').map(e=>e.character));
 
+test('focus loss retains committed text and keys but cancels unfinished composition',()=>{
+  for(const reason of ['element','window','hidden','pointer']) {
+    const f=fixture();
+    try {
+      f.canvas.focus();
+      f.key('q');
+      emit(f.target,'input',{data:'q',inputType:'insertText'});
+      emit(f.target,'compositionstart');
+      emit(f.target,'compositionend',{data:'💡'});
+      f.key('Enter',{code:'Enter'});
+      emit(f.target,'compositionstart');
+      emit(f.target,'input',{data:'unfinished',inputType:'insertCompositionText',isComposing:true});
+      const reset=()=>{
+        if(reason==='element')emit(f.target,'blur',{relatedTarget:null});
+        else if(reason==='window')emit(window,'blur');
+        else if(reason==='pointer')emit(f.canvas,'pointercancel');
+        else {document.hidden=true;emit(document,'visibilitychange');}
+      };
+      reset();reset();
+      emit(f.target,'compositionend',{data:'unfinished'});
+      emit(f.target,'input',{data:'unfinished',inputType:'insertText'});
+      const batch=f.frame();
+      assert.equal(chars(batch),'q💡',reason);
+      assert.equal(batch.at(-2).key,'Return');
+      assert.deepEqual(batch.at(-1),{kind:'reset'});
+      assert.equal(batch.filter(e=>e.kind==='reset').length,1);
+      assert.deepEqual(f.frame(),[]);
+      document.hidden=false;
+      emit(f.target,'focus');
+      f.key('q');
+      emit(f.target,'input',{data:'q',inputType:'insertText'});
+      assert.equal(chars(f.frame()),'q');
+    } finally {f.dispose();}
+  }
+});
+
+test('focus reset has room after a full accepted input batch',()=>{
+  const f=fixture();
+  try {
+    f.canvas.focus();
+    const value='q'.repeat(4096);
+    emit(f.target,'input',{data:value,inputType:'insertText'});
+    emit(window,'blur');
+    emit(window,'blur');
+    const batch=f.frame();
+    assert.equal(chars(batch),value);
+    assert.equal(batch.length,4097);
+    assert.deepEqual(batch.at(-1),{kind:'reset'});
+    assert.deepEqual(f.frame(),[]);
+  } finally {f.dispose();}
+});
+
 test('composition input before compositionend commits once without requiring trailing input',()=>{
   const f=fixture();
   try {

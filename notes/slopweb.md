@@ -40,9 +40,13 @@ Packaging assertions remain under `tools/release/`. `ci-web` runs game-free chec
 native font fidelity checks are explicit opt-ins.
 
 The browser workspace stays in Entry without creating a game, world, or map.
+Startup validates managed status reports as well as exceptions; failed or incomplete
+Entry initialization releases the engine and ends loading with an error.
 Browser middle-click paste is owned by the DOM paste event carrying desktop PRIMARY;
 both browser input adapters suppress the corresponding managed button gesture to
 avoid also pasting the adapter's saved local selection.
+GUI focus resets follow accepted text and key events; only unfinished composition
+is canceled. Repeated blur/visibility notifications share the pending reset.
 The mod retains sidebar, terminal, native text layout, session catalog, and
 configuration ownership. Adapters substitute platform services and rendering;
 the daemon retains processes, tmux, sandboxes, and credentials. See the
