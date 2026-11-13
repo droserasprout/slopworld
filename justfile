@@ -105,7 +105,7 @@ deps-restore: tools-restore mod-restore mod-restore-tools web-restore
 
 # Update every dependency graph, then regenerate and stage notices
 [group('Maintain')]
-deps-update: deps-update-tools deps-update-rust deps-update-mod deps-update-web generate-daemon-licenses generate-sidecar-licenses generate-licenses
+deps-update: deps-update-tools deps-update-rust deps-update-mod deps-update-web generate-daemon-licenses generate-sidecar-licenses generate-web-licenses generate-licenses
 
 # Launch against an already running sidecar
 [group('Specialist commands')]

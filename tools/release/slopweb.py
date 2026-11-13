@@ -197,10 +197,26 @@ def stage(payload: Path, revision: str, version: str, bundle: Path = OUTPUT) -> 
     shutil.copytree(ROOT / 'licenses', payload / 'usr/share/licenses/slopweb/third-party')
 
 
+def validate_owned_paths(prefix: Path, *, uninstall: bool) -> None:
+    # Check every owner before any mutation. Uninstall may unlink an owned leaf
+    # symlink, but must never traverse one in the prefix or an owner's parents.
+    for candidate in (prefix, *prefix.parents):
+        if candidate.is_symlink():
+            raise ValueError(f'Refusing to traverse symlink: {candidate}')
+    for relative in OWNED:
+        path = prefix / relative
+        candidates = path.parents if uninstall else (path, *path.parents)
+        for candidate in candidates:
+            if candidate.is_symlink():
+                raise ValueError(f'Refusing to traverse symlink: {candidate}')
+
+
 def install(prefix: Path, uninstall: bool = False) -> None:
     # Install owns these paths only. Private generated caches and daemon config
     # are independent and deliberately survive uninstall.
     owned = OWNED
+    prefix = prefix.absolute()
+    validate_owned_paths(prefix, uninstall=uninstall)
     if uninstall:
         for relative in owned:
             path = prefix / relative
@@ -215,12 +231,9 @@ def install(prefix: Path, uninstall: bool = False) -> None:
     with tempfile.TemporaryDirectory(prefix='.slopweb-install-', dir=prefix) as temporary:
         payload = Path(temporary)
         stage(payload, (OUTPUT / 'REVISION').read_text().strip(), (OUTPUT / 'VERSION').read_text().strip())
+        validate_owned_paths(prefix, uninstall=False)
         for relative in owned:
             destination = prefix / relative
-            for path in (Path(relative), *Path(relative).parents):
-                candidate = prefix / path
-                if candidate.is_symlink():
-                    raise ValueError(f'Refusing to replace symlink: {candidate}')
             destination.parent.mkdir(parents=True, exist_ok=True)
         changed: list[tuple[Path, Path | None]] = []
         try:
@@ -253,7 +266,7 @@ def main() -> None:
     if args.command == 'build':
         build()
     else:
-        install(args.prefix.expanduser().resolve(), args.command == 'uninstall')
+        install(args.prefix.expanduser(), args.command == 'uninstall')
 
 
 if __name__ == '__main__':

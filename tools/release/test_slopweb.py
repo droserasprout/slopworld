@@ -251,12 +251,90 @@ def test_uninstall_preserves_unrelated_files_and_private_cache(tmp_path: Path) -
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('fixture')
-    slopweb.install(tmp_path, uninstall=True)
+    for _ in range(2):
+        slopweb.install(tmp_path, uninstall=True)
     assert not (tmp_path / 'bin/slopweb').exists()
     assert not (tmp_path / 'share/slopweb').exists()
     assert (tmp_path / 'bin/slopd').is_file()
     assert (tmp_path / '.cache/slopweb/game.dll').is_file()
     assert all(not (tmp_path / name).exists() for name in completions)
+
+
+@pytest.mark.parametrize('uninstall', [False, True])
+@pytest.mark.parametrize(
+    'link',
+    [
+        'ancestor',
+        'prefix',
+        *sorted({str(parent) for name in slopweb.OWNED for parent in Path(name).parents if str(parent) != '.'}),
+    ],
+)
+def test_source_changes_reject_symlinked_ancestors_before_mutating_any_owner(
+    tmp_path: Path, source_install: None, uninstall: bool, link: str
+) -> None:
+    ancestor = tmp_path / 'ancestor'
+    prefix = ancestor / 'prefix'
+    for relative in slopweb.OWNED:
+        path = prefix / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('installed')
+    target = ancestor if link == 'ancestor' else prefix if link == 'prefix' else prefix / link
+    outside = tmp_path / 'outside'
+    target.rename(outside)
+    target.symlink_to(outside, target_is_directory=True)
+    expected = {path.relative_to(tmp_path): path.read_text() for path in tmp_path.rglob('*') if path.is_file()}
+
+    for _ in range(2):
+        with pytest.raises(ValueError, match='symlink'):
+            slopweb.install(prefix, uninstall=uninstall)
+        assert target.is_symlink()
+        assert {
+            path.relative_to(tmp_path): path.read_text() for path in tmp_path.rglob('*') if path.is_file()
+        } == expected
+        assert all((prefix / relative).read_text() == 'installed' for relative in slopweb.OWNED)
+        assert not list(prefix.glob('.slopweb-install-*'))
+
+
+@pytest.mark.parametrize('relative', slopweb.OWNED)
+@pytest.mark.parametrize('kind', ['file', 'directory', 'dangling'])
+def test_uninstall_unlinks_owned_leaf_symlinks_without_touching_targets(
+    tmp_path: Path, relative: str, kind: str
+) -> None:
+    outside = tmp_path / 'outside'
+    if kind == 'directory':
+        outside.mkdir()
+        (outside / 'private').write_text('private')
+    elif kind == 'file':
+        outside.write_text('private')
+    prefix = tmp_path / 'prefix'
+    leaf = prefix / relative
+    leaf.parent.mkdir(parents=True)
+    leaf.symlink_to(outside, target_is_directory=kind == 'directory')
+    for _ in range(2):
+        slopweb.install(prefix, uninstall=True)
+        assert not leaf.is_symlink()
+        assert not leaf.exists()
+        if kind == 'directory':
+            assert (outside / 'private').read_text() == 'private'
+        elif kind == 'file':
+            assert outside.read_text() == 'private'
+        else:
+            assert not outside.exists()
+
+
+@pytest.mark.parametrize('command', ['install', 'uninstall'])
+def test_source_cli_keeps_symlinked_prefix_visible_to_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    prefix = tmp_path / 'prefix'
+    prefix.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(sys, 'argv', ['slopweb', command, '--prefix', str(prefix)])
+    with pytest.raises(ValueError, match='symlink'):
+        slopweb.main()
+    assert prefix.is_symlink()
+    assert not list(outside.iterdir())
 
 
 def test_installed_information_commands_need_no_checkout_or_game(tmp_path: Path) -> None:
