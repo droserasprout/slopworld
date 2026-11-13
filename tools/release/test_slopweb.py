@@ -2,8 +2,11 @@
 
 import json
 import os
+import runpy
 import shutil
 import subprocess
+import sys
+import time
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -513,3 +516,39 @@ def test_runtime_notices_reject_ambiguous_resolved_packs(tmp_path: Path) -> None
     (obj / 'staticwebassets.build.json').write_text(json.dumps({'Assets': assets}))
     with pytest.raises(ValueError, match='multiple'):
         slopweb.runtime_package(tmp_path)
+
+
+def test_content_archive_ignores_clock_mtimes_and_modes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from PIL import Image
+
+    root = tmp_path / 'mod'
+    (root / 'Defs').mkdir(parents=True)
+    (root / 'Textures/SlopWorld').mkdir(parents=True)
+    (tmp_path / 'shared').mkdir()
+    (tmp_path / 'shared/loading-tips.txt').write_text('tip')
+    for name in ('KeyBindings', 'PlannerBench', 'Jukebox'):
+        (root / 'Defs' / f'{name}.xml').write_text('<Defs/>')
+    image = Image.new('RGBA', (1, 2))
+    image.putdata([(1, 2, 3, 4), (5, 6, 7, 8)])
+    image.save(root / 'Textures/SlopWorld/LoadingFont.png')
+    output = tmp_path / 'Content.zip'
+    monkeypatch.setattr(sys, 'argv', ['mod_pack.py', str(root), str(output)])
+
+    def pack(year: int) -> bytes:
+        monkeypatch.setattr(time, 'localtime', lambda *_: time.struct_time((year, 2, 3, 4, 5, 6, 0, 0, 0)))
+        runpy.run_path(str(ROOT / 'slopweb/runtime/mod_pack.py'))
+        return output.read_bytes()
+
+    first = pack(2020)
+    for path in root.rglob('*'):
+        if path.is_file():
+            os.utime(path, (1800000000, 1800000000))
+            path.chmod(0o600)
+    assert pack(2030) == first
+    with zipfile.ZipFile(output) as archive:
+        assert archive.read('Textures/SlopWorld/LoadingFont.rgba') == (
+            b'\x01\x00\x00\x00\x02\x00\x00\x00' + bytes([5, 6, 7, 8, 1, 2, 3, 4])
+        )
+        assert all(entry.compress_type == zipfile.ZIP_DEFLATED for entry in archive.infolist())
+    (root / 'Defs/Jukebox.xml').write_text('<Defs>changed</Defs>')
+    assert pack(2030) != first

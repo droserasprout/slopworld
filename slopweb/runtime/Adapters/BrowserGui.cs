@@ -58,7 +58,7 @@ public sealed partial class BrowserGui : IGuiBackend
         catch
         {
             recordingRow = null;
-            pendingRows.Clear();
+            ClearPendingRows();
             throw;
         }
     }
@@ -99,7 +99,7 @@ public sealed partial class BrowserGui : IGuiBackend
     public void Discard()
     {
         recordingRow = null;
-        pendingRows.Clear();
+        ClearPendingRows();
         // Discarded layout/input draws never delivered their image definitions.
         foreach (int id in pendingImages)
             images.Remove(id);
