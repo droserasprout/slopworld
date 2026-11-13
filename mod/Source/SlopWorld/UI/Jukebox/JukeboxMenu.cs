@@ -70,7 +70,13 @@ namespace SlopWorld
                 extraPartOnGUI = rect =>
                 {
                     // These symbols default to text; native labels render VS15 as a box.
-                    var icons = new[] { "\u23EE", Radio.Muted ? "\u25B6" : "\u23F8", "\u23ED", "\u2928" };
+                    var icons = new[]
+                    {
+                        "\u23EE",
+                        Radio.Muted ? "\u25B6" : "\u23F8",
+                        "\u23ED",
+                        "\u2928",
+                    };
                     var tips = new[]
                     {
                         "Previous",
@@ -95,7 +101,12 @@ namespace SlopWorld
                         );
                         TooltipHandler.TipRegion(button, tips[i]);
                         bool enabled = Radio.TransportAvailable && (i == 1 || !Radio.Spotify);
-                        bool clicked = UiLayout.Button(button, icons[i], UiTheme.Btn.Ghost, enabled);
+                        bool clicked = UiLayout.Button(
+                            button,
+                            icons[i],
+                            UiTheme.Btn.Ghost,
+                            enabled
+                        );
                         if (clicked)
                         {
                             UiMenu.CloseAll();
