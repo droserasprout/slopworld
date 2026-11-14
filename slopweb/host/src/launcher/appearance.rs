@@ -41,6 +41,7 @@ pub const PRESENTATION_PREFERENCES: &[&str] = &[
     "timeFormat",
     "dateFormat",
     "ecoDim",
+    "radioMute",
 ];
 pub fn preferences(profile: &Path) -> Result<Map<String, Value>> {
     let settings = profile.join("Config/SlopWorld.toml");
