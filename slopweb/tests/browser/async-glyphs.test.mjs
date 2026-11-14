@@ -115,19 +115,20 @@ test('denied persistence preserves rendering and entry count stays bounded',asyn
 
 test('slow persistence cannot delay glyph replies; pending writes are bounded and reusable',{timeout:5000},async()=>{
   let release;const gate=new Promise(resolve=>{release=resolve;});
-  const entries=new Map();let writes=0,renders=0;
+  const entries=new Map();let writes=0,renders=0,enumerations=0;
   const cache={match:async()=>undefined,put:async(key,value)=>{writes++;await gate;entries.set(key,value);},
-    keys:async()=>[...entries.keys()],delete:async key=>entries.delete(key)};
+    keys:async()=>{enumerations++;return [...entries.keys()];},delete:async key=>entries.delete(key)};
   const storage=new GlyphStorage({open:async()=>cache});
   const render=()=>{renders++;return glyph;};
   // Every reply settles while the first write remains explicitly blocked.
-  for(let scalar=128;scalar<228;scalar++)assert.equal(await storage.render({...request,scalar},render),glyph);
-  assert.equal(writes,1);assert.equal(storage.pending.size,32);
+  for(let scalar=128;scalar<728;scalar++)assert.equal(await storage.render({...request,scalar},render),glyph);
+  assert.equal(writes,1);assert.equal(storage.pending.size,512);
   assert.equal(await storage.render({...request,scalar:128},render),glyph);
-  assert.equal(renders,100);
+  assert.equal(renders,600);
   release();await storage.flush();
-  assert.equal(writes,32);assert.equal(storage.pending.size,0);
-  await storage.render(request,render);await storage.flush();assert.equal(writes,33);
+  assert.equal(writes,512);assert.equal(storage.pending.size,0);
+  assert.equal(enumerations,1);
+  await storage.render(request,render);await storage.flush();assert.equal(writes,513);
 });
 
 test('failed writes are drained without poisoning later persistence',async()=>{

@@ -20,10 +20,11 @@ export async function startLoading(parameters) {
   const atlas=new Image();
   atlas.src='./mod/LoadingFont.png';
   const cancellation=new AbortController();
+  const backgroundCancellation=new AbortController();
   let stopped=false, background=null, backgroundAt=0, animation=0, glyphs=null, quotes=null;
   // Each presentation starts when its own assets are ready. A slow or failed
   // optional asset must not stop the other loading animation.
-  let original=null;
+  let original=null, backgroundTransferred=false;
   let previousGlyphs=null, latestGlyphs=null;
   let fontSize=24, message='Loading SlopWorld...';
   // Patch_LoadingTips: 32x64 cells, one-pixel gutters, 16 columns,
@@ -79,10 +80,11 @@ export async function startLoading(parameters) {
     canvas.dataset.atlas='ready';
     paint();
   };
-  loadBackground(cancellation.signal,value=>{
+  const backgroundReady=loadBackground(backgroundCancellation.signal,value=>{
     if(stopped) {value.dispose();return;}
     original=value;paint();
   }).then(value=>{
+    if(backgroundTransferred) return value ? {animation:value,started:performance.now()/1000} : null;
     if(stopped) {value?.dispose();return;}
     background=value;backgroundAt=performance.now();
     if(!background) return;
@@ -119,7 +121,9 @@ export async function startLoading(parameters) {
     canvas.dataset.quotes='ready';paint();
   }).catch(error=>{if(error.name!=='AbortError')canvas.dataset.quotes='unavailable';});
   const finish=()=>{
-    stopped=true;cancellation.abort();cancelAnimationFrame(animation);
+    stopped=true;cancellation.abort();
+    if(!backgroundTransferred)backgroundCancellation.abort();
+    cancelAnimationFrame(animation);
     background?.dispose();original?.dispose();canvas.remove();document.body.classList.remove('loading');
   };
   // Allow this screen to reach the compositor before loading the runtime module.
@@ -130,10 +134,14 @@ export async function startLoading(parameters) {
     requestAnimationFrame(()=>requestAnimationFrame(()=>{clearTimeout(timer);resolve();}));
   });
   return {
+    // Transfer in-flight downloads as well as completed frames. The workspace
+    // owns cancellation and disposal after this one-time handoff.
     takeBackground() {
+      backgroundTransferred=true;
       const retained=background;
       background=null;
-      return retained ? {animation:retained,started:backgroundAt/1000} : null;
+      return {ready:retained ? Promise.resolve({animation:retained,started:backgroundAt/1000}) : backgroundReady,
+        cancel:()=>backgroundCancellation.abort()};
     },
     status(text) {message=text;canvas.setAttribute('aria-label',text);paint();},
     finish,
