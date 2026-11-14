@@ -141,6 +141,7 @@ def build(destination: Path = OUTPUT) -> None:
         for path in (runtime / 'wwwroot').iterdir():
             if path.is_file():
                 copy_file(path, bundle / 'web' / path.name)
+        copy_file(ROOT / 'docs/theme/favicon.png', bundle / 'web/favicon.png')
         for name in ('local-fonts.mjs', 'local-fonts.wasm', 'local-fonts.LICENSE.txt'):
             if not (bundle / 'web' / name).is_file():
                 raise ValueError('Missing local font rasterizer; run just web-local-fonts-build')
