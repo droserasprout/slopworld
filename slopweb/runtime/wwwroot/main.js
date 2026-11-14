@@ -191,7 +191,6 @@ try {
                 workspace.fonts = JSON.parse(exports.Probe.WorkspaceFontSnapshot());
                 workspace.textures = textures;
                 workspace.game = JSON.parse(exports.Probe.GameSnapshot());
-                workspace.state = JSON.parse(exports.Probe.WorkspaceState());
                 workspace.live = (await import('./workspace.js')).startWorkspace(exports.Probe, canvas, 30 / 60);
                 document.body.classList.add('ready');
                 window.__loading?.finish();

@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Reflection;
 using System.Text.Json;
 using UnityEngine;
@@ -11,46 +10,6 @@ namespace BrowserAdapters;
 // after installed Entry/UI initialization and browser GUI installation.
 public static class WorkspaceDrawing
 {
-    public static string SidebarRows()
-    {
-        var mod = AppDomain
-            .CurrentDomain.GetAssemblies()
-            .Single(a => a.GetName().Name == "SlopWorld");
-        var sidebar = mod.GetType("SlopWorld.Sidebar")!;
-        var layout = sidebar
-            .GetField("Layout", BindingFlags.Static | BindingFlags.NonPublic)!
-            .GetValue(null)!;
-        const BindingFlags fields =
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        var rows = (IEnumerable)layout.GetType().GetField("Rows", fields)!.GetValue(layout)!;
-        var offset = (Vector2)sidebar.GetProperty("AgentContentOffset")!.GetValue(null)!;
-        var body = (Rect)sidebar.GetProperty("Body")!.GetValue(null)!;
-        return JsonSerializer.Serialize(
-            rows.Cast<object>()
-                .Select(row =>
-                {
-                    var type = row.GetType();
-                    var line = (Rect)type.GetField("Line", fields)!.GetValue(row)!;
-                    var text = (Rect)type.GetField("Text", fields)!.GetValue(row)!;
-                    // Native rows remain content-local between passes. Use the
-                    // sidebar's own scroll offset, then clip to its visible body.
-                    float x = Math.Max(body.xMin, line.xMin + offset.x);
-                    float y = Math.Max(body.yMin, line.yMin + offset.y);
-                    float width = Math.Max(0, Math.Min(body.xMax, line.xMax + offset.x) - x);
-                    float height = Math.Max(0, Math.Min(body.yMax, line.yMax + offset.y) - y);
-                    return new
-                    {
-                        session = type.GetField("Session", fields)!.GetValue(row),
-                        ghost = type.GetField("Ghost", fields)!.GetValue(row),
-                        hasPawn = type.GetField("Pawn", fields)!.GetValue(row) != null,
-                        rowHeight = line.height,
-                        textHeight = text.height,
-                        rect = new[] { x, y, width, height },
-                    };
-                })
-        );
-    }
-
     public static void ConfigureViewport(int width, int height, float scale)
     {
         RequireEntry();
@@ -145,7 +104,7 @@ public static class WorkspaceDrawing
         return JsonSerializer.Serialize(
             new
             {
-                game = JsonDocument.Parse(WorkspaceScene.Snapshot()).RootElement,
+                game = WorkspaceScene.Status(),
                 frame = Time.frameCount,
                 screenWidth = Screen.width,
                 screenHeight = Screen.height,

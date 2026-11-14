@@ -170,36 +170,6 @@ public partial class Probe
             )!;
 
     [JSExport]
-    public static string WorkspaceSidebarRows() =>
-        (string)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "SidebarRows")!;
-
-    [JSExport]
-    public static string WorkspaceSessionOrder() =>
-        JsonSerializer.Serialize(Invoke("SlopWorld", "SlopWorld.Sidebar", "Sessions"));
-
-    // Select an existing stopped session locally for Entry drawing regression
-    // checks. This never stops, restarts or sends input to a daemon session.
-    [JSExport]
-    public static string WorkspaceObserveStoppedSession()
-    {
-        Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "RequireEntry");
-        var hub = Type("SlopWorld", "SlopWorld.SessionHub").GetField("Instance")!.GetValue(null)!;
-        var sessions = (IEnumerable)hub.GetType().GetProperty("Sessions")!.GetValue(hub)!;
-        var stopped = sessions
-            .Cast<object>()
-            .FirstOrDefault(session =>
-                (bool)session.GetType().GetProperty("Gone")!.GetValue(session)!
-            );
-        if (stopped == null)
-            throw new InvalidOperationException(
-                "Entry regression needs an existing stopped session"
-            );
-        string name = (string)stopped.GetType().GetField("Name")!.GetValue(stopped)!;
-        Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "Open", name);
-        return name;
-    }
-
-    [JSExport]
     public static void WorkspaceAppearance(string json)
     {
         // Host imports and origin storage share one presentation validator. Keep
@@ -343,52 +313,6 @@ public partial class Probe
                 "BackgroundDimming",
                 settings
             )!;
-    }
-
-    // Observe the catalog without calling SidebarScopes.Update: diagnostics must
-    // not accidentally reconcile the very stale state being investigated.
-    [JSExport]
-    public static string WorkspaceBrowseState()
-    {
-        const System.Reflection.BindingFlags flags =
-            System.Reflection.BindingFlags.Static
-            | System.Reflection.BindingFlags.Instance
-            | System.Reflection.BindingFlags.Public
-            | System.Reflection.BindingFlags.NonPublic;
-        var hub = Type("SlopWorld", "SlopWorld.SessionHub").GetField("Instance")!.GetValue(null)!;
-        var catalog = Type("SlopWorld", "SlopWorld.SidebarScopes")
-            .GetField("Catalog", flags)!
-            .GetValue(null)!;
-        var type = catalog.GetType();
-        var projects = (IList)hub.GetType().GetProperty("Projects")!.GetValue(hub)!;
-        return JsonSerializer.Serialize(
-            new
-            {
-                online = hub.GetType().GetProperty("Online")!.GetValue(hub),
-                projects = projects.Count,
-                projectRevision = hub.GetType().GetProperty("ProjectsRevision")!.GetValue(hub),
-                catalogProjectRevision = type.GetField("_projects", flags)!.GetValue(catalog),
-                catalogs = (
-                    (IDictionary)type.GetField("_catalogs", flags)!.GetValue(catalog)!
-                ).Count,
-                scopes = ((IDictionary)type.GetField("_scopes", flags)!.GetValue(catalog)!).Count,
-                updating = type.GetField("_updating", flags)!.GetValue(catalog),
-                emptyReason = type.GetMethod("EmptyReason")!.Invoke(catalog, null),
-            }
-        );
-    }
-
-    // Read-only test observation of the actual mod receive buffer. Input checks
-    // still go through DOM events, the native terminal controls, and host tmux.
-    [JSExport]
-    public static bool WorkspaceTerminalContains(string name, string expected)
-    {
-        var hub = Type("SlopWorld", "SlopWorld.SessionHub").GetField("Instance")!.GetValue(null)!;
-        var screen = hub.GetType().GetMethod("Screen")!.Invoke(hub, new object[] { name });
-        return screen != null
-            && ((string[])screen.GetType().GetField("Lines")!.GetValue(screen)!).Any(line =>
-                line.Contains(expected, StringComparison.Ordinal)
-            );
     }
 
     [JSExport]

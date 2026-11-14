@@ -28,22 +28,41 @@ public static class BrowserUnderlyingWorkspace
         return !Find.WindowStack.Windows.Any(Window.IsInstanceOfType);
     }
 
-    static bool ChromeVisible =>
-        (bool)Visibility.GetProperty("Shown")!.GetValue(null)!
-        && !(bool)Visibility.GetProperty("Hidden")!.GetValue(null)!;
+    static readonly Func<bool> Shown = Visibility
+        .GetProperty("Shown")!
+        .GetMethod!.CreateDelegate<Func<bool>>();
+    static readonly Func<bool> Hidden = Visibility
+        .GetProperty("Hidden")!
+        .GetMethod!.CreateDelegate<Func<bool>>();
+    static readonly Func<ISelectable?> SelectedObject = Selection
+        .GetProperty("CurrentObject")!
+        .GetMethod!.CreateDelegate<Func<ISelectable?>>();
+    static readonly Func<string?> Session = Selection
+        .GetProperty("Current")!
+        .GetMethod!.CreateDelegate<Func<string?>>();
+    static readonly Func<Rect> AddBar = Owner("Sidebar")
+        .GetProperty("AddBar")!
+        .GetMethod!.CreateDelegate<Func<Rect>>();
+    static readonly Func<float> Gap = Owner("UiTheme")
+        .GetProperty("GapM")!
+        .GetMethod!.CreateDelegate<Func<float>>();
+    static readonly float ActionHeight = (float)
+        Owner("SessionGizmoInput").GetField("ActionRowHeight")!.GetRawConstantValue()!;
 
-    static ISelectable? Selected =>
-        (ISelectable?)Selection.GetProperty("CurrentObject")!.GetValue(null);
+    // Geometry is a mod-owned value type. Cache its members once; do not bind
+    // its current value, which changes as windows and viewport sizes change.
+    static readonly System.Reflection.PropertyInfo Geometry = Layout.GetProperty("Current")!;
+    static readonly System.Reflection.FieldInfo Content = Geometry.PropertyType.GetField(
+        "Content"
+    )!;
+
+    static bool ChromeVisible => Shown() && !Hidden();
+    static ISelectable? Selected => SelectedObject();
 
     static (float x, float y) GridOrigin()
     {
-        var geometry = Layout.GetProperty("Current")!.GetValue(null)!;
-        var content = (Rect)geometry.GetType().GetField("Content")!.GetValue(geometry)!;
-        var add = (Rect)Owner("Sidebar").GetProperty("AddBar")!.GetValue(null)!;
-        var gap = (float)Owner("UiTheme").GetProperty("GapM")!.GetValue(null)!;
-        var height = (float)
-            Owner("SessionGizmoInput").GetField("ActionRowHeight")!.GetRawConstantValue()!;
-        return (content.x + gap, add.y - height);
+        var content = (Rect)Content.GetValue(Geometry.GetValue(null))!;
+        return (content.x + Gap(), AddBar().y - ActionHeight);
     }
 
     public static object Snapshot()
@@ -57,7 +76,7 @@ public static class BrowserUnderlyingWorkspace
             visible,
             chromeVisible = visible && ChromeVisible,
             interactive = visible && Find.WindowStack.GetsInput(null),
-            session = Selection.GetProperty("Current")!.GetValue(null),
+            session = Session(),
             actions = actions.OfType<Command>().Select(command => command.defaultLabel).ToArray(),
             firstActionRect = actions.Length == 0
                 ? null

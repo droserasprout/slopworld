@@ -178,6 +178,8 @@ namespace BrowserAdapters
     {
         public static void ConfigureViewport(int width, int height) { }
 
+        public static object Status() => new { };
+
         public static string Snapshot() => "{}";
     }
 

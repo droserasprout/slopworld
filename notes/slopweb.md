@@ -40,6 +40,12 @@ Packaging assertions remain under `tools/release/`. `ci-web` runs game-free chec
 native font fidelity checks are explicit opt-ins.
 
 The browser workspace stays in Entry without creating a game, world, or map.
+Scene status reports only Entry state and viewport dimensions, without traversing
+simulation objects. Detailed workspace snapshots are opt-in with profiling;
+observation errors remain diagnostic state and cannot stop rendering. Private
+probe exports own sidebar/catalog inspection and terminal assertion helpers.
+Underlying chrome binds native accessors and geometry metadata once, while
+reading current geometry on each draw.
 Startup validates managed status reports as well as exceptions; failed or incomplete
 Entry initialization releases the engine and ends loading with an error.
 Game assembly downloads use a four-file window, including completed buffers;
