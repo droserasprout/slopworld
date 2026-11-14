@@ -72,6 +72,8 @@ filters; the browser does not duplicate their theme or visibility policy. Loadin
 publishes the original game background while frames decode. Background animation
 and quote scrolling start independently as their own presentation assets arrive;
 failed optional assets must not hold the other animation.
+Workspace startup takes ownership of pending background downloads as well as ready
+frames; loading-screen teardown must not cancel a transferred load.
 Browser backdrop rendering consumes the native dimming preference;
 profile files stay read-only and browser changes remain local to its origin.
 The same preference boundary retains the jukebox pause flag. Browser tab titles

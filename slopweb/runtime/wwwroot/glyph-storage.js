@@ -23,9 +23,9 @@ export class GlyphStorage {
     } catch { /* Denied storage must not prevent local rendering. */ }
     const value=rasterize(JSON.stringify(request));
     // Persistence is optional and must not hold the worker's next glyph or font
-    // installation behind disk writes. Bound queued JSON to 32 * 64 Ki characters;
+    // installation behind disk writes. Bound queued JSON to 512 * 64 Ki characters;
     // a slow store loses reuse, never rendering or unbounded worker memory.
-    if (cache && validGlyph(value) && this.pending.size<32) {
+    if (cache && validGlyph(value) && this.pending.size<512) {
       this.pending.set(key,{cache,value});
       this.startWrite();
     }
@@ -39,13 +39,21 @@ export class GlyphStorage {
   }
   async persist() {
     while(this.pending.size) {
-      const [key,{cache,value}]=this.pending.entries().next().value;
+      const cache=this.pending.values().next().value.cache;
+      // Prune once per drained batch, rather than enumerating the entire disk
+      // cache after every glyph while startup is still adding writes.
+      let written=0;
+      while(this.pending.size && written++<512) {
+        const [key,{cache,value}]=this.pending.entries().next().value;
+        try {
+          await cache.put(key,new Response(value));
+        } catch { /* Quota errors only lose reuse on reload. */ }
+        finally {this.pending.delete(key);}
+      }
       try {
-        await cache.put(key,new Response(value));
         const keys=await cache.keys();
         for(const old of keys.slice(0,Math.max(0,keys.length-512)))await cache.delete(old);
-      } catch { /* Quota errors only lose reuse on reload. */ }
-      finally {this.pending.delete(key);}
+      } catch { /* Storage may become unavailable during cleanup. */ }
     }
   }
   async flush() {while(this.writing)await this.writing;}

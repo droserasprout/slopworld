@@ -18,11 +18,14 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   const started = performance.now();
   const backgroundAbort = new AbortController();
   const retainedBackground = window.__loading?.takeBackground?.();
-  let background = retainedBackground?.animation ?? null;
-  let backgroundStarted = retainedBackground?.started ?? performance.now()/1000;
-  if (!background) loadBackground(backgroundAbort.signal).then(animation => {
+  let background = null;
+  let backgroundStarted = performance.now()/1000;
+  const backgroundReady = retainedBackground?.ready ?? loadBackground(backgroundAbort.signal)
+    .then(animation=>animation ? {animation,started:performance.now()/1000} : null);
+  backgroundReady.then(value => {
+    const animation=value?.animation;
     if (backgroundAbort.signal.aborted) { animation?.dispose(); return; }
-    background=animation;backgroundStarted=performance.now()/1000;
+    background=animation;backgroundStarted=value?.started ?? backgroundStarted;
   }).catch(error=>{if(error.name!=='AbortError') console.warn('Workspace background unavailable:',String(error));});
   const parameters = workspaceParameters();
   managed.WorkspacePacketCache(workspaceOption(parameters,'packetCache'));
@@ -93,7 +96,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     if (stopped) return;
     stopped = true; scheduler.stop();activity.abort();managed.WorkspaceClearWake();
     if(rowCommands) managed.WorkspaceRowCommands(false);
-    backgroundAbort.abort();background?.dispose();background=null;
+    backgroundAbort.abort();retainedBackground?.cancel();background?.dispose();background=null;
     device.dispose(); gui.dispose(); fonts.dispose();
     cursor.dispose(); fullscreen.dispose(); audio.dispose();
   };
