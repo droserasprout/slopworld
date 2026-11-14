@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace BrowserAdapters;
 
 // Browser clipboard requests retain the native callback, including its pane/run
-// lifetime guard. PRIMARY stays local and never overwrites the OS clipboard.
+// lifetime guard. PRIMARY is published through DOM selection, independently of CLIPBOARD.
 public static class BrowserClipboard
 {
     static string buffer = "",
@@ -94,7 +94,16 @@ public static class BrowserClipboard
     public static void CopyPrimary(string text, Action? ok, Action<string>? fail)
     {
         primary = text;
-        ok?.Invoke();
+        int id = ++serial;
+        pending.Add(id, (null, null, ok, fail));
+        requests.Add(
+            new
+            {
+                id,
+                kind = "primary",
+                text,
+            }
+        );
     }
 
     public static string Take()

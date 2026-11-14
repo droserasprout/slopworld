@@ -1,6 +1,6 @@
 // Browser permissions and ClipboardEvent data stay here; native owners retain
 // selection, paste routing, and delayed reply validation.
-export function clipboardBridge(managed) {
+export function clipboardBridge(managed, selectPrimary) {
   let message;
   function failed(error) {
     if (!message) {
@@ -45,6 +45,11 @@ export function clipboardBridge(managed) {
         event.clipboardData.setData('text/plain',request.text); event.preventDefault(); complete();
       } else {
         const operation = () => {
+          // Linux browsers publish editable DOM selections to PRIMARY. The
+          // Clipboard API writes CLIPBOARD instead and must not be used here.
+          if (request.kind === 'primary') {
+            selectPrimary(request.text); complete(); return;
+          }
           if (request.kind === 'eventImage') {
             // Capture the File before returning from the trusted paste event;
             // ClipboardEvent's data store need not remain readable afterwards.
