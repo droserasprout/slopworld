@@ -1,3 +1,4 @@
+import { collectWorkspaceDiagnostics } from './workspace-diagnostics.js';
 // Continuous presentation of the actual mod WindowStack. No DOM agent controls.
 import { attachGuiInput } from './gui-input.js';
 import { attachInput } from './input.js';
@@ -77,7 +78,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   for(const event of ['resize','focus','blur'])window.addEventListener(event,()=>scheduler.wake(true),{signal:activity.signal});
   document.addEventListener('visibilitychange',()=>scheduler.wake(true),{signal:activity.signal});
   managed.WorkspaceWake(()=>scheduler.wake());
-  const state = { status: 'starting', frames: 0, source: 'SlopWorld WindowStack', game: JSON.parse(managed.GameSnapshot()) };
+  const state = { status: 'starting', frames: 0, source: 'SlopWorld WindowStack' };
   state.fontTimings=()=>({...hostFonts(managed).timings});
   state.rowCommandStats=()=>JSON.parse(managed.WorkspaceRowCommandsStats());
   state.setRowCommands=enabled=>{const previous=managed.WorkspaceRowCommands(enabled);rowCommands=enabled;return previous;};
@@ -106,10 +107,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
       audio.frame();
       void fonts.frame();
       state.commands = result.commands.length;
-      if (state.frames % 60 === 0) {
-        state.game = JSON.parse(managed.GameSnapshot());
-        state.workspace = JSON.parse(managed.WorkspaceState());
-      }
+      collectWorkspaceDiagnostics(managed, state, profile !== null);
       state.frames++; state.status = 'running';
       return result.presentationUnchanged;
     } catch (error) {

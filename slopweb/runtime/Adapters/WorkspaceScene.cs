@@ -16,50 +16,20 @@ public static class WorkspaceScene
             ?? throw new InvalidOperationException("The browser runtime is not initialized");
         runtime.ConfigureScreen(width, height);
         runtime.ConfigureScreenWindow(width, height);
-        // Native OnGUI normally refreshes these values. Map section culling also
-        // needs them; without a browser handoff its aspect ratio becomes 0/0.
+        // Native OnGUI normally refreshes the scaled Entry viewport.
         UI.ApplyUIScale();
     }
 
-    public static string Snapshot()
-    {
-        var game = Current.Game;
-        return JsonSerializer.Serialize(
-            new
-            {
-                scene = SceneManager.GetActiveScene().name,
-                programState = Current.ProgramState.ToString(),
-                hasGame = game != null,
-                hasWorld = game?.World != null,
-                seed = game?.World?.info.seedString,
-                worldTiles = game?.World?.grid.Surface.TilesCount ?? 0,
-                ticks = game?.tickManager?.TicksGame ?? 0,
-                timeSpeed = game?.tickManager?.CurTimeSpeed.ToString(),
-                forcePaused = game?.tickManager?.ForcePaused ?? false,
-                drawingMap = RimWorld.Planet.WorldRendererUtility.DrawingMap,
-                uiWidth = UI.screenWidth,
-                uiHeight = UI.screenHeight,
-                maps = game
-                    ?.Maps.Select(map => new
-                    {
-                        sizeX = map.Size.x,
-                        sizeZ = map.Size.z,
-                        colonists = map.mapPawns.FreeColonistsSpawnedCount,
-                        things = map.listerThings.AllThings.Count,
-                        centerTerrain = map.terrainGrid.TerrainAt(map.Center)?.defName,
-                        pawns = map
-                            .mapPawns.FreeColonistsSpawned.Select(pawn => new
-                            {
-                                id = pawn.thingIDNumber,
-                                x = pawn.Position.x,
-                                z = pawn.Position.z,
-                                job = pawn.CurJob?.def.defName,
-                            })
-                            .ToArray(),
-                    })
-                    .ToArray(),
-                rendered = false,
-            }
-        );
-    }
+    // Entry status deliberately never traverses a world, map or simulation.
+    public static object Status() =>
+        new
+        {
+            scene = SceneManager.GetActiveScene().name,
+            programState = Current.ProgramState.ToString(),
+            hasGame = Current.Game != null,
+            uiWidth = UI.screenWidth,
+            uiHeight = UI.screenHeight,
+        };
+
+    public static string Snapshot() => JsonSerializer.Serialize(Status());
 }
