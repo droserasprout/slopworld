@@ -71,6 +71,11 @@ Stop it with Ctrl+C; agents continue running.
 `just web-run` builds and stages current sources, then runs the launcher in the calling environment,
 with its existing terminal and environment variables. Run it from the desktop host
 when host game files, fonts, or daemon configuration are needed.
+Use `just web-start` (interpreter) or `just web-start-aot` (mixed AOT) to run
+the existing staged build without rebuilding. Both default to port 8857 and
+`~/.cache/slopweb/compiler-cache`; an optional first argument changes the port,
+and a second changes the cache directory. AOT preparation can still compile on
+a cache miss.
 Build scripts print per-step wall times and a total. The launcher prints preparation
 timings before the connection URL (also with `--prepare`); cache hits are reported as
 reuse, and the game-preparation subtotal includes its component steps.

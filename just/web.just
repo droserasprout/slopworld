@@ -29,6 +29,16 @@ web-uninstall prefix=(env('HOME') + '/.local'):
 web-run *args: web-build
     slopweb/out/slopweb-host --ensure-workload "$@"
 
+# Run the staged interpreter build without rebuilding; reuse the shared compiler cache.
+[group('web')]
+web-start port='8857' cache=(env('HOME') + '/.cache/slopweb/compiler-cache'):
+    slopweb/out/slopweb-host --interpreted --port {{quote(port)}} --cache {{quote(cache)}}
+
+# Run the staged AOT build without rebuilding; prepare AOT only on a cache miss.
+[group('web')]
+web-start-aot port='8857' cache=(env('HOME') + '/.cache/slopweb/compiler-cache'):
+    slopweb/out/slopweb-host --ensure-workload --aot --port {{quote(port)}} --cache {{quote(cache)}}
+
 # Prepare an immutable AOT runtime without starting a browser or replacing a server.
 # Limit compiler parallelism; resource limits come from the calling environment.
 [group('web')]
