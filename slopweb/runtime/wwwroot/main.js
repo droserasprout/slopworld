@@ -22,9 +22,11 @@ try {
     const runtime = await (!parameters.has('managedDebug')
         ? dotnet.withDebugging(0) : dotnet).create();
     const exports = await runtime.getAssemblyExports('Probe.dll');
+    // AOT preparation replaces this boundary with published-identity loading.
+    const loadAssembly = (bytes, file) => exports.Probe.LoadAssembly(bytes);
     window.__loading?.status('Loading game assemblies...');
     const manifest = await fetch('./game/manifest.json').then(r => r.json());
-    const {loaded, loadErrors} = await loadStartupAssemblies(manifest, bytes => exports.Probe.LoadAssembly(bytes));
+    const {loaded, loadErrors} = await loadStartupAssemblies(manifest, loadAssembly);
     const [missingDependencies, adaptations] = await Promise.all([
         fetch('./game/missing.json').then(r => r.json()),
         fetch('./game/adaptations.json').then(r => r.json())
@@ -36,7 +38,7 @@ try {
         if (!response.ok) throw new Error('Eco mod missing');
         const bytes = new Uint8Array(await response.arrayBuffer());
         await yieldStartupPaint();
-        exports.Probe.LoadAssembly(bytes);
+        loadAssembly(bytes, 'SlopWorld.dll');
         await yieldStartupPaint();
         eco = JSON.parse(exports.Probe.InitializeEco());
         requireChecks(eco, 'Workspace initialization');
@@ -68,7 +70,7 @@ try {
         if (!adapters.ok) throw new Error(`Adapters.dll: HTTP ${adapters.status}`);
         const adapterBytes = new Uint8Array(await adapters.arrayBuffer());
         await yieldStartupPaint();
-        loaded.push(exports.Probe.LoadAssembly(adapterBytes));
+        loaded.push(loadAssembly(adapterBytes, 'Adapters.dll'));
         const response = await fetch('./assets/Core.zip');
         if (!response.ok) throw new Error(`Core.zip: HTTP ${response.status}`);
         const core = new Uint8Array(await response.arrayBuffer());
@@ -147,7 +149,7 @@ try {
                     if (!response.ok) throw new Error('Missing workspace dependency ' + name);
                     const bytes = new Uint8Array(await response.arrayBuffer());
                     await yieldStartupPaint();
-                    exports.Probe.LoadAssembly(bytes);
+                    loadAssembly(bytes, `${name}.dll`);
                 }
                 // Session rows use the shared worker icon without snapshot assets.
                 const portraits = 0;

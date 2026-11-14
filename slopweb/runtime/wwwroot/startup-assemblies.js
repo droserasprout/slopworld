@@ -21,7 +21,7 @@ export async function loadStartupAssemblies(manifest, load, request=globalThis.f
     await yieldPaint();
     try {
       if('error' in result)throw result.error;
-      loaded.push(load(result.bytes));
+      loaded.push(load(result.bytes,manifest[index].file));
     } catch(error) {loadErrors.push({file:manifest[index].file,error:String(error)});}
     if(index+4<manifest.length)pending[slot]=download(manifest[index+4]);
   }
