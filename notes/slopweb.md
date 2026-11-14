@@ -58,6 +58,8 @@ own their uninterrupted cost.
 Browser middle-click paste is owned by the DOM paste event carrying desktop PRIMARY;
 both browser input adapters suppress the corresponding managed button gesture to
 avoid also pasting the adapter's saved local selection.
+PRIMARY copy publishes the native selection through the editable DOM proxy's text
+selection; it does not write CLIPBOARD through the browser Clipboard API.
 GUI focus resets follow accepted text and key events; only unfinished composition
 is canceled. Repeated blur/visibility notifications share the pending reset.
 The mod retains sidebar, terminal, native text layout, session catalog, and

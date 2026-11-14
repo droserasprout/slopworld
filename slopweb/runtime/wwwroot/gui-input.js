@@ -9,7 +9,11 @@ export function attachGuiInput(canvas, managed) {
   const proxy = acquireTextInput(canvas);
   let disposed = false, composing = false, cancelled = false, pendingText = null, committed = null;
   let queue = [], queuedAt = null;
-  const clipboard = clipboardBridge(managed);
+  const clipboard = clipboardBridge(managed, text => {
+    if (proxy.composing) throw new Error('Cannot publish selection during composition');
+    proxy.element.value = text;
+    proxy.element.select();
+  });
   let clipboardEvent;
   const reuse=new GuiFrameReuse();
   const decoder=new GuiPacketDecoder();

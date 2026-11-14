@@ -74,6 +74,29 @@ test('copy still writes text and completes once',async()=>{
   assert.equal(copied,'copy'); assert.deepEqual(f.done,[[13,'','']]);
 });
 
+test('PRIMARY copy selects proxy text synchronously without writing CLIPBOARD or sending text input',()=>{
+  const canvas=installInputDom().canvas(), batches=[], done=[];
+  const requests=[{id:14,kind:'primary',text:'selected terminal text'}];
+  navigatorWith({writeText:()=>{assert.fail('PRIMARY must not overwrite CLIPBOARD');}});
+  const gui=attachGuiInput(canvas,{
+    GuiInputFrame:raw=>{batches.push(JSON.parse(raw));return '{"commands":[]}';},
+    ClipboardTake:()=>JSON.stringify(requests.splice(0)),
+    ClipboardComplete:(...args)=>done.push(args),
+  });
+  let selected;
+  gui.textInput.select=()=>{selected=gui.textInput.value;};
+  emit(canvas,'pointerup',{button:0,clientX:10,clientY:20});
+  assert.equal(selected,'selected terminal text');
+  assert.deepEqual(done,[[14,'','']]);
+  gui.frame();
+  assert.deepEqual(batches[1],[]);
+  emit(gui.textInput,'input',{data:'x',inputType:'insertText'});
+  gui.frame();
+  assert.deepEqual(batches[2].map(event=>event.character),[120]);
+  assert.equal(gui.textInput.value,'');
+  gui.dispose();
+});
+
 test('DOM paste dispatches native V before asynchronous image conversion',async()=>{
   const f=fixture([]), batches=[];
   const canvas=installInputDom().canvas();

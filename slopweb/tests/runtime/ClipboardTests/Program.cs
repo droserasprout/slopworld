@@ -88,6 +88,14 @@ int denied = Request("read");
 BrowserClipboard.Complete(denied, "", "denied");
 Check(BrowserClipboard.Get() == "" && failures == 2, "denied read clears stale fallback text");
 
-BrowserClipboard.CopyPrimary("primary", null, null);
+int copied = 0;
+BrowserClipboard.CopyPrimary("primary", () => copied++, null);
 BrowserClipboard.ReadLocal(true, value => text = value, null);
-Check(text == "primary" && BrowserClipboard.Take() == "[]", "PRIMARY remains local text only");
+Check(text == "primary" && copied == 0, "PRIMARY waits for browser publication");
+int primaryRequest = Request("primary");
+BrowserClipboard.Complete(primaryRequest, "", "");
+BrowserClipboard.Complete(primaryRequest, "", "");
+Check(
+    copied == 1 && BrowserClipboard.Get() == "",
+    "PRIMARY completes once without changing CLIPBOARD"
+);
