@@ -191,6 +191,10 @@ public partial class Probe
     }
 
     [JSExport]
+    public static string WorkspaceTitle() =>
+        (string)Invoke("Adapters", "BrowserAdapters.BrowserWindow", "Title")!;
+
+    [JSExport]
     public static bool WorkspaceFullscreenKey(string key) =>
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserKeyBindings", "FullscreenKey", key)!;
 

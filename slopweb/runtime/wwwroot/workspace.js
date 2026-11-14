@@ -103,6 +103,8 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
       state.frameStarted=performance.now();
       resize();
       const result = gui.frame();
+      const title = managed.WorkspaceTitle();
+      if (document.title !== title) document.title = title;
       cursor.frame();
       audio.frame();
       void fonts.frame();
