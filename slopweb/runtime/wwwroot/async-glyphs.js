@@ -2,7 +2,7 @@
 // glyphs are retried after one coalesced native invalidation, never marked absent.
 export function asyncGlyphs(local,worker,wake) {
   const replies=new Map(), pending=new Map(), requests=new Map();
-  let next=0,closed=false,failed=false,timer;
+  let next=0,closed=false,failed=false,timer,dirty=false,settling=0;
   function send(message) {
     if (closed || failed) return Promise.reject(Error('Glyph worker unavailable'));
     return new Promise((resolve,reject)=>{
@@ -11,7 +11,16 @@ export function asyncGlyphs(local,worker,wake) {
       catch(error) { requests.delete(id);reject(error); }
     });
   }
-  const notify=()=>{if (!closed && timer===undefined) timer=setTimeout(()=>{timer=undefined;if(!closed)wake();},16);};
+  const flush=()=>{
+    clearTimeout(timer);timer=undefined;
+    if(closed || !dirty)return;
+    dirty=false;wake();
+  };
+  const notify=()=>{
+    if(closed)return;
+    dirty=true;
+    if(!settling && timer===undefined)timer=setTimeout(flush,16);
+  };
   worker.onmessage=({data})=>{
     const request=requests.get(data.id);
     if (!request || closed) return;
@@ -53,9 +62,18 @@ export function asyncGlyphs(local,worker,wake) {
   }
   function close() {
     if(closed)return;
-    closed=true;clearTimeout(timer);worker.terminate();local.close();
+    closed=true;dirty=false;clearTimeout(timer);worker.terminate();local.close();
     for(const request of requests.values())request.reject(Error('Glyph worker closed'));
     requests.clear();replies.clear();pending.clear();
   }
-  return {call,install,close,async settle(){await Promise.all([...pending.values()]);}};
+  async function settle() {
+    // Startup owns the next draw: defer intermediate global invalidations, then
+    // publish once before returning so it cannot draw against stale text caches.
+    const changed=dirty || pending.size>0;
+    settling++;clearTimeout(timer);timer=undefined;
+    try {await Promise.all([...pending.values()]);}
+    finally {if(--settling===0)flush();}
+    return !closed && changed;
+  }
+  return {call,install,close,settle};
 }

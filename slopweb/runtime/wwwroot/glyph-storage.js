@@ -1,13 +1,16 @@
 // Version this namespace when FreeType or its rasterization contract changes.
 // Each entry is bounded; 512 entries retain at most 32 MiB of glyph JSON.
 export class GlyphStorage {
-  constructor(storage=globalThis.caches) { this.storage=storage; }
+  constructor(storage=globalThis.caches) {
+    this.storage=storage;this.pending=new Map();this.writing=null;
+  }
   key(request) {
     return '/__slopweb_glyphs/v1/'+encodeURIComponent(JSON.stringify([
       request.hash,request.scalar,request.size,request.density,request.flags]));
   }
   async render(request, rasterize) {
     const key=this.key(request);
+    if(this.pending.has(key))return this.pending.get(key).value;
     let cache;
     try {
       cache=await this.storage?.open('slopweb.glyphs.v1');
@@ -19,15 +22,33 @@ export class GlyphStorage {
       }
     } catch { /* Denied storage must not prevent local rendering. */ }
     const value=rasterize(JSON.stringify(request));
-    if (validGlyph(value)) {
-      try {
-        await cache?.put(key,new Response(value));
-        const keys=await cache?.keys()??[];
-        for(const old of keys.slice(0,Math.max(0,keys.length-512))) await cache.delete(old);
-      } catch { /* Quota errors only lose reuse on reload. */ }
+    // Persistence is optional and must not hold the worker's next glyph or font
+    // installation behind disk writes. Bound queued JSON to 32 * 64 Ki characters;
+    // a slow store loses reuse, never rendering or unbounded worker memory.
+    if (cache && validGlyph(value) && this.pending.size<32) {
+      this.pending.set(key,{cache,value});
+      this.startWrite();
     }
     return value;
   }
+  startWrite() {
+    this.writing??=this.persist().finally(()=>{
+      this.writing=null;
+      if(this.pending.size)this.startWrite();
+    });
+  }
+  async persist() {
+    while(this.pending.size) {
+      const [key,{cache,value}]=this.pending.entries().next().value;
+      try {
+        await cache.put(key,new Response(value));
+        const keys=await cache.keys();
+        for(const old of keys.slice(0,Math.max(0,keys.length-512)))await cache.delete(old);
+      } catch { /* Quota errors only lose reuse on reload. */ }
+      finally {this.pending.delete(key);}
+    }
+  }
+  async flush() {while(this.writing)await this.writing;}
 }
 
 export function validGlyph(value) {

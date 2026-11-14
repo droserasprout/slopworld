@@ -1,12 +1,24 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {readFileSync} from 'node:fs';
 import {fallbackFonts,fontRequests} from '../../runtime/wwwroot/font-delivery.js';
 import {HostFonts,covers} from '../../runtime/wwwroot/host-fonts.js';
 const bytes=new TextEncoder().encode('font');
 const hash=createHash('sha256').update(bytes).digest('hex');
 const catalog={version:1,revision:'v1',faces:[{hash,family:'Fallback',loaderFlags:513,coverage:[[65,90],[0x2928,0x2928]]}],order:[hash],preload:[hash]};
 const response=()=>({ok:true,json:async()=>catalog,arrayBuffer:async()=>bytes.buffer});
+test('glyph-only startup completion requests a redraw even without host fallback work',async()=>{
+  const source=readFileSync(new URL('../../runtime/wwwroot/font-delivery.js',import.meta.url),'utf8')
+    .replace(/^import .*;\n/gm,'').replaceAll('export ','');
+  let changed=true,warmed=0;
+  const warm=new Function('hostFonts','settleWorkspaceGlyphs',source+'\nreturn warmWorkspaceFonts;')(
+    ()=>({warm:async()=>{warmed++;}}),async()=>changed);
+  const probe={WorkspaceFontFallbackTake:()=>''};
+  assert.equal(await warm(probe),true);
+  changed=false;assert.equal(await warm(probe),false);
+  assert.equal(warmed,2);
+});
 function fixture(fetcher) {
   let pending=JSON.stringify({id:1,family:'UI',scalars:[0x2928,0xffff]});
   const events=[];
@@ -66,4 +78,88 @@ test('selection and coverage share a queue through body consumption',async()=>{
   const first=a('selection'),second=b('coverage');await new Promise(setImmediate);
   assert.deepEqual(calls,['selection']);release({});await first;await second;
   assert.deepEqual(calls,['selection','coverage']);
+});
+
+test('concurrent fallback installs share download and publication through asynchronous handoff',{timeout:5000},async()=>{
+  let release,started;
+  const gate=new Promise(resolve=>{release=resolve;}),entered=new Promise(resolve=>{started=resolve;});
+  let downloads=0,installs=0;
+  const fonts=new HostFonts({WorkspaceFont:()=>{installs++;started();return gate;}},async()=>{downloads++;return response();},null);
+  const face=catalog.faces[0];
+  const a=fonts.install(face),b=fonts.install(face);
+  await entered;
+  const c=fonts.install(face);
+  assert.equal(downloads,1);assert.equal(installs,1);
+  release();await Promise.all([a,b,c]);
+  await fonts.install(face);assert.equal(downloads,1);assert.equal(installs,1);
+});
+
+test('failed shared installation is retryable and disposal blocks late publication',async()=>{
+  let fail=true,installs=0;
+  const fonts=new HostFonts({WorkspaceFont:()=>{installs++;if(fail)throw Error('install');}},async()=>response(),null);
+  const face=catalog.faces[0];
+  const results=await Promise.allSettled([fonts.install(face),fonts.install(face)]);
+  assert.deepEqual(results.map(result=>result.status),['rejected','rejected']);assert.equal(installs,1);
+  fail=false;await fonts.install(face);assert.equal(installs,2);
+  let release;
+  const stopped=new HostFonts({WorkspaceFont:()=>assert.fail('late publication')},()=>new Promise(resolve=>{release=resolve;}),null);
+  const work=stopped.install(face);await new Promise(setImmediate);
+  stopped.dispose();release(response());await work;
+  assert.equal(stopped.installed.size,0);
+});
+
+test('font warming overlaps two families with one shared fallback installation',{timeout:5000},async()=>{
+  const families=[],releases=new Map();let downloads=0,installs=0;
+  let admitted;const third=new Promise(resolve=>{admitted=resolve;});
+  const fonts=new HostFonts({WorkspaceFont:()=>{installs++;}},async url=>{
+    if(url.includes('catalog')) {
+      const family=new URL(url,'http://localhost').searchParams.get('family');families.push(family);
+      return new Promise(resolve=>{releases.set(family,()=>resolve(response()));if(family==='Other')admitted();});
+    }
+    downloads++;return response();
+  },null);
+  const work=fonts.warm(['UI','Terminal','UI','Other']);
+  assert.deepEqual(families,['UI','Terminal']);
+  releases.get('Terminal')();releases.get('UI')();
+  await third;
+  assert.deepEqual(families,['UI','Terminal','Other']);
+  assert.equal(downloads,1);assert.equal(installs,1);
+  releases.get('Other')();await work;
+  assert.equal(downloads,1);assert.equal(installs,1);
+});
+
+test('failed warming stops new families and settles active work before reporting failure',{timeout:5000},async()=>{
+  let release;const gate=new Promise(resolve=>{release=resolve;});
+  const families=[];
+  const fonts=new HostFonts({},async url=>{
+    const family=new URL(url,'http://localhost').searchParams.get('family');families.push(family);
+    if(family==='UI')throw Error('catalog failed');
+    await gate;return {ok:true,json:async()=>({...catalog,preload:[]})};
+  },null);
+  let settled=false;
+  const work=fonts.warm(['UI','Terminal','Other']).finally(()=>{settled=true;});
+  const failure=assert.rejects(work,/catalog failed/);
+  await new Promise(setImmediate);
+  assert.equal(settled,false);assert.deepEqual(families,['UI','Terminal']);
+  release();await failure;assert.deepEqual(families,['UI','Terminal']);
+});
+
+test('a failed preload waits for its sibling font handoff before warming rejects',{timeout:5000},async()=>{
+  const otherBytes=new TextEncoder().encode('other font');
+  const otherHash=createHash('sha256').update(otherBytes).digest('hex');
+  let release,entered;
+  const gate=new Promise(resolve=>{release=resolve;}),started=new Promise(resolve=>{entered=resolve;});
+  let installs=0,settled=false;
+  const fonts=new HostFonts({WorkspaceFont:()=>{installs++;}},async url=>{
+    if(url.includes('catalog'))return {ok:true,json:async()=>({...catalog,
+      faces:[...catalog.faces,{...catalog.faces[0],hash:otherHash}],preload:[hash,otherHash]})};
+    if(url.endsWith(hash))throw Error('first font failed');
+    entered();await gate;
+    return {ok:true,arrayBuffer:async()=>otherBytes.buffer};
+  },null);
+  const work=fonts.warm(['UI']).finally(()=>{settled=true;});
+  const failure=assert.rejects(work,/first font failed/);
+  await started;await new Promise(setImmediate);
+  assert.equal(settled,false);assert.equal(installs,0);
+  release();await failure;assert.equal(installs,1);
 });

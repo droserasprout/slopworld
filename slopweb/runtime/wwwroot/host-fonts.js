@@ -7,11 +7,16 @@ export function covers(ranges, scalar) {
   return low<ranges.length && ranges[low][0]<=scalar;
 }
 const hashBytes=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),c=>c.toString(16).padStart(2,'0')).join('');
+async function settleFontWork(work) {
+  const results=await Promise.allSettled(work);
+  const failure=results.find(result=>result.status==='rejected');
+  if(failure)throw failure.reason;
+}
 
 export class HostFonts {
   constructor(probe, request=globalThis.fetch, storage=globalThis.caches) {
     this.probe=probe;this.request=(...args)=>request(...args);this.storage=storage;
-    this.catalogs=new Map();this.files=new Map();this.installed=new Set();this.disposed=false;this.cacheWrite=Promise.resolve();
+    this.catalogs=new Map();this.files=new Map();this.installing=new Map();this.installed=new Set();this.disposed=false;this.cacheWrite=Promise.resolve();
     this.timings={catalogMs:0,downloadMs:0,installMs:0,networkFiles:0,cachedFiles:0};
   }
   async catalog(family) {
@@ -87,22 +92,45 @@ export class HostFonts {
   }
   async install(face) {
     if (this.disposed || this.installed.has(face.hash)) return;
-    const bytes=await this.file(face.hash);
-    if (this.disposed || this.installed.has(face.hash)) return;
-    const started=performance.now();
-    await installWorkspaceFont(this.probe,bytes,JSON.stringify({size:14,loaderFlags:face.loaderFlags,family:face.family}),-1,()=>!this.disposed);
-    if (this.disposed) return;
-    this.installed.add(face.hash);this.timings.installMs+=performance.now()-started;
+    if (!this.installing.has(face.hash)) {
+      // Share the entire handoff, including worker installation and managed
+      // publication. Sharing only the download races across those later awaits.
+      const pending=(async()=>{
+        const bytes=await this.file(face.hash);
+        if (this.disposed) return;
+        const started=performance.now();
+        await installWorkspaceFont(this.probe,bytes,JSON.stringify({size:14,loaderFlags:face.loaderFlags,family:face.family}),-1,()=>!this.disposed);
+        if (this.disposed) return;
+        this.installed.add(face.hash);this.timings.installMs+=performance.now()-started;
+      })();
+      this.installing.set(face.hash,pending);
+      pending.then(()=>this.installing.delete(face.hash),()=>this.installing.delete(face.hash));
+    }
+    return this.installing.get(face.hash);
   }
   async warm(families) {
-    for (const family of new Set(families)) {
+    const pending=[...new Set(families)];
+    let next=0,failed=false;
+    const warm=async family=>{
       const catalog=await this.catalog(family);
-      await Promise.all((catalog.preload??[]).map(hash=>{
-        const face=catalog.faces.get(hash);
-        if (!face) throw Error('Unknown preload font');
-        return this.install(face);
+      await settleFontWork((catalog.preload??[]).map(async hash=>{
+        try {
+          const face=catalog.faces.get(hash);
+          if (!face) throw Error('Unknown preload font');
+          return await this.install(face);
+        } catch(error) {failed=true;throw error;}
       }));
-    }
+    };
+    // UI and terminal families can overlap. Bound concurrent family work while
+    // shared fallback files join the same installation instead of publishing twice.
+    const worker=async()=>{
+      try {
+        while(next<pending.length && !this.disposed && !failed)await warm(pending[next++]);
+      } catch(error) {failed=true;throw error;}
+    };
+    // Stop admitting families on failure and settle both active handoffs before
+    // the caller restores its previous font selection or tears startup down.
+    await settleFontWork([worker(),worker()]);
   }
   async resolve(family,scalars) {
     const catalog=await this.catalog(family), assignments={},needed=new Map();
@@ -114,7 +142,7 @@ export class HostFonts {
     await Promise.all([...needed.values()].map(face=>this.install(face)));
     return assignments;
   }
-  dispose(){this.disposed=true;this.catalogs.clear();this.files.clear();}
+  dispose(){this.disposed=true;this.catalogs.clear();this.files.clear();this.installing.clear();}
 }
 const clients=new WeakMap();
 export function hostFonts(probe,request=globalThis.fetch,storage=globalThis.caches) {

@@ -1,6 +1,6 @@
 import { acquireTextInput, composingKey } from './text-input.js';
 import { renderGui, guiRenderRevision } from './gui.js';
-import { GuiFrameReuse } from './gui-frame-reuse.js';
+import { GuiFrameReuse, GuiPacketDecoder } from './gui-frame-reuse.js';
 import { decodeGuiQuads } from './gui-quads.js';
 import { clipboardBridge } from './clipboard.js';
 
@@ -12,6 +12,7 @@ export function attachGuiInput(canvas, managed) {
   const clipboard = clipboardBridge(managed);
   let clipboardEvent;
   const reuse=new GuiFrameReuse();
+  const decoder=new GuiPacketDecoder();
   const frame = () => {
     if (disposed) return;
     managed.beforeFrame?.();
@@ -21,9 +22,11 @@ export function attachGuiInput(canvas, managed) {
     const started = profiling ? performance.now() : 0;
     const raw = managed.GuiInputFrame(JSON.stringify(batch));
     const managedEnd = profiling ? performance.now() : 0;
-    const result = JSON.parse(raw);
+    const result = {...decoder.decode(raw)};
     const parsed = profiling ? performance.now() : 0;
-    const replay=reuse.prepare(result.commands,canvas.width,canvas.height,guiRenderRevision(),managed.allowFrameReuse===true);
+    // Profile timings change every frame even when commands do not. Compare only
+    // commands in that mode; ordinary frames can use their existing wire identity.
+    const replay=reuse.prepare(result.commands,canvas.width,canvas.height,guiRenderRevision(),managed.allowFrameReuse===true,result.profile?null:raw);
     if(!replay.skip) {
       canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
       managed.drawBackground?.(canvas.getContext('2d'));
