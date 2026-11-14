@@ -73,7 +73,7 @@ failed optional assets must not hold the other animation.
 Browser backdrop rendering consumes the native dimming preference;
 profile files stay read-only and browser changes remain local to its origin.
 The same preference boundary retains the jukebox pause flag. Browser tab titles
-use the mod's window-title policy.
+use the mod's window-title policy; packaging reuses the documentation favicon.
 
 The server binds IPv4 loopback and validates Host separately from browser
 provenance. Its same-origin HTTP and WebSocket bridges inject host credentials;

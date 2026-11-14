@@ -76,6 +76,7 @@ def test_distributable_build_never_reads_staged_game_root(
         'slopweb/runtime/wwwroot/local-fonts.LICENSE.txt',
         'slopweb/runtime/bin/Debug/net10.0/wwwroot/_framework/dotnet.js',
         'slopweb/runtime/wwwroot/index.html',
+        'docs/theme/favicon.png',
         'slopweb/runtime/Scanner/bin/Debug/net10.0/Scanner.dll',
         'slopweb/offline/bin/Debug/net10.0/Offline.dll',
         'mod/Textures/SlopWorld/LoadingFont.png',
@@ -156,6 +157,7 @@ def test_distributable_build_never_reads_staged_game_root(
     monkeypatch.setattr(slopweb, 'build_identity', lambda: ('built-revision', '1.2.3-built'))
     output = tmp_path / 'bundle'
     slopweb.build(output)
+    assert (output / 'web/favicon.png').read_bytes() == (root / 'docs/theme/favicon.png').read_bytes()
     assert (output / 'ost/pace-20261012.ogg').is_file()
     assert not (output / 'ost/private.ogg').exists()
     assert (output / 'BUILD_ID').is_file()
