@@ -264,7 +264,7 @@ public sealed partial class BrowserGui
                 || state.Identity.Value != state.Version
                 || texture.width != state.Width
                 || texture.height != state.Height
-                || !ReferenceEquals(texture.CoreTexture.CpuData, state.Data)
+                || !ReferenceEquals(ImageBacking(texture), state.Data)
             )
                 return false;
         }

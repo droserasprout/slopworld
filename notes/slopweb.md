@@ -85,6 +85,14 @@ The managed client owns HTTP operation deadlines; browser cancellation aborts br
 I/O without replaying mutations. Browser transport keeps native request admission, deadlines,
 completion delivery, connection generations, and bounded queues. Overload closes
 the socket rather than blocking the UI thread.
+Discarded input/layout passes execute native controls with raster-command
+preparation suppressed; only repaint publishes drawing. Stable presentation backs
+off up to 100 ms, bounded by native cursor animation and terminal blink/resize/scroll
+deadlines. Input and published transport activity cancel pending idle waits.
+Append-only font atlases retain CPU pixels until drain, coalescing publication and
+encoding once per atlas per packet. General mutable textures still snapshot at each
+mutation to preserve draw order. Failed drains discard resource claims so retries
+must upload their definitions again.
 Browser GUI packets retain one bounded decoded frame; command consumers leave it
 immutable, while Canvas reuse still checks dimensions, resource revisions, and
 resource-changing commands. Startup consumes every packet before requesting a font

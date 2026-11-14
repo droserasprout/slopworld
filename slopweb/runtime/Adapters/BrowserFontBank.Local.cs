@@ -271,8 +271,7 @@ public sealed partial class BrowserFontBank
         {
             if (changed)
             {
-                face.Texture.SetPixels32(face.Pixels!);
-                face.Texture.Apply(false, false);
+                BrowserGui.UpdateGlyphAtlas(face.Texture, face.Pixels!);
                 face.InvalidateRuns();
                 Instance.AtlasVersion++;
             }

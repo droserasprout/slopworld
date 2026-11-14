@@ -69,7 +69,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     GuiInputFrame: batch => managed.WorkspaceUpdate(batch, initialTime + (performance.now() - started) / 1000),
   });
   let stopped = false;
-  const scheduler=new WorkspaceScheduler(()=>update());
+  const scheduler=new WorkspaceScheduler(()=>update(), {deadline:()=>managed.WorkspaceNextUpdateDelay()*1000});
   const fonts=fallbackFonts(managed,()=>scheduler.wake(true));
   const activity=new AbortController();
   for (const target of [canvas, gui.textInput])

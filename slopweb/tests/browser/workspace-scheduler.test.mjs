@@ -2,16 +2,16 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {WorkspaceScheduler} from '../../runtime/wwwroot/workspace-scheduler.js';
 
-function fixture(draw=()=>true) {
+function fixture(draw=()=>true,deadline=()=>100) {
   let time=0,id=0;
-  const frames=new Map(),timers=new Map();
+  const frames=new Map(),timers=new Map(),delays=[];
   const scheduler=new WorkspaceScheduler(draw,{
     raf:fn=>{frames.set(++id,fn);return id;},cancelRaf:id=>frames.delete(id),
-    timer:(fn,delay)=>{assert.equal(delay,16);timers.set(++id,fn);return id;},cancelTimer:id=>timers.delete(id),
-    now:()=>time,
+    timer:(fn,delay)=>{delays.push(delay);timers.set(++id,fn);return id;},cancelTimer:id=>timers.delete(id),
+    now:()=>time,deadline,
   });
   const run=map=>{assert.equal(map.size,1);const [key,fn]=map.entries().next().value;map.delete(key);fn();};
-  return {scheduler,frames,timers,frame:()=>run(frames),timer:()=>run(timers),advance:ms=>{time+=ms;}};
+  return {scheduler,frames,timers,delays,frame:()=>run(frames),timer:()=>run(timers),advance:ms=>{time+=ms;}};
 }
 
 test('browser scheduling functions are not invoked with the scheduler as their receiver',()=>{
@@ -63,5 +63,34 @@ test('activity during native update never leaves both a timer and a frame schedu
   f.scheduler.setEnabled(true);f.frame();f.frame();
   wake=true;f.frame();
   assert.equal(f.frames.size,1);assert.equal(f.timers.size,0);
+  f.scheduler.stop();
+});
+
+
+test('stable frames back off with bounded native timer servicing',()=>{
+  const f=fixture();f.scheduler.setEnabled(true);
+  f.frame();f.frame();f.frame();
+  f.timer();f.frame();f.timer();f.frame();f.timer();f.frame();
+  assert.deepEqual(f.delays,[16,48,84,84]);
+  f.scheduler.wake();f.frame();f.frame();f.frame();
+  assert.equal(f.delays.at(-1),16);
+  f.scheduler.stop();
+});
+
+test('native blink deadlines and active animations override backoff',()=>{
+  let due=100;
+  const f=fixture(()=>true,()=>due);f.scheduler.setEnabled(true);
+  f.frame();f.frame();f.frame();f.timer();
+  due=20;f.frame();assert.equal(f.delays.at(-1),4);
+  f.timer();due=0;f.frame();assert.equal(f.timers.size,0);assert.equal(f.frames.size,1);
+  due=NaN;f.frame();assert.equal(f.timers.size,0);assert.equal(f.frames.size,1);
+  f.scheduler.stop();
+});
+
+
+test('deadline failures keep native updates running',()=>{
+  const f=fixture(()=>true,()=>{throw Error('deadline unavailable');});
+  f.scheduler.setEnabled(true);f.frame();f.frame();f.frame();
+  assert.equal(f.timers.size,0);assert.equal(f.frames.size,1);
   f.scheduler.stop();
 });

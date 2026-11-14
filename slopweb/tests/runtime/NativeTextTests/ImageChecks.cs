@@ -11,6 +11,7 @@ static class ImageChecks
     internal static void Run()
     {
         CheckScaleModes();
+        CheckDeferredAtlas();
         var reference = new BrowserGui();
         using var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         texture.SetPixels32([Color.red, Color.green, Color.blue, Color.white]);
@@ -107,6 +108,85 @@ static class ImageChecks
         Drain(0, "repeated disposed texture cleanup");
         Console.WriteLine(
             "Image uploads track Apply, CPU backing, dimensions, switches, discard, ID reuse and disposal."
+        );
+    }
+
+    static void CheckDeferredAtlas()
+    {
+        var publish = typeof(BrowserGui).GetMethod(
+            "UpdateGlyphAtlas",
+            BindingFlags.Static | BindingFlags.NonPublic
+        )!;
+        var gui = new BrowserGui();
+        using var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        Color32[] pixels = [Color.red, Color.clear, Color.clear, Color.clear];
+        var backing = texture.CoreTexture.CpuData;
+        void Publish() => publish.Invoke(null, new object[] { texture, pixels });
+        Publish();
+        Paint(gui, texture);
+        pixels[1] = Color.green;
+        Publish();
+        Paint(gui, texture);
+        if (!ReferenceEquals(backing, texture.CoreTexture.CpuData))
+            throw new Exception("Glyph additions published backing before drain");
+        using (var packet = JsonDocument.Parse(gui.Drain()))
+        {
+            var image = packet
+                .RootElement.EnumerateArray()
+                .Single(c => c.GetProperty("kind").GetString() == "image")
+                .GetProperty("value");
+            byte[] bytes = Convert.FromBase64String(image.GetProperty("pixels").GetString()!);
+            if (bytes.Length != 16 || bytes[8] != 255 || bytes[12 + 1] != 255)
+                throw new Exception("Coalesced atlas lost glyph pixels or row orientation");
+        }
+        backing = texture.CoreTexture.CpuData;
+        pixels[2] = Color.blue;
+        Publish();
+        Paint(gui, texture);
+        gui.Discard();
+        if (!ReferenceEquals(backing, texture.CoreTexture.CpuData))
+            throw new Exception("Discarded atlas performed publication");
+        Paint(gui, texture);
+        using (var packet = JsonDocument.Parse(gui.Drain()))
+            if (
+                !packet
+                    .RootElement.EnumerateArray()
+                    .Any(c => c.GetProperty("kind").GetString() == "image")
+            )
+                throw new Exception("Discard lost pending atlas upload");
+        Publish();
+        gui.DrawTextureWithTexCoords(
+            new Rect(float.NaN, 0, 2, 2),
+            texture,
+            new Rect(0, 0, 1, 1),
+            Color.white
+        );
+        try
+        {
+            gui.Drain();
+            throw new Exception("Non-finite packet unexpectedly serialized");
+        }
+        catch (ArgumentException) { }
+        Paint(gui, texture);
+        using (var packet = JsonDocument.Parse(gui.Drain()))
+            if (
+                !packet
+                    .RootElement.EnumerateArray()
+                    .Any(c => c.GetProperty("kind").GetString() == "image")
+            )
+                throw new Exception("Failed drain lost its resource definition");
+        Publish();
+        Paint(gui, texture);
+        UnityEngine.Object.DestroyImmediate(texture);
+        using (var packet = JsonDocument.Parse(gui.Drain()))
+            if (
+                !packet
+                    .RootElement.EnumerateArray()
+                    .Any(c => c.GetProperty("kind").GetString() == "image")
+            )
+                throw new Exception("Disposed atlas lost earlier packet-owned pixels");
+        Console.WriteLine(
+            "Atlas uploads defer publication, coalesce pixels, survive disposal, and recover after discard/failure."
         );
     }
 

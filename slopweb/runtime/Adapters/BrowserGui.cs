@@ -57,8 +57,7 @@ public sealed partial class BrowserGui : IGuiBackend
         }
         catch
         {
-            recordingRow = null;
-            ClearPendingRows();
+            Discard();
             throw;
         }
     }
@@ -66,6 +65,7 @@ public sealed partial class BrowserGui : IGuiBackend
     string DrainCore()
     {
         long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
+        FlushAtlasImages();
         CollectImages();
         foreach (var pair in targets.ToArray())
             if (!pair.Value.TryGetTarget(out var target) || target == null || !target.IsCreated())
