@@ -41,6 +41,7 @@ static class Check
             autoConnect = false,
             commandPaletteHistory = "secret-command",
             radio = "secret-station",
+            radioMute = true,
             stopSessionsOnExit = true,
         };
         BrowserPreferences.Write(settings);
@@ -61,6 +62,10 @@ static class Check
                 Expect(!snapshot.RootElement.TryGetProperty(name, out _), "Leaked " + name);
         }
         var restored = new ModSettings();
+        BrowserPreferences.Apply(restored, saved);
+        Expect(restored.radioMute, "Paused soundtrack preference did not survive reload");
+        BrowserPreferences.Apply(restored, "{\"radioMute\":false}");
+        Expect(!restored.radioMute, "Resumed soundtrack preference did not survive reload");
         AppearanceSettings.S = restored;
         // Exercise the real startup export with every preference emitted by the
         // persistence owner, plus host metadata and an unrelated field.

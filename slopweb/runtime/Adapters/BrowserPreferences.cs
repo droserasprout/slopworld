@@ -66,6 +66,7 @@ public static class BrowserPreferences
         "timeFormat",
         "dateFormat",
         "ecoDim",
+        "radioMute",
     ];
 
     public static float BackgroundDimming(object settings)
