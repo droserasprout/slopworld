@@ -32,6 +32,12 @@ public static class WorkspaceDrawing
     static Action? applyLayout;
     static Action? flushTerminalInput;
     static Action? drawUiBubble;
+    static Func<float>? terminalDeadline;
+    static Func<float>? cursorDeadline;
+
+    public static float NextUpdateDelay() =>
+        Math.Min(terminalDeadline?.Invoke() ?? 0f, cursorDeadline?.Invoke() ?? 0f);
+
     static bool flushInputBeforeRepaint = true;
 
     public static bool ConfigureInputFlushBeforeRepaint(bool enabled)
@@ -63,6 +69,12 @@ public static class WorkspaceDrawing
         drawUiBubble = mod.GetType("SlopWorld.UiBubble")!
             .GetMethod("DrawAfterWindows", BindingFlags.NonPublic | BindingFlags.Static)!
             .CreateDelegate<Action>();
+        terminalDeadline = mod.GetType("SlopWorld.WorkspaceWindow")!
+            .GetMethod("NextUpdateDelay")!
+            .CreateDelegate<Func<float>>();
+        cursorDeadline = mod.GetType("SlopWorld.GameCursor")!
+            .GetMethod("NextUpdateDelay")!
+            .CreateDelegate<Func<float>>();
         timeOrigin = lastTime = Time.unscaledTime;
         // Steam is explicitly unavailable in this browser host. A hidden desktop
         // warning would capture input after F12 closes the full-screen workspace.

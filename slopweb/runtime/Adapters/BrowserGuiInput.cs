@@ -9,7 +9,7 @@ namespace BrowserAdapters;
 public static class BrowserGuiInput
 {
     public static bool Profile;
-    static bool skipDiscardedDrawing;
+    static bool skipDiscardedDrawing = true;
 
     public static bool ConfigureDiscardedDrawing(bool skip)
     {

@@ -2,10 +2,15 @@ using System.Text;
 using BrowserAdapters;
 using UnityEngine;
 
+if (!BrowserGuiInput.ConfigureDiscardedDrawing(true))
+    throw new Exception("Discarded drawing must be suppressed by default");
+
 // Named keys and paste flush preceding literal input through native owners. The
 // final callback must retain trailing UTF-16 pairs and run once before any paint.
+foreach (bool skip in new[] { true, false })
 foreach (bool profile in new[] { false, true })
 {
+    BrowserGuiInput.ConfigureDiscardedDrawing(skip);
     BrowserGuiInput.Profile = profile;
     List<string> trace = [];
     var pending = new StringBuilder();
@@ -26,6 +31,8 @@ foreach (bool profile in new[] { false, true })
     void Draw()
     {
         var ev = Event.current;
+        if (gui.SuppressDrawing != (skip && ev.type != EventType.Repaint))
+            throw new Exception("Discarded-pass suppression crossed the repaint boundary");
         if (ev.type == EventType.KeyDown)
         {
             if (ev.character != '\0')
@@ -107,4 +114,17 @@ foreach (bool profile in new[] { false, true })
             );
     }
 }
+BrowserGuiInput.ConfigureDiscardedDrawing(true);
+var failedGui = new BrowserGui();
+try
+{
+    BrowserGuiInput.Dispatch(
+        "[]",
+        failedGui,
+        () => throw new InvalidOperationException("layout failed")
+    );
+}
+catch (InvalidOperationException e) when (e.Message == "layout failed") { }
+if (failedGui.SuppressDrawing)
+    throw new Exception("Failed layout leaked drawing suppression");
 Console.WriteLine("Browser input batch ordering, UTF-16 and repeated-frame checks passed.");

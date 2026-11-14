@@ -254,7 +254,7 @@ static class RowChecks
                 throw new Exception("Writer unexpectedly accepted unsupported command");
             }
             catch (InvalidOperationException) { }
-            commands.RemoveAt(commands.Count - 1);
+            Require(commands.Count == 0, "failed packet retained commands or resource definitions");
             gui.Drain();
             Require(!Draw(gui), "failed serialization published a candidate");
             gui.Discard();

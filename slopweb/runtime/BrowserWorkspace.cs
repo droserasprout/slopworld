@@ -60,6 +60,10 @@ public partial class Probe
         Type("Adapters", "BrowserAdapters.BrowserActivity").GetField("Wake")!.SetValue(null, wake);
 
     [JSExport]
+    public static float WorkspaceNextUpdateDelay() =>
+        (float)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "NextUpdateDelay")!;
+
+    [JSExport]
     public static void WorkspaceClearWake() =>
         Type("Adapters", "BrowserAdapters.BrowserActivity").GetField("Wake")!.SetValue(null, null);
 
