@@ -289,13 +289,17 @@ fn core_archive_contains_only_core_and_shaders_and_rejects_dlls() {
     assert!(preparation::core_archive(&game, &archive).is_err());
 }
 #[test]
-fn aot_loader_changes_only_recognized_stream_loading_boundary() {
-    let loader = "    const loaded = [];\nexports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer()));\nexports.Probe.LoadAssembly(new Uint8Array(await adapters.arrayBuffer()));";
+fn aot_loader_adapts_shipped_assembly_boundary_and_rejects_mixed_loading() {
+    let loader = include_str!("../../../runtime/wwwroot/main.js");
     let changed = aot::published_loader(loader).unwrap();
-    assert!(changed.contains("loadPublished(response)"));
+    assert!(changed.contains("LoadPublishedAssembly(file.replace"));
+    assert_eq!(changed.matches("LoadPublishedAssembly(").count(), 1);
     assert!(!changed.contains("Probe.LoadAssembly("));
     assert!(aot::published_loader(&changed).is_err());
     assert!(aot::published_loader("unknown").is_err());
+    assert!(
+        aot::published_loader(&format!("{loader}\nexports.Probe.LoadAssembly(bytes);")).is_err()
+    );
 }
 
 struct AotFixture {
@@ -330,7 +334,7 @@ impl AotFixture {
         }
         write(
             prepared.join("main.js"),
-            "    const loaded = [];\nexports.Probe.LoadAssembly(new Uint8Array(await response.arrayBuffer()));",
+            include_str!("../../../runtime/wwwroot/main.js"),
         );
         let sdk_path = temp.path().join("dotnet");
         write(

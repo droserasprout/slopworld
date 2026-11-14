@@ -44,6 +44,8 @@ Startup validates managed status reports as well as exceptions; failed or incomp
 Entry initialization releases the engine and ends loading with an error.
 Game assembly downloads use a four-file window, including completed buffers;
 CLR loading and per-file failure reporting retain manifest order.
+All startup assembly loads share a filename-bearing boundary that AOT preparation
+rewrites to published identities; byte loading must not bypass it.
 Assembly loading, archive transfer, font installation and startup stages yield to
 browser painting between work batches; individual synchronous managed calls still
 own their uninterrupted cost.

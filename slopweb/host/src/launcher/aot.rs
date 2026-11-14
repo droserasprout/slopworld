@@ -207,20 +207,14 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
 }
 
 pub fn published_loader(main: &str) -> Result<String> {
-    let marker = "    const loaded = [];";
+    let marker = "const loadAssembly = (bytes, file) => exports.Probe.LoadAssembly(bytes);";
     ensure!(
         main.matches(marker).count() == 1 && !main.contains("LoadPublishedAssembly"),
         "Unrecognized prepared main.js loading boundary"
     );
-    let mut main = main.replace(marker, &format!("{marker}\n    const loadPublished = response => exports.Probe.LoadPublishedAssembly(decodeURIComponent(new URL(response.url).pathname.split('/').pop()).replace(/\\.dll$/, ''));"));
-    for variable in ["response", "adapters"] {
-        main = main.replace(
-            &format!("exports.Probe.LoadAssembly(new Uint8Array(await {variable}.arrayBuffer()))"),
-            &format!("loadPublished({variable})"),
-        );
-    }
+    let main = main.replace(marker, "const loadAssembly = (bytes, file) => exports.Probe.LoadPublishedAssembly(file.replace(/\\.dll$/, ''));");
     ensure!(
-        !main.contains("Probe.LoadAssembly(") && main.contains("loadPublished(response)"),
+        !main.contains("Probe.LoadAssembly("),
         "Unrecognized stream assembly load; refusing mixed identities"
     );
     Ok(main)

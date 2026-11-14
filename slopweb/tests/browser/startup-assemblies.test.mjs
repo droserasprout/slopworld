@@ -4,6 +4,12 @@ import {loadStartupAssemblies} from '../../runtime/wwwroot/startup-assemblies.js
 
 const manifest=Array.from({length:10},(_,i)=>({file:`${i}.dll`}));
 const tick=()=>new Promise(setImmediate);
+test('assembly callbacks receive manifest filenames for published AOT identity loading',async()=>{
+  const names=['RimWorld.dll','System.Numerics.Vectors.dll'];
+  const result=await loadStartupAssemblies(names.map(file=>({file})),(_bytes,file)=>file,
+    async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(0)}));
+  assert.deepEqual(result,{loaded:names,loadErrors:[]});
+});
 test('ready assembly bodies wait for paint admission before each synchronous CLR load',async()=>{
   const loaded=[];let release;
   const work=loadStartupAssemblies(manifest.slice(0,2),bytes=>{loaded.push(bytes[0]);return bytes[0];},
