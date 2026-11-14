@@ -8,6 +8,14 @@ public static class BrowserWindow
 {
     public static Action<bool>? Request;
 
+    static readonly Lazy<Func<string>> ReadTitle = new(() =>
+        Type.GetType("SlopWorld.WindowTitle, SlopWorld", true)!
+            .GetMethod("Current")!
+            .CreateDelegate<Func<string>>()
+    );
+
+    public static string Title() => ReadTitle.Value();
+
     public static void Set(bool fullscreen) => Request?.Invoke(fullscreen);
 
     public static void UpdateState(bool fullscreen)
