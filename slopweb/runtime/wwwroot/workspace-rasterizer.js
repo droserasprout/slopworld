@@ -1,6 +1,7 @@
 // Synchronous WASM calls after asynchronous module/font-file loading. Font bytes
 // stay alive until their FT_Face is closed; every returned bitmap is an owned copy.
 import {asyncGlyphs} from './async-glyphs.js';
+import {yieldStartupPaint} from './startup-yield.js';
 const installed=new WeakMap();
 
 export async function installWorkspaceFont(probe,bytes,descriptor,index=-1,current=()=>true) {
@@ -10,10 +11,11 @@ export async function installWorkspaceFont(probe,bytes,descriptor,index=-1,curre
     const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
     if (rasterizer.call(JSON.stringify({hash,registered:true}))!=='true') await rasterizer.install(hash,bytes);
   }
+  await yieldStartupPaint();
   if (current()) return probe.WorkspaceFont(bytes,descriptor,index);
 }
 
-export async function settleWorkspaceGlyphs(probe) { await installed.get(probe)?.settle(); }
+export async function settleWorkspaceGlyphs(probe) { return await installed.get(probe)?.settle() ?? false; }
 
 export function localRasterizer(wasm) {
   const faces = new Map();

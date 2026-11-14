@@ -9,30 +9,79 @@ const factory=new Function('workspaceViewport','loadBackground','tintPixels','lo
   'document','Image','ImageData','requestAnimationFrame','cancelAnimationFrame','fetch','performance',
   source+'\nreturn startLoading;');
 
-test('animation and quotes wait for all presentation assets and start together',async()=>{
-  let now=1000, finishBackground, atlas, nextFrame;
+const tick=()=>new Promise(setImmediate);
+function deferred() {
+  let resolve,reject;
+  const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});
+  return {promise,resolve,reject};
+}
+function fixture() {
+  let now=1000, atlas, nextFrame=0;
+  const frames=new Map(),background=deferred(),tips=deferred();
   const trace=[];
   const context=new Proxy({}, {get:(_,key)=>key==='getImageData'?()=>({data:[]}):()=>{}});
   const canvas=()=>({width:32,height:64,dataset:{},setAttribute(){},remove(){},getContext:()=>context});
   const document={body:{classList:{add(){},remove(){}},style:{setProperty(){}},prepend(){}},createElement:canvas};
   const start=factory(()=>({width:800,height:600,uiScale:1}),(_signal,original)=>{
-    original({draw(){trace.push('original');},dispose(){}});
-    return new Promise(resolve=>{finishBackground=resolve;});
+    original({draw(){trace.push('original');},dispose(){trace.push('dispose original');}});
+    return background.promise;
   },()=>[],()=>({lines:[],advance(time){trace.push(['quotes',time]);return true;}}),document,
-  class {constructor(){atlas=this;}},class {},callback=>{nextFrame=callback;return 1;},()=>{},
-  async()=>({ok:true,text:async()=>'quote'}),{now:()=>now});
+  class {constructor(){atlas=this;}},class {},callback=>{frames.set(++nextFrame,callback);return nextFrame;},id=>frames.delete(id),
+  ()=>tips.promise,{now:()=>now});
   const pending=start(new URLSearchParams());
-  await new Promise(resolve=>setTimeout(resolve,0));
-  atlas.onload();
-  assert.ok(trace.includes('original'));
-  assert.equal(trace.some(item=>Array.isArray(item)),false);
-  now=2000;
-  finishBackground({draw(){trace.push('animated');},advance(time){trace.push(['animation',time]);return true;},dispose(){}});
-  await new Promise(resolve=>setTimeout(resolve,0));
-  assert.deepEqual(trace.filter(Array.isArray),[['quotes',2]]);
-  // Release the compositor gate, then run the loading update at the same origin.
-  nextFrame();nextFrame();
-  const loading=await pending;
+  const frame=time=>{
+    now=time;
+    const callbacks=[...frames.values()];frames.clear();
+    for(const callback of callbacks)callback();
+  };
+  return {trace,frame,tips,background,atlas:()=>atlas.onload(),
+    animation:{draw(){trace.push('animated');},advance(time){trace.push(['animation',time]);return true;},dispose(){trace.push('dispose animation');}},
+    async loading(){frame(now);frame(now);return pending;}};
+}
+const quoteResponse={ok:true,text:async()=>'quote'};
+
+test('quotes scroll while background frames are delayed; background retains its own start time',async()=>{
+  const f=fixture(),loading=await f.loading();
+  f.tips.resolve(quoteResponse);await tick();f.atlas();
+  f.frame(1500);
+  assert.ok(f.trace.includes('original'));
+  assert.ok(f.trace.some(item=>Array.isArray(item)&&item[0]==='quotes'));
+  assert.equal(f.trace.includes('animated'),false);
+  f.frame(2000);f.background.resolve(f.animation);await tick();
+  f.trace.length=0;f.frame(2500);
+  assert.deepEqual(f.trace.filter(Array.isArray),[['animation',.5],['quotes',2.5]]);
   assert.equal(loading.takeBackground().started,2);
   loading.finish();
+  assert.equal(f.trace.includes('dispose animation'),false); // Transferred to workspace.
+  f.animation.dispose();
+});
+
+test('background animates when quotes fail or the font atlas never arrives',async()=>{
+  for(const missing of ['quotes','atlas']) {
+    const f=fixture(),loading=await f.loading();
+    if(missing==='quotes') {f.tips.reject(Error('unavailable'));f.atlas();}
+    else f.tips.resolve(quoteResponse);
+    f.background.resolve(f.animation);await tick();
+    f.trace.length=0;f.frame(2000);
+    assert.deepEqual(f.trace.filter(Array.isArray),[['animation',1]]);
+    assert.ok(f.trace.includes('animated'));
+    loading.finish();
+    assert.ok(f.trace.includes('dispose animation'));
+  }
+});
+
+test('background failure does not stop ready quotes',async()=>{
+  const f=fixture(),loading=await f.loading();
+  f.background.reject(Error('unavailable'));f.tips.resolve(quoteResponse);f.atlas();await tick();
+  f.frame(2000);
+  assert.ok(f.trace.some(item=>Array.isArray(item)&&item[0]==='quotes'));
+  loading.finish();
+});
+
+test('finishing loading retires delayed assets without painting again',async()=>{
+  const f=fixture(),loading=await f.loading();
+  loading.finish();f.trace.length=0;
+  f.background.resolve(f.animation);f.tips.resolve(quoteResponse);f.atlas();await tick();
+  f.frame(2000);
+  assert.deepEqual(f.trace,['dispose animation']);
 });

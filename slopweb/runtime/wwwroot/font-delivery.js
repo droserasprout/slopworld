@@ -51,11 +51,10 @@ export function fallbackFonts(probe, wake, fetchFont = globalThis.fetch, report 
 // Drain coverage observed by real startup frames before revealing the workspace.
 // There is no authored glyph list and no host rasterization.
 export async function warmWorkspaceFonts(probe,families=[]) {
-  await settleWorkspaceGlyphs(probe);
+  let changed=await settleWorkspaceGlyphs(probe);
   await hostFonts(probe).warm(families);
   let failure;
   const loader=fallbackFonts(probe,()=>{},globalThis.fetch,(message)=>{if(message)failure=message;});
-  let changed=false;
   for (let pass=0;pass<32;pass++) if (!await loader.frame()) break; else changed=true;
   if (failure) {probe.WorkspaceFontFallbackRetry();throw Error(failure);}
   return changed;

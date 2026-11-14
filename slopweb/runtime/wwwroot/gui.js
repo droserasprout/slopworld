@@ -403,8 +403,8 @@ function renderGuiCommands(canvas, commands) {
         if (kind === 'imageBatch') {
           const q=decodeGuiQuads(v.quads), width=source.width, height=source.height;
           const matrix=damage ? ctx.getTransform() : null;
-          // Retain decoded geometry for profiling and any repeat playback.
-          v.quads=q;
+          // Keep packet commands immutable for frame/row comparisons. The quad
+          // cache already retains decoded geometry for profiling and replay.
           for (let i=0; i<q.length; i+=8) {
             if (damage && preservedDraw(q[i],q[i+1],q[i+2],q[i+3],matrix)) continue;
             ctx.drawImage(source, q[i+4]*width, (1-q[i+5]-q[i+7])*height,

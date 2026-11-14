@@ -89,6 +89,16 @@ web-bench-commands:
 web-bench-dispatch:
     DOTNET_TieredCompilation=0 dotnet run --project slopweb/tests/runtime/DispatchTests/DispatchTests.csproj -c Release -- --benchmark
 
+# Synthetic Node packet processing only; no browser or game is started.
+[group('web')]
+web-bench-packets:
+    node slopweb/tests/browser/bench/packets.mjs
+
+# Synthetic assembly download latency; no game data, browser, or network needed.
+[group('web')]
+web-bench-startup:
+    node slopweb/tests/browser/bench/startup.mjs
+
 # Native assemblies required; no engine or browser is started.
 [group('web')]
 web-bench-glyphs game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):

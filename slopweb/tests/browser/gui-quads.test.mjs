@@ -122,7 +122,7 @@ test('packed and numeric batches issue identical ordered Canvas calls across cli
     const packed = commands(pack(values));
     renderGui(canvas(), packed);
     assert.deepEqual(calls, expected);
-    assert.deepEqual(Array.from(packed[4].value.quads), values);
+    assert.equal(packed[4].value.quads, pack(values));
     // A fresh frame, upload and render target must still replay all Canvas calls
     // when geometry comes from the cross-frame cache.
     calls.length = 0;

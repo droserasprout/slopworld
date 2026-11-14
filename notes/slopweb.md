@@ -42,6 +42,11 @@ native font fidelity checks are explicit opt-ins.
 The browser workspace stays in Entry without creating a game, world, or map.
 Startup validates managed status reports as well as exceptions; failed or incomplete
 Entry initialization releases the engine and ends loading with an error.
+Game assembly downloads use a four-file window, including completed buffers;
+CLR loading and per-file failure reporting retain manifest order.
+Assembly loading, archive transfer, font installation and startup stages yield to
+browser painting between work batches; individual synchronous managed calls still
+own their uninterrupted cost.
 Browser middle-click paste is owned by the DOM paste event carrying desktop PRIMARY;
 both browser input adapters suppress the corresponding managed button gesture to
 avoid also pasting the adapter's saved local selection.
@@ -54,8 +59,9 @@ the daemon retains processes, tmux, sandboxes, and credentials. See the
 Host appearance import and browser persistence share a tested presentation
 allowlist. Offline UI hooks invoke the mod’s action-caption backdrop and translated settings-row
 filters; the browser does not duplicate their theme or visibility policy. Loading
-publishes the original game background while frames decode, then starts animation
-and quote scrolling together once their presentation assets are ready.
+publishes the original game background while frames decode. Background animation
+and quote scrolling start independently as their own presentation assets arrive;
+failed optional assets must not hold the other animation.
 Browser backdrop rendering consumes the native dimming preference;
 profile files stay read-only and browser changes remain local to its origin.
 
@@ -71,6 +77,13 @@ The managed client owns HTTP operation deadlines; browser cancellation aborts br
 I/O without replaying mutations. Browser transport keeps native request admission, deadlines,
 completion delivery, connection generations, and bounded queues. Overload closes
 the socket rather than blocking the UI thread.
+Browser GUI packets retain one bounded decoded frame; command consumers leave it
+immutable, while Canvas reuse still checks dimensions, resource revisions, and
+resource-changing commands. Startup consumes every packet before requesting a font
+redraw: image uploads and retained-target changes cannot be dropped when replacing
+a frame, even while the loading screen covers the workspace.
+Glyph persistence uses a bounded asynchronous write
+queue so storage latency does not delay glyph replies or worker font installation.
 
 Host preparation composes immutable runtimes from independently cached patched
 assemblies, archives, fonts, and backgrounds. `host/src/launcher/aot.rs` owns compiler inputs and
@@ -102,14 +115,17 @@ monochrome filtering; catalog-only families must not be appended to them.
 Verified browser file storage is bounded
 and survives reloads. Generic preloads and actual initial-frame coverage settle before
 the workspace is shown; neither uses an authored glyph list.
+Preloads overlap at most two families per warm pass; shared fallback files join one
+installation through worker loading and managed publication, including failure delivery.
 `BrowserFontBank.Fallbacks` owns pending requests and maps resolved fonts into the
 primary atlas at its baseline; replies never expose host paths or glyph pixels.
 `LocalFonts/` supplies FreeType WASM; browser adapters own rasterization and atlas
 lifetime, while native text layout retains wrapping and caret policy. Non-ASCII
 glyphs rasterize in a worker and use bounded origin-local persistent storage keyed
 by font content, scalar, size, density, and loader flags. Pending glyphs remain
-retryable until completion invalidates native drawing. Font bytes are installed
-in both rasterizers before managed publication; the main thread retains synchronous
+retryable until completion invalidates native drawing. Startup drains glyph replies
+and publishes one invalidation before its next draw; live replies remain coalesced.
+Font bytes are installed in both rasterizers before managed publication; the main thread retains synchronous
 metrics and ASCII rendering. Bump the glyph storage namespace when changing
 FreeType or its rasterization contract. Selection
 changes publish after loading and reject stale responses. Both execution modes use
