@@ -13,6 +13,16 @@ static class Check
         UnityStubs.Gui.GuiBackend.Current = BrowserGui.Install();
         GUI.OnDispatchInput = WorkspaceGuiCalls.Input;
         GUI.OnProcessWindows = WorkspaceGuiCalls.Deferred;
+        WorkspaceDrawing.ConfigureViewport(1280, 720, 5f / 3);
+        WorkspaceDrawing.ConfigureViewport(1600, 900, 2);
+        if (Prefs.UIScale != 2 || BrowserFontBank.Density != 2)
+            throw new Exception("Default scale did not follow display density");
+        Prefs.UIScale = 1.25f;
+        WorkspaceDrawing.ConfigureViewport(1400, 800, 2);
+        WorkspaceDrawing.ConfigureViewport(1400, 800, 1.25f);
+        WorkspaceDrawing.ConfigureViewport(1280, 720, 1.5f);
+        if (Prefs.UIScale != 1.25f || BrowserFontBank.Density != 1.25f)
+            throw new Exception("Viewport resize replaced the selected UI scale");
         foreach (string batch in new[] { "[{\"kind\":\"move\",\"x\":45,\"y\":65}]", "[]", "[]" })
         {
             Calls.Clear();
@@ -35,6 +45,20 @@ static class Check
             if (PendingTips != 0)
                 throw new Exception("Tooltip window missed deferred dispatch");
         }
+        // A slider changes Prefs during input; layout/repaint in the same frame
+        // must measure using the new glyph density, including repeated changes.
+        foreach (float scale in new[] { 1.55f, 2f, 0.75f, 1.55f })
+        {
+            GUI.OnDispatchInput = () =>
+            {
+                WorkspaceGuiCalls.Input();
+                if (Event.current.type == EventType.MouseMove)
+                    Prefs.UIScale = scale;
+            };
+            WorkspaceDrawing.Frame("[{\"kind\":\"move\",\"x\":45,\"y\":65}]");
+            if (BrowserFontBank.Density != scale)
+                throw new Exception("Live scale did not reach the rasterizer");
+        }
         Console.WriteLine(
             "Workspace hover: native tooltip pass precedes deferred windows; stationary pointer survives idle repaints."
         );
@@ -42,6 +66,11 @@ static class Check
 
     internal static void Record(string stage)
     {
+        if (
+            Event.current.type is EventType.Layout or EventType.Repaint
+            && BrowserFontBank.Density != Prefs.UIScale
+        )
+            throw new Exception("Layout/repaint used stale glyph density");
         if (Event.current.mousePosition.x != 45 || Event.current.mousePosition.y != 65)
             throw new Exception("Workspace lost hover coordinates");
         Calls.Add(Event.current.type + ":" + stage);
@@ -171,7 +200,9 @@ namespace BrowserAdapters
 
     public static class BrowserFontBank
     {
-        public static void ConfigureDensity(float scale) { }
+        public static float Density;
+
+        public static void ConfigureDensity(float scale) => Density = scale;
     }
 
     public static class WorkspaceScene

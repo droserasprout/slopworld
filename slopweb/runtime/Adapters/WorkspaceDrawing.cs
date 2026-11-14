@@ -10,6 +10,9 @@ namespace BrowserAdapters;
 // after installed Entry/UI initialization and browser GUI installation.
 public static class WorkspaceDrawing
 {
+    static float viewportScale;
+    static bool customScale;
+
     public static void ConfigureViewport(int width, int height, float scale)
     {
         RequireEntry();
@@ -23,8 +26,14 @@ public static class WorkspaceDrawing
             || scale > 4f
         )
             throw new ArgumentOutOfRangeException(nameof(scale), "Invalid workspace viewport");
-        Prefs.UIScale = scale;
-        BrowserFontBank.ConfigureDensity(scale);
+        // Follow display density until a native scale control selects a different
+        // value. Resizing the backing canvas must not undo that selection.
+        if (viewportScale != 0 && Prefs.UIScale != viewportScale)
+            customScale = true;
+        if (!customScale)
+            Prefs.UIScale = scale;
+        viewportScale = scale;
+        BrowserFontBank.ConfigureDensity(Prefs.UIScale);
         WorkspaceScene.ConfigureViewport(width, height);
     }
 
@@ -194,6 +203,10 @@ public static class WorkspaceDrawing
             (BrowserGui)GuiBackend.Current,
             () =>
             {
+                // Input can change scale between passes in this same batch.
+                // Retire old glyph atlases before measuring layout or repainting;
+                // the bank's resolution revision also invalidates cached text/rows.
+                BrowserFontBank.ConfigureDensity(Prefs.UIScale);
                 applyLayout?.Invoke();
                 UI.ApplyUIScale();
                 shortcuts?.Invoke();
@@ -228,6 +241,7 @@ public static class WorkspaceDrawing
         ((BrowserGui)GuiBackend.Current).BeginLabelRepaint();
         GUIUtility.ResetControlIds();
         Event.current = new Event { type = EventType.Repaint, rawType = EventType.Repaint };
+        BrowserFontBank.ConfigureDensity(Prefs.UIScale);
         UI.ApplyUIScale();
         window.DoWindowContents(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
         return ((BrowserGui)GuiBackend.Current).Drain();

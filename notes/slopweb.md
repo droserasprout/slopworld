@@ -74,6 +74,10 @@ Browser backdrop rendering consumes the native dimming preference;
 profile files stay read-only and browser changes remain local to its origin.
 The same preference boundary retains the jukebox pause flag. Browser tab titles
 use the mod's window-title policy; packaging reuses the documentation favicon.
+Viewport density supplies the initial UI scale. Each GUI pass synchronizes glyph
+density with the native scale preference before layout; backing-canvas resizes
+preserve an explicitly changed scale. Font-bank revisions retire old glyphs and
+invalidate text layout and row caches.
 
 The server binds IPv4 loopback and validates Host separately from browser
 provenance. Its same-origin HTTP and WebSocket bridges inject host credentials;
