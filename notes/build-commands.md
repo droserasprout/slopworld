@@ -58,6 +58,9 @@ ratchet the gate to a single run's exact percentage.
 
 The pinned formatter and coverage tool run with .NET 10; CI installs the SDK from
 `global.json` without an additional runtime. Coverlet permits major-version roll-forward.
+The SDK patch is exact: its implicit WebAssembly pack reference participates in the
+browser lockfile. Update the SDK and browser dependency locks together; automatic
+SDK patch roll-forward can make a clean hosted build fail locked restore.
 
 The mod project owns game references and compiler settings; `Directory.Build.props`
 selects .NET 10 recommended analyzer rules, `.editorconfig` owns diagnostic
