@@ -8,6 +8,10 @@ namespace SlopWorld
     // A late reply must match the project identity and its request generation.
     public sealed class BrowseScopeCatalog
     {
+        const float IdleRefreshSeconds = 300f;
+        const float MenuRefreshSeconds = 15f;
+        const float RetrySeconds = 30f;
+
         sealed class Catalog
         {
             public string Name,
@@ -15,6 +19,7 @@ namespace SlopWorld
                 Error;
             public bool Loading;
             public float Next;
+            public float Completed;
             public int Token;
             public List<BrowseScope> Scopes = new List<BrowseScope>();
         }
@@ -310,17 +315,21 @@ namespace SlopWorld
             _nextSchedule = float.PositiveInfinity;
             foreach (var c in _catalogs.Values)
                 if (!c.Loading && (includeHidden || _passes(c.Name)))
-                    _nextSchedule = Math.Min(_nextSchedule, c.Next);
+                    _nextSchedule = Math.Min(_nextSchedule, Deadline(c, includeHidden));
             if (_now() < _nextSchedule)
                 return;
-            foreach (var entry in _catalogs.OrderBy(e => e.Value.Next).ToList())
+            foreach (var entry in _catalogs.OrderBy(e => Deadline(e.Value, includeHidden)).ToList())
             {
                 var c = entry.Value;
                 if (_inFlight >= 2)
                     break;
                 // The open filter menu needs catalog metadata for hidden projects too,
                 // so it can distinguish a plain checkbox from a worktree submenu.
-                if (c.Loading || (!includeHidden && !_passes(c.Name)) || _now() < c.Next)
+                if (
+                    c.Loading
+                    || (!includeHidden && !_passes(c.Name))
+                    || _now() < Deadline(c, includeHidden)
+                )
                     continue;
                 c.Loading = true;
                 _inFlight++;
@@ -329,6 +338,11 @@ namespace SlopWorld
                 _load(c.Name, (reply, error) => Complete(id, c, token, reply, error));
             }
         }
+
+        // Menu demand uses response age, not the last UI pass: interleaved sidebar
+        // reads and repeatedly opening the menu cannot bypass the minimum interval.
+        static float Deadline(Catalog c, bool menu) =>
+            menu && c.Error == null ? Math.Min(c.Next, c.Completed + MenuRefreshSeconds) : c.Next;
 
         static string Stamp(IEnumerable<BrowseScope> scopes) =>
             string.Join(
@@ -349,7 +363,8 @@ namespace SlopWorld
                 || !ReferenceEquals(current, c)
             )
                 return;
-            c.Next = _now() + 5f;
+            c.Completed = _now();
+            c.Next = c.Completed + (reply == null ? RetrySeconds : IdleRefreshSeconds);
             string nextError = reply == null ? error ?? "Unable to load worktrees." : null;
             bool errorChanged = c.Error != nextError;
             c.Error = nextError;

@@ -83,6 +83,11 @@ density with the native scale preference before layout; backing-canvas resizes
 preserve an explicitly changed scale. Font-bank revisions retire old glyphs and
 invalidate text layout and row caches.
 
+Static assets use private browser caching with revalidation on every reuse;
+the static-file owner supplies validators so unchanged reloads avoid body transfers.
+Bridge responses and font catalogs remain uncached; content-addressed font files
+retain their immutable caching policy.
+
 The server binds IPv4 loopback and validates Host separately from browser
 provenance. Its same-origin HTTP and WebSocket bridges inject host credentials;
 credentials never enter page assets or URLs. Named endpoints take precedence over

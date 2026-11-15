@@ -63,7 +63,7 @@ namespace SlopWorld.Tests
 
             public void Refresh()
             {
-                Now += 6;
+                Now += 301;
                 Update();
             }
         }
@@ -121,9 +121,55 @@ namespace SlopWorld.Tests
             catalog.Invalidate();
             catalog.Update(projects, 0, "", "", true);
             Assert.That(requests, Is.EqualTo(2));
-            now = 5;
+            now = 300;
             catalog.Update(projects, 0, "", "", true);
             Assert.That(requests, Is.EqualTo(3));
+        }
+
+        public static void MenuDemandRefreshesAgedRowsWithoutRestoringIdlePolling()
+        {
+            var f = new Fixture();
+            f.Update();
+            f.Reply(f.Request("p", 1), Scope());
+            f.Now = 14f;
+            f.Update(menu: true);
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(1));
+            f.Now = 15f;
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(1));
+            f.Update(menu: true);
+            Assert.That(f.Requests.Count, Is.EqualTo(2));
+            f.Reply(f.Request("p", 2), Scope());
+            for (int i = 0; i < 10; i++)
+            {
+                f.Update();
+                f.Update(menu: true);
+            }
+            Assert.That(f.Requests.Count, Is.EqualTo(2));
+            f.Now = 30f;
+            f.Update(menu: true);
+            Assert.That(f.Requests.Count, Is.EqualTo(3));
+            f.Reply(f.Request("p", 3), Scope());
+            f.Now = 329f;
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(3));
+            f.Catalog.Invalidate();
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(4));
+        }
+
+        public static void MenuDemandHonorsFailureBackoff()
+        {
+            var f = new Fixture();
+            f.Update(menu: true);
+            f.Request("p", 1).Reply(null, "offline");
+            f.Now = 15f;
+            f.Update(menu: true);
+            Assert.That(f.Requests.Count, Is.EqualTo(1));
+            f.Now = 30f;
+            f.Update(menu: true);
+            Assert.That(f.Requests.Count, Is.EqualTo(2));
         }
 
         public static void SessionProjectIndexTracksRenamesAndRemovals()
@@ -297,7 +343,7 @@ namespace SlopWorld.Tests
             f.Reply(f.Request("p", 1), Scope(), Scope("one"));
             Assert.That(f.Catalog.HasWorktrees("p-id"), Is.True);
             Assert.That(f.Catalog.EnabledScopes(), Is.Empty);
-            f.Now += 6;
+            f.Now += 301;
             f.Update();
             Assert.That(
                 f.Requests.Count,
@@ -375,22 +421,26 @@ namespace SlopWorld.Tests
             f.Update();
             f.Now = 3f;
             f.Request("p", 1).Reply(null, "offline");
-            f.Now = 7.99f;
+            f.Now = 32.99f;
             f.Update();
             Assert.That(f.Requests.Count, Is.EqualTo(1));
-            f.Now = 8f;
+            f.Now = 33f;
             f.Catalog.Update(f.Projects, f.ProjectsRevision, f.Filter, f.Saved, false);
             Assert.That(f.Requests.Count, Is.EqualTo(1), "offline updates do not admit requests");
             f.Update();
             Assert.That(f.Requests.Count, Is.EqualTo(2), "retry is admitted at the deadline");
             f.Reply(f.Request("p", 2), Scope());
             Assert.That(f.Catalog.Error("p-id"), Is.Null);
-            f.Now = 12.99f;
+            f.Now = 332.99f;
             f.Update();
             Assert.That(f.Requests.Count, Is.EqualTo(2));
-            f.Now = 13f;
+            f.Now = 333f;
             f.Update();
-            Assert.That(f.Requests.Count, Is.EqualTo(3), "successful refresh uses the same delay");
+            Assert.That(
+                f.Requests.Count,
+                Is.EqualTo(3),
+                "successful refresh returns to the idle interval"
+            );
             int revision = f.Catalog.Revision;
             f.Reply(f.Request("p", 3), Scope());
             Assert.That(

@@ -1,20 +1,28 @@
 //! Static asset delivery. Resolve beneath an open root and stream bounded chunks.
 use axum::{
     body::Body,
-    http::{Method, StatusCode},
+    http::{HeaderMap, Method, StatusCode},
     response::Response,
 };
 use futures::stream;
 use std::{
     ffi::CString,
-    os::fd::{AsRawFd, FromRawFd},
+    os::{
+        fd::{AsRawFd, FromRawFd},
+        unix::fs::MetadataExt,
+    },
     path::{Component, Path},
 };
 use tokio::io::AsyncReadExt;
 
 use super::reply;
 
-pub(super) async fn response(root: &Path, path: &str, method: &Method) -> Response {
+pub(super) async fn response(
+    root: &Path,
+    path: &str,
+    method: &Method,
+    headers: &HeaderMap,
+) -> Response {
     if !matches!(*method, Method::GET | Method::HEAD) {
         return reply(StatusCode::FORBIDDEN, "");
     }
@@ -52,6 +60,36 @@ pub(super) async fn response(root: &Path, path: &str, method: &Method) -> Respon
     if !metadata.is_file() {
         return reply(StatusCode::FORBIDDEN, "");
     }
+    // Weak metadata validators avoid reading large archives merely to validate a
+    // reload. Include inode and nanosecond change times to detect replacements
+    // and same-size edits even when a preparation step preserves mtime.
+    let etag = format!(
+        "W/\"{:x}-{:x}-{:x}-{:x}-{:x}-{:x}-{:x}\"",
+        metadata.dev(),
+        metadata.ino(),
+        metadata.len(),
+        metadata.mtime(),
+        metadata.mtime_nsec(),
+        metadata.ctime(),
+        metadata.ctime_nsec(),
+    );
+    let unchanged = headers.get_all("if-none-match").iter().any(|value| {
+        value.to_str().is_ok_and(|value| {
+            value.split(',').any(|part| {
+                let part = part.trim();
+                part == "*" || part.strip_prefix("W/").unwrap_or(part) == &etag[2..]
+            })
+        })
+    });
+    let response = Response::builder()
+        .header("cache-control", "private, no-cache")
+        .header("etag", &etag);
+    if unchanged {
+        return response
+            .status(StatusCode::NOT_MODIFIED)
+            .body(Body::empty())
+            .unwrap();
+    }
     let content_type = match Path::new(&relative)
         .extension()
         .and_then(|value| value.to_str())
@@ -74,7 +112,7 @@ pub(super) async fn response(root: &Path, path: &str, method: &Method) -> Respon
             Ok::<_, std::io::Error>((count != 0).then_some((bytes, file)))
         }))
     };
-    Response::builder()
+    response
         .status(StatusCode::OK)
         .header("content-type", content_type)
         .header("content-length", metadata.len())

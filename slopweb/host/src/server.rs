@@ -84,7 +84,7 @@ async fn dispatch(State(host): State<Arc<Host>>, request: Request) -> Response {
     } else if path == "/host/fonts" || path.starts_with("/host/fonts/") {
         fonts::response(&host, request).await
     } else {
-        static_files::response(&host.root, path, request.method()).await
+        static_files::response(&host.root, path, request.method(), request.headers()).await
     };
     let headers = response.headers_mut();
     headers.insert("cross-origin-opener-policy", "same-origin".parse().unwrap());
