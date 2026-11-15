@@ -67,16 +67,19 @@ namespace SlopWorld
                 enabled: !S.vsync
             );
 
-            bool vsync = UiControls.Checkbox(
-                l,
-                "VSync (not recommended)",
-                S.vsync,
-                "Enable vertical synchronization. Adds input lag. Testing only."
-            );
-            if (vsync != S.vsync)
+            if (!ClientPlatform.IsBrowser)
             {
-                S.vsync = vsync;
-                S.MarkDirty();
+                bool vsync = UiControls.Checkbox(
+                    l,
+                    "VSync (not recommended)",
+                    S.vsync,
+                    "Enable vertical synchronization. Adds input lag. Testing only."
+                );
+                if (vsync != S.vsync)
+                {
+                    S.vsync = vsync;
+                    S.MarkDirty();
+                }
             }
 
             UiSelector.Draw(

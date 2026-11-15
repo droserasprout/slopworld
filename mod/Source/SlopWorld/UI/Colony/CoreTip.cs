@@ -117,10 +117,13 @@ namespace SlopWorld
                 new FloatMenuOption("Advice", () => ShowWorkspaceBubble(window, at, true)),
                 new FloatMenuOption("Keyboard shortcuts", ShortcutHelpView.Toggle),
             };
-            if (!Settings.GrandmaMode)
-                options.Add(new FloatMenuOption("Kill something", null));
-            options.Add(new FloatMenuOption("New looks", null));
-            options.Add(new FloatMenuOption("Next planet", null));
+            if (!ClientPlatform.IsBrowser)
+            {
+                if (!Settings.GrandmaMode)
+                    options.Add(new FloatMenuOption("Kill something", null));
+                options.Add(new FloatMenuOption("New looks", null));
+                options.Add(new FloatMenuOption("Next planet", null));
+            }
             WorkspaceWindow.OpenOverPane(new UiMenu(options));
         }
 
