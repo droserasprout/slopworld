@@ -3,8 +3,9 @@ name: Release
 on:
   push:
     tags: ['v[0-9]*.[0-9]*.[0-9]*']
-    # Exercise the full packaging path before landing release changes.
-    branches: [release-ci]
+    # Temporary slopweb previews exercise packaging before the 0.2.0 release.
+    # Remove slopweb after landing; branch pushes only upload retained artifacts.
+    branches: [release-ci, slopweb]
   # Manual runs build previews, even when a tag is selected. Re-run a tag push
   # to retry publication; existing releases are never overwritten.
   workflow_dispatch:
