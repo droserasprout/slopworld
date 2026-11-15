@@ -24,16 +24,15 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
-            bool eco = UiControls.Checkbox(
-                l,
-                "Eco mode",
-                ClientPlatform.IsBrowser || s.ecoMode,
-                ClientPlatform.IsBrowser
-                    ? "Slopweb always runs in Eco mode: only the Entry workspace runs in the browser."
-                    : "80% less CPU, 0.1% less guilt. You're welcome, Earth!\n\n"
-                        + "Pauses the game simulation and map drawing. Terminal sessions continue to run.",
-                locked: ClientPlatform.IsBrowser
-            );
+            bool eco = s.ecoMode;
+            if (!ClientPlatform.IsBrowser)
+                eco = UiControls.Checkbox(
+                    l,
+                    "Eco mode",
+                    s.ecoMode,
+                    "80% less CPU, 0.1% less guilt. You're welcome, Earth!\n\n"
+                        + "Pauses the game simulation and map drawing. Terminal sessions continue to run."
+                );
 
             // Show the dimming slider only when Eco mode draws the backdrop.
             // Offer 5% precision; Eco updates the color on its reused backdrop material.

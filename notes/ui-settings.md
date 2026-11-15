@@ -8,6 +8,10 @@ pending value independently of native control state and applies it on reported
 release or when the button is up after capture is lost. A reported release uses
 its final pointer sample.
 
+Browser settings omit the desktop Eco mode and VSync toggles. The RimWorld page
+keeps its disclaimer, build information, and links but omits vanilla option sections.
+These visibility decisions belong to the mod pages through `ClientPlatform.IsBrowser`.
+
 Audio volumes apply live to RimWorld preferences. The Audio page saves pending
 changes after the mouse is released and on teardown; the embedded Settings view
 does not run the vanilla options dialog's close lifecycle.

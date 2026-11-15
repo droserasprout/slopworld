@@ -39,14 +39,27 @@ namespace SlopWorld
             {
                 float y = SettingsDisclaimer.DrawEulaDisclaimer(content, content.y);
                 y = DrawRimWorldHeader(content, y);
-                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics, "DoVideoOptions");
-                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface, "DoUIOptions");
-                y = DrawRimWorldSection(
-                    content,
-                    y,
-                    OptionCategoryDefOf.Controls,
-                    "DoControlsOptions"
-                );
+                if (!ClientPlatform.IsBrowser)
+                {
+                    y = DrawRimWorldSection(
+                        content,
+                        y,
+                        OptionCategoryDefOf.Graphics,
+                        "DoVideoOptions"
+                    );
+                    y = DrawRimWorldSection(
+                        content,
+                        y,
+                        OptionCategoryDefOf.Interface,
+                        "DoUIOptions"
+                    );
+                    y = DrawRimWorldSection(
+                        content,
+                        y,
+                        OptionCategoryDefOf.Controls,
+                        "DoControlsOptions"
+                    );
+                }
                 _rimWorldHeight.Measure(y + ContentPaddingY);
             }
         }
