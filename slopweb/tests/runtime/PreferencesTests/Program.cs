@@ -225,6 +225,42 @@ static class Check
                     && call.Name == "Set",
                 "Fullscreen intent not redirected"
             );
+            var application = new TypeDefinition(
+                "UnityEngine",
+                "Application",
+                TypeAttributes.Public,
+                module.TypeSystem.Object
+            );
+            module.Types.Add(application);
+            var open = new MethodDefinition(
+                "OpenURL",
+                MethodAttributes.Public | MethodAttributes.Static,
+                module.TypeSystem.Void
+            );
+            open.Parameters.Add(new ParameterDefinition(module.TypeSystem.String));
+            open.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+            application.Methods.Add(open);
+            using var adapters = AssemblyDefinition.ReadAssembly(
+                Path.Combine(root, "Adapters.dll")
+            );
+            BrowserClipboardPatch.Redirect(
+                application,
+                adapters.MainModule.GetType("BrowserAdapters.BrowserWindow"),
+                "OpenURL",
+                "OpenUrl"
+            );
+            Expect(
+                open.Body.Instructions[1].Operand is MethodReference urlCall
+                    && urlCall.DeclaringType.FullName == "BrowserAdapters.BrowserWindow"
+                    && urlCall.Name == "OpenUrl",
+                "Unity URL intent not redirected"
+            );
+            string? requestedUrl = null;
+            BrowserWindow.UrlRequest = value => requestedUrl = value;
+            BrowserWindow.OpenUrl("https://example.com/path");
+            Expect(requestedUrl == "https://example.com/path", "URL request lost");
+            BrowserWindow.UrlRequest = null;
+            BrowserWindow.OpenUrl("https://example.com/closed");
             setter.Parameters.Clear();
             bool rejected = false;
             try

@@ -207,6 +207,14 @@ public partial class Probe
             .SetValue(null, request);
 
     [JSExport]
+    public static void WorkspaceOpenUrl(
+        [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> request
+    ) =>
+        Type("Adapters", "BrowserAdapters.BrowserWindow")
+            .GetField("UrlRequest")!
+            .SetValue(null, request);
+
+    [JSExport]
     public static void WorkspaceFullscreenState(bool fullscreen) =>
         Invoke("Adapters", "BrowserAdapters.BrowserWindow", "UpdateState", fullscreen);
 

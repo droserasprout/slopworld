@@ -16,6 +16,12 @@ internal static class BrowserGuiPatch
         );
         using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
         var clipboard = adapters.MainModule.GetType("BrowserAdapters.BrowserClipboard");
+        BrowserClipboardPatch.Redirect(
+            target.MainModule.GetType("UnityEngine.Application"),
+            adapters.MainModule.GetType("BrowserAdapters.BrowserWindow"),
+            "OpenURL",
+            "OpenUrl"
+        );
         var utility = target.MainModule.GetType("UnityEngine.GUIUtility");
         BrowserClipboardPatch.Redirect(utility, clipboard, "get_systemCopyBuffer", "Get");
         BrowserClipboardPatch.Redirect(utility, clipboard, "set_systemCopyBuffer", "Set");

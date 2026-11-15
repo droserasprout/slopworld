@@ -5,6 +5,7 @@ import { attachInput } from './input.js';
 import { workspaceViewport, workspaceParameters, workspaceOption } from './workspace-viewport.js';
 import { loadBackground } from './loading-background.js';
 import { attachWorkspaceCursor } from './workspace-cursor.js';
+import { attachWorkspaceLinks } from './workspace-links.js';
 import { attachWorkspaceFullscreen } from './workspace-fullscreen.js';
 import { attachWorkspaceAudio } from './workspace-audio.js';
 import { fallbackFonts } from './font-delivery.js';
@@ -46,6 +47,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   const device = attachInput(canvas, managed, true);
   const cursor = attachWorkspaceCursor(canvas, managed);
   const fullscreen = attachWorkspaceFullscreen(managed);
+  const links = attachWorkspaceLinks(managed);
   const audio = attachWorkspaceAudio(managed);
   // Opt-in bounded measurements; ordinary presentation does not retain per-frame data.
   let profile = parameters.has('profile') ? [] : null;
@@ -98,7 +100,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     if(rowCommands) managed.WorkspaceRowCommands(false);
     backgroundAbort.abort();retainedBackground?.cancel();background?.dispose();background=null;
     device.dispose(); gui.dispose(); fonts.dispose();
-    cursor.dispose(); fullscreen.dispose(); audio.dispose();
+    cursor.dispose(); fullscreen.dispose(); links.dispose(); audio.dispose();
   };
   const update = () => {
     if (stopped) return;
