@@ -84,7 +84,7 @@ export function attachGuiInput(canvas, managed) {
       event.preventDefault();
       if (kind === 'down') { cancelled = false; proxy.focus(event); if (event.isTrusted) canvas.setPointerCapture(event.pointerId); }
       enqueue({ kind: kind === 'move' && event.buttons ? 'drag' : kind, ...point(event), button: [0, 2, 1][event.button] ?? 0, ...modifiers(event) });
-      // Context-menu clipboard actions need the initiating user activation.
+      // Clipboard actions and native URL opening need the initiating user activation.
       if (managed.ClipboardTake && kind !== 'move') frame();
     });
   }

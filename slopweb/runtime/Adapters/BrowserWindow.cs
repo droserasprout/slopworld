@@ -7,6 +7,9 @@ namespace BrowserAdapters;
 public static class BrowserWindow
 {
     public static Action<bool>? Request;
+    public static Action<string>? UrlRequest;
+
+    public static void OpenUrl(string url) => UrlRequest?.Invoke(url);
 
     static readonly Lazy<Func<string>> ReadTitle = new(() =>
         Type.GetType("SlopWorld.WindowTitle, SlopWorld", true)!

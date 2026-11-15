@@ -158,6 +158,10 @@ changes publish after loading and reject stale responses. Both execution modes u
 the same font pipeline; AOT only changes managed execution. Private font bytes and
 pixels remain in local caches. Reload after changing the installed host collection.
 
+Unity URL actions route through the browser window adapter, with native terminal hit
+testing retained. Pointer dispatch opens HTTP(S)/mailto links synchronously in a new
+tab without an opener; executable and local-file schemes are rejected.
+
 Browser cursor presentation uses one DOM canvas overlay at every viewport position,
 with native animation pixels and device-pixel hotspots. Fullscreen uses F11; optional
 Keyboard Lock keeps Escape available to native input when supported and permitted.
