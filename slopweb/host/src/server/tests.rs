@@ -773,8 +773,11 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
         tungstenite::Message::Text("reverse direction remains live".into())
     );
     resume.send(()).unwrap();
+    // The reverse-direction deadline above protects full-duplex progress. Draining
+    // 16 MiB after a deliberately tiny TCP window also depends on the host kernel's
+    // receive-buffer limits and window updates; allow slower hosted CI runners.
     assert_eq!(
-        tokio::time::timeout(Duration::from_secs(10), reader.next())
+        tokio::time::timeout(Duration::from_secs(60), reader.next())
             .await
             .unwrap()
             .unwrap()
