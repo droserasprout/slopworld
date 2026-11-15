@@ -57,6 +57,7 @@ with incomplete assets, inspect and repair it explicitly.
 ### Preview without publication
 
 Run **Release** manually from the Actions page, or push the `release-ci` branch.
+The `slopweb` branch also builds previews temporarily for browser release testing.
 Previews run tests and the same packaging and attestation path, using a version
 such as `0.0.7-preview-0123456789ab`. They upload a `release-<version>` workflow
 artifact retained for 30 days. They do not publish GitHub releases or sidecar
