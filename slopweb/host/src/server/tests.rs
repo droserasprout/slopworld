@@ -704,7 +704,10 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
         )
         .await
         .unwrap();
-        let receive_buffer: libc::c_int = 4096;
+        // Remain far below the 16 MiB payload without shrinking below loopback's
+        // packet size. A 4 KiB buffer can force kernel-specific zero-window/retransmit
+        // behavior even after reads resume, obscuring the relay behavior under test.
+        let receive_buffer: libc::c_int = 256 * 1024;
         // SAFETY: the live socket and integer option remain valid during setsockopt.
         assert_eq!(
             unsafe {
@@ -728,20 +731,6 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
             .await
             .unwrap();
         paused.await.unwrap();
-        let receive_buffer: libc::c_int = 4 * 1024 * 1024;
-        // SAFETY: as above; restoring capacity permits the blocked write to drain.
-        assert_eq!(
-            unsafe {
-                libc::setsockopt(
-                    socket.get_ref().as_raw_fd(),
-                    libc::SOL_SOCKET,
-                    libc::SO_RCVBUF,
-                    (&receive_buffer as *const libc::c_int).cast(),
-                    std::mem::size_of_val(&receive_buffer) as libc::socklen_t,
-                )
-            },
-            0
-        );
         let message = socket.next().await.unwrap().unwrap();
         assert_eq!(
             message,
@@ -773,11 +762,8 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
         tungstenite::Message::Text("reverse direction remains live".into())
     );
     resume.send(()).unwrap();
-    // The reverse-direction deadline above protects full-duplex progress. Draining
-    // 16 MiB after a deliberately tiny TCP window also depends on the host kernel's
-    // receive-buffer limits and window updates; allow slower hosted CI runners.
     assert_eq!(
-        tokio::time::timeout(Duration::from_secs(60), reader.next())
+        tokio::time::timeout(Duration::from_secs(10), reader.next())
             .await
             .unwrap()
             .unwrap()
