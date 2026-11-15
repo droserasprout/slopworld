@@ -90,7 +90,7 @@ async fn assets_stream_head_and_reject_symlink_escape_or_rebinding() {
         page.headers()["cross-origin-embedder-policy"],
         "require-corp"
     );
-    assert_eq!(page.headers()["cache-control"], "no-store");
+    assert_eq!(page.headers()["cache-control"], "private, no-cache");
     assert_eq!(page.text().await.unwrap(), "workspace");
     assert_eq!(
         client
@@ -772,4 +772,56 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
     );
     drop(sending.await.unwrap());
     upstream.await.unwrap();
+}
+
+#[tokio::test]
+async fn asset_reload_revalidates_and_replacements_invalidate() {
+    let host = host(ConnectionSource::Unconfigured, None).await;
+    let client = client();
+    let first = client.get(&host.url).send().await.unwrap();
+    let etag = first.headers()["etag"].to_str().unwrap().to_owned();
+    assert_eq!(first.text().await.unwrap(), "workspace");
+    for method in [Method::GET, Method::HEAD] {
+        for validator in [
+            etag.clone(),
+            etag[2..].to_owned(),
+            format!("\"other\", {etag}"),
+            "*".into(),
+        ] {
+            let response = client
+                .request(method.clone(), &host.url)
+                .header("if-none-match", validator)
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+            assert_eq!(response.headers()["etag"], etag);
+            assert_eq!(response.headers()["cache-control"], "private, no-cache");
+            assert_eq!(
+                response.headers()["cross-origin-embedder-policy"],
+                "require-corp"
+            );
+            assert!(response.bytes().await.unwrap().is_empty());
+        }
+    }
+    let root = host._root.as_ref().unwrap().path();
+    std::fs::write(root.join("replacement"), "new bytes").unwrap();
+    std::fs::rename(root.join("replacement"), root.join("index.html")).unwrap();
+    let changed = client
+        .get(&host.url)
+        .header("if-none-match", &etag)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(changed.status(), StatusCode::OK);
+    assert_ne!(changed.headers()["etag"], etag);
+    assert_eq!(changed.text().await.unwrap(), "new bytes");
+    let missing = client
+        .get(format!("{}/missing", host.url))
+        .header("if-none-match", "*")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    assert_eq!(missing.headers()["cache-control"], "no-store");
 }
