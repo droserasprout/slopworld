@@ -157,7 +157,7 @@ def test_web_ci_uses_resolved_commit_and_only_product_game_free_checks() -> None
     assert commands == [
         'sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep',
         'just ci-web',
-        'dotnet workload install wasm-tools',
+        'dotnet workload install wasm-tools --version "$(dotnet --version)"',
         'just web-local-fonts-sdk\njust web-build\n',
     ]
     result = subprocess.run(['just', '--dry-run', 'ci-web'], cwd=ROOT, capture_output=True, text=True, check=True)
@@ -195,7 +195,7 @@ def test_release_workflow_gates_publication_and_downloads_exact_artifact() -> No
     commands = [step['run'] for step in jobs['package']['steps'] if 'run' in step]
     package = commands.index('just release-ci-package "$MODE"')
     assert commands.index('just web-local-fonts-sdk') < package
-    assert commands.index('dotnet workload install wasm-tools') < package
+    assert commands.index('dotnet workload install wasm-tools --version "$(dotnet --version)"') < package
 
 
 @pytest.mark.parametrize('state', ['published', 'missing', 'moved', 'matching'])

@@ -63,6 +63,8 @@ The pinned formatter and coverage tool run with .NET 10; CI installs the SDK fro
 The SDK patch is exact: its implicit WebAssembly pack reference participates in the
 browser lockfile. Update the SDK and browser dependency locks together; automatic
 SDK patch roll-forward can make a clean hosted build fail locked restore.
+CI installs the matching workload set explicitly too: an unversioned workload
+install can override the pinned SDK's WebAssembly pack with a newer release.
 
 The mod project owns game references and compiler settings; `Directory.Build.props`
 selects .NET 10 recommended analyzer rules, `.editorconfig` owns diagnostic
