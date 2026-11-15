@@ -58,6 +58,9 @@ with incomplete assets, inspect and repair it explicitly.
 
 Run **Release** manually from the Actions page, or push the `release-ci` branch.
 The `slopweb` branch also builds previews temporarily for browser release testing.
+To prepare a new unreleased base version, run `just release-bump-version 0.2.0 true`.
+This leaves the human-maintained changelog untouched; tagged releases still require
+dated release notes.
 Previews run tests and the same packaging and attestation path, using a version
 such as `0.0.7-preview-0123456789ab`. They upload a `release-<version>` workflow
 artifact retained for 30 days. They do not publish GitHub releases or sidecar

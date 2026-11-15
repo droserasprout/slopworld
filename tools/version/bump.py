@@ -10,9 +10,10 @@ from tools.utils import run_main
 from tools.version import product
 
 
-def bump(version: str, repository: Path = ROOT) -> list[Path]:
+def bump(version: str, repository: Path = ROOT, *, preview: bool = False) -> list[Path]:
     planned = product.changes(version, repository)
-    description(repository / 'CHANGELOG.md', version)
+    if not preview:
+        description(repository / 'CHANGELOG.md', version)
     written: list[Path] = []
     try:
         for path, (_, updated) in planned.items():
@@ -29,8 +30,11 @@ def bump(version: str, repository: Path = ROOT) -> list[Path]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('version')
+    parser.add_argument(
+        '--preview', action='store_true', help='Prepare an unreleased preview without dated release notes'
+    )
     args = parser.parse_args()
-    paths = bump(args.version)
+    paths = bump(args.version, preview=args.preview)
     for path in paths:
         log(f'Updated {path.relative_to(ROOT)}')
     if not paths:

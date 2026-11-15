@@ -1,7 +1,8 @@
-# Update product versions for a dated changelog release
+# Update product versions; pass true for an unreleased preview without dated notes
+[arg('preview', pattern='^(true|false)$')]
 [group('release')]
-release-bump-version version:
-    uv run --locked python -m tools.version.bump {{ quote(version) }}
+release-bump-version version preview='false':
+    uv run --locked python -m tools.version.bump {{ quote(version) }} {{ if preview == 'true' { '--preview' } else { '' } }}
 
 # Validate, build and publish a versioned release
 [group('release')]
