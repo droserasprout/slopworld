@@ -303,7 +303,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(cargo[-1]['args'], ['update', '--manifest-path', 'slopweb/host/Cargo.toml'])
         dotnet = self.calls('dotnet')
         web_projects = subprocess.run(
-            ['git', 'ls-files', '--', 'slopweb/*.csproj'], cwd=ROOT, check=True, capture_output=True, text=True
+            ['rg', '--files', 'slopweb', '-g', '*.csproj'], cwd=ROOT, check=True, capture_output=True, text=True
         ).stdout.splitlines()
         self.assertEqual(
             [call['args'][1] for call in dotnet],
