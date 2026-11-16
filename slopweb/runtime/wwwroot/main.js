@@ -45,7 +45,8 @@ try {
     }
     let assetTransfer = null;
     {
-        const response = await fetch('./assets/Assets.zip');
+        const archive = await (await import('./asset-archive.js')).openAssetArchive('./assets/Assets.zip');
+        const response = archive.response;
         if (!response.ok) throw new Error(`Assets.zip: HTTP ${response.status}`);
         exports.Probe.BeginAssetUpload();
         let bytes = 0, committed = false;
@@ -60,6 +61,7 @@ try {
             if (!expected || bytes !== expected) throw new Error(`Incomplete asset transfer: ${bytes}/${expected}`);
             exports.Probe.EndAssetUpload(true);
             committed = true;
+            await archive.stored;
             assetTransfer = { bytes, destination: '/Assets.zip', persistent: false };
         } finally {
             if (!committed) exports.Probe.EndAssetUpload(false);

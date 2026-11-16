@@ -38,6 +38,7 @@ async function start({query='', failAt='', incomplete=false, assetHeaders=null, 
     text:async()=>'{}',
     body:(async function*(){yield new Uint8Array([1]);})()});
   const modules={
+    './asset-archive.js':{openAssetArchive:async url=>({response:await fetch(url),stored:Promise.resolve()})},
     './gui.js':{renderGui:render,renderGuiProbe:()=>({})},
     './workspace.js':{startWorkspace(){calls.push('live');return {};}},
     './workspace-rasterizer.js':{installLocalRasterizer:async()=>{}},
