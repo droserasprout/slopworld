@@ -91,6 +91,10 @@ Static assets use private browser caching with revalidation on every reuse;
 the static-file owner supplies validators so unchanged reloads avoid body transfers.
 Its `X-Slop-Decoded-Length` header carries the original file size through proxy
 compression; archive startup validates decoded bytes against that size.
+The large game archive has a separate CacheStorage entry, revalidated by HEAD
+and published only after complete decoded-body validation. Storage or quota
+failures fall back to network transfer; browser HTTP-cache item limits do not
+control archive reuse.
 Bridge responses and font catalogs remain uncached; content-addressed font files
 retain their immutable caching policy.
 
