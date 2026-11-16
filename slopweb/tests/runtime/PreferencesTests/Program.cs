@@ -14,6 +14,7 @@ static class Check
 
     static void Main()
     {
+        JobsPatchFixture.Check();
         SteamCallbackFixture.Check();
         CheckWindowPatch();
         string saved = "";

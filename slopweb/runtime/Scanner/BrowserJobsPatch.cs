@@ -41,48 +41,117 @@ internal static class BrowserJobsPatch
         // Inspected worker-count expression is Max(1, ProcessorCount - 1).
         // Replacing its result with zero preserves all collections and creates an
         // empty Workers array, so original shutdown never joins a fake thread.
+        // 5011 adds slot reclamation state before the unchanged worker setup.
+        var workerCount = il.Length switch
+        {
+            231 => 0x57,
+            266 => 0x7a,
+            _ => -1,
+        };
         if (
-            il.Length != 231
-            || il[0x57] != 0x17
-            || il[0x58] != 0x28
-            || il[0x5d] != 0x17
-            || il[0x5e] != 0x59
-            || il[0x5f] != 0x28
-            || il[0x64] != 0x0a
-            || il[0x66] != 0x8d
-            || il[0x6b] != 0x80
-            || BitConverter.ToInt32(il, 0x6c) != Field("Workers")
+            workerCount < 0
+            || il[workerCount] != 0x17
+            || il[workerCount + 1] != 0x28
+            || il[workerCount + 6] != 0x17
+            || il[workerCount + 7] != 0x59
+            || il[workerCount + 8] != 0x28
+            || il[workerCount + 13] != 0x0a
+            || il[workerCount + 14] != 0x06
+            || il[workerCount + 15] != 0x8d
+            || il[workerCount + 20] != 0x80
+            || BitConverter.ToInt32(il, workerCount + 21) != Field("Workers")
         )
             throw new InvalidOperationException(
                 "Unrecognized job initializer; refusing adaptation"
             );
-        Array.Clear(il, 0x57, 13);
-        il[0x57] = 0x16; // ldc.i4.0
+        Array.Clear(il, workerCount, 13);
+        il[workerCount] = 0x16; // ldc.i4.0
         replace(bytes, pe, initializer, il);
 
         var submit = Method("Submit");
         il = pe.GetMethodBody(submit.RelativeVirtualAddress).GetILBytes()!;
-        if (
-            il.Length != 46
-            || il[4] != 0x7e
-            || BitConverter.ToInt32(il, 5) != Field("WorkBag")
-            || il[9] != 0x02
-            || il[10] != 0x6f
-            || il[0x15] != 0x6f
-            || BitConverter.ToInt32(il, 0x16) != StateMethod("get_RunCount")
-            || il[0x1c] != 0x7e
-            || BitConverter.ToInt32(il, 0x1d) != Field("WorkAvailable")
-        )
-            throw new InvalidOperationException("Unrecognized job submission; refusing adaptation");
-        // Retain the original RunCount loop. Execute each chunk instead of adding
-        // it to WorkBag; HandleState still claims runs and dispatches continuations.
-        Array.Clear(il, 4, 5);
-        BitConverter.GetBytes(StateMethod("Execute")).CopyTo(il, 11);
-        Array.Clear(il, 0x1c, il.Length - 0x1c);
-        il[0x1c] = 0x2a;
+        if (il.Length == 56)
+        {
+            PatchReclaimedSubmission(
+                il,
+                Field("WorkBag"),
+                Field("WorkAvailable"),
+                StateMethod("get_RunCount"),
+                MetadataTokens.GetToken(
+                    state
+                        .GetFields()
+                        .Single(h => md.GetString(md.GetFieldDefinition(h).Name) == "BagRefs")
+                ),
+                MetadataTokens.GetToken(
+                    owner
+                        .GetMethods()
+                        .Single(h =>
+                            md.GetString(md.GetMethodDefinition(h).Name) == "ExecuteFromBag"
+                        )
+                )
+            );
+        }
+        else
+        {
+            if (
+                il.Length != 46
+                || il[4] != 0x7e
+                || BitConverter.ToInt32(il, 5) != Field("WorkBag")
+                || il[9] != 0x02
+                || il[10] != 0x6f
+                || il[0x15] != 0x6f
+                || BitConverter.ToInt32(il, 0x16) != StateMethod("get_RunCount")
+                || il[0x1c] != 0x7e
+                || BitConverter.ToInt32(il, 0x1d) != Field("WorkAvailable")
+            )
+                throw new InvalidOperationException(
+                    "Unrecognized job submission; refusing adaptation"
+                );
+            // Retain the original RunCount loop. Execute each chunk instead of adding
+            // it to WorkBag; HandleState still claims runs and dispatches continuations.
+            Array.Clear(il, 4, 5);
+            BitConverter.GetBytes(StateMethod("Execute")).CopyTo(il, 11);
+            Array.Clear(il, 0x1c, il.Length - 0x1c);
+            il[0x1c] = 0x2a;
+        }
         replace(bytes, pe, submit, il);
         // Batch sizing must not divide by zero. This denotes one execution lane,
         // not one background worker; Workers itself stays empty.
         replace(bytes, pe, Method("get_WorkerCount"), new byte[] { 0x17, 0x2a });
+    }
+
+    private static void PatchReclaimedSubmission(
+        byte[] il,
+        int workBag,
+        int workAvailable,
+        int runCount,
+        int bagRefs,
+        int executeFromBag
+    )
+    {
+        if (
+            il[0] != 0x02
+            || il[1] != 0x6f
+            || BitConverter.ToInt32(il, 2) != runCount
+            || il[6] != 0x0a
+            || il[7] != 0x02
+            || il[8] != 0x7c
+            || BitConverter.ToInt32(il, 9) != bagRefs
+            || il[0x18] != 0x7e
+            || BitConverter.ToInt32(il, 0x19) != workBag
+            || il[0x1d] != 0x02
+            || il[0x1e] != 0x6f
+            || il[0x2b] != 0x7e
+            || BitConverter.ToInt32(il, 0x2c) != workAvailable
+        )
+            throw new InvalidOperationException("Unrecognized job submission; refusing adaptation");
+
+        // 5011 reserves BagRefs for every queued run. Preserve that reservation
+        // and execute through its matching decrement, or completed states leak.
+        Array.Clear(il, 0x18, 5);
+        il[0x1e] = 0x28; // call static ExecuteFromBag(HandleState)
+        BitConverter.GetBytes(executeFromBag).CopyTo(il, 0x1f);
+        Array.Clear(il, 0x2b, il.Length - 0x2b);
+        il[0x2b] = 0x2a;
     }
 }
