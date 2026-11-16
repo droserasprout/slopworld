@@ -55,7 +55,8 @@ try {
                 exports.Probe.AssetChunk(chunk);
                 bytes += chunk.length;
             }
-            const expected = Number(response.headers.get('content-length'));
+            // Proxies may compress the response; fetch yields decoded bytes.
+            const expected = Number(response.headers.get('x-slop-decoded-length'));
             if (!expected || bytes !== expected) throw new Error(`Incomplete asset transfer: ${bytes}/${expected}`);
             exports.Probe.EndAssetUpload(true);
             committed = true;

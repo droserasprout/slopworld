@@ -116,6 +116,7 @@ pub(super) async fn response(
         .status(StatusCode::OK)
         .header("content-type", content_type)
         .header("content-length", metadata.len())
+        .header("x-slop-decoded-length", metadata.len())
         .body(body)
         .unwrap()
 }
