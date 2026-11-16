@@ -12,7 +12,7 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 const run = new AsyncFunction('dotnet', 'workspaceViewport', 'workspaceParameters', 'fetch',
   'window', 'document', 'location', 'requestAnimationFrame', 'modules', 'console', 'loadStartupAssemblies', 'yieldStartupPaint', source);
 
-async function start({query='', failAt='', incomplete=false, reports={},render=()=>{},warm=async()=>false}={}) {
+async function start({query='', failAt='', incomplete=false, assetHeaders=null, reports={},render=()=>{},warm=async()=>false}={}) {
   const calls=[];
   const state={checks:[{ok:true}],loaded:true};
   const result={textContent:''};
@@ -32,7 +32,7 @@ async function start({query='', failAt='', incomplete=false, reports={},render=(
   }});
   const dotnet={withDebugging(){return this;},async create(){calls.push('create');
     return {getAssemblyExports:async()=>({Probe:managed})};}};
-  const fetch=async path=>({ok:true,headers:{get:()=>incomplete?'2':'1'},
+  const fetch=async path=>({ok:true,headers:new Headers(assetHeaders ?? {'x-slop-decoded-length':incomplete?'2':'1'}),
     arrayBuffer:async()=>new Uint8Array([1]).buffer,
     json:async()=>path==='./game/manifest.json'?[{file:'Game.dll'}]:[],
     text:async()=>'{}',
@@ -120,6 +120,22 @@ test('incomplete archives abort upload before Entry and report failure',async()=
   assert.match(result.error,/Incomplete asset transfer/);
   assert.deepEqual(calls.filter(c=>c[0]==='EndAssetUpload'),[['EndAssetUpload',false]]);
   assert.equal(calls.some(c=>c[0]==='StartEntry'),false);
+});
+
+test('compressed archives validate decoded size without a transport length',async()=>{
+  for(const contentLength of [null,'20']) {
+    const assetHeaders={'content-encoding':'gzip','x-slop-decoded-length':'1'};
+    if(contentLength!==null)assetHeaders['content-length']=contentLength;
+    const {calls,result}=await start({assetHeaders});
+    assert.equal(result.error,undefined);
+    assert.deepEqual(calls.filter(c=>c[0]==='EndAssetUpload'),[['EndAssetUpload',true]]);
+  }
+});
+
+test('missing decoded archive size aborts instead of trusting compressed length',async()=>{
+  const {calls,result}=await start({assetHeaders:{'content-length':'1','content-encoding':'gzip'}});
+  assert.match(result.error,/Incomplete asset transfer/);
+  assert.deepEqual(calls.filter(c=>c[0]==='EndAssetUpload'),[['EndAssetUpload',false]]);
 });
 
 test('failed workspace initialization releases Entry and never starts the live loop',async()=>{

@@ -135,6 +135,10 @@ async fn assets_stream_head_and_reject_symlink_escape_or_rebinding() {
         .await
         .unwrap();
     assert_eq!(head.headers()["content-length"], data.len().to_string());
+    assert_eq!(
+        head.headers()["x-slop-decoded-length"],
+        data.len().to_string()
+    );
     assert_eq!(head.headers()["content-type"], "application/wasm");
     assert!(head.bytes().await.unwrap().is_empty());
     assert_eq!(
