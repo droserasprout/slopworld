@@ -110,7 +110,25 @@ var tuning = mod.GetType("SlopWorld.MenuBackgroundTuning", true)!;
 object Tune(string name) => tuning.GetField(name, Static)!.GetValue(null)!;
 var offset = Tune("LayerOffset");
 
-// A miss is explicit: never substitute another source's most recent cache.
+// Bake the exact installed source on a cold host; never borrow another source's
+// cache or require the desktop game to have run first.
+if (!cached)
+{
+    BackgroundBake.EnsureFrames(
+        unity,
+        bake,
+        tuning,
+        textureType,
+        texture,
+        preset,
+        width,
+        height,
+        directory,
+        frames
+    );
+    cached = true;
+}
+
 if (cached)
 {
     Directory.CreateDirectory(Path.Combine(output, key));
