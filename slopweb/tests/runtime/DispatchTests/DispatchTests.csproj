@@ -10,5 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../../runtime/Program.cs" Link="Probe.cs" />
+    <Compile Include="../../../runtime/BrowserInput.cs" Link="BrowserInput.cs" />
   </ItemGroup>
 </Project>

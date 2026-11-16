@@ -21,7 +21,7 @@ public partial class Probe
     [JSExport]
     public static void InputFrame(string batch, int height)
     {
-        InputCall("BeginFrame");
+        InputCall("BeginFrame", false);
         UnityInput("BeginFrame");
         using var json = JsonDocument.Parse(batch);
         foreach (var item in json.RootElement.EnumerateArray())
@@ -100,7 +100,7 @@ public partial class Probe
                     UnityInput("ResetAllInput");
                     UnityInput("BeginFrame");
                     InputCall("ResetAll");
-                    InputCall("BeginFrame");
+                    InputCall("BeginFrame", false);
                     break;
                 default:
                     throw new ArgumentException("Unknown browser input event");

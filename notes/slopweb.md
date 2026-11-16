@@ -62,6 +62,8 @@ both browser input adapters suppress the corresponding managed button gesture to
 avoid also pasting the adapter's saved local selection.
 PRIMARY copy publishes the native selection through the editable DOM proxy's text
 selection; it does not write CLIPBOARD through the browser Clipboard API.
+The Waylith input-frame boundary explicitly clears retained events; reflection
+does not supply native optional parameter defaults.
 GUI focus resets follow accepted text and key events; only unfinished composition
 is canceled. Repeated blur/visibility notifications share the pending reset.
 The mod retains sidebar, terminal, native text layout, session catalog, and
