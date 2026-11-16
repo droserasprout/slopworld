@@ -11,6 +11,8 @@ and CI must work without private files.
 `host/src/fonts/` owns native font discovery, coverage and immutable font files.
 `runtime/` owns Entry-only WASM execution, browser assets, adapters and native
 preparation helpers; `offline/` patches private copies of assemblies.
+Browser scale adaptation removes desktop DPI inference from private game copies;
+native preference accessors retain ownership of the selected scale.
 The offline Steam boundary disables startup and removes Steamworks native callback
 markers from the private copy so WASM AOT does not generate desktop callback wrappers.
 `tools/release/slopweb.py` stages reviewed redistributable inputs. Installed game
