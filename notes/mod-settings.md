@@ -27,6 +27,9 @@ wake the loop immediately, and a full render queue skips capture instead of bloc
 updates. Native event waiting must stay after input-frame reset, because the wait
 itself dispatches callbacks. Skipped capture still runs the native frame finally;
 surface rebuild and minimized-window resource cleanup remain engine-owned.
+The patched loop disables native presentation deadlines: service-only iterations
+must not advance the engine's presentation clock. A zero native deadline keeps
+game time on the wall clock and lets admitted frames present immediately.
 
 Temperature-triggered camera/UI sounds belong to `Patches/Options/TemperatureSounds.cs`;
 map sounds retain their definitions. Disabling destructive effects through Eco or

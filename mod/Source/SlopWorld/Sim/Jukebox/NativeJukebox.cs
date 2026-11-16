@@ -51,7 +51,7 @@ namespace SlopWorld
                 if (!Radio.NativePlaybackAllowed)
                 {
                     __instance.disabled = true;
-                    __instance.Stop();
+                    StopPlaying(__instance);
                 }
             }
 
@@ -83,7 +83,7 @@ namespace SlopWorld
             _pendingSong = songs[index];
             if (Radio.NativePlaybackAllowed)
             {
-                music?.Stop();
+                StopPlaying(music);
                 Resume();
             }
         }
@@ -125,13 +125,21 @@ namespace SlopWorld
 
             bool changed = music.disabled != muted;
             music.disabled = muted;
-            if (muted && (changed || music.IsPlaying))
+            if (muted && music.IsPlaying)
             {
                 _lastSong = music.CurrentSong ?? _lastSong;
-                music.Stop();
+                StopPlaying(music);
             }
             else if (!muted && changed)
                 Resume();
+        }
+
+        // Stop schedules the next song using the current scenario, which is absent
+        // while a save loads. An idle manager has nothing to stop at that boundary.
+        static void StopPlaying(MusicManagerPlay music)
+        {
+            if (music?.IsPlaying == true)
+                music.Stop();
         }
 
         // Restart the selected SlopWorld song immediately after unpausing.

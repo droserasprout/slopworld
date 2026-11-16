@@ -71,6 +71,20 @@ namespace SlopWorld.Tests
                     (IEnumerable<CodeInstruction>)
                         Invoke(mod, "Patch_RenderPacing", "Transpiler", originalLoop, loopGenerator)
                 ).ToList();
+                int nativeDeadline = originalLoop.FindIndex(i =>
+                    i.operand is MethodInfo m && m.Name == "NextPresentTime"
+                );
+                Require(
+                    nativeDeadline >= 0
+                        && pacedLoop[nativeDeadline].opcode == System.Reflection.Emit.OpCodes.Pop
+                        && pacedLoop[nativeDeadline + 1].opcode
+                            == System.Reflection.Emit.OpCodes.Ldc_I8
+                        && Equals(pacedLoop[nativeDeadline + 1].operand, 0L)
+                        && !pacedLoop.Any(i =>
+                            i.operand is MethodInfo m && m.Name == "NextPresentTime"
+                        ),
+                    "service-only iterations must not advance native game/presentation time"
+                );
                 Require(
                     originalLoop.Count(i =>
                         i.operand is MethodInfo m && m.Name == "ThrottleToTargetFrameRate"
@@ -132,6 +146,17 @@ namespace SlopWorld.Tests
                     ),
                     "render pacing must compose with deferred window close"
                 );
+                count++;
+                var musicType = context
+                    .LoadFromAssemblyName(new AssemblyName("Assembly-CSharp"))
+                    .GetType("RimWorld.MusicManagerPlay", throwOnError: true);
+                var idleMusic =
+                    System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(
+                        musicType
+                    );
+                // No game/scenario or audio source exists. Stopping an idle manager
+                // must not enter Stop(), which dereferences the loading scenario.
+                Invoke(mod, "NativeJukebox", "StopPlaying", idleMusic);
                 count++;
                 foreach (
                     MethodBase target in (IEnumerable)Invoke(

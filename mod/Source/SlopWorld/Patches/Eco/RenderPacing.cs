@@ -92,10 +92,11 @@ namespace SlopWorld
                 AccessTools.Method(typeof(RenderPacing), nameof(RenderPacing.PumpEvents)),
                 AccessTools.Constructor(
                     AccessTools.TypeByName("Waylith.Rendering.FrameTiming"),
-                    new[] { typeof(int), typeof(float), typeof(double) }
+                    new[] { typeof(int), typeof(float), typeof(double), typeof(bool) }
                 ),
                 AccessTools.Field(typeof(EngineApplication), "OnUpdate"),
                 AccessTools.Method(typeof(RenderPacing), nameof(RenderPacing.AdmitFrame)),
+                AccessTools.Method(typeof(EngineApplication), "NextPresentTime"),
                 AccessTools.Method(typeof(EngineApplication), "ThrottleToTargetFrameRate"),
                 AccessTools.Method(typeof(RenderPacing), nameof(RenderPacing.FinishIteration))
             );

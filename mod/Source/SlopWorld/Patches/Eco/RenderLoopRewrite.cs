@@ -19,27 +19,43 @@ namespace SlopWorld
             ConstructorInfo timing,
             FieldInfo update,
             MethodInfo admit,
+            MethodInfo nextPresent,
             MethodInfo throttle,
             MethodInfo finish
         )
         {
             var code = instructions.Select(i => new CodeInstruction(i)).ToList();
             int timingIndex = code.FindIndex(i => Equals(i.operand, timing));
-            int start = timingIndex - 5;
+            // Replay-aware engines append this.ReplayFrame to the timing arguments.
+            // Keep admission before the entire constructor stack is populated.
+            int start = timingIndex - 7;
             int updateIndex = code.FindIndex(i => i.LoadsField(update));
             int pollIndex = code.FindIndex(i => i.Calls(poll));
             int end = code.FindLastIndex(i => i.opcode == OpCodes.Ret);
             if (
-                timingIndex < 5
+                timing == null
+                || timing.GetParameters().Length != 4
+                || timingIndex < 7
                 || code.Count(i => Equals(i.operand, timing)) != 1
                 || code[timingIndex].opcode != OpCodes.Call
                 || (code[start].opcode != OpCodes.Ldloca && code[start].opcode != OpCodes.Ldloca_S)
                 || code[start + 1].opcode != OpCodes.Call
                 || code[start + 4].opcode != OpCodes.Conv_R8
+                || code[start + 5].opcode != OpCodes.Ldarg_0
+                || code[start + 6].operand is not MethodInfo replayGetter
+                || replayGetter.Name != "get_ReplayFrame"
+                || replayGetter.ReturnType != typeof(bool)
+                || replayGetter.GetParameters().Length != 0
+                || !code[start + 6].Calls(replayGetter)
                 || updateIndex <= pollIndex
                 || updateIndex >= start
                 || pollIndex < 0
                 || code.Count(i => i.Calls(poll)) != 1
+                || nextPresent == null
+                || nextPresent.IsStatic
+                || nextPresent.ReturnType != typeof(long)
+                || nextPresent.GetParameters().Length != 0
+                || code.Count(i => i.Calls(nextPresent)) != 1
                 || !code.Any(i => i.Calls(throttle))
                 || end <= timingIndex
                 || code[start].blocks.Count != 0
@@ -61,6 +77,18 @@ namespace SlopWorld
                     yield return new CodeInstruction(OpCodes.Call, admit);
                     yield return new CodeInstruction(OpCodes.Brtrue, render);
                     yield return new CodeInstruction(OpCodes.Leave, done);
+                }
+                if (instruction.Calls(nextPresent))
+                {
+                    // RenderSchedule owns admission. Native deadlines advance on every
+                    // service iteration, including skipped captures, and would push both
+                    // game time and queued presentation arbitrarily into the future.
+                    // Zero selects the engine's wall clock and immediate presentation.
+                    instruction.opcode = OpCodes.Pop;
+                    instruction.operand = null;
+                    yield return instruction;
+                    yield return new CodeInstruction(OpCodes.Ldc_I8, 0L);
+                    continue;
                 }
                 if (instruction.Calls(poll))
                 {

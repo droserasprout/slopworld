@@ -18,7 +18,8 @@ namespace SlopWorld.Tests
         {
             internal int Frame;
 
-            internal Timing(int frame, float delta, double elapsed) => Frame = frame;
+            internal Timing(int frame, float delta, double elapsed, bool replay) =>
+                Frame = replay ? frame : -1;
         }
 
         sealed class Loop
@@ -27,12 +28,17 @@ namespace SlopWorld.Tests
             internal bool Visible = true;
             internal bool FailCapture;
             static int FrameCount => 1;
+            internal bool ReplayFrame => true;
 
             [MethodImpl(MethodImplOptions.NoInlining)]
             internal void Run(float delta, float elapsed)
             {
                 try
                 {
+                    if (NextPresentTime() != 0)
+                        throw new InvalidOperationException(
+                            "native presentation deadline retained"
+                        );
                     Poll();
                     OnUpdate?.Invoke();
                     if (!Visible)
@@ -41,7 +47,7 @@ namespace SlopWorld.Tests
                         Throttle(false);
                         return;
                     }
-                    var timing = new Timing(FrameCount, delta, (double)elapsed);
+                    var timing = new Timing(FrameCount, delta, (double)elapsed, ReplayFrame);
                     Capture(ref timing);
                     Throttle(true);
                 }
@@ -50,6 +56,9 @@ namespace SlopWorld.Tests
                     Events.Add("end");
                 }
             }
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            long NextPresentTime() => throw new InvalidOperationException("native clock advanced");
 
             [MethodImpl(MethodImplOptions.NoInlining)]
             void Capture(ref Timing timing)
@@ -84,10 +93,11 @@ namespace SlopWorld.Tests
                 AccessTools.Method(typeof(RenderLoopRewriteTests), nameof(Pump)),
                 AccessTools.Constructor(
                     typeof(Timing),
-                    new[] { typeof(int), typeof(float), typeof(double) }
+                    new[] { typeof(int), typeof(float), typeof(double), typeof(bool) }
                 ),
                 AccessTools.Field(typeof(Loop), nameof(Loop.OnUpdate)),
                 AccessTools.Method(typeof(RenderLoopRewriteTests), nameof(Admit)),
+                AccessTools.Method(typeof(Loop), "NextPresentTime"),
                 AccessTools.Method(typeof(Loop), "Throttle"),
                 AccessTools.Method(typeof(RenderLoopRewriteTests), nameof(Finish))
             );
