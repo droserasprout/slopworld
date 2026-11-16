@@ -9,6 +9,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../offline/BrowserScalePatch.cs" Link="BrowserScalePatch.cs" />
     <Compile Include="../../../runtime/Scanner/BrowserJobsPatch.cs" Link="BrowserJobsPatch.cs" />
     <Compile Include="../../../runtime/BrowserWorkspace.cs" Link="BrowserWorkspace.cs" />
     <PackageReference Include="Tomlyn" Version="0.19.0" />

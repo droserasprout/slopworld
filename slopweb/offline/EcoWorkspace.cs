@@ -17,22 +17,7 @@ internal static class EcoWorkspace
         var targetPath = Path.Combine(root, "game", "Assembly-CSharp.dll");
         using var game = AssemblyDefinition.ReadAssembly(targetPath, options);
         using var mod = AssemblyDefinition.ReadAssembly(modPath, options);
-        // Browser viewport configuration already supplies physical pixels and
-        // the complete CSS-to-physical scale. Desktop DPI/minimum-resolution
-        // inference would apply a second scale and shrink small browser windows.
-        var resolveScale = game
-            .MainModule.GetType("RimWorld.ResolutionUtility")
-            .Methods.Single(m => m.Name == "ResolveUIScale");
-        if (
-            !resolveScale.IsStatic
-            || resolveScale.Parameters.Count != 1
-            || resolveScale.Parameters[0].ParameterType.FullName != "System.Single"
-            || resolveScale.ReturnType.FullName != "System.Single"
-        )
-            throw new InvalidOperationException("Browser UI scale boundary changed");
-        resolveScale.Body = new MethodBody(resolveScale);
-        resolveScale.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_0));
-        resolveScale.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+        BrowserScalePatch.Apply(game);
         BrowserHttpPatch.Apply(mod, root);
         BrowserSocketPatch.Apply(mod, root);
         BrowserSidebarPatch.Apply(mod, root);
