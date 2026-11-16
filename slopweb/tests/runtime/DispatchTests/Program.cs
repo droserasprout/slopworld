@@ -41,6 +41,7 @@ static class DispatchChecks
 
     static void Main(string[] args)
     {
+        InputFrameFixture.Check();
         var cases = new (string Method, object[] Args)[]
         {
             ("Zero", []),
