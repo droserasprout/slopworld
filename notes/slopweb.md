@@ -73,7 +73,9 @@ the daemon retains processes, tmux, sandboxes, and credentials. See the
 Host appearance import and browser persistence share a tested presentation
 allowlist. Offline UI hooks invoke the mod’s action-caption backdrop and translated settings-row
 filters; the browser does not duplicate their theme or visibility policy. Loading
-publishes the original game background while frames decode. Background animation
+publishes the original game background while frames decode. The host background
+helper bakes a missing frame cache from installed CPU pixels and mod-owned pixel
+math; it does not require a prior desktop game launch. Background animation
 and quote scrolling start independently as their own presentation assets arrive;
 failed optional assets must not hold the other animation.
 Workspace startup takes ownership of pending background downloads as well as ready
