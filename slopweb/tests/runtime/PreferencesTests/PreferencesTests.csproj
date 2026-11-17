@@ -9,7 +9,10 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../../offline/BrowserDialogsPatch.cs" Link="BrowserDialogsPatch.cs" />
+    <ProjectReference Include="../EcoFixtureGame/EcoFixtureGame.csproj" />
+    <Reference Include="0Harmony" HintPath="../../../../mod/Assemblies/0Harmony.dll" />
+    <Compile Include="../../../../mod/Source/SlopWorld/Patches/Eco/EcoPrefixAttribute.cs" Link="EcoPrefixAttribute.cs" />
+    <Compile Include="../../../offline/EcoPrefixes.cs" Link="EcoPrefixes.cs" />
     <Compile Include="../../../offline/BrowserScalePatch.cs" Link="BrowserScalePatch.cs" />
     <Compile Include="../../../runtime/Scanner/BrowserJobsPatch.cs" Link="BrowserJobsPatch.cs" />
     <Compile Include="../../../runtime/BrowserWorkspace.cs" Link="BrowserWorkspace.cs" />

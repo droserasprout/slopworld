@@ -75,105 +75,11 @@ internal static class EcoWorkspace
         music.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         var hooks = new List<string>();
         BrowserOptionsPatch.Apply(game, mod, hooks);
-        BrowserDialogsPatch.Apply(game, mod, hooks);
+        EcoPrefixes.Apply(game, mod, hooks);
         BrowserActionButtonsPatch.Apply(game, mod, hooks);
         TypeDefinition ModType(string name) =>
             mod.MainModule.GetType(name)
             ?? throw new InvalidOperationException("Missing mod type " + name);
-        void Prefix(
-            string targetType,
-            string targetName,
-            string prefixType,
-            bool instance,
-            bool conditional
-        )
-        {
-            var target = game
-                .MainModule.GetType(targetType)
-                .Methods.Single(m => m.Name == targetName);
-            var prefix = ModType(prefixType).Methods.Single(m => m.Name == "Prefix");
-            if (
-                target.ReturnType.FullName != "System.Void"
-                || !target.HasBody
-                || prefix.Parameters.Count != (instance ? 1 : 0)
-                || !prefix.IsStatic
-                || prefix.ReturnType.FullName != (conditional ? "System.Boolean" : "System.Void")
-            )
-                throw new InvalidOperationException(
-                    "Eco hook signature changed: " + target.FullName
-                );
-            if (
-                target.Body.Instructions.Any(i =>
-                    i.Operand is MethodReference m && m.DeclaringType.FullName == prefixType
-                )
-            )
-                throw new InvalidOperationException("Duplicate Eco hook");
-            prefix.IsPublic = true;
-            var type = prefix.DeclaringType;
-            while (type.IsNested)
-            {
-                type.IsNestedPublic = true;
-                type = type.DeclaringType;
-            }
-            type.IsPublic = true;
-            var il = target.Body.GetILProcessor();
-            var first = target.Body.Instructions[0];
-            if (instance)
-                il.InsertBefore(first, il.Create(OpCodes.Ldarg_0));
-            il.InsertBefore(
-                first,
-                il.Create(OpCodes.Call, game.MainModule.ImportReference(prefix))
-            );
-            if (conditional)
-            {
-                il.InsertBefore(first, il.Create(OpCodes.Brtrue, first));
-                il.InsertBefore(first, il.Create(OpCodes.Ret));
-            }
-            hooks.Add(target.FullName + " <- " + prefix.FullName);
-        }
-        Prefix(
-            "Verse.TickManager",
-            "TickManagerUpdate",
-            "SlopWorld.Patch_EcoTickBoundary",
-            true,
-            false
-        );
-        Prefix(
-            "RimWorld.MapInterface",
-            "HandleMapClicks",
-            "SlopWorld.Eco/Patch_MapClicks",
-            false,
-            true
-        );
-        Prefix(
-            "RimWorld.MapInterface",
-            "MapInterfaceUpdate",
-            "SlopWorld.Eco/Patch_WorldSpace",
-            false,
-            true
-        );
-        Prefix("Verse.Pawn", "DrawGUIOverlay", "SlopWorld.Eco/Patch_PawnLabels", false, true);
-        Prefix(
-            "Verse.MapDrawer",
-            "DrawMapMesh",
-            "SlopWorld.PaneOverDraw/Patch_MapMesh",
-            true,
-            true
-        );
-        Prefix(
-            "Verse.DynamicDrawManager",
-            "DrawDynamicThings",
-            "SlopWorld.PaneOverDraw/Patch_DynamicThings",
-            false,
-            true
-        );
-        Prefix(
-            "RimWorld.Selector",
-            "HandleMapClicks",
-            "SlopWorld.EcoMapInput/Selection",
-            true,
-            true
-        );
         // The browser owns startup integration. Keep the real ModEntry constructor
         // and profile settings load; bypass only its desktop startup installer.
         var early = ModType("SlopWorld.EarlyBootstrap").Methods.Single(m => m.Name == "Install");

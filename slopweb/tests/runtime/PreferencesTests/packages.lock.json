@@ -13,6 +13,9 @@
         "resolved": "0.11.6",
         "contentHash": "f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA=="
       },
+      "ecofixturegame": {
+        "type": "Project"
+      },
       "offline": {
         "type": "Project",
         "dependencies": {

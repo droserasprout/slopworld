@@ -5,6 +5,7 @@ namespace SlopWorld
 {
     // Place ordinary dialogs above an open terminal by assigning the Super layer.
     // Keep other window layers unchanged.
+    [EcoPrefix]
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
     public static class Patch_DialogsOverChrome
     {

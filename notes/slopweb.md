@@ -11,6 +11,11 @@ and CI must work without private files.
 `host/src/fonts/` owns native font discovery, coverage and immutable font files.
 `runtime/` owns Entry-only WASM execution, browser assets, adapters and native
 preparation helpers; `offline/` patches private copies of assemblies.
+The mod opts desktop Harmony prefix classes into Eco staging with `[EcoPrefix]`.
+The offline weaver reads the class target and imports its static prefix. It accepts
+one selected prefix per concrete void target, including a priority on that sole
+prefix, and binds exact by-value named arguments and reference-type `__instance`.
+Browser platform adaptations and startup rewrites stay with their individual offline owners.
 Browser scale adaptation removes desktop DPI inference from private game copies;
 native preference accessors retain ownership of the selected scale.
 The offline Steam boundary disables startup and removes Steamworks native callback
