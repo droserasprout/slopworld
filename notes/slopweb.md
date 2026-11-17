@@ -71,6 +71,8 @@ The Waylith input-frame boundary explicitly clears retained events; reflection
 does not supply native optional parameter defaults.
 GUI focus resets follow accepted text and key events; only unfinished composition
 is canceled. Repeated blur/visibility notifications share the pending reset.
+The staged WindowStack.Add invokes the mod’s existing dialog-layer promotion before
+insertion, keeping confirmations above the Settings workspace.
 The mod retains sidebar, terminal, native text layout, session catalog, and
 configuration ownership. Adapters substitute platform services and rendering;
 the daemon retains processes, tmux, sandboxes, and credentials. See the
