@@ -6,6 +6,7 @@ namespace SlopWorld
 {
     // GameComponentUpdate runs after game ticks.
     // Also enforce Eco before TickManagerUpdate so the base game clears ticksThisFrame and returns through its paused branch.
+    [EcoPrefix]
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
     public static class Patch_EcoTickBoundary
     {

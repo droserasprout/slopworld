@@ -16,7 +16,7 @@ static class Check
     {
         JobsPatchFixture.Check();
         ScalePatchFixture.Check();
-        DialogsPatchFixture.Check();
+        EcoPrefixFixture.Check();
         SteamCallbackFixture.Check();
         CheckWindowPatch();
         string saved = "";
