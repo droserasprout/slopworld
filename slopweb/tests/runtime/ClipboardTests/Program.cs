@@ -90,9 +90,14 @@ Check(BrowserClipboard.Get() == "" && failures == 2, "denied read clears stale f
 
 int copied = 0;
 BrowserClipboard.CopyPrimary("primary", () => copied++, null);
-BrowserClipboard.ReadLocal(true, value => text = value, null);
-Check(text == "primary" && copied == 0, "PRIMARY waits for browser publication");
 int primaryRequest = Request("primary");
+BrowserClipboard.ReadLocal(true, value => text = value, null);
+int readPrimary = Request("readPrimary");
+BrowserClipboard.Complete(readPrimary, "desktop primary", "");
+Check(
+    text == "desktop primary" && copied == 0,
+    "PRIMARY reads desktop event instead of stale local selection"
+);
 BrowserClipboard.Complete(primaryRequest, "", "");
 BrowserClipboard.Complete(primaryRequest, "", "");
 Check(

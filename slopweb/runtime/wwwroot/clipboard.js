@@ -1,7 +1,7 @@
 // Browser permissions and ClipboardEvent data stay here; native owners retain
 // selection, paste routing, and delayed reply validation.
 export function clipboardBridge(managed, selectPrimary) {
-  let message;
+  let message, primaryRequest;
   function failed(error) {
     if (!message) {
       message = document.createElement('div'); message.setAttribute('role', 'alert');
@@ -37,10 +37,13 @@ export function clipboardBridge(managed, selectPrimary) {
     }
     complete();
   }
-  return event => {
+  const bridge = event => {
     if (!managed.ClipboardTake) return;
     for (const request of JSON.parse(managed.ClipboardTake())) {
       const complete = (text='', error='') => managed.ClipboardComplete(request.id,text,error);
+      if (request.kind === 'readPrimary') {
+        bridge.cancelPrimary(); primaryRequest=request; continue;
+      }
       if (request.kind === 'write' && event?.clipboardData) {
         event.clipboardData.setData('text/plain',request.text); event.preventDefault(); complete();
       } else {
@@ -67,4 +70,23 @@ export function clipboardBridge(managed, selectPrimary) {
       }
     }
   };
+  Object.defineProperty(bridge,'primaryPending',{get:()=>!!primaryRequest});
+  bridge.cancelPrimary = () => {
+    if (!primaryRequest) return;
+    const request=primaryRequest; primaryRequest=null;
+    managed.ClipboardComplete(request.id,'','PRIMARY paste canceled');
+  };
+  bridge.expirePrimary = () => {
+    const request = primaryRequest;
+    if (request) setTimeout(() => {
+      if (primaryRequest === request) bridge.cancelPrimary();
+    }, 0);
+  };
+  bridge.pastePrimary = event => {
+    if (!primaryRequest) return false;
+    const request=primaryRequest; primaryRequest=null;
+    managed.ClipboardComplete(request.id,event.clipboardData.getData('text/plain'),'');
+    return true;
+  };
+  return bridge;
 }
