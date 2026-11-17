@@ -7,6 +7,12 @@
         "requested": "[1.7.5000-unstable, 1.7.5000-unstable]",
         "resolved": "1.7.5000-unstable",
         "contentHash": "ESTEH9VQPZG/Q8k560DU7JtRG6s3z5B3u78ba7mGmtkx0i+bCuuRs3qCNa6ZK1EdaP1qFYAG+Ll5iiTKx7iAuA=="
+      },
+      "StbImageSharp": {
+        "type": "Direct",
+        "requested": "[2.27.13, )",
+        "resolved": "2.27.13",
+        "contentHash": "tHnP2RHgFzWbOS96UqvRO/LYU1WmpMT1bKiig45we+rpaXacBr11Fq2IBF+MqlgyLyNXxRz18E66qr4R9YlSbg=="
       }
     }
   }
