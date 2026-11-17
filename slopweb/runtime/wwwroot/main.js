@@ -45,9 +45,9 @@ try {
     }
     let assetTransfer = null;
     {
-        const archive = await (await import('./asset-archive.js')).openAssetArchive('./assets/Assets.zip');
+        const archive = await (await import('./asset-archive.js')).openAssetArchive('./assets/Eco.zip');
         const response = archive.response;
-        if (!response.ok) throw new Error(`Assets.zip: HTTP ${response.status}`);
+        if (!response.ok) throw new Error(`Eco.zip: HTTP ${response.status}`);
         exports.Probe.BeginAssetUpload();
         let bytes = 0, committed = false;
         try {

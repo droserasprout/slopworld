@@ -713,3 +713,43 @@ fn aot_reuses_authored_package_reference_and_rejects_version_drift() {
             .contains("AOT package version differs")
     );
 }
+
+#[test]
+fn assets_phase_stages_entry_and_workspace_members_without_full_pack() {
+    use std::io::{Read, Write};
+    let temp = tempfile::tempdir().unwrap();
+    let game = temp.path().join("game");
+    let root = temp.path().join("root");
+    fs::create_dir_all(&game).unwrap();
+    let keep = [
+        "textures.info",
+        "bake.manifest",
+        "Resources/Fonts/ui.ttf",
+        "Resources/Textures/UI/HeroArt/BGPlanet.png.dds.split",
+        "Resources/Textures/Things/icon.dds.split",
+        "Resources/Sounds/UI/click.ogg",
+    ];
+    let mut source = zip::ZipWriter::new(File::create(game.join("Assets.zip")).unwrap());
+    for name in keep.into_iter().chain([
+        "Resources/Sounds/Songs/theme.ogg",
+        "Resources/Textures/UI/HeroArt/MenuBG_Anomaly.jpg.dds.split",
+    ]) {
+        source
+            .start_file(name, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        source.write_all(name.as_bytes()).unwrap();
+    }
+    source.finish().unwrap();
+    preparation::native_phase(temp.path(), &game, "assets", &root).unwrap();
+    assert!(!root.join("assets/Assets.zip").exists());
+    let mut eco = zip::ZipArchive::new(File::open(root.join("assets/Eco.zip")).unwrap()).unwrap();
+    assert_eq!(eco.len(), keep.len());
+    for name in keep {
+        let mut contents = String::new();
+        eco.by_name(name)
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
+        assert_eq!(contents, name);
+    }
+}

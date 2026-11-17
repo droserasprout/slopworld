@@ -54,6 +54,11 @@ Game assembly downloads use a four-file window, including completed buffers;
 CLR loading and per-file failure reporting retain manifest order.
 All startup assembly loads share a filename-bearing boundary that AOT preparation
 rewrites to published identities; byte loading must not bypass it.
+Host preparation raw-copies the Eco pack from installed ZIP members so Waylith can
+map it at `/Assets.zip` before its first synchronous read. Entry retains the baked
+catalogs, Core textures (including def icons), fonts, UI sounds and base menu art.
+The pack omits expansion menu backgrounds and non-UI audio except the placeholder.
+The workspace soundtrack and prepared background frames have separate delivery paths.
 Assembly loading, archive transfer, font installation and startup stages yield to
 browser painting between work batches; individual synchronous managed calls still
 own their uninterrupted cost.

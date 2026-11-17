@@ -58,6 +58,31 @@ pub fn core_archive(game: &Path, destination: &Path) -> Result<()> {
     Ok(())
 }
 
+// Entry resolves Core defs and texture aliases synchronously, including assets outside UI/.
+// Keep their baked catalogs and texture sources together. Eco uses the Core background
+// and streams its own soundtrack through workspace-audio.js.
+fn eco_member(name: &str) -> bool {
+    if name.starts_with("Resources/Sounds/") {
+        return name.starts_with("Resources/Sounds/UI/")
+            || name == "Resources/Sounds/PlaceholderWav.ogg";
+    }
+    !name.starts_with("Resources/Textures/UI/HeroArt/MenuBG_")
+}
+
+fn eco_archive(source: &Path, destination: &Path) -> Result<()> {
+    let mut source = zip::ZipArchive::new(File::open(source)?)?;
+    let mut archive = ZipWriter::new(File::create(destination)?);
+    for index in 0..source.len() {
+        // Waylith reads stored and Zstandard members directly from the ZIP mapping.
+        let member = source.by_index_raw(index)?;
+        if eco_member(member.name()) {
+            archive.raw_copy_file(member)?;
+        }
+    }
+    archive.finish()?;
+    Ok(())
+}
+
 pub fn native_phase(bundle: &Path, game: &Path, phase: &str, root: &Path) -> Result<()> {
     let run = |args: &[&Path]| -> Result<()> {
         let status = Command::new("dotnet").args(args).status()?;
@@ -97,7 +122,7 @@ pub fn native_phase(bundle: &Path, game: &Path, phase: &str, root: &Path) -> Res
         }
         "assets" => {
             fs::create_dir_all(root.join("assets"))?;
-            fs::copy(game.join("Assets.zip"), root.join("assets/Assets.zip"))?;
+            eco_archive(&game.join("Assets.zip"), &root.join("assets/Eco.zip"))?;
             core_archive(game, &root.join("assets/Core.zip"))?;
         }
         "background" => run(&[
@@ -148,7 +173,7 @@ pub fn prepare(
     let mut keys = BTreeMap::new();
     for (name, inputs, identity) in [
         ("managed", managed, json!("managed-rust-v1")),
-        ("assets", assets_inputs, json!("assets-rust-v1")),
+        ("assets", assets_inputs, json!("eco-assets-v1")),
         (
             "fonts",
             fonts,
