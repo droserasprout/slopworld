@@ -153,10 +153,12 @@ namespace SlopWorld
             bool previous = DrawingGrip;
             var previousColor = GUI.color;
             var e = Event.current;
-            EventType previousType = e.type;
+            // Event.type is filtered by the current GUI clip. Restoring that value to
+            // the original event would discard clicks aimed at controls outside the listing.
             // Replay owned raw events, including Used events with a cleared button. Idle
             // passes allocate the same native controls but cannot start a native gesture.
-            e.type = type;
+            if (type != e.type)
+                Event.current = new Event(e) { type = type };
             GUI.BeginGroup(rect);
             try
             {
@@ -168,7 +170,7 @@ namespace SlopWorld
             {
                 DrawingGrip = previous;
                 GUI.EndGroup();
-                e.type = previousType;
+                Event.current = e;
                 GUI.color = previousColor;
             }
         }

@@ -169,6 +169,24 @@ namespace SlopWorld.Tests
             GUIUtility.hotControl = 0;
         }
 
+        public static void ClickOutsideListingSurvivesDescriptionGrip()
+        {
+            var resize = new UiAreaResize(48f, grow: true);
+            foreach (var type in new[] { EventType.MouseDown, EventType.MouseUp })
+            {
+                Event.current = new Event
+                {
+                    type = type,
+                    rawType = type,
+                    MouseOutsideHitClip = true,
+                };
+                resize.Input(Area, "description", true);
+                resize.Complete(Area, true);
+                Event.current.MouseOutsideHitClip = false;
+                AssertEx.Equal(type, Event.current.type, "dialog buttons receive the outer click");
+            }
+        }
+
         public static void DisabledAndSecondaryPressesDoNotInvokeNativeInput()
         {
             var resize = new UiAreaResize(180f);

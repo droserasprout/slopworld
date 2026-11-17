@@ -374,8 +374,17 @@ namespace UnityEngine
             clickCount;
         public Vector2 mousePosition;
         public Vector2 delta;
-        public EventType type,
-            rawType;
+        EventType _type;
+        public bool MouseOutsideHitClip;
+        public EventType type
+        {
+            get =>
+                MouseOutsideHitClip && (_type == EventType.MouseDown || _type == EventType.MouseUp)
+                    ? EventType.Ignore
+                    : _type;
+            set => _type = value;
+        }
+        public EventType rawType;
         public EventModifiers modifiers;
 
         public Event() { }
