@@ -12,6 +12,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="StbImageSharp" Version="2.27.13" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.14" />
     <Compile Include="Program.cs" />
     <Compile Include="BrowserInput.cs" />

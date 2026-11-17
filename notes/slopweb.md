@@ -64,6 +64,9 @@ An unanswered read expires after the auxiliary click or when a new input gesture
 PRIMARY copy uses the focused editable proxy's select-all editor command, never the
 Clipboard API's CLIPBOARD write. Retain published selection text across focus loss;
 composition cancellation must not clear an unrelated selection.
+Encoded images use the managed stb decoder at the private Unity LoadEncodedImage
+boundary. Reader size admission stays native; adapters preserve alpha and bottom-up
+Unity pixels, retain CPU backing for Canvas, and invalidate uploads after mutation.
 The Waylith input-frame boundary explicitly clears retained events; reflection
 does not supply native optional parameter defaults.
 GUI focus resets follow accepted text and key events; only unfinished composition

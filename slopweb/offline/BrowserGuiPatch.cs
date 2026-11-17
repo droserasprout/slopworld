@@ -69,6 +69,36 @@ internal static class BrowserGuiPatch
         il.InsertBefore(first, il.Create(OpCodes.Brfalse, first));
         il.InsertBefore(first, il.Create(OpCodes.Ldc_I4_0));
         il.InsertBefore(first, il.Create(OpCodes.Ret));
+        var loadImage = target
+            .MainModule.GetType("UnityEngine.Texture2D")
+            .Methods.Single(m => m.Name == "LoadEncodedImage" && m.Parameters.Count == 1);
+        if (
+            loadImage.IsStatic
+            || loadImage.ReturnType.FullName != "System.Boolean"
+            || loadImage.Parameters[0].ParameterType.FullName != "System.Byte[]"
+        )
+            throw new InvalidOperationException("Image decoding boundary changed");
+        var loadStart = loadImage.Body.Instructions[0];
+        var loadIl = loadImage.Body.GetILProcessor();
+        foreach (
+            var instruction in new[]
+            {
+                loadIl.Create(OpCodes.Call, target.MainModule.ImportReference(installed)),
+                loadIl.Create(OpCodes.Brfalse, loadStart),
+                loadIl.Create(OpCodes.Ldarg_0),
+                loadIl.Create(OpCodes.Ldarg_1),
+                loadIl.Create(
+                    OpCodes.Call,
+                    target.MainModule.ImportReference(
+                        adapters
+                            .MainModule.GetType("BrowserAdapters.BrowserImages")
+                            .Methods.Single(m => m.Name == "Load")
+                    )
+                ),
+                loadIl.Create(OpCodes.Ret),
+            }
+        )
+            loadIl.InsertBefore(loadStart, instruction);
         var changed = target.MainModule.ImportReference(
             adapters
                 .MainModule.GetType("BrowserAdapters.BrowserGui")
