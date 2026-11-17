@@ -22,7 +22,7 @@ function setup({quota=false,short=false}={}) {
   return {storage,request,calls,change(){version='second';}};
 }
 async function read(fixture) {
-  const {response,stored}=await openAssetArchive('https://example.test/assets/Assets.zip',fixture.request,fixture.storage);
+  const {response,stored}=await openAssetArchive('https://example.test/assets/Eco.zip',fixture.request,fixture.storage);
   const bytes=await response.arrayBuffer();await stored;return new Uint8Array(bytes);
 }
 

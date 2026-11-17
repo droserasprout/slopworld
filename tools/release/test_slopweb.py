@@ -142,6 +142,7 @@ def test_distributable_build_never_reads_staged_game_root(
             'game/RimWorld.dll',
             'assets/Core.zip',
             'assets/Assets.zip',
+            'assets/Eco.zip',
             'assets/portraits/private.rgba',
             'credentials.toml',
         )
@@ -519,6 +520,7 @@ def test_real_arch_archive_contains_only_distributable_web_payload(tmp_path: Pat
         'Waylith.dll',
         'Assets.zip',
         'Core.zip',
+        'Eco.zip',
         'Brutal.ImGui.dll',
         'Brutal.Core.Numerics.dll',
         'ui.ttf',
