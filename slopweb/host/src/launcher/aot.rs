@@ -386,7 +386,23 @@ pub fn write_candidate(
         append(&mut reference, child("Private", "true"));
         append(&mut group, reference);
     }
+    let mut declared_packages = Vec::new();
+    elements(&project, "PackageReference", &mut declared_packages);
     for (name, version) in PACKAGES {
+        if let Some(existing) = declared_packages.iter().find(|item| {
+            item.attributes
+                .get("Include")
+                .is_some_and(|value| value == name)
+        }) {
+            ensure!(
+                existing
+                    .attributes
+                    .get("Version")
+                    .is_some_and(|value| value == version),
+                "AOT package version differs from authored project: {name}"
+            );
+            continue;
+        }
         append(
             &mut group,
             attr(

@@ -683,3 +683,33 @@ fn font_diagnostic_accepts_game_and_output_without_mutating_global_game_argument
         matches!(parsed.command, Some(cli::LocalCommand::CheckFonts { install, output }) if install == Path::new("/game") && output == Path::new("/output"))
     );
 }
+
+#[test]
+fn aot_reuses_authored_package_reference_and_rejects_version_drift() {
+    let f = AotFixture::new();
+    let project = f.bundle.join("aot-src/Probe.csproj");
+    let original = fs::read_to_string(&project).unwrap();
+    write(
+        &project,
+        original.replace(
+            "</ItemGroup>",
+            "<PackageReference Include=\"StbImageSharp\" Version=\"2.27.13\" /></ItemGroup>",
+        ),
+    );
+    f.run().unwrap();
+    let candidate = fs::read_to_string(f.workspace().join("candidate/Probe.csproj")).unwrap();
+    assert_eq!(candidate.matches("Include=\"StbImageSharp\"").count(), 2); // package and trimming root
+    write(
+        &project,
+        original.replace(
+            "</ItemGroup>",
+            "<PackageReference Include=\"StbImageSharp\" Version=\"0.0.0\" /></ItemGroup>",
+        ),
+    );
+    assert!(
+        f.run()
+            .unwrap_err()
+            .to_string()
+            .contains("AOT package version differs")
+    );
+}
