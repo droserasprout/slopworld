@@ -12,7 +12,10 @@ export function attachGuiInput(canvas, managed) {
   const clipboard = clipboardBridge(managed, text => {
     if (proxy.composing) throw new Error('Cannot publish selection during composition');
     proxy.element.value = text;
-    proxy.element.select();
+    proxy.focus();
+    // Firefox ignores Selection API changes for PRIMARY. Its editor command
+    // performs a real select-all without overwriting the ordinary clipboard.
+    if (!document.execCommand?.('selectAll')) proxy.element.select();
   });
   let clipboardEvent;
   const reuse=new GuiFrameReuse();
@@ -74,21 +77,23 @@ export function attachGuiInput(canvas, managed) {
   };
   for (const [name, kind] of [['pointerdown', 'down'], ['pointerup', 'up'], ['pointermove', 'move']]) {
     listen(name, event => {
-      // Linux middle-click delivers the desktop PRIMARY through a paste event.
-      // Native MouseDown would also paste BrowserClipboard's older local PRIMARY.
-      // Leave the browser default intact and let the paste handler dispatch once.
-      if (managed.ClipboardTake && event.button === 1 && kind !== 'move') {
-        if (kind === 'down') { cancelled = false; proxy.focus(event); }
-        return;
-      }
-      event.preventDefault();
+      const middle = managed.ClipboardTake && event.button === 1 && kind !== 'move';
+      if (kind === 'down') clipboard.cancelPrimary();
+      if (!middle) event.preventDefault();
       if (kind === 'down') { cancelled = false; proxy.focus(event); if (event.isTrusted) canvas.setPointerCapture(event.pointerId); }
       enqueue({ kind: kind === 'move' && event.buttons ? 'drag' : kind, ...point(event), button: [0, 2, 1][event.button] ?? 0, ...modifiers(event) });
       // Clipboard actions and native URL opening need the initiating user activation.
       if (managed.ClipboardTake && kind !== 'move') frame();
+      if (middle && !clipboard.primaryPending) event.preventDefault();
     });
   }
+  // The browser may dispatch PRIMARY paste as the default action of auxclick.
+  // Release an unanswered read after that action, or before any new key gesture.
+  listen('auxclick', event => {
+    if (event.button === 1) clipboard.expirePrimary();
+  });
   listen('keydown', event => {
+    clipboard.cancelPrimary();
     pendingText = null;
     if (composingKey(event, composing)) return;
     cancelled = false;
@@ -137,6 +142,7 @@ export function attachGuiInput(canvas, managed) {
   listen('paste', event => {
     if (!managed.ClipboardTake || !event.clipboardData) return;
     event.preventDefault();
+    if (clipboard.pastePrimary(event)) return;
     enqueue({kind:'clipboard',text:event.clipboardData.getData('text/plain'),
       image:Array.from(event.clipboardData.items).some(item=>item.kind === 'file' && item.type === 'image/png')});
     enqueue({kind:'key',key:'V',control:true});
@@ -177,7 +183,8 @@ export function attachGuiInput(canvas, managed) {
   });
   const reset = () => {
     composing = false; cancelled = true; pendingText = null; committed = null;
-    proxy.element.value = '';
+    if (proxy.composing) proxy.element.value = '';
+    clipboard.cancelPrimary();
     // Preedit is canceled above; committed events must reach their native owner
     // before focus is cleared. Window blur and visibility can report the same loss.
     if (queue.at(-1)?.kind !== 'reset') enqueue({kind:'reset'});
@@ -191,6 +198,6 @@ export function attachGuiInput(canvas, managed) {
   return {
     frame,
     textInput: proxy.element,
-    dispose() { if (disposed) return; disposed = true; abort.abort(); proxy.release(); managed.GuiInputFrame('[{"kind":"reset"}]'); }
+    dispose() { if (disposed) return; disposed = true; clipboard.cancelPrimary(); abort.abort(); proxy.release(); managed.GuiInputFrame('[{"kind":"reset"}]'); }
   };
 }

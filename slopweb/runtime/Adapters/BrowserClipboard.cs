@@ -6,11 +6,11 @@ namespace BrowserAdapters;
 // lifetime guard. PRIMARY is published through DOM selection, independently of CLIPBOARD.
 public static class BrowserClipboard
 {
-    static string buffer = "",
-        primary = "";
+    static string buffer = "";
     static bool supplied;
     static bool suppliedImage;
     static int serial;
+    static readonly HashSet<int> primaryReads = new();
     static readonly List<object> requests = new();
     static readonly Dictionary<
         int,
@@ -42,7 +42,10 @@ public static class BrowserClipboard
     {
         if (isPrimary)
         {
-            receive(primary);
+            int id = ++serial;
+            pending.Add(id, (receive, null, null, fail));
+            primaryReads.Add(id);
+            requests.Add(new { id, kind = "readPrimary" });
             return;
         }
         ReadClipboard(receive, null, fail);
@@ -93,7 +96,6 @@ public static class BrowserClipboard
 
     public static void CopyPrimary(string text, Action? ok, Action<string>? fail)
     {
-        primary = text;
         int id = ++serial;
         pending.Add(id, (null, null, ok, fail));
         requests.Add(
@@ -117,18 +119,20 @@ public static class BrowserClipboard
     {
         if (!pending.Remove(id, out var callback))
             return;
+        bool isPrimary = primaryReads.Remove(id);
         if (error.Length > 0)
         {
             // Native text-only paste can fall back to GUIUtility after failure.
             // Clear it so denied browser access cannot paste an earlier selection.
-            if (callback.receive != null)
+            if (callback.receive != null && !isPrimary)
                 buffer = "";
             callback.fail?.Invoke(error);
             return;
         }
         if (callback.receive != null)
         {
-            buffer = text;
+            if (!isPrimary)
+                buffer = text;
             callback.receive(text);
         }
         callback.ok?.Invoke();

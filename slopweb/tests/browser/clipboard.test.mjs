@@ -134,26 +134,90 @@ test('synchronous pointer frames pump physical input before native selection dis
   input.dispose();
 });
 
-test('middle click leaves desktop PRIMARY paste to the DOM without pasting stale native selection',()=>{
-  const {canvas:makeCanvas,document}=installInputDom();
-  const canvas=makeCanvas(), guiBatches=[], physicalBatches=[];
+test('middle click reaches native tab hit testing and cancels browser default when no PRIMARY is requested',()=>{
+  const canvas=installInputDom().canvas(), batches=[], physicalBatches=[];
   const physical=attachInput(canvas,{InputFrame:raw=>physicalBatches.push(JSON.parse(raw))},true);
   const gui=attachGuiInput(canvas,{
     beforeFrame:()=>physical.frame(),
-    GuiInputFrame:raw=>{guiBatches.push(JSON.parse(raw));return '{"commands":[]}';},
+    GuiInputFrame:raw=>{batches.push(JSON.parse(raw));return '{"commands":[]}';},
     ClipboardTake:()=> '[]',
   });
-  for(const type of ['pointerdown','pointerup']) {
-    const event=emit(canvas,type,{button:1,clientX:10,clientY:20,pointerId:1});
-    assert.equal(event.defaultPrevented,false);
-  }
-  assert.equal(document.activeElement,gui.textInput);
-  const paste=emit(gui.textInput,'paste',{clipboardData:{getData:()=> 'desktop selection',items:[]}});
-  assert.ok(paste.defaultPrevented);
-  assert.deepEqual(guiBatches,[[
-    {kind:'clipboard',text:'desktop selection',image:false},
-    {kind:'key',key:'V',control:true},
-  ]]);
-  assert.deepEqual(physicalBatches,[[]]);
-  gui.dispose(); physical.dispose();
+  for(const type of ['pointerdown','pointerup'])
+    assert.ok(emit(canvas,type,{button:1,clientX:10,clientY:20}).defaultPrevented);
+  assert.deepEqual(batches.map(batch=>[batch[0].kind,batch[0].button]),[['down',2],['up',2]]);
+  assert.deepEqual(physicalBatches.map(batch=>[batch[0].button,batch[0].down]),[[2,true],[2,false]]);
+  gui.dispose();physical.dispose();
+});
+
+test('native PRIMARY request receives DOM paste once without a duplicate V or stale local paste',()=>{
+  const canvas=installInputDom().canvas(), batches=[], done=[];
+  let requests=[];
+  const gui=attachGuiInput(canvas,{
+    GuiInputFrame:raw=>{
+      const batch=JSON.parse(raw);batches.push(batch);
+      if(batch.some(event=>event.kind==='down' && event.button===2))requests.push({id:43,kind:'readPrimary'});
+      return '{"commands":[]}';
+    },
+    ClipboardTake:()=>JSON.stringify(requests.splice(0)),
+    ClipboardComplete:(...args)=>done.push(args),
+  });
+  for(const type of ['pointerdown','pointerup'])
+    assert.equal(emit(canvas,type,{button:1,clientX:10,clientY:20}).defaultPrevented,false);
+  emit(gui.textInput,'paste',{clipboardData:{getData:()=> 'desktop selection',items:[]}});
+  assert.deepEqual(done,[[43,'desktop selection','']]);
+  assert.equal(batches.flat().some(event=>event.key==='V'),false);
+  gui.dispose();
+});
+
+test('PRIMARY selection uses the editor command and survives window blur',()=>{
+  const {canvas:makeCanvas,document}=installInputDom(), done=[];
+  let requests=[{id:44,kind:'primary',text:'keep on blur'}], selected;
+  document.execCommand=command=>{assert.equal(command,'selectAll');selected=document.activeElement.value;return true;};
+  const gui=attachGuiInput(makeCanvas(),{
+    GuiInputFrame:()=>'{"commands":[]}',
+    ClipboardTake:()=>JSON.stringify(requests.splice(0)),
+    ClipboardComplete:(...args)=>done.push(args),
+  });
+  gui.frame();emit(window,'blur');
+  assert.equal(selected,'keep on blur');assert.equal(gui.textInput.value,'keep on blur');
+  assert.deepEqual(done,[[44,'','']]);gui.dispose();
+});
+
+test('abandoned PRIMARY reads settle once and cannot capture a later normal paste',()=>{
+  const f=fixture([{id:45,kind:'readPrimary'}]);f.bridge();
+  assert.equal(f.bridge.primaryPending,true);f.bridge.cancelPrimary();f.bridge.cancelPrimary();
+  assert.equal(f.bridge.pastePrimary({clipboardData:{getData:()=> 'later'}}),false);
+  assert.deepEqual(f.done,[[45,'','PRIMARY paste canceled']]);
+});
+
+test('keyboard paste after a missed middle-click paste uses ordinary routing',()=>{
+  const canvas=installInputDom().canvas(), batches=[], done=[], requests=[];
+  const gui=attachGuiInput(canvas,{
+    GuiInputFrame:raw=>{
+      const batch=JSON.parse(raw);batches.push(batch);
+      if(batch.some(event=>event.kind==='down')) requests.push({id:46,kind:'readPrimary'});
+      return '{"commands":[]}';
+    },
+    ClipboardTake:()=>JSON.stringify(requests.splice(0)),
+    ClipboardComplete:(...args)=>done.push(args),
+  });
+  for(const type of ['pointerdown','pointerup','auxclick'])
+    emit(canvas,type,{button:1,clientX:0,clientY:0});
+  emit(gui.textInput,'keydown',{code:'KeyV',key:'v',ctrlKey:true});
+  emit(gui.textInput,'paste',{clipboardData:{getData:()=> 'ordinary',items:[]}});
+  assert.deepEqual(done,[[46,'','PRIMARY paste canceled']]);
+  assert.deepEqual(batches.at(-1),[{kind:'clipboard',text:'ordinary',image:false},{kind:'key',key:'V',control:true}]);
+  gui.dispose();
+});
+
+test('an unanswered auxiliary click expires only its own PRIMARY request',async()=>{
+  const requests=[{id:47,kind:'readPrimary'}], f=fixture(requests);
+  f.bridge();f.bridge.expirePrimary();
+  requests.push({id:48,kind:'readPrimary'});f.bridge();
+  await new Promise(resolve=>originalTimeout(resolve,0));
+  assert.equal(f.bridge.primaryPending,true);
+  f.bridge.expirePrimary();
+  await new Promise(resolve=>originalTimeout(resolve,0));
+  assert.equal(f.bridge.primaryPending,false);
+  assert.deepEqual(f.done,[[47,'','PRIMARY paste canceled'],[48,'','PRIMARY paste canceled']]);
 });

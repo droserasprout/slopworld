@@ -57,11 +57,13 @@ rewrites to published identities; byte loading must not bypass it.
 Assembly loading, archive transfer, font installation and startup stages yield to
 browser painting between work batches; individual synchronous managed calls still
 own their uninterrupted cost.
-Browser middle-click paste is owned by the DOM paste event carrying desktop PRIMARY;
-both browser input adapters suppress the corresponding managed button gesture to
-avoid also pasting the adapter's saved local selection.
-PRIMARY copy publishes the native selection through the editable DOM proxy's text
-selection; it does not write CLIPBOARD through the browser Clipboard API.
+Browser middle-click reaches native hit testing so tabs and other controls retain
+button actions. A native PRIMARY read waits for the corresponding DOM paste event;
+that reply completes the original callback without a second Ctrl+V dispatch.
+An unanswered read expires after the auxiliary click or when a new input gesture starts.
+PRIMARY copy uses the focused editable proxy's select-all editor command, never the
+Clipboard API's CLIPBOARD write. Retain published selection text across focus loss;
+composition cancellation must not clear an unrelated selection.
 The Waylith input-frame boundary explicitly clears retained events; reflection
 does not supply native optional parameter defaults.
 GUI focus resets follow accepted text and key events; only unfinished composition
