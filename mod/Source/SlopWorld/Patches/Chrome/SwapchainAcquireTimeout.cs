@@ -32,6 +32,39 @@ namespace SlopWorld
                     && code[item.index + 1].opcode == OpCodes.Conv_I
                 )
                 .ToList();
+            // Waylith 5013 retries timed-out acquisitions until a separate deadline.
+            // Keep the 1 ms resize attempt and return the first timeout to the engine.
+            if (calls.Count == 1 && waits.Count == 0)
+            {
+                int call = calls[0].index;
+                int normal = code.FindIndex(i => i.LoadsConstant(100_000_000));
+                int resize = code.FindIndex(i => i.LoadsConstant(1_000_000));
+                int retry = code.FindIndex(
+                    call,
+                    i =>
+                        (i.opcode == OpCodes.Blt_S || i.opcode == OpCodes.Blt)
+                        && i.operand is Label target
+                        && code.Take(call).Any(c => c.labels.Contains(target))
+                );
+                if (
+                    normal < 0
+                    || resize <= normal
+                    || resize + 1 >= call
+                    || code[normal + 1].opcode != OpCodes.Conv_I
+                    || code[resize + 1].opcode != OpCodes.Conv_I
+                    || retry < 0
+                )
+                    throw new InvalidOperationException(
+                        "Unexpected Waylith acquisition retry loop"
+                    );
+
+                code[normal].operand = Nanoseconds;
+                // Consume the timestamp and deadline, then fall through to native timeout cleanup.
+                code[retry].opcode = OpCodes.Pop;
+                code[retry].operand = null;
+                code.Insert(retry + 1, new CodeInstruction(OpCodes.Pop));
+                return code;
+            }
             if (calls.Count != 1 || waits.Count != 1 || waits[0].index >= calls[0].index)
                 throw new InvalidOperationException(
                     "Unexpected RimWorld 1.7 swapchain acquisition IL"

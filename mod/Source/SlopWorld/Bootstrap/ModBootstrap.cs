@@ -100,11 +100,11 @@ namespace SlopWorld
             BackgroundFrames.Follow();
             LinuxGameWindow.Follow();
             ModEntry.Instance?.settings.FlushIfDue();
-            GameCursor.Tick();
             // Check clicks once per frame in Update instead of once per GUI event in OnGUI.
             // GetMouseButtonDown retains Unity's input flag even after HandleEventsHighPriority consumes the GUI event.
             if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
                 GameCursor.Click();
+            GameCursor.Tick();
         }
 
         static void Finalizer(long __state) => PerfTrace.End("root-update", __state, 1);

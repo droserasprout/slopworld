@@ -7,6 +7,44 @@ using Verse;
 
 namespace SlopWorld
 {
+    // Waylith enables committed text only for native editable fields in automatic
+    // IME mode. Include the terminal in that decision without claiming field focus.
+    [HarmonyPatch]
+    static class Patch_TerminalTextInput
+    {
+        static MethodBase TargetMethod() =>
+            AccessTools.Method(
+                AccessTools.TypeByName("RimWorldWaylith.TextInputBridge"),
+                "BeginFrame"
+            );
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var captures = AccessTools.PropertyGetter(
+                AccessTools.TypeByName("UnityStubs.Internal.TextFocus"),
+                "CapturesText"
+            );
+            int matches = 0;
+            foreach (var instruction in instructions)
+            {
+                yield return instruction;
+                if (instruction.Calls(captures))
+                {
+                    matches++;
+                    yield return CodeInstruction.Call(
+                        typeof(Patch_TerminalTextInput),
+                        nameof(IncludeTerminal)
+                    );
+                }
+            }
+            if (matches != 1)
+                throw new InvalidOperationException("Unexpected Waylith text input activation IL");
+        }
+
+        static bool IncludeTerminal(bool field) =>
+            field || WorkspaceWindow.HasTerminalKeyboardInput;
+    }
+
     // Waylith suppresses the entire GameKeys stream when an editable field has focus.
     // Admit only workspace bindings through that stream; text/edit/control events keep
     // their native paths. The normal window dispatch still owns handling and modal gates.
@@ -44,14 +82,6 @@ namespace SlopWorld
         static readonly HashSet<KeyCode> ModifierKeys = KeySet("ModifierKeys");
         static readonly HashSet<KeyCode> GameKeys = KeySet("GameKeys");
         static readonly HashSet<KeyCode> EditKeys = KeySet("EditShortcutKeys");
-        static readonly Func<KeyCode, bool> ImeConsumed = AccessTools.MethodDelegate<
-            Func<KeyCode, bool>
-        >(
-            AccessTools.Method(
-                AccessTools.TypeByName("RimWorldWaylith.WindowsImeBridge"),
-                "Consumed"
-            )
-        );
 
         static HashSet<KeyCode> KeySet(string name) =>
             new HashSet<KeyCode>((KeyCode[])AccessTools.Field(DispatchType, name).GetValue(null));
@@ -77,13 +107,6 @@ namespace SlopWorld
                     if (!control && !modifier && !game)
                         continue;
                     if (input.Repeat && modifier)
-                        continue;
-                    if (
-                        input.Type == EventType.KeyDown
-                        && control
-                        && OperatingSystem.IsWindows()
-                        && ImeConsumed(key)
-                    )
                         continue;
                     if (input.Type == EventType.KeyDown && !control && !modifier)
                     {

@@ -45,7 +45,7 @@ assembly and produce empty coverage.
 in an isolated assembly context. It resolves native text targets and field geometry,
 and applies the swapchain rewrite to the game's actual IL. It does not start the game
 or validate rendering. Keep this check separate from the game-free coverage denominator.
-It also checks the native close-loop and keyboard-dispatch rewrites against installed
+It also checks the native window-close request and keyboard-dispatch rewrite against installed
 IL, including preservation of the native text-edit shortcut path.
 Camera edge-scroll checks verify that both fullscreen rewrites replace only the
 display getter, preserving the game's remaining scrolling logic.

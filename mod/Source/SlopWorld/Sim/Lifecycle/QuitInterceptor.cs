@@ -35,8 +35,8 @@ namespace SlopWorld
                 _phase = Phase.Pending;
         }
 
-        // Called before the native loop acts on its close flag. An engine-requested
-        // shutdown (restart, failure or an already accepted quit) must keep its flag.
+        // Called before Waylith accepts a window-close request. An engine-requested
+        // shutdown (restart, failure or an already accepted quit) must proceed.
         internal static bool DeferNativeClose(bool close, bool engineShutdown)
         {
             if (!close || engineShutdown || _phase == Phase.ShuttingDown)

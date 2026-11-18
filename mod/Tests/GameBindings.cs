@@ -28,11 +28,17 @@ namespace SlopWorld.Tests
                         "RimWorld.dll",
                         "Waylith.dll",
                         "UnityStubs.dll",
-                        "Brutal.Glfw.dll",
+                        "Waylith.Windowing.dll",
                     }
                 )
                     context.LoadFromAssemblyPath(Path.Combine(Path.GetFullPath(managed), assembly));
                 int count = 0;
+                Require(
+                    ((ValueTuple<int, int>)Invoke(mod, "LinuxGameWindow", "MonitorPixels"))
+                        == (0, 0),
+                    "monitor geometry must bind to the installed engine and tolerate startup before a window exists"
+                );
+                count++;
                 var pacingLoop = (MethodBase)Invoke(mod, "Patch_RenderPacing", "TargetMethod");
                 var loopGenerator = PatchProcessor.CreateILGenerator(pacingLoop);
                 // Exercise the queue counter binding without constructing an engine,
@@ -102,9 +108,6 @@ namespace SlopWorld.Tests
                         == 3,
                     "missing render-loop completion paths"
                 );
-                int inputPump = pacedLoop.FindIndex(i =>
-                    i.operand is MethodInfo m && m.Name == "PumpEvents"
-                );
                 int inputReset = pacedLoop.FindIndex(i =>
                     i.operand is MethodInfo m
                     && m.Name == "BeginFrame"
@@ -120,12 +123,11 @@ namespace SlopWorld.Tests
                     i.operand is MethodInfo m && m.Name == "CaptureFrame"
                 );
                 Require(
-                    inputReset >= 0
-                        && inputPump > inputReset
-                        && gameUpdate > inputPump
+                    inputReset > captureFrame
+                        && gameUpdate >= 0
                         && renderGate > gameUpdate
                         && captureFrame > renderGate,
-                    "render admission must follow input reset, event dispatch and game updates"
+                    "render admission must follow game updates and preserve end-of-frame input reset"
                 );
                 Require(
                     pacedLoop.Count(i => i.operand is MethodInfo m && m.Name == "EndFrame")
@@ -133,18 +135,6 @@ namespace SlopWorld.Tests
                             i.operand is MethodInfo m && m.Name == "EndFrame"
                         ),
                     "skipped rendering must retain native frame cleanup"
-                );
-                var combinedCloseLoop = (
-                    (IEnumerable<CodeInstruction>)
-                        Invoke(mod, "Patch_NativeWindowClose", "Transpiler", pacedLoop)
-                ).ToList();
-                Require(
-                    combinedCloseLoop.Any(i =>
-                        i.operand is MethodInfo m
-                        && m.Name == "ShouldClose"
-                        && m.DeclaringType.Name == "Patch_NativeWindowClose"
-                    ),
-                    "render pacing must compose with deferred window close"
                 );
                 count++;
                 var musicType = context
@@ -321,30 +311,34 @@ namespace SlopWorld.Tests
                 );
                 count++;
 
-                foreach (
-                    MethodBase loop in (IEnumerable)Invoke(
-                        mod,
-                        "Patch_NativeWindowClose",
-                        "TargetMethods"
-                    )
-                )
-                {
-                    Require(loop != null, "missing cancellable native close target");
-                    var loopCode = PatchProcessor.GetOriginalInstructions(loop);
-                    var patched = (
-                        (IEnumerable<CodeInstruction>)
-                            Invoke(mod, "Patch_NativeWindowClose", "Transpiler", loopCode)
-                    ).ToArray();
-                    Require(
-                        patched.Count(i =>
-                            i.operand is MethodInfo m
-                            && m.Name == "ShouldClose"
-                            && m.DeclaringType?.Name == "Patch_NativeWindowClose"
-                        ) == 1,
-                        "native close guard must run before each loop exit decision"
+                var windowClose = pacingLoop
+                    .DeclaringType.Assembly.GetType("Waylith.Input.MainWindowHandler", true)
+                    .GetMethod(
+                        "Waylith.Windowing.IWindowHandler.OnCloseRequested",
+                        BindingFlags.NonPublic | BindingFlags.Instance
                     );
-                    count++;
-                }
+                var closeCode = PatchProcessor.GetOriginalInstructions(windowClose);
+                int closeReason = closeCode.FindIndex(i => Equals(i.operand, "WindowClose"));
+                Require(
+                    closeReason >= 0
+                        && closeCode[closeReason + 1].operand is MethodInfo request
+                        && request.DeclaringType == pacingLoop.DeclaringType
+                        && request.Name == "RequestShutdown"
+                        && request.GetParameters().Single().ParameterType == typeof(string),
+                    "window-close interception requires the native shutdown reason"
+                );
+                Require(
+                    (bool)Invoke(mod, "Patch_NativeWindowClose", "Prefix", pacingApp, "Restart")
+                        && !(bool)Invoke(
+                            mod,
+                            "Patch_NativeWindowClose",
+                            "Prefix",
+                            pacingApp,
+                            "WindowClose"
+                        ),
+                    "only user window close should defer native shutdown"
+                );
+                count++;
 
                 var nativeGui = context
                     .LoadFromAssemblyName(new AssemblyName("UnityStubs"))
@@ -373,6 +367,34 @@ namespace SlopWorld.Tests
                             return behaviours >= 0 && windows > behaviours && end > windows;
                         }),
                     "CRT overlay requires window flush after behaviours and before EndPass"
+                );
+                count++;
+
+                var textBridge = (MethodBase)Invoke(mod, "Patch_TerminalTextInput", "TargetMethod");
+                var bridgeCode = (
+                    (IEnumerable<CodeInstruction>)
+                        Invoke(
+                            mod,
+                            "Patch_TerminalTextInput",
+                            "Transpiler",
+                            PatchProcessor.GetOriginalInstructions(textBridge)
+                        )
+                ).ToList();
+                int focus = bridgeCode.FindIndex(i =>
+                    i.operand is MethodInfo m && m.Name == "get_CapturesText"
+                );
+                Require(
+                    focus >= 0
+                        && bridgeCode[focus + 1].operand is MethodInfo filter
+                        && filter.Name == "IncludeTerminal"
+                        && bridgeCode
+                            .Skip(focus + 2)
+                            .Any(i =>
+                                i.operand is MethodInfo m
+                                && m.Name == "Start"
+                                && m.DeclaringType.Name == "ITextInput"
+                            ),
+                    "terminal text activation must feed the native text-input start decision"
                 );
                 count++;
 
@@ -485,7 +507,23 @@ namespace SlopWorld.Tests
                 var rewritten =
                     (IEnumerable<CodeInstruction>)
                         Invoke(mod, "SwapchainAcquireTimeout", "Rewrite", original);
-                Require(rewritten.Any(), "empty swapchain method");
+                var acquireCode = rewritten.ToList();
+                Require(
+                    acquireCode.Count(i => i.LoadsConstant(16_000_000)) == 1
+                        && acquireCode.Count(i => i.LoadsConstant(1_000_000)) == 1
+                        && !acquireCode.Any(i => i.LoadsConstant(100_000_000))
+                        && !acquireCode
+                            .Select((instruction, index) => (instruction, index))
+                            .Any(item =>
+                                (
+                                    item.instruction.opcode == System.Reflection.Emit.OpCodes.Blt_S
+                                    || item.instruction.opcode == System.Reflection.Emit.OpCodes.Blt
+                                )
+                                && item.instruction.operand is System.Reflection.Emit.Label label
+                                && acquireCode.Take(item.index).Any(i => i.labels.Contains(label))
+                            ),
+                    "acquisition must preserve the short resize timeout and return after one attempt"
+                );
                 count++;
 
                 var gui = context.LoadFromAssemblyPath(

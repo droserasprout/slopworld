@@ -13,7 +13,7 @@ and fallback details stay beside those owners. [C# tests](test-csharp.md) descri
 isolated bus tests; the display preference belongs to [Display settings](../docs/src/customization/settings.md#display).
 
 `LinuxGameWindow` owns X11/EWMH titles, application identity, and fullscreen, including
-under XWayland. The launcher sets `FORCE_X11=1` before window creation. The mod follows
+under XWayland. The launcher sets `WAYLITH_BACKEND=X11` before window creation. The mod follows
 its saved fullscreen preference while keeping the renderer and RimWorld display mode
 windowed. Native fullscreen controls are hidden in embedded game options. Both WM_CLASS strings are `slopworld`, matching the desktop
 entry despite sharing the RimWorld executable. Early bootstrap follows the native
@@ -33,7 +33,8 @@ pending landing, and queued loads must rearm it, including after failed loads.
 Unsupported integration stays disabled for the process; temporary display loss retries.
 
 The game surface and outer window must reach monitor geometry together or pixels
-and input diverge. Resize the surface before applying fullscreen, keep fullscreen as
+and input diverge. Read physical dimensions from the window’s current Waylith monitor.
+Unity’s display dimensions mirror the current render surface. Resize the surface before applying fullscreen, keep fullscreen as
 the final geometry change, and do not raise/activate the window. Verify actual surface
 and native fullscreen state before settling; persistent mismatch retries after the
 window manager has time to respond.
@@ -46,4 +47,5 @@ a fullscreen surface stops supplying images, the renderer uses its existing time
 result to skip that frame without resetting its submission fence. The render queue
 can then drain, leaving the main thread free to process X11 events. Keep this wait
 bounded independently of focus: the queued render frame can outlive the focus state
-that produced it. The patch validates the acquisition call and timeout IL together.
+that produced it. The patch preserves shorter resize waits and returns the first timeout through
+native cleanup so retries cannot extend the stall.

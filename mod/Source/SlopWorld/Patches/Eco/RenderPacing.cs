@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
@@ -16,13 +17,24 @@ namespace SlopWorld
     internal static class RenderPacing
     {
         static readonly ConditionalWeakTable<EngineApplication, RenderSchedule> Schedules = new();
-        static readonly Type Glfw = AccessTools.TypeByName("Brutal.GlfwApi.Glfw");
-        static readonly Action Poll = AccessTools.MethodDelegate<Action>(
-            AccessTools.Method(Glfw, "PollEvents")
-        );
-        static readonly Action<double> Wait = AccessTools.MethodDelegate<Action<double>>(
-            AccessTools.Method(Glfw, "WaitEventsTimeout")
-        );
+        static readonly Action<EngineApplication, TimeSpan> WaitUntil = BindPlatformDeadline();
+
+        // Bind the game-owned LoopMode value type once so service ticks allocate nothing.
+        static Action<EngineApplication, TimeSpan> BindPlatformDeadline()
+        {
+            var app = Expression.Parameter(typeof(EngineApplication));
+            var deadline = Expression.Parameter(typeof(TimeSpan));
+            var pace = AccessTools.Method(typeof(EngineApplication), "PaceLoop");
+            var wait = AccessTools.Method(pace.GetParameters()[0].ParameterType, "WaitUntil");
+            return Expression
+                .Lambda<Action<EngineApplication, TimeSpan>>(
+                    Expression.Call(app, pace, Expression.Call(wait, deadline)),
+                    app,
+                    deadline
+                )
+                .Compile();
+        }
+
         static readonly FieldInfo RenderThread = AccessTools.Field(
             typeof(EngineApplication),
             "_renderThread"
@@ -51,27 +63,40 @@ namespace SlopWorld
             return thread != null && Volatile.Read(ref PendingFrames(thread)) <= 1;
         }
 
-        internal static void PumpEvents(EngineApplication app)
+        // Platform events wake the loop before the deadline. RunFrame clears the
+        // previous loop mode on entry and resets input in its own finally block.
+        static void PaceNext(
+            EngineApplication app,
+            RenderSchedule schedule,
+            double now,
+            bool available
+        )
         {
-            var schedule = Schedule(app);
-            double wait = schedule.WaitSeconds(Now, QueueAvailable(app));
-            // WaitEventsTimeout dispatches callbacks. It must run at the original
-            // PollEvents site, AFTER both native input states have begun their frame;
-            // waiting at the end would discard newly received keys on the next reset.
+            double wait = schedule.WaitSeconds(now, available);
             if (wait > 0)
-                Wait(wait);
-            else
-                Poll();
-            schedule.Polled(Now);
+                WaitUntil(app, TimeSpan.FromSeconds(now + wait));
         }
 
-        internal static bool AdmitFrame(EngineApplication app) =>
-            Schedule(app).TryRender(Now, QueueAvailable(app));
+        internal static bool AdmitFrame(EngineApplication app)
+        {
+            var schedule = Schedule(app);
+            double now = Now;
+            bool available = QueueAvailable(app);
+            schedule.Polled(now);
+            bool render = schedule.TryRender(now, available);
+            PaceNext(app, schedule, now, available);
+            return render;
+        }
 
         internal static void FinishIteration(EngineApplication app, bool presenting)
         {
-            if (!presenting)
-                Schedule(app).SurfaceUnavailable();
+            if (presenting)
+                return;
+            var schedule = Schedule(app);
+            double now = Now;
+            schedule.SurfaceUnavailable();
+            schedule.Polled(now);
+            PaceNext(app, schedule, now, false);
         }
     }
 
@@ -88,8 +113,6 @@ namespace SlopWorld
             RenderLoopRewrite.Rewrite(
                 instructions,
                 generator,
-                AccessTools.Method(AccessTools.TypeByName("Brutal.GlfwApi.Glfw"), "PollEvents"),
-                AccessTools.Method(typeof(RenderPacing), nameof(RenderPacing.PumpEvents)),
                 AccessTools.Constructor(
                     AccessTools.TypeByName("Waylith.Rendering.FrameTiming"),
                     new[] { typeof(int), typeof(float), typeof(double), typeof(bool) }

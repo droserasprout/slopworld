@@ -17,7 +17,6 @@ namespace SlopWorld
 
         const float MaxRotationDegrees = 22f;
 
-        Texture2D _tex;
         Vector2 _hotspot;
         string _builtKey;
         bool _builtGrayscale;
@@ -33,7 +32,7 @@ namespace SlopWorld
         // Skip cursor updates when the frame is unchanged.
         int _shown = -1;
 
-        public bool Ready => _tex != null;
+        public bool Ready => _px != null;
 
         public bool Matches(
             GameCursor.Choice choice,
@@ -55,12 +54,8 @@ namespace SlopWorld
                 return;
             _shown = step;
 
-            if (step <= 0)
-            {
-                Cursor.SetCursor(_tex, _hotspot, CursorMode.Auto);
-                return;
-            }
-
+            // Waylith scales the entire texture to the platform cursor size.
+            // Rest and rotation must use the same padding and hotspot transform.
             if (_spun[step] == null)
                 _spun[step] = BuildRotatedFrame(
                     step * MaxRotationDegrees / CursorAnimation.Steps,
@@ -137,7 +132,6 @@ namespace SlopWorld
 
             _px = px;
 
-            _tex = CreateTexture(CursorSize, px);
             _builtKey = choice.Key;
             _builtGrayscale = grayscale;
             _builtBrightness = brightness;
@@ -206,13 +200,10 @@ namespace SlopWorld
 
         void ClearBuilt()
         {
-            if (_tex != null)
-                Object.Destroy(_tex);
-            _tex = null;
             _px = null;
             _builtKey = null;
             _builtGrayscale = false;
-            for (int i = 1; i < _spun.Length; i++)
+            for (int i = 0; i < _spun.Length; i++)
             {
                 if (_spun[i] != null)
                     Object.Destroy(_spun[i]);

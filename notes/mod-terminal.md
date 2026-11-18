@@ -25,7 +25,8 @@ Native fields receive keys inside the callback. Shift bypasses Alt
 navigation; terminal encoding forwards the unshifted Alt letter/digit.
 Ctrl+Alt letters and control punctuation retain both modifiers; Shift does not add
 a separate modifier to these character shortcuts. Ctrl+V remains reserved for paste.
-Printable input, including punctuation, follows native character events. Polling
+The focused terminal participates in Waylith’s automatic text-input activation so
+printable input, including punctuation, follows native character events. Polling
 physical key state must not synthesize a second text stream.
 Opening a terminal suppresses the opening native key stroke, including its text
 callbacks and repeats across frames. A fresh press starts a new stroke. Focus reset

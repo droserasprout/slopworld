@@ -433,10 +433,10 @@ fn game_argv(executable: &Path, profile: &Path) -> Vec<String> {
 }
 
 /// The mod owns Linux fullscreen through X11/EWMH, including on Wayland desktops.
-/// Waylith reads FORCE_X11 before initializing GLFW and creating the game window.
+/// Waylith selects its windowing backend before creating the game window.
 fn configure_game_window(command: &mut Command, no_window_fix: bool) {
     if cfg!(target_os = "linux") && !no_window_fix {
-        command.env("FORCE_X11", "1");
+        command.env("WAYLITH_BACKEND", "X11");
     }
 }
 

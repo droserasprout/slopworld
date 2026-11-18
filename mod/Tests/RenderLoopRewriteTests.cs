@@ -74,9 +74,7 @@ namespace SlopWorld.Tests
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        static void Poll() => throw new InvalidOperationException("old event poll");
-
-        static void Pump(object loop) => Events.Add("poll");
+        static void Poll() => Events.Add("poll");
 
         static bool Admit(object loop) => _render;
 
@@ -89,8 +87,6 @@ namespace SlopWorld.Tests
             RenderLoopRewrite.Rewrite(
                 code,
                 generator,
-                AccessTools.Method(typeof(RenderLoopRewriteTests), nameof(Poll)),
-                AccessTools.Method(typeof(RenderLoopRewriteTests), nameof(Pump)),
                 AccessTools.Constructor(
                     typeof(Timing),
                     new[] { typeof(int), typeof(float), typeof(double), typeof(bool) }

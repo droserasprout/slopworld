@@ -24,8 +24,8 @@ presentation mode. Eco does not add another foreground pacing policy.
 the engine's main-thread FPS sleeps and render-backlog waits. `RenderSchedule`
 keeps presentation deadlines separate from bounded service wakeups. Window events
 wake the loop immediately, and a full render queue skips capture instead of blocking
-updates. Native event waiting must stay after input-frame reset, because the wait
-itself dispatches callbacks. Skipped capture still runs the native frame finally;
+updates. Waylith owns event dispatch between updates. Request the next wake through
+its platform loop so input can interrupt the service deadline. Skipped capture still runs the native frame finally;
 surface rebuild and minimized-window resource cleanup remain engine-owned.
 The patched loop disables native presentation deadlines: service-only iterations
 must not advance the engine's presentation clock. A zero native deadline keeps

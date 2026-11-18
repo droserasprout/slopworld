@@ -14,8 +14,6 @@ namespace SlopWorld
         internal static IEnumerable<CodeInstruction> Rewrite(
             IEnumerable<CodeInstruction> instructions,
             ILGenerator generator,
-            MethodInfo poll,
-            MethodInfo pump,
             ConstructorInfo timing,
             FieldInfo update,
             MethodInfo admit,
@@ -30,7 +28,6 @@ namespace SlopWorld
             // Keep admission before the entire constructor stack is populated.
             int start = timingIndex - 7;
             int updateIndex = code.FindIndex(i => i.LoadsField(update));
-            int pollIndex = code.FindIndex(i => i.Calls(poll));
             int end = code.FindLastIndex(i => i.opcode == OpCodes.Ret);
             if (
                 timing == null
@@ -47,10 +44,8 @@ namespace SlopWorld
                 || replayGetter.ReturnType != typeof(bool)
                 || replayGetter.GetParameters().Length != 0
                 || !code[start + 6].Calls(replayGetter)
-                || updateIndex <= pollIndex
+                || updateIndex < 0
                 || updateIndex >= start
-                || pollIndex < 0
-                || code.Count(i => i.Calls(poll)) != 1
                 || nextPresent == null
                 || nextPresent.IsStatic
                 || nextPresent.ReturnType != typeof(long)
@@ -90,15 +85,7 @@ namespace SlopWorld
                     yield return new CodeInstruction(OpCodes.Ldc_I8, 0L);
                     continue;
                 }
-                if (instruction.Calls(poll))
-                {
-                    var instance = new CodeInstruction(OpCodes.Ldarg_0);
-                    instance.MoveLabelsFrom(instruction);
-                    instance.MoveBlocksFrom(instruction);
-                    yield return instance;
-                    instruction.operand = pump;
-                }
-                else if (instruction.Calls(throttle))
+                if (instruction.Calls(throttle))
                 {
                     instruction.opcode = OpCodes.Call;
                     instruction.operand = finish;

@@ -123,7 +123,6 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/Links/TerminalLinkService.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/RealClock.Formatting.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/QuitInterceptor.cs" />
-    <Compile Include="../Source/SlopWorld/Sim/Lifecycle/NativeCloseDispatch.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/SaveCoordinator.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/ShutdownSaving.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/LoadFailureRecovery.cs" />

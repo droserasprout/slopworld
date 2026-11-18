@@ -68,38 +68,22 @@ namespace SlopWorld.Tests
         [Test]
         public void SurfaceGeometryRequiresValidMonitorDimensionsAndMatchingUnitySurface()
         {
-            bool SurfaceSized() =>
-                (bool)
-                    typeof(LinuxGameWindow)
-                        .GetMethod("SurfaceSized", PrivateStatic)
-                        .Invoke(null, null);
             int width = Screen.width,
                 height = Screen.height;
-            int monitorWidth = Display.main.systemWidth,
-                monitorHeight = Display.main.systemHeight;
             try
             {
-                Display.main.systemWidth = Screen.width = 1920;
-                Display.main.systemHeight = Screen.height = 1080;
-                Assert.That(SurfaceSized(), Is.True);
-                Screen.height = 1000;
-                Assert.That(SurfaceSized(), Is.False);
-                Screen.height = 1080;
-                Screen.width = 1800;
-                Assert.That(SurfaceSized(), Is.False);
                 Screen.width = 1920;
-                Display.main.systemHeight = 0;
-                Assert.That(SurfaceSized(), Is.False);
-                Display.main.systemHeight = 1080;
-                Display.main.systemWidth = 0;
-                Assert.That(SurfaceSized(), Is.False);
+                Screen.height = 1080;
+                Assert.That(LinuxGameWindow.SurfaceSized((1920, 1080)), Is.True);
+                Assert.That(LinuxGameWindow.SurfaceSized((2560, 1440)), Is.False);
+                Assert.That(LinuxGameWindow.SurfaceSized((1920, 1200)), Is.False);
+                Assert.That(LinuxGameWindow.SurfaceSized((0, 1080)), Is.False);
+                Assert.That(LinuxGameWindow.SurfaceSized((1920, 0)), Is.False);
             }
             finally
             {
                 Screen.width = width;
                 Screen.height = height;
-                Display.main.systemWidth = monitorWidth;
-                Display.main.systemHeight = monitorHeight;
             }
         }
     }

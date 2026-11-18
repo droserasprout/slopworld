@@ -1,6 +1,8 @@
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using HarmonyLib;
 using UnityEngine;
 using Verse;
 using Exception = System.Exception;
@@ -88,19 +90,58 @@ namespace SlopWorld
         // Keep the renderer windowed while the window manager owns fullscreen.
         static bool ResyncSurface()
         {
-            int w = Display.main.systemWidth;
-            int h = Display.main.systemHeight;
-            if (w <= 0 || h <= 0)
+            var (width, height) = MonitorPixels();
+            if (width <= 0 || height <= 0)
                 return false;
-            Screen.SetResolution(w, h, FullScreenMode.Windowed);
+            Screen.SetResolution(width, height, FullScreenMode.Windowed);
             return true;
         }
 
-        static bool SurfaceSized() =>
-            Display.main.systemWidth > 0
-            && Display.main.systemHeight > 0
-            && Screen.width == Display.main.systemWidth
-            && Screen.height == Display.main.systemHeight;
+        // Unity Display.systemWidth now mirrors Screen.width. Read the monitor
+        // independently so a window-sized framebuffer cannot satisfy recovery.
+        static (int Width, int Height) MonitorPixels()
+        {
+            var app = MonitorBinding.Instance.GetValue(null);
+            var monitor = app == null ? null : MonitorBinding.Current.Invoke(app, null);
+            if (monitor == null)
+                return default;
+            var size = MonitorBinding.Size.GetValue(monitor);
+            return (
+                (int)MonitorBinding.Width.GetValue(size),
+                (int)MonitorBinding.Height.GetValue(size)
+            );
+        }
+
+        static class MonitorBinding
+        {
+            static readonly Type Engine = AccessTools.TypeByName("Waylith.EngineApplication");
+            internal static readonly PropertyInfo Instance = AccessTools.Property(
+                Engine,
+                "Instance"
+            );
+            internal static readonly MethodInfo Current = AccessTools.Method(
+                Engine,
+                "CurrentMonitor"
+            );
+            internal static readonly PropertyInfo Size = AccessTools.Property(
+                Current.ReturnType,
+                "Size"
+            );
+            internal static readonly PropertyInfo Width = AccessTools.Property(
+                Size.PropertyType,
+                "Width"
+            );
+            internal static readonly PropertyInfo Height = AccessTools.Property(
+                Size.PropertyType,
+                "Height"
+            );
+        }
+
+        internal static bool SurfaceSized((int Width, int Height) monitor) =>
+            monitor.Width > 0
+            && monitor.Height > 0
+            && Screen.width == monitor.Width
+            && Screen.height == monitor.Height;
 
         // Keep retryable discovery and resize waits distinct from completed or unsupported requests.
         static WindowChange TrySet(bool fullscreen)
@@ -207,13 +248,13 @@ namespace SlopWorld
         )
         {
             bool nativeFullscreen = HasWindowState(display, window, state, fullscreenAtom);
-            if (nativeFullscreen && SurfaceSized())
+            if (nativeFullscreen && SurfaceSized(MonitorPixels()))
             {
                 Recovery.ClearResize();
                 return WindowChange.Applied;
             }
 
-            if (!SurfaceSized())
+            if (!SurfaceSized(MonitorPixels()))
             {
                 // An ADD is a no-op while fullscreen is already set. Leave it before
                 // resizing so the final ADD makes the WM establish monitor geometry again.
@@ -240,7 +281,7 @@ namespace SlopWorld
 
             bool sent = SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero);
             _ = XFlush(display);
-            return Recovery.AwaitFullscreenRecovery(sent, SurfaceSized());
+            return Recovery.AwaitFullscreenRecovery(sent, SurfaceSized(MonitorPixels()));
         }
 
         static bool HasWindowState(IntPtr display, IntPtr window, IntPtr state, IntPtr wanted)
@@ -285,7 +326,10 @@ namespace SlopWorld
         )
         {
             if (Recovery.HasResize)
-                return Recovery.ResyncLanded(Time.realtimeSinceStartup, SurfaceSized())
+                return Recovery.ResyncLanded(
+                    Time.realtimeSinceStartup,
+                    SurfaceSized(MonitorPixels())
+                )
                     ? ResizeStage.Ready
                     : ResizeStage.Waiting;
             if (!ResyncSurface())
