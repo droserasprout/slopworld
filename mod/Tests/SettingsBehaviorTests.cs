@@ -64,12 +64,12 @@ namespace SlopWorld.Tests
         public static void MissingVSyncUsesItsDefaultWithoutChangingOtherPreferencesOrWriting()
         {
             var restored = ModSettings.FromToml(
-                "displayMode = \"limit\"\nforegroundFps = 144\nsmoothScrolling = false\n"
+                "displayMode = \"limit\"\nforegroundFps = 144\nautoConnect = false\n"
             );
             AssertEx.Equal(FramePolicy.Limit, restored.displayMode, "explicit FPS policy retained");
             AssertEx.Equal(false, restored.vsync, "missing toggle uses VSync default");
             AssertEx.Equal(144, restored.foregroundFps, "manual limit retained");
-            AssertEx.Equal(false, restored.smoothScrolling, "unrelated preferences retained");
+            AssertEx.Equal(false, restored.autoConnect, "unrelated preferences retained");
             bool written = false;
             for (int i = 0; i < 120; i++)
                 restored.FlushIfDue(_ => written = true);

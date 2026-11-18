@@ -32,7 +32,6 @@ namespace SlopWorld.Tests
             {
                 CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
                 var settings = ProfileSettings.Load();
-                AssertEx.Equal(true, settings.smoothScrolling, "smooth scrolling default");
                 AssertEx.Equal(
                     VisualEffectsMode.Off,
                     settings.visualEffects,
@@ -69,7 +68,7 @@ namespace SlopWorld.Tests
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
                 AssertEx.Equal(
-                    57,
+                    56,
                     Toml.ParseFlat(saved).Count,
                     "persisted key count excludes runtime state"
                 );
@@ -100,11 +99,6 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(210f, loaded.sidebarWidth, "malformed float default");
                 AssertEx.Equal(0.25f, loaded.sidebarFilesOpenFraction, "missing fraction default");
                 AssertEx.Equal(true, loaded.autoConnect, "malformed boolean default");
-                AssertEx.Equal(
-                    true,
-                    loaded.smoothScrolling,
-                    "older profile enables smooth scrolling"
-                );
                 File.WriteAllText(
                     path,
                     "fontSize = \"17\"\nautoConnect = \"false\"\nsidebarWidth = 210\n"

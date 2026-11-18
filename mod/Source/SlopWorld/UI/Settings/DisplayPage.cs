@@ -98,20 +98,6 @@ namespace SlopWorld
                 out _,
                 "Window scanlines and vignette, surface grain, and cursor dimming."
             );
-
-            UiLayout.SectionHeading(l, "Scrolling");
-            bool smooth = UiControls.Checkbox(
-                l,
-                "Smooth scrolling",
-                S.smoothScrolling,
-                "Use precise touchpad scrolling in terminals, panels, and Markdown. "
-                    + "Turn off to use wheel steps."
-            );
-            if (smooth != S.smoothScrolling)
-            {
-                S.smoothScrolling = smooth;
-                S.MarkDirty();
-            }
         }
 
         static List<FloatMenuOption> FrameOptions()

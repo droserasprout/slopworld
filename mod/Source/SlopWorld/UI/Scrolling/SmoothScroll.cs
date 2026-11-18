@@ -269,7 +269,7 @@ namespace SlopWorld
             // replace only the owner, not the already decoded pixel amount.
             if (!Wheel.HasAmount)
             {
-                var raw = !Settings.SmoothScrolling ? e.delta : Input.mouseScrollDelta;
+                var raw = Input.mouseScrollDelta;
                 Wheel.Amount =
                     new Vector2(PrecisionDelta(e.delta.x, raw.x), PrecisionDelta(e.delta.y, raw.y))
                     * Speed;

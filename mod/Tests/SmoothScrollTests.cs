@@ -14,7 +14,6 @@ namespace SlopWorld.Tests
         public void Reset()
         {
             Time.frameCount++;
-            Settings.S.smoothScrolling = false;
             UiMenu.ScrollBlocked = false;
             Input.mouseScrollDelta = Vector2.zero;
             GUIUtility.Origin = Vector2.zero;
@@ -22,7 +21,6 @@ namespace SlopWorld.Tests
             var clear = new SmoothScroll();
             clear.BeginInput(Bounds, Max);
             clear.EndInput();
-            Settings.S.smoothScrolling = true;
         }
 
         [TearDown]
@@ -99,7 +97,7 @@ namespace SlopWorld.Tests
         }
 
         [Test]
-        public void MenuBlocksWheelClaimsAndDisabledSmoothingUsesLogicalSum()
+        public void MenuBlocksWheelClaimsAndReleasedWheelEventsAccumulate()
         {
             var scroll = new SmoothScroll();
             UiMenu.ScrollBlocked = true;
@@ -108,7 +106,6 @@ namespace SlopWorld.Tests
             Assert.That(scroll.Position.y, Is.Zero);
             Assert.That(Event.current.type, Is.EqualTo(EventType.ScrollWheel));
             UiMenu.ScrollBlocked = false;
-            Settings.S.smoothScrolling = false;
             for (int i = 0; i < 12; i++)
             {
                 Event.current = Wheel(.25f);

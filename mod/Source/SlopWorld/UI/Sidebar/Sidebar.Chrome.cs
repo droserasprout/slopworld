@@ -29,22 +29,29 @@ namespace SlopWorld
             }
         }
 
+        static bool _hasPointerPosition;
+
         static void DrawAdd()
         {
             var r = AddBar;
             // Keep the button lit while its menu is stacked over the pane. The menu owns the
             // press, but the pointer is still visibly over the control that opened it.
-            bool over = ColonistBarStrip.MouseOver(AddHitBar);
+            // Before the first pointer sample, Unity reports the screen origin inside the add strip.
+            Vector2 pointer = Input.mousePosition;
+            _hasPointerPosition |=
+                pointer.x != 0f || pointer.y != 0f || Event.current.rawType == EventType.MouseDown;
+            bool over = _hasPointerPosition && ColonistBarStrip.MouseOver(AddHitBar);
 
             if (over)
                 Slab.GrainedFill(r, UiTheme.Hover);
             else
                 Slab.Fill(r, UiTheme.Panel);
-            TooltipHandler.TipRegion(
-                r,
-                "Add projects, agents, workers, tasks, library items, presets, "
-                    + "commands, and host shells."
-            );
+            if (over)
+                TooltipHandler.TipRegion(
+                    AddHitBar,
+                    "Add projects, agents, workers, tasks, library items, presets, "
+                        + "commands, and host shells."
+                );
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiTheme.Edge);
 
             float d = AddIcon;

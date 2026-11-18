@@ -1,8 +1,8 @@
 # Shared UI scrolling
 
 `UI/Scrolling/` owns `SmoothScroll`, fractional wheel input, scrollbars, and shared
-wheel routing. Native sampling belongs to `UI/Scrolling/Platform/`. The profile's
-Smooth scrolling preference controls native sampling and applies live.
+wheel routing. Each wheel event uses Unity’s fractional mouse delta when it agrees
+with the event direction and magnitude, otherwise it uses the event delta.
 
 Callers must consume wheel input once, preserve nested scroll ownership, and use
 identical viewport clipping for drawing and hit testing. Drag owners respect

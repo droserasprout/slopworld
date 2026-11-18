@@ -12,7 +12,6 @@ namespace SlopWorld.Tests
         Event _event;
         Vector2 _origin;
         Vector2 _raw;
-        bool _smooth;
         bool _blocked;
         int _hot;
 
@@ -23,7 +22,6 @@ namespace SlopWorld.Tests
             _origin = GUIUtility.Origin;
             _hot = GUIUtility.hotControl;
             _raw = Input.mouseScrollDelta;
-            _smooth = Settings.S.smoothScrolling;
             _blocked = UiMenu.ScrollBlocked;
             ClearInput();
         }
@@ -31,7 +29,6 @@ namespace SlopWorld.Tests
         static void ClearInput()
         {
             Time.frameCount++;
-            Settings.S.smoothScrolling = false;
             UiMenu.ScrollBlocked = false;
             GUIUtility.Origin = Vector2.zero;
             GUIUtility.hotControl = 0;
@@ -50,7 +47,6 @@ namespace SlopWorld.Tests
             GUIUtility.Origin = _origin;
             GUIUtility.hotControl = _hot;
             Input.mouseScrollDelta = _raw;
-            Settings.S.smoothScrolling = _smooth;
             UiMenu.ScrollBlocked = _blocked;
         }
 

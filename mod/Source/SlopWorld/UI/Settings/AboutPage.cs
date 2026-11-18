@@ -26,8 +26,6 @@ namespace SlopWorld
         const int SubheadingTextSize = 14;
         const int LeadTextSize = 22;
         const int MetaTextSize = 14;
-        const float AutoScrollSpeed = 10f;
-        const float AutoScrollPause = 3f;
         const float FirstPassHeight = 2000f;
 
         public void Load()
@@ -247,9 +245,8 @@ namespace SlopWorld
         float _contentHeight;
         readonly ContentHeight _height = new ContentHeight(FirstPassHeight);
         readonly AboutRobots _robots = new AboutRobots();
-        int _autoScrollFrame = -1;
-        bool _autoScrollDown = true;
-        float _autoScrollPauseRemaining;
+        int _lastCreditsFrame = -1;
+        readonly CreditsScroll _creditsScroll = new CreditsScroll();
         string _thanksText = "you";
 
         public void Draw(Rect rect)
@@ -286,43 +283,22 @@ namespace SlopWorld
         void ResetAutoScroll()
         {
             _scroll.JumpTo(Vector2.zero);
-            _autoScrollDown = true;
-            _autoScrollPauseRemaining = 0f;
-            _autoScrollFrame = -1;
+            _lastCreditsFrame = -1;
+            _creditsScroll.Reset();
         }
 
         void AdvanceAutoScroll(Rect viewport, float contentHeight)
         {
-            if (Event.current.type != EventType.Repaint || _autoScrollFrame == Time.frameCount)
+            if (Event.current.type != EventType.Repaint || _lastCreditsFrame == Time.frameCount)
                 return;
-            _autoScrollFrame = Time.frameCount;
-
-            float max = Mathf.Max(0f, contentHeight - viewport.height);
-            if (max <= 0f)
-                return;
-
-            // Count only visible credit frames, so hiding the page also pauses the countdown.
-            if (_autoScrollPauseRemaining > 0f)
-            {
-                _autoScrollPauseRemaining = Mathf.Max(
-                    0f,
-                    _autoScrollPauseRemaining - Time.unscaledDeltaTime
-                );
-                return;
-            }
-
-            float direction = _autoScrollDown ? 1f : -1f;
-            float next = Mathf.Clamp(
-                _scroll.Position.y + direction * AutoScrollSpeed * Time.unscaledDeltaTime,
-                0f,
-                max
+            _lastCreditsFrame = Time.frameCount;
+            var position = _scroll.Position;
+            position.y = _creditsScroll.Advance(
+                Time.realtimeSinceStartupAsDouble,
+                position.y,
+                Mathf.Max(0f, contentHeight - viewport.height)
             );
-            _scroll.JumpTo(new Vector2(_scroll.Position.x, next));
-            if ((_autoScrollDown && next >= max) || (!_autoScrollDown && next <= 0f))
-            {
-                _autoScrollDown = !_autoScrollDown;
-                _autoScrollPauseRemaining = AutoScrollPause;
-            }
+            _scroll.JumpTo(position);
         }
 
         float DrawCredits(Rect r)

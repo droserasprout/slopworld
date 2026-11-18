@@ -153,7 +153,6 @@ namespace SlopWorld
         public int foregroundFps = 60;
         public bool vsync;
         public string visualEffects = VisualEffectsMode.Off;
-        public bool smoothScrolling = true;
 
         // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
         public float ecoDim = 0.3f;
@@ -271,7 +270,6 @@ namespace SlopWorld
             Field("ecoMode", (ModSettings s) => ref s.ecoMode, Bool, String),
             Field("vsync", (ModSettings s) => ref s.vsync, Bool, String),
             Field("displayMode", (ModSettings s) => ref s.displayMode, Text, String),
-            Field("smoothScrolling", (ModSettings s) => ref s.smoothScrolling, Bool, String),
             Field("foregroundFps", (ModSettings s) => ref s.foregroundFps, Int, Number),
             Field("ecoDim", (ModSettings s) => ref s.ecoDim, Float, Number),
         };

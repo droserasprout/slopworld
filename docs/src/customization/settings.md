@@ -45,8 +45,7 @@ The limit controls rendering. Keyboard and mouse events, daemon communication,
 and game updates continue between rendered frames. A low limit makes visual
 feedback less frequent, but does not pace typing or send one character per frame.
 
-Disable **Smooth scrolling** if you prefer discrete wheel steps. SlopWorld keeps
-the desktop awake while it runs, even in the background; turn off
+SlopWorld keeps the desktop awake while it runs, even in the background; turn off
 **Window > Inhibit screensaver** to allow normal desktop idle behavior.
 
 Display preferences apply live and are saved with the profile.
