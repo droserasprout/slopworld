@@ -223,6 +223,16 @@ function copyDamageTarget(target) {
 // backing so software Canvas can avoid filtering a stretched multi-pixel source.
 // Weak keys follow immutable upload/tint lifetime; mutable targets never qualify.
 const uniformSources=new WeakMap();
+function paintImmutableUpload(canvas, pixels) {
+  const image = new ImageData(pixels, canvas.width, canvas.height);
+  const paint = () => canvas.getContext('2d').putImageData(image, 0, 0);
+  paint();
+  canvas.addEventListener?.('contextrestored', () => {
+    paint();
+    targetDamage.invalidate();
+    renderRevision++;
+  });
+}
 let uniformImagesEnabled=true;
 export function configureGuiUniformImages(enabled) {
   const previous=uniformImagesEnabled;uniformImagesEnabled=!!enabled;targetDamage.invalidate();renderRevision++;return previous;
@@ -231,7 +241,7 @@ function rememberUniformSource(source,pixels) {
   if(pixels.length>16*16*4 || pixels.length<=4)return;
   for(let i=4;i<pixels.length;i++)if(pixels[i]!==pixels[i%4])return;
   const single=document.createElement('canvas');single.width=1;single.height=1;
-  single.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixels.slice(0,4)),1,1),0,0);
+  paintImmutableUpload(single,pixels.slice(0,4));
   uniformSources.set(source,single);
 }
 let renderRevision=0;
@@ -368,7 +378,7 @@ function renderGuiCommands(canvas, commands) {
         targetDamage.invalidate();
         const source = document.createElement('canvas'); source.width = v.width; source.height = v.height;
         const data = decodeGuiPixels(v.pixels);
-        source.getContext('2d').putImageData(new ImageData(data, v.width, v.height), 0, 0);
+        paintImmutableUpload(source,data);
         rememberUniformSource(source,data);
         const opaqueUniform = data.length <= 16*16*4 && data[3] === 255 && data.every((channel,i) => channel === data[i%4]);
         images.set(v.id, { source, tints: new Map(), pixels: null, generation:++imageGeneration, opaqueUniform }); break;
@@ -381,13 +391,26 @@ function renderGuiCommands(canvas, commands) {
         if (v.color.slice(0,3).some(channel => channel !== 1)) {
           const key = v.color.slice(0,3).join(',');
           if (!entry.tints.has(key)) {
+            // A lost canvas can read back transparent pixels. Wait for
+            // restoration before taking the first persistent tint source.
+            if (!entry.pixels && source.getContext('2d').isContextLost?.()) break;
             const limit = Math.max(1, Math.min(expandedTintCache ? 32 : 16, Math.floor(32 * 1024 * 1024 / (source.width * source.height * 4))));
             if (entry.tints.size >= limit) entry.tints.delete(entry.tints.keys().next().value);
             // Read back once per immutable upload. Using the Canvas round trip
             // retains its premultiplied-alpha quantization from the old path.
             entry.pixels ??= source.getContext('2d').getImageData(0, 0, source.width, source.height).data;
             if(tintProfile){tintProfile.imageMisses++;tintProfile.imagePixels+=source.width*source.height;}
-            entry.tints.set(key, tintImage(source, v.color, entry.pixels));
+            const tinted = tintImage(source, v.color, entry.pixels);
+            // Rebuild derived colors from the upload after their context is
+            // restored; retaining a CPU bitmap per tint would double the cache.
+            tinted.addEventListener?.('contextrestored', () => {
+              if (entry.tints.get(key) === tinted) {
+                entry.tints.delete(key);
+                targetDamage.invalidate();
+                renderRevision++;
+              }
+            });
+            entry.tints.set(key, tinted);
           }
           source = entry.tints.get(key);
           entry.tints.delete(key); entry.tints.set(key, source);
