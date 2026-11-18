@@ -6,6 +6,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
+## [0.1.1] - 2026-11-18
+
+RimWorld build **1.7.5013** is required.
+
+### Fixed
+
+- Jukebox: Fixed a music playback error when loading a save.
+- Settings: Fixed credits wrapping on the About tab.
+- Settings: Fixed extensive redraw work when scrolling sandbox previews.
+- UI: Fixed dialog controls ignoring clicks outside scrolling text areas.
+
+### Changed
+
+- Jukebox: Use buffered Pulse output on Linux.
+
 ## [0.1.0] - 2026-11-11
 
 ### Breaking changes
@@ -429,7 +444,8 @@ Initial release 🐈
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/droserasprout/slopworld/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/droserasprout/slopworld/compare/v0.0.14...v0.1.0
 [0.0.14]: https://github.com/droserasprout/slopworld/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/droserasprout/slopworld/compare/v0.0.12...v0.0.13

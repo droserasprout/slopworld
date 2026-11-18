@@ -36,20 +36,20 @@ and does not identify which crates are included in a particular binary.
 | block-buffer | 0.10.4 | MIT OR Apache-2.0 |
 | block2 | 0.6.2 | MIT |
 | bstr | 1.13.1 | MIT OR Apache-2.0 |
-| bumpalo | 3.20.3 | MIT OR Apache-2.0 |
+| bumpalo | 3.20.4 | MIT OR Apache-2.0 |
 | bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT |
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
-| bytes | 1.12.1 | MIT |
-| cc | 1.11.1 | MIT OR Apache-2.0 |
+| bytes | 1.12.2 | MIT |
+| cc | 1.11.2 | MIT OR Apache-2.0 |
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
-| clap | 4.6.7 | MIT OR Apache-2.0 |
+| clap | 4.6.8 | MIT OR Apache-2.0 |
 | clap_builder | 4.6.7 | MIT OR Apache-2.0 |
-| clap_complete | 4.6.11 | MIT OR Apache-2.0 |
-| clap_derive | 4.6.7 | MIT OR Apache-2.0 |
-| clap_lex | 1.1.1 | MIT OR Apache-2.0 |
+| clap_complete | 4.6.12 | MIT OR Apache-2.0 |
+| clap_derive | 4.6.8 | MIT OR Apache-2.0 |
+| clap_lex | 1.1.2 | MIT OR Apache-2.0 |
 | color_quant | 1.1.0 | MIT |
 | colorchoice | 1.0.5 | MIT OR Apache-2.0 |
 | combine | 4.6.9 | MIT |
@@ -79,7 +79,7 @@ and does not identify which crates are included in a particular binary.
 | enumflags2 | 0.7.12 | MIT OR Apache-2.0 |
 | enumflags2_derive | 0.7.12 | MIT OR Apache-2.0 |
 | equivalent | 1.0.3 | Apache-2.0 OR MIT |
-| errno | 0.3.14 | MIT OR Apache-2.0 |
+| errno | 0.3.15 | MIT OR Apache-2.0 |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT |
 | fdeflate | 0.3.7 | MIT OR Apache-2.0 |
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
@@ -128,10 +128,10 @@ and does not identify which crates are included in a particular binary.
 | is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |
 | itertools | 0.15.0 | MIT OR Apache-2.0 |
 | itoa | 1.0.19 | MIT OR Apache-2.0 |
-| jiff | 0.2.43 | Unlicense OR MIT |
-| jiff-core | 0.1.5 | Unlicense OR MIT |
-| jiff-static | 0.2.43 | Unlicense OR MIT |
-| jiff-tzdb | 0.1.9 | Unlicense OR MIT |
+| jiff | 0.2.46 | Unlicense OR MIT |
+| jiff-core | 0.1.8 | Unlicense OR MIT |
+| jiff-static | 0.2.46 | Unlicense OR MIT |
+| jiff-tzdb | 0.1.10 | Unlicense OR MIT |
 | jiff-tzdb-platform | 0.1.3 | Unlicense OR MIT |
 | jni | 0.21.1 | MIT/Apache-2.0 |
 | jni-sys | 0.3.1 | MIT OR Apache-2.0 |
@@ -156,7 +156,7 @@ and does not identify which crates are included in a particular binary.
 | mime | 0.3.18 | MIT OR Apache-2.0 |
 | miniz_oxide | 0.8.9 | MIT OR Zlib OR Apache-2.0 |
 | miniz_oxide | 0.9.1 | MIT OR Zlib OR Apache-2.0 |
-| mio | 1.2.4 | MIT |
+| mio | 1.2.5 | MIT |
 | miow | 0.6.1 | MIT OR Apache-2.0 |
 | moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 |
 | multimap | 0.10.1 | MIT OR Apache-2.0 |
@@ -202,10 +202,10 @@ and does not identify which crates are included in a particular binary.
 | prettyplease | 0.3.0 | MIT OR Apache-2.0 |
 | proc-macro-crate | 3.5.0 | MIT OR Apache-2.0 |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
-| prost | 0.14.5 | Apache-2.0 |
-| prost-build | 0.14.5 | Apache-2.0 |
-| prost-derive | 0.14.5 | Apache-2.0 |
-| prost-types | 0.14.5 | Apache-2.0 |
+| prost | 0.14.6 | Apache-2.0 |
+| prost-build | 0.14.6 | Apache-2.0 |
+| prost-derive | 0.14.6 | Apache-2.0 |
+| prost-types | 0.14.6 | Apache-2.0 |
 | pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 |
 | quick-error | 2.0.1 | MIT/Apache-2.0 |
 | quote | 1.0.47 | MIT OR Apache-2.0 |
@@ -215,16 +215,16 @@ and does not identify which crates are included in a particular binary.
 | rand_core | 0.6.4 | MIT OR Apache-2.0 |
 | redox_syscall | 0.5.18 | MIT |
 | redox_users | 0.4.6 | MIT |
-| regex | 1.13.1 | MIT OR Apache-2.0 |
-| regex-automata | 0.4.18 | MIT OR Apache-2.0 |
-| regex-syntax | 0.8.11 | MIT OR Apache-2.0 |
+| regex | 1.13.2 | MIT OR Apache-2.0 |
+| regex-automata | 0.4.19 | MIT OR Apache-2.0 |
+| regex-syntax | 0.8.12 | MIT OR Apache-2.0 |
 | ring | 0.17.14 | Apache-2.0 AND ISC |
 | rodio | 0.22.2 | MIT OR Apache-2.0 |
 | rustix | 1.1.6 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | rustix-openpty | 0.2.0 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | rustls | 0.23.46 | Apache-2.0 OR ISC OR MIT |
 | rustls-pki-types | 1.16.0 | MIT OR Apache-2.0 |
-| rustls-webpki | 0.103.16 | ISC |
+| rustls-webpki | 0.103.17 | ISC |
 | rustversion | 1.0.23 | MIT OR Apache-2.0 |
 | ryu | 1.0.23 | Apache-2.0 OR BSL-1.0 |
 | same-file | 1.0.6 | Unlicense/MIT |
@@ -244,7 +244,7 @@ and does not identify which crates are included in a particular binary.
 | simd-adler32 | 0.3.10 | MIT |
 | simdutf8 | 0.1.5 | MIT OR Apache-2.0 |
 | slab | 0.4.12 | MIT |
-| smallvec | 1.16.5 | MIT OR Apache-2.0 |
+| smallvec | 1.16.6 | MIT OR Apache-2.0 |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 |
 | strsim | 0.11.1 | MIT |
@@ -294,7 +294,7 @@ and does not identify which crates are included in a particular binary.
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | unicode-width | 0.2.3 | MIT OR Apache-2.0 |
 | untrusted | 0.9.0 | ISC |
-| ureq | 3.5.1 | MIT OR Apache-2.0 |
+| ureq | 3.5.2 | MIT OR Apache-2.0 |
 | ureq-proto | 0.7.1 | MIT OR Apache-2.0 |
 | url | 2.5.8 | MIT OR Apache-2.0 |
 | utf-8 | 0.7.6 | MIT OR Apache-2.0 |
@@ -302,7 +302,7 @@ and does not identify which crates are included in a particular binary.
 | utf8_iter | 1.1.0 | Apache-2.0 OR MIT |
 | utf8parse | 0.2.2 | Apache-2.0 OR MIT |
 | utf_types | 1.0.0 | Apache-2.0 OR MIT |
-| uuid | 1.29.2 | Apache-2.0 OR MIT |
+| uuid | 1.29.3 | Apache-2.0 OR MIT |
 | valuable | 0.1.1 | MIT |
 | version_check | 0.9.5 | MIT/Apache-2.0 |
 | vte | 0.15.0 | Apache-2.0 OR MIT |
@@ -367,7 +367,7 @@ and does not identify which crates are included in a particular binary.
 | zerocopy-derive | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |
 | zerofrom | 0.1.8 | Unicode-3.0 |
 | zerofrom-derive | 0.1.8 | Unicode-3.0 |
-| zeroize | 1.9.1 | Apache-2.0 OR MIT |
+| zeroize | 1.9.2 | Apache-2.0 OR MIT |
 | zerotrie | 0.2.5 | Unicode-3.0 |
 | zerovec | 0.11.9 | Unicode-3.0 |
 | zerovec-derive | 0.11.7 | Unicode-3.0 |
