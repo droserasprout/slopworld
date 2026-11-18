@@ -12,13 +12,29 @@ static class Check
             throw new Exception(message);
     }
 
-    static void Main()
+    static void Main(string[] args)
     {
         JobsPatchFixture.Check();
         ScalePatchFixture.Check();
         EcoPrefixFixture.Check();
         SteamCallbackFixture.Check();
         CheckWindowPatch();
+        // Exercise the staged clipboard contract against the freshly compiled mod.
+        // Cecil reads both products as metadata without loading Unity or the game.
+        using (var mod = AssemblyDefinition.ReadAssembly(args[0]))
+        {
+            BrowserClipboardPatch.Apply(mod, args[1]);
+            var getter = mod
+                .MainModule.GetType("SlopWorld.DesktopClipboard")
+                .Properties.Single(p => p.Name == "UsesLinuxSelections")
+                .GetMethod;
+            Expect(
+                getter.Body.Instructions[0].Operand is MethodReference call
+                    && call.DeclaringType.FullName == "BrowserAdapters.BrowserClipboard"
+                    && call.Name == getter.Name,
+                "Clipboard selection policy did not reach the browser adapter"
+            );
+        }
         string saved = "";
         BrowserPreferences.Persist = json => saved = json;
         var settings = new ModSettings

@@ -70,9 +70,10 @@ web-test: web-host-build web-host-test web-test-runtime
 
 # Managed and Node contracts; no installed game or browser required.
 [group('web')]
-web-test-runtime:
+web-test-runtime: (mod-build "rimref")
     dotnet build slopweb/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
-    for project in AudioTests ClipboardTests DispatchTests ImageTests InputTests PreferencesTests StartupTests UnderlyingTests WorkspaceFrameTests; do dotnet run --project "slopweb/tests/runtime/$project/$project.csproj" -c Release -p:RestoreLockedMode=true; done
+    for project in AudioTests ClipboardTests DispatchTests ImageTests InputTests StartupTests UnderlyingTests WorkspaceFrameTests; do dotnet run --project "slopweb/tests/runtime/$project/$project.csproj" -c Release -p:RestoreLockedMode=true; done
+    dotnet run --project slopweb/tests/runtime/PreferencesTests/PreferencesTests.csproj -c Release -p:RestoreLockedMode=true -- mod/Assemblies/SlopWorld.dll slopweb/runtime/Adapters/bin/Debug/net10.0
     dotnet run --project slopweb/tests/runtime/CommandTests/CommandTests.csproj -c Release -p:RestoreLockedMode=true -- --quad-fixture slopweb/tests/runtime/CommandTests/bin/quad-fixture.json
     GUI_QUAD_FIXTURE=slopweb/tests/runtime/CommandTests/bin/quad-fixture.json node --test slopweb/tests/browser/*.test.mjs
 
