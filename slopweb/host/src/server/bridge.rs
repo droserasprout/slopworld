@@ -84,19 +84,20 @@ fn target(endpoint: &url::Url, route: &str) -> Option<url::Url> {
     {
         return None;
     }
-    // Decode before checking so encoded credential keys and dot segments cannot
-    // evade admission. URL joining then applies the same normalization as upstream.
-    let decoded = percent_encoding::percent_decode_str(route)
+    // Search terms and filenames can contain credential-like text as data.
+    percent_encoding::percent_decode_str(query)
         .decode_utf8()
         .ok()?;
-    let lower = decoded.to_ascii_lowercase();
-    if ["token=", "credential=", "authorization="]
-        .iter()
-        .any(|key| lower.contains(key))
-    {
+    if url::form_urlencoded::parse(query.as_bytes()).any(|(name, _)| {
+        ["token", "credential", "authorization"]
+            .iter()
+            .any(|key| name.eq_ignore_ascii_case(key))
+    }) {
         return None;
     }
-    let decoded_path = decoded.split('?').next()?;
+    let decoded_path = percent_encoding::percent_decode_str(path)
+        .decode_utf8()
+        .ok()?;
     if decoded_path.contains('\\')
         || decoded_path
             .split('/')
