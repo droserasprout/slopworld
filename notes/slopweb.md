@@ -174,8 +174,9 @@ Launch prints preparation results before its URL.
 
 Host font preparation writes outlines and native loader settings, never glyph images.
 The Rust service persists content-addressed standalone faces, cmap coverage and
-Fontconfig ordering independently of application builds. Source and configuration
-identities invalidate discovery; unchanged faces reuse coverage. A .NET helper reads
+Fontconfig ordering independently of application builds. Directory changes trigger
+discovery. The service rechecks Fontconfig's inventory before publishing, and source
+and configuration file identities determine the generation. Unchanged faces reuse coverage. A .NET helper reads
 native loader flags only when its game/helper identity changes, outside glyph requests.
 The browser fetches the index for each selected family, chooses coverage locally,
 and downloads only required immutable files. Fallback chains retain Fontconfig's

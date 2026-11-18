@@ -107,7 +107,7 @@ pub(super) fn inventory() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
             files.push(PathBuf::from(path));
         }
     }
-    files.sort_by_key(|p| p.to_string_lossy().to_lowercase());
+    files.sort_unstable();
     files.dedup();
     let mut watches = Vec::new();
     let config = call!("FcConfigGetCurrent", unsafe extern "C" fn() -> Ptr);
@@ -140,6 +140,8 @@ pub(super) fn inventory() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
         }
         call!("FcStrListDone", unsafe extern "C" fn(Ptr), list);
     }
+    watches.sort_unstable();
+    watches.dedup();
     Ok((files, watches))
 }
 pub(super) fn order(family: &str) -> Result<Vec<String>> {
