@@ -477,7 +477,7 @@ async fn cancellation_during_allocation_rolls_back_checkout_and_registration() {
 
 #[test]
 fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default() {
-    use crate::config::{ProjectCfg, WorkerAccess, WorkerPolicy};
+    use crate::config::{ProjectCfg, WorkerPolicy};
     let cfg = Config {
         projects: vec![ProjectCfg {
             name: "repo".into(),
@@ -517,12 +517,10 @@ fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default
     .unwrap()
     .session;
     assert_eq!(first.parent_id, "stable-parent");
-    assert_eq!(first.parent_access, WorkerAccess::default());
     assert!(!first.workers.enabled);
     let policy = WorkerPolicy {
         enabled: true,
         recursive: true,
-        access: WorkerAccess::all(),
         all_templates: false,
         templates: ["review".into()].into(),
     };
@@ -533,7 +531,6 @@ fn spawn_captures_policy_intersection_and_blocks_recursive_delegation_by_default
         crate::config::AgentPermissions::default(),
         "worker authority is its own policy"
     );
-    assert_eq!(second.workers.access, WorkerAccess::default());
     assert!(!second.workers.all_templates);
     assert_eq!(second.workers.templates, policy.templates);
     assert!(

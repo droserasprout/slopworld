@@ -1,14 +1,14 @@
 use super::*;
 use crate::application::test_support::Fixture;
 
-fn worker(id: &str, planner: &str) -> Task {
+fn worker(id: &str) -> Task {
     Task {
         id: id.into(),
         from: crate::tasks::HOST.into(),
         to: "worker".into(),
         from_id: crate::tasks::HOST.into(),
         to_id: "0123456789abcdef".into(),
-        body: format!("{}\nWork order", marker(planner)),
+        body: "Work order".into(),
         status: crate::tasks::Status::Failed,
         note: Some("Failed".into()),
         history: vec![],
@@ -24,7 +24,7 @@ fn worker(id: &str, planner: &str) -> Task {
 }
 
 #[tokio::test]
-async fn removing_implicit_links_does_not_resurrect_failed_tasks_after_reopening() {
+async fn removing_explicit_links_does_not_resurrect_failed_tasks_after_reopening() {
     let fixture = Fixture::new();
     let path = fixture.root.join("TODO.txt");
     let store = Store::new(path.clone());
@@ -34,7 +34,8 @@ async fn removing_implicit_links_does_not_resurrect_failed_tasks_after_reopening
         .unwrap();
     let id = document.items[0].id.clone();
     let text = document.text.clone();
-    let tasks = vec![worker("task-1", &id)];
+    let tasks = vec![worker("task-1")];
+    store.link_worker(&id, &tasks[0]).await.unwrap();
     let projected = store.project_links(document, &tasks).await.unwrap();
     assert_eq!(projected.text, text);
     assert_eq!(projected.items[0].links.len(), 2);
@@ -63,7 +64,6 @@ async fn removing_implicit_links_does_not_resurrect_failed_tasks_after_reopening
         .await
         .unwrap();
     assert!(document.items[0].links.is_empty());
-    assert!(document.items[0].task_id.is_empty());
 }
 
 #[tokio::test]
@@ -72,9 +72,9 @@ async fn spawning_appends_both_links_and_failed_writes_preserve_previous_links()
     let store = Store::new(fixture.root.join("TODO.txt"));
     let document = store.save("Fix bug".into(), revision("")).await.unwrap();
     let id = document.items[0].id.clone();
-    let task = worker("task-1", &id);
-    store.link_worker(&id, &task, &[]).await.unwrap();
-    store.link_worker(&id, &task, &[]).await.unwrap();
+    let task = worker("task-1");
+    store.link_worker(&id, &task).await.unwrap();
+    store.link_worker(&id, &task).await.unwrap();
     let projected = store
         .project_links(store.read().await.unwrap(), std::slice::from_ref(&task))
         .await
@@ -98,10 +98,7 @@ async fn spawning_appends_both_links_and_failed_writes_preserve_previous_links()
         .unwrap();
     assert_eq!(projected.items[0].links.len(), 2);
     store.save(String::new(), document.revision).await.unwrap();
-    store
-        .link_worker(&id, &worker("task-2", &id), &[])
-        .await
-        .unwrap_err();
+    store.link_worker(&id, &worker("task-2")).await.unwrap_err();
 }
 
 #[tokio::test]
@@ -110,8 +107,8 @@ async fn live_task_status_is_projected_without_changing_stored_link_revisions() 
     let store = Store::new(fixture.root.join("TODO.txt"));
     let document = store.save("Review".into(), revision("")).await.unwrap();
     let id = document.items[0].id.clone();
-    let mut task = worker("task-1", &id);
-    store.link_worker(&id, &task, &[]).await.unwrap();
+    let mut task = worker("task-1");
+    store.link_worker(&id, &task).await.unwrap();
     let path = store.links_path(&id).unwrap();
     let before = tokio::fs::read_to_string(&path).await.unwrap();
     let stored: serde_json::Value = serde_json::from_str(&before).unwrap();
@@ -145,9 +142,9 @@ async fn invalid_links_never_replace_accepted_associations_and_corruption_is_rep
     let store = Store::new(fixture.root.join("TODO.txt"));
     let document = store.save("Review".into(), revision("")).await.unwrap();
     let id = &document.items[0].id;
-    let task = worker("task-1", id);
+    let task = worker("task-1");
     let tasks = [task];
-    store.link_worker(id, &tasks[0], &[]).await.unwrap();
+    store.link_worker(id, &tasks[0]).await.unwrap();
     let projected = store
         .project_links(store.read().await.unwrap(), &tasks)
         .await
@@ -190,7 +187,7 @@ async fn invalid_links_never_replace_accepted_associations_and_corruption_is_rep
 }
 
 #[tokio::test]
-async fn completed_rows_and_missing_legacy_tasks_project_without_mutating_backlog() {
+async fn completed_rows_without_link_files_have_no_associations() {
     let fixture = Fixture::new();
     let store = Store::new(fixture.root.join("TODO.txt"));
     let document = store
@@ -206,8 +203,7 @@ async fn completed_rows_and_missing_legacy_tasks_project_without_mutating_backlo
         .unwrap();
     assert_eq!(projected.text, document.text);
     assert_eq!(projected.items[0].status, "complete");
-    assert_eq!(projected.items[0].links[0].status, "unavailable");
-    assert_eq!(projected.items[0].links[0].reference.id, "missing");
+    assert!(projected.items[0].links.is_empty());
     assert!(projected.items[1].status.is_empty());
     store
         .save_links(

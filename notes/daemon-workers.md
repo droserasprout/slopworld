@@ -68,8 +68,7 @@ the child template may narrow inherited delegation, permissions, and template se
 The daemon owns only the shared initial worker prompt. Spawn captures the parent
 state ID and the child’s initial policy.
 `config/permissions.rs` owns current CLI/API action scopes. Permission edits apply to
-existing workers immediately. Parent identity remains captured; relationship flags
-are legacy input only. Worker spawning and template restrictions remain independent.
+existing workers immediately. Parent identity remains captured. Worker spawning and template restrictions remain independent.
 
 `session/caps.rs` checks current caller policy. Own workers means direct children;
 project agents excludes host terminals. The root-only worker editor updates the

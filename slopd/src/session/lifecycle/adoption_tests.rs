@@ -650,7 +650,6 @@ fn temporary_worker_recovery_keeps_captured_relationship_and_delegation_policy()
         worker: true,
         parent: "parent".into(),
         parent_id: "1111111111111111".into(),
-        parent_access: crate::config::WorkerAccess::none(),
         ..Default::default()
     };
     child.workers.enabled = false;
@@ -667,7 +666,6 @@ fn temporary_worker_recovery_keeps_captured_relationship_and_delegation_policy()
     };
     let recovered = recovered_worker_cfg(&Config::default(), "child", &metadata).unwrap();
     assert_eq!(recovered.parent_id, child.parent_id);
-    assert_eq!(recovered.parent_access, child.parent_access);
     assert_eq!(recovered.workers, child.workers);
     assert!(recovered.daemon_token.is_none());
 }

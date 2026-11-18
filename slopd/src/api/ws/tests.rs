@@ -179,8 +179,7 @@ async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change()
                 stop_token: None,
                 selection: Some(Some(AudioSelection {
                     ncspot: true,
-                    file: Some("/tmp/song.mp3".into()),
-                    station: None,
+                    station: Some("radio".into()),
                     stream: None,
                 })),
                 volume: 0.42,
@@ -1950,10 +1949,6 @@ async fn open_socket_filters_terminal_events_after_relationship_downgrade_and_re
                 worker: true,
                 parent: "parent".into(),
                 parent_id: "1111111111111111".into(),
-                parent_access: WorkerAccess {
-                    terminal: true,
-                    ..WorkerAccess::none()
-                },
                 ..Default::default()
             },
         ],

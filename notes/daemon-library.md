@@ -19,10 +19,7 @@ Prompts supply reusable text; errands also require a host or template.
 Text-only Prompts need no project. File actions execute on the daemon host through
 `files/actions/`.
 `config/library.rs` owns the directory classification shared by catalog discovery and
-storage target admission, including Timers. Catalog discovery also reads legacy
-`breadcrumbs/` entries as Prompts and watches their revisions. The next Library
-transaction writes canonical prompt files and retires legacy files in the same journal;
-duplicate names fail validation without overwriting either entry.
+storage target admission, including Timers.
 `prompt/` owns Library lookup and contextual composition for manual, startup, and
 scheduled input: inserted values are literal and never scanned again. Session adapters
 resolve the target project/worktree before composition. Without client-supplied tips,

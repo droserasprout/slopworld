@@ -782,7 +782,6 @@ async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient
                 SessionCfg {
                     name: "worker".into(),
                     worker: true,
-                    parent_access: access,
                     ..Default::default()
                 },
             ],
@@ -863,7 +862,7 @@ async fn parent_worker_cancellation_requires_supervision_and_preserves_recipient
 
 #[tokio::test]
 async fn relationship_edits_persist_without_changing_parent_policy_and_reject_legacy_binding() {
-    use crate::config::{AgentPermissions, Config, SessionCfg, WorkerAccess};
+    use crate::config::{AgentPermissions, Config, SessionCfg};
     let manager = crate::application::test_application(Config {
         sessions: vec![
             SessionCfg {
@@ -913,8 +912,8 @@ async fn relationship_edits_persist_without_changing_parent_policy_and_reject_le
         .unwrap();
     assert!(cfg.session("child").unwrap().permissions.worktrees);
     assert_eq!(
-        cfg.session("parent").unwrap().workers.access,
-        WorkerAccess::default()
+        cfg.session("parent").unwrap().permissions,
+        AgentPermissions::default()
     );
     assert!(
         workers
@@ -961,15 +960,8 @@ async fn followup_rejects_missing_or_stale_root_generation_before_preparing_deli
 
 #[tokio::test]
 async fn followup_destination_preserves_identity_and_missing_worker_errors() {
-    use crate::config::{Config, SessionCfg, WorkerAccess};
+    use crate::config::{Config, SessionCfg};
     use crate::tasks::WorkerTask;
-    let bits = 15;
-    let access = WorkerAccess {
-        followup: bits & 1 != 0,
-        cancel: bits & 2 != 0,
-        terminal: bits & 4 != 0,
-        lifecycle: bits & 8 != 0,
-    };
     let manager = crate::application::test_application(Config {
         sessions: vec![
             SessionCfg {
@@ -979,7 +971,6 @@ async fn followup_destination_preserves_identity_and_missing_worker_errors() {
             SessionCfg {
                 name: "worker".into(),
                 worker: true,
-                parent_access: access,
                 ..Default::default()
             },
         ],

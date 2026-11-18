@@ -4,7 +4,6 @@ use serde::Deserialize;
 
 /// A jukebox request. Omit `selection` to change only the volume. Use null to stop playback.
 /// Select a catalog entry with a station ID and stream key, or ncspot.
-/// Legacy file selections are decoded but rejected: the game owns soundtrack playback.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AudioReq {
@@ -16,13 +15,12 @@ pub(crate) struct AudioReq {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct AudioSelection {
     #[serde(default)]
     pub(crate) station: Option<String>,
     #[serde(default)]
     pub(crate) stream: Option<String>,
-    #[serde(default)]
-    pub(crate) file: Option<String>,
     #[serde(default)]
     pub(crate) ncspot: bool,
 }
@@ -38,16 +36,10 @@ where
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum AudioSource {
-    File(String),
-    Station { station: String, stream: String },
-}
-
-#[derive(Debug, PartialEq, Eq)]
 pub(super) enum Change {
     Volume,
     Stop,
-    Audio(AudioSource),
+    Station { station: String, stream: String },
     Spotify,
 }
 
@@ -68,19 +60,14 @@ impl AudioReq {
         };
         if selection.ncspot {
             anyhow::ensure!(
-                selection.station.is_none()
-                    && selection.stream.is_none()
-                    && selection.file.is_none(),
+                selection.station.is_none() && selection.stream.is_none(),
                 "Select ncspot or another audio source, not both."
             );
             return Ok(Change::Spotify);
         }
-        match (selection.station, selection.stream, selection.file) {
-            (Some(station), Some(stream), None) => {
-                Ok(Change::Audio(AudioSource::Station { station, stream }))
-            }
-            (None, None, Some(file)) => Ok(Change::Audio(AudioSource::File(file))),
-            _ => bail!("Select a station and stream, or select a file."),
+        match (selection.station, selection.stream) {
+            (Some(station), Some(stream)) => Ok(Change::Station { station, stream }),
+            _ => bail!("Select a station and stream."),
         }
     }
 }

@@ -63,12 +63,6 @@ impl HostSessions for TestSessions {
     }
 }
 
-#[test]
-fn resolve_audio_rejects_soundtrack_files() {
-    let error = resolve_audio_source(AudioSource::File("/tmp/song.mp3".into())).unwrap_err();
-    assert!(error.to_string().contains("belongs to the game"));
-}
-
 #[tokio::test]
 async fn transports_cannot_bypass_the_music_transition_gate() {
     let owner = crate::test_support::TmuxSocket::new();
@@ -174,7 +168,7 @@ async fn invalid_selection_and_missing_station_leave_managed_player_running() {
     let root = crate::test_support::fixture("music-invalid");
     music.recover_ncspot(&sessions, &root).await;
     for json in [
-        r#"{"volume":0.5,"selection":{"ncspot":true,"file":"song"}}"#,
+        r#"{"volume":0.5,"selection":{"ncspot":true,"station":"radio"}}"#,
         r#"{"volume":0.5,"selection":{"stream":"orphan"}}"#,
         r#"{"volume":0.5,"selection":{"station":"nonexistent-refactor-fixture","stream":"missing"}}"#,
     ] {
@@ -363,16 +357,8 @@ fn station_selection_resolves_catalog_keys_before_playback() {
     .unwrap();
     crate::jukebox::reload().unwrap();
     assert_eq!(
-        resolve_audio_source(AudioSource::Station {
-            station: "fixture".into(),
-            stream: "high".into()
-        })
-        .unwrap(),
+        resolve_station("fixture", "high").unwrap(),
         "https://example.invalid/stream"
     );
-    resolve_audio_source(AudioSource::Station {
-        station: "fixture".into(),
-        stream: "missing".into(),
-    })
-    .unwrap_err();
+    resolve_station("fixture", "missing").unwrap_err();
 }

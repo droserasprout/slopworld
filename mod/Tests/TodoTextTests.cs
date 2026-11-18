@@ -112,7 +112,6 @@ namespace SlopWorld.Tests
             Assert.That(entry.Contexts, Is.EqualTo("coding"));
             Assert.That(entry.DueDate, Is.EqualTo(new DateTime(2026, 11, 1)));
             Assert.That(entry.Id, Is.EqualTo(Id));
-            Assert.That(entry.TaskId, Is.EqualTo("task-1"));
         }
 
         public static void FieldEditsKeepUnknownMetadataOtherLinesAndLineEndings()
@@ -181,7 +180,6 @@ namespace SlopWorld.Tests
             Assert.That(updated.CompletedOn, Is.EqualTo("2026-10-20"));
             Assert.That(updated.Title, Is.EqualTo("New title"));
             Assert.That(updated.Priority, Is.EqualTo("B"));
-            Assert.That(updated.TaskId, Is.EqualTo("task-1"));
         }
 
         public static void MetadataCannotBeInjectedThroughEditableTaskFields()
@@ -265,7 +263,6 @@ namespace SlopWorld.Tests
                 Assert.That(parsed.Title, Is.EqualTo(title));
                 Assert.That(parsed.Completed, Is.False);
                 Assert.That(parsed.Priority, Is.EqualTo(""));
-                Assert.That(parsed.TaskId, Is.EqualTo("pending"));
             }
         }
 
@@ -283,7 +280,6 @@ namespace SlopWorld.Tests
             Assert.That(completed.Title, Is.EqualTo("(A) is a label"));
             Assert.That(completed.Priority, Is.Empty);
             Assert.That(completed.Completed, Is.True);
-            Assert.That(completed.TaskId, Is.EqualTo("pending"));
         }
 
         public static void EditingAFieldPreservesTrailingUserWhitespace()

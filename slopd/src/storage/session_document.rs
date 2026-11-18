@@ -39,7 +39,6 @@ pub(super) const AGENT: &[&str] = &[
     "workers",
     "permissions",
     "parent_id",
-    "parent_access",
     "worker",
     "parent",
     "task_id",
@@ -75,13 +74,7 @@ const SANDBOX: &[&str] = &[
 ];
 const LIMITS: &[&str] = &["memory_mb", "pids", "nofile", "cpu_pct"];
 const DNS: &[&str] = &["mode", "servers"];
-const WORKERS: &[&str] = &[
-    "enabled",
-    "templates",
-    "all_templates",
-    "access",
-    "recursive",
-];
+const WORKERS: &[&str] = &["enabled", "templates", "all_templates", "recursive"];
 
 // Field metadata stays explicit because disk extension lifetimes are not part of
 // the API model. Tests compare every known-key set to Serde's complete field list,

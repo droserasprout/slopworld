@@ -26,7 +26,6 @@ pub(crate) struct Item {
     pub line: u32,
     pub id: String,
     pub text: String,
-    pub task_id: String,
     pub status: String,
     pub links: Vec<Link>,
     pub links_revision: String,
@@ -127,7 +126,6 @@ fn items(text: &str) -> Result<Vec<Item>> {
                 line: u32::try_from(line).context("Too many task lines")?,
                 id: id.into(),
                 text: text.into(),
-                task_id: field(text, "sw-task:")?.into(),
                 links: Vec::new(),
                 links_revision: String::new(),
                 status: if text.starts_with("x ") {
@@ -153,9 +151,6 @@ fn assign_ids(text: &str) -> Result<String> {
     }
     validate_size(&output)?;
     Ok(output)
-}
-fn marker(id: &str) -> String {
-    format!("SlopWorld TODO item: {id}")
 }
 #[cfg(test)]
 #[path = "store_tests.rs"]

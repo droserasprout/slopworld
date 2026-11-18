@@ -137,9 +137,9 @@ fn audio_output_patch_preserves_other_settings_and_reset_restores_automatic() {
 }
 
 #[test]
-fn saved_pipewire_backend_loads_as_pulse_and_serializes_canonical_name() {
+fn pulse_backend_round_trips() {
     let settings: AudioOutputSettings =
-        toml::from_str("backend = 'pipewire'\ndevice = 'pipewire'\n").unwrap();
+        toml::from_str("backend = 'pulse'\ndevice = 'pipewire'\n").unwrap();
     assert_eq!(settings.backend, AudioBackend::Pulse);
     let encoded = toml::to_string(&settings).unwrap();
     assert!(encoded.contains("backend = \"pulse\""));

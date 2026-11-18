@@ -38,7 +38,7 @@ async fn music_poll_publishes_only_changed_snapshots() {
     services.publish_music_if_changed(&mut last).await;
     let event = events.try_recv().unwrap();
     assert!(
-        matches!(event.event(), crate::application::Event::Audio { audio } if audio.error.as_deref() == Some("Select a station and stream, or select a file."))
+        matches!(event.event(), crate::application::Event::Audio { audio } if audio.error.as_deref() == Some("Select a station and stream."))
     );
     services.publish_music_if_changed(&mut last).await;
     assert!(matches!(

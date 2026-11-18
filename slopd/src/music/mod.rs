@@ -9,7 +9,7 @@ mod request;
 pub(crate) use request::AudioReq;
 #[cfg(test)]
 pub(crate) use request::AudioSelection;
-use request::{AudioSource, Change};
+use request::Change;
 
 /// Session lifecycle operations needed by the managed Spotify player.
 /// Implementations retain their normal lifecycle guards and rollback behavior,
@@ -139,9 +139,9 @@ impl Music {
                 self.stop_ncspot(sessions).await?;
                 self.audio.stop_confirmed().await?;
             }
-            Change::Audio(source) => {
+            Change::Station { station, stream } => {
                 // Catalog resolution must succeed before stopping the current source.
-                let source = resolve_audio_source(source)?;
+                let source = resolve_station(&station, &stream)?;
                 self.stop_ncspot(sessions).await?;
                 self.audio.play(&source, volume);
             }
@@ -150,13 +150,10 @@ impl Music {
     }
 }
 
-fn resolve_audio_source(source: AudioSource) -> Result<String> {
-    match source {
-        AudioSource::File(_) => anyhow::bail!("Soundtrack playback belongs to the game."),
-        AudioSource::Station { station, stream } => crate::jukebox::catalog()
-            .resolve(&station, &stream)
-            .map_err(|e| anyhow::anyhow!("jukebox selection rejected: {e:#}")),
-    }
+fn resolve_station(station: &str, stream: &str) -> Result<String> {
+    crate::jukebox::catalog()
+        .resolve(station, stream)
+        .map_err(|e| anyhow::anyhow!("jukebox selection rejected: {e:#}"))
 }
 
 #[cfg(test)]

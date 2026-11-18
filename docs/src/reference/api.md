@@ -62,7 +62,7 @@ Catalogs arrive on connect and again when changed.
 | `resize`, `scroll` | Negotiate terminal size or request scrollback. |
 | `paste` | Paste literal text or upload image bytes; see [Clipboard](#clipboard). |
 | `paste_prompt` | Expand a saved Prompt in the target session context and paste without submitting. |
-| `audio` | Set `volume` and optionally select `station`, `stream`, `file`, `ncspot`, or `stop: true`. An absent selection changes volume only. |
+| `audio` | Set `volume` and optionally select a `station` and `stream` pair, select `ncspot`, or request a stop. An absent selection changes volume only. |
 
 ### Audio state
 

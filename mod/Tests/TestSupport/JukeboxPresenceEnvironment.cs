@@ -83,6 +83,5 @@ namespace SlopWorld
     {
         public static readonly object SlopJukebox = new object();
         public static readonly object SlopPlannerBench = new object();
-        public static readonly object SlopSettingsHeater = new object();
     }
 }

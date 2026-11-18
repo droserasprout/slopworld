@@ -16,9 +16,7 @@ transit; the initial waiting phase also holds automatic player placement so
 component update order cannot create the player before the scene starts.
 `PlannerBench` retains pending cargo identity across saves and delivers a missing bench
 to existing colonies. Its map click and top-bar building icon open Planner.
-Settings opens from the top-bar gear and has no map object. `SettingsHeater` and
-its ThingDef remain only for save compatibility; load cleanup removes landed and
-pending heaters.
+Settings opens from the top-bar gear and has no map object.
 `ArrivalDrops` owns workspace pod spacing and falls back to vanilla placement on
 constrained terrain.
 `Pets` sends the starting cat in a separate pod at the same arrival boundary.

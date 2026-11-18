@@ -3,19 +3,10 @@ use super::*;
 /// Every half-formed or contradictory combination is refused before it can reach a source.
 #[test]
 fn resolve_audio_rejects_malformed_selections() {
-    let cases = [
-        (None, None, None),
-        (Some("s"), None, None),
-        (None, Some("t"), None),
-        (Some("s"), Some("t"), Some("f")),
-        (None, Some("t"), Some("f")),
-        (Some("s"), None, Some("f")),
-    ];
-    for (station, stream, file) in cases {
+    for (station, stream) in [(None, None), (Some("s"), None), (None, Some("t"))] {
         let selection = AudioSelection {
             station: station.map(str::to_string),
             stream: stream.map(str::to_string),
-            file: file.map(str::to_string),
             ncspot: false,
         };
         assert!(
@@ -26,7 +17,7 @@ fn resolve_audio_rejects_malformed_selections() {
             }
             .change()
             .is_err(),
-            "expected {station:?}/{stream:?}/{file:?} to be rejected"
+            "expected {station:?}/{stream:?} to be rejected"
         );
     }
 }
@@ -52,15 +43,11 @@ fn valid_requests_become_explicit_changes_without_losing_stop_or_volume() {
             Change::Spotify,
         ),
         (
-            r#"{"volume":0.4,"selection":{"file":"/tmp/song"}}"#,
-            Change::Audio(AudioSource::File("/tmp/song".into())),
-        ),
-        (
             r#"{"volume":0.4,"selection":{"station":"radio","stream":"high"}}"#,
-            Change::Audio(AudioSource::Station {
+            Change::Station {
                 station: "radio".into(),
                 stream: "high".into(),
-            }),
+            },
         ),
     ] {
         assert_eq!(
@@ -75,7 +62,7 @@ fn valid_requests_become_explicit_changes_without_losing_stop_or_volume() {
 
 #[test]
 fn spotify_cannot_be_combined_with_any_other_source_field() {
-    for field in ["station", "stream", "file"] {
+    for field in ["station", "stream"] {
         let value = serde_json::json!({"volume":0.5,"selection":{"ncspot":true,field:"value"}});
         let request: AudioReq = serde_json::from_value(value).unwrap();
         assert!(request.wants_spotify());

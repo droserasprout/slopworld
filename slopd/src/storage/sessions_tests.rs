@@ -103,7 +103,6 @@ fn serialized_agent_fields_are_owned_by_the_record_schema() {
             ..Default::default()
         },
         parent_id: SECOND.into(),
-        parent_access: crate::config::WorkerAccess::all(),
         worker: true,
         parent: "parent".into(),
         task_id: "task".into(),
@@ -480,7 +479,6 @@ async fn worker_relationship_and_portable_policy_survive_record_reload() {
     child.worker = true;
     child.parent = "parent".into();
     child.parent_id = SECOND.into();
-    child.parent_access = crate::config::WorkerAccess::none();
     child.workers.enabled = false;
     child.workers.all_templates = false;
     child.workers.templates.insert("review".into());
@@ -488,17 +486,7 @@ async fn worker_relationship_and_portable_policy_survive_record_reload() {
     f.reload().await.unwrap();
     let recovered = f.value(FIRST);
     assert_eq!(recovered.parent_id, SECOND);
-    assert_eq!(recovered.parent_access, crate::config::WorkerAccess::none());
     assert_eq!(recovered.workers, child.workers);
-    f.change(|values| values[0].parent_access = crate::config::WorkerAccess::all())
-        .await
-        .unwrap();
-    f.reload().await.unwrap();
-    assert_eq!(
-        f.value(FIRST).parent_access,
-        crate::config::WorkerAccess::all()
-    );
-    assert_eq!(f.value(FIRST).parent_id, SECOND);
 }
 
 #[tokio::test]

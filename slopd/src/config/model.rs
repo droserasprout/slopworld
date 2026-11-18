@@ -139,8 +139,6 @@ pub struct SessionCfg {
     // Worker identity, set only by delegated-task creation.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub parent_id: String,
-    #[serde(default, skip_serializing_if = "super::WorkerAccess::is_default")]
-    pub parent_access: super::WorkerAccess,
     /// Ordinary session creation clears worker metadata.
     #[serde(default, skip_serializing_if = "is_false")]
     pub worker: bool,
@@ -210,7 +208,6 @@ impl Default for SessionCfg {
             workers: super::WorkerPolicy::default(),
             permissions: super::AgentPermissions::default(),
             parent_id: String::new(),
-            parent_access: super::WorkerAccess::default(),
             worker: false,
             parent: String::new(),
             task_id: String::new(),

@@ -16,7 +16,6 @@ fn invalid_and_duplicate_ids_cannot_alias_worker_tasks() {
     assign_ids(&format!("One sw-id:{id}\nTwo sw-id:{id}")).unwrap_err();
     assign_ids("One sw-id:nope").unwrap_err();
     assign_ids(&format!("One sw-id:{id} sw-id:{id}")).unwrap_err();
-    assign_ids("One sw-task:a:b").unwrap_err();
 }
 
 #[tokio::test]
@@ -85,6 +84,5 @@ async fn disk_failure_preserves_previous_revision_and_allows_retry() {
 fn task_metadata_does_not_replace_lookalikes_inside_user_text() {
     let text = assign_ids("Preserve prefixsw-task:pending sw-task:pending").unwrap();
     assert_eq!(assign_ids(&text).unwrap(), text);
-    assert_eq!(items(&text).unwrap()[0].task_id, "pending");
     assign_ids("Task sw-id:").unwrap_err();
 }

@@ -99,8 +99,6 @@ namespace SlopWorld
 
         public static ThingDef SlopPlannerBench;
 
-        public static ThingDef SlopSettingsHeater;
-
         /// The player pawn's fireball projectile.
         public static ThingDef SlopFireball;
 

@@ -37,8 +37,7 @@ namespace SlopWorld
             Due,
             Projects,
             Contexts,
-            Id,
-            TaskId;
+            Id;
         internal bool Completed;
         internal int BodyStart;
         internal List<TodoToken> Tokens;
@@ -179,7 +178,6 @@ namespace SlopWorld
                 Created = "",
                 CompletedOn = "",
                 Id = "",
-                TaskId = "",
             };
             int at = 0;
             if (entry.Completed)
@@ -224,7 +222,6 @@ namespace SlopWorld
             );
             entry.Due = Value(entry, "due:");
             entry.Id = Value(entry, "sw-id:");
-            entry.TaskId = Value(entry, "sw-task:");
             if (entry.Completed && entry.Priority.Length == 0)
                 entry.Priority = Value(entry, "pri:");
             return entry;

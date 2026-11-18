@@ -62,10 +62,7 @@ async fn invalid_selection_records_error_without_a_direct_reply() {
         serde_json::from_str(r#"{"volume":0.5,"selection":{"stream":"orphan"}}"#).unwrap();
     assert!(music.select_music(request).await.is_none());
     let audio = app.services.music.state().await;
-    assert_eq!(
-        audio.error.as_deref(),
-        Some("Select a station and stream, or select a file.")
-    );
+    assert_eq!(audio.error.as_deref(), Some("Select a station and stream."));
     assert!(music.host_sessions().await.is_empty());
 }
 

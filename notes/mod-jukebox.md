@@ -63,7 +63,7 @@ Catalog reload failure retains the valid snapshot for retry. Mutation errors dis
 saved disk changes from failed activation so repaired definitions can activate later.
 
 The game owns all OST assets and playback through its bundled SongDefs. The daemon
-rejects file playback selections and plays radio/Spotify only. Source changes stop
+handles radio and Spotify playback. Source changes stop
 native music before sending a daemon selection. Returning to OST requires the
 current unique stop token to be acknowledged after the daemon worker retires its
 source and ncspot stops. Selection changes and disconnects revoke that acknowledgment;

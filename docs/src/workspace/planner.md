@@ -42,8 +42,7 @@ further task updates but leaves the worker process running.
 ## Storage and recovery
 
 The daemon stores `TODO.txt` (up to 64 KiB) in its data directory, normally
-`~/.local/share/slopworld/`. Saving assigns each task a stable `sw-id:`; preserve it and
-any `sw-task:` metadata when editing Raw. Agents report through Tasks and cannot edit
+`~/.local/share/slopworld/`. Saving assigns each task a stable `sw-id:`. Preserve it when editing Raw. Agents report through Tasks and cannot edit
 the backlog through the Planner API.
 
 Descriptions live in `planner/descriptions/<sw-id>.md` (up to 1 MiB each); links live in

@@ -172,7 +172,6 @@ pub(crate) fn prepare(
         session.parent_id = identity.clone();
         session.permissions = session.permissions.intersect(*permissions);
         session.workers.enabled &= policy.recursive;
-        session.workers.access = session.workers.access.intersect(policy.access);
         session.workers.recursive &= policy.recursive;
         if !policy.all_templates {
             session.workers.templates = if session.workers.all_templates {
@@ -517,14 +516,11 @@ impl Workers {
 
         // Persist both associations before startup so failures remain inspectable.
         if !context.planner_id.is_empty() {
-            let result = async {
-                let tasks = sessions.task_store().all_tasks_async().await?;
-                self.services
-                    .planner
-                    .link_worker(&context.planner_id, &task, &tasks)
-                    .await
-            }
-            .await;
+            let result = self
+                .services
+                .planner
+                .link_worker(&context.planner_id, &task)
+                .await;
             if let Err(error) = result {
                 sessions
                     .record_worker_failure(

@@ -592,7 +592,8 @@ message RedrawReq {
 message AudioSelection {
   optional string station = 1;
   optional string stream = 2;
-  optional string file = 3;
+  reserved 3;
+  reserved "file";
   bool ncspot = 4;
 }
 
@@ -1039,7 +1040,8 @@ message PlannerItem {
   uint32 line = 1;
   string id = 2;
   string text = 3;
-  string task_id = 4;
+  reserved 4;
+  reserved "task_id";
   string status = 5;
   repeated PlannerLink links = 6;
   string links_revision = 7;

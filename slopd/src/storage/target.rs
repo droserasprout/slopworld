@@ -88,8 +88,7 @@ impl Target {
         match (self, parts) {
             (Self::Config(_), [Some("projects"), Some(name)]) => opaque_file(name),
             (Self::Config(_), [Some(directory), Some(name)])
-                if *directory == "breadcrumbs"
-                    || crate::config::LibraryItemKind::from_config_dir(directory).is_some() =>
+                if crate::config::LibraryItemKind::from_config_dir(directory).is_some() =>
             {
                 catalog_file(name)
             }

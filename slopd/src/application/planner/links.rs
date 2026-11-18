@@ -1,6 +1,5 @@
-//! Explicit Planner associations. An existing file, including an empty list, overrides
-//! legacy task markers. Worker links use stable identities, never session names.
-use super::{Document, Item, Store, items, marker, revision};
+//! Explicit Planner associations and live task status projection.
+use super::{Document, Item, Store, items, revision};
 use crate::tasks::Task;
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
@@ -64,12 +63,8 @@ impl Store {
             .context("Planner task no longer exists. Refresh the backlog.")
     }
 
-    async fn load_links(
-        &self,
-        item: &Item,
-        tasks: &[Task],
-    ) -> Result<(Vec<LinkReference>, String)> {
-        let path = self.links_path(&item.id)?;
+    async fn load_links(&self, id: &str) -> Result<(Vec<LinkReference>, String)> {
+        let path = self.links_path(id)?;
         let text = match tokio::fs::File::open(path).await {
             Ok(file) => {
                 let mut text = String::new();
@@ -82,28 +77,7 @@ impl Store {
         };
         match text {
             Some(text) => Ok((serde_json::from_str(&text)?, revision(&text))),
-            None => {
-                let mut links = Vec::new();
-                let prefix = format!("{}\n", marker(&item.id));
-                for task in tasks.iter().filter(|task| {
-                    task.id == item.task_id
-                        || (task.from == crate::tasks::HOST
-                            && task.worker.is_some()
-                            && task.body.starts_with(&prefix))
-                }) {
-                    append_worker(&mut links, task);
-                }
-                // Retain a missing legacy reference so the operator can remove it.
-                if links.is_empty() && !item.task_id.is_empty() {
-                    links.push(LinkReference {
-                        kind: LinkKind::Task,
-                        id: item.task_id.clone(),
-                        label: item.task_id.clone(),
-                    });
-                }
-                let revision = revision(&serde_json::to_string(&links)?);
-                Ok((links, format!("implicit:{revision}")))
-            }
+            None => Ok((Vec::new(), revision("[]"))),
         }
     }
 
@@ -122,8 +96,8 @@ impl Store {
         workers: &[String],
     ) -> Result<Document> {
         let _gate = self.gate.lock().await;
-        let item = self.item(id).await?;
-        let (previous, current) = self.load_links(&item, tasks).await?;
+        self.item(id).await?;
+        let (previous, current) = self.load_links(id).await?;
         ensure!(
             current == expected,
             "Planner links changed. Refresh before editing links."
@@ -151,10 +125,10 @@ impl Store {
         self.document(self.read_text().await?)
     }
 
-    pub(crate) async fn link_worker(&self, id: &str, task: &Task, tasks: &[Task]) -> Result<()> {
+    pub(crate) async fn link_worker(&self, id: &str, task: &Task) -> Result<()> {
         let _gate = self.gate.lock().await;
-        let item = self.item(id).await?;
-        let (mut links, _) = self.load_links(&item, tasks).await?;
+        self.item(id).await?;
+        let (mut links, _) = self.load_links(id).await?;
         append_worker(&mut links, task);
         self.write_links(id, &links).await
     }
@@ -169,15 +143,7 @@ impl Store {
             if item.id.is_empty() {
                 continue;
             }
-            let (links, revision) = self.load_links(item, tasks).await?;
-            // Task outcomes belong to links, not the user's Planner completion state.
-            item.task_id.clear();
-            item.status = if item.text.starts_with("x ") {
-                "complete"
-            } else {
-                ""
-            }
-            .into();
+            let (links, revision) = self.load_links(&item.id).await?;
             item.links = links
                 .into_iter()
                 .map(|reference| {
