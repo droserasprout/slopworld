@@ -1,6 +1,7 @@
 // Host coverage describes installed font files; the browser selects fallback faces
 // locally and persists verified immutable files independently of application builds.
 import {installWorkspaceFont} from './workspace-rasterizer.js';
+import {browserCaches} from './browser-storage.js';
 export function covers(ranges, scalar) {
   let low=0, high=ranges.length;
   while (low<high) { const middle=(low+high)>>>1; if (ranges[middle][1]<scalar) low=middle+1; else high=middle; }
@@ -14,7 +15,7 @@ async function settleFontWork(work) {
 }
 
 export class HostFonts {
-  constructor(probe, request=globalThis.fetch, storage=globalThis.caches) {
+  constructor(probe, request=globalThis.fetch, storage=browserCaches()) {
     this.probe=probe;this.request=(...args)=>request(...args);this.storage=storage;
     this.catalogs=new Map();this.files=new Map();this.installing=new Map();this.installed=new Set();this.disposed=false;this.cacheWrite=Promise.resolve();
     this.timings={catalogMs:0,downloadMs:0,installMs:0,networkFiles:0,cachedFiles:0};
@@ -145,7 +146,7 @@ export class HostFonts {
   dispose(){this.disposed=true;this.catalogs.clear();this.files.clear();this.installing.clear();}
 }
 const clients=new WeakMap();
-export function hostFonts(probe,request=globalThis.fetch,storage=globalThis.caches) {
+export function hostFonts(probe,request=globalThis.fetch,storage) {
   if (!clients.has(probe)) clients.set(probe,new HostFonts(probe,request,storage));
   return clients.get(probe);
 }

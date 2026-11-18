@@ -1,7 +1,8 @@
 // Version this namespace when FreeType or its rasterization contract changes.
 // Each entry is bounded; 512 entries retain at most 32 MiB of glyph JSON.
+import {browserCaches} from './browser-storage.js';
 export class GlyphStorage {
-  constructor(storage=globalThis.caches) {
+  constructor(storage=browserCaches()) {
     this.storage=storage;this.pending=new Map();this.writing=null;
   }
   key(request) {

@@ -116,9 +116,9 @@ the static-file owner supplies validators so unchanged reloads avoid body transf
 Its `X-Slop-Decoded-Length` header carries the original file size through proxy
 compression; archive startup validates decoded bytes against that size.
 The large game archive has a separate CacheStorage entry, revalidated by HEAD
-and published only after complete decoded-body validation. Storage or quota
-failures fall back to network transfer; browser HTTP-cache item limits do not
-control archive reuse.
+and published after complete decoded-body validation. Managed upload and cache
+storage share backpressure. Denied storage access and quota failures allow the
+network transfer to complete.
 Bridge responses and font catalogs remain uncached; content-addressed font files
 retain their immutable caching policy.
 
