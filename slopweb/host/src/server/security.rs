@@ -4,7 +4,7 @@ use axum::http::HeaderMap;
 use url::Url;
 
 pub(super) struct Boundary {
-    local_hosts: [String; 2],
+    local_hosts: Vec<String>,
     public_origin: Option<String>,
     public_host: Option<String>,
 }
@@ -20,8 +20,12 @@ impl Boundary {
         } else {
             None
         };
+        let mut local_hosts = vec![format!("127.0.0.1:{port}"), format!("localhost:{port}")];
+        if port == 80 {
+            local_hosts.extend(["127.0.0.1".to_owned(), "localhost".to_owned()]);
+        }
         Ok(Self {
-            local_hosts: [format!("127.0.0.1:{port}"), format!("localhost:{port}")],
+            local_hosts,
             public_origin,
             public_host,
         })
@@ -35,9 +39,10 @@ impl Boundary {
     }
 
     pub fn origin(&self, headers: &HeaderMap) -> String {
-        self.public_origin
-            .clone()
-            .unwrap_or_else(|| format!("http://{}", single(headers, "host").unwrap_or_default()))
+        self.public_origin.clone().unwrap_or_else(|| {
+            let host = single(headers, "host").unwrap_or_default();
+            format!("http://{}", host.strip_suffix(":80").unwrap_or(host))
+        })
     }
 
     pub fn same_origin(&self, headers: &HeaderMap) -> bool {
