@@ -33,7 +33,8 @@ if '--install-sdk' in sys.argv:
     subprocess.run([str(sdk / 'emsdk'), 'install', '7.0.0'], check=True)
     subprocess.run([str(sdk / 'emsdk'), 'activate', '7.0.0'], check=True)
     sys.exit(0)
-env = dict(os.environ, EM_CACHE=str(cache / 'system-cache'))
+ports = cache / 'system-cache/ports'
+env = dict(os.environ, EM_CACHE=str(ports.parent), EM_PORTS=str(ports))
 output = root.parent / 'wwwroot/local-fonts.mjs'
 if sdk.exists():
     compiler = sdk / 'upstream/emscripten/emcc'
@@ -119,7 +120,6 @@ with (cache / 'raster-build.lock').open('a') as lock:
             env=env,
             check=True,
         )
-        ports = cache / 'system-cache/ports'
         freetype = ports / 'freetype/freetype-VER-2-14-3'
         notices = ['This software uses the FreeType Project (https://freetype.org), under the FreeType License.']
         for path in [

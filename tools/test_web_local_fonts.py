@@ -41,6 +41,8 @@ def test_rasterizer_cache_detects_changed_inputs_missing_outputs_and_failed_comp
     fail = False
 
     def compile_module(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        env = kwargs['env']
+        assert isinstance(env, dict) and env['EM_PORTS'] == str(cache / 'system-cache/ports')
         if '--version' in args:
             return subprocess.CompletedProcess(args, 0, b'7.0.0')
         calls.append(args)
@@ -52,6 +54,7 @@ def test_rasterizer_cache_detects_changed_inputs_missing_outputs_and_failed_comp
         return subprocess.CompletedProcess(args, 0)
 
     monkeypatch.setattr(subprocess, 'run', compile_module)
+    monkeypatch.setenv('EM_PORTS', str(tmp_path / 'external-ports'))
     monkeypatch.setattr(sys, 'argv', [str(script)])
 
     def build() -> None:
