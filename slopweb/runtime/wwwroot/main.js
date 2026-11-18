@@ -28,6 +28,10 @@ try {
     window.__loading?.status('Loading game assemblies...');
     const manifest = await fetch('./game/manifest.json').then(r => r.json());
     const {loaded, loadErrors} = await loadStartupAssemblies(manifest, loadAssembly, assemblyRequest);
+    if (loadErrors.length) {
+        const details = loadErrors.map(({file, error}) => `${file}: ${error}`).join('\n');
+        throw new Error('Failed to load game assemblies:\n' + details);
+    }
     const [missingDependencies, adaptations] = await Promise.all([
         fetch('./game/missing.json').then(r => r.json()),
         fetch('./game/adaptations.json').then(r => r.json())
