@@ -244,6 +244,22 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
     }
 }
 
+#[test]
+fn loopback_on_the_default_http_port_accepts_both_authority_forms() {
+    let default = security::Boundary::new(80, None).unwrap();
+    let other = security::Boundary::new(8787, None).unwrap();
+    for name in ["127.0.0.1", "localhost"] {
+        for host in [name.to_owned(), format!("{name}:80")] {
+            let mut headers = HeaderMap::new();
+            headers.insert("host", host.parse().unwrap());
+            headers.insert("origin", format!("http://{name}").parse().unwrap());
+            assert!(default.admits_host(&headers));
+            assert!(default.same_origin(&headers));
+            assert!(!other.admits_host(&headers));
+        }
+    }
+}
+
 #[tokio::test]
 async fn provenance_and_public_origin_are_explicit() {
     for invalid in [
