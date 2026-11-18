@@ -265,6 +265,59 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     );
 }
 #[test]
+fn replacing_authored_bytes_during_preparation_cannot_publish_under_the_old_key() {
+    let temp = tempfile::tempdir().unwrap();
+    let bundle = temp.path().join("bundle");
+    let game = temp.path().join("game");
+    let cache = temp.path().join("cache");
+    let main = bundle.join("web/main.js");
+    write(&main, "first");
+    write(bundle.join("ost/track.ogg"), "song");
+    let appearance = serde_json::Map::new();
+    let error = preparation::prepare(
+        &bundle,
+        &game,
+        &cache,
+        false,
+        &appearance,
+        "fonts",
+        |phase, _, _| {
+            if phase == "managed" {
+                // A cooperating restager waits. An in-place edit with the same
+                // length still has to be detected on the private copy.
+                let parent = File::open(bundle.parent().unwrap())?;
+                assert_eq!(
+                    fs2::FileExt::try_lock_exclusive(&parent)
+                        .unwrap_err()
+                        .kind(),
+                    std::io::ErrorKind::WouldBlock
+                );
+                write(&main, "other");
+            }
+            Ok(())
+        },
+    )
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("web/main.js changed during preparation")
+    );
+    write(&main, "first");
+    let ready = preparation::prepare(
+        &bundle,
+        &game,
+        &cache,
+        false,
+        &appearance,
+        "fonts",
+        |_, _, _| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(fs::read(ready.join("main.js")).unwrap(), b"first");
+}
+
+#[test]
 fn malicious_private_cache_pointer_and_symlink_inputs_are_rejected() {
     let temp = tempfile::tempdir().unwrap();
     write(temp.path().join(".active-key"), "../key-secret");

@@ -4,6 +4,7 @@ use super::{
     files::{self, Inputs},
 };
 use anyhow::{Result, ensure};
+use fs2::FileExt;
 use serde_json::{Map, Value, json};
 use std::{
     collections::BTreeMap,
@@ -145,6 +146,11 @@ pub fn prepare(
     font_inventory: &str,
     build: impl Fn(&str, &Path, &Map<String, Value>) -> Result<()>,
 ) -> Result<PathBuf> {
+    let _transaction = files::lock(&cache.join(".prepare.lock"))?;
+    // The release stager locks the bundle's parent exclusively for directory
+    // exchange. Keep all helper reads on the same publication as its digest.
+    let bundle_parent = File::open(bundle.parent().unwrap_or(bundle))?;
+    FileExt::lock_shared(&bundle_parent)?;
     let game_dlls = top_level(game, |name| name.ends_with(".dll"))?;
     let native = top_level(game, |name| name.contains(".so"))?;
     let mut managed = files::inputs(bundle, &["scanner", "offline", "Probe.dll", "Adapters.dll"])?;
@@ -193,8 +199,6 @@ pub fn prepare(
             .collect(),
     );
     let key = files::digest(&authored, &json!([keys, appearance]), &mut contents)?[..24].to_owned();
-    fs::create_dir_all(cache)?;
-    let _transaction = files::lock(&cache.join(".prepare.lock"))?;
     let mut destination = files::selected(cache, &key)?;
     if destination.join(".ready").is_file() && !rebuild {
         println!("Reusing prepared runtime");
@@ -241,18 +245,35 @@ pub fn prepare(
         .prefix(".prepare-")
         .tempdir_in(cache)?;
     let root = temporary.path().join("runtime");
-    files::copy_tree(&bundle.join("web"), &root, |_| false)?;
+    // A package manager or local editor can replace a file without taking the
+    // stager's lock. Verify the private copy, and copy only the hashed manifest.
+    let copy_authored = |directory: &str, target: &Path| -> Result<()> {
+        ensure!(
+            bundle.join(directory).is_dir(),
+            "Missing bundle directory {directory}"
+        );
+        fs::create_dir_all(target)?;
+        for (name, source) in &authored {
+            if let Ok(relative) = Path::new(name).strip_prefix(directory) {
+                let output = target.join(relative);
+                fs::create_dir_all(output.parent().unwrap())?;
+                fs::copy(source, &output)?;
+                ensure!(
+                    files::file_digest(&output)? == contents[source],
+                    "Bundle input {name} changed during preparation; retry"
+                );
+            }
+        }
+        Ok(())
+    };
+    copy_authored("web", &root)?;
     for component in &components {
         files::copy_tree(component, &root, |name| name == ".ready")?;
     }
-    for (name, source) in &authored {
-        if name.starts_with("mod/") {
-            let target = root.join(name);
-            fs::create_dir_all(target.parent().unwrap())?;
-            fs::copy(source, target)?;
-        }
+    if authored.keys().any(|name| name.starts_with("mod/")) {
+        copy_authored("mod", &root.join("mod"))?;
     }
-    files::copy_tree(&bundle.join("ost"), &root.join("assets/ost"), |_| false)?;
+    copy_authored("ost", &root.join("assets/ost"))?;
     let mut values = appearance.clone();
     let resolved = components[2].join("assets/reference-appearance.json");
     if resolved.is_file() {
