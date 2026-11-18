@@ -38,7 +38,7 @@ int font_size(Face *f, float size, float density, unsigned flags) {
     result.descent = f->face->size->metrics.descender / (64.0f * density);
     return 1;
 }
-// 0 means absent coverage; -1 is a rasterization failure, never a missing glyph.
+// Return the pixel format (1 = gray, 2 = packed mono), 0 for missing or -1 on failure.
 int font_glyph(Face *f, unsigned scalar, float size, float density, unsigned flags) {
     if (!f) return -1;
     FT_UInt index = FT_Get_Char_Index(f->face, scalar);
@@ -54,11 +54,12 @@ int font_glyph(Face *f, unsigned scalar, float size, float density, unsigned fla
     if (flags & 32) FT_GlyphSlot_Embolden(slot);
     if (flags & 64) FT_GlyphSlot_Oblique(slot);
     if (FT_Render_Glyph(slot, (flags & 128) ? FT_RENDER_MODE_MONO : FT_RENDER_MODE_NORMAL)) return -1;
-    if (slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY) return -1;
+    int monochrome = slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO;
+    if (!monochrome && slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY) return -1;
     result = (Glyph){ slot->advance.x / (64.0f * density), slot->bitmap_left / density,
         -slot->bitmap_top / density, f->face->size->metrics.ascender / (64.0f * density),
         f->face->size->metrics.descender / (64.0f * density), slot->bitmap.width, slot->bitmap.rows,
         slot->bitmap.pitch, slot->bitmap.buffer };
-    return 1;
+    return monochrome ? 2 : 1;
 }
 Glyph *font_result(void) { return &result; }

@@ -46,9 +46,18 @@ export function localRasterizer(wasm) {
     if (!status) return '{"missing":true}';
     const p = wasm._font_result(), f = p / 4, i = wasm.HEAP32, v = wasm.HEAPF32;
     const width = i[f + 5], height = i[f + 6], pitch = i[f + 7], pixels = i[f + 8];
+    const monochrome = status === 2;
     let alpha = '';
-    for (let y = 0; y < height; y++)
-      for (let x = 0; x < width; x++) alpha += String.fromCharCode(wasm.HEAPU8[pixels + y * pitch + x]);
+    for (let y = 0; y < height; y++) {
+      const row = pixels + y * pitch;
+      for (let x = 0; x < width; x++) {
+        // FreeType mono rows pack eight pixels per byte, most significant bit first.
+        const value = monochrome
+          ? ((wasm.HEAPU8[row + (x >> 3)] >> (7 - (x & 7))) & 1) * 255
+          : wasm.HEAPU8[row + x];
+        alpha += String.fromCharCode(value);
+      }
+    }
     return JSON.stringify({advance:v[f], x:v[f+1], y:v[f+2], ascent:v[f+3], descent:v[f+4],
       width, height, pixels:btoa(alpha)});
   }

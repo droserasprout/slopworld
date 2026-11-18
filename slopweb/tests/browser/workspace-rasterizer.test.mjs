@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {existsSync, readFileSync} from 'node:fs';
 import test from 'node:test';
 import {localRasterizer} from '../../runtime/wwwroot/workspace-rasterizer.js';
 
@@ -70,6 +71,33 @@ test('unknown faces, invalid sizes and native errors stay distinct from missing 
   assert.throws(() => call({scalar: 65}), /rasterization failed/);
   wasm._font_glyph.mock.mockImplementationOnce(() => 0);
   assert.deepEqual(call({scalar: 65}), {missing: true});
+});
+
+test('monochrome glyphs unpack the high bit first and skip row padding', t => {
+  const {wasm, rasterizer, call} = fixture(t);
+  rasterizer.install('face', Uint8Array.of(7));
+  wasm._font_glyph.mock.mockImplementationOnce(() => 2);
+  wasm.HEAP32.set([9, 2, 4, 100], 9);
+  wasm.HEAPU8.set([0x81, 0x80, 0xff, 0xff, 0x42, 0x00], 100);
+  const glyph = call({size: 14, density: 1, flags: 641, scalar: 65});
+  assert.deepEqual([...Buffer.from(glyph.pixels, 'base64')], [
+    255, 0, 0, 0, 0, 0, 0, 255, 255,
+    0, 255, 0, 0, 0, 0, 255, 0, 0,
+  ]);
+});
+
+const wasmFile = new URL('../../runtime/wwwroot/local-fonts.wasm', import.meta.url);
+test('built FreeType module renders a covered monochrome glyph', {
+  skip: !existsSync(wasmFile) && 'Run just web-local-fonts-build to exercise native rasterization',
+}, async t => {
+  const {default: create} = await import('../../runtime/wwwroot/local-fonts.mjs');
+  const rasterizer = localRasterizer(await create({wasmBinary: readFileSync(wasmFile)}));
+  t.after(() => rasterizer.close());
+  rasterizer.install('clacon2', readFileSync(new URL('../../../assets/fonts/clacon2.ttf', import.meta.url)));
+  const glyph = JSON.parse(rasterizer.call(JSON.stringify({hash: 'clacon2', scalar: 65, size: 14, density: 1, flags: 641})));
+  const alpha = Buffer.from(glyph.pixels, 'base64');
+  assert.equal(alpha.length, glyph.width * glyph.height);
+  assert.deepEqual(new Set(alpha), new Set([0, 255]));
 });
 
 test('the face limit permits reuse at capacity and admits new faces after close', t => {

@@ -6,7 +6,7 @@ export class GlyphStorage {
     this.storage=storage;this.pending=new Map();this.writing=null;
   }
   key(request) {
-    return '/__slopweb_glyphs/v1/'+encodeURIComponent(JSON.stringify([
+    return '/__slopweb_glyphs/v2/'+encodeURIComponent(JSON.stringify([
       request.hash,request.scalar,request.size,request.density,request.flags]));
   }
   async render(request, rasterize) {
