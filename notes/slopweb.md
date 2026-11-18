@@ -151,7 +151,9 @@ Glyph persistence uses a bounded asynchronous write
 queue so storage latency does not delay glyph replies or worker font installation.
 
 Host preparation composes immutable runtimes from independently cached patched
-assemblies, archives, fonts, and backgrounds. `host/src/launcher/aot.rs` owns compiler inputs and
+assemblies, archives, fonts, and backgrounds. It shares the stager's bundle lock while
+reading preparation inputs and verifies copied web, music, and mod assets against the
+manifest used for the runtime key. `host/src/launcher/aot.rs` owns compiler inputs and
 toolchain identity. Publication locks span composition; workspace locks span input
 synchronization, compilation, and output capture, including orphaned compiler
 processes. Compiler output writes directly to its durable log and is mirrored live

@@ -65,6 +65,20 @@ pub fn digest_bytes(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+pub fn file_digest(path: &Path) -> Result<String> {
+    let mut file = File::open(path).with_context(|| format!("reading {}", path.display()))?;
+    let mut content = Sha256::new();
+    let mut buffer = [0; 65536];
+    loop {
+        let size = file.read(&mut buffer)?;
+        if size == 0 {
+            break;
+        }
+        content.update(&buffer[..size]);
+    }
+    Ok(format!("{:x}", content.finalize()))
+}
+
 pub fn digest(
     inputs: &Inputs,
     identity: &Value,
@@ -79,18 +93,7 @@ pub fn digest(
         let content = if let Some(content) = memo.get(path) {
             content.clone()
         } else {
-            let mut file =
-                File::open(path).with_context(|| format!("reading {}", path.display()))?;
-            let mut content = Sha256::new();
-            let mut buffer = [0; 65536];
-            loop {
-                let size = file.read(&mut buffer)?;
-                if size == 0 {
-                    break;
-                }
-                content.update(&buffer[..size]);
-            }
-            let content = format!("{:x}", content.finalize());
+            let content = file_digest(path)?;
             memo.insert(path.clone(), content.clone());
             content
         };
