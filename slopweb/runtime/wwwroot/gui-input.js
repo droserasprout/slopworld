@@ -9,6 +9,7 @@ export function attachGuiInput(canvas, managed) {
   const abort = new AbortController();
   const proxy = acquireTextInput(canvas);
   let disposed = false, composing = false, cancelled = false, pendingText = null, committed = null;
+  let commitTimer;
   let queue = [], queuedAt = null;
   const clipboard = clipboardBridge(managed, text => {
     if (proxy.composing) throw new Error('Cannot publish selection during composition');
@@ -103,6 +104,7 @@ export function attachGuiInput(canvas, managed) {
     clipboard.cancelPrimary();
     pendingText = null;
     if (composingKey(event, composing)) return;
+    committed = null;
     cancelled = false;
     const editable = event.target === proxy.element && event.isTrusted;
     // AltGr is text production, even on platforms exposing it as Ctrl+Alt.
@@ -176,8 +178,9 @@ export function attachGuiInput(canvas, managed) {
     committed = event.data;
     // Some engines send the final insertText after compositionend in the same
     // edit operation. Ignore that duplicate, but allow a later identical commit.
-    const value = committed;
-    queueMicrotask(() => { if (committed === value) committed = null; });
+    // Native event dispatch may run microtasks before the trailing input.
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(() => { committed = null; }, 0);
     proxy.element.value = '';
   });
   listen('input', event => {
@@ -208,6 +211,6 @@ export function attachGuiInput(canvas, managed) {
   return {
     frame,
     textInput: proxy.element,
-    dispose() { if (disposed) return; disposed = true; clipboard.cancelPrimary(); abort.abort(); proxy.release(); managed.GuiInputFrame('[{"kind":"reset"}]'); }
+    dispose() { if (disposed) return; disposed = true; clearTimeout(commitTimer); clipboard.cancelPrimary(); abort.abort(); proxy.release(); managed.GuiInputFrame('[{"kind":"reset"}]'); }
   };
 }

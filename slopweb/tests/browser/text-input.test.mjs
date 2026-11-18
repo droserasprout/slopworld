@@ -172,6 +172,7 @@ test('preedit and Process/Enter key229 never reach native input; commit is order
     }
     const value='日本💡e\u0301';
     emit(f.target,'compositionend',{data:value});
+    await Promise.resolve();
     emit(f.target,'input',{data:value,inputType:'insertText'});
     f.key('Enter',{code:'Enter'});
     const batch=f.frame();
@@ -183,6 +184,20 @@ test('preedit and Process/Enter key229 never reach native input; commit is order
     emit(f.target,'input',{data:value,inputType:'insertText'});
     assert.equal(chars(f.frame()),value);
   }finally{f.dispose();}
+});
+
+test('fresh typing of an identical character after an IME commit stays distinct',async()=>{
+  const f=fixture();
+  try {
+    for(const withKey of [true,false]) {
+      emit(f.target,'compositionstart');
+      emit(f.target,'compositionend',{data:'q'});
+      if(withKey)f.key('q');
+      else await new Promise(resolve=>setTimeout(resolve,0));
+      emit(f.target,'input',{data:'q',inputType:'insertText'});
+      assert.equal(chars(f.frame()),'qq');
+    }
+  } finally {f.dispose();}
 });
 
 test('trusted typing uses DOM input once and keeps physical identity for native binding capture',()=>{
