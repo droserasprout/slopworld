@@ -7,6 +7,13 @@
 /dist/
 /slopd/target/
 /slopcar/target/
+/slopweb/host/target/
+/slopweb/**/bin/
+/slopweb/**/obj/
+/slopweb/**/out/
+/slopweb/runtime/wwwroot/local-fonts.mjs
+/slopweb/runtime/wwwroot/local-fonts.wasm
+/slopweb/runtime/wwwroot/local-fonts.LICENSE.txt
 /mod/Source/SlopWorld/bin/
 /mod/Source/SlopWorld/obj/
 /mod/Dependencies/bin/
