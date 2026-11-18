@@ -2,6 +2,7 @@
 // This owner commits glyphs and atlas pixels together; the host delivers fonts.
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using UnityEngine;
 using UnityStubs.Gui;
@@ -178,13 +179,13 @@ public sealed partial class BrowserFontBank
         bool changed = false;
         try
         {
-            foreach (char c in text)
+            foreach (var rune in text.EnumerateRunes())
             {
+                int c = rune.Value;
                 if (face.Substituted.Contains(c))
                     WantFallback(face.Hash, c);
                 if (
                     c is '\r' or '\n'
-                    || char.IsSurrogate(c)
                     || face.Glyphs.ContainsKey(c)
                     || face.Unsupported.Contains(c)
                     || face.Failed.Contains(c)
@@ -211,6 +212,8 @@ public sealed partial class BrowserFontBank
                 if (glyph.TryGetProperty("pending", out _))
                 {
                     Instance.glyphEntries--;
+                    if (c > char.MaxValue && !face.Glyphs.ContainsKey(0))
+                        EnsureGlyphs(face, "\0"); // .notdef is synchronous and shared.
                     continue;
                 }
                 if (glyph.TryGetProperty("missing", out _))
@@ -328,7 +331,7 @@ public sealed partial class BrowserFontBank
             face.Texture = texture;
             face.Pixels = pixels;
             float ratio = (float)edge / next;
-            foreach (char key in face.Glyphs.Keys.ToArray())
+            foreach (int key in face.Glyphs.Keys.ToArray())
             {
                 var glyph = face.Glyphs[key];
                 glyph.u0 *= ratio;

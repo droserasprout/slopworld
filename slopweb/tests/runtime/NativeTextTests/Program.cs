@@ -2,17 +2,31 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using BrowserAdapters;
+using Mono.Cecil;
 
 string game = Path.GetFullPath(args[0]);
 AssemblyLoadContext.Default.Resolving += (_, name) =>
     File.Exists(Path.Combine(game, name.Name + ".dll"))
         ? AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(game, name.Name + ".dll"))
         : null;
-Assembly.LoadFrom(
+var layoutPath =
     args.Length > 1 && !args[1].StartsWith("--", StringComparison.Ordinal)
         ? Path.GetFullPath(args[1])
-        : Path.Combine(game, "RimWorld.dll")
-);
+        : Path.Combine(game, "RimWorld.dll");
+using (var resolver = new DefaultAssemblyResolver())
+{
+    resolver.AddSearchDirectory(game);
+    resolver.AddSearchDirectory(Path.GetDirectoryName(typeof(object).Assembly.Location));
+    using var assembly = AssemblyDefinition.ReadAssembly(
+        layoutPath,
+        new ReaderParameters { AssemblyResolver = resolver }
+    );
+    BrowserTextLayoutPatch.Apply(assembly, AppContext.BaseDirectory);
+    using var patched = new MemoryStream();
+    assembly.Write(patched);
+    patched.Position = 0;
+    AssemblyLoadContext.Default.LoadFromStream(patched);
+}
 string[] plain = ["plain text", "a < b", "<", "<unknown>name</unknown>", "List<T>", "<<unfinished"];
 string[] markup =
 [
@@ -34,8 +48,7 @@ foreach (string text in markup)
 Console.WriteLine(
     $"Installed parser preserved {plain.Length} literal and {markup.Length} markup cases."
 );
-if (args.Length > 1 && !args[1].StartsWith("--", StringComparison.Ordinal))
-    LayoutChecks.Run();
+LayoutChecks.Run();
 
 LocalFontChecks.Run(game);
 FontChecks.Run();

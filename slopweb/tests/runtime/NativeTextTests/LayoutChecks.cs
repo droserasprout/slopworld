@@ -42,6 +42,14 @@ static class LayoutChecks
             || layout.IndexAt(new Vector2(6, 13)) != 4
         )
             throw new Exception("Wrapped caret queries disagree with native line geometry");
+        var emoji = layout.Layout(0, 10, FontStyle.Normal, "a😀b", 10, Color.white, false, 1);
+        if (
+            emoji.Lines.Length != 2
+            || layout.LineOf(3) != 1
+            || layout.IndexAt(new Vector2(9, 0)) != 3
+            || layout.PositionOf(3) != new Vector2(0, 12)
+        )
+            throw new Exception("A wrapped supplementary scalar split its UTF-16 pair");
         var rich = layout.Layout(
             0,
             10,

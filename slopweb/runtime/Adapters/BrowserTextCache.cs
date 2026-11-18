@@ -1,9 +1,11 @@
 // Bounded plain-text runs for one font face, including device-rounded advances.
 // Coordinates, clipping, color and wrapping remain with the drawing owner.
+using System.Text;
+
 namespace BrowserAdapters;
 
 internal sealed class BrowserTextCache<T>(
-    IReadOnlyDictionary<char, T> glyphs,
+    BrowserTextCache<T>.GlyphLookup lookup,
     Func<T, float> advance,
     Func<T, float>? leftBearing = null,
     Func<T, bool>? drawingBounds = null,
@@ -11,6 +13,8 @@ internal sealed class BrowserTextCache<T>(
 )
     where T : struct
 {
+    internal delegate bool GlyphLookup(int scalar, out T glyph);
+
     internal sealed record Line(T[] Glyphs, float Width)
     {
         // Bounds describe the immutable metrics, independent of draw scale or origin.
@@ -118,11 +122,11 @@ internal sealed class BrowserTextCache<T>(
             float minimumLeft = float.PositiveInfinity;
             bool safeDrawing = drawingBounds != null && maximumMagnitude != null;
             float magnitude = 0;
-            foreach (char c in line)
+            foreach (var rune in line.EnumerateRunes())
             {
-                if (c == '\r')
+                if (rune.Value == '\r')
                     continue;
-                if (!glyphs.TryGetValue(c, out var glyph))
+                if (!lookup(rune.Value, out var glyph))
                     return null;
                 values.Add(glyph);
                 float step = advance(glyph);

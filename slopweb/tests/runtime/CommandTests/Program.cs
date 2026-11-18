@@ -135,7 +135,7 @@ if (batches.Count != 5)
 Console.WriteLine("Image batches preserve draw order and state boundaries.");
 
 var textCache = new BrowserTextCache<float>(
-    new Dictionary<char, float> { ['a'] = 1.25f, ['b'] = 2.5f },
+    new Dictionary<int, float> { ['a'] = 1.25f, ['b'] = 2.5f }.TryGetValue,
     x => x
 );
 var textRun = textCache.Get("a\r\nbb\n")!;

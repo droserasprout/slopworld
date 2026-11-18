@@ -1,6 +1,7 @@
 // Font identity, local glyph coverage, metrics and atlas resource ownership. Neither font
 // selection nor terminal cell policy belongs here; the actual mod retains both.
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using UnityEngine;
 using UnityStubs.Gui;
@@ -24,9 +25,9 @@ public sealed partial class BrowserFontBank : ITextMeshProBackend
             Spacing;
         public required Texture2D Texture;
         internal uint LoaderFlags;
-        internal readonly HashSet<char> Substituted = new();
-        internal readonly HashSet<char> Unsupported = new();
-        internal readonly HashSet<char> Failed = new();
+        internal readonly HashSet<int> Substituted = new();
+        internal readonly HashSet<int> Unsupported = new();
+        internal readonly HashSet<int> Failed = new();
         internal Color32[]? Pixels;
         internal int CursorX = 1,
             CursorY = 1,
@@ -34,11 +35,18 @@ public sealed partial class BrowserFontBank : ITextMeshProBackend
 
         internal void InvalidateRuns() => textRuns = null;
 
-        public readonly Dictionary<char, TmpGlyphMetrics> Glyphs = new();
+        public readonly Dictionary<int, TmpGlyphMetrics> Glyphs = new();
+
+        // Keep layout available while a supplementary glyph is with the worker.
+        // GlyphsReady discards the provisional run; the real scalar stays retryable.
+        internal bool TryTextGlyph(int scalar, out TmpGlyphMetrics glyph) =>
+            Glyphs.TryGetValue(scalar, out glyph)
+            || (scalar > char.MaxValue && Glyphs.TryGetValue(0, out glyph));
+
         BrowserTextCache<TmpGlyphMetrics>? textRuns;
         internal BrowserTextCache<TmpGlyphMetrics> TextRuns =>
             textRuns ??= new(
-                Glyphs,
+                TryTextGlyph,
                 glyph => glyph.advanceX,
                 glyph => glyph.x0,
                 glyph =>
@@ -290,10 +298,10 @@ public sealed partial class BrowserFontBank : ITextMeshProBackend
         foreach (var item in root.GetProperty("glyphs").EnumerateArray())
         {
             int scalar = item.GetProperty("scalar").GetInt32();
-            if (scalar > char.MaxValue || item.GetProperty("fallback").GetBoolean())
+            if (!Rune.IsValid(scalar) || item.GetProperty("fallback").GetBoolean())
                 continue;
             face.Glyphs.Add(
-                (char)scalar,
+                scalar,
                 new TmpGlyphMetrics
                 {
                     found = true,
@@ -467,7 +475,9 @@ public sealed partial class BrowserFontBank : ITextMeshProBackend
     }
 
     public string GetCharacters(int index) =>
-        TryFace(index, 0, out var face) ? new string(face.Glyphs.Keys.ToArray()) : "";
+        TryFace(index, 0, out var face)
+            ? string.Concat(face.Glyphs.Keys.Select(char.ConvertFromUtf32))
+            : "";
 
     public Texture2D GetAtlasTexture(int index) =>
         TryFace(index, 0, out var face) ? face.Texture : null!;

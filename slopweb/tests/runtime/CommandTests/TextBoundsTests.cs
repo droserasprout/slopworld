@@ -4,7 +4,7 @@ static class TextBoundsTests
 {
     internal static void Run()
     {
-        var metrics = new Dictionary<char, (float Advance, float Left)>
+        var metrics = new Dictionary<int, (float Advance, float Left)>
         {
             ['a'] = (7.25f, 1),
             ['b'] = (0, -25.5f),
@@ -13,7 +13,7 @@ static class TextBoundsTests
             ['e'] = (1, float.NaN),
         };
         var cache = new BrowserTextCache<(float Advance, float Left)>(
-            metrics,
+            metrics.TryGetValue,
             x => x.Advance,
             x => x.Left,
             x => float.IsFinite(x.Advance) && float.IsFinite(x.Left),

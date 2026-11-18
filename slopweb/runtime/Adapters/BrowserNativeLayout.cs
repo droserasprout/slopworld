@@ -2,6 +2,7 @@
 // tokenization, wrapping, rich spans and line construction remain native code.
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using UnityEngine;
 
 namespace BrowserAdapters;
@@ -21,7 +22,7 @@ public sealed class BrowserNativeLayout
         float FirstLine,
         float Pitch,
         float Spacing,
-        Func<char, float> Advance
+        Func<int, float> Advance
     );
 
     public sealed record Piece(
@@ -181,11 +182,11 @@ public sealed class BrowserNativeLayout
             run,
             _ => throw new InvalidOperationException("Unknown glyph advances")
         );
-        if (char.IsSurrogate(text[index]))
-            throw new NotSupportedException("Supplementary font coverage is not prepared");
+        if (!Rune.TryGetRuneAt(text, index, out var rune))
+            rune = Rune.ReplacementChar;
         width =
-            MathF.Floor(metrics.Metrics.Advance(text[index]) * metrics.Scale + .5f) / metrics.Scale;
-        return 1;
+            MathF.Floor(metrics.Metrics.Advance(rune.Value) * metrics.Scale + .5f) / metrics.Scale;
+        return rune.Utf16SequenceLength;
     }
 
     public static float PixelSize(object layout, int font, float size) =>

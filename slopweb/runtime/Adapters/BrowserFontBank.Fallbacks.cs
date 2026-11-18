@@ -75,15 +75,14 @@ public sealed partial class BrowserFontBank
         {
             foreach (int scalar in request.Scalars)
             {
-                char c = (char)scalar;
-                if (face.Substituted.Remove(c))
+                if (face.Substituted.Remove(scalar))
                 {
-                    face.Glyphs.Remove(c);
+                    face.Glyphs.Remove(scalar);
                     bank.glyphEntries--;
                 }
-                if (face.Unsupported.Remove(c))
+                if (face.Unsupported.Remove(scalar))
                     bank.glyphEntries--;
-                if (face.Failed.Remove(c))
+                if (face.Failed.Remove(scalar))
                     bank.glyphEntries--;
             }
             face.InvalidateRuns();
@@ -104,7 +103,7 @@ public sealed partial class BrowserFontBank
         Instance.requestedFallbacks.Clear();
     }
 
-    static string RasterizeGlyph(Face face, char c, out bool substituted)
+    static string RasterizeGlyph(Face face, int c, out bool substituted)
     {
         string Render(string hash, int scalar) =>
             Rasterize!(

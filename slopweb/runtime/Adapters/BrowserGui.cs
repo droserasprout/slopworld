@@ -9,7 +9,14 @@ using RenderTexture = UnityEngine.RenderTexture;
 
 namespace BrowserAdapters;
 
-public sealed partial class BrowserGui : IGuiBackend
+// Newer UnityStubs includes this slot in IGuiBackend. Emit an interface
+// implementation even when packaging against the older pinned reference.
+internal interface IBrowserFontRegistration
+{
+    void UnregisterFont(int fontIndex);
+}
+
+public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
 {
     readonly List<Command> commands = new();
     static readonly BrowserPacketCache packetCache = new();
@@ -211,6 +218,10 @@ public sealed partial class BrowserGui : IGuiBackend
 
     public int RegisterFont(string name, byte[] fontData, float importSize, int renderingMode) =>
         BrowserFontBank.RegisterAvailable(fontData, importSize);
+
+    // Multiple Unity Font objects can share the same bank index. The bank owns
+    // registered faces until DisposeFonts; destroying one wrapper releases no atlas.
+    public void UnregisterFont(int fontIndex) { }
 
     public int TextIndexAt(
         int fontIndex,
