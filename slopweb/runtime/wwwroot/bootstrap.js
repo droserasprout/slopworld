@@ -7,6 +7,7 @@ try {
   await import('./main.js');
 } catch(error) {
   window.__loading?.finish();
+  document.body.classList.remove('loading');
   window.__probeResult={error:String(error),stack:error.stack};
   document.getElementById('result').textContent='Workspace could not start.\n'+error;
 }

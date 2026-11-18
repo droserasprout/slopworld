@@ -1,10 +1,9 @@
-//! Application entry and ordered preparation; CLI, phase caches, AOT and portraits
+//! Application entry and ordered preparation; CLI, phase caches and AOT
 //! have separate owners. Server and fonts retain transport and native discovery.
 mod aot;
 mod appearance;
 mod cli;
 mod files;
-pub mod portraits;
 mod preparation;
 #[cfg(test)]
 mod tests;

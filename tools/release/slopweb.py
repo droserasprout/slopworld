@@ -30,6 +30,60 @@ OWNED = (
 )
 
 # Reviewed authored inputs only. Never copy a compiler/build directory wholesale.
+WEB_ASSETS = (
+    'asset-archive.js',
+    'async-glyphs.js',
+    'bootstrap.js',
+    'clipboard.js',
+    'cursor-image.js',
+    'font-delivery.js',
+    'glyph-storage.js',
+    'glyph-worker.js',
+    'gui-frame-reuse.js',
+    'gui-input.js',
+    'gui-pixels.js',
+    'gui-quads.js',
+    'gui-tint.js',
+    'gui.js',
+    'host-fonts.js',
+    'index.html',
+    'input.js',
+    'loading-background.js',
+    'loading-quotes.js',
+    'loading.js',
+    'local-fonts.LICENSE.txt',
+    'local-fonts.mjs',
+    'local-fonts.wasm',
+    'main.js',
+    'startup-assemblies.js',
+    'startup-yield.js',
+    'text-input.js',
+    'workspace-audio.js',
+    'workspace-cursor.js',
+    'workspace-diagnostics.js',
+    'workspace-fonts.js',
+    'workspace-fullscreen.js',
+    'workspace-keybindings.js',
+    'workspace-links.js',
+    'workspace-preferences.js',
+    'workspace-rasterizer.js',
+    'workspace-scheduler.js',
+    'workspace-viewport.js',
+    'workspace.html',
+    'workspace.js',
+)
+HELPER_FILES = {
+    'Scanner': ('Scanner.dll', 'Scanner.deps.json', 'Scanner.runtimeconfig.json'),
+    'Offline': (
+        'Offline.dll',
+        'Offline.deps.json',
+        'Offline.runtimeconfig.json',
+        'Mono.Cecil.dll',
+        'Mono.Cecil.Mdb.dll',
+        'Mono.Cecil.Pdb.dll',
+        'Mono.Cecil.Rocks.dll',
+    ),
+}
 AOT_SOURCES = (
     'Program.cs',
     'BrowserInput.cs',
@@ -135,23 +189,20 @@ def build(destination: Path = OUTPUT) -> None:
                     runtime / helper / 'bin/Debug/net10.0' / (helper + suffix),
                     bundle / directory / (helper + suffix),
                 )
-        # Only framework build output is shipped. Copy current authored assets below;
-        # stale experimental pages in an incremental build directory must not survive.
-        shutil.copytree(runtime / 'bin/Debug/net10.0/wwwroot/_framework', bundle / 'web/_framework')
-        for path in (runtime / 'wwwroot').iterdir():
-            if path.is_file():
-                copy_file(path, bundle / 'web' / path.name)
+        manifest = json.loads((runtime / 'obj/Debug/net10.0/staticwebassets.build.endpoints.json').read_text())
+        framework = {item['AssetFile'] for item in manifest['Endpoints'] if item['AssetFile'].startswith('_framework/')}
+        if '_framework/dotnet.js' not in framework:
+            raise ValueError('Browser build manifest is missing the .NET loader')
+        for name in sorted(framework):
+            if '..' in Path(name).parts:
+                raise ValueError(f'Invalid framework asset path: {name}')
+            copy_file(runtime / 'bin/Debug/net10.0/wwwroot' / name, bundle / 'web' / name)
+        for name in WEB_ASSETS:
+            copy_file(runtime / 'wwwroot' / name, bundle / 'web' / name)
         copy_file(ROOT / 'docs/theme/favicon.png', bundle / 'web/favicon.png')
-        for name in ('local-fonts.mjs', 'local-fonts.wasm', 'local-fonts.LICENSE.txt'):
-            if not (bundle / 'web' / name).is_file():
-                raise ValueError('Missing local font rasterizer; run just web-local-fonts-build')
-        for source, target in (
-            (runtime / 'Scanner/bin/Debug/net10.0', 'scanner'),
-            (ROOT / 'slopweb/offline/bin/Debug/net10.0', 'offline'),
-        ):
-            for path in source.iterdir():
-                if path.suffix in ('.dll', '.json'):
-                    copy_file(path, bundle / target / path.name)
+        for helper, source in [('Scanner', runtime / 'Scanner'), ('Offline', ROOT / 'slopweb/offline')]:
+            for name in HELPER_FILES[helper]:
+                copy_file(source / 'bin/Debug/net10.0' / name, bundle / helper.lower() / name)
         for name in ('SlopWorld', '0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn'):
             copy_file(ROOT / 'mod/Assemblies' / f'{name}.dll', bundle / 'mod' / f'{name}.dll')
         # Content.zip contains exclusively authored mod UI assets, never Core/game assets.

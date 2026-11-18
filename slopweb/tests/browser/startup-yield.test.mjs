@@ -18,3 +18,17 @@ test('startup resumes in a task after animation callbacks, not in their microtas
     if(cancel===undefined)delete globalThis.cancelAnimationFrame;else globalThis.cancelAnimationFrame=cancel;
   }
 });
+
+test('mandatory startup frames finish when animation callbacks are suspended',async()=>{
+  const old=globalThis.requestAnimationFrame, cancel=globalThis.cancelAnimationFrame;
+  let canceled;
+  globalThis.requestAnimationFrame=()=>123;
+  globalThis.cancelAnimationFrame=id=>{canceled=id;};
+  try {
+    await yieldStartupPaint(true);
+    assert.equal(canceled,123);
+  } finally {
+    if(old===undefined)delete globalThis.requestAnimationFrame;else globalThis.requestAnimationFrame=old;
+    if(cancel===undefined)delete globalThis.cancelAnimationFrame;else globalThis.cancelAnimationFrame=cancel;
+  }
+});

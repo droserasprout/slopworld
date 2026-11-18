@@ -38,9 +38,8 @@ outputs; compiler caches and retained private runtimes remain separate.
 The `Probe` assembly/type name is retained as the managed export and offline bootstrap
 ABI. Its authored compiler allowlist contains only workspace startup, transport/input,
 and presentation exports. Colony creation/saves, compatibility experiments, synthetic
-controls, and benchmark fixtures belong in private probe projects. Package staging copies
-only the framework subtree from build output and current authored web assets, so stale
-experimental pages cannot leak from incremental build directories.
+controls, and benchmark fixtures belong in private probe projects. Package staging selects framework files from the SDK endpoint
+manifest and uses explicit inventories for web assets and managed helpers.
  `tests/runtime/` owns managed contracts, `tests/browser/` owns browser JavaScript
 contracts exercised in Node, and Rust tests sit beside their owners under `host/src/`.
 Packaging assertions remain under `tools/release/`. `ci-web` runs game-free checks;
@@ -58,7 +57,7 @@ Entry initialization releases the engine and ends loading with an error.
 Game assembly downloads use a four-file window, including completed buffers;
 CLR loading and per-file failure reporting retain manifest order.
 All startup assembly loads share a filename-bearing boundary that AOT preparation
-rewrites to published identities; byte loading must not bypass it.
+rewrites to published identities. Mixed AOT resolves those names without fetching raw DLLs.
 Host preparation raw-copies the Eco pack from installed ZIP members so Waylith can
 map it at `/Assets.zip` before its first synchronous read. Entry retains the baked
 catalogs, Core textures (including def icons), fonts, UI sounds and base menu art.

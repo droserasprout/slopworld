@@ -292,6 +292,7 @@ fn core_archive_contains_only_core_and_shaders_and_rejects_dlls() {
 fn aot_loader_adapts_shipped_assembly_boundary_and_rejects_mixed_loading() {
     let loader = include_str!("../../../runtime/wwwroot/main.js");
     let changed = aot::published_loader(loader).unwrap();
+    assert!(changed.contains("const assemblyRequest = null;"));
     assert!(changed.contains("LoadPublishedAssembly(file.replace"));
     assert_eq!(changed.matches("LoadPublishedAssembly(").count(), 1);
     assert!(!changed.contains("Probe.LoadAssembly("));
@@ -439,82 +440,6 @@ fn candidate_sync_removes_deleted_inputs_without_touching_compiler_state() {
     assert!(!target.join("assemblies/Removed.dll").exists());
     assert!(target.join("obj/state").exists());
 }
-#[test]
-fn portraits_reject_changed_pixels_and_discard_host_metadata() {
-    let temp = tempfile::tempdir().unwrap();
-    let mut pixels = Vec::new();
-    pixels.extend(1_u32.to_le_bytes());
-    pixels.extend(1_u32.to_le_bytes());
-    pixels.extend([0, 1, 2, 255]);
-    let name = format!("{}.rgba", files::digest_bytes(&pixels));
-    write(temp.path().join(&name), &pixels);
-    let manifest = json!({"version":1,"uiScale":2,"secret":"private", "entries":[{"session":"agent", "file":name,"width":1,"height":1,"token":"private"}]});
-    write(
-        temp.path().join("manifest.json"),
-        serde_json::to_vec(&manifest).unwrap(),
-    );
-    let snapshot = portraits::read_snapshot(temp.path()).unwrap();
-    assert!(!String::from_utf8_lossy(&snapshot.manifest).contains("private"));
-    let root = temp.path().join("runtime");
-    snapshot.write(&root).unwrap();
-    assert_eq!(
-        snapshot.identity(),
-        portraits::read_snapshot(&root.join("assets/portraits"))
-            .unwrap()
-            .identity()
-    );
-    write(temp.path().join(name), &pixels[..pixels.len() - 1]);
-    assert!(portraits::read_snapshot(temp.path()).is_err());
-}
-#[test]
-fn portrait_acknowledgment_ignores_stale_response_and_cleans_owned_request() {
-    let temp = tempfile::tempdir().unwrap();
-    write(
-        temp.path().join("response"),
-        "{\"version\":1,\"id\":\"stale\",\"ok\":true}",
-    );
-    let source = temp.path().to_owned();
-    let native = std::thread::spawn(move || {
-        let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        loop {
-            if let Ok(id) = fs::read_to_string(source.join("request")) {
-                write(
-                    source.join("manifest.json"),
-                    "{\"version\":1,\"uiScale\":2,\"entries\":[]}",
-                );
-                files::atomic_write(
-                    &source.join("response"),
-                    serde_json::to_vec(&json!({"version":1,"id":id,"ok":true})).unwrap(),
-                )
-                .unwrap();
-                break;
-            }
-            assert!(std::time::Instant::now() < deadline);
-            std::thread::sleep(Duration::from_millis(5));
-        }
-    });
-    let snapshot = portraits::request_snapshot(temp.path(), Duration::from_secs(5)).unwrap();
-    native.join().unwrap();
-    assert_eq!(
-        serde_json::from_slice::<Value>(&snapshot.manifest).unwrap()["uiScale"],
-        2
-    );
-    assert!(!temp.path().join("request").exists());
-}
-#[test]
-fn portrait_timeout_preserves_another_owners_request() {
-    use fs2::FileExt;
-    let temp = tempfile::tempdir().unwrap();
-    let lock = File::create(temp.path().join(".request.lock")).unwrap();
-    lock.lock_exclusive().unwrap();
-    write(temp.path().join("request"), "other-owner");
-    assert!(portraits::request_snapshot(temp.path(), Duration::from_millis(20)).is_err());
-    assert_eq!(
-        fs::read_to_string(temp.path().join("request")).unwrap(),
-        "other-owner"
-    );
-}
-
 #[test]
 fn compiler_retains_workspace_lock_after_launcher_closes_its_descriptor() {
     use fs2::FileExt;
