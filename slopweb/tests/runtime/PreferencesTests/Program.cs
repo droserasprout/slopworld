@@ -29,7 +29,6 @@ static class Check
             sidebarShowHidden = true,
             sidebarShowGitignored = true,
             cursorColor = "#abcdef",
-            smoothScrolling = false,
             statusbarUsage = false,
             statusbarSummaryPosition = StatusbarSummaryMode.Center,
             statusbarClockPosition = StatusbarClockMode.Hidden,
@@ -93,7 +92,6 @@ static class Check
             restored.sidebarShowHidden
                 && restored.sidebarShowGitignored
                 && restored.cursorColor == "#abcdef"
-                && !restored.smoothScrolling
                 && !restored.statusbarUsage
                 && restored.statusbarSummaryPosition == StatusbarSummaryMode.Center
                 && restored.statusbarClockPosition == StatusbarClockMode.Hidden

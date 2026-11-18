@@ -54,7 +54,6 @@ public static class BrowserPreferences
         "sidebarShowHidden",
         "sidebarShowGitignored",
         "cursorColor",
-        "smoothScrolling",
         "statusbarUsage",
         "statusbarSummaryPosition",
         "statusbarClockPosition",
