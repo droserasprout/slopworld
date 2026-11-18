@@ -1,4 +1,5 @@
 import { acquireTextInput, composingKey } from './text-input.js';
+import { pointerAction } from './input.js';
 import { renderGui, guiRenderRevision } from './gui.js';
 import { GuiFrameReuse, GuiPacketDecoder } from './gui-frame-reuse.js';
 import { decodeGuiQuads } from './gui-quads.js';
@@ -75,15 +76,21 @@ export function attachGuiInput(canvas, managed) {
     return { x: (event.clientX - rect.left) * canvas.width / rect.width,
       y: (event.clientY - rect.top) * canvas.height / rect.height };
   };
-  for (const [name, kind] of [['pointerdown', 'down'], ['pointerup', 'up'], ['pointermove', 'move']]) {
+  for (const name of ['pointerdown', 'pointerup', 'pointermove']) {
     listen(name, event => {
-      const middle = managed.ClipboardTake && event.button === 1 && kind !== 'move';
+      const action = pointerAction(event);
+      // The device adapter exposes thumb buttons. Native GUI controls only
+      // support the first three, and some clamp higher buttons during hit testing.
+      if (!action || action.button > 2) return;
+      const {kind, button} = action;
+      const transition = kind === 'down' || kind === 'up';
+      const middle = managed.ClipboardTake && button === 2 && transition;
       if (kind === 'down') clipboard.cancelPrimary();
       if (!middle) event.preventDefault();
-      if (kind === 'down') { cancelled = false; proxy.focus(event); if (event.isTrusted) canvas.setPointerCapture(event.pointerId); }
-      enqueue({ kind: kind === 'move' && event.buttons ? 'drag' : kind, ...point(event), button: [0, 2, 1][event.button] ?? 0, ...modifiers(event) });
+      if (kind === 'down') { cancelled = false; proxy.focus(event); if (event.isTrusted && name === 'pointerdown') canvas.setPointerCapture(event.pointerId); }
+      enqueue({kind, button, ...point(event), ...modifiers(event)});
       // Clipboard actions and native URL opening need the initiating user activation.
-      if (managed.ClipboardTake && kind !== 'move') frame();
+      if (managed.ClipboardTake && transition) frame();
       if (middle && !clipboard.primaryPending) event.preventDefault();
     });
   }

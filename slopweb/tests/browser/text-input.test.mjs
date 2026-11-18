@@ -127,6 +127,36 @@ test('canvas focus and pointer ownership use a shared editable proxy without a r
   }finally{f.dispose();}
 });
 
+test('chorded mouse presses and releases reach both native owners in order',()=>{
+  const f=fixture(),at={clientX:24,clientY:12};
+  try {
+    emit(f.canvas,'pointerdown',{...at,button:0,buttons:1});
+    emit(f.canvas,'pointermove',{...at,button:2,buttons:3}); // Right joins left.
+    emit(f.canvas,'pointermove',{...at,button:0,buttons:2}); // Left releases first.
+    emit(f.canvas,'pointermove',{...at,button:-1,buttons:2});
+    emit(f.canvas,'pointerup',{...at,button:2,buttons:0});
+    assert.deepEqual(f.frame().map(e=>[e.kind,e.button]),[
+      ['down',0],['down',1],['up',0],['drag',1],['up',1],
+    ]);
+    assert.deepEqual(f.devices.at(-1).filter(e=>e.kind==='button').map(e=>[e.down,e.button]),
+      [[true,0],[true,1],[false,0],[false,1]]);
+  } finally {f.dispose();}
+});
+
+test('thumb buttons retain physical identity without generating GUI clicks or drags',()=>{
+  const f=fixture(),at={clientX:24,clientY:12};
+  try {
+    for(const button of [3,4]) {
+      emit(f.canvas,'pointerdown',{...at,button,buttons:1<<button});
+      emit(f.canvas,'pointermove',{...at,button:-1,buttons:1<<button});
+      emit(f.canvas,'pointerup',{...at,button,buttons:0});
+      assert.deepEqual(f.frame(),[]);
+      assert.deepEqual(f.devices.at(-1).filter(e=>e.kind==='button').map(e=>[e.down,e.button]),
+        [[true,button],[false,button]]);
+    }
+  } finally {f.dispose();}
+});
+
 test('preedit and Process/Enter key229 never reach native input; commit is ordered UTF-16 once',async()=>{
   const f=fixture();
   try {
