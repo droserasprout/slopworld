@@ -1,5 +1,6 @@
 """Guard package boundaries and install ownership."""
 
+import fcntl
 import json
 import os
 import runpy
@@ -32,8 +33,9 @@ def test_distribution_host_override_preserves_source_bundle_and_rekeys_payload(
 ) -> None:
     bundle = tmp_path / 'bundle'
     bundle.mkdir()
-    (bundle / 'BUILD_ID').write_text('original')
     (bundle / 'slopweb-host').write_bytes(b'host-libc')
+    original = slopweb.bundle_identity(bundle)
+    (bundle / 'BUILD_ID').write_text(original)
     replacement = tmp_path / 'target-host'
     replacement.write_bytes(b'target-libc')
     monkeypatch.setenv('SLOPWEB_HOST_BINARY', str(replacement))
@@ -44,7 +46,72 @@ def test_distribution_host_override_preserves_source_bundle_and_rekeys_payload(
     assert (installed / 'slopweb-host').stat().st_mode & 0o777 == 0o755
     assert (installed / 'BUILD_ID').read_text() == slopweb.bundle_identity(installed)
     assert (bundle / 'slopweb-host').read_bytes() == b'host-libc'
-    assert (bundle / 'BUILD_ID').read_text() == 'original'
+    assert (bundle / 'BUILD_ID').read_text() == original
+
+
+@pytest.mark.parametrize('change', ['extra', 'missing', 'modified', 'symlink'])
+def test_package_rejects_changed_snapshot_before_rekeying(tmp_path: Path, change: str) -> None:
+    bundle = tmp_path / 'bundle'
+    bundle.mkdir()
+    host = bundle / 'slopweb-host'
+    host.write_text('reviewed host')
+    original = slopweb.bundle_identity(bundle)
+    (bundle / 'BUILD_ID').write_text(original)
+    if change == 'extra':
+        (bundle / 'private').write_text('local file')
+    elif change == 'missing':
+        host.unlink()
+    elif change == 'modified':
+        host.write_text('changed host')
+    else:
+        outside = tmp_path / 'host'
+        host.rename(outside)
+        host.symlink_to(outside)
+
+    payload = tmp_path / 'payload'
+    with pytest.raises(ValueError, match=r'BUILD_ID|symlink'):
+        slopweb.stage(payload, 'new revision', 'new version', bundle)
+    assert not (payload / 'usr/bin/slopweb').exists()
+    assert (bundle / 'BUILD_ID').read_text() == original
+
+
+def test_rebuild_exchanges_complete_directories_and_failed_publish_preserves_bundle(tmp_path: Path) -> None:
+    live = tmp_path / 'out'
+    live.mkdir()
+    (live / 'old').write_text('previous')
+    pending = tmp_path / 'bundle'
+    with pytest.raises(FileNotFoundError):
+        slopweb.publish_bundle(pending, live)
+    assert (live / 'old').read_text() == 'previous'
+
+    pending.mkdir()
+    (pending / 'new').write_text('replacement')
+    slopweb.publish_bundle(pending, live)
+    assert list(live.iterdir()) == [live / 'new']
+    assert (pending / 'old').read_text() == 'previous'
+
+
+def test_source_install_snapshot_holds_publication_lock_and_uses_copied_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = tmp_path / 'bundle'
+    bundle.mkdir()
+    for name, value in [('slopweb-host', 'host'), ('VERSION', '1.2.3\n'), ('REVISION', 'first\n')]:
+        (bundle / name).write_text(value)
+    (bundle / 'BUILD_ID').write_text(slopweb.bundle_identity(bundle))
+    copy = shutil.copytree
+
+    def copy_during_publish(source: Path, target: Path, *args: Any, **kwargs: Any) -> Path:
+        if source == bundle:
+            with pytest.raises(BlockingIOError), slopweb.bundle_lock(bundle, fcntl.LOCK_EX | fcntl.LOCK_NB):
+                pytest.fail('Publication lock acquired while copying bundle')
+        return copy(source, target, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, 'copytree', copy_during_publish)
+    payload = tmp_path / 'payload'
+    slopweb.stage(payload, None, None, bundle)
+    assert (payload / 'usr/share/doc/slopweb/REVISION').read_text() == 'first\n'
+    assert (payload / 'usr/share/doc/slopweb/VERSION').read_text() == '1.2.3\n'
 
 
 @pytest.mark.parametrize('version', ['', '2.3.4'])
@@ -204,10 +271,10 @@ def test_package_formats_stage_only_web_payload(
     module = {'arch': arch, 'debian': debian, 'fedora': fedora}[distribution]
     bundle = tmp_path / 'bundle'
     bundle.mkdir()
-    (bundle / 'BUILD_ID').write_text('fixture')
     (bundle / 'slopweb-host').write_text('fixture')
     (bundle / 'VERSION').write_text('stale version')
     (bundle / 'REVISION').write_text('stale revision')
+    (bundle / 'BUILD_ID').write_text(slopweb.bundle_identity(bundle))
     monkeypatch.setenv('SOURCE_DATE_EPOCH', '1234567890')
     metadata = []
 
@@ -356,12 +423,12 @@ def test_source_cli_keeps_symlinked_prefix_visible_to_validation(
 def test_installed_information_commands_need_no_checkout_or_game(tmp_path: Path) -> None:
     bundle = tmp_path / 'bundle'
     bundle.mkdir()
-    (bundle / 'BUILD_ID').write_text('fixture')
     native = ROOT / 'slopweb/host/target/debug/slopweb'
     if not native.is_file():
         pytest.skip('Run just web-host-build to exercise the native installed launcher')
     shutil.copyfile(native, bundle / 'slopweb-host')
     (bundle / 'slopweb-host').chmod(0o755)
+    (bundle / 'BUILD_ID').write_text(slopweb.bundle_identity(bundle))
     payload = tmp_path / 'installed'
     slopweb.stage(payload, 'reviewed-revision', '1.2.3', bundle)
     launcher = payload / 'usr/bin/slopweb'
@@ -402,8 +469,8 @@ def source_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture
 def source_install(monkeypatch: pytest.MonkeyPatch, source_bundle: Path) -> None:
-    def stage(payload: Path, revision: str, version: str) -> None:
-        assert (revision, version) == ('built-revision', '1.2.3-built')
+    def stage(payload: Path, revision: str | None, version: str | None, bundle: Path) -> None:
+        assert (revision, version, bundle) == (None, None, source_bundle)
         for name in (
             'bin/slopweb',
             'share/slopweb/current.py',
