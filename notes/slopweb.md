@@ -161,7 +161,8 @@ to the host terminal; dynamic font diagnostics also stream to the host, while he
 stdout remains a machine-readable cache path. Only completed publications are served. Interpreted execution is the default; `--aot`, `--aot-sdk`, or
 `SLOPWEB_AOT_SDK` select mixed AOT, while `--interpreted` overrides the environment.
 Packages depend on the .NET SDK; AOT additionally needs its matching wasm-tools workload.
-Installed launchers validate AOT SDKs before game preparation; the checkout's
+Installed launchers select and pin a stable .NET 10 SDK from the chosen installation
+before game preparation. The checkout's
 launcher `--ensure-workload` switch provisions workloads only for AOT.
 `tools/web_build.py` coordinates timed source builds. Independent managed helpers build
 concurrently (up to six; `SLOPWEB_BUILD_JOBS` overrides the limit), with a completion
