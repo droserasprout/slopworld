@@ -17,7 +17,7 @@ use std::{
 };
 
 // Bump when persisted discovery or fallback policy changes.
-const SCHEMA: u32 = 2;
+const SCHEMA: u32 = 3;
 
 #[cfg(test)]
 #[path = "cache_tests.rs"]
@@ -121,27 +121,49 @@ impl Catalog {
                 .all(|face| object(root, &face.hash).is_file())
     }
     pub fn rebuild(&mut self, root: &Path) -> Result<()> {
-        let (files, watch) = fontconfig::inventory()?;
-        self.rebuild_inventory(root, files, watch)
+        self.rebuild_from(root, fontconfig::inventory)
     }
+    #[cfg(test)]
     pub(super) fn rebuild_inventory(
         &mut self,
         root: &Path,
         files: Vec<PathBuf>,
-        mut watch: Vec<PathBuf>,
+        watch: Vec<PathBuf>,
+    ) -> Result<()> {
+        self.rebuild_from(root, || Ok((files.clone(), watch.clone())))
+    }
+    fn rebuild_from(
+        &mut self,
+        root: &Path,
+        mut enumerate: impl FnMut() -> Result<(Vec<PathBuf>, Vec<PathBuf>)>,
     ) -> Result<()> {
         let started = Instant::now();
+        let inventory = enumerate()?;
+        let (files, roots) = &inventory;
+        // An absent configured path is watched directly: its stamp changes from
+        // None when created. Watching its parent also tracks unrelated siblings.
+        let mut watched = files.clone();
+        for path in roots {
+            watch_tree(path, &mut watched);
+        }
+        let watches: BTreeMap<_, _> = watched
+            .into_iter()
+            .map(|path| {
+                let value = stamp(&path);
+                (path, value)
+            })
+            .collect();
         let mut sources = BTreeMap::new();
         let mut parsed = 0;
         for path in files {
-            let Some(current) = stamp(&path) else {
+            let Some(current) = &watches[path] else {
                 continue;
             };
-            if let Some(previous) = self.sources.get(&path).filter(|s| s.stamp == current) {
-                sources.insert(path, previous.clone());
+            if let Some(previous) = self.sources.get(path).filter(|s| s.stamp == *current) {
+                sources.insert(path.clone(), previous.clone());
                 continue;
             }
-            let Ok(bytes) = fs::read(&path) else { continue };
+            let Ok(bytes) = fs::read(path) else { continue };
             parsed += 1;
             let count = ttf_parser::fonts_in_collection(&bytes)
                 .unwrap_or(1)
@@ -154,9 +176,9 @@ impl Catalog {
                 })
                 .collect();
             sources.insert(
-                path,
+                path.clone(),
                 Source {
-                    stamp: current,
+                    stamp: current.clone(),
                     raw: String::new(),
                     faces,
                 },
@@ -205,31 +227,17 @@ impl Catalog {
             !faces.is_empty(),
             "No supported installed font families found"
         );
+        let environment = environment();
+        // Directory stamps trigger discovery. Only installed files and the
+        // configuration that orders them participate in published identity.
+        let file_stamps: Vec<_> = watches.iter().filter(|(path, _)| path.is_file()).collect();
+        let generation = digest(&serde_json::to_vec(&(SCHEMA, &environment, file_stamps))?);
+        // Enumeration precedes our first stamps. A second Fontconfig inventory
+        // closes that gap; the original stamps cover the rest of preparation.
         ensure!(
-            sources
-                .iter()
-                .all(|(path, source)| stamp(path).as_ref() == Some(&source.stamp)),
+            enumerate()? == inventory && watches.iter().all(|(path, old)| stamp(path) == *old),
             "Installed fonts changed during discovery; retry preparation"
         );
-        watch.extend(paths);
-        // Directory stamps detect new and removed files; source stamps also catch
-        // replacement in place. Watch parents of absent configured directories.
-        let mut expanded = Vec::new();
-        for path in watch {
-            watch_tree(&path, &mut expanded);
-            if let Some(parent) = path.parent() {
-                expanded.push(parent.to_owned());
-            }
-        }
-        let watches = expanded
-            .into_iter()
-            .map(|p| {
-                let s = stamp(&p);
-                (p, s)
-            })
-            .collect();
-        let environment = environment();
-        let generation = digest(&serde_json::to_vec(&(SCHEMA, &environment, &watches))?);
         *self = Self {
             schema: SCHEMA,
             environment,
