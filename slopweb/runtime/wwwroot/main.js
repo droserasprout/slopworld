@@ -23,22 +23,30 @@ try {
         ? dotnet.withDebugging(0) : dotnet).create();
     const exports = await runtime.getAssemblyExports('Probe.dll');
     // AOT preparation replaces this boundary with published-identity loading.
+    const assemblyRequest = fetch;
     const loadAssembly = (bytes, file) => exports.Probe.LoadAssembly(bytes);
     window.__loading?.status('Loading game assemblies...');
     const manifest = await fetch('./game/manifest.json').then(r => r.json());
-    const {loaded, loadErrors} = await loadStartupAssemblies(manifest, loadAssembly);
+    const {loaded, loadErrors} = await loadStartupAssemblies(manifest, loadAssembly, assemblyRequest);
     const [missingDependencies, adaptations] = await Promise.all([
         fetch('./game/missing.json').then(r => r.json()),
         fetch('./game/adaptations.json').then(r => r.json())
     ]);
     window.__managedProbe = exports.Probe;
+    async function loadFile(path) {
+        const file = path.split('/').pop();
+        let bytes;
+        if (assemblyRequest) {
+            const response = await assemblyRequest(path);
+            if (!response.ok) throw new Error(file + ': HTTP ' + response.status);
+            bytes = new Uint8Array(await response.arrayBuffer());
+        }
+        await yieldStartupPaint();
+        return loadAssembly(bytes, file);
+    }
     let eco = null;
     async function initializeEco() {
-        const response = await fetch('./mod/SlopWorld.dll');
-        if (!response.ok) throw new Error('Eco mod missing');
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        await yieldStartupPaint();
-        loadAssembly(bytes, 'SlopWorld.dll');
+        await loadFile('./mod/SlopWorld.dll');
         await yieldStartupPaint();
         eco = JSON.parse(exports.Probe.InitializeEco());
         requireChecks(eco, 'Workspace initialization');
@@ -69,11 +77,7 @@ try {
     }
 
     {
-        const adapters = await fetch('./Adapters.dll');
-        if (!adapters.ok) throw new Error(`Adapters.dll: HTTP ${adapters.status}`);
-        const adapterBytes = new Uint8Array(await adapters.arrayBuffer());
-        await yieldStartupPaint();
-        loaded.push(loadAssembly(adapterBytes, 'Adapters.dll'));
+        loaded.push(await loadFile('./Adapters.dll'));
         const response = await fetch('./assets/Core.zip');
         if (!response.ok) throw new Error(`Core.zip: HTTP ${response.status}`);
         const core = new Uint8Array(await response.arrayBuffer());
@@ -84,8 +88,7 @@ try {
             entry = JSON.parse(exports.Probe.StartEntry());
             requireChecks(entry, 'Entry initialization');
             for (let frame = 0; frame < 5; frame++) {
-                await new Promise(requestAnimationFrame);
-                await yieldStartupPaint();
+                await yieldStartupPaint(true);
                 entry = JSON.parse(exports.Probe.EntryFrame(frame));
                 requireChecks(entry, 'Entry initialization');
             }
@@ -148,14 +151,8 @@ try {
                     await (await import('./font-delivery.js')).warmWorkspaceFonts(exports.Probe,[...families]);
                 }
                 for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn']) {
-                    const response = await fetch(`./mod/${name}.dll`);
-                    if (!response.ok) throw new Error('Missing workspace dependency ' + name);
-                    const bytes = new Uint8Array(await response.arrayBuffer());
-                    await yieldStartupPaint();
-                    loadAssembly(bytes, `${name}.dll`);
+                    await loadFile(`./mod/${name}.dll`);
                 }
-                // Session rows use the shared worker icon without snapshot assets.
-                const portraits = 0;
                 if (parameters.has('nativeFonts')) {
                     const fontLoader = await import('./workspace-fonts.js');
                     const fonts = fontLoader.dynamicFonts(exports.Probe, globalThis.fetch, () => workspaceViewport(parameters).uiScale, undefined, fontDefaults ? {selection:fontDefaults, chains:fontChains} : null);
@@ -177,8 +174,7 @@ try {
                 }
                 console.log('Browser: workspace opened');
                 for (let frame = 0; frame < 30; frame++) {
-                    await new Promise(requestAnimationFrame);
-                    await yieldStartupPaint();
+                    await yieldStartupPaint(true);
                     commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', frame / 60)).commands;
                     drawing.renderGui(canvas, commands);
                     if (parameters.has('nativeFonts') && await (await import('./font-delivery.js')).warmWorkspaceFonts(exports.Probe)) {
@@ -190,7 +186,6 @@ try {
                 }
                 workspace = drawing.renderGuiProbe(commands, false, canvas);
                 workspace.frames = 30;
-                workspace.portraits = portraits;
                 workspace.fonts = JSON.parse(exports.Probe.WorkspaceFontSnapshot());
                 workspace.textures = textures;
                 workspace.game = JSON.parse(exports.Probe.GameSnapshot());

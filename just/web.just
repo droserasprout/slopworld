@@ -128,16 +128,6 @@ package-web distribution: (package-product distribution 'slopweb')
 web-package-staged distribution version revision:
     uv run --locked python -m tools.release.native {{quote(distribution)}} --product slopweb --stage-only --binary-dir {{quote(justfile_directory() / 'slopweb/out')}} --output {{quote(justfile_directory() / 'dist' / distribution)}} --version {{quote(version)}} --revision {{quote(revision)}}
 
-# Prepare/serve an explicit native snapshot without changing the live profile cache.
-[group('web')]
-[positional-arguments]
-web-run-portraits source *args: web-build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    test -n {{quote(source)}}
-    shift
-    SLOPWEB_PORTRAITS={{quote(source)}} {{quote(justfile_directory() / 'slopweb/out/slopweb-host')}} --ensure-workload "$@"
-
 [group('web')]
 web-local-fonts-build:
     python3 slopweb/runtime/LocalFonts/build.py

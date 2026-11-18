@@ -62,7 +62,6 @@ public static class WorkspaceDrawing
     public static void Initialize()
     {
         RequireEntry();
-        BrowserPortraits.Bind();
         var mod = AppDomain
             .CurrentDomain.GetAssemblies()
             .Single(a => a.GetName().Name == "SlopWorld");

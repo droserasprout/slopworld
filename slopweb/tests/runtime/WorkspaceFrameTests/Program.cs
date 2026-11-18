@@ -193,11 +193,6 @@ namespace Verse
 
 namespace BrowserAdapters
 {
-    public static class BrowserPortraits
-    {
-        public static void Bind() { }
-    }
-
     public static class BrowserFontBank
     {
         public static float Density;

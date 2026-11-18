@@ -71,18 +71,15 @@ def test_distributable_build_never_reads_staged_game_root(
         'slopweb/runtime/BackgroundProbe/bin/Debug/net10.0/BackgroundProbe.runtimeconfig.json',
         'slopweb/runtime/bin/Debug/net10.0/Probe.dll',
         'slopweb/runtime/Adapters/bin/Debug/net10.0/Adapters.dll',
-        'slopweb/runtime/wwwroot/local-fonts.mjs',
-        'slopweb/runtime/wwwroot/local-fonts.wasm',
-        'slopweb/runtime/wwwroot/local-fonts.LICENSE.txt',
         'slopweb/runtime/bin/Debug/net10.0/wwwroot/_framework/dotnet.js',
-        'slopweb/runtime/wwwroot/index.html',
         'docs/theme/favicon.png',
-        'slopweb/runtime/Scanner/bin/Debug/net10.0/Scanner.dll',
-        'slopweb/offline/bin/Debug/net10.0/Offline.dll',
         'mod/Textures/SlopWorld/LoadingFont.png',
         'mod/Sounds/SlopWorld/OST/pace-20261012.ogg',
         'shared/loading-tips.txt',
     ]
+    inputs.extend(f'slopweb/runtime/wwwroot/{name}' for name in slopweb.WEB_ASSETS)
+    for helper, directory in [('Scanner', 'runtime/Scanner'), ('Offline', 'offline')]:
+        inputs.extend(f'slopweb/{directory}/bin/Debug/net10.0/{name}' for name in slopweb.HELPER_FILES[helper])
     inputs += [
         f'mod/Assemblies/{name}.dll'
         for name in ('SlopWorld', '0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn')
@@ -117,7 +114,10 @@ def test_distributable_build_never_reads_staged_game_root(
     package.mkdir(parents=True)
     for name in ('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT'):
         (package / name).write_text('runtime notice')
-    (runtime / 'obj').mkdir()
+    (runtime / 'obj/Debug/net10.0').mkdir(parents=True)
+    (runtime / 'obj/Debug/net10.0/staticwebassets.build.endpoints.json').write_text(
+        json.dumps({'Endpoints': [{'AssetFile': '_framework/dotnet.js'}]})
+    )
     (runtime / 'obj/project.assets.json').write_text(
         json.dumps(
             {
@@ -154,6 +154,10 @@ def test_distributable_build_never_reads_staged_game_root(
         path.write_text('must never ship')
     (runtime / 'FontProbe/bin/Debug/net10.0/Brutal.ImGui.dll').write_text('must never ship')
     (runtime / 'bin/Debug/net10.0/wwwroot/old-probe.js').write_text('must never ship')
+    (runtime / 'bin/Debug/net10.0/wwwroot/_framework/stale.wasm').write_text('must never ship')
+    (runtime / 'wwwroot/experiment.js').write_text('must never ship')
+    (runtime / 'Scanner/bin/Debug/net10.0/stale.json').write_text('must never ship')
+    (root / 'slopweb/offline/bin/Debug/net10.0/private.dll').write_text('must never ship')
     monkeypatch.setattr(slopweb, 'ROOT', root)
     monkeypatch.setattr(slopweb, 'build_identity', lambda: ('built-revision', '1.2.3-built'))
     output = tmp_path / 'bundle'

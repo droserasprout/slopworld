@@ -9,10 +9,12 @@ const source = readFileSync(new URL('../../runtime/wwwroot/main.js', import.meta
   .replace(/^import .*;\n/gm, '')
   .replace(/import\(([^)]+)\)/g, 'Promise.resolve(modules[$1])');
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-const run = new AsyncFunction('dotnet', 'workspaceViewport', 'workspaceParameters', 'fetch',
-  'window', 'document', 'location', 'requestAnimationFrame', 'modules', 'console', 'loadStartupAssemblies', 'yieldStartupPaint', source);
+function loader(code) {
+  return new AsyncFunction('dotnet', 'workspaceViewport', 'workspaceParameters', 'fetch',
+    'window', 'document', 'location', 'modules', 'console', 'loadStartupAssemblies', 'yieldStartupPaint', code);
+}
 
-async function start({query='', failAt='', incomplete=false, assetHeaders=null, reports={},render=()=>{},warm=async()=>false}={}) {
+async function start({published=false, query='', failAt='', incomplete=false, assetHeaders=null, reports={},render=()=>{},warm=async()=>false}={}) {
   const calls=[];
   const state={checks:[{ok:true}],loaded:true};
   const result={textContent:''};
@@ -32,11 +34,11 @@ async function start({query='', failAt='', incomplete=false, assetHeaders=null, 
   }});
   const dotnet={withDebugging(){return this;},async create(){calls.push('create');
     return {getAssemblyExports:async()=>({Probe:managed})};}};
-  const fetch=async path=>({ok:true,headers:new Headers(assetHeaders ?? {'x-slop-decoded-length':incomplete?'2':'1'}),
+  const fetch=async path=>{calls.push(['fetch',path]);return {ok:true,headers:new Headers(assetHeaders ?? {'x-slop-decoded-length':incomplete?'2':'1'}),
     arrayBuffer:async()=>new Uint8Array([1]).buffer,
     json:async()=>path==='./game/manifest.json'?[{file:'Game.dll'}]:[],
     text:async()=>'{}',
-    body:(async function*(){yield new Uint8Array([1]);})()});
+    body:(async function*(){yield new Uint8Array([1]);})()};};
   const modules={
     './asset-archive.js':{openAssetArchive:async url=>({response:await fetch(url),stored:Promise.resolve()})},
     './gui.js':{renderGui:render,renderGuiProbe:()=>({})},
@@ -47,9 +49,11 @@ async function start({query='', failAt='', incomplete=false, assetHeaders=null, 
   };
   // Keep host font catalogs empty and preferences disabled; exercise the actual
   // assembly, archive, Entry and presentation ordering without a browser.
+  const run=loader(published ? source.replace('const assemblyRequest = fetch;', 'const assemblyRequest = null;')
+    .replace('exports.Probe.LoadAssembly(bytes)', "exports.Probe.LoadPublishedAssembly(file.slice(0,-4))") : source);
   await run(dotnet,()=>({width:1280,height:720,uiScale:1}),()=>new URLSearchParams('localPreferences=off&'+query),
-    fetch,window,document,{origin:'http://localhost'},callback=>callback(),modules,{log(){}},
-    (manifest,load)=>loadStartupAssemblies(manifest,load,fetch),async()=>{calls.push('paint');});
+    fetch,window,document,{origin:'http://localhost'},modules,{log(){}},
+    loadStartupAssemblies,async()=>{calls.push('paint');});
   return {calls,result:window.__probeResult,message:result.textContent};
 }
 
@@ -172,4 +176,12 @@ test('unfinished Entry loading fails visibly and releases the engine',async()=>{
   assert.equal(calls.filter(c=>c==='finish').length,1);
   assert.equal(calls.some(c=>c[0]==='InitializeEco'),false);
   assert.equal(calls.includes('live'),false);
+});
+
+test('published startup resolves game, adapters and mod dependencies without fetching raw DLLs',async()=>{
+  const {calls,result}=await start({published:true});
+  assert.equal(result.error,undefined);
+  assert.deepEqual(calls.filter(c=>c[0]==='LoadPublishedAssembly').map(c=>c[1]),
+    ['Game','Adapters','SlopWorld','0Harmony','Google.Protobuf','Markdig','AngleSharp','Tomlyn']);
+  assert.deepEqual(calls.filter(c=>c[0]==='fetch' && c[1].endsWith('.dll')),[]);
 });

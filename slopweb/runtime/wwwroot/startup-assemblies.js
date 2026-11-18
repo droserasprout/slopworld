@@ -3,6 +3,7 @@
 import {yieldStartupPaint} from './startup-yield.js';
 export async function loadStartupAssemblies(manifest, load, request=globalThis.fetch, yieldPaint=yieldStartupPaint) {
   const download=async item=>{
+    if (!request) return {}; // Published assemblies resolve by CLR identity.
     try {
       const response=await request(`./game/${item.file}`);
       if(!response.ok)throw Error(`${item.file}: HTTP ${response.status}`);
