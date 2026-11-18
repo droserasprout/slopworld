@@ -28,13 +28,13 @@ class Clock:
 
 
 class BenchmarkTests(unittest.TestCase):
-    def test_all_injection_backends_use_x11_clipboard(self):
-        for backend in ['ydotool', 'xdotool']:
+    def test_all_injection_backends_use_wayland_clipboard(self):
+        for backend in ['ydotool']:
             with patch('terminal_input_backend.subprocess.run') as run, \
                     patch('terminal_input_backend.run_command', return_value=TEXT.strip()):
                 run.return_value.returncode = 0
                 Backend(backend).prepare_text()
-                self.assertEqual(run.call_args.args[0], ['xclip', '-selection', 'clipboard'])
+                self.assertEqual(run.call_args.args[0], ['wl-copy'])
                 self.assertEqual(run.call_args.kwargs['input'], TEXT.encode())
 
     def test_exact_counts_and_timing(self):
@@ -107,7 +107,7 @@ class BenchmarkTests(unittest.TestCase):
                 server.bind(path)
                 server.settimeout(0.01)
                 backend = Backend('ydotool')
-                with patch.dict(os.environ, {'YDOTOOL_SOCKET': path}), patch.object(backend, 'open_display'), patch.object(backend, 'verify_target'):
+                with patch.dict(os.environ, {'YDOTOOL_SOCKET': path}), patch.object(backend, 'verify_target'):
                     backend.connect()
                 backend.focus = lambda: None
                 try:
@@ -125,7 +125,7 @@ class BenchmarkTests(unittest.TestCase):
         backend.window = 10
         backend.focus = lambda: 11
         backend.sock = Mock()
-        with self.assertRaisesRegex(RuntimeError, 'expected X11 window 10, observed 11'):
+        with self.assertRaisesRegex(RuntimeError, 'expected Wayland window 10, observed 11'):
             backend.send('paste')
         backend.sock.send.assert_not_called()
 
@@ -145,7 +145,7 @@ class BenchmarkTests(unittest.TestCase):
                 run_command(['ydotool', 'mousemove', '--help'])
 
     def test_clipboard_does_not_capture_daemon_output_pipes(self):
-        result = bench.subprocess.CompletedProcess(['xclip'], 0)
+        result = bench.subprocess.CompletedProcess(['wl-copy'], 0)
         with patch.object(bench.subprocess, 'run', return_value=result) as run, \
                 patch('terminal_input_backend.run_command', return_value=TEXT.strip()):
             Backend('ydotool').prepare_text()

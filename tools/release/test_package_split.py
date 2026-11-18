@@ -95,7 +95,7 @@ def test_native_packages_have_disjoint_files_and_role_dependencies(
     )
     assert 'slopctl' in metadata['slopd'] and 'tmux' in metadata['slopd']
     assert 'bubblewrap' not in metadata['slopworld']
-    assert 'xclip' in metadata['slopworld']
+    assert 'wl-clipboard' in metadata['slopworld']
     # Descriptions may mention a daemon, so check dependency lines rather than all metadata.
     cli_dependencies = [line for line in metadata['slopctl'].splitlines() if line.startswith(('Depends:', 'Requires:'))]
     assert not any(name in line for line in cli_dependencies for name in ('slopd', 'slopworld', 'tmux'))
@@ -165,6 +165,6 @@ def test_arch_source_metadata_exposes_each_products_dependencies(tmp_path: Path,
     sections = {section.splitlines()[0]: section for section in result.split('pkgname = ')[1:]}
     assert set(sections) == {product + suffix for product in staging.NATIVE_PRODUCTS}
     assert 'depends = slopctl' + suffix in sections['slopd' + suffix]
-    assert 'depends = xclip' in sections['slopworld' + suffix]
+    assert 'depends = wl-clipboard' in sections['slopworld' + suffix]
     assert 'depends = tmux>=3.7' in sections['slopd' + suffix]
     assert 'depends = slopd' not in sections['slopctl' + suffix]

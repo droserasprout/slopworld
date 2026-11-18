@@ -68,6 +68,17 @@ namespace SlopWorld
                 _suppressedStroke = stroke;
         }
 
+        // Multiple IMGUI handlers can see the same physical shortcut during one key pass.
+        internal bool ClaimPasteStroke()
+        {
+            if (_dispatching is not Entry current || current.Key != KeyCode.V)
+                return true;
+            if (_suppressedStroke == current.Stroke)
+                return false;
+            _suppressedStroke = current.Stroke;
+            return true;
+        }
+
         internal void Dispatch(Entry input, Action send)
         {
             if (input.Stroke == _suppressedStroke)

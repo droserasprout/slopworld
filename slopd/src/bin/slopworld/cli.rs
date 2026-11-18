@@ -46,9 +46,6 @@ pub(super) struct LaunchArgs {
     /// Print game argv without launching or creating files
     #[arg(long, help_heading = "Game")]
     pub print: bool,
-    /// Omit the default X11 window override
-    #[arg(long, help_heading = "Game")]
-    pub no_window_fix: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -189,7 +186,6 @@ pub(super) fn parse(args: Vec<String>) -> Result<Command, StyledStr> {
         || launch.mods.is_some()
         || launch.profile.is_some()
         || launch.print
-        || launch.no_window_fix
     {
         return Err("launch options cannot be combined with a local command".into());
     }

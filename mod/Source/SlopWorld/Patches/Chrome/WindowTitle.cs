@@ -41,7 +41,7 @@ namespace SlopWorld
                 return;
             }
 
-            // Retry because the X11 client window can be unavailable during startup.
+            // Retry because the Wayland window can be unavailable during startup.
             _nextTry = now + RetrySeconds;
         }
     }

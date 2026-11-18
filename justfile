@@ -86,6 +86,8 @@ import 'just/game.just'
 install-mod managed=MANAGED mods=MODS: daemon-build (mod-build managed)
     uv run --locked python -m tools.host.install_mod --runner "$RUNNER" --mods {{ quote(mods) }}
     install -Dm755 "$RUNNER" "$BIN/slopworld"
+    if [ -e "${XDG_DATA_HOME:-$HOME/.local/share}/applications/slopworld.desktop" ] || ! cmp -s packaging/slopworld.desktop /usr/share/applications/slopworld.desktop; then install -Dm644 packaging/slopworld.desktop "${XDG_DATA_HOME:-$HOME/.local/share}/applications/slopworld.desktop"; fi
+    if [ -e "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/128x128/apps/slopworld.png" ] || ! cmp -s mod/Textures/SlopWorld/SlopWorld_icon.png /usr/share/icons/hicolor/128x128/apps/slopworld.png; then install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/128x128/apps/slopworld.png"; fi
     uv run --locked python -m tools.cli_completions install slopworld
 
 # Remove the installed mod and launcher
@@ -93,7 +95,7 @@ install-mod managed=MANAGED mods=MODS: daemon-build (mod-build managed)
 uninstall-mod mods=MODS: daemon-build
     "$RUNNER" mod uninstall --mods {{ quote(mods) }}
     uv run --locked python -m tools.cli_completions uninstall slopworld
-    rm -f "$BIN/slopworld"
+    rm -f "$BIN/slopworld" "${XDG_DATA_HOME:-$HOME/.local/share}/applications/slopworld.desktop" "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/128x128/apps/slopworld.png"
 
 # Restore reviewed Python, runtime and .NET tool locks
 [group('Maintain')]

@@ -24,7 +24,9 @@ Background reader replacements remap the remembered handle without creating a vi
 Native fields receive keys inside the callback. Shift bypasses Alt
 navigation; terminal encoding forwards the unshifted Alt letter/digit.
 Ctrl+Alt letters and control punctuation retain both modifiers; Shift does not add
-a separate modifier to these character shortcuts. Ctrl+V remains reserved for paste.
+a separate modifier to these character shortcuts. Ctrl+V claims one paste per physical press, including when Waylith delivers repeats.
+When several primary button transitions share a frame, the focused terminal replays them in native order before Waylith dispatches drag motion.
+Word and line drags publish PRIMARY on release so the clipboard helper runs after pointer capture ends.
 The focused terminal participates in Waylith’s automatic text-input activation so
 printable input, including punctuation, follows native character events. Polling
 physical key state must not synthesize a second text stream.
@@ -58,7 +60,7 @@ mouse presses too. Rejected input is discarded. Mouse-reporting apps own live cl
 Shift/history keeps local selection. Clipboard replies check pane/run identity after
 round trips. CLIPBOARD, PRIMARY, and OSC writes stay separate; PRIMARY never sends the
 image shortcut. Codex tries text before image paste; clients read
-text from their own X11 desktop and upload local PNG clipboard bytes when no text
+text from their own Wayland desktop and upload local PNG clipboard bytes when no text
 is available. Host panes accept text only. [Clipboard](daemon-clipboard.md) owns image imports.
 
 Shift+Enter travels as a named key, not literal escape bytes. The daemon owns its

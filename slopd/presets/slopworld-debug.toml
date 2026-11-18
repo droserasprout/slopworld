@@ -2,7 +2,7 @@
 name = "slopworld-debug"
 description = "Full SlopWorld game and mod development: game files, profile, displays, devices, desktop services, diagnostics and build caches"
 warning_level = "host_control"
-requires = ["slopworld-dev", "docker", "systemd", "wayland", "x11"]
+requires = ["slopworld-dev", "docker", "systemd", "wayland"]
 # These paths are writable so the debug agent can build and install the mod, run the game, and edit the profile.
 # The project directory has separate write access.
 rw = [

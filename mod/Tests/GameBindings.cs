@@ -34,9 +34,32 @@ namespace SlopWorld.Tests
                     context.LoadFromAssemblyPath(Path.Combine(Path.GetFullPath(managed), assembly));
                 int count = 0;
                 Require(
-                    ((ValueTuple<int, int>)Invoke(mod, "LinuxGameWindow", "MonitorPixels"))
-                        == (0, 0),
-                    "monitor geometry must bind to the installed engine and tolerate startup before a window exists"
+                    Invoke(mod, "LinuxGameWindow+Native", "MainWindow") == null,
+                    "native window bindings must resolve before startup"
+                );
+                count++;
+                var mouseDispatch = (MethodBase)Invoke(
+                    mod,
+                    "OrderedMouse+Dispatch",
+                    "TargetMethod"
+                );
+                var mouseCode = PatchProcessor.GetOriginalInstructions(mouseDispatch);
+                var replay = (
+                    (IEnumerable<CodeInstruction>)
+                        Invoke(mod, "OrderedMouse+Dispatch", "Transpiler", mouseCode)
+                ).ToList();
+                Require(
+                    replay.Count(x =>
+                        x.operand is MethodInfo m
+                        && m.DeclaringType?.FullName == "SlopWorld.OrderedMouse+Dispatch"
+                        && m.Name == "Down"
+                    ) == 2
+                        && replay.Count(x =>
+                            x.operand is MethodInfo m
+                            && m.DeclaringType?.FullName == "SlopWorld.OrderedMouse+Dispatch"
+                            && m.Name == "Up"
+                        ) == 1,
+                    "mouse replay must replace both press polls and the release poll"
                 );
                 count++;
                 var pacingLoop = (MethodBase)Invoke(mod, "Patch_RenderPacing", "TargetMethod");

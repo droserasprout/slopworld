@@ -257,14 +257,14 @@ namespace SlopWorld
             ),
             new BinarySpec(
                 "Desktop, audio, and clipboard",
-                "xclip",
-                "game desktop clipboard and PRIMARY selection",
+                "wl-copy",
+                "Wayland clipboard writes",
                 ProbeKind.HostPath
             ),
             new BinarySpec(
                 "Desktop, audio, and clipboard",
-                "xsel",
-                "game desktop clipboard fallback",
+                "wl-paste",
+                "Wayland clipboard reads",
                 ProbeKind.HostPath
             ),
             new BinarySpec("Desktop, audio, and clipboard", "pactl", "audio device lookup"),

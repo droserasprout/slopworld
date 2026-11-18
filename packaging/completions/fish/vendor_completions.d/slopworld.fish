@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_slopworld_global_optspecs
-    string join \n game= game-exe= working-dir= mods= profile= endpoint= sidecar print no-window-fix h/help V/version
+    string join \n game= game-exe= working-dir= mods= profile= endpoint= sidecar print h/help V/version
 end
 
 function __fish_slopworld_needs_command
@@ -32,7 +32,6 @@ complete -c slopworld -n "__fish_slopworld_needs_command" -l profile -d 'Save da
 complete -c slopworld -n "__fish_slopworld_needs_command" -l endpoint -d 'Saved connection (default: local)' -r
 complete -c slopworld -n "__fish_slopworld_needs_command" -l sidecar -d 'Use sidecar paths and UI defaults'
 complete -c slopworld -n "__fish_slopworld_needs_command" -l print -d 'Print game argv without launching or creating files'
-complete -c slopworld -n "__fish_slopworld_needs_command" -l no-window-fix -d 'Omit the default X11 window override'
 complete -c slopworld -n "__fish_slopworld_needs_command" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c slopworld -n "__fish_slopworld_needs_command" -s V -l version -d 'Print version'
 complete -c slopworld -n "__fish_slopworld_needs_command" -f -a "completions" -d 'Print a shell completion script without loading game or profile state'

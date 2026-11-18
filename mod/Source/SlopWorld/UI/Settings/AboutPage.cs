@@ -186,7 +186,6 @@ namespace SlopWorld
 
         static readonly Credit[] Tools =
         {
-            new Credit("X.Org Xlib / libXss", "window and idle control", "https://www.x.org/"),
             new Credit("tmux", "terminal sessions", "https://github.com/tmux/tmux/wiki"),
             new Credit("bubblewrap", "sandboxing", "https://github.com/containers/bubblewrap"),
             new Credit("Git", "version control", "https://git-scm.com/"),

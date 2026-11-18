@@ -4,9 +4,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Move directly by XInput's fractional touchpad distance where Linux exposes it, with
-    // Unity's logical wheel packet as the portable fallback. Unity's stepped scroll view
-    // stays out of the path either way.
+    // Retain fractional wheel movement across nested scroll views.
     public sealed class SmoothScroll
     {
         // Wheel passes only change the retained offset. Flat list owners can omit row
@@ -21,14 +19,9 @@ namespace SlopWorld
 
         // Keeps the two GUI groups and input ownership exception-safe. Use in a using block.
         // nested views remain well-formed even when a row renderer throws.
-        public IDisposable Scope(
-            Rect outer,
-            Rect view,
-            bool showScrollbars = true,
-            bool preciseInput = true
-        )
+        public IDisposable Scope(Rect outer, Rect view, bool showScrollbars = true)
         {
-            Begin(outer, view, showScrollbars, preciseInput);
+            Begin(outer, view, showScrollbars);
             return new ScrollScope(this);
         }
 
@@ -55,11 +48,6 @@ namespace SlopWorld
         // is meant to travel the distance it has always travelled, just not all at once.
         const float Speed = 20f;
 
-        // XInput's increment is one wheel detent. Unity reports that detent as a delta of two on
-        // Linux. Therefore, this preserves the ordinary wheel's established travel while retaining
-        // every fractional touchpad movement inside the detent.
-        const float X11Speed = Speed * 2f;
-
         // The bar's own geometry, kept from `Begin` because it is drawn in `End` - outside the
         // scroll view's group. This is the only place the outer rect means what it says.
         Rect _outer;
@@ -68,7 +56,6 @@ namespace SlopWorld
         IDisposable _focusRegion;
         Vector2 _max;
         bool _bar;
-        bool _preciseInput;
 
         // Where in the thumb the drag was started, so a grabbed bar does not jump its own
         // half-height under the cursor on the first frame.
@@ -78,8 +65,7 @@ namespace SlopWorld
 
         public Vector2 Position => _pos;
 
-        // Observe actual consumed movement, including precise samples consumed on
-        // non-wheel GUI passes. Legacy wheel duplicates must not look like clamps.
+        // Record consumed wheel movement for latency measurements.
         internal Action<Vector2, Vector2, string> ObserveInput;
 
         // Put the list somewhere with no gesture behind it. A jump to a selected row is not a
@@ -101,12 +87,7 @@ namespace SlopWorld
                 JumpTo(new Vector2(_pos.x, top + height - viewport));
         }
 
-        public void Begin(
-            Rect outer,
-            Rect view,
-            bool showScrollbars = true,
-            bool preciseInput = true
-        )
+        public void Begin(Rect outer, Rect view, bool showScrollbars = true)
         {
             _measuredOuter = outer;
             _contentHeight = view.height;
@@ -116,7 +97,7 @@ namespace SlopWorld
                 Mathf.Max(0f, view.height - outer.height)
             );
 
-            BeginInput(outer, max, preciseInput);
+            BeginInput(outer, max);
             _bar = showScrollbars;
             _focusRegion = FieldFocusScope.TrackScroll(this, outer);
 
@@ -128,13 +109,13 @@ namespace SlopWorld
             // each translation. Raw GUI groups skip that repair on keyboard passes.
             Widgets.BeginGroup(outer);
             Widgets.BeginGroup(new Rect(view.x - _pos.x, view.y - _pos.y, view.width, view.height));
-            ScrollWheelRouter.Begin(this, outer, view, preciseInput, origin);
+            ScrollWheelRouter.Begin(this, outer, view, origin);
         }
 
         // Terminal history has a moving window rather than a locally available document. It still
         // needs this class's input ownership and fractional wheel decoding. It draws its own
         // frame and must not translate a GUI group around a synthetic document.
-        public void BeginInput(Rect outer, Vector2 max, bool preciseInput = true)
+        public void BeginInput(Rect outer, Vector2 max)
         {
             // Content can shrink under a position that was valid on the previous frame.
             _pos.x = Mathf.Clamp(_pos.x, 0f, max.x);
@@ -144,11 +125,8 @@ namespace SlopWorld
             // native touchpad samples or wheel packets can move the covered content.
             // This also reserves non-scrolling menus and their padding for the menu.
             bool blocked = UiMenu.BlocksScrollBehind();
-            _preciseInput = preciseInput && !blocked;
             if (!blocked)
             {
-                if (_preciseInput)
-                    ClaimPrecise(outer, max);
                 ClaimWheel(outer, max);
             }
 
@@ -188,8 +166,6 @@ namespace SlopWorld
 
         public void EndInput()
         {
-            if (_preciseInput)
-                SpendPrecise();
             SpendWheel();
         }
 
@@ -259,99 +235,10 @@ namespace SlopWorld
             public SmoothScroll Owner;
             public Vector2 Amount;
             public bool HasAmount;
-            public bool Duplicate;
             public Event Event;
         }
 
-        // One native sample per frame, with an optional refresh before movement arrives.
-        sealed class PrecisePacket
-        {
-            public int Frame = -1;
-            public bool Available;
-            public bool Spent;
-            public Vector2 Amount;
-            public SmoothScroll Owner;
-            public Event WheelEvent;
-            public Vector2 WheelDelta;
-            public Vector2 WheelMouse;
-            public Vector2 CoverageMouse;
-            public EventModifiers CoverageModifiers;
-            public readonly NativeScrollCoverage Coverage = new NativeScrollCoverage();
-        }
-
         static readonly WheelClaim Wheel = new WheelClaim();
-        static readonly PrecisePacket Precise = new PrecisePacket();
-
-        static bool PreciseCovers(Event e)
-        {
-            if (!Settings.SmoothScrolling)
-                return false;
-            return Precise.CoverageMouse.Equals(GUIUtility.GUIToScreenPoint(e.mousePosition))
-                && Precise.CoverageModifiers == e.modifiers
-                && Precise.Coverage.Covers(Time.frameCount, e.delta.x, e.delta.y);
-        }
-
-        void ClaimPrecise(Rect outer, Vector2 max)
-        {
-            if (!Settings.SmoothScrolling)
-            {
-                // Disabled smoothing uses logical movement exclusively.
-                // Reject in-flight native motion instead of replaying that movement later.
-                X11ScrollInput.DiscardPendingMovement();
-                Precise.Frame = -1;
-                Precise.Available = false;
-                Precise.Spent = false;
-                Precise.Amount = Vector2.zero;
-                Precise.Owner = null;
-                Precise.Coverage.Clear();
-                Precise.WheelEvent = null;
-                return;
-            }
-            int frame = Time.frameCount;
-            var e = Event.current;
-            bool wheel = e.type == EventType.ScrollWheel;
-            bool newWheel =
-                wheel
-                && (
-                    !ReferenceEquals(Precise.WheelEvent, e)
-                    || Precise.WheelDelta.x != e.delta.x
-                    || Precise.WheelDelta.y != e.delta.y
-                    || Precise.WheelMouse.x != e.mousePosition.x
-                    || Precise.WheelMouse.y != e.mousePosition.y
-                );
-            bool refresh = newWheel && !Precise.Spent && Precise.Amount.sqrMagnitude <= 0.000001f;
-            if (Precise.Frame != frame || refresh)
-            {
-                Precise.Frame = frame;
-                Precise.Owner = null;
-                Precise.Spent = false;
-                Vector2 units;
-                Precise.Available = X11ScrollInput.TryRead(out units, wheel);
-                Precise.Amount = units * X11Speed;
-                if (wheel)
-                {
-                    Precise.WheelEvent = e;
-                    Precise.WheelDelta = e.delta;
-                    Precise.WheelMouse = e.mousePosition;
-                }
-                else
-                    Precise.WheelEvent = null;
-            }
-
-            if (!Precise.Available || Precise.Spent || Precise.Amount.sqrMagnitude <= 0.000001f)
-                return;
-            if (max.x <= 0f && max.y <= 0f)
-                return;
-            if (!outer.Contains(Event.current.mousePosition))
-                return;
-            if (Precise.Owner == null)
-            {
-                Precise.Coverage.Record(frame, Precise.Amount.x, Precise.Amount.y);
-                Precise.CoverageMouse = GUIUtility.GUIToScreenPoint(e.mousePosition);
-                Precise.CoverageModifiers = e.modifiers;
-            }
-            Precise.Owner = this;
-        }
 
         void ClaimWheel(Rect outer, Vector2 max)
         {
@@ -382,45 +269,13 @@ namespace SlopWorld
             // replace only the owner, not the already decoded pixel amount.
             if (!Wheel.HasAmount)
             {
-                // A zero XInput sample is common when IMGUI ran a layout pass before the
-                // actual wheel event arrived in this frame. Only suppress Unity when a
-                // scroll view really claimed a non-zero precise sample. Otherwise the
-                // logical event is the input we have to spend.
-                Wheel.Duplicate = PreciseCovers(e);
-                if (Wheel.Duplicate)
-                {
-                    // XInput already supplied this packet, including any sub-step parts.
-                    Wheel.Amount = Vector2.zero;
-                }
-                else
-                {
-                    X11ScrollInput.DiscardPendingMovement();
-                    var raw = !Settings.SmoothScrolling ? e.delta : Input.mouseScrollDelta;
-                    Wheel.Amount =
-                        new Vector2(
-                            PrecisionDelta(e.delta.x, raw.x),
-                            PrecisionDelta(e.delta.y, raw.y)
-                        ) * Speed;
-                }
+                var raw = !Settings.SmoothScrolling ? e.delta : Input.mouseScrollDelta;
+                Wheel.Amount =
+                    new Vector2(PrecisionDelta(e.delta.x, raw.x), PrecisionDelta(e.delta.y, raw.y))
+                    * Speed;
                 Wheel.HasAmount = true;
             }
             e.Use();
-        }
-
-        bool SpendPrecise()
-        {
-            if (!Settings.SmoothScrolling || Precise.Owner != this || Precise.Spent)
-                return false;
-
-            Precise.Spent = true;
-            Precise.Owner = null;
-            var next = new Vector2(
-                Mathf.Clamp(_pos.x + Precise.Amount.x, 0f, _max.x),
-                Mathf.Clamp(_pos.y + Precise.Amount.y, 0f, _max.y)
-            );
-            ObserveInput?.Invoke(_pos, next, "precise");
-            _pos = next;
-            return true;
         }
 
         static float PrecisionDelta(float eventDelta, float rawDelta)
@@ -452,7 +307,7 @@ namespace SlopWorld
                 Mathf.Clamp(_pos.x + Wheel.Amount.x, 0f, _max.x),
                 Mathf.Clamp(_pos.y + Wheel.Amount.y, 0f, _max.y)
             );
-            ObserveInput?.Invoke(_pos, next, Wheel.Duplicate ? "duplicate" : "wheel");
+            ObserveInput?.Invoke(_pos, next, "wheel");
             _pos = next;
             e.Use();
             return true;

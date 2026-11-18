@@ -9,6 +9,28 @@ namespace SlopWorld.Tests
     public class KeyboardEventQueueTests
     {
         [Test]
+        public void PasteRunsOncePerPhysicalPressIncludingRepeatedDispatch()
+        {
+            var queue = new KeyboardEventQueue();
+            int count = 0;
+            queue.Key(KeyCode.V, true, false, 0);
+            queue.Key(KeyCode.V, true, true, 0);
+            queue.Key(KeyCode.V, false, false, 0);
+            queue.Key(KeyCode.V, true, false, 0);
+            foreach (var input in queue.Drain())
+                queue.Dispatch(
+                    input,
+                    () =>
+                    {
+                        if (queue.ClaimPasteStroke())
+                            count++;
+                        Assert.That(queue.ClaimPasteStroke(), Is.False);
+                    }
+                );
+            Assert.That(count, Is.EqualTo(2));
+        }
+
+        [Test]
         public void LowFrameRateBatchPreservesTextEnterAndFollowingDotOrder()
         {
             var queue = new KeyboardEventQueue();

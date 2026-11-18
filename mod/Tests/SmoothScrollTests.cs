@@ -23,9 +23,6 @@ namespace SlopWorld.Tests
             clear.BeginInput(Bounds, Max);
             clear.EndInput();
             Settings.S.smoothScrolling = true;
-            X11ScrollInput.Sample = Vector2.zero;
-            X11ScrollInput.Available = false;
-            X11ScrollInput.Discards = 0;
         }
 
         [TearDown]
@@ -60,17 +57,15 @@ namespace SlopWorld.Tests
             };
             router.Draw(Bounds, draw);
             Event.current = Wheel(.5f);
-            X11ScrollInput.Sample = new Vector2(0, .125f);
-            X11ScrollInput.Available = true;
             router.Draw(Bounds, draw);
             Assert.That(rows, Is.EqualTo(1));
             Assert.That(outer.Position.y, Is.Zero);
-            Assert.That(inner.Position.y, Is.EqualTo(5f).Within(.001f));
+            Assert.That(inner.Position.y, Is.EqualTo(10f).Within(.001f));
             Assert.That(GUIUtility.Origin, Is.EqualTo(Vector2.zero));
         }
 
         [Test]
-        public void OrdinaryFallbackRetainsRawFractionAndNonWheelNativeInputStillMoves()
+        public void WheelRetainsRawFractionAndRepaintDoesNotRepeatIt()
         {
             var scroll = new SmoothScroll();
             var sources = new List<string>();
@@ -85,36 +80,30 @@ namespace SlopWorld.Tests
                 type = EventType.Repaint,
                 mousePosition = new Vector2(10, 10),
             };
-            X11ScrollInput.Sample = new Vector2(0, .125f);
-            X11ScrollInput.Available = true;
             Apply(scroll);
-            Assert.That(scroll.Position.y, Is.EqualTo(7.5f));
-            Assert.That(sources, Does.Contain("precise"));
+            Assert.That(scroll.Position.y, Is.EqualTo(2.5f));
+            Assert.That(sources, Is.EqualTo(new[] { "wheel" }));
         }
 
         [Test]
-        public void CoveredNativeMovementCannotSuppressADifferentPointerOwner()
+        public void SeparateWheelEventsReachTheirPointerOwners()
         {
             var left = new SmoothScroll();
             var right = new SmoothScroll();
             Event.current = Wheel(1f);
-            X11ScrollInput.Sample = new Vector2(0, .25f);
-            X11ScrollInput.Available = true;
             Apply(left);
             Event.current = Wheel(1f, pointer: 20f);
             Apply(right);
-            Assert.That(left.Position.y, Is.EqualTo(10f));
+            Assert.That(left.Position.y, Is.EqualTo(20f));
             Assert.That(right.Position.y, Is.EqualTo(20f));
         }
 
         [Test]
-        public void MenuBlocksNativeAndLogicalClaimsAndDisabledSmoothingUsesLogicalSum()
+        public void MenuBlocksWheelClaimsAndDisabledSmoothingUsesLogicalSum()
         {
             var scroll = new SmoothScroll();
             UiMenu.ScrollBlocked = true;
             Event.current = Wheel(1f);
-            X11ScrollInput.Sample = new Vector2(0, .25f);
-            X11ScrollInput.Available = true;
             Apply(scroll);
             Assert.That(scroll.Position.y, Is.Zero);
             Assert.That(Event.current.type, Is.EqualTo(EventType.ScrollWheel));

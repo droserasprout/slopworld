@@ -159,7 +159,6 @@ on Debian and Fedora). Install the tools for the features you use:
 | Desktop application associations | `glib2` | `libglib2.0-bin` | `glib2` |
 | Native Open With chooser | `python-gobject`, `gtk3` | `python3-gi`, `gir1.2-gtk-3.0` | `python3-gobject`, `gtk3` |
 | Portal chooser fallback | `xdg-desktop-portal` | same | same |
-| X11 clipboard fallback | `xsel` | same | same |
 | Process inspection fallback | `procps-ng` | `procps` | `procps-ng` |
 | Spotify playback | `ncspot` | not packaged | not packaged |
 | Song recognition | `songrec` | not packaged | not packaged |

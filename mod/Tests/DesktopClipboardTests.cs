@@ -11,7 +11,7 @@ namespace SlopWorld.Tests
         public static void LinuxCopiesCannotOvertakePendingImagePasteThroughUnity()
         {
             var platform = Application.platform;
-            var backend = DesktopClipboard.X11;
+            var backend = DesktopClipboard.Selection;
             string previous = GUIUtility.systemCopyBuffer;
             using var entered = new ManualResetEventSlim();
             using var release = new ManualResetEventSlim();
@@ -21,7 +21,7 @@ namespace SlopWorld.Tests
             {
                 Application.platform = RuntimePlatform.LinuxPlayer;
                 GUIUtility.systemCopyBuffer = "original selection";
-                DesktopClipboard.X11 = new X11Clipboard(runner, completions.Add);
+                DesktopClipboard.Selection = new LinuxClipboard(runner, completions.Add);
                 byte[] received = null;
                 DesktopClipboard.ReadLocalPaste(
                     _ => Assert.Fail("expected image"),
@@ -47,7 +47,7 @@ namespace SlopWorld.Tests
             finally
             {
                 release.Set();
-                DesktopClipboard.X11 = backend;
+                DesktopClipboard.Selection = backend;
                 Application.platform = platform;
                 GUIUtility.systemCopyBuffer = previous;
             }

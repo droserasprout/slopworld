@@ -172,7 +172,9 @@ fn run_launcher(args: &Args) -> Result<ExitCode, String> {
         .map(|paths| paths.endpoint.as_path())
         .unwrap_or(&endpoint);
     configure_game_environment(&mut command, &profile, endpoint, working_dir.as_deref())?;
-    configure_game_window(&mut command, args.no_window_fix);
+    if cfg!(target_os = "linux") {
+        command.env("WAYLITH_BACKEND", "Wayland");
+    }
     configure_game_log(&mut command, &log)?;
     let status = command
         .args(argv.get(1..).unwrap_or_default())
@@ -430,14 +432,6 @@ fn game_argv(executable: &Path, profile: &Path) -> Vec<String> {
         format!("-savedatafolder={}", profile.display()),
         "-NoFileLog".to_string(),
     ]
-}
-
-/// The mod owns Linux fullscreen through X11/EWMH, including on Wayland desktops.
-/// Waylith selects its windowing backend before creating the game window.
-fn configure_game_window(command: &mut Command, no_window_fix: bool) {
-    if cfg!(target_os = "linux") && !no_window_fix {
-        command.env("WAYLITH_BACKEND", "X11");
-    }
 }
 
 /// Capture both console streams in one log; Waylith's file logger is disabled in argv.

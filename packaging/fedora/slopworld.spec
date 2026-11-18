@@ -16,8 +16,8 @@ Summary: RimWorld colony interface for live AI coding agents
 License: MIT
 URL: https://github.com/droserasprout/slopworld
 ExclusiveArch: x86_64 aarch64
-Requires: fontconfig, xclip
-Suggests: glib2, gtk3, python3-gobject, xdg-desktop-portal, xsel
+Requires: fontconfig, wl-clipboard
+Suggests: glib2, gtk3, python3-gobject, xdg-desktop-portal
 
 %description
 Includes the game launcher and RimWorld 1.7 mod with assets and OST.

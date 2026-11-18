@@ -1,9 +1,9 @@
 # Shared runtime metadata and payload ownership for native source/release packages.
 _slopworld_desc="RimWorld interface for SlopWorld coding agents"
-_slopworld_depends=('gcc-libs' 'glibc' 'fontconfig' 'xclip')
+_slopworld_depends=('gcc-libs' 'glibc' 'fontconfig' 'wl-clipboard')
 _slopworld_optional=('glib2: desktop associations and portal access' 'gtk3: Open With chooser'
   'python-gobject: Open With chooser' 'xdg-desktop-portal: Open With fallback'
-  'xsel: clipboard fallback' 'songrec: song recognition')
+  'songrec: song recognition')
 _slopd_desc="SlopWorld session daemon"
 _slopd_depends=('gcc-libs' 'glibc' 'alsa-lib' 'bash' 'bat' 'bubblewrap' 'dbus' 'git'
   'less' 'micro' 'passt' 'ripgrep' 'systemd' 'tmux>=3.7')

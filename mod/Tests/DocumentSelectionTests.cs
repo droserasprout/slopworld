@@ -97,9 +97,9 @@ namespace SlopWorld.Tests
         public static void ReadersRetainTheirClipboardPolicies()
         {
             var platform = Application.platform;
-            var backend = DesktopClipboard.X11;
+            var backend = DesktopClipboard.Selection;
             using var completions = new BlockingCollection<Action>();
-            var runner = new X11ClipboardTests.Runner(
+            var runner = new WaylandClipboardTests.Runner(
                 new ProcessRun { Started = true },
                 new ProcessRun { Started = true },
                 new ProcessRun { Started = true },
@@ -115,7 +115,7 @@ namespace SlopWorld.Tests
             {
                 DaemonClient.Requests.Clear();
                 Application.platform = RuntimePlatform.LinuxPlayer;
-                DesktopClipboard.X11 = new X11Clipboard(runner, completions.Add);
+                DesktopClipboard.Selection = new LinuxClipboard(runner, completions.Add);
                 GUIUtility.systemCopyBuffer = "unchanged";
                 var task = new TaskTextSelection();
                 task.Lines.Add(Line("task", 0, 0));
@@ -124,7 +124,7 @@ namespace SlopWorld.Tests
                 task.EndMouse(Viewport, Mouse(10, 5), new Vector2());
                 Complete();
                 AssertEx.Equal(
-                    "-selection primary -in",
+                    "--primary --type text/plain;charset=utf-8",
                     runner.Specs[0].Arguments,
                     "task mouse selection uses PRIMARY"
                 );
@@ -143,7 +143,7 @@ namespace SlopWorld.Tests
                 task.HandleKey(new Event { control = true, keyCode = KeyCode.C });
                 Complete();
                 AssertEx.Equal(
-                    "-selection clipboard -in",
+                    "--type text/plain;charset=utf-8",
                     runner.Specs[1].Arguments,
                     "explicit task copy uses CLIPBOARD"
                 );
@@ -159,7 +159,7 @@ namespace SlopWorld.Tests
                 markdown.EndMouse(Viewport, Mouse(0, 5), new Vector2());
                 Complete();
                 AssertEx.Equal(
-                    "-selection primary -in",
+                    "--primary --type text/plain;charset=utf-8",
                     runner.Specs[2].Arguments,
                     "Markdown mouse selection uses PRIMARY"
                 );
@@ -167,7 +167,7 @@ namespace SlopWorld.Tests
                 markdown.SelectAll();
                 Complete();
                 AssertEx.Equal(
-                    "-selection clipboard -in",
+                    "--type text/plain;charset=utf-8",
                     runner.Specs[3].Arguments,
                     "Markdown select all still copies"
                 );
@@ -181,7 +181,7 @@ namespace SlopWorld.Tests
             finally
             {
                 Application.platform = platform;
-                DesktopClipboard.X11 = backend;
+                DesktopClipboard.Selection = backend;
                 GUIUtility.systemCopyBuffer = previous;
                 DaemonClient.Requests.Clear();
                 WorkspaceWindow.SelectionMenu = null;

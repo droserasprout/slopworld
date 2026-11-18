@@ -43,11 +43,14 @@ namespace SlopWorld
                 else if (_worker == null)
                 {
                     _worker = new IdleInhibitionWorker(
-                        () => LinuxIdleLease.Acquire(),
+                        () => LinuxIdleInhibitor.Acquire(),
                         e =>
+                        {
+                            LinuxIdleInhibitor.Tickle();
                             Log.Warning(
                                 "[SlopWorld] could not inhibit screen dimming: " + e.Message
-                            )
+                            );
+                        }
                     );
                 }
             }

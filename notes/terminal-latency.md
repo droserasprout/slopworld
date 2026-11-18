@@ -17,10 +17,9 @@ allocated bytes. Eco's geometry-capacity estimate measures array payload before
 layer disposal, not retained memory or an RSS delta. Atlas estimates cover RGBA only.
 Destruction and GC may happen later.
 
-`bench/terminal-input/` owns desktop injection and report validity. History scrolling
+`bench/terminal-input/` owns desktop injection and report validity. Its ydotool transport verifies the focused window and process before sending each action using Sway, Hyprland, niri, or KWin with kdotool. History scrolling
 starts at consumed movement and completes at target repaint/frame end. Replacement
-supersedes a sample; clamped movement is not motion. Precise X11 movement aggregates
-per frame, so its sampling boundary differs from wheel fallback.
+supersedes a sample; clamped movement is not motion.
 
 Desktop phases need performance records and valid latency samples; history also needs
 a completed scroll sample. Compare actual duration and slip counts: `complete_with_slip`

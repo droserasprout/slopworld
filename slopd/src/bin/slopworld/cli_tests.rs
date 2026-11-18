@@ -65,7 +65,7 @@ fn profile_commands_accept_selection_and_reject_launch_options() {
             other => panic!("unexpected command: {other:?}"),
         };
         assert_eq!(options.profile.as_deref(), Some("/custom profile"));
-        for flag in ["--print", "--no-window-fix", "--reset", "--init-profile"] {
+        for flag in ["--print", "--reset", "--init-profile"] {
             parse_words(&[flag, "profile", action]).unwrap_err();
             parse_words(&["profile", action, flag]).unwrap_err();
         }

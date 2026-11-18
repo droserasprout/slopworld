@@ -52,7 +52,6 @@ namespace SlopWorld.Tests
             selection.Control = 1;
             selection.Mouse = new Vector2(20, 30);
             selection.SelectionMoved = true;
-            selection.MultiClickSelection = true;
             selection.EdgeDirection = -1;
             selection.Dragging = true;
             selection.WordDragging = true;
@@ -81,7 +80,6 @@ namespace SlopWorld.Tests
             Assert.That(selection.Control, Is.EqualTo(1));
             Assert.That(selection.Mouse, Is.EqualTo(new Vector2(20, 30)));
             Assert.That(selection.SelectionMoved, Is.True);
-            Assert.That(selection.MultiClickSelection, Is.True);
             Assert.That(selection.EdgeDirection, Is.EqualTo(-1));
         }
 

@@ -14,7 +14,6 @@ namespace SlopWorld
             public SmoothScroll Scroll;
             public Rect Outer;
             public Rect View;
-            public bool Precise;
 
             // Screen position of local zero after entering this region's scroll group.
             public Vector2 ScreenOrigin;
@@ -22,7 +21,7 @@ namespace SlopWorld
 
             public void Replay()
             {
-                using (Scroll.Scope(Outer, View, false, Precise))
+                using (Scroll.Scope(Outer, View, false))
                     foreach (var child in Children)
                         child.Replay();
             }
@@ -83,13 +82,7 @@ namespace SlopWorld
         }
 
         // Called after entering the scroll group; origin is the pre-group screen origin.
-        internal static void Begin(
-            SmoothScroll scroll,
-            Rect outer,
-            Rect view,
-            bool precise,
-            Vector2 origin
-        )
+        internal static void Begin(SmoothScroll scroll, Rect outer, Rect view, Vector2 origin)
         {
             var router = _capturing;
             if (router == null)
@@ -104,7 +97,6 @@ namespace SlopWorld
                 Scroll = scroll,
                 Outer = outer,
                 View = view,
-                Precise = precise,
                 ScreenOrigin = GUIUtility.GUIToScreenPoint(new Vector2()),
             };
             parent.Children.Add(region);

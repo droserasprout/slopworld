@@ -8,7 +8,6 @@ namespace SlopWorld
     {
         public bool Dragging;
         public bool SelectionMoved;
-        public bool MultiClickSelection;
         public bool WordDragging;
         public bool LineDragging;
         public Vector2Int WordStart,

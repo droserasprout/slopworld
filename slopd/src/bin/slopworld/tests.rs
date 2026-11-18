@@ -1,5 +1,4 @@
 use super::*;
-use std::ffi::OsStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 pub(super) fn scratch(what: &str) -> PathBuf {
@@ -461,29 +460,4 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
         crate::cli::Command::Display(_) => Ok(None),
         _ => Err("expected launch".into()),
     }
-}
-
-#[test]
-fn linux_launch_selects_x11_for_window_manager_fullscreen() {
-    let mut command = Command::new("/g/RimWorld");
-    configure_game_window(&mut command, false);
-    let selected = command
-        .get_envs()
-        .find(|(key, _)| *key == "WAYLITH_BACKEND");
-    if cfg!(target_os = "linux") {
-        assert_eq!(
-            selected,
-            Some((OsStr::new("WAYLITH_BACKEND"), Some(OsStr::new("X11"))))
-        );
-    } else {
-        assert_eq!(selected, None);
-    }
-}
-
-#[test]
-fn the_window_fix_can_be_disabled() {
-    let args = parsed(&["--no-window-fix"]);
-    let mut command = Command::new("/g/RimWorld");
-    configure_game_window(&mut command, args.no_window_fix);
-    assert!(!command.get_envs().any(|(key, _)| key == "WAYLITH_BACKEND"));
 }

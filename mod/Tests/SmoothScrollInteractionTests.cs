@@ -12,12 +12,9 @@ namespace SlopWorld.Tests
         Event _event;
         Vector2 _origin;
         Vector2 _raw;
-        Vector2 _sample;
         bool _smooth;
         bool _blocked;
-        bool _available;
         int _hot;
-        int _discards;
 
         [SetUp]
         public void SetUp()
@@ -26,9 +23,6 @@ namespace SlopWorld.Tests
             _origin = GUIUtility.Origin;
             _hot = GUIUtility.hotControl;
             _raw = Input.mouseScrollDelta;
-            _sample = X11ScrollInput.Sample;
-            _available = X11ScrollInput.Available;
-            _discards = X11ScrollInput.Discards;
             _smooth = Settings.S.smoothScrolling;
             _blocked = UiMenu.ScrollBlocked;
             ClearInput();
@@ -42,8 +36,6 @@ namespace SlopWorld.Tests
             GUIUtility.Origin = Vector2.zero;
             GUIUtility.hotControl = 0;
             Input.mouseScrollDelta = Vector2.zero;
-            X11ScrollInput.Sample = Vector2.zero;
-            X11ScrollInput.Available = false;
             Event.current = new Event { type = EventType.Repaint };
             var scroll = new SmoothScroll();
             scroll.BeginInput(Bounds, Vector2.zero);
@@ -58,9 +50,6 @@ namespace SlopWorld.Tests
             GUIUtility.Origin = _origin;
             GUIUtility.hotControl = _hot;
             Input.mouseScrollDelta = _raw;
-            X11ScrollInput.Sample = _sample;
-            X11ScrollInput.Available = _available;
-            X11ScrollInput.Discards = _discards;
             Settings.S.smoothScrolling = _smooth;
             UiMenu.ScrollBlocked = _blocked;
         }
@@ -76,7 +65,7 @@ namespace SlopWorld.Tests
         static void Draw(SmoothScroll scroll, Event e, bool bars = true)
         {
             Event.current = e;
-            using (scroll.Scope(Bounds, View, bars, false)) { }
+            using (scroll.Scope(Bounds, View, bars)) { }
         }
 
         static Event Mouse(EventType type, float x, float y, int button = 0) =>
@@ -250,11 +239,11 @@ namespace SlopWorld.Tests
             Event.current.mousePosition = pointer;
             GUIUtility.Origin = new Vector2(7, 9);
             var origin = GUIUtility.Origin;
-            using (outer.Scope(Bounds, View, false, false))
+            using (outer.Scope(Bounds, View, false))
             {
                 var enclosingOrigin = GUIUtility.Origin;
                 var enclosingPointer = Event.current.mousePosition;
-                var scope = inner.Scope(new Rect(3, 4, 50, 50), View, false, false);
+                var scope = inner.Scope(new Rect(3, 4, 50, 50), View, false);
                 scope.Dispose();
                 scope.Dispose();
                 Assert.That(GUIUtility.Origin, Is.EqualTo(enclosingOrigin));
@@ -275,7 +264,7 @@ namespace SlopWorld.Tests
             IDisposable scope = null;
             Assert.Throws<InvalidOperationException>(() =>
             {
-                using (scope = scroll.Scope(Bounds, View, false, false))
+                using (scope = scroll.Scope(Bounds, View, false))
                     throw new InvalidOperationException("row failure");
             });
             scope.Dispose();

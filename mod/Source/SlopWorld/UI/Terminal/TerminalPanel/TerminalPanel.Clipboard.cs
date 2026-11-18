@@ -39,7 +39,6 @@ namespace SlopWorld
             _state.Selection.B = new Vector2Int(buf.Cols, buf.Runs.Length - 1);
             _state.Selection.HasSelection = true;
             _state.Selection.Dragging = false;
-            _state.Selection.MultiClickSelection = false;
             _state.Selection.WordDragging = false;
             _state.Selection.LineDragging = false;
             ReleaseSelection();
@@ -224,12 +223,14 @@ namespace SlopWorld
 
         internal void PasteClipboard()
         {
+            if (!OrderedKeyboard.Events.ClaimPasteStroke())
+                return;
             Flush();
             string name = _state.Name;
             var target = SessionHub.Instance.Get(name);
             long? runId = target?.RunId;
             int epoch = _pasteEpoch;
-            if (DesktopClipboard.UsesX11)
+            if (DesktopClipboard.UsesLinuxSelections)
             {
                 bool images = CodexImagePaste;
                 DesktopClipboard.ReadLocalPaste(
@@ -260,12 +261,12 @@ namespace SlopWorld
             DeliverLocal(name, runId, epoch);
         }
 
-        // Middle-click reads X11 PRIMARY, not the ordinary CLIPBOARD. There is no
+        // Middle-click reads Wayland PRIMARY, not the ordinary CLIPBOARD. There is no
         // useful game-local fallback: Unity exposes the latter, if anything, and substituting
         // it would make a missing primary selection paste the wrong text.
         internal void PastePrimarySelection()
         {
-            if (DesktopClipboard.UsesX11)
+            if (DesktopClipboard.UsesLinuxSelections)
             {
                 Flush();
                 string localName = _state.Name;

@@ -23,8 +23,7 @@ rendering remain outside that boundary.
 Idle-inhibition integration tests require `dbus-daemon`.
 They start an isolated private bus and fake desktop services; they never acquire
 an inhibitor on the developer's desktop.
-X11 fallback selection and periodic worker cleanup use fake leases; these tests
-never open the host display or change its screensaver state.
+Periodic worker cleanup uses fake leases.
 
 The same project links the production `DaemonHttpTransport` for bounded loopback
 HTTP tests of protocol handling, deadlines, response limits, and host-pumped callbacks.

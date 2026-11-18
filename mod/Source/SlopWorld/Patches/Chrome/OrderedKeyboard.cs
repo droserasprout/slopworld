@@ -101,6 +101,7 @@ namespace SlopWorld
 
         static void Prefix(MethodBase __originalMethod)
         {
+            OrderedMouse.Primary.Clear();
             if (__originalMethod.Name == "ResetAllInput")
                 OrderedKeyboard.Events.Reset();
             else

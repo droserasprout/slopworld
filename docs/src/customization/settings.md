@@ -32,11 +32,8 @@ still saves through its usual shutdown path.
 ## Display
 
 Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
-On Linux, the default launcher window override uses X11 or XWayland and keeps the
-renderer windowed. **Display > Fullscreen** and F11 control fullscreen through the
-window manager; the window stays undecorated when fullscreen is off. Native
-RimWorld display modes are hidden.
-`--no-window-fix` skips the launcher’s X11 selection.
+On Linux, **Display > Fullscreen** and F11 switch Waylith between borderless
+fullscreen and an undecorated window. The Linux launcher requires Wayland.
 
 Leave the frame limiter on **Auto** to follow the monitor's refresh rate, or
 lower it to reduce rendering work. VSync synchronizes presentation with the

@@ -1,6 +1,5 @@
 """Persistent Linux desktop input transports. Connecting does not inject events."""
-import ctypes as C
-import ctypes.util
+import json
 import os
 import shutil
 import socket
@@ -42,28 +41,20 @@ class Backend:
     def __init__(self, name):
         self.name, self.window = name, None
         self.sock = None
-        self.display = None
         self.held = set()
 
     def preflight(self, text=True):
-        if not os.environ.get('DISPLAY') or not shutil.which('xdotool'):
-            raise RuntimeError('An X11/XWayland display and xdotool are required to guard RimWorld focus')
-        if text and not shutil.which('xclip'):
-            raise RuntimeError('Install xclip for Unicode clipboard input')
-        if self.name == 'ydotool':
-            # Verify installed CLI/protocol family without sending events.
-            if '--wheel' not in run_command(['ydotool', 'mousemove', '--help']):
-                raise RuntimeError('ydotool 1.x with mousemove --wheel is required')
-        else:
-            run_command(['xdotool', 'getactivewindow'])
-            for library in ('X11', 'Xtst'):
-                if not ctypes.util.find_library(library):
-                    raise RuntimeError(f'Install lib{library} for persistent XTest injection')
+        if not os.environ.get('WAYLAND_DISPLAY'):
+            raise RuntimeError('A native Wayland session is required')
+        if text and not all(shutil.which(cmd) for cmd in ('wl-copy', 'wl-paste')):
+            raise RuntimeError('Install wl-clipboard for Unicode clipboard input')
+        if '--wheel' not in run_command(['ydotool', 'mousemove', '--help']):
+            raise RuntimeError('ydotool 1.x with mousemove --wheel is required')
 
     def prepare_text(self, text=TEXT):
         # Fixed public fixture, no newline/Enter and no destructive editing.
         # Replace the clipboard with the public fixture. Do not read or save its old contents.
-        command = ['xclip', '-selection', 'clipboard']
+        command = ['wl-copy']
         # Clipboard owners fork and stay alive. Their inherited stderr/stdout must
         # not keep communicate() waiting for EOF after the parent has exited.
         with tempfile.TemporaryFile() as errors:
@@ -78,61 +69,56 @@ class Backend:
                 detail = errors.read().decode(errors='replace').strip()
                 raise RuntimeError(f'Clipboard setup exited {result.returncode}: {detail}')
 
-        verify = ['xclip', '-selection', 'clipboard', '-out']
+        verify = ['wl-paste', '--no-newline']
         for _ in range(2):
             if run_command(verify) != text.strip():
                 raise RuntimeError('The clipboard did not return the benchmark fixture twice. No input was sent.')
 
     def connect(self):
         self.close()
-        if self.name == 'ydotool':
-            if struct.calcsize('@llHHi') != 24:
-                raise RuntimeError('Persistent ydotool backend currently requires 64-bit Linux')
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-            self.sock.settimeout(0.1)
-            path = os.environ.get('YDOTOOL_SOCKET') or os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), '.ydotool_socket')
+        if struct.calcsize('@llHHi') != 24:
+            raise RuntimeError('Persistent ydotool backend currently requires 64-bit Linux')
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        self.sock.settimeout(0.1)
+        path = os.environ.get('YDOTOOL_SOCKET') or os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), '.ydotool_socket')
+        try:
             self.sock.connect(path)
-        # The launcher uses X11/XWayland even on Wayland. Guard that window
-        # for both transports. Stop if the target cannot be verified.
-        self.open_display()
-        self.verify_target()
+            self.verify_target()
+        except Exception:
+            self.close()
+            raise
 
     def verify_target(self):
-        window = run_command(['xdotool', 'getactivewindow'])
-        pid = run_command(['xdotool', 'getwindowpid', window])
-        executable = Path('/proc') / pid / 'exe'
-        if not executable.resolve().name.startswith('RimWorld'):
-            self.close()
-            raise RuntimeError('The focused window is not RimWorld. No input was sent.')
-
-    def open_display(self):
-        self.x = C.CDLL(ctypes.util.find_library('X11'))
-        self.xt = C.CDLL(ctypes.util.find_library('Xtst'))
-        self.x.XOpenDisplay.argtypes, self.x.XOpenDisplay.restype = [C.c_char_p], C.c_void_p
-        self.x.XGetInputFocus.argtypes = [C.c_void_p, C.POINTER(C.c_ulong), C.POINTER(C.c_int)]
-        self.x.XKeysymToKeycode.argtypes, self.x.XKeysymToKeycode.restype = [C.c_void_p, C.c_ulong], C.c_uint
-        self.x.XFlush.argtypes = [C.c_void_p]
-        self.x.XCloseDisplay.argtypes = [C.c_void_p]
-        self.xt.XTestFakeKeyEvent.argtypes = [C.c_void_p, C.c_uint, C.c_int, C.c_ulong]
-        self.xt.XTestFakeButtonEvent.argtypes = [C.c_void_p, C.c_uint, C.c_int, C.c_ulong]
-        self.display = self.x.XOpenDisplay(None)
-        if not self.display:
-            raise RuntimeError('Cannot connect to X display')
         self.window = self.focus()
-        self.codes = {key: self.x.XKeysymToKeycode(self.display, sym)
-                      for key, sym in {29: 0xffe3, 47: 0x76, 103: 0xff52, 108: 0xff54, 28: 0xff0d}.items()}
-        if not all(self.codes.values()):
-            raise RuntimeError('X keyboard mapping lacks required keys')
+        pid = self.window[1]
+        if not pid or not (Path('/proc') / str(pid) / 'exe').resolve().name.startswith('RimWorld'):
+            self.close()
+            raise RuntimeError('Focus the RimWorld window before starting input')
 
     def focus(self):
-        window, revert = C.c_ulong(), C.c_int()
-        self.x.XGetInputFocus(self.display, C.byref(window), C.byref(revert))
-        return window.value
+        if os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
+            window = json.loads(run_command(['hyprctl', '-j', 'activewindow']))
+            return window.get('address'), window.get('pid')
+        if os.environ.get('NIRI_SOCKET'):
+            window = json.loads(run_command(['niri', 'msg', '--json', 'focused-window'])) or {}
+            return window.get('id'), window.get('pid')
+        if os.environ.get('SWAYSOCK'):
+            nodes = [json.loads(run_command(['swaymsg', '-t', 'get_tree']))]
+            while nodes:
+                node = nodes.pop()
+                if node.get('focused'):
+                    return node.get('id'), node.get('pid')
+                nodes.extend(node.get('nodes', []) + node.get('floating_nodes', []))
+            return None, None
+        if shutil.which('kdotool'):
+            window = run_command(['kdotool', 'getactivewindow'])
+            return window, run_command(['kdotool', 'getwindowpid', window])
+        raise RuntimeError('Cannot verify Wayland focus. Use Sway, Hyprland, niri, or KWin with kdotool.')
 
     def check_focus(self):
         observed = self.focus()
         if observed != self.window:
-            raise RuntimeError(f'RimWorld focus changed: expected X11 window {self.window}, '
+            raise RuntimeError(f'RimWorld focus changed: expected Wayland window {self.window}, '
                                f'observed {observed}; stopping input before injection')
 
     def send(self, action):
@@ -148,22 +134,6 @@ class Backend:
                     # Give the compositor distinct modifier/key transitions. Do
                     # not deliver the entire chord in a microsecond burst.
                     time.sleep(0.001)
-        else:
-            if action.startswith('wheel_'):
-                button = 4 if action == 'wheel_up' else 5
-                for down in (1, 0):
-                    if not self.xt.XTestFakeButtonEvent(self.display, button, down, 0):
-                        raise RuntimeError('XTest button injection failed')
-            else:
-                for key, down in key_events(action):
-                    if not self.xt.XTestFakeKeyEvent(self.display, self.codes[key], down, 0):
-                        raise RuntimeError('XTest key injection failed')
-                    if down: self.held.add(key)
-                    else: self.held.discard(key)
-                    if action == 'paste':
-                        self.x.XFlush(self.display)
-                        time.sleep(0.001)
-            self.x.XFlush(self.display)
 
     def close(self):
         # Release only this injector's interrupted key-downs, including Ctrl.
@@ -172,15 +142,9 @@ class Backend:
                 if self.sock:
                     self.sock.send(struct.pack('@llHHi', 0, 0, 1, key, 0))
                     self.sock.send(struct.pack('@llHHi', 0, 0, 0, 0, 0))
-                elif self.display:
-                    self.xt.XTestFakeKeyEvent(self.display, self.codes[key], 0, 0)
-                    self.x.XFlush(self.display)
             except OSError:
                 pass
         self.held.clear()
         if self.sock:
             self.sock.close()
             self.sock = None
-        if self.display:
-            self.x.XCloseDisplay(self.display)
-            self.display = None

@@ -218,7 +218,7 @@ def run_phase(args, phase, rate, backend, reporter, close_backend=True):
                 "expected_events": SECONDS * rate, "multiplier": args.multiplier,
                 "prepare_seconds": args.prepare_seconds,
                 "text_fixture": TEXT if phase == "typing" else None,
-                "transport": "persistent_ydotool_socket" if name == "ydotool" else "persistent_XTest", "started": datetime.datetime.now().astimezone().isoformat(),
+                "transport": "persistent_ydotool_socket", "started": datetime.datetime.now().astimezone().isoformat(),
                 "window": backend.window, "status": "incomplete", "events": rows,
                 "injection_clock": "host_monotonic_relative_seconds",
                 "correlation": "injection events are not mapped one-to-one to client request IDs"}
@@ -353,7 +353,7 @@ def prepare_history(args, backend):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--backend', choices=('auto', 'xdotool', 'ydotool'), default='auto')
+    parser.add_argument('--backend', choices=('ydotool',), default='ydotool')
     parser.add_argument('--phase', choices=('suite', 'all', 'history', 'typing', 'htop'), default='suite',
                         help='suite: one empty host shell, automatic history then typing; individual phases are manually prepared unless history or typing uses --fill-history')
     parser.add_argument('--fill-history', action='store_true',
@@ -395,14 +395,11 @@ def main():
         parser.error('Preparation artifacts already exist. Use a new results directory.')
     if not args.log or not args.log.is_file():
         parser.error('trace file missing; restart updated game with SLOPWORLD_DEBUG=1')
-    name = args.backend
-    if name == 'auto':
-        name = 'ydotool' if os.environ.get('WAYLAND_DISPLAY') or os.environ.get('XDG_SESSION_TYPE') == 'wayland' else 'xdotool'
-    backend = Backend(name)
+    backend = Backend(args.backend)
     backend.preflight(text=automatic or any(p[0] == 'typing' for p in phases))
     args.output.mkdir(parents=True, exist_ok=True)
     reporter = load_reporter()
-    print(f'Backend: {name}. {len(phases)} phases, 60 seconds each plus an 11-second drain.')
+    print(f'Backend: {backend.name}. {len(phases)} phases, 60 seconds each plus an 11-second drain.')
     print('Keep SlopWorld focused. Keep the pointer over terminal text. Switching windows stops input.')
     if any(p[0] == 'typing' for p in phases):
         print('Clipboard is replaced. Measured typing appends Unicode without deletion or Enter.')

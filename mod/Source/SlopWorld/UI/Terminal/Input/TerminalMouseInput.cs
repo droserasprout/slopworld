@@ -33,7 +33,6 @@ namespace SlopWorld
             {
                 if (e.delta.y == 0f)
                     return;
-                X11ScrollInput.DiscardPendingMovement();
                 int step = TerminalWheelSteps.Count(e.delta.y, reader);
                 _panel.ClearSelection();
                 var cell = _panel.CellAt(body, e.mousePosition);
@@ -55,7 +54,6 @@ namespace SlopWorld
             // During that frame, arrow keys scroll micro and are safe while the shell hands control to it.
             if (editor || (live != null && live.AltScreen))
             {
-                X11ScrollInput.DiscardPendingMovement();
                 // Use the dominant axis to ignore slight touchpad drift. Pagers receive normal arrow keys.
                 bool horizontal = Mathf.Abs(e.delta.x) > Mathf.Abs(e.delta.y);
                 float delta = horizontal ? e.delta.x : e.delta.y;
@@ -71,8 +69,6 @@ namespace SlopWorld
                 e.Use();
                 return;
             }
-
-            // SmoothScroll keeps fractional X11 wheel input. The draw pass requests history snapshots without blocking local motion.
         }
 
         bool IsEditorSession()
@@ -99,6 +95,13 @@ namespace SlopWorld
                 {
                     if (_panel.HandleMouseForward(body, e))
                         return;
+                    _panel.SelectionInput.Handle(body, e);
+                    return;
+                }
+                // Motion events need not identify the pressed button. The selection
+                // already owns this drag, including when it crosses the scrollbar.
+                if (_panel.Dragging && MouseType(e) == EventType.MouseDrag)
+                {
                     _panel.SelectionInput.Handle(body, e);
                     return;
                 }

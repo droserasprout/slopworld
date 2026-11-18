@@ -41,20 +41,25 @@ namespace SlopWorld
                 lock (_gate)
                     if (_stopped)
                         return;
-                using (var lease = _acquire())
+                while (!_stop.WaitOne(0))
                 {
-                    // A quit during acquisition releases the late lease without refreshing it.
-                    while (!_stop.WaitOne(0))
+                    try
                     {
-                        lease.Refresh();
+                        using var lease = _acquire();
+                        while (!_stop.WaitOne(0))
+                        {
+                            lease.Refresh();
+                            if (_stop.WaitOne(_refreshMilliseconds))
+                                return;
+                        }
+                    }
+                    catch (Exception error)
+                    {
+                        _warn(error);
                         if (_stop.WaitOne(_refreshMilliseconds))
-                            break;
+                            return;
                     }
                 }
-            }
-            catch (Exception error)
-            {
-                _warn(error);
             }
             finally
             {
@@ -82,7 +87,7 @@ namespace SlopWorld
         public void Dispose()
         {
             RequestStop();
-            // Native X11 calls can stall. Never hold game shutdown
+            // Desktop service calls can stall. Never hold game shutdown
             // indefinitely; process exit also closes private desktop connections.
             if (Thread.CurrentThread != _thread)
                 _thread.Join(500);

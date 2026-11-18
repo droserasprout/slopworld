@@ -120,7 +120,6 @@ namespace SlopWorld
             _state.Selection.HasSelection = true;
             _state.Selection.Dragging = true;
             _state.Selection.SelectionMoved = false;
-            _state.Selection.MultiClickSelection = true;
             _state.Selection.WordDragging = false;
             _state.Selection.LineDragging = true;
             _state.Selection.LineStart = row;
@@ -152,10 +151,8 @@ namespace SlopWorld
             _state.Selection.HasSelection = true;
             _state.Selection.Dragging = true;
             _state.Selection.SelectionMoved = false;
-            _state.Selection.MultiClickSelection = true;
             _state.Selection.WordDragging = true;
             _state.Selection.LineDragging = false;
-            CopyPrimarySelection();
             return true;
         }
 
@@ -209,7 +206,6 @@ namespace SlopWorld
                 return false;
             }
             SelectSpan(row, 0, len - 1);
-            CopyPrimarySelection();
             return true;
         }
 

@@ -23,11 +23,6 @@ namespace SlopWorld
             get => _state.Selection.SelectionMoved;
             set => _state.Selection.SelectionMoved = value;
         }
-        internal bool MultiClickSelection
-        {
-            get => _state.Selection.MultiClickSelection;
-            set => _state.Selection.MultiClickSelection = value;
-        }
         internal bool WordDragging
         {
             get => _state.Selection.WordDragging;
@@ -139,7 +134,6 @@ namespace SlopWorld
             _state.Selection.HasSelection = false;
             _state.Selection.Dragging = false;
             _state.Selection.SelectionMoved = false;
-            _state.Selection.MultiClickSelection = false;
             _state.Selection.WordDragging = false;
             _state.Selection.LineDragging = false;
             _state.Selection.EdgeDirection = 0;

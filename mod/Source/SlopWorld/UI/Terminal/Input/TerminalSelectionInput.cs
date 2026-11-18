@@ -79,7 +79,6 @@ namespace SlopWorld
             _panel.SelectionEdgeFrame = -1;
             _panel.Dragging = true;
             _panel.SelectionMoved = false;
-            _panel.MultiClickSelection = false;
             _panel.WordDragging = false;
             _panel.LineDragging = false;
             _panel.HasSelection = false;
@@ -128,12 +127,7 @@ namespace SlopWorld
                 return;
             var cell = SelectionCell(body, e);
 
-            // A double click selects a word and a triple click replaces it with a row. Do not
-            // copy the intermediate word to CLIPBOARD. The completed triple-click line is
-            // published to PRIMARY by TripleClickSelect.
-            // Mouse selection belongs to the host PRIMARY surface. Ordinary drag selection
-            // must not overwrite CLIPBOARD. Explicit Ctrl+C and the menu still use it.
-            bool copyPrimary = !_panel.MultiClickSelection || _panel.SelectionMoved;
+            // Publish PRIMARY after release so a clipboard helper cannot interrupt the drag.
             if (_panel.LineDragging)
             {
                 _panel.SelectLineRange(_panel.LineStart, cell.y);
@@ -141,8 +135,7 @@ namespace SlopWorld
                 _panel.Dragging = false;
                 _panel.SelectionMoved = false;
                 _panel.ReleaseSelection();
-                if (copyPrimary)
-                    _panel.CopyPrimarySelection();
+                _panel.CopyPrimarySelection();
             }
             else if (_panel.WordDragging)
             {
@@ -150,7 +143,7 @@ namespace SlopWorld
                 _panel.WordDragging = false;
                 _panel.Dragging = false;
                 _panel.ReleaseSelection();
-                if (_panel.HasSelection && copyPrimary)
+                if (_panel.HasSelection)
                     _panel.CopyPrimarySelection();
             }
             else
@@ -168,7 +161,6 @@ namespace SlopWorld
                 _panel.ReleaseSelection();
             }
             _panel.SelectionMoved = false;
-            _panel.MultiClickSelection = false;
             _panel.SelectionEdgeDirection = 0;
             _panel.SelectionEdgeFrame = -1;
             e.Use();

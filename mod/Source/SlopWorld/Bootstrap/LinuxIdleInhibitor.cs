@@ -222,7 +222,7 @@ namespace SlopWorld
             }
             catch (Exception)
             {
-                // Legacy notifications are best effort; X11 remains independent.
+                // Legacy notifications are best effort.
             }
         }
 

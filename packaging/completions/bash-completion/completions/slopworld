@@ -53,7 +53,7 @@ _slopworld() {
 
     case "${cmd}" in
         slopworld)
-            opts="-h -V --game --game-exe --working-dir --mods --profile --endpoint --sidecar --print --no-window-fix --help --version completions connect endpoints paths profile mod"
+            opts="-h -V --game --game-exe --working-dir --mods --profile --endpoint --sidecar --print --help --version completions connect endpoints paths profile mod"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

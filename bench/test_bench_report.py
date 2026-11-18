@@ -190,7 +190,7 @@ class BenchReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             new, old = Path(directory) / "new", Path(directory) / "old"
             for target, rate in ((new, 100), (old, 50)):
-                report.data.add_metadata(target, "terminal", "typing", {"rate": rate, "backend": "xdotool"})
+                report.data.add_metadata(target, "terminal", "typing", {"rate": rate, "backend": "ydotool"})
                 report.data.add_metric(target, "terminal", "typing", "paste", "latency/input_to_frame_end",
                                        "p50", "us", 1, 50000)
             self.assertIn("incompatible workload", report.data.render(new, old, "relative"))
@@ -201,7 +201,7 @@ class BenchReportTests(unittest.TestCase):
             for target, sessions, value in ((old, 42, 50), (new, 43, 55)):
                 context = f"eco=1 terminal=1 sessions={sessions} size=1429x774"
                 report.data.add_metadata(target, "terminal", "typing", {
-                    "backend": "xdotool", "rate": 100, "multiplier": 1,
+                    "backend": "ydotool", "rate": 100, "multiplier": 1,
                     "observed_contexts": context})
                 report.data.add_metric(target, "terminal", "typing", context,
                                        "terminal_work", "mean", "ms/update", 1, value)
@@ -223,7 +223,7 @@ class BenchReportTests(unittest.TestCase):
             for target, size in ((old, "1429x774"), (new, "1400x774")):
                 context = f"eco=1 terminal=1 sessions=42 size={size}"
                 report.data.add_metadata(target, "terminal", "typing", {
-                    "backend": "xdotool", "rate": 100, "observed_contexts": context})
+                    "backend": "ydotool", "rate": 100, "observed_contexts": context})
                 report.data.add_metric(target, "terminal", "typing", "paste",
                                        "latency/input_to_frame_end", "p50", "us", 1, 50000)
             self.assertIn("incompatible workload", report.data.render(new, old, "relative"))

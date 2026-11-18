@@ -1,20 +1,15 @@
 # Clipboard boundary
 
-Mod clipboard actions belong to the game's desktop. `X11Clipboard` executes
-local `xclip`/`xsel` for CLIPBOARD and PRIMARY regardless of the endpoint or daemon
-capabilities. `DesktopClipboard` pumps completions on the UI thread; pane/run and
-field lifetime owners still reject stale reads. Helper stdin uses explicit UTF-8
-bytes; Unity/Mono console defaults must not choose clipboard encoding. Copies
-never set Unity's clipboard buffer: that setter can change the desktop selection
-outside the serialized helper queue and overtake a pending paste. Only ordinary text
-reads fall back to Unity's buffer. Codex panes handle empty or failed text
-reads by reading the local PNG clipboard target within the same serialized
-operation, then uploading its bytes. Later local copies cannot overtake that
-fallback. This avoids consulting stale Unity text or forwarding Ctrl+V to a remote
-clipboard. Codex pastes also recognize standalone local image file URIs,
-decode their paths on the game desktop, and upload bounded file bytes through the
-image transport. Other text stays literal; PRIMARY and host panes never import
-files. A client path need not exist on a remote daemon.
+The game client owns clipboard access even when the daemon runs remotely. Once
+the Wayland window is ready, terminal paste reads from its seat and mouse
+selection publishes PRIMARY on that seat. This keeps clipboard helpers from
+interrupting an active gesture. Other Linux desktop transfers use wl-clipboard.
+Helper operations are serialized and callbacks run on the UI thread. Pane/run and
+field lifetime owners reject stale reads.
+
+Codex panes accept PNG offers and standalone local image file URIs. The client
+resolves those paths on the game desktop and uploads the bytes. Other text stays
+literal. PRIMARY reads and host shell panes accept text only.
 
 ## Application copies
 
@@ -33,7 +28,7 @@ WebSocket `paste.image_data` carries client image bytes with a required run ID.
 Only root clients may upload to a current Codex agent. The daemon validates size,
 format and decoded dimensions before staging in the existing private image mount.
 Uploads work independently of desktop access, including remote daemons and sidecars.
-Clients read the PNG target with bounded binary `xclip` output (20 MiB).
+Clients reject PNG uploads larger than 20 MiB.
 
 `session/capture/images.rs` admits root-authorized image paste;
 `sandbox/images.rs` validates uploaded bytes and stages bounded images. Text paste

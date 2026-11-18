@@ -6,17 +6,17 @@ using System.Threading.Tasks;
 
 namespace SlopWorld
 {
-    // Owns selections on the game's X11/XWayland desktop, independently of endpoint.
+    // Owns selections on the game's Linux desktop, independently of endpoint.
     // Serialize operations so a paste submitted after a copy observes that copy. Completion
     // delivery belongs to the host's UI pump; no Unity APIs run on the worker.
-    sealed class X11Clipboard
+    sealed class LinuxClipboard
     {
         readonly IProcessRunner _runner;
         readonly Action<Action> _complete;
         readonly object _gate = new object();
         Task _tail = Task.CompletedTask;
 
-        public X11Clipboard(IProcessRunner runner, Action<Action> complete)
+        public LinuxClipboard(IProcessRunner runner, Action<Action> complete)
         {
             _runner = runner;
             _complete = complete;
@@ -66,7 +66,7 @@ namespace SlopWorld
 
         // Resolve only a standalone local file URI, on the desktop that owns the
         // clipboard. Ordinary text/PRIMARY and host shells never enter this path.
-        static string LocalImagePath(string text)
+        internal static string LocalImagePath(string text)
         {
             string value = text?.Trim();
             if (
@@ -95,7 +95,7 @@ namespace SlopWorld
             }
         }
 
-        static byte[] ReadImageFile(string path)
+        internal static byte[] ReadImageFile(string path)
         {
             // Bound allocation and reads even if the file grows after opening.
             // The daemon validates the actual format and decoded dimensions.
@@ -127,8 +127,8 @@ namespace SlopWorld
             var run = _runner.Run(
                 new ProcessSpec
                 {
-                    FileName = "xclip",
-                    Arguments = "-selection clipboard -target image/png -out",
+                    FileName = "wl-paste",
+                    Arguments = "--no-newline --type image/png",
                     TimeoutMs = 1500,
                     BinaryOutputLimit = 20 * 1024 * 1024,
                 },
@@ -173,39 +173,30 @@ namespace SlopWorld
         string Run(string text, bool primary)
         {
             bool copy = text != null;
-            string selection = primary ? "primary" : "clipboard";
-            var elapsed = Stopwatch.StartNew();
-            string error = "X11 clipboard unavailable";
-            foreach (string tool in new[] { "xclip", "xsel" })
-            {
-                int remaining = 3000 - (int)elapsed.ElapsedMilliseconds;
-                if (remaining <= 0)
-                    break;
-                string arguments =
-                    tool == "xclip"
-                        ? "-selection " + selection + (copy ? " -in" : " -target UTF8_STRING -out")
-                        : "--" + selection + (copy ? " --input" : " --output");
-                var run = _runner.Run(
-                    new ProcessSpec
-                    {
-                        FileName = tool,
-                        Arguments = arguments,
-                        TimeoutMs = Math.Min(1500, remaining),
-                        StandardInput = text,
-                        InheritOutput = copy,
-                    },
-                    CancellationToken.None
-                );
-                if (run.Started && !run.TimedOut && !run.Canceled && run.ExitCode == 0)
+            string tool = copy ? "wl-copy" : "wl-paste";
+            string arguments =
+                (primary ? "--primary " : "")
+                + (copy ? "--type text/plain;charset=utf-8" : "--no-newline --type text");
+            var run = _runner.Run(
+                new ProcessSpec
                 {
-                    string result = run.StandardOutput ?? "";
-                    return result.IndexOf('\0') < 0 ? result : "";
-                }
-                error =
-                    !run.Started ? tool + " unavailable"
-                    : run.TimedOut ? tool + " timed out"
-                    : tool + ": " + run.StandardError;
+                    FileName = tool,
+                    Arguments = arguments,
+                    TimeoutMs = 1500,
+                    StandardInput = text,
+                    InheritOutput = copy,
+                },
+                CancellationToken.None
+            );
+            if (run.Started && !run.TimedOut && !run.Canceled && run.ExitCode == 0)
+            {
+                string result = run.StandardOutput ?? "";
+                return result.IndexOf('\0') < 0 ? result : "";
             }
+            string error =
+                !run.Started ? tool + " unavailable"
+                : run.TimedOut ? tool + " timed out"
+                : tool + ": " + run.StandardError;
             throw new InvalidOperationException(error);
         }
     }
