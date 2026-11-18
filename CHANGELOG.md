@@ -8,7 +8,10 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 ## [0.1.1] - 2026-11-18
 
-RimWorld build **1.7.5013** is required.
+### Breaking changes
+
+- RimWorld build **1.7.5013** is required (Nov 18 from Steam).
+- A **Wayland** session is required. X11 support has been removed.
 
 ### Fixed
 
@@ -19,7 +22,7 @@ RimWorld build **1.7.5013** is required.
 
 ### Changed
 
-- Jukebox: Use buffered Pulse output on Linux.
+- Jukebox: Use buffered Pulse output by default on Linux.
 
 ## [0.1.0] - 2026-11-11
 

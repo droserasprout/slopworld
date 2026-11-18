@@ -1,6 +1,6 @@
 # Quickstart
 
-A quick tour covering core concepts and usual workflow.
+Set up a project, have an agent write a file, then ask a worker to review it.
 
 First, follow the [installation guide](../installation/linux.md), or set up
 [Sidecar mode](../installation/sidecar.md) to run the daemon in a container.
@@ -11,7 +11,7 @@ First, follow the [installation guide](../installation/linux.md), or set up
 
 Install the optional CLI tools you want to use on the machine running the daemon. In sidecar mode, that means inside the container.
 
-SlopWorld integrates with these tools to some extent:
+Common choices include the following tools.
 
 - Agents: `codex`, `claude`, `pi`, `opencode`.
 - VCS, search: `git`, `rg`.
@@ -19,7 +19,7 @@ SlopWorld integrates with these tools to some extent:
 - Editors: `micro`, `vim`, `nvim`, `nano`, `emacsclient`.
 - Shells: `bash`, `zsh`, `fish`, `nu`, `pwsh`.
 
-If your favorite agent or tool is missing, it **doesn't** mean it's not supported. You can create custom app presets in settings; see [Command presets](../workspace/command-presets.md#custom-presets).
+To launch another CLI, add a [custom command preset](../workspace/command-presets.md#custom-presets).
 
 ## Prepare the workspace
 
@@ -36,9 +36,9 @@ open, clicking an agent switches to its terminal. See the
 If the workspace cannot connect to the daemon, follow
 [Troubleshooting](../resources/troubleshooting.md).
 
-1. Choose preferred pager and highlighter under **Settings > Appearance > Code**.
-2. Choose preferred shell and editor under **Settings > Commands > Defaults**.
-3. Visit **Appearance** to configure fonts, colors, UI scale, and, most importantly, mouse cursor.
+1. Choose a pager and highlighter under **Settings > Appearance > Code**.
+2. Choose a shell and editor under **Settings > Commands > Defaults**.
+3. Visit **Appearance** to configure fonts, colors, UI scale, and cursor.
 
 <a id="add-your-project"></a>
 <a id="start-a-new-git-repository"></a>
@@ -55,7 +55,7 @@ This shell runs on the daemon host, outside the agent sandbox. In sidecar mode,
 it runs inside the container. See [Host shells](../terminals/host-shells.md) for stopping,
 restarting, and removing the terminal tab.
 
-Press **F12** to toggle terminal from any screen. Oh, and press **?** on the main screen to show other keyboard shortcuts.
+Press **F12** to toggle the terminal. Press **?** on the main screen for keyboard shortcuts.
 
 ## Add a project
 
@@ -107,8 +107,8 @@ does not necessarily mean the task is finished.
 
 ## Review the result
 
-1. When the agent reports completion, open **Git** in the sidebar. Click `hello-world.md` to open diff viewer.
-2. Open **Files**, expand the same project and checkout. Click the .md file to open the rendered Markdown preview.
+1. When the agent reports completion, open **Git** in the sidebar. Click `hello-world.md` to open its diff.
+2. Open **Files**, expand the same project and checkout. Click `hello-world.md` to open the rendered Markdown preview.
 3. Return to **Git**, right-click the file, and choose **Stage**.
 4. Right-click the checkout heading and choose **Terminal (host)**, then run `git diff --cached` to check what will enter the commit.
 

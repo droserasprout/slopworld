@@ -1,14 +1,13 @@
 # Linux
 
-Install SlopWorld using your distribution's package manager. Install the packages
-for the role of each machine. To run it in a container, see
-[Sidecar mode](../installation/sidecar.md).
+For a local installation, install the game client and daemon on the same machine.
+For a [remote connection](#remote-connection), install each component on the machine that runs it.
+To run the daemon in Docker, see [Sidecar mode](sidecar.md).
 
 ## Requirements
 
-- **x86_64 Linux** with systemd user services and scopes.
-- **RimWorld 1.7** installed separately. Locate the folder containing the `RimWorld` binary.
-- **Runtime dependencies**, including Bubblewrap, passt, and tmux 3.7+. The package manager installs these.
+- **Game client:** x86_64 Linux, a Wayland desktop session, and the native **RimWorld 1.7.5013** build. Locate the directory containing the `RimWorld` binary before attaching the mod.
+- **Native daemon:** x86_64 Linux with systemd user services and scopes. The package manager installs Bubblewrap, passt, and tmux 3.7 or newer. A dedicated daemon host can run headless.
 
 ## Interactive installer
 

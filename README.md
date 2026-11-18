@@ -6,9 +6,7 @@
 
 <img src="docs/src/images/screenshot.jpg" alt="SlopWorld workspace in RimWorld" width="320" align="right">
 
-SlopWorld is a fun terminal-focused IDE for agentic coding, built on RimWorld.
-Your agents' sessions appear as colonists. Select one and press T to open its
-terminal and give it work.
+SlopWorld is an IDE and terminal multiplexer for coding agents built on RimWorld.
 
 - Run [agent CLIs](https://slopworld.space/agents/configuring-agents.html), [shells](https://slopworld.space/terminals/host-shells.html), and tools in [persistent terminal sessions](https://slopworld.space/terminals/terminal.html).
 - Manage [projects](https://slopworld.space/workspace/configuring-projects.html), [mounts](https://slopworld.space/workspace/project-mounts.html), and [Git worktrees](https://slopworld.space/workspace/project-worktrees.html) for parallel work.
@@ -21,9 +19,6 @@ terminal and give it work.
 ## What's inside
 
 <img src="docs/src/images/introduction-terminal.jpg" alt="Codex session in SlopWorld with the terminal context menu open" width="240" align="right">
-
-Your favorite Linux tooling, well-integrated:
-
 - **Alacritty** for [terminal emulation](https://slopworld.space/terminals/terminal-interface.html).
 - **tmux** for [multiplexing and persistent sessions](https://slopworld.space/terminals/terminal.html).
 - **Bubblewrap** for [sandboxing and controlling filesystem access](https://slopworld.space/sandbox/sandboxing.html).
@@ -31,25 +26,20 @@ Your favorite Linux tooling, well-integrated:
 - **git** for [version control](https://slopworld.space/workspace/review-changes.html) and [worktrees](https://slopworld.space/workspace/project-worktrees.html).
 - Small UNIX friends: [pagers, highlighters](https://slopworld.space/customization/settings.html#applying-changes), [ripgrep](https://slopworld.space/workspace/files-and-search.html#search-workspace-text), [git-delta](https://slopworld.space/workspace/review-changes.html#change-review).
 
-SlopWorld consists of three components:
-
-- A Rust daemon, [`slopd`](https://slopworld.space/development/architecture.html), manages the sessions and sandboxes.
-- The RimWorld mod, `io.drsr.slopworld`, puts their terminals and status into the [game interface](https://slopworld.space/workspace/interface.html).
-- [`slopctl`](https://slopworld.space/reference/slopctl.html) provides a command-line interface to the [daemon's API](https://slopworld.space/reference/api.html).
+The Rust daemon [`slopd`](https://slopworld.space/development/architecture.html) manages terminal sessions and agent sandboxes.
+The [RimWorld mod](https://slopworld.space/workspace/interface.html) connects to it to display terminals and agent status.
+From a shell, use [`slopctl`](https://slopworld.space/reference/slopctl.html) to inspect sessions, assign tasks, and follow worker progress through the [daemon’s API](https://slopworld.space/reference/api.html).
 
 ## Get started
 
 <img src="docs/src/images/introduction-work.jpg" alt="SlopWorld terminal showing a code diff beneath a tooltip about automated work" width="240" align="right">
 
-You need a native build of **RimWorld 1.7**, preferably the latest one. Buy the game
+The game client requires the native Linux build of **RimWorld 1.7.5013**. You can buy RimWorld
 on [Steam](https://store.steampowered.com/app/294100/RimWorld/),
 [GOG](https://www.gog.com/en/game/rimworld), or
 [directly from Ludeon Studios](https://rimworldgame.com/).
 
-SlopWorld supports Linux. See the [requirements](https://slopworld.space/installation/linux.html#requirements) and
-[installation guide](https://slopworld.space/installation/linux.html).
-
-For experimental sidecar mode (`slopd` in Docker) follow the [sidecar worker](https://slopworld.space/installation/sidecar.html) guide.
+See the [Linux installation guide](https://slopworld.space/installation/linux.html) for local and remote daemons. To run the daemon in Docker, see [experimental sidecar mode](https://slopworld.space/installation/sidecar.html).
 
 ### From binaries
 
@@ -74,7 +64,7 @@ slopworld
 
 `RIMWORLD` defaults to `~/.local/share/Steam/steamapps/common/RimWorld`.
 
-Always start the "game" with `slopworld`. The mod only activates in a separate profile and should stay disabled in vanilla installation.
+Launch with `slopworld` to use its separate game profile. Keep the mod disabled in your regular RimWorld profile.
 
 ## License
 

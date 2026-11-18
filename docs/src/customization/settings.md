@@ -31,22 +31,17 @@ still saves through its usual shutdown path.
 
 ## Display
 
-Open **Settings > Display** for fullscreen, frame limits, VSync, and scrolling.
-On Linux, **Display > Fullscreen** and F11 switch Waylith between borderless
-fullscreen and an undecorated window. The Linux launcher requires Wayland.
+Press **F11** or use **Settings > Display > Fullscreen** to switch between
+borderless fullscreen and an undecorated window.
 
-Leave the frame limiter on **Auto** to follow the monitor's refresh rate, or
-lower it to reduce rendering work. VSync synchronizes presentation with the
-display but can add scrolling latency; it takes precedence over the selected
-frame limit. Turning VSync off restores that limit. Unfocused windows use a
-fixed background frame rate and restore your selection on focus.
+Set the frame limit to **Auto** to follow the monitor’s refresh rate. Choose a
+lower limit to reduce rendering work. Keyboard input, daemon communication, and
+game updates continue between rendered frames. **VSync** takes precedence over
+the frame limit and can add scrolling latency. Unfocused windows use a fixed
+background rate.
 
-The limit controls rendering. Keyboard and mouse events, daemon communication,
-and game updates continue between rendered frames. A low limit makes visual
-feedback less frequent, but does not pace typing or send one character per frame.
-
-SlopWorld keeps the desktop awake while it runs, even in the background; turn off
-**Window > Inhibit screensaver** to allow normal desktop idle behavior.
+Under **Window**, turn off **Inhibit screensaver** to let the screen go idle
+while SlopWorld is running.
 
 Display preferences apply live and are saved with the profile.
 [Eco mode](../workspace/gameplay.md#eco-mode) controls colony simulation separately.

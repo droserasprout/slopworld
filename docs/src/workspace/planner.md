@@ -41,14 +41,17 @@ further task updates but leaves the worker process running.
 
 ## Storage and recovery
 
-The daemon stores `TODO.txt` (up to 64 KiB) in its data directory, normally
-`~/.local/share/slopworld/`. Saving assigns each task a stable `sw-id:`. Preserve it when editing Raw. Agents report through Tasks and cannot edit
-the backlog through the Planner API.
+The daemon stores the backlog in `TODO.txt` (up to 64 KiB) in its data directory,
+normally `~/.local/share/slopworld/`. Each saved row has a stable `sw-id:`.
+Keep that ID when renaming or moving a row in **Raw**. Give a copied row a new
+ID by removing its `sw-id:` before saving.
 
-Descriptions live in `planner/descriptions/<sw-id>.md` (up to 1 MiB each); links live in
-`planner/links/<sw-id>.json`. Renaming, moving, or completing a task preserves its description.
-Deleting a TODO entry keeps its description and linked worker task. Restoring the same
-`sw-id:` reconnects the description; copying a task requires a new ID and does not copy
-its description.
+The ID connects the row to two files:
+
+- `planner/descriptions/<sw-id>.md` holds its Markdown description (up to 1 MiB).
+- `planner/links/<sw-id>.json` lists its linked Tasks and Workers.
+
+Removing a row leaves its description, links, and worker tasks in place.
+Restoring the row with its original ID reconnects it to those files.
 
 Include these files in your [backup](../maintenance/backup-and-recovery.md).

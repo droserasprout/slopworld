@@ -26,7 +26,7 @@ If your distribution does not supply protoc 36.1, download the matching binary
 archive from the [Protobuf v36.1 release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.1)
 and put its `bin` directory on `PATH`.
 
-You also need RimWorld **1.7**. Set `RIMWORLD` to the installation directory
+To build against the game locally, install RimWorld **1.7.5013**. Set `RIMWORLD` to the installation directory
 containing `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`. The default is
 `~/.local/share/Steam/steamapps/common/RimWorld`. `MANAGED` can select a separate
 assembly directory.
