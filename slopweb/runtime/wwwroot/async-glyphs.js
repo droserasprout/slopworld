@@ -43,7 +43,12 @@ export function asyncGlyphs(local,worker,wake) {
     const key=JSON.stringify([request.hash,request.scalar,request.size,request.density,request.flags]);
     const reply=replies.get(key);
     if (reply!==undefined) {
-      if (reply instanceof Error) throw reply;
+      if (reply instanceof Error) {
+        // The managed face records failure until its explicit retry. Deliver
+        // this error once so that retry can submit fresh work to the worker.
+        replies.delete(key);
+        throw reply;
+      }
       return reply;
     }
     if (!pending.has(key) && pending.size<256) {

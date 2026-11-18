@@ -78,6 +78,19 @@ test('worker failures settle requests and cannot leave glyphs pending forever',a
   const f=fixture();f.raster.call(json);f.worker.onerror();await f.raster.settle();
   assert.throws(()=>f.raster.call(json),/failed/);f.raster.close();
 });
+test('an individual worker error is delivered once and the managed retry can recover',async()=>{
+  const f=fixture();
+  try {
+    f.raster.call(json);
+    f.worker.onmessage({data:{id:f.messages[0].id,error:'transient glyph failure'}});
+    await f.raster.settle();
+    assert.throws(()=>f.raster.call(json),/transient glyph failure/);
+    assert.equal(f.raster.call(json),'{"pending":true}');
+    assert.equal(f.messages.length,2);
+    f.reply(f.messages[1]);await f.raster.settle();
+    assert.equal(f.raster.call(json),glyph);
+  } finally {f.raster.close();}
+});
 test('glyph request admission is bounded and retries deferred work after completion',async()=>{
   const f=fixture();
   for(let scalar=128;scalar<428;scalar++)f.raster.call(JSON.stringify({...request,scalar}));
