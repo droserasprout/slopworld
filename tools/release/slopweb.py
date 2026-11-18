@@ -160,10 +160,9 @@ def bundle_identity(bundle: Path) -> str:
     digest = hashlib.sha256()
     for path in sorted(bundle.rglob('*')):
         if path.is_file() and path != bundle / 'BUILD_ID':
-            digest.update(path.relative_to(bundle).as_posix().encode())
+            digest.update(path.relative_to(bundle).as_posix().encode() + b'\0')
             with path.open('rb') as stream:
-                for chunk in iter(lambda: stream.read(1024 * 1024), b''):
-                    digest.update(chunk)
+                digest.update(hashlib.file_digest(stream, 'sha256').digest())
     return digest.hexdigest() + '\n'
 
 
@@ -252,9 +251,6 @@ def stage(payload: Path, revision: str, version: str, bundle: Path = OUTPUT) -> 
 def validate_owned_paths(prefix: Path, *, uninstall: bool) -> None:
     # Check every owner before any mutation. Uninstall may unlink an owned leaf
     # symlink, but must never traverse one in the prefix or an owner's parents.
-    for candidate in (prefix, *prefix.parents):
-        if candidate.is_symlink():
-            raise ValueError(f'Refusing to traverse symlink: {candidate}')
     for relative in OWNED:
         path = prefix / relative
         candidates = path.parents if uninstall else (path, *path.parents)
@@ -266,11 +262,10 @@ def validate_owned_paths(prefix: Path, *, uninstall: bool) -> None:
 def install(prefix: Path, uninstall: bool = False) -> None:
     # Install owns these paths only. Private generated caches and daemon config
     # are independent and deliberately survive uninstall.
-    owned = OWNED
     prefix = prefix.absolute()
     validate_owned_paths(prefix, uninstall=uninstall)
     if uninstall:
-        for relative in owned:
+        for relative in OWNED:
             path = prefix / relative
             if path.is_symlink() or path.is_file():
                 path.unlink()
@@ -284,12 +279,12 @@ def install(prefix: Path, uninstall: bool = False) -> None:
         payload = Path(temporary)
         stage(payload, (OUTPUT / 'REVISION').read_text().strip(), (OUTPUT / 'VERSION').read_text().strip())
         validate_owned_paths(prefix, uninstall=False)
-        for relative in owned:
+        for relative in OWNED:
             destination = prefix / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
         changed: list[tuple[Path, Path | None]] = []
         try:
-            for relative in owned:
+            for relative in OWNED:
                 source, destination = payload / 'usr' / relative, prefix / relative
                 backup = payload / 'previous' / relative if destination.exists() else None
                 if backup is not None:

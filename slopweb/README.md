@@ -186,16 +186,15 @@ files are read from the user's own installation during local preparation.
 
 ## Interface
 
-The sidebar selects agents; `+` creates sessions. Session-only agent rows share
-native text presentation and the existing worker icon, without per-session portrait
-preparation. Core and Jukebox doors open native menus without a colony; map actions
-are unavailable. Jukebox OST plays in the browser with normal source, transport,
-and volume controls. Browser autoplay restrictions may require a click or key press
-before music starts. Radio/Spotify controls use the host daemon's
-capabilities and audio output. Ctrl+V pastes browser
-text, plus PNG images in ready Codex agents; selected terminal text copies with Ctrl+C or Ctrl+Shift+C. Without a selection, Ctrl+C still
-interrupts the terminal process. Browser clipboard permissions apply to context
-menu actions. Settings are available through the gear icon.
+Select an agent in the sidebar or click `+` to create a session. The Core and
+Jukebox doors open their native menus. Map actions require a colony. The browser
+plays the Jukebox soundtrack and may require a click or key press to start audio.
+Radio and Spotify use the host daemon’s audio output.
+
+Ctrl+V pastes text into the terminal. Ready Codex agents also accept PNG images.
+Ctrl+C or Ctrl+Shift+C copies selected text. With no selection, Ctrl+C interrupts
+the terminal process. Context menu actions use the browser’s clipboard permissions.
+Open settings with the gear icon.
 
 Web and game may share a terminal: the browser sends new pane sizes on local
 geometry changes or reconnect, and does not continually override another client's

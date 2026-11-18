@@ -6,7 +6,14 @@ from concurrent.futures import ThreadPoolExecutor
 
 from tools.web_timings import Timings
 
-PROJECTS = ('Probe', 'Adapters', 'FontProbe', 'BackgroundProbe', 'Scanner', 'Offline')
+PROJECTS = (
+    'runtime/Probe.csproj',
+    'runtime/Adapters/Adapters.csproj',
+    'runtime/FontProbe/FontProbe.csproj',
+    'runtime/BackgroundProbe/BackgroundProbe.csproj',
+    'runtime/Scanner/Scanner.csproj',
+    'offline/Offline.csproj',
+)
 
 
 def build_managed(timings: Timings) -> None:
@@ -15,16 +22,10 @@ def build_managed(timings: Timings) -> None:
         raise ValueError('SLOPWEB_BUILD_JOBS must be a positive integer')
 
     def build(project: str) -> None:
-        path = (
-            'slopweb/offline/Offline.csproj'
-            if project == 'Offline'
-            else (
-                f'slopweb/runtime/{project}/{project}.csproj' if project != 'Probe' else 'slopweb/runtime/Probe.csproj'
-            )
-        )
-        with timings.step(project):
+        with timings.step(project.rsplit('/', 1)[-1]):
             subprocess.run(
-                ['dotnet', 'build', path, '--nologo', '-v', 'quiet', '-p:RestoreLockedMode=true'], check=True
+                ['dotnet', 'build', f'slopweb/{project}', '--nologo', '-v', 'quiet', '-p:RestoreLockedMode=true'],
+                check=True,
             )
 
     # Each producer has its own bin/obj and no ProjectReference edges. Join every
@@ -41,7 +42,7 @@ def main() -> None:
         with timings.step('Mod and dependencies'):
             subprocess.run(['just', 'mod-build', 'rimref'], check=True)
         with timings.step('Local font rasterizer (build/cache check)'):
-            subprocess.run(['python3', 'slopweb/runtime/LocalFonts/build.py'], check=True)
+            subprocess.run(['just', 'web-local-fonts-build'], check=True)
         build_managed(timings)
         with timings.step('Stage redistributable bundle'):
             subprocess.run(['just', 'web-stage'], check=True)
