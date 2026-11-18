@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {openAssetArchive} from '../../runtime/wwwroot/asset-archive.js';
+import {hostFonts} from '../../runtime/wwwroot/host-fonts.js';
+import {GlyphStorage} from '../../runtime/wwwroot/glyph-storage.js';
 
 function setup({quota=false,short=false}={}) {
   let saved=null,version='first';
@@ -39,6 +41,93 @@ test('quota and unavailable storage retain successful startup',async()=>{
   assert.deepEqual(f.calls,['HEAD','GET','HEAD','GET']);
   f.storage=undefined;await read(f);
   assert.equal(f.calls.at(-1),'GET');
+});
+
+test('denied CacheStorage getter permits network archive and font reads and local glyph rendering',async t=>{
+  const previous=Object.getOwnPropertyDescriptor(globalThis,'caches');
+  Object.defineProperty(globalThis,'caches',{configurable:true,get(){throw Error('Storage denied');}});
+  t.after(()=>{
+    if(previous)Object.defineProperty(globalThis,'caches',previous);
+    else delete globalThis.caches;
+  });
+  const f=setup();
+  assert.deepEqual(await read({...f,storage:undefined}),new Uint8Array([1,2,3]));
+  assert.deepEqual(f.calls,['GET']);
+  const bytes=new Uint8Array([1,2,3]);
+  const hash=Buffer.from(await crypto.subtle.digest('SHA-256',bytes)).toString('hex');
+  assert.deepEqual(await hostFonts({},async()=>new Response(bytes)).file(hash),bytes);
+  const glyph=new GlyphStorage();
+  assert.equal(await glyph.render({scalar:200},()=>'{"missing":true}'),'{"missing":true}');
+});
+
+function streamingArchive(cache) {
+  const chunks=16;
+  let produced=0,canceled=false;
+  const request=async(_url,options)=>{
+    const headers={etag:'v1','x-slop-decoded-length':String(chunks)};
+    if(options?.method==='HEAD')return new Response(null,{headers});
+    return new Response(new ReadableStream({
+      pull(controller) {
+        controller.enqueue(Uint8Array.of(++produced));
+        if(produced===chunks)controller.close();
+      },
+      cancel(){canceled=true;},
+    }),{headers});
+  };
+  return {open:()=>openAssetArchive('archive',request,{open:async()=>cache}),
+    produced:()=>produced,canceled:()=>canceled};
+}
+
+test('archive streaming bounds read-ahead for both fast and stalled cache readers',async()=>{
+  for(const stall of [false,true]) {
+    let release,saved;
+    const gate=new Promise(resolve=>{release=resolve;});
+    const f=streamingArchive({match:async()=>null,async put(_url,response){
+      if(stall)await gate;
+      saved=new Uint8Array(await response.arrayBuffer());
+    }});
+    const {response,stored}=await f.open();
+    const reading=stall ? response.arrayBuffer() : null;
+    await new Promise(setImmediate);
+    assert.ok(f.produced()<=4,'A single fast consumer drained the archive');
+    release();
+    const received=new Uint8Array(await (reading??response.arrayBuffer()));
+    await stored;
+    assert.equal(received.length,16);
+    assert.deepEqual(saved,received);
+  }
+});
+
+test('canceling managed archive consumption aborts the cache copy and the upstream reader',async()=>{
+  let failed=false;
+  const f=streamingArchive({match:async()=>null,async put(_url,response){
+    try { await response.arrayBuffer(); } catch(error) {failed=true;throw error;}
+  }});
+  const {response,stored}=await f.open();
+  const reader=response.body.getReader();
+  await reader.read();
+  await reader.cancel(Error('Managed startup failed'));
+  await stored;
+  await new Promise(setImmediate);
+  assert.equal(failed,true);
+  assert.equal(f.canceled(),true);
+});
+
+test('quota failure after a partial cache read unblocks the remaining managed upload',async()=>{
+  let rejectWrite,started;
+  const writing=new Promise(resolve=>{started=resolve;});
+  const f=streamingArchive({match:async()=>null,async put(_url,response){
+    const reader=response.body.getReader();
+    await reader.read();
+    // Storage can abandon the locked body without reading the next chunk.
+    await new Promise((_resolve,reject)=>{rejectWrite=reject;started();});
+  }});
+  const {response,stored}=await f.open();
+  const reading=response.arrayBuffer();
+  await writing;await new Promise(setImmediate);
+  rejectWrite(Error('Quota exceeded'));
+  assert.equal((await reading).byteLength,16);
+  await stored;
 });
 test('truncated archive never becomes a usable cache entry',async()=>{
   const f=setup({short:true});

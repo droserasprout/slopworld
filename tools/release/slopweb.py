@@ -38,6 +38,7 @@ WEB_ASSETS = (
     'asset-archive.js',
     'async-glyphs.js',
     'bootstrap.js',
+    'browser-storage.js',
     'clipboard.js',
     'cursor-image.js',
     'font-delivery.js',
