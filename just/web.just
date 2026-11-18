@@ -189,7 +189,7 @@ web-host-lint:
 
 [group('web')]
 web-host-release:
-    cargo build --manifest-path slopweb/host/Cargo.toml --locked --release --quiet
+    cargo build --manifest-path slopweb/host/Cargo.toml --target-dir slopweb/host/target --locked --release --quiet
 
 [group('web')]
 web-test-browser:

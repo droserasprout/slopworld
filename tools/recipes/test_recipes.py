@@ -263,6 +263,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertFalse(self.log.exists())
 
     def test_refresh_is_explicit_and_stages_licenses_last(self) -> None:
+        self.env['CARGO_TARGET_DIR'] = str(self.directory / 'other targets')
         self.run_recipe('generate-all')
         modules = [call['args'][call['args'].index('-m') + 1] for call in self.calls('uv')]
         self.assertEqual(modules[-1], 'tools.licenses.stage_licenses')
@@ -276,7 +277,16 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 ('slopcar', ['build', '--quiet', '--locked']),
                 (
                     ROOT.name,
-                    ['build', '--manifest-path', 'slopweb/host/Cargo.toml', '--locked', '--release', '--quiet'],
+                    [
+                        'build',
+                        '--manifest-path',
+                        'slopweb/host/Cargo.toml',
+                        '--target-dir',
+                        'slopweb/host/target',
+                        '--locked',
+                        '--release',
+                        '--quiet',
+                    ],
                 ),
             ],
         )
