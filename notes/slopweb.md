@@ -72,6 +72,8 @@ The workspace soundtrack and prepared background frames have separate delivery p
 Assembly loading, archive transfer, font installation and startup stages yield to
 browser painting between work batches; individual synchronous managed calls still
 own their uninterrupted cost.
+The physical input adapter reports all five mouse buttons, including chord changes
+delivered through pointer motion. GUI hit testing uses left, right and middle.
 Browser middle-click reaches native hit testing so tabs and other controls retain
 button actions. A native PRIMARY read waits for the corresponding DOM paste event;
 that reply completes the original callback without a second Ctrl+V dispatch.

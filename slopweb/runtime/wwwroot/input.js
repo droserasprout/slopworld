@@ -1,4 +1,20 @@
 import { acquireTextInput, composingKey } from './text-input.js';
+
+// Pointer Events report a chord's intermediate button changes as pointermove.
+// DOM buttons bits are already in Unity order (left, right, middle, back, forward).
+const nativeButtons = [0, 2, 1, 3, 4];
+export function pointerAction(event) {
+    const button = nativeButtons[event.button];
+    if (event.type === 'pointermove') {
+        const held = event.buttons & 31;
+        if (button !== undefined)
+            return {kind: held & (1 << button) ? 'down' : 'up', button};
+        const dragButton = nativeButtons.find(candidate => held & (1 << candidate));
+        return dragButton === undefined ? {kind:'move', button:0} : {kind:'drag', button:dragButton};
+    }
+    return button === undefined ? null : {kind:event.type === 'pointerdown' ? 'down' : 'up', button};
+}
+
 // Browser event source for installed Waylith.Input.InputState. The frame owner
 // must drain after BeginFrame and before game Update; no native loop is started.
 export function attachInput(canvas, managed, browserClipboard = false) {
@@ -34,15 +50,19 @@ export function attachInput(canvas, managed, browserClipboard = false) {
             event.preventDefault();
         enqueue({ kind: event.repeat ? 'repeat' : 'key', key, down: type === 'keydown' });
     });
-    listen(canvas, 'pointermove', event => enqueue({ kind: 'move', ...position(event) }));
-    for (const type of ['pointerdown', 'pointerup']) listen(canvas, type, event => {
-        if (event.button < 0 || event.button > 4) return;
+    for (const type of ['pointerdown', 'pointerup', 'pointermove']) listen(canvas, type, event => {
+        const action = pointerAction(event);
+        if (!action) return;
+        if (action.kind === 'move' || action.kind === 'drag') {
+            enqueue({ kind:'move', ...position(event) });
+            return;
+        }
         if (type === 'pointerdown') {
             proxy ? proxy.focus(event) : canvas.focus();
             if (event.isTrusted) canvas.setPointerCapture(event.pointerId);
         }
         if (!(browserClipboard && event.button === 1)) event.preventDefault();
-        enqueue({ kind: 'button', button: [0, 2, 1, 3, 4][event.button], down: type === 'pointerdown', ...position(event) });
+        enqueue({ kind: 'button', button: action.button, down: action.kind === 'down', ...position(event) });
     });
     listen(canvas, 'wheel', event => {
         event.preventDefault();
