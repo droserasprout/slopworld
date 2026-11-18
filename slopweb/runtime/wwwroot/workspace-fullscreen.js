@@ -39,13 +39,13 @@ export function attachWorkspaceFullscreen(managed, view = window) {
   };
   managed.WorkspaceWindow(request);
   doc.addEventListener('fullscreenchange', sync, {signal: abort.signal});
-  // Escape remains native terminal/UI input. F11 owns fullscreen toggling.
+  // Focused GUI input routes keys through native bindings first. Before the
+  // canvas has focus, honor the default F11 gesture only while it is bound.
   doc.addEventListener('keydown', event => {
-    if (event.key !== 'F11') return;
+    if (event.defaultPrevented || event.key !== 'F11' || !managed.WorkspaceFullscreenKey('F11')) return;
     event.preventDefault();
-    event.stopPropagation();
     if (!event.repeat) request(doc.fullscreenElement !== doc.documentElement);
-  }, {capture: true, signal: abort.signal});
+  }, {signal: abort.signal});
   sync();
   return {dispose() { disposed = true; keyboard?.unlock?.(); abort.abort(); managed.WorkspaceWindow(() => {}); }};
 }

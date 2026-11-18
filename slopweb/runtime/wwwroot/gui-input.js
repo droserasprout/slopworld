@@ -131,6 +131,9 @@ export function attachGuiInput(canvas, managed) {
       key = physical;
     const candidate = key ?? physical;
     const activation = !!candidate && managed.activationKey?.(candidate) === true;
+    if (activation && candidate === 'F11' && event.repeat && !event.shiftKey) {
+      event.preventDefault(); return;
+    }
     // A printable fullscreen rebind must execute in keydown too: waiting for the
     // editable proxy's input event can lose activation. Native routing still decides
     // whether the shortcut is eligible, and preventDefault suppresses duplicate text.

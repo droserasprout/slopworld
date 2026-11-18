@@ -1,17 +1,21 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {attachWorkspaceFullscreen} from '../../runtime/wwwroot/workspace-fullscreen.js';
+import {attachGuiInput} from '../../runtime/wwwroot/gui-input.js';
+import {installInputDom,emit} from './input-dom-fixture.mjs';
 
 function fixture(keyboard) {
   const doc = new EventTarget();
-  let request, enters=0, exits=0;
+  let request, enters=0, exits=0, binding='F11';
   const states=[], warnings=[];
   doc.documentElement = {requestFullscreen() { enters++; return Promise.resolve(); }};
   doc.fullscreenElement = null;
   doc.exitFullscreen = () => { exits++; return Promise.resolve(); };
-  const managed = {WorkspaceWindow: callback => {request=callback;}, WorkspaceFullscreenState: value => states.push(value)};
+  const managed = {WorkspaceWindow: callback => {request=callback;}, WorkspaceFullscreenState: value => states.push(value),
+    WorkspaceFullscreenKey:key=>key===binding};
   const controller = attachWorkspaceFullscreen(managed, {document:doc, navigator:{keyboard}, console:{warn: (...args)=>warnings.push(args)}});
   return {doc, states, warnings, controller, request:value=>request(value), enters:()=>enters, exits:()=>exits,
+    bind(value){binding=value;},
     change(value) {doc.fullscreenElement=value?doc.documentElement:null;doc.dispatchEvent(new Event('fullscreenchange'));}};
 }
 
@@ -85,6 +89,49 @@ test('keyboard capture follows fullscreen lifetime and tolerates denial', async 
   f.change(true);
   f.controller.dispose();
   assert.equal(unlocks,2);
+});
+
+test('document fallback honors rebinding and leaves a GUI-handled F11 alone',()=>{
+  const f=fixture();
+  try {
+    for(const key of ['G',null]) {
+      f.bind(key);
+      const event=Object.assign(new Event('keydown',{cancelable:true}),{key:'F11'});
+      f.doc.dispatchEvent(event);
+      assert.equal(event.defaultPrevented,false);
+    }
+    f.bind('F11');
+    const handled=Object.assign(new Event('keydown',{cancelable:true}),{key:'F11'});
+    handled.preventDefault();f.doc.dispatchEvent(handled);
+    assert.equal(f.enters(),0);
+  } finally {f.controller.dispose();}
+});
+
+test('focused input delivers reassigned F11 and enters fullscreen once on its new binding',()=>{
+  const canvas=installInputDom().canvas(), f=fixture(), keys=[];
+  f.bind('G');
+  const gui=attachGuiInput(canvas,{
+    activationKey:key=>key==='G',
+    GuiInputFrame:raw=>{
+      for(const event of JSON.parse(raw)) {
+        keys.push(event.key);
+        if(event.key==='G')f.request(true);
+      }
+      return '{"commands":[]}';
+    },
+  });
+  const press=(key,code)=>{
+    const event=emit(gui.textInput,'keydown',{key,code});
+    f.doc.dispatchEvent(event); // Bubble this event after the focused listener.
+  };
+  try {
+    press('F11','F11');gui.frame();
+    assert.deepEqual(keys,['F11']);
+    assert.equal(f.enters(),0);
+    press('g','KeyG');
+    assert.deepEqual(keys,['F11','G']);
+    assert.equal(f.enters(),1);
+  } finally {gui.dispose();f.controller.dispose();}
 });
 
 test('late keyboard capture is released after disposal', async () => {

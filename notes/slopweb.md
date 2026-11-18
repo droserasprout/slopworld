@@ -210,5 +210,7 @@ testing retained. Pointer dispatch opens HTTP(S)/mailto links synchronously in a
 tab without an opener; executable and local-file schemes are rejected.
 
 Browser cursor presentation uses one DOM canvas overlay at every viewport position,
-with native animation pixels and device-pixel hotspots. Fullscreen uses F11; optional
+with native animation pixels and device-pixel hotspots. The native fullscreen binding
+defaults to F11. The document fallback honors the current binding when GUI input has
+not handled the key. Optional
 Keyboard Lock keeps Escape available to native input when supported and permitted.
