@@ -145,7 +145,9 @@ Append-only font atlases retain CPU pixels until drain, coalescing publication a
 encoding once per atlas per packet. General mutable textures still snapshot at each
 mutation to preserve draw order. Failed drains discard resource claims so retries
 must upload their definitions again.
-Browser GUI packets retain one bounded decoded frame; command consumers leave it
+Immutable Canvas uploads retain the pixels needed to restore their 2D contexts.
+Derived tints can be rebuilt from those uploads. Browser GUI packets retain one
+bounded decoded frame; command consumers leave it
 immutable, while Canvas reuse still checks dimensions, resource revisions, and
 resource-changing commands. Startup consumes every packet before requesting a font
 redraw: image uploads and retained-target changes cannot be dropped when replacing

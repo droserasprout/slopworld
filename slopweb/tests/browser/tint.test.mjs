@@ -67,3 +67,51 @@ test('expanded tint retention preserves draws and invalidates on replacement and
     globalThis.document=previousDocument;globalThis.ImageData=previousImageData;
   }
 });
+
+test('restored upload, tint and uniform canvases redraw from the original image',async()=>{
+  const gui=await import('../../runtime/wwwroot/gui.js');
+  const previousDocument=globalThis.document, previousImage=globalThis.ImageData;
+  const surfaces=[];
+  let sampled;
+  class Surface extends EventTarget {
+    constructor(){
+      super();
+      this.context={
+        putImageData:image=>{this.pixels=image.data.slice();},
+        getImageData:()=>({data:this.pixels.slice()}),
+        drawImage:source=>{sampled=source;},
+        resetTransform(){},save(){},restore(){},
+      };
+    }
+    getContext(){return this.context;}
+    restore(){
+      this.pixels.fill(0);
+      this.dispatchEvent(new Event('contextrestored'));
+    }
+  }
+  globalThis.document={createElement(){const surface=new Surface();surfaces.push(surface);return surface;}};
+  globalThis.ImageData=class {constructor(data){this.data=data;}};
+  const screen=new Surface(), id=999;
+  const image=color=>({kind:'imageTexture',value:{id,color,uv:[0,0,1,1],rect:[0,0,2,1]}});
+  const draw=color=>{gui.renderGui(screen,[image(color)]);return sampled.pixels;};
+  try {
+    for(const uniform of [false,true]) {
+      surfaces.length=0;
+      const pixels=[200,100,50,255,uniform?200:42,100,50,255];
+      gui.renderGui(screen,[{kind:'image',value:{id,width:2,height:1,pixels:Buffer.from(pixels).toString('base64')}}]);
+      const white=[1,1,1,1],brown=[.5,.75,1,1];
+      // Restore the uploaded canvas before any tint readback has occurred.
+      surfaces[0].restore();
+      assert.deepEqual([...draw(white)],uniform?pixels.slice(0,4):pixels);
+      for(const color of [white,brown]) {
+        const expected=draw(color).slice(), revision=gui.guiRenderRevision();
+        sampled.restore();
+        assert.ok(gui.guiRenderRevision()>revision);
+        assert.deepEqual(draw(color),expected);
+      }
+    }
+  } finally {
+    gui.renderGui(screen,[{kind:'releaseImage',value:id}]);
+    globalThis.document=previousDocument;globalThis.ImageData=previousImage;
+  }
+});
