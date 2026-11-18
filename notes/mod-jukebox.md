@@ -6,6 +6,10 @@ deduplication. Pending selections send immediately; idle frames do not resolve p
 A saved station waits for the first catalog before sending playback commands.
 Connection snapshots send the catalog before audio state so restoring a selection
 cannot erase the report for a stream that kept playing across game restarts.
+Clients without a native audio decoder set `Radio.LocalPlaybackSupported` before
+workspace startup. OST source/transport actions are unavailable there, and the default
+OST state observes host playback without sending a stop. Selecting a supported daemon
+source activates normal transport policy, including explicit pause/stop.
 `Sim/Jukebox/` adapts map presence and native music. `UI/Jukebox/` owns menus/actions
 and notice presentation, connected once by Bootstrap. Recognition policy stays in
 application; bounded child execution belongs to `Platform/Processes/`.
@@ -62,8 +66,10 @@ deadline: continuous traffic or playback backpressure must not force reconnects.
 Catalog reload failure retains the valid snapshot for retry. Mutation errors distinguish
 saved disk changes from failed activation so repaired definitions can activate later.
 
-The game owns all OST assets and playback through its bundled SongDefs. The daemon
-handles radio and Spotify playback. Source changes stop
+Native OST playback uses the bundled SongDefs. In the browser workspace,
+`BrowserAudioPatch` replaces the local music adapter with DOM playback of authored
+SlopWorld OST; Radio keeps the same source, volume, and stop-ack policy. The daemon
+rejects file playback selections and plays radio/Spotify only. Source changes stop
 native music before sending a daemon selection. Returning to OST requires the
 current unique stop token to be acknowledged after the daemon worker retires its
 source and ncspot stops. Selection changes and disconnects revoke that acknowledgment;

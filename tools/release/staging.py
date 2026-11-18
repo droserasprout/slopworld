@@ -12,8 +12,17 @@ from tools import cli_completions
 from tools.utils import run
 
 NATIVE_PRODUCTS = ('slopworld', 'slopd', 'slopctl')
-PRODUCTS = (*NATIVE_PRODUCTS, 'slopcar')
+PRODUCTS = (*NATIVE_PRODUCTS, 'slopcar', 'slopweb')
 BINARIES = NATIVE_PRODUCTS
+
+
+def stage_slopweb(payload: Path, revision: str, version: str, bundle: Path | None = None) -> None:
+    from tools.release import slopweb
+
+    slopweb.stage(payload, revision, version, bundle or slopweb.OUTPUT)
+    normalize_permissions(payload, payload / 'usr/bin', (payload / 'usr/share/slopweb/slopweb-host',))
+
+
 MOD_DIRECTORIES = ('About', 'Defs', 'Patches', 'Sounds', 'Textures', 'Themes')
 MOD_ASSEMBLIES = (
     'SlopWorld',
@@ -80,10 +89,10 @@ def stage_notices(payload: Path, copyright_path: str = 'usr/share/licenses/slopw
     shutil.copytree(ROOT / 'licenses', destination.parent / 'third-party')
 
 
-def normalize_permissions(directory: Path, binaries: Path) -> None:
+def normalize_permissions(directory: Path, binaries: Path, executables: tuple[Path, ...] = ()) -> None:
     """Make distributable files independent of source modes and the build umask."""
     for path in (directory, *directory.rglob('*')):
-        path.chmod(0o755 if path.is_dir() or path.parent == binaries else 0o644)
+        path.chmod(0o755 if path.is_dir() or path.parent == binaries or path in executables else 0o644)
 
 
 def stage_sidecar(payload: Path, binary_dir: Path, revision: str, version: str) -> None:

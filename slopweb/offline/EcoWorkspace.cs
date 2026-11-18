@@ -1,0 +1,110 @@
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
+
+// Explicit Eco hooks only. No runtime detours and no blanket Harmony suppression.
+internal static class EcoWorkspace
+{
+    internal static void Apply(string root, string modPath)
+    {
+        using var resolver = new DefaultAssemblyResolver();
+        resolver.AddSearchDirectory(Path.Combine(root, "game"));
+        resolver.AddSearchDirectory(Path.GetDirectoryName(modPath));
+        resolver.AddSearchDirectory(Path.GetDirectoryName(typeof(object).Assembly.Location));
+        var options = new ReaderParameters { InMemory = true, AssemblyResolver = resolver };
+        var targetPath = Path.Combine(root, "game", "Assembly-CSharp.dll");
+        using var game = AssemblyDefinition.ReadAssembly(targetPath, options);
+        using var mod = AssemblyDefinition.ReadAssembly(modPath, options);
+        BrowserScalePatch.Apply(game);
+        BrowserHttpPatch.Apply(mod, root);
+        BrowserSocketPatch.Apply(mod, root);
+        BrowserSidebarPatch.Apply(mod, root);
+        BrowserKeysPatch.Apply(mod, root);
+        BrowserWorkspaceDoorsPatch.Apply(mod, root);
+        BrowserKeyBindingsPatch.Apply(game, root);
+        BrowserClipboardPatch.Apply(mod, root);
+        BrowserCursorPatch.Apply(mod, root);
+        BrowserTerminalSizePatch.Apply(mod, root);
+        BrowserPreferencesPatch.Apply(mod, root);
+        BrowserWindowPatch.Apply(mod, root);
+        BrowserAudioPatch.Apply(mod, root);
+        using (var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll")))
+            BrowserClipboardPatch.Redirect(
+                mod.MainModule.GetType("SlopWorld.FontconfigFonts"),
+                adapters.MainModule.GetType("BrowserAdapters.BrowserFontBank"),
+                "Families",
+                "Families"
+            );
+        using (
+            var fontAdapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"))
+        )
+        {
+            var bank = fontAdapters.MainModule.GetType("BrowserAdapters.BrowserFontBank");
+            var names = mod
+                .MainModule.GetType("SlopWorld.NativeFonts")
+                .Methods.Single(m => m.Name == "Names");
+            var il = names.Body.GetILProcessor();
+            var first = names.Body.Instructions[0];
+            il.InsertBefore(
+                first,
+                il.Create(
+                    OpCodes.Call,
+                    mod.MainModule.ImportReference(bank.Methods.Single(m => m.Name == "HasCatalog"))
+                )
+            );
+            il.InsertBefore(first, il.Create(OpCodes.Brfalse, first));
+            il.InsertBefore(first, il.Create(OpCodes.Ldarg_0));
+            il.InsertBefore(
+                first,
+                il.Create(
+                    OpCodes.Call,
+                    mod.MainModule.ImportReference(bank.Methods.Single(m => m.Name == "Names"))
+                )
+            );
+            il.InsertBefore(first, il.Create(OpCodes.Ret));
+        }
+        // Native Unity audio is disabled: MusicUpdate would throw from Root_Play.Update.
+        // BrowserAudio owns authored OST decoding through the DOM transport; keep
+        // this native-manager suppression isolated from the rest of Root_Play.
+        var music = game
+            .MainModule.GetType("RimWorld.MusicManagerPlay")
+            .Methods.Single(m => m.Name == "MusicUpdate");
+        music.Body = new MethodBody(music);
+        music.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+        var hooks = new List<string>();
+        BrowserOptionsPatch.Apply(game, mod, hooks);
+        EcoPrefixes.Apply(game, mod, hooks);
+        BrowserActionButtonsPatch.Apply(game, mod, hooks);
+        TypeDefinition ModType(string name) =>
+            mod.MainModule.GetType(name)
+            ?? throw new InvalidOperationException("Missing mod type " + name);
+        // The browser owns startup integration. Keep the real ModEntry constructor
+        // and profile settings load; bypass only its desktop startup installer.
+        var early = ModType("SlopWorld.EarlyBootstrap").Methods.Single(m => m.Name == "Install");
+        early.Body = new MethodBody(early);
+        early.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+        Directory.CreateDirectory(Path.Combine(root, "mod"));
+        mod.Write(Path.Combine(root, "mod", "SlopWorld.dll"));
+        game.Write(targetPath + ".partial");
+        File.Move(targetPath + ".partial", targetPath, true);
+        var manifestPath = Path.Combine(root, "game", "manifest.json");
+        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
+        manifest.Single(n => n!["file"]!.GetValue<string>() == "Assembly-CSharp.dll")![
+            "stagedSha256"
+        ] = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(targetPath)));
+        File.WriteAllText(manifestPath, manifest.ToJsonString());
+        File.WriteAllText(
+            Path.Combine(root, "mod", "eco.json"),
+            JsonSerializer.Serialize(
+                new
+                {
+                    hooks,
+                    desktopStartupSkipped = true,
+                    fullBootstrap = false,
+                }
+            )
+        );
+    }
+}

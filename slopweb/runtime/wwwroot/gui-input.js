@@ -1,0 +1,203 @@
+import { acquireTextInput, composingKey } from './text-input.js';
+import { renderGui, guiRenderRevision } from './gui.js';
+import { GuiFrameReuse, GuiPacketDecoder } from './gui-frame-reuse.js';
+import { decodeGuiQuads } from './gui-quads.js';
+import { clipboardBridge } from './clipboard.js';
+
+export function attachGuiInput(canvas, managed) {
+  const abort = new AbortController();
+  const proxy = acquireTextInput(canvas);
+  let disposed = false, composing = false, cancelled = false, pendingText = null, committed = null;
+  let queue = [], queuedAt = null;
+  const clipboard = clipboardBridge(managed, text => {
+    if (proxy.composing) throw new Error('Cannot publish selection during composition');
+    proxy.element.value = text;
+    proxy.focus();
+    // Firefox ignores Selection API changes for PRIMARY. Its editor command
+    // performs a real select-all without overwriting the ordinary clipboard.
+    if (!document.execCommand?.('selectAll')) proxy.element.select();
+  });
+  let clipboardEvent;
+  const reuse=new GuiFrameReuse();
+  const decoder=new GuiPacketDecoder();
+  const frame = () => {
+    if (disposed) return;
+    managed.beforeFrame?.();
+    const batch=queue; queue=[];
+    const inputQueueMs=queuedAt===null?0:performance.now()-queuedAt;queuedAt=null;
+    const profiling = managed.profileFrame;
+    const started = profiling ? performance.now() : 0;
+    const raw = managed.GuiInputFrame(JSON.stringify(batch));
+    const managedEnd = profiling ? performance.now() : 0;
+    const result = {...decoder.decode(raw)};
+    const parsed = profiling ? performance.now() : 0;
+    // Profile timings change every frame even when commands do not. Compare only
+    // commands in that mode; ordinary frames can use their existing wire identity.
+    const replay=reuse.prepare(result.commands,canvas.width,canvas.height,guiRenderRevision(),managed.allowFrameReuse===true,result.profile?null:raw);
+    if(!replay.skip) {
+      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+      managed.drawBackground?.(canvas.getContext('2d'));
+      renderGui(canvas, result.commands);
+      reuse.commit(replay.key,canvas.width,canvas.height,guiRenderRevision());
+    }
+    const painted = profiling ? performance.now() : 0;
+    result.presentationUnchanged=replay.skip;
+    clipboard(clipboardEvent);
+    if (profiling) profiling({ ...result.profile, managedMs: managedEnd-started,
+      parseMs: parsed-managedEnd, canvasMs: painted-parsed, clipboardMs: performance.now()-painted,
+      commands: result.commands.length,
+      canvasReused: replay.skip?1:0,
+      targetWrites: result.commands.filter(c => c.kind === 'target' && c.value.id).length,
+      targetBlits: result.commands.filter(c => c.kind === 'targetTexture').length,
+      imageQuads: result.commands.reduce((count,c) => count + (c.kind === 'imageBatch' ? decodeGuiQuads(c.value.quads).length/8 : c.kind === 'imageTexture' ? 1 : 0), 0),
+      inputEvents: batch.length, inputQueueMs });
+    return result;
+  };
+  const listen = (name, callback) => proxy.listen(name, callback, { signal: abort.signal, passive: false });
+  listen('contextlost',()=>reuse.invalidate());
+  listen('contextrestored',()=>reuse.invalidate());
+  const enqueue = event => {
+    if(queue.length===0 && managed.profileFrame)queuedAt=performance.now();
+    // Reserve one final reset so focus loss cannot overflow a full accepted batch.
+    if (queue.length >= 4096 && event.kind !== 'reset') queue = [{kind:'reset'}];
+    queue.push(event);
+  };
+  const modifiers = event => ({ shift: event.shiftKey, control: event.ctrlKey, alt: event.altKey, command: event.metaKey });
+  const text = (value, event, key) => {
+    // Numeric UTF-16 units survive JSON individually; the mod flushes the whole
+    // ordered batch so supplementary characters reach its original input buffer.
+    // Preserve a physical identity on the same event for rebindable shortcuts,
+    // without creating a second text-bearing event or duplicating terminal input.
+    for (let i = 0; i < value.length; i++) enqueue({kind:'text', character:value.charCodeAt(i), ...(i === 0 && key ? {key} : {}), ...modifiers(event)});
+  };
+  const point = event => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: (event.clientX - rect.left) * canvas.width / rect.width,
+      y: (event.clientY - rect.top) * canvas.height / rect.height };
+  };
+  for (const [name, kind] of [['pointerdown', 'down'], ['pointerup', 'up'], ['pointermove', 'move']]) {
+    listen(name, event => {
+      const middle = managed.ClipboardTake && event.button === 1 && kind !== 'move';
+      if (kind === 'down') clipboard.cancelPrimary();
+      if (!middle) event.preventDefault();
+      if (kind === 'down') { cancelled = false; proxy.focus(event); if (event.isTrusted) canvas.setPointerCapture(event.pointerId); }
+      enqueue({ kind: kind === 'move' && event.buttons ? 'drag' : kind, ...point(event), button: [0, 2, 1][event.button] ?? 0, ...modifiers(event) });
+      // Clipboard actions and native URL opening need the initiating user activation.
+      if (managed.ClipboardTake && kind !== 'move') frame();
+      if (middle && !clipboard.primaryPending) event.preventDefault();
+    });
+  }
+  // The browser may dispatch PRIMARY paste as the default action of auxclick.
+  // Release an unanswered read after that action, or before any new key gesture.
+  listen('auxclick', event => {
+    if (event.button === 1) clipboard.expirePrimary();
+  });
+  listen('keydown', event => {
+    clipboard.cancelPrimary();
+    pendingText = null;
+    if (composingKey(event, composing)) return;
+    cancelled = false;
+    const editable = event.target === proxy.element && event.isTrusted;
+    // AltGr is text production, even on platforms exposing it as Ctrl+Alt.
+    // Do not carry those synthetic modifiers or a binding key into native text
+    // dispatch: they would turn e.g. AltGr+Q's @ into a terminal shortcut.
+    if (event.getModifierState?.('AltGraph') && !event.metaKey && Array.from(event.key).length === 1) {
+      const modifiers = {shiftKey:event.shiftKey,ctrlKey:false,altKey:false,metaKey:false};
+      if (editable) { pendingText = {event:modifiers}; return; }
+      text(event.key, modifiers);
+      event.preventDefault();
+      return;
+    }
+    const shortcut = (event.ctrlKey || event.metaKey) && !event.altKey;
+    // Let the browser deliver ClipboardEvent data. Sending V now would race
+    // that event and could paste a previous native clipboard value twice.
+    if (managed.ClipboardTake && shortcut && event.code === 'KeyV') return;
+    if (managed.ClipboardTake && shortcut && event.code === 'KeyC') {
+      enqueue({kind:'key',key:'C',control:true,shift:event.shiftKey});
+      event.preventDefault(); frame(); return;
+    }
+    const keys = { Backspace: 'Backspace', Delete: 'Delete', Insert:'Insert', ArrowLeft: 'LeftArrow', ArrowRight: 'RightArrow', ArrowUp:'UpArrow', ArrowDown:'DownArrow', PageUp:'PageUp', PageDown:'PageDown', Home: 'Home', End: 'End', Enter: 'Return', Escape:'Escape', Tab:'Tab' };
+    const punctuation = {Space:'Space', BracketLeft:'LeftBracket', BracketRight:'RightBracket', Backslash:'Backslash', Minus:'Minus', Backquote:'BackQuote', Equal:'Equals', Semicolon:'Semicolon', Quote:'Quote', Comma:'Comma', Period:'Period', Slash:'Slash'};
+    const physical = /^Key[A-Z]$/.test(event.code) ? event.code.slice(3) : /^Digit[0-9]$/.test(event.code) ? 'Alpha' + event.code.slice(5) : punctuation[event.code];
+    let key = keys[event.key] ?? (/^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key : null);
+    if (!key && (event.ctrlKey || event.altKey || event.metaKey))
+      key = physical;
+    const candidate = key ?? physical;
+    const activation = !!candidate && managed.activationKey?.(candidate) === true;
+    // A printable fullscreen rebind must execute in keydown too: waiting for the
+    // editable proxy's input event can lose activation. Native routing still decides
+    // whether the shortcut is eligible, and preventDefault suppresses duplicate text.
+    if (activation) key = candidate;
+    if (key) enqueue({kind:'key', key, ...modifiers(event)});
+    else if (Array.from(event.key).length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (editable) { pendingText = {event, key:physical}; return; }
+      text(event.key, event, physical);
+    }
+    else return;
+    event.preventDefault();
+    // Window commands may require transient user activation. Dispatch native bindings
+    // here, before returning from the DOM key event, rather than on the next RAF.
+    if (activation) frame();
+  });
+  listen('paste', event => {
+    if (!managed.ClipboardTake || !event.clipboardData) return;
+    event.preventDefault();
+    if (clipboard.pastePrimary(event)) return;
+    enqueue({kind:'clipboard',text:event.clipboardData.getData('text/plain'),
+      image:Array.from(event.clipboardData.items).some(item=>item.kind === 'file' && item.type === 'image/png')});
+    enqueue({kind:'key',key:'V',control:true});
+    clipboardEvent=event;
+    try { frame(); }
+    finally { clipboardEvent=null; }
+  });
+  listen('copy', event => {
+    if (!managed.ClipboardTake) return;
+    clipboardEvent=event;
+    try { enqueue({kind:'key',key:'C',control:true}); frame(); }
+    finally { clipboardEvent=null; }
+  });
+  listen('compositionstart', () => { composing = true; cancelled = false; pendingText = null; committed = null; });
+  listen('compositionend', event => {
+    // Refocus permits fresh typing, but cannot revive preedit canceled on blur.
+    const accepted = composing && !cancelled;
+    composing = false; pendingText = null;
+    if (accepted && event.data) text(event.data, {});
+    // Suppress the same-operation trailing input even for a rejected commit.
+    committed = event.data;
+    // Some engines send the final insertText after compositionend in the same
+    // edit operation. Ignore that duplicate, but allow a later identical commit.
+    const value = committed;
+    queueMicrotask(() => { if (committed === value) committed = null; });
+    proxy.element.value = '';
+  });
+  listen('input', event => {
+    if (cancelled || composing || event.isComposing || event.inputType === 'insertCompositionText') return;
+    const value = event.data ?? proxy.element.value;
+    if (value && value !== committed) text(value, pendingText?.event ?? {}, pendingText?.key);
+    pendingText = null; committed = null; proxy.element.value = '';
+  });
+  listen('wheel', event => {
+    event.preventDefault();
+    const scale = event.deltaMode === 1 ? 1 : event.deltaMode === 2 ? canvas.height / 16 : .03;
+    enqueue({kind:'wheel', ...point(event), dx:event.deltaX * scale, dy:event.deltaY * scale, ...modifiers(event)});
+  });
+  const reset = () => {
+    composing = false; cancelled = true; pendingText = null; committed = null;
+    if (proxy.composing) proxy.element.value = '';
+    clipboard.cancelPrimary();
+    // Preedit is canceled above; committed events must reach their native owner
+    // before focus is cleared. Window blur and visibility can report the same loss.
+    if (queue.at(-1)?.kind !== 'reset') enqueue({kind:'reset'});
+  };
+  listen('focus', () => { cancelled = false; });
+  listen('blur', event => { if (!proxy.owns(event.relatedTarget)) reset(); });
+  listen('pointercancel', reset);
+  window.addEventListener('blur', reset, {signal:abort.signal});
+  window.addEventListener('focus', () => { cancelled = false; }, {signal:abort.signal});
+  document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); }, {signal:abort.signal});
+  return {
+    frame,
+    textInput: proxy.element,
+    dispose() { if (disposed) return; disposed = true; clipboard.cancelPrimary(); abort.abort(); proxy.release(); managed.GuiInputFrame('[{"kind":"reset"}]'); }
+  };
+}

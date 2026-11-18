@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <SlopwebProject>true</SlopwebProject>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <Import Project="../Directory.Build.props" />
+</Project>

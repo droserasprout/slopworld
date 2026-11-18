@@ -18,6 +18,8 @@ namespace SlopWorld
         float _spinUntil = -1f;
         float _clickUntil = -1f;
 
+        public bool Active => _spinUntil >= 0f || _clickUntil >= 0f;
+
         public bool PatActive => _spinUntil >= 0f;
 
         public void Pat(float now)

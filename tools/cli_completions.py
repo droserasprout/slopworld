@@ -9,7 +9,7 @@ from tools import ROOT
 from tools.utils import run
 from tools.utils import run_main
 
-CLIENTS = ('slopctl', 'slopworld', 'slopcar')
+CLIENTS = ('slopctl', 'slopworld', 'slopcar', 'slopweb')
 SHELLS = ('bash', 'zsh', 'fish')
 
 
@@ -38,9 +38,15 @@ def main() -> None:
     source = ROOT / 'packaging/completions'
     if args.action == 'generate':
         for binary in args.binaries:
-            executable = ROOT / os.environ['SLOPCAR'] if binary == 'slopcar' else ROOT / os.environ['TARGET'] / binary
+            if binary == 'slopweb':
+                command = [str(ROOT / 'slopweb/host/target/release/slopweb')]
+            else:
+                executable = (
+                    ROOT / os.environ['SLOPCAR'] if binary == 'slopcar' else ROOT / os.environ['TARGET'] / binary
+                )
+                command = [str(executable)]
             for shell in SHELLS:
-                text = run([str(executable), 'completions', shell], capture_output=True, text=True).stdout
+                text = run([*command, 'completions', shell], capture_output=True, text=True).stdout
                 target = source / relative_path(shell, binary)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if not target.exists() or target.read_text() != text:

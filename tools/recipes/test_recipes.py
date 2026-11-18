@@ -268,11 +268,18 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         modules = [call['args'][call['args'].index('-m') + 1] for call in self.calls('uv')]
         self.assertEqual(modules[-1], 'tools.licenses.stage_licenses')
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
-        self.assertEqual([call['tool'] for call in calls[:4]], ['uv', 'cargo', 'cargo', 'uv'])
+        self.assertEqual([call['tool'] for call in calls[:5]], ['uv', 'cargo', 'cargo', 'cargo', 'uv'])
         self.assertEqual(modules[:2], ['tools.assets.clown_nose', 'tools.cli_completions'])
         self.assertEqual(
             [(Path(call['cwd']).name, call['args']) for call in self.calls('cargo')],
-            [('slopd', ['build', '--quiet', '--locked']), ('slopcar', ['build', '--quiet', '--locked'])],
+            [
+                ('slopd', ['build', '--quiet', '--locked']),
+                ('slopcar', ['build', '--quiet', '--locked']),
+                (
+                    ROOT.name,
+                    ['build', '--manifest-path', 'slopweb/host/Cargo.toml', '--locked', '--release', '--quiet'],
+                ),
+            ],
         )
         self.assertEqual(self.calls('dotnet'), [])
         self.assertIn('tools.licenses.sidecar_licenses', modules)
@@ -289,10 +296,15 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 str(ROOT / 'slopd'),
                 str(ROOT / 'slopcar'),
                 str(ROOT / 'bench/ipc/rust'),
+                str(ROOT),
             ],
         )
-        self.assertTrue(all(call['args'] == ['update'] for call in cargo))
+        self.assertTrue(all(call['args'] == ['update'] for call in cargo[:3]))
+        self.assertEqual(cargo[-1]['args'], ['update', '--manifest-path', 'slopweb/host/Cargo.toml'])
         dotnet = self.calls('dotnet')
+        web_projects = subprocess.run(
+            ['rg', '--files', 'slopweb', '-g', '*.csproj'], cwd=ROOT, check=True, capture_output=True, text=True
+        ).stdout.splitlines()
         self.assertEqual(
             [call['args'][1] for call in dotnet],
             [
@@ -300,13 +312,17 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 'mod/Source/SlopWorld/SlopWorld.csproj',
                 'mod/Tests/SlopWorld.Tests.csproj',
                 'bench/ipc/csharp/IpcBench.csproj',
+                *sorted(web_projects),
             ],
         )
         self.assertTrue(all('--force-evaluate' in call['args'] for call in dotnet))
         self.assertTrue(all('-p:RestoreLockedMode=false' in call['args'] for call in dotnet))
         uv = self.calls('uv')
         self.assertEqual(uv[0]['args'], ['lock', '--upgrade'])
-        self.assertEqual(uv[-1]['args'][-1], 'tools.licenses.stage_licenses')
+        self.assertEqual(
+            [call['args'][-1] for call in uv[-2:]],
+            ['tools.licenses.web_licenses', 'tools.licenses.stage_licenses'],
+        )
 
     def test_failed_relock_does_not_publish_new_notices(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'cargo'

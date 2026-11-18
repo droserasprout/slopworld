@@ -1,0 +1,13 @@
+// Keep runtime module fetching/compilation out of the first loading-screen paint.
+import {startLoading} from './loading.js';
+import {workspaceParameters} from './workspace-viewport.js';
+const parameters=workspaceParameters();
+try {
+  window.__loading=await startLoading(parameters);
+  await import('./main.js');
+} catch(error) {
+  window.__loading?.finish();
+  document.body.classList.remove('loading');
+  window.__probeResult={error:String(error),stack:error.stack};
+  document.getElementById('result').textContent='Workspace could not start.\n'+error;
+}

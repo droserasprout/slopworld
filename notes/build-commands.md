@@ -1,8 +1,17 @@
 # Build boundaries
 
 Use `just` to discover recipes and `just --show RECIPE` to inspect them.
+Private browser experiments and research belong in ignored `priv/`; public recipes
+and CI must not depend on them. The independent [slopweb](slopweb.md) product builds against pinned RimRef assemblies without
+an installed game and packages its browser tooling and authored mod UI assets; the installed launcher prepares game-derived files in the user's private
+cache. `package-web` selects Arch, Debian, or Fedora without adding browser builds
+to the ordinary native product group. [slopweb](../slopweb/README.md) owns usage.
 [Build from source](../docs/src/development/build.md) owns setup and validation;
 [releases](../docs/src/development/releases.md) owns publication procedures.
+
+Root format/lint/test/clean cover the browser product alongside native components.
+`web-restore` and `deps-update-web` cover every browser helper/runtime/test project;
+private probes are excluded. `web-clean` preserves compiler caches and private runtimes.
 
 Component justfiles own tool commands; the root owns aggregates and `just/ci.just`
 owns CI groups. Imports share one namespace and repository-root working directory.
@@ -16,7 +25,7 @@ belongs to each crate's manifest; `clippy.toml` owns thresholds and test allowan
 `slopcar/` owns Linux containers and their host launcher. Mod builds do not
 build Rust, so install/launch recipes must declare their launcher dependency.
 
-Shell completion scripts in `packaging/completions/` are generated from the three
+Shell completion scripts in `packaging/completions/` are generated from the four
 client command trees by `just generate-completions`. `tools/cli_completions.py` owns
 shell install paths; source installs and release staging consume those scripts.
 CLI integration tests check that packaged scripts match the current trees.
@@ -49,6 +58,11 @@ ratchet the gate to a single run's exact percentage.
 
 The pinned formatter and coverage tool run with .NET 10; CI installs the SDK from
 `global.json` without an additional runtime. Coverlet permits major-version roll-forward.
+The SDK patch is exact: its implicit WebAssembly pack reference participates in the
+browser lockfile. Update the SDK and browser dependency locks together; automatic
+SDK patch roll-forward can make a clean hosted build fail locked restore.
+CI installs the matching workload set explicitly too: an unversioned workload
+install can override the pinned SDK's WebAssembly pack with a newer release.
 
 The mod project owns game references and compiler settings; `Directory.Build.props`
 selects .NET 10 recommended analyzer rules, `.editorconfig` owns diagnostic
@@ -69,7 +83,7 @@ for benchmark scope. Saved reports live under `bench/results/`.
 Native distribution builds compile once and emit three packages: `slopworld`
 owns the mod/assets, launcher and desktop integration; `slopd` owns the daemon
 and service and depends on `slopctl`; `slopctl` owns the independent CLI and its
-completions. `slopcar` remains a fourth, independent host launcher package.
+completions. `slopcar` and `slopweb` are independent sidecar and browser packages.
 Packages have disjoint file ownership and retain coordinated versions. Each
 native product carries canonical notices under its own documentation/license
 path; notice inventories remain conservative while the Rust crate is shared.

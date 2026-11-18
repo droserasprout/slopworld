@@ -1,0 +1,142 @@
+// Advertise the browser renderer's actual capabilities, retaining native defaults
+// when the staged assembly is running with another GUI backend.
+using System.Security.Cryptography;
+using System.Text.Json.Nodes;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
+
+internal static class BrowserGuiPatch
+{
+    internal static void Apply(string root, IAssemblyResolver resolver)
+    {
+        var path = Path.Combine(root, "game", "UnityStubs.dll");
+        using var target = AssemblyDefinition.ReadAssembly(
+            path,
+            new ReaderParameters { InMemory = true, AssemblyResolver = resolver }
+        );
+        using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
+        var clipboard = adapters.MainModule.GetType("BrowserAdapters.BrowserClipboard");
+        BrowserClipboardPatch.Redirect(
+            target.MainModule.GetType("UnityEngine.Application"),
+            adapters.MainModule.GetType("BrowserAdapters.BrowserWindow"),
+            "OpenURL",
+            "OpenUrl"
+        );
+        var utility = target.MainModule.GetType("UnityEngine.GUIUtility");
+        BrowserClipboardPatch.Redirect(utility, clipboard, "get_systemCopyBuffer", "Get");
+        BrowserClipboardPatch.Redirect(utility, clipboard, "set_systemCopyBuffer", "Set");
+        var method = target
+            .MainModule.GetType("UnityEngine.SystemInfo")
+            .Methods.Single(m => m.Name == "get_copyTextureSupport");
+        if (
+            !method.IsStatic
+            || method.ReturnType.FullName != "UnityEngine.Rendering.CopyTextureSupport"
+        )
+            throw new InvalidOperationException("GUI copy capability contract changed");
+        var installed = adapters
+            .MainModule.GetType("BrowserAdapters.BrowserGui")
+            .Methods.Single(m => m.Name == "IsInstalled");
+        // The real mod still parses family names and chooses its preferred face.
+        // Only OS discovery changes: WASM sees fonts mounted from local bakes.
+        var fontPaths = target
+            .MainModule.GetType("UnityEngine.Font")
+            .Methods.Single(m => m.Name == "GetPathsToOSFonts" && m.Parameters.Count == 0);
+        var pathsStart = fontPaths.Body.Instructions[0];
+        var pathsIl = fontPaths.Body.GetILProcessor();
+        pathsIl.InsertBefore(
+            pathsStart,
+            pathsIl.Create(OpCodes.Call, target.MainModule.ImportReference(installed))
+        );
+        pathsIl.InsertBefore(pathsStart, pathsIl.Create(OpCodes.Brfalse, pathsStart));
+        pathsIl.InsertBefore(
+            pathsStart,
+            pathsIl.Create(
+                OpCodes.Call,
+                target.MainModule.ImportReference(
+                    adapters
+                        .MainModule.GetType("BrowserAdapters.BrowserFontBank")
+                        .Methods.Single(m => m.Name == "Paths")
+                )
+            )
+        );
+        pathsIl.InsertBefore(pathsStart, pathsIl.Create(OpCodes.Ret));
+        var first = method.Body.Instructions[0];
+        var il = method.Body.GetILProcessor();
+        il.InsertBefore(
+            first,
+            il.Create(OpCodes.Call, target.MainModule.ImportReference(installed))
+        );
+        il.InsertBefore(first, il.Create(OpCodes.Brfalse, first));
+        il.InsertBefore(first, il.Create(OpCodes.Ldc_I4_0));
+        il.InsertBefore(first, il.Create(OpCodes.Ret));
+        var loadImage = target
+            .MainModule.GetType("UnityEngine.Texture2D")
+            .Methods.Single(m => m.Name == "LoadEncodedImage" && m.Parameters.Count == 1);
+        if (
+            loadImage.IsStatic
+            || loadImage.ReturnType.FullName != "System.Boolean"
+            || loadImage.Parameters[0].ParameterType.FullName != "System.Byte[]"
+        )
+            throw new InvalidOperationException("Image decoding boundary changed");
+        var loadStart = loadImage.Body.Instructions[0];
+        var loadIl = loadImage.Body.GetILProcessor();
+        foreach (
+            var instruction in new[]
+            {
+                loadIl.Create(OpCodes.Call, target.MainModule.ImportReference(installed)),
+                loadIl.Create(OpCodes.Brfalse, loadStart),
+                loadIl.Create(OpCodes.Ldarg_0),
+                loadIl.Create(OpCodes.Ldarg_1),
+                loadIl.Create(
+                    OpCodes.Call,
+                    target.MainModule.ImportReference(
+                        adapters
+                            .MainModule.GetType("BrowserAdapters.BrowserImages")
+                            .Methods.Single(m => m.Name == "Load")
+                    )
+                ),
+                loadIl.Create(OpCodes.Ret),
+            }
+        )
+            loadIl.InsertBefore(loadStart, instruction);
+        var changed = target.MainModule.ImportReference(
+            adapters
+                .MainModule.GetType("BrowserAdapters.BrowserGui")
+                .Methods.Single(m => m.Name == "TextureApplied")
+        );
+        foreach (
+            var apply in target
+                .MainModule.GetType("UnityEngine.Texture2D")
+                .Methods.Where(m =>
+                    (m.Name == "Apply" && m.Parameters.Count == 2) || m.Name == "LoadImage"
+                )
+        )
+        {
+            if (apply.IsStatic || !apply.HasBody)
+                throw new InvalidOperationException("Texture update contract changed");
+            var processor = apply.Body.GetILProcessor();
+            var start = apply.Body.Instructions[0];
+            processor.InsertBefore(start, processor.Create(OpCodes.Ldarg_0));
+            processor.InsertBefore(start, processor.Create(OpCodes.Call, changed));
+        }
+        target.Write(path + ".partial");
+        File.Move(path + ".partial", path, true);
+        var manifestPath = Path.Combine(root, "game", "manifest.json");
+        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
+        manifest.Single(n => n!["file"]!.GetValue<string>() == "UnityStubs.dll")!["stagedSha256"] =
+            Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
+        File.WriteAllText(manifestPath, manifest.ToJsonString());
+        var adaptationsPath = Path.Combine(root, "game", "adaptations.json");
+        var adaptations = JsonNode.Parse(File.ReadAllText(adaptationsPath))!.AsArray();
+        adaptations.Add(
+            "Canvas GUI supports render targets but not GPU CopyTexture; native capability defaults remain outside BrowserGui"
+        );
+        adaptations.Add(
+            "Texture2D.Apply/LoadImage invalidate browser image uploads; original pixel update and lifetime bodies remain"
+        );
+        adaptations.Add(
+            "Browser font discovery enumerates locally mounted native-baked fonts; native OS discovery remains outside BrowserGui"
+        );
+        File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
+    }
+}

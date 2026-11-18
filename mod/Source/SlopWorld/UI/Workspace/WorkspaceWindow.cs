@@ -110,12 +110,13 @@ namespace SlopWorld
                         return;
                     Rect body = DrawTopBar(rect, input);
                     DrawBody(body, input);
-                    Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
                     if (
                         TerminalVisible
                         && _showStopped
                         && _name != null
                         && hub.Get(_name)?.Gone == true
+                        && Current.ProgramState == ProgramState.Playing
+                        && Find.CurrentMap != null
                     )
                         MapGizmoUtility.MapUIOnGUI();
                 }

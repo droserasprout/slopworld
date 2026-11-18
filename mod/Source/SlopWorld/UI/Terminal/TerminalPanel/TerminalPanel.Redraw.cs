@@ -25,6 +25,19 @@ namespace SlopWorld
             new Dictionary<string, DisplayedFrameState>();
         float _renderHistoryShift;
 
+        // Presentation hosts may back off stable frames, but must service native
+        // blink, resize and scroll deadlines before the generic timer heartbeat.
+        internal float NextUpdateDelay(float now)
+        {
+            float elapsed = Mathf.Max(0f, now - _cursorBlinkAt);
+            float delay = Mathf.Min(.1f, .5f - elapsed % .5f);
+            if (_scrollPending)
+                delay = Mathf.Min(delay, Mathf.Max(0f, _nextScrollSend - now));
+            if (_state.SizeDirty && !DeferResize)
+                delay = Mathf.Min(delay, Mathf.Max(0f, _state.ResizeAt - now));
+            return delay;
+        }
+
         internal void ResetCursorBlink() => _cursorBlinkAt = Time.realtimeSinceStartup;
 
         float HistoryShift(ScreenBuf buf, float cellH)

@@ -18,11 +18,11 @@ install: daemon-install install-mod
 # Install Bash, Zsh and Fish completions for all clients into user data directories
 [group('Build and run')]
 install-completions:
-    uv run --locked python -m tools.cli_completions install slopctl slopworld slopcar
+    uv run --locked python -m tools.cli_completions install slopctl slopworld slopcar slopweb
 
 # Remove ordinary build and coverage output
 [group('Build and run')]
-clean: sidecar-clean daemon-clean mod-clean clean-coverage
+clean: sidecar-clean daemon-clean mod-clean web-clean clean-coverage
 
 # Remove installed files; preserve config and saves
 [group('Build and run')]
@@ -30,15 +30,15 @@ uninstall: daemon-uninstall cli-uninstall uninstall-mod
 
 # Format Python, Rust and C# sources
 [group('Check and fix')]
-format: sidecar-format tools-format daemon-format mod-format
+format: sidecar-format tools-format daemon-format mod-format web-format
 
 # Check sources without rewriting them
 [group('Check and fix')]
-lint: sidecar-lint tools-lint daemon-lint mod-lint
+lint: sidecar-lint tools-lint daemon-lint mod-lint web-lint
 
 # Run regular game-free tests
 [group('Check and fix')]
-test: daemon-test sidecar-test mod-test test-tools
+test: daemon-test sidecar-test mod-test web-host-build web-host-test test-tools web-test-runtime
 
 # Run all game-free Python, pager and benchmark-helper tests
 [group('Check and fix')]
@@ -80,6 +80,7 @@ import 'just/bench.just'
 import 'just/trace.just'
 import 'just/sidecar.just'
 import 'just/game.just'
+import 'just/web.just'
 
 # Install the mod and its launcher
 [group('Build and run')]
@@ -99,11 +100,11 @@ uninstall-mod mods=MODS: daemon-build
 
 # Restore reviewed Python, runtime and .NET tool locks
 [group('Maintain')]
-deps-restore: tools-restore mod-restore mod-restore-tools
+deps-restore: tools-restore mod-restore mod-restore-tools web-restore
 
 # Update every dependency graph, then regenerate and stage notices
 [group('Maintain')]
-deps-update: deps-update-tools deps-update-daemon deps-update-sidecar deps-update-bench deps-update-mod generate-daemon-licenses generate-sidecar-licenses generate-licenses
+deps-update: deps-update-tools deps-update-daemon deps-update-sidecar deps-update-bench deps-update-mod deps-update-web generate-daemon-licenses generate-sidecar-licenses generate-web-licenses generate-licenses
 
 # Launch against an already running sidecar
 [group('Specialist commands')]

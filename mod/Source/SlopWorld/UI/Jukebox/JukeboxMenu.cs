@@ -32,6 +32,8 @@ namespace SlopWorld
             string now = Radio.NowPlaying;
             if (!string.IsNullOrEmpty(now))
                 options.Add(new FloatMenuOption(now, null));
+            if (!Radio.LocalPlaybackSupported)
+                options.Add(new FloatMenuOption("OST unavailable in this client", null));
             options.Add(TransportRow());
 
             // Sidecar mode uses native OST playback. Show only controls that this mode supports.
@@ -98,14 +100,14 @@ namespace SlopWorld
                             rect.height
                         );
                         TooltipHandler.TipRegion(button, tips[i]);
-                        if (
-                            UiLayout.Button(
-                                button,
-                                icons[i],
-                                UiTheme.Btn.Ghost,
-                                i == 1 || !Radio.Spotify
-                            )
-                        )
+                        bool enabled = Radio.TransportAvailable && (i == 1 || !Radio.Spotify);
+                        bool clicked = UiLayout.Button(
+                            button,
+                            icons[i],
+                            UiTheme.Btn.Ghost,
+                            enabled
+                        );
+                        if (clicked)
                         {
                             UiMenu.CloseAll();
                             actions[i]();
@@ -138,7 +140,7 @@ namespace SlopWorld
         public static List<FloatMenuOption> StationOptions()
         {
             var options = new List<FloatMenuOption>();
-            if (Radio.SourceShown(Radio.OstSourceId))
+            if (Radio.LocalPlaybackSupported && Radio.SourceShown(Radio.OstSourceId))
                 options.Add(
                     new FloatMenuOption(
                         Mark("OST", !Radio.Spotify && Radio.Picked == null),
@@ -185,6 +187,6 @@ namespace SlopWorld
         // Mark the playing source without disabling its row.
         // When paused, leave source rows unmarked.
         static string Mark(string label, bool playing) =>
-            playing && !Radio.Muted ? label + "  (playing)" : label;
+            playing && !Radio.Muted ? label + "  \u266A" : label;
     }
 }

@@ -11,6 +11,7 @@ def test_repository_links_and_images_resolve_in_the_published_book() -> None:
         '[Setup](docs/src/installation/linux.md#requirements)\n'
         '<img src="docs/src/images/screenshot.jpg" alt="Workspace">\n'
         '[License](LICENSE) [Notices](licenses/README.md)\n'
+        '[Browser](slopweb/README.md)\n'
         '[External](https://example.com/docs/src/page.md)\n'
         '{{#constant release_version}}\n'
     )
@@ -19,6 +20,7 @@ def test_repository_links_and_images_resolve_in_the_published_book() -> None:
     assert '<img src="images/screenshot.jpg" alt="Workspace">' in result
     assert '[License](https://github.com/droserasprout/slopworld/blob/main/LICENSE)' in result
     assert '[Notices](https://github.com/droserasprout/slopworld/blob/main/licenses/README.md)' in result
+    assert '[Browser](https://github.com/droserasprout/slopworld/blob/main/slopweb/README.md)' in result
     assert '[External](https://example.com/docs/src/page.md)' in result
     assert '{{#constant release_version}}' in result
 

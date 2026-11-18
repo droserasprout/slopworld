@@ -123,6 +123,14 @@ def compile_package(
         common = (root / common).resolve()
     if not common.is_relative_to(root):
         mounts.extend(['--volume', f'{common}:{common}:ro'])
+    # Browser managed/WASM assets are built once. Compile each native host against
+    # the target distribution and architecture while the checkout stays read-only.
+    binary_dir = shlex.quote(str(root / 'slopweb/out')) if product == 'slopweb' else '/build/target/release'
+    compile_command = (
+        'cargo build --manifest-path slopweb/host/Cargo.toml --release --locked; '
+        if product == 'slopweb'
+        else f'cargo build --manifest-path {"slopcar" if product == "slopcar" else "slopd"}/Cargo.toml --release --locked; '
+    )
     run(
         [
             *container,
@@ -158,9 +166,10 @@ def compile_package(
             'bash',
             '-euc',
             (
-                f'cargo build --manifest-path {"slopcar" if product == "slopcar" else "slopd"}/Cargo.toml --release --locked; '
-                f'python3 -m pytest tools/release/test_{distribution}.py tools/release/test_sidecar.py -q -p no:cacheprovider; '
-                f'python3 -m tools.release.native {distribution} --product {product} --stage-only --binary-dir /build/target/release '
+                compile_command
+                + f'python3 -m pytest tools/release/test_{distribution}.py tools/release/test_sidecar.py -q -p no:cacheprovider; '
+                + ('SLOPWEB_HOST_BINARY=/build/target/release/slopweb ' if product == 'slopweb' else '')
+                + f'python3 -m tools.release.native {distribution} --product {product} --stage-only --binary-dir {binary_dir} '
                 '--output /output --revision "$1" --version "$2"'
             ),
             f'release-{distribution}',

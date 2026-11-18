@@ -46,6 +46,8 @@ def package(
         staging = workspace / product
         if product == 'slopcar':
             shared.stage_sidecar(staging, binary_dir or ROOT / 'slopcar/target/release', revision, version)
+        elif product == 'slopweb':
+            shared.stage_slopweb(staging, revision, version, binary_dir)
         else:
             shared.stage_system(staging, binary_dir or ROOT / 'slopd/target/release', product)
             if product == 'slopworld':
@@ -57,9 +59,9 @@ def package(
         source_control = workspace / 'debian/control'
         source_control.parent.mkdir()
         source_control.write_text(f'Source: {product}\n\nPackage: {product}\nArchitecture: any\n')
-        binaries = (product,)
+        binary = staging / ('usr/share/slopweb/slopweb-host' if product == 'slopweb' else f'usr/bin/{product}')
         result = run(
-            ['dpkg-shlibdeps', '-O', *(str(staging / 'usr/bin' / binary) for binary in binaries)],
+            ['dpkg-shlibdeps', '-O', str(binary)],
             cwd=workspace,
             capture_output=True,
             text=True,
@@ -81,7 +83,7 @@ def package(
             .read_text()
             .format(version=version_field, architecture=architecture, shared_libraries=dependencies)
         )
-        shared.normalize_permissions(staging, staging / 'usr/bin')
+        shared.normalize_permissions(staging, staging / 'usr/bin', (binary,))
         archive = workspace / destination.name
         run(['dpkg-deb', '--root-owner-group', '--build', str(staging), str(archive)])
         archive.replace(destination)

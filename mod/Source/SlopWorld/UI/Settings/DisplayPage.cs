@@ -26,7 +26,9 @@ namespace SlopWorld
                 l,
                 "Fullscreen",
                 S.fullscreen,
-                "Use window-manager fullscreen while keeping the renderer windowed."
+                ClientPlatform.IsBrowser
+                    ? "Use browser fullscreen. Escape leaves fullscreen."
+                    : "Use window-manager fullscreen while keeping the renderer windowed."
             );
             if (fullscreen != S.fullscreen)
                 LinuxGameWindow.Set(fullscreen);
@@ -65,16 +67,19 @@ namespace SlopWorld
                 enabled: !S.vsync
             );
 
-            bool vsync = UiControls.Checkbox(
-                l,
-                "VSync (not recommended)",
-                S.vsync,
-                "Enable vertical synchronization. Adds input lag. Testing only."
-            );
-            if (vsync != S.vsync)
+            if (!ClientPlatform.IsBrowser)
             {
-                S.vsync = vsync;
-                S.MarkDirty();
+                bool vsync = UiControls.Checkbox(
+                    l,
+                    "VSync (not recommended)",
+                    S.vsync,
+                    "Enable vertical synchronization. Adds input lag. Testing only."
+                );
+                if (vsync != S.vsync)
+                {
+                    S.vsync = vsync;
+                    S.MarkDirty();
+                }
             }
 
             UiSelector.Draw(

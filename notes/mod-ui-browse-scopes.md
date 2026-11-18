@@ -4,10 +4,19 @@
 `SidebarScopes` adapts/persists it. Project-name filtering and checkout selection are
 independent. Committed identities may arrive before descriptors.
 
+Successful checkout reads refresh at most every five minutes during ordinary sidebar
+use. An open project filter menu requests fresher metadata at a fifteen-second minimum
+response age; alternating menu/sidebar passes cannot bypass that interval. Failed reads
+retry after thirty seconds. Explicit invalidation and project identity changes remain
+immediate.
+
 Catalog scheduling retains the next eligible refresh deadline; completion, invalidation,
 project/filter changes, and hidden-project demand must wake it. Session filtering uses
 an index rebuilt with the project revision. Git polling retains enabled checkout keys
 by catalog revision while checking fold state live.
+`HubCatalog.ProjectsRevision` advances only after publishing the accepted project
+list. Request-generation changes must not mark an empty browse catalog current
+while its first project response is still pending.
 
 All is a mode that includes future entries. Deselecting one entry materializes the
 remaining selection; explicit empty selection must stay distinct from All. Unknown

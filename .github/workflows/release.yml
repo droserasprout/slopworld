@@ -3,8 +3,9 @@ name: Release
 on:
   push:
     tags: ['v[0-9]*.[0-9]*.[0-9]*']
-    # Exercise the full packaging path before landing release changes.
-    branches: [release-ci]
+    # Temporary slopweb previews exercise packaging before the 0.2.0 release.
+    # Remove slopweb after landing; branch pushes only upload retained artifacts.
+    branches: [release-ci, slopweb]
   # Manual runs build previews, even when a tag is selected. Re-run a tag push
   # to retry publication; existing releases are never overwritten.
   workflow_dispatch:
@@ -114,7 +115,7 @@ jobs:
       - name: Install native compiler dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libasound2-dev libdbus-1-dev lld pkg-config
+          sudo apt-get install -y --no-install-recommends libasound2-dev libdbus-1-dev lld pkg-config ripgrep
       - uses: ./.github/actions/setup-build-tools
         with:
           protoc: 'true'
@@ -125,6 +126,14 @@ jobs:
           cache-dependency-path: |
             mod/Source/SlopWorld/packages.lock.json
             mod/Dependencies/packages.lock.json
+            slopweb/**/packages.lock.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install pinned Emscripten font compiler
+        run: just web-local-fonts-sdk
+      - name: Install WebAssembly build workload
+        run: dotnet workload install wasm-tools --version "$(dotnet --version)"
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
         with:
           build-warnings: ''
@@ -139,7 +148,7 @@ jobs:
           pattern: slopcar-${{ needs.prepare.outputs.commit }}-*
           path: dist/sidecar
           merge-multiple: true
-      - name: Build mod ZIP and native packages
+      - name: Build mod ZIP, native packages and browser packages
         run: just release-ci-package "$MODE"
       - name: Attest exact release files
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
