@@ -1,6 +1,8 @@
 """Stage redistributable browser tooling; never package installed game data or caches."""
 
 import argparse
+import ctypes
+import fcntl
 import hashlib
 import json
 import os
@@ -9,6 +11,8 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from tools import ROOT
@@ -159,11 +163,39 @@ def build_identity() -> tuple[str, str]:
 def bundle_identity(bundle: Path) -> str:
     digest = hashlib.sha256()
     for path in sorted(bundle.rglob('*')):
+        if path.is_symlink():
+            raise ValueError(f'Unexpected symlink in slopweb bundle: {path.relative_to(bundle)}')
         if path.is_file() and path != bundle / 'BUILD_ID':
             digest.update(path.relative_to(bundle).as_posix().encode() + b'\0')
             with path.open('rb') as stream:
                 digest.update(hashlib.file_digest(stream, 'sha256').digest())
     return digest.hexdigest() + '\n'
+
+
+@contextmanager
+def bundle_lock(bundle: Path, mode: int) -> Iterator[None]:
+    # The parent inode survives publication and is available on read-only container mounts.
+    descriptor = os.open(bundle.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        fcntl.flock(descriptor, mode)
+        yield
+    finally:
+        os.close(descriptor)
+
+
+def publish_bundle(bundle: Path, destination: Path) -> None:
+    with bundle_lock(destination, fcntl.LOCK_EX):
+        if not destination.exists():
+            bundle.rename(destination)
+            return
+        # Linux renameat2 can exchange two populated directories in one operation.
+        # The old tree then belongs to the builder's TemporaryDirectory for cleanup.
+        at_fdcwd = -100
+        rename_exchange = 2
+        renameat2 = ctypes.CDLL(None, use_errno=True).renameat2
+        if renameat2(at_fdcwd, os.fsencode(bundle), at_fdcwd, os.fsencode(destination), rename_exchange) != 0:
+            error = ctypes.get_errno()
+            raise OSError(error, os.strerror(error), str(destination))
 
 
 def build(destination: Path = OUTPUT) -> None:
@@ -221,16 +253,21 @@ def build(destination: Path = OUTPUT) -> None:
             copy_file(package / name, bundle / 'licenses/dotnet' / name)
         metadata(bundle, *build_identity())
         (bundle / 'BUILD_ID').write_text(bundle_identity(bundle))
-        if destination.exists():
-            shutil.rmtree(destination)
-        bundle.rename(destination)
+        publish_bundle(bundle, destination)
 
 
-def stage(payload: Path, revision: str, version: str, bundle: Path = OUTPUT) -> None:
-    if not (bundle / 'BUILD_ID').is_file():
-        raise ValueError('Missing slopweb build; run just web-build')
+def stage(payload: Path, revision: str | None, version: str | None, bundle: Path = OUTPUT) -> None:
     installed = payload / 'usr/share/slopweb'
-    shutil.copytree(bundle, installed)
+    with bundle_lock(bundle, fcntl.LOCK_SH):
+        if not (bundle / 'BUILD_ID').is_file():
+            raise ValueError('Missing slopweb build; run just web-build')
+        shutil.copytree(bundle, installed, symlinks=True)
+    if bundle_identity(installed) != (installed / 'BUILD_ID').read_text():
+        raise ValueError('Slopweb bundle differs from its BUILD_ID; run just web-build')
+    if revision is None:
+        revision = (installed / 'REVISION').read_text().strip()
+    if version is None:
+        version = (installed / 'VERSION').read_text().strip()
     metadata(installed, revision, version)
     # Distribution containers compile the native host against their own libc and
     # architecture. Managed/WASM assets remain the reviewed prebuilt bundle.
@@ -277,7 +314,7 @@ def install(prefix: Path, uninstall: bool = False) -> None:
     prefix.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.slopweb-install-', dir=prefix) as temporary:
         payload = Path(temporary)
-        stage(payload, (OUTPUT / 'REVISION').read_text().strip(), (OUTPUT / 'VERSION').read_text().strip())
+        stage(payload, None, None, OUTPUT)
         validate_owned_paths(prefix, uninstall=False)
         for relative in OWNED:
             destination = prefix / relative

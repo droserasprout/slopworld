@@ -24,8 +24,9 @@ markers from the private copy so WASM AOT does not generate desktop callback wra
 assemblies, derived assets, fonts, and credentials never enter release payloads.
 Distribution containers reuse the managed/WASM bundle and compile the Rust host
 for their own architecture and libc. `SLOPWEB_HOST_BINARY` selects that staged
-replacement. Staging computes the bundle identity after writing release metadata
-and selecting the host. Packagers preserve its
+replacement. Rebuilds atomically exchange complete bundles. Staging takes a shared
+lock while copying, verifies the snapshot's build identity, then computes its new
+identity after writing release metadata and selecting the host. Packagers preserve its
 executable mode under `usr/share/slopweb` and discover its native dependencies.
 
 `just/web.just` owns product builds and checks. Root format, lint, test, clean,
