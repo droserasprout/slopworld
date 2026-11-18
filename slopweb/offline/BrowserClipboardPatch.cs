@@ -34,7 +34,7 @@ internal static class BrowserClipboardPatch
         using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
         var adapter = adapters.MainModule.GetType("BrowserAdapters.BrowserClipboard");
         var clipboard = mod.MainModule.GetType("SlopWorld.DesktopClipboard");
-        Redirect(clipboard, adapter, "get_UsesX11", "UsesX11");
+        Redirect(clipboard, adapter, "get_UsesLinuxSelections", "get_UsesLinuxSelections");
         foreach (
             var name in new[]
             {

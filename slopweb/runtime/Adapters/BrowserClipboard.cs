@@ -21,7 +21,7 @@ public static class BrowserClipboard
 
     public static void Set(string text) => Copy(text, null, null);
 
-    public static bool UsesX11() => true; // Select native asynchronous clipboard policy.
+    public static bool UsesLinuxSelections => true; // Select native asynchronous clipboard policy.
 
     public static void Supply(string text, bool hasImage = false)
     {
