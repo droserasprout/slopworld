@@ -100,20 +100,12 @@ public static class BrowserSocket
                 } while (!part.EndOfMessage);
                 if (state.Closed)
                     break;
-                var type = state.Incoming.GetType();
-                var payload = message.ToArray();
-                // The native queue blocks when full. A browser cannot block its UI
-                // thread; close instead so hub reconnect restores authoritative state.
-                if (
-                    (int)type.GetProperty("Count")!.GetValue(state.Incoming)! >= 256
-                    || (int)type.GetProperty("Bytes")!.GetValue(state.Incoming)! + payload.Length
-                        > 16 * 1024 * 1024
-                )
-                    throw new IOException("Browser event queue overloaded");
-                var accepted = type.GetMethod("Enqueue")!
-                    .Invoke(state.Incoming, new object[] { payload });
-                if (accepted?.ToString() != "Accepted")
-                    throw new IOException("Event queue closed");
+                var admitted = state
+                    .Incoming.GetType()
+                    .GetMethod("TryEnqueue")!
+                    .Invoke(state.Incoming, [message.ToArray()]);
+                if (admitted?.ToString() != "Accepted")
+                    throw new IOException("Browser event queue rejected message: " + admitted);
                 BrowserActivity.Notify();
             }
         }
@@ -128,6 +120,11 @@ public static class BrowserSocket
         }
     }
 
+    // The bridge accepts a 32 MiB binary message, including 20 MiB image pastes
+    // and their protobuf envelope. Keep the in-flight write inside the queue budget.
+    internal static bool FitsOutgoing(int queuedBytes, int payloadBytes) =>
+        payloadBytes <= 32 * 1024 * 1024 - queuedBytes;
+
     public static bool Send(object owner, byte[] payload)
     {
         if (
@@ -137,7 +134,7 @@ public static class BrowserSocket
             || payload.Length == 0
         )
             return false;
-        if (state.OutgoingBytes + payload.Length > 16 * 1024 * 1024)
+        if (!FitsOutgoing(state.OutgoingBytes, payload.Length))
         {
             Error(owner, "Browser send queue overloaded");
             Dispose(owner);

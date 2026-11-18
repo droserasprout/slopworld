@@ -13,6 +13,23 @@ static class Check
     static async Task Main()
     {
         FontCoverageChecks.Run();
+        const int mib = 1024 * 1024;
+        Expect(
+            BrowserAdapters.BrowserSocket.FitsOutgoing(0, 20 * mib + 128),
+            "Image paste envelope rejected"
+        );
+        Expect(
+            BrowserAdapters.BrowserSocket.FitsOutgoing(12 * mib, 20 * mib),
+            "Exact queue limit rejected"
+        );
+        Expect(
+            !BrowserAdapters.BrowserSocket.FitsOutgoing(12 * mib, 20 * mib + 1),
+            "Queue bound exceeded"
+        );
+        Expect(
+            !BrowserAdapters.BrowserSocket.FitsOutgoing(mib, int.MaxValue),
+            "Queue size overflow"
+        );
         Probe.WorkspaceFontFallbackComplete("{}");
         Expect(
             Probe.Calls.SequenceEqual(
