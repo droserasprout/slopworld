@@ -41,15 +41,13 @@ fn invalid_preset_message_retains_the_path_failure() {
         assert!(error.contains(detail), "{error}");
     }
     std::fs::create_dir(root.join("missing-runtime")).unwrap();
-    assert!(
-        presets_for(
-            &Config::default(),
-            &session,
-            &project,
-            &session.preset_table()
-        )
-        .is_ok()
-    );
+    presets_for(
+        &Config::default(),
+        &session,
+        &project,
+        &session.preset_table(),
+    )
+    .unwrap();
 }
 
 /// A host errand runs without bwrap. Its argument list ends with the shell command.
