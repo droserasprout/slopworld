@@ -98,6 +98,15 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
         );
         Ok(String::from_utf8(output.stdout)?.trim().into())
     };
+    // Let the selected host resolve its latest stable .NET 10 SDK, including
+    // installations shared with a newer major. Pin that exact SDK for all work.
+    let selection = temporary.path().join("global.json");
+    fs::write(
+        &selection,
+        serde_json::to_vec(&json!({"sdk": {
+            "version": "10.0.100", "rollForward": "latestMinor", "allowPrerelease": false
+        }}))?,
+    )?;
     let version = query(&["--version"])?;
     ensure!(
         numeric_version(&version, "10", None)
@@ -105,10 +114,7 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
         "AOT requires an installed .NET 10 SDK; selected {version:?} at {}",
         sdk.display()
     );
-    fs::write(
-        temporary.path().join("global.json"),
-        serde_json::to_vec(&sdk_selection(&version))?,
-    )?;
+    fs::write(selection, serde_json::to_vec(&sdk_selection(&version))?)?;
     let bundled = sdk
         .parent()
         .unwrap()

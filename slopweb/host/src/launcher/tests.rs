@@ -516,12 +516,26 @@ fn compiler_retains_workspace_lock_after_launcher_closes_its_descriptor() {
 }
 
 #[test]
-fn toolchain_inspects_isolated_sdk_and_rejects_missing_matching_packs() {
+fn toolchain_selects_stable_ten_in_a_shared_sdk_and_requires_matching_packs() {
     let temp = tempfile::tempdir().unwrap();
     let sdk = temp.path().join("sdk-root/dotnet");
     write(
         &sdk,
-        "#!/bin/sh\nset -eu\ncase \"$1\" in\n--version) test ! -f global.json; echo 10.0.114;;\nworkload) test -f global.json; echo 'wasm-tools 10.0.114/10.0.100';;\nesac\n",
+        r#"#!/bin/sh
+set -eu
+case "$1" in
+--version)
+    if [ ! -f global.json ]; then echo 11.0.100; exit 0; fi
+    grep -q '"version":"10.0.100"' global.json
+    grep -q '"rollForward":"latestMinor"' global.json
+    grep -q '"allowPrerelease":false' global.json
+    echo 10.0.114;;
+workload)
+    grep -q '"version":"10.0.114"' global.json
+    grep -q '"rollForward":"disable"' global.json
+    echo 'wasm-tools 10.0.114/10.0.100';;
+esac
+"#,
     );
     fs::set_permissions(&sdk, fs::Permissions::from_mode(0o700)).unwrap();
     let root = sdk.parent().unwrap();
