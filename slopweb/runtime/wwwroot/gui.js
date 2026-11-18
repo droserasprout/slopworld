@@ -236,8 +236,6 @@ function rememberUniformSource(source,pixels) {
 }
 let renderRevision=0;
 export const guiRenderRevision=()=>renderRevision;
-export const guiTargetCount = () => renderTargets.size;
-export const guiImageCount = () => images.size;
 
 // Opt-in counters distinguish atlas churn from mutable-target tinting without
 // retaining pixels, colors, or command contents. Enabling starts a fresh sample.

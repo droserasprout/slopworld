@@ -18,6 +18,14 @@ from tools import cli_completions
 from tools.release import slopweb
 
 
+def test_bundle_identity_distinguishes_path_from_contents(tmp_path: Path) -> None:
+    file = tmp_path / 'a'
+    file.write_bytes(b'bc')
+    original = slopweb.bundle_identity(tmp_path)
+    file.rename(tmp_path / 'ab').write_bytes(b'c')
+    assert slopweb.bundle_identity(tmp_path) != original
+
+
 def test_distribution_host_override_preserves_source_bundle_and_rekeys_payload(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
