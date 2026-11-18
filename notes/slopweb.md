@@ -132,8 +132,9 @@ authenticated HTTPS proxy and explicit `--public-origin`; forwarded headers neve
 select trusted origins. HTTP, font and WebSocket requests share that origin boundary.
 The managed client owns HTTP operation deadlines; browser cancellation aborts bridge
 I/O without replaying mutations. Browser transport keeps native request admission, deadlines,
-completion delivery, connection generations, and bounded queues. Overload closes
-the socket rather than blocking the UI thread.
+completion delivery, connection generations, and bounded queues. The native incoming queue coalesces a newer live screen before checking capacity.
+Browser admission returns immediately on overload and closes the socket. The outgoing
+budget includes the in-flight message and admits a full 32 MiB protocol envelope.
 Discarded input/layout passes execute native controls with raster-command
 preparation suppressed; only repaint publishes drawing. Stable presentation backs
 off up to 100 ms, bounded by native cursor animation and terminal blink/resize/scroll

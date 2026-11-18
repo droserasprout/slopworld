@@ -9,6 +9,7 @@ namespace SlopWorld
         Accepted,
         Closed,
         Oversized,
+        Full,
     }
 
     // A bounded queue for socket events.
@@ -63,7 +64,13 @@ namespace SlopWorld
             }
         }
 
-        public IncomingEnqueueResult Enqueue(byte[] payload)
+        public IncomingEnqueueResult Enqueue(byte[] payload) => Admit(payload, wait: true);
+
+        // Browser callbacks run on the UI thread. Apply the same ordering and bounds
+        // as the blocking reader, returning Full when a consumer would have to run.
+        public IncomingEnqueueResult TryEnqueue(byte[] payload) => Admit(payload, wait: false);
+
+        IncomingEnqueueResult Admit(byte[] payload, bool wait)
         {
             if (payload == null)
                 return IncomingEnqueueResult.Oversized;
@@ -84,7 +91,11 @@ namespace SlopWorld
                     // Remove the old live frame before testing capacity. Appending the new one
                     // keeps every non-live event in order, including replies between frames.
                     if (liveName != null && _latestLive.TryGetValue(liveName, out var old))
+                    {
+                        if (!wait && _bytes - old.Value.Bytes + bytes > MaxBytes)
+                            return IncomingEnqueueResult.Full;
                         Remove(old);
+                    }
 
                     if (_queue.Count < MaxMessages && _bytes + bytes <= MaxBytes)
                     {
@@ -95,6 +106,9 @@ namespace SlopWorld
                         Monitor.PulseAll(_gate);
                         return IncomingEnqueueResult.Accepted;
                     }
+
+                    if (!wait)
+                        return IncomingEnqueueResult.Full;
 
                     // Wait for queue space without discarding events.
                     // Disposal and connection failure wake this wait so a blocked producer can exit.
