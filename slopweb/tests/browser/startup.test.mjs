@@ -102,6 +102,15 @@ for(const stage of ['initial','later'])test(`${stage} startup font redraw preser
   }
 });
 
+for (const published of [false, true]) {
+  const failAt = published ? 'LoadPublishedAssembly' : 'LoadAssembly';
+  test(`${failAt} failure identifies the assembly before fetching the archive`, async () => {
+    const {calls, message} = await start({published, failAt});
+    assert.ok(message.includes(`Game.dll: Error: injected ${failAt}`));
+    assert.equal(calls.some(call => call[1] === './assets/Eco.zip'), false);
+  });
+}
+
 test('colony actions are rejected before creating a runtime',async()=>{
   for(const query of ['play','load','save']) {
     const {calls,result}=await start({query});

@@ -24,7 +24,8 @@ markers from the private copy so WASM AOT does not generate desktop callback wra
 assemblies, derived assets, fonts, and credentials never enter release payloads.
 Distribution containers reuse the managed/WASM bundle and compile the Rust host
 for their own architecture and libc. `SLOPWEB_HOST_BINARY` selects that staged
-replacement; it also regenerates the bundle identity. Packagers preserve its
+replacement. Staging computes the bundle identity after writing release metadata
+and selecting the host. Packagers preserve its
 executable mode under `usr/share/slopweb` and discover its native dependencies.
 
 `just/web.just` owns product builds and checks. Root format, lint, test, clean,
@@ -45,6 +46,9 @@ contracts exercised in Node, and Rust tests sit beside their owners under `host/
 Packaging assertions remain under `tools/release/`. `ci-web` runs game-free checks;
 native font fidelity checks are explicit opt-ins.
 
+A workspace retained in the browser back-forward cache keeps its scheduler and
+input handlers for restoration. A final page unload disposes them.
+
 The browser workspace stays in Entry without creating a game, world, or map.
 Scene status reports only Entry state and viewport dimensions, without traversing
 simulation objects. Detailed workspace snapshots are opt-in with profiling;
@@ -55,7 +59,8 @@ reading current geometry on each draw.
 Startup validates managed status reports as well as exceptions; failed or incomplete
 Entry initialization releases the engine and ends loading with an error.
 Game assembly downloads use a four-file window, including completed buffers;
-CLR loading and per-file failure reporting retain manifest order.
+CLR loading and per-file failure reporting retain manifest order. A manifest
+assembly failure ends startup before the Eco archive transfer.
 All startup assembly loads share a filename-bearing boundary that AOT preparation
 rewrites to published identities. Mixed AOT resolves those names without fetching raw DLLs.
 Host preparation raw-copies the Eco pack from installed ZIP members so Waylith can

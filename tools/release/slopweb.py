@@ -230,15 +230,15 @@ def build(destination: Path = OUTPUT) -> None:
 def stage(payload: Path, revision: str, version: str, bundle: Path = OUTPUT) -> None:
     if not (bundle / 'BUILD_ID').is_file():
         raise ValueError('Missing slopweb build; run just web-build')
-    shutil.copytree(bundle, payload / 'usr/share/slopweb')
-    metadata(payload / 'usr/share/slopweb', revision, version)
+    installed = payload / 'usr/share/slopweb'
+    shutil.copytree(bundle, installed)
+    metadata(installed, revision, version)
     # Distribution containers compile the native host against their own libc and
     # architecture. Managed/WASM assets remain the reviewed prebuilt bundle.
     if native := os.environ.get('SLOPWEB_HOST_BINARY'):
-        installed = payload / 'usr/share/slopweb'
         copy_file(Path(native), installed / 'slopweb-host')
-        (installed / 'BUILD_ID').write_text(bundle_identity(installed))
-    (payload / 'usr/share/slopweb/slopweb-host').chmod(0o755)
+    (installed / 'slopweb-host').chmod(0o755)
+    (installed / 'BUILD_ID').write_text(bundle_identity(installed))
     copy_file(ROOT / 'slopweb/slopweb', payload / 'usr/bin/slopweb')
     (payload / 'usr/bin/slopweb').chmod(0o755)
     cli_completions.stage(ROOT / 'packaging/completions', payload / 'usr/share', ('slopweb',))

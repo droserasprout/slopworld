@@ -124,7 +124,9 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
       stop();
     }
   };
-  window.addEventListener('pagehide', stop, { once: true });
+  window.addEventListener('pagehide', event => {
+    if (!event.persisted) stop();
+  }, {signal:activity.signal});
   scheduler.setEnabled(idleYield);
   window.__workspace = state;
   return state;

@@ -228,7 +228,8 @@ def test_package_formats_stage_only_web_payload(
         assert (payload / 'usr/share/slopweb/slopweb-host').stat().st_mode & 0o777 == 0o755
         assert not (payload / 'usr/share/slopworld').exists()
         assert not (payload / 'usr/lib/systemd').exists()
-        assert (payload / 'usr/share/slopweb/BUILD_ID').read_text() == 'fixture'
+        installed = payload / 'usr/share/slopweb'
+        assert (installed / 'BUILD_ID').read_text() == slopweb.bundle_identity(installed)
         for directory in ('usr/share/slopweb', 'usr/share/doc/slopweb'):
             assert (payload / directory / 'VERSION').read_text() == '1.2.3\n'
             assert (payload / directory / 'REVISION').read_text() == 'revision\n'
