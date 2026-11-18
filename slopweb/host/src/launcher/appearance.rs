@@ -29,7 +29,6 @@ pub const PRESENTATION_PREFERENCES: &[&str] = &[
     "sidebarShowHidden",
     "sidebarShowGitignored",
     "cursorColor",
-    "smoothScrolling",
     "statusbarUsage",
     "statusbarSummaryPosition",
     "statusbarClockPosition",
