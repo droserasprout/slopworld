@@ -51,7 +51,7 @@ static class LocalFontChecks
                 return "{\"ascent\":13,\"descent\":-4}";
             calls++;
             int scalar = item.GetProperty("scalar").GetInt32();
-            if (scalar == 'Ж' && pendingGlyph)
+            if ((scalar == 'Ж' || scalar == 0x1F603) && pendingGlyph)
                 return "{\"pending\":true}";
             if (scalar == 0xFFFF)
                 return "{\"missing\":true}";
@@ -77,11 +77,12 @@ static class LocalFontChecks
             BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A\uffff!😀");
             int initial = calls;
             BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A\uffff!😀");
-            if (calls != initial || initial != 4)
+            if (calls != initial || initial != 5)
                 throw new Exception("Coverage/failure/surrogate cache boundary");
             BrowserFontBank.TryFace(index, 15, out var face);
             if (
-                !face.Glyphs.TryGetValue('A', out var glyph)
+                !face.Glyphs.ContainsKey(0x1F600)
+                || !face.Glyphs.TryGetValue('A', out var glyph)
                 || glyph.advanceX != 7.25f
                 || glyph.x0 != -1
             )
@@ -94,8 +95,28 @@ static class LocalFontChecks
             BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "Ж");
             if (face.Glyphs.ContainsKey('Ж'))
                 throw new Exception("Pending glyph was committed as a permanent result");
+            var pendingGui = BrowserGui.Install();
+            const string pendingText = "A😃\nA";
+            var pendingCaret = pendingGui.TextCursorPos(
+                index,
+                15,
+                FontStyle.Normal,
+                pendingText,
+                100,
+                4,
+                out _
+            );
+            if (pendingCaret.y <= 0 || face.Glyphs.ContainsKey(0x1F603))
+                throw new Exception(
+                    "Pending supplementary glyph lost its line or stopped retrying"
+                );
             pendingGlyph = false;
             BrowserFontBank.GlyphsReady();
+            pendingGui.TextCursorPos(index, 15, FontStyle.Normal, pendingText, 100, 4, out _);
+            if (!face.Glyphs.ContainsKey(0x1F603))
+                throw new Exception(
+                    "Completed supplementary glyph did not replace its placeholder"
+                );
             BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "Ж");
             if (!face.Glyphs.ContainsKey('Ж'))
                 throw new Exception("Completed worker glyph did not recover");
@@ -122,6 +143,44 @@ static class LocalFontChecks
                     throw new Exception(
                         "Incremental glyphs retained duplicate atlas uploads in one frame"
                     );
+            const string multiline = "A😀\nBC";
+            appendGui.DrawText(
+                new Rect(0, 0, 100, 100),
+                multiline,
+                index,
+                15,
+                FontStyle.Normal,
+                TextAnchor.UpperLeft,
+                true,
+                Color.white
+            );
+            if (appendGui.Drain().Contains("\"kind\":\"text\""))
+                throw new Exception("A supplementary glyph bypassed multiline glyph rendering");
+            var nextLine = appendGui.TextCursorPos(
+                index,
+                15,
+                FontStyle.Normal,
+                multiline,
+                100,
+                4,
+                out _
+            );
+            if (
+                nextLine.x != 0
+                || nextLine.y <= 0
+                || appendGui.TextIndexAt(index, 15, FontStyle.Normal, multiline, 100, nextLine) != 4
+                || appendGui.TextIndexAt(
+                    index,
+                    15,
+                    FontStyle.Normal,
+                    "A😀",
+                    100,
+                    new Vector2(15, 0)
+                ) != 3
+            )
+                throw new Exception(
+                    "Supplementary glyphs lost UTF-16 caret indices or line geometry"
+                );
             var old = face.Texture;
             if (BrowserNativeLayout.Available)
             {
@@ -231,7 +290,7 @@ static class LocalFontChecks
             if (c == 0 && rejectMissing)
                 throw new InvalidOperationException("Missing marker raster failure");
             bool other = v.GetProperty("hash").GetString() == fallbackHash;
-            if (c is 0x2602 or 0x2603 && !other)
+            if (c is 0x2602 or 0x1F600 && !other)
                 return "{\"missing\":true}";
             return JsonSerializer.Serialize(
                 new
@@ -252,16 +311,16 @@ static class LocalFontChecks
             "{\"size\":15,\"loaderFlags\":513,\"family\":\"Primary\"}",
             -1
         );
-        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A☃");
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A😀");
         BrowserFontBank.TryFace(index, 15, out var face);
-        if (face.Glyphs['☃'].advanceX != 7)
+        if (face.Glyphs[0x1F600].advanceX != 7)
             throw new Exception("Pending fallback must use primary missing glyph");
         using var pending = JsonDocument.Parse(BrowserFontBank.TakeFallbacks());
         long id = pending.RootElement.GetProperty("id").GetInt64();
         if (BrowserFontBank.TakeFallbacks() != "")
             throw new Exception("Duplicate fallback request");
         string reply = JsonSerializer.Serialize(
-            new { id, assignments = new Dictionary<string, string?> { ["9731"] = fallbackHash } }
+            new { id, assignments = new Dictionary<string, string?> { ["128512"] = fallbackHash } }
         );
         try
         {
@@ -275,12 +334,12 @@ static class LocalFontChecks
             -1
         );
         BrowserFontBank.CompleteFallbacks(reply);
-        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A☃");
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "A😀");
         if (
             face.Glyphs['A'].advanceX != 7
-            || face.Glyphs['☃'].advanceX != 11
+            || face.Glyphs[0x1F600].advanceX != 11
             || face.Ascent != 13
-            || face.Glyphs['☃'].y0 != 4
+            || face.Glyphs[0x1F600].y0 != 4
         )
             throw new Exception("Fallback changed primary metrics or lost baseline alignment");
         BrowserFontBank.CompleteFallbacks(reply);
@@ -289,7 +348,7 @@ static class LocalFontChecks
         var gui = BrowserGui.Install();
         gui.DrawText(
             new Rect(0, 0, 100, 30),
-            "A☃",
+            "A😀",
             index,
             15,
             FontStyle.Normal,

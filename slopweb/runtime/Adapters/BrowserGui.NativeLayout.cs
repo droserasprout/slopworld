@@ -26,8 +26,8 @@ public sealed partial class BrowserGui
             {
                 if (face.Glyphs.TryGetValue(c, out var glyph))
                     return glyph.advanceX;
-                BrowserFontBank.ObserveText(font, size, style, c.ToString());
-                if (face.Glyphs.TryGetValue(c, out glyph))
+                BrowserFontBank.ObserveText(font, size, style, char.ConvertFromUtf32(c));
+                if (face.TryTextGlyph(c, out glyph))
                     return glyph.advanceX;
                 throw new UnpreparedTextException();
             }
@@ -47,8 +47,6 @@ public sealed partial class BrowserGui
     )
     {
         result = null!;
-        if (text.Any(char.IsSurrogate))
-            return false;
         if (nativeResolution != BrowserFontBank.Instance.ResolutionVersion)
         {
             nativeText = null;

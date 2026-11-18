@@ -2,8 +2,27 @@
   "version": 1,
   "dependencies": {
     "net10.0": {
+      "Mono.Cecil": {
+        "type": "Transitive",
+        "resolved": "0.11.6",
+        "contentHash": "f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA=="
+      },
+      "StbImageSharp": {
+        "type": "Transitive",
+        "resolved": "2.27.13",
+        "contentHash": "tHnP2RHgFzWbOS96UqvRO/LYU1WmpMT1bKiig45we+rpaXacBr11Fq2IBF+MqlgyLyNXxRz18E66qr4R9YlSbg=="
+      },
       "adapters": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "StbImageSharp": "[2.27.13, )"
+        }
+      },
+      "offline": {
+        "type": "Project",
+        "dependencies": {
+          "Mono.Cecil": "[0.11.6, )"
+        }
       }
     }
   }

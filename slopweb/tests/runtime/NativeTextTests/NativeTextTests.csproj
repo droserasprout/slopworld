@@ -6,7 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../runtime/Adapters/Adapters.csproj" />
+    <ProjectReference Include="../../../offline/Offline.csproj" />
+    <Compile Include="../../../offline/BrowserTextLayoutPatch.cs" Link="BrowserTextLayoutPatch.cs" />
+    <!-- Exercise the packaged adapter ABI against the installed runtime. -->
+    <ProjectReference Include="../../../runtime/Adapters/Adapters.csproj" GlobalPropertiesToRemove="GameDirectory" />
     <Reference Include="Waylith">
       <HintPath>$(GameDirectory)/Waylith.dll</HintPath>
       <Private>false</Private>

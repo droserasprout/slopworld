@@ -75,7 +75,9 @@ public sealed partial class BrowserGui
         )
             return false;
         line = run.Lines[0];
-        return true;
+        // Baked caret arrays index glyphs. The native layout maps surrogate
+        // pairs back to the UTF-16 offsets expected by Unity text fields.
+        return line.Glyphs.Length == text.Length;
     }
 
     static bool BakedFace(

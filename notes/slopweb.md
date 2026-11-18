@@ -190,7 +190,8 @@ installation through worker loading and managed publication, including failure d
 `BrowserFontBank.Fallbacks` owns pending requests and maps resolved fonts into the
 primary atlas at its baseline; replies never expose host paths or glyph pixels.
 `LocalFonts/` supplies FreeType WASM; browser adapters own rasterization and atlas
-lifetime, while native text layout retains wrapping and caret policy. Non-ASCII
+lifetime, while native text layout retains wrapping and caret policy. Glyph and fallback
+identities use Unicode scalars; native layout consumes their UTF-16 lengths for caret offsets. Non-ASCII
 glyphs rasterize in a worker and use bounded origin-local persistent storage keyed
 by font content, scalar, size, density, and loader flags. Pending glyphs remain
 retryable until completion invalidates native drawing. Startup drains glyph replies
