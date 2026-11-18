@@ -215,6 +215,15 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
         assert!(!parts.headers.contains_key("authorization"));
         assert!(!parts.headers.contains_key("origin"));
         assert_eq!(body.as_ref(), [10, 2, 97, 98]);
+        let search = "/api/search?q=token%3D";
+        let response = client
+            .get(format!("{}/host{search}", host.url))
+            .header("origin", origin)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 409);
+        assert_eq!(seen.recv().await.unwrap().0.uri, search);
         for path in [
             "/host/api/health?token=bad",
             "/host/api/health?%74oken=bad",
