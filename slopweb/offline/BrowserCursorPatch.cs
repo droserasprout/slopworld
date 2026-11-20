@@ -25,7 +25,8 @@ internal static class BrowserCursorPatch
                 && m.Name == "SetCursor"
             )
             .ToArray();
-        if (calls.Length != 2)
+        // Older mods presented the resting frame separately from rotated frames.
+        if (calls.Length is not (1 or 2))
             throw new InvalidOperationException("Native cursor presentation boundary changed");
         var replacement = adapter.Methods.Single(m => m.Name == "SetCursor");
         foreach (var call in calls)
