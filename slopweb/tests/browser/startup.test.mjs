@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {nativeWasmResource} from '../../runtime/wwwroot/native-wasm.js';
 import {loadStartupAssemblies} from '../../runtime/wwwroot/startup-assemblies.js';
 import {installCoreLanguage} from '../../runtime/wwwroot/core-language.js';
 import {renderGui} from '../../runtime/wwwroot/gui.js';
@@ -12,7 +13,7 @@ const source = readFileSync(new URL('../../runtime/wwwroot/main.js', import.meta
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 function loader(code) {
   return new AsyncFunction('dotnet', 'workspaceViewport', 'workspaceParameters', 'fetch',
-    'window', 'document', 'location', 'modules', 'console', 'loadStartupAssemblies', 'yieldStartupPaint', 'installCoreLanguage', code);
+    'window', 'document', 'location', 'modules', 'console', 'loadStartupAssemblies', 'yieldStartupPaint', 'installCoreLanguage', 'nativeWasmResource', code);
 }
 
 async function start({published=false, query='', failAt='', incomplete=false, assetHeaders=null, reports={},render=()=>{},warm=async()=>false}={}) {
@@ -34,8 +35,14 @@ async function start({published=false, query='', failAt='', incomplete=false, as
       return 1;
     };
   }});
-  const dotnet={withDebugging(){return this;},async create(){calls.push('create');
-    return {getAssemblyExports:async()=>({Probe:managed})};}};
+  const dotnet={
+    withResourceLoader(loader){assert.equal(loader,nativeWasmResource);return this;},
+    withDebugging(){return this;},
+    async create(){
+      calls.push('create');
+      return {getAssemblyExports:async()=>({Probe:managed})};
+    },
+  };
   const fetch=async path=>{calls.push(['fetch',path]);return {ok:true,headers:new Headers(assetHeaders ?? {'x-slop-decoded-length':incomplete?'2':'1'}),
     arrayBuffer:async()=>new Uint8Array([1]).buffer,
     json:async()=>path==='./game/manifest.json'?[{file:'Game.dll'}]:[],
@@ -56,7 +63,7 @@ async function start({published=false, query='', failAt='', incomplete=false, as
   await run(dotnet,()=>({width:1280,height:720,uiScale:1}),()=>new URLSearchParams('localPreferences=off&'+query),
     fetch,window,document,{origin:'http://localhost',href:'http://localhost/slopweb-demo/workspace.html'},modules,{log(){}},
     loadStartupAssemblies,async()=>{calls.push('paint');},
-    (probe,parameters)=>installCoreLanguage(probe,parameters,window,fetch));
+    (probe,parameters)=>installCoreLanguage(probe,parameters,window,fetch),nativeWasmResource);
   return {calls,result:window.__probeResult,message:result.textContent};
 }
 
