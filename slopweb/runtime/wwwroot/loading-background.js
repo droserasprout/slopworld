@@ -33,10 +33,15 @@ export async function loadBackground(signal, showOriginal=value=>value.dispose()
   const response=await fetch(new URL('manifest.json',base),{signal});
   if(!response.ok) return null;
   const manifest=await response.json();
+  const fetchBlob=async name=>{
+    const response=await fetch(new URL(name,base),{signal});
+    if(!response.ok) throw new Error('Background image unavailable: '+name);
+    return response.blob();
+  };
+  let previewBlob;
   if(manifest.original) {
-    const response=await fetch(new URL(manifest.original,base),{signal});
-    if(!response.ok) throw new Error('Original background unavailable');
-    const image=await createImageBitmap(await response.blob());
+    previewBlob=await fetchBlob(manifest.original);
+    const image=await createImageBitmap(previewBlob);
     if(signal.aborted) {image.close();throw new DOMException('Aborted','AbortError');}
     showOriginal({
       draw(context,width,height) {
@@ -52,9 +57,9 @@ export async function loadBackground(signal, showOriginal=value=>value.dispose()
   try {
     // Decode one frame at a time; do not publish a partial frame set.
     for(const name of manifest.frames) {
-      const frame=await fetch(new URL(name,base),{signal});
-      if(!frame.ok) throw new Error('Background frame unavailable');
-      images.push(await createImageBitmap(await frame.blob()));
+      // Preview and animation own separate bitmaps but share one transfer.
+      const blob=name===manifest.original ? previewBlob : await fetchBlob(name);
+      images.push(await createImageBitmap(blob));
     }
     if(signal.aborted) throw new DOMException('Aborted','AbortError');
   } catch(error) {for(const image of images) image.close();throw error;}
