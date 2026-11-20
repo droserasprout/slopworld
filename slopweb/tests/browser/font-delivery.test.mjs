@@ -33,7 +33,7 @@ function fixture(fetcher) {
 test('indexed fallback publishes files before coverage without per-character POSTs',async()=>{
   const urls=[];const f=fixture(async url=>{urls.push(url);return response();});
   await f.loader.frame();await f.loader.frame();
-  assert.deepEqual(urls,['/host/fonts/catalog?family=UI','/host/fonts/files/'+hash]);
+  assert.deepEqual(urls,['./host/fonts/catalog?family=UI','./host/fonts/files/'+hash]);
   assert.equal(f.events[0][0],'font');assert.equal(f.events[1][0],'complete');
   assert.equal(f.events[1][1].assignments[10536],hash.toUpperCase());
   assert.equal(f.events[1][1].assignments[65535],null);
@@ -64,7 +64,7 @@ test('verified files survive a new runtime and corrupt cache entries refetch',as
   const request=async()=>{downloads++;return response();};
   const first=new HostFonts({},request,storage);assert.deepEqual(await first.file(hash),bytes);
   const second=new HostFonts({},request,storage);assert.deepEqual(await second.file(hash),bytes);assert.equal(downloads,1);
-  entries.set('/host/fonts/files/'+hash,new Response('corrupt'));
+  entries.set('./host/fonts/files/'+hash,new Response('corrupt'));
   assert.deepEqual(await new HostFonts({},request,storage).file(hash),bytes);assert.equal(downloads,2);
 });
 test('browser fetch is not invoked with the font service as its receiver',async()=>{

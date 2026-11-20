@@ -55,12 +55,13 @@ static class Check
                 "http://g14.tail86ccc.ts.net:8787",
                 "https://g14.tail86ccc.ts.net",
                 "http://[::1]:8787",
+                "https://example.com/slopweb-demo/",
             }
         )
         {
             BrowserAdapters.BrowserTransport.Configure(origin);
             Expect(
-                BrowserAdapters.BrowserTransport.BaseUrl == origin + "/host",
+                BrowserAdapters.BrowserTransport.BaseUrl == origin.TrimEnd('/') + "/host",
                 "Browser origin was not preserved"
             );
             var socket = BrowserAdapters.BrowserTransport.SocketUri;
@@ -69,7 +70,7 @@ static class Check
                 socket.Scheme == (source.Scheme == "https" ? "wss" : "ws")
                     && socket.Host == source.Host
                     && socket.Port == source.Port
-                    && socket.AbsolutePath == "/host/ws",
+                    && socket.AbsolutePath == source.AbsolutePath.TrimEnd('/') + "/host/ws",
                 "Socket origin was not preserved"
             );
         }

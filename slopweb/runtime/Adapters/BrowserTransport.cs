@@ -1,4 +1,4 @@
-// Browser origin only; authentication is injected by the same-origin host bridge.
+// Same-origin browser installation directory; authentication is injected by the same-origin host bridge.
 namespace BrowserAdapters;
 
 public static class BrowserTransport
@@ -32,19 +32,19 @@ public static class BrowserTransport
             Scheme = new Uri(BaseUrl).Scheme == "https" ? "wss" : "ws",
         }.Uri;
 
-    public static void Configure(string origin)
+    public static void Configure(string directory)
     {
-        var uri = new Uri(origin);
+        var uri = new Uri(directory);
         if (
             (uri.Scheme != "http" && uri.Scheme != "https")
             || uri.Host.Length == 0
-            || uri.AbsolutePath != "/"
+            || !uri.AbsolutePath.EndsWith('/')
             || uri.Query.Length != 0
             || uri.Fragment.Length != 0
             || uri.UserInfo.Length != 0
         )
-            throw new ArgumentException("Expected an HTTP(S) browser origin");
-        BaseUrl = uri.GetLeftPart(UriPartial.Authority) + "/host";
+            throw new ArgumentException("Expected an HTTP(S) browser installation directory");
+        BaseUrl = new Uri(uri, "host").AbsoluteUri;
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(

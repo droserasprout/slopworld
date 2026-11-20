@@ -166,7 +166,7 @@ try {
                     void fonts(exports.Probe.WorkspaceDynamicFonts(fonts));
                 }
                 await yieldStartupPaint();
-                let commands = JSON.parse(await exports.Probe.WorkspaceFrame(location.origin, parameters.get('session') ?? ''));
+                let commands = JSON.parse(await exports.Probe.WorkspaceFrame(new URL('.', location.href).href, parameters.get('session') ?? ''));
                 const drawing = await import('./gui.js');
                 const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
                 document.body.prepend(canvas);

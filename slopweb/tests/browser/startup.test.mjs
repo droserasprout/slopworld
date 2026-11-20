@@ -54,7 +54,7 @@ async function start({published=false, query='', failAt='', incomplete=false, as
   const run=loader(published ? source.replace('const assemblyRequest = fetch;', 'const assemblyRequest = null;')
     .replace('exports.Probe.LoadAssembly(bytes)', "exports.Probe.LoadPublishedAssembly(file.slice(0,-4))") : source);
   await run(dotnet,()=>({width:1280,height:720,uiScale:1}),()=>new URLSearchParams('localPreferences=off&'+query),
-    fetch,window,document,{origin:'http://localhost'},modules,{log(){}},
+    fetch,window,document,{origin:'http://localhost',href:'http://localhost/slopweb-demo/workspace.html'},modules,{log(){}},
     loadStartupAssemblies,async()=>{calls.push('paint');},
     (probe,parameters)=>installCoreLanguage(probe,parameters,window,fetch));
   return {calls,result:window.__probeResult,message:result.textContent};
@@ -64,6 +64,7 @@ test('product startup enters the workspace without running compatibility or colo
   const {calls,result}=await start();
   assert.equal(result.error,undefined);
   assert.ok(calls.indexOf('live')>calls.findIndex(c=>c[0]==='InitializeEco'));
+  assert.ok(calls.some(c=>c[0]==='WorkspaceFrame' && c[1]==='http://localhost/slopweb-demo/'));
   assert.equal(result.workspace.frames,1);
   assert.equal(calls.includes('readPixels'),false);
   assert.equal(calls.some(c=>c[0]==='WorkspaceUpdate'),false);
