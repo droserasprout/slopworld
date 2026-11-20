@@ -1,4 +1,5 @@
 //! Static asset delivery. Resolve beneath an open root and stream bounded chunks.
+use crate::archive_identity;
 use axum::{
     body::Body,
     http::{HeaderMap, Method, StatusCode},
@@ -7,10 +8,9 @@ use axum::{
 use futures::stream;
 use std::{
     ffi::CString,
-    os::{
-        fd::{AsRawFd, FromRawFd},
-        unix::fs::MetadataExt,
-    },
+    fs::{File, Metadata},
+    io,
+    os::fd::{AsRawFd, FromRawFd},
     path::{Component, Path},
 };
 use tokio::io::AsyncReadExt;
@@ -41,49 +41,43 @@ pub(super) async fn response(
     }
     let root = root.to_owned();
     let name = relative.clone();
-    let opened = tokio::task::spawn_blocking(move || open_beneath(&root, &name)).await;
-    let file = match opened {
-        Ok(Ok(file)) => file,
-        Ok(Err(error))
-            if matches!(
-                error.raw_os_error(),
-                Some(libc::EXDEV | libc::ELOOP | libc::EACCES)
-            ) =>
-        {
-            return reply(StatusCode::FORBIDDEN, "");
+    let negotiates = Path::new(&relative).starts_with("_framework")
+        && !relative.ends_with(".gz")
+        && !relative.ends_with(".br");
+    let preferences = negotiates.then(|| EncodingPreferences::from_headers(headers));
+    let opened = tokio::task::spawn_blocking(move || open_asset(&root, &name, preferences)).await;
+    let asset = match opened {
+        Ok(Ok(asset)) => asset,
+        Ok(Err(StatusCode::NOT_ACCEPTABLE)) => {
+            let mut response = reply(StatusCode::NOT_ACCEPTABLE, "");
+            response
+                .headers_mut()
+                .insert("vary", "Accept-Encoding".parse().unwrap());
+            return response;
         }
-        _ => return reply(StatusCode::NOT_FOUND, ""),
+        Ok(Err(status)) => return reply(status, ""),
+        Err(_) => return reply(StatusCode::INTERNAL_SERVER_ERROR, ""),
     };
-    let Ok(metadata) = file.metadata() else {
-        return reply(StatusCode::NOT_FOUND, "");
-    };
-    if !metadata.is_file() {
-        return reply(StatusCode::FORBIDDEN, "");
-    }
-    // Weak metadata validators avoid reading large archives merely to validate a
-    // reload. Include inode and nanosecond change times to detect replacements
-    // and same-size edits even when a preparation step preserves mtime.
-    let etag = format!(
-        "W/\"{:x}-{:x}-{:x}-{:x}-{:x}-{:x}-{:x}\"",
-        metadata.dev(),
-        metadata.ino(),
-        metadata.len(),
-        metadata.mtime(),
-        metadata.mtime_nsec(),
-        metadata.ctime(),
-        metadata.ctime_nsec(),
-    );
+    let etag = &asset.etag;
     let unchanged = headers.get_all("if-none-match").iter().any(|value| {
         value.to_str().is_ok_and(|value| {
             value.split(',').any(|part| {
                 let part = part.trim();
-                part == "*" || part.strip_prefix("W/").unwrap_or(part) == &etag[2..]
+                part == "*"
+                    || part.strip_prefix("W/").unwrap_or(part)
+                        == etag.strip_prefix("W/").unwrap_or(etag)
             })
         })
     });
-    let response = Response::builder()
+    let mut response = Response::builder()
         .header("cache-control", "private, no-cache")
-        .header("etag", &etag);
+        .header("etag", etag);
+    if negotiates {
+        response = response.header("vary", "Accept-Encoding");
+    }
+    if asset.gzip {
+        response = response.header("content-encoding", "gzip");
+    }
     if unchanged {
         return response
             .status(StatusCode::NOT_MODIFIED)
@@ -104,7 +98,7 @@ pub(super) async fn response(
     let body = if *method == Method::HEAD {
         Body::empty()
     } else {
-        let file = tokio::fs::File::from_std(file);
+        let file = tokio::fs::File::from_std(asset.file);
         Body::from_stream(stream::try_unfold(file, |mut file| async move {
             let mut bytes = vec![0; 64 * 1024];
             let count = file.read(&mut bytes).await?;
@@ -115,14 +109,145 @@ pub(super) async fn response(
     response
         .status(StatusCode::OK)
         .header("content-type", content_type)
-        .header("content-length", metadata.len())
-        .header("x-slop-decoded-length", metadata.len())
+        .header("content-length", asset.encoded_length)
+        .header("x-slop-decoded-length", asset.decoded_length)
         .body(body)
         .unwrap()
 }
 
-fn open_beneath(root: &Path, relative: &str) -> std::io::Result<std::fs::File> {
-    let root = std::fs::File::open(root)?;
+/// Unlisted identity is available as a fallback. An explicit identity weight
+/// competes with gzip; an explicit coding always overrides the wildcard.
+#[derive(Default)]
+struct EncodingPreferences {
+    gzip: Option<u16>,
+    identity: Option<u16>,
+    wildcard: Option<u16>,
+}
+
+impl EncodingPreferences {
+    fn from_headers(headers: &HeaderMap) -> Self {
+        let mut result = Self::default();
+        for value in headers.get_all("accept-encoding") {
+            let Ok(value) = value.to_str() else { continue };
+            for item in value.split(',') {
+                let (coding, parameter) = item.trim().split_once(';').unwrap_or((item.trim(), ""));
+                let slot = match coding.trim() {
+                    coding if coding.eq_ignore_ascii_case("gzip") => &mut result.gzip,
+                    coding if coding.eq_ignore_ascii_case("identity") => &mut result.identity,
+                    "*" => &mut result.wildcard,
+                    _ => continue,
+                };
+                let quality = if parameter.is_empty() {
+                    1000
+                } else {
+                    qvalue(parameter).unwrap_or(0)
+                };
+                *slot = Some(slot.unwrap_or(0).max(quality));
+            }
+        }
+        result
+    }
+
+    fn prefers_gzip(&self) -> bool {
+        let gzip = self.gzip.or(self.wildcard).unwrap_or(0);
+        gzip > 0 && gzip >= self.identity.unwrap_or(0)
+    }
+
+    fn allows_identity(&self) -> bool {
+        self.identity.map_or(self.wildcard != Some(0), |q| q > 0)
+    }
+}
+
+// HTTP weights range from 0 to 1 with at most three decimal places.
+fn qvalue(parameter: &str) -> Option<u16> {
+    let (name, value) = parameter.trim().split_once('=')?;
+    if !name.trim().eq_ignore_ascii_case("q") {
+        return None;
+    }
+    let value = value.trim();
+    let (whole, fraction) = value.split_once('.').unwrap_or((value, ""));
+    if fraction.len() > 3 || !fraction.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let millis = fraction
+        .bytes()
+        .zip([100, 10, 1])
+        .map(|(b, weight)| u16::from(b - b'0') * weight)
+        .sum::<u16>();
+    match whole {
+        "0" => Some(millis),
+        "1" if millis == 0 => Some(1000),
+        _ => None,
+    }
+}
+
+struct Asset {
+    file: File,
+    encoded_length: u64,
+    decoded_length: u64,
+    gzip: bool,
+    etag: String,
+}
+
+fn regular_file(root: &File, name: &str) -> Result<(File, Metadata), StatusCode> {
+    let file = open_beneath(root, name).map_err(|error| match error.raw_os_error() {
+        Some(libc::EXDEV | libc::ELOOP | libc::EACCES) => StatusCode::FORBIDDEN,
+        _ => StatusCode::NOT_FOUND,
+    })?;
+    let metadata = file.metadata().map_err(|_| StatusCode::NOT_FOUND)?;
+    if !metadata.is_file() {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok((file, metadata))
+}
+
+fn open_asset(
+    root: &Path,
+    name: &str,
+    preferences: Option<EncodingPreferences>,
+) -> Result<Asset, StatusCode> {
+    // Resolve identity, representation and validator against the same open root.
+    let root = File::open(root).map_err(|_| StatusCode::NOT_FOUND)?;
+    let (file, metadata) = regular_file(&root, name)?;
+    let decoded_length = metadata.len();
+    let stamp = archive_identity::metadata_stamp(&metadata);
+    let mut etag = format!("W/\"{stamp}\"");
+    if let Some(preferences) = preferences {
+        if preferences.prefers_gzip() {
+            match regular_file(&root, &format!("{name}.gz")) {
+                Ok((file, compressed)) => {
+                    let gzip_stamp = archive_identity::metadata_stamp(&compressed);
+                    return Ok(Asset {
+                        file,
+                        encoded_length: compressed.len(),
+                        decoded_length,
+                        gzip: true,
+                        etag: format!("W/\"gzip-{stamp}-{gzip_stamp}\""),
+                    });
+                }
+                Err(StatusCode::NOT_FOUND) => (),
+                Err(status) => return Err(status),
+            }
+        }
+        if !preferences.allows_identity() {
+            return Err(StatusCode::NOT_ACCEPTABLE);
+        }
+    } else if Path::new(name) == Path::new(archive_identity::ARCHIVE)
+        && let Ok(marker) = open_beneath(&root, archive_identity::MARKER)
+        && let Some(tag) = archive_identity::content_tag(marker, &stamp)
+    {
+        etag = tag;
+    }
+    Ok(Asset {
+        file,
+        encoded_length: decoded_length,
+        decoded_length,
+        gzip: false,
+        etag,
+    })
+}
+
+fn open_beneath(root: &File, relative: &str) -> io::Result<File> {
     let path =
         CString::new(relative).map_err(|_| std::io::Error::from_raw_os_error(libc::EINVAL))?;
     // openat2 makes containment atomic even if a directory or symlink changes

@@ -638,7 +638,9 @@ pub fn prepare(
     cache: &Path,
     toolchain: &Toolchain,
 ) -> Result<PathBuf> {
-    let snapshot = files::files(prepared)?;
+    let mut snapshot = files::files(prepared)?;
+    // The stamp binds the digest to a particular inode. Bind the verified copy below.
+    snapshot.remove(crate::archive_identity::MARKER);
     let dlls = assemblies(&snapshot)?;
     // The bundle can be atomically exchanged by the stager. Keep its authored
     // project and source files on the same generation until candidate capture.
@@ -695,7 +697,7 @@ pub fn prepare(
     let published = published_framework(&compilation)?;
     let runtime_key = files::digest(
         &prepared_files,
-        &json!({"compilation": key, "loader": main}),
+        &json!({"compilation": key, "loader": main, "archive_identity": 1}),
     )?;
     let runtimes = cache.join("aot-runtimes");
     fs::create_dir_all(&runtimes)?;
@@ -720,6 +722,9 @@ pub fn prepare(
     }
     files::copy_tree(&published, &root, |_| false)?;
     fs::write(root.join("main.js"), main)?;
+    if let Some(digest) = prepared_files.get(crate::archive_identity::ARCHIVE) {
+        crate::archive_identity::publish(&root, digest)?;
+    }
     fs::write(root.join(".ready"), runtime_key)?;
     fs::rename(root, &destination)?;
     Ok(destination)
