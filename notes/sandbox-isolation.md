@@ -16,7 +16,8 @@ Bubblewrap retains the daemon's numeric UID/GID so passwd-based home lookups mat
 mounted user files. Host root stays unmapped for non-root daemons. System SSH includes
 still need private copies for OpenSSH ownership checks.
 
-Protected paths and unresolved aliases fail closed. Invalid project roots or selected
+Missing ordinary bind sources, including paths below dangling symlinks, are omitted.
+Protected paths and other unresolved aliases fail closed. Invalid project roots or selected
 presets stop launch rather than changing the workspace. Expanded preset paths must
 be absolute because validation and Bubblewrap use different working directories.
 Private overlays hide earlier host binds; aliases to protected originals reject launch.

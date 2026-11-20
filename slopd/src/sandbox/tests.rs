@@ -7,10 +7,10 @@ fn invalid_preset_message_retains_the_path_failure() {
         return;
     };
     let alias = root.join("runtime-alias");
-    std::os::unix::fs::symlink(root.join("missing-runtime"), &alias).unwrap();
+    std::os::unix::fs::symlink(&alias, &alias).unwrap();
     let preset = SandboxPreset {
         name: "runtime".into(),
-        ro: vec![alias.to_string_lossy().into_owned()],
+        ro: vec![alias.join("game").to_string_lossy().into_owned()],
         ..Default::default()
     };
     let session = SessionCfg {
@@ -40,7 +40,8 @@ fn invalid_preset_message_retains_the_path_failure() {
     ] {
         assert!(error.contains(detail), "{error}");
     }
-    std::fs::create_dir(root.join("missing-runtime")).unwrap();
+    std::fs::remove_file(&alias).unwrap();
+    std::os::unix::fs::symlink(root.join("missing-runtime"), &alias).unwrap();
     presets_for(
         &Config::default(),
         &session,
