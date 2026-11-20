@@ -151,6 +151,10 @@ limits from the caller; they do not create systemd services or impose CPU quotas
 just web-prepare-aot /private/dotnet/dotnet /private/slopweb-cache 4
 ```
 
+Use `just web-prepare-aot-staged` with the same arguments to prepare from an
+existing `slopweb/out` bundle. On a warm launch the host checks file metadata
+before reusing content hashes and only stages compiler inputs on a publish miss.
+
 The local font rasterizer also caches successful builds by source, compiler, flags,
 and port identity, verifying all output files before reuse.
 
