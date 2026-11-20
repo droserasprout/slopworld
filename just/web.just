@@ -40,9 +40,12 @@ web-start-aot port='8857' cache=(env('HOME') + '/.cache/slopweb/compiler-cache')
     slopweb/out/slopweb-host --ensure-workload --aot --port {{quote(port)}} --cache {{quote(cache)}}
 
 # Prepare an immutable AOT runtime without starting a browser or replacing a server.
-# Limit compiler parallelism; resource limits come from the calling environment.
 [group('web')]
-web-prepare-aot sdk cache cores='8': web-build
+web-prepare-aot sdk cache cores='8': web-build (web-prepare-aot-staged sdk cache cores)
+
+# Prepare from the existing staged bundle with the same compiler limits.
+[group('web')]
+web-prepare-aot-staged sdk cache cores='8':
     @python3 -c 'import re, sys; sys.exit(0 if re.fullmatch(r"[1-9][0-9]*", sys.argv[1]) else "cores must be a positive integer")' {{quote(cores)}}
     DOTNET_PROCESSOR_COUNT={{quote(cores)}} BINARYEN_CORES={{quote(cores)}} EMCC_CORES={{quote(cores)}} {{quote(justfile_directory() / 'slopweb/out/slopweb-host')}} --ensure-workload --prepare --aot-sdk {{quote(sdk)}} --cache {{quote(cache)}}
 
