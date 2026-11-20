@@ -143,7 +143,7 @@ fn connect_registers_without_selecting_or_exposing_its_key() {
     use std::time::Duration;
     let client = Client::new();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let url = format!("http://{}", listener.local_addr().unwrap());
+    let url = format!("http://{}/slopd-demo", listener.local_addr().unwrap());
     let server = std::thread::spawn(move || {
         for authenticated in [false, true] {
             let (mut stream, _) = listener.accept().unwrap();
@@ -157,6 +157,7 @@ fn connect_registers_without_selecting_or_exposing_its_key() {
                 request.push(byte[0]);
             }
             let request = String::from_utf8(request).unwrap();
+            assert!(request.starts_with("GET /slopd-demo/api/health HTTP/1.1\r\n"));
             assert_eq!(request.contains("cli-private-key"), authenticated);
             let body = if authenticated {
                 wire::Health {
@@ -175,7 +176,7 @@ fn connect_registers_without_selecting_or_exposing_its_key() {
     });
     let mut child = client
         .command(env!("CARGO_BIN_EXE_slopworld"))
-        .args(["connect", "tank", &url])
+        .args(["connect", "tank", &format!("{url}/")])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

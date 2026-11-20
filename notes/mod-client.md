@@ -2,9 +2,10 @@
 
 `Client/SessionHub/` owns connection lifetime, cross-service subscriptions, and rename
 handoffs. Feature services own their state and operations. Catalog models receive
-collections from callers rather than reading the hub. HTTP resolves `endpoints/local.toml`
-metadata through `Endpoint`, independently of game settings. Remote descriptors support
-HTTP and HTTPS; the endpoint scheme also selects plain or TLS WebSockets. TLS
+collections from callers rather than reading the hub. `Endpoint` reads the selected
+descriptor (by default `endpoints/local.toml`) independently of game settings. Remote descriptors support
+HTTP and HTTPS. The descriptor path supplies the common prefix for HTTP routes
+and the WebSocket handshake. The endpoint scheme selects plain or TLS WebSockets. TLS
 authenticates the endpoint hostname before sending credentials.
 
 `DaemonClient` is the static facade; `DaemonHttpTransport` owns admission, deadlines,

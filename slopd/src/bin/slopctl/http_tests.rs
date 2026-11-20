@@ -194,6 +194,20 @@ fn unsupported_requests_and_invalid_payloads_fail_before_connecting() {
 }
 
 #[test]
+fn prefixed_endpoint_keeps_the_protocol_route_for_decoding() {
+    let (mut endpoint, server) = serve_raw("200 OK", http_wire::CONTENT_TYPE, &[]);
+    endpoint.url.push_str("/slopd-demo/");
+    request(&endpoint, "host", "GET", "/api/health", None).unwrap();
+    assert!(
+        server
+            .join()
+            .unwrap()
+            .unwrap()
+            .starts_with("GET /slopd-demo/api/health HTTP/1.1\r\n")
+    );
+}
+
+#[test]
 fn status_counts_only_open_tasks_in_each_direction_and_omits_credentials() {
     let tasks = json!({"tasks": [
         {"from":"peer", "to":"host", "status":"pending"},

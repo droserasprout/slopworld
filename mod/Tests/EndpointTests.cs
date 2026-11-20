@@ -88,8 +88,19 @@ namespace SlopWorld.Tests
                 Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", path);
                 AssertFallback(Endpoint.Resolve(), "missing descriptor");
 
-                File.WriteAllText(path, "url = \"ftp://example.test:9443\"\ntoken = \"bad\"\n");
-                AssertFallback(Endpoint.Resolve(), "unsupported scheme");
+                foreach (
+                    var url in new[]
+                    {
+                        "ftp://example.test:9443",
+                        "https://user@example.test/demo",
+                        "https://example.test/demo?query",
+                        "https://example.test/demo#fragment",
+                    }
+                )
+                {
+                    File.WriteAllText(path, $"url = \"{url}\"\ntoken = \"bad\"\n");
+                    AssertFallback(Endpoint.Resolve(), "invalid base URL");
+                }
             }
             finally
             {
