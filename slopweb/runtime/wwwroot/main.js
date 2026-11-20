@@ -2,6 +2,7 @@ import { dotnet } from './_framework/dotnet.js';
 import { workspaceViewport, workspaceParameters } from './workspace-viewport.js';
 import { loadStartupAssemblies } from './startup-assemblies.js';
 import { yieldStartupPaint } from './startup-yield.js';
+import { installCoreLanguage } from './core-language.js';
 let workspace = null;
 let entry = null;
 const parameters = workspaceParameters();
@@ -87,6 +88,7 @@ try {
         const core = new Uint8Array(await response.arrayBuffer());
         await yieldStartupPaint();
         const files = exports.Probe.InstallCore(core);
+        const enableLanguageMenu = await installCoreLanguage(exports.Probe, parameters);
         try {
             await yieldStartupPaint();
             entry = JSON.parse(exports.Probe.StartEntry());
@@ -98,6 +100,7 @@ try {
             }
             entry.files = files;
             if (entry.loaded) {
+                enableLanguageMenu();
                 const viewport = workspaceViewport(parameters);
                 exports.Probe.ConfigureWorkspaceViewport(viewport.width, viewport.height, viewport.uiScale);
                 document.documentElement.style.setProperty('--workspace-aspect', viewport.width / viewport.height);

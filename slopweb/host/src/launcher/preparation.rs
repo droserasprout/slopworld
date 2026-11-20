@@ -9,12 +9,14 @@ use serde_json::{Map, Value, json};
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io,
     path::{Path, PathBuf},
     process::Command,
     time::Instant,
 };
-use zip::{ZipWriter, write::SimpleFileOptions};
+use zip::ZipWriter;
+
+mod core;
+pub(super) use core::core_archive;
 
 fn top_level(root: &Path, predicate: impl Fn(&str) -> bool) -> Result<Inputs> {
     let mut result = Inputs::new();
@@ -35,28 +37,6 @@ fn prefixed(target: &mut Inputs, prefix: &str, source: Inputs) {
             .into_iter()
             .map(|(name, path)| (format!("{prefix}/{name}"), path)),
     );
-}
-
-pub fn core_archive(game: &Path, destination: &Path) -> Result<()> {
-    let inputs = files::inputs(game, &["Data/Core", "Rendering/Shaders"])?;
-    let mut archive = ZipWriter::new(File::create(destination)?);
-    let options = SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated)
-        .unix_permissions(0o644);
-    for (name, path) in inputs {
-        ensure!(
-            !path.is_symlink()
-                && !path
-                    .extension()
-                    .is_some_and(|x| x.eq_ignore_ascii_case("dll")),
-            "Core-only staging rejects {}",
-            path.display()
-        );
-        archive.start_file(name, options)?;
-        io::copy(&mut File::open(path)?, &mut archive)?;
-    }
-    archive.finish()?;
-    Ok(())
 }
 
 // Entry resolves Core defs and texture aliases synchronously, including assets outside UI/.
@@ -179,7 +159,7 @@ pub fn prepare(
     let mut keys = BTreeMap::new();
     for (name, inputs, identity) in [
         ("managed", managed, json!("managed-rust-v1")),
-        ("assets", assets_inputs, json!("eco-assets-v1")),
+        ("assets", assets_inputs, json!("eco-assets-locales-v2")),
         (
             "fonts",
             fonts,

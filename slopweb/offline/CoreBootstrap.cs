@@ -61,12 +61,16 @@ internal static class CoreBootstrap
         adaptations.Add(BrowserTextLayoutPatch.Description);
         File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
         PatchRuntimeServices(root, resolver);
-        PatchCoreLoading(root, resolver);
+        PatchCoreLoading(root, resolver, adapter);
         BrowserSteamPatch.Apply(root, resolver);
         BrowserGuiPatch.Apply(root, resolver);
     }
 
-    private static void PatchCoreLoading(string root, IAssemblyResolver resolver)
+    private static void PatchCoreLoading(
+        string root,
+        IAssemblyResolver resolver,
+        TypeDefinition probe
+    )
     {
         var path = Path.Combine(root, "game", "Assembly-CSharp.dll");
         using var target = AssemblyDefinition.ReadAssembly(
@@ -74,6 +78,7 @@ internal static class CoreBootstrap
             new ReaderParameters { InMemory = true, AssemblyResolver = resolver }
         );
         using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
+        BrowserLanguagePatch.Apply(target, probe);
         DisableStaticAtlasBatching(target);
         DisablePawnAtlasCaching(target);
         var constructors = target
@@ -279,6 +284,9 @@ internal static class CoreBootstrap
         var adaptations = JsonNode.Parse(File.ReadAllText(adaptationsPath))!.AsArray();
         adaptations.Add(
             "Long events use the installed synchronous executor; XML loading retains its calling-thread drain without workers; desktop Steam disabled"
+        );
+        adaptations.Add(
+            "Browser locale packs are installed before native language metadata selection; menu changes restart Entry"
         );
         adaptations.Add(
             "GenThreading.ParallelForEach executes serially, retaining per-item exception logging and continuation"

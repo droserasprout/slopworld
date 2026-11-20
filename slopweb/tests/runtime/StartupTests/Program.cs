@@ -13,6 +13,7 @@ static class Check
     static async Task Main()
     {
         FontCoverageChecks.Run();
+        CoreLanguageChecks.Run();
         const int mib = 1024 * 1024;
         Expect(
             BrowserAdapters.BrowserSocket.FitsOutgoing(0, 20 * mib + 128),

@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {loadStartupAssemblies} from '../../runtime/wwwroot/startup-assemblies.js';
+import {installCoreLanguage} from '../../runtime/wwwroot/core-language.js';
 import {renderGui} from '../../runtime/wwwroot/gui.js';
 
 const source = readFileSync(new URL('../../runtime/wwwroot/main.js', import.meta.url), 'utf8')
@@ -11,7 +12,7 @@ const source = readFileSync(new URL('../../runtime/wwwroot/main.js', import.meta
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 function loader(code) {
   return new AsyncFunction('dotnet', 'workspaceViewport', 'workspaceParameters', 'fetch',
-    'window', 'document', 'location', 'modules', 'console', 'loadStartupAssemblies', 'yieldStartupPaint', code);
+    'window', 'document', 'location', 'modules', 'console', 'loadStartupAssemblies', 'yieldStartupPaint', 'installCoreLanguage', code);
 }
 
 async function start({published=false, query='', failAt='', incomplete=false, assetHeaders=null, reports={},render=()=>{},warm=async()=>false}={}) {
@@ -27,6 +28,7 @@ async function start({published=false, query='', failAt='', incomplete=false, as
   const managed=new Proxy({}, {get(_,name){
     return (...args)=>{
       calls.push([name,...args]);
+      if(name==='ConfigureCoreLanguage')return args[0]==='Loose' ? 'Loose' : '';
       if(name===failAt) throw new Error('injected '+name);
       if(name in values) return JSON.stringify(typeof values[name]==='function'?values[name](...args):values[name]);
       return 1;
@@ -53,7 +55,8 @@ async function start({published=false, query='', failAt='', incomplete=false, as
     .replace('exports.Probe.LoadAssembly(bytes)', "exports.Probe.LoadPublishedAssembly(file.slice(0,-4))") : source);
   await run(dotnet,()=>({width:1280,height:720,uiScale:1}),()=>new URLSearchParams('localPreferences=off&'+query),
     fetch,window,document,{origin:'http://localhost'},modules,{log(){}},
-    loadStartupAssemblies,async()=>{calls.push('paint');});
+    loadStartupAssemblies,async()=>{calls.push('paint');},
+    (probe,parameters)=>installCoreLanguage(probe,parameters,window,fetch));
   return {calls,result:window.__probeResult,message:result.textContent};
 }
 
@@ -189,8 +192,21 @@ test('unfinished Entry loading fails visibly and releases the engine',async()=>{
 
 test('published startup resolves game, adapters and mod dependencies without fetching raw DLLs',async()=>{
   const {calls,result}=await start({published:true});
+  assert.equal(calls.some(c=>c[0]==='EnableLanguageMenu'),false);
   assert.equal(result.error,undefined);
   assert.deepEqual(calls.filter(c=>c[0]==='LoadPublishedAssembly').map(c=>c[1]),
     ['Game','Adapters','SlopWorld','0Harmony','Google.Protobuf','Markdig','AngleSharp','Tomlyn']);
   assert.deepEqual(calls.filter(c=>c[0]==='fetch' && c[1].endsWith('.dll')),[]);
+});
+
+test('selected Core locale installs before native Entry in both execution modes',async()=>{
+  for(const published of [false,true]) {
+    const {calls,result}=await start({published,query:'language=Loose'});
+    assert.equal(result.error,undefined);
+    const transfer=calls.findIndex(c=>c[0]==='fetch'&&c[1]==='./assets/locales/Loose.zip');
+    const install=calls.findIndex(c=>c[0]==='InstallCoreLanguage');
+    assert.ok(calls.findIndex(c=>c[0]==='InstallCore')<transfer && transfer<install);
+    assert.ok(install<calls.findIndex(c=>c[0]==='StartEntry'));
+    assert.ok(calls.findLastIndex(c=>c[0]==='EntryFrame')<calls.findIndex(c=>c[0]==='EnableLanguageMenu'));
+  }
 });
