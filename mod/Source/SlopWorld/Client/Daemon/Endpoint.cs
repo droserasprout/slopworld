@@ -9,6 +9,7 @@ namespace SlopWorld
         public readonly int Port;
         public readonly string Token;
         public readonly bool UseTls;
+        public readonly string PathPrefix = "";
 
         public ConnectionInfo(string host, int port, string token, bool useTls = false)
         {
@@ -18,12 +19,17 @@ namespace SlopWorld
             UseTls = useTls;
         }
 
+        internal ConnectionInfo(Uri uri, string token)
+            : this(uri.Host, uri.Port, token, uri.Scheme == "https")
+        {
+            PathPrefix = uri.AbsolutePath.TrimEnd('/');
+        }
+
         public string BaseUrl =>
-            $"{(UseTls ? "https" : "http")}://{(Host.Contains(':') ? "[" + Host + "]" : Host)}:{Port}";
+            $"{(UseTls ? "https" : "http")}://{(Host.Contains(':') ? "[" + Host + "]" : Host)}:{Port}{PathPrefix}";
     }
 
-    // The daemon owns the live endpoint. The mod discovers its address and token from
-    // endpoints/local.toml instead of keeping a second connection configuration.
+    // The selected descriptor supplies the address and token for both transports.
     public static class Endpoint
     {
         // Bootstrap-only values. Once connected, daemon metadata is authoritative for policy.
@@ -43,15 +49,13 @@ namespace SlopWorld
                         && !string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase)
                     )
                     || uri.Port <= 0
+                    || uri.UserInfo.Length != 0
+                    || uri.Query.Length != 0
+                    || uri.Fragment.Length != 0
                 )
                     return Fallback();
 
-                return new ConnectionInfo(
-                    uri.Host,
-                    uri.Port,
-                    value["token"],
-                    uri.Scheme == "https"
-                );
+                return new ConnectionInfo(uri, value["token"]);
             }
             catch
             {

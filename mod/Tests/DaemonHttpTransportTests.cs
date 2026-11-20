@@ -62,11 +62,18 @@ namespace SlopWorld.Tests
             var firstServer = first.Serve(Array.Empty<byte>());
             await transport.Send<Wire.Empty>("GET", "/first", null, null, 5000);
             await firstServer;
-            connection = new ConnectionInfo("127.0.0.1", second.Connection.Port, "");
+            connection = new ConnectionInfo(
+                new Uri(second.Connection.BaseUrl + "/slopd-demo/"),
+                ""
+            );
             transport.Set(connection);
             var secondServer = second.Serve(Array.Empty<byte>());
-            await transport.Send<Wire.Empty>("GET", "/second", null, "", 5000);
+            await transport.Send<Wire.Empty>("GET", "/api/search?q=a%20b", null, "", 5000);
             await secondServer;
+            Assert.That(
+                second.Header,
+                Does.StartWith("GET /slopd-demo/api/search?q=a%20b HTTP/1.1\r\n")
+            );
             Assert.That(second.Header, Does.Not.Contain(WireProtocol.TokenHeader).IgnoreCase);
             Assert.That(second.Header, Does.Not.Contain(WireProtocol.SessionHeader).IgnoreCase);
         }

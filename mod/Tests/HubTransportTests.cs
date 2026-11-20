@@ -126,7 +126,10 @@ namespace SlopWorld.Tests
             string previous = System.Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");
             try
             {
-                File.WriteAllText(path, "url = 'https://peer.example:9443'\ntoken = 'secret'\n");
+                File.WriteAllText(
+                    path,
+                    "url = 'https://peer.example:9443/team%20one/slopd-demo/'\ntoken = 'secret'\n"
+                );
                 System.Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", path);
                 var socket = new Socket();
                 using var env = new Environment(socket);
@@ -134,6 +137,7 @@ namespace SlopWorld.Tests
                 Assert.That(socket.UseTls, Is.True);
                 Assert.That(socket.Host, Is.EqualTo("peer.example"));
                 Assert.That(socket.Port, Is.EqualTo(9443));
+                Assert.That(socket.Path, Is.EqualTo("/team%20one/slopd-demo/ws"));
                 Assert.That(socket.Token, Is.EqualTo("secret"));
             }
             finally

@@ -15,8 +15,8 @@ pub(super) mod wire {
 }
 
 pub(super) fn normalize_url(value: &str) -> Result<String, String> {
-    let url = url::Url::parse(value)
-        .map_err(|_error| "expected http://HOST[:PORT] or https://HOST[:PORT]".to_owned())?;
+    let invalid = "expected an HTTP or HTTPS base URL without credentials, query, or fragment";
+    let url = url::Url::parse(value).map_err(|_error| invalid.to_owned())?;
     if !matches!(url.scheme(), "http" | "https")
         || url.host_str().is_none()
         || url.port_or_known_default().is_none()
@@ -24,11 +24,8 @@ pub(super) fn normalize_url(value: &str) -> Result<String, String> {
         || url.password().is_some()
         || url.query().is_some()
         || url.fragment().is_some()
-        || url.path() != "/"
     {
-        return Err(
-            "expected http://HOST[:PORT] or https://HOST[:PORT] without credentials, a path, query, or fragment".into(),
-        );
+        return Err(invalid.into());
     }
     Ok(url.as_str().trim_end_matches('/').to_owned())
 }

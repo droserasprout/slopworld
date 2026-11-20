@@ -210,7 +210,7 @@ namespace SlopWorld
                     !result.Socket.Connect(
                         connection.Host,
                         connection.Port,
-                        WireProtocol.WsPath,
+                        connection.PathPrefix + WireProtocol.WsPath,
                         connection.Token,
                         useTls: connection.UseTls
                     )

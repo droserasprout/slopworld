@@ -144,9 +144,10 @@ fn authenticated_connect_saves_private_peer_without_selection_and_reuses_credent
 fn rejected_key_keeps_existing_files_and_changed_urls_do_not_receive_saved_keys() {
     let root = root();
     let path = root.join("endpoints/tank.toml");
+    let (url, server) = server(vec![(401, "", vec![]), (401, "wrong-key", vec![])]);
     save_private(
         &path,
-        "url = 'http://old.example:7717'\ntoken = 'saved-secret'\n",
+        &format!("url = '{url}/other-mount'\ntoken = 'saved-secret'\n"),
     )
     .unwrap();
     save_private(
@@ -156,7 +157,6 @@ fn rejected_key_keeps_existing_files_and_changed_urls_do_not_receive_saved_keys(
     .unwrap();
     let descriptor = fs::read(&path).unwrap();
     let selection = fs::read(root.join("client.toml")).unwrap();
-    let (url, server) = server(vec![(401, "", vec![]), (401, "wrong-key", vec![])]);
     let error = connect(&root, "tank", Some(&url), || Ok("wrong-key".into())).unwrap_err();
     server.join().unwrap();
     assert!(error.contains("authentication failed"));
@@ -249,17 +249,20 @@ fn peer_urls_match_the_mod_transport_and_never_embed_credentials() {
         ("https://example.test:443/", "https://example.test"),
         ("https://example.test:9443/", "https://example.test:9443"),
         ("https://[::1]:9443/", "https://[::1]:9443"),
+        ("http://example.test/path", "http://example.test/path"),
+        (
+            "https://example.test/team/a%20b/",
+            "https://example.test/team/a%20b",
+        ),
     ] {
         assert_eq!(normalize_url(input).unwrap(), expected);
     }
     for url in [
         "ftp://example.test",
         "https://user:secret@example.test",
-        "https://example.test/path",
         "https://example.test/?key=secret",
         "https://example.test/#fragment",
         "http://user:key@example.test",
-        "http://example.test/path",
         "http://example.test/?key=secret",
         "http://example.test/#fragment",
         "invalid",

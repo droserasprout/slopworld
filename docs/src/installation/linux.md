@@ -220,6 +220,12 @@ The first command saves the connection as `endpoints/tank.toml`. Launching with
 `--endpoint tank` creates its separate `profiles/tank` game profile.
 Use `slopworld endpoints` to list saved peers.
 
+For a daemon mounted under a reverse proxy, include its path when registering
+the peer, for example `slopworld connect demo https://example.org/slopd-demo`.
+The clients send HTTP requests to `/slopd-demo/api/…` and open the WebSocket at
+`/slopd-demo/ws`. Configure the proxy to strip `/slopd-demo` when forwarding both
+routes to the daemon.
+
 ### Standalone CLI
 
 Install only `slopctl` on an administration machine or CI runner. Set `SLOPD_URL`
