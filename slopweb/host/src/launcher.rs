@@ -69,14 +69,7 @@ fn connection(options: &cli::Options) -> Result<ConnectionSource> {
         !url.is_empty() && !token.is_empty(),
         "A daemon URL and token must be supplied together"
     );
-    let parsed = url::Url::parse(&url)?;
-    ensure!(
-        matches!(parsed.scheme(), "http" | "https")
-            && parsed.host_str().is_some()
-            && parsed.username().is_empty()
-            && parsed.password().is_none(),
-        "Daemon URL must use HTTP or HTTPS without embedded credentials"
-    );
+    server::daemon_directory(&url)?;
     Ok(source)
 }
 

@@ -182,7 +182,12 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
             }
         })))
         .await;
-        let host = host(direct(&upstream.url), public).await;
+        let prefix = if public.is_some() {
+            "/team%20one/slopd-demo"
+        } else {
+            ""
+        };
+        let host = host(direct(&format!("{}{prefix}/", upstream.url)), public).await;
         let origin = public.unwrap_or(&host.url);
         let client = client();
         for provenance in [None, Some("http://evil.invalid")] {
@@ -208,7 +213,7 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
         assert!(!response.headers().contains_key("set-cookie"));
         assert_eq!(response.bytes().await.unwrap().as_ref(), [8, 1, 255]);
         let (parts, body) = seen.recv().await.unwrap();
-        assert_eq!(parts.uri, "/api/sessions");
+        assert_eq!(parts.uri.to_string(), format!("{prefix}/api/sessions"));
         assert_eq!(parts.method, Method::POST);
         assert_eq!(parts.headers["x-slop-token"], "host-secret");
         assert!(!parts.headers.contains_key("cookie"));
@@ -223,7 +228,10 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
             .await
             .unwrap();
         assert_eq!(response.status(), 409);
-        assert_eq!(seen.recv().await.unwrap().0.uri, search);
+        assert_eq!(
+            seen.recv().await.unwrap().0.uri.to_string(),
+            format!("{prefix}{search}")
+        );
         for path in [
             "/host/api/health?token=bad",
             "/host/api/health?%74oken=bad",
@@ -385,7 +393,13 @@ async fn token_file_refresh_and_invalid_connections_fail_closed() {
     assert_eq!(source.snapshot().await.unwrap().token, "second");
     std::fs::remove_file(token.path()).unwrap();
     assert!(source.snapshot().await.is_err());
-    for url in ["ftp://host", "http://user:password@host", "invalid"] {
+    for url in [
+        "ftp://host",
+        "http://user:password@host",
+        "http://host/demo?q=1",
+        "http://host/demo#part",
+        "invalid",
+    ] {
         assert!(direct(url).snapshot().await.is_err());
     }
 }
@@ -452,7 +466,7 @@ fn ws_request(host: &Running, origin: &str) -> tungstenite::http::Request<()> {
 async fn websocket_authenticates_rotates_and_relays_large_binary_frames() {
     let (tx, mut seen) = mpsc::unbounded_channel();
     let upstream = listen(Router::new().route(
-        "/ws",
+        "/slopd-demo/ws",
         any(
             move |headers: HeaderMap, upgrade: axum::extract::ws::WebSocketUpgrade| {
                 tx.send(headers).unwrap();
@@ -472,6 +486,7 @@ async fn websocket_authenticates_rotates_and_relays_large_binary_frames() {
     ))
     .await;
     let descriptor = tempfile::NamedTempFile::new().unwrap();
+    let endpoint = format!("{}/slopd-demo", upstream.url);
     for public in [None, Some("https://workspace.example.com")] {
         let host = host(
             ConnectionSource::Descriptor(descriptor.path().into()),
@@ -481,7 +496,7 @@ async fn websocket_authenticates_rotates_and_relays_large_binary_frames() {
         for token in ["host-secret", "rotated"] {
             std::fs::write(
                 descriptor.path(),
-                format!("url = {:?}\ntoken = {token:?}\n", upstream.url),
+                format!("url = {endpoint:?}\ntoken = {token:?}\n"),
             )
             .unwrap();
             let origin = public.unwrap_or(&host.url);

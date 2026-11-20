@@ -45,7 +45,7 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
     let Ok(connection) = host.connection.snapshot().await else {
         return reply(StatusCode::SERVICE_UNAVAILABLE, "");
     };
-    let Ok(mut target) = connection.endpoint.join("/ws") else {
+    let Ok(mut target) = connection.endpoint.join("ws") else {
         return reply(StatusCode::BAD_GATEWAY, "");
     };
     let scheme = if target.scheme() == "https" {

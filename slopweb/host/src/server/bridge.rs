@@ -105,6 +105,10 @@ fn target(endpoint: &url::Url, route: &str) -> Option<url::Url> {
     {
         return None;
     }
-    let target = endpoint.join(route).ok()?;
-    target.path().starts_with("/api/").then_some(target)
+    let target = endpoint.join(route.strip_prefix('/')?).ok()?;
+    target
+        .path()
+        .strip_prefix(endpoint.path())?
+        .starts_with("api/")
+        .then_some(target)
 }
