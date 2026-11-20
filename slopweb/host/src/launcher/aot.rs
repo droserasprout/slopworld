@@ -226,7 +226,7 @@ pub fn published_loader(main: &str) -> Result<String> {
     Ok(main)
 }
 
-pub fn assemblies(prepared: &Path) -> Result<Inputs> {
+fn assemblies(snapshot: &Inputs) -> Result<Inputs> {
     for required in [
         "main.js",
         "game/manifest.json",
@@ -235,24 +235,25 @@ pub fn assemblies(prepared: &Path) -> Result<Inputs> {
         "Adapters.dll",
     ] {
         ensure!(
-            prepared.join(required).is_file(),
+            snapshot.contains_key(required),
             "Missing final prepared input: {required}"
         );
     }
-    files::files(prepared)?; // Reject aliases before copying any host bytes.
     let mut dlls = Inputs::new();
-    for folder in [prepared.join("game"), prepared.join("mod"), prepared.into()] {
-        for item in fs::read_dir(folder)? {
-            let path = item?.path();
-            if path.is_file() && path.extension().is_some_and(|x| x == "dll") {
-                let name = path.file_stem().unwrap().to_string_lossy().into_owned();
-                ensure!(!dlls.contains_key(&name), "Duplicate assembly name: {name}");
-                ensure!(
-                    name != "Probe" && !PACKAGES.iter().any(|(package, _)| *package == name),
-                    "Prepared assemblies collide with Probe or pinned package references"
-                );
-                dlls.insert(name, path);
-            }
+    for (relative, path) in snapshot {
+        let relative = Path::new(relative);
+        if relative.extension().is_some_and(|x| x == "dll")
+            && relative.parent().is_some_and(|dir| {
+                [Path::new(""), Path::new("game"), Path::new("mod")].contains(&dir)
+            })
+        {
+            let name = relative.file_stem().unwrap().to_string_lossy().into_owned();
+            ensure!(!dlls.contains_key(&name), "Duplicate assembly name: {name}");
+            ensure!(
+                name != "Probe" && !PACKAGES.iter().any(|(package, _)| *package == name),
+                "Prepared assemblies collide with Probe or pinned package references"
+            );
+            dlls.insert(name, path.clone());
         }
     }
     ensure!(
@@ -274,7 +275,7 @@ fn attr(mut element: Element, name: &str, value: &str) -> Element {
     element.attributes.insert(name.into(), value.into());
     element
 }
-fn write_xml(path: &Path, root: &Element) -> Result<()> {
+fn xml_bytes(root: &Element) -> Vec<u8> {
     // xmltree uses a hash map for attributes. Canonical serialization below sorts
     // them so process-randomized iteration never invalidates a compiler cache.
     fn canonical(e: &Element, out: &mut String) {
@@ -310,19 +311,51 @@ fn write_xml(path: &Path, root: &Element) -> Result<()> {
     }
     let mut out = String::new();
     canonical(root, &mut out);
-    fs::write(path, out)?;
-    Ok(())
+    out.into_bytes()
 }
 
-pub fn write_candidate(
-    runtime: &Path,
-    candidate: &Path,
-    dlls: &Inputs,
-    runtime_version: &str,
-) -> Result<()> {
-    fs::create_dir_all(candidate.join("assemblies"))?;
-    fs::create_dir_all(candidate.join("src"))?;
-    fs::write(candidate.join("Directory.Build.props"), "<Project />\n")?;
+/// Compute the exact compiler input manifest before allocating a staging
+/// directory. Only a missing publication needs private copies of its inputs.
+struct Candidate {
+    generated: BTreeMap<String, Vec<u8>>,
+    sources: Inputs,
+}
+
+impl Candidate {
+    fn keys(
+        &self,
+        contents: &mut files::DigestCache,
+        toolchain: &Value,
+    ) -> Result<(String, String)> {
+        let mut inputs = contents.manifest(&self.sources)?;
+        let mut policy = files::Manifest::new();
+        for (name, bytes) in &self.generated {
+            let digest = files::digest_bytes(bytes);
+            if name != "global.json" {
+                policy.insert(name.clone(), digest.clone());
+            }
+            inputs.insert(name.clone(), digest);
+        }
+        let key = files::digest(&inputs, toolchain)?;
+        let workspace_key = files::digest(&policy, toolchain)?;
+        Ok((key, workspace_key))
+    }
+
+    fn materialize(&self, destination: &Path, contents: &files::DigestCache) -> Result<()> {
+        fs::create_dir_all(destination)?;
+        for (name, bytes) in &self.generated {
+            fs::write(destination.join(name), bytes)?;
+        }
+        for (name, source) in &self.sources {
+            contents.copy_verified(source, &destination.join(name))?;
+        }
+        Ok(())
+    }
+}
+
+fn candidate(runtime: &Path, dlls: &Inputs, toolchain: &Toolchain) -> Result<Candidate> {
+    let runtime_version = toolchain.identity["target_runtime"].as_str().unwrap();
+    let mut sources = Inputs::new();
     let mut project = Element::parse(File::open(runtime.join("Probe.csproj"))?)?;
     let props = project
         .get_mut_child("PropertyGroup")
@@ -344,10 +377,10 @@ pub fn write_candidate(
             append(props, child(name, value));
         }
     }
-    fn copy_sources(
+    fn collect_sources(
         e: &mut Element,
         runtime: &Path,
-        candidate: &Path,
+        sources: &mut Inputs,
         seen: &mut BTreeSet<String>,
     ) -> Result<()> {
         if e.name == "Compile" {
@@ -364,23 +397,31 @@ pub fn write_candidate(
                     && seen.insert(name.clone()),
                 "Probe compiler sources must be distinct explicit local C# filenames"
             );
-            fs::copy(runtime.join(&name), candidate.join("src").join(&name))?;
+            let source = runtime.join(&name);
+            ensure!(
+                !source.is_symlink(),
+                "Probe compiler source cannot be a symlink: {name}"
+            );
+            sources.insert(format!("src/{name}"), source);
             e.attributes.insert("Include".into(), format!("src/{name}"));
         }
         for item in &mut e.children {
             if let XMLNode::Element(item) = item {
-                copy_sources(item, runtime, candidate, seen)?;
+                collect_sources(item, runtime, sources, seen)?;
             }
         }
         Ok(())
     }
     let mut seen = BTreeSet::new();
-    copy_sources(&mut project, runtime, candidate, &mut seen)?;
+    collect_sources(&mut project, runtime, &mut sources, &mut seen)?;
     ensure!(!seen.is_empty(), "Probe must declare its compiler sources");
     let mut group = Element::new("ItemGroup");
     for (name, dll) in dlls {
         let filename = dll.file_name().unwrap();
-        fs::copy(dll, candidate.join("assemblies").join(filename))?;
+        sources.insert(
+            format!("assemblies/{}", filename.to_string_lossy()),
+            dll.clone(),
+        );
         let mut reference = attr(Element::new("Reference"), "Include", name);
         append(
             &mut reference,
@@ -428,7 +469,6 @@ pub fn write_candidate(
         );
     }
     append(&mut project, group);
-    write_xml(&candidate.join("Probe.csproj"), &project)?;
     let mut targets = Element::new("Project");
     let mut target = attr(
         attr(
@@ -458,7 +498,18 @@ pub fn write_candidate(
     append(&mut group, item);
     append(&mut target, group);
     append(&mut targets, target);
-    write_xml(&candidate.join("Directory.Build.targets"), &targets)
+    let generated = BTreeMap::from([
+        ("Directory.Build.props".into(), b"<Project />\n".to_vec()),
+        ("Probe.csproj".into(), xml_bytes(&project)),
+        ("Directory.Build.targets".into(), xml_bytes(&targets)),
+        (
+            "global.json".into(),
+            serde_json::to_vec(&sdk_selection(
+                toolchain.identity["version"].as_str().unwrap(),
+            ))?,
+        ),
+    ]);
+    Ok(Candidate { generated, sources })
 }
 
 pub fn sync_candidate(source: &Path, destination: &Path) -> Result<()> {
@@ -587,42 +638,39 @@ pub fn prepare(
     cache: &Path,
     toolchain: &Toolchain,
 ) -> Result<PathBuf> {
-    let dlls = assemblies(prepared)?;
-    let main = published_loader(&fs::read_to_string(prepared.join("main.js"))?)?;
-    fs::create_dir_all(cache)?;
-    let temporary = tempfile::Builder::new()
-        .prefix(".inputs-")
-        .tempdir_in(cache)?;
-    let generated = temporary.path().join("candidate");
-    write_candidate(
-        &bundle.join("aot-src"),
-        &generated,
-        &dlls,
-        toolchain.identity["target_runtime"].as_str().unwrap(),
-    )?;
-    fs::write(
-        generated.join("global.json"),
-        serde_json::to_vec(&sdk_selection(
-            toolchain.identity["version"].as_str().unwrap(),
-        ))?,
-    )?;
-    let inputs = files::files(&generated)?;
-    let key = files::digest(&inputs, &toolchain.identity, &mut BTreeMap::new())?;
-    let policy = inputs
-        .iter()
-        .filter(|(name, _)| name.as_str() != "global.json" && !name.contains('/'))
-        .map(|(n, p)| (n.clone(), p.clone()))
-        .collect();
-    let workspace_key = files::digest(&policy, &toolchain.identity, &mut BTreeMap::new())?;
+    let snapshot = files::files(prepared)?;
+    let dlls = assemblies(&snapshot)?;
+    // The bundle can be atomically exchanged by the stager. Keep its authored
+    // project and source files on the same generation until candidate capture.
+    let bundle_parent = File::open(bundle.parent().unwrap_or(bundle))?;
+    fs2::FileExt::lock_shared(&bundle_parent)?;
+    let candidate = candidate(&bundle.join("aot-src"), &dlls, toolchain)?;
+    let mut contents = files::DigestCache::load(cache.join("aot-digests-v1.json"));
+    let prepared_files = contents.manifest(&snapshot)?;
+    let loader = fs::read_to_string(prepared.join("main.js"))?;
+    ensure!(
+        files::digest_bytes(loader.as_bytes()) == prepared_files["main.js"],
+        "Prepared main.js changed during AOT preparation; retry"
+    );
+    let main = published_loader(&loader)?;
+    let (key, workspace_key) = candidate.keys(&mut contents, &toolchain.identity)?;
+    contents.save()?;
     let compilation = cache.join("aot-builds").join(&key);
     fs::create_dir_all(&compilation)?;
     eprintln!("Checking mixed AOT cache: {}", compilation.display());
     // Publication lock spans all later composition, so readers observe one success.
     let _publication_lock = files::lock(&compilation.join("build.lock"))?;
-    if !compilation.join("candidate").exists() {
-        fs::rename(&generated, compilation.join("candidate"))?;
+    let needs_publish = !compilation.join("publish.complete").is_file();
+    if needs_publish && !compilation.join("candidate").exists() {
+        let temporary = tempfile::Builder::new()
+            .prefix(".inputs-")
+            .tempdir_in(&compilation)?;
+        let generated = temporary.path().join("candidate");
+        candidate.materialize(&generated, &contents)?;
+        fs::rename(generated, compilation.join("candidate"))?;
     }
-    if !compilation.join("publish.complete").is_file() {
+    drop(bundle_parent);
+    if needs_publish {
         let workspace = cache.join("aot-workspaces").join(workspace_key);
         fs::create_dir_all(&workspace)?;
         let workspace_lock = files::lock(&workspace.join("build.lock"))?;
@@ -646,32 +694,33 @@ pub fn prepare(
     }
     let published = published_framework(&compilation)?;
     let runtime_key = files::digest(
-        &files::files(prepared)?,
+        &prepared_files,
         &json!({"compilation": key, "loader": main}),
-        &mut BTreeMap::new(),
     )?;
     let runtimes = cache.join("aot-runtimes");
     fs::create_dir_all(&runtimes)?;
     let destination = runtimes.join(&runtime_key);
-    if destination.join(".ready").is_file() {
+    if files::ready(&destination, &runtime_key)? {
         return Ok(destination);
     }
-    let temporary = tempfile::Builder::new()
-        .prefix(".compose-")
-        .tempdir_in(&runtimes)?;
-    let root = temporary.path().join("runtime");
-    files::copy_tree(prepared, &root, |name| {
-        name == "_framework" || name.starts_with("_framework/")
-    })?;
-    files::copy_tree(&published, &root, |_| false)?;
-    fs::write(root.join("main.js"), main)?;
-    fs::write(root.join(".ready"), runtime_key)?;
     if destination.exists() {
         bail!(
             "Incomplete AOT destination already exists: {}",
             destination.display()
         );
     }
+    let temporary = tempfile::Builder::new()
+        .prefix(".compose-")
+        .tempdir_in(&runtimes)?;
+    let root = temporary.path().join("runtime");
+    for (name, path) in &snapshot {
+        if !name.starts_with("_framework/") {
+            contents.copy_verified(path, &root.join(name))?;
+        }
+    }
+    files::copy_tree(&published, &root, |_| false)?;
+    fs::write(root.join("main.js"), main)?;
+    fs::write(root.join(".ready"), runtime_key)?;
     fs::rename(root, &destination)?;
     Ok(destination)
 }

@@ -155,7 +155,7 @@ pub fn prepare(
         })
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
-    let mut contents = BTreeMap::new();
+    let mut contents = files::DigestCache::load(cache.join("preparation-digests-v1.json"));
     let mut keys = BTreeMap::new();
     for (name, inputs, identity) in [
         ("managed", managed, json!("managed-rust-v1")),
@@ -167,7 +167,10 @@ pub fn prepare(
         ),
         ("background", background, json!(["background-v1", game])),
     ] {
-        keys.insert(name, files::digest(&inputs, &identity, &mut contents)?);
+        keys.insert(
+            name,
+            files::digest(&contents.manifest(&inputs)?, &identity)?,
+        );
     }
     let mut authored = files::inputs(bundle, &["web", "ost"])?;
     prefixed(
@@ -178,9 +181,15 @@ pub fn prepare(
             .filter(|(name, _)| !name.ends_with(".dll"))
             .collect(),
     );
-    let key = files::digest(&authored, &json!([keys, appearance]), &mut contents)?[..24].to_owned();
+    let authored_digests = contents.manifest(&authored)?;
+    let key = files::digest(
+        &authored_digests,
+        &json!([keys, appearance]),
+    )?[..24]
+        .to_owned();
+    contents.save()?;
     let mut destination = files::selected(cache, &key)?;
-    if destination.join(".ready").is_file() && !rebuild {
+    if !rebuild && files::ready(&destination, &key)? {
         println!("Reusing prepared runtime");
         return Ok(destination);
     }
@@ -191,10 +200,10 @@ pub fn prepare(
         fs::create_dir_all(&parent)?;
         let phase_key = &keys[phase];
         let mut component = files::selected(&parent, phase_key)?;
-        if rebuild || (component.exists() && !component.join(".ready").is_file()) {
-            component = parent.join(files::unique_name(phase_key));
-        }
-        if !component.join(".ready").is_file() {
+        if rebuild || !files::ready(&component, phase_key)? {
+            if component.exists() || rebuild {
+                component = parent.join(files::unique_name(phase_key));
+            }
             let temporary = tempfile::Builder::new()
                 .prefix(".prepare-")
                 .tempdir_in(&parent)?;
@@ -239,7 +248,7 @@ pub fn prepare(
                 fs::create_dir_all(output.parent().unwrap())?;
                 fs::copy(source, &output)?;
                 ensure!(
-                    files::file_digest(&output)? == contents[source],
+                    files::file_digest(&output)? == authored_digests[name],
                     "Bundle input {name} changed during preparation; retry"
                 );
             }
