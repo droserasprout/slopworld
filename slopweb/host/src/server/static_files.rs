@@ -70,7 +70,7 @@ pub(super) async fn response(
         })
     });
     let mut response = Response::builder()
-        .header("cache-control", "private, no-cache")
+        .header("cache-control", cache_control(&relative))
         .header("etag", etag);
     if negotiates {
         response = response.header("vary", "Accept-Encoding");
@@ -113,6 +113,25 @@ pub(super) async fn response(
         .header("x-slop-decoded-length", asset.decoded_length)
         .body(body)
         .unwrap()
+}
+
+fn cache_control(relative: &str) -> &'static str {
+    // Only the SDK owns this directory. Its fingerprint is a ten-character
+    // base36 segment immediately before the resource extension.
+    if let Some(file) = relative.strip_prefix("_framework/")
+        && !file.contains('/')
+        && let Some((stem, "wasm" | "js" | "dat" | "pdb")) = file.rsplit_once('.')
+        && let Some((name, fingerprint)) = stem.rsplit_once('.')
+        && !name.is_empty()
+        && fingerprint.len() == 10
+        && fingerprint
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+    {
+        "private, max-age=31536000, immutable"
+    } else {
+        "private, no-cache"
+    }
 }
 
 /// Unlisted identity is available as a fallback. An explicit identity weight

@@ -856,23 +856,63 @@ async fn asset_reload_revalidates_and_replacements_invalidate() {
 }
 
 #[tokio::test]
+async fn only_sdk_fingerprinted_framework_resources_have_a_freshness_lifetime() {
+    let host = host(ConnectionSource::Unconfigured, None).await;
+    let root = host._root.as_ref().unwrap().path();
+    let client = client();
+    for (name, immutable) in [
+        ("_framework/System.Runtime.b9bqw25qxw.wasm", true),
+        ("_framework/dotnet.runtime.5nc8i5dl74.js", true),
+        ("_framework/icudt_CJK.tjcz0u77k5.dat", true),
+        ("_framework/dotnet.js", false),
+        ("_framework/dotnet.native.wasm", false),
+        ("_framework/System.Runtime.wasm", false),
+        ("_framework/dotnet.native.1234.wasm", false),
+        ("_framework/dotnet.native.0123456789.wasm.gz", false),
+        ("_framework/runtime.0123456789.json", false),
+        ("game/runtime.0123456789.wasm", false),
+    ] {
+        let path = root.join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, name).unwrap();
+        let result = client
+            .get(format!("{}/{name}", host.url))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(result.status(), 200);
+        assert_eq!(
+            result.headers()["cache-control"],
+            if immutable {
+                "private, max-age=31536000, immutable"
+            } else {
+                "private, no-cache"
+            },
+            "{name}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn framework_gzip_negotiates_lengths_mime_and_cache_validators() {
     let host = host(ConnectionSource::Unconfigured, None).await;
     let root = host._root.as_ref().unwrap().path();
     let framework = root.join("_framework");
     std::fs::create_dir(&framework).unwrap();
+    let immutable = "private, max-age=31536000, immutable";
     let plain = b"wasm".repeat(32);
     // gzip of the identity bytes, with no filename or timestamp.
     let gzip = [
         31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 43, 79, 44, 206, 45, 31, 64, 12, 0, 66, 155, 216, 32,
         128, 0, 0, 0,
     ];
-    let file = framework.join("runtime.wasm");
+    let file = framework.join("dotnet.native.a6k1euv12n.wasm");
     std::fs::write(&file, &plain).unwrap();
-    std::fs::write(framework.join("runtime.wasm.gz"), gzip).unwrap();
-    let url = format!("{}/_framework/runtime.wasm", host.url);
+    std::fs::write(framework.join("dotnet.native.a6k1euv12n.wasm.gz"), gzip).unwrap();
+    let url = format!("{}/_framework/dotnet.native.a6k1euv12n.wasm", host.url);
     let client = client();
     let raw = client.get(&url).send().await.unwrap();
+    assert_eq!(raw.headers()["cache-control"], immutable);
     let raw_tag = raw.headers()["etag"].clone();
     assert_eq!(raw.headers()["vary"], "Accept-Encoding");
     assert!(!raw.headers().contains_key("content-encoding"));
@@ -896,7 +936,7 @@ async fn framework_gzip_negotiates_lengths_mime_and_cache_validators() {
             encoded.headers()["x-slop-decoded-length"],
             plain.len().to_string()
         );
-        assert_eq!(encoded.headers()["cache-control"], "private, no-cache");
+        assert_eq!(encoded.headers()["cache-control"], immutable);
         assert_eq!(encoded.headers()["vary"], "Accept-Encoding");
         assert_eq!(encoded.bytes().await.unwrap().as_ref(), gzip);
         let head = client
@@ -905,6 +945,7 @@ async fn framework_gzip_negotiates_lengths_mime_and_cache_validators() {
             .send()
             .await
             .unwrap();
+        assert_eq!(head.headers()["cache-control"], immutable);
         assert_eq!(head.headers()["etag"], tag);
         assert_eq!(head.headers()["content-length"], gzip.len().to_string());
         assert!(head.bytes().await.unwrap().is_empty());
@@ -916,6 +957,7 @@ async fn framework_gzip_negotiates_lengths_mime_and_cache_validators() {
             .await
             .unwrap();
         assert_eq!(validated.status(), 304);
+        assert_eq!(validated.headers()["cache-control"], immutable);
         assert_eq!(validated.headers()["vary"], "Accept-Encoding");
         assert!(validated.bytes().await.unwrap().is_empty());
     }
@@ -934,7 +976,7 @@ async fn framework_gzip_negotiates_lengths_mime_and_cache_validators() {
         assert_eq!(raw.headers()["etag"], raw_tag);
         assert_eq!(raw.bytes().await.unwrap().as_ref(), plain);
     }
-    std::fs::remove_file(framework.join("runtime.wasm.gz")).unwrap();
+    std::fs::remove_file(framework.join("dotnet.native.a6k1euv12n.wasm.gz")).unwrap();
     let fallback = client
         .get(&url)
         .header("accept-encoding", "gzip")
