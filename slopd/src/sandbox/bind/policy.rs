@@ -145,14 +145,15 @@ pub(super) fn paths(
                 tracing::warn!("not binding {path}: preset paths must be absolute after expansion");
                 continue;
             }
+            if matches!(Path::new(&path).try_exists(), Ok(false)) {
+                continue;
+            }
             // Never mount paths that fail validation.
             if let Some(what) = refused(&path) {
                 tracing::warn!("not binding {path}: it reaches {what}");
                 continue;
             }
-            if Path::new(&path).exists() {
-                out.push(path);
-            }
+            out.push(path);
         }
     }
     out

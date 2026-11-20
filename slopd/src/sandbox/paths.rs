@@ -37,8 +37,16 @@ pub(super) fn expand_bind_paths(
 /// Reject paths that expose daemon credentials, configuration, preset definitions, or private session state.
 /// Also reject ancestors and descendants of these protected paths.
 pub fn refused(path: &str) -> Option<String> {
+    refused_path(path, false)
+}
+
+fn refused_path(path: &str, optional_bind: bool) -> Option<String> {
     let path = match safety_path(Path::new(path)) {
         Ok(path) => path,
+        // An optional mount can be absent through a dangling parent symlink.
+        Err(_) if optional_bind && matches!(Path::new(path).try_exists(), Ok(false)) => {
+            return None;
+        }
         Err(error) => return Some(format!("an unresolved safety path: {error:#}")),
     };
     if path == Path::new("/") {
@@ -225,7 +233,8 @@ fn validate_preset_paths(
         ("shared", p.shared.as_slice()),
     ] {
         for raw in paths {
-            let expanded_paths = if matches!(kind, "read-only" | "read-write" | "device") {
+            let ordinary_bind = matches!(kind, "read-only" | "read-write" | "device");
+            let expanded_paths = if ordinary_bind {
                 expand_bind_paths(raw, environment)
             } else {
                 vec![expand(raw)]
@@ -242,7 +251,7 @@ fn validate_preset_paths(
                         p.name
                     );
                 }
-                if let Some(what) = refused(&expanded) {
+                if let Some(what) = refused_path(&expanded, ordinary_bind) {
                     anyhow::bail!(
                         "Sandbox preset {:?} {kind} path {raw:?} exposes {what}.",
                         p.name
