@@ -6,6 +6,7 @@
   </PropertyGroup>
   <Import Project="../GameReferences.props" />
   <ItemGroup>
+    <EmbeddedResource Include="../../presentation-preferences.txt" LogicalName="presentation-preferences.txt" />
     <PackageReference Include="StbImageSharp" Version="2.27.13" />
     <Reference Include="UnityStubs">
       <HintPath>$(GameReferencePath)/UnityStubs.dll</HintPath>
