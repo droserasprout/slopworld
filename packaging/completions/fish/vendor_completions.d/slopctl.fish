@@ -31,7 +31,7 @@ complete -c slopctl -n "__fish_slopctl_needs_command" -s h -l help -d 'Print hel
 complete -c slopctl -n "__fish_slopctl_needs_command" -s V -l version -d 'Print version'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "completions" -d 'Print a shell completion script without contacting the daemon'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "worker" -d 'Create task-owned workers from agent templates'
-complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "agent" -d 'Create agents from the daemon\'s template catalog'
+complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "agent" -d 'Create agents and control their sessions'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "template" -d 'Discover and inspect agent templates'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "worktree" -d 'Manage project worktrees; mutations require worktree management permission'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "task" -d 'Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set'
@@ -63,12 +63,17 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -s h -l help -d 'Print help'
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from help" -f -a "spawn" -d 'Spawn a worker and deliver TASK; its worktree remains until removed'
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from create help" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
-complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from create help" -l json -d 'Print JSON instead of human-readable output'
-complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from create help" -l sidecar -d 'Select the sidecar endpoint and log sources'
-complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from create help" -s h -l help -d 'Print help'
-complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from create help" -f -a "create" -d 'Create an agent, stopped unless --start is supplied'
-complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from create help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from stop create help" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from stop create help" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from stop create help" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from stop create help" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from stop create help" -f -a "stop" -d 'Stop an agent session; one-shot workers are removed on stop'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from stop create help" -f -a "create" -d 'Create an agent, stopped unless --start is supplied'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and not __fish_seen_subcommand_from stop create help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from stop" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from stop" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from stop" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from stop" -s h -l help -d 'Print help'
 complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from create" -l project -d 'Project that owns the agent' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from create" -l template -d 'Agent template name' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from create" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
@@ -76,6 +81,7 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_s
 complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from create" -l json -d 'Print JSON instead of human-readable output'
 complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from create" -l sidecar -d 'Select the sidecar endpoint and log sources'
 complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from create" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from help" -f -a "stop" -d 'Stop an agent session; one-shot workers are removed on stop'
 complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from help" -f -a "create" -d 'Create an agent, stopped unless --start is supplied'
 complete -c slopctl -n "__fish_slopctl_using_subcommand agent; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c slopctl -n "__fish_slopctl_using_subcommand template; and not __fish_seen_subcommand_from list show help" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
@@ -274,7 +280,7 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand paths" -l sidecar -d 'Se
 complete -c slopctl -n "__fish_slopctl_using_subcommand paths" -s h -l help -d 'Print help'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "completions" -d 'Print a shell completion script without contacting the daemon'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "worker" -d 'Create task-owned workers from agent templates'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "agent" -d 'Create agents from the daemon\'s template catalog'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "agent" -d 'Create agents and control their sessions'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "template" -d 'Discover and inspect agent templates'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "worktree" -d 'Manage project worktrees; mutations require worktree management permission'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "task" -d 'Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set'
@@ -286,6 +292,7 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_see
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "paths" -d 'Print an absolute application path without contacting the daemon'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent template worktree task peers status sandbox config logs paths help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from worker" -f -a "spawn" -d 'Spawn a worker and deliver TASK; its worktree remains until removed'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from agent" -f -a "stop" -d 'Stop an agent session; one-shot workers are removed on stop'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from agent" -f -a "create" -d 'Create an agent, stopped unless --start is supplied'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from template" -f -a "list" -d 'List templates enabled for the caller; root sees the full catalog'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from template" -f -a "show" -d 'Show one accessible template'

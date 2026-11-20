@@ -118,7 +118,17 @@ _arguments "${_arguments_options[@]}" : \
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:slopctl-agent-command-$line[1]:"
         case $line[1] in
-            (create)
+            (stop)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:_default' \
+&& ret=0
+;;
+(create)
 _arguments "${_arguments_options[@]}" : \
 '--project=[Project that owns the agent]:PROJECT:_default' \
 '--template=[Agent template name]:TEMPLATE:_default' \
@@ -143,7 +153,11 @@ _arguments "${_arguments_options[@]}" : \
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:slopctl-agent-help-command-$line[1]:"
         case $line[1] in
-            (create)
+            (stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(create)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -765,7 +779,11 @@ _arguments "${_arguments_options[@]}" : \
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:slopctl-help-agent-command-$line[1]:"
         case $line[1] in
-            (create)
+            (stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(create)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -971,7 +989,7 @@ _slopctl_commands() {
     local commands; commands=(
 'completions:Print a shell completion script without contacting the daemon' \
 'worker:Create task-owned workers from agent templates' \
-'agent:Create agents from the daemon'\''s template catalog' \
+'agent:Create agents and control their sessions' \
 'template:Discover and inspect agent templates' \
 'worktree:Manage project worktrees; mutations require worktree management permission' \
 'task:Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set' \
@@ -988,6 +1006,7 @@ _slopctl_commands() {
 (( $+functions[_slopctl__subcmd__agent_commands] )) ||
 _slopctl__subcmd__agent_commands() {
     local commands; commands=(
+'stop:Stop an agent session; one-shot workers are removed on stop' \
 'create:Create an agent, stopped unless --start is supplied' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -1001,6 +1020,7 @@ _slopctl__subcmd__agent__subcmd__create_commands() {
 (( $+functions[_slopctl__subcmd__agent__subcmd__help_commands] )) ||
 _slopctl__subcmd__agent__subcmd__help_commands() {
     local commands; commands=(
+'stop:Stop an agent session; one-shot workers are removed on stop' \
 'create:Create an agent, stopped unless --start is supplied' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -1015,6 +1035,16 @@ _slopctl__subcmd__agent__subcmd__help__subcmd__create_commands() {
 _slopctl__subcmd__agent__subcmd__help__subcmd__help_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl agent help help commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__help__subcmd__stop_commands] )) ||
+_slopctl__subcmd__agent__subcmd__help__subcmd__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent help stop commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__stop_commands] )) ||
+_slopctl__subcmd__agent__subcmd__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent stop commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__completions_commands] )) ||
 _slopctl__subcmd__completions_commands() {
@@ -1069,7 +1099,7 @@ _slopctl__subcmd__help_commands() {
     local commands; commands=(
 'completions:Print a shell completion script without contacting the daemon' \
 'worker:Create task-owned workers from agent templates' \
-'agent:Create agents from the daemon'\''s template catalog' \
+'agent:Create agents and control their sessions' \
 'template:Discover and inspect agent templates' \
 'worktree:Manage project worktrees; mutations require worktree management permission' \
 'task:Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set' \
@@ -1086,6 +1116,7 @@ _slopctl__subcmd__help_commands() {
 (( $+functions[_slopctl__subcmd__help__subcmd__agent_commands] )) ||
 _slopctl__subcmd__help__subcmd__agent_commands() {
     local commands; commands=(
+'stop:Stop an agent session; one-shot workers are removed on stop' \
 'create:Create an agent, stopped unless --start is supplied' \
     )
     _describe -t commands 'slopctl help agent commands' commands "$@"
@@ -1094,6 +1125,11 @@ _slopctl__subcmd__help__subcmd__agent_commands() {
 _slopctl__subcmd__help__subcmd__agent__subcmd__create_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help agent create commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__agent__subcmd__stop_commands] )) ||
+_slopctl__subcmd__help__subcmd__agent__subcmd__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help agent stop commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__help__subcmd__completions_commands] )) ||
 _slopctl__subcmd__help__subcmd__completions_commands() {

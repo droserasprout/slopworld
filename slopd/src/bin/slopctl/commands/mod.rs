@@ -40,6 +40,9 @@ pub(crate) enum RemoteCommand {
         name: String,
         project: Option<String>,
     },
+    AgentStop {
+        name: String,
+    },
     AgentCreate {
         name: String,
         project: String,
@@ -104,6 +107,9 @@ impl RemoteCommand {
                 &name,
                 project.as_deref(),
             ),
+            Self::AgentStop { name } => {
+                agent::run_agent_stop(endpoint, session, json_output, &name)
+            }
             Self::AgentCreate {
                 name,
                 project,
