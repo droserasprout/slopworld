@@ -53,11 +53,24 @@ static class PacketCacheTests
             throw new Exception("Command order ignored");
         List<BrowserGui.Command> zero = [new("matrix", new float[] { 0 })];
         cache.Store(zero, "positive zero");
+        long packetId = cache.PacketId;
+        if (packetId <= 0 || cache.Find(zero) == null || cache.PacketId != packetId)
+            throw new Exception("Unchanged screen packet lost its identity");
         ((float[])zero[0].value)[0] = -0f;
         if (cache.Find(zero) != null)
             throw new Exception("Signed zero ignored");
+        foreach (string mutation in new[] { "image", "releaseImage", "target", "releaseTarget" })
+        {
+            cache.Store([new(mutation, 1)], "resource mutation");
+            if (cache.PacketId != 0)
+                throw new Exception("Resource mutation can cross interop as a repeat");
+        }
+        cache.Clear();
+        cache.Store(zero, "negative zero");
+        if (cache.PacketId <= packetId)
+            throw new Exception("Cached identity was recycled on reset");
         cache.Store(commands, new string('x', 2 * 1024 * 1024 + 1));
-        if (cache.Find(commands) != null)
+        if (cache.PacketId != 0 || cache.Find(commands) != null)
             throw new Exception("Oversize packet retained");
         cache.Store([new("matrix", new float[262145])], "small compressed packet");
         if (cache.Find([new("matrix", new float[262145])]) != null)

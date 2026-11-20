@@ -1,4 +1,5 @@
 // Run the actual workspace traversal and input dispatcher without an engine.
+using System.Text.Json;
 using BrowserAdapters;
 using UnityEngine;
 using Verse;
@@ -26,7 +27,8 @@ static class Check
         foreach (string batch in new[] { "[{\"kind\":\"move\",\"x\":45,\"y\":65}]", "[]", "[]" })
         {
             Calls.Clear();
-            WorkspaceDrawing.Frame(batch);
+            using var events = JsonDocument.Parse(batch);
+            WorkspaceDrawing.Frame(events.RootElement, -1, false);
             string[] passes =
                 batch == "[]" ? ["Layout", "Repaint"] : ["MouseMove", "Layout", "Repaint"];
             var expected = passes.SelectMany(pass =>
@@ -55,7 +57,8 @@ static class Check
                 if (Event.current.type == EventType.MouseMove)
                     Prefs.UIScale = scale;
             };
-            WorkspaceDrawing.Frame("[{\"kind\":\"move\",\"x\":45,\"y\":65}]");
+            using var events = JsonDocument.Parse("[{\"kind\":\"move\",\"x\":45,\"y\":65}]");
+            WorkspaceDrawing.Frame(events.RootElement, -1, false);
             if (BrowserFontBank.Density != scale)
                 throw new Exception("Live scale did not reach the rasterizer");
         }

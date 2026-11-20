@@ -44,6 +44,8 @@ public sealed partial class BrowserGui
     static readonly ConditionalWeakTable<Texture2D, GlyphAtlas> appendOnlyAtlases = new();
     readonly Dictionary<int, (int CommandIndex, ImageVersion Identity)> pendingAtlasImages = new();
 
+    readonly List<int> pendingAtlasIndices = new();
+
     // Existing glyph texels never change within one atlas texture. A later upload
     // can replace its earlier packet definition without changing earlier draws.
     internal static void RegisterGlyphAtlas(Texture2D texture) =>
@@ -60,7 +62,7 @@ public sealed partial class BrowserGui
     }
 
     readonly Dictionary<int, ImageState> images = new();
-    readonly HashSet<int> pendingImages = new();
+    readonly Dictionary<int, ImageState?> pendingImages = new();
 
     public static void TextureApplied(Texture2D texture) =>
         imageVersions.GetOrCreateValue(texture).Value++;
@@ -69,16 +71,6 @@ public sealed partial class BrowserGui
         appendOnlyAtlases.TryGetValue(texture, out var atlas) && atlas.Pixels != null
             ? atlas.Pixels
             : texture.CoreTexture.CpuData;
-
-    void CollectImages()
-    {
-        foreach (var pair in images.ToArray())
-            if (!pair.Value.Texture.TryGetTarget(out var texture) || texture == null)
-            {
-                Emit("releaseImage", pair.Key);
-                images.Remove(pair.Key);
-            }
-    }
 
     void UploadImage(Texture2D texture)
     {
@@ -100,7 +92,7 @@ public sealed partial class BrowserGui
         {
             if (recordingRow is { Valid: true })
             {
-                if (pendingImages.Contains(id))
+                if (pendingImages.ContainsKey(id))
                     RejectRow();
                 else if (!recordingRow.Images.ContainsKey(id))
                 {
@@ -137,8 +129,13 @@ public sealed partial class BrowserGui
             int before = commands.Count;
             Emit("image", image);
             if (appendOnly && commands.Count == before + 1)
+            {
                 pendingAtlasImages[id] = (before, identity);
+                // Recycled IDs can leave two distinct atlas definitions in a packet.
+                pendingAtlasIndices.Add(before);
+            }
         }
+        pendingImages.TryAdd(id, previous);
         images[id] = new ImageState(
             new WeakReference<Texture2D>(texture),
             identity,
@@ -147,7 +144,6 @@ public sealed partial class BrowserGui
             texture.height,
             data
         );
-        pendingImages.Add(id);
     }
 
     static ImageCommand EncodeImage(int id, int width, int height, Color32[] pixels)
@@ -162,10 +158,9 @@ public sealed partial class BrowserGui
 
     void FlushAtlasImages()
     {
-        for (int index = 0; index < commands.Count; index++)
+        foreach (int index in pendingAtlasIndices)
         {
-            if (commands[index].value is not PendingAtlasImage pending)
-                continue;
+            var pending = (PendingAtlasImage)commands[index].value;
             // Native texture backing is published once for the retained version.
             // Destroyed old atlases still have packet-owned pixels for earlier draws.
             if (pending.Texture != null && pending.Atlas.Dirty)

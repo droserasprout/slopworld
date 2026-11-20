@@ -195,9 +195,9 @@ public static class WorkspaceDrawing
             );
     }
 
-    public static string Frame(string batch)
+    public static string Frame(JsonElement batch, double retainedPacket, bool commandsOnly)
     {
-        var frame = BrowserGuiInput.Dispatch(
+        var frame = BrowserGuiInput.DispatchBatch(
             batch,
             (BrowserGui)GuiBackend.Current,
             () =>
@@ -225,24 +225,14 @@ public static class WorkspaceDrawing
                 // messages after deferred windows so their backgrounds cannot cover them.
                 Messages.MessagesDoGUI();
             },
-            flushInputBeforeRepaint ? flushTerminalInput : null
+            flushInputBeforeRepaint ? flushTerminalInput : null,
+            retainedPacket,
+            commandsOnly
         );
         // Diagnostic baseline for real-browser A/B measurements. Use exactly one
         // boundary; flushing per event would split supplementary characters.
         if (!flushInputBeforeRepaint)
             flushTerminalInput?.Invoke();
         return frame;
-    }
-
-    public static string Repaint(object owner)
-    {
-        var window = (Window)owner;
-        ((BrowserGui)GuiBackend.Current).BeginLabelRepaint();
-        GUIUtility.ResetControlIds();
-        Event.current = new Event { type = EventType.Repaint, rawType = EventType.Repaint };
-        BrowserFontBank.ConfigureDensity(Prefs.UIScale);
-        UI.ApplyUIScale();
-        window.DoWindowContents(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
-        return ((BrowserGui)GuiBackend.Current).Drain();
     }
 }

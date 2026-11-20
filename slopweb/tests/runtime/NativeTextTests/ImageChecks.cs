@@ -10,6 +10,7 @@ static class ImageChecks
 
     internal static void Run()
     {
+        CheckPacketIdentityAcrossInstall();
         CheckScaleModes();
         CheckDeferredAtlas();
         var reference = new BrowserGui();
@@ -106,9 +107,60 @@ static class ImageChecks
         )
             throw new Exception("Disposed texture upload was not released");
         Drain(0, "repeated disposed texture cleanup");
+        // Both an updated image and a dead target already exist on Canvas. Their
+        // releases must survive a writer failure, including rollback of the upload.
+        using var target = new RenderTexture(2, 2, 0);
+        reference.ActiveRenderTextureChanged(target);
+        reference.ActiveRenderTextureChanged(null!);
+        Drain(0, "published target");
+        BrowserGui.TextureApplied(fresh);
+        reference.DrawTextureWithTexCoords(
+            new Rect(float.NaN, 0, 2, 2),
+            fresh,
+            new Rect(0, 0, 1, 1),
+            Color.white
+        );
+        UnityEngine.Object.DestroyImmediate(fresh);
+        target.Release();
+        try
+        {
+            reference.Drain();
+            throw new Exception("Expected failed drain before release commit");
+        }
+        catch (ArgumentException) { }
+        using var retry = JsonDocument.Parse(Drain(0, "retry destroyed resource releases"));
+        var releases = retry
+            .RootElement.EnumerateArray()
+            .Select(c => c.GetProperty("kind").GetString())
+            .ToArray();
+        if (!releases.SequenceEqual(new[] { "releaseImage", "releaseTarget" }))
+            throw new Exception("Retry did not release both published resources");
+        if (Drain(0, "committed releases") != "[]")
+            throw new Exception("Successful retry did not commit resource cleanup");
         Console.WriteLine(
             "Image uploads track Apply, CPU backing, dimensions, switches, discard, ID reuse and disposal."
         );
+    }
+
+    static void CheckPacketIdentityAcrossInstall()
+    {
+        var previousGui = UnityStubs.Gui.GuiBackend.Current;
+        bool previous = BrowserGui.ConfigurePacketCache(true);
+        try
+        {
+            var first = BrowserGui.Install();
+            first.Drain();
+            long acknowledged = first.PacketId;
+            var replacement = BrowserGui.Install();
+            replacement.Drain();
+            if (acknowledged == 0 || replacement.PacketId <= acknowledged)
+                throw new Exception("Replacement GUI reused a previous backend's packet identity");
+        }
+        finally
+        {
+            BrowserGui.ConfigurePacketCache(previous);
+            UnityStubs.Gui.GuiBackend.Current = previousGui;
+        }
     }
 
     static void CheckDeferredAtlas()

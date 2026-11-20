@@ -150,12 +150,14 @@ encoding once per atlas per packet. General mutable textures still snapshot at e
 mutation to preserve draw order. Failed drains discard resource claims so retries
 must upload their definitions again.
 Immutable Canvas uploads retain the pixels needed to restore their 2D contexts.
-Derived tints can be rebuilt from those uploads. Browser GUI packets retain one
-bounded decoded frame; command consumers leave it
-immutable, while Canvas reuse still checks dimensions, resource revisions, and
-resource-changing commands. Startup consumes every packet before requesting a font
-redraw: image uploads and retained-target changes cannot be dropped when replacing
-a frame, even while the loading screen covers the workspace.
+Derived tints can be rebuilt from those uploads. The live GUI decoder acknowledges
+one bounded, immutable screen packet. Managed drawing can return that packet's ID
+on an exact repeat, including fresh profiling data. Canvas still checks dimensions,
+resource revisions and background activity before skipping replay. Uploads, target
+writes and releases always cross the boundary in order.
+Startup presents a complete native workspace frame and applies its uploads before
+any font-driven redraw. The live scheduler then takes ownership. Full-viewport pixel
+inspection and startup font/scene snapshots are profiling diagnostics.
 Glyph persistence uses a bounded asynchronous write
 queue so storage latency does not delay glyph replies or worker font installation.
 

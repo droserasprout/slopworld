@@ -43,11 +43,23 @@ public static class BrowserGuiInput
         Action? afterInput = null
     )
     {
+        using var json = JsonDocument.Parse(batch);
+        return DispatchBatch(json.RootElement, target, draw, afterInput, -1, false);
+    }
+
+    public static string DispatchBatch(
+        JsonElement batch,
+        BrowserGui target,
+        Action draw,
+        Action? afterInput,
+        double retainedPacket,
+        bool commandsOnly
+    )
+    {
         long started = Profile ? Stopwatch.GetTimestamp() : 0;
         long allocated = Profile ? GC.GetAllocatedBytesForCurrentThread() : 0;
         int collections = Profile ? GC.CollectionCount(0) : 0;
-        using var json = JsonDocument.Parse(batch);
-        foreach (var item in json.RootElement.EnumerateArray())
+        foreach (var item in batch.EnumerateArray())
         {
             var kind = item.GetProperty("kind").GetString();
             if (kind == "clipboard")
@@ -158,6 +170,8 @@ public static class BrowserGuiInput
         draw();
         long repaintEnd = Profile ? Stopwatch.GetTimestamp() : 0;
         string commands = target.Drain();
+        if (commandsOnly)
+            return commands;
         string timing = "";
         if (Profile)
         {
@@ -189,6 +203,14 @@ public static class BrowserGuiInput
         }
         // Commands are already JSON. Avoid parsing and serializing the entire frame
         // a second time solely to add the small control-check envelope.
+        var id = target.PacketId;
+        if (retainedPacket >= 0 && id != 0)
+        {
+            string number = id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (retainedPacket == id)
+                return "{\"repeat\":" + number + timing + "}";
+            return "{\"packet\":" + number + ",\"commands\":" + commands + timing + "}";
+        }
         return "{\"commands\":" + commands + timing + "}";
     }
 }

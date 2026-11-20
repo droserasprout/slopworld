@@ -508,7 +508,8 @@ export function renderGuiProbe(commands, controls = true, existing = null) {
     const rgb = (x, y) => Array.from(pixels.slice((y * canvas.width + x) * 4, (y * canvas.width + x) * 4 + 3)).join(',');
     if (rgb(455, 22) !== '0,0,255' || rgb(455, 37) !== '255,0,0') throw new Error('Unity texture rows were not converted to Canvas orientation');
   }
-  const visible = pixels.filter((value, i) => i % 4 === 3 && value !== 0).length;
+  let visible = 0;
+  for (let i = 3; i < pixels.length; i += 4) if (pixels[i]) visible++;
   if (!visible) throw new Error('Installed GUI produced no visible pixels');
   // The controls diagnostic exercises the fallback text command. A workspace
   // uses native atlas image batches and retained terminal targets instead;

@@ -71,7 +71,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     ClipboardTake: () => managed.ClipboardTake(),
     ClipboardComplete: (...args) => managed.ClipboardComplete(...args),
     ClipboardCompleteImage: (...args) => managed.ClipboardCompleteImage(...args),
-    GuiInputFrame: batch => managed.WorkspaceUpdate(batch, initialTime + (performance.now() - started) / 1000),
+    GuiInputFrame: (batch, packet = 0) => managed.WorkspaceUpdatePacket(batch, initialTime + (performance.now() - started) / 1000, packet),
   });
   let stopped = false;
   const scheduler=new WorkspaceScheduler(()=>update(), {deadline:()=>managed.WorkspaceNextUpdateDelay()*1000});

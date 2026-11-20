@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using BrowserAdapters;
 using UnityEngine;
 
@@ -127,4 +128,30 @@ try
 catch (InvalidOperationException e) when (e.Message == "layout failed") { }
 if (failedGui.SuppressDrawing)
     throw new Exception("Failed layout leaked drawing suppression");
+using var empty = JsonDocument.Parse("[]");
+var packetGui = new BrowserGui { PacketId = 9 };
+foreach (bool profile in new[] { false, true })
+{
+    BrowserGuiInput.Profile = profile;
+    foreach (double retained in new double[] { -1, 0, 8, 9 })
+    {
+        string packet = BrowserGuiInput.DispatchBatch(
+            empty.RootElement,
+            packetGui,
+            () => { },
+            null,
+            retained,
+            false
+        );
+        using var frame = JsonDocument.Parse(packet);
+        var envelope = frame.RootElement;
+        if (
+            envelope.TryGetProperty("commands", out _) != (retained != 9)
+            || envelope.TryGetProperty("repeat", out _) != (retained == 9)
+            || envelope.TryGetProperty("packet", out _) != (retained is 0 or 8)
+            || envelope.TryGetProperty("profile", out _) != profile
+        )
+            throw new Exception("Incorrect frame for acknowledged packet " + retained);
+    }
+}
 Console.WriteLine("Browser input batch ordering, UTF-16 and repeated-frame checks passed.");
