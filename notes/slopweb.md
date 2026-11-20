@@ -117,8 +117,13 @@ density with the native scale preference before layout; backing-canvas resizes
 preserve an explicitly changed scale. Font-bank revisions retire old glyphs and
 invalidate text layout and row caches.
 
-Static assets use private browser caching with revalidation on every reuse;
-the static-file owner supplies validators so unchanged reloads avoid body transfers.
+Static assets use private browser caching. SDK-fingerprinted framework resources
+get a year of freshness. Mutable names, including the SDK loader and its embedded
+boot manifest, revalidate with the host. The SDK requests fingerprinted WASM with
+`force-cache` and SHA-256 integrity. Its native module can exceed an HTTP cache
+item limit, so the resource loader also keeps one origin-local CacheStorage slot
+for at most 128 MiB of decoded native WASM. Each hit verifies the boot digest
+before compilation. Other resource types retain the SDK loader.
 Preparation binds the Eco archive's SHA-256 to the final file in each interpreted
 or AOT runtime. The host checks that binding on the opened archive, so identical
 copies retain their validator and later file changes invalidate it. Framework

@@ -61,6 +61,7 @@ WEB_ASSETS = (
     'local-fonts.mjs',
     'local-fonts.wasm',
     'main.js',
+    'native-wasm.js',
     'startup-assemblies.js',
     'startup-yield.js',
     'text-input.js',

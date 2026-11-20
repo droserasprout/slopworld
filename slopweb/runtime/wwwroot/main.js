@@ -1,4 +1,5 @@
 import { dotnet } from './_framework/dotnet.js';
+import { nativeWasmResource } from './native-wasm.js';
 import { workspaceViewport, workspaceParameters } from './workspace-viewport.js';
 import { loadStartupAssemblies } from './startup-assemblies.js';
 import { yieldStartupPaint } from './startup-yield.js';
@@ -19,9 +20,10 @@ document.getElementById('result').textContent = 'Loading the workspace…';
 try {
     if (['play', 'load', 'save'].some(key => parameters.has(key)))
         throw new Error('The Eco workspace cannot create or load a colony');
+    const builder = dotnet.withResourceLoader(nativeWasmResource);
     // Managed debugging disables Mono's Jiterpreter; keep it opt-in.
-    const runtime = await (!parameters.has('managedDebug')
-        ? dotnet.withDebugging(0) : dotnet).create();
+    if (!parameters.has('managedDebug')) builder.withDebugging(0);
+    const runtime = await builder.create();
     const exports = await runtime.getAssemblyExports('Probe.dll');
     // AOT preparation replaces this boundary with published-identity loading.
     const assemblyRequest = fetch;
