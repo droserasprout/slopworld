@@ -24,6 +24,12 @@ use http_fixture::{serve, serve_raw};
 #[test]
 fn command_parser_builds_delegation_and_update_commands() {
     assert_eq!(
+        parse_command(&words("agent stop child")),
+        Ok(Command::Remote(RemoteCommand::AgentStop {
+            name: "child".into()
+        }))
+    );
+    assert_eq!(
         parse_command(&words("task delegate agent fix the pane")),
         Ok(Command::Remote(RemoteCommand::Delegate {
             to: "agent".to_string(),

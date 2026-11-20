@@ -50,7 +50,7 @@ enum CliCommand {
     /// Create task-owned workers from agent templates
     #[command(subcommand)]
     Worker(WorkerCommand),
-    /// Create agents from the daemon's template catalog
+    /// Create agents and control their sessions
     #[command(subcommand)]
     Agent(AgentCommand),
     /// Discover and inspect agent templates
@@ -146,6 +146,11 @@ struct RequiredTemplate {
 
 #[derive(Debug, Subcommand)]
 enum AgentCommand {
+    /// Stop an agent session; one-shot workers are removed on stop
+    Stop {
+        #[arg(value_parser = clap::builder::NonEmptyStringValueParser::new())]
+        name: String,
+    },
     /// Create an agent, stopped unless --start is supplied
     Create {
         name: String,
@@ -330,6 +335,7 @@ impl CliCommand {
                 body: args.task.join(" "),
                 worktree: args.worktree.unwrap_or_default(),
             }),
+            Self::Agent(AgentCommand::Stop { name }) => RemoteCommand::AgentStop { name },
             Self::Agent(AgentCommand::Create {
                 name,
                 template,

@@ -157,7 +157,8 @@ selects an existing checkout; omitting it uses the project's main checkout.
 
 The worker receives its exact task ID in `SLOPWORLD_TASK_ID`, and `slopctl` uses it when a lifecycle
 command omits `ID`. Workers are persistent by default.
-The daemon removes `--one-shot` worker sessions on exit.
+Use `slopctl agent stop NAME` to stop an agent or worker with lifecycle permission.
+The daemon removes `--one-shot` worker sessions on exit or explicit stop.
 Persistent workers remain as stopped sessions that you can inspect.
 
 A worker exit, stop, removal, or startup failure marks its unfinished task as failed.

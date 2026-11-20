@@ -1,4 +1,4 @@
-//! Agent creation requests and output; the daemon owns template and project policy.
+//! Agent creation and lifecycle requests; the daemon owns template and project policy.
 
 use super::super::format::print_json;
 use super::super::http::Endpoint;
@@ -40,6 +40,22 @@ pub(crate) fn run_agent_create(
             template,
             if start { "yes" } else { "no" }
         );
+    }
+    Ok(())
+}
+
+pub(super) fn run_agent_stop(
+    endpoint: &Endpoint,
+    session: &str,
+    json_output: bool,
+    name: &str,
+) -> Result<(), String> {
+    let path = routes::SESSION_STOP.replace(":name", &encode_component(name));
+    let reply = request(endpoint, session, "POST", &path, Some(json!({})))?;
+    if json_output {
+        print_json(&reply);
+    } else {
+        println!("Stopped {name}");
     }
     Ok(())
 }
