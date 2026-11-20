@@ -1,12 +1,14 @@
 //! Private filesystem transactions and content identities shared by preparation and AOT.
 use anyhow::{Context, Result, ensure};
 use fs2::FileExt;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
+    os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
 };
 
@@ -36,6 +38,11 @@ pub fn files(root: &Path) -> Result<Inputs> {
         }
         Ok(())
     }
+    ensure!(
+        !root.is_symlink(),
+        "Snapshot directory cannot be a symlink: {}",
+        root.display()
+    );
     let mut result = Inputs::new();
     visit(root, root, &mut result)?;
     Ok(result)
@@ -67,6 +74,10 @@ pub fn digest_bytes(bytes: &[u8]) -> String {
 
 pub fn file_digest(path: &Path) -> Result<String> {
     let mut file = File::open(path).with_context(|| format!("reading {}", path.display()))?;
+    hash_reader(&mut file)
+}
+
+fn hash_reader(file: &mut File) -> Result<String> {
     let mut content = Sha256::new();
     let mut buffer = [0; 65536];
     loop {
@@ -79,24 +90,145 @@ pub fn file_digest(path: &Path) -> Result<String> {
     Ok(format!("{:x}", content.finalize()))
 }
 
-pub fn digest(
-    inputs: &Inputs,
-    identity: &Value,
-    memo: &mut BTreeMap<PathBuf, String>,
-) -> Result<String> {
+pub type Manifest = BTreeMap<String, String>;
+
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+struct Stamp {
+    device: u64,
+    inode: u64,
+    size: u64,
+    modified: (i64, i64),
+    changed: (i64, i64),
+}
+
+impl From<fs::Metadata> for Stamp {
+    fn from(metadata: fs::Metadata) -> Self {
+        Self {
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            size: metadata.len(),
+            modified: (metadata.mtime(), metadata.mtime_nsec()),
+            changed: (metadata.ctime(), metadata.ctime_nsec()),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct Entry {
+    stamp: Stamp,
+    digest: String,
+}
+
+/// The index is disposable. Persist just the last inventory to bound growth
+/// across cache generations. Concurrent writers can only evict a memoized read.
+pub struct DigestCache {
+    path: PathBuf,
+    previous: BTreeMap<PathBuf, Entry>,
+    current: BTreeMap<PathBuf, Entry>,
+}
+
+impl DigestCache {
+    pub fn load(path: PathBuf) -> Self {
+        let previous = fs::read(&path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
+        Self {
+            path,
+            previous,
+            current: BTreeMap::new(),
+        }
+    }
+
+    pub fn save(&self) -> Result<()> {
+        if self.previous != self.current {
+            // Linux also accepts non-UTF-8 paths. They participate in this
+            // snapshot but cannot be keys in the persistent JSON index.
+            let entries: BTreeMap<_, _> = self
+                .current
+                .iter()
+                .filter_map(|(path, entry)| Some((path.to_str()?, entry)))
+                .collect();
+            atomic_write(&self.path, serde_json::to_vec(&entries)?)?;
+        }
+        Ok(())
+    }
+
+    fn entry(&self, path: &Path) -> Result<Entry> {
+        let stamp = Stamp::from(fs::metadata(path)?);
+        if let Some(entry) = self.current.get(path) {
+            ensure!(
+                entry.stamp == stamp,
+                "Input {} changed during preparation; retry",
+                path.display()
+            );
+            return Ok(entry.clone());
+        }
+        if let Some(entry) = self.previous.get(path)
+            && entry.stamp == stamp
+            && entry.digest.len() == 64
+            && entry.digest.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Ok(entry.clone());
+        }
+        // A replacement between stat and open, or a writer during the read,
+        // must never associate bytes from one revision with another's stamp.
+        let mut file = File::open(path)?;
+        let opened = Stamp::from(file.metadata()?);
+        let digest = hash_reader(&mut file)?;
+        ensure!(
+            opened == Stamp::from(file.metadata()?) && opened == Stamp::from(fs::metadata(path)?),
+            "Input {} changed during hashing; retry",
+            path.display()
+        );
+        Ok(Entry {
+            stamp: opened,
+            digest,
+        })
+    }
+
+    pub fn manifest(&mut self, inputs: &Inputs) -> Result<Manifest> {
+        inputs
+            .iter()
+            .map(|(name, path)| {
+                let entry = self.entry(path)?;
+                let digest = entry.digest.clone();
+                self.current.insert(path.clone(), entry);
+                Ok((name.clone(), digest))
+            })
+            .collect()
+    }
+
+    pub fn copy_verified(&self, source: &Path, target: &Path) -> Result<()> {
+        let stamp = self.current[source].stamp;
+        let mut input = File::open(source)?;
+        let opened = input.metadata()?;
+        let permissions = opened.permissions();
+        ensure!(
+            stamp == Stamp::from(opened),
+            "Input {} changed before copying; retry",
+            source.display()
+        );
+        fs::create_dir_all(target.parent().unwrap())?;
+        let mut output = File::create(target)?;
+        std::io::copy(&mut input, &mut output)?;
+        output.set_permissions(permissions)?;
+        ensure!(
+            stamp == Stamp::from(input.metadata()?) && stamp == Stamp::from(fs::metadata(source)?),
+            "Input {} changed during copying; retry",
+            source.display()
+        );
+        Ok(())
+    }
+}
+
+pub fn digest(inputs: &Manifest, identity: &Value) -> Result<String> {
     let mut hash = Sha256::new();
     hash.update(serde_json::to_vec(&serde_json::json!([
         "content-manifest-v2",
         identity
     ]))?);
-    for (name, path) in inputs {
-        let content = if let Some(content) = memo.get(path) {
-            content.clone()
-        } else {
-            let content = file_digest(path)?;
-            memo.insert(path.clone(), content.clone());
-            content
-        };
+    for (name, content) in inputs {
         hash.update(serde_json::to_vec(&(name, content))?);
     }
     Ok(format!("{:x}", hash.finalize()))
@@ -147,6 +279,21 @@ pub fn lock(path: &Path) -> Result<File> {
     Ok(file)
 }
 
+/// A forced rebuild can publish another generation of the same input key.
+pub fn ready(root: &Path, key: &str) -> Result<bool> {
+    let marker = root.join(".ready");
+    ensure!(
+        !root.is_symlink() && !marker.is_symlink(),
+        "Runtime cache cannot use a symlink: {}",
+        root.display()
+    );
+    match fs::read(&marker) {
+        Ok(bytes) => Ok(bytes.strip_suffix(b"\n").unwrap_or(&bytes) == key.as_bytes()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
 pub fn selected(parent: &Path, key: &str) -> Result<PathBuf> {
     let pointer = parent.join(format!(".active-{key}"));
     if !pointer.is_file() {
@@ -155,10 +302,19 @@ pub fn selected(parent: &Path, key: &str) -> Result<PathBuf> {
     let selected = fs::read_to_string(pointer)?;
     let name = selected.trim();
     ensure!(
-        Path::new(name).file_name().and_then(|x| x.to_str()) == Some(name) && name.starts_with(key),
+        Path::new(name).file_name().and_then(|x| x.to_str()) == Some(name)
+            && (name == key
+                || name
+                    .strip_prefix(key)
+                    .is_some_and(|suffix| suffix.starts_with('-'))),
         "Invalid private runtime cache pointer"
     );
-    Ok(parent.join(name))
+    let root = parent.join(name);
+    ensure!(
+        !root.is_symlink(),
+        "Runtime cache directory cannot be a symlink"
+    );
+    Ok(root)
 }
 
 pub fn unique_name(key: &str) -> String {

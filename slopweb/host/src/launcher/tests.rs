@@ -88,13 +88,23 @@ fn presentation_filters_secrets_and_preserves_native_types() {
     assert!(values.contains_key("hostHome"));
 }
 #[test]
-fn content_identity_rechecks_same_size_bytes_and_memo_is_per_preparation() {
+fn persisted_file_stamps_detect_same_size_edits_and_replacements_with_restored_mtime() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("input");
     write(&path, "first");
     let times = fs::metadata(&path).unwrap().modified().unwrap();
     let inputs = BTreeMap::from([("input".into(), path.clone())]);
-    let first = files::digest(&inputs, &json!("phase"), &mut BTreeMap::new()).unwrap();
+    let index = temp.path().join("index");
+    let manifest = || {
+        let mut cache = files::DigestCache::load(index.clone());
+        let hashes = cache.manifest(&inputs).unwrap();
+        cache.save().unwrap();
+        hashes
+    };
+    let first = manifest();
+    let saved = fs::metadata(&index).unwrap().modified().unwrap();
+    assert_eq!(manifest(), first);
+    assert_eq!(fs::metadata(&index).unwrap().modified().unwrap(), saved);
     write(&path, "other");
     File::options()
         .write(true)
@@ -102,9 +112,20 @@ fn content_identity_rechecks_same_size_bytes_and_memo_is_per_preparation() {
         .unwrap()
         .set_times(std::fs::FileTimes::new().set_modified(times))
         .unwrap();
-    let second = files::digest(&inputs, &json!("phase"), &mut BTreeMap::new()).unwrap();
+    let second = manifest();
     assert_ne!(first, second);
+    let replacement = temp.path().join("replacement");
+    write(&replacement, "third");
+    File::open(&replacement)
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(times))
+        .unwrap();
+    fs::rename(replacement, path).unwrap();
+    assert_ne!(manifest(), second);
+    write(&index, "incomplete index");
+    assert_eq!(manifest()["input"], files::digest_bytes(b"third"));
 }
+
 #[test]
 fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime() {
     let temp = tempfile::tempdir().unwrap();
@@ -320,6 +341,8 @@ fn replacing_authored_bytes_during_preparation_cannot_publish_under_the_old_key(
 #[test]
 fn malicious_private_cache_pointer_and_symlink_inputs_are_rejected() {
     let temp = tempfile::tempdir().unwrap();
+    write(temp.path().join("key/.ready"), "wrong generation");
+    assert!(!files::ready(&temp.path().join("key"), "key").unwrap());
     write(temp.path().join(".active-key"), "../key-secret");
     assert!(files::selected(temp.path(), "key").is_err());
     write(temp.path().join("outside"), "secret");
@@ -420,6 +443,79 @@ impl AotFixture {
             .path()
     }
 }
+#[cfg(target_os = "linux")]
+#[test]
+fn warm_aot_reuses_the_publication_without_reading_assemblies_or_asset_payloads() {
+    use std::{
+        ffi::CString,
+        io::Read,
+        os::fd::{AsRawFd, FromRawFd},
+    };
+
+    let f = AotFixture::new();
+    let first = f.run().unwrap();
+    let build = fs::read_dir(f.cache.join("aot-builds"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    // Preserve the cache key used by publishers that hash the materialized tree.
+    let candidate_files = files::files(&build.join("candidate")).unwrap();
+    let candidate_hashes = files::DigestCache::load(f.cache.join("unused"))
+        .manifest(&candidate_files)
+        .unwrap();
+    assert_eq!(
+        build.file_name().unwrap().to_str().unwrap(),
+        files::digest(&candidate_hashes, &f.sdk.identity).unwrap()
+    );
+    fs::remove_dir_all(build.join("candidate")).unwrap();
+
+    // Opening a watched file catches either a rehash or a transient candidate
+    // copy, even if that copy is removed again before prepare returns.
+    let fd = unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) };
+    assert!(fd >= 0);
+    let mut watch = unsafe { File::from_raw_fd(fd) };
+    for path in [
+        f.bundle.join("aot-src/Probe.cs"),
+        f.prepared.join("game/Assembly-CSharp.dll"),
+        f.prepared.join("assets/fixture"),
+    ] {
+        let path = CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+        assert!(
+            unsafe { libc::inotify_add_watch(watch.as_raw_fd(), path.as_ptr(), libc::IN_OPEN) }
+                >= 0
+        );
+    }
+    assert_eq!(f.run().unwrap(), first);
+    assert!(!build.join("candidate").exists());
+    assert_eq!(
+        watch.read(&mut [0; 1024]).unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+}
+
+#[test]
+fn refreshed_outputs_with_the_same_preparation_marker_get_distinct_aot_roots() {
+    let f = AotFixture::new();
+    write(f.prepared.join(".ready"), "same preparation inputs");
+    let first = f.run().unwrap();
+    let refreshed = f.prepared.with_file_name("refreshed");
+    files::copy_tree(&f.prepared, &refreshed, |_| false).unwrap();
+    write(refreshed.join("assets/fixture"), "fresh background");
+    let second = aot::prepare(&f.bundle, &refreshed, &f.cache, &f.sdk).unwrap();
+    assert_ne!(first, second);
+    assert_eq!(
+        fs::read(first.join("assets/fixture")).unwrap(),
+        b"assets/fixture"
+    );
+    assert_eq!(
+        fs::read(second.join("assets/fixture")).unwrap(),
+        b"fresh background"
+    );
+    assert_eq!(fs::read_dir(f.cache.join("aot-builds")).unwrap().count(), 1);
+}
+
 #[test]
 fn aot_asset_changes_recompose_without_publish_and_source_changes_reuse_workspace() {
     let f = AotFixture::new();
