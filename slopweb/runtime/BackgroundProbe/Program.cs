@@ -77,35 +77,6 @@ var frames = Enumerable.Range(0, total).Select(i => $"{i:D2}.jpg").ToArray();
 bool cached = frames.All(name => File.Exists(Path.Combine(directory, name)));
 Directory.CreateDirectory(output);
 
-// Decode the original packed source without creating an engine or GPU target.
-object?[] load = [null];
-if (!(bool)sourceType.GetMethod("TryReadAll")!.Invoke(source, load)!)
-    throw new InvalidDataException("Installed background pixels could not be read");
-object loaded = load[0]!;
-object Get(object value, string name) => value.GetType().GetProperty(name)!.GetValue(value)!;
-coreType
-    .GetMethod("ReplaceCpuData")!
-    .Invoke(
-        core,
-        [
-            Get(loaded, "Width"),
-            Get(loaded, "Height"),
-            Get(loaded, "Format"),
-            Get(loaded, "Levels"),
-            Get(loaded, "MipCount"),
-            false,
-            false,
-        ]
-    );
-var cpu = Get(core, "CpuData");
-cpu.GetType().GetProperty("Swizzle")!.SetValue(cpu, Get(loaded, "Swizzle"));
-cpu.GetType().GetProperty("AlphaIsPremultiplied")!.SetValue(cpu, Get(source, "Premultiplied"));
-var originalBytes = (byte[])
-    unity
-        .GetType("UnityEngine.ImageConversion", true)!
-        .GetMethod("EncodeToPNG", [textureType])!
-        .Invoke(null, [texture])!;
-File.WriteAllBytes(Path.Combine(output, "original.png"), originalBytes);
 var tuning = mod.GetType("SlopWorld.MenuBackgroundTuning", true)!;
 object Tune(string name) => tuning.GetField(name, Static)!.GetValue(null)!;
 var offset = Tune("LayerOffset");
@@ -114,6 +85,29 @@ var offset = Tune("LayerOffset");
 // cache or require the desktop game to have run first.
 if (!cached)
 {
+    // Decode the original packed source without creating an engine or GPU target.
+    object?[] load = [null];
+    if (!(bool)sourceType.GetMethod("TryReadAll")!.Invoke(source, load)!)
+        throw new InvalidDataException("Installed background pixels could not be read");
+    object loaded = load[0]!;
+    object Get(object value, string name) => value.GetType().GetProperty(name)!.GetValue(value)!;
+    coreType
+        .GetMethod("ReplaceCpuData")!
+        .Invoke(
+            core,
+            [
+                Get(loaded, "Width"),
+                Get(loaded, "Height"),
+                Get(loaded, "Format"),
+                Get(loaded, "Levels"),
+                Get(loaded, "MipCount"),
+                false,
+                false,
+            ]
+        );
+    var cpu = Get(core, "CpuData");
+    cpu.GetType().GetProperty("Swizzle")!.SetValue(cpu, Get(loaded, "Swizzle"));
+    cpu.GetType().GetProperty("AlphaIsPremultiplied")!.SetValue(cpu, Get(source, "Premultiplied"));
     BackgroundBake.EnsureFrames(
         unity,
         bake,
@@ -126,24 +120,23 @@ if (!cached)
         directory,
         frames
     );
-    cached = true;
 }
 
-if (cached)
-{
-    Directory.CreateDirectory(Path.Combine(output, key));
-    foreach (string name in frames)
-        File.Copy(Path.Combine(directory, name), Path.Combine(output, key, name), true);
-}
+Directory.CreateDirectory(Path.Combine(output, key));
+foreach (string name in frames)
+    File.Copy(Path.Combine(directory, name), Path.Combine(output, key, name), true);
+
+// Native onset frame zero contains the downsampled original, before any grading.
+var publishedFrames = frames.Select(name => key + "/" + name).ToArray();
 var report = new
 {
     source = sourceName,
-    original = "original.png",
+    original = publishedFrames[0],
     width,
     height,
     key,
-    cached,
-    frames = cached ? frames.Select(name => key + "/" + name).ToArray() : [],
+    cached = true,
+    frames = publishedFrames,
     animation = new
     {
         onset = Tune("Onset"),
@@ -170,8 +163,8 @@ Console.WriteLine(
             width,
             height,
             key,
-            cached,
-            frames = cached ? total : 0,
+            cached = true,
+            frames = total,
         }
     )
 );

@@ -4,12 +4,12 @@ import {loadBackground} from '../../runtime/wwwroot/loading-background.js';
 
 test('workspace dimming shades the completed backdrop and leaves loading undimmed', async t => {
   const manifest = {
-    cached: true, width: 100, height: 50, frames: ['frame'],
+    cached: true, width: 100, height: 50, original:'frame', frames: ['frame'],
     animation: {onsetSeconds: 1, onset: 1, depths: 1, phases: 1, offsetX: 2, offsetY: 3},
   };
-  let closed = 0;
+  let closed = 0, downloads = 0;
   t.mock.method(globalThis, 'fetch', async url => String(url).endsWith('manifest.json')
-    ? {ok: true, json: async () => manifest} : {ok: true, blob: async () => 'frame'});
+    ? {ok: true, json: async () => manifest} : {ok: true, blob: async () => {downloads++;return 'frame';}});
   const location = Object.getOwnPropertyDescriptor(globalThis, 'location');
   const bitmap = Object.getOwnPropertyDescriptor(globalThis, 'createImageBitmap');
   Object.defineProperty(globalThis, 'location', {configurable: true, value: {href: 'http://localhost/'}});
@@ -44,7 +44,8 @@ test('workspace dimming shades the completed backdrop and leaves loading undimme
     assert.equal(context.fillStyle, '#abc');
   }
   background.dispose();
-  assert.equal(closed, 1);
+  assert.equal(downloads, 1);
+  assert.equal(closed, 2);
 });
 
 test('original background publishes before frame decoding and survives an unavailable cache', async t => {
