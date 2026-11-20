@@ -24,7 +24,7 @@ export class HostFonts {
     if (!this.catalogs.has(family)) {
       const pending=(async()=>{
         const started=performance.now();
-        const response=await this.request('/host/fonts/catalog?family='+encodeURIComponent(family));
+        const response=await this.request('./host/fonts/catalog?family='+encodeURIComponent(family));
         if (!response.ok) throw Error('Host font catalog unavailable');
         const value=await response.json();
         if (value.version!==1 || !Array.isArray(value.faces) || !Array.isArray(value.order)) throw Error('Unsupported host font catalog');
@@ -44,7 +44,7 @@ export class HostFonts {
     if (!/^[a-f0-9]{64}$/.test(hash)) throw Error('Invalid host font hash');
     if (!this.files.has(hash)) {
       const pending=(async()=>{
-        const started=performance.now(),url='/host/fonts/files/'+hash;
+        const started=performance.now(),url='./host/fonts/files/'+hash;
         let cache;
         try {cache=await this.storage?.open('slopweb.font-files.v1');} catch { /* Storage denial must not prevent text rendering. */ }
         let bytes;

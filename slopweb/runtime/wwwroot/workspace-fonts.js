@@ -58,7 +58,7 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
           const headers = {'Content-Type':'application/json'};
           if (retry) headers['x-slop-font-retry'] = '1';
           retry = false;
-          const response = await request('/host/fonts', {method:'POST', headers, body:JSON.stringify({...JSON.parse(selected),protocol:2})});
+          const response = await request('./host/fonts', {method:'POST', headers, body:JSON.stringify({...JSON.parse(selected),protocol:2})});
           if (!response.ok) throw Error('Native font preparation unavailable');
           const result = await response.json();
           if (disposed || selected !== wanted) continue; // Stale work is never marked installed.
