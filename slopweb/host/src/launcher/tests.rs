@@ -125,6 +125,13 @@ fn persisted_file_stamps_detect_same_size_edits_and_replacements_with_restored_m
     write(&index, "incomplete index");
     assert_eq!(manifest()["input"], files::digest_bytes(b"third"));
 }
+fn assert_published_eco_digest(root: &Path, bytes: &[u8]) {
+    use crate::archive_identity::{ARCHIVE, MARKER, content_tag, metadata_stamp};
+    let stamp = metadata_stamp(&fs::metadata(root.join(ARCHIVE)).unwrap());
+    let marker = File::open(root.join(MARKER)).unwrap();
+    let tag = format!("\"sha256-{}\"", files::digest_bytes(bytes));
+    assert_eq!(content_tag(marker, &stamp).as_deref(), Some(tag.as_str()));
+}
 
 #[test]
 fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime() {
@@ -143,6 +150,8 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
         calls.lock().unwrap().push(phase.to_owned());
         if phase == "fonts" {
             appearance::write_preferences(root, values)?;
+        } else if phase == "assets" {
+            write(root.join(crate::archive_identity::ARCHIVE), "eco");
         } else {
             write(root.join(format!("{phase}.fixture")), phase);
         }
@@ -189,6 +198,8 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     )
     .unwrap();
     assert_ne!(first, second);
+    assert_published_eco_digest(&first, b"eco");
+    assert_published_eco_digest(&second, b"eco");
     assert_eq!(calls.lock().unwrap().len(), 4);
     values.insert("sidebarHidden".into(), json!(true));
     preparation::prepare(
@@ -499,12 +510,16 @@ fn warm_aot_reuses_the_publication_without_reading_assemblies_or_asset_payloads(
 fn refreshed_outputs_with_the_same_preparation_marker_get_distinct_aot_roots() {
     let f = AotFixture::new();
     write(f.prepared.join(".ready"), "same preparation inputs");
+    write(f.prepared.join(crate::archive_identity::ARCHIVE), "eco");
+    crate::archive_identity::publish(&f.prepared, &files::digest_bytes(b"eco")).unwrap();
     let first = f.run().unwrap();
     let refreshed = f.prepared.with_file_name("refreshed");
     files::copy_tree(&f.prepared, &refreshed, |_| false).unwrap();
     write(refreshed.join("assets/fixture"), "fresh background");
     let second = aot::prepare(&f.bundle, &refreshed, &f.cache, &f.sdk).unwrap();
     assert_ne!(first, second);
+    assert_published_eco_digest(&first, b"eco");
+    assert_published_eco_digest(&second, b"eco");
     assert_eq!(
         fs::read(first.join("assets/fixture")).unwrap(),
         b"assets/fixture"

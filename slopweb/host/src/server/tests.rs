@@ -854,3 +854,204 @@ async fn asset_reload_revalidates_and_replacements_invalidate() {
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
     assert_eq!(missing.headers()["cache-control"], "no-store");
 }
+
+#[tokio::test]
+async fn framework_gzip_negotiates_lengths_mime_and_cache_validators() {
+    let host = host(ConnectionSource::Unconfigured, None).await;
+    let root = host._root.as_ref().unwrap().path();
+    let framework = root.join("_framework");
+    std::fs::create_dir(&framework).unwrap();
+    let plain = b"wasm".repeat(32);
+    // gzip of the identity bytes, with no filename or timestamp.
+    let gzip = [
+        31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 43, 79, 44, 206, 45, 31, 64, 12, 0, 66, 155, 216, 32,
+        128, 0, 0, 0,
+    ];
+    let file = framework.join("runtime.wasm");
+    std::fs::write(&file, &plain).unwrap();
+    std::fs::write(framework.join("runtime.wasm.gz"), gzip).unwrap();
+    let url = format!("{}/_framework/runtime.wasm", host.url);
+    let client = client();
+    let raw = client.get(&url).send().await.unwrap();
+    let raw_tag = raw.headers()["etag"].clone();
+    assert_eq!(raw.headers()["vary"], "Accept-Encoding");
+    assert!(!raw.headers().contains_key("content-encoding"));
+    assert_eq!(raw.bytes().await.unwrap().as_ref(), plain);
+
+    for encoding in ["br, GZip", "br;q=1, *;q=0.5", "gzip;Q=0.125, identity;q=0"] {
+        let encoded = client
+            .get(&url)
+            .header("accept-encoding", encoding)
+            .header("if-none-match", &raw_tag)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(encoded.status(), 200);
+        let tag = encoded.headers()["etag"].clone();
+        assert_ne!(tag, raw_tag);
+        assert_eq!(encoded.headers()["content-encoding"], "gzip");
+        assert_eq!(encoded.headers()["content-type"], "application/wasm");
+        assert_eq!(encoded.headers()["content-length"], gzip.len().to_string());
+        assert_eq!(
+            encoded.headers()["x-slop-decoded-length"],
+            plain.len().to_string()
+        );
+        assert_eq!(encoded.headers()["cache-control"], "private, no-cache");
+        assert_eq!(encoded.headers()["vary"], "Accept-Encoding");
+        assert_eq!(encoded.bytes().await.unwrap().as_ref(), gzip);
+        let head = client
+            .head(&url)
+            .header("accept-encoding", encoding)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(head.headers()["etag"], tag);
+        assert_eq!(head.headers()["content-length"], gzip.len().to_string());
+        assert!(head.bytes().await.unwrap().is_empty());
+        let validated = client
+            .get(&url)
+            .header("accept-encoding", encoding)
+            .header("if-none-match", tag)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(validated.status(), 304);
+        assert_eq!(validated.headers()["vary"], "Accept-Encoding");
+        assert!(validated.bytes().await.unwrap().is_empty());
+    }
+    for encoding in [
+        "gzip;q=0,*;q=1",
+        "br",
+        "gzip;q=0.5,identity;q=0.6",
+        "gzip;q=1.2",
+    ] {
+        let raw = client
+            .get(&url)
+            .header("accept-encoding", encoding)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(raw.headers()["etag"], raw_tag);
+        assert_eq!(raw.bytes().await.unwrap().as_ref(), plain);
+    }
+    std::fs::remove_file(framework.join("runtime.wasm.gz")).unwrap();
+    let fallback = client
+        .get(&url)
+        .header("accept-encoding", "gzip")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(fallback.headers()["etag"], raw_tag);
+    let unavailable = client
+        .get(&url)
+        .header("accept-encoding", "gzip, identity;q=0")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unavailable.status(), 406);
+    assert_eq!(unavailable.headers()["cache-control"], "no-store");
+    assert_eq!(unavailable.headers()["vary"], "Accept-Encoding");
+}
+
+#[tokio::test]
+async fn gzip_siblings_obey_static_containment_and_require_a_framework_identity_file() {
+    let host = host(ConnectionSource::Unconfigured, None).await;
+    let root = host._root.as_ref().unwrap().path();
+    let framework = root.join("_framework");
+    std::fs::create_dir(&framework).unwrap();
+    let outside = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(framework.join("loader.js"), b"script").unwrap();
+    std::os::unix::fs::symlink(outside.path(), framework.join("loader.js.gz")).unwrap();
+    std::fs::write(framework.join("missing.js.gz"), b"orphan").unwrap();
+    std::fs::write(root.join("index.html.gz"), b"outside framework").unwrap();
+    let client = client();
+    for (path, status) in [
+        ("/_framework/loader.js", 403),
+        ("/_framework/missing.js", 404),
+    ] {
+        let response = client
+            .get(format!("{}{path}", host.url))
+            .header("accept-encoding", "gzip")
+            .header("if-none-match", "*")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), status);
+    }
+    let page = client
+        .get(&host.url)
+        .header("accept-encoding", "gzip")
+        .send()
+        .await
+        .unwrap();
+    assert!(!page.headers().contains_key("content-encoding"));
+    assert_eq!(page.text().await.unwrap(), "workspace");
+}
+
+#[tokio::test]
+async fn eco_content_validates_across_roots_and_stale_or_unusable_bindings_fall_back() {
+    use crate::archive_identity::{ARCHIVE, MARKER, publish};
+    use sha2::{Digest, Sha256};
+    let first = host(ConnectionSource::Unconfigured, None).await;
+    let second = host(ConnectionSource::Unconfigured, None).await;
+    let digest = format!("{:x}", Sha256::digest(b"archive"));
+    let tag = format!("\"sha256-{digest}\"");
+    let client = client();
+    for host in [&first, &second] {
+        let root = host._root.as_ref().unwrap().path();
+        std::fs::create_dir(root.join("assets")).unwrap();
+        std::fs::write(root.join(ARCHIVE), b"archive").unwrap();
+        publish(root, &digest).unwrap();
+        let url = format!("{}/{ARCHIVE}", host.url);
+        let head = client.head(&url).send().await.unwrap();
+        assert_eq!(head.headers()["etag"], tag);
+        assert_eq!(head.headers()["x-slop-decoded-length"], "7");
+        let cached = client
+            .get(&url)
+            .header("if-none-match", format!("W/{tag}"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(cached.status(), 304);
+    }
+    let root = second._root.as_ref().unwrap().path();
+    let url = format!("{}/{ARCHIVE}", second.url);
+    let asset = root.join(ARCHIVE);
+    std::fs::write(root.join("replacement"), b"changed").unwrap();
+    std::fs::rename(root.join("replacement"), &asset).unwrap();
+    let changed = client
+        .get(&url)
+        .header("if-none-match", &tag)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(changed.status(), 200);
+    assert_ne!(changed.headers()["etag"], tag);
+    assert_eq!(changed.bytes().await.unwrap().as_ref(), b"changed");
+    let changed_digest = format!("{:x}", Sha256::digest(b"changed"));
+    publish(root, &changed_digest).unwrap();
+    let fresh = client.head(&url).send().await.unwrap();
+    assert_eq!(
+        fresh.headers()["etag"],
+        format!("\"sha256-{changed_digest}\"")
+    );
+
+    let marker = root.join(MARKER);
+    let outside = tempfile::NamedTempFile::new().unwrap();
+    std::fs::copy(&marker, outside.path()).unwrap();
+    std::fs::remove_file(&marker).unwrap();
+    std::os::unix::fs::symlink(outside.path(), &marker).unwrap();
+    let fallback = client.head(&url).send().await.unwrap();
+    assert!(
+        fallback.headers()["etag"]
+            .to_str()
+            .unwrap()
+            .starts_with("W/")
+    );
+    std::fs::remove_file(&marker).unwrap();
+    std::fs::write(&marker, "malformed").unwrap();
+    assert_eq!(
+        client.head(&url).send().await.unwrap().headers()["etag"],
+        fallback.headers()["etag"]
+    );
+}

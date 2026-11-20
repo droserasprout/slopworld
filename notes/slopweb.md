@@ -119,7 +119,11 @@ invalidate text layout and row caches.
 
 Static assets use private browser caching with revalidation on every reuse;
 the static-file owner supplies validators so unchanged reloads avoid body transfers.
-Its `X-Slop-Decoded-Length` header carries the original file size through proxy
+Preparation binds the Eco archive's SHA-256 to the final file in each interpreted
+or AOT runtime. The host checks that binding on the opened archive, so identical
+copies retain their validator and later file changes invalidate it. Framework
+assets negotiate staged gzip siblings with representation-specific validators.
+`X-Slop-Decoded-Length` gives the identity file size under host or proxy
 compression; archive startup validates decoded bytes against that size.
 The large game archive has a separate CacheStorage entry, revalidated by HEAD
 and published after complete decoded-body validation. Managed upload and cache

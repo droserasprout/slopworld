@@ -3,6 +3,7 @@ use super::{
     appearance,
     files::{self, Inputs},
 };
+use crate::archive_identity;
 use anyhow::{Result, ensure};
 use fs2::FileExt;
 use serde_json::{Map, Value, json};
@@ -62,6 +63,20 @@ fn eco_archive(source: &Path, destination: &Path) -> Result<()> {
     }
     archive.finish()?;
     Ok(())
+}
+
+// The immutable assets component outlives individual compositions. Keep its
+// digest inventory separate from the game and bundle inputs checked on every launch.
+fn copy_eco_archive(component: &Path, root: &Path, cache: &Path) -> Result<()> {
+    let inputs = files::inputs(component, &[archive_identity::ARCHIVE])?;
+    let Some(source) = inputs.get(archive_identity::ARCHIVE) else {
+        return Ok(());
+    };
+    let mut contents = files::DigestCache::load(cache.join("eco-digest-v1.json"));
+    let hashes = contents.manifest(&inputs)?;
+    contents.copy_verified(source, &root.join(archive_identity::ARCHIVE))?;
+    archive_identity::publish(root, &hashes[archive_identity::ARCHIVE])?;
+    contents.save()
 }
 
 pub fn native_phase(bundle: &Path, game: &Path, phase: &str, root: &Path) -> Result<()> {
@@ -184,7 +199,7 @@ pub fn prepare(
     let authored_digests = contents.manifest(&authored)?;
     let key = files::digest(
         &authored_digests,
-        &json!([keys, appearance]),
+        &json!(["archive-identity-v1", keys, appearance]),
     )?[..24]
         .to_owned();
     contents.save()?;
@@ -257,8 +272,11 @@ pub fn prepare(
     };
     copy_authored("web", &root)?;
     for component in &components {
-        files::copy_tree(component, &root, |name| name == ".ready")?;
+        files::copy_tree(component, &root, |name| {
+            name == ".ready" || name == archive_identity::ARCHIVE
+        })?;
     }
+    copy_eco_archive(&components[1], &root, cache)?;
     if authored.keys().any(|name| name.starts_with("mod/")) {
         copy_authored("mod", &root.join("mod"))?;
     }
