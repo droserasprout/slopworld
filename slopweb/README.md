@@ -194,7 +194,10 @@ Radio and Spotify use the host daemon’s audio output.
 Ctrl+V pastes text into the terminal. Ready Codex agents also accept PNG images.
 Ctrl+C or Ctrl+Shift+C copies selected text. With no selection, Ctrl+C interrupts
 the terminal process. Context menu actions use the browser’s clipboard permissions.
-Open settings with the gear icon.
+Open settings with the gear icon. Choosing a language in the native menu reloads
+the workspace and downloads that translation. English stays available for fallback.
+The selection is retained in the workspace URL and, when local preferences are enabled,
+in this browser origin.
 
 Web and game may share a terminal: the browser sends new pane sizes on local
 geometry changes or reconnect, and does not continually override another client's

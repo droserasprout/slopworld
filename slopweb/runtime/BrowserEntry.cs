@@ -10,6 +10,37 @@ public partial class Probe
     private static bool coreInstalled;
     private static bool entryStarted;
 
+    private const string Languages = "/Data/Core/Languages/";
+    private static readonly CoreLanguagePacks languagePacks = new(Languages);
+    private static Action<string>? switchLanguage;
+
+    [JSExport]
+    public static string ConfigureCoreLanguage(string folder)
+    {
+        var nativeDefault = (string)
+            Invoke("Assembly-CSharp", "Verse.LanguageDatabase", "SystemLanguageFolderName")!;
+        return languagePacks.Choose(folder, nativeDefault);
+    }
+
+    [JSExport]
+    public static void EnableLanguageMenu(
+        [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> select
+    ) => switchLanguage = select;
+
+    [JSExport]
+    public static void InstallCoreLanguage(byte[] archive) => languagePacks.Install(archive);
+
+    public static string StartupLanguage(string nativeDefault) =>
+        languagePacks.StartupLanguage(nativeDefault);
+
+    public static bool SwitchLanguage(string folder)
+    {
+        if (switchLanguage == null)
+            return false;
+        switchLanguage(folder);
+        return true;
+    }
+
     [JSExport]
     public static int InstallCore(byte[] archive)
     {
@@ -19,6 +50,11 @@ public partial class Probe
         foreach (var entry in zip.Entries)
         {
             var path = Path.GetFullPath("/" + entry.FullName);
+            if (entry.Name.Length == 0 && path.StartsWith(Languages, StringComparison.Ordinal))
+            {
+                languagePacks.Register(path[Languages.Length..].TrimEnd('/'));
+                continue;
+            }
             if (
                 !(
                     path.StartsWith("/Data/Core/", StringComparison.Ordinal)
@@ -211,6 +247,7 @@ public partial class Probe
     public static void StopEntry()
     {
         var engine = entryEngine;
+        switchLanguage = null;
         entryEngine = null;
         if (engine == null)
             return;

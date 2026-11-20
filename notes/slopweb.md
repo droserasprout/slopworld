@@ -68,6 +68,10 @@ Host preparation raw-copies the Eco pack from installed ZIP members so Waylith c
 map it at `/Assets.zip` before its first synchronous read. Entry retains the baked
 catalogs, Core textures (including def icons), fonts, UI sounds and base menu art.
 The pack omits expansion menu backgrounds and non-UI audio except the placeholder.
+Core carries English fallback data and the folder names Verse uses to enumerate
+installed languages. Other translations are separate packs, fetched before Entry
+when selected. Native language controls reload the workspace with the selected
+folder so Entry also rebuilds its browser-only mod content and keybindings.
 The workspace soundtrack and prepared background frames have separate delivery paths.
 Assembly loading, archive transfer, font installation and startup stages yield to
 browser painting between work batches; individual synchronous managed calls still

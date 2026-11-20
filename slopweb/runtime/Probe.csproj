@@ -19,6 +19,7 @@
     <Compile Include="BrowserLifecycle.cs" />
     <Compile Include="BrowserMod.cs" />
     <Compile Include="BrowserEntry.cs" />
+    <Compile Include="CoreLanguagePacks.cs" />
     <Compile Include="BrowserWorkspace.cs" />
     <Compile Include="BrowserGlyphCache.cs" />
     <Compile Include="BrowserCursor.cs" />
