@@ -335,8 +335,14 @@ public partial class Probe
     public static int InstallModContent(byte[] archive) =>
         (int)Invoke("Adapters", "BrowserAdapters.BrowserModContent", "Install", archive)!;
 
+    static readonly JsonElement EmptyGuiBatch = JsonElement.Parse("[]"u8);
+
     [JSExport]
-    public static string WorkspaceUpdate(string batch, double elapsed)
+    public static string WorkspaceUpdate(string batch, double elapsed) =>
+        WorkspaceUpdatePacket(batch, elapsed, -1);
+
+    [JSExport]
+    public static string WorkspaceUpdatePacket(string batch, double elapsed, double retainedPacket)
     {
         if (entryEngine == null)
             throw new InvalidOperationException("Workspace engine is stopped");
@@ -344,7 +350,9 @@ public partial class Probe
         try
         {
             Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "BeginFrame", elapsed);
-            Invoke("Adapters", "BrowserAdapters.BrowserCursor", "Update", batch);
+            using var events = batch == "[]" ? null : JsonDocument.Parse(batch);
+            var items = events?.RootElement ?? EmptyGuiBatch;
+            Invoke("Adapters", "BrowserAdapters.BrowserCursor", "Update", items);
             Invoke(
                 "SlopWorld",
                 "SlopWorld.DaemonClient",
@@ -357,7 +365,14 @@ public partial class Probe
             hub.GetType().GetMethod("Update")!.Invoke(hub, null);
             Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Update");
             var frame = (string)
-                Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Frame", batch)!;
+                Invoke(
+                    "Adapters",
+                    "BrowserAdapters.WorkspaceDrawing",
+                    "Frame",
+                    items,
+                    retainedPacket,
+                    false
+                )!;
             // Full ModBootstrap is absent in Entry. Preserve its native dirty-save pump.
             var settings = Type("SlopWorld", "SlopWorld.Settings")
                 .GetProperty("S")!
@@ -430,21 +445,24 @@ public partial class Probe
                     break;
                 await Task.Delay(16);
             }
-            if (session == null)
+            if (session != null)
             {
-                if (!string.IsNullOrEmpty(requestedSession))
-                    throw new InvalidOperationException("No matching live session for workspace");
-                // Keep the UI and normal update/reconnect pump available even if
-                // the daemon was unavailable throughout the startup deadline.
-                using var frame = JsonDocument.Parse(
-                    (string)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Frame", "[]")!
-                );
-                return frame.RootElement.GetProperty("commands").GetRawText();
+                var name = (string)session.GetType().GetField("Name")!.GetValue(session)!;
+                Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "Open", name);
             }
-            var name = (string)session.GetType().GetField("Name")!.GetValue(session)!;
-            var window = Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "Open", name)!;
+            else if (!string.IsNullOrEmpty(requestedSession))
+                throw new InvalidOperationException("No matching live session for workspace");
+            // The first presentation needs native chrome, layout and deferred windows
+            // even when no terminal is open. It seeds the same resources as live frames.
             return (string)
-                Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Repaint", window)!;
+                Invoke(
+                    "Adapters",
+                    "BrowserAdapters.WorkspaceDrawing",
+                    "Frame",
+                    EmptyGuiBatch,
+                    -1d,
+                    true
+                )!;
         }
         catch (Exception e)
         {

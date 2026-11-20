@@ -9,11 +9,14 @@ internal sealed class BrowserPacketCache
 {
     Command[]? previous;
     string? packet;
+    long generation;
+    internal long PacketId { get; private set; }
 
     internal void Clear()
     {
         previous = null;
         packet = null;
+        PacketId = 0;
     }
 
     internal string? Find(List<Command> commands)
@@ -35,9 +38,22 @@ internal sealed class BrowserPacketCache
         if (json.Length > 2 * 1024 * 1024 || commands.Count > 4096)
             return;
         // Bound geometry independently of its compressed JSON representation.
+        bool screenOnly = true;
         int floats = 0;
         foreach (var command in commands)
         {
+            screenOnly &=
+                command.kind
+                    is "fill"
+                        or "text"
+                        or "imageTexture"
+                        or "imageBatch"
+                        or "targetTexture"
+                        or "matrix"
+                        or "group"
+                        or "clipScreen"
+                        or "clip"
+                        or "pop";
             floats += command.value switch
             {
                 float[] a => a.Length,
@@ -53,6 +69,10 @@ internal sealed class BrowserPacketCache
         }
         previous = commands.Select(c => new Command(c.kind, Copy(c.value))).ToArray();
         packet = json;
+        // Only a caller retaining this exact screen packet can acknowledge it.
+        // Resource and target mutations must always travel as ordered commands.
+        if (screenOnly && generation < 9_007_199_254_740_991L)
+            PacketId = ++generation;
     }
 
     static bool Bits(ReadOnlySpan<float> a, ReadOnlySpan<float> b) =>

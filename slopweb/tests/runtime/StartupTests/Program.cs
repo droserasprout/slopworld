@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 
 // Exercise the actual exported startup coordinator with a deterministic catalog.
 // Rendering/native dispatch remain covered by the underlying-workspace checks.
@@ -12,8 +13,8 @@ static class Check
 
     static async Task Main()
     {
-        FontCoverageChecks.Run();
         CoreLanguageChecks.Run();
+        FontCoverageChecks.Run();
         const int mib = 1024 * 1024;
         Expect(
             BrowserAdapters.BrowserSocket.FitsOutgoing(0, 20 * mib + 128),
@@ -94,6 +95,12 @@ static class Check
             }
             Expect(invalid, "Non-origin URL was accepted");
         }
+        foreach (string batch in new[] { "[]", "[{\"kind\":\"down\"},{\"kind\":\"up\"}]" })
+        {
+            Probe.Calls.Clear();
+            Expect(Probe.WorkspaceUpdatePacket(batch, 1, 0) == batch, "GUI input batch changed");
+            Expect(Probe.Calls[^1] == "EndFrame", "Input processing did not finish the frame");
+        }
         var hub = Hub.Instance;
         var timer = Stopwatch.StartNew();
         Expect(
@@ -113,11 +120,12 @@ static class Check
             new Session("requested", true),
         ];
         Expect(
-            await Probe.WorkspaceFrame("test", "") == "[]" && Probe.Opened == "first",
+            await Probe.WorkspaceFrame("test", "") == "[\"chrome\"]" && Probe.Opened == "first",
             "Default live session selection failed"
         );
         Expect(
-            await Probe.WorkspaceFrame("test", "requested") == "[]" && Probe.Opened == "requested",
+            await Probe.WorkspaceFrame("test", "requested") == "[\"chrome\"]"
+                && Probe.Opened == "requested",
             "Explicit selection attached another session"
         );
         Probe.Opened = null;
@@ -155,6 +163,7 @@ public sealed class Session(string name, bool alive)
 public sealed class Hub
 {
     public static readonly Hub Instance = new();
+    public static Hub S => Instance;
     public List<Session> Sessions { get; set; } = [];
     public long SessionsVersion { get; set; } = 1;
 
@@ -168,6 +177,7 @@ public partial class Probe
     static readonly object entryEngine = new();
     public static string? Opened;
     public static readonly List<string> Calls = new();
+    static JsonElement cursorBatch;
     public static bool AcceptFallback = true;
 
     static Type Type(string assembly, string name) => typeof(Hub);
@@ -184,10 +194,21 @@ public partial class Probe
             Opened = (string)args[0];
             return new object();
         }
-        if (method == "Repaint")
-            return "[]";
+        if (owner == "BrowserAdapters.BrowserCursor" && method == "Update")
+            cursorBatch = (JsonElement)args[0];
         if (method == "Frame")
-            return "{\"commands\":[\"chrome\"]}";
+        {
+            var batch = (JsonElement)args[0];
+            if (!(bool)args[2])
+            {
+                if (!batch.Equals(cursorBatch))
+                    throw new Exception("Cursor and GUI did not share the parsed batch");
+                return batch.GetRawText();
+            }
+            if (batch.GetArrayLength() != 0)
+                throw new Exception("Initial frame did not request the complete native traversal");
+            return "[\"chrome\"]";
+        }
         return null;
     }
 }

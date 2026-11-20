@@ -174,29 +174,20 @@ try {
                 // every packet before a font redraw can refer to its image uploads
                 // or retained targets. The loading screen still covers this canvas.
                 drawing.renderGui(canvas, commands);
+                let frames = 1;
                 if (parameters.has('nativeFonts') && await (await import('./font-delivery.js')).warmWorkspaceFonts(exports.Probe)) {
                     await yieldStartupPaint();
                     commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', 0)).commands;
                     drawing.renderGui(canvas, commands);
+                    frames++;
                 }
-                console.log('Browser: workspace opened');
-                for (let frame = 0; frame < 30; frame++) {
-                    await yieldStartupPaint(true);
-                    commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', frame / 60)).commands;
-                    drawing.renderGui(canvas, commands);
-                    if (parameters.has('nativeFonts') && await (await import('./font-delivery.js')).warmWorkspaceFonts(exports.Probe)) {
-                        await yieldStartupPaint();
-                        commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', frame / 60)).commands;
-                        drawing.renderGui(canvas, commands);
-                    }
-                    if (frame % 10 === 9) console.log('Browser: workspace frame ' + (frame + 1));
+                workspace = {frames, commands: commands.length, textures};
+                if (parameters.has('profile')) {
+                    Object.assign(workspace, drawing.renderGuiProbe(commands, false, canvas));
+                    workspace.fonts = JSON.parse(exports.Probe.WorkspaceFontSnapshot());
+                    workspace.game = JSON.parse(exports.Probe.GameSnapshot());
                 }
-                workspace = drawing.renderGuiProbe(commands, false, canvas);
-                workspace.frames = 30;
-                workspace.fonts = JSON.parse(exports.Probe.WorkspaceFontSnapshot());
-                workspace.textures = textures;
-                workspace.game = JSON.parse(exports.Probe.GameSnapshot());
-                workspace.live = (await import('./workspace.js')).startWorkspace(exports.Probe, canvas, 30 / 60);
+                workspace.live = (await import('./workspace.js')).startWorkspace(exports.Probe, canvas, 0);
                 document.body.classList.add('ready');
                 window.__loading?.finish();
             } else throw new Error('Entry did not finish loading during startup');

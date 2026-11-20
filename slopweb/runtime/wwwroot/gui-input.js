@@ -29,18 +29,20 @@ export function attachGuiInput(canvas, managed) {
     const inputQueueMs=queuedAt===null?0:performance.now()-queuedAt;queuedAt=null;
     const profiling = managed.profileFrame;
     const started = profiling ? performance.now() : 0;
-    const raw = managed.GuiInputFrame(JSON.stringify(batch));
+    const raw = managed.GuiInputFrame(JSON.stringify(batch),decoder.packetId);
     const managedEnd = profiling ? performance.now() : 0;
     const result = {...decoder.decode(raw)};
     const parsed = profiling ? performance.now() : 0;
     // Profile timings change every frame even when commands do not. Compare only
     // commands in that mode; ordinary frames can use their existing wire identity.
-    const replay=reuse.prepare(result.commands,canvas.width,canvas.height,guiRenderRevision(),managed.allowFrameReuse===true,result.profile?null:raw);
+    const packet = result.profile ? null : decoder.previous?.raw ?? raw;
+    const replay = reuse.prepare(result.commands, canvas.width, canvas.height,
+      guiRenderRevision(), managed.allowFrameReuse === true, packet);
     if(!replay.skip) {
       canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
       managed.drawBackground?.(canvas.getContext('2d'));
       renderGui(canvas, result.commands);
-      reuse.commit(replay.key,canvas.width,canvas.height,guiRenderRevision());
+      reuse.commit(replay.key,canvas.width,canvas.height,guiRenderRevision(),result.commands);
     }
     const painted = profiling ? performance.now() : 0;
     result.presentationUnchanged=replay.skip;

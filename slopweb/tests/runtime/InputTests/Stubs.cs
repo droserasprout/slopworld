@@ -127,6 +127,7 @@ namespace BrowserAdapters
         public double LastResourceSweepMs,
             LastSerializationMs;
         public bool LastPacketReused;
+        public long PacketId;
         public Action? OnDrain;
 
         public static BrowserGui Install() => new();

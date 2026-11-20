@@ -45,10 +45,14 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
     int windowDepth;
     public double LastResourceSweepMs { get; private set; }
     public double LastSerializationMs { get; private set; }
+    public long PacketId => packetCacheEnabled ? packetCache.PacketId : 0;
     public bool LastPacketReused { get; private set; }
 
     public static BrowserGui Install()
     {
+        // Retire the previous backend's packet. The shared cache retains its generation
+        // across Clear, so a live JS decoder cannot acknowledge the new backend by accident.
+        packetCache.Clear();
         var gui = new BrowserGui();
         GuiBackend.Current = gui;
         return gui;
@@ -73,13 +77,13 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
     {
         long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
         FlushAtlasImages();
-        CollectImages();
-        foreach (var pair in targets.ToArray())
+        int releasesStart = commands.Count;
+        foreach (var pair in images)
+            if (!pair.Value.Texture.TryGetTarget(out var texture) || texture == null)
+                Emit("releaseImage", pair.Key);
+        foreach (var pair in targets)
             if (!pair.Value.TryGetTarget(out var target) || target == null || !target.IsCreated())
-            {
                 Emit("releaseTarget", pair.Key);
-                targets.Remove(pair.Key);
-            }
         long swept = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
         var result = packetCacheEnabled ? packetCache.Find(commands) : null;
         LastPacketReused = result != null;
@@ -95,11 +99,21 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
             LastSerializationMs = (Stopwatch.GetTimestamp() - swept) * 1000d / Stopwatch.Frequency;
         }
         CommitRows();
+        // Keep ownership until serialization succeeds so a failed drain retries releases.
+        for (int i = releasesStart; i < commands.Count; i++)
+        {
+            var release = commands[i];
+            if (release.kind == "releaseImage")
+                images.Remove((int)release.value);
+            else
+                targets.Remove((int)release.value);
+        }
         commands.Clear();
         commandState.Clear();
         outsideTargetQuads = 0;
         pendingImages.Clear();
         pendingAtlasImages.Clear();
+        pendingAtlasIndices.Clear();
         return result;
     }
 
@@ -108,10 +122,14 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
         recordingRow = null;
         ClearPendingRows();
         // Discarded layout/input draws never delivered their image definitions.
-        foreach (int id in pendingImages)
-            images.Remove(id);
+        foreach (var (id, previous) in pendingImages)
+            if (previous == null)
+                images.Remove(id);
+            else
+                images[id] = previous;
         pendingImages.Clear();
         pendingAtlasImages.Clear();
+        pendingAtlasIndices.Clear();
         commands.Clear();
         commandState.Clear();
         outsideTargetQuads = 0;
@@ -713,7 +731,13 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
     {
         if (!target.IsCreated() && !target.Create())
             throw new InvalidOperationException("Browser GUI render target could not be created");
-        targets[target.GetInstanceID()] = new WeakReference<RenderTexture>(target);
+        int id = target.GetInstanceID();
+        if (targets.TryGetValue(id, out var weak))
+        {
+            weak.SetTarget(target);
+            return;
+        }
+        targets.Add(id, new WeakReference<RenderTexture>(target));
     }
 
     public void ActiveRenderTextureChanged(UnityEngine.RenderTexture active)

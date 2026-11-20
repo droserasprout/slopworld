@@ -33,12 +33,11 @@ public static class BrowserCursor
     // Run after BeginFrame advances Unity time, before presenting the frame.
     // Browser GUI batches retain every button press, including a down/up pair
     // between frames that polling Input.GetMouseButtonDown would miss.
-    public static void Update(string batch)
+    public static void Update(JsonElement batch)
     {
         if (tick == null)
             throw new InvalidOperationException("Install browser cursor before updating");
-        using var events = JsonDocument.Parse(batch);
-        foreach (var ev in events.RootElement.EnumerateArray())
+        foreach (var ev in batch.EnumerateArray())
             if (ev.GetProperty("kind").GetString() == "down")
                 click!();
         tick();

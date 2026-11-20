@@ -256,7 +256,7 @@ public sealed partial class BrowserGui
             if (!pair.Value.TryGetTarget(out var state))
                 return false;
             if (
-                pendingImages.Contains(pair.Key)
+                pendingImages.ContainsKey(pair.Key)
                 || !images.TryGetValue(pair.Key, out var current)
                 || !ReferenceEquals(state, current)
                 || !state.Texture.TryGetTarget(out var texture)

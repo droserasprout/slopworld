@@ -88,3 +88,40 @@ test('changing profile samples do not defeat command reuse and changed commands 
     assert.equal(draws,2);
   } finally {input.dispose();}
 });
+
+test('only the retained full packet can be acknowledged and each repeat keeps fresh profiling',()=>{
+  const decoder=new GuiPacketDecoder();
+  const raw=JSON.stringify({packet:7,commands:packet,profile:{frame:1}});
+  assert.equal(decoder.packetId,0);
+  const commands=decoder.decode(raw).commands;
+  assert.equal(decoder.packetId,7);
+  const repeat=decoder.decode('{"repeat":7,"profile":{"frame":2}}');
+  assert.equal(repeat.commands,commands);
+  assert.equal(repeat.profile.frame,2);
+  assert.equal(decoder.decode('{"repeat":7}').profile,undefined);
+  assert.throws(()=>decoder.decode('{"repeat":8}'),/retained packet/);
+  assert.equal(decoder.packetId,0);
+  assert.throws(()=>decoder.decode('{"repeat":7}'),/retained packet/);
+  decoder.decode(JSON.stringify({packet:8,commands:[],padding:'x'.repeat(2*1024*1024)}));
+  assert.equal(decoder.packetId,0);
+});
+
+test('a compact repeat replays after resize or external drawing and when reuse is disabled',()=>{
+  let draws=0,allowFrameReuse=true;
+  const context={resetTransform(){},clearRect(){},beginPath(){},roundRect(){},fill(){draws++;}};
+  const canvas=Object.assign(installInputDom().canvas(),{getContext:()=>context});
+  const commands=[{kind:'fill',value:{rect:[0,0,10,10],rounding:0,color:[1,0,0,1]}}];
+  const acks=[];
+  const input=attachGuiInput(canvas,{
+    get allowFrameReuse(){return allowFrameReuse;},
+    GuiInputFrame(batch,id){acks.push(id);return id===21?'{"repeat":21}':JSON.stringify({packet:21,commands});},
+  });
+  try {
+    assert.equal(input.frame().presentationUnchanged,false);
+    assert.equal(input.frame().presentationUnchanged,true);
+    canvas.width++;input.frame();assert.equal(draws,2);
+    renderGui(canvas,[]);input.frame();assert.equal(draws,3);
+    allowFrameReuse=false;input.frame();assert.equal(draws,4);
+    assert.deepEqual(acks,[0,21,21,21,21]);
+  } finally {input.dispose();}
+});

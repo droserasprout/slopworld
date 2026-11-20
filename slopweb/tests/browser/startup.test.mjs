@@ -43,7 +43,7 @@ async function start({published=false, query='', failAt='', incomplete=false, as
     body:(async function*(){yield new Uint8Array([1]);})()};};
   const modules={
     './asset-archive.js':{openAssetArchive:async url=>({response:await fetch(url),stored:Promise.resolve()})},
-    './gui.js':{renderGui:render,renderGuiProbe:()=>({})},
+    './gui.js':{renderGui:render,renderGuiProbe:()=>{calls.push('readPixels');return {visiblePixels:10};}},
     './workspace.js':{startWorkspace(){calls.push('live');return {};}},
     './workspace-rasterizer.js':{installLocalRasterizer:async()=>{}},
     './font-delivery.js':{warmWorkspaceFonts:warm},
@@ -64,12 +64,21 @@ test('product startup enters the workspace without running compatibility or colo
   const {calls,result}=await start();
   assert.equal(result.error,undefined);
   assert.ok(calls.indexOf('live')>calls.findIndex(c=>c[0]==='InitializeEco'));
+  assert.equal(result.workspace.frames,1);
+  assert.equal(calls.includes('readPixels'),false);
+  assert.equal(calls.some(c=>c[0]==='WorkspaceUpdate'),false);
   assert.deepEqual(calls.filter(c=>c[0]==='EndAssetUpload'),[['EndAssetUpload',true]]);
   for(const name of ['Run','Deep','Jobs','RequestPlay','LoadGame','SaveGame','GuiControlProbe'])
     assert.equal(calls.some(c=>c[0]===name),false,name);
 });
 
-for(const stage of ['initial','later'])test(`${stage} startup font redraw preserves image uploads from the preceding packet`,async()=>{
+test('profile startup inspects the presented canvas once',async()=>{
+  const {calls,result}=await start({query:'profile'});
+  assert.equal(result.workspace.visiblePixels,10);
+  assert.equal(calls.filter(c=>c==='readPixels').length,1);
+});
+
+test('startup applies the initial upload before the font redraw and hands off immediately',async()=>{
   const previousDocument=globalThis.document,previousImageData=globalThis.ImageData;
   const context=new Proxy({}, {get:(_,method)=>{
     if(method==='getTransform')return ()=>({a:1,b:0,c:0,d:1,e:0,f:0});
@@ -78,18 +87,18 @@ for(const stage of ['initial','later'])test(`${stage} startup font redraw preser
   const canvas=()=>({width:1280,height:720,getContext:()=>context});
   globalThis.document={createElement:canvas};
   globalThis.ImageData=class {};
-  const target=canvas(),id=stage==='initial'?-127:-128;
+  const target=canvas(),id=-127;
   const upload={kind:'image',value:{id,width:1,height:1,pixels:'/////w=='}};
   const draw={kind:'imageBatch',value:{id,color:[1,1,1,1],quads:[0,0,1,1,0,0,1,1]}};
   const emitted=[],rendered=[];
-  let updates=0,warmups=0;
+  let warmups=0;
   const packet=commands=>{emitted.push(commands);return commands;};
   try {
     const {calls,result}=await start({query:'nativeFonts',
-      warm:async()=>++warmups===(stage==='initial'?2:3),
+      warm:async()=>++warmups===2,
       reports:{
-        WorkspaceFrame:()=>packet(stage==='initial'?[upload,draw]:[]),
-        WorkspaceUpdate:()=>({commands:packet(stage==='later' && updates++===0?[upload,draw]:[draw])})
+        WorkspaceFrame:()=>packet([upload,draw]),
+        WorkspaceUpdate:()=>({commands:packet([draw])})
       },
       // Use the real resource consumer so a lost upload reproduces the reported
       // Missing GUI image error, rather than just checking mocked call counts.
@@ -97,7 +106,8 @@ for(const stage of ['initial','later'])test(`${stage} startup font redraw preser
     });
     assert.equal(result.error,undefined);
     assert.ok(calls.includes('live'));
-    assert.equal(emitted.length,32);
+    assert.equal(result.workspace.frames,2);
+    assert.equal(emitted.length,2);
     assert.deepEqual(rendered,emitted);
   } finally {
     renderGui(target,[{kind:'releaseImage',value:id}]);
@@ -123,7 +133,7 @@ test('colony actions are rejected before creating a runtime',async()=>{
 });
 
 test('archive chunks and synchronous startup stages admit painting before managed work',async()=>{
-  const {calls,result}=await start();
+  const {calls,result}=await start({query:'nativeFonts',warm:async()=>true});
   assert.equal(result.error,undefined);
   for(const name of ['AssetChunk','InstallCore','StartEntry','EntryFrame','InstallModContent','InitializeEco','WorkspaceFrame','WorkspaceUpdate']) {
     const indices=calls.flatMap((call,index)=>Array.isArray(call)&&call[0]===name?[index]:[]);
@@ -182,6 +192,7 @@ test('unfinished Entry loading fails visibly and releases the engine',async()=>{
   const report={checks:[{ok:true}],loaded:false};
   const {calls,result,message}=await start({reports:{StartEntry:report,EntryFrame:report}});
   assert.match(result.error,/Entry did not finish loading/);
+  assert.equal(calls.some(c=>c[0]==='EnableLanguageMenu'),false);
   assert.match(message,/Workspace could not start/);
   assert.equal(calls.filter(c=>c[0]==='EntryFrame').length,5);
   assert.equal(calls.filter(c=>c[0]==='StopEntry').length,1);
@@ -192,7 +203,6 @@ test('unfinished Entry loading fails visibly and releases the engine',async()=>{
 
 test('published startup resolves game, adapters and mod dependencies without fetching raw DLLs',async()=>{
   const {calls,result}=await start({published:true});
-  assert.equal(calls.some(c=>c[0]==='EnableLanguageMenu'),false);
   assert.equal(result.error,undefined);
   assert.deepEqual(calls.filter(c=>c[0]==='LoadPublishedAssembly').map(c=>c[1]),
     ['Game','Adapters','SlopWorld','0Harmony','Google.Protobuf','Markdig','AngleSharp','Tomlyn']);
