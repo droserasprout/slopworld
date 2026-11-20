@@ -42,6 +42,22 @@ struct Descriptor {
     token: String,
 }
 
+/// Keep a directory base so relative protocol routes retain the daemon's mount path.
+pub(crate) fn daemon_directory(value: &str) -> Result<Url> {
+    let mut url = Url::parse(value).context("Invalid daemon URL")?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        bail!("Expected an HTTP or HTTPS daemon URL without credentials, query, or fragment");
+    }
+    url.set_path(&format!("{}/", url.path().trim_end_matches('/')));
+    Ok(url)
+}
+
 impl ConnectionSource {
     pub(super) async fn snapshot(&self) -> Result<Connection> {
         let (url, token) = match self {
@@ -64,13 +80,8 @@ impl ConnectionSource {
             }
             Self::Unconfigured => bail!("Host endpoint unavailable"),
         };
-        let endpoint = Url::parse(&url).context("Invalid daemon URL")?;
-        if !matches!(endpoint.scheme(), "http" | "https")
-            || endpoint.host_str().is_none()
-            || !endpoint.username().is_empty()
-            || endpoint.password().is_some()
-            || token.is_empty()
-        {
+        let endpoint = daemon_directory(&url)?;
+        if token.is_empty() {
             bail!("Invalid daemon connection");
         }
         let mut token = axum::http::HeaderValue::from_str(&token)?;

@@ -53,6 +53,8 @@ reads its host-side local endpoint descriptor, respecting `SLOPD_CONFIG_ROOT`
 and `SLOPD_ENDPOINT`. `SLOPD_URL` and `SLOPD_TOKEN` override that descriptor.
 Use a root token for session creation and configuration. `--endpoint NAME` selects a saved endpoint ahead of environment overrides.
 Explicit connections require both `--url URL` and `--token-file PATH`.
+Include the daemon's mount path in the endpoint URL when a reverse proxy serves
+it under a prefix. The host forwards both API requests and WebSocket upgrades there.
 Descriptor and token-file changes apply to subsequent requests and WebSocket reconnects. Tokens are never placed
 in browser assets or URLs.
 
