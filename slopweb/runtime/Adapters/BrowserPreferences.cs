@@ -28,45 +28,17 @@ public static class BrowserPreferences
             }
         );
 
-    static readonly string[] Allowed =
-    [
-        "sidebarHidden",
-        "sidebarWidth",
-        "sidebarOpenFilesVisible",
-        "sidebarFilesOpenFraction",
-        "sidebarSide",
-        "uiDensity",
-        "foldedProjects",
-        "sidebarTab",
-        "sidebarAgentStatus",
-        "sidebarFilter",
-        "sidebarWorktrees",
-        "fontSize",
-        "fontName",
-        "uiFontSize",
-        "uiFontName",
-        "uiScheme",
-        "theme",
-        "grandmaMode",
-        "cursor",
-        "cursorGrayscale",
-        "visualEffects",
-        "sidebarShowHidden",
-        "sidebarShowGitignored",
-        "cursorColor",
-        "statusbarUsage",
-        "statusbarSummaryPosition",
-        "statusbarClockPosition",
-        "statusbarPlanner",
-        "statusbarJukebox",
-        "statusbarGM",
-        "statusbarAgentIndicators",
-        "timeZone",
-        "timeFormat",
-        "dateFormat",
-        "ecoDim",
-        "radioMute",
-    ];
+    static readonly string[] Allowed = ReadAllowed();
+
+    static string[] ReadAllowed()
+    {
+        using var reader = new StreamReader(
+            typeof(BrowserPreferences).Assembly.GetManifestResourceStream(
+                "presentation-preferences.txt"
+            )!
+        );
+        return reader.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+    }
 
     public static float BackgroundDimming(object settings)
     {

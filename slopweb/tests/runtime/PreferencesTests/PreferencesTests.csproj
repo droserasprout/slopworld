@@ -9,6 +9,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../../../presentation-preferences.txt" LogicalName="presentation-preferences.txt" />
     <ProjectReference Include="../EcoFixtureGame/EcoFixtureGame.csproj" />
     <Reference Include="0Harmony" HintPath="../../../../mod/Assemblies/0Harmony.dll" />
     <Compile Include="../../../../mod/Source/SlopWorld/Patches/Eco/EcoPrefixAttribute.cs" Link="EcoPrefixAttribute.cs" />

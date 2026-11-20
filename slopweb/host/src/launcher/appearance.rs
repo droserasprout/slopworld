@@ -4,52 +4,16 @@ use anyhow::Result;
 use serde_json::{Map, Value};
 use std::{fs, path::Path};
 
-pub const PRESENTATION_PREFERENCES: &[&str] = &[
-    "sidebarHidden",
-    "sidebarWidth",
-    "sidebarOpenFilesVisible",
-    "sidebarFilesOpenFraction",
-    "sidebarSide",
-    "uiDensity",
-    "foldedProjects",
-    "sidebarTab",
-    "sidebarAgentStatus",
-    "sidebarFilter",
-    "sidebarWorktrees",
-    "fontSize",
-    "fontName",
-    "uiFontSize",
-    "uiFontName",
-    "uiScheme",
-    "theme",
-    "grandmaMode",
-    "cursor",
-    "cursorGrayscale",
-    "visualEffects",
-    "sidebarShowHidden",
-    "sidebarShowGitignored",
-    "cursorColor",
-    "statusbarUsage",
-    "statusbarSummaryPosition",
-    "statusbarClockPosition",
-    "statusbarPlanner",
-    "statusbarJukebox",
-    "statusbarGM",
-    "statusbarAgentIndicators",
-    "timeZone",
-    "timeFormat",
-    "dateFormat",
-    "ecoDim",
-    "radioMute",
-];
+const PRESENTATION_PREFERENCES: &str = include_str!("../../../presentation-preferences.txt");
+
 pub fn preferences(profile: &Path) -> Result<Map<String, Value>> {
     let settings = profile.join("Config/SlopWorld.toml");
     let mut result = Map::new();
     if settings.is_file() {
-        let values: toml::Table = toml::from_str(&fs::read_to_string(settings)?)?;
-        for (key, value) in values {
-            if PRESENTATION_PREFERENCES.contains(&key.as_str()) {
-                result.insert(key, serde_json::to_value(value)?);
+        let mut values: toml::Table = toml::from_str(&fs::read_to_string(settings)?)?;
+        for key in PRESENTATION_PREFERENCES.lines() {
+            if let Some(value) = values.remove(key) {
+                result.insert(key.into(), serde_json::to_value(value)?);
             }
         }
     }
