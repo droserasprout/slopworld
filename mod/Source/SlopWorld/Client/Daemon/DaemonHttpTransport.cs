@@ -24,7 +24,13 @@ namespace SlopWorld
         const int MaxRequests = 8;
         readonly SemaphoreSlim Requests = new SemaphoreSlim(MaxRequests);
         readonly HttpClient Http = new HttpClient(
-            new SocketsHttpHandler { UseProxy = false, MaxConnectionsPerServer = MaxRequests }
+            new SocketsHttpHandler
+            {
+                UseProxy = false,
+                // Custom credential headers belong only to the selected daemon.
+                AllowAutoRedirect = false,
+                MaxConnectionsPerServer = MaxRequests,
+            }
         )
         {
             Timeout = Timeout.InfiniteTimeSpan,

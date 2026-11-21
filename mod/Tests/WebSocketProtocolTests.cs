@@ -23,10 +23,11 @@ namespace SlopWorld.Tests
         static void WithPeer(
             Func<string, byte[]> response,
             Action<NetworkStream> serve,
-            Action<MiniWebSocket, int> check
+            Action<MiniWebSocket, int> check,
+            IPAddress address = null
         )
         {
-            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            using var listener = new TcpListener(address ?? IPAddress.Loopback, 0);
             listener.Start();
             using var finished = new ManualResetEventSlim();
             using var served = new ManualResetEventSlim();
@@ -60,6 +61,28 @@ namespace SlopWorld.Tests
                 socket.Dispose();
                 Assert.That(server.Wait(10000), Is.True, "peer task terminates");
             }
+        }
+
+        public static void Ipv6UpgradeBracketsHostInRequestAuthority()
+        {
+            if (!Socket.OSSupportsIPv6)
+                Assert.Ignore("IPv6 is unavailable");
+
+            string header = null;
+            WithPeer(
+                request =>
+                {
+                    header = request;
+                    return ValidResponse(request);
+                },
+                null,
+                (socket, port) =>
+                {
+                    Assert.That(socket.Connect("::1", port, "/demo/ws", ""), Is.True);
+                    Assert.That(header, Does.Contain($"\r\nHost: [::1]:{port}\r\n"));
+                },
+                IPAddress.IPv6Loopback
+            );
         }
 
         public static void TlsRejectsUntrustedPeerBeforeSendingCredentials()

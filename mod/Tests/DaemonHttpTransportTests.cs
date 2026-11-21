@@ -101,6 +101,26 @@ namespace SlopWorld.Tests
             await server;
         }
 
+        [Test]
+        public async Task RejectsRedirectWithoutContactingDestination()
+        {
+            using var peer = new Peer();
+            using var destination = new TcpListener(IPAddress.Loopback, 0);
+            destination.Start();
+            var server = peer.Serve(
+                Array.Empty<byte>(),
+                status: "307 Temporary Redirect",
+                location: $"http://{destination.LocalEndpoint}/login"
+            );
+            using var transport = new ClientEndpoint(peer.Connection);
+            var error = Assert.ThrowsAsync<IOException>(async () =>
+                await transport.Send<Wire.Empty>("GET", "/api/health", null, "worker", 5000)
+            );
+            await server;
+            Assert.That(error.Message, Does.Contain("HTTP 307"));
+            Assert.That(destination.Pending(), Is.False);
+        }
+
         [TestCase("explanation")]
         [TestCase("malformed")]
         [TestCase("empty")]
@@ -411,7 +431,8 @@ namespace SlopWorld.Tests
                 string status = "200 OK",
                 string contentType = "application/x-protobuf",
                 Task release = null,
-                TaskCompletionSource<bool> accepted = null
+                TaskCompletionSource<bool> accepted = null,
+                string location = null
             )
             {
                 using var client = await listener.AcceptTcpClientAsync(deadline.Token);
@@ -433,8 +454,9 @@ namespace SlopWorld.Tests
                         );
                 Body = new byte[length];
                 await stream.ReadExactlyAsync(Body, deadline.Token);
+                string redirect = location == null ? "" : $"Location: {location}\r\n";
                 var response = Encoding.ASCII.GetBytes(
-                    $"HTTP/1.1 {status}\r\nContent-Type: {contentType}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n"
+                    $"HTTP/1.1 {status}\r\n{redirect}Content-Type: {contentType}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n"
                 );
                 await stream.WriteAsync(response, deadline.Token);
                 Accepted.TrySetResult(true);

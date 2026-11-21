@@ -25,8 +25,11 @@ namespace SlopWorld
             PathPrefix = uri.AbsolutePath.TrimEnd('/');
         }
 
+        internal static string FormatAuthority(string host, int port) =>
+            FormattableString.Invariant($"{(host.Contains(':') ? "[" + host + "]" : host)}:{port}");
+
         public string BaseUrl =>
-            $"{(UseTls ? "https" : "http")}://{(Host.Contains(':') ? "[" + Host + "]" : Host)}:{Port}{PathPrefix}";
+            $"{(UseTls ? "https" : "http")}://{FormatAuthority(Host, Port)}{PathPrefix}";
     }
 
     // The selected descriptor supplies the address and token for both transports.

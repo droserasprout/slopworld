@@ -112,9 +112,7 @@ namespace SlopWorld
                 var req = new StringBuilder();
                 req.Append("GET ").Append(path).Append(" HTTP/1.1\r\n");
                 req.Append("Host: ")
-                    .Append(host)
-                    .Append(':')
-                    .Append(port.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Append(ConnectionInfo.FormatAuthority(host, port))
                     .Append("\r\n");
                 req.Append("Upgrade: websocket\r\n");
                 req.Append("Connection: Upgrade\r\n");
