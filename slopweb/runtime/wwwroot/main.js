@@ -53,7 +53,6 @@ try {
     }
     let eco = null;
     async function initializeEco() {
-        await loadFile('./mod/SlopWorld.dll');
         await yieldStartupPaint();
         eco = JSON.parse(exports.Probe.InitializeEco());
         requireChecks(eco, 'Workspace initialization');
@@ -85,6 +84,8 @@ try {
 
     {
         loaded.push(await loadFile('./Adapters.dll'));
+        // Woven game methods can resolve mod types during Entry startup.
+        await loadFile('./mod/SlopWorld.dll');
         const response = await fetch('./assets/Core.zip');
         if (!response.ok) throw new Error(`Core.zip: HTTP ${response.status}`);
         const core = new Uint8Array(await response.arrayBuffer());

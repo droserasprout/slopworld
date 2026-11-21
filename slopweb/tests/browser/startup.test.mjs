@@ -80,6 +80,18 @@ test('product startup enters the workspace without running compatibility or colo
     assert.equal(calls.some(c=>c[0]===name),false,name);
 });
 
+test('Entry can resolve woven mod references before mod initialization',async()=>{
+  for(const published of [false,true]) {
+    const {calls}=await start({published});
+    const load=calls.findIndex(c=>published
+      ? c[0]==='LoadPublishedAssembly' && c[1]==='SlopWorld'
+      : c[0]==='fetch' && c[1]==='./mod/SlopWorld.dll');
+    const entry=calls.findIndex(c=>c[0]==='StartEntry');
+    const init=calls.findIndex(c=>c[0]==='InitializeEco');
+    assert.ok(load>=0 && load<entry && entry<init);
+  }
+});
+
 test('profile startup inspects the presented canvas once',async()=>{
   const {calls,result}=await start({query:'profile'});
   assert.equal(result.workspace.visiblePixels,10);
