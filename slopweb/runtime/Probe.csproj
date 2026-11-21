@@ -21,7 +21,6 @@
     <Compile Include="BrowserEntry.cs" />
     <Compile Include="CoreLanguagePacks.cs" />
     <Compile Include="BrowserWorkspace.cs" />
-    <Compile Include="BrowserGlyphCache.cs" />
     <Compile Include="BrowserCursor.cs" />
     <SupportedPlatform Include="browser" />
   </ItemGroup>

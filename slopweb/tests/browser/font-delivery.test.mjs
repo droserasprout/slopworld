@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
-import {fallbackFonts,fontRequests} from '../../runtime/wwwroot/font-delivery.js';
+import {fallbackFonts} from '../../runtime/wwwroot/font-delivery.js';
 import {HostFonts,covers} from '../../runtime/wwwroot/host-fonts.js';
 const bytes=new TextEncoder().encode('font');
 const hash=createHash('sha256').update(bytes).digest('hex');
@@ -71,15 +71,6 @@ test('browser fetch is not invoked with the font service as its receiver',async(
   const fonts=new HostFonts({},function(){assert.equal(this,undefined);return Promise.resolve(response());},null);
   await fonts.catalog('UI');await fonts.file(hash);
 });
-test('selection and coverage share a queue through body consumption',async()=>{
-  let release;const calls=[];
-  const fetcher=async name=>{calls.push(name);return {ok:true,json:()=>name==='selection'?new Promise(resolve=>{release=resolve;}):Promise.resolve({})};};
-  const a=fontRequests(fetcher),b=fontRequests(fetcher);
-  const first=a('selection'),second=b('coverage');await new Promise(setImmediate);
-  assert.deepEqual(calls,['selection']);release({});await first;await second;
-  assert.deepEqual(calls,['selection','coverage']);
-});
-
 test('concurrent fallback installs share download and publication through asynchronous handoff',{timeout:5000},async()=>{
   let release,started;
   const gate=new Promise(resolve=>{release=resolve;}),entered=new Promise(resolve=>{started=resolve;});

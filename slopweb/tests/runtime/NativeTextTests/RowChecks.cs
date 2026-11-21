@@ -1,5 +1,5 @@
 // Real operation replay must preserve adjacent batch merging and native clip state.
-// Synthetic faces/CPU textures come from GlyphChecks; no game or browser is started.
+// A mutable CPU texture exercises image dependencies alongside the local glyph atlas.
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -20,8 +20,11 @@ static class RowChecks
             throw new Exception("Row recording: " + message);
     }
 
-    internal static void Run(int index, Texture2D texture)
+    internal static void Run(int index)
     {
+        using var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        texture.SetPixels32([Color.white, Color.red, Color.green, Color.blue]);
+        texture.Apply(false, false);
         var cpuDataProperty = texture.CoreTexture.GetType().GetProperty("CpuData")!;
         var originalCpuData = texture.CoreTexture.CpuData;
         var originalWidth = texture.CoreTexture.width;
@@ -50,6 +53,7 @@ static class RowChecks
         void Contents(BrowserGui gui, bool batches = false)
         {
             gui.FillRect(new Rect(2, 3, 200, 20), Color.blue);
+            gui.DrawTexture(new Rect(2, 3, 12, 12), texture, ScaleMode.StretchToFill, Color.white);
             gui.PushGroup(new Rect(1, 2, 240, 30));
             Label(gui);
             gui.PopGroup();
@@ -94,7 +98,7 @@ static class RowChecks
                     (Func<object, GUIStyle, float[], bool>)
                         bridge.GetField("TryReplay")!.GetValue(null)!;
                 var complete = (Action<bool, GUIStyle>)bridge.GetField("Complete")!.GetValue(null)!;
-                Label(backend);
+                Contents(backend);
                 backend.Drain();
                 Require(!replay(identity, style, placement), "fresh delegate bridge hit");
                 Contents(backend);
@@ -166,8 +170,12 @@ static class RowChecks
             style.fontSize++;
             Miss("style change hit");
             BrowserFontBank.ConfigureDensity(2);
+            Contents(gui);
+            gui.Drain();
             Miss("font density change hit");
             BrowserFontBank.ConfigureDensity(1);
+            Contents(gui);
+            gui.Drain();
             var bank = BrowserFontBank.Instance;
             var generation = typeof(BrowserFontBank).GetProperty("ResolutionVersion")!;
             Miss("density restoration hit");

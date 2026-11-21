@@ -50,7 +50,6 @@ Console.WriteLine(
 );
 LayoutChecks.Run();
 
-LocalFontChecks.Run(game);
-FontChecks.Run();
+TestFont.Run(LocalFontChecks.Run);
 ImageChecks.Run();
-GlyphChecks.Run(args.Contains("--glyph-benchmark"));
+TestFont.Run(font => GlyphChecks.Run(font, args.Contains("--glyph-benchmark")));

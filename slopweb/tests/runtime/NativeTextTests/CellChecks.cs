@@ -6,9 +6,8 @@ using UnityEngine;
 
 static class CellChecks
 {
-    internal static void Run(int index, Texture2D texture, bool benchmark)
+    internal static void Run(int index, bool benchmark)
     {
-        BrowserGui.ConfigureGlyphCache(false);
         var reference = new BrowserGui();
         var fast = new BrowserGui();
         string Frame(BrowserGui gui, bool enabled, int scenario)
@@ -22,7 +21,6 @@ static class CellChecks
                 matrix.m11 += .0005f;
             if (scenario % 17 == 0)
                 matrix.m01 = .125f; // Unsupported transforms retain the reference path.
-            BrowserFontBank.ConfigureDensity(new[] { 1f, 5f / 3, 2f }[scenario % 3]);
             gui.SetMatrix(matrix);
             gui.PushScrollView(new Rect(2, 3, 280, 80), new Vector2(-1.3f, 2.75f));
             gui.PushClipRect(new Rect(3, 2, scenario == 4 ? 0 : 250, scenario == 5 ? 0 : 70));
@@ -71,14 +69,21 @@ static class CellChecks
             return gui.Drain();
         }
         for (int scenario = 0; scenario < 90; scenario++)
-        for (int repeat = 0; repeat < 2; repeat++)
-            if (Frame(reference, false, scenario) != Frame(fast, true, scenario))
-                throw new Exception($"Cell fast path changed packet at {scenario}/{repeat}");
-        texture.SetPixels32([Color.blue, Color.green, Color.red, Color.white]);
-        texture.Apply(false, false);
-        BrowserGui.TextureApplied(texture);
-        if (Frame(reference, false, 1) != Frame(fast, true, 1))
-            throw new Exception("Cell fast path changed mutated atlas upload");
+        {
+            BrowserFontBank.ConfigureDensity(new[] { 1f, 5f / 3, 2f }[scenario % 3]);
+            // Both emitters start from the same populated real atlas at each density.
+            BrowserFontBank.ObserveText(index, 15, (FontStyle)(scenario / 5 % 4), TestFont.Ascii);
+            for (int repeat = 0; repeat < 2; repeat++)
+                if (Frame(reference, false, scenario) != Frame(fast, true, scenario))
+                    throw new Exception($"Cell fast path changed packet at {scenario}/{repeat}");
+        }
+        const int last = 89;
+        BrowserFontBank.ObserveText(index, 15, (FontStyle)(last / 5 % 4), "Ω");
+        string mutated = Frame(reference, false, last);
+        if (!mutated.Contains("\"kind\":\"image\"") || mutated != Frame(fast, true, last))
+            throw new Exception("Cell fast path changed updated atlas upload");
+        BrowserFontBank.ConfigureDensity(1);
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, TestFont.Ascii);
         var discarded = new BrowserGui();
         BrowserGui.ConfigureCellFastPath(true);
         discarded.DrawText(

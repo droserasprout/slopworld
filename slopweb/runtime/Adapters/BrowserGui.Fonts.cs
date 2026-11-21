@@ -16,18 +16,6 @@ public sealed partial class BrowserGui
         gui.ClearRows();
     }
 
-    // Real workspace comparisons have not established a frame-time benefit.
-    // Keep projected-run reuse available for diagnostics, without default retention.
-    static bool glyphCacheEnabled;
-
-    // Diagnostic comparison switch; disabling retains the original emission path.
-    public static bool ConfigureGlyphCache(bool enabled)
-    {
-        bool previous = glyphCacheEnabled;
-        glyphCacheEnabled = enabled;
-        return previous;
-    }
-
     // Diagnostic reference switch for exact packets and real workload comparisons.
     static bool glyphTailClipEnabled = true;
 
@@ -144,8 +132,6 @@ public sealed partial class BrowserGui
             || Math.Abs(matrix.m11 - scale) > .001f
         )
             return false;
-        // The bank follows viewport density. Exact prepared densities use original
-        // glyph pixels; other densities resample the nearest prepared atlas.
         var lines = run.Lines;
         if (wrap && run.Measure(static glyph => glyph.advanceX, scale) > rect.width)
             return false;
@@ -215,62 +201,6 @@ public sealed partial class BrowserGui
     )
     {
         int textureId = face.Texture.GetInstanceID();
-        // Short runs retain direct emission instead of paying a full context lookup.
-        var drawing =
-            glyphCacheEnabled && line.Glyphs.Length >= 8
-                ? line.Drawing ??= new BrowserGlyphRun()
-                : null;
-        if (drawing != null)
-        {
-            bool hasClip = drawingClips.TryPeek(out var drawingClip);
-            // Include the full transform/offset used by OutsideDrawingClip, not
-            // just the ideal device quad: its round-trip arithmetic is observable
-            // at clip edges. Fine text clipping has a separate bottom-only rule.
-            ReadOnlySpan<float> key = stackalloc float[]
-            {
-                penX,
-                penY,
-                scale,
-                origin.x,
-                origin.y,
-                fineClip ? 1 : 0,
-                screenClip.xMin,
-                screenClip.xMax,
-                clipBottom,
-                hasClip ? 1 : 0,
-                drawingClip.x,
-                drawingClip.y,
-                drawingClip.width,
-                drawingClip.height,
-                offset.x,
-                offset.y,
-                matrix.m00,
-                matrix.m01,
-                matrix.m02,
-                matrix.m03,
-                matrix.m10,
-                matrix.m11,
-                matrix.m12,
-                matrix.m13,
-                matrix.m20,
-                matrix.m21,
-                matrix.m22,
-                matrix.m23,
-                matrix.m30,
-                matrix.m31,
-                matrix.m32,
-                matrix.m33,
-            };
-            if (drawing.Matches(key))
-            {
-                if (BrowserGuiInput.Profile)
-                    for (int i = 0; i < drawing.TraceCount; i++)
-                        TraceTextureDraw();
-                EmitGlyphRun(drawing, face, textureId, color, ref uploaded);
-                return;
-            }
-            drawing.Begin(key);
-        }
         bool hasDrawingClip = drawingClips.TryPeek(out var tailBounds);
         if (
             glyphTailClipEnabled
@@ -279,17 +209,7 @@ public sealed partial class BrowserGui
         )
         {
             // Empty scopes reject every destination, including backward runs.
-            TraceClippedGlyphTail(
-                line.Glyphs,
-                penX,
-                penY,
-                scale,
-                fineClip,
-                screenClip,
-                clipBottom,
-                drawing
-            );
-            drawing?.Complete();
+            TraceClippedGlyphTail(line.Glyphs, penX, penY, scale, fineClip, screenClip, clipBottom);
             return;
         }
         Span<float> values = stackalloc float[8];
@@ -328,8 +248,7 @@ public sealed partial class BrowserGui
                         scale,
                         fineClip,
                         screenClip,
-                        clipBottom,
-                        drawing
+                        clipBottom
                     );
                     break;
                 }
@@ -357,8 +276,6 @@ public sealed partial class BrowserGui
                         (quad.Bottom - quad.Top) / scale
                     );
                     TraceTextureDraw();
-                    if (drawing != null)
-                        drawing.TraceCount++;
                     if (!OutsideDrawingClip(destination))
                     {
                         if (observeLabels)
@@ -376,26 +293,18 @@ public sealed partial class BrowserGui
                         values[5] = 1 - quad.V1;
                         values[6] = quad.U1 - quad.U0;
                         values[7] = quad.V1 - quad.V0;
-                        if (drawing != null)
-                            drawing.Add(values);
-                        else
-                            AppendImages(
-                                textureId,
-                                ColorChannel(color.r),
-                                ColorChannel(color.g),
-                                ColorChannel(color.b),
-                                ColorChannel(color.a),
-                                values
-                            );
+                        AppendImages(
+                            textureId,
+                            ColorChannel(color.r),
+                            ColorChannel(color.g),
+                            ColorChannel(color.b),
+                            ColorChannel(color.a),
+                            values
+                        );
                     }
                 }
             }
             penX += Snap(glyph.advanceX * scale);
-        }
-        if (drawing != null)
-        {
-            drawing.Complete();
-            EmitGlyphRun(drawing, face, textureId, color, ref uploaded);
         }
     }
 
@@ -431,8 +340,7 @@ public sealed partial class BrowserGui
     }
 
     // Drawing-clip rejection historically counts every fine-clip-admitted glyph,
-    // even though no packet is emitted. Keep that diagnostic contract and cached
-    // trace replay, but omit destination construction, transforms and upload work.
+    // even though no packet is emitted. Only profiling needs to visit the tail.
     void TraceClippedGlyphTail(
         ReadOnlySpan<TmpGlyphMetrics> glyphs,
         float penX,
@@ -440,11 +348,10 @@ public sealed partial class BrowserGui
         float scale,
         bool fineClip,
         Rect screenClip,
-        float clipBottom,
-        BrowserGlyphRun? drawing
+        float clipBottom
     )
     {
-        if (!BrowserGuiInput.Profile && drawing == null)
+        if (!BrowserGuiInput.Profile)
             return;
         foreach (var glyph in glyphs)
         {
@@ -468,11 +375,7 @@ public sealed partial class BrowserGui
                     admitted = quad.Clip(screenClip.xMin, screenClip.xMax, clipBottom);
                 }
                 if (admitted)
-                {
                     TraceTextureDraw();
-                    if (drawing != null)
-                        drawing.TraceCount++;
-                }
             }
             penX += Snap(glyph.advanceX * scale);
         }
@@ -552,33 +455,6 @@ public sealed partial class BrowserGui
                 );
             }
         }
-    }
-
-    void EmitGlyphRun(
-        BrowserGlyphRun drawing,
-        BrowserFontBank.Face face,
-        int textureId,
-        Color color,
-        ref bool uploaded
-    )
-    {
-        if (drawing.Quads.IsEmpty)
-            return;
-        if (observeLabels)
-            labelPainted = true;
-        if (!uploaded)
-        {
-            UploadImage(face.Texture);
-            uploaded = true;
-        }
-        AppendImages(
-            textureId,
-            ColorChannel(color.r),
-            ColorChannel(color.g),
-            ColorChannel(color.b),
-            ColorChannel(color.a),
-            drawing.Quads
-        );
     }
 
     static float Snap(float value) => MathF.Floor(value + .5f);

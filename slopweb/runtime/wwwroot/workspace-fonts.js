@@ -1,4 +1,3 @@
-import {fontRequests} from './font-delivery.js';
 import {hostFonts} from './host-fonts.js';
 import {installWorkspaceFont} from './workspace-rasterizer.js';
 // Font-file selections publish only after both rasterizers have loaded the bytes.
@@ -17,8 +16,6 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
     status.onclick = retry ?? null;
   }, seed = null) {
   const host=hostFonts(probe,request);
-  // Keep selections serialized through publication.
-  request = fontRequests(request);
   const identity = json => {
     const values = JSON.parse(json);
     const selected = {uiFontName:values.uiFontName ?? '',fontName:values.fontName ?? 'monospace',

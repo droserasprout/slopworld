@@ -196,6 +196,28 @@ fn regular_style_distance_and_cmap_come_from_opentype_tables() {
 }
 
 #[test]
+fn unicode_coverage_skips_missing_glyphs_in_bmp_and_supplementary_ranges() {
+    let mut font = include_bytes!("../../../../assets/fonts/clacon2.ttf").to_vec();
+    let count = u16::from_be_bytes(font[4..6].try_into().unwrap()) as usize;
+    let record = (0..count)
+        .map(|i| 12 + i * 16)
+        .find(|&i| &font[i..i + 4] == b"cmap")
+        .unwrap();
+    // Format 4 maps A to glyph zero and B to glyph one. Format 12 does
+    // the same for U+1F600 and U+1F601. Offsets are relative to cmap.
+    let words: &[u16] = &[
+        0, 2, 3, 1, 0, 20, 3, 10, 0, 52, 4, 32, 0, 4, 4, 1, 0, 66, 0xffff, 0, 65, 0xffff, 0xffbf,
+        1, 0, 0, 12, 0, 0, 28, 0, 0, 0, 1, 1, 0xf600, 1, 0xf601, 0, 0,
+    ];
+    let offset = font.len() as u32;
+    font[record + 8..record + 12].copy_from_slice(&offset.to_be_bytes());
+    font[record + 12..record + 16].copy_from_slice(&(2 * words.len() as u32).to_be_bytes());
+    font.extend(words.iter().flat_map(|word| word.to_be_bytes()));
+    let face = opentype::metadata(&font, 0, true).unwrap();
+    assert_eq!(face.coverage, [[66, 66], [0x1f601, 0x1f601]]);
+}
+
+#[test]
 fn persistent_catalog_detects_replaced_added_removed_and_unsupported_sources() {
     let work = tempfile::tempdir().unwrap();
     let root = work.path().join("cache");

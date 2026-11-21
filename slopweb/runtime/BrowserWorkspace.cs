@@ -86,6 +86,22 @@ public partial class Probe
             )!;
 
     [JSExport]
+    public static bool WorkspaceRowCommands(bool enabled) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureTerminalRows", enabled)!;
+
+    [JSExport]
+    public static string WorkspaceRowCommandsStats() =>
+        (string)Invoke("Adapters", "BrowserAdapters.BrowserGui", "TerminalRowStats")!;
+
+    [JSExport]
+    public static bool WorkspaceGlyphTailClip(bool enabled) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureGlyphTailClip", enabled)!;
+
+    [JSExport]
+    public static bool WorkspaceCellFastPath(bool enabled) =>
+        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureCellFastPath", enabled)!;
+
+    [JSExport]
     public static bool WorkspaceQuadCache(bool enabled) =>
         (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureQuadCache", enabled)!;
 
@@ -111,10 +127,6 @@ public partial class Probe
         return (string)
             Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "FontSelection", settings)!;
     }
-
-    [JSExport]
-    public static bool WorkspaceFontCapacity(int bytes) =>
-        (bool)Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "Capacity", bytes)!;
 
     [JSExport]
     public static void WorkspaceFontHold(string json)

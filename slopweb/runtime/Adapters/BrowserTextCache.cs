@@ -24,8 +24,6 @@ internal sealed class BrowserTextCache<T>(
         internal bool SafeDrawingBounds { get; init; }
         internal float MaximumMetricMagnitude { get; init; }
 
-        // Eviction of the text run also releases its last projected geometry.
-        internal BrowserGlyphRun? Drawing;
         float[]? carets;
         float caretScale;
         float measuredScale;

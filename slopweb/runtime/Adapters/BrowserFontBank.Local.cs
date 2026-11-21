@@ -15,12 +15,14 @@ public sealed partial class BrowserFontBank
     const int GlyphBudget = 262144;
     int glyphEntries;
 
-    sealed record Source(byte[] Bytes, uint Flags, float Ascender, float Descender, float Spacing);
+    sealed record Source(uint Flags, float Ascender, float Descender, float Spacing);
 
     readonly Dictionary<string, Source> sources = new();
 
-    static int InstallLocal(byte[] bytes, string json, int index)
+    public static int Install(byte[] bytes, string json, int index)
     {
+        var rasterize =
+            Rasterize ?? throw new InvalidOperationException("Font rasterizer is not installed");
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         string hash = Convert.ToHexString(SHA256.HashData(bytes));
@@ -39,8 +41,8 @@ public sealed partial class BrowserFontBank
             var source = ReadSource(bytes, flags);
             // Browser delivery installs raw bytes before entering managed code.
             // Native fidelity fixtures retain the standalone base64 callback.
-            if (Rasterize!(JsonSerializer.Serialize(new { hash, registered = true })) != "true")
-                Rasterize!(
+            if (rasterize(JsonSerializer.Serialize(new { hash, registered = true })) != "true")
+                rasterize(
                     JsonSerializer.Serialize(new { hash, font = Convert.ToBase64String(bytes) })
                 );
             string path = Path.Combine(mountRoot, hash + ".ttf");
@@ -50,7 +52,7 @@ public sealed partial class BrowserFontBank
             Instance.paths[hash] = path;
         }
         if (index < 0)
-            index = RegisterLocal(bytes, size);
+            index = Register(hash, size);
         else if (!Instance.faces.ContainsKey(index))
         {
             if (Instance.faces.Count >= 1024)
@@ -88,7 +90,6 @@ public sealed partial class BrowserFontBank
         float descender = BinaryPrimitives.ReadInt16BigEndian(data.Slice(hhea + 6));
         float gap = BinaryPrimitives.ReadInt16BigEndian(data.Slice(hhea + 8));
         return new(
-            bytes,
             flags,
             ascender / units,
             descender / units,
@@ -96,12 +97,14 @@ public sealed partial class BrowserFontBank
         );
     }
 
-    static int RegisterLocal(byte[] bytes, float size)
+    public static int RegisterAvailable(byte[] bytes, float size) =>
+        Register(Convert.ToHexString(SHA256.HashData(bytes)), size);
+
+    static int Register(string hash, float size)
     {
-        int existing = Register(bytes, size);
-        if (existing >= 0)
-            return existing;
-        string hash = Convert.ToHexString(SHA256.HashData(bytes));
+        foreach (var pair in Instance.faces)
+            if (pair.Value.Hash == hash && Math.Abs(pair.Value.Size - size) < .001f)
+                return pair.Key;
         if (!Instance.sources.ContainsKey(hash))
             return -1;
         if (Instance.faces.Count >= 1024)
@@ -158,7 +161,7 @@ public sealed partial class BrowserFontBank
         return face;
     }
 
-    static bool TryLocalFace(int index, float size, FontStyle style, out Face face)
+    public static bool TryFace(int index, float size, FontStyle style, out Face face)
     {
         face = null!;
         if (!Instance.faces.TryGetValue(index, out var basis))
@@ -361,9 +364,6 @@ public sealed partial class BrowserFontBank
         Instance.wantedFallbacks.Clear();
         Instance.requestedFallbacks.Clear();
         Instance.paths.Clear();
-        Instance.resolved.Clear();
-        Instance.missing.Clear();
-        Instance.pendingSizes.Clear();
         Instance.atlasBytes = 0;
         Instance.glyphEntries = 0;
         Instance.nextIndex = 3;

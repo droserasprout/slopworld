@@ -10,7 +10,7 @@ using Brutal.ImGuiApi;
 
 if (args.Length is not (5 or 6 or 7))
     throw new ArgumentException(
-        "GAME FONT OUTPUT SIZE DENSITY [STYLE [SCALARS_JSON]] or GAME --resolve MOD FAMILY OUTPUT_DIRECTORY"
+        "GAME FONT OUTPUT SIZE DENSITY [STYLE [SCALARS_JSON]], GAME --resolve MOD FAMILY OUTPUT_DIRECTORY, or GAME --loader-flags \"\" \"\" OUTPUT_DIRECTORY"
     );
 string game = Path.GetFullPath(args[0]);
 AssemblyLoadContext.Default.Resolving += (_, name) =>
@@ -39,47 +39,15 @@ static void Execute(string[] args, string game)
         );
         return;
     }
-    if (args[1] == "--catalog")
-    {
-        var mod = Assembly.LoadFrom(Path.GetFullPath(args[2]));
-        var names = mod.GetType("SlopWorld.NativeFonts", true)!.GetMethod("Names")!;
-        Directory.CreateDirectory(args[4]);
-        File.WriteAllText(
-            Path.Combine(args[4], "catalog.json"),
-            JsonSerializer.Serialize(
-                new
-                {
-                    all = (string[])names.Invoke(null, [false])!,
-                    mono = (string[])names.Invoke(null, [true])!,
-                }
-            )
-        );
-        return;
-    }
-    if (args[1] == "--fallback")
-    {
-        FontDelivery.Deliver(args[2], args[3], args[4], game);
-        return;
-    }
-    if (args[1] is "--resolve" or "--resolve-ui")
+    if (args[1] == "--resolve")
     {
         // Resolve using the same mod catalog and fontconfig policy as the desktop.
         // This reads fonts only; it creates no GUI, game, world, or renderer.
         var mod = Assembly.LoadFrom(Path.GetFullPath(args[2]));
-        bool ui = args[1] == "--resolve-ui";
-        var families = ui
-            ? (
-                args[3].Length > 0
-                    ? new[] { args[3] }
-                    : (string[])
-                        mod.GetType("SlopWorld.UiFont", true)!
-                            .GetField("Candidates", BindingFlags.Static | BindingFlags.NonPublic)!
-                            .GetValue(null)!
-            )
-            : (string[])
-                mod.GetType("SlopWorld.FontconfigFonts", true)!
-                    .GetMethod("Families")!
-                    .Invoke(null, [args[3]])!;
+        var families = (string[])
+            mod.GetType("SlopWorld.FontconfigFonts", true)!
+                .GetMethod("Families")!
+                .Invoke(null, [args[3]])!;
         var catalog = mod.GetType("SlopWorld.NativeFonts", true)!
             .GetMethod("Scan", BindingFlags.Static | BindingFlags.NonPublic)!
             .Invoke(null, null)!;
@@ -99,7 +67,7 @@ static void Execute(string[] args, string game)
                 )!
                 .Invoke(null, [File.ReadAllBytes(source.Path), source.Face])!;
         Directory.CreateDirectory(args[4]);
-        File.WriteAllBytes(Path.Combine(args[4], ui ? "ui.ttf" : "terminal.ttf"), bytes);
+        File.WriteAllBytes(Path.Combine(args[4], "terminal.ttf"), bytes);
         var host = Assembly
             .LoadFrom(Path.Combine(game, "RimWorld.dll"))
             .GetType("RimWorldWaylith.Imgui.ImGuiHost", true)!;
@@ -111,14 +79,13 @@ static void Execute(string[] args, string game)
             JsonSerializer.Serialize(new { loaderFlags = flags, family = selected })
         );
         File.WriteAllText(
-            Path.Combine(args[4], ui ? "ui-config.json" : "terminal-config.json"),
+            Path.Combine(args[4], "terminal-config.json"),
             JsonSerializer.Serialize(new { loaderFlags = flags, family = selected })
         );
-        if (!ui)
-            File.WriteAllText(
-                Path.Combine(args[4], "chains.json"),
-                JsonSerializer.Serialize(new Dictionary<string, string[]> { [args[3]] = families })
-            );
+        File.WriteAllText(
+            Path.Combine(args[4], "chains.json"),
+            JsonSerializer.Serialize(new Dictionary<string, string[]> { [args[3]] = families })
+        );
         Console.WriteLine(
             JsonSerializer.Serialize(
                 new

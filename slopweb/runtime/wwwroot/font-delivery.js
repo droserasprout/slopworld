@@ -1,19 +1,5 @@
 import {hostFonts} from './host-fonts.js';
 import {settleWorkspaceGlyphs} from './workspace-rasterizer.js';
-// Serialize selection requests through response consumption and publication.
-const queues = new WeakMap();
-export function fontRequests(fetchFont) {
-  return (...args) => {
-    const next = (queues.get(fetchFont) ?? Promise.resolve()).then(async () => {
-      const response = await fetchFont(...args);
-      const result = response.ok ? await response.json() : null;
-      return {ok:response.ok, json:async()=>result};
-    });
-    queues.set(fetchFont, next.catch(()=>{}));
-    return next;
-  };
-}
-
 export function fallbackFonts(probe, wake, fetchFont = globalThis.fetch, report = (message, retry) => {
   let status=document.getElementById('font-fallback-status');
   if (!message) { status?.remove(); return; }

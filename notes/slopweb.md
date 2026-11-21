@@ -148,7 +148,8 @@ The HTTP bridge supplies the host caller identity, and both upstream clients tru
 the system CA store. Credentials never enter page assets or URLs. Named endpoints
 take precedence over paired URL/token environment overrides, then `SLOPD_ENDPOINT`,
 then local.
-The host reads descriptor credentials for each operation and WebSocket reconnect;
+The launcher validates the connection before preparation using the same credential reader
+as the host. The host reads fresh credentials for each operation and WebSocket reconnect;
 failed reads fail closed, and mutations are never replayed after authentication failure. Remote access requires an
 authenticated HTTPS proxy and explicit `--public-origin`; forwarded headers never
 select trusted origins. HTTP, font and WebSocket requests share that origin boundary.
@@ -212,6 +213,7 @@ Fontconfig ordering independently of application builds. Directory changes trigg
 discovery. The service rechecks Fontconfig's inventory before publishing, and source
 and configuration file identities determine the generation. Unchanged faces reuse coverage. A .NET helper reads
 native loader flags only when its game/helper identity changes, outside glyph requests.
+Font coverage contracts exercise the Rust indexer that supplies the browser catalog.
 The browser fetches the index for each selected family, chooses coverage locally,
 and downloads only required immutable files. Fallback chains retain Fontconfig's
 monochrome filtering; catalog-only families must not be appended to them.
@@ -229,8 +231,8 @@ glyphs rasterize in a worker and use bounded origin-local persistent storage key
 by font content, scalar, size, density, and loader flags. Pending glyphs remain
 retryable until completion invalidates native drawing. Startup drains glyph replies
 and publishes one invalidation before its next draw; live replies remain coalesced.
-Font bytes are installed in both rasterizers before managed publication; the main thread retains synchronous
-metrics and ASCII rendering. Bump the glyph storage namespace when changing
+Startup and live font selection install outlines in both rasterizers before publishing
+managed face descriptors. The main thread retains synchronous metrics and ASCII rendering. Bump the glyph storage namespace when changing
 FreeType or its rasterization contract. Selection
 changes publish after loading and reject stale responses. Both execution modes use
 the same font pipeline; AOT only changes managed execution. Private font bytes and

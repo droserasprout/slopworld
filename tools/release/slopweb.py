@@ -99,7 +99,6 @@ AOT_SOURCES = (
     'BrowserEntry.cs',
     'CoreLanguagePacks.cs',
     'BrowserWorkspace.cs',
-    'BrowserGlyphCache.cs',
     'BrowserCursor.cs',
 )
 

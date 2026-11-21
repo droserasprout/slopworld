@@ -12,11 +12,11 @@ use crate::{
     fonts::FontService,
     server::{self, ConnectionSource, ServerConfig},
 };
-use anyhow::{Result, ensure};
+use anyhow::Result;
 use clap::{CommandFactory, Parser};
-use std::{env, fs, path::Path, sync::Arc, time::Instant};
+use std::{env, path::Path, sync::Arc, time::Instant};
 
-fn connection(options: &cli::Options) -> Result<ConnectionSource> {
+async fn connection(options: &cli::Options) -> Result<ConnectionSource> {
     let source = if options.endpoint.is_some() {
         ConnectionSource::Descriptor(options.query("endpoint")?)
     } else if let Some(url) = &options.url {
@@ -36,40 +36,7 @@ fn connection(options: &cli::Options) -> Result<ConnectionSource> {
     };
     // Validate before expensive preparation; the server still reloads the source
     // for each operation so a rotated descriptor/token never becomes stale.
-    let (url, token) = match &source {
-        ConnectionSource::Descriptor(path) => {
-            let values: toml::Table = toml::from_str(&fs::read_to_string(path)?)?;
-            (
-                values
-                    .get("url")
-                    .and_then(toml::Value::as_str)
-                    .unwrap_or_default()
-                    .to_owned(),
-                values
-                    .get("token")
-                    .and_then(toml::Value::as_str)
-                    .unwrap_or_default()
-                    .to_owned(),
-            )
-        }
-        ConnectionSource::Direct {
-            url,
-            token,
-            token_file,
-        } => (
-            url.clone(),
-            match token_file {
-                Some(path) => fs::read_to_string(path)?.trim().into(),
-                None => token.clone().unwrap_or_default(),
-            },
-        ),
-        ConnectionSource::Unconfigured => unreachable!(),
-    };
-    ensure!(
-        !url.is_empty() && !token.is_empty(),
-        "A daemon URL and token must be supplied together"
-    );
-    server::daemon_directory(&url)?;
+    source.validate().await?;
     Ok(source)
 }
 
@@ -116,7 +83,7 @@ pub async fn run() -> Result<()> {
     let connection = if options.prepare {
         ConnectionSource::Unconfigured
     } else {
-        connection(&options)?
+        connection(&options).await?
     };
     let started = Instant::now();
     let sdk = if options.use_aot() {

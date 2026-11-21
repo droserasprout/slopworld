@@ -43,7 +43,7 @@ struct Descriptor {
 }
 
 /// Keep a directory base so relative protocol routes retain the daemon's mount path.
-pub(crate) fn daemon_directory(value: &str) -> Result<Url> {
+fn daemon_directory(value: &str) -> Result<Url> {
     let mut url = Url::parse(value).context("Invalid daemon URL")?;
     if !matches!(url.scheme(), "http" | "https")
         || url.host_str().is_none()
@@ -59,6 +59,10 @@ pub(crate) fn daemon_directory(value: &str) -> Result<Url> {
 }
 
 impl ConnectionSource {
+    pub(crate) async fn validate(&self) -> Result<()> {
+        self.snapshot().await.map(drop)
+    }
+
     pub(super) async fn snapshot(&self) -> Result<Connection> {
         let (url, token) = match self {
             Self::Descriptor(path) => {

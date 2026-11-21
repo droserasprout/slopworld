@@ -1,113 +1,23 @@
 // Execute the real glyph emitter against synthetic metrics and CPU-only pixels.
-using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using BrowserAdapters;
 using UnityEngine;
-using UnityStubs.Gui;
 
 static class GlyphChecks
 {
     [MethodImpl(MethodImplOptions.NoInlining)]
-    internal static void Run(bool benchmark)
+    internal static void Run(byte[] font, bool benchmark)
     {
-        const int index = 99;
-        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        texture.SetPixels32([Color.white, Color.red, Color.green, Color.blue]);
-        texture.Apply(false, false);
-        var face = new BrowserFontBank.Face
-        {
-            Hash = "synthetic-glyph-check",
-            Size = 15,
-            Density = 1,
-            Ascent = 11.25f,
-            LineAscent = 12,
-            Descent = 3,
-            FirstLine = 16,
-            Pitch = 17.25f,
-            Spacing = 17.25f,
-            Texture = texture,
-        };
-        for (char c = ' '; c <= '~'; c++)
-            face.Glyphs[c] = new TmpGlyphMetrics
-            {
-                found = true,
-                visible = c != ' ',
-                advanceX = 7.3f + c % 3 * .25f,
-                x0 = -.75f,
-                y0 = -2.25f,
-                x1 = 6.5f,
-                y1 = 12.5f,
-                u0 = .125f,
-                v0 = .125f,
-                u1 = .875f,
-                v1 = .875f,
-            };
-        // A later negative-bearing glyph can reenter a narrow fine clip; a
-        // negative advance can move the pen back into it. Both must survive.
-        var overhang = face.Glyphs['~'];
-        overhang.x0 = -180;
-        face.Glyphs['~'] = overhang;
-        var backwards = face.Glyphs['^'];
-        backwards.advanceX = -100;
-        face.Glyphs['^'] = backwards;
-        var stationary = face.Glyphs['_'];
-        stationary.advanceX = 0;
-        face.Glyphs['_'] = stationary;
+        BrowserFontBank.Rasterize = Rasterize;
+        int index = BrowserFontBank.Install(font, "{\"size\":15,\"loaderFlags\":0}", 0);
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, TestFont.Ascii);
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        (
-            (Dictionary<int, BrowserFontBank.Face>)
-                typeof(BrowserFontBank)
-                    .GetField("faces", flags)!
-                    .GetValue(BrowserFontBank.Instance)!
-        ).Add(index, face);
-        (
-            (List<BrowserFontBank.Face>)
-                typeof(BrowserFontBank)
-                    .GetField("variants", flags)!
-                    .GetValue(BrowserFontBank.Instance)!
-        ).Add(face);
-        // Distinct metrics make accidental style/density reuse observable in packets.
-        foreach (FontStyle style in Enum.GetValues<FontStyle>())
-        foreach (float density in new[] { 1f, 5f / 3, 2f })
-        {
-            if (style == FontStyle.Normal && density == 1)
-                continue;
-            var variant = new BrowserFontBank.Face
-            {
-                Hash = face.Hash,
-                Style = style,
-                Size = face.Size,
-                Density = density,
-                Ascent = face.Ascent + (int)style * .1f,
-                LineAscent = face.LineAscent,
-                Descent = face.Descent,
-                FirstLine = face.FirstLine,
-                Pitch = face.Pitch,
-                Spacing = face.Spacing,
-                Texture = texture,
-            };
-            foreach (var pair in face.Glyphs)
-            {
-                var glyph = pair.Value;
-                glyph.x0 += (int)style * .2f + density * .1f;
-                glyph.advanceX += (int)style * .1f;
-                variant.Glyphs.Add(pair.Key, glyph);
-            }
-            (
-                (List<BrowserFontBank.Face>)
-                    typeof(BrowserFontBank)
-                        .GetField("variants", flags)!
-                        .GetValue(BrowserFontBank.Instance)!
-            ).Add(variant);
-        }
-        var original = new BrowserGui();
-        var cached = new BrowserGui();
         var text = "glyph clipping Agyp 0123";
-        string Frame(BrowserGui gui, bool cache, int scenario, bool? tail = null)
+        string Frame(BrowserGui gui, bool tail, int scenario)
         {
-            BrowserGui.ConfigureGlyphCache(cache);
-            BrowserGui.ConfigureGlyphTailClip(tail ?? cache);
+            BrowserGui.ConfigureGlyphTailClip(tail);
             float scale =
                 scenario % 3 == 0 ? 1
                 : scenario % 3 == 1 ? 5f / 3
@@ -211,26 +121,17 @@ static class GlyphChecks
         for (int repeat = 0; repeat < 3; repeat++)
         {
             BrowserGuiInput.Profile = repeat != 0;
-            if (
-                Frame(originalDirect, false, scenario, false)
-                != Frame(clippedDirect, false, scenario, true)
-            )
+            if (Frame(originalDirect, false, scenario) != Frame(clippedDirect, true, scenario))
                 throw new Exception(
                     $"Tail clipping changed packet or trace count at {scenario}/{repeat}"
                 );
-            string expected = Frame(original, false, scenario);
-            string actual = Frame(cached, true, scenario);
-            if (expected != actual)
-                throw new Exception($"Glyph geometry cache changed packet at {scenario}/{repeat}");
         }
-        // Reused geometry must still validate mutable pixels and discarded uploads.
-        texture.SetPixels32([Color.red, Color.white, Color.blue, Color.green]);
-        texture.Apply(false, false);
-        BrowserGui.TextureApplied(texture);
-        if (Frame(original, false, 1) != Frame(cached, true, 1))
-            throw new Exception("Cached geometry skipped an image invalidation");
+        // A glyph appended between frames must still upload when clipping is enabled.
+        BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "Ω");
+        string mutated = Frame(originalDirect, false, 1);
+        if (!mutated.Contains("\"kind\":\"image\"") || mutated != Frame(clippedDirect, true, 1))
+            throw new Exception("Tail clipping changed the updated atlas upload");
         var fresh = new BrowserGui();
-        BrowserGui.ConfigureGlyphCache(true);
         fresh.DrawText(
             new Rect(0, 0, 200, 20),
             text,
@@ -245,69 +146,48 @@ static class GlyphChecks
         );
         fresh.Discard();
         if (Frame(new BrowserGui(), false, 1) != Frame(fresh, true, 1))
-            throw new Exception("Discarded upload was lost when geometry was reused");
+            throw new Exception("Tail clipping lost a discarded upload");
         Console.WriteLine(
-            "Real glyph packets match with cache and tail clipping off/on across clips, scales, anchors, scroll offsets, batching, image mutation and discarded uploads."
+            "Real glyph packets match with tail clipping off/on across clips, scales, anchors, scroll offsets, batching, image mutation and discarded uploads."
         );
         BrowserGuiInput.Profile = previousProfile;
         BrowserGui.ConfigureGlyphTailClip(true);
         LabelChecks.Run(index);
-        CellChecks.Run(index, texture, benchmark);
-        RowChecks.Run(index, texture);
-        if (benchmark)
-            Benchmark(index);
-        BrowserGui.ConfigureGlyphCache(false);
+        CellChecks.Run(index, benchmark);
+        RowChecks.Run(index);
     }
 
-    static void Benchmark(int index)
+    static string Rasterize(string request)
     {
-        var labels = Enumerable
-            .Range(0, 80)
-            .Select(i => $"label {i:00} Agyp terminal status")
-            .ToArray();
-        var gui = new BrowserGui();
-        void Draw(bool cache, int movement = 0)
-        {
-            BrowserGui.ConfigureGlyphCache(cache);
-            gui.PushClipRect(new Rect(0, 0, 600, 1600));
-            for (int i = 0; i < labels.Length; i++)
-                gui.DrawText(
-                    new Rect(2 + movement, i * 18, 600, 18),
-                    labels[i],
-                    index,
-                    15,
-                    FontStyle.Normal,
-                    TextAnchor.UpperLeft,
-                    false,
-                    Color.white,
-                    default,
-                    false
-                );
-            gui.PopClipRect();
-        }
-        Draw(true);
-        gui.Drain();
-        for (int i = 0; i < 100; i++)
-        {
-            Draw(i % 2 == 0);
-            gui.Discard();
-        }
-        foreach (bool moving in new[] { false, true })
-            for (int round = 0; round < 6; round++)
-                foreach (
-                    bool cache in round % 2 == 0 ? new[] { false, true } : new[] { true, false }
-                )
+        using var document = JsonDocument.Parse(request);
+        var item = document.RootElement;
+        if (!item.TryGetProperty("scalar", out var scalar))
+            return item.TryGetProperty("size", out _) ? "{\"ascent\":11.25,\"descent\":-3}" : "{}";
+        int c = scalar.GetInt32();
+        if (c < ' ' || c > '~' && c != 'Ω')
+            return "{\"missing\":true}";
+        float density = item.GetProperty("density").GetSingle();
+        int style = item.GetProperty("flags").GetInt32() >> 5;
+        // Later overhangs and backwards advances can move ink back into a narrow clip.
+        int width = c == ' ' ? 0 : (int)Math.Ceiling((c == '~' ? 187 : 8) * density);
+        int height = (int)Math.Ceiling(15 * density);
+        return JsonSerializer.Serialize(
+            new
+            {
+                advance = c switch
                 {
-                    long allocated = GC.GetAllocatedBytesForCurrentThread();
-                    long start = Stopwatch.GetTimestamp();
-                    for (int i = 0; i < 1000; i++)
-                    {
-                        Draw(cache, moving ? i % 2 : 0);
-                        gui.Discard();
-                    }
-                    Console.WriteLine(
-                        $"glyph-benchmark moving={moving} cache={cache} round={round} ms/frame={Stopwatch.GetElapsedTime(start).TotalMilliseconds / 1000:F4} bytes/frame={(GC.GetAllocatedBytesForCurrentThread() - allocated) / 1000} labels={labels.Length}"
-                    );
-                }
+                    '^' => -100,
+                    '_' => 0,
+                    _ => 7.3f + c % 3 * .25f + style * .1f,
+                },
+                x = (c == '~' ? -180 : -.75f) + style * .2f + density * .1f,
+                y = -13.5f,
+                width,
+                height,
+                pixels = Convert.ToBase64String(
+                    Enumerable.Repeat((byte)c, width * height).ToArray()
+                ),
+            }
+        );
     }
 }

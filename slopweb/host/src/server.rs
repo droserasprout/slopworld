@@ -19,7 +19,6 @@ use axum::{
     response::Response,
 };
 pub use endpoint::ConnectionSource;
-pub(crate) use endpoint::daemon_directory;
 use std::{path::PathBuf, sync::Arc};
 use tokio::net::TcpListener;
 

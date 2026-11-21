@@ -73,7 +73,6 @@ foreach (int length in new[] { 0, 4095, 4096, 4097, 2200000 })
 }
 CommandValueCacheTests.Run();
 PacketCacheTests.Run(commands);
-GlyphRunTests.Run();
 
 var quad = new BrowserGlyphQuad(-2, -3, 10, 9, 0, 0, 1, 1);
 if (
@@ -132,7 +131,22 @@ batches.Add(new BrowserGui.Command("clipScreen", rect));
 BrowserGui.AppendImageBatch(batches, 2, 1, 1, 1, 1, first);
 if (batches.Count != 5)
     throw new Exception("Image batch crossed an alpha, image or clip boundary");
-Console.WriteLine("Image batches preserve draw order and state boundaries.");
+var single = new List<BrowserGui.Command>();
+var bulk = new List<BrowserGui.Command>();
+float[] values = Enumerable.Range(0, 8 * 2300).Select(i => i / 7f).ToArray();
+
+// A run starts in an existing batch and crosses two batch boundaries.
+BrowserGui.AppendImageBatch(single, 1, 1, 1, 1, 1, first);
+BrowserGui.AppendImageBatch(bulk, 1, 1, 1, 1, 1, first);
+for (int i = 0; i < values.Length; i += 8)
+    BrowserGui.AppendImageBatch(single, 1, 1, 1, 1, 1, values.AsSpan(i, 8));
+BrowserGui.AppendImageBatch(bulk, 1, 1, 1, 1, 1, values);
+if (BrowserCommandWriter.Serialize(single) != BrowserCommandWriter.Serialize(bulk))
+    throw new Exception("Bulk image batching changed batch geometry or boundaries");
+foreach (var command in bulk)
+    if (((BrowserGui.ImageBatchCommand)command.value).quads.Capacity > 8192)
+        throw new Exception("Bulk image batching exceeded batch capacity");
+Console.WriteLine("Image batches preserve draw order, state boundaries and capacity limits.");
 
 var textCache = new BrowserTextCache<float>(
     new Dictionary<int, float> { ['a'] = 1.25f, ['b'] = 2.5f }.TryGetValue,
