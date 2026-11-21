@@ -35,20 +35,20 @@ and does not identify which crates are included in a particular binary.
 | bitflags | 2.13.2 | MIT OR Apache-2.0 |
 | block-buffer | 0.10.4 | MIT OR Apache-2.0 |
 | block2 | 0.6.2 | MIT |
-| bstr | 1.13.1 | MIT OR Apache-2.0 |
+| bstr | 1.14.0 | MIT OR Apache-2.0 |
 | bumpalo | 3.20.4 | MIT OR Apache-2.0 |
 | bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT |
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
 | bytes | 1.12.2 | MIT |
-| cc | 1.11.2 | MIT OR Apache-2.0 |
+| cc | 1.11.3 | MIT OR Apache-2.0 |
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
-| clap | 4.6.8 | MIT OR Apache-2.0 |
+| clap | 4.6.9 | MIT OR Apache-2.0 |
 | clap_builder | 4.6.7 | MIT OR Apache-2.0 |
 | clap_complete | 4.6.12 | MIT OR Apache-2.0 |
-| clap_derive | 4.6.8 | MIT OR Apache-2.0 |
+| clap_derive | 4.6.9 | MIT OR Apache-2.0 |
 | clap_lex | 1.1.2 | MIT OR Apache-2.0 |
 | color_quant | 1.1.0 | MIT |
 | colorchoice | 1.0.5 | MIT OR Apache-2.0 |
@@ -86,7 +86,7 @@ and does not identify which crates are included in a particular binary.
 | fixedbitset | 0.5.9 | MIT OR Apache-2.0 |
 | flate2 | 1.1.11 | MIT OR Apache-2.0 |
 | foldhash | 0.1.5 | Zlib |
-| form_urlencoded | 1.2.2 | MIT OR Apache-2.0 |
+| form_urlencoded | 1.2.3 | MIT OR Apache-2.0 |
 | futures | 0.3.34 | MIT OR Apache-2.0 |
 | futures-channel | 0.3.34 | MIT OR Apache-2.0 |
 | futures-core | 0.3.34 | MIT OR Apache-2.0 |
@@ -138,7 +138,7 @@ and does not identify which crates are included in a particular binary.
 | jni-sys | 0.4.1 | MIT OR Apache-2.0 |
 | jni-sys-macros | 0.4.1 | MIT OR Apache-2.0 |
 | js-sys | 0.3.107 | MIT OR Apache-2.0 |
-| landlock | 0.4.7 | MIT OR Apache-2.0 |
+| landlock | 0.4.8 | MIT OR Apache-2.0 |
 | lazy_static | 1.5.1 | MIT OR Apache-2.0 |
 | libc | 0.2.191 | MIT OR Apache-2.0 |
 | libdbus-sys | 0.2.7 | Apache-2.0/MIT |
@@ -189,7 +189,7 @@ and does not identify which crates are included in a particular binary.
 | parking_lot_core | 0.9.12 | MIT OR Apache-2.0 |
 | percent-encoding | 2.3.2 | MIT OR Apache-2.0 |
 | petgraph | 0.8.3 | MIT OR Apache-2.0 |
-| pin-project-lite | 0.2.17 | Apache-2.0 OR MIT |
+| pin-project-lite | 0.2.18 | Apache-2.0 OR MIT |
 | piper | 0.2.5 | MIT OR Apache-2.0 |
 | pkg-config | 0.3.34 | MIT OR Apache-2.0 |
 | png | 0.18.1 | MIT OR Apache-2.0 |
@@ -277,8 +277,8 @@ and does not identify which crates are included in a particular binary.
 | toml_datetime | 0.6.11 | MIT OR Apache-2.0 |
 | toml_datetime | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |
 | toml_edit | 0.22.27 | MIT OR Apache-2.0 |
-| toml_edit | 0.25.19+spec-1.1.0 | MIT OR Apache-2.0 |
-| toml_parser | 1.1.5+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_edit | 0.25.20+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_parser | 1.1.6+spec-1.1.0 | MIT OR Apache-2.0 |
 | toml_write | 0.1.2 | MIT OR Apache-2.0 |
 | tower | 0.5.3 | MIT |
 | tower-http | 0.5.2 | MIT |
@@ -296,7 +296,7 @@ and does not identify which crates are included in a particular binary.
 | untrusted | 0.9.0 | ISC |
 | ureq | 3.5.2 | MIT OR Apache-2.0 |
 | ureq-proto | 0.7.1 | MIT OR Apache-2.0 |
-| url | 2.5.8 | MIT OR Apache-2.0 |
+| url | 2.5.9 | MIT OR Apache-2.0 |
 | utf-8 | 0.7.6 | MIT OR Apache-2.0 |
 | utf8-zero | 0.8.1 | MIT OR Apache-2.0 |
 | utf8_iter | 1.1.0 | Apache-2.0 OR MIT |
@@ -306,7 +306,7 @@ and does not identify which crates are included in a particular binary.
 | valuable | 0.1.1 | MIT |
 | version_check | 0.9.5 | MIT/Apache-2.0 |
 | vte | 0.15.0 | Apache-2.0 OR MIT |
-| walkdir | 2.5.0 | Unlicense/MIT |
+| walkdir | 2.5.1 | Unlicense/MIT |
 | wasi | 0.11.1+wasi-snapshot-preview1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | wasm-bindgen | 0.2.130 | MIT OR Apache-2.0 |
 | wasm-bindgen-futures | 0.4.80 | MIT OR Apache-2.0 |
@@ -363,8 +363,8 @@ and does not identify which crates are included in a particular binary.
 | writeable | 0.6.4 | Unicode-3.0 |
 | yoke | 0.8.4 | Unicode-3.0 |
 | yoke-derive | 0.8.4 | Unicode-3.0 |
-| zerocopy | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |
-| zerocopy-derive | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |
+| zerocopy | 0.8.64 | BSD-2-Clause OR Apache-2.0 OR MIT |
+| zerocopy-derive | 0.8.64 | BSD-2-Clause OR Apache-2.0 OR MIT |
 | zerofrom | 0.1.8 | Unicode-3.0 |
 | zerofrom-derive | 0.1.8 | Unicode-3.0 |
 | zeroize | 1.9.2 | Apache-2.0 OR MIT |

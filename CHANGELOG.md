@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
+## [0.1.2] - 2026-11-21
+
+### Added
+
+- CLI: Added `slopctl agent stop` to stop agents and one-shot workers.
+- Connections: Support remote daemons hosted under URL path prefixes.
+
+### Fixed
+
+- Sandbox: Fixed session launch failures when optional bind paths pass through dangling symlinks.
+- UI: Fixed project lists staying stale after catalog refreshes.
+- Terminal: Fixed text selection at the bottom of panes and partially visible history rows.
+
 ## [0.1.1] - 2026-11-18
 
 ### Breaking changes
@@ -447,7 +460,8 @@ Initial release 🐈
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/droserasprout/slopworld/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/droserasprout/slopworld/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/droserasprout/slopworld/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/droserasprout/slopworld/compare/v0.0.14...v0.1.0
 [0.0.14]: https://github.com/droserasprout/slopworld/compare/v0.0.13...v0.0.14
