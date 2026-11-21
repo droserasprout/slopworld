@@ -25,6 +25,16 @@ public sealed class SilentAudio : AudioBackend
     public override double DspTime => Waylith.Time.Elapsed;
     public override int PlayingVoices => 0;
 
+    // The browser drives frames without Waylith's platform loop. Older engines
+    // activate the configured mixer in their constructor, newer ones on platform start.
+    public static void ActivateForEntry(Waylith.EngineApplication engine)
+    {
+        var mixer = (SilentAudio)engine.Options.AudioBackend!;
+        if (!mixer.IsInitialized)
+            mixer.Initialize(true);
+        Current = mixer;
+    }
+
     public override void Initialize(bool noAudio)
     {
         if (!noAudio)

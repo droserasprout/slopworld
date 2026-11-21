@@ -60,7 +60,9 @@ reading current geometry on each draw. In Entry the underlying top bar can open
 the persona-core menu and shortcut help with the last terminal pane closed.
 Hints belong to the window stack and pane that owned the opening gesture.
 Startup validates managed status reports as well as exceptions; failed or incomplete
-Entry initialization releases the engine and ends loading with an error.
+Entry initialization releases the engine and ends loading with an error. Browser Entry
+activates its configured silent mixer before native resource registration because the
+browser drives frames without starting the desktop platform loop.
 Game assembly downloads use a four-file window, including completed buffers;
 CLR loading and per-file failure reporting retain manifest order. A manifest
 assembly failure ends startup before the Eco archive transfer.

@@ -125,6 +125,7 @@ public partial class Probe
                         Type("Waylith", "Waylith.EngineApplication"),
                         options
                     )!;
+                Invoke("Adapters", "BrowserAdapters.SilentAudio", "ActivateForEntry", entryEngine);
                 Invoke("RimWorld", "RimWorldWaylith.Bootstrap", "Initialize", entryEngine);
                 return "initialized";
             }
