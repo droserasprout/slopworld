@@ -24,7 +24,6 @@ ARG SLOPWORLD_BUILD_VERSION
 RUN touch src/main.rs src/bin/slopctl.rs \
     && cargo build --release --locked --bin slopd --bin slopctl
 
-# Forky supplies tmux 3.7c.
 FROM debian:forky-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -42,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ripgrep \
         systemd-standalone-sysusers \
         systemd-standalone-tmpfiles \
-        tmux=3.7c-1 \
+        tmux \
         util-linux \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old /var/lib/dpkg/*-old \
     && find /usr/lib/python3* -type d -name __pycache__ -prune -exec rm -rf '{}' +
