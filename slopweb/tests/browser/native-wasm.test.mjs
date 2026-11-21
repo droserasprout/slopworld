@@ -14,11 +14,14 @@ function fixture(t) {
   const fetchBytes = globalThis.fetch;
   const entries = new Map();
   const calls = [];
+  let write;
   const cache = {
     async match(key) { return entries.get(key)?.clone(); },
-    async put(key, response) {
-      const data = await response.arrayBuffer();
-      entries.set(key, new Response(data, {headers:response.headers}));
+    put(key, response) {
+      write = response.arrayBuffer().then(data => {
+        entries.set(key, new Response(data, {headers:response.headers}));
+      });
+      return write;
     },
   };
   const state = {bytes:wasm, length:wasm.length};
@@ -40,8 +43,11 @@ function fixture(t) {
     }});
   });
   async function compile(name=file, integrity=hash(state.bytes)) {
+    write = undefined;
     const response = await nativeWasmResource('dotnetwasm', name, url.replace(file, name), integrity);
     await WebAssembly.compileStreaming(response);
+    // Cache writes can settle after compilation, including rejected writes for invalid lengths.
+    await Promise.allSettled([write]);
   }
   return {entries, calls, state, cache, storage, compile};
 }
