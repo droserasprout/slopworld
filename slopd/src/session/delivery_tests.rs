@@ -624,12 +624,12 @@ async fn task_worker_delivery_fixture() -> (
 }
 
 #[tokio::test]
-async fn followup_submits_guarded_paste_and_enter_and_audits_without_changing_task_status() {
+async fn worker_followup_delivers_verbatim_without_changing_task_history() {
     assert_followup_delivery(true).await;
 }
 
 #[tokio::test]
-async fn project_agent_followup_submits_and_audits_an_ordinary_task() {
+async fn project_agent_followup_delivers_verbatim_without_changing_task_history() {
     assert_followup_delivery(false).await;
 }
 
@@ -738,27 +738,10 @@ async fn assert_followup_delivery(worker: bool) {
     )
     .await
     .unwrap();
-    let audited = manager.task_store().all_tasks_async().await.unwrap();
-    assert_eq!(audited[0].status, task.status);
-    assert_eq!(audited[0].note, task.note);
-    assert_eq!(audited[0].history.len(), task.history.len() + 2);
-    let history = &audited[0].history[task.history.len()..];
-    assert_eq!(
-        history[0].note.as_deref(),
-        Some("Follow-up requested: Check the tests λ")
-    );
-    assert!(
-        history[1]
-            .note
-            .as_deref()
-            .unwrap()
-            .starts_with("Follow-up submitted")
-    );
-    assert!(
-        history
-            .iter()
-            .all(|entry| entry.sender == sender && entry.status == task.status)
-    );
+    let tasks = manager.task_store().all_tasks_async().await.unwrap();
+    assert_eq!(tasks[0].status, task.status);
+    assert_eq!(tasks[0].note, task.note);
+    assert_eq!(tasks[0].history, task.history);
     let paste = rx.recv().await.unwrap();
     assert!(
         matches!(&paste.command, Input::AgentPaste { bytes } if String::from_utf8_lossy(bytes).contains("Check the tests λ"))
@@ -778,8 +761,7 @@ async fn assert_followup_delivery(worker: bool) {
     .await
     .unwrap();
     let received = std::fs::read(root.join("followup-received")).unwrap();
-    let expected =
-        "\u{1b}[200~Follow-up from your supervising agent:\nCheck the tests λ\u{1b}[201~\r";
+    let expected = "\u{1b}[200~Check the tests λ\u{1b}[201~\r";
     assert_eq!(received, expected.as_bytes());
     assert!(rx.try_recv().is_err());
 }

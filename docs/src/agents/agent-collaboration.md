@@ -72,8 +72,7 @@ changes what that worker can do, not what its parent can do.
 An agent with **Send follow-ups** permission for the recipient can send
 `slopctl task followup --id ID "Check the tests"` to wake a running interactive
 worker or an existing agent assigned a mailbox task. The daemon waits for readiness
-and records the request and submission outcome in task history. Submission does not accept or reopen
-the task. Follow-ups are rejected for canceled tasks, stopped workers, and shell
+and submits the message verbatim. Task history and status stay unchanged. Follow-ups are rejected for canceled tasks, stopped workers, and shell
 workers. Use a new worker when the process has exited.
 
 ### Cleanup and retries

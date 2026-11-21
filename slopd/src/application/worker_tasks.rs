@@ -1,9 +1,8 @@
-//! Worker task authorization, destination planning, and follow-up audit coordination.
+//! Worker task authorization, destination planning, and follow-up delivery coordination.
 //! Session owns identity and delivery leases; tasks owns mutation policy and persistence.
 use super::{Application, Configuration};
 use crate::credentials::Cap;
 use crate::shared::protocol::SESSION_HEADER;
-use anyhow::Context;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Failure {
@@ -169,47 +168,20 @@ pub(crate) async fn followup(
         .wait_followup(&target)
         .await
         .map_err(|e| err(Failure::Invalid, e))?;
-    // Revalidate before handing the audit and submission to an owned operation.
+    // Revalidate before handing submission to an owned operation.
     Configuration::new(m)
         .session_request(async {
             validate_credentials()?;
             followup_target(m, cap, &principal(cap, requested_caller.as_deref())?, &id).await?;
             let sessions = m.sessions.clone();
-            let sender = principal(cap, requested_caller.as_deref())?;
             m.sessions
-                .owned_session_operation(async move {
-                    let (audit_id, audit_sender, audit_body) =
-                        (id.clone(), sender.clone(), body.clone());
-                    sessions
-                        .task_store()
-                        .run(move |tasks| {
-                            tasks.followup_note(
-                                &audit_id,
-                                &audit_sender,
-                                format!("Follow-up requested: {audit_body}"),
-                            )
-                        })
-                        .await?;
-                    let result = sessions.submit_followup(&target, &body).await;
-                    let outcome = followup_outcome(&result);
-                    let saved = sessions
-                        .task_store()
-                        .run(move |tasks| tasks.followup_note(&id, &sender, outcome))
-                        .await;
-                    saved.context("Follow-up delivery completed, but saving its outcome failed")?;
-                    result
-                })
+                .owned_session_operation(
+                    async move { sessions.submit_followup(&target, &body).await },
+                )
                 .await
                 .map_err(|e| err(Failure::Invalid, e))
         })
         .await
-}
-
-fn followup_outcome(result: &anyhow::Result<()>) -> String {
-    match result {
-        Ok(()) => "Follow-up submitted to the worker's current run; task status unchanged.".into(),
-        Err(error) => format!("Follow-up not delivered: {error:#}"),
-    }
 }
 
 pub(crate) async fn cancel(

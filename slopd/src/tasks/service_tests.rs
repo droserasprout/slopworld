@@ -450,7 +450,7 @@ fn cancel_and_worker_failure_append_once_without_repeating_the_latest_note() {
 }
 
 #[test]
-fn supervised_cancellation_is_scoped_and_followup_history_preserves_result_and_status() {
+fn supervised_cancellation_is_scoped_and_preserves_progress_note() {
     let mut f = Fixture::new();
     let task = f
         .tasks
@@ -471,13 +471,6 @@ fn supervised_cancellation_is_scoped_and_followup_history_preserves_result_and_s
             Some("progress".into()),
         )
         .unwrap();
-    f.tasks
-        .followup_note(&task.id, "parent", "Follow-up requested: verify".into())
-        .unwrap();
-    let updated = f.tasks.get("parent", &task.id).unwrap();
-    assert_eq!(updated.status, Status::Working);
-    assert_eq!(updated.note.as_deref(), Some("progress"));
-    assert_eq!(updated.history.last().unwrap().sender, "parent");
     f.tasks
         .cancel_many("parent", "parent", std::slice::from_ref(&task.id), false)
         .unwrap_err();

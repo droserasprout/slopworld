@@ -225,11 +225,10 @@ impl SessionRuntime {
         target: &DeliveryTarget,
         text: &str,
     ) -> Result<()> {
-        let prompt = format!("Follow-up from your supervising agent:\n{text}");
         match self
             .admit_delivery(
                 target,
-                DeliveryIntent::Followup(&prompt),
+                DeliveryIntent::Followup(text),
                 tokio::time::Instant::now() + READY_TIMEOUT,
             )
             .await

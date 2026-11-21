@@ -76,12 +76,10 @@ worker's own permissions and spawning policy, comparing the task ID to reject st
 editors. Durable changes use configuration; one-shot changes use the credential-free
 tmux snapshot. WebSocket publication rechecks current terminal access before sending.
 
-`application/worker_tasks.rs` owns follow-up and cancellation authorization and
-follow-up auditing. Session owns identity and delivery; the task store owns mutation
+`application/worker_tasks.rs` owns follow-up and cancellation authorization. Session owns identity and delivery; the task store owns mutation
 policy. Authorized follow-ups support both worker assignments and ordinary tasks
 addressed to existing agents. Follow-ups prepare under session admission, wait for readiness outside it,
 then revalidate authority, task state, and run identity. Exclusive admission spans
-audit and submission; lost readiness fails without another wait. Delivery rechecks
+submission; lost readiness fails without another wait. Delivery rechecks
 the foreground command before paste and Enter to avoid sending input to a shell
-after agent exit. History records submission, not acceptance, without changing the
-task result.
+after agent exit. Follow-ups deliver the supplied text directly and leave task history unchanged.

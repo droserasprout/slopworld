@@ -294,18 +294,6 @@ impl Tasks {
         let order = plan.order;
         self.persist(plan.apply(sender, note), order)
     }
-    // Application admission checks current follow-up authority for both workers and
-    // ordinary agents before handing the audit and delivery to an owned operation.
-    pub(crate) fn followup_note(&mut self, id: &str, sender: &str, note: String) -> Result<()> {
-        let entry = self.by_id.get(id).context("Task no longer exists")?;
-        let order = entry.order;
-        let mut task = entry.task.clone();
-        let result = task.note.clone();
-        task.record_update(sender.into(), task.status, Some(note));
-        task.note = result;
-        self.persist(task, order)?;
-        Ok(())
-    }
 
     pub(crate) fn stamp(&self, task: &Task) -> Option<TaskStamp> {
         self.by_id
