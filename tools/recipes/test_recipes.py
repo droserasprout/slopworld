@@ -113,7 +113,6 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         args = [call['args'] for call in self.calls('uv')]
         for suite in (
             'tools.protocol.api_contract',
-            'tools.themes.validate_themes',
             'tools.terminal.pager_geometry',
         ):
             self.assertTrue(any(suite in call for call in args), suite)

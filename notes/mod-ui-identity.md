@@ -9,7 +9,6 @@ terminal theme; terminal-only IDs are allowed.
 `mod/Themes/Terminal/`. `ThemeLoader` shares loading/error recovery; each consumer
 owns its cache and fallback. Derived roles stay out of editable catalogs. Accent,
 destructive, and checkbox faces must be opaque for contrast-derived text.
-Validate with `just mod-check-themes`.
 
 Imported schemes preserve upstream colors, roles, and opacity even when contrast
 checks fail. SlopWorld Warm/Cold/Calm are house schemes. A palette is not a complete

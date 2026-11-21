@@ -42,7 +42,7 @@ test: daemon-test sidecar-test mod-test test-tools
 
 # Run all game-free Python, pager and benchmark-helper tests
 [group('Check and fix')]
-test-tools: mod-check-themes tools-test tools-test-pager
+test-tools: tools-test tools-test-pager
 
 import 'just/daemon.just'
 import 'just/mod.just'

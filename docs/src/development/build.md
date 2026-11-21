@@ -117,7 +117,7 @@ For documentation changes, run `just docs-build`. See
 Prefix each recipe with `just`. C# formatting uses the pinned CSharpier tool,
 restored automatically. Python formatting uses 120 columns, single quotes, and sorted imports.
 
-`just test-tools` also checks theme catalogs and pager integration.
+`just test-tools` also checks pager integration.
 Use `just tools-test-pager` for pager checks alone.
 
 Pass test filters to a component recipe. For example:

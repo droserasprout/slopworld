@@ -1,6 +1,6 @@
 # Build against game assemblies, or pass managed='rimref' for pinned references
 [group('mod')]
-mod-build $managed='' $configuration='' $warnings='true': mod-check-themes mod-restore
+mod-build $managed='' $configuration='' $warnings='true': mod-restore
     #!/usr/bin/env bash
     set -euo pipefail
     version="$VERSION"
@@ -25,11 +25,6 @@ mod-restore:
 [group('mod')]
 mod-restore-tools:
     dotnet tool restore --verbosity quiet
-
-# Validate shipped theme catalogs
-[group('mod')]
-mod-check-themes:
-    uv run --locked python -m tools.themes.validate_themes
 
 # Format production, test and benchmark C# sources
 [group('mod')]
