@@ -12,6 +12,11 @@ namespace SlopWorld
         internal static int SelectionEdgeRow(int pointerRow, int rows) =>
             Math.Max(0, Math.Min(rows - 1, pointerRow));
 
+        // Fractional history includes one extra visible line. A sparse frame still
+        // occupies its declared rows, including any lines awaiting history data.
+        internal static int SelectionEdgeRow(int pointerRow, ScreenBuf displayed) =>
+            SelectionEdgeRow(pointerRow, Math.Max(displayed.Rows, displayed.Lines?.Length ?? 0));
+
         public static bool TryMeasure(
             UiLayoutRect bounds,
             float cellWidth,

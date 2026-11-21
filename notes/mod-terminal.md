@@ -52,7 +52,9 @@ Each panel negotiates its own bounds using the same snapped cell advance for dra
 and hits. Refresh cannot pass one pane's geometry to another. Client allocation limits
 remain independent of daemon capabilities.
 While reading history, a pane defers daemon resizing so reflow cannot invalidate its
-row anchor. The retained grid clips to the new pane bounds; returning live negotiates
+row anchor. A fractional scroll position can expose one line beyond the declared grid
+height. Selection includes that line and preserves gaps in incomplete history.
+The retained grid clips to the new pane bounds; returning live negotiates
 the latest bounds. This also applies to divider drags and restored history positions.
 
 Flush literal input before clipboard/PRIMARY paste and on focus loss; release forwarded
@@ -67,7 +69,9 @@ Shift+Enter travels as a named key, not literal escape bytes. The daemon owns it
 foreground-shell fallback and legacy application compatibility; prompt title capture
 tracks it as a newline without submission.
 
-Selection across missing rows leaves the clipboard unchanged. Translate endpoints
+Selection across missing rows leaves the clipboard unchanged. Gesture endpoints
+clamp to the displayed row count, including the unused pixel strip below the final
+row; that strip must not become a nonexistent selected row. Translate endpoints
 and drag anchors with history growth so highlights stay on text. Edge scrolling keeps
 the pointer-row endpoint, clamping only outside displayed rows. Closing/rebinding
 must end the old draw before resources can be recreated. Session navigation preserves

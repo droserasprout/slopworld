@@ -16,7 +16,7 @@ namespace SlopWorld.Tests
             var history = new TerminalHistory();
             foreach (int row in new[] { 1, 2 })
             {
-                int endpoint = TerminalPanelGeometry.SelectionEdgeRow(row, screen.Rows);
+                int endpoint = TerminalPanelGeometry.SelectionEdgeRow(row, screen);
                 Assert.That(endpoint, Is.EqualTo(row));
                 Assert.That(history.SelectionText(screen, 0, row, 3, endpoint), Is.EqualTo("test"));
                 Assert.That(history.SelectionText(screen, 3, row, 0, endpoint), Is.EqualTo("test"));
@@ -30,6 +30,32 @@ namespace SlopWorld.Tests
             Assert.That(TerminalPanelGeometry.SelectionEdgeRow(1, 4), Is.EqualTo(1));
             Assert.That(TerminalPanelGeometry.SelectionEdgeRow(2, 4), Is.EqualTo(2));
             Assert.That(TerminalPanelGeometry.SelectionEdgeRow(0, 1), Is.EqualTo(0));
+        }
+
+        public static void UnusedPaneBottomSelectsLastRowWithoutMaskingMissingHistory()
+        {
+            var screen = new ScreenBuf { Rows = 2, Lines = new[] { "first", "gyp" } };
+            var history = new TerminalHistory();
+            int endpoint = TerminalPanelGeometry.SelectionEdgeRow(2, screen);
+            Assert.That(history.SelectionText(screen, 0, 0, 2, endpoint), Is.EqualTo("first\ngyp"));
+            screen.Lines = new[] { "first" };
+            endpoint = TerminalPanelGeometry.SelectionEdgeRow(2, screen);
+            Assert.That(history.SelectionText(screen, 0, 0, 2, endpoint), Is.Null.Or.Empty);
+        }
+
+        public static void FractionalHistorySelectionReachesThePartiallyVisibleLastLine()
+        {
+            var screen = new ScreenBuf
+            {
+                Rows = 2,
+                Off = 1,
+                Lines = new[] { "top", "mid", "end" },
+            };
+            int endpoint = TerminalPanelGeometry.SelectionEdgeRow(2, screen);
+            Assert.That(
+                new TerminalHistory().SelectionText(screen, 0, 2, 2, endpoint),
+                Is.EqualTo("end")
+            );
         }
 
         public static void RejectsNonFiniteGeometry()
