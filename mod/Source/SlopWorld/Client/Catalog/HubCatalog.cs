@@ -30,7 +30,9 @@ namespace SlopWorld
         // Changes only when a winning snapshot is published, not when a read starts.
         public int Revision { get; private set; }
 
-        public int ProjectsRevision => _projects.Revision;
+        // UI catalogs reconcile only after the replacement list is published.
+        // SnapshotRequest.Revision advances on request admission, before data arrives.
+        public int ProjectsRevision { get; private set; }
         public int TemplatesRevision => _templates.Revision;
         public string SettingsRevision =>
             $"{_projects.Revision}/{_presets.Revision}/{_library.Revision}/{_templates.Revision}";
@@ -58,6 +60,7 @@ namespace SlopWorld
         void SetProjects(Wire.ProjectsReply j)
         {
             Projects = j.Projects.Select(ProjectInfo.FromWire).ToList();
+            ProjectsRevision++;
             Revision++;
         }
 
