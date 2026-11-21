@@ -42,7 +42,7 @@ export function attachWorkspaceFullscreen(managed, view = window) {
   // Focused GUI input routes keys through native bindings first. Before the
   // canvas has focus, honor the default F11 gesture only while it is bound.
   doc.addEventListener('keydown', event => {
-    if (event.defaultPrevented || event.key !== 'F11' || !managed.WorkspaceFullscreenKey('F11')) return;
+    if (event.defaultPrevented || event.shiftKey || event.key !== 'F11' || !managed.WorkspaceFullscreenKey('F11')) return;
     event.preventDefault();
     if (!event.repeat) request(doc.fullscreenElement !== doc.documentElement);
   }, {signal: abort.signal});

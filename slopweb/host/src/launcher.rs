@@ -88,11 +88,11 @@ pub async fn run() -> Result<()> {
                 unsafe {
                     libc::umask(0o077);
                 }
-                let bundle = cli::bundle()?;
+                let bundle = files::PinnedBundle::open(cli::bundle()?)?;
                 let game = cli::game_directory(Some(install))?;
                 let output = cli::expand(output)?;
                 let service = FontService::new(
-                    &bundle,
+                    bundle.path(),
                     &game,
                     &options.query("web-cache")?.join("font-service"),
                 )?;
@@ -110,7 +110,6 @@ pub async fn run() -> Result<()> {
     unsafe {
         libc::umask(0o077);
     }
-    let bundle = cli::bundle()?;
     let profile = options.profile_path()?;
     let game = cli::game_directory(options.game.as_deref())?;
     let cache = options.query("web-cache")?;
@@ -125,8 +124,9 @@ pub async fn run() -> Result<()> {
     } else {
         None
     };
+    let bundle = files::PinnedBundle::open(cli::bundle()?)?;
     let fonts = Arc::new(FontService::new(
-        &bundle,
+        bundle.path(),
         &game,
         &cache.join("font-service"),
     )?);
@@ -144,12 +144,12 @@ pub async fn run() -> Result<()> {
             if phase == "fonts" {
                 prepare_fonts(&fonts, root, settings)
             } else {
-                preparation::native_phase(&bundle, &game, phase, root)
+                preparation::native_phase(bundle.path(), &game, phase, root)
             }
         },
     );
     let result = prepared.and_then(|root| match &sdk {
-        Some(sdk) => aot::prepare(&bundle, &root, &cache, sdk),
+        Some(sdk) => aot::prepare(bundle, &root, &cache, sdk),
         None => Ok(root),
     });
     println!(

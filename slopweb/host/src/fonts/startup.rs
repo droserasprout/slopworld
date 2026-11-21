@@ -29,7 +29,7 @@ impl FontService {
         }
         let requested = values["uiFontName"].as_str().unwrap().to_owned();
         self.with_catalog(|catalog| {
-            if select_ui(catalog, &requested).is_err() {
+            if !requested.is_empty() && select_ui(catalog, &self.inner.root, &requested).is_err() {
                 values.insert("uiFontName".into(), json!(""));
             }
             Ok(())

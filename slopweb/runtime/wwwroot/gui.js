@@ -197,17 +197,30 @@ export function configureGuiTargetDamage(enabled) {
 export const guiTargetDamageStats = () => ({...targetDamageCounters, snapshots:targetDamage.entries.size, retainedBytes:targetDamage.retainedBytes,rejections:{...targetDamage.rejections},bypassed:targetDamage.bypassed,reusedRows:targetDamage.reusedRows,scratchBytes:damageScratch ? damageScratch.width*damageScratch.height*4 : 0});
 const countDamage = (key,n=1) => { targetDamageCounters[key] = Math.min(Number.MAX_SAFE_INTEGER,targetDamageCounters[key]+n); };
 let damageScreen = null;
-const damageCanvases = new WeakSet();
+const watchedCanvases = new WeakSet();
 const targetGenerations = new WeakMap();
 let targetGeneration = 0;
-function watchDamageCanvas(canvas) {
-  if (damageCanvases.has(canvas)) return;
-  damageCanvases.add(canvas);
-  for (const event of ['contextlost','contextrestored']) canvas.addEventListener?.(event,() => { targetDamage.invalidate(); renderRevision++; });
+let targetsNeedRepaint = false;
+function resourceRestored() {
+  // Retained targets may have sampled this surface while its pixels were lost.
+  targetsNeedRepaint = true;
+  targetDamage.invalidate();
+  renderRevision++;
+}
+export function takeGuiTargetInvalidation() {
+  const pending = targetsNeedRepaint;
+  targetsNeedRepaint = false;
+  return pending;
+}
+function watchRenderCanvas(canvas) {
+  if (watchedCanvases.has(canvas)) return;
+  watchedCanvases.add(canvas);
+  canvas.addEventListener?.('contextlost',() => { targetDamage.invalidate(); renderRevision++; });
+  canvas.addEventListener?.('contextrestored',resourceRestored);
 }
 function copyDamageTarget(target) {
   damageScratch ??= document.createElement('canvas');
-  watchDamageCanvas(damageScratch);
+  watchRenderCanvas(damageScratch);
   if(damageScratch.width!==target.width || damageScratch.height!==target.height) {
     damageScratch.width=target.width;damageScratch.height=target.height;
   }
@@ -229,8 +242,7 @@ function paintImmutableUpload(canvas, pixels) {
   paint();
   canvas.addEventListener?.('contextrestored', () => {
     paint();
-    targetDamage.invalidate();
-    renderRevision++;
+    resourceRestored();
   });
 }
 let uniformImagesEnabled=true;
@@ -288,11 +300,11 @@ function tintImage(source, color, cachedPixels = null) {
   return tinted;
 }
 export function renderGui(canvas, commands) {
+  watchRenderCanvas(canvas);
   if (targetDamageEnabled) {
     const dimensions = [canvas,canvas.width,canvas.height];
     if (!damageScreen || dimensions.some((v,i) => v !== damageScreen[i])) targetDamage.invalidate();
     damageScreen = dimensions;
-    watchDamageCanvas(canvas);
   }
   try { renderGuiCommands(canvas,commands); }
   catch (error) { targetDamage.invalidate(); throw error; }
@@ -406,8 +418,7 @@ function renderGuiCommands(canvas, commands) {
             tinted.addEventListener?.('contextrestored', () => {
               if (entry.tints.get(key) === tinted) {
                 entry.tints.delete(key);
-                targetDamage.invalidate();
-                renderRevision++;
+                resourceRestored();
               }
             });
             entry.tints.set(key, tinted);
@@ -442,9 +453,12 @@ function renderGuiCommands(canvas, commands) {
         activeTarget = v.id;
         if (!v.id) { ctx = screen; ctx.setTransform(transform); break; }
         let target = renderTargets.get(v.id);
-        if (!target) { target = document.createElement('canvas'); renderTargets.set(v.id, target); }
+        if (!target) {
+          target = document.createElement('canvas');
+          watchRenderCanvas(target);
+          renderTargets.set(v.id, target);
+        }
         if (!targetGenerations.has(target)) targetGenerations.set(target,++targetGeneration);
-        if (targetDamageEnabled) watchDamageCanvas(target);
         if (target.width !== v.width || target.height !== v.height) { targetDamage.forget(v.id); target.width = v.width; target.height = v.height; }
         // Retained drawing targets keep the same readback preference in probes.
         ctx = target.getContext('2d', {willReadFrequently:false,colorType: screen.getContextAttributes?.().colorType ?? 'unorm8'}); ctx.save(); ctx.resetTransform();

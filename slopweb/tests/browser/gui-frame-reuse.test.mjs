@@ -125,3 +125,43 @@ test('a compact repeat replays after resize or external drawing and when reuse i
     assert.deepEqual(acks,[0,21,21,21,21]);
   } finally {input.dispose();}
 });
+
+test('restoring a retained target requests native repaint before acknowledging another screen packet',()=>{
+  const dom=installInputDom();
+  const screen=dom.canvas();
+  let target, fills=0;
+  const context={resetTransform(){},clearRect(){},setTransform(){},
+    getTransform(){return {a:1,b:0,c:0,d:1,e:0,f:0};},
+    save(){},restore(){},beginPath(){},roundRect(){},fill(){fills++;},drawImage(){}};
+  screen.getContext=()=>context;
+  const id=235;
+  const blit={kind:'targetTexture',value:{id,rect:[0,0,4,4],uv:[0,0,1,1],color:[1,1,1,1]}};
+  const writes=[{kind:'target',value:{id,width:4,height:4}},
+    {kind:'fill',value:{rect:[0,0,4,4],color:[1,0,0,1],rounding:0}},
+    {kind:'target',value:{id:0}},blit];
+  const frames=[];
+  const gui=attachGuiInput(screen,{allowFrameReuse:true,GuiInputFrame:(batch,ack)=>{
+    const events=JSON.parse(batch);
+    frames.push({events,ack});
+    if(frames.length===1 || events.some(e=>e.kind==='restoreTargets')) return JSON.stringify({commands:writes});
+    return ack===12?'{"repeat":12}':JSON.stringify({commands:[blit],packet:12});
+  }});
+  document.createElement=()=>{target=Object.assign(dom.canvas(),{getContext:()=>context});return target;};
+  try {
+    gui.frame();gui.frame();
+    assert.equal(gui.frame().presentationUnchanged,true);
+    assert.equal(fills,1);
+    target.dispatchEvent(new Event('contextrestored'));
+    screen.dispatchEvent(new Event('contextrestored'));
+    assert.equal(gui.frame().presentationUnchanged,false);
+    assert.deepEqual(frames.at(-1),{events:[{kind:'restoreTargets'}],ack:0});
+    assert.equal(fills,2);
+    gui.frame();assert.equal(gui.frame().presentationUnchanged,true);
+    target.dispatchEvent(new Event('contextrestored'));
+    gui.frame();
+    assert.deepEqual(frames.at(-1),{events:[{kind:'restoreTargets'}],ack:0});
+    assert.equal(fills,3);
+  } finally {
+    gui.dispose();renderGui(screen,[{kind:'releaseTarget',value:id}]);
+  }
+});

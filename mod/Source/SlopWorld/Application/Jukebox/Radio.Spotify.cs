@@ -27,12 +27,12 @@ namespace SlopWorld
             Read();
             if (DaemonAudioUnavailable())
             {
-                SelectSource(clearFailure: false);
+                SelectSource(userSelected: false);
                 return;
             }
             if (SpotifyAvailable || !_spotify)
                 return;
-            SelectSource(clearFailure: false);
+            SelectSource(userSelected: false);
         }
 
         static bool DaemonAudioUnavailable() =>

@@ -727,6 +727,16 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
         EmitMatrix();
     }
 
+    internal void InvalidateRenderTargets()
+    {
+        packetCache.Clear();
+        // The native pane checks IsCreated before reusing its pixels. Releasing its
+        // backing makes the next visible repaint rebuild even an unchanged terminal.
+        foreach (var weak in targets.Values)
+            if (weak.TryGetTarget(out var target) && target != null && target.IsCreated())
+                target.Release();
+    }
+
     void RememberTarget(RenderTexture target)
     {
         if (!target.IsCreated() && !target.Create())

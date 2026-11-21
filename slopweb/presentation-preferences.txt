@@ -34,3 +34,6 @@ timeFormat
 dateFormat
 ecoDim
 radioMute
+radioStopOnExit
+displayMode
+foregroundFps

@@ -1,5 +1,5 @@
-// One browser decoder for authored OST. Native Radio supplies the permission to
-// play after its daemon stop acknowledgment; autoplay rejection waits for input.
+// One browser decoder for authored OST. Native Radio owns the shared daemon
+// handoff. Autoplay rejection waits for input.
 export function attachWorkspaceAudio(managed, audio = new Audio(), target = window) {
   audio.preload = 'none';
   let identity = '', requested = false, pending = false, blocked = false, disposed = false, generation = 0;
@@ -48,9 +48,12 @@ export function attachWorkspaceAudio(managed, audio = new Audio(), target = wind
   target.addEventListener('pointerdown', retry);
   target.addEventListener('keydown', retry);
   return {frame, dispose() {
-    disposed = true; generation++; audio.pause(); audio.removeAttribute('src'); audio.load();
+    if (disposed) return;
+    disposed = true;
+    generation++; audio.pause(); audio.removeAttribute('src'); audio.load();
     audio.removeEventListener('ended', ended); audio.removeEventListener('playing', report); audio.removeEventListener('pause', report); audio.removeEventListener('error', failed);
     target.removeEventListener('pointerdown', retry); target.removeEventListener('keydown', retry);
     managed.WorkspaceAudioPlaying(false);
+    managed.WorkspaceAudioQuit();
   }};
 }

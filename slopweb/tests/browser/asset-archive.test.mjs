@@ -7,6 +7,7 @@ import {GlyphStorage} from '../../runtime/wwwroot/glyph-storage.js';
 function setup({quota=false,short=false}={}) {
   let saved=null,version='first';
   const calls=[];
+  const policies={};
   const storage={open:async()=>({
     match:async()=>saved?.clone(),
     delete:async()=>{saved=null;},
@@ -17,11 +18,14 @@ function setup({quota=false,short=false}={}) {
     },
   })};
   const request=async(_url,options={})=>{
-    calls.push(options.method??'GET');
+    const method=options.method??'GET';
+    calls.push(method);
+    assert.equal(options.cache,'no-store');
     const headers={'etag':version,'x-slop-decoded-length':'3','content-encoding':'gzip'};
+    if(policies[method]) headers['cache-control']=policies[method];
     return new Response(options.method==='HEAD'?null:new Uint8Array(short?[1]:[1,2,3]),{headers});
   };
-  return {storage,request,calls,change(){version='second';}};
+  return {storage,request,calls,policies,change(){version='second';}};
 }
 async function read(fixture) {
   const {response,stored}=await openAssetArchive('https://example.test/assets/Eco.zip',fixture.request,fixture.storage);
@@ -35,6 +39,29 @@ test('warm archive startup revalidates without another body transfer',async()=>{
   assert.deepEqual(f.calls,['HEAD','GET','HEAD']);
   f.change();await read(f);
   assert.deepEqual(f.calls,['HEAD','GET','HEAD','HEAD','GET']);
+});
+test('no-store on HEAD or GET bypasses and evicts an existing archive',async()=>{
+  for(const method of ['HEAD','GET']) {
+    const f=setup();
+    await read(f);
+    // Make the GET necessary independently of the policy on its response.
+    if(method==='GET') f.change();
+    f.policies[method]='private, No-Store';
+    assert.deepEqual(await read(f),Uint8Array.of(1,2,3));
+    assert.deepEqual(f.calls,['HEAD','GET','HEAD','GET']);
+    assert.equal(await (await f.storage.open()).match(),undefined);
+    await read(f);
+    assert.deepEqual(f.calls.slice(-2),['HEAD','GET']);
+  }
+});
+test('legacy no-store archive is replaced even when HEAD matches its validator',async()=>{
+  const f=setup();
+  await (await f.storage.open()).put('archive',new Response(Uint8Array.of(9,9,9),{headers:{
+    etag:'first','x-slop-decoded-length':'3','cache-control':'no-store',
+  }}));
+  assert.deepEqual(await read(f),Uint8Array.of(1,2,3));
+  await read(f);
+  assert.deepEqual(f.calls,['HEAD','GET','HEAD']);
 });
 test('quota and unavailable storage retain successful startup',async()=>{
   const f=setup({quota:true});await read(f);await read(f);

@@ -12,7 +12,7 @@ namespace SlopWorld
             Station station = null,
             int rate = 0,
             bool spotify = false,
-            bool clearFailure = true
+            bool userSelected = true
         )
         {
             _station = station;
@@ -20,8 +20,11 @@ namespace SlopWorld
             if (station != null)
                 station.Rate = rate;
             _muted = false;
-            if (clearFailure)
+            if (userSelected)
+            {
                 _blamed = false;
+                _observingDaemon = false;
+            }
             Save();
             Push();
         }

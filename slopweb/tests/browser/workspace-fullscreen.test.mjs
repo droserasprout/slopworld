@@ -101,6 +101,9 @@ test('document fallback honors rebinding and leaves a GUI-handled F11 alone',()=
       assert.equal(event.defaultPrevented,false);
     }
     f.bind('F11');
+    const shifted=Object.assign(new Event('keydown',{cancelable:true}),{key:'F11',shiftKey:true});
+    f.doc.dispatchEvent(shifted);
+    assert.equal(shifted.defaultPrevented,false);
     const handled=Object.assign(new Event('keydown',{cancelable:true}),{key:'F11'});
     handled.preventDefault();f.doc.dispatchEvent(handled);
     assert.equal(f.enters(),0);

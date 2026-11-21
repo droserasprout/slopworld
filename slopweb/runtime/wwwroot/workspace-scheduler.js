@@ -2,8 +2,9 @@
 // decides whether the next frame is unchanged. Never infer stability from time alone.
 export class WorkspaceScheduler {
   constructor(draw, {raf=callback=>requestAnimationFrame(callback),cancelRaf=id=>cancelAnimationFrame(id),
-    timer=(callback,delay)=>setTimeout(callback,delay),cancelTimer=id=>clearTimeout(id),now=()=>performance.now(),deadline=()=>100}={}) {
-    Object.assign(this,{draw,raf,cancelRaf,timer,cancelTimer,now,deadline});
+    timer=(callback,delay)=>setTimeout(callback,delay),cancelTimer=id=>clearTimeout(id),now=()=>performance.now(),deadline=()=>100,frameLimit=()=>0}={}) {
+    Object.assign(this,{draw,raf,cancelRaf,timer,cancelTimer,now,deadline,frameLimit});
+    this.nextDraw=0;
     this.frame=null;this.wait=null;this.stable=0;this.holdUntil=0;
     this.enabled=false;this.stopped=false;
   }
@@ -17,16 +18,26 @@ export class WorkspaceScheduler {
   }
   request() {
     if(this.stopped||this.frame!==null)return;
-    this.frame=this.raf(()=>{
+    this.frame=this.raf(timestamp=>{
       this.frame=null;
       const started=this.now();
+      const tick=timestamp ?? started;
+      // Wakes coalesce on RAF, including those raised during native update.
+      // Keep the display cadence even under continuous input or animation.
+      if(tick+0.1<this.nextDraw){this.request();return;}
       const unchanged=this.draw();
       if(this.stopped)return;
+      const fps=this.frameLimit();
+      const interval=fps>0 ? 1000/fps : 0;
+      // Anchor to the admitted slot to avoid rounding a 30 FPS cap down to 20
+      // on a 60 Hz display. After a long pause, start a fresh interval.
+      const anchor=this.nextDraw>0 && tick-this.nextDraw<interval ? this.nextDraw : tick;
+      this.nextDraw=interval ? anchor+interval : 0;
       this.stable=unchanged?this.stable+1:0;
       if(this.frame!==null)return; // Activity published during native update already requested work.
       if(this.enabled&&this.stable>=3&&this.now()>=this.holdUntil) {
-        // Native owners report seconds-to-work at the completed frame. Reserve
-        // one refresh interval for RAF; generic timers are serviced within 100 ms.
+        // Idle waits add at most 100 ms. Reserve one refresh interval for RAF
+        // when the display limit permits drawing before the native deadline.
         // Deadline hints are optional: failures fall back to full-rate updates.
         let due=0;
         try { due=this.deadline(); } catch { /* Keep servicing native timers. */ }

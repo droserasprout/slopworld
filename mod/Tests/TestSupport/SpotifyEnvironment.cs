@@ -14,6 +14,10 @@ namespace SlopWorld
 
         static void Save() { }
 
+        static float Volume() => 0.5f;
+
+        internal static void SetStopOnExitTest(bool enabled) => _stopOnExit = enabled;
+
         static void Push()
         {
             InvalidatePlayback();
@@ -37,7 +41,7 @@ namespace SlopWorld
         internal static void ResetSpotifyTest()
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;
-            _daemonStopped = false;
+            _observingDaemon = _stopOnExit = _daemonStopped = false;
             _stopToken = null;
             _spotifyOpened = _spotifyFailed = null;
             _station = null;

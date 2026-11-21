@@ -37,7 +37,6 @@ const UI_CANDIDATES: &[&str] = &[
     "Arial",
     "Segoe UI",
     "Helvetica",
-    "sans-serif",
 ];
 #[derive(Clone)]
 pub struct FontService {
@@ -99,7 +98,7 @@ impl FontService {
     pub fn startup_fingerprint(&self) -> Result<String> {
         self.with_catalog(|catalog| {
             Ok(cache::digest(&serde_json::to_vec(&(
-                1,
+                2, // Startup selection resolves the generic UI family through Fontconfig.
                 &catalog.generation,
                 self.inner.flags,
             ))?))
@@ -181,7 +180,7 @@ impl FontService {
             );
             match request {
                 Request::Selection(ref selection) => {
-                    let ui = select_ui(catalog, &selection.ui)?;
+                    let ui = select_ui(catalog, &self.inner.root, &selection.ui)?;
                     let chain = catalog.chain(&self.inner.root, &selection.terminal)?;
                     let terminal = chain
                         .first()
@@ -252,15 +251,21 @@ fn find<'a>(catalog: &'a Catalog, name: &str) -> Option<&'a Face> {
         .iter()
         .find(|f| f.family.to_lowercase() == name.to_lowercase())
 }
-fn select_ui(catalog: &Catalog, name: &str) -> Result<Face> {
-    if !name.is_empty() {
+fn select_ui(catalog: &mut Catalog, root: &Path, name: &str) -> Result<Face> {
+    if !name.is_empty() && !name.eq_ignore_ascii_case("sans-serif") {
         return find(catalog, name)
             .cloned()
             .context("Selected UI font is unavailable");
     }
-    UI_CANDIDATES
-        .iter()
-        .find_map(|name| find(catalog, name))
+    if name.is_empty()
+        && let Some(face) = UI_CANDIDATES.iter().find_map(|name| find(catalog, name))
+    {
+        return Ok(face.clone());
+    }
+    catalog
+        .chain(root, "sans-serif")?
+        .first()
+        .and_then(|name| find(catalog, name))
         .cloned()
         .context("No default UI font is installed")
 }

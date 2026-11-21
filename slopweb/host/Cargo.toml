@@ -15,18 +15,21 @@ fs2 = "0.4"
 futures = "0.3"
 libc = "0.2"
 percent-encoding = "2"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "stream", "json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 tempfile = "3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "sync", "time", "signal", "fs", "io-util", "net"] }
-tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
 toml = "0.8"
 ttf-parser = "0.25"
 url = "2"
 xmltree = "0.11"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
 
 [profile.release]
 lto = "thin"

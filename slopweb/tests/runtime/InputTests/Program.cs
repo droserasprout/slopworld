@@ -84,6 +84,10 @@ foreach (bool profile in new[] { false, true })
     BrowserGuiInput.Dispatch("[]", gui, Draw);
     AssertTrace("Layout", "Repaint", "drain");
     trace.Clear();
+    gui.OnInvalidateTargets = () => trace.Add("restore");
+    BrowserGuiInput.Dispatch("""[{"kind":"restoreTargets"}]""", gui, Draw);
+    AssertTrace("restore", "Layout", "Repaint", "drain");
+    trace.Clear();
     // Sending is independent of repaint success: no trailing outer-frame flush
     // is needed, and the following frame cannot resend completed literal input.
     try

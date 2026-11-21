@@ -74,7 +74,10 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     GuiInputFrame: (batch, packet = 0) => managed.WorkspaceUpdatePacket(batch, initialTime + (performance.now() - started) / 1000, packet),
   });
   let stopped = false;
-  const scheduler=new WorkspaceScheduler(()=>update(), {deadline:()=>managed.WorkspaceNextUpdateDelay()*1000});
+  const scheduler=new WorkspaceScheduler(()=>update(), {
+    deadline:()=>managed.WorkspaceNextUpdateDelay()*1000,
+    frameLimit:()=>managed.WorkspaceFrameLimit(),
+  });
   const fonts=fallbackFonts(managed,()=>scheduler.wake(true));
   const activity=new AbortController();
   for (const target of [canvas, gui.textInput])
@@ -97,10 +100,11 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   const stop = () => {
     if (stopped) return;
     stopped = true; scheduler.stop();activity.abort();managed.WorkspaceClearWake();
+    audio.dispose();
     if(rowCommands) managed.WorkspaceRowCommands(false);
     backgroundAbort.abort();retainedBackground?.cancel();background?.dispose();background=null;
     device.dispose(); gui.dispose(); fonts.dispose();
-    cursor.dispose(); fullscreen.dispose(); links.dispose(); audio.dispose();
+    cursor.dispose(); fullscreen.dispose(); links.dispose();
   };
   const update = () => {
     if (stopped) return;

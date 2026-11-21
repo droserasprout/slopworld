@@ -633,7 +633,7 @@ pub(super) fn inherit_lock(command: &mut Command, lock: &File) {
 }
 
 pub fn prepare(
-    bundle: &Path,
+    bundle: files::PinnedBundle,
     prepared: &Path,
     cache: &Path,
     toolchain: &Toolchain,
@@ -642,11 +642,7 @@ pub fn prepare(
     // The stamp binds the digest to a particular inode. Bind the verified copy below.
     snapshot.remove(crate::archive_identity::MARKER);
     let dlls = assemblies(&snapshot)?;
-    // The bundle can be atomically exchanged by the stager. Keep its authored
-    // project and source files on the same generation until candidate capture.
-    let bundle_parent = File::open(bundle.parent().unwrap_or(bundle))?;
-    fs2::FileExt::lock_shared(&bundle_parent)?;
-    let candidate = candidate(&bundle.join("aot-src"), &dlls, toolchain)?;
+    let candidate = candidate(&bundle.path().join("aot-src"), &dlls, toolchain)?;
     let mut contents = files::DigestCache::load(cache.join("aot-digests-v1.json"));
     let prepared_files = contents.manifest(&snapshot)?;
     let loader = fs::read_to_string(prepared.join("main.js"))?;
@@ -671,7 +667,8 @@ pub fn prepare(
         candidate.materialize(&generated, &contents)?;
         fs::rename(generated, compilation.join("candidate"))?;
     }
-    drop(bundle_parent);
+    // Compilation and composition read only captured files, so staging can resume.
+    drop(bundle);
     if needs_publish {
         let workspace = cache.join("aot-workspaces").join(workspace_key);
         fs::create_dir_all(&workspace)?;

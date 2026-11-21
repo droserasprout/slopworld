@@ -105,7 +105,7 @@ public static class BrowserPreferences
                     && value.ValueKind == JsonValueKind.Number
                     && value.TryGetInt32(out var integer)
                     && integer >= 0
-                    && integer <= 48
+                    && integer <= (name == "foregroundFps" ? 240 : 48)
                 )
                     field.SetValue(settings, integer);
                 else if (

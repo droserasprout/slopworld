@@ -1,4 +1,5 @@
 //! Real-loopback contracts for static containment, provenance and authenticated transports.
+mod tls;
 use super::*;
 use axum::{
     body::to_bytes,
@@ -199,9 +200,10 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
         }
         assert!(seen.try_recv().is_err());
         let response = client
-            .post(format!("{}/host/api/sessions", host.url))
+            .post(format!("{}/host/api/workers", host.url))
             .header("origin", origin)
             .header("x-slop-token", "browser-secret")
+            .header("x-slop-session", "browser-selected")
             .header("authorization", "private")
             .header("cookie", "private=1")
             .body(vec![10, 2, 97, 98])
@@ -213,9 +215,10 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
         assert!(!response.headers().contains_key("set-cookie"));
         assert_eq!(response.bytes().await.unwrap().as_ref(), [8, 1, 255]);
         let (parts, body) = seen.recv().await.unwrap();
-        assert_eq!(parts.uri.to_string(), format!("{prefix}/api/sessions"));
+        assert_eq!(parts.uri.to_string(), format!("{prefix}/api/workers"));
         assert_eq!(parts.method, Method::POST);
         assert_eq!(parts.headers["x-slop-token"], "host-secret");
+        assert_eq!(parts.headers["x-slop-session"], "host");
         assert!(!parts.headers.contains_key("cookie"));
         assert!(!parts.headers.contains_key("authorization"));
         assert!(!parts.headers.contains_key("origin"));

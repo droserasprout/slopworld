@@ -49,6 +49,8 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
         .client
         .request(method.clone(), target)
         .header("x-slop-token", connection.token)
+        // Root task and worker operations resolve their caller from this header.
+        .header("x-slop-session", "host")
         .header("content-type", "application/x-protobuf");
     if !matches!(method, Method::GET | Method::HEAD) {
         upstream = upstream.body(body);

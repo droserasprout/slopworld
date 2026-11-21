@@ -129,6 +129,9 @@ namespace BrowserAdapters
         public bool LastPacketReused;
         public long PacketId;
         public Action? OnDrain;
+        public Action? OnInvalidateTargets;
+
+        internal void InvalidateRenderTargets() => OnInvalidateTargets?.Invoke();
 
         public static BrowserGui Install() => new();
 

@@ -107,14 +107,17 @@ namespace SlopWorld
         // callbacks must still belong to this workspace when the menu is answered.
         public static void OpenWorkspaceMenu()
         {
-            var window = Find.WindowStack?.WindowOfType<WorkspaceWindow>();
-            if (window == null || Current.ProgramState != ProgramState.Entry)
+            var stack = Find.WindowStack;
+            if (stack == null || Current.ProgramState != ProgramState.Entry)
+                return;
+            var window = stack.WindowOfType<WorkspaceWindow>();
+            if (window == null && !ClientPlatform.IsBrowser)
                 return;
             var at = UI.MousePositionOnUIInverted;
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Hint", () => ShowWorkspaceBubble(window, at, false)),
-                new FloatMenuOption("Advice", () => ShowWorkspaceBubble(window, at, true)),
+                new FloatMenuOption("Hint", () => ShowWorkspaceBubble(stack, window, at, false)),
+                new FloatMenuOption("Advice", () => ShowWorkspaceBubble(stack, window, at, true)),
                 new FloatMenuOption("Keyboard shortcuts", ShortcutHelpView.Toggle),
             };
             if (!ClientPlatform.IsBrowser)
@@ -129,7 +132,11 @@ namespace SlopWorld
 
         public static bool CanShowHint() =>
             Current.ProgramState == ProgramState.Entry
-                ? Find.WindowStack?.WindowOfType<WorkspaceWindow>() != null
+                ? Find.WindowStack != null
+                    && (
+                        ClientPlatform.IsBrowser
+                        || Find.WindowStack.WindowOfType<WorkspaceWindow>() != null
+                    )
                 : Current.ProgramState == ProgramState.Playing;
 
         // Palette requests use the current pointer; menu requests retain their opening anchor.
@@ -138,6 +145,7 @@ namespace SlopWorld
             if (Current.ProgramState == ProgramState.Entry)
             {
                 ShowWorkspaceBubble(
+                    Find.WindowStack,
                     Find.WindowStack?.WindowOfType<WorkspaceWindow>(),
                     UI.MousePositionOnUIInverted,
                     false
@@ -148,21 +156,23 @@ namespace SlopWorld
                 HintAction(UI.MousePositionOnUIInverted);
         }
 
-        static void ShowWorkspaceBubble(WorkspaceWindow window, Vector2 at, bool advice)
+        static void ShowWorkspaceBubble(
+            WindowStack stack,
+            WorkspaceWindow window,
+            Vector2 at,
+            bool advice
+        )
         {
-            if (
-                window == null
-                || Current.ProgramState != ProgramState.Entry
-                || Find.WindowStack?.WindowOfType<WorkspaceWindow>() != window
-            )
-                return;
-            StartBubble(
-                at,
-                advice,
-                () =>
-                    Current.ProgramState == ProgramState.Entry
-                    && Find.WindowStack?.WindowOfType<WorkspaceWindow>() == window
-            );
+            // In browser Entry the top bar also owns the surface with no pane open.
+            bool StillShowing() =>
+                stack != null
+                && Current.ProgramState == ProgramState.Entry
+                && Find.WindowStack == stack
+                && stack.WindowOfType<WorkspaceWindow>() == window
+                && (window != null || ClientPlatform.IsBrowser);
+
+            if (StillShowing())
+                StartBubble(at, advice, StillShowing);
         }
 
         public static void KillSomething()

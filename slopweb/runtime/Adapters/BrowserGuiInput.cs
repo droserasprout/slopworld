@@ -62,6 +62,11 @@ public static class BrowserGuiInput
         foreach (var item in batch.EnumerateArray())
         {
             var kind = item.GetProperty("kind").GetString();
+            if (kind == "restoreTargets")
+            {
+                target.InvalidateRenderTargets();
+                continue;
+            }
             if (kind == "clipboard")
             {
                 BrowserClipboard.Supply(

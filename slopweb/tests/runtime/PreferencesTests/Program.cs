@@ -60,6 +60,9 @@ static class Check
             commandPaletteHistory = "secret-command",
             radio = "secret-station",
             radioMute = true,
+            radioStopOnExit = false,
+            displayMode = FramePolicy.Limit,
+            foregroundFps = 144,
             stopSessionsOnExit = true,
         };
         BrowserPreferences.Write(settings);
@@ -81,6 +84,11 @@ static class Check
         }
         var restored = new ModSettings();
         BrowserPreferences.Apply(restored, saved);
+        Expect(!restored.radioStopOnExit, "Stop on exit did not survive reload");
+        Expect(
+            restored.displayMode == FramePolicy.Limit && restored.foregroundFps == 144,
+            "Explicit frame limit did not survive reload"
+        );
         Expect(restored.radioMute, "Paused soundtrack preference did not survive reload");
         BrowserPreferences.Apply(restored, "{\"radioMute\":false}");
         Expect(!restored.radioMute, "Resumed soundtrack preference did not survive reload");

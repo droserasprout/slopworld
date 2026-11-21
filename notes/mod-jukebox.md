@@ -10,6 +10,10 @@ Clients without a native audio decoder set `Radio.LocalPlaybackSupported` before
 workspace startup. OST source/transport actions are unavailable there, and the default
 OST state observes host playback without sending a stop. Selecting a supported daemon
 source activates normal transport policy, including explicit pause/stop.
+A fresh browser workspace observes the daemon's audio snapshot. The local OST
+can play once the daemon reports idle. A saved mute preference affects only the
+observer’s decoder. Explicit jukebox controls claim playback, and
+final page exit then follows the native shutdown policy.
 `Sim/Jukebox/` adapts map presence and native music. `UI/Jukebox/` owns menus/actions
 and notice presentation, connected once by Bootstrap. Recognition policy stays in
 application; bounded child execution belongs to `Platform/Processes/`.

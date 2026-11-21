@@ -1,6 +1,6 @@
 import { acquireTextInput, composingKey } from './text-input.js';
 import { pointerAction } from './input.js';
-import { renderGui, guiRenderRevision } from './gui.js';
+import { renderGui, guiRenderRevision, takeGuiTargetInvalidation } from './gui.js';
 import { GuiFrameReuse, GuiPacketDecoder } from './gui-frame-reuse.js';
 import { decodeGuiQuads } from './gui-quads.js';
 import { clipboardBridge } from './clipboard.js';
@@ -26,6 +26,12 @@ export function attachGuiInput(canvas, managed) {
     if (disposed) return;
     managed.beforeFrame?.();
     const batch=queue; queue=[];
+    if (takeGuiTargetInvalidation()) {
+      // Deliver restoration before input or repaint, even after a full input queue.
+      batch.unshift({kind:'restoreTargets'});
+      decoder.previous = null;
+      reuse.invalidate();
+    }
     const inputQueueMs=queuedAt===null?0:performance.now()-queuedAt;queuedAt=null;
     const profiling = managed.profileFrame;
     const started = profiling ? performance.now() : 0;
@@ -58,8 +64,6 @@ export function attachGuiInput(canvas, managed) {
     return result;
   };
   const listen = (name, callback) => proxy.listen(name, callback, { signal: abort.signal, passive: false });
-  listen('contextlost',()=>reuse.invalidate());
-  listen('contextrestored',()=>reuse.invalidate());
   const enqueue = event => {
     if(queue.length===0 && managed.profileFrame)queuedAt=performance.now();
     // Reserve one final reset so focus loss cannot overflow a full accepted batch.
@@ -129,13 +133,16 @@ export function attachGuiInput(canvas, managed) {
     }
     const keys = { Backspace: 'Backspace', Delete: 'Delete', Insert:'Insert', ArrowLeft: 'LeftArrow', ArrowRight: 'RightArrow', ArrowUp:'UpArrow', ArrowDown:'DownArrow', PageUp:'PageUp', PageDown:'PageDown', Home: 'Home', End: 'End', Enter: 'Return', Escape:'Escape', Tab:'Tab' };
     const punctuation = {Space:'Space', BracketLeft:'LeftBracket', BracketRight:'RightBracket', Backslash:'Backslash', Minus:'Minus', Backquote:'BackQuote', Equal:'Equals', Semicolon:'Semicolon', Quote:'Quote', Comma:'Comma', Period:'Period', Slash:'Slash'};
-    const physical = /^Key[A-Z]$/.test(event.code) ? event.code.slice(3) : /^Digit[0-9]$/.test(event.code) ? 'Alpha' + event.code.slice(5) : punctuation[event.code];
+    const keypad = /^Numpad[0-9]$/.test(event.code) ? 'Keypad' + event.code.slice(6) : null;
+    let physical = keypad ?? punctuation[event.code];
+    if (/^Key[A-Z]$/.test(event.code)) physical = event.code.slice(3);
+    else if (/^Digit[0-9]$/.test(event.code)) physical = 'Alpha' + event.code.slice(5);
     let key = keys[event.key] ?? (/^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key : null);
-    if (!key && (event.ctrlKey || event.altKey || event.metaKey))
-      key = physical;
+    // Slot shortcuts use the physical keypad even if Num Lock maps it to navigation.
+    if ((event.altKey && keypad) || (!key && (event.ctrlKey || event.altKey || event.metaKey))) key = physical;
     const candidate = key ?? physical;
-    const activation = !!candidate && managed.activationKey?.(candidate) === true;
-    if (activation && candidate === 'F11' && event.repeat && !event.shiftKey) {
+    const activation = !event.shiftKey && !!candidate && managed.activationKey?.(candidate) === true;
+    if (activation && candidate === 'F11' && event.repeat) {
       event.preventDefault(); return;
     }
     // A printable fullscreen rebind must execute in keydown too: waiting for the

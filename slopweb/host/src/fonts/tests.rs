@@ -134,6 +134,13 @@ fn system_index_reuses_persistent_sources_and_resolves_without_game() {
     assert!(catalog.fresh(root.path()));
     let chain = catalog.chain(root.path(), "monospace").unwrap();
     assert!(!chain.is_empty());
+    let sans = catalog.chain(root.path(), "sans-serif").unwrap();
+    assert_eq!(
+        select_ui(&mut catalog, root.path(), "sans-serif")
+            .unwrap()
+            .family,
+        sans[0]
+    );
     let loaded = Catalog::load(root.path());
     assert_eq!(loaded.generation, generation);
     assert!(loaded.fresh(root.path()));
@@ -293,6 +300,25 @@ fn fixture_service() -> (tempfile::TempDir, FontService) {
         }),
     };
     (work, service)
+}
+
+#[test]
+fn default_ui_uses_the_fontconfig_sans_serif_order_after_named_preferences() {
+    let root = tempfile::tempdir().unwrap();
+    let mut catalog = Catalog::default();
+    catalog.faces = vec![test_face("Local A", vec![]), test_face("Local B", vec![])];
+    catalog.chains.insert(
+        "sans-serif".into(),
+        vec!["Local B".into(), "Local A".into()],
+    );
+    let select =
+        |catalog: &mut Catalog, family| select_ui(catalog, root.path(), family).map(|f| f.family);
+    assert_eq!(select(&mut catalog, "").unwrap(), "Local B");
+    assert!(select(&mut catalog, "Missing").is_err());
+    catalog.faces.push(test_face("PT Sans", vec![]));
+    assert_eq!(select(&mut catalog, "").unwrap(), "PT Sans");
+    assert_eq!(select(&mut catalog, "sans-serif").unwrap(), "Local B");
+    assert_eq!(select(&mut catalog, "Local A").unwrap(), "Local A");
 }
 
 #[tokio::test]

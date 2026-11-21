@@ -40,6 +40,21 @@ test('ordinary Ctrl+Alt shortcuts and composing keys retain their distinct paths
   } finally {f.dispose();}
 });
 
+test('Alt plus a numpad digit keeps the Unity slot key with either Num Lock state',()=>{
+  const f=fixture();
+  try {
+    const navigation=['Insert','End','ArrowDown','PageDown','ArrowLeft','Clear','ArrowRight','Home','ArrowUp','PageUp'];
+    for(let digit=0;digit<=9;digit++)
+      for(const key of [String(digit),navigation[digit]]) {
+        const {batch,prevented}=f.key(key,{code:'Numpad'+digit,altKey:true});
+        assert.equal(prevented,true);
+        assert.deepEqual(batch,[{kind:'key',key:'Keypad'+digit,shift:false,control:false,alt:true,command:false}]);
+      }
+    assert.equal(f.key('End',{code:'Numpad1'}).batch[0].key,'End');
+    assert.equal(f.key('1',{code:'Numpad1'}).batch[0].character,49);
+  } finally {f.dispose();}
+});
+
 test('input profiling measures oldest queued event without changing the managed batch',()=>{
   const previousPerformance=globalThis.performance;
   let now=100;globalThis.performance={now:()=>now};
@@ -98,9 +113,9 @@ test('ordinary synthetic and editable text stays batched; live printable fullscr
     activationKey:key=>key===bound,
     GuiInputFrame:value=>{frames.push(JSON.parse(value));return '{"commands":[]}';}
   });
-  const key=(target,letter,trusted=false)=>{
+  const key=(target,letter,trusted=false,shiftKey=false)=>{
     const event=new Event('keydown',{cancelable:true});
-    for(const [name,value] of Object.entries({key:letter,code:'Key'+letter.toUpperCase(),isTrusted:trusted}))
+    for(const [name,value] of Object.entries({key:letter,code:'Key'+letter.toUpperCase(),isTrusted:trusted,shiftKey}))
       Object.defineProperty(event,name,{value});
     target.dispatchEvent(event);
     return event;
@@ -129,5 +144,13 @@ test('ordinary synthetic and editable text stays batched; live printable fullscr
     assert.equal(frames.length,3);
     assert.equal(frames[2][0].character,'g'.charCodeAt(0));
     assert.equal(frames[2][1].key,'H');
+    // Native shortcut handling bypasses Shift. The editable proxy still owns its
+    // committed character, and synthetic input supplies that same character once.
+    assert.equal(key(input.textInput,'H',true,true).defaultPrevented,false);
+    edit('H');
+    key(canvas,'H',false,true);
+    assert.equal(frames.length,3);
+    input.frame();
+    assert.deepEqual(frames[3].map(e=>[e.kind,e.character,e.shift]),[['text',72,true],['text',72,true]]);
   } finally {input.dispose();}
 });

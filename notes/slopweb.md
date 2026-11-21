@@ -56,7 +56,9 @@ simulation objects. Detailed workspace snapshots are opt-in with profiling;
 observation errors remain diagnostic state and cannot stop rendering. Private
 probe exports own sidebar/catalog inspection and terminal assertion helpers.
 Underlying chrome binds native accessors and geometry metadata once, while
-reading current geometry on each draw.
+reading current geometry on each draw. In Entry the underlying top bar can open
+the persona-core menu and shortcut help with the last terminal pane closed.
+Hints belong to the window stack and pane that owned the opening gesture.
 Startup validates managed status reports as well as exceptions; failed or incomplete
 Entry initialization releases the engine and ends loading with an error.
 Game assembly downloads use a four-file window, including completed buffers;
@@ -110,8 +112,10 @@ Workspace startup takes ownership of pending background downloads as well as rea
 frames; loading-screen teardown must not cancel a transferred load.
 Browser backdrop rendering consumes the native dimming preference;
 profile files stay read-only and browser changes remain local to its origin.
-The same preference boundary retains the jukebox pause flag. Browser tab titles
-use the mod's window-title policy; packaging reuses the documentation favicon.
+A fresh tab observes the shared daemon player until a user playback action takes
+control. The browser persists mute and stop-on-exit preferences. A final page
+unload applies the controlling tab's shutdown policy. Browser tab titles use
+the mod's window-title policy. Packaging reuses the documentation favicon.
 Viewport density supplies the initial UI scale. Each GUI pass synchronizes glyph
 density with the native scale preference before layout; backing-canvas resizes
 preserve an explicitly changed scale. Font-bank revisions retire old glyphs and
@@ -131,16 +135,19 @@ assets negotiate staged gzip siblings with representation-specific validators.
 `X-Slop-Decoded-Length` gives the identity file size under host or proxy
 compression; archive startup validates decoded bytes against that size.
 The large game archive has a separate CacheStorage entry, revalidated by HEAD
-and published after complete decoded-body validation. Managed upload and cache
+and published after complete decoded-body validation. A `no-store` directive on
+the archive metadata or body removes the saved entry. Managed upload and cache
 storage share backpressure. Denied storage access and quota failures allow the
 network transfer to complete.
 Bridge responses and font catalogs remain uncached; content-addressed font files
 retain their immutable caching policy.
 
 The server binds IPv4 loopback and validates Host separately from browser
-provenance. Its same-origin HTTP and WebSocket bridges inject host credentials;
-credentials never enter page assets or URLs. Named endpoints take precedence over
-paired URL/token environment overrides, then `SLOPD_ENDPOINT`, then local.
+provenance. Its same-origin HTTP and WebSocket bridges inject host credentials.
+The HTTP bridge supplies the host caller identity, and both upstream clients trust
+the system CA store. Credentials never enter page assets or URLs. Named endpoints
+take precedence over paired URL/token environment overrides, then `SLOPD_ENDPOINT`,
+then local.
 The host reads descriptor credentials for each operation and WebSocket reconnect;
 failed reads fail closed, and mutations are never replayed after authentication failure. Remote access requires an
 authenticated HTTPS proxy and explicit `--public-origin`; forwarded headers never
@@ -153,14 +160,16 @@ budget includes the in-flight message and admits a full 32 MiB protocol envelope
 Discarded input/layout passes execute native controls with raster-command
 preparation suppressed; only repaint publishes drawing. Stable presentation backs
 off up to 100 ms, bounded by native cursor animation and terminal blink/resize/scroll
-deadlines. Input and published transport activity cancel pending idle waits.
+deadlines. The selected frame limit also bounds active rendering. Input and
+published transport activity cancel pending idle waits.
 Append-only font atlases retain CPU pixels until drain, coalescing publication and
 encoding once per atlas per packet. General mutable textures still snapshot at each
 mutation to preserve draw order. Failed drains discard resource claims so retries
 must upload their definitions again.
 Immutable Canvas uploads retain the pixels needed to restore their 2D contexts.
-Derived tints can be rebuilt from those uploads. The live GUI decoder acknowledges
-one bounded, immutable screen packet. Managed drawing can return that packet's ID
+Restoring a Canvas resource invalidates the managed retained targets that may
+have sampled it. Derived tints can be rebuilt from the immutable uploads.
+The live GUI decoder acknowledges one bounded, immutable screen packet. Managed drawing can return that packet's ID
 on an exact repeat, including fresh profiling data. Canvas still checks dimensions,
 resource revisions and background activity before skipping replay. Uploads, target
 writes and releases always cross the boundary in order.
@@ -171,9 +180,9 @@ Glyph persistence uses a bounded asynchronous write
 queue so storage latency does not delay glyph replies or worker font installation.
 
 Host preparation composes immutable runtimes from independently cached patched
-assemblies, archives, fonts, and backgrounds. It shares the stager's bundle lock while
-reading preparation inputs and verifies copied web, music, and mod assets against the
-manifest used for the runtime key. The launcher memoizes content hashes under the
+assemblies, archives, fonts, and backgrounds. It holds a shared bundle lock
+from the first helper read through AOT source capture. Copied web, music, and
+mod assets must match the manifest used for the runtime key. The launcher memoizes content hashes under the
 private cache using device, inode, size, and nanosecond modification and change
 times. AOT composition keys cover the actual prepared files, including outputs
 regenerated by a forced rebuild. Publication lookup uses the generated project

@@ -17,6 +17,17 @@ namespace SlopWorld
         // music after a newer source selection or connection has taken ownership.
         static string _stopToken;
         static bool _daemonStopped;
+        static bool _observingDaemon;
+        static bool _stopOnExit;
+
+        // A fresh browser tab may play local music when the daemon reports idle.
+        // Only an explicit jukebox action can take control of the shared player.
+        public static void ObserveDaemonPlayback()
+        {
+            _observingDaemon = true;
+            _daemonStopped = false;
+        }
+
         static bool LocalOst => !_spotify && _station == null;
 
         internal static bool NativePlaybackAllowed =>
@@ -30,8 +41,18 @@ namespace SlopWorld
                 && (!SessionHub.Instance.Capabilities.AudioPlayback || _daemonStopped)
             );
 
-        internal static void AcknowledgeStop(string token, bool playing = false)
+        internal static void AcknowledgeStop(
+            string token,
+            bool playing = false,
+            string source = null
+        )
         {
+            if (_observingDaemon)
+            {
+                // Opening stations and paused Spotify sessions still own the output.
+                _daemonStopped = !playing && string.IsNullOrEmpty(source);
+                return;
+            }
             if (playing)
             {
                 _daemonStopped = false;
@@ -43,6 +64,27 @@ namespace SlopWorld
             }
             if (token != null && token == _stopToken)
                 _daemonStopped = true;
+        }
+
+        // Apply the exit preference before Root.Shutdown closes the socket. Forced process termination bypasses this method.
+        public static void Quit()
+        {
+            if (_quit)
+                return;
+            Read();
+            // Prevent later frames from sending further playback updates.
+            _quit = true;
+            // Keep muted playback stopped even if the exit preference permits continued playback.
+            if (_observingDaemon || (!_stopOnExit && !_muted))
+                return;
+
+            var hub = SessionHub.Instance;
+            if (hub == null || !hub.Online)
+                return;
+            if (!hub.Capabilities.AudioPlayback)
+                return;
+            if (!hub.Audio.StopForShutdown(Volume()))
+                Verse.Log.Warning("[SlopWorld] radio stop could not be flushed before shutdown");
         }
 
         static void InvalidatePlayback()
@@ -63,6 +105,8 @@ namespace SlopWorld
                 _daemonStopped = false;
                 _stopToken = null;
             }
+            if (_observingDaemon)
+                return;
             // A saved station has no object until its catalog arrives. Do not send
             // an OST stop in that gap: the daemon may still be playing this station.
             if (

@@ -158,8 +158,9 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
         Ok(())
     };
     let mut values = serde_json::Map::new();
+    let pinned = files::PinnedBundle::open(bundle.clone()).unwrap();
     let first = preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         false,
@@ -174,7 +175,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     );
     assert_eq!(
         preparation::prepare(
-            &bundle,
+            &pinned,
             &game,
             &cache,
             false,
@@ -188,7 +189,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     assert_eq!(calls.lock().unwrap().len(), 4);
     write(bundle.join("web/index.html"), "other page");
     let second = preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         false,
@@ -203,7 +204,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     assert_eq!(calls.lock().unwrap().len(), 4);
     values.insert("sidebarHidden".into(), json!(true));
     preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         false,
@@ -215,7 +216,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     assert_eq!(calls.lock().unwrap().len(), 4);
     values.insert("fontSize".into(), json!(18));
     preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         false,
@@ -228,7 +229,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     assert_eq!(calls.lock().unwrap().len(), 5);
     write(game.join("Data/Core/data.xml"), "new asset");
     preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         false,
@@ -240,7 +241,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     assert_eq!(calls.lock().unwrap().last().unwrap(), "assets");
     assert_eq!(calls.lock().unwrap().len(), 6);
     let refreshed = preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         true,
@@ -252,7 +253,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     assert!(first.join(".ready").is_file());
     assert_eq!(
         preparation::prepare(
-            &bundle,
+            &pinned,
             &game,
             &cache,
             false,
@@ -264,7 +265,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
         refreshed
     );
     let failed = preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         true,
@@ -280,7 +281,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     assert!(failed.is_err());
     assert_eq!(
         preparation::prepare(
-            &bundle,
+            &pinned,
             &game,
             &cache,
             false,
@@ -306,8 +307,9 @@ fn replacing_authored_bytes_during_preparation_cannot_publish_under_the_old_key(
     write(&main, "first");
     write(bundle.join("ost/track.ogg"), "song");
     let appearance = serde_json::Map::new();
+    let pinned = files::PinnedBundle::open(bundle.clone()).unwrap();
     let error = preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         false,
@@ -337,7 +339,7 @@ fn replacing_authored_bytes_during_preparation_cannot_publish_under_the_old_key(
     );
     write(&main, "first");
     let ready = preparation::prepare(
-        &bundle,
+        &pinned,
         &game,
         &cache,
         false,
@@ -442,8 +444,11 @@ impl AotFixture {
             sdk,
         }
     }
+    fn pin_bundle(&self) -> files::PinnedBundle {
+        files::PinnedBundle::open(self.bundle.clone()).unwrap()
+    }
     fn run(&self) -> Result<std::path::PathBuf> {
-        aot::prepare(&self.bundle, &self.prepared, &self.cache, &self.sdk)
+        aot::prepare(self.pin_bundle(), &self.prepared, &self.cache, &self.sdk)
     }
     fn workspace(&self) -> std::path::PathBuf {
         fs::read_dir(self.cache.join("aot-workspaces"))
@@ -453,6 +458,41 @@ impl AotFixture {
             .unwrap()
             .path()
     }
+}
+
+#[test]
+fn restage_cannot_split_interpreted_runtime_and_aot_source_capture() {
+    let f = AotFixture::new();
+    files::copy_tree(&f.prepared, &f.bundle.join("web"), |_| false).unwrap();
+    fs::create_dir(f.bundle.join("ost")).unwrap();
+    let bundle = f.pin_bundle();
+    let interpreted = preparation::prepare(
+        &bundle,
+        &f.prepared.join("game"),
+        &f.cache,
+        false,
+        &serde_json::Map::new(),
+        "fixture-fonts",
+        |_, _, _| Ok(()),
+    )
+    .unwrap();
+    let stager = File::open(f.bundle.parent().unwrap()).unwrap();
+    assert_eq!(
+        fs2::FileExt::try_lock_exclusive(&stager)
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+    let runtime = aot::prepare(bundle, &interpreted, &f.cache, &f.sdk).unwrap();
+    fs2::FileExt::try_lock_exclusive(&stager).unwrap();
+    assert_eq!(
+        fs::read(runtime.join("Adapters.dll")).unwrap(),
+        b"Adapters.dll"
+    );
+    assert_eq!(
+        fs::read(f.workspace().join("candidate/src/Probe.cs")).unwrap(),
+        b"class Probe {}"
+    );
 }
 #[cfg(target_os = "linux")]
 #[test]
@@ -516,7 +556,7 @@ fn refreshed_outputs_with_the_same_preparation_marker_get_distinct_aot_roots() {
     let refreshed = f.prepared.with_file_name("refreshed");
     files::copy_tree(&f.prepared, &refreshed, |_| false).unwrap();
     write(refreshed.join("assets/fixture"), "fresh background");
-    let second = aot::prepare(&f.bundle, &refreshed, &f.cache, &f.sdk).unwrap();
+    let second = aot::prepare(f.pin_bundle(), &refreshed, &f.cache, &f.sdk).unwrap();
     assert_ne!(first, second);
     assert_published_eco_digest(&first, b"eco");
     assert_published_eco_digest(&second, b"eco");
@@ -728,9 +768,16 @@ fn different_aot_revisions_cannot_change_workspace_inputs_during_publish() {
             assert!(std::time::Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(5));
         }
+        // The compiler uses the private candidate and no longer holds up restaging.
+        let stager = File::open(f.bundle.parent().unwrap()).unwrap();
+        if let Err(error) = fs2::FileExt::try_lock_exclusive(&stager) {
+            write(f.cache.join("compiler-release"), "release");
+            panic!("compilation still holds the bundle lock: {error}");
+        }
+        drop(stager);
         let contender = scope.spawn(|| {
             sent.send(()).unwrap();
-            aot::prepare(&f.bundle, &second, &f.cache, &f.sdk)
+            aot::prepare(f.pin_bundle(), &second, &f.cache, &f.sdk)
         });
         received.recv_timeout(Duration::from_secs(2)).unwrap();
         while fs::read_dir(f.cache.join("aot-builds"))

@@ -14,6 +14,7 @@ function fixture() {
   const state={track:'pace-20261012',revision:0,play:true,volume:.4};
   const decoder=new Decoder(), target=new EventTarget(), reports=[];
   const managed={WorkspaceAudio:()=>JSON.stringify(state),WorkspaceAudioPlaying:value=>reports.push(value),
+    WorkspaceAudioQuit(){reports.push("quit");},
     WorkspaceAudioEnded(){state.track='dive-20261012';state.revision++;}};
   return {state,decoder,target,reports,bridge:attachWorkspaceAudio(managed,decoder,target)};
 }
@@ -41,6 +42,7 @@ test('mute and source handoff pause decoding; disposal removes gesture and ended
   f.state.play=true;f.bridge.frame();await flush();assert.equal(f.decoder.calls,2);
   f.bridge.dispose();assert.equal(f.decoder.paused,true);assert.equal(f.decoder.src,'');
   f.decoder.dispatchEvent(new Event('ended'));f.target.dispatchEvent(new Event('pointerdown'));await flush();
+  f.bridge.dispose();assert.equal(f.reports.filter(value=>value==='quit').length,1);
   assert.equal(f.decoder.calls,2);assert.equal(f.state.track,'pace-20261012');
 });
 test('late play completion cannot restart audio after a source switch or disposal',async()=>{

@@ -15,8 +15,6 @@ namespace SlopWorld
         static int _selectionRevision;
         public const string OstSourceId = "ost";
 
-        static bool _stopOnExit;
-
         // Read settings once after initialization. They are unavailable when this class first loads.
         static bool _read;
 
@@ -356,6 +354,8 @@ namespace SlopWorld
                 return;
             if (_station == null)
             {
+                if (_observingDaemon && !_muted)
+                    PickOst();
                 NativeJukebox.Navigate(direction, random);
                 if (_muted)
                     ToggleMute();
@@ -373,6 +373,7 @@ namespace SlopWorld
         public static void ToggleMute()
         {
             Read();
+            _observingDaemon = false;
             _muted = !_muted;
             _blamed = false;
             Save();
@@ -392,7 +393,13 @@ namespace SlopWorld
         {
             Read();
             // Selecting a source also unmutes playback. Skip only an identical selection that is already unmuted.
-            if (!_spotify && _station == s && (s == null || s.Rate == rate) && !_muted)
+            if (
+                !_observingDaemon
+                && !_spotify
+                && _station == s
+                && (s == null || s.Rate == rate)
+                && !_muted
+            )
                 return;
 
             SelectSource(s, rate);
@@ -471,26 +478,7 @@ namespace SlopWorld
                 JukeboxNoticeKind.Rejected,
                 $"Jukebox: {_station.Name} {RateLabel(_station.Rate)} would not play. Back to the OST."
             );
-            SelectSource(clearFailure: false);
-        }
-
-        // Apply the exit preference before Root.Shutdown closes the socket. Forced process termination bypasses this method.
-        public static void Quit()
-        {
-            Read();
-            // Prevent later frames from sending further playback updates.
-            _quit = true;
-            // Keep muted playback stopped even if the exit preference permits continued playback.
-            if (!_stopOnExit && !_muted)
-                return;
-
-            var hub = SessionHub.Instance;
-            if (hub == null || !hub.Online)
-                return;
-            if (!hub.Capabilities.AudioPlayback)
-                return;
-            if (!hub.Audio.StopForShutdown(Volume()))
-                Log.Warning("[SlopWorld] radio stop could not be flushed before shutdown");
+            SelectSource(userSelected: false);
         }
 
         // Mark the selection for the next Update, which checks connection state before sending.

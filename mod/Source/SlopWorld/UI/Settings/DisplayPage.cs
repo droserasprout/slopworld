@@ -12,6 +12,12 @@ namespace SlopWorld
         readonly SettingsForm _form = new SettingsForm();
         static ModSettings S => ModEntry.Instance.settings;
 
+        static bool VSyncOverridesLimit => !ClientPlatform.IsBrowser && S.vsync;
+        static string AutoLabel =>
+            ClientPlatform.IsBrowser
+                ? "Auto"
+                : OptionLabels.Auto(BackgroundFrames.AutoFps + " FPS");
+
         public void Load() { }
 
         public void Draw(Rect rect)
@@ -52,9 +58,8 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Rendering");
             string mode = FramePolicy.Normalize(S.displayMode);
             int fps = FramePolicy.NearestPreset(S.foregroundFps);
-            string autoLabel = OptionLabels.Auto(BackgroundFrames.AutoFps + " FPS");
-            string frameLimitLabel = mode == FramePolicy.Auto ? autoLabel : fps + " FPS";
-            string frameLimitTip = S.vsync
+            string frameLimitLabel = mode == FramePolicy.Auto ? AutoLabel : fps + " FPS";
+            string frameLimitTip = VSyncOverridesLimit
                 ? "Turn off VSync to choose an FPS limit."
                 : "Auto matches the current display refresh rate. Set lower to save power or higher to improve responsiveness.";
             UiSelector.Draw(
@@ -64,7 +69,7 @@ namespace SlopWorld
                 FrameOptions(),
                 out _,
                 frameLimitTip,
-                enabled: !S.vsync
+                enabled: !VSyncOverridesLimit
             );
 
             if (!ClientPlatform.IsBrowser)
@@ -110,10 +115,10 @@ namespace SlopWorld
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption(
-                    OptionLabels.Auto(BackgroundFrames.AutoFps + " FPS"),
+                    AutoLabel,
                     () =>
                     {
-                        if (S.vsync)
+                        if (VSyncOverridesLimit)
                             return;
                         S.displayMode = FramePolicy.Auto;
                         S.MarkDirty();
@@ -125,7 +130,7 @@ namespace SlopWorld
                     preset + " FPS",
                     () =>
                     {
-                        if (S.vsync)
+                        if (VSyncOverridesLimit)
                             return;
                         S.displayMode = FramePolicy.Limit;
                         S.foregroundFps = preset;

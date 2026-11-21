@@ -2,13 +2,13 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {WorkspaceScheduler} from '../../runtime/wwwroot/workspace-scheduler.js';
 
-function fixture(draw=()=>true,deadline=()=>100) {
+function fixture(draw=()=>true,deadline=()=>100,frameLimit=()=>0) {
   let time=0,id=0;
   const frames=new Map(),timers=new Map(),delays=[];
   const scheduler=new WorkspaceScheduler(draw,{
     raf:fn=>{frames.set(++id,fn);return id;},cancelRaf:id=>frames.delete(id),
     timer:(fn,delay)=>{delays.push(delay);timers.set(++id,fn);return id;},cancelTimer:id=>timers.delete(id),
-    now:()=>time,deadline,
+    now:()=>time,deadline,frameLimit,
   });
   const run=map=>{assert.equal(map.size,1);const [key,fn]=map.entries().next().value;map.delete(key);fn();};
   return {scheduler,frames,timers,delays,frame:()=>run(frames),timer:()=>run(timers),advance:ms=>{time+=ms;}};
@@ -92,5 +92,27 @@ test('deadline failures keep native updates running',()=>{
   const f=fixture(()=>true,()=>{throw Error('deadline unavailable');});
   f.scheduler.setEnabled(true);f.frame();f.frame();f.frame();
   assert.equal(f.timers.size,0);assert.equal(f.frames.size,1);
+  f.scheduler.stop();
+});
+
+test('active frames follow the live native limit through input and transport wakes',()=>{
+  let draws=0, fps=30;
+  const f=fixture(()=>{draws++;return false;},()=>100,()=>fps);
+  f.scheduler.setEnabled(false);
+  f.frame();
+  for(let tick=1;tick<=60;tick++){
+    f.advance(1000/60);
+    f.scheduler.wake(tick%2===0);
+    f.frame();
+  }
+  assert.equal(draws,31);
+  fps=5;
+  f.advance(1000/30);f.frame();
+  for(let tick=1;tick<=11;tick++){f.advance(1000/60);f.frame();}
+  assert.equal(draws,32);
+  fps=0;
+  f.advance(1000/60);f.frame();
+  f.advance(1000/60);f.frame();
+  assert.equal(draws,34);
   f.scheduler.stop();
 });

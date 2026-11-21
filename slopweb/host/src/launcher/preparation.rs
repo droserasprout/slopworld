@@ -5,7 +5,6 @@ use super::{
 };
 use crate::archive_identity;
 use anyhow::{Result, ensure};
-use fs2::FileExt;
 use serde_json::{Map, Value, json};
 use std::{
     collections::BTreeMap,
@@ -133,7 +132,7 @@ pub fn native_phase(bundle: &Path, game: &Path, phase: &str, root: &Path) -> Res
 }
 
 pub fn prepare(
-    bundle: &Path,
+    bundle: &files::PinnedBundle,
     game: &Path,
     cache: &Path,
     rebuild: bool,
@@ -142,10 +141,7 @@ pub fn prepare(
     build: impl Fn(&str, &Path, &Map<String, Value>) -> Result<()>,
 ) -> Result<PathBuf> {
     let _transaction = files::lock(&cache.join(".prepare.lock"))?;
-    // The release stager locks the bundle's parent exclusively for directory
-    // exchange. Keep all helper reads on the same publication as its digest.
-    let bundle_parent = File::open(bundle.parent().unwrap_or(bundle))?;
-    FileExt::lock_shared(&bundle_parent)?;
+    let bundle = bundle.path();
     let game_dlls = top_level(game, |name| name.ends_with(".dll"))?;
     let native = top_level(game, |name| name.contains(".so"))?;
     let mut managed = files::inputs(bundle, &["scanner", "offline", "Probe.dll", "Adapters.dll"])?;

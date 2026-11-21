@@ -11,6 +11,7 @@ static class ImageChecks
     internal static void Run()
     {
         CheckPacketIdentityAcrossInstall();
+        CheckRestoredTarget();
         CheckScaleModes();
         CheckDeferredAtlas();
         var reference = new BrowserGui();
@@ -140,6 +141,44 @@ static class ImageChecks
         Console.WriteLine(
             "Image uploads track Apply, CPU backing, dimensions, switches, discard, ID reuse and disposal."
         );
+    }
+
+    static void CheckRestoredTarget()
+    {
+        var gui = new BrowserGui();
+        using var pane = new RenderTexture(8, 4, 0);
+        void Draw()
+        {
+            if (Event.current.type != EventType.Repaint)
+                return;
+            // Use the terminal pane's native freshness check.
+            if (!pane.IsCreated())
+            {
+                gui.ActiveRenderTextureChanged(pane);
+                gui.FillRect(new Rect(0, 0, 8, 4), Color.red);
+                gui.ActiveRenderTextureChanged(null!);
+            }
+            gui.DrawTexture(new Rect(0, 0, 8, 4), pane, ScaleMode.StretchToFill, Color.white);
+        }
+        foreach (
+            var (batch, repaint) in new[]
+            {
+                ("[]", true),
+                ("[]", false),
+                ("""[{"kind":"restoreTargets"}]""", true),
+                ("[]", false),
+            }
+        )
+        {
+            using var result = JsonDocument.Parse(BrowserGuiInput.Dispatch(batch, gui, Draw));
+            var kinds = result
+                .RootElement.GetProperty("commands")
+                .EnumerateArray()
+                .Select(command => command.GetProperty("kind").GetString())
+                .ToArray();
+            if (!kinds.Contains("targetTexture") || kinds.Contains("fill") != repaint)
+                throw new Exception("Restored terminal target did not repaint once before reuse");
+        }
     }
 
     static void CheckPacketIdentityAcrossInstall()

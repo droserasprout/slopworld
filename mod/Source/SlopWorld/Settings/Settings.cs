@@ -75,6 +75,10 @@ namespace SlopWorld
         public static string VisualEffects => VisualEffectsMode.Normalize(S.visualEffects);
         public static string DisplayMode => FramePolicy.Normalize(S.displayMode);
         public static int ForegroundFps => FramePolicy.NearestPreset(S.foregroundFps);
+
+        // Browser Auto uses the display's animation-frame cadence.
+        public static int ExplicitFrameLimit =>
+            DisplayMode == FramePolicy.Limit ? ForegroundFps : 0;
         public static float EcoDim => S.ecoDim;
     }
 }

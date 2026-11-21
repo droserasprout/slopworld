@@ -14,6 +14,28 @@ use std::{
 
 pub type Inputs = BTreeMap<String, PathBuf>;
 
+/// The stager takes an exclusive lock on the parent before exchanging the bundle.
+/// Hold one shared lock from the first helper read through the last source copy.
+pub(super) struct PinnedBundle {
+    path: PathBuf,
+    _parent: File,
+}
+
+impl PinnedBundle {
+    pub fn open(path: PathBuf) -> Result<Self> {
+        let parent = File::open(path.parent().unwrap_or(&path))?;
+        FileExt::lock_shared(&parent)?;
+        Ok(Self {
+            path,
+            _parent: parent,
+        })
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
 pub fn files(root: &Path) -> Result<Inputs> {
     fn visit(root: &Path, at: &Path, result: &mut Inputs) -> Result<()> {
         if !at.exists() {

@@ -45,8 +45,10 @@ namespace SlopWorld
 
         public static bool CanOpen =>
             !Cutscene.Playing
-            && Current.ProgramState == ProgramState.Playing
-            && Find.CurrentMap != null
+            && (
+                (Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null)
+                || (ClientPlatform.IsBrowser && Current.ProgramState == ProgramState.Entry)
+            )
             && Find.WindowStack != null;
 
         public static void Toggle()

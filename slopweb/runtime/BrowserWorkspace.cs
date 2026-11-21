@@ -64,6 +64,10 @@ public partial class Probe
         (float)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "NextUpdateDelay")!;
 
     [JSExport]
+    public static int WorkspaceFrameLimit() =>
+        (int)Invoke("SlopWorld", "SlopWorld.Settings", "get_ExplicitFrameLimit")!;
+
+    [JSExport]
     public static void WorkspaceClearWake() =>
         Type("Adapters", "BrowserAdapters.BrowserActivity").GetField("Wake")!.SetValue(null, null);
 
@@ -308,6 +312,9 @@ public partial class Probe
     [JSExport]
     public static void WorkspaceAudioPlaying(bool playing) =>
         Invoke("Adapters", "BrowserAdapters.BrowserAudio", "Playing", playing);
+
+    [JSExport]
+    public static void WorkspaceAudioQuit() => Invoke("SlopWorld", "SlopWorld.Radio", "Quit");
 
     [JSExport]
     public static void WorkspaceAudioEnded() =>
