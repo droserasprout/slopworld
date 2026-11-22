@@ -312,7 +312,7 @@ impl Transactions {
 
 fn prepare_candidate(old: &Config, mut new: Config) -> Result<ConfigChange> {
     if new.daemon.token == crate::config::TOKEN_REDACTED {
-        new.daemon.token = old.daemon.token.clone();
+        new.daemon.token.clone_from(&old.daemon.token);
     }
     let root_token_changed = old.daemon.token != new.daemon.token;
     validate_config(&new)?;

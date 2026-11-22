@@ -10,6 +10,8 @@ strip = true
 unsafe_op_in_unsafe_fn = "deny"
 
 [workspace.lints.clippy]
+cloned_instead_of_copied = "warn"
+assigning_clones = "warn"
 redundant_clone = "warn"
 string_slice = "warn"
 indexing_slicing = "warn"

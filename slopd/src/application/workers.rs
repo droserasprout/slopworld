@@ -169,7 +169,7 @@ pub(crate) fn prepare(
         ..
     } = context
     {
-        session.parent_id = identity.clone();
+        session.parent_id.clone_from(identity);
         session.permissions = session.permissions.intersect(*permissions);
         session.workers.enabled &= policy.recursive;
         session.workers.recursive &= policy.recursive;

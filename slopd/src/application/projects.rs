@@ -78,7 +78,7 @@ impl ProjectReplacement {
         if old.temp != next.temp {
             bail!("The daemon cannot change project temporary mode after creation.");
         }
-        next.id = old.id.clone();
+        next.id.clone_from(&old.id);
         check_project(&next)?;
         validate_mount_paths(&next)?;
         if next.name != name && cfg.project(&next.name).is_some() {
@@ -109,7 +109,7 @@ impl ProjectReplacement {
                 .iter_mut()
                 .filter(|item| item.project == self.name)
             {
-                item.project = renamed.clone();
+                item.project.clone_from(&renamed);
             }
             for timer in cfg
                 .library
@@ -117,18 +117,18 @@ impl ProjectReplacement {
                 .filter_map(|item| item.timer.as_mut())
             {
                 if timer.action == "worker" && timer.project == self.name {
-                    timer.project = renamed.clone();
+                    timer.project.clone_from(&renamed);
                 }
             }
             for session in cfg.sessions.iter_mut().filter(|s| s.project == self.name) {
-                session.project = renamed.clone();
+                session.project.clone_from(&renamed);
             }
             for shell in cfg
                 .host_terminals
                 .iter_mut()
                 .filter(|s| s.project == self.name)
             {
-                shell.project = renamed.clone();
+                shell.project.clone_from(&renamed);
             }
         }
         Ok(())

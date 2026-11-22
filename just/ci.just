@@ -4,7 +4,7 @@
 [group('Check and fix')]
 ci: ci-tools ci-rust ci-mod ci-web
 
-# Check daemon and sidecar Rust, collecting daemon coverage
+# Check daemon, sidecar and IPC benchmark Rust, collecting daemon coverage
 [group('CI')]
 ci-rust: bench-lint daemon-lint daemon-coverage sidecar-lint sidecar-test
 

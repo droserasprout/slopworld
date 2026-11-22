@@ -301,7 +301,7 @@ fn normalize(mut station: Station, path: Option<&Path>) -> Result<Station> {
     }
     valid_id(&station.id)?;
     if station.metadata.name.trim().is_empty() {
-        station.metadata.name = station.id.clone();
+        station.metadata.name.clone_from(&station.id);
     }
     if station.streams.is_empty() {
         bail!("no [[stream]] entries");

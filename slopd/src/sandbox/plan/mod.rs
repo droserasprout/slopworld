@@ -131,7 +131,7 @@ pub(super) fn read_for_inspection(session: &SessionCfg) -> Result<Option<Inspect
         })
         .cloned();
     let mut view = sanitize_view(&view);
-    view.session = session.name.clone();
+    view.session.clone_from(&session.name);
     Ok(Some(InspectionPlan { view, executable }))
 }
 

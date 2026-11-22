@@ -65,7 +65,7 @@ pub(crate) async fn resolve(store: &Store, p: &ProjectCfg, id: &str) -> Result<P
         }
     }
     let mut resolved = p.clone();
-    resolved.dir = w.path.clone();
+    resolved.dir.clone_from(&w.path);
     resolved.worktree_repository = Some(w.repository.clone().into());
     resolved.temp = false;
     Ok(resolved)

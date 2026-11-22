@@ -336,8 +336,8 @@ impl SessionRuntime {
         // Viewer metadata restores its label, source, and pin state.
         if let Some(reader) = &decision.probe.reader {
             session.label = Some(reader.label.clone());
-            session.project = reader.project.clone();
-            session.worktree = reader.worktree.clone();
+            session.project.clone_from(&reader.project);
+            session.worktree.clone_from(&reader.worktree);
         }
         session
     }
@@ -355,7 +355,7 @@ impl SessionRuntime {
             l.launch = LaunchContext::from(reader);
         }
         l.role = decision.identity.role();
-        l.host_path = decision.host_path.clone();
+        l.host_path.clone_from(&decision.host_path);
         l.state = State::Working;
         l.last_change = now;
         l.activity_at = Some(tokio::time::Instant::now());
@@ -393,10 +393,10 @@ impl SessionRuntime {
             }
             AdoptionIdentity::Host(_) if l.role.is_host() => {
                 if !decision.host_project.is_empty() {
-                    l.cfg.project = decision.host_project.clone();
+                    l.cfg.project.clone_from(&decision.host_project);
                 }
                 if !decision.host_path.is_empty() {
-                    l.host_path = decision.host_path.clone();
+                    l.host_path.clone_from(&decision.host_path);
                 }
             }
             _ => {}
@@ -475,13 +475,13 @@ pub(in crate::session) fn recovered_worker_cfg(
         .or_else(|| metadata.session.as_deref().cloned())?;
     session.name = name.to_string();
     if let Some(project) = &metadata.project {
-        session.project = project.clone();
+        session.project.clone_from(project);
     }
     session.worktree = metadata.worktree.clone().unwrap_or_default();
-    session.state_id = state_id.clone();
+    session.state_id.clone_from(state_id);
     session.worker = true;
-    session.parent = metadata.parent.clone();
-    session.task_id = metadata.task_id.clone();
+    session.parent.clone_from(&metadata.parent);
+    session.task_id.clone_from(&metadata.task_id);
     session.autostart = false;
     session.auto_resume = false;
     session.daemon_token = None;

@@ -70,7 +70,7 @@ pub struct Task {
 impl Task {
     fn record_update(&mut self, sender: String, status: Status, note: Option<String>) {
         self.status = status;
-        self.note = note.clone();
+        self.note.clone_from(&note);
         self.updated_ms = crate::clock::unix_ms();
         self.history.push(TaskUpdate {
             sender,

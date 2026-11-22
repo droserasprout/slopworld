@@ -38,7 +38,7 @@ fn prepare(old: &Config, mut document: toml::Value) -> Result<PreparedSettings> 
         .try_into()
         .context("decoding root settings")?;
     if settings.daemon.token == TOKEN_REDACTED {
-        settings.daemon.token = old.daemon.token.clone();
+        settings.daemon.token.clone_from(&old.daemon.token);
         document
             .get_mut("daemon")
             .and_then(toml::Value::as_table_mut)
