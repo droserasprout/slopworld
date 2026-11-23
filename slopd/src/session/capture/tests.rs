@@ -566,7 +566,7 @@ async fn capture_does_not_commit_after_run_replacement() {
     manager.live.write().await.get_mut("agent").unwrap().run_id += 1;
     assert!(matches!(
         manager
-            .commit_frame("agent", &previous, &frame, delta, None)
+            .commit_frame("agent", &previous, frame, delta, None)
             .await,
         frame::FrameCommit::Superseded
     ));
@@ -597,7 +597,7 @@ async fn capture_does_not_revive_a_stopped_session() {
     reset_process_state(manager.live.write().await.get_mut("agent").unwrap());
     assert!(matches!(
         manager
-            .commit_frame("agent", &previous, &frame, delta, None)
+            .commit_frame("agent", &previous, frame, delta, None)
             .await,
         frame::FrameCommit::Superseded
     ));

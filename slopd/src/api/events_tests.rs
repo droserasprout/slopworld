@@ -37,7 +37,7 @@ fn every_event_encodes_its_protobuf_payload() {
         alt_screen: false,
         title: String::new(),
         request_id: 0,
-        lines: Vec::new(),
+        lines: Default::default(),
     };
     // Exercise the production encoder, including its Serde-to-Protobuf projections.
     let events = [

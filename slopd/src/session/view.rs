@@ -136,7 +136,7 @@ pub struct ScreenView {
     #[serde(default)]
     pub request_id: u64,
     // Styled terminal rows shared across snapshot clones.
-    pub lines: Vec<Arc<str>>,
+    pub lines: Arc<[Arc<str>]>,
 }
 
 /// Session and viewport metadata supplied alongside an emulator frame.
@@ -180,7 +180,7 @@ impl ScreenView {
             app_drag: frame.app_drag,
             alt_screen: frame.alt_screen,
             title: frame.title,
-            lines: frame.lines,
+            lines: frame.lines.into(),
         }
     }
 
@@ -216,7 +216,7 @@ impl ScreenView {
             alt_screen: false,
             title,
             request_id,
-            lines,
+            lines: lines.into(),
         }
     }
 }

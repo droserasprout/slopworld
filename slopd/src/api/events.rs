@@ -6,6 +6,26 @@ use prost::Message;
 use std::sync::Arc;
 
 impl EventMessage {
+    /// The socket owns its binary message. Only traced frames need a private wire projection.
+    pub(crate) fn socket_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        if let Event::Screen { screen } = self.event()
+            && !screen.input_timings.is_empty()
+        {
+            let mut screen = wire::ScreenView::from(screen);
+            let at = crate::latency::now();
+            for timing in &mut screen.input_timings {
+                timing.send_us = at;
+            }
+            return Ok(wire::Event {
+                payload: Some(wire::event::Payload::Screen(screen)),
+            }
+            .encode_to_vec());
+        }
+        self.encoded()
+            .map(|bytes| bytes.to_vec())
+            .map_err(anyhow::Error::msg)
+    }
+
     pub(crate) fn encoded(&self) -> Result<Arc<[u8]>, String> {
         self.encode_with(|event| {
             let _perf = crate::perf::timer("websocket-serialize");

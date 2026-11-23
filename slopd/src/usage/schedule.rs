@@ -207,16 +207,14 @@ pub(super) fn filter_snapshot(
         .item_due
         .retain(|key, _| item_enabled(d, source, key));
 
-    let mut previous = poller.snap.windows.clone();
-    // Retained values use the new provider timestamp, but keep their original
-    // reset deadline. Derive seconds from that deadline instead of repeatedly
-    // subtracting rounded poll intervals.
-    for window in &mut previous {
-        if let Some(deadline) = poller.reset_deadlines.get(&window.key) {
-            window.resets_in = Some(deadline.saturating_sub(snapshot.fetched_ms) / 1000);
+    // Refresh the reset deadline only for a previous value we actually publish.
+    let retained = |old: &super::Window, deadline: Option<&u64>| {
+        let mut value = old.clone();
+        if let Some(deadline) = deadline {
+            value.resets_in = Some(deadline.saturating_sub(snapshot.fetched_ms) / 1000);
         }
-    }
-    let mut seen = Vec::new();
+        value
+    };
     let mut windows = Vec::new();
     for window in snapshot.windows.drain(..) {
         if !item_enabled(d, source, &window.key) {
@@ -240,21 +238,25 @@ pub(super) fn filter_snapshot(
             } else {
                 poller.reset_deadlines.remove(&window.key);
             }
-            windows.push(window.clone());
-        } else if let Some(old) = previous.iter().find(|old| old.key == window.key) {
-            windows.push(old.clone());
+            windows.push(window);
+        } else if let Some(old) = poller.snap.windows.iter().find(|old| old.key == window.key) {
+            windows.push(retained(old, poller.reset_deadlines.get(&old.key)));
         }
-        seen.push(window.key);
     }
 
     // An optional window may disappear from a valid response. Keep its last value until that
     // row's own interval is due, then let it disappear instead of showing an old figure forever.
-    for old in previous {
-        if seen.iter().any(|key| key == &old.key) || !item_enabled(d, source, &old.key) {
+    for old in &poller.snap.windows {
+        if poller
+            .available
+            .as_ref()
+            .is_some_and(|keys| keys.contains(&old.key))
+            || !item_enabled(d, source, &old.key)
+        {
             continue;
         }
         if poller.item_due.get(&old.key).is_some_and(|due| *due > now) {
-            windows.push(old);
+            windows.push(retained(old, poller.reset_deadlines.get(&old.key)));
         }
     }
     poller

@@ -15,7 +15,7 @@ pub(super) struct FrameEffects {
 
 pub(super) enum FrameCommit {
     Superseded,
-    Reclassify,
+    Reclassify(Frame),
     Applied(FrameEffects),
 }
 
@@ -172,7 +172,7 @@ impl SessionRuntime {
     async fn apply_captured_frame(
         &self,
         name: &str,
-        frame: Frame,
+        mut frame: Frame,
         captured_at: Option<u64>,
         mut previous: FrameSnapshot,
     ) -> Option<FrameEffects> {
@@ -190,11 +190,12 @@ impl SessionRuntime {
                 }
             }
             match self
-                .commit_frame(name, &previous, &frame, delta, captured_at)
+                .commit_frame(name, &previous, frame, delta, captured_at)
                 .await
             {
                 FrameCommit::Superseded => return None,
-                FrameCommit::Reclassify => {
+                FrameCommit::Reclassify(captured) => {
+                    frame = captured;
                     let live = self.live.read().await;
                     let current = live.get(name)?;
                     // Only classification may refresh; retain the capture owner and order.
@@ -221,7 +222,7 @@ impl SessionRuntime {
         &self,
         name: &str,
         previous: &FrameSnapshot,
-        frame: &Frame,
+        frame: Frame,
         delta: FrameDelta,
         captured_at: Option<u64>,
     ) -> FrameCommit {
@@ -235,7 +236,7 @@ impl SessionRuntime {
         }
         // State decay invalidates classification, not terminal output.
         if l.state != previous.state {
-            return FrameCommit::Reclassify;
+            return FrameCommit::Reclassify(frame);
         }
 
         let mut effects = FrameEffects::default();
@@ -314,7 +315,7 @@ fn commit_screen(
     live: &mut Live,
     name: &str,
     previous: &FrameSnapshot,
-    frame: &Frame,
+    frame: Frame,
     delta: &FrameDelta,
     captured_at: Option<u64>,
 ) -> ScreenView {
@@ -343,7 +344,7 @@ fn commit_screen(
             history: frame.history,
             request_id: 0,
         },
-        frame.clone(),
+        frame,
     );
     if let Some(at) = captured_at {
         // Associate input latency with the committed run and frame sequence.

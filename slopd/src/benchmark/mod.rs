@@ -196,12 +196,12 @@ fn benchmark_websocket_serialization() {
             .collect::<Vec<_>>();
         for clients in [1usize, 4, 8] {
             measure(
-                &format!("websocket-cached sessions={sessions} clients={clients}"),
+                &format!("websocket-send-buffer sessions={sessions} clients={clients}"),
                 |_| {
                     let mut bytes = 0usize;
                     for _ in 0..clients {
                         for event in &events {
-                            let encoded = event.encoded().expect("benchmark event");
+                            let encoded = event.socket_bytes().expect("benchmark event");
                             perf::count("websocket-bytes", encoded.len() as u64);
                             bytes += encoded.len();
                         }
@@ -312,6 +312,6 @@ fn screen_view(name: &str, frame: &Frame) -> ScreenView {
         alt_screen: frame.alt_screen,
         title: frame.title.clone(),
         request_id: 0,
-        lines: frame.lines.clone(),
+        lines: frame.lines.clone().into(),
     }
 }

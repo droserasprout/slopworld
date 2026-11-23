@@ -478,7 +478,7 @@ async fn retick_moves_a_quiet_working_session_to_idle() {
         alt_screen: false,
         title: String::new(),
         request_id: 0,
-        lines: Vec::new(),
+        lines: Default::default(),
     });
     manager.live.write().await.insert("agent".into(), live);
 

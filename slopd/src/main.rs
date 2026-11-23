@@ -37,6 +37,8 @@ mod storage;
 mod storage_id;
 mod tasks;
 #[cfg(test)]
+mod test_allocations;
+#[cfg(test)]
 mod test_http;
 #[cfg(test)]
 mod test_support;

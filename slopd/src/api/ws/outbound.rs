@@ -31,13 +31,18 @@ pub(super) async fn scope_live_event(
     }
     match ev.event() {
         Event::Sessions { sessions: views } => {
-            let mut visible = Vec::new();
-            for view in views {
-                if !view.host && sessions.worker_diagnostics_ok(cap, &view.name).await {
+            let mut filtered: Option<Vec<_>> = None;
+            for (index, view) in views.iter().enumerate() {
+                if view.host || !sessions.worker_diagnostics_ok(cap, &view.name).await {
+                    filtered.get_or_insert_with(|| views.iter().take(index).cloned().collect());
+                } else if let Some(visible) = &mut filtered {
                     visible.push(view.clone());
                 }
             }
-            Some(EventMessage::new(Event::Sessions { sessions: visible }))
+            Some(match filtered {
+                Some(sessions) => EventMessage::new(Event::Sessions { sessions }),
+                None => ev,
+            })
         }
         Event::Screen { screen } => sessions
             .terminal_cap_ok(cap, &screen.name, crate::credentials::Level::Ro)
@@ -221,7 +226,7 @@ async fn pump_frames(
     }
 }
 
-pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), axum::Error> {
+pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &Arc<EventMessage>) -> Result<(), axum::Error> {
     let mut changes = tx.authority.auth_changes();
     tokio::select! {
         biased;
@@ -235,7 +240,7 @@ pub(super) async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), 
 pub(super) async fn send_authorized(
     tx: &WsTx,
     cap: &Cap,
-    ev: &EventMessage,
+    ev: &Arc<EventMessage>,
 ) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
     let started = crate::perf::enabled().then(std::time::Instant::now);
@@ -252,34 +257,13 @@ pub(super) async fn send_authorized(
         let ev = if cap.may_create() {
             ev
         } else {
-            let Some(filtered) =
-                scope_live_event(&tx.sessions, cap, EventMessage::new(ev.event().clone())).await
-            else {
+            let Some(filtered) = scope_live_event(&tx.sessions, cap, Arc::clone(ev)).await else {
                 return Ok(());
             };
             scoped = filtered;
-            scoped.as_ref()
+            &scoped
         };
-        let mut bytes = ev
-            .encoded()
-            .map_err(|e| axum::Error::new(std::io::Error::other(e)))?
-            .to_vec();
-        if let Event::Screen { screen } = ev.event()
-            && !screen.input_timings.is_empty()
-        {
-            use prost::Message as _;
-            let mut message = ev
-                .event()
-                .to_protobuf()
-                .map_err(|e| axum::Error::new(std::io::Error::other(e.to_string())))?;
-            if let Some(crate::shared::wire::event::Payload::Screen(s)) = &mut message.payload {
-                let at = crate::latency::now();
-                for t in &mut s.input_timings {
-                    t.send_us = at;
-                }
-            }
-            bytes = message.encode_to_vec();
-        }
+        let bytes = ev.socket_bytes().map_err(axum::Error::new)?;
         crate::perf::count("websocket-bytes", bytes.len() as u64);
         // Preserve authorization through publication, but evict a stalled peer
         // before its backpressure can indefinitely prevent lifecycle or revocation.

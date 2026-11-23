@@ -475,7 +475,7 @@ async fn screens_require_a_live_grant_for_the_named_session() {
         alt_screen: false,
         title: String::new(),
         request_id: 0,
-        lines: Vec::new(),
+        lines: Default::default(),
     };
     let event = message(Event::Screen { screen });
     assert!(scope_event(&cap, event.clone()).await.is_some());
@@ -628,7 +628,7 @@ fn screen(name: &str, seq: u64) -> ScreenView {
         alt_screen: false,
         title: String::new(),
         request_id: 0,
-        lines: vec![format!("frame {seq}").into()],
+        lines: [format!("frame {seq}").into()].into(),
     }
 }
 
@@ -1017,7 +1017,7 @@ async fn frame_pump_stops_when_authority_is_revoked_while_waiting_to_send() {
     let writer = socket.tx.lock().await;
     let pump = spawn_frame_pump(rx, socket.tx.clone(), WsSubs::default(), cap.clone());
     let event = message(Event::Sessions {
-        sessions: vec![view("a")],
+        sessions: vec![view("a"), view("unrelated")],
     });
     let accepted = Arc::downgrade(&event);
     assert!(events.send(event).is_ok());
@@ -2031,7 +2031,7 @@ async fn stalled_scoped_socket_releases_session_admission_after_send_deadline() 
     let cap = scoped(&["worker"], Level::Ro);
     let mut frame = screen("worker", 1);
     // Exceed the loopback socket buffers while the peer deliberately never reads.
-    frame.lines = vec!["x".repeat(16 * 1024 * 1024).into()];
+    frame.lines = ["x".repeat(16 * 1024 * 1024).into()].into();
     let event = message(Event::Screen { screen: frame });
     let sending = super::outbound::send_authorized(&socket.tx, &cap, &event);
     tokio::pin!(sending);
@@ -2075,7 +2075,7 @@ async fn frame_pump_timeout_closes_socket_and_releases_subscription() {
     // Keep the peer connected but stop reading. This live frame exceeds loopback
     // buffers, forcing the pump's send deadline rather than client-side closure.
     let mut frame = screen("pager", 2);
-    frame.lines = vec!["x".repeat(16 * 1024 * 1024).into()];
+    frame.lines = ["x".repeat(16 * 1024 * 1024).into()].into();
     manager.services.emit(Event::Screen { screen: frame });
     tokio::time::timeout(Duration::from_secs(5), driving)
         .await
@@ -2189,4 +2189,46 @@ async fn connection_shutdown_cancels_commands_still_waiting_for_admission() {
         .await
         .unwrap();
     assert!(subs.lock().await.is_empty());
+}
+
+#[tokio::test]
+async fn measure_screen_send_allocations() {
+    let manager = crate::application::test_application(crate::config::Config {
+        sessions: vec![crate::config::SessionCfg {
+            name: "worker".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    for (label, cap, timed) in [
+        ("ordinary", Cap::Root, false),
+        ("timed", Cap::Root, true),
+        ("restricted", scoped(&["worker"], Level::Ro), false),
+    ] {
+        let mut view = screen("worker", 1);
+        view.lines = (0..34).map(|_| Arc::from("x".repeat(120))).collect();
+        if timed {
+            view.input_timings.push(Default::default());
+        }
+        let event = message(Event::Screen { screen: view });
+        if !timed {
+            event.encoded().unwrap();
+        }
+        for clients in [1, 4, 8] {
+            crate::test_allocations::start();
+            for _ in 0..clients {
+                let scoped =
+                    super::outbound::scope_live_event(&manager.sessions, &cap, event.clone())
+                        .await
+                        .unwrap();
+                assert!(Arc::ptr_eq(&event, &scoped));
+                std::hint::black_box(scoped.socket_bytes().unwrap());
+            }
+            let (allocations, _, bytes) = crate::test_allocations::finish();
+            if !timed {
+                assert_eq!(allocations, clients, "one owned socket buffer per send");
+            }
+            println!("{label} clients={clients}: {allocations} allocations, {bytes} bytes");
+        }
+    }
 }
