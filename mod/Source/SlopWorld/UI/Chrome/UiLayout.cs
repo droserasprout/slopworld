@@ -216,17 +216,21 @@ namespace SlopWorld
 
         public static FloatMenuOption MenuToggle(string label, bool on, Action act)
         {
-            var opt = new FloatMenuOption(
-                label,
-                act,
-                MenuOptionPriority.Default,
-                null,
-                null,
-                TickColW,
-                r => DrawTick(r, on)
-            );
-            opt.extraPartRightJustified = false;
-            return opt;
+            return new ToggleOption(label, on, act);
+        }
+
+        internal sealed class ToggleOption : FloatMenuOption
+        {
+            internal bool Checked;
+
+            public ToggleOption(string label, bool on, Action action)
+                : base(label, action)
+            {
+                Checked = on;
+                extraPartWidth = TickColW;
+                extraPartRightJustified = false;
+                extraPartOnGUI = r => DrawTick(r, Checked);
+            }
         }
 
         public static UiSubmenu MenuSubmenu(

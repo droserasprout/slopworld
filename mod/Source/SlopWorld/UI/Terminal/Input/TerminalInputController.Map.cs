@@ -22,6 +22,14 @@ namespace SlopWorld
             return true;
         }
 
+        internal static void NavigateSession(int direction)
+        {
+            if (Find.WindowStack?.WindowOfType<WorkspaceWindow>() == null)
+                WalkMapSession(direction);
+            else
+                WalkSession(direction);
+        }
+
         /// <summary>Move through the session list by <paramref name="dir"/> (-1 or 1).</summary>
         static void WalkMapSession(int dir)
         {

@@ -243,18 +243,31 @@ namespace SlopWorld
 
         static List<SubOption> JukeboxSub()
         {
-            var list = new List<SubOption>
-            {
-                new SubOption
-                {
-                    Label = Radio.Picked == null && !Radio.Muted ? "OST  (playing)" : "OST",
-                    Select = Radio.PickOst,
-                },
-            };
-
+            var list = new List<SubOption>();
+            if (Radio.SourceShown(Radio.OstSourceId))
+                list.Add(
+                    new SubOption
+                    {
+                        Label =
+                            !Radio.Spotify && Radio.Picked == null && !Radio.Muted
+                                ? "OST  (playing)"
+                                : "OST",
+                        Select = Radio.PickOst,
+                    }
+                );
+            if (SpotifyAvailable())
+                list.Add(
+                    new SubOption
+                    {
+                        Label = Radio.Spotify ? "Spotify (ncspot)  (playing)" : "Spotify (ncspot)",
+                        Select = JukeboxActions.OpenSpotify,
+                    }
+                );
             foreach (var station in Radio.Stations)
             {
                 var s = station;
+                if (!Radio.SourceShown(s.Id))
+                    continue;
                 list.Add(
                     new SubOption
                     {

@@ -459,8 +459,12 @@ namespace SlopWorld
                 Assert.That(palette._mode, Is.EqualTo(Mode.Commands));
             }
 
-            [Test]
-            public void ChecklistSpaceKeyTogglesButCharacterEventDoesNotToggleTwice()
+            [TestCase(KeyCode.Space, KeyCode.None)]
+            [TestCase(KeyCode.None, KeyCode.Space)]
+            public void ChecklistAcceptsEitherSpacePacketAndConsumesItsCompanion(
+                KeyCode first,
+                KeyCode second
+            )
             {
                 Open(
                     Menu(() =>
@@ -474,7 +478,7 @@ namespace SlopWorld
                 Event.current = new Event
                 {
                     type = EventType.KeyDown,
-                    keyCode = KeyCode.Space,
+                    keyCode = first,
                     character = ' ',
                 };
                 palette.DrawInput(new Rect());
@@ -483,7 +487,7 @@ namespace SlopWorld
                 Event.current = new Event
                 {
                     type = EventType.KeyDown,
-                    keyCode = KeyCode.None,
+                    keyCode = second,
                     character = ' ',
                 };
                 palette.DrawInput(new Rect());

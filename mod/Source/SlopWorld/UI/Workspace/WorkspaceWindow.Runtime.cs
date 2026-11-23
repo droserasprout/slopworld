@@ -29,6 +29,13 @@ namespace SlopWorld
             }
         }
 
+        internal static void CloseFocusedPane()
+        {
+            var window = Verse.Find.WindowStack?.WindowOfType<WorkspaceWindow>();
+            if (window != null && window.TerminalVisible)
+                window._terminal.Close();
+        }
+
         void ITerminalPanelHost.ClosePanel(TerminalPanel panel)
         {
             // A menu action can outlive an ephemeral session. Never close its replacement.

@@ -6,7 +6,44 @@ namespace SlopWorld
     // Command registration table.
     public partial class CommandPalette
     {
-        // --------------------------------------------------------------- command table
+        static bool SpotifyAvailable() =>
+            SessionHub.Instance.Capabilities.AudioPlayback
+            && Radio.SpotifyAvailable
+            && Radio.SourceShown(Radio.SpotifySourceId);
+
+        static IEnumerable<CommandDef> NavigationCommands()
+        {
+            foreach (int direction in new[] { -1, 1 })
+            {
+                string step = direction < 0 ? "Previous" : "Next";
+                string id = step.ToLowerInvariant();
+                yield return new CommandDef(
+                    "navigation." + id + "-session",
+                    "Navigation: " + step + " Session",
+                    "Navigation",
+                    _ => TerminalInputController.NavigateSession(direction),
+                    enabled: Playing
+                );
+                yield return new CommandDef(
+                    "navigation." + id + "-file",
+                    "Navigation: " + step + " Open File",
+                    "Navigation",
+                    _ => Sidebar.WalkReader(direction),
+                    enabled: Playing
+                );
+            }
+        }
+
+        static List<SubOption> OpenBesideSub()
+        {
+            var options = new List<SubOption>();
+            foreach (string name in WorkspaceWindow.OpenBesideOrder())
+                if (name != WorkspaceWindow.CurrentName)
+                    options.Add(new SubOption { Label = name, Value = name });
+            if (options.Count == 0)
+                options.Add(new SubOption { Label = "(no other sessions)", Enabled = false });
+            return options;
+        }
 
         // The palette is a catalogue of data. Availability is evaluated while the list is
         // rebuilt, so game-state changes do not require rebuilding the definitions.
@@ -136,7 +173,38 @@ namespace SlopWorld
                 ProjectsSub,
                 ProjectActions.ProjectTerminal
             ),
+            .. NavigationCommands(),
             .. TaskCommands(),
+            new CommandDef(
+                "view.toggle-planner",
+                "View: Toggle Planner",
+                "View",
+                _ => PlannerView.Toggle(),
+                enabled: Playing
+            ),
+            new CommandDef(
+                "terminal.open-beside",
+                "Terminal: Open Beside",
+                "Terminal",
+                name =>
+                {
+                    if (
+                        WorkspaceWindow.CurrentName != null
+                        && name != WorkspaceWindow.CurrentName
+                        && WorkspaceWindow.OpenBesideOrder().Contains(name)
+                    )
+                        WorkspaceWindow.OpenSplit(name);
+                },
+                enabled: () => WorkspaceWindow.CurrentName != null,
+                subAction: OpenBesideSub
+            ),
+            new CommandDef(
+                "terminal.close-pane",
+                "Terminal: Close Focused Pane",
+                "Terminal",
+                _ => WorkspaceWindow.CloseFocusedPane(),
+                enabled: () => WorkspaceWindow.CurrentName != null
+            ),
             CommandDef.ForLibraryItem(
                 "library.run",
                 "Library: Run",
@@ -461,6 +529,27 @@ namespace SlopWorld
                 "Help",
                 _ => ShortcutHelpView.Toggle(),
                 enabled: () => ShortcutHelpView.CanOpen
+            ),
+            new CommandDef(
+                "jukebox.previous",
+                "Jukebox: Previous",
+                "Jukebox",
+                _ => Radio.Previous(),
+                enabled: () => !Radio.Spotify
+            ),
+            new CommandDef(
+                "jukebox.next",
+                "Jukebox: Next",
+                "Jukebox",
+                _ => Radio.Next(),
+                enabled: () => !Radio.Spotify
+            ),
+            new CommandDef(
+                "jukebox.spotify",
+                "Jukebox: Open Spotify Player",
+                "Jukebox",
+                _ => JukeboxActions.OpenSpotify(),
+                enabled: SpotifyAvailable
             ),
             new CommandDef("jukebox.mute", "Jukebox: Mute", "Jukebox", _ => Radio.ToggleMute()),
             new CommandDef("jukebox.random", "Jukebox: Random", "Jukebox", _ => Radio.PickRandom()),

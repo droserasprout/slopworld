@@ -14,6 +14,7 @@ namespace SlopWorld
         // the pointer's hover pass.
         int _selected = -1;
         bool _keyboardSelection;
+        ChecklistSpace _space;
         Event _acceptEvent;
         int _acceptFrame = -1;
         Event _dispatchedEvent;
@@ -67,7 +68,27 @@ namespace SlopWorld
             // Editing keys belong to the inline field, not menu navigation/dismissal.
             if (FocusedInput() != null)
                 return false;
-            if (e == null || e.rawType != EventType.KeyDown || e.keyCode == KeyCode.None)
+            if (e == null || e.rawType != EventType.KeyDown)
+                return false;
+            if (e.keyCode == KeyCode.Space || e.character == ' ')
+            {
+                EnsureSelection();
+                if (
+                    IsSelectable(_selected)
+                    && (
+                        _options[_selected] is UiLayout.ToggleOption
+                        || Sub(_selected)?.Toggle != null
+                    )
+                )
+                {
+                    bool toggle = _space.ShouldToggle(e);
+                    e.Use();
+                    if (toggle)
+                        ToggleSelection();
+                    return true;
+                }
+            }
+            if (e.keyCode == KeyCode.None)
                 return false;
             // A modifier on its own is somebody reaching for a chord, not a key.
             if (Modifier(e.keyCode))
@@ -219,6 +240,56 @@ namespace SlopWorld
                 _rows.RowHeight(_selected),
                 Mathf.Max(1f, windowRect.height - PadY * 2f)
             );
+        }
+
+        void ToggleSelection()
+        {
+            // Filter callbacks rebuild their menu from live state. Restore the selected
+            // row and its ancestors so consecutive Space presses act on the same item.
+            var labels = new System.Collections.Generic.Stack<string>();
+            var root = this;
+            labels.Push(_options[_selected].Label);
+            while (root._parent != null)
+            {
+                root = root._parent;
+                labels.Push(root._options[root._open].Label);
+            }
+            _keyboardSelection = true;
+            SoundDefOf.Click.PlayOneShotOnCamera();
+            if (_options[_selected] is UiLayout.ToggleOption option)
+            {
+                option.Checked = !option.Checked;
+                option.action?.Invoke();
+            }
+            else
+                Sub(_selected).Toggle();
+
+            var stack = Find.WindowStack;
+            for (int i = stack.Count - 1; i >= 0; i--)
+            {
+                if (!(stack[i] is UiMenu menu) || menu._parent != null)
+                    continue;
+                if (menu == root)
+                    return;
+                while (labels.Count > 0)
+                {
+                    string label = labels.Pop();
+                    int row = menu._options.FindIndex(o => o.Label == label);
+                    if (!menu.IsSelectable(row))
+                        return;
+                    menu._keyboardSelection = true;
+                    menu._selected = row;
+                    menu.RevealSelection();
+                    if (labels.Count == 0 || menu.Sub(row) == null)
+                        return;
+                    if (menu._open != row || menu._child == null)
+                        menu.OpenChild(row, menu.Sub(row));
+                    menu = menu._child;
+                    if (menu == null)
+                        return;
+                }
+                return;
+            }
         }
 
         void ActivateSelection()

@@ -18,6 +18,8 @@ but must not move targets. [Scrolling](mod-ui-scrolling.md) owns scrollbar hit i
 cannot reopen it. Close menus before raising another window. Vanilla replaces
 same-type windows, so each menu level needs a separate instance; submenu openers need a
 non-null action to remain enabled.
+Space toggles the selected checkbox and retains keyboard selection when a filter rebuilds
+its popup, including nested worktree and task filters. Focused inline fields own typed spaces.
 Child placement checks both sides against all open ancestors, preferring a clear
 side when available; shared border seams do not count as overlap.
 Selector width measurement includes menu checkbox columns and submenu arrows, so

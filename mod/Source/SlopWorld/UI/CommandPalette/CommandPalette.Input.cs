@@ -5,6 +5,8 @@ namespace SlopWorld
 {
     public partial class CommandPalette
     {
+        ChecklistSpace _space;
+
         void DrawInput(Rect r)
         {
             // Draw one shared frame around the whole input row.
@@ -15,7 +17,7 @@ namespace SlopWorld
             var e = Event.current;
             bool isKeyDown = e.type == EventType.KeyDown;
 
-            // IMGUI emits Space as key and character events. Consume both in checklist mode, but toggle only on the key event so Space is not typed into the filter.
+            // Consume both forms before the filter field receives text.
             if (
                 isKeyDown
                 && _mode == Mode.Sub
@@ -23,7 +25,7 @@ namespace SlopWorld
                 && (e.keyCode == KeyCode.Space || e.character == ' ')
             )
             {
-                if (e.keyCode == KeyCode.Space)
+                if (_space.ShouldToggle(e))
                     ToggleSub();
                 e.Use();
                 return;
