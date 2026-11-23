@@ -25,8 +25,9 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
     let key_valid = single(headers, "sec-websocket-key").is_some_and(|key| {
         key.len() == 24
             && key.ends_with("==")
-            && key[..22]
+            && key
                 .bytes()
+                .take(22)
                 .all(|c| c.is_ascii_alphanumeric() || b"+/".contains(&c))
     });
     if request.uri() != "/host/ws"
@@ -62,9 +63,10 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
     upstream_request
         .headers_mut()
         .insert("x-slop-token", connection.token);
-    upstream_request
-        .headers_mut()
-        .insert("sec-websocket-protocol", PROTOCOL.parse().unwrap());
+    upstream_request.headers_mut().insert(
+        "sec-websocket-protocol",
+        axum::http::HeaderValue::from_static(PROTOCOL),
+    );
     let limits = tungstenite::protocol::WebSocketConfig {
         max_message_size: Some(MAX_MESSAGE),
         max_frame_size: Some(MAX_MESSAGE),
@@ -123,7 +125,7 @@ async fn relay(browser: WebSocket, upstream: Upstream) {
             let mapped = match message {
                 tungstenite::Message::Text(value) => Message::Text(value),
                 tungstenite::Message::Binary(value) => Message::Binary(value),
-                tungstenite::Message::Ping(_) => continue,
+                tungstenite::Message::Ping(_) | tungstenite::Message::Frame(_) => continue,
                 tungstenite::Message::Pong(value) => Message::Pong(value),
                 tungstenite::Message::Close(value) => {
                     Message::Close(value.map(|value| axum::extract::ws::CloseFrame {
@@ -131,7 +133,6 @@ async fn relay(browser: WebSocket, upstream: Upstream) {
                         reason: value.reason,
                     }))
                 }
-                tungstenite::Message::Frame(_) => continue,
             };
             if browser_out.send(mapped).await.is_err() {
                 break;
@@ -145,7 +146,7 @@ async fn relay(browser: WebSocket, upstream: Upstream) {
     };
     tokio::pin!(to_daemon, to_browser);
     tokio::select! {
-        _ = &mut to_daemon => { let _ = tokio::time::timeout(Duration::from_secs(1), &mut to_browser).await; },
-        _ = &mut to_browser => { let _ = tokio::time::timeout(Duration::from_secs(1), &mut to_daemon).await; },
+        () = &mut to_daemon => { let _drain_result = tokio::time::timeout(Duration::from_secs(1), &mut to_browser).await; },
+        () = &mut to_browser => { let _drain_result = tokio::time::timeout(Duration::from_secs(1), &mut to_daemon).await; },
     }
 }

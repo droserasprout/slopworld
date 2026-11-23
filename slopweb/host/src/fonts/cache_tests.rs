@@ -47,7 +47,11 @@ fn installation_between_enumeration_and_stamp_capture_cannot_publish_a_stale_cat
     .unwrap();
     let mut catalog = Catalog::default();
     catalog
-        .rebuild_inventory(&root, vec![source.clone()], vec![fonts.clone()])
+        .rebuild_inventory(
+            &root,
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&fonts),
+        )
         .unwrap();
     let generation = catalog.generation.clone();
     let result = catalog.rebuild_from(&root, || {
@@ -69,7 +73,7 @@ fn installation_between_enumeration_and_stamp_capture_cannot_publish_a_stale_cat
     assert_eq!(Catalog::load(&root).generation, generation);
     assert!(!catalog.fresh(&root));
     catalog
-        .rebuild_inventory(&root, vec![source, added], vec![fonts])
+        .rebuild_inventory(&root, &[source, added], &[fonts])
         .unwrap();
     assert_ne!(catalog.generation, generation);
     assert!(catalog.fresh(&root));
@@ -121,9 +125,7 @@ fn previous_fallback_policy_invalidates_persisted_catalog() {
     )
     .unwrap();
     let mut catalog = Catalog::default();
-    catalog
-        .rebuild_inventory(&root, vec![font], vec![])
-        .unwrap();
+    catalog.rebuild_inventory(&root, &[font], &[]).unwrap();
     assert!(catalog.fresh(&root));
     catalog.schema = 1;
     catalog

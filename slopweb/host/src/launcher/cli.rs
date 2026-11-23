@@ -1,12 +1,11 @@
 //! Launcher syntax and local commands, independent of game/runtime preparation.
-use anyhow::{Result, bail, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use clap::{Parser, Subcommand};
 use std::{
     env, fs,
     path::{Path, PathBuf},
 };
 
-#[allow(dead_code)]
 #[path = "../../../../slopd/src/shared/application_paths.rs"]
 pub mod shared_paths;
 
@@ -81,7 +80,7 @@ fn version() -> String {
 
 pub fn public_origin(value: &str) -> std::result::Result<String, String> {
     let error = "Expected an exact HTTPS origin without a path or credentials";
-    let url = url::Url::parse(value).map_err(|_| error.to_owned())?;
+    let url = url::Url::parse(value).map_err(|_parse_error| error.to_owned())?;
     if url.scheme() != "https"
         || url.host_str().is_none()
         || !url.username().is_empty()
@@ -198,11 +197,14 @@ pub fn game_directory(explicit: Option<&Path>) -> Result<PathBuf> {
             .and_then(toml::Value::as_str)
             .filter(|s| !s.trim().is_empty());
         ensure!(
-            value.len() == 1 && path.is_some(),
+            value.len() == 1,
             "Invalid game path in {}",
             config.display()
         );
-        return validate(Path::new(path.unwrap())).map_err(|error| {
+        return validate(Path::new(path.with_context(|| {
+            format!("Invalid game path in {}", config.display())
+        })?))
+        .map_err(|error| {
             anyhow::anyhow!(
                 "{error} (saved in {}); override with --game DIR or SLOPWORLD_GAME",
                 config.display()
@@ -228,7 +230,9 @@ pub fn bundle() -> Result<PathBuf> {
         return expand(Path::new(&path));
     }
     let executable = env::current_exe()?;
-    let parent = executable.parent().unwrap();
+    let parent = executable
+        .parent()
+        .context("Missing executable directory")?;
     if parent.join("web").is_dir() {
         return Ok(parent.into());
     }

@@ -4,6 +4,11 @@
 
 !Cargo.toml
 !Cargo.lock
+!slopweb/
+slopweb/*
+!slopweb/host/
+slopweb/host/*
+!slopweb/host/Cargo.toml
 !bench/
 bench/*
 !bench/ipc/

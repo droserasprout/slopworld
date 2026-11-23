@@ -3,6 +3,7 @@
 /priv/
 
 # Build and packaging output.
+/target/
 /coverage/
 /dist/
 /target/

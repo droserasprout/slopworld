@@ -38,14 +38,17 @@ pub struct Toolchain {
     pub identity: Value,
 }
 
-fn sdk_command(sdk: &Path) -> Command {
+fn sdk_command(sdk: &Path) -> Result<Command> {
     let mut command = Command::new(sdk);
     command
-        .env("DOTNET_ROOT", sdk.parent().unwrap())
+        .env(
+            "DOTNET_ROOT",
+            sdk.parent().context("Missing SDK directory")?,
+        )
         .env("DOTNET_SKIP_FIRST_TIME_EXPERIENCE", "1")
         .env("DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE", "true")
         .env("DOTNET_NOLOGO", "1");
-    command
+    Ok(command)
 }
 fn sdk_selection(version: &str) -> Value {
     json!({"sdk": {"version": version, "rollForward": "disable", "allowPrerelease": false}})
@@ -53,8 +56,8 @@ fn sdk_selection(version: &str) -> Value {
 fn numeric_version(value: &str, major: &str, minor: Option<&str>) -> bool {
     let parts: Vec<_> = value.split('.').collect();
     parts.len() == 3
-        && parts[0] == major
-        && minor.is_none_or(|minor| parts[1] == minor)
+        && parts.first() == Some(&major)
+        && minor.is_none_or(|minor| parts.get(1) == Some(&minor))
         && parts
             .iter()
             .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
@@ -68,6 +71,67 @@ fn elements<'a>(root: &'a Element, name: &str, out: &mut Vec<&'a Element>) {
             elements(child, name, out);
         }
     }
+}
+
+fn runtime_properties(sdk: &Path, version: &str) -> Result<(String, Vec<u8>)> {
+    let bundled = sdk
+        .parent()
+        .context("Missing SDK directory")?
+        .join("sdk")
+        .join(version)
+        .join("Microsoft.NETCoreSdk.BundledVersions.props");
+    let properties = fs::read(&bundled)?;
+    let document = Element::parse(properties.as_slice())?;
+    let mut runtime_packs = Vec::new();
+    elements(&document, "KnownRuntimePack", &mut runtime_packs);
+    let runtime = runtime_packs
+        .iter()
+        .find(|e| {
+            e.attributes
+                .get("Include")
+                .is_some_and(|x| x == "Microsoft.NETCore.App")
+                && e.attributes
+                    .get("TargetFramework")
+                    .is_some_and(|x| x == "net10.0")
+        })
+        .and_then(|e| e.attributes.get("LatestRuntimeFrameworkVersion"))
+        .context("Cannot identify supported AOT target runtime")?
+        .clone();
+    ensure!(
+        numeric_version(&runtime, "10", Some("0")),
+        "Unsupported AOT target runtime {runtime}"
+    );
+    Ok((runtime, properties))
+}
+
+fn inspect_packs(sdk: &Path, runtime: &str) -> Result<BTreeMap<String, String>> {
+    let packs_root = sdk.parent().context("Missing SDK directory")?.join("packs");
+    let mut packs = BTreeMap::new();
+    if packs_root.is_dir() {
+        for item in fs::read_dir(&packs_root)? {
+            let item = item?;
+            let name = item.file_name().to_string_lossy().into_owned();
+            if (name.starts_with("Microsoft.NET.Runtime.WebAssembly.Sdk")
+                || name.starts_with("Microsoft.NET.Sdk.WebAssembly.Pack")
+                || name.starts_with("Microsoft.NET.Runtime.Emscripten.")
+                || name.ends_with("Cross.browser-wasm")
+                || name == "Microsoft.NETCore.App.Runtime.Mono.browser-wasm")
+                && item.path().join(runtime).is_dir()
+            {
+                packs.insert(name, runtime.to_owned());
+            }
+        }
+    }
+    Ok(packs)
+}
+fn compiler_packs_complete(packs: &BTreeMap<String, String>) -> bool {
+    packs.keys().any(|name| {
+        name.starts_with("Microsoft.NET.Runtime.WebAssembly.Sdk")
+            || name.starts_with("Microsoft.NET.Sdk.WebAssembly.Pack")
+    }) && packs.keys().any(|name| {
+        name.starts_with("Microsoft.NETCore.App.Runtime.AOT.")
+            && name.ends_with("Cross.browser-wasm")
+    })
 }
 
 pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
@@ -85,7 +149,7 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
     );
     let temporary = tempfile::Builder::new().prefix("slopweb-sdk-").tempdir()?;
     let query = |args: &[&str]| -> Result<String> {
-        let output = sdk_command(&sdk)
+        let output = sdk_command(&sdk)?
             .args(args)
             .current_dir(temporary.path())
             .output()?;
@@ -110,89 +174,45 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
     let version = query(&["--version"])?;
     ensure!(
         numeric_version(&version, "10", None)
-            && sdk.parent().unwrap().join("sdk").join(&version).is_dir(),
+            && sdk
+                .parent()
+                .context("Missing SDK directory")?
+                .join("sdk")
+                .join(&version)
+                .is_dir(),
         "AOT requires an installed .NET 10 SDK; selected {version:?} at {}",
         sdk.display()
     );
     fs::write(selection, serde_json::to_vec(&sdk_selection(&version))?)?;
-    let bundled = sdk
-        .parent()
-        .unwrap()
-        .join("sdk")
-        .join(&version)
-        .join("Microsoft.NETCoreSdk.BundledVersions.props");
-    let properties = fs::read(&bundled)?;
-    let document = Element::parse(properties.as_slice())?;
-    let mut runtime_packs = Vec::new();
-    elements(&document, "KnownRuntimePack", &mut runtime_packs);
-    let runtime = runtime_packs
-        .iter()
-        .find(|e| {
-            e.attributes
-                .get("Include")
-                .is_some_and(|x| x == "Microsoft.NETCore.App")
-                && e.attributes
-                    .get("TargetFramework")
-                    .is_some_and(|x| x == "net10.0")
-        })
-        .and_then(|e| e.attributes.get("LatestRuntimeFrameworkVersion"))
-        .context("Cannot identify supported AOT target runtime")?
-        .clone();
-    ensure!(
-        numeric_version(&runtime, "10", Some("0")),
-        "Unsupported AOT target runtime {runtime}"
-    );
-    let packs_root = sdk.parent().unwrap().join("packs");
-    let inspect_packs = || -> Result<BTreeMap<String, String>> {
-        let mut packs = BTreeMap::new();
-        if packs_root.is_dir() {
-            for item in fs::read_dir(&packs_root)? {
-                let item = item?;
-                let name = item.file_name().to_string_lossy().into_owned();
-                if (name.starts_with("Microsoft.NET.Runtime.WebAssembly.Sdk")
-                    || name.starts_with("Microsoft.NET.Sdk.WebAssembly.Pack")
-                    || name.starts_with("Microsoft.NET.Runtime.Emscripten.")
-                    || name.ends_with("Cross.browser-wasm")
-                    || name == "Microsoft.NETCore.App.Runtime.Mono.browser-wasm")
-                    && item.path().join(&runtime).is_dir()
-                {
-                    packs.insert(name, runtime.clone());
-                }
-            }
-        }
-        Ok(packs)
-    };
-    let complete = |packs: &BTreeMap<String, String>| {
-        packs.keys().any(|name| {
-            name.starts_with("Microsoft.NET.Runtime.WebAssembly.Sdk")
-                || name.starts_with("Microsoft.NET.Sdk.WebAssembly.Pack")
-        }) && packs.keys().any(|name| {
-            name.starts_with("Microsoft.NETCore.App.Runtime.AOT.")
-                && name.ends_with("Cross.browser-wasm")
-        })
-    };
+    let (runtime, properties) = runtime_properties(&sdk, &version)?;
     let workload_present = || -> Result<bool> {
         Ok(query(&["workload", "list"])?
             .lines()
             .any(|line| line.split_whitespace().next() == Some("wasm-tools")))
     };
-    let mut packs = inspect_packs()?;
-    if !workload_present()? || !complete(&packs) {
+    let mut packs = inspect_packs(&sdk, &runtime)?;
+    if !workload_present()? || !compiler_packs_complete(&packs) {
         ensure!(
             provision,
             "AOT SDK {version} at {} lacks matching wasm-tools compiler packs; install it separately",
             sdk.display()
         );
-        let directory =
-            std::ffi::CString::new(sdk.parent().unwrap().as_os_str().as_encoded_bytes())?;
-        let protected =
-            unsafe { libc::geteuid() != 0 && libc::access(directory.as_ptr(), libc::W_OK) != 0 };
+        let directory = std::ffi::CString::new(
+            sdk.parent()
+                .context("Missing SDK directory")?
+                .as_os_str()
+                .as_encoded_bytes(),
+        )?;
+        // SAFETY: geteuid has no preconditions.
+        let uid = unsafe { libc::geteuid() };
+        // SAFETY: directory owns the NUL-terminated pathname throughout access.
+        let protected = uid != 0 && unsafe { libc::access(directory.as_ptr(), libc::W_OK) } != 0;
         let mut install = if protected {
             let mut sudo = Command::new("sudo");
             sudo.arg(&sdk);
             sudo
         } else {
-            sdk_command(&sdk)
+            sdk_command(&sdk)?
         };
         println!("slopweb: installing matching wasm-tools workload set {version}");
         install
@@ -202,9 +222,9 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
             install.status()?.success(),
             "AOT workload installation failed"
         );
-        packs = inspect_packs()?;
+        packs = inspect_packs(&sdk, &runtime)?;
         ensure!(
-            workload_present()? && complete(&packs),
+            workload_present()? && compiler_packs_complete(&packs),
             "AOT workload installation did not provide matching compiler packs"
         );
     }
@@ -247,7 +267,11 @@ fn assemblies(snapshot: &Inputs) -> Result<Inputs> {
                 [Path::new(""), Path::new("game"), Path::new("mod")].contains(&dir)
             })
         {
-            let name = relative.file_stem().unwrap().to_string_lossy().into_owned();
+            let name = relative
+                .file_stem()
+                .context("Missing assembly name")?
+                .to_string_lossy()
+                .into_owned();
             ensure!(!dlls.contains_key(&name), "Duplicate assembly name: {name}");
             ensure!(
                 name != "Probe" && !PACKAGES.iter().any(|(package, _)| *package == name),
@@ -353,71 +377,79 @@ impl Candidate {
     }
 }
 
-fn candidate(runtime: &Path, dlls: &Inputs, toolchain: &Toolchain) -> Result<Candidate> {
-    let runtime_version = toolchain.identity["target_runtime"].as_str().unwrap();
-    let mut sources = Inputs::new();
-    let mut project = Element::parse(File::open(runtime.join("Probe.csproj"))?)?;
-    let props = project
-        .get_mut_child("PropertyGroup")
-        .context("Runtime project has no compiler properties")?;
-    for (name, value) in [
-        ("RunAOTCompilation", "true"),
-        ("PublishTrimmed", "true"),
-        ("BlazorWebAssemblyEnableLinking", "true"),
-        ("WasmStripILAfterAOT", "false"),
-        ("JsonSerializerIsReflectionEnabledByDefault", "true"),
-        ("RestorePackagesWithLockFile", "false"),
-        ("CompressionEnabled", "false"),
-        ("BlazorEnableCompression", "false"),
-        ("RuntimeFrameworkVersion", runtime_version),
-    ] {
-        if let Some(existing) = props.get_mut_child(name) {
-            existing.children = vec![XMLNode::Text(value.into())];
-        } else {
-            append(props, child(name, value));
+fn collect_sources(
+    e: &mut Element,
+    runtime: &Path,
+    sources: &mut Inputs,
+    seen: &mut BTreeSet<String>,
+) -> Result<()> {
+    if e.name == "Compile" {
+        let name = e
+            .attributes
+            .get("Include")
+            .context("Runtime compile input has no path")?
+            .clone();
+        ensure!(
+            Path::new(&name).file_name().and_then(|n| n.to_str()) == Some(&name)
+                && name.ends_with(".cs")
+                && !name.contains('*')
+                && !name.contains('\\')
+                && seen.insert(name.clone()),
+            "Probe compiler sources must be distinct explicit local C# filenames"
+        );
+        let source = runtime.join(&name);
+        ensure!(
+            !source.is_symlink(),
+            "Probe compiler source cannot be a symlink: {name}"
+        );
+        sources.insert(format!("src/{name}"), source);
+        e.attributes.insert("Include".into(), format!("src/{name}"));
+    }
+    for item in &mut e.children {
+        if let XMLNode::Element(item) = item {
+            collect_sources(item, runtime, sources, seen)?;
         }
     }
-    fn collect_sources(
-        e: &mut Element,
-        runtime: &Path,
-        sources: &mut Inputs,
-        seen: &mut BTreeSet<String>,
-    ) -> Result<()> {
-        if e.name == "Compile" {
-            let name = e
-                .attributes
-                .get("Include")
-                .context("Runtime compile input has no path")?
-                .clone();
-            ensure!(
-                Path::new(&name).file_name().and_then(|n| n.to_str()) == Some(&name)
-                    && name.ends_with(".cs")
-                    && !name.contains('*')
-                    && !name.contains('\\')
-                    && seen.insert(name.clone()),
-                "Probe compiler sources must be distinct explicit local C# filenames"
-            );
-            let source = runtime.join(&name);
-            ensure!(
-                !source.is_symlink(),
-                "Probe compiler source cannot be a symlink: {name}"
-            );
-            sources.insert(format!("src/{name}"), source);
-            e.attributes.insert("Include".into(), format!("src/{name}"));
-        }
-        for item in &mut e.children {
-            if let XMLNode::Element(item) = item {
-                collect_sources(item, runtime, sources, seen)?;
-            }
-        }
-        Ok(())
-    }
-    let mut seen = BTreeSet::new();
-    collect_sources(&mut project, runtime, &mut sources, &mut seen)?;
-    ensure!(!seen.is_empty(), "Probe must declare its compiler sources");
+    Ok(())
+}
+
+fn interpreter_targets() -> Element {
+    let mut targets = Element::new("Project");
+    let mut target = attr(
+        attr(
+            Element::new("Target"),
+            "Name",
+            "KeepCustomClrOwnersInterpreted",
+        ),
+        "AfterTargets",
+        "_GetDefaultWasmAssembliesToBundle",
+    );
+    let mut group = Element::new("ItemGroup");
+    let condition = INTERPRETED
+        .iter()
+        .map(|n| format!("'%(Filename)' == '{n}'"))
+        .collect::<Vec<_>>()
+        .join(" or ");
+    let mut item = attr(
+        attr(
+            Element::new("WasmAssembliesToBundle"),
+            "Update",
+            "@(WasmAssembliesToBundle)",
+        ),
+        "Condition",
+        &condition,
+    );
+    append(&mut item, child("AOT_InternalForceToInterpret", "true"));
+    append(&mut group, item);
+    append(&mut target, group);
+    append(&mut targets, target);
+    targets
+}
+
+fn add_references(project: &mut Element, dlls: &Inputs, sources: &mut Inputs) -> Result<()> {
     let mut group = Element::new("ItemGroup");
     for (name, dll) in dlls {
-        let filename = dll.file_name().unwrap();
+        let filename = dll.file_name().context("Missing assembly filename")?;
         sources.insert(
             format!("assemblies/{}", filename.to_string_lossy()),
             dll.clone(),
@@ -434,7 +466,7 @@ fn candidate(runtime: &Path, dlls: &Inputs, toolchain: &Toolchain) -> Result<Can
         append(&mut group, reference);
     }
     let mut declared_packages = Vec::new();
-    elements(&project, "PackageReference", &mut declared_packages);
+    elements(project, "PackageReference", &mut declared_packages);
     for (name, version) in PACKAGES {
         if let Some(existing) = declared_packages.iter().find(|item| {
             item.attributes
@@ -468,36 +500,43 @@ fn candidate(runtime: &Path, dlls: &Inputs, toolchain: &Toolchain) -> Result<Can
             attr(Element::new("TrimmerRootAssembly"), "Include", name),
         );
     }
-    append(&mut project, group);
-    let mut targets = Element::new("Project");
-    let mut target = attr(
-        attr(
-            Element::new("Target"),
-            "Name",
-            "KeepCustomClrOwnersInterpreted",
-        ),
-        "AfterTargets",
-        "_GetDefaultWasmAssembliesToBundle",
-    );
-    let mut group = Element::new("ItemGroup");
-    let condition = INTERPRETED
-        .iter()
-        .map(|n| format!("'%(Filename)' == '{n}'"))
-        .collect::<Vec<_>>()
-        .join(" or ");
-    let mut item = attr(
-        attr(
-            Element::new("WasmAssembliesToBundle"),
-            "Update",
-            "@(WasmAssembliesToBundle)",
-        ),
-        "Condition",
-        &condition,
-    );
-    append(&mut item, child("AOT_InternalForceToInterpret", "true"));
-    append(&mut group, item);
-    append(&mut target, group);
-    append(&mut targets, target);
+    append(project, group);
+    Ok(())
+}
+
+fn candidate(runtime: &Path, dlls: &Inputs, toolchain: &Toolchain) -> Result<Candidate> {
+    let runtime_version = toolchain
+        .identity
+        .get("target_runtime")
+        .and_then(Value::as_str)
+        .context("Missing target runtime")?;
+    let mut sources = Inputs::new();
+    let mut project = Element::parse(File::open(runtime.join("Probe.csproj"))?)?;
+    let props = project
+        .get_mut_child("PropertyGroup")
+        .context("Runtime project has no compiler properties")?;
+    for (name, value) in [
+        ("RunAOTCompilation", "true"),
+        ("PublishTrimmed", "true"),
+        ("BlazorWebAssemblyEnableLinking", "true"),
+        ("WasmStripILAfterAOT", "false"),
+        ("JsonSerializerIsReflectionEnabledByDefault", "true"),
+        ("RestorePackagesWithLockFile", "false"),
+        ("CompressionEnabled", "false"),
+        ("BlazorEnableCompression", "false"),
+        ("RuntimeFrameworkVersion", runtime_version),
+    ] {
+        if let Some(existing) = props.get_mut_child(name) {
+            existing.children = vec![XMLNode::Text(value.into())];
+        } else {
+            append(props, child(name, value));
+        }
+    }
+    let mut seen = BTreeSet::new();
+    collect_sources(&mut project, runtime, &mut sources, &mut seen)?;
+    ensure!(!seen.is_empty(), "Probe must declare its compiler sources");
+    add_references(&mut project, dlls, &mut sources)?;
+    let targets = interpreter_targets();
     let generated = BTreeMap::from([
         ("Directory.Build.props".into(), b"<Project />\n".to_vec()),
         ("Probe.csproj".into(), xml_bytes(&project)),
@@ -505,7 +544,11 @@ fn candidate(runtime: &Path, dlls: &Inputs, toolchain: &Toolchain) -> Result<Can
         (
             "global.json".into(),
             serde_json::to_vec(&sdk_selection(
-                toolchain.identity["version"].as_str().unwrap(),
+                toolchain
+                    .identity
+                    .get("version")
+                    .and_then(Value::as_str)
+                    .context("Missing SDK version")?,
             ))?,
         ),
     ]);
@@ -525,7 +568,7 @@ pub fn sync_candidate(source: &Path, destination: &Path) -> Result<()> {
         let target = destination.join(name);
         let bytes = fs::read(path)?;
         if fs::read(&target).ok().as_deref() != Some(bytes.as_slice()) {
-            fs::create_dir_all(target.parent().unwrap())?;
+            fs::create_dir_all(target.parent().context("Missing target directory")?)?;
             fs::write(target, bytes)?;
         }
     }
@@ -579,8 +622,8 @@ pub fn compile_entry(entry: &Path, sdk: &Path, lock: &File, logs: &Path) -> Resu
                 Ok(0) => std::thread::sleep(Duration::from_millis(100)),
                 Ok(n) => {
                     if stderr
-                        .write_all(&buffer[..n])
-                        .and_then(|_| stderr.flush())
+                        .write_all(buffer.split_at(n).0)
+                        .and_then(|()| stderr.flush())
                         .is_err()
                     {
                         break;
@@ -590,7 +633,7 @@ pub fn compile_entry(entry: &Path, sdk: &Path, lock: &File, logs: &Path) -> Resu
             }
         }
     });
-    let mut command = sdk_command(sdk);
+    let mut command = sdk_command(sdk)?;
     command
         .arg("publish")
         .arg(entry.join("candidate/Probe.csproj"))
@@ -604,7 +647,9 @@ pub fn compile_entry(entry: &Path, sdk: &Path, lock: &File, logs: &Path) -> Resu
     inherit_lock(&mut command, lock);
     let status = command.status();
     stopped.store(true, Ordering::Release);
-    let _ = forward.join();
+    forward
+        .join()
+        .map_err(|_panic| anyhow::anyhow!("AOT log reader panicked"))?;
     ensure!(
         status
             .with_context(|| format!("AOT publish failed; see {}", log_path.display()))?
@@ -621,14 +666,21 @@ pub(super) fn inherit_lock(command: &mut Command, lock: &File) {
     let descriptor = lock.as_raw_fd();
     // Change close-on-exec only in the child. The inherited open-file description
     // holds the workspace lock if the launcher is killed while dotnet continues.
+    let inherit = move || {
+        // SAFETY: F_GETFD takes a descriptor and no additional argument.
+        let flags = unsafe { libc::fcntl(descriptor, libc::F_GETFD) };
+        if flags < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        // SAFETY: F_SETFD takes integer descriptor flags.
+        if unsafe { libc::fcntl(descriptor, libc::F_SETFD, flags & !libc::FD_CLOEXEC) } < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(())
+    };
+    // SAFETY: the child closure uses only async-signal-safe descriptor operations.
     unsafe {
-        command.pre_exec(move || {
-            let flags = libc::fcntl(descriptor, libc::F_GETFD);
-            if flags < 0 || libc::fcntl(descriptor, libc::F_SETFD, flags & !libc::FD_CLOEXEC) < 0 {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
-        });
+        command.pre_exec(inherit);
     }
 }
 
@@ -647,7 +699,7 @@ pub fn prepare(
     let prepared_files = contents.manifest(&snapshot)?;
     let loader = fs::read_to_string(prepared.join("main.js"))?;
     ensure!(
-        files::digest_bytes(loader.as_bytes()) == prepared_files["main.js"],
+        Some(&files::digest_bytes(loader.as_bytes())) == prepared_files.get("main.js"),
         "Prepared main.js changed during AOT preparation; retry"
     );
     let main = published_loader(&loader)?;

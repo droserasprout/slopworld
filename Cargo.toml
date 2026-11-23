@@ -1,5 +1,5 @@
 [workspace]
-members = ["slopd", "slopcar", "bench/ipc/rust"]
+members = ["slopd", "slopcar", "slopweb/host", "bench/ipc/rust"]
 resolver = "3"
 
 [profile.release]
@@ -10,8 +10,8 @@ strip = true
 unsafe_op_in_unsafe_fn = "deny"
 
 [workspace.lints.clippy]
-cloned_instead_of_copied = "warn"
 assigning_clones = "warn"
+cloned_instead_of_copied = "warn"
 redundant_clone = "warn"
 string_slice = "warn"
 indexing_slicing = "warn"

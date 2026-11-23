@@ -208,7 +208,7 @@ def build(destination: Path = OUTPUT) -> None:
         bundle = Path(temporary) / 'bundle'
         bundle.mkdir()
         for source, target in (
-            (ROOT / 'slopweb/host/target/release/slopweb', 'slopweb-host'),
+            (ROOT / 'target/release/slopweb', 'slopweb-host'),
             (runtime / 'bin/Debug/net10.0/Probe.dll', 'Probe.dll'),
             (runtime / 'Adapters/bin/Debug/net10.0/Adapters.dll', 'Adapters.dll'),
         ):

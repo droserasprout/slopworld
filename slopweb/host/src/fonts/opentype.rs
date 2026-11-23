@@ -29,8 +29,12 @@ fn u32_at(bytes: &[u8], offset: usize) -> Result<u32> {
             .try_into()?,
     ))
 }
-fn put(bytes: &mut [u8], offset: usize, value: u32) {
-    bytes[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
+fn put(bytes: &mut [u8], offset: usize, value: u32) -> Result<()> {
+    bytes
+        .get_mut(offset..offset + 4)
+        .context("Truncated font word")?
+        .copy_from_slice(&value.to_be_bytes());
+    Ok(())
 }
 
 pub(super) fn extract(bytes: &[u8], index: u32) -> Result<Vec<u8>> {
@@ -55,19 +59,19 @@ pub(super) fn extract(bytes: &[u8], index: u32) -> Result<Vec<u8>> {
             .get(from..from.checked_add(length).context("Font overflow")?)
             .context("Truncated font table")?;
         let offset = result.len();
-        put(&mut result, record + 8, offset.try_into()?);
+        put(&mut result, record + 8, offset.try_into()?)?;
         result.extend_from_slice(table);
         result.resize((result.len() + 3) & !3, 0);
-        if &result[record..record + 4] == b"head" && length >= 12 {
+        if result.get(record..record + 4) == Some(b"head") && length >= 12 {
             adjustment = Some(offset + 8);
-            put(&mut result, offset + 8, 0);
+            put(&mut result, offset + 8, 0)?;
         }
     }
     if let Some(offset) = adjustment {
         let checksum = result.as_chunks::<4>().0.iter().fold(0u32, |sum, word| {
             sum.wrapping_add(u32::from_be_bytes(*word))
         });
-        put(&mut result, offset, 0xb1b0afbau32.wrapping_sub(checksum));
+        put(&mut result, offset, 0xb1b0afbau32.wrapping_sub(checksum))?;
     }
     Ok(result)
 }
@@ -112,15 +116,20 @@ pub(super) fn metadata(bytes: &[u8], index: u32, coverage: bool) -> Result<Face>
         .and_then(|t| {
             let weight = u16_at(t, 4).ok()? as i32;
             let width = u16_at(t, 6).ok()? as i32;
+            let style = u16_at(t, 62).ok()?;
             ((1..=1000).contains(&weight) && (1..=9).contains(&width))
-                .then(|| distance(weight, width, u16_at(t, 62).unwrap() & 0x201 != 0))
+                .then(|| distance(weight, width, style & 0x201 != 0))
         })
         .or_else(|| {
             raw.table(ttf_parser::Tag::from_bytes(b"head"))
                 .filter(|t| t.len() >= 46)
-                .map(|t| {
-                    let style = u16_at(t, 44).unwrap();
-                    distance(if style & 1 != 0 { 700 } else { 400 }, 5, style & 2 != 0)
+                .and_then(|t| {
+                    let style = u16_at(t, 44).ok()?;
+                    Some(distance(
+                        if style & 1 != 0 { 700 } else { 400 },
+                        5,
+                        style & 2 != 0,
+                    ))
                 })
         })
         .unwrap_or(i32::MAX);

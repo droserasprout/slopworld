@@ -54,7 +54,7 @@ struct State {
 struct DiskLock(File);
 impl Drop for DiskLock {
     fn drop(&mut self) {
-        let _ = FileExt::unlock(&self.0);
+        drop(FileExt::unlock(&self.0));
     }
 }
 fn lock(root: &Path) -> Result<DiskLock> {
@@ -90,7 +90,7 @@ impl FontService {
     /// operation remains serialized through publication even if its caller cancels.
     pub async fn request(&self, value: Value) -> Result<Value> {
         let this = self.clone();
-        tokio::task::spawn_blocking(move || this.request_sync(value)).await?
+        tokio::task::spawn_blocking(move || this.request_sync(&value)).await?
     }
     pub async fn catalog(&self) -> Result<Value> {
         self.catalog_for("monospace").await
@@ -133,7 +133,7 @@ impl FontService {
             .inner
             .state
             .lock()
-            .map_err(|_| anyhow::anyhow!("Font service lock poisoned"))?;
+            .map_err(|e| anyhow::anyhow!("Font service lock poisoned: {e}"))?;
         let _disk = lock(&self.inner.root)?;
         if state
             .checked
@@ -170,9 +170,9 @@ impl FontService {
             json!({"version":1,"revision":catalog.generation,"generation":catalog.generation,"faces":faces,"order":order,"preload":preload,"all":all,"mono":mono}),
         )
     }
-    fn request_sync(&self, value: Value) -> Result<Value> {
+    fn request_sync(&self, value: &Value) -> Result<Value> {
         let started = Instant::now();
-        let request = parse_request(&value)?;
+        let request = parse_request(value)?;
         let result = self.with_catalog(|catalog| {
             let mut delivery = Delivery::new(
                 catalog.generation.clone(),
@@ -198,12 +198,10 @@ impl FontService {
                 Request::Fallback { family, scalars } => {
                     let chain = catalog.chain(&self.inner.root, &family)?;
                     let mut pending: HashSet<_> = scalars.iter().copied().collect();
-                    delivery.assignments = Some(
-                        scalars
-                            .iter()
-                            .map(|s| (s.to_string(), Value::Null))
-                            .collect(),
-                    );
+                    let mut assignments: BTreeMap<_, _> = scalars
+                        .iter()
+                        .map(|s| (s.to_string(), Value::Null))
+                        .collect();
                     let mut count = 0;
                     for name in &chain {
                         if pending.is_empty() {
@@ -224,14 +222,11 @@ impl FontService {
                         count += 1;
                         delivery.add(self, face, &filename, 14)?;
                         for scalar in covered {
-                            delivery
-                                .assignments
-                                .as_mut()
-                                .unwrap()
-                                .insert(scalar.to_string(), json!(filename));
+                            assignments.insert(scalar.to_string(), json!(filename));
                             pending.remove(&scalar);
                         }
                     }
+                    delivery.assignments = Some(assignments);
                     delivery.chains.insert(family, json!(chain));
                 }
             }
@@ -295,10 +290,14 @@ fn preload(catalog: &Catalog, order: &[String]) -> Vec<String> {
         }
         let mut contributes = false;
         for &[start, end] in &face.coverage {
-            for c in start..=end {
-                if !seen[c as usize] {
+            for slot in seen
+                .get_mut(start as usize..=end as usize)
+                .into_iter()
+                .flatten()
+            {
+                if !*slot {
                     contributes = true;
-                    seen[c as usize] = true;
+                    *slot = true;
                 }
             }
         }
@@ -356,8 +355,10 @@ impl Delivery {
     }
     fn value(self) -> Value {
         let mut value = json!({"fonts":self.fonts,"files":self.files,"faces":self.faces,"chains":self.chains,"generation":self.generation});
-        if let Some(a) = self.assignments {
-            value["assignments"] = json!(a);
+        if let Some(a) = self.assignments
+            && let Value::Object(fields) = &mut value
+        {
+            fields.insert("assignments".into(), json!(a));
         }
         value
     }

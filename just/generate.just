@@ -92,7 +92,7 @@ generate-clown-nose:
 generate-robot-faces facing='both':
     uv run --locked --extra assets python -m tools.assets.roboface all --facing {{ quote(facing) }}
 
-# Generate notices from the browser host Cargo lock.
+# Generate notices from the browser host’s locked dependency graph.
 [group('generate')]
 generate-web-licenses:
     uv run --locked python -m tools.licenses.web_licenses

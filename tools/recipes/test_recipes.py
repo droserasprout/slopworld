@@ -282,7 +282,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                         '--manifest-path',
                         'slopweb/host/Cargo.toml',
                         '--target-dir',
-                        'slopweb/host/target',
+                        'target',
                         '--locked',
                         '--release',
                         '--quiet',
@@ -298,10 +298,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
 
     def test_lock_refresh_updates_every_graph_before_staging_notices(self) -> None:
         self.run_recipe('deps-update')
-        cargo, web = self.calls('cargo')
+        (cargo,) = self.calls('cargo')
         self.assertEqual(cargo['cwd'], str(ROOT))
         self.assertEqual(cargo['args'], ['update'])
-        self.assertEqual(web['args'], ['update', '--manifest-path', 'slopweb/host/Cargo.toml'])
         dotnet = self.calls('dotnet')
         web_projects = subprocess.run(
             ['rg', '--files', 'slopweb', '-g', '*.csproj'], cwd=ROOT, check=True, capture_output=True, text=True

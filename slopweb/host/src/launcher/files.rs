@@ -107,7 +107,7 @@ fn hash_reader(file: &mut File) -> Result<String> {
         if size == 0 {
             break;
         }
-        content.update(&buffer[..size]);
+        content.update(buffer.split_at(size).0);
     }
     Ok(format!("{:x}", content.finalize()))
 }
@@ -222,7 +222,11 @@ impl DigestCache {
     }
 
     pub fn copy_verified(&self, source: &Path, target: &Path) -> Result<()> {
-        let stamp = self.current[source].stamp;
+        let stamp = self
+            .current
+            .get(source)
+            .context("Source absent from digest manifest")?
+            .stamp;
         let mut input = File::open(source)?;
         let opened = input.metadata()?;
         let permissions = opened.permissions();
@@ -231,7 +235,7 @@ impl DigestCache {
             "Input {} changed before copying; retry",
             source.display()
         );
-        fs::create_dir_all(target.parent().unwrap())?;
+        fs::create_dir_all(target.parent().context("Missing destination directory")?)?;
         let mut output = File::create(target)?;
         std::io::copy(&mut input, &mut output)?;
         output.set_permissions(permissions)?;
@@ -268,7 +272,7 @@ pub fn copy_tree(source: &Path, target: &Path, skip: impl Fn(&str) -> bool) -> R
             continue;
         }
         let target = target.join(name);
-        fs::create_dir_all(target.parent().unwrap())?;
+        fs::create_dir_all(target.parent().context("Missing destination directory")?)?;
         fs::copy(source, target)?;
     }
     Ok(())
@@ -284,7 +288,7 @@ pub fn atomic_write(path: &Path, bytes: impl AsRef<[u8]>) -> Result<()> {
 }
 
 pub fn lock(path: &Path) -> Result<File> {
-    fs::create_dir_all(path.parent().unwrap())?;
+    fs::create_dir_all(path.parent().context("Missing destination directory")?)?;
     // The inode remains stable: compiler children can retain this flock after launcher exit.
     let file = OpenOptions::new().create(true).append(true).open(path)?;
     if let Err(error) = file.try_lock_exclusive() {

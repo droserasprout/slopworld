@@ -77,7 +77,7 @@ pub(super) fn write(path: &Path, bytes: &[u8]) -> Result<()> {
 pub(super) fn object(root: &Path, hash: &str) -> PathBuf {
     root.join("objects").join(format!("{hash}.ttf"))
 }
-fn environment() -> String {
+fn environment() -> Result<String> {
     let names = [
         "HOME",
         "XDG_CONFIG_HOME",
@@ -90,16 +90,57 @@ fn environment() -> String {
         "LC_ALL",
         "LC_CTYPE",
     ];
-    digest(
-        &serde_json::to_vec(&names.map(|name| {
-            (
-                name,
-                std::env::var_os(name).map(|s| s.to_string_lossy().into_owned()),
-            )
-        }))
-        .unwrap(),
-    )
+    Ok(digest(&serde_json::to_vec(&names.map(|name| {
+        (
+            name,
+            std::env::var_os(name).map(|s| s.to_string_lossy().into_owned()),
+        )
+    }))?))
 }
+fn selected_faces(
+    sources: &BTreeMap<PathBuf, Source>,
+) -> Result<BTreeMap<String, (PathBuf, usize, i32)>> {
+    // Match native path order and strict score improvement: ties retain the
+    // first path/face, not the order supplied by Fontconfig's match operation.
+    let mut paths: Vec<_> = sources.keys().cloned().collect();
+    paths.sort_by_key(|p| p.to_string_lossy().to_lowercase());
+    let mut selected: BTreeMap<String, (PathBuf, usize, i32)> = BTreeMap::new();
+    for path in &paths {
+        for (i, entry) in sources
+            .get(path)
+            .context("Missing font source")?
+            .faces
+            .iter()
+            .enumerate()
+        {
+            let key = entry.face.family.to_lowercase();
+            if selected
+                .get(&key)
+                .is_none_or(|(_, _, score)| entry.face.score < *score)
+            {
+                selected.insert(key, (path.clone(), i, entry.face.score));
+            }
+        }
+    }
+    Ok(selected)
+}
+
+fn watch_stamps(files: &[PathBuf], roots: &[PathBuf]) -> BTreeMap<PathBuf, Option<Stamp>> {
+    // An absent configured path is watched directly: its stamp changes from
+    // None when created. Watching its parent also tracks unrelated siblings.
+    let mut watched = files.to_vec();
+    for path in roots {
+        watch_tree(path, &mut watched);
+    }
+    watched
+        .into_iter()
+        .map(|path| {
+            let value = stamp(&path);
+            (path, value)
+        })
+        .collect()
+}
+
 impl Catalog {
     pub fn load(root: &Path) -> Self {
         fs::read(root.join("catalog-v1.json"))
@@ -112,7 +153,7 @@ impl Catalog {
     }
     pub fn fresh(&self, root: &Path) -> bool {
         self.schema == SCHEMA
-            && self.environment == environment()
+            && environment().is_ok_and(|value| value == self.environment)
             && !self.faces.is_empty()
             && self.watches.iter().all(|(path, old)| stamp(path) == *old)
             && self
@@ -127,10 +168,10 @@ impl Catalog {
     pub(super) fn rebuild_inventory(
         &mut self,
         root: &Path,
-        files: Vec<PathBuf>,
-        watch: Vec<PathBuf>,
+        files: &[PathBuf],
+        watch: &[PathBuf],
     ) -> Result<()> {
-        self.rebuild_from(root, || Ok((files.clone(), watch.clone())))
+        self.rebuild_from(root, || Ok((files.to_vec(), watch.to_vec())))
     }
     fn rebuild_from(
         &mut self,
@@ -140,23 +181,11 @@ impl Catalog {
         let started = Instant::now();
         let inventory = enumerate()?;
         let (files, roots) = &inventory;
-        // An absent configured path is watched directly: its stamp changes from
-        // None when created. Watching its parent also tracks unrelated siblings.
-        let mut watched = files.clone();
-        for path in roots {
-            watch_tree(path, &mut watched);
-        }
-        let watches: BTreeMap<_, _> = watched
-            .into_iter()
-            .map(|path| {
-                let value = stamp(&path);
-                (path, value)
-            })
-            .collect();
+        let watches = watch_stamps(files, roots);
         let mut sources = BTreeMap::new();
         let mut parsed = 0;
         for path in files {
-            let Some(current) = &watches[path] else {
+            let Some(Some(current)) = watches.get(path) else {
                 continue;
             };
             if let Some(previous) = self.sources.get(path).filter(|s| s.stamp == *current) {
@@ -184,31 +213,21 @@ impl Catalog {
                 },
             );
         }
-        // Match native path order and strict score improvement: ties retain the
-        // first path/face, not the order supplied by Fontconfig's match operation.
-        let mut paths: Vec<_> = sources.keys().cloned().collect();
-        paths.sort_by_key(|p| p.to_string_lossy().to_lowercase());
-        let mut selected: BTreeMap<String, (PathBuf, usize, i32)> = BTreeMap::new();
-        for path in &paths {
-            for (i, entry) in sources[path].faces.iter().enumerate() {
-                let key = entry.face.family.to_lowercase();
-                if selected
-                    .get(&key)
-                    .is_none_or(|(_, _, score)| entry.face.score < *score)
-                {
-                    selected.insert(key, (path.clone(), i, entry.face.score));
-                }
-            }
-        }
+        let selected = selected_faces(&sources)?;
         let mut faces = Vec::new();
         for (path, index, _) in selected.values() {
-            let source = sources.get_mut(path).unwrap();
+            let source = sources
+                .get_mut(path)
+                .context("Missing selected font source")?;
             if source.raw.is_empty() || !root.join("raw").join(&source.raw).is_file() {
                 let raw = fs::read(path)?;
                 source.raw = digest(&raw);
                 write(&root.join("raw").join(&source.raw), &raw)?;
             }
-            let entry = &mut source.faces[*index];
+            let entry = source
+                .faces
+                .get_mut(*index)
+                .context("Missing selected face")?;
             if entry.face.hash.is_empty() || !object(root, &entry.face.hash).is_file() {
                 let raw = fs::read(root.join("raw").join(&source.raw))?;
                 let Ok(bytes) = opentype::extract(&raw, entry.index) else {
@@ -227,7 +246,7 @@ impl Catalog {
             !faces.is_empty(),
             "No supported installed font families found"
         );
-        let environment = environment();
+        let environment = environment()?;
         // Directory stamps trigger discovery. Only installed files and the
         // configuration that orders them participate in published identity.
         let file_stamps: Vec<_> = watches.iter().filter(|(path, _)| path.is_file()).collect();

@@ -161,6 +161,7 @@ web-restore:
 # Remove authored build output; installed caches and private research are separate.
 [group('web')]
 web-clean:
+    cargo clean -p slopweb
     uv run --locked python -m tools.web clean
 
 # Compile native fidelity checks against installed assemblies without executing them.
@@ -193,7 +194,7 @@ web-host-lint:
 
 [group('web')]
 web-host-release:
-    cargo build --manifest-path slopweb/host/Cargo.toml --target-dir slopweb/host/target --locked --release --quiet
+    cargo build --manifest-path slopweb/host/Cargo.toml --target-dir target --locked --release --quiet
 
 [group('web')]
 web-test-browser:

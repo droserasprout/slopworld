@@ -39,7 +39,7 @@ def main() -> None:
     if args.action == 'generate':
         for binary in args.binaries:
             if binary == 'slopweb':
-                command = [str(ROOT / 'slopweb/host/target/release/slopweb')]
+                command = [str(ROOT / 'target/release/slopweb')]
             else:
                 executable = (
                     ROOT / os.environ['SLOPCAR'] if binary == 'slopcar' else ROOT / os.environ['TARGET'] / binary

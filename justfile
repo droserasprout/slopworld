@@ -22,7 +22,7 @@ install-completions:
 
 # Remove ordinary build and coverage output
 [group('Build and run')]
-clean: web-clean mod-clean clean-coverage
+clean: mod-clean web-clean clean-coverage
     cargo clean
 
 # Remove installed files; preserve config and saves

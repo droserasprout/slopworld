@@ -137,7 +137,7 @@ def test_distributable_build_never_reads_staged_game_root(
     root = tmp_path / 'source'
     runtime = root / 'slopweb/runtime'
     inputs = [
-        'slopweb/host/target/release/slopweb',
+        'target/release/slopweb',
         'slopweb/runtime/FontProbe/bin/Debug/net10.0/FontProbe.dll',
         'slopweb/runtime/FontProbe/bin/Debug/net10.0/FontProbe.deps.json',
         'slopweb/runtime/FontProbe/bin/Debug/net10.0/FontProbe.runtimeconfig.json',
@@ -423,7 +423,7 @@ def test_source_cli_keeps_symlinked_prefix_visible_to_validation(
 def test_installed_information_commands_need_no_checkout_or_game(tmp_path: Path) -> None:
     bundle = tmp_path / 'bundle'
     bundle.mkdir()
-    native = ROOT / 'slopweb/host/target/debug/slopweb'
+    native = ROOT / 'target/debug/slopweb'
     if not native.is_file():
         pytest.skip('Run just web-host-build to exercise the native installed launcher')
     shutil.copyfile(native, bundle / 'slopweb-host')

@@ -50,7 +50,7 @@ fn cli_paths_accept_global_options_on_either_side_and_reject_unsafe_combinations
         vec!["slopweb", "--interpreted", "--aot-sdk", "/sdk"],
         vec!["slopweb", "--port", "0"],
     ] {
-        assert!(cli::Options::try_parse_from(args).is_err());
+        cli::Options::try_parse_from(args).unwrap_err();
     }
 }
 #[test]
@@ -60,7 +60,7 @@ fn public_origin_requires_exact_https_authority() {
         "https://example.com:8443",
         "https://[::1]:8443",
     ] {
-        assert!(cli::public_origin(valid).is_ok());
+        cli::public_origin(valid).unwrap();
     }
     for invalid in [
         "http://example.com",
@@ -159,111 +159,45 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     };
     let mut values = serde_json::Map::new();
     let pinned = files::PinnedBundle::open(bundle.clone()).unwrap();
-    let first = preparation::prepare(
-        &pinned,
-        &game,
-        &cache,
-        false,
-        &values,
-        "fixture-fonts",
-        build,
-    )
-    .unwrap();
-    assert_eq!(
-        fs::read(first.join("assets/ost/song.ogg")).unwrap(),
-        b"song"
-    );
-    assert_eq!(
+    let prepare = |rebuild, values: &serde_json::Map<String, Value>| {
         preparation::prepare(
             &pinned,
             &game,
             &cache,
-            false,
-            &values,
+            rebuild,
+            values,
             "fixture-fonts",
-            build
+            build,
         )
-        .unwrap(),
-        first
+        .unwrap()
+    };
+    let first = prepare(false, &values);
+    assert_eq!(
+        fs::read(first.join("assets/ost/song.ogg")).unwrap(),
+        b"song"
     );
+    assert_eq!(prepare(false, &values), first);
     assert_eq!(calls.lock().unwrap().len(), 4);
     write(bundle.join("web/index.html"), "other page");
-    let second = preparation::prepare(
-        &pinned,
-        &game,
-        &cache,
-        false,
-        &values,
-        "fixture-fonts",
-        build,
-    )
-    .unwrap();
+    let second = prepare(false, &values);
     assert_ne!(first, second);
     assert_published_eco_digest(&first, b"eco");
     assert_published_eco_digest(&second, b"eco");
     assert_eq!(calls.lock().unwrap().len(), 4);
     values.insert("sidebarHidden".into(), json!(true));
-    preparation::prepare(
-        &pinned,
-        &game,
-        &cache,
-        false,
-        &values,
-        "fixture-fonts",
-        build,
-    )
-    .unwrap();
+    prepare(false, &values);
     assert_eq!(calls.lock().unwrap().len(), 4);
     values.insert("fontSize".into(), json!(18));
-    preparation::prepare(
-        &pinned,
-        &game,
-        &cache,
-        false,
-        &values,
-        "fixture-fonts",
-        build,
-    )
-    .unwrap();
+    prepare(false, &values);
     assert_eq!(calls.lock().unwrap().last().unwrap(), "fonts");
     assert_eq!(calls.lock().unwrap().len(), 5);
     write(game.join("Data/Core/data.xml"), "new asset");
-    preparation::prepare(
-        &pinned,
-        &game,
-        &cache,
-        false,
-        &values,
-        "fixture-fonts",
-        build,
-    )
-    .unwrap();
+    prepare(false, &values);
     assert_eq!(calls.lock().unwrap().last().unwrap(), "assets");
     assert_eq!(calls.lock().unwrap().len(), 6);
-    let refreshed = preparation::prepare(
-        &pinned,
-        &game,
-        &cache,
-        true,
-        &values,
-        "fixture-fonts",
-        build,
-    )
-    .unwrap();
+    let refreshed = prepare(true, &values);
     assert!(first.join(".ready").is_file());
-    assert_eq!(
-        preparation::prepare(
-            &pinned,
-            &game,
-            &cache,
-            false,
-            &values,
-            "fixture-fonts",
-            build
-        )
-        .unwrap(),
-        refreshed
-    );
+    assert_eq!(prepare(false, &values), refreshed);
     let failed = preparation::prepare(
         &pinned,
         &game,
@@ -278,20 +212,8 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
             build(phase, root, values)
         },
     );
-    assert!(failed.is_err());
-    assert_eq!(
-        preparation::prepare(
-            &pinned,
-            &game,
-            &cache,
-            false,
-            &values,
-            "fixture-fonts",
-            build
-        )
-        .unwrap(),
-        refreshed
-    );
+    failed.unwrap_err();
+    assert_eq!(prepare(false, &values), refreshed);
     assert_eq!(
         fs::read_to_string(first.join("index.html")).unwrap(),
         "page"
@@ -357,10 +279,10 @@ fn malicious_private_cache_pointer_and_symlink_inputs_are_rejected() {
     write(temp.path().join("key/.ready"), "wrong generation");
     assert!(!files::ready(&temp.path().join("key"), "key").unwrap());
     write(temp.path().join(".active-key"), "../key-secret");
-    assert!(files::selected(temp.path(), "key").is_err());
+    files::selected(temp.path(), "key").unwrap_err();
     write(temp.path().join("outside"), "secret");
     symlink(temp.path().join("outside"), temp.path().join("alias")).unwrap();
-    assert!(files::files(temp.path()).is_err());
+    files::files(temp.path()).unwrap_err();
 }
 #[test]
 fn core_archive_contains_only_core_and_shaders_and_rejects_dlls() {
@@ -373,7 +295,7 @@ fn core_archive_contains_only_core_and_shaders_and_rejects_dlls() {
     preparation::core_archive(&game, &archive).unwrap();
     let mut zip = zip::ZipArchive::new(File::open(&archive).unwrap()).unwrap();
     assert_eq!(zip.len(), 2);
-    assert!(zip.by_name("Data/Core/Defs/a.xml").is_ok());
+    zip.by_name("Data/Core/Defs/a.xml").unwrap();
     write(game.join("Data/Core/unsafe.DLL"), "dll");
     assert!(preparation::core_archive(&game, &archive).is_err());
 }
@@ -385,11 +307,9 @@ fn aot_loader_adapts_shipped_assembly_boundary_and_rejects_mixed_loading() {
     assert!(changed.contains("LoadPublishedAssembly(file.replace"));
     assert_eq!(changed.matches("LoadPublishedAssembly(").count(), 1);
     assert!(!changed.contains("Probe.LoadAssembly("));
-    assert!(aot::published_loader(&changed).is_err());
-    assert!(aot::published_loader("unknown").is_err());
-    assert!(
-        aot::published_loader(&format!("{loader}\nexports.Probe.LoadAssembly(bytes);")).is_err()
-    );
+    aot::published_loader(&changed).unwrap_err();
+    aot::published_loader("unknown").unwrap_err();
+    aot::published_loader(&format!("{loader}\nexports.Probe.LoadAssembly(bytes);")).unwrap_err();
 }
 
 struct AotFixture {
@@ -524,8 +444,10 @@ fn warm_aot_reuses_the_publication_without_reading_assemblies_or_asset_payloads(
 
     // Opening a watched file catches either a rehash or a transient candidate
     // copy, even if that copy is removed again before prepare returns.
+    // SAFETY: inotify_init1 takes supported integer flags.
     let fd = unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) };
     assert!(fd >= 0);
+    // SAFETY: the successful call transferred ownership of this fresh descriptor.
     let mut watch = unsafe { File::from_raw_fd(fd) };
     for path in [
         f.bundle.join("aot-src/Probe.cs"),
@@ -534,6 +456,7 @@ fn warm_aot_reuses_the_publication_without_reading_assemblies_or_asset_payloads(
     ] {
         let path = CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
         assert!(
+            // SAFETY: the descriptor is live and path owns the terminated string.
             unsafe { libc::inotify_add_watch(watch.as_raw_fd(), path.as_ptr(), libc::IN_OPEN) }
                 >= 0
         );

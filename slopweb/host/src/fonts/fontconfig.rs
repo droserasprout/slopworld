@@ -17,6 +17,7 @@ struct FontSet {
 static GATE: Mutex<()> = Mutex::new(());
 static LIB: OnceLock<usize> = OnceLock::new();
 fn library() -> Result<Ptr> {
+    // SAFETY: the library name is NUL-terminated and the handle stays open for process lifetime.
     let handle = *LIB.get_or_init(|| unsafe {
         libc::dlopen(
             c"libfontconfig.so.1".as_ptr(),
@@ -28,16 +29,21 @@ fn library() -> Result<Ptr> {
 }
 macro_rules! call {
     ($name:literal, $ty:ty $(, $arg:expr)*) => {{
-        let symbol=unsafe {libc::dlsym(library()?,concat!($name,"\0").as_ptr().cast())};
-        ensure!(!symbol.is_null(),"Missing Fontconfig symbol {}",$name);
-        let function:$ty=unsafe {std::mem::transmute(symbol)};
-        unsafe {function($($arg),*)}
+        // SAFETY: the handle is live and the literal symbol name is NUL-terminated.
+        let symbol = unsafe { libc::dlsym(library()?, concat!($name, "\0").as_ptr().cast()) };
+        ensure!(!symbol.is_null(), "Missing Fontconfig symbol {}", $name);
+        // SAFETY: the supplied extern signature matches the named Fontconfig function.
+        let function: $ty = unsafe { std::mem::transmute(symbol) };
+        // SAFETY: callers retain the patterns, sets and out-parameters for this call.
+        unsafe { function($($arg),*) }
     }};
 }
 struct Pattern(Ptr);
 impl Drop for Pattern {
     fn drop(&mut self) {
-        let _ = destroy_pattern(self.0);
+        if !self.0.is_null() {
+            drop(destroy_pattern(self.0));
+        }
     }
 }
 fn destroy_pattern(p: Ptr) -> Result<()> {
@@ -47,7 +53,9 @@ fn destroy_pattern(p: Ptr) -> Result<()> {
 struct Set(Ptr);
 impl Drop for Set {
     fn drop(&mut self) {
-        let _ = destroy_set(self.0);
+        if !self.0.is_null() {
+            drop(destroy_set(self.0));
+        }
     }
 }
 fn destroy_set(p: Ptr) -> Result<()> {
@@ -65,14 +73,17 @@ fn string(p: Ptr, property: &CStr) -> Result<Option<String>> {
         &mut value
     );
     Ok((result == 0 && !value.is_null())
+        // SAFETY: successful FcPatternGetString returns a borrowed NUL-terminated string.
         .then(|| unsafe { CStr::from_ptr(value).to_string_lossy().into_owned() }))
 }
 fn entries(set: &Set) -> &[Ptr] {
+    // SAFETY: callers validated the owned FcFontSet pointer; FontSet mirrors its C layout.
     let s = unsafe { &*set.0.cast::<FontSet>() };
-    if s.count <= 0 {
-        &[]
+    if let Ok(count @ 1..) = usize::try_from(s.count) {
+        // SAFETY: Fontconfig owns count initialized pattern pointers while set is borrowed.
+        unsafe { std::slice::from_raw_parts(s.fonts, count) }
     } else {
-        unsafe { std::slice::from_raw_parts(s.fonts, s.count as usize) }
+        &[]
     }
 }
 fn initialize() -> Result<()> {
@@ -84,7 +95,9 @@ fn initialize() -> Result<()> {
 }
 
 pub(super) fn inventory() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
-    let _guard = GATE.lock().unwrap();
+    let _guard = GATE
+        .lock()
+        .map_err(|e| anyhow::anyhow!("Fontconfig lock poisoned: {e}"))?;
     // Reinitialization observes changes immediately, independent of Fontconfig's
     // rescan interval. Called only after our persisted metadata invalidates.
     ensure!(
@@ -116,9 +129,12 @@ pub(super) fn inventory() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
         c"FcConfigGetConfigFiles",
         c"FcConfigGetConfigDirs",
     ] {
+        // SAFETY: the library handle and accessor name remain valid.
         let symbol = unsafe { libc::dlsym(library()?, name.as_ptr()) };
         ensure!(!symbol.is_null(), "Missing Fontconfig config accessor");
+        // SAFETY: all three FcConfig accessors take FcConfig* and return FcStrList*.
         let get: unsafe extern "C" fn(Ptr) -> Ptr = unsafe { std::mem::transmute(symbol) };
+        // SAFETY: config is the current Fontconfig configuration under GATE.
         let list = unsafe { get(config) };
         if list.is_null() {
             continue;
@@ -133,6 +149,7 @@ pub(super) fn inventory() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
                 break;
             }
             watches.push(PathBuf::from(
+                // SAFETY: FcStrListNext returned a non-null C string owned by the live list.
                 unsafe { CStr::from_ptr(next) }
                     .to_string_lossy()
                     .into_owned(),
@@ -145,7 +162,9 @@ pub(super) fn inventory() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
     Ok((files, watches))
 }
 pub(super) fn order(family: &str) -> Result<Vec<String>> {
-    let _guard = GATE.lock().unwrap();
+    let _guard = GATE
+        .lock()
+        .map_err(|e| anyhow::anyhow!("Fontconfig lock poisoned: {e}"))?;
     initialize()?;
     let family = CString::new(family).context("Invalid family")?;
     let p = Pattern(call!("FcPatternCreate", unsafe extern "C" fn() -> Ptr));

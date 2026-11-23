@@ -31,11 +31,5 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 [dev-dependencies]
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
 
-[profile.release]
-lto = "thin"
-strip = true
-
-[lints.clippy]
-redundant_clone = "warn"
-assigning_clones = "warn"
-cloned_instead_of_copied = "warn"
+[lints]
+workspace = true

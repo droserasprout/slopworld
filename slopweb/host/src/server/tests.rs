@@ -198,7 +198,7 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
             }
             assert_eq!(req.send().await.unwrap().status(), 403);
         }
-        assert!(seen.try_recv().is_err());
+        seen.try_recv().unwrap_err();
         let response = client
             .post(format!("{}/host/api/workers", host.url))
             .header("origin", origin)
@@ -251,7 +251,7 @@ async fn http_preserves_protobuf_and_status_but_isolates_credentials() {
                 400
             );
         }
-        assert!(seen.try_recv().is_err());
+        seen.try_recv().unwrap_err();
     }
 }
 
@@ -465,6 +465,14 @@ fn ws_request(host: &Running, origin: &str) -> tungstenite::http::Request<()> {
     request
 }
 
+async fn echo_messages(mut socket: axum::extract::ws::WebSocket) {
+    while let Some(Ok(message)) = socket.recv().await {
+        if socket.send(message).await.is_err() {
+            break;
+        }
+    }
+}
+
 #[tokio::test]
 async fn websocket_authenticates_rotates_and_relays_large_binary_frames() {
     let (tx, mut seen) = mpsc::unbounded_channel();
@@ -474,15 +482,9 @@ async fn websocket_authenticates_rotates_and_relays_large_binary_frames() {
             move |headers: HeaderMap, upgrade: axum::extract::ws::WebSocketUpgrade| {
                 tx.send(headers).unwrap();
                 async move {
-                    upgrade.protocols(["slopworld.protobuf.v2"]).on_upgrade(
-                        |mut socket| async move {
-                            while let Some(Ok(message)) = socket.recv().await {
-                                if socket.send(message).await.is_err() {
-                                    break;
-                                }
-                            }
-                        },
-                    )
+                    upgrade
+                        .protocols(["slopworld.protobuf.v2"])
+                        .on_upgrade(echo_messages)
                 }
             },
         ),
@@ -535,7 +537,7 @@ async fn websocket_authenticates_rotates_and_relays_large_binary_frames() {
             .await
             .unwrap_err();
         assert!(matches!(error, tungstenite::Error::Http(response) if response.status() == 403));
-        assert!(seen.try_recv().is_err());
+        seen.try_recv().unwrap_err();
     }
 }
 
@@ -695,11 +697,9 @@ async fn failed_upstream_post_is_sent_exactly_once() {
     }
     drop(upstream);
     assert_eq!(pending.await.unwrap(), 502);
-    assert!(
-        tokio::time::timeout(Duration::from_millis(100), listener.accept())
-            .await
-            .is_err()
-    );
+    tokio::time::timeout(Duration::from_millis(100), listener.accept())
+        .await
+        .unwrap_err();
 }
 
 #[tokio::test]
@@ -726,7 +726,10 @@ async fn malformed_or_cross_origin_font_routes_never_deliver_private_data() {
 
 #[tokio::test]
 // Tungstenite fixes the handshake callback error type to an unboxed HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "Tungstenite fixes the callback error type"
+)]
 async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_losslessly() {
     use std::os::fd::AsRawFd;
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -757,13 +760,14 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
         let receive_buffer: libc::c_int = 256 * 1024;
         // SAFETY: the live socket and integer option remain valid during setsockopt.
         assert_eq!(
+            // SAFETY: socket and integer option are valid for this call.
             unsafe {
                 libc::setsockopt(
                     socket.get_ref().as_raw_fd(),
                     libc::SOL_SOCKET,
                     libc::SO_RCVBUF,
                     (&receive_buffer as *const libc::c_int).cast(),
-                    std::mem::size_of_val(&receive_buffer) as libc::socklen_t,
+                    libc::socklen_t::try_from(std::mem::size_of_val(&receive_buffer)).unwrap(),
                 )
             },
             0
@@ -831,7 +835,7 @@ async fn asset_reload_revalidates_and_replacements_invalidate() {
     for method in [Method::GET, Method::HEAD] {
         for validator in [
             etag.clone(),
-            etag[2..].to_owned(),
+            etag.get(2..).unwrap().to_owned(),
             format!("\"other\", {etag}"),
             "*".into(),
         ] {

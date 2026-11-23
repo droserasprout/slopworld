@@ -4,7 +4,7 @@ use super::{
     files::{self, Inputs},
 };
 use crate::archive_identity;
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use serde_json::{Map, Value, json};
 use std::{
     collections::BTreeMap,
@@ -74,7 +74,12 @@ fn copy_eco_archive(component: &Path, root: &Path, cache: &Path) -> Result<()> {
     let mut contents = files::DigestCache::load(cache.join("eco-digest-v1.json"));
     let hashes = contents.manifest(&inputs)?;
     contents.copy_verified(source, &root.join(archive_identity::ARCHIVE))?;
-    archive_identity::publish(root, &hashes[archive_identity::ARCHIVE])?;
+    archive_identity::publish(
+        root,
+        hashes
+            .get(archive_identity::ARCHIVE)
+            .context("Missing archive digest")?,
+    )?;
     contents.save()
 }
 
@@ -84,7 +89,7 @@ pub fn native_phase(bundle: &Path, game: &Path, phase: &str, root: &Path) -> Res
         ensure!(
             status.success(),
             "Native preparation helper failed ({status}): {}",
-            args[0].display()
+            args.first().context("Missing helper")?.display()
         );
         Ok(())
     };
@@ -131,17 +136,21 @@ pub fn native_phase(bundle: &Path, game: &Path, phase: &str, root: &Path) -> Res
     Ok(())
 }
 
-pub fn prepare(
-    bundle: &files::PinnedBundle,
+struct PreparationPlan {
+    authored: Inputs,
+    authored_digests: files::Manifest,
+    key: String,
+    keys: BTreeMap<&'static str, String>,
+    font_settings: Map<String, Value>,
+}
+
+fn plan(
+    bundle: &Path,
     game: &Path,
     cache: &Path,
-    rebuild: bool,
     appearance: &Map<String, Value>,
     font_inventory: &str,
-    build: impl Fn(&str, &Path, &Map<String, Value>) -> Result<()>,
-) -> Result<PathBuf> {
-    let _transaction = files::lock(&cache.join(".prepare.lock"))?;
-    let bundle = bundle.path();
+) -> Result<PreparationPlan> {
     let game_dlls = top_level(game, |name| name.ends_with(".dll"))?;
     let native = top_level(game, |name| name.contains(".so"))?;
     let mut managed = files::inputs(bundle, &["scanner", "offline", "Probe.dll", "Adapters.dll"])?;
@@ -196,11 +205,59 @@ pub fn prepare(
     let key = files::digest(
         &authored_digests,
         &json!(["archive-identity-v1", keys, appearance]),
-    )?[..24]
-        .to_owned();
+    )?
+    .get(..24)
+    .context("Invalid preparation digest")?
+    .to_owned();
     contents.save()?;
-    let mut destination = files::selected(cache, &key)?;
-    if !rebuild && files::ready(&destination, &key)? {
+    Ok(PreparationPlan {
+        authored,
+        authored_digests,
+        key,
+        keys,
+        font_settings,
+    })
+}
+
+impl PreparationPlan {
+    fn copy_authored(&self, bundle: &Path, directory: &str, target: &Path) -> Result<()> {
+        // A package manager or local editor can replace a file without taking the
+        // stager's lock. Verify the private copy, and copy only the hashed manifest.
+        ensure!(
+            bundle.join(directory).is_dir(),
+            "Missing bundle directory {directory}"
+        );
+        fs::create_dir_all(target)?;
+        for (name, source) in &self.authored {
+            if let Ok(relative) = Path::new(name).strip_prefix(directory) {
+                let output = target.join(relative);
+                fs::create_dir_all(output.parent().context("Missing output directory")?)?;
+                fs::copy(source, &output)?;
+                ensure!(
+                    Some(&files::file_digest(&output)?) == self.authored_digests.get(name),
+                    "Bundle input {name} changed during preparation; retry"
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn prepare(
+    bundle: &files::PinnedBundle,
+    game: &Path,
+    cache: &Path,
+    rebuild: bool,
+    appearance: &Map<String, Value>,
+    font_inventory: &str,
+    build: impl Fn(&str, &Path, &Map<String, Value>) -> Result<()>,
+) -> Result<PathBuf> {
+    let _transaction = files::lock(&cache.join(".prepare.lock"))?;
+    let bundle = bundle.path();
+    let plan = plan(bundle, game, cache, appearance, font_inventory)?;
+    let key = &plan.key;
+    let mut destination = files::selected(cache, key)?;
+    if !rebuild && files::ready(&destination, key)? {
         println!("Reusing prepared runtime");
         return Ok(destination);
     }
@@ -209,7 +266,7 @@ pub fn prepare(
     for phase in ["managed", "assets", "fonts", "background"] {
         let parent = cache.join("prepared-components").join(phase);
         fs::create_dir_all(&parent)?;
-        let phase_key = &keys[phase];
+        let phase_key = plan.keys.get(phase).context("Missing phase key")?;
         let mut component = files::selected(&parent, phase_key)?;
         if rebuild || !files::ready(&component, phase_key)? {
             if component.exists() || rebuild {
@@ -221,7 +278,7 @@ pub fn prepare(
             let root = temporary.path().join("runtime");
             fs::create_dir(&root)?;
             let started = Instant::now();
-            build(phase, &root, &font_settings)?;
+            build(phase, &root, &plan.font_settings)?;
             println!("Prepare {phase}: {:.2}s", started.elapsed().as_secs_f64());
             fs::write(root.join(".ready"), phase_key)?;
             fs::rename(root, &component)?;
@@ -232,53 +289,39 @@ pub fn prepare(
             parent.join(format!(".active-{phase_key}")),
             component
                 .file_name()
-                .unwrap()
+                .context("Missing component filename")?
                 .to_string_lossy()
                 .into_owned(),
         ));
         components.push(component);
     }
     if destination.exists() {
-        destination = cache.join(files::unique_name(&key));
+        destination = cache.join(files::unique_name(key));
     }
     let temporary = tempfile::Builder::new()
         .prefix(".prepare-")
         .tempdir_in(cache)?;
     let root = temporary.path().join("runtime");
-    // A package manager or local editor can replace a file without taking the
-    // stager's lock. Verify the private copy, and copy only the hashed manifest.
-    let copy_authored = |directory: &str, target: &Path| -> Result<()> {
-        ensure!(
-            bundle.join(directory).is_dir(),
-            "Missing bundle directory {directory}"
-        );
-        fs::create_dir_all(target)?;
-        for (name, source) in &authored {
-            if let Ok(relative) = Path::new(name).strip_prefix(directory) {
-                let output = target.join(relative);
-                fs::create_dir_all(output.parent().unwrap())?;
-                fs::copy(source, &output)?;
-                ensure!(
-                    files::file_digest(&output)? == authored_digests[name],
-                    "Bundle input {name} changed during preparation; retry"
-                );
-            }
-        }
-        Ok(())
-    };
-    copy_authored("web", &root)?;
+    plan.copy_authored(bundle, "web", &root)?;
     for component in &components {
         files::copy_tree(component, &root, |name| {
             name == ".ready" || name == archive_identity::ARCHIVE
         })?;
     }
-    copy_eco_archive(&components[1], &root, cache)?;
-    if authored.keys().any(|name| name.starts_with("mod/")) {
-        copy_authored("mod", &root.join("mod"))?;
+    copy_eco_archive(
+        components.get(1).context("Missing assets component")?,
+        &root,
+        cache,
+    )?;
+    if plan.authored.keys().any(|name| name.starts_with("mod/")) {
+        plan.copy_authored(bundle, "mod", &root.join("mod"))?;
     }
-    copy_authored("ost", &root.join("assets/ost"))?;
+    plan.copy_authored(bundle, "ost", &root.join("assets/ost"))?;
     let mut values = appearance.clone();
-    let resolved = components[2].join("assets/reference-appearance.json");
+    let resolved = components
+        .get(2)
+        .context("Missing fonts component")?
+        .join("assets/reference-appearance.json");
     if resolved.is_file() {
         values.extend(serde_json::from_slice::<Map<String, Value>>(&fs::read(
             resolved,
@@ -294,7 +337,10 @@ pub fn prepare(
     }
     files::atomic_write(
         &cache.join(format!(".active-{key}")),
-        destination.file_name().unwrap().as_encoded_bytes(),
+        destination
+            .file_name()
+            .context("Missing destination filename")?
+            .as_encoded_bytes(),
     )?;
     Ok(destination)
 }

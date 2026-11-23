@@ -60,7 +60,7 @@ pub(super) fn parse_request(value: &Value) -> Result<Request> {
                 scalar <= 0x10ffff && !(0xd800..=0xdfff).contains(&scalar),
                 "Invalid Unicode scalar"
             );
-            scalars.push(scalar as u32);
+            scalars.push(u32::try_from(scalar)?);
         }
         scalars.sort_unstable();
         scalars.dedup();

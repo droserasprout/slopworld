@@ -14,19 +14,7 @@ use tokio_rustls::{
 async fn both_daemon_transports_honor_native_trust() {
     const TEST_ENDPOINT: &str = "SLOPWEB_TEST_TLS_ENDPOINT";
     if let Ok(endpoint) = env::var(TEST_ENDPOINT) {
-        let host = host(direct(&endpoint), None).await;
-        let health = client()
-            .get(format!("{}/host/health", host.url))
-            .header("origin", &host.url)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(health.status(), StatusCode::OK);
-        assert_eq!(health.text().await.unwrap(), "daemon");
-        let (_, handshake) = tokio_tungstenite::connect_async(ws_request(&host, &host.url))
-            .await
-            .unwrap();
-        assert_eq!(handshake.status(), StatusCode::SWITCHING_PROTOCOLS);
+        check_transports(&endpoint).await;
         return;
     }
 
@@ -94,7 +82,7 @@ async fn both_daemon_transports_honor_native_trust() {
             tokio::spawn(async move {
                 let mut tls = acceptor.accept(client).await.unwrap();
                 let mut upstream = TcpStream::connect(address).await.unwrap();
-                let _ = tokio::io::copy_bidirectional(&mut tls, &mut upstream).await;
+                let _transfer_result = tokio::io::copy_bidirectional(&mut tls, &mut upstream).await;
             });
         }
     });
@@ -118,4 +106,20 @@ async fn both_daemon_transports_honor_native_trust() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+async fn check_transports(endpoint: &str) {
+    let host = host(direct(endpoint), None).await;
+    let health = client()
+        .get(format!("{}/host/health", host.url))
+        .header("origin", &host.url)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(health.status(), StatusCode::OK);
+    assert_eq!(health.text().await.unwrap(), "daemon");
+    let (_, handshake) = tokio_tungstenite::connect_async(ws_request(&host, &host.url))
+        .await
+        .unwrap();
+    assert_eq!(handshake.status(), StatusCode::SWITCHING_PROTOCOLS);
 }

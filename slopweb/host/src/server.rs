@@ -89,20 +89,22 @@ async fn dispatch(State(host): State<Arc<Host>>, request: Request) -> Response {
         static_files::response(&host.root, path, request.method(), request.headers()).await
     };
     let headers = response.headers_mut();
-    headers.insert("cross-origin-opener-policy", "same-origin".parse().unwrap());
+    headers.insert(
+        "cross-origin-opener-policy",
+        axum::http::HeaderValue::from_static("same-origin"),
+    );
     headers.insert(
         "cross-origin-embedder-policy",
-        "require-corp".parse().unwrap(),
+        axum::http::HeaderValue::from_static("require-corp"),
     );
     headers
         .entry("cache-control")
-        .or_insert("no-store".parse().unwrap());
+        .or_insert(axum::http::HeaderValue::from_static("no-store"));
     response
 }
 
 fn reply(status: StatusCode, body: &'static str) -> Response {
-    Response::builder()
-        .status(status)
-        .body(Body::from(body))
-        .unwrap()
+    let mut response = Response::new(Body::from(body));
+    *response.status_mut() = status;
+    response
 }

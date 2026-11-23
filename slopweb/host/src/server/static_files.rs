@@ -50,9 +50,10 @@ pub(super) async fn response(
         Ok(Ok(asset)) => asset,
         Ok(Err(StatusCode::NOT_ACCEPTABLE)) => {
             let mut response = reply(StatusCode::NOT_ACCEPTABLE, "");
-            response
-                .headers_mut()
-                .insert("vary", "Accept-Encoding".parse().unwrap());
+            response.headers_mut().insert(
+                "vary",
+                axum::http::HeaderValue::from_static("Accept-Encoding"),
+            );
             return response;
         }
         Ok(Err(status)) => return reply(status, ""),
@@ -82,7 +83,7 @@ pub(super) async fn response(
         return response
             .status(StatusCode::NOT_MODIFIED)
             .body(Body::empty())
-            .unwrap();
+            .unwrap_or_else(|_error| reply(StatusCode::INTERNAL_SERVER_ERROR, ""));
     }
     let content_type = match Path::new(&relative)
         .extension()
@@ -112,7 +113,7 @@ pub(super) async fn response(
         .header("content-length", asset.encoded_length)
         .header("x-slop-decoded-length", asset.decoded_length)
         .body(body)
-        .unwrap()
+        .unwrap_or_else(|_error| reply(StatusCode::INTERNAL_SERVER_ERROR, ""))
 }
 
 fn cache_control(relative: &str) -> &'static str {
@@ -213,7 +214,7 @@ fn regular_file(root: &File, name: &str) -> Result<(File, Metadata), StatusCode>
         Some(libc::EXDEV | libc::ELOOP | libc::EACCES) => StatusCode::FORBIDDEN,
         _ => StatusCode::NOT_FOUND,
     })?;
-    let metadata = file.metadata().map_err(|_| StatusCode::NOT_FOUND)?;
+    let metadata = file.metadata().map_err(|_error| StatusCode::NOT_FOUND)?;
     if !metadata.is_file() {
         return Err(StatusCode::FORBIDDEN);
     }
@@ -226,7 +227,7 @@ fn open_asset(
     preferences: Option<EncodingPreferences>,
 ) -> Result<Asset, StatusCode> {
     // Resolve identity, representation and validator against the same open root.
-    let root = File::open(root).map_err(|_| StatusCode::NOT_FOUND)?;
+    let root = File::open(root).map_err(|_error| StatusCode::NOT_FOUND)?;
     let (file, metadata) = regular_file(&root, name)?;
     let decoded_length = metadata.len();
     let stamp = archive_identity::metadata_stamp(&metadata);
@@ -268,7 +269,7 @@ fn open_asset(
 
 fn open_beneath(root: &File, relative: &str) -> io::Result<File> {
     let path =
-        CString::new(relative).map_err(|_| std::io::Error::from_raw_os_error(libc::EINVAL))?;
+        CString::new(relative).map_err(|_error| std::io::Error::from_raw_os_error(libc::EINVAL))?;
     // openat2 makes containment atomic even if a directory or symlink changes
     // during admission. Internal symlinks remain useful; escaping links fail closed.
     #[repr(C)]
@@ -295,6 +296,7 @@ fn open_beneath(root: &File, relative: &str) -> io::Result<File> {
     if fd < 0 {
         return Err(std::io::Error::last_os_error());
     }
+    let fd = i32::try_from(fd).map_err(std::io::Error::other)?;
     // SAFETY: the successful syscall transfers a fresh owned descriptor.
-    Ok(unsafe { std::fs::File::from_raw_fd(fd as i32) })
+    Ok(unsafe { std::fs::File::from_raw_fd(fd) })
 }

@@ -12,7 +12,7 @@ use crate::{
     fonts::FontService,
     server::{self, ConnectionSource, ServerConfig},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser};
 use std::{env, path::Path, sync::Arc, time::Instant};
 
@@ -23,7 +23,12 @@ async fn connection(options: &cli::Options) -> Result<ConnectionSource> {
         ConnectionSource::Direct {
             url: url.clone(),
             token: None,
-            token_file: Some(cli::expand(options.token_file.as_ref().unwrap())?),
+            token_file: Some(cli::expand(
+                options
+                    .token_file
+                    .as_ref()
+                    .context("--url requires --token-file")?,
+            )?),
         }
     } else if let Ok(url) = env::var("SLOPD_URL") {
         ConnectionSource::Direct {
@@ -52,6 +57,7 @@ pub async fn run() -> Result<()> {
                 &mut std::io::stdout(),
             ),
             cli::LocalCommand::CheckFonts { install, output } => {
+                // SAFETY: umask accepts a permission mask and takes no pointers.
                 unsafe {
                     libc::umask(0o077);
                 }
@@ -73,7 +79,7 @@ pub async fn run() -> Result<()> {
         }
         return Ok(());
     }
-    // Set before spawning helpers or writing any private game-derived output.
+    // SAFETY: umask accepts a permission mask. Set before spawning helpers or writing any private game-derived output.
     unsafe {
         libc::umask(0o077);
     }

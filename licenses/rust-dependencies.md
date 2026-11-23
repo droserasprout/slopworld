@@ -56,6 +56,8 @@ and does not identify which crates are included in a particular binary.
 | concurrent-queue | 2.5.0 | Apache-2.0 OR MIT |
 | cookie | 0.18.2 | MIT OR Apache-2.0 |
 | cookie_store | 0.22.1 | MIT OR Apache-2.0 |
+| core-foundation | 0.10.1 | MIT OR Apache-2.0 |
+| core-foundation-sys | 0.8.7 | MIT OR Apache-2.0 |
 | core_detect | 1.0.0 | MIT/Apache-2.0 |
 | coreaudio-rs | 0.14.2 | MIT/Apache-2.0 |
 | cpal | 0.17.3 | Apache-2.0 |
@@ -125,6 +127,7 @@ and does not identify which crates are included in a particular binary.
 | image | 0.25.10 | MIT OR Apache-2.0 |
 | image-webp | 0.2.4 | MIT OR Apache-2.0 |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT |
+| ipnet | 2.12.2 | MIT OR Apache-2.0 |
 | is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |
 | itertools | 0.15.0 | MIT OR Apache-2.0 |
 | itoa | 1.0.19 | MIT OR Apache-2.0 |
@@ -184,6 +187,7 @@ and does not identify which crates are included in a particular binary.
 | objc2-foundation | 0.3.2 | MIT |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 |
 | once_cell_polyfill | 1.70.2 | MIT OR Apache-2.0 |
+| openssl-probe | 0.2.2 | MIT OR Apache-2.0 |
 | option-ext | 0.2.0 | MPL-2.0 |
 | parking_lot | 0.12.5 | MIT OR Apache-2.0 |
 | parking_lot_core | 0.9.12 | MIT OR Apache-2.0 |
@@ -212,6 +216,7 @@ and does not identify which crates are included in a particular binary.
 | r-efi | 6.0.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later |
 | rand | 0.8.8 | MIT OR Apache-2.0 |
 | rand_chacha | 0.3.1 | MIT OR Apache-2.0 |
+| rand_core | 0.10.1 | MIT OR Apache-2.0 |
 | rand_core | 0.6.4 | MIT OR Apache-2.0 |
 | redox_syscall | 0.5.18 | MIT |
 | redox_users | 0.4.6 | MIT |
@@ -223,12 +228,16 @@ and does not identify which crates are included in a particular binary.
 | rustix | 1.1.6 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | rustix-openpty | 0.2.0 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | rustls | 0.23.46 | Apache-2.0 OR ISC OR MIT |
+| rustls-native-certs | 0.8.5 | Apache-2.0 OR ISC OR MIT |
 | rustls-pki-types | 1.16.0 | MIT OR Apache-2.0 |
 | rustls-webpki | 0.103.17 | ISC |
 | rustversion | 1.0.23 | MIT OR Apache-2.0 |
 | ryu | 1.0.23 | Apache-2.0 OR BSL-1.0 |
 | same-file | 1.0.6 | Unlicense/MIT |
+| schannel | 0.1.30 | MIT |
 | scopeguard | 1.2.0 | MIT OR Apache-2.0 |
+| security-framework | 3.7.0 | MIT OR Apache-2.0 |
+| security-framework-sys | 2.17.0 | MIT OR Apache-2.0 |
 | serde | 1.0.229 | MIT OR Apache-2.0 |
 | serde_core | 1.0.229 | MIT OR Apache-2.0 |
 | serde_derive | 1.0.229 | MIT OR Apache-2.0 |
@@ -272,6 +281,7 @@ and does not identify which crates are included in a particular binary.
 | tinystr | 0.8.5 | Unicode-3.0 |
 | tokio | 1.54.1 | MIT |
 | tokio-macros | 2.7.2 | MIT |
+| tokio-rustls | 0.26.6 | MIT OR Apache-2.0 |
 | tokio-tungstenite | 0.24.0 | MIT |
 | toml | 0.8.23 | MIT OR Apache-2.0 |
 | toml_datetime | 0.6.11 | MIT OR Apache-2.0 |
@@ -289,6 +299,7 @@ and does not identify which crates are included in a particular binary.
 | tracing-core | 0.1.36 | MIT |
 | tracing-log | 0.2.0 | MIT |
 | tracing-subscriber | 0.3.23 | MIT |
+| try-lock | 0.2.5 | MIT |
 | tungstenite | 0.24.0 | MIT OR Apache-2.0 |
 | typenum | 1.20.1 | MIT OR Apache-2.0 |
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
@@ -307,6 +318,7 @@ and does not identify which crates are included in a particular binary.
 | version_check | 0.9.5 | MIT/Apache-2.0 |
 | vte | 0.15.0 | Apache-2.0 OR MIT |
 | walkdir | 2.5.1 | Unlicense/MIT |
+| want | 0.3.2 | MIT |
 | wasi | 0.11.1+wasi-snapshot-preview1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | wasm-bindgen | 0.2.130 | MIT OR Apache-2.0 |
 | wasm-bindgen-futures | 0.4.80 | MIT OR Apache-2.0 |
@@ -314,6 +326,7 @@ and does not identify which crates are included in a particular binary.
 | wasm-bindgen-macro-support | 0.2.130 | MIT OR Apache-2.0 |
 | wasm-bindgen-shared | 0.2.130 | MIT OR Apache-2.0 |
 | web-sys | 0.3.107 | MIT OR Apache-2.0 |
+| web-time | 1.1.0 | MIT OR Apache-2.0 |
 | webpki-roots | 1.0.12 | CDLA-Permissive-2.0 |
 | weezl | 0.1.12 | MIT OR Apache-2.0 |
 | winapi-util | 0.1.11 | Unlicense OR MIT |

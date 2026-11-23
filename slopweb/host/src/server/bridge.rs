@@ -42,8 +42,9 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
         return reply(StatusCode::BAD_REQUEST, "");
     };
     let method = request.method().clone();
-    let Ok(body) = buffered_upload(&host.upload_budget, request.into_body()).await else {
-        return reply(StatusCode::PAYLOAD_TOO_LARGE, "");
+    let body = match buffered_upload(&host.upload_budget, request.into_body()).await {
+        Ok(body) => body,
+        Err(status) => return reply(status, ""),
     };
     let mut upstream = host
         .client
@@ -72,7 +73,7 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
         .status(status)
         .header("content-type", "application/x-protobuf")
         .body(body)
-        .unwrap()
+        .unwrap_or_else(|_error| reply(StatusCode::INTERNAL_SERVER_ERROR, ""))
 }
 
 pub(super) const UPLOAD_BUDGET: usize = 64 * 1024 * 1024;
@@ -97,11 +98,9 @@ async fn buffered_upload(
         return Err(StatusCode::PAYLOAD_TOO_LARGE);
     }
     // Reserve before reading so concurrent chunked requests cannot each grow unchecked.
-    let budget = body
-        .size_hint()
-        .upper()
-        .unwrap_or(u64::MAX)
-        .min(u64::from(LIMIT)) as u32;
+    let budget = u32::try_from(body.size_hint().upper().unwrap_or(u64::MAX))
+        .unwrap_or(LIMIT)
+        .min(LIMIT);
     let reservation = if budget == 0 {
         None
     } else {
@@ -110,7 +109,7 @@ async fn buffered_upload(
                 .clone()
                 .acquire_many_owned(budget)
                 .await
-                .expect("host budget stays open"),
+                .map_err(|_closed| StatusCode::SERVICE_UNAVAILABLE)?,
         )
     };
     let Ok(body) = to_bytes(body, budget as usize).await else {

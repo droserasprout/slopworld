@@ -86,7 +86,9 @@ fn immutable_file(hash: &str, bytes: Vec<u8>, request: &Request) -> Response {
     if !unchanged {
         response = response.header("content-length", length);
     }
-    response.body(body).unwrap()
+    response
+        .body(body)
+        .unwrap_or_else(|_error| reply(StatusCode::INTERNAL_SERVER_ERROR, ""))
 }
 
 fn json(result: anyhow::Result<serde_json::Value>, head: bool) -> Response {
@@ -107,7 +109,7 @@ fn json(result: anyhow::Result<serde_json::Value>, head: bool) -> Response {
         } else {
             Body::from(bytes)
         })
-        .unwrap()
+        .unwrap_or_else(|_error| reply(StatusCode::INTERNAL_SERVER_ERROR, ""))
 }
 fn unavailable() -> Response {
     reply(

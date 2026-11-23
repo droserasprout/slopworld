@@ -42,16 +42,17 @@ pub(super) fn loader_flags(bundle: &Path, game: &Path, root: &Path) -> Result<u3
             break;
         }
         if started.elapsed() > Duration::from_secs(30) {
-            let _ = child.kill();
-            let _ = child.wait();
+            drop(child.kill());
+            drop(child.wait());
             bail!("Font loader flags helper timed out");
         }
         std::thread::sleep(Duration::from_millis(20));
     }
     let config: Value =
         serde_json::from_slice(&fs::read(temporary.path().join("font-config.json"))?)?;
-    let flags = config["loaderFlags"]
-        .as_u64()
+    let flags = config
+        .get("loaderFlags")
+        .and_then(Value::as_u64)
         .context("Missing loader flags")?
         .try_into()?;
     cache::write(&path, &serde_json::to_vec(&flags)?)?;

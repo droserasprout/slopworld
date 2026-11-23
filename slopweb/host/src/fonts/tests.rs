@@ -43,9 +43,9 @@ fn unsupported_fonts_and_truncated_collections_fail_without_panicking() {
         b"ttcf",
         b"ttcf\0\x01\0\0\0\0\0\x01",
     ] {
-        assert!(opentype::metadata(bytes, 0, true).is_err());
+        opentype::metadata(bytes, 0, true).unwrap_err();
         if bytes.starts_with(b"ttcf") {
-            assert!(opentype::extract(bytes, 0).is_err());
+            opentype::extract(bytes, 0).unwrap_err();
         }
     }
 }
@@ -73,7 +73,7 @@ fn collection_extraction_rebases_tables_and_repairs_checksum() {
         .iter()
         .fold(0u32, |sum, v| sum.wrapping_add(u32::from_be_bytes(*v)));
     assert_eq!(sum, 0xb1b0afba);
-    assert!(opentype::extract(&bytes, 1).is_err());
+    opentype::extract(&bytes, 1).unwrap_err();
 }
 #[test]
 fn content_objects_reject_corruption_and_path_traversal() {
@@ -83,8 +83,8 @@ fn content_objects_reject_corruption_and_path_traversal() {
     cache::write(&cache::object(root.path(), &hash), bytes).unwrap();
     assert_eq!(read_object(root.path(), &hash).unwrap(), bytes);
     cache::write(&cache::object(root.path(), &hash), b"corrupt").unwrap();
-    assert!(read_object(root.path(), &hash).is_err());
-    assert!(read_object(root.path(), "../../etc/passwd").is_err());
+    read_object(root.path(), &hash).unwrap_err();
+    read_object(root.path(), "../../etc/passwd").unwrap_err();
 }
 #[test]
 fn file_identity_detects_same_length_replacement_and_removal() {
@@ -146,7 +146,7 @@ fn system_index_reuses_persistent_sources_and_resolves_without_game() {
     assert!(loaded.fresh(root.path()));
     let first = loaded.faces.first().unwrap();
     let bytes = read_object(root.path(), &first.hash).unwrap();
-    assert!(opentype::metadata(&bytes, 0, true).is_ok());
+    opentype::metadata(&bytes, 0, true).unwrap();
     fs::remove_file(cache::object(root.path(), &first.hash)).unwrap();
     assert!(!loaded.fresh(root.path()));
     catalog.rebuild(root.path()).unwrap();
@@ -209,9 +209,10 @@ fn unicode_coverage_skips_missing_glyphs_in_bmp_and_supplementary_ranges() {
         0, 2, 3, 1, 0, 20, 3, 10, 0, 52, 4, 32, 0, 4, 4, 1, 0, 66, 0xffff, 0, 65, 0xffff, 0xffbf,
         1, 0, 0, 12, 0, 0, 28, 0, 0, 0, 1, 1, 0xf600, 1, 0xf601, 0, 0,
     ];
-    let offset = font.len() as u32;
+    let offset = u32::try_from(font.len()).unwrap();
     font[record + 8..record + 12].copy_from_slice(&offset.to_be_bytes());
-    font[record + 12..record + 16].copy_from_slice(&(2 * words.len() as u32).to_be_bytes());
+    font[record + 12..record + 16]
+        .copy_from_slice(&(2 * u32::try_from(words.len()).unwrap()).to_be_bytes());
     font.extend(words.iter().flat_map(|word| word.to_be_bytes()));
     let face = opentype::metadata(&font, 0, true).unwrap();
     assert_eq!(face.coverage, [[66, 66], [0x1f601, 0x1f601]]);
@@ -236,8 +237,8 @@ fn persistent_catalog_detects_replaced_added_removed_and_unsupported_sources() {
     catalog
         .rebuild_inventory(
             &root,
-            vec![source.clone(), unsupported.clone()],
-            vec![installed.clone()],
+            &[source.clone(), unsupported.clone()],
+            std::slice::from_ref(&installed),
         )
         .unwrap();
     assert_eq!(catalog.faces.len(), 1);
@@ -251,8 +252,8 @@ fn persistent_catalog_detects_replaced_added_removed_and_unsupported_sources() {
     catalog
         .rebuild_inventory(
             &root,
-            vec![source.clone(), unsupported.clone()],
-            vec![installed.clone()],
+            &[source.clone(), unsupported.clone()],
+            std::slice::from_ref(&installed),
         )
         .unwrap();
     assert_eq!(object_stamp, cache::stamp(&file));
@@ -262,8 +263,8 @@ fn persistent_catalog_detects_replaced_added_removed_and_unsupported_sources() {
     catalog
         .rebuild_inventory(
             &root,
-            vec![source.clone(), unsupported.clone(), added.clone()],
-            vec![installed.clone()],
+            &[source.clone(), unsupported.clone(), added.clone()],
+            std::slice::from_ref(&installed),
         )
         .unwrap();
     assert_ne!(catalog.generation, generation);
@@ -273,8 +274,8 @@ fn persistent_catalog_detects_replaced_added_removed_and_unsupported_sources() {
     catalog
         .rebuild_inventory(
             &root,
-            vec![source.clone(), unsupported.clone()],
-            vec![installed.clone()],
+            &[source.clone(), unsupported.clone()],
+            std::slice::from_ref(&installed),
         )
         .unwrap();
     cache::write(
@@ -284,7 +285,7 @@ fn persistent_catalog_detects_replaced_added_removed_and_unsupported_sources() {
     .unwrap();
     assert!(!catalog.fresh(&root));
     catalog
-        .rebuild_inventory(&root, vec![source, unsupported], vec![installed])
+        .rebuild_inventory(&root, &[source, unsupported], &[installed])
         .unwrap();
     assert!(catalog.fresh(&root));
     fs::remove_file(file).unwrap();
@@ -305,7 +306,7 @@ fn fixture_service() -> (tempfile::TempDir, FontService) {
     .unwrap();
     let mut catalog = Catalog::default();
     catalog
-        .rebuild_inventory(&root, vec![source], vec![installed])
+        .rebuild_inventory(&root, &[source], &[installed])
         .unwrap();
     catalog.faces[0].family = "DejaVu Sans".into();
     catalog
@@ -336,7 +337,7 @@ fn default_ui_uses_the_fontconfig_sans_serif_order_after_named_preferences() {
     let select =
         |catalog: &mut Catalog, family| select_ui(catalog, root.path(), family).map(|f| f.family);
     assert_eq!(select(&mut catalog, "").unwrap(), "Local B");
-    assert!(select(&mut catalog, "Missing").is_err());
+    select(&mut catalog, "Missing").unwrap_err();
     catalog.faces.push(test_face("PT Sans", vec![]));
     assert_eq!(select(&mut catalog, "").unwrap(), "PT Sans");
     assert_eq!(select(&mut catalog, "sans-serif").unwrap(), "Local B");
@@ -440,7 +441,7 @@ fn directory_watches_follow_empty_font_symlinks_without_following_cycles() {
     .unwrap();
     let mut catalog = Catalog::default();
     catalog
-        .rebuild_inventory(&root, vec![source], vec![fonts])
+        .rebuild_inventory(&root, &[source], &[fonts])
         .unwrap();
     assert!(catalog.fresh(&root));
     fs::write(target.join("new.ttf"), b"new").unwrap();
