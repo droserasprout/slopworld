@@ -16,6 +16,7 @@ embedded atlas on the game thread, without waiting for mod content loading. Sett
 are available before early hooks are installed; tips are also embedded. This path must
 not initialize UI fonts or definitions, or show stage labels. Background animation
 starts after the first lightweight tip repaint, from the game's already loaded source.
+The early game-thread update also applies the configured cursor during loading.
 There is no second loading renderer or stream reset at the late bootstrap boundary.
 
 `Bootstrap/StartupAudio` retains the game's sound-grain resolution callbacks for
@@ -29,7 +30,8 @@ protect the callback rewrite and its consumers against game updates.
 
 `Patches/LoadingScreen/` owns tip streaming and vanilla drawing suppression. It uses
 the committed ASCII atlas and terminal font preference. Measure before reading
-geometry, and reflow retained text on resize even when no words are due.
+geometry, and reflow retained text on resize even when no words are due. Only
+explicit paragraph breaks survive reflow.
 Keep the stream's coverage proportional to the background's dark area, independent
 of UI scale. Streaming rate follows text capacity. Half-line scrolling must retain
 the outgoing row until it is fully clipped; reset the offset on reflow.

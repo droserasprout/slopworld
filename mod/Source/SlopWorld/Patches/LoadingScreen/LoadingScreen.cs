@@ -126,7 +126,8 @@ namespace SlopWorld
         // The visible stream is a line buffer, not a pre-wrapped wall. Keeping lines explicitly
         // lets a full panel scroll one row at a time while the newly exposed row is populated.
         // Advance runs during Repaint, so a new stream fills naturally before scrolling begins.
-        static readonly List<string> Stream = new List<string>();
+        static readonly List<(string Text, bool ParagraphStart)> Stream =
+            new List<(string, bool)>();
         static readonly List<string> Tokens = new List<string>();
         static readonly System.Text.StringBuilder PaintedBuilder = new System.Text.StringBuilder();
         static int _tokenAt;
@@ -145,8 +146,9 @@ namespace SlopWorld
         static int WordCount()
         {
             int count = 0;
-            foreach (string line in Stream)
+            foreach (var row in Stream)
             {
+                string line = row.Text;
                 if (line.Length == 0)
                     continue;
                 count += line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
@@ -169,7 +171,7 @@ namespace SlopWorld
             {
                 for (int lineAt = 0; lineAt < Stream.Count; lineAt++)
                 {
-                    string line = Stream[lineAt];
+                    string line = Stream[lineAt].Text;
                     if (line.Length == 0)
                         continue;
 
@@ -238,7 +240,7 @@ namespace SlopWorld
             Tokens.Clear();
             _tokenAt = 0;
             int columns = Mathf.Max(1, Mathf.FloorToInt(width / TextWidth(" ", FontSize)));
-            int occupied = Stream.Count == 0 ? 0 : Stream[Stream.Count - 1].Length;
+            int occupied = Stream.Count == 0 ? 0 : Stream[Stream.Count - 1].Text.Length;
             string tip = NextStreamTip(columns, occupied);
             string[] paragraphs = tip.Split(new[] { '\n' }, StringSplitOptions.None);
             for (int i = 0; i < paragraphs.Length; i++)
@@ -268,31 +270,32 @@ namespace SlopWorld
         static void AppendToken(string token, float width)
         {
             if (Stream.Count == 0)
-                Stream.Add(string.Empty);
+                Stream.Add((string.Empty, false));
 
             if (token == null)
             {
                 MakeRoomForLine();
-                Stream.Add(string.Empty);
+                Stream.Add((string.Empty, true));
                 return;
             }
 
-            string current = Stream[Stream.Count - 1];
+            var row = Stream[Stream.Count - 1];
+            string current = row.Text;
             if (current.Length == 0)
             {
-                Stream[Stream.Count - 1] = token;
+                Stream[Stream.Count - 1] = (token, row.ParagraphStart);
                 return;
             }
 
             string candidate = current + " " + token;
             if (TextWidth(candidate, FontSize) <= width)
             {
-                Stream[Stream.Count - 1] = candidate;
+                Stream[Stream.Count - 1] = (candidate, row.ParagraphStart);
                 return;
             }
 
             MakeRoomForLine();
-            Stream.Add(token);
+            Stream.Add((token, false));
         }
 
         static string JoinStream()
@@ -302,55 +305,28 @@ namespace SlopWorld
             {
                 if (i > 0)
                     PaintedBuilder.Append('\n');
-                PaintedBuilder.Append(Stream[i]);
+                PaintedBuilder.Append(Stream[i].Text);
             }
             return PaintedBuilder.ToString();
         }
 
         static void ReflowStream(float width)
         {
-            _scrollStartedAt = -1f;
-            var reflowed = new List<string>();
-            foreach (string oldLine in Stream)
-            {
-                if (oldLine.Length == 0)
-                {
-                    reflowed.Add(string.Empty);
-                    continue;
-                }
-
-                string line = string.Empty;
-                string[] words = oldLine.Split(
-                    new[] { ' ' },
-                    StringSplitOptions.RemoveEmptyEntries
-                );
-                foreach (string word in words)
-                {
-                    if (line.Length == 0)
-                    {
-                        line = word;
-                        continue;
-                    }
-
-                    string candidate = line + " " + word;
-                    if (TextWidth(candidate, FontSize) <= width)
-                    {
-                        line = candidate;
-                        continue;
-                    }
-
-                    reflowed.Add(line);
-                    line = word;
-                }
-
-                if (line.Length > 0)
-                    reflowed.Add(line);
-            }
-
-            while (reflowed.Count > Lines)
-                reflowed.RemoveAt(0);
+            var rows = Stream.ToArray();
             Stream.Clear();
-            Stream.AddRange(reflowed);
+            for (int i = 0; i < rows.Length; i++)
+            {
+                if (i > 0 && rows[i].ParagraphStart)
+                    AppendToken(null, width);
+                foreach (
+                    string word in rows[i]
+                        .Text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                )
+                    AppendToken(word, width);
+            }
+            if (Stream.Count > Lines)
+                Stream.RemoveRange(0, Stream.Count - Lines);
+            _scrollStartedAt = -1f;
             _painted = JoinStream();
         }
 

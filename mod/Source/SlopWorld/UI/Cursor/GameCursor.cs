@@ -4,7 +4,6 @@ using Verse;
 namespace SlopWorld
 {
     // Coordinates cursor settings, textures and animation.
-    [StaticConstructorOnStartup]
     public static class GameCursor
     {
         public sealed class Choice
@@ -43,11 +42,6 @@ namespace SlopWorld
 
         static readonly CursorTextures Textures = new CursorTextures();
         static readonly CursorAnimation Animation = new CursorAnimation();
-
-        static GameCursor()
-        {
-            Apply();
-        }
 
         public static Choice ChoiceFor(string key)
         {
@@ -96,6 +90,18 @@ namespace SlopWorld
             }
         }
 
+        static float _nextStartupAttempt;
+
+        internal static void ApplyDuringStartup()
+        {
+            if (Textures.Ready || Time.realtimeSinceStartup < _nextStartupAttempt)
+                return;
+            // Content discovery can still be in progress on the first Root update.
+            _nextStartupAttempt = Time.realtimeSinceStartup + 0.5f;
+            if (Preview(ChoiceFor(CurrentKey)) != null)
+                Tick();
+        }
+
         // Ignore repeated pats until the animation ends.
         public static void Pat()
         {
@@ -123,7 +129,8 @@ namespace SlopWorld
         public static void Tick()
         {
             EnsureTextures();
-            Textures.Show(Animation.Step(Time.realtimeSinceStartup));
+            if (Textures.Ready)
+                Textures.Show(Animation.Step(Time.realtimeSinceStartup));
         }
     }
 }

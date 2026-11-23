@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
+### Fixed
+
+- UI: Fixed loading text leaving an empty corner when the window was resized mid-animation.
+
 ## [0.1.2] - 2026-11-21
 
 ### Added

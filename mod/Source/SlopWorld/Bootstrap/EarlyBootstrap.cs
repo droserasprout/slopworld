@@ -51,6 +51,7 @@ namespace SlopWorld
                 return;
             WindowTitle.Startup();
             LinuxGameWindow.Follow();
+            GameCursor.ApplyDuringStartup();
         }
 
         static void Update()

@@ -57,6 +57,7 @@ namespace SlopWorld
             UiFont.Apply();
             CrtOverlay.Install();
             TerminalLatencyFrame.Install();
+            GameCursor.Apply();
             EarlyBootstrap.Complete();
         }
 
