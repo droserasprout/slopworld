@@ -76,7 +76,6 @@ namespace SlopWorld
             public string Name;
             public string Rel; // relative to the repository root, which is what git takes back
             public string Project;
-            public string Source;
             public bool IsDir;
             public bool Staged;
             public bool Section;
@@ -125,9 +124,20 @@ namespace SlopWorld
                 Deleted;
             public Node Tree;
 
-            // Porcelain status by relative path, for Files lookups without a tree walk per row.
-            public readonly Dictionary<string, string> Sources = new Dictionary<string, string>();
-            public Dictionary<string, string> Changes = new Dictionary<string, string>();
+            // Git can return a staged deletion and an untracked replacement for one path.
+            public readonly Dictionary<(string Path, bool Untracked), Wire.GitFile> Changes = new();
+
+            public Wire.GitFile File(string path, bool? staged = null)
+            {
+                if (staged != true && Changes.TryGetValue((path, true), out var untracked))
+                    return untracked;
+                if (!Changes.TryGetValue((path, false), out var tracked))
+                    return null;
+                var status = new GitStatus(tracked.Status);
+                if (staged == null || (staged.Value ? status.IsStaged : status.NeedsStage))
+                    return tracked;
+                return null;
+            }
         }
 
         internal Repo Get(string project)
@@ -208,7 +218,6 @@ namespace SlopWorld
                     if (!sameTree)
                     {
                         repo.Changes.Clear();
-                        repo.Sources.Clear();
                         repo.Added = repo.Deleted = 0;
                         repo.CountsComplete = false;
                         repo.Tree = Fold(repo, j.Files);
@@ -241,7 +250,6 @@ namespace SlopWorld
             repo.Changed = repo.Added = repo.Deleted = 0;
             repo.CountsComplete = repo.Truncated = false;
             repo.Changes.Clear();
-            repo.Sources.Clear();
         }
 
         void GetGit(
@@ -299,10 +307,9 @@ namespace SlopWorld
                     continue;
                 paths++;
                 if (
-                    !repo.Changes.TryGetValue(file.Path, out var status)
-                    || status != file.Status
-                    || !repo.Sources.TryGetValue(file.Path, out var source)
-                    || source != file.Source
+                    !repo.Changes.TryGetValue(RecordKey(file), out var current)
+                    || current.Status != file.Status
+                    || current.Source != file.Source
                 )
                     return false;
             }
@@ -340,22 +347,9 @@ namespace SlopWorld
                         || !j.CountsComplete
                     )
                         return;
-                    var files = new Dictionary<string, Wire.GitFile>();
-                    foreach (var f in j.Files)
-                    {
-                        string path = f.Path;
-                        if (
-                            !repo.Changes.TryGetValue(path, out var status)
-                            || status != f.Status
-                            || !repo.Sources.TryGetValue(path, out var source)
-                            || source != f.Source
-                        )
-                            return;
-                        files[path] = f;
-                    }
-                    // The checkout may have changed between the two requests.
-                    if (files.Count != repo.Changes.Count)
+                    if (!SameStatus(repo, j))
                         return;
+                    var files = j.Files.ToDictionary(RecordKey);
                     bool changed = ApplyCounts(repo.Tree, files);
                     int added = (int)j.Added;
                     int deleted = (int)j.Deleted;
@@ -371,7 +365,10 @@ namespace SlopWorld
             );
         }
 
-        static bool ApplyCounts(Node node, Dictionary<string, Wire.GitFile> files)
+        static (string Path, bool Untracked) RecordKey(Wire.GitFile file) =>
+            (file.Path, new GitStatus(file.Status).Untracked);
+
+        static bool ApplyCounts(Node node, Dictionary<(string, bool), Wire.GitFile> files)
         {
             if (node == null)
                 return false;
@@ -379,7 +376,7 @@ namespace SlopWorld
             if (node.Kids != null)
                 foreach (var child in node.Kids)
                     changed |= ApplyCounts(child, files);
-            if (node.IsDir || !files.TryGetValue(node.Rel, out var f))
+            if (node.IsDir || !files.TryGetValue((node.Rel, node.Status.Untracked), out var f))
                 return changed;
             int added = !f.HasAdded ? -1 : (int)f.Added;
             int deleted = !f.HasDeleted ? -1 : (int)f.Deleted;
@@ -390,6 +387,25 @@ namespace SlopWorld
             return true;
         }
 
+        internal static bool RevealRow(Node node, string key, HashSet<string> folded)
+        {
+            if (node == null)
+                return false;
+            if (node.Key == key)
+                return true;
+            if (node.Kids == null)
+                return false;
+            foreach (var child in node.Kids)
+            {
+                if (RevealRow(child, key, folded))
+                {
+                    folded.Remove(node.Key);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // A selected rename needs both sides, including sources outside a selected directory.
         internal static string[] DiffPaths(Repo repo, string relative, bool? staged = null)
         {
@@ -397,42 +413,26 @@ namespace SlopWorld
             if (relative == null)
                 return null;
             var paths = new HashSet<string> { relative };
-            foreach (var change in repo.Changes)
+            foreach (var change in repo.Changes.Values)
             {
                 if (
-                    change.Key != relative
-                    && !change.Key.StartsWith(relative.TrimEnd('/') + "/", StringComparison.Ordinal)
+                    change.Path != relative
+                    && !change.Path.StartsWith(
+                        relative.TrimEnd('/') + "/",
+                        StringComparison.Ordinal
+                    )
                 )
                     continue;
-                var status = new GitStatus(change.Value);
+                var status = new GitStatus(change.Status);
                 if (
                     (
                         (staged != false && status.Staged == 'R')
                         || (staged != true && status.Worktree == 'R')
-                    )
-                    && repo.Sources.TryGetValue(change.Key, out var source)
-                    && !string.IsNullOrEmpty(source)
+                    ) && !string.IsNullOrEmpty(change.Source)
                 )
-                    paths.Add(source);
+                    paths.Add(change.Source);
             }
             return paths.ToArray();
-        }
-
-        internal static string[] UnstagePaths(Node node)
-        {
-            var paths = new HashSet<string> { node.Rel };
-            AddRenameSources(node, paths);
-            return paths.ToArray();
-        }
-
-        static void AddRenameSources(Node node, HashSet<string> paths)
-        {
-            // Copies leave their source intact; only renames stage its removal.
-            if (node.Status.Staged == 'R' && !string.IsNullOrEmpty(node.Source))
-                paths.Add(node.Source);
-            if (node.Kids != null)
-                foreach (var child in node.Kids)
-                    AddRenameSources(child, paths);
         }
 
         // Requires sorted paths so each directory's entries are contiguous.
@@ -478,8 +478,7 @@ namespace SlopWorld
                 var status = new GitStatus(f.Status);
                 if (!(staged ? status.IsStaged : status.NeedsStage))
                     continue;
-                repo.Changes[rel] = f.Status;
-                repo.Sources[rel] = f.Source;
+                repo.Changes[RecordKey(f)] = f;
 
                 var parts = rel.Split('/');
                 var at = root;
@@ -516,7 +515,6 @@ namespace SlopWorld
                         Depth = at.Depth + 1,
                         Status = status,
                         Staged = staged,
-                        Source = f.Source,
                         // Null where git counted nothing (binary or a capped response). Kept apart
                         // from zero, which is a real count and a different row.
                         Added = !f.HasAdded ? -1 : (int)f.Added,

@@ -15,4 +15,4 @@ contents. Capped status exposes a lower-bound changed-path total and omits line
 counts, with completeness false. Optional count failure leaves status available.
 
 [Worktrees](daemon-worktrees.md) own checkout allocation/removal and metadata
-coordination. [Git UI](mod-ui-git.md) owns actions and interpreting partial replies.
+coordination. [Git UI](mod-ui-git.md) owns presentation and interpreting partial replies. Root-only POST /api/git resolves the configured checkout and verifies the expected repository root. Rust owns stage, unstage, discard and commit arguments, rename sources and current status validation.

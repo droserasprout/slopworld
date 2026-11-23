@@ -31,6 +31,7 @@ enum RequestKind {
     Empty,
     FileActionReq,
     FileReq,
+    GitMutationReq,
     HighlightReq,
     LabelReq,
     LibraryItem,
@@ -204,6 +205,7 @@ const ROUTES: &[Route] = &[
     ("DELETE /api/files", Req::FileReq, Resp::Ack),
     ("GET /api/search", Req::Empty, Resp::SearchResult),
     ("GET /api/git", Req::Empty, Resp::GitResult),
+    ("POST /api/git", Req::GitMutationReq, Resp::Ack),
     (
         "PUT /api/planner/items/:id/links",
         Req::PlannerLinksReq,
@@ -326,6 +328,7 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         RequestKind::Empty => encode_wire::<wire::Empty>(value),
         RequestKind::FileActionReq => encode_wire::<wire::FileActionReq>(value),
         RequestKind::FileReq => encode_wire::<wire::FileReq>(value),
+        RequestKind::GitMutationReq => encode_wire::<wire::GitMutationReq>(value),
         RequestKind::HighlightReq => encode_wire::<wire::HighlightReq>(value),
         RequestKind::LabelReq => encode_wire::<wire::LabelReq>(value),
         RequestKind::LibraryItem => encode_wire::<wire::LibraryItem>(value),
@@ -457,6 +460,9 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
             Ok(serde_json::to_value(wire::FileActionReq::decode(value)?)?)
         }
         RequestKind::FileReq => Ok(serde_json::to_value(wire::FileReq::decode(value)?)?),
+        RequestKind::GitMutationReq => {
+            Ok(serde_json::to_value(wire::GitMutationReq::decode(value)?)?)
+        }
         RequestKind::HighlightReq => Ok(serde_json::to_value(wire::HighlightReq::decode(value)?)?),
         RequestKind::LabelReq => Ok(serde_json::to_value(wire::LabelReq::decode(value)?)?),
         RequestKind::LibraryItem => Ok(serde_json::to_value(wire::LibraryItem::decode(value)?)?),

@@ -439,8 +439,9 @@ http:
     git:
       protobuf:
         GET: [Empty, GitResult]
+        POST: [GitMutationReq, Ack]
       path: "/api/git"
-      methods: [GET]
+      methods: [GET, POST]
       scope: root
   websocket:
     path: "/ws"

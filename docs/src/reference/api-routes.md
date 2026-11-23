@@ -42,6 +42,7 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `PUT` | `/api/files` | `root-only` | `FileReq` | `Ack` |
 | `GET` | `/api/files/stat` | `root-only` | `Empty` | `FileStatResult` |
 | `GET` | `/api/git` | `root-only` | `Empty` | `GitResult` |
+| `POST` | `/api/git` | `root-only` | `GitMutationReq` | `Ack` |
 | `POST` | `/api/highlight` | `root-only` | `HighlightReq` | `TextResult` |
 | `GET` | `/api/highlight/themes` | `root-only` | `Empty` | `HighlightThemes` |
 | `GET` | `/api/image` | `root-only` | `Empty` | `ImageResult` |

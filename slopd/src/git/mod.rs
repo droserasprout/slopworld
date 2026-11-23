@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 mod exec;
+pub(crate) mod mutation;
 
 use futures::stream::{self, StreamExt};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, BufReader};

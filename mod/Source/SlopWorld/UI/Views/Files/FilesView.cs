@@ -127,12 +127,5 @@ namespace SlopWorld
             string name,
             string relative = null
         ) => Browser.Actions.AddFileActions(opts, project, path, name, relative);
-
-        internal static Wire.FileActionReq ScopeAction(
-            string scope,
-            string path,
-            string command,
-            bool host = false
-        ) => FilesActions.ScopeAction(scope, path, command, host);
     }
 }

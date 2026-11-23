@@ -12,9 +12,6 @@ namespace SlopWorld
             " -- "
             + string.Join(" ", paths.Select(path => PagerCommands.Quote(":(literal)" + path)));
 
-        public static string Stage(string root, string relative) =>
-            "git -C " + PagerCommands.Quote(root) + " add" + Paths(new[] { relative });
-
         public static string Diff(string root, string relative, bool untracked)
         {
             string git = "git -C " + PagerCommands.Quote(root);
@@ -59,40 +56,5 @@ namespace SlopWorld
             + " --paginate diff --color=always"
             + (staged ? " --cached" : "")
             + Paths(paths);
-
-        public static string Discard(string root, string relative, bool untracked)
-        {
-            string path = PagerCommands.Quote("./" + relative);
-            string script =
-                "cd -- "
-                + PagerCommands.Quote(root)
-                + " && test ! -d "
-                + path
-                + " && exec git "
-                + (untracked ? "clean -f" : "restore --worktree")
-                + Paths(new[] { relative });
-            return "bash -lc " + PagerCommands.Quote(script);
-        }
-
-        public static string Unstage(string root, params string[] relative)
-        {
-            string git = "git -C " + PagerCommands.Quote(root);
-            string paths = Paths(relative);
-            // With no commit all index entries are additions. Remove only index entries;
-            // -f also permits unstaging a file edited again after it was added.
-            string script =
-                "if "
-                + git
-                + " rev-parse --verify HEAD >/dev/null 2>&1; then exec "
-                + git
-                + " reset"
-                + paths
-                + "; else exec "
-                + git
-                + " rm --cached -r -f"
-                + paths
-                + "; fi";
-            return "bash -lc " + PagerCommands.Quote(script);
-        }
     }
 }

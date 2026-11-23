@@ -147,3 +147,33 @@ async fn rename_source_survives_status_wire_with_and_without_counts() {
         assert_eq!(reply.files[0].source.as_deref(), Some("old.txt"));
     }
 }
+
+#[tokio::test]
+async fn mutation_resolves_nested_project_and_rejects_stale_root() {
+    let repo = crate::test_support::fixture("mutation-api");
+    git(&repo, &["init", "-q"]);
+    let sub = repo.join("project");
+    std::fs::create_dir(&sub).unwrap();
+    std::fs::write(repo.join("change"), "data").unwrap();
+    let app = crate::application::test_application(crate::config::Config {
+        projects: vec![crate::config::ProjectCfg {
+            name: "nested".into(),
+            dir: sub.display().to_string(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    let mut req = wire::GitMutationReq {
+        project: "nested".into(),
+        worktree: "main".into(),
+        expected_root: sub.display().to_string(),
+        operation: Some(wire::git_mutation_req::Operation::StageAll(wire::Empty {})),
+    };
+    let (status, _) = git_mutation(State(app.clone()), Proto(req.clone()))
+        .await
+        .unwrap_err();
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    req.expected_root = repo.display().to_string();
+    assert!(git_mutation(State(app), Proto(req)).await.unwrap().0.ok);
+    git(&repo, &["ls-files", "--error-unmatch", "change"]);
+}

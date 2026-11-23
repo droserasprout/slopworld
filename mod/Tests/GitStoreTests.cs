@@ -62,13 +62,12 @@ namespace SlopWorld.Tests
             var first = Status("R ");
             first.Files[0].Source = "old/file";
             f.Requests[0].Ok(first);
-            var tree = f.Store.Get("p").Tree;
             Assert.That(
-                GitStore.UnstagePaths(tree.Kids[0].Kids[0]),
+                GitStore.DiffPaths(f.Store.Get("p"), "a/b", true),
                 Is.EquivalentTo(new[] { "a/b", "old/file" })
             );
             Assert.That(
-                GitStore.UnstagePaths(tree.Kids[0].Kids[0].Kids[0]),
+                GitStore.DiffPaths(f.Store.Get("p"), "a/b/file", true),
                 Is.EquivalentTo(new[] { "a/b/file", "old/file" })
             );
             f.Store.Fetch("p");
@@ -76,7 +75,7 @@ namespace SlopWorld.Tests
             next.Files[0].Source = "different/file";
             f.Requests[f.Requests.Count - 1].Ok(next);
             Assert.That(
-                GitStore.UnstagePaths(f.Store.Get("p").Tree.Kids[0].Kids[0]),
+                GitStore.DiffPaths(f.Store.Get("p"), "a/b", true),
                 Is.EquivalentTo(new[] { "a/b", "different/file" })
             );
         }
@@ -102,26 +101,87 @@ namespace SlopWorld.Tests
             Assert.That(staged.Key, Is.Not.EqualTo(unstaged.Key));
         }
 
+        public static void HistoryRevealsTheVisitedSideOfAPartiallyStagedFile()
+        {
+            var fixture = new Fixture();
+            fixture.Store.Fetch("p");
+            fixture.Requests[0].Ok(Status("MM"));
+            var tree = fixture.Store.Get("p").Tree;
+            var history = new SidebarViewHistory();
+            var staged = tree.Kids[0];
+            var unstaged = tree.Kids[1];
+            history.Visit(SidebarViewLocation.Git("p", staged.Kids[0].Kids[0].Key));
+            history.Visit(SidebarViewLocation.Git("p", unstaged.Kids[0].Kids[0].Key));
+            Assert.That(history.Back(out var previous), Is.True);
+            var folded = new HashSet<string> { staged.Key, staged.Kids[0].Key, unstaged.Key };
+            Assert.That(GitStore.RevealRow(tree, previous.Secondary, folded), Is.True);
+            Assert.That(folded, Is.EquivalentTo(new[] { unstaged.Key }));
+        }
+
+        public static void StagedDeletionAndUntrackedReplacementRetainBothRecords()
+        {
+            var fixture = new Fixture();
+            fixture.Store.Fetch("p");
+            var snapshot = Status("D ");
+            snapshot.Files.Add(new Wire.GitFile { Path = "a/b/file", Status = "??" });
+            snapshot.Changed = 2;
+            fixture.Requests[0].Ok(snapshot);
+            var repo = fixture.Store.Get("p");
+            var tree = repo.Tree;
+            Assert.That(repo.File("a/b/file", true).Status, Is.EqualTo("D "));
+            Assert.That(repo.File("a/b/file", false).Status, Is.EqualTo("??"));
+            var counts = snapshot.Clone();
+            counts.CountsComplete = true;
+            counts.Files[0].Deleted = 2;
+            counts.Files[1].Added = 4;
+            fixture.Requests[1].Ok(counts);
+            Assert.That(tree.Kids[0].Kids[0].Kids[0].Deleted, Is.EqualTo(2));
+            Assert.That(tree.Kids[1].Kids[0].Kids[0].Added, Is.EqualTo(4));
+            fixture.Store.Fetch("p");
+            fixture.Requests[2].Ok(snapshot);
+            Assert.That(repo.Tree, Is.SameAs(tree));
+        }
+
         public static void DiffAllKeepsAnUnrestrictedPathSelection()
         {
             var repo = new GitStore.Repo();
             Assert.That(GitStore.DiffPaths(repo, null), Is.Null);
-            repo.Changes["dir/renamed"] = "R ";
-            repo.Sources["dir/renamed"] = "outside/original";
+            repo.Changes[("dir/renamed", false)] = new Wire.GitFile
+            {
+                Path = "dir/renamed",
+                Status = "R ",
+                Source = "outside/original",
+            };
             Assert.That(GitStore.DiffPaths(repo, null), Is.Null);
         }
 
         public static void DiffSelectionIncludesOnlySelectedRenameSources()
         {
             var repo = new GitStore.Repo();
-            repo.Changes["dir/renamed"] = "R ";
-            repo.Sources["dir/renamed"] = "outside/original";
-            repo.Changes["dir/worktree-rename"] = " R";
-            repo.Sources["dir/worktree-rename"] = "outside/worktree-original";
-            repo.Changes["dir/copied"] = "C ";
-            repo.Sources["dir/copied"] = "outside/copy-source";
-            repo.Changes["directory/unrelated"] = "R ";
-            repo.Sources["directory/unrelated"] = "outside/unrelated";
+            repo.Changes[("dir/renamed", false)] = new Wire.GitFile
+            {
+                Path = "dir/renamed",
+                Status = "R ",
+                Source = "outside/original",
+            };
+            repo.Changes[("dir/worktree-rename", false)] = new Wire.GitFile
+            {
+                Path = "dir/worktree-rename",
+                Status = " R",
+                Source = "outside/worktree-original",
+            };
+            repo.Changes[("dir/copied", false)] = new Wire.GitFile
+            {
+                Path = "dir/copied",
+                Status = "C ",
+                Source = "outside/copy-source",
+            };
+            repo.Changes[("directory/unrelated", false)] = new Wire.GitFile
+            {
+                Path = "directory/unrelated",
+                Status = "R ",
+                Source = "outside/unrelated",
+            };
             Assert.That(
                 GitStore.DiffPaths(repo, "dir"),
                 Is.EquivalentTo(new[] { "dir", "outside/original", "outside/worktree-original" })
@@ -165,7 +225,7 @@ namespace SlopWorld.Tests
             f.Requests[1].Ok(Status(counts: true));
             var repo = f.Store.Get("p");
             Assert.That(repo.CountsComplete, Is.False);
-            Assert.That(repo.Changes["a/b/file"], Is.EqualTo("M "));
+            Assert.That(repo.File("a/b/file").Status, Is.EqualTo("M "));
             var changedPaths = Status("M ", counts: true);
             changedPaths.Files[0].Path = "other";
             f.Requests[3].Ok(changedPaths);

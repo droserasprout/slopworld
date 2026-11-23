@@ -58,6 +58,17 @@ pub(crate) async fn git_status(
     }))
 }
 
+/// Apply a Git mutation to the resolved project checkout.
+pub(crate) async fn git_mutation(
+    State(m): State<App>,
+    Proto(q): Proto<wire::GitMutationReq>,
+) -> ApiResult {
+    let result = crate::application::file_actions::FileActions::new(&m)
+        .git_mutation(q)
+        .await;
+    super::super::ack_result(result)
+}
+
 #[cfg(test)]
 #[path = "git_tests.rs"]
 mod tests;

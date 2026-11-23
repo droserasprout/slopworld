@@ -159,7 +159,7 @@ fn root_routes(m: App) -> Router<App> {
             post(create_file).put(rename_file).delete(remove_file),
         )
         .route(routes::SEARCH, get(search))
-        .route(routes::GIT, get(git_status))
+        .route(routes::GIT, get(git_status).post(git_mutation))
         .layer(middleware::from_fn_with_state(m, require_root))
 }
 

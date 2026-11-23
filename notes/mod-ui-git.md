@@ -1,14 +1,15 @@
 # Git view
 
-`GitView` owns tree presentation and actions; `GitStore` owns repository identity,
+`GitView` owns tree presentation and mutation requests; `GitStore` owns repository identity,
 status, optional counts, and refresh lifetime under shared project/worktree scope IDs.
 The daemon runs inspection, mutations, and diff processes on the host, outside private
 agent state. See [daemon Git](daemon-git.md) and the user-facing
 [Git guide](../docs/src/workspace/review-changes.md).
 
 Staged and unstaged headings fold independently within a checkout and add no
-directory indentation. Their rows share one status snapshot. Selection, folding and diff
-readers distinguish the two sides of a partially staged path. Discard operates
+directory indentation. Their rows share one status snapshot. Selection, sidebar history, folding and diff
+readers distinguish the two sides of a partially staged path. Git can report both a
+staged deletion and an untracked replacement at one path. The cache retains both records. Discard operates
 on individual unstaged files and preserves the index.
 
 Status can render before line counts. Late counts cannot overwrite newer status;
@@ -18,7 +19,7 @@ must not appear as complete totals.
 Diff selection captures visible paths, but the pager reads current contents when
 launched. Untracked files need individual no-index diffs against `/dev/null` because
 repository diffs omit them. Resolve HEAD at execution; unborn repositories use an
-empty tree, and unstaging removes only index entries.
+empty tree. The mod sends typed mutation requests to the daemon.
 
 `GitCommands` constructs literal pathspecs. Preserve rename sources through transport
 and caching: unstaging or diffing a row/directory includes both sides of renames,

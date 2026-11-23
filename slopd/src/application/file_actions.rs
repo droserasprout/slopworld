@@ -19,6 +19,27 @@ impl FileActions {
         }
     }
 
+    pub(crate) async fn git_mutation(
+        &self,
+        request: crate::shared::wire::GitMutationReq,
+    ) -> Result<()> {
+        let operation = request
+            .operation
+            .ok_or_else(|| anyhow!("missing Git operation"))?;
+        let _guard = self.workspace.worktrees.mutation.lock().await;
+        let cfg = config_for_action_scope(self, &request.project, &request.worktree, "").await?;
+        let project = cfg
+            .project(&request.project)
+            .ok_or_else(|| anyhow!("missing project"))?;
+        let directory = crate::config::expand(&project.dir);
+        crate::git::mutation::execute(
+            std::path::Path::new(&directory),
+            &request.expected_root,
+            operation,
+        )
+        .await
+    }
+
     pub(crate) async fn file_action(
         &self,
         project: &str,

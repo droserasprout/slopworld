@@ -214,20 +214,22 @@ namespace SlopWorld
         {
             project = SidebarScopes.Key(project);
             var repo = Known(project);
-            if (
-                repo == null
-                || string.IsNullOrEmpty(rel)
-                || !repo.Changes.TryGetValue(rel, out var status)
-            )
+            if (repo == null || string.IsNullOrEmpty(rel))
+                return false;
+            string key = rel;
+            if (!key.StartsWith('/'))
+            {
+                var file = repo.File(rel);
+                if (file == null)
+                    return false;
+                key = Node.RowKey(!new GitStatus(file.Status).NeedsStage, rel);
+            }
+            if (!GitStore.RevealRow(repo.Tree, key, Shut(repo)))
                 return false;
             TreeController.SetGroupCollapsed(project, false);
             TreeController.SetGroupCollapsed(SidebarScopes.Find(project)?.ProjectKey, false);
-            Tree.RevealKey(
-                ContentTreeView.SelectionKey(
-                    project,
-                    Node.RowKey(!new GitStatus(status).NeedsStage, rel)
-                )
-            );
+            BumpTree();
+            Tree.RevealKey(ContentTreeView.SelectionKey(project, key));
             return true;
         }
 
@@ -257,8 +259,7 @@ namespace SlopWorld
                     {
                         if (
                             !ReferenceEquals(Known(repo.Project), repo)
-                            || !repo.Changes.TryGetValue(node.Rel, out var current)
-                            || current != node.Status.Pair
+                            || repo.File(node.Rel, node.Staged)?.Status != node.Status.Pair
                         )
                         {
                             UiLayout.Fail("Git status changed. Review the file again.");
@@ -266,9 +267,8 @@ namespace SlopWorld
                         }
                         GitAction(
                             repo,
-                            GitCommands.Discard(repo.Root, node.Rel, node.Status.Untracked),
-                            "discarded " + node.Rel,
-                            true
+                            new Wire.GitMutationReq { Discard = Selection(node) },
+                            "discarded " + node.Rel
                         );
                     },
                     true
@@ -286,7 +286,7 @@ namespace SlopWorld
                     if (node.Section)
                         StageAll(repo);
                     else
-                        Stage(repo, node.Rel);
+                        Stage(repo, node);
                     break;
                 case RowAct.Unstage:
                     if (node.Section)
@@ -344,7 +344,7 @@ namespace SlopWorld
         {
             var repo = Known(project);
             string rel = repo == null ? null : RelOf(repo, abs);
-            return rel != null && repo.Changes.ContainsKey(rel);
+            return rel != null && repo.File(rel) != null;
         }
 
         // Returns a diff command for the cached path, without opening a pager.
@@ -352,7 +352,8 @@ namespace SlopWorld
         {
             var repo = Known(project);
             string rel = repo == null ? null : RelOf(repo, abs);
-            if (rel == null || !repo.Changes.TryGetValue(rel, out var status))
+            var status = rel == null ? null : repo.File(rel)?.Status;
+            if (status == null)
                 return null;
             return DiffCmd(repo, rel, status);
         }
@@ -465,7 +466,7 @@ namespace SlopWorld
             bool canStage = !node.Staged;
             bool canUnstage = node.Staged;
             if (canStage)
-                opts.Add(new FloatMenuOption("Stage", () => Stage(repo, node.Rel)));
+                opts.Add(new FloatMenuOption("Stage", () => Stage(repo, node)));
             if (canUnstage)
                 opts.Add(new FloatMenuOption("Unstage", () => Unstage(repo, node)));
 
@@ -540,14 +541,9 @@ namespace SlopWorld
                 _pinPendingDiff = false;
                 var repo = Known(project);
                 string rel = repo == null ? null : RelOf(repo, abs);
-                string status = null;
+                string status = rel == null ? null : repo.File(rel, sectionNode?.Staged)?.Status;
                 bool changed =
-                    rel != null
-                    && (
-                        directory
-                            ? HasChangesUnder(repo, rel)
-                            : repo.Changes.TryGetValue(rel, out status)
-                    );
+                    rel != null && (directory ? HasChangesUnder(repo, rel) : status != null);
                 if (!changed)
                 {
                     if (repo != null && !repo.Truncated && rel != null)
@@ -564,7 +560,7 @@ namespace SlopWorld
                             sectionNode?.Key ?? Node.RowKey(!new GitStatus(status).NeedsStage, rel)
                         )
                     );
-                Sidebar.RememberGit(project, rel);
+                Sidebar.RememberGit(project, sectionNode?.Key ?? rel);
                 Viewers.OpenFresh(
                     project,
                     sectionNode == null || new GitStatus(status).Untracked
@@ -600,8 +596,8 @@ namespace SlopWorld
 
         static bool HasChangesUnder(Repo repo, string rel)
         {
-            foreach (var path in repo.Changes.Keys)
-                if (path.StartsWith(rel.TrimEnd('/') + "/", System.StringComparison.Ordinal))
+            foreach (var record in repo.Changes.Keys)
+                if (record.Path.StartsWith(rel.TrimEnd('/') + "/", System.StringComparison.Ordinal))
                     return true;
             return false;
         }

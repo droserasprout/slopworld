@@ -39,7 +39,7 @@ namespace SlopWorld.Tests
 
         [TestCase("sha1")]
         [TestCase("sha256")]
-        public void UnbornDiffAndUnstagePreserveWorkingFiles(string format)
+        public void UnbornDiffUsesTheEmptyTree(string format)
         {
             WithRepository(
                 format,
@@ -76,7 +76,7 @@ namespace SlopWorld.Tests
                         PagerCommands.DiffCommand(configured, "less", false, "test-theme"),
                         Is.EqualTo(configured)
                     );
-                    Run(GitCommands.Unstage(root, name));
+                    Git(root, "--literal-pathspecs reset -- " + PagerCommands.Quote(name));
                     Assert.That(File.ReadAllText(path), Is.EqualTo("edited after staging\n"));
                     Assert.That(Git(root, "ls-files"), Is.Empty);
                     Assert.That(
@@ -85,7 +85,7 @@ namespace SlopWorld.Tests
                     );
 
                     Git(root, "add --all");
-                    Run(GitCommands.Unstage(root, "."));
+                    Git(root, "reset -- .");
                     Assert.That(Git(root, "ls-files"), Is.Empty);
                     Assert.That(File.Exists(path), Is.True);
                 }
@@ -93,30 +93,7 @@ namespace SlopWorld.Tests
         }
 
         [Test]
-        public void DiscardPreservesTheIndexAndOnlyDeletesTheSelectedUntrackedFile()
-        {
-            WithRepository(
-                "sha1",
-                root =>
-                {
-                    const string name = ":(glob)*.txt";
-                    string path = Path.Combine(root, name);
-                    File.WriteAllText(path, "indexed");
-                    Run(GitCommands.Stage(root, name));
-                    File.WriteAllText(path, "later");
-                    Run(GitCommands.Discard(root, name, false));
-                    Assert.That(File.ReadAllText(path), Is.EqualTo("indexed"));
-                    Run(GitCommands.Unstage(root, name));
-                    File.WriteAllText(Path.Combine(root, "other.txt"), "keep");
-                    Run(GitCommands.Discard(root, name, true));
-                    Assert.That(File.Exists(path), Is.False);
-                    Assert.That(File.Exists(Path.Combine(root, "other.txt")), Is.True);
-                }
-            );
-        }
-
-        [Test]
-        public void CommittedDiffAndUnstageKeepHeadBaseline()
+        public void CommittedDiffUsesHeadBaseline()
         {
             WithRepository(
                 "sha1",
@@ -132,7 +109,7 @@ namespace SlopWorld.Tests
                     Git(root, "add --all");
                     string diff = Run(GitCommands.Diff(root, "tracked", false));
                     Assert.That(diff, Does.Contain("original").And.Contain("changed"));
-                    Run(GitCommands.Unstage(root, "."));
+                    Git(root, "reset -- .");
                     Assert.That(Git(root, "diff --cached --name-only"), Is.Empty);
                     Assert.That(
                         File.ReadAllText(Path.Combine(root, "tracked")),
@@ -145,7 +122,7 @@ namespace SlopWorld.Tests
 
         [TestCase("sha1")]
         [TestCase("sha256")]
-        public void LiteralPathsKeepOtherFilesOutOfActions(string format)
+        public void LiteralPathsKeepOtherFilesOutOfDiffs(string format)
         {
             WithRepository(
                 format,
@@ -154,14 +131,14 @@ namespace SlopWorld.Tests
                     const string name = ":(glob)*.txt";
                     File.WriteAllText(Path.Combine(root, name), "selected\n");
                     File.WriteAllText(Path.Combine(root, "other.txt"), "unrelated\n");
-                    Run(GitCommands.Stage(root, name));
+                    Git(root, "--literal-pathspecs add -- " + PagerCommands.Quote(name));
                     Assert.That(Git(root, "ls-files").Trim(), Is.EqualTo(name));
                     Assert.That(
                         Run(GitCommands.Diff(root, name, false)),
                         Does.Not.Contain("unrelated")
                     );
                     Git(root, "add --all");
-                    Run(GitCommands.Unstage(root, name));
+                    Git(root, "--literal-pathspecs reset -- " + PagerCommands.Quote(name));
                     Assert.That(Git(root, "ls-files").Trim(), Is.EqualTo("other.txt"));
                     Git(root, "add --all");
                     Git(
@@ -170,14 +147,14 @@ namespace SlopWorld.Tests
                     );
                     File.AppendAllText(Path.Combine(root, name), "selected edit\n");
                     File.AppendAllText(Path.Combine(root, "other.txt"), "unrelated edit\n");
-                    Run(GitCommands.Stage(root, name));
+                    Git(root, "--literal-pathspecs add -- " + PagerCommands.Quote(name));
                     Assert.That(Git(root, "diff --cached --name-only").Trim(), Is.EqualTo(name));
                     Assert.That(
                         Run(GitCommands.Diff(root, name, false)),
                         Does.Not.Contain("unrelated edit")
                     );
                     Git(root, "add --all");
-                    Run(GitCommands.Unstage(root, name));
+                    Git(root, "--literal-pathspecs reset -- " + PagerCommands.Quote(name));
                     Assert.That(
                         Git(root, "diff --cached --name-only").Trim(),
                         Is.EqualTo("other.txt")
@@ -206,8 +183,12 @@ namespace SlopWorld.Tests
                     Git(root, "mv old.txt destination/new.txt");
                     File.WriteAllText(Path.Combine(root, "other.txt"), "unrelated edit\n");
                     var repo = new GitStore.Repo { Root = root };
-                    repo.Changes["destination/new.txt"] = "R ";
-                    repo.Sources["destination/new.txt"] = "old.txt";
+                    repo.Changes[("destination/new.txt", false)] = new Wire.GitFile
+                    {
+                        Path = "destination/new.txt",
+                        Status = "R ",
+                        Source = "old.txt",
+                    };
                     string diff = Run(GitCommands.Diff(root, GitStore.DiffPaths(repo, selection)));
                     Assert.That(diff, Does.Contain("rename from old.txt"));
                     Assert.That(diff, Does.Contain("rename to destination/new.txt"));
@@ -217,32 +198,6 @@ namespace SlopWorld.Tests
                         selection == null
                             ? Does.Contain("unrelated edit")
                             : Does.Not.Contain("unrelated edit")
-                    );
-                }
-            );
-        }
-
-        [Test]
-        public void UnstageRenameRestoresBothIndexPathsWithoutMovingWorkingFile()
-        {
-            WithRepository(
-                "sha1",
-                root =>
-                {
-                    File.WriteAllText(Path.Combine(root, "old.txt"), "original\n");
-                    Git(root, "add --all");
-                    Git(
-                        root,
-                        "-c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm initial"
-                    );
-                    Directory.CreateDirectory(Path.Combine(root, "target"));
-                    Git(root, "mv old.txt target/new.txt");
-                    Run(GitCommands.Unstage(root, "target/new.txt", "old.txt"));
-                    Assert.That(Git(root, "diff --cached --name-only"), Is.Empty);
-                    Assert.That(File.Exists(Path.Combine(root, "old.txt")), Is.False);
-                    Assert.That(
-                        File.ReadAllText(Path.Combine(root, "target/new.txt")),
-                        Is.EqualTo("original\n")
                     );
                 }
             );

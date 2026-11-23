@@ -538,6 +538,26 @@ message RunReaderReq {
 
 message ReaderPinnedReq { bool pinned = 1; }
 
+message GitSelection {
+  string path = 1;
+  // Exact porcelain pair for a file. An omitted pair selects a directory.
+  optional string status = 2;
+}
+
+message GitMutationReq {
+  string project = 1;
+  string worktree = 2;
+  string expected_root = 3;
+  oneof operation {
+    GitSelection stage = 4;
+    GitSelection unstage = 5;
+    GitSelection discard = 6;
+    Empty stage_all = 7;
+    Empty unstage_all = 8;
+    string commit = 9;
+  }
+}
+
 message FileActionReq {
   optional string worktree = 5;
   optional string project = 1;

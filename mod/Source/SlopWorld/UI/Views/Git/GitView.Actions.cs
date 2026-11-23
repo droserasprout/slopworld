@@ -5,23 +5,22 @@ using Repo = SlopWorld.GitStore.Repo;
 
 namespace SlopWorld
 {
-    // Coordinates Git mutations and refreshes. GitCommands owns command construction;
+    // Sends typed Git mutation requests and refreshes successful operations;
     // GitStore owns snapshot identity and rename paths, while Rendering owns drawing.
     public static partial class GitView
     {
         static bool HasStaged(Repo repo)
         {
             foreach (var status in repo.Changes.Values)
-                if (new GitStatus(status).IsStaged)
+                if (new GitStatus(status.Status).IsStaged)
                     return true;
             return false;
         }
 
         static void GitAction(
             Repo repo,
-            string command,
+            Wire.GitMutationReq request,
             string notice,
-            bool completeCommand = false,
             System.Action ok = null,
             System.Action<string> fail = null
         )
@@ -37,14 +36,12 @@ namespace SlopWorld
                 return;
             }
 
-            // A project may point below the repository root. Validate its selected checkout
-            // directory while Git uses the repository root returned by the daemon.
-            string full = completeCommand
-                ? command
-                : "git -C " + Pager.Quote(repo.Root) + " " + command;
-            DaemonClient.Post<Wire.OutputResult>(
-                WireProtocol.Routes.FileAction,
-                FilesView.ScopeAction(repo.Project, repo.Dir, full),
+            request.Project = SidebarScopes.ProjectName(repo.Project) ?? "";
+            request.Worktree = SidebarScopes.Worktree(repo.Project);
+            request.ExpectedRoot = repo.Root;
+            DaemonClient.Post<Wire.Ack>(
+                WireProtocol.Routes.Git,
+                request,
                 _ =>
                 {
                     Messages.Message("SlopWorld: " + notice, MessageTypeDefOf.SilentInput, false);
@@ -55,21 +52,41 @@ namespace SlopWorld
             );
         }
 
-        static void Stage(Repo repo, string rel) =>
-            GitAction(repo, GitCommands.Stage(repo.Root, rel), "staged " + rel, true);
+        static Wire.GitSelection Selection(Node node)
+        {
+            var row = new Wire.GitSelection { Path = node.Rel };
+            if (!node.IsDir)
+                row.Status = node.Status.Pair;
+            return row;
+        }
+
+        static void Stage(Repo repo, Node node) =>
+            GitAction(
+                repo,
+                new Wire.GitMutationReq { Stage = Selection(node) },
+                "staged " + node.Rel
+            );
 
         static void Unstage(Repo repo, Node node) =>
             GitAction(
                 repo,
-                GitCommands.Unstage(repo.Root, GitStore.UnstagePaths(node)),
-                "unstaged " + node.Rel,
-                true
+                new Wire.GitMutationReq { Unstage = Selection(node) },
+                "unstaged " + node.Rel
             );
 
-        static void StageAll(Repo repo) => GitAction(repo, "add --all", "staged all changes");
+        static void StageAll(Repo repo) =>
+            GitAction(
+                repo,
+                new Wire.GitMutationReq { StageAll = new Wire.Empty() },
+                "staged all changes"
+            );
 
         static void UnstageAll(Repo repo) =>
-            GitAction(repo, GitCommands.Unstage(repo.Root, "."), "unstaged all changes", true);
+            GitAction(
+                repo,
+                new Wire.GitMutationReq { UnstageAll = new Wire.Empty() },
+                "unstaged all changes"
+            );
 
         public static void StageAll(string project)
         {
@@ -123,7 +140,7 @@ namespace SlopWorld
 
             GitAction(
                 repo,
-                "commit -m " + Pager.Quote(message) + " --",
+                new Wire.GitMutationReq { Commit = message },
                 "committed changes",
                 ok: ok,
                 fail: fail
