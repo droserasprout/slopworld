@@ -5,6 +5,7 @@ mod agent;
 mod common;
 mod config;
 mod diagnostics;
+mod project;
 mod task;
 mod templates;
 mod worker;
@@ -12,9 +13,11 @@ mod worktree;
 
 use super::http::Endpoint;
 
+pub(crate) use agent::AgentAction;
 #[cfg(test)]
 pub(crate) use agent::run_agent_create;
 pub(crate) use config::ConfigArgs;
+pub(crate) use project::ProjectArgs;
 pub(crate) use task::task_id_from_env;
 pub(crate) use task::{InboxFilter, UpdateAction};
 #[cfg(test)]
@@ -40,9 +43,8 @@ pub(crate) enum RemoteCommand {
         name: String,
         project: Option<String>,
     },
-    AgentStop {
-        name: String,
-    },
+    AgentAction(AgentAction),
+    Project(ProjectArgs),
     AgentCreate {
         name: String,
         project: String,
@@ -107,9 +109,8 @@ impl RemoteCommand {
                 &name,
                 project.as_deref(),
             ),
-            Self::AgentStop { name } => {
-                agent::run_agent_stop(endpoint, session, json_output, &name)
-            }
+            Self::AgentAction(action) => action.run(endpoint, session, json_output),
+            Self::Project(args) => project::run(endpoint, session, json_output, args),
             Self::AgentCreate {
                 name,
                 project,

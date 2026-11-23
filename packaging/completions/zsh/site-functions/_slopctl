@@ -118,7 +118,47 @@ _arguments "${_arguments_options[@]}" : \
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:slopctl-agent-command-$line[1]:"
         case $line[1] in
-            (stop)
+            (start)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:_default' \
+&& ret=0
+;;
+(resume)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:_default' \
+&& ret=0
+;;
+(restart)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:_default' \
+&& ret=0
+;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:_default' \
+&& ret=0
+;;
+(remove)
 _arguments "${_arguments_options[@]}" : \
 '--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
 '--json[Print JSON instead of human-readable output]' \
@@ -153,11 +193,95 @@ _arguments "${_arguments_options[@]}" : \
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:slopctl-agent-help-command-$line[1]:"
         case $line[1] in
-            (stop)
+            (start)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(resume)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(restart)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(project)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_slopctl__subcmd__project_commands" \
+"*::: :->project" \
+&& ret=0
+
+    case $state in
+    (project)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopctl-project-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(show)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_slopctl__subcmd__project__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopctl-project-help-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(show)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -779,11 +903,51 @@ _arguments "${_arguments_options[@]}" : \
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:slopctl-help-agent-command-$line[1]:"
         case $line[1] in
-            (stop)
+            (start)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(resume)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(restart)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(project)
+_arguments "${_arguments_options[@]}" : \
+":: :_slopctl__subcmd__help__subcmd__project_commands" \
+"*::: :->project" \
+&& ret=0
+
+    case $state in
+    (project)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopctl-help-project-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(show)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -990,6 +1154,7 @@ _slopctl_commands() {
 'completions:Print a shell completion script without contacting the daemon' \
 'worker:Create task-owned workers from agent templates' \
 'agent:Create agents and control their sessions' \
+'project:Inspect configured projects (requires the root token)' \
 'template:Discover and inspect agent templates' \
 'worktree:Manage project worktrees; mutations require worktree management permission' \
 'task:Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set' \
@@ -1006,7 +1171,11 @@ _slopctl_commands() {
 (( $+functions[_slopctl__subcmd__agent_commands] )) ||
 _slopctl__subcmd__agent_commands() {
     local commands; commands=(
+'start:Start an existing agent session' \
+'resume:Resume an agent from its saved state' \
+'restart:Restart an agent session' \
 'stop:Stop an agent session; one-shot workers are removed on stop' \
+'remove:Remove an agent session' \
 'create:Create an agent, stopped unless --start is supplied' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -1020,7 +1189,11 @@ _slopctl__subcmd__agent__subcmd__create_commands() {
 (( $+functions[_slopctl__subcmd__agent__subcmd__help_commands] )) ||
 _slopctl__subcmd__agent__subcmd__help_commands() {
     local commands; commands=(
+'start:Start an existing agent session' \
+'resume:Resume an agent from its saved state' \
+'restart:Restart an agent session' \
 'stop:Stop an agent session; one-shot workers are removed on stop' \
+'remove:Remove an agent session' \
 'create:Create an agent, stopped unless --start is supplied' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -1036,10 +1209,50 @@ _slopctl__subcmd__agent__subcmd__help__subcmd__help_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl agent help help commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__agent__subcmd__help__subcmd__remove_commands] )) ||
+_slopctl__subcmd__agent__subcmd__help__subcmd__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent help remove commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__help__subcmd__restart_commands] )) ||
+_slopctl__subcmd__agent__subcmd__help__subcmd__restart_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent help restart commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__help__subcmd__resume_commands] )) ||
+_slopctl__subcmd__agent__subcmd__help__subcmd__resume_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent help resume commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__help__subcmd__start_commands] )) ||
+_slopctl__subcmd__agent__subcmd__help__subcmd__start_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent help start commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__agent__subcmd__help__subcmd__stop_commands] )) ||
 _slopctl__subcmd__agent__subcmd__help__subcmd__stop_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl agent help stop commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__remove_commands] )) ||
+_slopctl__subcmd__agent__subcmd__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent remove commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__restart_commands] )) ||
+_slopctl__subcmd__agent__subcmd__restart_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent restart commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__resume_commands] )) ||
+_slopctl__subcmd__agent__subcmd__resume_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent resume commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__agent__subcmd__start_commands] )) ||
+_slopctl__subcmd__agent__subcmd__start_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl agent start commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__agent__subcmd__stop_commands] )) ||
 _slopctl__subcmd__agent__subcmd__stop_commands() {
@@ -1100,6 +1313,7 @@ _slopctl__subcmd__help_commands() {
 'completions:Print a shell completion script without contacting the daemon' \
 'worker:Create task-owned workers from agent templates' \
 'agent:Create agents and control their sessions' \
+'project:Inspect configured projects (requires the root token)' \
 'template:Discover and inspect agent templates' \
 'worktree:Manage project worktrees; mutations require worktree management permission' \
 'task:Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set' \
@@ -1116,7 +1330,11 @@ _slopctl__subcmd__help_commands() {
 (( $+functions[_slopctl__subcmd__help__subcmd__agent_commands] )) ||
 _slopctl__subcmd__help__subcmd__agent_commands() {
     local commands; commands=(
+'start:Start an existing agent session' \
+'resume:Resume an agent from its saved state' \
+'restart:Restart an agent session' \
 'stop:Stop an agent session; one-shot workers are removed on stop' \
+'remove:Remove an agent session' \
 'create:Create an agent, stopped unless --start is supplied' \
     )
     _describe -t commands 'slopctl help agent commands' commands "$@"
@@ -1125,6 +1343,26 @@ _slopctl__subcmd__help__subcmd__agent_commands() {
 _slopctl__subcmd__help__subcmd__agent__subcmd__create_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help agent create commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__agent__subcmd__remove_commands] )) ||
+_slopctl__subcmd__help__subcmd__agent__subcmd__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help agent remove commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__agent__subcmd__restart_commands] )) ||
+_slopctl__subcmd__help__subcmd__agent__subcmd__restart_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help agent restart commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__agent__subcmd__resume_commands] )) ||
+_slopctl__subcmd__help__subcmd__agent__subcmd__resume_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help agent resume commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__agent__subcmd__start_commands] )) ||
+_slopctl__subcmd__help__subcmd__agent__subcmd__start_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help agent start commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__help__subcmd__agent__subcmd__stop_commands] )) ||
 _slopctl__subcmd__help__subcmd__agent__subcmd__stop_commands() {
@@ -1173,6 +1411,24 @@ _slopctl__subcmd__help__subcmd__paths_commands() {
 _slopctl__subcmd__help__subcmd__peers_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help peers commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__project_commands] )) ||
+_slopctl__subcmd__help__subcmd__project_commands() {
+    local commands; commands=(
+'list:List configured project names' \
+'show:Show a project'\''s full configuration' \
+    )
+    _describe -t commands 'slopctl help project commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__project__subcmd__list_commands] )) ||
+_slopctl__subcmd__help__subcmd__project__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help project list commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__project__subcmd__show_commands] )) ||
+_slopctl__subcmd__help__subcmd__project__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help project show commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__help__subcmd__sandbox_commands] )) ||
 _slopctl__subcmd__help__subcmd__sandbox_commands() {
@@ -1343,6 +1599,49 @@ _slopctl__subcmd__paths_commands() {
 _slopctl__subcmd__peers_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl peers commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__project_commands] )) ||
+_slopctl__subcmd__project_commands() {
+    local commands; commands=(
+'list:List configured project names' \
+'show:Show a project'\''s full configuration' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'slopctl project commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__project__subcmd__help_commands] )) ||
+_slopctl__subcmd__project__subcmd__help_commands() {
+    local commands; commands=(
+'list:List configured project names' \
+'show:Show a project'\''s full configuration' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'slopctl project help commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__project__subcmd__help__subcmd__help_commands] )) ||
+_slopctl__subcmd__project__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl project help help commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__project__subcmd__help__subcmd__list_commands] )) ||
+_slopctl__subcmd__project__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl project help list commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__project__subcmd__help__subcmd__show_commands] )) ||
+_slopctl__subcmd__project__subcmd__help__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl project help show commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__project__subcmd__list_commands] )) ||
+_slopctl__subcmd__project__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl project list commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__project__subcmd__show_commands] )) ||
+_slopctl__subcmd__project__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl project show commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__sandbox_commands] )) ||
 _slopctl__subcmd__sandbox_commands() {

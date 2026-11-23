@@ -113,6 +113,12 @@ slopctl task progress --id ID -- --help is now working
 `wait` blocks until `done`, `failed`, or `canceled`, then prints the final task.
 Stdout (including `--json`) contains only the final task result.
 
+## Projects
+
+With the root token, use `slopctl project list` to print one configured project name
+per line. Use `slopctl project show NAME` to print its full configuration as JSON.
+`slopctl --json project list` returns the project records in a `projects` array.
+
 ## Workers and templates
 
 The following are abbreviated examples; CLI help lists all options.
@@ -165,7 +171,9 @@ To retry, create a new task or manually launch the persistent worker.
 
 Create a normal agent with `slopctl agent create NAME --project PROJECT --template TEMPLATE`.
 This command uses the same template catalog.
-It creates the agent but does not start it unless you add `--start`.
+Add `--start` to launch the agent immediately, or run `slopctl agent start NAME` later.
+Use `slopctl agent resume NAME` to resume a saved session, `slopctl agent restart NAME`
+to restart it, and `slopctl agent remove NAME` to remove the session.
 
 See [Project worktrees](../workspace/project-worktrees.md) for independent checkouts, worker worktrees, and
 manual removal.

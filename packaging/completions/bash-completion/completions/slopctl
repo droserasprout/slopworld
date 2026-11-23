@@ -37,6 +37,9 @@ _slopctl() {
             slopctl,peers)
                 cmd="slopctl__subcmd__peers"
                 ;;
+            slopctl,project)
+                cmd="slopctl__subcmd__project"
+                ;;
             slopctl,sandbox)
                 cmd="slopctl__subcmd__sandbox"
                 ;;
@@ -61,6 +64,18 @@ _slopctl() {
             slopctl__subcmd__agent,help)
                 cmd="slopctl__subcmd__agent__subcmd__help"
                 ;;
+            slopctl__subcmd__agent,remove)
+                cmd="slopctl__subcmd__agent__subcmd__remove"
+                ;;
+            slopctl__subcmd__agent,restart)
+                cmd="slopctl__subcmd__agent__subcmd__restart"
+                ;;
+            slopctl__subcmd__agent,resume)
+                cmd="slopctl__subcmd__agent__subcmd__resume"
+                ;;
+            slopctl__subcmd__agent,start)
+                cmd="slopctl__subcmd__agent__subcmd__start"
+                ;;
             slopctl__subcmd__agent,stop)
                 cmd="slopctl__subcmd__agent__subcmd__stop"
                 ;;
@@ -69,6 +84,18 @@ _slopctl() {
                 ;;
             slopctl__subcmd__agent__subcmd__help,help)
                 cmd="slopctl__subcmd__agent__subcmd__help__subcmd__help"
+                ;;
+            slopctl__subcmd__agent__subcmd__help,remove)
+                cmd="slopctl__subcmd__agent__subcmd__help__subcmd__remove"
+                ;;
+            slopctl__subcmd__agent__subcmd__help,restart)
+                cmd="slopctl__subcmd__agent__subcmd__help__subcmd__restart"
+                ;;
+            slopctl__subcmd__agent__subcmd__help,resume)
+                cmd="slopctl__subcmd__agent__subcmd__help__subcmd__resume"
+                ;;
+            slopctl__subcmd__agent__subcmd__help,start)
+                cmd="slopctl__subcmd__agent__subcmd__help__subcmd__start"
                 ;;
             slopctl__subcmd__agent__subcmd__help,stop)
                 cmd="slopctl__subcmd__agent__subcmd__help__subcmd__stop"
@@ -112,6 +139,9 @@ _slopctl() {
             slopctl__subcmd__help,peers)
                 cmd="slopctl__subcmd__help__subcmd__peers"
                 ;;
+            slopctl__subcmd__help,project)
+                cmd="slopctl__subcmd__help__subcmd__project"
+                ;;
             slopctl__subcmd__help,sandbox)
                 cmd="slopctl__subcmd__help__subcmd__sandbox"
                 ;;
@@ -133,6 +163,18 @@ _slopctl() {
             slopctl__subcmd__help__subcmd__agent,create)
                 cmd="slopctl__subcmd__help__subcmd__agent__subcmd__create"
                 ;;
+            slopctl__subcmd__help__subcmd__agent,remove)
+                cmd="slopctl__subcmd__help__subcmd__agent__subcmd__remove"
+                ;;
+            slopctl__subcmd__help__subcmd__agent,restart)
+                cmd="slopctl__subcmd__help__subcmd__agent__subcmd__restart"
+                ;;
+            slopctl__subcmd__help__subcmd__agent,resume)
+                cmd="slopctl__subcmd__help__subcmd__agent__subcmd__resume"
+                ;;
+            slopctl__subcmd__help__subcmd__agent,start)
+                cmd="slopctl__subcmd__help__subcmd__agent__subcmd__start"
+                ;;
             slopctl__subcmd__help__subcmd__agent,stop)
                 cmd="slopctl__subcmd__help__subcmd__agent__subcmd__stop"
                 ;;
@@ -141,6 +183,12 @@ _slopctl() {
                 ;;
             slopctl__subcmd__help__subcmd__config,set)
                 cmd="slopctl__subcmd__help__subcmd__config__subcmd__set"
+                ;;
+            slopctl__subcmd__help__subcmd__project,list)
+                cmd="slopctl__subcmd__help__subcmd__project__subcmd__list"
+                ;;
+            slopctl__subcmd__help__subcmd__project,show)
+                cmd="slopctl__subcmd__help__subcmd__project__subcmd__show"
                 ;;
             slopctl__subcmd__help__subcmd__sandbox,inspect)
                 cmd="slopctl__subcmd__help__subcmd__sandbox__subcmd__inspect"
@@ -201,6 +249,24 @@ _slopctl() {
                 ;;
             slopctl__subcmd__help__subcmd__worktree,rename)
                 cmd="slopctl__subcmd__help__subcmd__worktree__subcmd__rename"
+                ;;
+            slopctl__subcmd__project,help)
+                cmd="slopctl__subcmd__project__subcmd__help"
+                ;;
+            slopctl__subcmd__project,list)
+                cmd="slopctl__subcmd__project__subcmd__list"
+                ;;
+            slopctl__subcmd__project,show)
+                cmd="slopctl__subcmd__project__subcmd__show"
+                ;;
+            slopctl__subcmd__project__subcmd__help,help)
+                cmd="slopctl__subcmd__project__subcmd__help__subcmd__help"
+                ;;
+            slopctl__subcmd__project__subcmd__help,list)
+                cmd="slopctl__subcmd__project__subcmd__help__subcmd__list"
+                ;;
+            slopctl__subcmd__project__subcmd__help,show)
+                cmd="slopctl__subcmd__project__subcmd__help__subcmd__show"
                 ;;
             slopctl__subcmd__sandbox,help)
                 cmd="slopctl__subcmd__sandbox__subcmd__help"
@@ -359,7 +425,7 @@ _slopctl() {
 
     case "${cmd}" in
         slopctl)
-            opts="-h -V --json --sidecar --endpoint --help --version completions worker agent template worktree task peers status sandbox config logs paths help"
+            opts="-h -V --json --sidecar --endpoint --help --version completions worker agent project template worktree task peers status sandbox config logs paths help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -377,7 +443,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__agent)
-            opts="-h --json --sidecar --endpoint --help stop create help"
+            opts="-h --json --sidecar --endpoint --help start resume restart stop remove create help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -421,7 +487,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__agent__subcmd__help)
-            opts="stop create help"
+            opts="start resume restart stop remove create help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -462,6 +528,62 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__agent__subcmd__help__subcmd__remove)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__agent__subcmd__help__subcmd__restart)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__agent__subcmd__help__subcmd__resume)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__agent__subcmd__help__subcmd__start)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__agent__subcmd__help__subcmd__stop)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
@@ -469,6 +591,78 @@ _slopctl() {
                 return 0
             fi
             case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__agent__subcmd__remove)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__agent__subcmd__restart)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__agent__subcmd__resume)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__agent__subcmd__start)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -623,7 +817,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__help)
-            opts="completions worker agent template worktree task peers status sandbox config logs paths help"
+            opts="completions worker agent project template worktree task peers status sandbox config logs paths help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -637,7 +831,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__help__subcmd__agent)
-            opts="stop create"
+            opts="start resume restart stop remove create"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -651,6 +845,62 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__help__subcmd__agent__subcmd__create)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__agent__subcmd__remove)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__agent__subcmd__restart)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__agent__subcmd__resume)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__agent__subcmd__start)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -779,6 +1029,48 @@ _slopctl() {
         slopctl__subcmd__help__subcmd__peers)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__project)
+            opts="list show"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__project__subcmd__list)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__project__subcmd__show)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -1201,6 +1493,116 @@ _slopctl() {
         slopctl__subcmd__peers)
             opts="-h --json --sidecar --endpoint --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__project)
+            opts="-h --json --sidecar --endpoint --help list show help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__project__subcmd__help)
+            opts="list show help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__project__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__project__subcmd__help__subcmd__list)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__project__subcmd__help__subcmd__show)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__project__subcmd__list)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__project__subcmd__show)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi

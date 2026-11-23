@@ -22,13 +22,68 @@ pub(crate) mod http_fixture;
 use http_fixture::{serve, serve_raw};
 
 #[test]
+fn agent_actions_and_project_queries_use_the_named_routes() {
+    for (command, method, path, reply) in [
+        (
+            "agent start a+b",
+            "POST",
+            "/api/sessions/a%2Bb/start",
+            r#"{"ok":true}"#,
+        ),
+        (
+            "agent resume a+b",
+            "POST",
+            "/api/sessions/a%2Bb/resume",
+            r#"{"ok":true}"#,
+        ),
+        (
+            "agent restart a+b",
+            "POST",
+            "/api/sessions/a%2Bb/restart",
+            r#"{"ok":true}"#,
+        ),
+        (
+            "agent stop a+b",
+            "POST",
+            "/api/sessions/a%2Bb/stop",
+            r#"{"ok":true}"#,
+        ),
+        (
+            "agent remove a+b",
+            "DELETE",
+            "/api/sessions/a%2Bb",
+            r#"{"ok":true}"#,
+        ),
+        (
+            "project list",
+            "GET",
+            "/api/projects",
+            r#"{"projects":[{"name":"a+b"}]}"#,
+        ),
+        (
+            "project show a+b",
+            "GET",
+            "/api/projects/a%2Bb",
+            r#"{"name":"a+b"}"#,
+        ),
+    ] {
+        let (endpoint, server) = serve("200 OK", reply);
+        let Command::Remote(command) = parse_command(&words(command)).unwrap() else {
+            panic!("expected a remote command");
+        };
+        command.run(&endpoint, "host", false).unwrap();
+        assert!(
+            server
+                .join()
+                .unwrap()
+                .unwrap()
+                .starts_with(&format!("{method} {path} HTTP/"))
+        );
+    }
+}
+
+#[test]
 fn command_parser_builds_delegation_and_update_commands() {
-    assert_eq!(
-        parse_command(&words("agent stop child")),
-        Ok(Command::Remote(RemoteCommand::AgentStop {
-            name: "child".into()
-        }))
-    );
     assert_eq!(
         parse_command(&words("task delegate agent fix the pane")),
         Ok(Command::Remote(RemoteCommand::Delegate {

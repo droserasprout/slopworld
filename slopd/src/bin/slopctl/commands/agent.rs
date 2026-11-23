@@ -44,18 +44,51 @@ pub(crate) fn run_agent_create(
     Ok(())
 }
 
-pub(super) fn run_agent_stop(
-    endpoint: &Endpoint,
-    session: &str,
-    json_output: bool,
-    name: &str,
-) -> Result<(), String> {
-    let path = routes::SESSION_STOP.replace(":name", &encode_component(name));
-    let reply = request(endpoint, session, "POST", &path, Some(json!({})))?;
-    if json_output {
-        print_json(&reply);
-    } else {
-        println!("Stopped {name}");
+#[derive(Debug, PartialEq, Eq, clap::Args)]
+pub(crate) struct AgentName {
+    #[arg(value_parser = clap::builder::NonEmptyStringValueParser::new())]
+    name: String,
+}
+
+#[derive(Debug, PartialEq, Eq, clap::Subcommand)]
+pub(crate) enum AgentAction {
+    /// Start an existing agent session
+    Start(AgentName),
+    /// Resume an agent from its saved state
+    Resume(AgentName),
+    /// Restart an agent session
+    Restart(AgentName),
+    /// Stop an agent session; one-shot workers are removed on stop
+    Stop(AgentName),
+    /// Remove an agent session
+    Remove(AgentName),
+}
+
+impl AgentAction {
+    pub(super) fn run(
+        self,
+        endpoint: &Endpoint,
+        session: &str,
+        json_output: bool,
+    ) -> Result<(), String> {
+        let (target, route, message) = match self {
+            Self::Start(target) => (target, routes::SESSION_START, "Started"),
+            Self::Resume(target) => (target, routes::SESSION_RESUME, "Resumed"),
+            Self::Restart(target) => (target, routes::SESSION_RESTART, "Restarted"),
+            Self::Stop(target) => (target, routes::SESSION_STOP, "Stopped"),
+            Self::Remove(target) => (target, routes::SESSION, "Removed"),
+        };
+        let path = route.replace(":name", &encode_component(&target.name));
+        let reply = if route == routes::SESSION {
+            request(endpoint, session, "DELETE", &path, None)?
+        } else {
+            request(endpoint, session, "POST", &path, Some(json!({})))?
+        };
+        if json_output {
+            print_json(&reply);
+        } else {
+            println!("{message} {}", target.name);
+        }
+        Ok(())
     }
-    Ok(())
 }

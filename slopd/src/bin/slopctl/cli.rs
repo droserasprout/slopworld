@@ -2,7 +2,8 @@
 //! Command and log modules own reusable argument schemas and execution.
 
 use super::commands::{
-    ConfigArgs, InboxFilter, RemoteCommand, SpawnArgs, UpdateAction, WorktreeArgs,
+    AgentAction, ConfigArgs, InboxFilter, ProjectArgs, RemoteCommand, SpawnArgs, UpdateAction,
+    WorktreeArgs,
 };
 use super::logs::{LogsArgs, LogsOptions};
 use super::shared::application_paths::{self, Mode};
@@ -53,6 +54,9 @@ enum CliCommand {
     /// Create agents and control their sessions
     #[command(subcommand)]
     Agent(AgentCommand),
+    /// Inspect configured projects (requires the root token)
+    #[command(subcommand)]
+    Project(ProjectArgs),
     /// Discover and inspect agent templates
     #[command(subcommand)]
     Template(TemplateCommand),
@@ -146,11 +150,8 @@ struct RequiredTemplate {
 
 #[derive(Debug, Subcommand)]
 enum AgentCommand {
-    /// Stop an agent session; one-shot workers are removed on stop
-    Stop {
-        #[arg(value_parser = clap::builder::NonEmptyStringValueParser::new())]
-        name: String,
-    },
+    #[command(flatten)]
+    Action(AgentAction),
     /// Create an agent, stopped unless --start is supplied
     Create {
         name: String,
@@ -335,7 +336,8 @@ impl CliCommand {
                 body: args.task.join(" "),
                 worktree: args.worktree.unwrap_or_default(),
             }),
-            Self::Agent(AgentCommand::Stop { name }) => RemoteCommand::AgentStop { name },
+            Self::Agent(AgentCommand::Action(action)) => RemoteCommand::AgentAction(action),
+            Self::Project(args) => RemoteCommand::Project(args),
             Self::Agent(AgentCommand::Create {
                 name,
                 template,
