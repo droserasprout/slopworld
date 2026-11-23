@@ -65,10 +65,9 @@ namespace SlopWorld
                 case KeyCode.Backspace:
                     return mod + "BSpace";
                 case KeyCode.Tab:
-                    // BTab already includes Shift; retain the independent Ctrl/Alt modifiers.
-                    return (e.control ? "C-" : "")
-                        + (e.alt ? "M-" : "")
-                        + (e.shift ? "BTab" : "Tab");
+                    if (e.alt && !e.control)
+                        return null;
+                    return characterMod + (e.shift ? "BTab" : "Tab");
                 case KeyCode.UpArrow:
                     return mod + "Up";
                 case KeyCode.DownArrow:

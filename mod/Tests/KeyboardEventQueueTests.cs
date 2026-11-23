@@ -9,6 +9,22 @@ namespace SlopWorld.Tests
     public class KeyboardEventQueueTests
     {
         [Test]
+        public void DesktopSwitchCannotRepeatAsPlainTabAfterAltReleaseOrFocusReset()
+        {
+            var queue = new KeyboardEventQueue();
+            queue.Key(KeyCode.Tab, true, false, EventModifiers.Alt);
+            queue.Clear();
+            queue.Key(KeyCode.Tab, true, true, 0);
+            Assert.That(queue.Drain(), Is.Empty);
+            queue.Reset();
+            queue.Key(KeyCode.Tab, true, true, 0);
+            Assert.That(queue.Drain(), Is.Empty);
+            queue.Key(KeyCode.Tab, true, false, 0);
+            queue.Key(KeyCode.Tab, true, true, 0);
+            Assert.That(queue.Drain().Length, Is.EqualTo(2));
+        }
+
+        [Test]
         public void PasteRunsOncePerPhysicalPressIncludingRepeatedDispatch()
         {
             var queue = new KeyboardEventQueue();

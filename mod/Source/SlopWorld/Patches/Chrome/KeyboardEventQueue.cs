@@ -20,6 +20,7 @@ namespace SlopWorld
         readonly List<Entry> _pending = new List<Entry>();
 
         readonly Dictionary<KeyCode, long> _strokes = new Dictionary<KeyCode, long>();
+        bool _allowTabRepeat;
         long _nextStroke;
         long _textStroke;
         long _suppressedStroke = -1;
@@ -27,6 +28,18 @@ namespace SlopWorld
 
         internal void Key(KeyCode key, bool pressed, bool repeat, EventModifiers modifiers)
         {
+            // A desktop switch can release Alt or reset focus while Tab is still held.
+            // Only repeat a Tab press that was eligible in this focus lifetime.
+            if (key == KeyCode.Tab)
+            {
+                bool desktopSwitch =
+                    (modifiers & (EventModifiers.Alt | EventModifiers.Control))
+                    == EventModifiers.Alt;
+                if (!repeat || desktopSwitch)
+                    _allowTabRepeat = pressed && !desktopSwitch;
+                if (repeat && !_allowTabRepeat)
+                    return;
+            }
             if (pressed && (!repeat || !_strokes.ContainsKey(key)))
                 _strokes[key] = ++_nextStroke;
             _strokes.TryGetValue(key, out long stroke);
@@ -101,6 +114,7 @@ namespace SlopWorld
         {
             Clear();
             _strokes.Clear();
+            _allowTabRepeat = false;
             _textStroke = 0;
             _suppressedStroke = -1;
             _dispatching = null;

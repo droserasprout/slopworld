@@ -28,7 +28,10 @@ a separate modifier to these character shortcuts. Ctrl+V claims one paste per ph
 When several primary button transitions share a frame, the focused terminal replays them in native order before Waylith dispatches drag motion.
 Word and line drags publish PRIMARY on release so the clipboard helper runs after pointer capture ends.
 The focused terminal participates in Waylith’s automatic text-input activation so
-printable input, including punctuation, follows native character events. Polling
+printable input, including punctuation, follows native character events. Desktop Alt+Tab and Alt+Shift+Tab are reserved for window switching. Tab repeats
+require an eligible press since the last focus reset. Waylith reports held keys on
+focus entry as synthesized key-downs. Filter Tab at the native window handler
+before the input queue loses that distinction and the native modifier mask. Polling
 physical key state must not synthesize a second text stream.
 Opening a terminal suppresses the opening native key stroke, including its text
 callbacks and repeats across frames. A fresh press starts a new stroke. Focus reset

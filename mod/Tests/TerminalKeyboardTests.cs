@@ -131,7 +131,7 @@ namespace SlopWorld.Tests
                 string prefix = (control ? "C-" : "") + (alt ? "M-" : "");
                 Assert.That(
                     TerminalInputController.MapKey(e, altScreen),
-                    Is.EqualTo(prefix + (shift ? "BTab" : "Tab"))
+                    Is.EqualTo(alt && !control ? null : prefix + (shift ? "BTab" : "Tab"))
                 );
                 for (int f = 1; f <= 12; f++)
                 {
