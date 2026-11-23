@@ -1,7 +1,7 @@
 //! Protobuf HTTP forwarding with isolated host credentials and no mutation replay.
 use super::{Host, reply};
 use axum::{
-    body::{Body, to_bytes},
+    body::{Body, HttpBody, to_bytes},
     extract::Request,
     http::{Method, StatusCode},
     response::Response,
@@ -42,7 +42,7 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
         return reply(StatusCode::BAD_REQUEST, "");
     };
     let method = request.method().clone();
-    let Ok(body) = to_bytes(request.into_body(), 32 * 1024 * 1024).await else {
+    let Ok(body) = buffered_upload(&host.upload_budget, request.into_body()).await else {
         return reply(StatusCode::PAYLOAD_TOO_LARGE, "");
     };
     let mut upstream = host
@@ -73,6 +73,57 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
         .header("content-type", "application/x-protobuf")
         .body(body)
         .unwrap()
+}
+
+pub(super) const UPLOAD_BUDGET: usize = 64 * 1024 * 1024;
+
+struct BufferedUpload {
+    body: axum::body::Bytes,
+    _reservation: Option<tokio::sync::OwnedSemaphorePermit>,
+}
+
+impl AsRef<[u8]> for BufferedUpload {
+    fn as_ref(&self) -> &[u8] {
+        &self.body
+    }
+}
+
+async fn buffered_upload(
+    budget_pool: &std::sync::Arc<tokio::sync::Semaphore>,
+    body: Body,
+) -> Result<axum::body::Bytes, StatusCode> {
+    const LIMIT: u32 = 32 * 1024 * 1024;
+    if body.size_hint().lower() > u64::from(LIMIT) {
+        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    }
+    // Reserve before reading so concurrent chunked requests cannot each grow unchecked.
+    let budget = body
+        .size_hint()
+        .upper()
+        .unwrap_or(u64::MAX)
+        .min(u64::from(LIMIT)) as u32;
+    let reservation = if budget == 0 {
+        None
+    } else {
+        Some(
+            budget_pool
+                .clone()
+                .acquire_many_owned(budget)
+                .await
+                .expect("host budget stays open"),
+        )
+    };
+    let Ok(body) = to_bytes(body, budget as usize).await else {
+        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    };
+    Ok(if body.is_empty() {
+        body
+    } else {
+        axum::body::Bytes::from_owner(BufferedUpload {
+            body,
+            _reservation: reservation,
+        })
+    })
 }
 
 fn target(endpoint: &url::Url, route: &str) -> Option<url::Url> {
@@ -113,4 +164,43 @@ fn target(endpoint: &url::Url, route: &str) -> Option<url::Url> {
         .strip_prefix(endpoint.path())?
         .starts_with("api/")
         .then_some(target)
+}
+
+#[cfg(test)]
+mod upload_tests {
+    use super::*;
+    use futures::FutureExt;
+    use std::sync::Arc;
+    use tokio::sync::Semaphore;
+
+    #[tokio::test]
+    async fn concurrent_uploads_hold_budget_until_last_body_owner_drops() {
+        let pool = Arc::new(Semaphore::new(UPLOAD_BUDGET));
+        let mut requests: Vec<_> = (0..8)
+            .map(|_| {
+                let body = Body::from_stream(futures::stream::once(async {
+                    Ok::<_, std::io::Error>(vec![1; UPLOAD_BUDGET / 2])
+                }));
+                Box::pin(buffered_upload(&pool, body))
+            })
+            .collect();
+        let mut active = Vec::new();
+        for request in &mut requests {
+            if let Some(result) = request.as_mut().now_or_never() {
+                active.push(result.unwrap());
+            }
+        }
+        assert_eq!(active.len(), 2);
+        assert_eq!(active.iter().map(|b| b.len()).sum::<usize>(), UPLOAD_BUDGET);
+        let copy = active.pop().unwrap();
+        let retained = copy.clone();
+        drop(copy);
+        assert_eq!(pool.available_permits(), 0);
+        drop(retained);
+        for request in requests.into_iter().skip(2) {
+            drop(request.await.unwrap());
+        }
+        drop(active);
+        assert_eq!(pool.available_permits(), UPLOAD_BUDGET);
+    }
 }

@@ -146,6 +146,7 @@ retain their immutable caching policy.
 
 The server binds IPv4 loopback and validates Host separately from browser
 provenance. Its same-origin HTTP and WebSocket bridges inject host credentials.
+The host reserves up to 32 MiB per HTTP request body against a shared 64 MiB upload budget before reading. Unknown lengths reserve the full request limit. Forwarded bytes retain their reservation until transport releases them.
 The HTTP bridge supplies the host caller identity, and both upstream clients trust
 the system CA store. Credentials never enter page assets or URLs. Named endpoints
 take precedence over paired URL/token environment overrides, then `SLOPD_ENDPOINT`,

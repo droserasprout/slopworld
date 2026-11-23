@@ -35,6 +35,7 @@ struct Host {
     boundary: security::Boundary,
     connection: ConnectionSource,
     client: reqwest::Client,
+    upload_budget: Arc<tokio::sync::Semaphore>,
     fonts: Option<Arc<FontService>>,
 }
 
@@ -67,6 +68,7 @@ async fn router(
         boundary,
         connection: config.connection,
         client,
+        upload_budget: Arc::new(tokio::sync::Semaphore::new(bridge::UPLOAD_BUDGET)),
         fonts,
     });
     Ok(Router::new().fallback(dispatch).with_state(host))
