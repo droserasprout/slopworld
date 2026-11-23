@@ -4,6 +4,12 @@
 `SidebarScopes` adapts/persists it. Project-name filtering and checkout selection are
 independent. Committed identities may arrive before descriptors.
 
+Successful checkout reads refresh at most every five minutes during ordinary sidebar
+use. An open project filter menu requests fresher metadata at a fifteen-second minimum
+response age; alternating menu/sidebar passes cannot bypass that interval. Failed reads
+retry after thirty seconds. Explicit invalidation and project identity changes remain
+immediate.
+
 Catalog scheduling retains the next eligible refresh deadline; completion, invalidation,
 project/filter changes, and hidden-project demand must wake it. Session filtering uses
 an index rebuilt with the project revision. Git polling retains enabled checkout keys
