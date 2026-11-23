@@ -6,8 +6,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
+### Added
+
+- CLI: Added `slopctl agent` commands to start, resume, restart, and remove agents.
+- CLI: Added `slopctl project list` and `slopctl project show` to list projects and inspect their configuration.
+- Git: Added foldable staged/unstaged sections and hover buttons to stage/unstage/discard changes.
+- UI: Added Command palette actions to toggle the planner, cycle through sessions and open files, split and close terminal panes, and control the jukebox.
+
 ### Fixed
 
+- Terminal: Fixed held keys leaking into the terminal when RimWorld regained focus.
+- UI: Fixed Space not toggling project filters and other checkboxes in Command palette.
 - UI: Fixed loading text leaving an empty corner when the window was resized mid-animation.
 
 ## [0.1.2] - 2026-11-21
