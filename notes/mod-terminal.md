@@ -30,8 +30,9 @@ Word and line drags publish PRIMARY on release so the clipboard helper runs afte
 The focused terminal participates in Waylith’s automatic text-input activation so
 printable input, including punctuation, follows native character events. Desktop Alt+Tab and Alt+Shift+Tab are reserved for window switching. Tab repeats
 require an eligible press since the last focus reset. Waylith reports held keys on
-focus entry as synthesized key-downs. Filter Tab at the native window handler
-before the input queue loses that distinction and the native modifier mask. Polling
+focus entry as synthesized key-downs. The native window handler suppresses inherited Tab, Enter, and
+keypad Enter strokes, including repeats, before the input queue loses their
+origin. Each key resumes on its next physical press. Polling
 physical key state must not synthesize a second text stream.
 Opening a terminal suppresses the opening native key stroke, including its text
 callbacks and repeats across frames. A fresh press starts a new stroke. Focus reset
