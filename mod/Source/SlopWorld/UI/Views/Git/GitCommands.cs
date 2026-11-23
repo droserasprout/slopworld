@@ -51,6 +51,29 @@ namespace SlopWorld
                 + paths;
         }
 
+        public static string SectionDiff(string root, IEnumerable<string> paths, bool staged) =>
+            "git -C "
+            + PagerCommands.Quote(root)
+            + " -c "
+            + PagerCommands.Quote("core.pager=LESS=R delta --paging=always")
+            + " --paginate diff --color=always"
+            + (staged ? " --cached" : "")
+            + Paths(paths);
+
+        public static string Discard(string root, string relative, bool untracked)
+        {
+            string path = PagerCommands.Quote("./" + relative);
+            string script =
+                "cd -- "
+                + PagerCommands.Quote(root)
+                + " && test ! -d "
+                + path
+                + " && exec git "
+                + (untracked ? "clean -f" : "restore --worktree")
+                + Paths(new[] { relative });
+            return "bash -lc " + PagerCommands.Quote(script);
+        }
+
         public static string Unstage(string root, params string[] relative)
         {
             string git = "git -C " + PagerCommands.Quote(root);

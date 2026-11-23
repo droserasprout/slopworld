@@ -102,6 +102,10 @@ namespace SlopWorld
                     info.ReaderKey?.StartsWith("diff:", StringComparison.Ordinal) == true
                         ? info.ReaderKey.Substring(5).TrimEnd('/')
                         : null;
+                if (target?.StartsWith("/staged/", StringComparison.Ordinal) == true)
+                    target = target.Substring(8);
+                else if (target?.StartsWith("/unstaged/", StringComparison.Ordinal) == true)
+                    target = target.Substring(10);
                 title =
                     string.IsNullOrEmpty(target) || target == "."
                         ? "Working changes"

@@ -6,6 +6,11 @@ The daemon runs inspection, mutations, and diff processes on the host, outside p
 agent state. See [daemon Git](daemon-git.md) and the user-facing
 [Git guide](../docs/src/workspace/review-changes.md).
 
+Staged and unstaged headings fold independently within a checkout and add no
+directory indentation. Their rows share one status snapshot. Selection, folding and diff
+readers distinguish the two sides of a partially staged path. Discard operates
+on individual unstaged files and preserves the index.
+
 Status can render before line counts. Late counts cannot overwrite newer status;
 count failure leaves status usable. Status failure clears stale rows. Capped results
 must not appear as complete totals.

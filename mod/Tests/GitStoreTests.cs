@@ -64,11 +64,11 @@ namespace SlopWorld.Tests
             f.Requests[0].Ok(first);
             var tree = f.Store.Get("p").Tree;
             Assert.That(
-                GitStore.UnstagePaths(tree.Kids[0]),
+                GitStore.UnstagePaths(tree.Kids[0].Kids[0]),
                 Is.EquivalentTo(new[] { "a/b", "old/file" })
             );
             Assert.That(
-                GitStore.UnstagePaths(tree.Kids[0].Kids[0]),
+                GitStore.UnstagePaths(tree.Kids[0].Kids[0].Kids[0]),
                 Is.EquivalentTo(new[] { "a/b/file", "old/file" })
             );
             f.Store.Fetch("p");
@@ -76,9 +76,30 @@ namespace SlopWorld.Tests
             next.Files[0].Source = "different/file";
             f.Requests[f.Requests.Count - 1].Ok(next);
             Assert.That(
-                GitStore.UnstagePaths(f.Store.Get("p").Tree.Kids[0]),
+                GitStore.UnstagePaths(f.Store.Get("p").Tree.Kids[0].Kids[0]),
                 Is.EquivalentTo(new[] { "a/b", "different/file" })
             );
+        }
+
+        [Test]
+        public static void PartiallyStagedPathAppearsInBothSectionsWithDistinctKeys()
+        {
+            var f = new Fixture();
+            f.Store.Fetch("p");
+            f.Requests[0].Ok(Status("MM"));
+            var root = f.Store.Get("p").Tree;
+            var sections = root.Kids;
+            Assert.That(root.Key, Is.Not.EqualTo(sections[1].Key));
+            Assert.That(sections[0].Key, Is.Not.EqualTo(sections[1].Key));
+            Assert.That(sections[1].Depth, Is.EqualTo(root.Depth));
+            Assert.That(sections[1].IsDir, Is.False);
+            Assert.That(sections.Count, Is.EqualTo(2));
+            Assert.That(sections[0].Name, Is.EqualTo("Staged"));
+            Assert.That(sections[1].Name, Is.EqualTo("Unstaged"));
+            var staged = sections[0].Kids[0].Kids[0];
+            var unstaged = sections[1].Kids[0].Kids[0];
+            Assert.That(staged.Rel, Is.EqualTo(unstaged.Rel));
+            Assert.That(staged.Key, Is.Not.EqualTo(unstaged.Key));
         }
 
         public static void DiffAllKeepsAnUnrestrictedPathSelection()
@@ -122,9 +143,9 @@ namespace SlopWorld.Tests
             f.Requests[1].Ok(counts);
             var repo = f.Store.Get("p");
             var tree = repo.Tree;
-            Assert.That(tree.Kids[0].Name, Is.EqualTo("a/b"));
-            Assert.That(tree.Kids[0].Kids[0].Depth, Is.EqualTo(1));
-            Assert.That(tree.Kids[0].Kids[0].Added, Is.EqualTo(3));
+            Assert.That(tree.Kids[0].Kids[0].Name, Is.EqualTo("a/b"));
+            Assert.That(tree.Kids[0].Kids[0].Kids[0].Depth, Is.EqualTo(1));
+            Assert.That(tree.Kids[0].Kids[0].Kids[0].Added, Is.EqualTo(3));
             f.Store.Fetch("p");
             f.Requests[2].Ok(Status());
             f.Requests[3].Fail("counting unavailable");
@@ -149,7 +170,7 @@ namespace SlopWorld.Tests
             changedPaths.Files[0].Path = "other";
             f.Requests[3].Ok(changedPaths);
             Assert.That(repo.CountsComplete, Is.False);
-            Assert.That(repo.Tree.Kids[0].Kids[0].Added, Is.EqualTo(-1));
+            Assert.That(repo.Tree.Kids[0].Kids[0].Kids[0].Added, Is.EqualTo(-1));
         }
 
         public static void MovedDirectoryRejectsOldCallbacksAndRemovedScopesStayRemoved()
@@ -265,7 +286,7 @@ namespace SlopWorld.Tests
             Assert.That(repo.Tree, Is.SameAs(tree));
             Assert.That(repo.Error, Is.Null);
             Assert.That(repo.CountsComplete, Is.False);
-            Assert.That(tree.Kids[0].Kids[0].Added, Is.EqualTo(-1));
+            Assert.That(tree.Kids[0].Kids[0].Kids[0].Added, Is.EqualTo(-1));
             for (int i = 2; i < 6; i++)
                 f.Requests[i].Ok(new Wire.GitResult { Repo = false });
             f.Now = 4;
@@ -279,7 +300,7 @@ namespace SlopWorld.Tests
             f.Requests[7].Ok(counts);
             Assert.That(repo.Tree, Is.SameAs(tree));
             Assert.That(repo.CountsComplete, Is.True);
-            Assert.That(tree.Kids[0].Kids[0].Added, Is.EqualTo(3));
+            Assert.That(tree.Kids[0].Kids[0].Kids[0].Added, Is.EqualTo(3));
         }
 
         public static void TruncatedStatusRemainsPartialWithoutRequestingCounts()
@@ -294,7 +315,7 @@ namespace SlopWorld.Tests
             Assert.That(repo.Truncated, Is.True);
             Assert.That(repo.CountsComplete, Is.False);
             Assert.That(repo.Loading, Is.False);
-            Assert.That(repo.Tree.Kids[0].Kids[0].Added, Is.EqualTo(-1));
+            Assert.That(repo.Tree.Kids[0].Kids[0].Kids[0].Added, Is.EqualTo(-1));
         }
 
         public static void NonRepositoryClearsStatusAndLateCounts()

@@ -10,5 +10,8 @@ namespace SlopWorld
         View = 1,
         Edit = 2,
         Diff = 4,
+        Stage = 8,
+        Unstage = 16,
+        Discard = 32,
     }
 }

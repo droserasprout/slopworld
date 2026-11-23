@@ -103,6 +103,10 @@ namespace SlopWorld
 
         public static Texture2D Add => Get("add");
 
+        public static Texture2D Remove => Get("remove");
+
+        public static Texture2D Discard => Get("discard");
+
         public static Texture2D Root => Get("root");
 
         // ------------------------------------------------------------------ the loader

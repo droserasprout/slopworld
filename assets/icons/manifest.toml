@@ -158,6 +158,14 @@ glyph = "cod-add"
 code = "ea60"
 note = "the sidebar's one add button. Codicons' plus is drawn heavier than a font's \"+\", which is why the button wears a glyph now"
 
+[remove]
+glyph = "cod-remove"
+code = "eb3b"
+
+[discard]
+glyph = "cod-discard"
+code = "eae2"
+
 [filter]
 glyph = "cod-filter"
 code = "eaf1"

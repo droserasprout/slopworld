@@ -9,18 +9,6 @@ namespace SlopWorld
     // GitStore owns snapshot identity and rename paths, while Rendering owns drawing.
     public static partial class GitView
     {
-        static bool Any(Node node, System.Func<GitStatus, bool> test)
-        {
-            if (!node.IsDir)
-                return test(node.Status);
-            if (node.Kids == null)
-                return false;
-            foreach (var child in node.Kids)
-                if (Any(child, test))
-                    return true;
-            return false;
-        }
-
         static bool HasStaged(Repo repo)
         {
             foreach (var status in repo.Changes.Values)

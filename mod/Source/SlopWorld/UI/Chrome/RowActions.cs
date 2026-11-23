@@ -103,7 +103,15 @@ namespace SlopWorld
     public static class RowActions
     {
         public const float IconW = ActionStrip.IconW;
-        static readonly int[] Order = { (int)RowAct.View, (int)RowAct.Edit, (int)RowAct.Diff };
+        static readonly int[] Order =
+        {
+            (int)RowAct.View,
+            (int)RowAct.Edit,
+            (int)RowAct.Diff,
+            (int)RowAct.Stage,
+            (int)RowAct.Unstage,
+            (int)RowAct.Discard,
+        };
 
         public static int Count(RowAct acts) => ActionStrip.Count((int)acts, Order);
 
@@ -127,7 +135,10 @@ namespace SlopWorld
         static string Tip(int flag) =>
             (RowAct)flag == RowAct.View ? "View this file."
             : (RowAct)flag == RowAct.Edit ? "Open this file in an editor."
-            : "Show what this file has that the last commit does not.";
+            : (RowAct)flag == RowAct.Stage ? "Stage changes."
+            : (RowAct)flag == RowAct.Unstage ? "Unstage changes."
+            : (RowAct)flag == RowAct.Discard ? "Discard working tree changes."
+            : "Show diff.";
 
         // Which button a press landed on, or None for a press anywhere else on the row. Read from
         // the click pass with the row's rect in *its* coordinates - the geometry is the row's own.
@@ -141,6 +152,12 @@ namespace SlopWorld
         {
             switch (act)
             {
+                case RowAct.Stage:
+                    return Icons.Add;
+                case RowAct.Unstage:
+                    return Icons.Remove;
+                case RowAct.Discard:
+                    return Icons.Discard;
                 case RowAct.View:
                     return Icons.View;
                 case RowAct.Edit:

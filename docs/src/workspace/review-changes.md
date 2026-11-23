@@ -11,9 +11,9 @@ See [Project worktrees](project-worktrees.md#browse-several-checkouts) for filte
 3. Right-click a changed file and choose **Diff**. Use **Edit** for corrections.
 4. Review new, untracked files individually: **Diff all** does not include them.
 
-Diffs show current file contents against HEAD, including staged and unstaged
-changes. They are not a preview of only the next commit and do not refresh
-automatically. If an agent keeps editing, use the checkout's **Refresh** action
+Expand **Staged** to review the index against HEAD or **Unstaged** to review
+working files against the index. A partially staged file appears in both sections.
+**Diff all** compares working files with HEAD. Open diffs do not refresh automatically. If an agent keeps editing, use the checkout's **Refresh** action
 and choose **Diff** again before staging.
 
 Git actions and diff pagers run on the daemon host in the selected checkout.
@@ -27,10 +27,13 @@ for further inspection.
    The checkout heading also offers **Stage all**.
 2. Use **Unstage** or **Unstage all** to remove changes from the index while
    keeping working files.
-3. To inspect exactly what is staged, open **Terminal (host)** and run
-   `git diff --cached`.
+3. Open a file under **Staged** to review its indexed changes.
 4. Open the checkout heading's context menu, choose **Commit staged changes**,
    enter a message, and select **Commit**.
+
+Hover a file or folder for **Stage** or **Unstage**. On eligible unstaged files,
+**Discard** asks for confirmation before restoring the indexed version or deleting
+the selected untracked file. Conflicts require explicit resolution.
 
 Only staged changes enter the commit. If you edit a file after staging it, stage
 it again to include the new edits. When a commit fails, read the reported error

@@ -78,6 +78,13 @@ namespace SlopWorld
             public string Project;
             public string Source;
             public bool IsDir;
+            public bool Staged;
+            public bool Section;
+            public string Key => IsDir && Rel == "" ? "/" : RowKey(Staged, Rel);
+
+            public static string RowKey(bool staged, string rel) =>
+                (staged ? "/staged/" : "/unstaged/") + rel;
+
             public List<Node> Kids;
             public Repo Owner;
             public GitStatus Status; // the porcelain pair, files only
@@ -86,11 +93,11 @@ namespace SlopWorld
             public int Depth;
 
             string IContentTreeNode.Name => Name;
-            string IContentTreeNode.Key => Rel;
+            string IContentTreeNode.Key => Key;
             string IContentTreeNode.ScopeKey => Project;
             bool IContentTreeNode.IsDirectory => IsDir;
             int IContentTreeNode.Depth => Depth;
-            bool IContentTreeNode.CanExpand => IsDir;
+            bool IContentTreeNode.CanExpand => Section || IsDir;
             bool IContentTreeNode.Loading => false;
             string IContentTreeNode.Error => null;
             bool IContentTreeNode.More => false;
@@ -372,7 +379,7 @@ namespace SlopWorld
             if (node.Kids != null)
                 foreach (var child in node.Kids)
                     changed |= ApplyCounts(child, files);
-            if (!files.TryGetValue(node.Rel, out var f))
+            if (node.IsDir || !files.TryGetValue(node.Rel, out var f))
                 return changed;
             int added = !f.HasAdded ? -1 : (int)f.Added;
             int deleted = !f.HasDeleted ? -1 : (int)f.Deleted;
@@ -384,7 +391,7 @@ namespace SlopWorld
         }
 
         // A selected rename needs both sides, including sources outside a selected directory.
-        internal static string[] DiffPaths(Repo repo, string relative)
+        internal static string[] DiffPaths(Repo repo, string relative, bool? staged = null)
         {
             // Null keeps the repository-wide diff unrestricted in GitCommands.
             if (relative == null)
@@ -399,7 +406,10 @@ namespace SlopWorld
                     continue;
                 var status = new GitStatus(change.Value);
                 if (
-                    (status.Staged == 'R' || status.Worktree == 'R')
+                    (
+                        (staged != false && status.Staged == 'R')
+                        || (staged != true && status.Worktree == 'R')
+                    )
                     && repo.Sources.TryGetValue(change.Key, out var source)
                     && !string.IsNullOrEmpty(source)
                 )
@@ -429,9 +439,30 @@ namespace SlopWorld
         // Truncated responses still produce a valid partial tree.
         static Node Fold(Repo repo, IEnumerable<Wire.GitFile> files)
         {
-            var root = new Node
+            var unstaged = SectionTree(repo, files, false);
+            var staged = SectionTree(repo, files, true);
+            var sections = new Node
             {
                 IsDir = true,
+                Kids = new List<Node>(),
+                Owner = repo,
+                Rel = "",
+            };
+            if (staged.Kids.Count > 0)
+                sections.Kids.Add(staged);
+            if (unstaged.Kids.Count > 0)
+                sections.Kids.Add(unstaged);
+            Depths(sections, -1);
+            return sections;
+        }
+
+        static Node SectionTree(Repo repo, IEnumerable<Wire.GitFile> files, bool staged)
+        {
+            var root = new Node
+            {
+                Section = true,
+                Name = staged ? "Staged" : "Unstaged",
+                Staged = staged,
                 Depth = -1,
                 Kids = new List<Node>(),
                 Rel = "",
@@ -443,6 +474,9 @@ namespace SlopWorld
             {
                 string rel = f.Path;
                 if (string.IsNullOrEmpty(rel))
+                    continue;
+                var status = new GitStatus(f.Status);
+                if (!(staged ? status.IsStaged : status.NeedsStage))
                     continue;
                 repo.Changes[rel] = f.Status;
                 repo.Sources[rel] = f.Source;
@@ -460,6 +494,7 @@ namespace SlopWorld
                         last = new Node
                         {
                             Name = seg,
+                            Staged = staged,
                             IsDir = true,
                             Kids = new List<Node>(),
                             Depth = at.Depth + 1,
@@ -479,7 +514,8 @@ namespace SlopWorld
                         Rel = rel,
                         IsDir = false,
                         Depth = at.Depth + 1,
-                        Status = new GitStatus(f.Status),
+                        Status = status,
+                        Staged = staged,
                         Source = f.Source,
                         // Null where git counted nothing (binary or a capped response). Kept apart
                         // from zero, which is a real count and a different row.
@@ -493,7 +529,6 @@ namespace SlopWorld
 
             // Assign depths after collapsing directory chains, which moves descendants up.
             Squash(root);
-            Depths(root, -1);
             return root;
         }
 
@@ -524,7 +559,7 @@ namespace SlopWorld
             if (dir.Kids == null)
                 return;
             foreach (var kid in dir.Kids)
-                Depths(kid, depth + 1);
+                Depths(kid, kid.Section ? depth : depth + 1);
         }
     }
 }

@@ -86,8 +86,15 @@ namespace SlopWorld
 
         static float RowTail(Rect row, Node node, float right)
         {
-            if (node.IsDir)
+            if (node.IsDir || node.Section)
                 return right;
+            if (node.Status.NeedsStage && node.Status.IsStaged)
+                return Tail(
+                    right,
+                    row.y,
+                    node.Staged ? node.Status.Staged.ToString() : node.Status.Worktree.ToString(),
+                    node.Staged ? UiTheme.Yes : UiTheme.Warn
+                );
             if (node.Added < 0)
             {
                 // A capped response omits all numstat values, so null there means unknown,
@@ -109,10 +116,12 @@ namespace SlopWorld
         // supported image files offer View.
         static RowAct Acts(Node node)
         {
-            if (node.IsDir)
-                return RowAct.None;
-
-            var acts = RowAct.Diff;
+            var acts = node.Staged ? RowAct.Unstage : RowAct.Stage;
+            if (node.IsDir || node.Section)
+                return acts;
+            acts |= RowAct.Diff;
+            if (CanDiscard(node))
+                acts |= RowAct.Discard;
             if (!node.Status.Present)
                 return acts;
 
@@ -205,11 +214,20 @@ namespace SlopWorld
         {
             project = SidebarScopes.Key(project);
             var repo = Known(project);
-            if (repo == null || string.IsNullOrEmpty(rel) || !repo.Changes.ContainsKey(rel))
+            if (
+                repo == null
+                || string.IsNullOrEmpty(rel)
+                || !repo.Changes.TryGetValue(rel, out var status)
+            )
                 return false;
             TreeController.SetGroupCollapsed(project, false);
             TreeController.SetGroupCollapsed(SidebarScopes.Find(project)?.ProjectKey, false);
-            Tree.RevealKey(ContentTreeView.SelectionKey(project, rel));
+            Tree.RevealKey(
+                ContentTreeView.SelectionKey(
+                    project,
+                    Node.RowKey(!new GitStatus(status).NeedsStage, rel)
+                )
+            );
             return true;
         }
 
@@ -220,12 +238,65 @@ namespace SlopWorld
             Diff(node, repo);
         }
 
+        static bool CanDiscard(Node node) =>
+            !node.Staged
+            && !node.IsDir
+            && !node.Status.Unknown
+            && !node.Status.Unmerged
+            && (node.Status.Untracked || "MDT".Contains(node.Status.Worktree.ToString()));
+
+        static void Discard(Repo repo, Node node)
+        {
+            string effect = node.Status.Untracked
+                ? "Delete the untracked file"
+                : "Restore the indexed version of";
+            Find.WindowStack.Add(
+                ConfirmDialog.Create(
+                    $"{effect} {node.Rel} in {repo.Root}? Working file changes will be lost.",
+                    () =>
+                    {
+                        if (
+                            !ReferenceEquals(Known(repo.Project), repo)
+                            || !repo.Changes.TryGetValue(node.Rel, out var current)
+                            || current != node.Status.Pair
+                        )
+                        {
+                            UiLayout.Fail("Git status changed. Review the file again.");
+                            return;
+                        }
+                        GitAction(
+                            repo,
+                            GitCommands.Discard(repo.Root, node.Rel, node.Status.Untracked),
+                            "discarded " + node.Rel,
+                            true
+                        );
+                    },
+                    true
+                )
+            );
+        }
+
         static void Act(Node node, Repo repo, RowAct act)
         {
             string abs = Abs(repo, node);
 
             switch (act)
             {
+                case RowAct.Stage:
+                    if (node.Section)
+                        StageAll(repo);
+                    else
+                        Stage(repo, node.Rel);
+                    break;
+                case RowAct.Unstage:
+                    if (node.Section)
+                        UnstageAll(repo);
+                    else
+                        Unstage(repo, node);
+                    break;
+                case RowAct.Discard:
+                    Discard(repo, node);
+                    break;
                 case RowAct.View:
                     // Files supplies the reader without changing the active tree.
                     FilesView.ViewFile(repo.Project, abs, "view-" + node.Name);
@@ -367,6 +438,13 @@ namespace SlopWorld
 
         static List<FloatMenuOption> RowMenu(Node node, Repo repo)
         {
+            if (node.Section)
+                return new List<FloatMenuOption>
+                {
+                    node.Staged
+                        ? new FloatMenuOption("Unstage all", () => UnstageAll(repo))
+                        : new FloatMenuOption("Stage all", () => StageAll(repo)),
+                };
             string project = repo.Project;
             string abs = Abs(repo, node);
             var opts = new List<FloatMenuOption>
@@ -384,12 +462,15 @@ namespace SlopWorld
             FilesView.AddFileActions(opts, project, abs, node.Name);
             FilesView.AddOpenIn(opts, abs, project);
 
-            bool canStage = Any(node, status => status.NeedsStage);
-            bool canUnstage = Any(node, status => status.IsStaged);
+            bool canStage = !node.Staged;
+            bool canUnstage = node.Staged;
             if (canStage)
                 opts.Add(new FloatMenuOption("Stage", () => Stage(repo, node.Rel)));
             if (canUnstage)
                 opts.Add(new FloatMenuOption("Unstage", () => Unstage(repo, node)));
+
+            if (CanDiscard(node))
+                opts.Add(new FloatMenuOption("Discard", () => Discard(repo, node)));
 
             if (!node.IsDir && node.Status.Present)
                 FilesView.AddReaderActions(opts, project, abs, node.Name, allowNonTextEdit: true);
@@ -435,7 +516,13 @@ namespace SlopWorld
         public static void OpenDiff(string project, string abs, string label) =>
             OpenDiff(project, abs, label, false);
 
-        static void OpenDiff(string project, string abs, string label, bool directory)
+        static void OpenDiff(
+            string project,
+            string abs,
+            string label,
+            bool directory,
+            Node sectionNode = null
+        )
         {
             Sidebar.RevealOpenFiles();
             project = SidebarScopes.Key(project);
@@ -443,7 +530,7 @@ namespace SlopWorld
             int request = _diffRequest;
             _pendingDiffProject = project;
             var known = Known(project);
-            _pendingDiffRel = known == null ? null : RelOf(known, abs);
+            _pendingDiffRel = sectionNode?.Key ?? (known == null ? null : RelOf(known, abs));
             void OpenCurrent()
             {
                 if (request != _diffRequest)
@@ -471,16 +558,27 @@ namespace SlopWorld
                 if (directory)
                     ClearSelection();
                 else
-                    Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
+                    Tree.SelectKey(
+                        ContentTreeView.SelectionKey(
+                            project,
+                            sectionNode?.Key ?? Node.RowKey(!new GitStatus(status).NeedsStage, rel)
+                        )
+                    );
                 Sidebar.RememberGit(project, rel);
                 Viewers.OpenFresh(
                     project,
-                    DiffCmd(repo, rel, status),
+                    sectionNode == null || new GitStatus(status).Untracked
+                        ? DiffCmd(repo, rel, status)
+                        : GitCommands.SectionDiff(
+                            repo.Root,
+                            GitStore.DiffPaths(repo, rel, sectionNode.Staged),
+                            sectionNode.Staged
+                        ),
                     FilesView.ReaderLabel(project, label),
-                    DiffKey(rel)
+                    DiffKey(sectionNode?.Key ?? rel)
                 );
                 if (pin)
-                    Viewers.LockPreview(project, DiffKey(rel));
+                    Viewers.LockPreview(project, DiffKey(sectionNode?.Key ?? rel));
             }
 
             // The row came from this snapshot. Avoid a second status HTTP round trip before
@@ -492,7 +590,13 @@ namespace SlopWorld
         }
 
         static void Diff(Node node, Repo repo) =>
-            OpenDiff(repo.Project, Abs(repo, node), "diff-" + node.Name, node.IsDir);
+            OpenDiff(
+                repo.Project,
+                Abs(repo, node),
+                (node.Staged ? "staged-" : "unstaged-") + node.Name,
+                node.IsDir,
+                node
+            );
 
         static bool HasChangesUnder(Repo repo, string rel)
         {

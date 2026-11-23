@@ -53,6 +53,8 @@ namespace SlopWorld
         public abstract void ToggleGroup(ContentTreeGroup group);
         public abstract string GroupTooltip(ContentTreeGroup group);
 
+        public virtual bool IsSection(IContentTreeNode node) => false;
+
         public abstract bool IsExpanded(IContentTreeNode node);
         public abstract void ToggleNode(IContentTreeNode node);
         public abstract Color RowIconColor(IContentTreeNode node);
@@ -310,7 +312,7 @@ namespace SlopWorld
                     }
                 );
                 y += RowH;
-                if (child.IsDirectory)
+                if (child.IsDirectory || _source.IsSection(child))
                     BuildRows(child, ref y, indent);
             }
 
@@ -442,7 +444,8 @@ namespace SlopWorld
 
                 row.width = Mathf.Max(0f, row.width - _scrollbarHitInset);
                 float x = CellX + depth * Indent;
-                if (node.IsDirectory && node.CanExpand)
+                bool section = _source.IsSection(node);
+                if ((section || node.IsDirectory) && node.CanExpand)
                 {
                     GUI.color = UiTheme.Faint;
                     GUI.DrawTexture(
@@ -450,13 +453,21 @@ namespace SlopWorld
                         _source.IsExpanded(node) ? TexButton.Collapse : TexButton.Reveal
                     );
                 }
-                x += ArrowW + 3f;
+                x += ArrowW + (section ? UiTheme.GapXS : 3f);
 
-                GUI.color = _source.RowIconColor(node);
-                var icon = FileIcons.Of(node.Name, node.IsDirectory);
-                if (icon != null)
-                    GUI.DrawTexture(new Rect(x, y + (RowH - IconW) / 2f, IconW, IconW), icon);
-                x += IconW + 5f;
+                if (section)
+                    Slab.Hairline(
+                        new Rect(x, row.yMax - 1f, Mathf.Max(0f, row.width - x - Pad), 1f),
+                        UiTheme.Edge
+                    );
+                else
+                {
+                    GUI.color = _source.RowIconColor(node);
+                    var icon = FileIcons.Of(node.Name, node.IsDirectory);
+                    if (icon != null)
+                        GUI.DrawTexture(new Rect(x, y + (RowH - IconW) / 2f, IconW, IconW), icon);
+                    x += IconW + 5f;
+                }
 
                 Text.Font = GameFont.Tiny;
                 float right = width - Pad;
@@ -559,7 +570,7 @@ namespace SlopWorld
                         ResetClicks();
                         actions.Action(line.Node, action);
                     }
-                    else if (line.Node.IsDirectory)
+                    else if (line.Node.IsDirectory || _source.IsSection(line.Node))
                     {
                         ResetClicks();
                         _source.ToggleNode(line.Node);

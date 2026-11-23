@@ -50,6 +50,14 @@ namespace SlopWorld.Tests
                     File.WriteAllText(path, "first\n");
                     Git(root, "add -- " + PagerCommands.Quote(name));
                     File.WriteAllText(path, "edited after staging\n");
+                    Assert.That(
+                        Run(GitCommands.SectionDiff(root, new[] { name }, true)),
+                        Does.Contain("first").And.Not.Contain("edited after staging")
+                    );
+                    Assert.That(
+                        Run(GitCommands.SectionDiff(root, new[] { name }, false)),
+                        Does.Contain("edited after staging")
+                    );
                     string command = GitCommands.Diff(root, name, false);
                     string diff = Run(command);
                     Assert.That(diff, Does.Contain("edited after staging"));
@@ -80,6 +88,29 @@ namespace SlopWorld.Tests
                     Run(GitCommands.Unstage(root, "."));
                     Assert.That(Git(root, "ls-files"), Is.Empty);
                     Assert.That(File.Exists(path), Is.True);
+                }
+            );
+        }
+
+        [Test]
+        public void DiscardPreservesTheIndexAndOnlyDeletesTheSelectedUntrackedFile()
+        {
+            WithRepository(
+                "sha1",
+                root =>
+                {
+                    const string name = ":(glob)*.txt";
+                    string path = Path.Combine(root, name);
+                    File.WriteAllText(path, "indexed");
+                    Run(GitCommands.Stage(root, name));
+                    File.WriteAllText(path, "later");
+                    Run(GitCommands.Discard(root, name, false));
+                    Assert.That(File.ReadAllText(path), Is.EqualTo("indexed"));
+                    Run(GitCommands.Unstage(root, name));
+                    File.WriteAllText(Path.Combine(root, "other.txt"), "keep");
+                    Run(GitCommands.Discard(root, name, true));
+                    Assert.That(File.Exists(path), Is.False);
+                    Assert.That(File.Exists(Path.Combine(root, "other.txt")), Is.True);
                 }
             );
         }

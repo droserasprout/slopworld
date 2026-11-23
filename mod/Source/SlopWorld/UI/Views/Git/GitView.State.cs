@@ -74,8 +74,8 @@ namespace SlopWorld
 
         static void FoldDirectories(Node node, HashSet<string> shut)
         {
-            if (node.IsDir && node.Depth > 0)
-                shut.Add(node.Rel);
+            if (node.Section || (node.IsDir && node.Depth >= 0))
+                shut.Add(node.Key);
             if (node.Kids == null)
                 return;
             foreach (var child in node.Kids)
@@ -124,10 +124,19 @@ namespace SlopWorld
                 IContentTreeRowActions,
                 IContentTreeSelection
         {
+            public override bool IsSection(IContentTreeNode node) => ((Node)node).Section;
+
             public override Color RowIconColor(IContentTreeNode node) => Color.white;
 
             public override Color RowLabelColor(IContentTreeNode node) =>
-                node.IsDirectory ? UiTheme.Lead : UiTheme.Name;
+                IsSection(node)
+                    ? Color.Lerp(
+                        UiTheme.Dim,
+                        ((Node)node).Staged ? UiTheme.Yes : UiTheme.Warn,
+                        0.3f
+                    )
+                : node.IsDirectory ? UiTheme.Lead
+                : UiTheme.Name;
 
             public override int Revision =>
                 unchecked(
@@ -196,13 +205,13 @@ namespace SlopWorld
             }
 
             public override bool IsExpanded(IContentTreeNode node) =>
-                !Shut(((Node)node).Owner).Contains(((Node)node).Rel);
+                !Shut(((Node)node).Owner).Contains(((Node)node).Key);
 
             public override void ToggleNode(IContentTreeNode node)
             {
                 var git = (Node)node;
-                if (!Shut(git.Owner).Remove(git.Rel))
-                    Shut(git.Owner).Add(git.Rel);
+                if (!Shut(git.Owner).Remove(git.Key))
+                    Shut(git.Owner).Add(git.Key);
                 BumpTree();
             }
 
@@ -211,7 +220,7 @@ namespace SlopWorld
             public void DoubleClick(IContentTreeNode node)
             {
                 var git = (Node)node;
-                GitView.LockViewerFile(git.Owner.Project, git.Rel);
+                GitView.LockViewerFile(git.Owner.Project, git.Key);
             }
 
             public float DrawRowTail(Rect row, IContentTreeNode node, float right) =>
@@ -220,7 +229,9 @@ namespace SlopWorld
             public string RowTooltip(IContentTreeNode node)
             {
                 var git = (Node)node;
-                return git.IsDir ? null : $"{git.Rel}\n\n{Says(git)}";
+                return git.Section ? "Click to fold or expand."
+                    : git.IsDir ? null
+                    : $"{git.Rel}\n\n{Says(git)}";
             }
 
             public override void Open(IContentTreeNode node) =>
