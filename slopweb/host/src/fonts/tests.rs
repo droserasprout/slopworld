@@ -123,17 +123,59 @@ fn test_face(name: &str, coverage: Vec<[u32; 2]>) -> Face {
 }
 
 #[test]
-#[ignore = "requires installed Fontconfig and system fonts"]
-fn system_index_reuses_persistent_sources_and_resolves_without_game() {
-    // Fontconfig is the Linux product dependency. No game, managed helper, browser
-    // or graphics context is involved in exercising the discovery/cache path.
+fn fontconfig_catalog_reloads_and_repairs_cached_faces() {
+    const FIXTURE: &str = "SLOPWEB_FONTCONFIG_TEST_CHILD";
+    // Fontconfig caches configuration process-wide. Set its environment before
+    // starting the child so concurrently running tests keep their own configuration.
+    if std::env::var_os(FIXTURE).is_none() {
+        let work = tempfile::tempdir().unwrap();
+        let fonts = work.path().join("fonts");
+        fs::create_dir(&fonts).unwrap();
+        fs::write(
+            fonts.join("clacon2.ttf"),
+            include_bytes!("../../../../assets/fonts/clacon2.ttf"),
+        )
+        .unwrap();
+        let config = work.path().join("fonts.conf");
+        fs::write(
+            &config,
+            r#"<fontconfig>
+            <dir prefix="xdg">fonts</dir>
+            <cachedir prefix="xdg">fontconfig</cachedir>
+        </fontconfig>"#,
+        )
+        .unwrap();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                std::thread::current().name().unwrap(),
+                "--nocapture",
+            ])
+            .env(FIXTURE, "1")
+            .env("FONTCONFIG_FILE", config)
+            .env("FONTCONFIG_PATH", work.path())
+            .env_remove("FONTCONFIG_SYSROOT")
+            .env("HOME", work.path())
+            .env("XDG_DATA_HOME", work.path())
+            .env("XDG_DATA_DIRS", work.path().join("share"))
+            .env("XDG_CACHE_HOME", work.path().join("cache"))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
     let root = tempfile::tempdir().unwrap();
     let mut catalog = Catalog::default();
     catalog.rebuild(root.path()).unwrap();
+    assert_eq!(catalog.faces.len(), 1);
     let generation = catalog.generation.clone();
     assert!(catalog.fresh(root.path()));
     let chain = catalog.chain(root.path(), "monospace").unwrap();
-    assert!(!chain.is_empty());
+    assert_eq!(chain, ["Classic Console Neue"]);
     let sans = catalog.chain(root.path(), "sans-serif").unwrap();
     assert_eq!(
         select_ui(&mut catalog, root.path(), "sans-serif")

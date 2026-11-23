@@ -261,8 +261,6 @@ fn wait_for_retry(
 }
 
 #[cfg(test)]
-pub(crate) use playback::{NULL_PCM, SERVER_PCMS, open_device, pcm_id};
-#[cfg(test)]
 use queue::RING;
 #[cfg(test)]
 use ring::{Ring, enqueue_chunk};

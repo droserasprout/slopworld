@@ -156,7 +156,7 @@ jobs:
       MANAGED: /nonexistent/rimworld-managed
     steps:
       - name: Install recipe dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep libfontconfig1
 
       - uses: actions/checkout@v5
         with:

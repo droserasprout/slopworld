@@ -23,11 +23,11 @@ const PREFILL_SECS: usize = 1;
 
 /// ALSA PCM devices for sound servers, in preference order.
 /// cpal uses ALSA on Linux. These PCM plugins connect it to sound servers such as PipeWire.
-pub(crate) const SERVER_PCMS: [&str; 2] = ["pulse", "default"];
+const SERVER_PCMS: [&str; 2] = ["pulse", "default"];
 
 /// ALSA's `null` PCM accepts and discards every sample, so selecting it looks like playback
 /// with no sound. Never use it as a fallback.
-pub(crate) const NULL_PCM: &str = "null";
+const NULL_PCM: &str = "null";
 
 /// Interface between command handling and rodio.
 /// Tests use a simulated mixer to check source generations. Production delegates to the rodio player.
@@ -115,7 +115,7 @@ impl AudioOutput for RodioOutput {
 
 /// Return the ALSA PCM ID, such as `pipewire`, `pulse`, `default`, or `null`.
 /// Match devices by ID instead of display names such as PipeWire Sound Server.
-pub(crate) fn pcm_id(device: &cpal::Device) -> String {
+fn pcm_id(device: &cpal::Device) -> String {
     device
         .id()
         .map(|cpal::DeviceId(_, id)| id)
@@ -124,17 +124,6 @@ pub(crate) fn pcm_id(device: &cpal::Device) -> String {
 
 /// Prefer named server PCMs because `open_default_sink` can select `null`.
 /// Reject `null` because it discards audio.
-#[cfg(test)]
-pub(crate) fn open_device() -> Result<rodio::MixerDeviceSink> {
-    open_device_with_health(
-        &Arc::new(OutputHealth::new()),
-        &AudioOutputSettings::default(),
-        &[],
-        None,
-    )
-    .map(|(_, sink)| sink)
-}
-
 fn open_device_with_health(
     health: &Arc<OutputHealth>,
     settings: &AudioOutputSettings,
