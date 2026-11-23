@@ -19,8 +19,8 @@ export SLOPCAR_WORKSPACE := env("SLOPCAR_WORKSPACE", absolute_path(source_direct
 export BUILD := env("BUILD", 'debug')
 build_mode := if BUILD =~ '^(debug|release)$' { BUILD } else { error('BUILD must be exactly debug or release; got ' + BUILD) }
 export CARGOFLAGS := if build_mode == 'release' { '--release' } else { '' }
-export SLOPCAR := env("SLOPCAR", 'slopcar/target/' + build_mode + '/slopcar')
-export TARGET := 'slopd/target/' + build_mode
+export SLOPCAR := env("SLOPCAR", 'target/' + build_mode + '/slopcar')
+export TARGET := 'target/' + build_mode
 export RUNNER := TARGET + '/slopworld'
 export SLOPCTL := TARGET + '/slopctl'
 # Share eligible compiler results while retaining per-checkout Cargo build state.

@@ -15,7 +15,9 @@ def configuration() -> str:
 
 
 def rust_binary(directory: Path, name: str) -> Path:
-    return directory / os.environ.get('CARGO_TARGET_DIR', 'target') / os.environ['BUILD'] / name
+    target = os.environ.get('CARGO_TARGET_DIR')
+    output = directory / target if target else ROOT / 'target'
+    return output / os.environ['BUILD'] / name
 
 
 def build_ipc() -> None:

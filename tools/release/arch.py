@@ -47,7 +47,7 @@ def package(
         archive = build_archive(
             workspace,
             version,
-            binary_dir or ROOT / ('slopcar/target/release' if product == 'slopcar' else 'slopd/target/release'),
+            binary_dir or ROOT / 'target/release',
             mod,
             revision=revision,
             product=product,

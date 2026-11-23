@@ -9,7 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config \
         protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
-COPY slopd/Cargo.toml slopd/Cargo.lock ./
+COPY Cargo.toml Cargo.lock /build/
+COPY slopcar/Cargo.toml /build/slopcar/
+COPY bench/ipc/rust/Cargo.toml /build/bench/ipc/rust/
+COPY slopd/Cargo.toml ./
+# Cargo parses every workspace member even when only the daemon is built.
+RUN for member in slopcar bench/ipc/rust; do mkdir -p "/build/$member/src"; touch "/build/$member/src/main.rs"; done
 RUN mkdir src \
     && printf 'fn main() {}\n' > src/main.rs \
     && cargo build --release --locked --bin slopd \
@@ -69,8 +74,8 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash slop \
 # overwritten base files. Keep Debian's package database for user-supplied images.
 FROM scratch
 COPY --from=runtime / /
-COPY --from=build --chmod=755 /build/slopd/target/release/slopd /usr/local/bin/slopd
-COPY --from=build --chmod=755 /build/slopd/target/release/slopctl /usr/local/bin/slopctl
+COPY --from=build --chmod=755 /build/target/release/slopd /usr/local/bin/slopd
+COPY --from=build --chmod=755 /build/target/release/slopctl /usr/local/bin/slopctl
 COPY LICENSE /usr/share/licenses/slopworld/LICENSE
 COPY licenses/ /usr/share/licenses/slopworld/third-party/
 

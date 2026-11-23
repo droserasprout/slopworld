@@ -85,16 +85,23 @@ fn run_with(
         return Ok(());
     }
     docker.ready()?;
-    match command {
-        Command::Help(_) | Command::Completions(_) => {}
-        Command::Paths(name) => println!(
-            "{}",
-            crate::application_paths::Mode::Sidecar
-                .query(&name, None)
-                .map_err(anyhow::Error::msg)?
-                .display()
-        ),
-        Command::Notices => print!("{}", crate::NOTICES),
+    let shell = matches!(command, Command::Shell);
+    let (mut flags, quiet) = match command {
+        Command::Help(_) | Command::Completions(_) => return Ok(()),
+        Command::Paths(name) => {
+            println!(
+                "{}",
+                crate::application_paths::Mode::Sidecar
+                    .query(&name, None)
+                    .map_err(anyhow::Error::msg)?
+                    .display()
+            );
+            return Ok(());
+        }
+        Command::Notices => {
+            print!("{}", crate::NOTICES);
+            return Ok(());
+        }
         Command::Build(source) => {
             let source = source.canonicalize()?;
             let dockerfile = source.join("slopcar/Dockerfile");
@@ -104,7 +111,7 @@ fn run_with(
             let mut flags = args(&["build", "--tag", &settings.image, "--file"]);
             flags.push(dockerfile.into_os_string());
             flags.push(source.into_os_string());
-            docker.run(&flags, false)?;
+            return docker.run(&flags, false);
         }
         Command::Doctor => {
             require_image(docker, settings)?;
@@ -113,49 +120,43 @@ fn run_with(
             let mut flags = args(&["run", "--rm"]);
             flags.extend(security);
             flags.extend(args(&[&settings.image, "slopcar-doctor"]));
-            docker.run(&flags, false)?;
+            return docker.run(&flags, false);
         }
-        Command::Start(start) => start_container(start, settings, docker, identity)?,
-        command => {
-            if !docker.exists("container", settings.container.as_ref())? {
-                bail!("container {} does not exist", settings.container);
-            }
-            let shell = matches!(command, Command::Shell);
-            let (mut flags, quiet) = match command {
-                Command::Stop => (args(&["stop"]), true),
-                Command::Restart => (args(&["restart"]), true),
-                Command::Status => (
-                    args(&[
-                        "inspect",
-                        "--format",
-                        "{{.State.Status}}{{if .State.Health}} health={{.State.Health.Status}}{{end}}",
-                    ]),
-                    false,
-                ),
-                Command::Logs(options) => {
-                    let mut flags = args(&["logs"]);
-                    flags.extend(options);
-                    (flags, false)
-                }
-                Command::Shell => (
-                    args(&["exec", "--user", "slop", "--interactive", "--tty"]),
-                    false,
-                ),
-                Command::Remove => (args(&["rm", "--force"]), true),
-                _ => unreachable!(),
-            };
-            flags.push(settings.container.clone().into());
-            if shell {
-                flags.push("/bin/bash".into());
-            }
-            docker.run(&flags, quiet)?;
-            if quiet {
-                println!(
-                    "slopcar: command completed for {}; persistent state remains",
-                    settings.container
-                );
-            }
+        Command::Start(start) => return start_container(start, settings, docker, identity),
+        Command::Stop => (args(&["stop"]), true),
+        Command::Restart => (args(&["restart"]), true),
+        Command::Status => (
+            args(&[
+                "inspect",
+                "--format",
+                "{{.State.Status}}{{if .State.Health}} health={{.State.Health.Status}}{{end}}",
+            ]),
+            false,
+        ),
+        Command::Logs(options) => {
+            let mut flags = args(&["logs"]);
+            flags.extend(options);
+            (flags, false)
         }
+        Command::Shell => (
+            args(&["exec", "--user", "slop", "--interactive", "--tty"]),
+            false,
+        ),
+        Command::Remove => (args(&["rm", "--force"]), true),
+    };
+    if !docker.exists("container", settings.container.as_ref())? {
+        bail!("container {} does not exist", settings.container);
+    }
+    flags.push(settings.container.clone().into());
+    if shell {
+        flags.push("/bin/bash".into());
+    }
+    docker.run(&flags, quiet)?;
+    if quiet {
+        println!(
+            "slopcar: command completed for {}; persistent state remains",
+            settings.container
+        );
     }
     Ok(())
 }

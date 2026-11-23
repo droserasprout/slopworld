@@ -30,7 +30,7 @@ def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'licenses/NOTICE.txt': 'notice',
     }
     for binary in release_staging.BINARIES:
-        files[f'slopd/target/release/{binary}'] = 'binary fixture'
+        files[f'target/release/{binary}'] = 'binary fixture'
     for assembly in release_staging.MOD_ASSEMBLIES:
         files[f'mod/Assemblies/{assembly}.dll'] = 'assembly fixture'
     for name, content in files.items():
@@ -129,7 +129,7 @@ def test_real_debian_archive_round_trip(package_inputs: Path, tmp_path: Path) ->
     # Native ELF fixtures exercise the installed library database and archive tools
     # without compiling Rust or depending on proprietary game assemblies.
     for binary in release_staging.BINARIES:
-        shutil.copyfile('/bin/true', package_inputs / 'slopd/target/release' / binary)
+        shutil.copyfile('/bin/true', package_inputs / 'target/release' / binary)
     archive = debian.package(tmp_path / 'output', 'revision', '1.0.0', architecture)
     result = execute(['dpkg-deb', '--field', str(archive), 'Depends'], capture_output=True, text=True)
     assert 'libc6' in result.stdout

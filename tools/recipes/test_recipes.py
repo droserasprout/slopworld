@@ -281,16 +281,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
 
     def test_lock_refresh_updates_every_graph_before_staging_notices(self) -> None:
         self.run_recipe('deps-update')
-        cargo = self.calls('cargo')
-        self.assertEqual(
-            [call['cwd'] for call in cargo],
-            [
-                str(ROOT / 'slopd'),
-                str(ROOT / 'slopcar'),
-                str(ROOT / 'bench/ipc/rust'),
-            ],
-        )
-        self.assertTrue(all(call['args'] == ['update'] for call in cargo))
+        (cargo,) = self.calls('cargo')
+        self.assertEqual(cargo['cwd'], str(ROOT))
+        self.assertEqual(cargo['args'], ['update'])
         dotnet = self.calls('dotnet')
         self.assertEqual(
             [call['args'][1] for call in dotnet],

@@ -87,10 +87,7 @@ jobs:
           # rust-cache keys compiler identity and job-level Rust/Cargo flags.
           # Keep coverage-tool/policy changes in the restore prefix too.
           cache-key: coverage-v1-${{ hashFiles('.github/actions/setup-build-tools/*', 'just/daemon.just', 'rust-toolchain.toml') }}
-          # slopd/target includes the isolated llvm-cov-target dependency build.
-          cache-workspaces: |
-            slopd -> target
-            slopcar -> target
+          cache-workspaces: . -> target
 
       - name: Check bubblewrap namespaces in the CI container
         run: |

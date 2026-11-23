@@ -1,7 +1,7 @@
 //! Local queries must bypass container settings, Docker, and state creation.
 #[test]
-fn help_notices_and_paths_work_without_valid_container_settings() -> std::io::Result<()> {
-    let root = tempfile::tempdir()?;
+fn help_notices_and_paths_work_without_valid_container_settings() {
+    let root = tempfile::tempdir().unwrap();
     let config = root.path().join("absent-config");
     for args in [
         vec!["--help"],
@@ -19,7 +19,8 @@ fn help_notices_and_paths_work_without_valid_container_settings() -> std::io::Re
             .env("PATH", root.path())
             .env("SLOPCAR_PORT", "invalid")
             .env("SLOPD_CONFIG_ROOT", &config)
-            .output()?;
+            .output()
+            .unwrap();
         assert!(
             output.status.success(),
             "{args:?}: {}",
@@ -28,11 +29,10 @@ fn help_notices_and_paths_work_without_valid_container_settings() -> std::io::Re
         assert!(!output.stdout.is_empty());
         assert!(!config.exists());
     }
-    Ok(())
 }
 
 #[test]
-fn completions_match_packaged_scripts() -> std::io::Result<()> {
+fn completions_match_packaged_scripts() {
     for (shell, relative) in [
         ("bash", "bash-completion/completions/slopcar"),
         ("zsh", "zsh/site-functions/_slopcar"),
@@ -40,12 +40,12 @@ fn completions_match_packaged_scripts() -> std::io::Result<()> {
     ] {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_slopcar"))
             .args(["completions", shell])
-            .output()?;
+            .output()
+            .unwrap();
         assert!(output.status.success());
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../packaging/completions")
             .join(relative);
-        assert_eq!(output.stdout, std::fs::read(path)?);
+        assert_eq!(output.stdout, std::fs::read(path).unwrap());
     }
-    Ok(())
 }

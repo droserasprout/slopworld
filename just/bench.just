@@ -15,3 +15,14 @@ bench-report *args:
 [group('bench')]
 bench-latest *args:
     uv run --locked python -m bench.report report --latest "$@"
+
+# Format the Rust IPC benchmark
+[group('bench')]
+bench-format:
+    cd bench/ipc/rust && cargo fmt
+
+# Check the Rust IPC benchmark
+[group('bench')]
+bench-lint:
+    cd bench/ipc/rust && cargo fmt --check
+    cd bench/ipc/rust && cargo clippy --quiet --locked --all-targets -- -D warnings

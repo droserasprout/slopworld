@@ -129,7 +129,7 @@ jobs:
         with:
           build-warnings: ''
           cache-key: release
-          cache-workspaces: slopd -> target
+          cache-workspaces: . -> target
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
         with:
           tool: mdbook@0.5.4

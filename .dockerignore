@@ -2,10 +2,19 @@
 *
 !.dockerignore
 
+!Cargo.toml
+!Cargo.lock
+!bench/
+bench/*
+!bench/ipc/
+bench/ipc/*
+!bench/ipc/rust/
+bench/ipc/rust/*
+!bench/ipc/rust/Cargo.toml
+
 !slopd/
 slopd/*
 !slopd/Cargo.toml
-!slopd/Cargo.lock
 !slopd/build.rs
 !slopd/src/
 !slopd/src/**
@@ -14,6 +23,7 @@ slopd/*
 
 !slopcar/
 slopcar/*
+!slopcar/Cargo.toml
 !slopcar/entrypoint.sh
 !slopcar/doctor.sh
 

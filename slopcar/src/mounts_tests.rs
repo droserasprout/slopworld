@@ -47,14 +47,12 @@ fn credentials_cannot_cover_state_or_expose_docker_configuration() {
         "/home/slop/.local/share",
         "/home/slop/../slop/auth",
     ] {
-        assert!(
-            credential(
-                OsStr::new(&format!("{}={target}", auth.display())),
-                true,
-                &settings
-            )
-            .is_err()
-        );
+        credential(
+            OsStr::new(&format!("{}={target}", auth.display())),
+            true,
+            &settings,
+        )
+        .unwrap_err();
     }
     let spec = format!("{}=/home/slop/.codex/auth.json", auth.display());
     assert!(
@@ -69,14 +67,12 @@ fn credentials_cannot_cover_state_or_expose_docker_configuration() {
     );
     let docker = settings.home.join(".docker");
     std::fs::create_dir(&docker).unwrap();
-    assert!(
-        credential(
-            OsStr::new(&format!("{}=/home/slop/auth", docker.display())),
-            false,
-            &settings
-        )
-        .is_err()
-    );
+    credential(
+        OsStr::new(&format!("{}=/home/slop/auth", docker.display())),
+        false,
+        &settings,
+    )
+    .unwrap_err();
 }
 #[cfg(unix)]
 #[test]
@@ -89,21 +85,19 @@ fn resolves_symlinked_state_ancestors_and_rejects_credential_symlinks() {
     let alias = root.path().join("alias");
     symlink(&work, &alias).unwrap();
     settings.config = alias.join("not-created-yet");
-    assert!(workspace(&work, &settings).is_err());
+    workspace(&work, &settings).unwrap_err();
     let file = root.path().join("auth");
     std::fs::write(&file, "secret").unwrap();
     let link = root.path().join("auth-link");
     symlink(&file, &link).unwrap();
-    assert!(
-        credential(
-            OsStr::new(&format!("{}=/home/slop/auth", link.display())),
-            false,
-            &settings
-        )
-        .is_err()
-    );
+    credential(
+        OsStr::new(&format!("{}=/home/slop/auth", link.display())),
+        false,
+        &settings,
+    )
+    .unwrap_err();
     let dangling = root.path().join("dangling");
     symlink(root.path().join("missing"), &dangling).unwrap();
     settings.config = dangling.join("config");
-    assert!(workspace(&file, &settings).is_err());
+    workspace(&file, &settings).unwrap_err();
 }

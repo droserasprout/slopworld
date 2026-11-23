@@ -1,2 +1,0 @@
-# Test assertions may panic; production paths must return errors.
-allow-panic-in-tests = true

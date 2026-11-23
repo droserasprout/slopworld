@@ -45,9 +45,9 @@ def package(
         workspace = Path(temporary)
         staging = workspace / product
         if product == 'slopcar':
-            shared.stage_sidecar(staging, binary_dir or ROOT / 'slopcar/target/release', revision, version)
+            shared.stage_sidecar(staging, binary_dir or ROOT / 'target/release', revision, version)
         else:
-            shared.stage_system(staging, binary_dir or ROOT / 'slopd/target/release', product)
+            shared.stage_system(staging, binary_dir or ROOT / 'target/release', product)
             if product == 'slopworld':
                 stage_mod(staging / 'usr/share/slopworld/SlopWorld', revision, version)
             copy_file(ROOT / 'packaging/debian/README.Debian', staging / f'usr/share/doc/{product}/README.Debian')

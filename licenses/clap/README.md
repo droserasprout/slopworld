@@ -1,7 +1,7 @@
 # Clap dependency licenses
 
 MIT is selected for Clap and its additional dependencies. Full license texts
-are copied from the versions in `slopd/Cargo.lock`.
+are copied from the versions in `Cargo.lock`.
 
 - [anstream](anstream/LICENSE-MIT)
 - [anstyle](anstyle/LICENSE-MIT)

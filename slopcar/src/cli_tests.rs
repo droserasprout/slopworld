@@ -9,7 +9,7 @@ fn command(arguments: &[&str]) -> Result<Command> {
 #[test]
 fn rejects_invalid_ports_and_incomplete_or_unknown_options() {
     for port in ["0", "65536", "-1", "abc"] {
-        assert!(command(&["start", "--port", port]).is_err());
+        command(&["start", "--port", port]).unwrap_err();
     }
     for args in [
         &["start", "--workspace"][..],
@@ -17,7 +17,7 @@ fn rejects_invalid_ports_and_incomplete_or_unknown_options() {
         &["stop", "extra"],
         &["build", "--source"],
     ] {
-        assert!(command(args).is_err());
+        command(args).unwrap_err();
     }
 }
 #[test]
@@ -108,8 +108,8 @@ fn generated_help_covers_local_and_lifecycle_commands() {
     assert!(
         matches!(command(&["--version"]).unwrap(), Command::Help(text) if text.to_string().contains(env!("CARGO_PKG_VERSION")))
     );
-    assert!(command(&["paths", "unknown"]).is_err());
-    assert!(command(&["build", "--unknown"]).is_err());
+    command(&["paths", "unknown"]).unwrap_err();
+    command(&["build", "--unknown"]).unwrap_err();
 }
 
 #[cfg(unix)]

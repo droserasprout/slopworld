@@ -6,7 +6,7 @@ ci: ci-tools ci-rust ci-mod
 
 # Check daemon and sidecar Rust, collecting daemon coverage
 [group('CI')]
-ci-rust: daemon-lint daemon-coverage sidecar-lint sidecar-test
+ci-rust: bench-lint daemon-lint daemon-coverage sidecar-lint sidecar-test
 
 # Check generated files and Python, pager, sidecar and benchmark tooling
 [group('CI')]

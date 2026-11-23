@@ -96,7 +96,8 @@ def test_delayed_checkout_changes_are_rejected(repository: Callable[..., str], c
 def test_committed_version_mismatch_is_rejected(
     repository: Callable[..., str], tmp_path: Path, entry: product.VersionFile
 ) -> None:
-    source, match = entry.read(tmp_path)
+    source = (tmp_path / entry.path).read_text()
+    match = entry.match(source)
     start, end = match.span('version')
     (tmp_path / entry.path).write_text(source[:start] + '0.0.2' + entry.suffix + source[end:])
     repository('add', entry.path)

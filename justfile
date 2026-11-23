@@ -22,7 +22,8 @@ install-completions:
 
 # Remove ordinary build and coverage output
 [group('Build and run')]
-clean: sidecar-clean daemon-clean mod-clean clean-coverage
+clean: mod-clean clean-coverage
+    cargo clean
 
 # Remove installed files; preserve config and saves
 [group('Build and run')]
@@ -30,11 +31,11 @@ uninstall: daemon-uninstall cli-uninstall uninstall-mod
 
 # Format Python, Rust and C# sources
 [group('Check and fix')]
-format: sidecar-format tools-format daemon-format mod-format
+format: bench-format sidecar-format tools-format daemon-format mod-format
 
 # Check sources without rewriting them
 [group('Check and fix')]
-lint: sidecar-lint tools-lint daemon-lint mod-lint
+lint: bench-lint sidecar-lint tools-lint daemon-lint mod-lint
 
 # Run regular game-free tests
 [group('Check and fix')]
@@ -103,7 +104,7 @@ deps-restore: tools-restore mod-restore mod-restore-tools
 
 # Update every dependency graph, then regenerate and stage notices
 [group('Maintain')]
-deps-update: deps-update-tools deps-update-daemon deps-update-sidecar deps-update-bench deps-update-mod generate-daemon-licenses generate-sidecar-licenses generate-licenses
+deps-update: deps-update-tools deps-update-rust deps-update-mod generate-daemon-licenses generate-sidecar-licenses generate-licenses
 
 # Launch against an already running sidecar
 [group('Specialist commands')]

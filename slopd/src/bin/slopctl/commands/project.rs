@@ -27,9 +27,11 @@ pub(super) fn run(
             let reply = request(endpoint, session, "GET", routes::PROJECTS, None)?;
             if json_output {
                 print_json(&reply);
-            } else if let Some(projects) = reply["projects"].as_array() {
+            } else if let Some(projects) =
+                reply.get("projects").and_then(serde_json::Value::as_array)
+            {
                 for project in projects {
-                    if let Some(name) = project["name"].as_str() {
+                    if let Some(name) = project.get("name").and_then(serde_json::Value::as_str) {
                         println!("{name}");
                     }
                 }

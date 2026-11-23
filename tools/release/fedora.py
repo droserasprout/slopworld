@@ -48,7 +48,7 @@ def package(
         workspace = Path(temporary)
         if product == 'slopcar':
             shared.stage_sidecar(
-                workspace / 'SOURCES/payload', binary_dir or ROOT / 'slopcar/target/release', revision, version
+                workspace / 'SOURCES/payload', binary_dir or ROOT / 'target/release', revision, version
             )
         else:
             stage_payload(workspace / 'SOURCES/payload', revision, version, binary_dir, product)
@@ -64,7 +64,7 @@ def package(
 def stage_payload(
     payload: Path, revision: str, version: str, binary_dir: Path | None, product: str = 'slopworld'
 ) -> None:
-    shared.stage_system(payload, binary_dir or ROOT / 'slopd/target/release', product)
+    shared.stage_system(payload, binary_dir or ROOT / 'target/release', product)
     if product == 'slopworld':
         stage_mod(payload / 'usr/share/slopworld/SlopWorld', revision, version)
     copy_file(ROOT / 'packaging/fedora/README.Fedora', payload / f'usr/share/doc/{product}/README.Fedora')

@@ -35,7 +35,7 @@ sidecar-test *args:
 # Remove component build output
 [group('sidecar')]
 sidecar-clean:
-    cd slopcar && cargo clean
+    cargo clean -p slopcar
 
 # Check nested Bubblewrap, pasta and tmux
 [group('sidecar')]

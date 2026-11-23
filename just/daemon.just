@@ -39,11 +39,11 @@ daemon-coverage:
     cd slopd
     # Retain instrumented dependencies; llvm-cov selects matching rustup LLVM tools.
     cargo llvm-cov clean --workspace
-    cargo llvm-cov --locked --no-report
-    cargo llvm-cov report --cobertura --output-path "$output/rust.cobertura.xml"
-    cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --cobertura --output-path "$output/rust.filtered.cobertura.xml"
+    cargo llvm-cov -p slopd --locked --no-report
+    cargo llvm-cov report -p slopd --cobertura --output-path "$output/rust.cobertura.xml"
+    cargo llvm-cov report -p slopd --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --cobertura --output-path "$output/rust.filtered.cobertura.xml"
     # Leave a small margin below observed coverage for asynchronous execution variation.
-    cargo llvm-cov report --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --fail-under-lines 92.70 | tee "$output/rust.files.txt"
+    cargo llvm-cov report -p slopd --ignore-filename-regex {{ quote(rust_coverage_exclude) }} --fail-under-lines 92.70 | tee "$output/rust.files.txt"
 
 # Install the daemon, its CLI dependency, and user service
 [group('daemon')]
@@ -72,4 +72,4 @@ cli-uninstall:
 # Remove component build output
 [group('daemon')]
 daemon-clean:
-    cd slopd && cargo clean
+    cargo clean -p slopd

@@ -28,15 +28,14 @@ def snapshot(repository: Path) -> dict[Path, bytes]:
 
 def test_bump_preserves_dependencies_and_changelog_and_is_repeatable(repository: Path) -> None:
     before = snapshot(repository)
-    locks = {name: tomllib.loads((repository / name / 'Cargo.lock').read_text()) for name in ('slopd', 'slopcar')}
-    assert len(bump('0.0.2', repository)) == len(product.FILES)
+    lock = tomllib.loads((repository / 'Cargo.lock').read_text())
+    assert len(bump('0.0.2', repository)) == len({entry.path for entry in product.FILES})
     product.check('0.0.2', repository)
     assert (repository / 'CHANGELOG.md').read_bytes() == before[repository / 'CHANGELOG.md']
-    for name, lock in locks.items():
-        for package in lock['package']:
-            if package['name'] == name:
-                package['version'] = '0.0.2'
-        assert tomllib.loads((repository / name / 'Cargo.lock').read_text()) == lock
+    for package in lock['package']:
+        if package['name'] in ('slopd', 'slopcar'):
+            package['version'] = '0.0.2'
+    assert tomllib.loads((repository / 'Cargo.lock').read_text()) == lock
     after = snapshot(repository)
     assert bump('0.0.2', repository) == []
     assert snapshot(repository) == after

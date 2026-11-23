@@ -43,7 +43,7 @@ def inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         return path
 
     for binary in ('slopd', 'slopctl', 'slopworld'):
-        write(f'slopd/target/release/{binary}').chmod(0o755)
+        write(f'target/release/{binary}').chmod(0o755)
     for name in (
         'slopd/slopd.service',
         'packaging/slopworld.desktop',

@@ -7,3 +7,6 @@ publish = false
 prost = "0.14.4"
 [build-dependencies]
 prost-build = "0.14.4"
+
+[lints]
+workspace = true

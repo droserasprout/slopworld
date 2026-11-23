@@ -3,20 +3,10 @@
 deps-update-tools:
     uv lock --upgrade
 
-# Update the daemon dependency lock
+# Update the shared Rust workspace lock
 [group('deps-update')]
-deps-update-daemon:
-    cd slopd && cargo update
-
-# Update the sidecar dependency lock
-[group('deps-update')]
-deps-update-sidecar:
-    cd slopcar && cargo update
-
-# Update the bench dependency lock
-[group('deps-update')]
-deps-update-bench:
-    cd bench/ipc/rust && cargo update
+deps-update-rust:
+    cargo update
 
 # Update the mod dependency locks
 [group('deps-update')]

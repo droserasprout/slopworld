@@ -133,10 +133,10 @@ Start the worker before running the game. `install-mod` builds the CLI in the
 checkout without installing it into `PATH`. From the repository root, connect with:
 
 ```sh
-slopd/target/debug/slopctl --sidecar status
+target/debug/slopctl --sidecar status
 ```
 
-Use `slopd/target/release/slopctl` if you built with `BUILD=release`.
+Use `target/release/slopctl` if you built with `BUILD=release`.
 `SLOPD_ENDPOINT` can select an explicit descriptor in either mode.
 
 ## Lifecycle

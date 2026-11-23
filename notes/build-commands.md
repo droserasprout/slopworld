@@ -11,8 +11,10 @@ and reporting; run `tools/` as a package through `uv run --locked python -m`.
 Routine checks and builds use native quiet options; keep warnings, failures, and
 compact test summaries visible.
 C# formatting belongs to CSharpier; analyzer policy belongs to `.editorconfig` and
-`Directory.Build.props` and runs during builds, not `mod-lint`. Rust lint selection
-belongs to each crate's manifest; `clippy.toml` owns thresholds and test allowances.
+`Directory.Build.props` and runs during builds, not `mod-lint`.
+The root Cargo workspace owns the lockfile, release profile and Rust lint selections.
+Each member inherits `workspace.lints`. Clippy thresholds and test allowances live
+in the root `clippy.toml`. Cargo writes binaries under the checkout's `target/`.
 `slopcar/` owns Linux containers and their host launcher. Mod builds do not
 build Rust, so install/launch recipes must declare their launcher dependency.
 

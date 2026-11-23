@@ -52,7 +52,7 @@ def package_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         'licenses/NOTICE.txt': 'notice',
     }
     for binary in release_staging.BINARIES:
-        files[f'slopd/target/release/{binary}'] = 'binary fixture'
+        files[f'target/release/{binary}'] = 'binary fixture'
     for assembly in release_staging.MOD_ASSEMBLIES:
         files[f'mod/Assemblies/{assembly}.dll'] = 'assembly fixture'
     for name, content in files.items():
@@ -157,7 +157,7 @@ def test_real_rpm_archive_round_trip(package_inputs: Path, tmp_path: Path) -> No
         pytest.skip('Unsupported native Fedora architecture')
     # Native ELF fixtures exercise library discovery without compiling Rust.
     for binary in release_staging.BINARIES:
-        shutil.copyfile('/bin/true', package_inputs / 'slopd/target/release' / binary)
+        shutil.copyfile('/bin/true', package_inputs / 'target/release' / binary)
     archive = fedora.package(tmp_path / 'output with spaces', 'revision', '1.0.0', architecture)
     metadata = execute(
         ['rpm', '-qp', '--queryformat', '%{VERSION} %{RELEASE} %{ARCH}', str(archive)],
