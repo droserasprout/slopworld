@@ -155,7 +155,7 @@ def test_web_ci_uses_resolved_commit_and_only_product_game_free_checks() -> None
     assert job['env']['MANAGED'] == '/nonexistent/rimworld-managed'
     commands = [step['run'] for step in job['steps'] if 'run' in step]
     assert commands == [
-        'sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep',
+        'sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep libfontconfig1',
         'just ci-web',
         'dotnet workload install wasm-tools --version "$(dotnet --version)"',
         'just web-local-fonts-sdk\njust web-build\n',
