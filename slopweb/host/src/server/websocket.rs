@@ -139,7 +139,7 @@ async fn relay(browser: WebSocket, upstream: Upstream) {
             }
             if closing {
                 // Reading again flushes tungstenite's queued upstream close reply.
-                let _ = upstream_in.next().await;
+                drop(upstream_in.next().await);
                 break;
             }
         }

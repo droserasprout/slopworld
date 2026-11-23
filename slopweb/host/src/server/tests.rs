@@ -601,7 +601,7 @@ async fn websocket_preserves_upstream_close_code_and_reason() {
                         )))
                         .await
                         .unwrap();
-                    let _ = socket.recv().await;
+                    drop(socket.recv().await);
                 })
         }),
     ))
@@ -620,7 +620,7 @@ async fn websocket_preserves_upstream_close_code_and_reason() {
     };
     assert_eq!(u16::from(close.code), 1013);
     assert_eq!(close.reason, "overloaded");
-    let _ = browser.next().await;
+    drop(browser.next().await);
 }
 
 #[tokio::test]
