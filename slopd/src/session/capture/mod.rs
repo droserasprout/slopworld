@@ -144,6 +144,13 @@ impl ControlLineReceiver {
         }
     }
 
+    fn take_failure(&self) -> Option<std::io::Error> {
+        self.failure
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
+    }
+
     // Read chunks from the bounded channel and return tmux control lines separated by newlines.
     // Only the current logical line can grow here.
     // Limit queued transport memory to CONTROL_QUEUE_CHUNKS * CONTROL_QUEUE_CHUNK_BYTES.
@@ -225,12 +232,7 @@ async fn wait_for_control_attach(rx: &mut ControlLineReceiver) -> Result<Vec<Vec
         }
         pending.push(line);
     }
-    if let Some(error) = rx
-        .failure
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
-        .take()
-    {
+    if let Some(error) = rx.take_failure() {
         return Err(error.into());
     }
     Err(anyhow!("control client closed before attach completed"))

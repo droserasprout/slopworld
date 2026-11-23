@@ -69,8 +69,9 @@ impl SessionRuntime {
         if let Some(p) = cfg.project_of(s) {
             return self.resolve_worktree(p, &s.worktree).await.ok();
         }
-        if let Some(p) = self.temp.read().await.get(&s.project).cloned() {
-            return Some(p);
+        let temporary_project = self.temp.read().await.get(&s.project).cloned();
+        if temporary_project.is_some() {
+            return temporary_project;
         }
         // A host tab can remain after deletion of its project entry.
         // Use its last tmux working directory so the ungrouped tab can still restart.

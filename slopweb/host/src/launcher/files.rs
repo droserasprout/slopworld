@@ -101,7 +101,7 @@ pub fn file_digest(path: &Path) -> Result<String> {
 
 fn hash_reader(file: &mut File) -> Result<String> {
     let mut content = Sha256::new();
-    let mut buffer = [0; 65536];
+    let mut buffer = vec![0; 64 * 1024];
     loop {
         let size = file.read(&mut buffer)?;
         if size == 0 {

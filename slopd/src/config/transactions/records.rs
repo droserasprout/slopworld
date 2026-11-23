@@ -98,7 +98,9 @@ impl Records {
                 plan.agents = Some(stores.agents.prepare(&next.sessions)?);
             }
             ConfigMutation::HostShells | ConfigMutation::Projects => {}
-            _ => bail!("record backend does not yet support this mutation owner"),
+            ConfigMutation::Library => {
+                bail!("record backend does not yet support this mutation owner")
+            }
         }
         if matches!(
             mutation,

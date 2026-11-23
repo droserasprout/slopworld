@@ -458,6 +458,6 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
     match crate::cli::parse(args.to_vec()).map_err(|error| error.to_string())? {
         crate::cli::Command::Launch(args) => Ok(Some(args)),
         crate::cli::Command::Display(_) => Ok(None),
-        _ => Err("expected launch".into()),
+        crate::cli::Command::Local { .. } => Err("expected launch".into()),
     }
 }

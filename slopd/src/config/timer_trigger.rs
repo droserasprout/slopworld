@@ -38,7 +38,7 @@ impl Trigger {
         match self {
             Self::Startup(delay) => Some(*delay),
             Self::Active(delay) | Self::Interval(delay) => activated.checked_add(*delay),
-            _ => None,
+            Self::Calendar(_) => None,
         }
     }
 
@@ -49,7 +49,7 @@ impl Trigger {
             let next = match self {
                 Self::Startup(delay) => now.checked_add(delay.saturating_sub(uptime)),
                 Self::Active(delay) | Self::Interval(delay) => after.checked_add(*delay),
-                _ => self.next_calendar(after),
+                Self::Calendar(calendar) => calendar.next_after(after),
             };
             let Some(next) = next else { break };
             result.push(next);
