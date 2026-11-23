@@ -21,7 +21,7 @@ and does not identify which crates are included in a particular binary.
 | anstyle-parse | 1.0.0 | MIT OR Apache-2.0 |
 | anstyle-query | 1.1.5 | MIT OR Apache-2.0 |
 | anstyle-wincon | 3.0.11 | MIT OR Apache-2.0 |
-| anyhow | 1.0.104 | MIT OR Apache-2.0 |
+| anyhow | 1.0.105 | MIT OR Apache-2.0 |
 | arrayvec | 0.7.8 | MIT OR Apache-2.0 |
 | async-trait | 0.1.92 | MIT OR Apache-2.0 |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT |
@@ -54,7 +54,7 @@ and does not identify which crates are included in a particular binary.
 | colorchoice | 1.0.5 | MIT OR Apache-2.0 |
 | combine | 4.6.9 | MIT |
 | concurrent-queue | 2.5.0 | Apache-2.0 OR MIT |
-| cookie | 0.18.2 | MIT OR Apache-2.0 |
+| cookie | 0.18.3 | MIT OR Apache-2.0 |
 | cookie_store | 0.22.1 | MIT OR Apache-2.0 |
 | core_detect | 1.0.0 | MIT/Apache-2.0 |
 | coreaudio-rs | 0.14.2 | MIT/Apache-2.0 |
@@ -100,9 +100,9 @@ and does not identify which crates are included in a particular binary.
 | getrandom | 0.2.17 | MIT OR Apache-2.0 |
 | getrandom | 0.4.3 | MIT OR Apache-2.0 |
 | gif | 0.14.2 | MIT OR Apache-2.0 |
-| globset | 0.4.21 | Unlicense OR MIT |
+| globset | 0.4.22 | Unlicense OR MIT |
 | hashbrown | 0.15.5 | MIT OR Apache-2.0 |
-| hashbrown | 0.17.1 | MIT OR Apache-2.0 |
+| hashbrown | 0.17.2 | MIT OR Apache-2.0 |
 | heck | 0.5.0 | MIT OR Apache-2.0 |
 | hermit-abi | 0.5.3 | MIT OR Apache-2.0 |
 | home | 0.5.12 | MIT OR Apache-2.0 |
@@ -111,7 +111,7 @@ and does not identify which crates are included in a particular binary.
 | http-body-util | 0.1.5 | MIT |
 | httparse | 1.10.1 | MIT OR Apache-2.0 |
 | httpdate | 1.0.3 | MIT OR Apache-2.0 |
-| hyper | 1.12.0 | MIT |
+| hyper | 1.13.0 | MIT |
 | hyper-util | 0.1.21 | MIT |
 | icu_collections | 2.4.0 | Unicode-3.0 |
 | icu_locale_core | 2.4.0 | Unicode-3.0 |
