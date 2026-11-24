@@ -31,18 +31,10 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
         return reply(StatusCode::BAD_REQUEST, "");
     };
     target.set_query(request.uri().query());
-    let Ok(upstream) = host
-        .client
-        .get(target)
-        .header("x-slop-token", connection.token)
-        .send()
-        .await
-    else {
-        return reply(StatusCode::BAD_GATEWAY, "Host daemon unavailable.");
+    let upstream = match super::bridge::send(host.client.get(target), connection.token).await {
+        Ok(response) => response,
+        Err(status) => return reply(status, "Host daemon unavailable."),
     };
-    if upstream.status().is_redirection() {
-        return reply(StatusCode::BAD_GATEWAY, "Host daemon unavailable.");
-    }
     if !upstream.status().is_success() {
         return reply(upstream.status(), "");
     }

@@ -49,20 +49,16 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
     let mut upstream = host
         .client
         .request(method.clone(), target)
-        .header("x-slop-token", connection.token)
         // Root task and worker operations resolve their caller from this header.
         .header("x-slop-session", "host")
         .header("content-type", "application/x-protobuf");
     if !matches!(method, Method::GET | Method::HEAD) {
         upstream = upstream.body(body);
     }
-    let Ok(response) = upstream.send().await else {
-        return reply(StatusCode::BAD_GATEWAY, "Host daemon unavailable.");
+    let response = match send(upstream, connection.token).await {
+        Ok(response) => response,
+        Err(status) => return reply(status, "Host daemon unavailable."),
     };
-    // Redirects could carry credentials across authorities; never follow or expose them.
-    if response.status().is_redirection() {
-        return reply(StatusCode::BAD_GATEWAY, "Host daemon unavailable.");
-    }
     let status = response.status();
     let body = if method == Method::HEAD {
         Body::empty()
@@ -74,6 +70,23 @@ pub(super) async fn response(host: &Host, request: Request) -> Response {
         .header("content-type", "application/x-protobuf")
         .body(body)
         .unwrap_or_else(|_error| reply(StatusCode::INTERNAL_SERVER_ERROR, ""))
+}
+
+// Both HTTP bridges use the same credential and no-redirect boundary. Routing,
+// upload admission and downstream response policy remain with their handlers.
+pub(super) async fn send(
+    request: reqwest::RequestBuilder,
+    token: axum::http::HeaderValue,
+) -> Result<reqwest::Response, StatusCode> {
+    let response = request
+        .header("x-slop-token", token)
+        .send()
+        .await
+        .map_err(|_transport| StatusCode::BAD_GATEWAY)?;
+    if response.status().is_redirection() {
+        return Err(StatusCode::BAD_GATEWAY);
+    }
+    Ok(response)
 }
 
 pub(super) const UPLOAD_BUDGET: usize = 64 * 1024 * 1024;

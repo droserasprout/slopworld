@@ -37,13 +37,6 @@ function paintImmutableUpload(canvas, pixels) {
     resourceRestored();
   });
 }
-let uniformImagesEnabled=true;
-export function configureGuiUniformImages(enabled) {
-  const previous = uniformImagesEnabled;
-  uniformImagesEnabled = !!enabled;
-  renderRevision++;
-  return previous;
-}
 function rememberUniformSource(source,pixels) {
   if(pixels.length>16*16*4 || pixels.length<=4)return;
   for(let i=4;i<pixels.length;i++)if(pixels[i]!==pixels[i%4])return;
@@ -72,16 +65,6 @@ export function configureGuiTintCache(enabled) {
   expandedTintCache = !!enabled;
   // Comparison phases start cold, including repeated enabled phases.
   for(const entry of images.values())entry.tints.clear();
-  renderRevision++;
-  return previous;
-}
-
-// Only clipScreen resets to physical coordinates before recording its rectangle.
-// Keep the generic transformed path available for diagnostics and other clips.
-let screenClipFastPath = true;
-export function configureGuiScreenClipFastPath(enabled) {
-  const previous = screenClipFastPath;
-  screenClipFastPath = !!enabled;
   renderRevision++;
   return previous;
 }
@@ -175,7 +158,7 @@ export function renderGui(canvas, commands) {
           source = entry.tints.get(key);
           entry.tints.delete(key); entry.tints.set(key, source);
         }
-        if(uniformImagesEnabled)source=uniformSources.get(source)??source;
+        source=uniformSources.get(source)??source;
         ctx.save(); ctx.globalAlpha = v.color[3];
         // Building icons shrink far below their source resolution; request the
         // browser's downsampling filter instead of aliased single-pixel samples.
@@ -228,7 +211,7 @@ export function renderGui(canvas, commands) {
       case 'releaseTarget': renderTargets.delete(v); break;
       case 'matrix': ctx.setTransform(...v); break;
       case 'group': ctx.save(); clipDepths.push(clips.length); clip(v.rect); ctx.translate(v.rect[0] - v.offset[0], v.rect[1] - v.offset[1]); break;
-      case 'clipScreen': { const transform = ctx.getTransform(); ctx.save(); clipDepths.push(clips.length); ctx.resetTransform(); clip(v, screenClipFastPath); ctx.setTransform(transform); break; }
+      case 'clipScreen': { const transform = ctx.getTransform(); ctx.save(); clipDepths.push(clips.length); ctx.resetTransform(); clip(v, true); ctx.setTransform(transform); break; }
       case 'clip': ctx.save(); clipDepths.push(clips.length); clip(v); break;
       case 'pop': ctx.restore(); clips.length = clipDepths.pop(); break;
       default: throw new Error(`Unknown GUI command: ${kind}`);
@@ -236,25 +219,4 @@ export function renderGui(canvas, commands) {
   }
   if (activeTarget || clipDepths.length) throw new Error('Unclosed GUI target or clip');
   ctx.resetTransform();
-}
-export function renderGuiProbe(commands, controls = true, existing = null) {
-  const canvas = existing ?? document.createElement('canvas');
-  if (!existing) { canvas.width = controls ? 640 : 1280; canvas.height = controls ? 200 : 720; document.body.prepend(canvas); }
-  if (!existing) renderGui(canvas, commands);
-  const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-  const alpha = (x, y) => pixels[(y * canvas.width + x) * 4 + 3];
-  if (controls && (alpha(405, 25) !== 255 || alpha(398, 25) !== 0 || alpha(422, 25) !== 0)) throw new Error('GUI group drawing escaped its clip');
-  if (controls) {
-    const rgb = (x, y) => Array.from(pixels.slice((y * canvas.width + x) * 4, (y * canvas.width + x) * 4 + 3)).join(',');
-    if (rgb(455, 22) !== '0,0,255' || rgb(455, 37) !== '255,0,0') throw new Error('Unity texture rows were not converted to Canvas orientation');
-  }
-  let visible = 0;
-  for (let i = 3; i < pixels.length; i += 4) if (pixels[i]) visible++;
-  if (!visible) throw new Error('Installed GUI produced no visible pixels');
-  // The controls diagnostic exercises the fallback text command. A workspace
-  // uses native atlas image batches and retained terminal targets instead;
-  // command spelling cannot establish whether its text rendered correctly.
-  if (controls && !commands.some(c => c.kind === 'text'))
-    throw new Error('Installed controls produced no text commands');
-  return { commands: commands.length, visiblePixels: visible, source: controls ? 'UnityEngine.GUI.Label/Box → IGuiBackend → Canvas2D' : 'SlopWorld.WorkspaceWindow → IGuiBackend → Canvas2D' };
 }

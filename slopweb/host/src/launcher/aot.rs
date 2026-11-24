@@ -612,7 +612,6 @@ pub fn compile_entry(entry: &Path, sdk: &Path, lock: &File, logs: &Path) -> Resu
         log_path.display()
     );
     published_framework(entry)?;
-    fs::write(entry.join("publish.complete"), "")?;
     Ok(())
 }
 
@@ -669,11 +668,10 @@ pub fn prepare(
     }
     // Compilation and composition read only captured files, so staging can resume.
     drop(bundle);
-    if needs_publish {
+    let published = if needs_publish {
         let workspace = cache.join("aot-workspaces").join(workspace_key);
         fs::create_dir_all(&workspace)?;
         let workspace_lock = files::lock(&workspace.join("build.lock"))?;
-        remove_file(&workspace.join("publish.complete"))?;
         sync_candidate(&compilation.join("candidate"), &workspace.join("candidate"))?;
         if workspace.join("published").exists() {
             fs::remove_dir_all(workspace.join("published"))?;
@@ -688,10 +686,12 @@ pub fn prepare(
             fs::remove_dir_all(compilation.join("published"))?;
         }
         fs::rename(result, compilation.join("published"))?;
-        published_framework(&compilation)?;
+        let published = published_framework(&compilation)?;
         fs::write(compilation.join("publish.complete"), "")?;
-    }
-    let published = published_framework(&compilation)?;
+        published
+    } else {
+        published_framework(&compilation)?
+    };
     let runtime_key = files::digest(
         &prepared_files,
         &json!({"compilation": key, "assembly_mode": PUBLISHED_MODE, "archive_identity": 1}),
@@ -726,14 +726,6 @@ pub fn prepare(
     fs::rename(root, &destination)?;
     Ok(destination)
 }
-fn remove_file(path: &Path) -> Result<()> {
-    match fs::remove_file(path) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(e.into()),
-    }
-}
-
 #[cfg(test)]
 #[path = "aot_tests.rs"]
 mod tests;

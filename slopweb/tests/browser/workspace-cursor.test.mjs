@@ -1,7 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {attachWorkspaceCursor} from '../../runtime/wwwroot/workspace-cursor.js';
-import {cursorImage} from '../../runtime/wwwroot/cursor-image.js';
 
 test('cursor retains one presentation at density, animation changes and edges',()=>{
   const keys=['document','ImageData','devicePixelRatio','addEventListener','CSS','innerWidth','innerHeight'];
@@ -11,7 +10,8 @@ test('cursor retains one presentation at density, animation changes and edges',(
   const canvas=new EventTarget();canvas.style={cursor:'auto'};
   try {
     globalThis.document={createElement:()=>overlay,body:{append(){}}};
-    globalThis.ImageData=class {};
+    let decoded=0;
+    globalThis.ImageData=class {constructor(){decoded++;}};
     globalThis.devicePixelRatio=2;
     globalThis.addEventListener=()=>{};
     globalThis.CSS={supports:()=>true};globalThis.innerWidth=1000;globalThis.innerHeight=700;
@@ -22,6 +22,9 @@ test('cursor retains one presentation at density, animation changes and edges',(
     assert.equal(canvas.style.cursor,'none');assert.equal(overlay.style.display,'block');
     update=JSON.stringify({id:2,width:48,height:48,x:4,y:6,pixels:''});cursor.frame();
     assert.equal(canvas.style.cursor,'none');assert.equal(overlay.style.left,'498px');
+    update=JSON.stringify({id:2,width:48,height:48,x:8,y:10,pixels:''});cursor.frame();
+    assert.equal(decoded,2);assert.equal(overlay.style.left,'496px');assert.equal(overlay.style.top,'295px');
+    update=JSON.stringify({id:2,width:48,height:48,x:4,y:6,pixels:''});cursor.frame();
     const move=Object.assign(new Event('pointermove'),{clientX:999,clientY:600});
     canvas.dispatchEvent(move);
     assert.equal(canvas.style.cursor,'none');
@@ -39,14 +42,4 @@ test('cursor retains one presentation at density, animation changes and edges',(
   } finally {
     for(const [key,value] of previous) {if(value)Object.defineProperty(globalThis,key,value);else delete globalThis[key];}
   }
-});
-
-test('CUR embeds the physical hotspot and unmodified PNG bytes',()=>{
-  const png=Uint8Array.of(137,80,78,71,13,10,26,10);
-  const encoded=cursorImage('data:image/png;base64,'+btoa(String.fromCharCode(...png)),48,48,4,6);
-  const bytes=Uint8Array.from(atob(encoded.split(',')[1]),c=>c.charCodeAt(0));
-  const header=new DataView(bytes.buffer);
-  assert.equal(header.getUint16(2,true),2);assert.equal(header.getUint16(4,true),1);
-  assert.equal(header.getUint16(10,true),4);assert.equal(header.getUint16(12,true),6);
-  assert.equal(header.getUint32(18,true),22);assert.deepEqual(bytes.slice(22),png);
 });

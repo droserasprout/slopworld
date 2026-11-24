@@ -39,7 +39,8 @@ async function start({published=false, query='', failAt='', incomplete=false, as
     body:(async function*(){yield new Uint8Array([1]);})()};};
   const modules={
     './asset-archive.js':{openAssetArchive:async url=>({response:await fetch(url),stored:Promise.resolve()})},
-    './gui.js':{renderGui:render,renderGuiProbe:()=>{calls.push('readPixels');return {visiblePixels:10};}},
+    './gui.js':{renderGui:render},
+    './workspace-diagnostics.js':{inspectWorkspaceCanvas:()=>{calls.push('readPixels');return {visiblePixels:10};}},
     './workspace.js':{startWorkspace(){calls.push('live');return {};}},
     './workspace-rasterizer.js':{installLocalRasterizer:async()=>{}},
     './font-delivery.js':{warmWorkspaceFonts:warm},
@@ -144,7 +145,7 @@ test('colony actions are rejected before creating a runtime',async()=>{
 test('archive chunks and synchronous startup stages admit painting before managed work',async()=>{
   const {calls,result}=await start({query:'nativeFonts',warm:async()=>true});
   assert.equal(result.error,undefined);
-  for(const name of ['AssetChunk','InstallCore','StartEntry','EntryFrame','InstallModContent','InitializeEco','WorkspaceFrame','WorkspaceUpdate']) {
+  for(const name of ['LoadAssembly','AssetChunk','InstallCore','StartEntry','EntryFrame','InstallModContent','InitializeEco','WorkspaceFrame','WorkspaceUpdate']) {
     const indices=calls.flatMap((call,index)=>Array.isArray(call)&&call[0]===name?[index]:[]);
     assert.ok(indices.length>0,name);
     for(const index of indices)assert.equal(calls[index-1],'paint',name);

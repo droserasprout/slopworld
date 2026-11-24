@@ -43,10 +43,7 @@ internal sealed class BrowserAudio : IBrowserJukebox
     public void PlayRadio(string station, string[] streams)
     {
         this.station = station;
-        this.streams = streams
-            .Where(key => !string.IsNullOrEmpty(key))
-            .Distinct()
-            .ToArray();
+        this.streams = streams.Where(key => !string.IsNullOrEmpty(key)).Distinct().ToArray();
         Begin(true);
     }
 

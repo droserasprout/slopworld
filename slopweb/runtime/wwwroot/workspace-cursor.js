@@ -1,3 +1,4 @@
+import {decodeGuiPixels} from './gui-pixels.js';
 // Keep one canvas cursor for every animation frame and viewport position.
 // Changing CSS cursor images can fall back to the system pointer during decoding.
 export function attachWorkspaceCursor(canvas, managed) {
@@ -31,10 +32,10 @@ export function attachWorkspaceCursor(canvas, managed) {
       if (update) {
         current = JSON.parse(update);
         if (current) {
-          const key=`${current.id}:${current.x}:${current.y}`;
+          const key=current.id;
           image = frames.get(key);
           if (!image) {
-            const bytes = Uint8ClampedArray.from(atob(current.pixels), c => c.charCodeAt(0));
+            const bytes = decodeGuiPixels(current.pixels);
             const pixels = new ImageData(bytes, current.width, current.height);
             image={pixels};
             if (frames.size >= 32) frames.delete(frames.keys().next().value);

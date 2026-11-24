@@ -1,7 +1,7 @@
 import { publishedAssemblies } from './assembly-mode.js';
 import { nativeWasmResource } from './native-wasm.js';
 import { workspaceViewport, workspaceParameters } from './workspace-viewport.js';
-import { loadStartupAssemblies } from './startup-assemblies.js';
+import { loadStartupAssembly, loadStartupAssemblies } from './startup-assemblies.js';
 import { yieldStartupPaint } from './startup-yield.js';
 import { installCoreLanguage } from './core-language.js';
 function requireChecks(report, stage) {
@@ -35,7 +35,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
             : bytes => exports.Probe.LoadAssembly(bytes);
         window.__loading?.status('Loading game assemblies...');
         const manifest = await fetch('./game/manifest.json').then(r => r.json());
-        const {loaded, loadErrors} = await loadStartupAssemblies(manifest, loadAssembly, assemblyRequest);
+        const {loaded, loadErrors} = await loadStartupAssemblies(manifest, loadAssembly, assemblyRequest, paint);
         if (loadErrors.length) {
             const details = loadErrors.map(({file, error}) => `${file}: ${error}`).join('\n');
             throw new Error('Failed to load game assemblies:\n' + details);
@@ -45,17 +45,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
             fetch('./game/adaptations.json').then(r => r.json())
         ]);
         window.__managedProbe = exports.Probe;
-        async function loadFile(path) {
-            const file = path.split('/').pop();
-            let bytes;
-            if (assemblyRequest) {
-                const response = await assemblyRequest(path);
-                if (!response.ok) throw new Error(file + ': HTTP ' + response.status);
-                bytes = new Uint8Array(await response.arrayBuffer());
-            }
-            await paint();
-            return loadAssembly(bytes, file);
-        }
+        const loadFile = path => loadStartupAssembly(path, loadAssembly, assemblyRequest, paint);
         let eco = null;
         async function initializeEco() {
             await paint();
@@ -171,7 +161,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
                     }
                     if (parameters.has('nativeFonts')) {
                         const fontLoader = await loadModule('./workspace-fonts.js');
-                        const fonts = fontLoader.dynamicFonts(exports.Probe, fetch, () => workspaceViewport(parameters).uiScale, undefined, fontDefaults ? {selection:fontDefaults, chains:fontChains} : null);
+                        const fonts = fontLoader.dynamicFonts(exports.Probe, fetch, undefined, fontDefaults ? {selection:fontDefaults, chains:fontChains} : null);
                         void fonts(exports.Probe.WorkspaceDynamicFonts(fonts));
                     }
                     await paint();
@@ -192,7 +182,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
                     }
                     workspace = {frames, commands: commands.length, textures};
                     if (parameters.has('profile')) {
-                        Object.assign(workspace, drawing.renderGuiProbe(commands, false, canvas));
+                        Object.assign(workspace, (await loadModule('./workspace-diagnostics.js')).inspectWorkspaceCanvas(canvas));
                         workspace.fonts = JSON.parse(exports.Probe.WorkspaceFontSnapshot());
                         workspace.game = JSON.parse(exports.Probe.GameSnapshot());
                     }

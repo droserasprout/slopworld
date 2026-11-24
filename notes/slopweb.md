@@ -27,7 +27,8 @@ Browser scale adaptation removes desktop DPI inference from private game copies;
 native preference accessors retain ownership of the selected scale.
 The offline Steam boundary disables startup and removes Steamworks native callback
 markers from the private copy so WASM AOT does not generate desktop callback wrappers.
-`tools/release/slopweb.py` stages reviewed redistributable inputs. Installed game
+`tools/release/slopweb.py` stages reviewed redistributable inputs and owns loose
+startup assets. `tools/release/mod_content.py` builds the deterministic mod UI archive. Installed game
 assemblies, derived assets, fonts, and credentials never enter release payloads.
 Distribution containers reuse the managed/WASM bundle and compile the Rust host
 for their own architecture and libc. `SLOPWEB_HOST_BINARY` selects that staged
@@ -72,7 +73,9 @@ Entry initialization releases the engine and ends loading with an error. Browser
 activates its configured silent mixer before native resource registration because the
 browser drives frames without starting the desktop platform loop.
 Game assembly downloads use a four-file window, including completed buffers;
-CLR loading and per-file failure reporting retain manifest order. A manifest
+CLR loading and per-file failure reporting retain manifest order.
+`startup-assemblies.js` shares download and paint admission for manifest DLLs and
+late startup dependencies. A manifest
 assembly failure ends startup before the Eco archive transfer.
 Startup selects its assembly loader through a staged mode module. AOT composition
 selects CLR identity loading in its private copy and skips raw DLL transfers.
@@ -192,7 +195,8 @@ resource revisions and background activity before skipping replay. Uploads, targ
 writes and releases always cross the boundary in order.
 Startup presents a complete native workspace frame and applies its uploads before
 any font-driven redraw. The live scheduler then takes ownership. Full-viewport pixel
-inspection and startup font/scene snapshots are profiling diagnostics.
+inspection belongs to `workspace-diagnostics.js`; it and startup font/scene
+snapshots are profiling diagnostics.
 Glyph persistence uses a bounded asynchronous write
 queue so storage latency does not delay glyph replies or worker font installation.
 

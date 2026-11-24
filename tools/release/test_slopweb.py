@@ -3,7 +3,6 @@
 import fcntl
 import json
 import os
-import runpy
 import shutil
 import subprocess
 import sys
@@ -17,6 +16,7 @@ import pytest
 from tools import ROOT
 from tools import cli_completions
 from tools.release import slopweb
+from tools.release.mod_content import pack_mod_content
 
 
 def test_bundle_identity_distinguishes_path_from_contents(tmp_path: Path) -> None:
@@ -171,7 +171,6 @@ def test_distributable_build_never_reads_staged_game_root(
         (runtime / name).write_text('authored C# fixture')
     for name in ('unlisted.cs', 'packages.lock.json', 'private.dll'):
         (runtime / name).write_text('must never ship')
-    shutil.copyfile(ROOT / 'slopweb/runtime/mod_pack.py', runtime / 'mod_pack.py')
     shutil.copyfile(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', root / 'mod/Textures/SlopWorld/LoadingFont.png')
     (root / 'mod/Defs').mkdir()
     (root / 'mod/Defs/Songs.xml').write_text(
@@ -702,11 +701,10 @@ def test_content_archive_ignores_clock_mtimes_and_modes(tmp_path: Path, monkeypa
     image.putdata([(1, 2, 3, 4), (5, 6, 7, 8)])
     image.save(root / 'Textures/SlopWorld/LoadingFont.png')
     output = tmp_path / 'Content.zip'
-    monkeypatch.setattr(sys, 'argv', ['mod_pack.py', str(root), str(output)])
 
     def pack(year: int) -> bytes:
         monkeypatch.setattr(time, 'localtime', lambda *_: time.struct_time((year, 2, 3, 4, 5, 6, 0, 0, 0)))
-        runpy.run_path(str(ROOT / 'slopweb/runtime/mod_pack.py'))
+        pack_mod_content(root, output)
         return output.read_bytes()
 
     first = pack(2020)

@@ -20,10 +20,7 @@ static class Program
             !State().GetProperty("play").GetBoolean(),
             "Startup must await local output selection"
         );
-        Require(
-            Audio.BrowserName == "Browser",
-            "Browser identity fallback"
-        );
+        Require(Audio.BrowserName == "Browser", "Browser identity fallback");
         Audio.Identify("Firefox");
         Require(Audio.BrowserName == "Firefox", "Browser identity was lost");
         Audio.PlayOst();
@@ -59,14 +56,9 @@ static class Program
         );
         Audio.Report(radio, true, "stream2", "Artist - Song", "");
         Audio.Report(first, false, "", "", "stale failure");
+        Require(Audio.ReadNativeTrack() == null && Audio.Playing, "Radio playback reported OST");
         Require(
-            Audio.ReadNativeTrack() == null && Audio.Playing,
-            "Radio playback reported OST"
-        );
-        Require(
-            Audio.Stream == "stream2"
-                && Audio.Title == "Artist - Song"
-                && Audio.Error == "",
+            Audio.Stream == "stream2" && Audio.Title == "Artist - Song" && Audio.Error == "",
             "Stale report replaced local metadata"
         );
 

@@ -1,7 +1,7 @@
 import {hostFonts} from './host-fonts.js';
 import {installWorkspaceFont} from './workspace-rasterizer.js';
 // Font-file selections publish only after both rasterizers have loaded the bytes.
-export function dynamicFonts(probe, request = globalThis.fetch, density = () => globalThis.devicePixelRatio ?? 1,
+export function dynamicFonts(probe, request = globalThis.fetch,
   report = (message, retry) => {
     if (message) console.warn(message);
     if (!globalThis.document) return;
@@ -24,7 +24,7 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
     return JSON.stringify(selected);
   };
   const installed = new Map(), failures = new Map();
-  let wanted, running = false, retry = false, rejected = null, current = seed ? identity(seed.selection) : null;
+  let wanted, running = false, rejected = null, current = seed ? identity(seed.selection) : null;
   let disposed = false;
   globalThis.addEventListener?.('pagehide', event => {
     if (!event.persisted) { disposed = true; wanted = null; installed.clear(); failures.clear(); }
@@ -34,7 +34,7 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
     rejected = selected;
     if (current) probe.WorkspaceFontRestore?.(current);
     report('Could not load selected font. Previous font settings retained.', () => {
-      failures.delete(selected); wanted = selected; retry = true;
+      failures.delete(selected); wanted = selected;
       void load();
     });
   };
@@ -53,8 +53,6 @@ export function dynamicFonts(probe, request = globalThis.fetch, density = () => 
         if (failures.has(selected)) { restore(selected); break; }
         try {
           const headers = {'Content-Type':'application/json'};
-          if (retry) headers['x-slop-font-retry'] = '1';
-          retry = false;
           const response = await request('./host/fonts', {method:'POST', headers, body:JSON.stringify({...JSON.parse(selected),protocol:2})});
           if (!response.ok) throw Error('Native font preparation unavailable');
           const result = await response.json();

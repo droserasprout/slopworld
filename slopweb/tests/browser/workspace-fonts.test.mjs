@@ -9,7 +9,7 @@ test('settings bursts coalesce, stale font data never publishes, failures do not
   const change=dynamicFonts(probe, (url, options)=> {
     requests.push(JSON.parse(options.body));
     return new Promise(done=>{resolve=done;});
-  }, ()=>5/3);
+  });
   const first=change('{}');
   await change('{}');
   await change('{"fontName":"new"}');
@@ -53,7 +53,7 @@ test('A to B to A restores cached chains; in-flight A to B to A publishes A once
 test('seeded startup needs no request and failures restore the usable selection', async () => {
   let calls=0, restored;
   const probe={WorkspaceFontRestore:json=>{restored=JSON.parse(json);}};
-  const change=dynamicFonts(probe,async()=>{calls++;return {ok:false};},()=>1,()=>{}, {selection:'{}',chains:'{}'});
+  const change=dynamicFonts(probe,async()=>{calls++;return {ok:false};},()=>{}, {selection:'{}',chains:'{}'});
   await change('{}'); assert.equal(calls,0);
   await change('{"fontName":"missing"}');
   assert.equal(calls,1); assert.equal(restored.fontName,'monospace');
@@ -64,9 +64,8 @@ test('explicit retry recovers a failed selection and clears the visible error', 
   const probe={WorkspaceFontChains:()=>{},WorkspaceFontsReady:()=>{},WorkspaceFontRestore:()=>{}};
   const change=dynamicFonts(probe,async(url,options)=> {
     if (++calls===1) return {ok:false};
-    assert.equal(options.headers['x-slop-font-retry'],'1');
     return {ok:true,json:async()=>({fonts:{},faces:[],chains:{}})};
-  },()=>1,(message, action)=>{retry=action;if(!message)cleared=true;}, {selection:'{}',chains:'{}'});
+  },(message, action)=>{retry=action;if(!message)cleared=true;}, {selection:'{}',chains:'{}'});
   await change('{"fontName":"recover"}');
   retry(); await new Promise(setImmediate);
   assert.equal(calls,2); assert.equal(cleared,true);
@@ -79,7 +78,7 @@ test('pending font files hold the committed selection and publish only after loa
   const probe={WorkspaceFontHold:value=>held.push(JSON.parse(value).fontName),
     WorkspaceFontRestore:value=>committed.push(JSON.parse(value).fontName),
     WorkspaceFontsReady:()=>{}, WorkspaceFontChains:()=>{}};
-  const change=dynamicFonts(probe,()=>new Promise(resolve=>{complete=resolve;}),()=>1,()=>{}, {selection:a,chains:'{}'});
+  const change=dynamicFonts(probe,()=>new Promise(resolve=>{complete=resolve;}),()=>{}, {selection:a,chains:'{}'});
   const pending=change(b);
   assert.deepEqual(held,['A']); assert.deepEqual(committed,[]);
   await new Promise(setImmediate);

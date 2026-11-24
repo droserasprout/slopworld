@@ -150,7 +150,7 @@ web-test-local-fonts: web-local-fonts-build
 # Check browser build scripts.
 [group('web')]
 web-check-types:
-    uv run --locked mypy --no-error-summary slopweb/runtime/mod_pack.py slopweb/runtime/LocalFonts/build.py
+    uv run --locked mypy --no-error-summary slopweb/runtime/LocalFonts/build.py
 
 # Restore every reviewed browser project lock without installed game assemblies.
 [group('web')]

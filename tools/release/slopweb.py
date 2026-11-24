@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import shutil
-import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
@@ -18,6 +17,7 @@ from pathlib import Path
 from tools import ROOT
 from tools import cli_completions
 from tools.assets.ost_manifest import track_ids
+from tools.release.mod_content import pack_mod_content
 from tools.release.staging import copy_file
 from tools.release.staging import metadata
 from tools.utils import run
@@ -43,7 +43,6 @@ WEB_ASSETS = (
     'browser-storage.js',
     'clipboard.js',
     'core-language.js',
-    'cursor-image.js',
     'font-delivery.js',
     'glyph-storage.js',
     'glyph-worker.js',
@@ -247,7 +246,7 @@ def build(destination: Path = OUTPUT) -> None:
         # Content.zip contains exclusively authored mod UI assets, never Core/game assets.
         content = bundle / 'mod/Content.zip'
         content.parent.mkdir(parents=True, exist_ok=True)
-        run([sys.executable, str(runtime / 'mod_pack.py'), str(ROOT / 'mod'), str(content)])
+        pack_mod_content(ROOT / 'mod', content)
         tracked = tracked_mod_files()
         validate_content(content, tracked)
         # Only authored SlopWorld music is shipped; game audio stays in private runtime data.

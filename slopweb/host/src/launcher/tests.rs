@@ -549,7 +549,11 @@ fn failed_aot_refresh_preserves_previous_runtime_and_retry_resumes_workspace() {
     write(&f.sdk.sdk, "#!/bin/sh\necho compiler-failed\nexit 3\n");
     assert!(f.run().unwrap_err().to_string().contains("retry to resume"));
     assert!(original.join(".ready").is_file());
-    assert!(!workspace.join("publish.complete").exists());
+    let failed = fs::read_dir(f.cache.join("aot-builds"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|entry| !entry.join("publish.complete").exists())
+        .expect("failed compilation must not publish a completion marker");
     assert_eq!(
         fs::read_to_string(workspace.join("candidate/obj/state")).unwrap(),
         "retained"
@@ -558,6 +562,7 @@ fn failed_aot_refresh_preserves_previous_runtime_and_retry_resumes_workspace() {
     let repaired = f.run().unwrap();
     assert_ne!(original, repaired);
     assert!(repaired.join(".ready").is_file());
+    assert!(failed.join("publish.complete").is_file());
     assert!(
         fs::read_dir(f.cache.join("aot-builds"))
             .unwrap()
