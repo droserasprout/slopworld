@@ -174,6 +174,9 @@ def test_distributable_build_never_reads_staged_game_root(
     shutil.copyfile(ROOT / 'slopweb/runtime/mod_pack.py', runtime / 'mod_pack.py')
     shutil.copyfile(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', root / 'mod/Textures/SlopWorld/LoadingFont.png')
     (root / 'mod/Defs').mkdir()
+    (root / 'mod/Defs/Songs.xml').write_text(
+        '<Defs><SongDef><clipPath>SlopWorld/OST/pace-20261012</clipPath></SongDef></Defs>'
+    )
     for name in ('KeyBindings.xml', 'PlannerBench.xml', 'Jukebox.xml'):
         (root / 'mod/Defs' / name).write_text('<Defs/>')
     monkeypatch.setattr(

@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/BrowserJukebox.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Chrome/KeyboardEventQueue.cs" />
     <Compile Include="../Source/SlopWorld/Settings/RenderSchedule.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Eco/RenderLoopRewrite.cs" />
@@ -84,6 +85,9 @@
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/RadioPlayback.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Playback.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Browser.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/JukeboxNotice.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/RadioNavigation.cs" />
     <Compile Include="../Source/SlopWorld/Client/Audio/AudioBus.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Selection.cs" />

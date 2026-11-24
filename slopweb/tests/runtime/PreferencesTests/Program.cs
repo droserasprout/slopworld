@@ -42,7 +42,9 @@ static class Check
             ecoDim = 0.65f,
             autoConnect = false,
             commandPaletteHistory = "secret-command",
-            radio = "secret-station",
+            radio = "station:stream",
+            radioOutput = "server",
+            radioVolume = .3f,
             radioMute = true,
             radioStopOnExit = false,
             displayMode = FramePolicy.Limit,
@@ -57,7 +59,6 @@ static class Check
                 {
                     "autoConnect",
                     "commandPaletteHistory",
-                    "radio",
                     "stopSessionsOnExit",
                     "endpoint",
                     "token",
@@ -67,7 +68,18 @@ static class Check
                 Expect(!snapshot.RootElement.TryGetProperty(name, out _), "Leaked " + name);
         }
         var restored = new ModSettings();
-        BrowserPreferences.Apply(restored, saved);
+        BrowserPreferences.ApplyLocal(restored, saved);
+        Expect(
+            restored.radio == settings.radio
+                && restored.radioOutput == "server"
+                && restored.radioVolume == .3f,
+            "Local station, output and volume did not survive reload"
+        );
+        BrowserPreferences.ApplyLocal(restored, """{"radioOutput":"unknown","radioVolume":2}""");
+        Expect(
+            restored.radioOutput == "server" && restored.radioVolume == .3f,
+            "Invalid audio preference applied"
+        );
         Expect(!restored.radioStopOnExit, "Stop on exit did not survive reload");
         Expect(
             restored.displayMode == FramePolicy.Limit && restored.foregroundFps == 144,
@@ -82,7 +94,16 @@ static class Check
         var imported = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(saved)!;
         imported["hostHome"] = JsonSerializer.SerializeToElement("/home/example");
         imported["commandPaletteHistory"] = JsonSerializer.SerializeToElement("private-command");
+        imported["radio"] = JsonSerializer.SerializeToElement("host-only");
+        imported["radioOutput"] = JsonSerializer.SerializeToElement("local");
+        imported["radioVolume"] = JsonSerializer.SerializeToElement(.7f);
         new WorkspaceRuntime().WorkspaceAppearance(JsonSerializer.Serialize(imported));
+        Expect(
+            restored.radio == settings.radio
+                && restored.radioOutput == "server"
+                && restored.radioVolume == .3f,
+            "Host appearance overrode a local audio preference"
+        );
         Expect(BrowserSidebar.HostHome == "/home/example", "Host display home was not imported");
         Expect(
             restored.uiScheme == settings.uiScheme

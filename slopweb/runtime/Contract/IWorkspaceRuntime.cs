@@ -58,9 +58,16 @@ public interface IWorkspaceRuntime
     void ClipboardCompleteImage(int id, string base64, string error);
     string WorkspaceState();
     string WorkspaceAudio();
-    void WorkspaceAudioPlaying(bool playing);
+    void WorkspaceAudioIdentify(string name);
+    void WorkspaceAudioReport(
+        int revision,
+        bool playing,
+        string stream,
+        string title,
+        string error
+    );
     void WorkspaceAudioQuit();
-    void WorkspaceAudioEnded();
+    void WorkspaceAudioEnded(int revision);
     bool WorkspaceBackgroundVisible();
     float WorkspaceBackgroundDimming();
     int InstallModContent(byte[] archive);

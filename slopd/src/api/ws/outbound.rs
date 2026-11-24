@@ -58,7 +58,7 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &App, cap: &Cap) -> bool
         &m.sessions,
         cap,
         EventMessage::new(Event::Capabilities {
-            capabilities: crate::runtime::capabilities(),
+            capabilities: crate::runtime::capabilities(m.services.music.output_device().is_some()),
         }),
     )
     .await

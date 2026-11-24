@@ -129,8 +129,9 @@ class WireContractTests(unittest.TestCase):
             for route in self.data['http']['routes'].values()
             for method, types in route['protobuf'].items()
         }
+        non_protobuf = {'/ws', *(entry['path'] for entry in self.data['http']['media'].values())}
         for route in api_routes():
-            if route.path == '/ws':
+            if route.path in non_protobuf:
                 continue
             self.assertIn(route.handler, signatures, f'missing handler signature: {route.handler}')
             body, response = signatures[route.handler]
@@ -149,6 +150,7 @@ class WireContractTests(unittest.TestCase):
             for method in route['methods']
         }
         expected[('GET', '/ws')] = 'scoped'
+        expected.update({('GET', entry['path']): 'root-only' for entry in self.data['http']['media'].values()})
         self.assertEqual(routes, expected)
 
     def test_public_inventory_separates_websocket_directions(self) -> None:

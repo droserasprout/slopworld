@@ -23,7 +23,6 @@ namespace SlopWorld
             if (userSelected)
             {
                 _blamed = false;
-                _observingDaemon = false;
             }
             Save();
             Push();

@@ -28,9 +28,21 @@ revokes its credentials and closes affected WebSockets. See
 
 ## HTTP
 
-Send Protobuf bodies with `Content-Type: application/x-protobuf`. Responses,
+For `/api/` routes, send Protobuf bodies with `Content-Type: application/x-protobuf`. Responses,
 including `Error` messages, are Protobuf. Routes without a request message take
-no body; query parameters remain text. JSON is not a supported wire format.
+no body. Query parameters remain text.
+
+### Radio relay
+
+`GET /media/radio?station=ID&stream=KEY&listener=UUID` streams the station's encoded
+audio with its media content type. Use the station ID and stream key from the jukebox
+catalog and a fresh listener UUID for each playback attempt. An active duplicate UUID
+receives HTTP 409. Closing the response releases this listener's station socket.
+
+`GET /media/radio/title?listener=UUID` returns JSON with the current ICY `title`
+(string or null). HTTP 404 means the listener is absent. Both endpoints require root
+authorization. In slopweb, use the same paths prefixed with `/host`. The same-origin
+host supplies the daemon credential.
 
 ## WebSocket
 

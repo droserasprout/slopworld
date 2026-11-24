@@ -1,60 +1,107 @@
-// Browser OST transport only. Radio retains source selection, daemon handoff,
-// mute and volume policy; the DOM owns decoding and autoplay permission.
+// BrowserJukebox commands describe one local listener. The DOM owns decoding,
+// permission and relay requests. Reports belong to the command that opened them.
 using System.Text.Json;
 using SlopWorld;
 
 namespace BrowserAdapters;
 
-public static class BrowserAudio
+internal sealed class BrowserAudio : IBrowserJukebox
 {
-    static readonly string[] Tracks =
-    [
-        "pace-20261012",
-        "dive-20261012",
-        "hime-20261012",
-        "dawn-20261012",
-    ];
-    static int index;
-    static int revision;
-    static bool muted = true;
-    static bool playing;
-    static readonly Random Dice = new();
+    int index;
+    int revision;
+    bool requested;
+    string station = "";
+    string[] streams = [];
+    float volume = 1;
+    string? snapshot;
 
-    public static void SetMuted(bool value) => muted = value;
+    internal static BrowserAudio Instance { get; } = new();
+    public string BrowserName { get; private set; } = "Browser";
+    public string Error { get; private set; } = "";
+    public string Title { get; private set; } = "";
+    public string Stream { get; private set; } = "";
+    public bool Playing { get; private set; }
 
-    public static void Resume() => revision++;
+    public void Identify(string name) => BrowserName = name;
 
-    public static void Navigate(int direction, bool random)
+    void Begin(bool play)
     {
-        index =
-            (index + (random ? Dice.Next(1, Tracks.Length) : direction) + Tracks.Length)
-            % Tracks.Length;
-        playing = false;
+        requested = play;
+        Playing = false;
+        Error = Title = Stream = "";
         revision++;
+        snapshot = null;
     }
 
-    public static void Ended()
+    public void PlayOst()
     {
-        if (!muted)
+        station = "";
+        streams = [];
+        Begin(true);
+    }
+
+    public void PlayRadio(string station, string[] streams)
+    {
+        this.station = station;
+        this.streams = streams
+            .Where(key => !string.IsNullOrEmpty(key))
+            .Distinct()
+            .ToArray();
+        Begin(true);
+    }
+
+    public void Stop() => Begin(false);
+
+    public void SetVolume(float value)
+    {
+        value = float.IsFinite(value) ? Math.Clamp(value, 0, 1) : 0;
+        if (volume == value)
+            return;
+        volume = value;
+        snapshot = null;
+    }
+
+    public void Navigate(int direction, bool random)
+    {
+        int count = BrowserOstManifest.Tracks.Length;
+        index =
+            (index + (random ? Random.Shared.Next(1, count) : Math.Sign(direction)) + count)
+            % count;
+        if (station.Length == 0)
+            Begin(requested);
+    }
+
+    public void Ended(int run)
+    {
+        if (run == revision && requested && station.Length == 0)
             Navigate(1, false);
     }
 
-    public static void Playing(bool value) => playing = value;
+    public void Report(int run, bool playing, string stream, string title, string error)
+    {
+        if (run != revision || !requested)
+            return;
+        Playing = playing;
+        Stream = stream;
+        Title = title;
+        Error = error;
+    }
 
-    public static NativeTrackSnapshot? ReadNativeTrack() =>
-        !muted && playing ? NativeTrackSnapshot.FromOstClipPath(Tracks[index]) : null;
+    public NativeTrackSnapshot? ReadNativeTrack() =>
+        Playing && station.Length == 0
+            ? NativeTrackSnapshot.FromOstClipPath(BrowserOstManifest.Tracks[index])
+            : null;
 
-    public static float Volume =>
-        Math.Clamp(Verse.Prefs.VolumeMusic * Verse.Prefs.VolumeMaster, 0, 1);
-
-    public static string Snapshot() =>
-        JsonSerializer.Serialize(
+    public string Snapshot() =>
+        snapshot ??= JsonSerializer.Serialize(
             new
             {
-                track = Tracks[index],
                 revision,
-                play = !muted,
-                volume = Volume,
+                play = requested,
+                track = BrowserOstManifest.Tracks[index],
+                station,
+                streams,
+                volume,
             }
         );
 }

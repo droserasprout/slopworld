@@ -68,7 +68,7 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
     public void WorkspaceFontRestore(string json)
     {
         var settings = Settings.S;
-        BrowserPreferences.Apply(settings, json);
+        BrowserPreferences.ApplyLocal(settings, json);
         WorkspaceFontsReady();
         BrowserPreferences.Write(settings);
     }
@@ -113,7 +113,7 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
     public void WorkspacePreferences(string json, Action<string> persist)
     {
         var settings = Settings.S;
-        BrowserPreferences.Apply(settings, json);
+        BrowserPreferences.ApplyLocal(settings, json);
         BrowserPreferences.Persist = persist;
     }
 
@@ -144,13 +144,21 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
 
     public string WorkspaceState() => WorkspaceDrawing.Snapshot();
 
-    public string WorkspaceAudio() => BrowserAudio.Snapshot();
+    public string WorkspaceAudio() => BrowserAudio.Instance.Snapshot();
 
-    public void WorkspaceAudioPlaying(bool playing) => BrowserAudio.Playing(playing);
+    public void WorkspaceAudioIdentify(string name) => BrowserAudio.Instance.Identify(name);
+
+    public void WorkspaceAudioReport(
+        int revision,
+        bool playing,
+        string stream,
+        string title,
+        string error
+    ) => BrowserAudio.Instance.Report(revision, playing, stream, title, error);
 
     public void WorkspaceAudioQuit() => Radio.Quit();
 
-    public void WorkspaceAudioEnded() => BrowserAudio.Ended();
+    public void WorkspaceAudioEnded(int revision) => BrowserAudio.Instance.Ended(revision);
 
     public bool WorkspaceBackgroundVisible() => BrowserUnderlyingWorkspace.BackgroundVisible();
 

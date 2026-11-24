@@ -226,7 +226,7 @@ fn a_live_body_has_no_response_lifetime_deadline() {
         "http://127.0.0.1/unused-local-fixture",
         TitleSink::new(None, 0),
     );
-    let timeouts = connector.agent.config().timeouts();
+    let timeouts = connector.http.agent.config().timeouts();
 
     assert_eq!(timeouts.connect, Some(CONNECT));
     assert_eq!(timeouts.recv_response, None);
@@ -736,7 +736,10 @@ fn icy_keeps_the_metadata_out_of_the_audio() {
         inner: io::Cursor::new(raw),
         metaint: 8,
         left: 8,
-        title: TitleSink::new(Some(state.clone()), 0),
+        title: {
+            let sink = TitleSink::new(Some(state.clone()), 0);
+            move |value| sink.set(value)
+        },
     };
 
     // Read three bytes at a time so a request can cross a block boundary.
@@ -858,7 +861,7 @@ fn icy_reports_truncated_metadata_and_skips_it_for_empty_reads() {
         inner: io::Cursor::new(vec![1, b'x']),
         metaint: 4,
         left: 0,
-        title: TitleSink::new(None, 0),
+        title: |_| {},
     };
 
     assert_eq!(icy.read(&mut []).unwrap(), 0);

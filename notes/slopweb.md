@@ -109,7 +109,8 @@ configuration ownership. Adapters substitute platform services and rendering;
 the daemon retains processes, tmux, sandboxes, and credentials. See the
 [client boundary](mod-client.md) and [wire contract](protocol-wire.md).
 Host appearance import and browser persistence share a tested presentation
-allowlist. Offline UI hooks invoke the mod’s action-caption backdrop and translated settings-row
+allowlist. The browser origin also stores its own Jukebox source, output and gain.
+Offline UI hooks invoke the mod’s action-caption backdrop and translated settings-row
 filters; the browser does not duplicate their theme or visibility policy. Loading
 uses the clean, downsampled first animation frame as its preview while the remaining frames decode. The host background
 helper bakes a missing frame cache from installed CPU pixels and mod-owned pixel
@@ -120,10 +121,11 @@ Workspace startup takes ownership of pending background downloads as well as rea
 frames; loading-screen teardown must not cancel a transferred load.
 Browser backdrop rendering consumes the native dimming preference;
 profile files stay read-only and browser changes remain local to its origin.
-A fresh tab observes the shared daemon player until a user playback action takes
-control. The browser persists mute and stop-on-exit preferences. A final page
-unload applies the controlling tab's shutdown policy. Browser tab titles use
-the mod's window-title policy. Packaging reuses the documentation favicon.
+Selecting server output or reconnecting observes shared playback. An orderly exit applies stop-on-exit only
+while server output is selected. Local radio plays through a media element pointed at
+the host relay. Each attempt has its own listener ID, decoder and cancellable title
+request. Pause, source changes and cached-page suspension release the stream.
+Browser tab titles use the mod's window-title policy. Packaging reuses the documentation favicon.
 Viewport density supplies the initial UI scale. Each GUI pass synchronizes glyph
 density with the native scale preference before layout; backing-canvas resizes
 preserve an explicitly changed scale. Font-bank revisions retire old glyphs and

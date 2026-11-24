@@ -55,14 +55,21 @@ async fn failed_music_launch_does_not_retain_a_host_or_saved_record() {
 }
 
 #[tokio::test]
-async fn invalid_selection_records_error_without_a_direct_reply() {
+async fn invalid_selection_replies_without_changing_shared_state() {
     let app = crate::application::test_application(Default::default());
     let music = super::MusicOperations::new(&app);
-    let request =
-        serde_json::from_str(r#"{"volume":0.5,"selection":{"stream":"orphan"}}"#).unwrap();
-    assert!(music.select_music(request).await.is_none());
-    let audio = app.services.music.state().await;
-    assert_eq!(audio.error.as_deref(), Some("Select a station and stream."));
+    use crate::shared::wire::{AudioRequest, AudioSelection, audio_request::Change};
+    let request = AudioRequest {
+        change: Some(Change::Selection(AudioSelection {
+            stream: Some("orphan".into()),
+            ..Default::default()
+        })),
+        ..Default::default()
+    }
+    .into();
+    let reply = music.select_music(request).await.unwrap();
+    assert!(reply.error.unwrap().contains("Select a station and stream"));
+    assert!(app.services.music.state().await.error.is_none());
     assert!(music.host_sessions().await.is_empty());
 }
 

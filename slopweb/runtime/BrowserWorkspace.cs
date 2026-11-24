@@ -178,14 +178,22 @@ public partial class Probe
     public static string WorkspaceAudio() => Runtime.WorkspaceAudio();
 
     [JSExport]
-    public static void WorkspaceAudioPlaying(bool playing) =>
-        Runtime.WorkspaceAudioPlaying(playing);
+    public static void WorkspaceAudioIdentify(string name) => Runtime.WorkspaceAudioIdentify(name);
+
+    [JSExport]
+    public static void WorkspaceAudioReport(
+        int revision,
+        bool playing,
+        string stream,
+        string title,
+        string error
+    ) => Runtime.WorkspaceAudioReport(revision, playing, stream, title, error);
 
     [JSExport]
     public static void WorkspaceAudioQuit() => Runtime.WorkspaceAudioQuit();
 
     [JSExport]
-    public static void WorkspaceAudioEnded() => Runtime.WorkspaceAudioEnded();
+    public static void WorkspaceAudioEnded(int revision) => Runtime.WorkspaceAudioEnded(revision);
 
     [JSExport]
     public static bool WorkspaceBackgroundVisible() => Runtime.WorkspaceBackgroundVisible();

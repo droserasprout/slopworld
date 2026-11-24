@@ -9,42 +9,53 @@ namespace SlopWorld
             _transport = transport;
         }
 
-        public void PlayStation(string station, string stream, float volume) =>
-            SendSelection(new Wire.AudioSelection { Station = station, Stream = stream }, volume);
-
-        public void Stop(float volume, string token = null) =>
-            _transport.Send(
-                new Wire.ClientMessage
+        public void PlayStation(string station, string stream, float? volume = null) =>
+            Send(
+                new Wire.AudioRequest
                 {
-                    Audio = new Wire.AudioRequest
-                    {
-                        Volume = volume,
-                        Stop = new Wire.Empty(),
-                        StopToken = token ?? "",
-                    },
-                }
+                    Selection = new Wire.AudioSelection { Station = station, Stream = stream },
+                },
+                volume
             );
 
-        internal bool StopForShutdown(float volume)
+        public bool Stop(float? volume = null, string token = null) =>
+            Send(
+                new Wire.AudioRequest { Stop = new Wire.Empty(), StopToken = token ?? "" },
+                volume
+            );
+
+        internal bool StopForShutdown(float? volume = null) =>
+            Stop(volume) && _transport.FlushOutgoing(1000);
+
+        public bool SendSpotify(float? volume = null, string requestId = null)
         {
-            Stop(volume);
-            return _transport.FlushOutgoing(1000);
+            var request = new Wire.AudioRequest
+            {
+                Selection = new Wire.AudioSelection { Ncspot = true },
+            };
+            if (requestId != null)
+                request.RequestId = requestId;
+            return Send(request, volume);
         }
 
-        void SendSelection(Wire.AudioSelection selection, float volume) =>
-            _transport.Send(
-                new Wire.ClientMessage
-                {
-                    Audio = new Wire.AudioRequest { Volume = volume, Selection = selection },
-                }
-            );
+        public void SendTransport(
+            string action,
+            System.Collections.Generic.List<string> hidden = null
+        )
+        {
+            var request = new Wire.AudioRequest { Transport = action };
+            if (hidden != null)
+                request.HiddenSources.Add(hidden);
+            Send(request);
+        }
 
-        public void SendSpotify(float volume) =>
-            SendSelection(new Wire.AudioSelection { Ncspot = true }, volume);
+        public void SendVolume(float volume) => Send(new Wire.AudioRequest(), volume);
 
-        public void SendVolume(float volume) =>
-            _transport.Send(
-                new Wire.ClientMessage { Audio = new Wire.AudioRequest { Volume = volume } }
-            );
+        bool Send(Wire.AudioRequest request, float? volume = null)
+        {
+            if (volume.HasValue)
+                request.Volume = volume.Value;
+            return _transport.TrySend(new Wire.ClientMessage { Audio = request });
+        }
     }
 }

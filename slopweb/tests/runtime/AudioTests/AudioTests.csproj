@@ -7,6 +7,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../../mod/Source/SlopWorld/Application/Jukebox/BrowserJukebox.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserOstManifest.cs" Link="BrowserOstManifest.cs" />
     <Compile Include="../../../runtime/Adapters/BrowserAudio.cs" Link="BrowserAudio.cs" />
   </ItemGroup>
 </Project>

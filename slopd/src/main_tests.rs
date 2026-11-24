@@ -283,6 +283,15 @@ async fn scoped_tokens_reach_shared_routes_but_not_root_routes() {
         .unwrap();
     let app = app(&manager);
 
+    for route in ["/media/radio", "/media/radio/title"] {
+        assert_eq!(get(&app, route, None).await, StatusCode::UNAUTHORIZED);
+        assert_eq!(get(&app, route, Some(&scoped)).await, StatusCode::FORBIDDEN);
+        assert_eq!(
+            get(&app, route, Some("root-secret")).await,
+            StatusCode::BAD_REQUEST
+        );
+    }
+
     assert_eq!(
         get(&app, shared::protocol::routes::HEALTH, Some(&scoped)).await,
         StatusCode::OK
@@ -672,3 +681,6 @@ async fn queued_root_mutation_rechecks_rotation_after_acquiring_boundary() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(manager.config().await.daemon.token, "rotated-root");
 }
+
+#[path = "radio_relay_tests.rs"]
+mod radio_relay;

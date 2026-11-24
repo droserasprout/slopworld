@@ -3,58 +3,230 @@ import assert from 'node:assert/strict';
 import {attachWorkspaceAudio} from '../../runtime/wwwroot/workspace-audio.js';
 
 class Decoder extends EventTarget {
-  paused = true; ended = false; volume = 1; src = ''; calls = 0; reject = false;
-  play() { this.calls++; if(this.reject) return Promise.reject(new Error('blocked')); this.paused=false; return Promise.resolve(); }
-  pause() { this.paused=true; }
-  removeAttribute() {this.src='';}
-  load() {}
+  paused = true;
+  src = '';
+  released = 0;
+  async play() { this.paused = false; }
+  pause() { this.paused = true; }
+  removeAttribute(name) { assert.equal(name, 'src'); this.src = ''; }
+  load() { this.released++; }
+  fail(code) { this.error = {code}; this.dispatchEvent(new Event('error')); }
 }
+
 const flush = () => new Promise(resolve => setImmediate(resolve));
-function fixture() {
-  const state={track:'pace-20261012',revision:0,play:true,volume:.4};
-  const decoder=new Decoder(), target=new EventTarget(), reports=[];
-  const managed={WorkspaceAudio:()=>JSON.stringify(state),WorkspaceAudioPlaying:value=>reports.push(value),
-    WorkspaceAudioQuit(){reports.push("quit");},
-    WorkspaceAudioEnded(){state.track='dive-20261012';state.revision++;}};
-  return {state,decoder,target,reports,bridge:attachWorkspaceAudio(managed,decoder,target)};
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return {promise, resolve, reject};
 }
-test('autoplay rejection waits for a gesture without frame retries',async()=>{
-  const f=fixture(); f.decoder.reject=true;
-  f.bridge.frame(); await flush();
-  for(let i=0;i<120;i++)f.bridge.frame();
-  assert.equal(f.decoder.calls,1); assert.equal(f.reports.at(-1),false);
-  f.decoder.reject=false;f.target.dispatchEvent(new Event('pointerdown'));await flush();
-  assert.equal(f.decoder.calls,2);assert.equal(f.reports.at(-1),true);
+function fixture(t, options = {}) {
+  const target = new EventTarget();
+  target.navigator = {userAgent:'Mozilla/5.0 Firefox/132.0'};
+  const state = {track:'pace-20261012', revision:1, play:true, volume:.4, station:'', streams:[]};
+  const decoders = [], reports = [], titles = [];
+  let name, quits = 0;
+  const bridge = attachWorkspaceAudio({
+    WorkspaceAudio:() => JSON.stringify(state),
+    WorkspaceAudioIdentify(value) { name = value; },
+    WorkspaceAudioReport(revision, playing, stream, title, error) {
+      reports.push({revision, playing, stream, title, error});
+    },
+    WorkspaceAudioQuit() { quits++; },
+    WorkspaceAudioEnded(run) {
+      assert.equal(run, state.revision);
+      state.revision++;
+      state.track = 'dive-20261012';
+    },
+  }, {
+    target,
+    createAudio() {
+      const audio = new Decoder();
+      options.prepare?.(audio, decoders.length);
+      decoders.push(audio);
+      return audio;
+    },
+    fetchTitle(url, {signal}) {
+      const reply = deferred();
+      titles.push({url, signal, reply});
+      return reply.promise;
+    },
+  });
+  t.after(() => bridge.dispose());
+  function command(change) { Object.assign(state, change); state.revision++; bridge.frame(); }
+  return {bridge, state, target, decoders, reports, titles, command,
+    get name() { return name; }, get quits() { return quits; }};
+}
+const radio = {station:'station/a & b', streams:['first?x=1', 'alternative & 2']};
+const relayUrl = audio => new URL(audio.src, 'https://workspace.example/colony/');
+
+test('OST uses the hosted track, advances once and adjusts gain without replacing its decoder', async t => {
+  const f = fixture(t);
+  assert.equal(f.name, 'Firefox');
+  f.bridge.frame();
+  await flush();
+  const [first] = f.decoders;
+  assert.match(first.src, /assets\/ost\/pace-20261012\.ogg$/);
+  f.state.volume = .13;
+  f.bridge.frame();
+  assert.equal(first.volume, .13);
+  first.dispatchEvent(new Event('ended'));
+  first.dispatchEvent(new Event('ended'));
+  await flush();
+  assert.equal(f.decoders.length, 2);
+  assert.equal(first.released, 1);
+  assert.match(f.decoders[1].src, /dive-20261012\.ogg$/);
+  assert.equal(f.reports.at(-1).playing, true);
+});
+
+test('permission denial closes the relay and a gesture opens a new listener once', async t => {
+  const f = fixture(t, {prepare(audio, index) {
+    if (!index) audio.play = () => Promise.reject(new DOMException('Blocked', 'NotAllowedError'));
+  }});
+  f.command(radio);
+  const first = relayUrl(f.decoders[0]);
+  await flush();
+  assert.match(f.reports.at(-1).error, /press a key/);
+  assert.equal(f.decoders[0].src, '');
+  for (let i = 0; i < 100; i++) f.bridge.frame();
+  assert.equal(f.decoders.length, 1);
+  f.target.dispatchEvent(new Event('keydown'));
+  f.target.dispatchEvent(new Event('pointerdown'));
+  await flush();
+  assert.equal(f.decoders.length, 2);
+  assert.notEqual(relayUrl(f.decoders[1]).searchParams.get('listener'), first.searchParams.get('listener'));
+  assert.equal(f.reports.at(-1).playing, true);
+  assert.equal(f.reports.at(-1).error, '');
+});
+
+test('an unsupported stream tries alternatives within the station and reports exhaustion', async t => {
+  const f = fixture(t, {prepare(audio, index) {
+    if (!index) audio.play = () => Promise.reject(new DOMException('Unsupported', 'NotSupportedError'));
+  }});
+  f.command(radio);
+  const original = relayUrl(f.decoders[0]);
+  assert.equal(original.origin, 'https://workspace.example');
+  assert.equal(original.pathname, '/colony/host/media/radio');
+  assert.equal(original.searchParams.get('station'), radio.station);
+  assert.equal(original.searchParams.get('stream'), radio.streams[0]);
+  await flush();
+  const [first, second] = f.decoders;
+  assert.equal(first.released, 1);
+  const alternative = relayUrl(second);
+  assert.equal(alternative.searchParams.get('station'), radio.station);
+  assert.equal(alternative.searchParams.get('stream'), radio.streams[1]);
+  assert.notEqual(alternative.searchParams.get('listener'), original.searchParams.get('listener'));
+  assert.equal(f.reports.at(-1).stream, radio.streams[1]);
+  second.fail(3);
+  f.target.dispatchEvent(new Event('keydown'));
+  f.bridge.frame();
+  assert.equal(f.decoders.length, 2);
+  assert.equal(second.released, 1);
+  assert.match(f.reports.at(-1).error, /decode any stream/);
+  assert.equal(f.quits, 0);
+});
+
+test('two local listeners have independent gain, titles and live connections through pause and resume', async t => {
+  const a = fixture(t), b = fixture(t);
+  a.command(radio);
+  b.command({...radio, station:'second', volume:.21});
+  await flush();
+  const first = relayUrl(a.decoders[0]).searchParams.get('listener');
+  const other = relayUrl(b.decoders[0]).searchParams.get('listener');
+  assert.notEqual(first, other);
+  const [oldTitle] = a.titles, [currentTitle] = b.titles;
+  assert.equal(oldTitle.url, './host/media/radio/title?listener=' + first);
+  b.state.volume = .54;
+  b.bridge.frame();
+  assert.equal(b.decoders[0].volume, .54);
+  assert.equal(a.decoders[0].volume, .4);
+  a.command({play:false});
+  assert.equal(a.decoders[0].src, '');
+  assert.equal(oldTitle.signal.aborted, true);
+  assert.equal(currentTitle.signal.aborted, false);
+  a.command({play:true});
+  await flush();
+  assert.notEqual(relayUrl(a.decoders[1]).searchParams.get('listener'), first);
+  oldTitle.reply.resolve(Response.json({title:'Stale artist'}));
+  currentTitle.reply.resolve(Response.json({title:'Current artist'}));
+  await flush();
+  assert.equal(a.reports.some(r => r.title === 'Stale artist'), false);
+  assert.equal(b.reports.at(-1).title, 'Current artist');
+  assert.equal(b.decoders[0].released, 0);
+  a.bridge.dispose();
+  assert.equal(a.titles[1].signal.aborted, true);
+  assert.equal(b.decoders[0].paused, false);
+});
+
+test('late play completion, error and end cannot replace or pause the next source', async t => {
+  const play = deferred();
+  const f = fixture(t, {prepare(audio, index) {
+    if (!index) audio.play = () => play.promise.then(() => { audio.paused = false; });
+  }});
+  f.command(radio);
+  const [old] = f.decoders;
+  f.command({station:'', streams:[]});
+  old.fail(4);
+  old.dispatchEvent(new Event('ended'));
+  play.resolve();
+  await flush();
+  assert.equal(old.paused, true);
+  assert.equal(f.decoders.length, 2);
+  assert.equal(f.decoders[1].paused, false);
+  assert.equal(f.reports.at(-1).playing, true);
+  assert.equal(f.reports.at(-1).error, '');
+});
+
+test('network errors and live EOF release the stream and wait for explicit play', async t => {
+  const f = fixture(t);
+  f.command(radio);
+  await flush();
+  f.decoders[0].fail(2);
+  assert.equal(f.decoders[0].src, '');
+  assert.match(f.reports.at(-1).error, /connection/);
+  f.target.dispatchEvent(new Event('pointerup'));
+  assert.equal(f.decoders.length, 1);
+  f.command({play:true});
+  await flush();
+  f.decoders[1].dispatchEvent(new Event('ended'));
+  assert.match(f.reports.at(-1).error, /reconnect/);
+  assert.equal(f.decoders[1].src, '');
+});
+
+test('system pause releases radio, and cached-page restoration preserves an explicit retry', async t => {
+  const f = fixture(t);
+  f.command(radio);
+  await flush();
+  const [audio] = f.decoders;
+  audio.pause();
+  audio.dispatchEvent(new Event('pause'));
+  assert.equal(audio.src, '');
+  assert.match(f.reports.at(-1).error, /paused/);
+  f.target.dispatchEvent(Object.assign(new Event('pagehide'), {persisted:true}));
+  f.target.dispatchEvent(new Event('pageshow'));
+  f.bridge.frame();
+  assert.equal(f.decoders.length, 1);
+  assert.match(f.reports.at(-1).error, /paused/);
+});
+
+test('page cache suspension releases a listener and fatal cleanup skips shared shutdown policy', async t => {
+  const f = fixture(t);
+  f.command(radio);
+  await flush();
+  const id = relayUrl(f.decoders[0]).searchParams.get('listener');
+  f.target.dispatchEvent(Object.assign(new Event('pagehide'), {persisted:true}));
+  f.bridge.frame();
+  assert.equal(f.decoders[0].src, '');
+  assert.equal(f.titles[0].signal.aborted, true);
+  assert.equal(f.quits, 0);
+  f.target.dispatchEvent(new Event('pageshow'));
+  await flush();
+  assert.notEqual(relayUrl(f.decoders[1]).searchParams.get('listener'), id);
+  f.bridge.dispose(false);
+  assert.equal(f.decoders[1].src, '');
   f.bridge.dispose();
-});
-test('ended advances once, next restarts the selected track, and volume follows policy',async()=>{
-  const f=fixture();f.bridge.frame();await flush();assert.equal(f.decoder.volume,.4);
-  f.decoder.ended=true;f.decoder.paused=true;f.decoder.dispatchEvent(new Event('ended'));await flush();
-  assert.match(f.decoder.src,/dive-20261012.ogg$/); assert.equal(f.decoder.calls,2);
-  f.state.revision++;f.state.track='hime-20261012';f.state.volume=.15;f.bridge.frame();await flush();
-  assert.match(f.decoder.src,/hime-20261012.ogg$/);assert.equal(f.decoder.calls,3);assert.equal(f.decoder.volume,.15);
-  f.bridge.dispose();
-});
-test('mute and source handoff pause decoding; disposal removes gesture and ended handlers',async()=>{
-  const f=fixture();f.bridge.frame();await flush();
-  f.state.play=false;f.bridge.frame();assert.equal(f.decoder.paused,true);assert.equal(f.decoder.src,'');assert.equal(f.reports.at(-1),false);
-  f.target.dispatchEvent(new Event('keydown'));await flush();assert.equal(f.decoder.calls,1);
-  f.state.play=true;f.bridge.frame();await flush();assert.equal(f.decoder.calls,2);
-  f.bridge.dispose();assert.equal(f.decoder.paused,true);assert.equal(f.decoder.src,'');
-  f.decoder.dispatchEvent(new Event('ended'));f.target.dispatchEvent(new Event('pointerdown'));await flush();
-  f.bridge.dispose();assert.equal(f.reports.filter(value=>value==='quit').length,1);
-  assert.equal(f.decoder.calls,2);assert.equal(f.state.track,'pace-20261012');
-});
-test('late play completion cannot restart audio after a source switch or disposal',async()=>{
-  const f=fixture();let complete;
-  f.decoder.play=function(){this.calls++;return new Promise(resolve=>{complete=()=>{this.paused=false;resolve();};});};
-  f.bridge.frame();f.state.play=false;f.bridge.frame();complete();await flush();assert.equal(f.decoder.paused,true);
-  f.state.play=true;f.bridge.frame();f.bridge.dispose();complete();await flush();assert.equal(f.decoder.paused,true);
-});
-test('decoder errors retire playback until a keyboard gesture requests recovery',async()=>{
-  const f=fixture();f.bridge.frame();await flush();
-  f.decoder.dispatchEvent(new Event('error'));assert.equal(f.decoder.paused,true);assert.equal(f.reports.at(-1),false);
-  for(let i=0;i<10;i++)f.bridge.frame();assert.equal(f.decoder.calls,1);
-  f.target.dispatchEvent(new Event('keydown'));await flush();assert.equal(f.decoder.calls,2);
-  f.bridge.dispose();
+  assert.equal(f.quits, 0);
+  const closing = fixture(t);
+  closing.bridge.dispose();
+  closing.bridge.dispose();
+  assert.equal(closing.quits, 1);
 });

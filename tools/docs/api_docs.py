@@ -130,9 +130,10 @@ def api_routes(files: dict[Path, str] | None = None) -> list[Route]:
 
 
 def render() -> str:
+    http = wire_contract.load()['protocol']['http']
     payloads = {
         (method, route['path']): types
-        for route in wire_contract.load()['protocol']['http']['routes'].values()
+        for route in http['routes'].values()
         for method, types in route['protobuf'].items()
     }
     lines = [
@@ -148,9 +149,12 @@ def render() -> str:
         '',
     ]
     routes = api_routes()
+    media = {('GET', route['path']): route['response'] for route in http['media'].values()}
     discovered = {(route.method, route.path) for route in routes if route.path != '/ws'}
-    if discovered != payloads.keys():
-        raise ValueError(f'HTTP route inventory differs from wire contract: {discovered ^ payloads.keys()}')
+    if discovered != payloads.keys() | media.keys():
+        raise ValueError(
+            f'HTTP route inventory differs from wire contract: {discovered ^ (payloads.keys() | media.keys())}'
+        )
     families = {
         'sessions': 'Sessions and permissions',
         'tasks': 'Tasks and workers',
@@ -178,6 +182,9 @@ def render() -> str:
     for route in routes:
         if route.path == '/ws':
             continue
+        if (route.method, route.path) in media:
+            groups.setdefault('Radio relay', []).append(route)
+            continue
         parts = route.path.split('/')
         if len(parts) < 3 or parts[1] != 'api':
             raise ValueError(f'HTTP route must have an /api/<family> path: {route.path}')
@@ -193,7 +200,8 @@ def render() -> str:
             ]
         )
         for route in entries:
-            request, response = payloads[(route.method, route.path)]
+            key = (route.method, route.path)
+            request, response = ('Empty', media[key]) if key in media else payloads[key]
             lines.append(f'| `{route.method}` | `{route.path}` | `{route.scope}` | `{request}` | `{response}` |')
         lines.append('')
     lines.extend(

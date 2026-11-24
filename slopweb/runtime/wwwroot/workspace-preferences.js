@@ -1,6 +1,6 @@
 import {settingsSnapshot} from './browser-storage.js';
-// Storage belongs to this browser origin. Only the managed presentation allowlist
-// crosses this boundary; hostHome and the native TOML profile are never stored.
+// Storage belongs to this browser origin. The managed allowlist selects the
+// presentation and jukebox preferences that survive reload.
 export function installWorkspacePreferences(probe, view = globalThis) {
   probe.WorkspacePreferences(...settingsSnapshot(view, 'slopworld.presentation.v1', 'preferences'));
   // Native slider changes are debounced in frames; preserve the latest values

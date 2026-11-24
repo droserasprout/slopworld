@@ -20,6 +20,7 @@ mod git;
 mod jukebox;
 mod latency;
 mod music;
+mod ost;
 mod paths;
 mod perf;
 mod presets;
@@ -83,7 +84,14 @@ async fn main() -> Result<()> {
     let cfg = &loaded.config;
     runtime::validate_runtime_name()?;
     tracing::info!("config: {}", cfg_path.display());
-    tracing::info!("runtime: {}", runtime::capabilities().runtime);
+    tracing::info!(
+        "runtime: {}",
+        if runtime::is_slopcar() {
+            runtime::SLOPCAR
+        } else {
+            "native"
+        }
+    );
 
     let table = presets::table();
     tracing::info!(
@@ -160,8 +168,9 @@ async fn main() -> Result<()> {
     endpoint::write(&bind, &m.config_authority.snapshot().await.daemon.token).await?;
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(async {
+        .with_graceful_shutdown(async move {
             shutdown().await;
+            services.radio_listeners.shutdown();
             tracing::info!("shutting down (tmux sessions keep running)");
         })
         .await?;

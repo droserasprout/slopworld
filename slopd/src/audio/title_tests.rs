@@ -1,4 +1,5 @@
 use super::*;
+use std::time::Instant;
 
 #[test]
 fn pending_clear_survives_activation_and_repeated_commit() {

@@ -1,74 +1,128 @@
-//! Decode music commands and validate explicit source changes.
+//! Decode music commands and distinguish explicit source selection from shared transport.
+use crate::shared::wire::{AudioRequest, AudioSelection, audio_request::Change as WireChange};
 use anyhow::{Result, bail};
-use serde::Deserialize;
 
-/// A jukebox request. Omit `selection` to change only the volume. Use null to stop playback.
-/// Select a catalog entry with a station ID and stream key, or ncspot.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+// Keep invalid commands in the admission path so only their authorized requester
+// receives the rejection (including the correlation ID for a failed Spotify open).
 pub(crate) struct AudioReq {
-    #[serde(default, deserialize_with = "some_option")]
-    pub(crate) selection: Option<Option<AudioSelection>>,
-    pub(crate) volume: f32,
-    #[serde(default)]
-    pub(crate) stop_token: Option<String>,
+    pub(super) change: Result<Change>,
+    pub(super) volume: Option<f32>,
+    pub(super) reply: Reply,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct AudioSelection {
-    #[serde(default)]
-    pub(crate) station: Option<String>,
-    #[serde(default)]
-    pub(crate) stream: Option<String>,
-    #[serde(default)]
-    pub(crate) ncspot: bool,
+pub(super) enum Reply {
+    None,
+    Stop(String),
+    Spotify(Option<String>),
 }
 
-/// Distinguish an absent selection from a null selection.
-/// An absent selection preserves playback. A null selection stops playback.
-fn some_option<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::deserialize(d).map(Some)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Direction {
+    Previous,
+    Next,
+    Shuffle,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Change {
     Volume,
     Stop,
+    Play,
+    Navigate(Direction, std::collections::HashSet<String>),
+    Select(Source),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Source {
     Station { station: String, stream: String },
+    Track(String),
     Spotify,
 }
 
-impl AudioReq {
-    pub(super) fn wants_spotify(&self) -> bool {
-        self.selection
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|selection| selection.ncspot)
+impl From<&Source> for AudioSelection {
+    fn from(source: &Source) -> Self {
+        let mut value = Self::default();
+        match source {
+            Source::Station { station, stream } => {
+                value.station = Some(station.clone());
+                value.stream = Some(stream.clone());
+            }
+            Source::Track(track) => value.track = Some(track.clone()),
+            Source::Spotify => value.ncspot = true,
+        }
+        value
     }
+}
 
-    pub(super) fn change(self) -> Result<Change> {
-        let Some(selection) = self.selection else {
-            return Ok(Change::Volume);
+impl From<AudioRequest> for AudioReq {
+    fn from(request: AudioRequest) -> Self {
+        let gain = request.volume.map(|volume| volume.clamp(0.0, 1.0));
+        let (change, volume, reply) = match request.change {
+            None => (Ok(Change::Volume), gain, Reply::None),
+            Some(WireChange::Stop(_)) => (
+                Ok(Change::Stop),
+                gain,
+                request.stop_token.map_or(Reply::None, Reply::Stop),
+            ),
+            Some(WireChange::Selection(selection)) => {
+                let reply = if selection.ncspot {
+                    Reply::Spotify(request.request_id)
+                } else {
+                    Reply::None
+                };
+                (Source::try_from(selection).map(Change::Select), gain, reply)
+            }
+            Some(WireChange::Transport(action)) => (
+                Change::transport(&action, request.hidden_sources),
+                None,
+                Reply::None,
+            ),
         };
-        let Some(selection) = selection else {
-            return Ok(Change::Stop);
+        let change = if request.volume.is_some_and(|volume| !volume.is_finite()) {
+            Err(anyhow::anyhow!("Expected a finite audio volume."))
+        } else {
+            change
         };
-        if selection.ncspot {
-            anyhow::ensure!(
-                selection.station.is_none() && selection.stream.is_none(),
-                "Select ncspot or another audio source, not both."
-            );
-            return Ok(Change::Spotify);
+        Self {
+            change,
+            volume,
+            reply,
         }
-        match (selection.station, selection.stream) {
-            (Some(station), Some(stream)) => Ok(Change::Station { station, stream }),
-            _ => bail!("Select a station and stream."),
-        }
+    }
+}
+
+impl Change {
+    fn transport(action: &str, hidden: Vec<String>) -> Result<Self> {
+        let direction = match action {
+            "play" => return Ok(Self::Play),
+            "pause" => return Ok(Self::Stop),
+            "ost" => return Ok(Self::Select(Source::Track(Direction::Next.track(None)?))),
+            "previous" => Direction::Previous,
+            "next" => Direction::Next,
+            "shuffle" => Direction::Shuffle,
+            _ => bail!("Unknown audio transport {action:?}."),
+        };
+        Ok(Self::Navigate(direction, hidden.into_iter().collect()))
+    }
+}
+
+impl TryFrom<AudioSelection> for Source {
+    type Error = anyhow::Error;
+
+    fn try_from(selection: AudioSelection) -> Result<Self> {
+        let source = match (
+            selection.ncspot,
+            selection.track,
+            selection.station,
+            selection.stream,
+        ) {
+            (true, None, None, None) => Source::Spotify,
+            (true, ..) => bail!("Select ncspot or another audio source, not both."),
+            (false, Some(track), None, None) => Source::Track(track),
+            (false, None, Some(station), Some(stream)) => Source::Station { station, stream },
+            _ => bail!("Select a station and stream, or a bundled OST track."),
+        };
+        Ok(source)
     }
 }
 

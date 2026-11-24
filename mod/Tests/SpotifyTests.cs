@@ -4,6 +4,7 @@ namespace SlopWorld.Tests
     {
         public static void ReplacedLaunchCannotDeliverToEitherCaller()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             int first = 0,
                 second = 0;
@@ -25,6 +26,7 @@ namespace SlopWorld.Tests
 
         public static void DuplicateLaunchKeepsOriginalCaller()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             string opened = null;
             int duplicate = 0;
@@ -38,6 +40,7 @@ namespace SlopWorld.Tests
 
         public static void NonNcspotReportDoesNotCompletePendingLaunch()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),
@@ -60,6 +63,7 @@ namespace SlopWorld.Tests
 
         public static void SessionRefreshFailureIsReportedAndAllowsRetry()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),
@@ -86,6 +90,7 @@ namespace SlopWorld.Tests
 
         public static void MissingCapabilityFallsBackAndRejectsLateTerminalOpen()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),
@@ -106,6 +111,7 @@ namespace SlopWorld.Tests
 
         public static void UnknownCapabilitiesKeepSpotifyAvailable()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             SessionHub.Instance.Capabilities.Ncspot = false;
             AssertEx.True(Radio.SpotifyAvailable, "wait for the capability snapshot");
@@ -124,6 +130,7 @@ namespace SlopWorld.Tests
 
         public static void LaunchWaitsForAudioReply()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),
@@ -146,6 +153,7 @@ namespace SlopWorld.Tests
 
         public static void QuitRejectsLateLaunchReply()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),
@@ -162,6 +170,7 @@ namespace SlopWorld.Tests
 
         public static void QuitRejectsLateSessionRefresh()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),
@@ -179,6 +188,7 @@ namespace SlopWorld.Tests
 
         public static void SourceChangeRejectsLateSessionRefresh()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),
@@ -196,6 +206,7 @@ namespace SlopWorld.Tests
 
         public static void StaleRefreshFailuresAreIgnored()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),
@@ -216,6 +227,7 @@ namespace SlopWorld.Tests
 
         public static void NcspotReportsRequireSpotifySelectionEvenOnFailure()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             AssertEx.False(
                 Radio.AcceptsReport("ncspot", "late error"),
@@ -250,6 +262,7 @@ namespace SlopWorld.Tests
 
         public static void LaunchFailureAllowsRetry()
         {
+            using var profile = new RadioTestProfile();
             Radio.ResetSpotifyTest();
             Radio.OpenSpotify(
                 session => WorkspaceWindow.Open(session),

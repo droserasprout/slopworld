@@ -30,6 +30,14 @@ public static class BrowserPreferences
 
     static readonly FieldInfo[] Allowed = ReadAllowed();
 
+    static readonly FieldInfo[] Local =
+    [
+        .. Allowed,
+        typeof(ModSettings).GetField(nameof(ModSettings.radio))!,
+        typeof(ModSettings).GetField(nameof(ModSettings.radioOutput))!,
+        typeof(ModSettings).GetField(nameof(ModSettings.radioVolume))!,
+    ];
+
     static FieldInfo[] ReadAllowed()
     {
         using var reader = new StreamReader(
@@ -72,12 +80,17 @@ public static class BrowserPreferences
         if (Persist == null)
             return;
         var values = new Dictionary<string, object?>();
-        foreach (var field in Allowed)
+        foreach (var field in Local)
             values.Add(field.Name, field.GetValue(settings));
         Persist(JsonSerializer.Serialize(values));
     }
 
-    public static void Apply(ModSettings settings, string json)
+    public static void ApplyLocal(ModSettings settings, string json) =>
+        Restore(settings, json, Local);
+
+    public static void Apply(ModSettings settings, string json) => Restore(settings, json, Allowed);
+
+    static void Restore(ModSettings settings, string json, FieldInfo[] fields)
     {
         // Treat local storage as untrusted, including old schema fields. Validate
         // each scalar before assigning so one damaged row cannot block startup.
@@ -88,7 +101,7 @@ public static class BrowserPreferences
             using var document = JsonDocument.Parse(json);
             if (document.RootElement.ValueKind != JsonValueKind.Object)
                 return;
-            foreach (var field in Allowed)
+            foreach (var field in fields)
             {
                 var name = field.Name;
                 if (!document.RootElement.TryGetProperty(name, out var value))
@@ -96,7 +109,10 @@ public static class BrowserPreferences
                 if (field.FieldType == typeof(string) && value.ValueKind == JsonValueKind.String)
                 {
                     var text = value.GetString()!;
-                    if (text.Length <= 16384)
+                    if (
+                        text.Length <= 16384
+                        && (name != "radioOutput" || text is "local" or "server")
+                    )
                         field.SetValue(settings, text);
                 }
                 else if (

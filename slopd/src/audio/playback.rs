@@ -233,6 +233,17 @@ fn supported_pcm(id: &str) -> bool {
     id != NULL_PCM && id != "pipewire"
 }
 
+/// Probe output configurations without starting a stream. ALSA may advertise a default
+/// or Pulse PCM on a host without a physical device or a running sound server.
+pub(crate) fn host_output_available() -> bool {
+    let host = cpal::default_host();
+    host.output_devices()
+        .into_iter()
+        .flatten()
+        .chain(host.default_output_device())
+        .any(|device| supported_pcm(&pcm_id(&device)) && device.default_output_config().is_ok())
+}
+
 /// Enumerate host PCM outputs without opening streams or changing routing.
 pub(crate) fn output_devices() -> Result<Vec<(String, String)>> {
     let host = cpal::default_host();
@@ -295,6 +306,7 @@ pub(crate) struct OpenedSource {
 }
 
 pub(crate) struct CommittedSource {
+    pub(super) remaining_track: Option<Arc<AtomicUsize>>,
     pub(crate) title: TitleSink,
 }
 
@@ -394,6 +406,9 @@ fn commit_with_spawn(
         queued: queued.clone(),
         prefill_samples,
     };
+    let remaining_track = source
+        .starts_with(crate::ost::PREFIX)
+        .then(|| Arc::new(AtomicUsize::new(1)));
     let feed_title = title.clone();
     let (start_tx, start_rx) = sync_channel(1);
     spawn(Box::new(move || {
@@ -421,7 +436,11 @@ fn commit_with_spawn(
         return Ok(None);
     }
     output.set_volume(volume);
-    output.append(Box::new(ring));
+    if let Some(remaining) = &remaining_track {
+        output.append(Box::new(rodio::source::Done::new(ring, remaining.clone())));
+    } else {
+        output.append(Box::new(ring));
+    }
     output.play();
     // Replacement during output I/O is handled by the ring's generation check; never start
     // decoding a candidate that has already been retired.
@@ -433,7 +452,10 @@ fn commit_with_spawn(
     start_tx
         .send(())
         .context("feeder exited before output commit")?;
-    Ok(Some(CommittedSource { title }))
+    Ok(Some(CommittedSource {
+        title,
+        remaining_track,
+    }))
 }
 
 // The feeder owns its inputs so the audio thread can run independently of the caller.
@@ -500,6 +522,7 @@ fn feed_with_reopen(
         }
         let decoded = match current.take() {
             Some(d) => d,
+            None if source.starts_with(crate::ost::PREFIX) => return,
             None if playlist.is_some() => {
                 match next_playlist_source(
                     playlist.as_mut().expect("playlist checked above"),

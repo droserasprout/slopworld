@@ -24,6 +24,7 @@ COPY shared/slopworld.proto /build/shared/slopworld.proto
 COPY shared/magic-8-ball.txt /build/shared/magic-8-ball.txt
 COPY shared/loading-tips.txt /build/shared/loading-tips.txt
 COPY slopd/build.rs ./build.rs
+COPY mod/Sounds/SlopWorld/OST /build/mod/Sounds/SlopWorld/OST
 COPY slopd/src ./src
 COPY slopd/presets ./presets
 ARG SLOPWORLD_BUILD_VERSION

@@ -14,6 +14,8 @@ pub const SLOPCAR: &str = "slopcar";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Capabilities {
     pub runtime: &'static str,
+    pub hostname: String,
+    pub radio_relay: bool,
     pub audio_playback: bool,
     pub ncspot: bool,
     pub landlock_available: bool,
@@ -40,24 +42,30 @@ pub fn is_slopcar() -> bool {
     std::env::var("SLOPD_RUNTIME").is_ok_and(|value| value == SLOPCAR)
 }
 
-pub fn capabilities() -> Capabilities {
+pub fn capabilities(output_open: bool) -> Capabilities {
     let sidecar = is_slopcar();
     Capabilities {
         runtime: if sidecar { SLOPCAR } else { "native" },
-        audio_playback: !sidecar,
+        hostname: hostname(),
+        radio_relay: true,
+        audio_playback: !sidecar && (output_open || crate::audio::host_output_available()),
         ncspot: ncspot_available(),
         landlock_available: crate::worktrees::write_guard::available(),
         desktop_open: !sidecar,
         per_session_limits: !sidecar,
         host_network_is_container: sidecar,
         host_terminals_are_container: sidecar,
-        terminal: TerminalCapabilities {
-            scrollback_lines: crate::tmux::SCROLLBACK_LINES,
-            min_cols: crate::shared::protocol::TERMINAL_MIN_COLS,
-            max_cols: crate::shared::protocol::TERMINAL_MAX_COLS,
-            min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,
-            max_rows: crate::shared::protocol::TERMINAL_MAX_ROWS,
-        },
+        terminal: terminal_capabilities(),
+    }
+}
+
+pub(crate) fn terminal_capabilities() -> TerminalCapabilities {
+    TerminalCapabilities {
+        scrollback_lines: crate::tmux::SCROLLBACK_LINES,
+        min_cols: crate::shared::protocol::TERMINAL_MIN_COLS,
+        max_cols: crate::shared::protocol::TERMINAL_MAX_COLS,
+        min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,
+        max_rows: crate::shared::protocol::TERMINAL_MAX_ROWS,
     }
 }
 

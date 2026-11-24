@@ -1,6 +1,6 @@
 # Regenerate all outputs from reviewed inputs; stage notices last
 [group('generate')]
-generate-all: generate-clown-nose generate-completions generate-protocol generate-api-docs generate-loading-font generate-icons generate-emojis generate-emoji-atlas generate-symbol-atlas generate-fileicons generate-appicon generate-favicon generate-daemon-licenses generate-sidecar-licenses generate-web-licenses generate-licenses
+generate-all: generate-clown-nose generate-completions generate-ost generate-protocol generate-api-docs generate-loading-font generate-icons generate-emojis generate-emoji-atlas generate-symbol-atlas generate-fileicons generate-appicon generate-favicon generate-daemon-licenses generate-sidecar-licenses generate-web-licenses generate-licenses
 
 # Generate protocol
 [group('generate')]
@@ -96,3 +96,8 @@ generate-robot-faces facing='both':
 [group('generate')]
 generate-web-licenses:
     uv run --locked python -m tools.licenses.web_licenses
+
+# Generate embedded OST catalogs from native SongDefs
+[group('generate')]
+generate-ost:
+    uv run --locked python -m tools.assets.ost_manifest

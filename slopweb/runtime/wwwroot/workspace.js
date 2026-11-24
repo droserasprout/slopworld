@@ -97,10 +97,10 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     window.__workspaceProfile = profile;
     managed.WorkspaceProfile(enabled);
   };
-  const stop = () => {
+  const stop = orderly => {
     if (stopped) return;
     stopped = true; scheduler.stop();activity.abort();managed.WorkspaceClearWake();
-    audio.dispose();
+    audio.dispose(orderly);
     if(rowCommands) managed.WorkspaceRowCommands(false);
     backgroundAbort.abort();retainedBackground?.cancel();background?.dispose();background=null;
     device.dispose(); gui.dispose(); fonts.dispose();
@@ -125,11 +125,11 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
       state.status = 'fail'; state.error = String(error); state.stack = error.stack;
       document.querySelector('#result').textContent = JSON.stringify(state, null, 2);
       document.body.classList.remove('ready');
-      stop();
+      stop(false);
     }
   };
   window.addEventListener('pagehide', event => {
-    if (!event.persisted) stop();
+    if (!event.persisted) stop(true);
   }, {signal:activity.signal});
   scheduler.setEnabled(idleYield);
   window.__workspace = state;

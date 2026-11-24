@@ -3,6 +3,7 @@
 mod bridge;
 mod endpoint;
 mod fonts;
+mod radio;
 mod security;
 mod static_files;
 #[cfg(test)]
@@ -49,7 +50,8 @@ pub async fn serve(config: ServerConfig, fonts: Arc<FontService>) -> Result<()> 
     Ok(())
 }
 
-async fn router(
+/// Build the same-origin router for an already bound host port.
+pub async fn router(
     config: ServerConfig,
     port: u16,
     fonts: Option<Arc<FontService>>,
@@ -81,6 +83,8 @@ async fn dispatch(State(host): State<Arc<Host>>, request: Request) -> Response {
     let path = request.uri().path();
     let mut response = if path == "/host/ws" || request.headers().contains_key("upgrade") {
         websocket::response(&host, request).await
+    } else if path.starts_with("/host/media/") {
+        radio::response(&host, request).await
     } else if request.uri() == "/host/health" || path.starts_with("/host/api/") {
         bridge::response(&host, request).await
     } else if path == "/host/fonts" || path.starts_with("/host/fonts/") {

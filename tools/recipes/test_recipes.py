@@ -206,7 +206,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         (call,) = self.calls('cargo')
         self.assertEqual(call['args'], ['build', '--quiet', '--locked', '--release', '--frozen'])
         self.log.unlink()
-        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'install-mod')
+        # install-mod also copies its runner, desktop entry and icon using the real installer.
+        self.env['XDG_DATA_HOME'] = str(self.directory / 'data')
+        self.run_recipe(f'BIN={self.directory / "installed-bin"}', f'RUNNER={self.directory / "runner"}', 'install-mod')
         installer = next(call for call in self.calls('uv') if 'tools.host.install_mod' in call['args'])
         self.assertIn(str(self.directory / 'runner'), installer['args'])
 
@@ -292,7 +294,7 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         )
         self.assertEqual(self.calls('dotnet'), [])
         self.assertIn('tools.licenses.sidecar_licenses', modules)
-        for module in ('emoji', 'emoji_atlas', 'fileicons'):
+        for module in ('emoji', 'emoji_atlas', 'fileicons', 'ost_manifest'):
             self.assertIn(f'tools.assets.{module}', modules)
         self.assertFalse(any('lock' in call['args'] for call in self.calls('uv')))
 

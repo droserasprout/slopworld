@@ -43,7 +43,7 @@ fn every_event_encodes_its_protobuf_payload() {
     let events = [
         (
             Event::Capabilities {
-                capabilities: crate::runtime::capabilities(),
+                capabilities: crate::runtime::capabilities(false),
             },
             "capabilities",
         ),

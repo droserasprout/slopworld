@@ -10,6 +10,7 @@ use crate::credentials::Cap;
 use crate::shared::protocol::routes;
 
 use super::handlers::*;
+use super::radio::{radio, radio_title};
 use super::ws::ws_upgrade;
 use super::{App, err};
 
@@ -136,6 +137,8 @@ fn root_routes(m: App) -> Router<App> {
         .route(routes::CONFIG, put(put_config))
         .route(routes::CONFIG_PATCH, put(put_config_patch))
         .route(routes::USAGE, get(usage))
+        .route(routes::RADIO_RELAY, get(radio))
+        .route(routes::RADIO_RELAY_TITLE, get(radio_title))
         .route(routes::AUDIO, get(audio))
         .route(routes::AUDIO_OUTPUTS, get(audio_outputs))
         .route(routes::NCSPOT, post(ncspot))

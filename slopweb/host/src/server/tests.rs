@@ -1119,3 +1119,64 @@ async fn eco_content_validates_across_roots_and_stale_or_unusable_bindings_fall_
         fallback.headers()["etag"]
     );
 }
+
+#[tokio::test]
+async fn radio_proxy_checks_provenance_and_only_forwards_the_selected_host_credential() {
+    let (tx, mut seen) = mpsc::unbounded_channel();
+    let upstream = listen(Router::new().fallback(any(move |request: Request| {
+        let tx = tx.clone();
+        async move {
+            let redirect = request.uri().query() == Some("redirect");
+            tx.send(request.into_parts().0).unwrap();
+            Response::builder()
+                .status(if redirect { 302 } else { 200 })
+                .header("content-type", "audio/ogg; codecs=opus")
+                .header("location", "https://elsewhere.invalid/")
+                .header("set-cookie", "secret=value")
+                .body(Body::from(vec![0, 0xff, 1]))
+                .unwrap()
+        }
+    })))
+    .await;
+    let host = host(direct(&format!("{}/team/", upstream.url)), None).await;
+    let media = format!("{}/host/media/radio", host.url);
+    let client = client();
+    assert_eq!(client.get(&media).send().await.unwrap().status(), 403);
+    assert_eq!(
+        client
+            .post(&media)
+            .header("origin", &host.url)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        405
+    );
+    let response = client
+        .get(format!("{media}?station=name&stream=one%2Ftwo"))
+        .header("sec-fetch-site", "same-origin")
+        .header("x-slop-token", "browser-supplied")
+        .header("cookie", "browser=private")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.headers()["content-type"], "audio/ogg; codecs=opus");
+    assert!(!response.headers().contains_key("set-cookie"));
+    assert_eq!(response.bytes().await.unwrap().as_ref(), [0, 0xff, 1]);
+    let parts = seen.recv().await.unwrap();
+    assert_eq!(
+        parts.uri.to_string(),
+        "/team/media/radio?station=name&stream=one%2Ftwo"
+    );
+    assert_eq!(parts.headers["x-slop-token"], "host-secret");
+    assert!(!parts.headers.contains_key("cookie"));
+    let rejected = client
+        .get(format!("{media}?redirect"))
+        .header("origin", &host.url)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), 502);
+    assert!(!rejected.headers().contains_key("location"));
+    assert_eq!(seen.recv().await.unwrap().uri.path(), "/team/media/radio");
+}

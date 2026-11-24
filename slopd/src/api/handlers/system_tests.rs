@@ -37,6 +37,7 @@ async fn open(app: &Router, request: wire::RedrawReq) -> (StatusCode, Vec<u8>) {
 async fn ncspot_http_clamps_dimensions_reuses_player_and_reports_launch_errors() {
     use std::os::unix::fs::PermissionsExt;
     let Some(root) = crate::test_support::isolated_with_env(|command, root| {
+        crate::music::configure_test_output(command, root);
         let path = std::env::var_os("PATH").unwrap_or_default();
         command
             .env(

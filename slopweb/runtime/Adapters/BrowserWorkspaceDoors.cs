@@ -78,7 +78,6 @@ public static class BrowserWorkspaceDoors
                 ModDefOf.SlopJukebox = definition;
         }
         ModDefOf.Ship_ComputerCore = DefDatabase<ThingDef>.GetNamed("Ship_ComputerCore");
-        Radio.ObserveDaemonPlayback();
         installed = true;
     }
 }

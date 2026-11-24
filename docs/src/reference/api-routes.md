@@ -141,6 +141,13 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `POST` | `/api/templates/:name/create` | `root-only` | `CreateAgentTemplateReq` | `SessionResult` |
 | `GET` | `/api/templates/spawnable` | `scoped` | `Empty` | `TemplatesReply` |
 
+## Radio relay
+
+| Method | Path | Route access group | Request body | Response |
+| --- | --- | --- | --- | --- |
+| `GET` | `/media/radio` | `root-only` | `Empty` | `Encoded station audio` |
+| `GET` | `/media/radio/title` | `root-only` | `Empty` | `JSON listener title` |
+
 ## WebSocket
 
 `GET /ws` upgrades to a WebSocket connection. See the

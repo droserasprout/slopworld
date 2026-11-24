@@ -46,7 +46,11 @@ namespace SlopWorld
             _terminal = new TerminalIO(_transport);
             _audio = new AudioBus(_transport);
             // A new attempt may target a different runtime. Do not reuse its predecessor's capabilities.
-            _transport.OnConnecting = () => Capabilities = DaemonCapabilities.Reset();
+            _transport.OnConnecting = () =>
+            {
+                Capabilities = DaemonCapabilities.Reset();
+                Radio.ResetSharedSnapshot();
+            };
             _transport.OnConnected = () =>
             {
                 _connectionGeneration++;

@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
         [Test]
         public static void BrowserWithoutLocalAudioLeavesHostPlaybackUntilADaemonSourceIsSelected()
         {
+            using var profile = new RadioTestProfile();
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
@@ -45,99 +46,9 @@ namespace SlopWorld.Tests
             }
         }
 
-        [TestCase(false)]
-        [TestCase(true)]
-        public static void FreshBrowserObservesSharedPlaybackThroughShutdown(bool muted)
-        {
-            using var socket = new Socket();
-            var transport = new HubTransport(() => socket, action => action());
-            string saved = Settings.S.radio;
-            try
-            {
-                Radio.ResetSpotifyTest();
-                Settings.S.radio = "ost";
-                Radio.ObserveDaemonPlayback();
-                Radio.SetStopOnExitTest(true);
-                if (muted)
-                    Radio.MutePlaybackTest();
-                SessionHub.Instance.Audio = new AudioBus(transport);
-                SessionHub.Instance.Capabilities = DaemonCapabilities.FromWire(
-                    new Wire.Capabilities { AudioPlayback = true }
-                );
-                transport.Connect();
-                transport.Update();
-
-                Radio.UpdatePlaybackTest(0, 1f);
-                Assert.That(Radio.NativePlaybackAllowed, Is.False);
-                Radio.AcknowledgeStop(null, source: "ncspot");
-                Assert.That(
-                    Radio.NativePlaybackAllowed,
-                    Is.False,
-                    "paused Spotify owns the output"
-                );
-                Radio.AcknowledgeStop(null);
-                Assert.That(Radio.NativePlaybackAllowed, Is.EqualTo(!muted));
-                Radio.AcknowledgeStop(null, playing: true);
-                Radio.UpdatePlaybackTest(1, 0.3f);
-                Assert.That(Radio.NativePlaybackAllowed, Is.False);
-                Radio.Quit();
-                Assert.That(socket.Sent, Is.Empty);
-            }
-            finally
-            {
-                transport.Disconnect();
-                Radio.ResetSpotifyTest();
-                Settings.S.radio = saved;
-            }
-        }
-
-        [TestCase(false)]
-        [TestCase(true)]
-        public static void BrowserStationHonorsStopOnExitOnce(bool stopOnExit)
-        {
-            using var socket = new Socket();
-            var transport = new HubTransport(() => socket, action => action());
-            try
-            {
-                Radio.ResetSpotifyTest();
-                Radio.ObserveDaemonPlayback();
-                Radio.SetStopOnExitTest(stopOnExit);
-                SessionHub.Instance.Audio = new AudioBus(transport);
-                SessionHub.Instance.Capabilities = DaemonCapabilities.FromWire(
-                    new Wire.Capabilities { AudioPlayback = true }
-                );
-                transport.Connect();
-                transport.Update();
-                var station = new Radio.Station(
-                    "radio",
-                    "Radio",
-                    "",
-                    "",
-                    new[] { 64 },
-                    new[] { "low" },
-                    64
-                );
-                Radio.SelectPlaybackTest(station, 64);
-                Radio.UpdatePlaybackTest(0, 1f);
-                Radio.Quit();
-                Radio.Quit();
-                Assert.That(socket.Sent[0].Selection.Station, Is.EqualTo("radio"));
-                Assert.That(socket.Sent.Count, Is.EqualTo(stopOnExit ? 2 : 1));
-                if (stopOnExit)
-                {
-                    Assert.That(socket.Sent[1].Stop, Is.Not.Null);
-                    Assert.That(socket.FlushedCount, Is.EqualTo(2));
-                }
-            }
-            finally
-            {
-                transport.Disconnect();
-                Radio.ResetSpotifyTest();
-            }
-        }
-
         public static void OstAlwaysStaysLocalWhileOtherSourcesUseDaemon()
         {
+            using var profile = new RadioTestProfile();
             string saved = Environment.GetEnvironmentVariable("SLOPWORLD_INITIAL_AUDIO");
             string savedRadio = Settings.S.radio;
             using var socket = new Socket();
@@ -175,6 +86,7 @@ namespace SlopWorld.Tests
 
         public static void LocalPlaybackRequiresCurrentStopAcknowledgmentAndReconnectRevokesIt()
         {
+            using var profile = new RadioTestProfile();
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
@@ -215,7 +127,9 @@ namespace SlopWorld.Tests
                 Radio.AcknowledgeStop(null, playing: true);
                 Assert.That(Radio.NativePlaybackAllowed, Is.False);
                 Radio.UpdatePlaybackTest(3.01, 0.5f);
-                Radio.AcknowledgeStop(socket.Sent[3].StopToken);
+                Radio.UpdatePlaybackTest(4, 0.8f);
+                Assert.That(socket.Sent.Count, Is.EqualTo(3));
+                Radio.AcknowledgeStop(null);
                 Assert.That(Radio.NativePlaybackAllowed, Is.True);
                 Radio.MutePlaybackTest();
                 Assert.That(Radio.NativePlaybackAllowed, Is.False);
@@ -229,6 +143,7 @@ namespace SlopWorld.Tests
 
         public static void SavedStationDoesNotStopDaemonWhileWaitingForInitialCatalog()
         {
+            using var profile = new RadioTestProfile();
             string saved = Settings.S.radio;
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
@@ -275,7 +190,7 @@ namespace SlopWorld.Tests
             }
         }
 
-        sealed class Socket : IHubSocket
+        internal sealed class Socket : IHubSocket
         {
             public bool Connected { get; private set; }
             public string LastError => null;
@@ -313,6 +228,7 @@ namespace SlopWorld.Tests
 
         public static void ShutdownStopFlushesAfterQueuedSelectionAndReportsFailure()
         {
+            using var profile = new RadioTestProfile();
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
@@ -336,6 +252,7 @@ namespace SlopWorld.Tests
 
         public static void SourceChangesDispatchSelectionsImmediatelyAndReconnectRetainsMute()
         {
+            using var profile = new RadioTestProfile();
             string saved = Settings.S.radio;
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());

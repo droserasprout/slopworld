@@ -21,10 +21,7 @@ public static class BrowserPlatform
         DesktopClipboard.CopyHandler = BrowserClipboard.Copy;
         DesktopClipboard.CopyPrimaryHandler = BrowserClipboard.CopyPrimary;
         DesktopClipboard.CopyFromApplicationHandler = BrowserClipboard.CopyFromApplication;
-        NativeJukebox.NavigateHandler = BrowserAudio.Navigate;
-        NativeJukebox.ReadNativeTrackHandler = BrowserAudio.ReadNativeTrack;
-        NativeJukebox.ResumeHandler = BrowserAudio.Resume;
-        NativeJukebox.SetMutedHandler = BrowserAudio.SetMuted;
+        BrowserJukebox.Current = BrowserAudio.Instance;
         DesktopClipboard.SupportsSelections = () => BrowserClipboard.UsesLinuxSelections;
         LinuxGameWindow.SetFullscreen = BrowserWindow.Set;
         TextureReadback.ReadPixels = BrowserCursor.ReadBack;

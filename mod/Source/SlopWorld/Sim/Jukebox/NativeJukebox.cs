@@ -62,12 +62,7 @@ namespace SlopWorld
             }
         }
 
-        internal static System.Action<int, bool> NavigateHandler { get; set; } = DesktopNavigate;
-
-        internal static void Navigate(int direction, bool random) =>
-            NavigateHandler(direction, random);
-
-        static void DesktopNavigate(int direction, bool random)
+        internal static void Navigate(int direction, bool random)
         {
             var songs = DefDatabase<SongDef>
                 .AllDefsListForReading.Where(song =>
@@ -105,12 +100,7 @@ namespace SlopWorld
             } // Root_Entry has no play music manager.
         }
 
-        internal static System.Func<NativeTrackSnapshot> ReadNativeTrackHandler { get; set; } =
-            DesktopReadNativeTrack;
-
-        internal static NativeTrackSnapshot ReadNativeTrack() => ReadNativeTrackHandler();
-
-        static NativeTrackSnapshot DesktopReadNativeTrack()
+        internal static NativeTrackSnapshot ReadNativeTrack()
         {
             try
             {
@@ -127,11 +117,7 @@ namespace SlopWorld
             }
         }
 
-        internal static System.Action<bool> SetMutedHandler { get; set; } = DesktopSetMuted;
-
-        internal static void SetMuted(bool muted) => SetMutedHandler(muted);
-
-        static void DesktopSetMuted(bool muted)
+        internal static void SetMuted(bool muted)
         {
             var music = NativeMusic();
             if (music == null)
@@ -158,11 +144,7 @@ namespace SlopWorld
 
         // Restart the selected SlopWorld song immediately after unpausing.
         // Clearing disabled alone waits for the native music transition timer.
-        internal static System.Action ResumeHandler { get; set; } = DesktopResume;
-
-        internal static void Resume() => ResumeHandler();
-
-        static void DesktopResume()
+        static void Resume()
         {
             if (!Radio.NativePlaybackAllowed)
                 return;

@@ -18,7 +18,7 @@ impl Services {
     }
 
     async fn publish_music_if_changed(&self, last: &mut Option<crate::audio::AudioState>) {
-        let now = self.music.state().await;
+        let now = self.music.poll().await;
         if last.as_ref() == Some(&now) {
             return;
         }

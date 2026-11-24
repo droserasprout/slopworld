@@ -111,6 +111,10 @@ namespace SlopWorld
         // "ost" or "station-id:stream-key" from the daemon's catalog. Unknown presets use OST.
         public string radio = "ost";
 
+        // Browser output identity and local player gain are per-client preferences.
+        public string radioOutput = "local";
+        public float radioVolume = 0.8f;
+
         // Source ids hidden from the jukebox menu, one per line. An empty list keeps the
         // built-in OST, Spotify, and every user station visible by default.
         public string radioHiddenSources = "";
@@ -238,6 +242,8 @@ namespace SlopWorld
             Field("cursor", (ModSettings s) => ref s.cursor, Text, String),
             Field("cursorGrayscale", (ModSettings s) => ref s.cursorGrayscale, Bool, String),
             Field("radio", (ModSettings s) => ref s.radio, Text, String),
+            Field("radioOutput", (ModSettings s) => ref s.radioOutput, Text, String),
+            Field("radioVolume", (ModSettings s) => ref s.radioVolume, Float, Number),
             Field("radioHiddenSources", (ModSettings s) => ref s.radioHiddenSources, Text, String),
             Field("radioMute", (ModSettings s) => ref s.radioMute, Bool, String),
             Field("statusbarUsage", (ModSettings s) => ref s.statusbarUsage, Bool, String),

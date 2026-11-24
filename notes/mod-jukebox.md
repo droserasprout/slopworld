@@ -10,26 +10,36 @@ Clients without a native audio decoder set `Radio.LocalPlaybackSupported` before
 workspace startup. OST source/transport actions are unavailable there, and the default
 OST state observes host playback without sending a stop. Selecting a supported daemon
 source activates normal transport policy, including explicit pause/stop.
-A fresh browser workspace observes the daemon's audio snapshot. The local OST
-can play once the daemon reports idle. A saved mute preference affects only the
-observer’s decoder. Explicit jukebox controls claim playback, and
-final page exit then follows the native shutdown policy.
+`BrowserPlatform` installs one `IBrowserJukebox` before the first workspace frame.
+Native clients leave that adapter unset. Each browser keeps its output and local preferences. Startup on local output can
+request the OST independently of daemon state, subject to browser permission.
+On server output the UI observes shared selection and volume until an explicit
+action. Output changes always retire local playback. An orderly exit sends a
+server stop only for a selected server output with stop-on-exit enabled.
 `Sim/Jukebox/` adapts map presence and native music. `UI/Jukebox/` owns menus/actions
 and notice presentation, connected once by Bootstrap. Recognition policy stays in
 application; bounded child execution belongs to `Platform/Processes/`.
 
 Spotify callbacks belong to the source revision and open terminals only after
-session refresh. Shutdown applies stop-on-exit and mute policy before closing the
+session refresh. Native shutdown applies stop-on-exit and mute policy before closing the
 socket: either setting requests a stop; otherwise playback may continue. Later
-frames cannot send playback updates after shutdown begins.
+frames cannot send playback updates after shutdown begins. After a native OST handoff,
+a shared player starting elsewhere suspends native music until the shared player goes idle.
 
 Daemon `music/` validates selections before changing players and retains one transition
 guard through reply. The ncspot guard spans IPC polling and applied-volume persistence,
 preventing stop/reopen from reusing its socket mid-poll. `application/music_operations.rs`
 adapts host-terminal launch/stop; session retains lifecycle guards. Recovery runs
 after adoption. Tmux markers identify managed players and preserve applied volume.
+The transition guard owns the resumable source and gain. The publication timer advances
+a bundled track after its committed mixer input drains. Pausing releases playback and
+keeps the selection available to the next client. Snapshot reads never apply ncspot gain.
 
-Settings → Audio stores daemon radio routing in `daemon.audio_output`: a backend
+`mod/Defs/Songs.xml` owns OST identity and navigation order. Run `just generate-ost`
+after changing it. The daemon embeds those Ogg files in its binary and the browser
+package stages the same tracked assets.
+
+Settings → Audio stores shared radio and OST routing in `daemon.audio_output`: a backend
 preference and an optional host PCM ID. Empty device follows server/default routing.
 The output catalog is read-only and endpoint-local; physical sound-server sink routing
 remains with the desktop. These settings do not control native OST or ncspot.
@@ -70,19 +80,17 @@ deadline: continuous traffic or playback backpressure must not force reconnects.
 Catalog reload failure retains the valid snapshot for retry. Mutation errors distinguish
 saved disk changes from failed activation so repaired definitions can activate later.
 
-Native OST playback uses the bundled SongDefs. BrowserPlatform connects
-NativeJukebox to BrowserAudio for DOM playback of authored SlopWorld OST.
-Radio owns the shared source, volume, and stop-ack policy. The daemon
-rejects file playback selections and plays radio/Spotify only. Source changes stop
-native music before sending a daemon selection. Returning to OST requires the
-current unique stop token to be acknowledged after the daemon worker retires its
-source and ncspot stops. Selection changes and disconnects revoke that acknowledgment;
-sidecar capabilities permit local playback without an audio handoff. Music-manager
-updates enforce this gate before vanilla can start a song.
+Native OST playback uses the bundled SongDefs. Switching from a daemon source to
+native OST waits for the current stop-token acknowledgement. Selection changes and
+disconnects revoke the acknowledgement. Browser local playback has no shared
+handoff. Its media element plays authored OST or encoded station audio from the
+same-origin host. The host authenticates to slopd. Listener metadata and the
+upstream request belong to that playback attempt, independently of the shared
+audio worker. Pausing live radio releases the request.
 
 The first local song on a profile's first run is `pace`. Native playback advances
 without the vanilla random inter-track delay. Previous/next follow bundled SongDef
-order; shuffle selects another track. Radio navigation follows visible catalog order,
+order; shuffle selects another track. Shared navigation carries the caller’s hidden source IDs. Radio navigation follows visible catalog order,
 wraps, and selects the closest bitrate (lower on ties). Pause stops playback and
 retains the source; play restarts it. Spotify track navigation stays in ncspot.
 The dropdown uses Unicode media symbols with text presentation for transport
@@ -92,8 +100,9 @@ opening pod. It saves that reference so player reconciliation cannot replace
 pending cargo, including after loading during arrival. Player delivery is independent
 of agents; reconciliation repairs a missing or destroyed jukebox after the player lands.
 Pausing daemon streams/Spotify stops them to avoid background playback/downloads.
-Spotify requires both ncspot and audio capabilities; sidecar supplies neither and
-falls back to OST for unavailable saved selections.
+Spotify requires ncspot and host audio output. Native RimWorld falls back to OST
+for unavailable saved selections. A browser keeps its selected output when the
+daemon reports it unavailable.
 
 Station storage/API edits belong to the daemon; track identity to
 [likes and recognition](mod-jukebox-library.md). See [sources](daemon-files.md),

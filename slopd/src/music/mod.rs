@@ -4,12 +4,11 @@
 use anyhow::Result;
 use std::future::Future;
 
+mod navigation;
 mod ncspot;
 mod request;
 pub(crate) use request::AudioReq;
-#[cfg(test)]
-pub(crate) use request::AudioSelection;
-use request::Change;
+use request::{Change, Direction, Reply, Source};
 
 /// Session lifecycle operations needed by the managed Spotify player.
 /// Implementations retain their normal lifecycle guards and rollback behavior,
@@ -25,13 +24,26 @@ pub(crate) trait HostSessions: Sync {
     fn stop(&self, name: &str) -> impl Future<Output = Result<()>> + Send;
 }
 
+#[derive(Debug)]
+struct Shared {
+    selection: Option<Source>,
+    volume: f32,
+}
+
+impl Default for Shared {
+    fn default() -> Self {
+        Self {
+            selection: None,
+            volume: 1.0,
+        }
+    }
+}
+
 pub(crate) struct Music {
     audio: crate::audio::Audio,
     tmux: crate::tmux::Tmux,
-    // Held through the complete source change and construction of its direct reply.
-    transition: tokio::sync::Mutex<()>,
-    // Polling retains this guard through IPC and volume-marker persistence so stop/open
-    // cannot reuse its socket. Lock order: transition -> ncspot; polling takes only ncspot.
+    // FIFO admission orders source changes, relative transport, and complete snapshots.
+    transition: tokio::sync::Mutex<Shared>,
     ncspot: tokio::sync::Mutex<ncspot::Player>,
 }
 
@@ -40,8 +52,8 @@ impl Music {
         Self {
             audio: crate::audio::Audio::new(),
             tmux,
-            transition: tokio::sync::Mutex::new(()),
-            ncspot: tokio::sync::Mutex::new(Default::default()),
+            transition: Default::default(),
+            ncspot: Default::default(),
         }
     }
 
@@ -55,21 +67,41 @@ impl Music {
     }
 
     pub(crate) async fn state(&self) -> crate::audio::AudioState {
-        self.ncspot
+        let shared = self.transition.lock().await;
+        self.snapshot(&shared, false).await
+    }
+
+    async fn snapshot(&self, shared: &Shared, sync_volume: bool) -> crate::audio::AudioState {
+        let mut state = self
+            .ncspot
             .lock()
             .await
-            .state(&self.tmux)
+            .state(&self.tmux, sync_volume)
             .await
-            .unwrap_or_else(|| self.audio.state())
+            .unwrap_or_else(|| self.audio.state());
+        state.selection = shared.selection.as_ref().map(Into::into);
+        state.volume = shared.volume;
+        state
     }
 
-    async fn volume(&self, volume: f32) {
-        if !self.ncspot.lock().await.set_volume(volume) {
-            self.audio.set_volume(volume);
+    // Only the publication timer advances drained tracks. Snapshot reads and
+    // client connections never issue playback commands.
+    pub(crate) async fn poll(&self) -> crate::audio::AudioState {
+        let mut shared = self.transition.lock().await;
+        if let Some(completed) = self.audio.completed_track()
+            && matches!(&shared.selection, Some(Source::Track(track)) if track == &completed)
+            && let Ok(next) = Direction::Next.track(Some(&completed))
+        {
+            self.audio
+                .play(&format!("{}{next}", crate::ost::PREFIX), shared.volume);
+            shared.selection = Some(Source::Track(next));
+            if let Err(error) = self.audio.flush().await {
+                self.audio.reject(format!("{error:#}"));
+            }
         }
+        self.snapshot(&shared, true).await
     }
 
-    /// Startup calls recovery after session adoption and before serving requests.
     pub(crate) async fn recover(&self, sessions: &impl HostSessions) {
         if let Ok(root) = ncspot::runtime() {
             self.recover_ncspot(sessions, &root).await;
@@ -82,8 +114,12 @@ impl Music {
         cols: Option<u16>,
         rows: Option<u16>,
     ) -> Result<String> {
-        let _transition = self.transition.lock().await;
-        self.open_ncspot(sessions, cols, rows, None).await
+        let mut shared = self.transition.lock().await;
+        let session = self
+            .open_ncspot(sessions, cols, rows, Some(shared.volume))
+            .await?;
+        shared.selection = Some(Source::Spotify);
+        Ok(session)
     }
 
     pub(crate) async fn select(
@@ -91,60 +127,91 @@ impl Music {
         sessions: &impl HostSessions,
         req: AudioReq,
     ) -> Option<crate::audio::AudioState> {
-        let spotify = req.wants_spotify();
-        let stop_token = if matches!(req.selection, Some(None)) {
-            req.stop_token.clone()
-        } else {
-            None
-        };
-        let volume = req.volume;
-        let _transition = self.transition.lock().await;
-        let result = match req.change() {
-            Ok(change) => self.apply(sessions, change, volume).await,
+        let mut shared = self.transition.lock().await;
+        let result = match req.change {
+            Ok(change) => self.apply(sessions, &mut shared, change, req.volume).await,
             Err(error) => Err(error),
         };
         if let Err(error) = result {
-            let error = format!("{error:#}");
-            self.audio.reject(error.clone());
-            if spotify {
-                return Some(crate::audio::AudioState {
-                    source: Some("ncspot".into()),
-                    error: Some(error),
-                    ..Default::default()
-                });
+            let mut reply = self.snapshot(&shared, false).await;
+            reply.error = Some(format!("{error:#}"));
+            if let Reply::Spotify(request_id) = req.reply {
+                reply.request_id = request_id;
+                reply.source = Some("ncspot".into());
+                reply.session = None;
             }
+            return Some(reply);
         }
-        // Reopening an existing player still needs a reply. Preserve ordered socket
-        // launch/stop handling even when no broadcast state changed.
-        if let Some(token) = stop_token {
-            let mut state = self.state().await;
-            if !state.playing && state.source.is_none() && state.error.is_none() {
-                state.stop_ack = Some(token);
-            }
-            Some(state)
-        } else if spotify {
-            Some(self.state().await)
-        } else {
-            None
-        }
+        let (stop_ack, request_id) = match req.reply {
+            Reply::None => return None,
+            Reply::Stop(token) => (Some(token), None),
+            Reply::Spotify(id) => (None, id),
+        };
+        let mut reply = self.snapshot(&shared, false).await;
+        reply.stop_ack = stop_ack;
+        reply.request_id = request_id;
+        Some(reply)
     }
 
-    async fn apply(&self, sessions: &impl HostSessions, change: Change, volume: f32) -> Result<()> {
-        match change {
-            Change::Volume => self.volume(volume).await,
-            Change::Spotify => {
-                self.open_ncspot(sessions, None, None, Some(volume)).await?;
+    async fn apply(
+        &self,
+        sessions: &impl HostSessions,
+        shared: &mut Shared,
+        change: Change,
+        volume: Option<f32>,
+    ) -> Result<()> {
+        let gain = volume.unwrap_or(shared.volume);
+        let selection = match change {
+            Change::Volume => {
+                if volume.is_some() && !self.ncspot.lock().await.set_volume(gain) {
+                    self.audio.set_volume(gain);
+                }
+                shared.volume = gain;
+                return Ok(());
             }
             Change::Stop => {
                 self.stop_ncspot(sessions).await?;
                 self.audio.stop_confirmed().await?;
+                // Native stop messages historically carry the client's gain. Only
+                // explicit volume/selection writes change gain; transport preserves it.
+                return Ok(());
             }
-            Change::Station { station, stream } => {
-                // Catalog resolution must succeed before stopping the current source.
-                let source = resolve_station(&station, &stream)?;
-                self.stop_ncspot(sessions).await?;
-                self.audio.play(&source, volume);
+            Change::Play => match &shared.selection {
+                Some(current) => current.clone(),
+                None => Source::Track(Direction::Next.track(None)?),
+            },
+            Change::Navigate(direction, hidden) => direction.navigate(
+                shared.selection.as_ref(),
+                &crate::jukebox::catalog(),
+                &hidden,
+            )?,
+            Change::Select(source) => source,
+        };
+        let source = match &selection {
+            Source::Spotify => {
+                self.open_ncspot(sessions, None, None, Some(gain)).await?;
+                None
             }
+            Source::Station { station, stream } => Some(resolve_station(station, stream)?),
+            Source::Track(track) => {
+                crate::ost::bytes(track)?;
+                Some(format!("{}{track}", crate::ost::PREFIX))
+            }
+        };
+        if let Some(source) = source.as_deref() {
+            anyhow::ensure!(
+                !crate::runtime::is_slopcar(),
+                "Server audio output is unavailable in slopcar."
+            );
+            self.stop_ncspot(sessions).await?;
+            self.audio.play(source, gain);
+        }
+        // Sending Play commits its generation. Retain the corresponding selection
+        // even if the caller is cancelled or the worker misses the reply deadline.
+        shared.selection = Some(selection);
+        shared.volume = gain;
+        if source.is_some() {
+            self.audio.flush().await?;
         }
         Ok(())
     }
@@ -158,3 +225,5 @@ fn resolve_station(station: &str, stream: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) use tests::configure_test_output;

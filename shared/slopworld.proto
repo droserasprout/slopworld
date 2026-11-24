@@ -390,6 +390,8 @@ message Capabilities {
   TerminalCapabilities terminal = 8;
   bool ncspot = 9;
   optional bool landlock_available = 10;
+  string hostname = 11;
+  bool radio_relay = 12;
 }
 
 message TerminalCapabilities {
@@ -436,6 +438,12 @@ message AudioState {
   optional string session = 6;
   // Echoed only after a requested stop completes. Not retained in snapshots.
   optional string stop_ack = 7;
+  // Resumable selection retained when the shared player is stopped or paused.
+  AudioSelection selection = 8;
+  // Owned playback, including a pending decoder, output recovery, or Spotify login.
+  bool active = 9;
+  // Explicit Spotify reply correlation, omitted from broadcasts and snapshots.
+  optional string request_id = 10;
 }
 
 message StationMetadata {
@@ -615,6 +623,8 @@ message AudioSelection {
   reserved 3;
   reserved "file";
   bool ncspot = 4;
+  // Bundled SongDef clip basename.
+  optional string track = 5;
 }
 
 message PasteReq {
@@ -952,12 +962,18 @@ message SandboxReport {
 }
 
 message AudioRequest {
-  float volume = 3;
+  // Volume-only and explicit selection writes may supply gain. Transport keeps shared gain.
+  optional float volume = 3;
   oneof change {
     AudioSelection selection = 1;
     Empty stop = 2;
+    // play, pause, previous, next, shuffle, or ost (start the first bundled track).
+    string transport = 5;
   }
   optional string stop_token = 4;
+  optional string request_id = 6;
+  // Client visibility filter for relative station navigation.
+  repeated string hidden_sources = 7;
 }
 
 message ClientMessage {

@@ -195,7 +195,7 @@ files are read from the user's own installation during local preparation.
 Select an agent in the sidebar or click `+` to create a session. The Core and
 Jukebox doors open their native menus. Map actions require a colony. The browser
 plays the Jukebox soundtrack and may require a click or key press to start audio.
-Radio and Spotify use the host daemon’s audio output.
+Use **Jukebox → Output** to play the soundtrack or radio in this browser or on the shared daemon host. Choosing Spotify opens the server player. See the [Jukebox guide](../docs/src/customization/jukebox.md).
 
 Ctrl+V pastes text into the terminal. Ready Codex agents also accept PNG images.
 Ctrl+C or Ctrl+Shift+C copies selected text. With no selection, Ctrl+C interrupts

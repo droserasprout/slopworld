@@ -25,7 +25,6 @@ pub(crate) async fn get_config(State(m): State<App>) -> ApiResult<wire::ConfigRe
     let redacted_text = crate::config::redact_token_text(&text)
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     let factory = crate::config::Config::default();
-    let caps = crate::runtime::capabilities();
     let mut values = cfg.redacted();
     // Host IDs belong to persistence, not the existing host-terminal wire view.
     // Clear only the response copy; storage and accepted configuration keep them.
@@ -45,14 +44,16 @@ pub(crate) async fn get_config(State(m): State<App>) -> ApiResult<wire::ConfigRe
             "defaults": factory,
             "usage_catalog": crate::usage::catalog(),
             "temporary_root": crate::paths::TEMP_ROOT,
-            "terminal": caps.terminal,
+            "terminal": crate::runtime::terminal_capabilities(),
             "auto_commands": factory.commands.resolved(),
         },
     }))
 }
 
-pub(crate) async fn capabilities() -> ApiResult<wire::Capabilities> {
-    reply(json!(crate::runtime::capabilities()))
+pub(crate) async fn capabilities(State(m): State<App>) -> ApiResult<wire::Capabilities> {
+    reply(json!(crate::runtime::capabilities(
+        m.services.music.output_device().is_some()
+    )))
 }
 
 pub(crate) async fn whereis() -> ApiResult<wire::WhereIsReply> {

@@ -17,6 +17,7 @@ from pathlib import Path
 
 from tools import ROOT
 from tools import cli_completions
+from tools.assets.ost_manifest import track_ids
 from tools.release.staging import copy_file
 from tools.release.staging import metadata
 from tools.utils import run
@@ -249,9 +250,11 @@ def build(destination: Path = OUTPUT) -> None:
         tracked = tracked_mod_files()
         validate_content(content, tracked)
         # Only authored SlopWorld music is shipped; game audio stays in private runtime data.
-        for name in sorted(tracked):
-            if Path(name).parent == Path('Sounds/SlopWorld/OST') and Path(name).suffix == '.ogg':
-                copy_file(ROOT / 'mod' / name, bundle / 'ost' / Path(name).name)
+        for track in track_ids(ROOT / 'mod'):
+            name = f'Sounds/SlopWorld/OST/{track}.ogg'
+            if name not in tracked:
+                raise ValueError(f'OST track is not a tracked mod asset: {name}')
+            copy_file(ROOT / 'mod' / name, bundle / 'ost' / Path(name).name)
         copy_file(ROOT / 'mod/Textures/SlopWorld/LoadingFont.png', bundle / 'mod/LoadingFont.png')
         copy_file(ROOT / 'shared/loading-tips.txt', bundle / 'mod/loading-tips.txt')
         package = runtime_package(runtime)
