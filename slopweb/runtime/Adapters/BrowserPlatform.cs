@@ -21,6 +21,7 @@ public static class BrowserPlatform
         DesktopClipboard.CopyHandler = BrowserClipboard.Copy;
         DesktopClipboard.CopyPrimaryHandler = BrowserClipboard.CopyPrimary;
         DesktopClipboard.CopyFromApplicationHandler = BrowserClipboard.CopyFromApplication;
+        UiClipboard.Provider = new DesktopUiClipboard();
         BrowserJukebox.Current = BrowserAudio.Instance;
         DesktopClipboard.SupportsSelections = () => BrowserClipboard.UsesLinuxSelections;
         LinuxGameWindow.SetFullscreen = BrowserWindow.Set;

@@ -35,34 +35,31 @@ namespace SlopWorld
 
         static readonly Queue<PendingFieldEdit> PendingEdits = new Queue<PendingFieldEdit>();
 
-        delegate void NativeTextField(
-            Rect rect,
-            int id,
-            GUIContent content,
-            bool multiline,
-            int maxLength,
-            GUIStyle style
-        );
+        // Waylith assigns an ID per occurrence of a named field, independently of
+        // GUIUtility.GetControlID. Peek before drawing and resolve again afterwards
+        // because the first draw allocates the name's ID.
+        static T NamedControlTable<T>(string field) =>
+            (T)
+                typeof(GUI)
+                    .GetField(field, BindingFlags.Static | BindingFlags.NonPublic)
+                    .GetValue(null);
 
-        static readonly NativeTextField DrawNativeTextField = (NativeTextField)
-            Delegate.CreateDelegate(
-                typeof(NativeTextField),
-                typeof(GUI).GetMethod(
-                    "DoTextField",
-                    BindingFlags.Static | BindingFlags.NonPublic,
-                    null,
-                    new[]
-                    {
-                        typeof(Rect),
-                        typeof(int),
-                        typeof(GUIContent),
-                        typeof(bool),
-                        typeof(int),
-                        typeof(GUIStyle),
-                    },
-                    null
-                )
-            );
+        static readonly Dictionary<string, int> Occurrences = NamedControlTable<
+            Dictionary<string, int>
+        >("_nameOccurrences");
+        static readonly Dictionary<string, int> FirstIds = NamedControlTable<
+            Dictionary<string, int>
+        >("_nameToId");
+        static readonly Dictionary<(string, int), int> RepeatedIds = NamedControlTable<
+            Dictionary<(string, int), int>
+        >("_repeatedNameToId");
+
+        static int NamedId(string name, int occurrence)
+        {
+            if (occurrence == 0)
+                return FirstIds.TryGetValue(name, out var first) ? first : 0;
+            return RepeatedIds.TryGetValue((name, occurrence), out var repeated) ? repeated : 0;
+        }
 
         // Unity's text controls consume function keys while focused, before the game or the
         // terminal can dispatch them. Release only this field's focus so bare F-keys reach
@@ -92,7 +89,7 @@ namespace SlopWorld
             public Event Event;
             public GUIStyle Style;
             public int ControlId;
-            public TextEditor FieldEditor;
+            public int Occurrence;
             public TextFieldSelection.PrepareResult Selection;
             public bool MouseDown,
                 Replay,
@@ -100,7 +97,8 @@ namespace SlopWorld
             public int Button,
                 Cursor,
                 Select;
-            public EventType OldType;
+            public EventType OldType,
+                PointerType;
         }
 
         public static string Draw(
@@ -130,12 +128,19 @@ namespace SlopWorld
                     var raw = UiEvent.RawType(input.Event);
                     input.Event.type = raw == EventType.ContextClick ? EventType.MouseDown : raw;
                 }
-                var content = new GUIContent(source);
-                DrawNativeTextField(r, input.ControlId, content, area, -1, input.Style);
+                bool paste = input.MouseDown && input.Button == 2 && !readOnly;
+                if (paste && input.ControlId != 0)
+                    GUIUtility.keyboardControl = input.ControlId;
+                string value = area
+                    ? GUI.TextArea(r, source, input.Style)
+                    : GUI.TextField(r, source, input.Style);
+                input.ControlId = NamedId(name, input.Occurrence);
+                if (paste)
+                    GUIUtility.keyboardControl = input.ControlId;
                 FieldKeyboardFocus.Track(lifetime, name, input.ControlId);
                 var editor = ReconcileEditor(name, source, readOnly, input, lifetime);
                 string result =
-                    editor == null ? content.text
+                    editor == null ? value
                     : readOnly ? source
                     : editor.text;
                 if (!readOnly)
@@ -162,6 +167,8 @@ namespace SlopWorld
         {
             var e = Event.current;
             var input = new NativePreparation { Event = e, Button = -1 };
+            // Event.Use in Waylith overwrites rawType as well as type.
+            input.PointerType = UiEvent.RawType(e);
             input.MouseDown =
                 e != null && r.Contains(e.mousePosition) && MouseDown(e, out input.Button);
             input.Style = Bare(
@@ -169,11 +176,9 @@ namespace SlopWorld
                 area
             );
             // Bind reconciliation to this exact control, never another focused row's editor.
-            input.ControlId = GUIUtility.GetControlID(name.GetHashCode(), FocusType.Keyboard, r);
-            input.FieldEditor = (TextEditor)
-                GUIUtility.GetStateObject(typeof(TextEditor), input.ControlId);
-            var focusedEditor =
-                GUIUtility.keyboardControl == input.ControlId ? input.FieldEditor : null;
+            Occurrences.TryGetValue(name, out input.Occurrence);
+            input.ControlId = NamedId(name, input.Occurrence);
+            var focusedEditor = FocusedEditor(input.ControlId);
             input.Selection = TextFieldSelection.Prepare(
                 r,
                 name,
@@ -205,6 +210,11 @@ namespace SlopWorld
             return input;
         }
 
+        static TextEditor FocusedEditor(int id) =>
+            id != 0 && GUIUtility.keyboardControl == id
+                ? GUIUtility.QueryStateObject(typeof(TextEditor), id) as TextEditor
+                : null;
+
         static TextEditor ReconcileEditor(
             string name,
             string source,
@@ -213,7 +223,7 @@ namespace SlopWorld
             FieldLifetime lifetime
         )
         {
-            var editor = GUIUtility.keyboardControl == input.ControlId ? input.FieldEditor : null;
+            var editor = FocusedEditor(input.ControlId);
             if (editor == null)
                 return null;
             if (input.KeepSelection)
@@ -250,11 +260,18 @@ namespace SlopWorld
                 input.Selection == TextFieldSelection.PrepareResult.None
                 || input.Selection == TextFieldSelection.PrepareResult.SelectionDrag
             )
-                TextFieldSelection.Handle(r, name, source, input.Style, editor, lifetime);
-            if (MouseUp(input.Event))
-                CopyPrimarySelection(editor);
+                TextFieldSelection.Handle(
+                    r,
+                    name,
+                    source,
+                    input.Style,
+                    editor,
+                    lifetime,
+                    input.PointerType
+                );
             if (input.MouseDown && input.Button == 2 && !readOnly)
             {
+                editor?.MoveCursorToPosition(input.Event.mousePosition);
                 RequestPaste(name, area, primary: true, lifetime: lifetime);
                 input.Event.Use();
             }
@@ -263,6 +280,7 @@ namespace SlopWorld
                 OpenContextMenu(name, area, editor, lifetime, readOnly);
                 input.Event.Use();
             }
+            TextFieldSelection.PublishSelection(name, lifetime, editor, input.PointerType);
         }
 
         // Prune independently of focus/name so closed fields cannot retain clipboard data.
@@ -290,16 +308,6 @@ namespace SlopWorld
                 return true;
             }
             return type == EventType.MouseDown;
-        }
-
-        static bool MouseUp(Event e)
-        {
-            // A consumed IMGUI mouse-up can report button -1 while rawType still preserves
-            // the original left-button event. Do not lose PRIMARY publication in that case.
-            // still reject the right/middle buttons when Unity leaves their button intact.
-            if (e == null || e.button > 0)
-                return false;
-            return UiEvent.RawType(e) == EventType.MouseUp;
         }
 
         public static TextEditor CurrentEditor(string name)
@@ -368,15 +376,6 @@ namespace SlopWorld
             if (area || string.IsNullOrEmpty(text))
                 return text ?? "";
             return text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
-        }
-
-        static void CopyPrimarySelection(TextEditor editor)
-        {
-            // Like the terminal, a completed mouse selection becomes the host PRIMARY
-            // selection. Keep it separate from the ordinary Copy action and CLIPBOARD.
-            string selected = editor == null ? null : editor.SelectedText;
-            if (!string.IsNullOrEmpty(selected))
-                UiClipboard.Provider.Copy(selected, true);
         }
 
         static void QueuePaste(

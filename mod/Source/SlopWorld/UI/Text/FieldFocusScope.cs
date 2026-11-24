@@ -86,8 +86,6 @@ namespace SlopWorld
             _eligible = eligible;
             var e = Event.current;
             _restore = eligible && !_memory.Eligible && e.rawType != EventType.MouseDown;
-            if (_restore && _memory.Order.Restore() != null)
-                GUIUtility.keyboardControl = 0;
             _memory.Eligible = eligible;
             _memory.Order.Begin();
         }
@@ -153,11 +151,20 @@ namespace SlopWorld
                 }
             if (target == null)
                 return;
-            TextFieldSelection.ReleaseFocus();
-            GUI.FocusControl(name);
-            GUIUtility.keyboardControl = target.Id;
+            RestoreFocus(target.Id);
             FieldKeyboardFocus.Track(_lifetime, name, target.Id);
             RevealTarget(target);
+        }
+
+        static void RestoreFocus(int id)
+        {
+            // A skipped draw can make an already-focused form eligible for restoration.
+            // Keep its active selection gesture and caret intact in that case.
+            if (GUIUtility.keyboardControl == id)
+                return;
+            TextFieldSelection.ReleaseFocus();
+            // FocusControl(name) schedules a selection reset on the next native draw.
+            GUIUtility.keyboardControl = id;
         }
 
         // Scrolls are registered inner-to-outer. Each movement shifts the field in screen

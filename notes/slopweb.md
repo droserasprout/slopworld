@@ -97,6 +97,7 @@ Browser middle-click reaches native hit testing so tabs and other controls retai
 button actions. A native PRIMARY read waits for the corresponding DOM paste event;
 that reply completes the original callback without a second Ctrl+V dispatch.
 An unanswered read expires after the auxiliary click or when a new input gesture starts.
+Entry installs the shared field clipboard provider alongside the terminal clipboard handlers.
 PRIMARY copy uses the focused editable proxy's select-all editor command, never the
 Clipboard API's CLIPBOARD write. Retain published selection text across focus loss;
 composition cancellation must not clear an unrelated selection.

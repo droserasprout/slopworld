@@ -30,6 +30,9 @@ namespace SlopWorld
             public int LineEnd;
             public int ControlId;
             public TextEditor Editor;
+            public string PublishedSource;
+            public int PublishedCursor,
+                PublishedAnchor;
 
             public void Reset(FieldLifetime lifetime)
             {
@@ -41,6 +44,7 @@ namespace SlopWorld
                 WordStart = WordEnd = LineStart = LineEnd = 0;
                 ControlId = 0;
                 Editor = null;
+                PublishedSource = null;
             }
         }
 
@@ -164,8 +168,8 @@ namespace SlopWorld
 
             if (type == EventType.MouseDrag || type == EventType.MouseUp)
             {
-                // Keep rawType intact so Handle can finish the gesture after the native field has
-                // drawn. However, Make the native field see Used and skip text drag-and-drop.
+                // The controller saved the gesture type before Prepare. Consume it here
+                // so native drag-and-drop cannot move the selected text.
                 GUIUtility.hotControl = state.ControlId;
                 if (e.type != EventType.Used)
                     e.Use();
@@ -230,7 +234,8 @@ namespace SlopWorld
             string text,
             GUIStyle style,
             TextEditor editor,
-            FieldLifetime lifetime
+            FieldLifetime lifetime,
+            EventType type
         )
         {
             var e = Event.current;
@@ -241,7 +246,6 @@ namespace SlopWorld
             if (editor != null)
                 state.Editor = editor;
             var activeEditor = editor ?? state.Editor;
-            EventType type = UiEvent.RawType(e);
             bool inside = rect.Contains(e.mousePosition);
 
             if (type == EventType.MouseDown && e.button == 0)
@@ -287,7 +291,7 @@ namespace SlopWorld
                 }
                 else
                 {
-                    EndDrag(state, name);
+                    ClearActive(state);
                 }
                 return;
             }
@@ -302,7 +306,7 @@ namespace SlopWorld
             if (type == EventType.MouseUp && e.button <= 0)
             {
                 UpdateDrag(activeEditor, rect, text, style, state);
-                EndDrag(state, name);
+                ClearActive(state);
                 e.Use();
             }
             else if (
@@ -337,18 +341,35 @@ namespace SlopWorld
             GUI.changed = true;
         }
 
-        static void EndDrag(State state, string name)
+        // Native fields can finish a drag before the window delivers MouseUp. Read
+        // the reconciled editor on release or the next idle repaint in either case.
+        internal static void PublishSelection(
+            string name,
+            FieldLifetime lifetime,
+            TextEditor editor,
+            EventType type
+        )
         {
-            state.Dragging = false;
-            state.WordDragging = false;
-            state.LineDragging = false;
-            if (GUIUtility.hotControl == state.ControlId)
-                GUIUtility.hotControl = 0;
-            if (_activeName == name)
+            if (editor == null)
+                return;
+            var state = GetState(name, lifetime);
+            if (!editor.hasSelection || type == EventType.MouseDown)
             {
-                _activeName = null;
-                _activeState = null;
+                state.PublishedSource = null;
+                return;
             }
+            if (type != EventType.MouseUp && (type != EventType.Repaint || Input.GetMouseButton(0)))
+                return;
+            if (
+                state.PublishedCursor == editor.cursorIndex
+                && state.PublishedAnchor == editor.selectIndex
+                && state.PublishedSource == editor.text
+            )
+                return;
+            UiClipboard.Provider.Copy(editor.SelectedText, true);
+            state.PublishedSource = editor.text;
+            state.PublishedCursor = editor.cursorIndex;
+            state.PublishedAnchor = editor.selectIndex;
         }
 
         // Cancellation retires both gesture ownership and retained native editor references.

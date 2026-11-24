@@ -229,7 +229,10 @@ namespace SlopWorld
         public void Copy(string text, bool primary)
         {
             if (primary)
-                DesktopClipboard.CopyPrimary(text);
+                DesktopClipboard.CopyPrimary(
+                    text,
+                    fail: error => Verse.Log.Warning("[SlopWorld] field PRIMARY copy: " + error)
+                );
             else
                 DesktopClipboard.Copy(text);
         }
