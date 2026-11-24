@@ -1168,8 +1168,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-anyhow 1.0.104 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/anyhow/1.0.104/download
+anyhow 1.0.105 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/anyhow/1.0.105/download
 
 LICENSE-APACHE
 
@@ -3889,8 +3889,8 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-clap 4.6.9 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/clap/4.6.9/download
+clap 4.6.10 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/clap/4.6.10/download
 
 LICENSE-APACHE
 
@@ -4118,8 +4118,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-clap_builder 4.6.7 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/clap_builder/4.6.7/download
+clap_builder 4.6.10 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/clap_builder/4.6.10/download
 
 LICENSE-APACHE
 
@@ -5733,8 +5733,8 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-crc32fast 1.5.5 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/crc32fast/1.5.5/download
+crc32fast 1.5.6 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/crc32fast/1.5.6/download
 
 LICENSE-APACHE
 
@@ -10970,8 +10970,8 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-hashbrown 0.17.1 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/hashbrown/0.17.1/download
+hashbrown 0.17.2 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/hashbrown/0.17.2/download
 
 LICENSE-APACHE
 
@@ -12195,8 +12195,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-hyper 1.12.0 — MIT
-Source: https://crates.io/api/v1/crates/hyper/1.12.0/download
+hyper 1.13.0 — MIT
+Source: https://crates.io/api/v1/crates/hyper/1.13.0/download
 
 LICENSE
 
@@ -18276,8 +18276,8 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-rand 0.10.3 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/rand/0.10.3/download
+rand 0.10.4 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/rand/0.10.4/download
 
 LICENSE-APACHE
 
@@ -19377,8 +19377,8 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-rand_pcg 0.10.2 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/rand_pcg/0.10.2/download
+rand_pcg 0.10.3 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/rand_pcg/0.10.3/download
 
 LICENSE-APACHE
 
@@ -31069,8 +31069,8 @@ SPDX-License-Identifier: Unicode-3.0
 Portions of ICU4X may have been adapted from ICU4C and/or ICU4J.
 ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.
 
-zerocopy 0.8.64 — BSD-2-Clause OR Apache-2.0 OR MIT
-Source: https://crates.io/api/v1/crates/zerocopy/0.8.64/download
+zerocopy 0.8.65 — BSD-2-Clause OR Apache-2.0 OR MIT
+Source: https://crates.io/api/v1/crates/zerocopy/0.8.65/download
 
 LICENSE-APACHE
 
@@ -31856,8 +31856,8 @@ SOFTWARE.
 Some files in the "tests/data" subdirectory of this repository are under other
 licences; see files named LICENSE.*.txt for details.
 
-zlib-rs 0.6.8 — Zlib
-Source: https://crates.io/api/v1/crates/zlib-rs/0.6.8/download
+zlib-rs 0.6.9 — Zlib
+Source: https://crates.io/api/v1/crates/zlib-rs/0.6.9/download
 
 LICENSE
 
