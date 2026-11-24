@@ -12,6 +12,28 @@ internal sealed class BrowserPacketCache
     long generation;
     internal long PacketId { get; private set; }
 
+    bool enabled;
+
+    internal bool Configure(bool value)
+    {
+        bool wasEnabled = enabled;
+        enabled = value;
+        Clear();
+        return wasEnabled;
+    }
+
+    internal string Serialize(List<Command> commands, out bool reused)
+    {
+        var cached = enabled ? Find(commands) : null;
+        reused = cached != null;
+        if (cached != null)
+            return cached;
+        var json = BrowserCommandWriter.Serialize(commands);
+        if (enabled)
+            Store(commands, json);
+        return json;
+    }
+
     internal void Clear()
     {
         previous = null;

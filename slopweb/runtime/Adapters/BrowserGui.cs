@@ -20,16 +20,9 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
 {
     readonly List<Command> commands = new();
     static readonly BrowserPacketCache packetCache = new();
-    static bool packetCacheEnabled;
     internal bool SuppressDrawing;
 
-    public static bool ConfigurePacketCache(bool enabled)
-    {
-        bool previous = packetCacheEnabled;
-        packetCacheEnabled = enabled;
-        packetCache.Clear();
-        return previous;
-    }
+    public static bool ConfigurePacketCache(bool enabled) => packetCache.Configure(enabled);
 
     readonly BrowserCommandState commandState = new();
     int outsideTargetQuads;
@@ -45,7 +38,7 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
     int windowDepth;
     public double LastResourceSweepMs { get; private set; }
     public double LastSerializationMs { get; private set; }
-    public long PacketId => packetCacheEnabled ? packetCache.PacketId : 0;
+    public long PacketId => packetCache.PacketId;
     public bool LastPacketReused { get; private set; }
 
     public static BrowserGui Install()
@@ -85,14 +78,8 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
             if (!pair.Value.TryGetTarget(out var target) || target == null || !target.IsCreated())
                 Emit("releaseTarget", pair.Key);
         long swept = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
-        var result = packetCacheEnabled ? packetCache.Find(commands) : null;
-        LastPacketReused = result != null;
-        if (result == null)
-        {
-            result = BrowserCommandWriter.Serialize(commands);
-            if (packetCacheEnabled)
-                packetCache.Store(commands, result);
-        }
+        var result = packetCache.Serialize(commands, out var reused);
+        LastPacketReused = reused;
         if (BrowserGuiInput.Profile)
         {
             LastResourceSweepMs = (swept - started) * 1000d / Stopwatch.Frequency;

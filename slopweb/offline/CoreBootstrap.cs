@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text.Json.Nodes;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -55,20 +53,12 @@ internal static class CoreBootstrap
             site.Operand = target.MainModule.ImportReference(method);
         }
         BrowserTextLayoutPatch.Apply(target, root);
-        target.Write(path + ".partial");
-        File.Move(path + ".partial", path, true);
-        var manifestPath = Path.Combine(root, "game", "manifest.json");
-        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
-        manifest.Single(n => n!["file"]!.GetValue<string>() == "RimWorld.dll")!["stagedSha256"] =
-            Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
-        File.WriteAllText(manifestPath, manifest.ToJsonString());
-        var adaptationsPath = Path.Combine(root, "game", "adaptations.json");
-        var adaptations = JsonNode.Parse(File.ReadAllText(adaptationsPath))!.AsArray();
-        adaptations.Add(
-            "Core-only bootstrap: custom CLR injection callbacks replaced with guards rejecting mod assemblies"
+        StagedAssembly.Write(target, path);
+        StagedAssembly.RecordAdaptations(
+            root,
+            "Core-only bootstrap: custom CLR injection callbacks replaced with guards rejecting mod assemblies",
+            BrowserTextLayoutPatch.Description
         );
-        adaptations.Add(BrowserTextLayoutPatch.Description);
-        File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
         PatchRuntimeServices(root, resolver);
         PatchCoreLoading(root, resolver, adapter);
         BrowserSteamPatch.Apply(root, resolver);
@@ -281,35 +271,16 @@ internal static class CoreBootstrap
             }
             ExpandBranches(body.Method);
         }
-        target.Write(path + ".partial");
-        File.Move(path + ".partial", path, true);
-        var manifestPath = Path.Combine(root, "game", "manifest.json");
-        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
-        manifest.Single(n => n!["file"]!.GetValue<string>() == "Assembly-CSharp.dll")![
-            "stagedSha256"
-        ] = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
-        File.WriteAllText(manifestPath, manifest.ToJsonString());
-        var adaptationsPath = Path.Combine(root, "game", "adaptations.json");
-        var adaptations = JsonNode.Parse(File.ReadAllText(adaptationsPath))!.AsArray();
-        adaptations.Add(
-            "Long events use the installed synchronous executor; XML loading retains its calling-thread drain without workers; desktop Steam disabled"
-        );
-        adaptations.Add(
-            "Browser locale packs are installed before native language metadata selection; menu changes restart Entry"
-        );
-        adaptations.Add(
-            "GenThreading.ParallelForEach executes serially, retaining per-item exception logging and continuation"
-        );
-        adaptations.Add(
-            "GenThreading.ParallelFor dispatches original batches inline; world/map generation stages are traced"
-        );
-        adaptations.Add(
-            "Static atlas admission disabled: original material/UV fallback avoids unbuilt native GPU atlas pages"
-        );
-        adaptations.Add(
+        StagedAssembly.Write(target, path);
+        StagedAssembly.RecordAdaptations(
+            root,
+            "Long events use the installed synchronous executor; XML loading retains its calling-thread drain without workers; desktop Steam disabled",
+            "Browser locale packs are installed before native language metadata selection; menu changes restart Entry",
+            "GenThreading.ParallelForEach executes serially, retaining per-item exception logging and continuation",
+            "GenThreading.ParallelFor dispatches original batches inline; world/map generation stages are traced",
+            "Static atlas admission disabled: original material/UV fallback avoids unbuilt native GPU atlas pages",
             "Pawn pre-render uses its existing disableCache argument, retaining direct body/apparel rendering without native offscreen atlases"
         );
-        File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
     }
 
     private static void DisableStaticAtlasBatching(AssemblyDefinition target)
@@ -468,24 +439,12 @@ internal static class CoreBootstrap
         dropIl.InsertBefore(original, dropIl.Create(OpCodes.Brfalse, original));
         dropIl.InsertBefore(original, dropIl.Create(OpCodes.Ret));
         ExpandBranches(drop);
-        target.Write(path + ".partial");
-        File.Move(path + ".partial", path, true);
-        var manifestPath = Path.Combine(root, "game", "manifest.json");
-        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
-        manifest.Single(n => n!["file"]!.GetValue<string>() == "Waylith.dll")!["stagedSha256"] =
-            Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
-        File.WriteAllText(manifestPath, manifest.ToJsonString());
-        var adaptationsPath = Path.Combine(root, "game", "adaptations.json");
-        var adaptations = JsonNode.Parse(File.ReadAllText(adaptationsPath))!.AsArray();
-        adaptations.Add(
-            "Cache writes execute serially using the installed atomic writer; zero cache worker threads"
-        );
-        adaptations.Add(
-            "AssetPack retains its readable browser mapping without native OS resident-page advice"
-        );
-        adaptations.Add(
+        StagedAssembly.Write(target, path);
+        StagedAssembly.RecordAdaptations(
+            root,
+            "Cache writes execute serially using the installed atomic writer; zero cache worker threads",
+            "AssetPack retains its readable browser mapping without native OS resident-page advice",
             "Texture2D.Apply retains CPU pixels for WebGL capture instead of discarding them after headless native upload"
         );
-        File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
     }
 }

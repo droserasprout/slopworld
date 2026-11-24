@@ -1,7 +1,5 @@
 // Adapt only native font access. Keep the installed layout, parser, wrapping and
 // caret algorithms intact; reject changed boundaries instead of guessing IL.
-using System.Security.Cryptography;
-using System.Text.Json.Nodes;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -10,12 +8,12 @@ internal static class BrowserTextLayoutPatch
     internal const string Description =
         "Installed TextLayout retains parsing, wrapping and caret logic; browser-owned instances obtain glyph advances and line metrics from local font bakes";
 
-    internal static bool Apply(AssemblyDefinition target, string root)
+    internal static void Apply(AssemblyDefinition target, string root)
     {
         var module = target.MainModule;
         var layout = module.GetType("RimWorldWaylith.Imgui.TextLayout");
         if (layout.Methods.Any(m => m.Name == "BrowserMetricsInstalled"))
-            return false;
+            return;
         using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
         var helper = adapters.MainModule.GetType("BrowserAdapters.BrowserNativeLayout");
         MethodReference Import(string name) =>
@@ -120,34 +118,5 @@ internal static class BrowserTextLayoutPatch
         marker.Body.Instructions.Add(Instruction.Create(OpCodes.Ldc_I4_1));
         marker.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         layout.Methods.Add(marker);
-        return true;
-    }
-
-    internal static void Refresh(string root)
-    {
-        var path = Path.Combine(root, "game", "RimWorld.dll");
-        using var resolver = new DefaultAssemblyResolver();
-        resolver.AddSearchDirectory(Path.Combine(root, "game"));
-        resolver.AddSearchDirectory(Path.GetDirectoryName(typeof(object).Assembly.Location));
-        using var target = AssemblyDefinition.ReadAssembly(
-            path,
-            new ReaderParameters { InMemory = true, AssemblyResolver = resolver }
-        );
-        if (Apply(target, root))
-        {
-            target.Write(path + ".partial");
-            File.Move(path + ".partial", path, true);
-            var manifestPath = Path.Combine(root, "game", "manifest.json");
-            var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
-            manifest.Single(n => n!["file"]!.GetValue<string>() == "RimWorld.dll")![
-                "stagedSha256"
-            ] = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
-            File.WriteAllText(manifestPath, manifest.ToJsonString());
-        }
-        var adaptationsPath = Path.Combine(root, "game", "adaptations.json");
-        var adaptations = JsonNode.Parse(File.ReadAllText(adaptationsPath))!.AsArray();
-        if (!adaptations.Any(n => n?.GetValue<string>() == Description))
-            adaptations.Add(Description);
-        File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
     }
 }

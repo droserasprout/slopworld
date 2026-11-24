@@ -1,5 +1,5 @@
 //! Launcher syntax and local commands, independent of game/runtime preparation.
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use std::{
     env, fs,
@@ -8,6 +8,9 @@ use std::{
 
 #[path = "../../../../slopd/src/shared/application_paths.rs"]
 pub mod shared_paths;
+
+#[path = "../../../../slopd/src/shared/game_install.rs"]
+mod game_install;
 
 #[derive(Debug, Parser)]
 #[command(name = "slopweb", about = "Launch the local browser workspace", version = version())]
@@ -172,57 +175,16 @@ pub fn find_program(name: &str) -> Option<PathBuf> {
 }
 
 pub fn game_directory(explicit: Option<&Path>) -> Result<PathBuf> {
-    fn validate(path: &Path) -> Result<PathBuf> {
-        let path = expand(path)?;
-        ensure!(
-            path.join("RimWorld").is_file(),
-            "no RimWorld in {}",
-            path.display()
-        );
-        Ok(path)
-    }
-    if let Some(path) = explicit {
-        return validate(path);
-    }
-    if let Some(path) =
-        env::var_os("SLOPWORLD_GAME").filter(|x| !x.to_string_lossy().trim().is_empty())
-    {
-        return validate(Path::new(&path));
-    }
-    let config = shared_paths::Root::Config.resolve().join("game.toml");
-    if fs::symlink_metadata(&config).is_ok() {
-        let value: toml::Table = toml::from_str(&fs::read_to_string(&config)?)?;
-        let path = value
-            .get("path")
-            .and_then(toml::Value::as_str)
-            .filter(|s| !s.trim().is_empty());
-        ensure!(
-            value.len() == 1,
-            "Invalid game path in {}",
-            config.display()
-        );
-        return validate(Path::new(path.with_context(|| {
-            format!("Invalid game path in {}", config.display())
-        })?))
-        .map_err(|error| {
-            anyhow::anyhow!(
-                "{error} (saved in {}); override with --game DIR or SLOPWORLD_GAME",
-                config.display()
-            )
-        });
-    }
-    for guess in [
-        "~/.local/share/Steam/steamapps/common/RimWorld",
-        "~/.steam/steam/steamapps/common/RimWorld",
-        "~/RimWorld/game",
-        "~/GOG Games/RimWorld/game",
-    ] {
-        let path = expand(Path::new(guess))?;
-        if path.join("RimWorld").is_file() {
-            return Ok(path);
-        }
-    }
-    bail!("slopweb could not find RimWorld. Pass --game DIR or set SLOPWORLD_GAME.")
+    let environment =
+        env::var_os("SLOPWORLD_GAME").filter(|x| !x.to_string_lossy().trim().is_empty());
+    game_install::resolve(
+        explicit,
+        environment.as_deref().map(Path::new),
+        || Ok(shared_paths::Root::Config.resolve().join("game.toml")),
+        game_install::LOCATIONS.map(Path::new),
+        |path| expand(path).map_err(|error| error.to_string()),
+    )
+    .map_err(anyhow::Error::msg)
 }
 
 pub fn bundle() -> Result<PathBuf> {

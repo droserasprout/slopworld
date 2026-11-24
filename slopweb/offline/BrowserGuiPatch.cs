@@ -1,7 +1,5 @@
 // Advertise the browser renderer's actual capabilities, retaining native defaults
 // when the staged assembly is running with another GUI backend.
-using System.Security.Cryptography;
-using System.Text.Json.Nodes;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -139,24 +137,12 @@ internal static class BrowserGuiPatch
             processor.InsertBefore(start, processor.Create(OpCodes.Ldarg_0));
             processor.InsertBefore(start, processor.Create(OpCodes.Call, changed));
         }
-        target.Write(path + ".partial");
-        File.Move(path + ".partial", path, true);
-        var manifestPath = Path.Combine(root, "game", "manifest.json");
-        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
-        manifest.Single(n => n!["file"]!.GetValue<string>() == "UnityStubs.dll")!["stagedSha256"] =
-            Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
-        File.WriteAllText(manifestPath, manifest.ToJsonString());
-        var adaptationsPath = Path.Combine(root, "game", "adaptations.json");
-        var adaptations = JsonNode.Parse(File.ReadAllText(adaptationsPath))!.AsArray();
-        adaptations.Add(
-            "Canvas GUI supports render targets but not GPU CopyTexture; native capability defaults remain outside BrowserGui"
-        );
-        adaptations.Add(
-            "Texture2D.Apply/LoadImage invalidate browser image uploads; original pixel update and lifetime bodies remain"
-        );
-        adaptations.Add(
+        StagedAssembly.Write(target, path);
+        StagedAssembly.RecordAdaptations(
+            root,
+            "Canvas GUI supports render targets but not GPU CopyTexture; native capability defaults remain outside BrowserGui",
+            "Texture2D.Apply/LoadImage invalidate browser image uploads; original pixel update and lifetime bodies remain",
             "Browser font discovery enumerates locally mounted native-baked fonts; native OS discovery remains outside BrowserGui"
         );
-        File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
     }
 }

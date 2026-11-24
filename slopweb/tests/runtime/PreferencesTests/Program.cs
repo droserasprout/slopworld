@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using BrowserAdapters;
 using Mono.Cecil;
@@ -237,8 +238,16 @@ static class Check
             var game = Path.Combine(root, "game");
             Directory.CreateDirectory(game);
             var gameDll = Path.Combine(game, "UnityStubs.dll");
-            mod.Write(gameDll);
+            var manifest = Path.Combine(game, "manifest.json");
+            File.WriteAllText(manifest, """[{"file":"UnityStubs.dll","stagedSha256":"old"}]""");
+            StagedAssembly.Write(mod, gameDll);
             var original = File.ReadAllBytes(gameDll);
+            using var staged = JsonDocument.Parse(File.ReadAllText(manifest));
+            Expect(
+                staged.RootElement[0].GetProperty("stagedSha256").GetString()
+                    == Convert.ToHexStringLower(SHA256.HashData(original)),
+                "Manifest digest differs from the staged assembly"
+            );
             using (var resolver = new DefaultAssemblyResolver())
             {
                 try

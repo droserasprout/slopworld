@@ -1,29 +1,18 @@
-//! Owns the launcher's saved Linux game path and its override precedence.
-//! mod_install remembers the default after installing into a Linux game directory.
+//! Persists the native installer's saved game directory and adapts shared discovery to the launcher.
 
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct GameConfig {
-    path: String,
-}
+#[path = "../../shared/game_install.rs"]
+mod game_install;
+pub(super) use game_install::LOCATIONS;
+use game_install::{GameConfig, validate};
 
 pub(super) fn config_path() -> Result<PathBuf, String> {
     Ok(super::application_paths::Root::Config
         .resolve()
         .join("game.toml"))
-}
-
-fn validate(directory: PathBuf) -> Result<PathBuf, String> {
-    if !directory.join(super::EXE).is_file() {
-        return Err(format!("no {} in {}", super::EXE, directory.display()));
-    }
-    Ok(directory)
 }
 
 pub(super) fn resolve(
@@ -32,43 +21,13 @@ pub(super) fn resolve(
     config_path: impl FnOnce() -> Result<PathBuf, String>,
     guesses: &[PathBuf],
 ) -> Result<PathBuf, String> {
-    if let Some(path) = explicit.or(environment) {
-        return validate(PathBuf::from(super::expand(path)));
-    }
-    // Overrides do not depend on configuration discovery or readability.
-    let config = config_path()?;
-    if let Some(saved) = load(&config)? {
-        return validate(PathBuf::from(super::expand(&saved.path))).map_err(|error| {
-            format!(
-                "{error} (saved in {}). Reinstall the mod in the new game directory, or override with --game DIR or SLOPWORLD_GAME.",
-                config.display()
-            )
-        });
-    }
-    guesses
-        .iter()
-        .find(|path| path.join(super::EXE).is_file())
-        .cloned()
-        .ok_or_else(|| {
-            "slopworld could not find RimWorld. Pass --game DIR or set SLOPWORLD_GAME.".into()
-        })
-}
-
-fn load(config: &Path) -> Result<Option<GameConfig>, String> {
-    // A dangling symlink is a broken saved default, not an absent configuration.
-    match fs::symlink_metadata(config) {
-        Ok(_) => {}
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(format!("checking {}: {error}", config.display())),
-    }
-    let text = fs::read_to_string(config)
-        .map_err(|error| format!("reading {}: {error}", config.display()))?;
-    let saved: GameConfig =
-        toml::from_str(&text).map_err(|error| format!("parsing {}: {error}", config.display()))?;
-    if saved.path.trim().is_empty() {
-        return Err(format!("empty game path in {}", config.display()));
-    }
-    Ok(Some(saved))
+    game_install::resolve(
+        explicit.map(Path::new),
+        environment.map(Path::new),
+        config_path,
+        guesses.iter().map(PathBuf::as_path),
+        |path| Ok(PathBuf::from(super::expand(&path.to_string_lossy()))),
+    )
 }
 
 pub(super) fn save(directory: &Path, destination: &Path) -> Result<(), String> {

@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text.Json.Nodes;
 using Mono.Cecil;
 
 // Steam startup is disabled by CoreBootstrap. Its retained dependency must not
@@ -32,16 +30,10 @@ internal static class BrowserSteamPatch
             new ReaderParameters { InMemory = true, AssemblyResolver = resolver }
         );
         var removed = RemoveCallbackMarkers(assembly.MainModule);
-        assembly.Write(path + ".partial");
-        File.Move(path + ".partial", path, true);
-        var manifestPath = Path.Combine(root, "game", "manifest.json");
-        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
-        manifest.Single(n => n!["file"]!.GetValue<string>() == filename)!["stagedSha256"] =
-            Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
-        File.WriteAllText(manifestPath, manifest.ToJsonString());
-        var adaptationsPath = Path.Combine(root, "game", "adaptations.json");
-        var adaptations = JsonNode.Parse(File.ReadAllText(adaptationsPath))!.AsArray();
-        adaptations.Add($"Desktop Steam disabled: removed {removed} native callback markers");
-        File.WriteAllText(adaptationsPath, adaptations.ToJsonString());
+        StagedAssembly.Write(assembly, path);
+        StagedAssembly.RecordAdaptations(
+            root,
+            $"Desktop Steam disabled: removed {removed} native callback markers"
+        );
     }
 }

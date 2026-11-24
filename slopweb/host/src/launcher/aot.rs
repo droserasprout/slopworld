@@ -394,39 +394,6 @@ fn collect_sources(
     Ok(())
 }
 
-fn interpreter_targets() -> Element {
-    let mut targets = Element::new("Project");
-    let mut target = attr(
-        attr(
-            Element::new("Target"),
-            "Name",
-            "KeepCustomClrOwnersInterpreted",
-        ),
-        "AfterTargets",
-        "_GetDefaultWasmAssembliesToBundle",
-    );
-    let mut group = Element::new("ItemGroup");
-    let condition = INTERPRETED
-        .iter()
-        .map(|n| format!("'%(Filename)' == '{n}'"))
-        .collect::<Vec<_>>()
-        .join(" or ");
-    let mut item = attr(
-        attr(
-            Element::new("WasmAssembliesToBundle"),
-            "Update",
-            "@(WasmAssembliesToBundle)",
-        ),
-        "Condition",
-        &condition,
-    );
-    append(&mut item, child("AOT_InternalForceToInterpret", "true"));
-    append(&mut group, item);
-    append(&mut target, group);
-    append(&mut targets, target);
-    targets
-}
-
 fn add_references(project: &mut Element, dlls: &Inputs, sources: &mut Inputs) -> Result<()> {
     let mut group = Element::new("ItemGroup");
     for (name, dll) in dlls {
@@ -517,11 +484,17 @@ fn candidate(runtime: &Path, dlls: &Inputs, toolchain: &Toolchain) -> Result<Can
     collect_sources(&mut project, runtime, &mut sources, &mut seen)?;
     ensure!(!seen.is_empty(), "Probe must declare its compiler sources");
     add_references(&mut project, dlls, &mut sources)?;
-    let targets = interpreter_targets();
+    let condition = INTERPRETED
+        .iter()
+        .map(|n| format!("'%(Filename)' == '{n}'"))
+        .collect::<Vec<_>>()
+        .join(" or ");
+    let targets =
+        include_str!("interpreter.targets.in").replace("INTERPRETED_CONDITION", &condition);
     let generated = BTreeMap::from([
         ("Directory.Build.props".into(), b"<Project />\n".to_vec()),
         ("Probe.csproj".into(), xml_bytes(&project)?),
-        ("Directory.Build.targets".into(), xml_bytes(&targets)?),
+        ("Directory.Build.targets".into(), targets.into_bytes()),
         (
             "global.json".into(),
             serde_json::to_vec(&sdk_selection(
@@ -760,3 +733,7 @@ fn remove_file(path: &Path) -> Result<()> {
         Err(e) => Err(e.into()),
     }
 }
+
+#[cfg(test)]
+#[path = "aot_tests.rs"]
+mod tests;

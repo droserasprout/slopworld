@@ -1,0 +1,9 @@
+<Project>
+  <Target Name="KeepCustomClrOwnersInterpreted" AfterTargets="_GetDefaultWasmAssembliesToBundle">
+    <ItemGroup>
+      <WasmAssembliesToBundle Update="@(WasmAssembliesToBundle)" Condition="INTERPRETED_CONDITION">
+        <AOT_InternalForceToInterpret>true</AOT_InternalForceToInterpret>
+      </WasmAssembliesToBundle>
+    </ItemGroup>
+  </Target>
+</Project>

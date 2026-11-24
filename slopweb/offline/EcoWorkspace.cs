@@ -1,6 +1,4 @@
-using System.Security.Cryptography;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -42,14 +40,7 @@ internal static class EcoWorkspace
         BrowserActionButtonsPatch.Apply(game, mod, hooks);
         Directory.CreateDirectory(Path.Combine(root, "mod"));
         mod.Write(Path.Combine(root, "mod", "SlopWorld.dll"));
-        game.Write(targetPath + ".partial");
-        File.Move(targetPath + ".partial", targetPath, true);
-        var manifestPath = Path.Combine(root, "game", "manifest.json");
-        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsArray();
-        manifest.Single(n => n!["file"]!.GetValue<string>() == "Assembly-CSharp.dll")![
-            "stagedSha256"
-        ] = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(targetPath)));
-        File.WriteAllText(manifestPath, manifest.ToJsonString());
+        StagedAssembly.Write(game, targetPath);
         File.WriteAllText(
             Path.Combine(root, "mod", "eco.json"),
             JsonSerializer.Serialize(

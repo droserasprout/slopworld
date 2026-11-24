@@ -266,17 +266,11 @@ fn validate_working_dir(path: Option<&str>) -> Result<Option<PathBuf>, String> {
 /// Report an error for an invalid override or saved configuration.
 /// Skip missing standard paths.
 fn game_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
-    let guesses = [
-        "~/.local/share/Steam/steamapps/common/RimWorld",
-        "~/.steam/steam/steamapps/common/RimWorld",
-        "~/RimWorld/game",
-        "~/GOG Games/RimWorld/game",
-    ];
     game_config::resolve(
         explicit,
         option_env_nonempty("SLOPWORLD_GAME").as_deref(),
         game_config::config_path,
-        &guesses.map(|path| PathBuf::from(expand(path))),
+        &game_config::LOCATIONS.map(PathBuf::from),
     )
 }
 
