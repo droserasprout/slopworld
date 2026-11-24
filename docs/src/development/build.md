@@ -31,6 +31,17 @@ containing `Assembly-CSharp.dll`, `UnityStubs.dll`, and `Waylith.dll`. The defau
 `~/.local/share/Steam/steamapps/common/RimWorld`. `MANAGED` can select a separate
 assembly directory.
 
+For a headless Steam installation or update, install SteamCMD and run:
+
+```sh
+just game-steam-update YOUR_STEAM_USERNAME
+```
+
+This installs and validates the `unstable` branch in `RIMWORLD`, using the default
+Steam path above unless overridden. SteamCMD prompts for your password and Steam
+Guard when needed; use an account that owns RimWorld. Set `STEAMCMD` if the executable
+is not on your PATH. Avoid updating the same directory concurrently through Steam.
+
 Documentation builds and release validation also require the pinned
 [mdBook setup](contributing.md#documentation).
 
