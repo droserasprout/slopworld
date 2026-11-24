@@ -32,7 +32,7 @@ fn malformed_selection_never_becomes_a_player_change() {
             stream: stream.map(str::to_owned),
             ..Default::default()
         };
-        assert!(Source::try_from(selection).is_err());
+        Source::try_from(selection).expect_err("incomplete station selection should be rejected");
     }
 }
 
