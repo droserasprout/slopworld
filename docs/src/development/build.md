@@ -88,7 +88,7 @@ Builds use Debug mode by default. Use `just BUILD=release build` for Release.
 Both modes write the mod to `mod/Assemblies/SlopWorld.dll`, which Git ignores.
 Run `just clean` to remove build and coverage output.
 
-Run `just` to list recipes or `just --show daemon-build` to inspect one.
+Run `just` for common commands, `just --list` for all recipes, or `just --show daemon-build` to inspect one.
 Settings accept environment values or overrides such as
 `just RIMWORLD=/path/to/game BUILD=release build`. Put assignments before recipe names.
 

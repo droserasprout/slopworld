@@ -1,11 +1,31 @@
 # Imported recipe files share one flat namespace; root recipes combine components.
 set shell := ["bash", "-euc"]
 set quiet
-set default-list
 
 import 'just/settings-game.just'
 import 'just/config.just'
 import 'just/settings-release.just'
+
+[default]
+[private]
+help:
+    @printf '%-18s %s\n' \
+        'build'        'Build the daemon, launcher and mod' \
+        'install'      'Install the daemon, launcher and mod' \
+        'run'          'Launch the game' \
+        'devloop'      'Reinstall and relaunch after each game exit' \
+        'logs'         'Show new game log entries' \
+        'clean'        'Remove build and coverage output' \
+        'format'       'Format sources' \
+        'lint'         'Check source formatting and lint rules' \
+        'test'         'Run regular game-free tests' \
+        'ci'           'Run all game-free CI checks' \
+        'docs-serve'   'Serve the book locally' \
+        'web-run'      'Build and run the browser host' \
+        'web-test'     'Run the browser product tests' \
+        'deps-restore' 'Restore locked dependencies' \
+        'generate-all' 'Regenerate outputs from reviewed inputs'
+    @printf '\n%s\n' 'All recipes: just --list   |   Groups: just --groups   |   One group: just --list --group web'
 
 # Build the daemon, launcher and mod
 [group('Build and run')]

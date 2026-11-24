@@ -1,6 +1,8 @@
 # Build boundaries
 
-Use `just` to discover recipes and `just --show RECIPE` to inspect them.
+Run `just` for common commands and `just --list` for all public recipes. Use
+`just --groups` to discover groups, `just --list --group web` to browse one,
+and `just --show RECIPE` to inspect a recipe.
 Private browser experiments and research belong in ignored `priv/`; public recipes
 and CI must not depend on them. The independent [slopweb](slopweb.md) product builds against pinned RimRef assemblies without
 an installed game and packages its browser tooling and authored mod UI assets; the installed launcher prepares game-derived files in the user's private
