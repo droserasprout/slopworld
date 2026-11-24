@@ -6,17 +6,30 @@ public partial class Probe
 {
     // Invoke the installed input owner, not a parallel browser model. Reflection
     // crosses its internal event-source boundary without altering game assemblies.
-    private static object? InputCall(string name, params object[] args) =>
+    private static object? InputCall(string name, params object?[] args) =>
         Invoke("Waylith", "Waylith.Input.InputState", name, args);
 
     private static object InputKey(string name) =>
         Enum.Parse(Type("Waylith", "Waylith.Input.Key"), name);
 
-    private static object? UnityInput(string name, params object[] args) =>
+    private static object? UnityInput(string name, params object?[] args) =>
         Invoke("UnityStubs", "UnityEngine.InputSystem.InputSystem", name, args);
 
     private static object UnityVector(float x, float y) =>
         Activator.CreateInstance(Type("UnityStubs", "UnityEngine.Vector2"), x, y)!;
+
+    // Waylith no longer exposes ResetAll. Release through its event owner, then
+    // BeginFrame below discards the synthetic releases and transient state.
+    private static void ReleasePhysicalInput()
+    {
+        foreach (var key in Enum.GetValues(Type("Waylith", "Waylith.Input.Key")))
+            if ((bool)InputCall("IsKeyDown", key)!)
+                InputCall("OnKey", key, false, null);
+        var position = (Vector2)InputCall("get_MousePosition")!;
+        foreach (var button in Enum.GetValues(Type("Waylith", "Waylith.Input.MouseButton")))
+            if ((bool)InputCall("IsMouseButtonDown", button)!)
+                InputCall("OnMouseButton", button, false, position);
+    }
 
     [JSExport]
     public static void InputFrame(string batch, int height)
@@ -35,7 +48,8 @@ public partial class Probe
                     InputCall(
                         "OnKey",
                         InputKey(item.GetProperty("key").GetString()!),
-                        item.GetProperty("down").GetBoolean()
+                        item.GetProperty("down").GetBoolean(),
+                        null
                     );
                     UnityInput(
                         "QueueKeyChange",
@@ -85,7 +99,8 @@ public partial class Probe
                             item.GetProperty("dx").GetSingle(),
                             item.GetProperty("dy").GetSingle()
                         ),
-                        Position()
+                        Position(),
+                        null
                     );
                     UnityInput(
                         "QueueMouseScroll",
@@ -99,7 +114,7 @@ public partial class Probe
                 case "reset":
                     UnityInput("ResetAllInput");
                     UnityInput("BeginFrame");
-                    InputCall("ResetAll");
+                    ReleasePhysicalInput();
                     InputCall("BeginFrame", false);
                     break;
                 default:

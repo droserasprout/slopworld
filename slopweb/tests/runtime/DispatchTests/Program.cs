@@ -17,7 +17,12 @@ static class DispatchChecks
                 && m.GetParameters().Length == args.Length
                 && m.GetParameters()
                     .Zip(args)
-                    .All(pair => pair.First.ParameterType.IsInstanceOfType(pair.Second))
+                    .All(pair =>
+                        pair.Second is null
+                            ? !pair.First.ParameterType.IsValueType
+                                || Nullable.GetUnderlyingType(pair.First.ParameterType) != null
+                            : pair.First.ParameterType.IsInstanceOfType(pair.Second)
+                    )
             )
             .Invoke(null, args);
 
@@ -54,6 +59,8 @@ static class DispatchChecks
             ("Private", [3]),
             ("Inherited", [3]),
             ("Ambiguous", ["text"]),
+            ("Ambiguous", [null!]),
+            ("Private", [null!]),
             ("Missing", []),
             ("Instance", []),
             ("Optional", []),
@@ -73,6 +80,14 @@ static class DispatchChecks
                 );
                 Expect(actual == expected, $"{test.Method}: {actual} != {expected}");
             }
+        Expect(
+            (int)Probe.Dispatch(AssemblyName, Owner, "Nullable", [null!])! == -1,
+            "Null must reach nullable parameters"
+        );
+        Expect(
+            Probe.Dispatch(AssemblyName, Owner, "Overload", [null!]) is null,
+            "Null must select the reference overload, not the value overload"
+        );
         // Repeated successful dispatch still invokes the target with the current value.
         Expect(
             (int)Probe.Dispatch(AssemblyName, Owner, "Overload", [91])! == 92,

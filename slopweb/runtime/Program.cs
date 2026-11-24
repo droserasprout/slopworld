@@ -50,7 +50,12 @@ public partial class Probe
         }
     }
 
-    private static object? Invoke(string assembly, string type, string method, params object[] args)
+    private static object? Invoke(
+        string assembly,
+        string type,
+        string method,
+        params object?[] args
+    )
     {
         MethodInfo target;
         lock (ReflectionGate)
@@ -83,7 +88,7 @@ public partial class Probe
                 .ToArray();
         }
 
-        internal MethodInfo Resolve(object[] args)
+        internal MethodInfo Resolve(object?[] args)
         {
             foreach (var signature in signatures)
             {
@@ -97,13 +102,19 @@ public partial class Probe
             }
 
             // Keep Single's no-match/ambiguity behavior and IsInstanceOfType semantics
-            // (including null, nullable values, interfaces and base types).
+            // (including nullable values, interfaces and base types). Null is valid
+            // only for reference and nullable parameters. Optional arguments remain explicit.
             var target = candidates
                 .Single(candidate =>
                     candidate.Parameters.Length == args.Length
                     && candidate
                         .Parameters.Zip(args)
-                        .All(pair => pair.First.ParameterType.IsInstanceOfType(pair.Second))
+                        .All(pair =>
+                            pair.Second is null
+                                ? !pair.First.ParameterType.IsValueType
+                                    || Nullable.GetUnderlyingType(pair.First.ParameterType) != null
+                                : pair.First.ParameterType.IsInstanceOfType(pair.Second)
+                        )
                 )
                 .Method;
             if (signatures.Count == SignatureCacheLimit)

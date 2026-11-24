@@ -93,7 +93,9 @@ Encoded images use the managed stb decoder at the private Unity LoadEncodedImage
 boundary. Reader size admission stays native; adapters preserve alpha and bottom-up
 Unity pixels, retain CPU backing for Canvas, and invalidate uploads after mutation.
 The Waylith input-frame boundary explicitly clears retained events; reflection
-does not supply native optional parameter defaults.
+does not supply native optional parameter defaults. Key and scroll calls pass
+explicit null metadata; focus loss releases held native keys and buttons through
+the input owner before clearing frame events.
 GUI focus resets follow accepted text and key events; only unfinished composition
 is canceled. Repeated blur/visibility notifications share the pending reset.
 The staged WindowStack.Add invokes the mod’s existing dialog-layer promotion before
