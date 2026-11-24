@@ -56,8 +56,7 @@ with incomplete assets, inspect and repair it explicitly.
 
 ### Preview without publication
 
-Run **Release** manually from the Actions page, or push the `release-ci` branch.
-The `slopweb` branch also builds previews temporarily for browser release testing.
+Run **Release** manually from the Actions page to build a preview.
 To prepare a new unreleased base version, run `just release-bump-version 0.2.0 true`.
 This leaves the human-maintained changelog untouched; tagged releases still require
 dated release notes.

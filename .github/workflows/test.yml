@@ -2,10 +2,7 @@ name: Test
 
 on:
   push:
-    branches:
-      - '**'
-      # Release calls this workflow for tags and packaging previews.
-      - '!release-ci'
+    branches: ['**']
     # Documentation has its own workflow; mixed code/docs pushes still run tests.
     paths-ignore:
       - 'docs/**'

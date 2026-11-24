@@ -3,8 +3,6 @@ name: Release
 on:
   push:
     tags: ['v[0-9]*.[0-9]*.[0-9]*']
-    # Exercise the full packaging path before landing release changes.
-    branches: [release-ci]
   # Manual runs build previews, even when a tag is selected. Re-run a tag push
   # to retry publication; existing releases are never overwritten.
   workflow_dispatch:
