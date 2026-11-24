@@ -29,7 +29,7 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       mode: ${{ steps.mode.outputs.mode }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -73,7 +73,7 @@ jobs:
       RELEASE_MODE: ${{ needs.prepare.outputs.mode }}
       SIDECAR_RELEASE_DIR: dist/sidecar
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 0
@@ -83,7 +83,7 @@ jobs:
         env:
           ARCHITECTURE: ${{ matrix.architecture }}
         run: just release-sidecar "$ARCHITECTURE"
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@v6
         with:
           name: slopcar-${{ needs.prepare.outputs.commit }}-${{ matrix.architecture }}
           path: dist/sidecar/*
@@ -106,7 +106,7 @@ jobs:
       MODE: ${{ needs.prepare.outputs.mode }}
       SIDECAR_RELEASE_DIR: dist/sidecar
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 0
@@ -118,7 +118,7 @@ jobs:
       - uses: ./.github/actions/setup-build-tools
         with:
           protoc: 'true'
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
@@ -133,16 +133,16 @@ jobs:
         run: just web-local-fonts-sdk
       - name: Install WebAssembly build workload
         run: dotnet workload install wasm-tools --version "$(dotnet --version)"
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           build-warnings: ''
           cache-key: release
           cache-workspaces: . -> target
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
+      - uses: taiki-e/install-action@v2
         with:
           tool: mdbook@0.5.4
       - name: Download sidecar builds from this run
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@v7
         with:
           pattern: slopcar-${{ needs.prepare.outputs.commit }}-*
           path: dist/sidecar
@@ -150,12 +150,12 @@ jobs:
       - name: Build mod ZIP, native packages and browser packages
         run: just release-ci-package "$MODE"
       - name: Attest exact release files
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        uses: actions/attest@v4
         with:
           subject-path: dist/release/*
       - name: Save release bundle
         id: upload
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@v6
         with:
           name: release-${{ needs.prepare.outputs.version }}
           path: dist/release/*
@@ -184,14 +184,14 @@ jobs:
       RELEASE_REVISION: ${{ needs.prepare.outputs.commit }}
       RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup-build-tools
       - name: Download this run's exact build
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@v7
         with:
           artifact-ids: ${{ needs.package.outputs.artifact }}
           path: dist/release
