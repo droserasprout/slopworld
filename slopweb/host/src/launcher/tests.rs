@@ -299,19 +299,6 @@ fn core_archive_contains_only_core_and_shaders_and_rejects_dlls() {
     write(game.join("Data/Core/unsafe.DLL"), "dll");
     assert!(preparation::core_archive(&game, &archive).is_err());
 }
-#[test]
-fn aot_loader_adapts_shipped_assembly_boundary_and_rejects_mixed_loading() {
-    let loader = include_str!("../../../runtime/wwwroot/main.js");
-    let changed = aot::published_loader(loader).unwrap();
-    assert!(changed.contains("const assemblyRequest = null;"));
-    assert!(changed.contains("LoadPublishedAssembly(file.replace"));
-    assert_eq!(changed.matches("LoadPublishedAssembly(").count(), 1);
-    assert!(!changed.contains("Probe.LoadAssembly("));
-    aot::published_loader(&changed).unwrap_err();
-    aot::published_loader("unknown").unwrap_err();
-    aot::published_loader(&format!("{loader}\nexports.Probe.LoadAssembly(bytes);")).unwrap_err();
-}
-
 struct AotFixture {
     _temp: tempfile::TempDir,
     bundle: std::path::PathBuf,
@@ -346,6 +333,7 @@ impl AotFixture {
             "mod/SlopWorld.dll",
             "Adapters.dll",
             "assets/fixture",
+            "assembly-mode.js",
         ] {
             write(prepared.join(name), name);
         }
@@ -440,6 +428,14 @@ fn warm_aot_reuses_the_publication_without_reading_assemblies_or_asset_payloads(
 
     let f = AotFixture::new();
     let first = f.run().unwrap();
+    assert_eq!(
+        fs::read_to_string(first.join("assembly-mode.js")).unwrap(),
+        "export const publishedAssemblies = true;\n"
+    );
+    assert_eq!(
+        fs::read(first.join("main.js")).unwrap(),
+        fs::read(f.prepared.join("main.js")).unwrap()
+    );
     let build = fs::read_dir(f.cache.join("aot-builds"))
         .unwrap()
         .next()
@@ -784,7 +780,13 @@ fn aot_reuses_authored_package_reference_and_rejects_version_drift() {
             "<PackageReference Include=\"StbImageSharp\" Version=\"2.27.13\" /></ItemGroup>",
         ),
     );
-    f.run().unwrap();
+    let first = f.run().unwrap();
+    let reordered = fs::read_to_string(&project).unwrap().replace(
+        "Include=\"StbImageSharp\" Version=\"2.27.13\"",
+        "Version=\"2.27.13\" Include=\"StbImageSharp\"",
+    );
+    write(&project, reordered);
+    assert_eq!(f.run().unwrap(), first);
     let candidate = fs::read_to_string(f.workspace().join("candidate/Probe.csproj")).unwrap();
     assert_eq!(candidate.matches("Include=\"StbImageSharp\"").count(), 2); // package and trimming root
     write(

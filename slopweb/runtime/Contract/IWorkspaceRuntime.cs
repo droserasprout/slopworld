@@ -25,13 +25,8 @@ public interface IWorkspaceRuntime
     int WorkspaceFrameLimit();
     void WorkspaceClearWake();
     bool WorkspacePacketCache(bool enabled);
-    bool WorkspaceCommandValueCache(bool enabled);
     bool WorkspaceRowCommands(bool enabled);
     string WorkspaceRowCommandsStats();
-    bool WorkspaceGlyphTailClip(bool enabled);
-    bool WorkspaceCellFastPath(bool enabled);
-    bool WorkspaceQuadCache(bool enabled);
-    bool WorkspaceDiscardedDrawing(bool skip);
     string WorkspaceDynamicFonts(Action<string> changed);
     void WorkspaceFontHold(string json);
     void WorkspaceFontRestore(string json);

@@ -71,8 +71,8 @@ browser drives frames without starting the desktop platform loop.
 Game assembly downloads use a four-file window, including completed buffers;
 CLR loading and per-file failure reporting retain manifest order. A manifest
 assembly failure ends startup before the Eco archive transfer.
-All startup assembly loads share a filename-bearing boundary that AOT preparation
-rewrites to published identities. Mixed AOT resolves those names without fetching raw DLLs.
+Startup selects its assembly loader through a staged mode module. AOT composition
+selects CLR identity loading in its private copy and skips raw DLL transfers.
 Host preparation raw-copies the Eco pack from installed ZIP members so Waylith can
 map it at `/Assets.zip` before its first synchronous read. Entry retains the baked
 catalogs, Core textures (including def icons), fonts, UI sounds and base menu art.
@@ -110,6 +110,7 @@ the daemon retains processes, tmux, sandboxes, and credentials. See the
 [client boundary](mod-client.md) and [wire contract](protocol-wire.md).
 Host appearance import and browser persistence share a tested presentation
 allowlist. The browser origin also stores its own Jukebox source, output and gain.
+The Eco prefix weaver installs the mod’s options category and page prefixes.
 Offline UI hooks invoke the mod’s action-caption backdrop and translated settings-row
 filters; the browser does not duplicate their theme or visibility policy. Loading
 uses the clean, downsampled first animation frame as its preview while the remaining frames decode. The host background

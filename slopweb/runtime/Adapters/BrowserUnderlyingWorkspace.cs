@@ -18,18 +18,12 @@ public static class BrowserUnderlyingWorkspace
     static bool ChromeVisible => WorkspaceVisibility.Shown && !WorkspaceVisibility.Hidden;
     static ISelectable? Selected => SessionSelectable.CurrentObject;
 
-    static (float x, float y) GridOrigin() =>
-        (
-            WorkspaceLayout.Current.Content.x + UiTheme.GapM,
-            Sidebar.AddBar.y - SessionGizmoInput.ActionRowHeight
-        );
-
     public static object Snapshot()
     {
         bool visible = BackgroundVisible();
         var actions = visible && ChromeVisible ? Selected?.GetGizmos().ToArray() ?? [] : [];
-        var origin = GridOrigin();
-        float width = UI.screenWidth - 147f - origin.x;
+        float left = SessionGizmoInput.GridLeft;
+        float width = UI.screenWidth - 147f - left;
         return new
         {
             visible,
@@ -39,7 +33,13 @@ public static class BrowserUnderlyingWorkspace
             actions = actions.OfType<Command>().Select(command => command.defaultLabel).ToArray(),
             firstActionRect = actions.Length == 0
                 ? null
-                : new[] { origin.x, origin.y, actions[0].GetWidth(width), 75f },
+                : new[]
+                {
+                    left,
+                    SessionGizmoInput.GridTop,
+                    actions[0].GetWidth(width),
+                    SessionGizmoInput.ActionRowHeight,
+                },
         };
     }
 
@@ -64,19 +64,18 @@ public static class BrowserUnderlyingWorkspace
         )
             return;
 
-        var origin = GridOrigin();
         // Installed DrawGizmoGrid retains grouping, wrapping, tooltips, hotkeys and
         // ProcessInput. Native Harmony's grid placement patch is not installed in
         // Entry: translate its bottom anchor to the shared sidebar geometry here.
         // BeginGroup translates mouse coordinates with drawing and restores both.
         float nativeTop = UI.screenHeight - 35f - 14f - 75f;
-        float offset = origin.y - nativeTop;
+        float offset = SessionGizmoInput.GridTop - nativeTop;
         bool enabled = GUI.enabled;
         GUI.BeginGroup(new Rect(0f, offset, UI.screenWidth, UI.screenHeight - offset));
         try
         {
             GUI.enabled = enabled && interactive;
-            GizmoGridDrawer.DrawGizmoGrid(selected.GetGizmos(), origin.x, out _);
+            GizmoGridDrawer.DrawGizmoGrid(selected.GetGizmos(), SessionGizmoInput.GridLeft, out _);
         }
         finally
         {

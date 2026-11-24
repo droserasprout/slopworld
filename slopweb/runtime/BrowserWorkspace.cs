@@ -58,29 +58,10 @@ public partial class Probe
     public static bool WorkspacePacketCache(bool enabled) => Runtime.WorkspacePacketCache(enabled);
 
     [JSExport]
-    public static bool WorkspaceCommandValueCache(bool enabled) =>
-        Runtime.WorkspaceCommandValueCache(enabled);
-
-    [JSExport]
     public static bool WorkspaceRowCommands(bool enabled) => Runtime.WorkspaceRowCommands(enabled);
 
     [JSExport]
     public static string WorkspaceRowCommandsStats() => Runtime.WorkspaceRowCommandsStats();
-
-    [JSExport]
-    public static bool WorkspaceGlyphTailClip(bool enabled) =>
-        Runtime.WorkspaceGlyphTailClip(enabled);
-
-    [JSExport]
-    public static bool WorkspaceCellFastPath(bool enabled) =>
-        Runtime.WorkspaceCellFastPath(enabled);
-
-    [JSExport]
-    public static bool WorkspaceQuadCache(bool enabled) => Runtime.WorkspaceQuadCache(enabled);
-
-    [JSExport]
-    public static bool WorkspaceDiscardedDrawing(bool skip) =>
-        Runtime.WorkspaceDiscardedDrawing(skip);
 
     [JSExport]
     public static string WorkspaceDynamicFonts(

@@ -26,13 +26,10 @@ static class Check
         Expect(Calls.SequenceEqual(["top:True", "sidebar:True", "grid:218"]), "Native owner order");
         Expect(GUI.Groups == 0 && GUI.enabled, "Drawing leaked GUI state");
         Calls.Clear();
-        SlopWorld.WorkspaceLayout.Current = new SlopWorld.Geometry
-        {
-            Content = new Rect(300, 26, 980, 694),
-        };
+        SlopWorld.SessionGizmoInput.GridLeft = 308;
         BrowserUnderlyingWorkspace.Draw();
         Expect(Calls.Contains("grid:308"), "Cached accessors retained stale geometry");
-        SlopWorld.WorkspaceLayout.Current = new SlopWorld.Geometry();
+        SlopWorld.SessionGizmoInput.GridLeft = 218;
         Calls.Clear();
         Find.WindowStack.Input = false;
         Event.current.type = EventType.KeyDown;
@@ -212,35 +209,17 @@ namespace SlopWorld
         public IEnumerable<Gizmo> GetGizmos() => [new Command()];
     }
 
-    public class Geometry
-    {
-        public Rect Content = new(210, 26, 1070, 694);
-    }
-
-    public static class WorkspaceLayout
-    {
-        public static Geometry Current { get; set; } = new();
-    }
-
     public static class WorkspaceVisibility
     {
         public static bool Shown => true;
         public static bool Hidden { get; set; }
     }
 
-    public static class Sidebar
-    {
-        public static Rect AddBar => new(0, 690, 210, 30);
-    }
-
-    public static class UiTheme
-    {
-        public static float GapM => 8;
-    }
-
     public static class SessionGizmoInput
     {
         public const float ActionRowHeight = 75;
+        public static float GridLeft { get; set; } = 218;
+        public const float GridTop = 615;
     }
 
     public static class TopBar

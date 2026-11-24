@@ -36,6 +36,7 @@ OWNED = (
 
 # Reviewed authored inputs only. Never copy a compiler/build directory wholesale.
 WEB_ASSETS = (
+    'assembly-mode.js',
     'asset-archive.js',
     'async-glyphs.js',
     'bootstrap.js',

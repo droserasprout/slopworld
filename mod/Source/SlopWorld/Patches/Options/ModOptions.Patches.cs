@@ -211,6 +211,7 @@ namespace SlopWorld
         }
 
         // Draw base game categories with the compact layout.
+        [EcoPrefix]
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow
         {
@@ -230,101 +231,95 @@ namespace SlopWorld
                     DrawVanillaDialogRow(__instance, r, optionCategory);
                 return false;
             }
+        }
 
-            static void DrawContentRailRow(
-                Dialog_Options instance,
-                Rect r,
-                OptionCategoryDef category
-            )
+        static void DrawContentRailRow(Dialog_Options instance, Rect r, OptionCategoryDef category)
+        {
+            var tab = TabOf(category);
+            int index = Index(r);
+            var row = Slot(r, tab);
+            var viewport = OptionsView.RailViewport;
+            float max =
+                index == 0
+                    ? UpdateRailScroll(viewport, RailContentHeight())
+                    : Mathf.Max(0f, RailContentHeight() - viewport.height);
+            if (index == 0)
+                DrawRailScrollbar(viewport, max);
+            row = new Rect(
+                row.x - viewport.x,
+                row.y - viewport.y - _railScroll,
+                row.width,
+                row.height
+            );
+            if (row.yMax <= 0f || row.y >= viewport.height)
+                return;
+
+            GUI.BeginGroup(viewport);
+            try
             {
-                var tab = TabOf(category);
-                int index = Index(r);
-                var row = Slot(r, tab);
-                var viewport = OptionsView.RailViewport;
-                float max =
-                    index == 0
-                        ? UpdateRailScroll(viewport, RailContentHeight())
-                        : Mathf.Max(0f, RailContentHeight() - viewport.height);
-                if (index == 0)
-                    DrawRailScrollbar(viewport, max);
-                row = new Rect(
-                    row.x - viewport.x,
-                    row.y - viewport.y - _railScroll,
-                    row.width,
-                    row.height
-                );
-                if (row.yMax <= 0f || row.y >= viewport.height)
-                    return;
+                DrawRow(instance, row, tab, category);
+            }
+            finally
+            {
+                GUI.EndGroup();
+            }
+        }
 
-                GUI.BeginGroup(viewport);
-                try
-                {
-                    DrawRow(instance, row, tab, category);
-                }
-                finally
-                {
-                    GUI.EndGroup();
-                }
+        static void DrawVanillaDialogRow(
+            Dialog_Options instance,
+            Rect r,
+            OptionCategoryDef category
+        )
+        {
+            var tab = TabOf(category);
+            DrawRow(instance, Slot(r, tab), tab, category);
+        }
+
+        static void DrawRow(
+            Dialog_Options instance,
+            Rect row,
+            Tab tab,
+            OptionCategoryDef optionCategory
+        )
+        {
+            Text.Font = GameFont.Small;
+
+            RowChrome.Category(row, instance.selectedCategory == optionCategory);
+            if (UiButtons.NavigationPress(row))
+            {
+                var target = Target(tab);
+                Select(instance, target != null ? target.Def : optionCategory);
             }
 
-            static void DrawVanillaDialogRow(
-                Dialog_Options instance,
-                Rect r,
-                OptionCategoryDef category
-            )
+            float x = row.x + LabelX;
+            if (tab != null && tab.Parent != null)
             {
-                var tab = TabOf(category);
-                DrawRow(instance, Slot(r, tab), tab, category);
+                x += ChildIndent;
+            }
+            else
+            {
+                var icon =
+                    tab != null
+                        ? tab.Icon?.Invoke()
+                        : ContentFinder<Texture2D>.Get(optionCategory.texPath);
+                if (icon != null)
+                    GUI.DrawTexture(
+                        new Rect(
+                            row.x + RowPadX,
+                            row.y + (row.height - IconBox) / 2f,
+                            IconBox,
+                            IconBox
+                        ),
+                        icon
+                    );
             }
 
-            static void DrawRow(
-                Dialog_Options instance,
-                Rect row,
-                Tab tab,
-                OptionCategoryDef optionCategory
-            )
-            {
-                Text.Font = GameFont.Small;
-
-                RowChrome.Category(row, instance.selectedCategory == optionCategory);
-                if (UiButtons.NavigationPress(row))
-                {
-                    var target = Target(tab);
-                    Select(instance, target != null ? target.Def : optionCategory);
-                }
-
-                float x = row.x + LabelX;
-                if (tab != null && tab.Parent != null)
-                {
-                    x += ChildIndent;
-                }
-                else
-                {
-                    var icon =
-                        tab != null
-                            ? tab.Icon?.Invoke()
-                            : ContentFinder<Texture2D>.Get(optionCategory.texPath);
-                    if (icon != null)
-                        GUI.DrawTexture(
-                            new Rect(
-                                row.x + RowPadX,
-                                row.y + (row.height - IconBox) / 2f,
-                                IconBox,
-                                IconBox
-                            ),
-                            icon
-                        );
-                }
-
-                UiText.RowLabel(
-                    new Rect(x, row.y, row.xMax - x, row.height),
-                    optionCategory.LabelCap
-                );
-            }
+            UiText.RowLabel(new Rect(x, row.y, row.xMax - x, row.height), optionCategory.LabelCap);
         }
 
         // Draw mod pages before the base game category checks.
         // Each page controls its columns and scroll view instead of using the base game Listing_Standard.
+        [EcoPrefix]
         [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
         public static class Patch_OptionsPage
         {

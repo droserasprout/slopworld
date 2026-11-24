@@ -35,21 +35,9 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
 
     public bool WorkspacePacketCache(bool enabled) => BrowserGui.ConfigurePacketCache(enabled);
 
-    public bool WorkspaceCommandValueCache(bool enabled) =>
-        BrowserGui.ConfigureCommandValueCache(enabled);
-
     public bool WorkspaceRowCommands(bool enabled) => BrowserGui.ConfigureTerminalRows(enabled);
 
     public string WorkspaceRowCommandsStats() => BrowserGui.TerminalRowStats();
-
-    public bool WorkspaceGlyphTailClip(bool enabled) => BrowserGui.ConfigureGlyphTailClip(enabled);
-
-    public bool WorkspaceCellFastPath(bool enabled) => BrowserGui.ConfigureCellFastPath(enabled);
-
-    public bool WorkspaceQuadCache(bool enabled) => BrowserGui.ConfigureQuadCache(enabled);
-
-    public bool WorkspaceDiscardedDrawing(bool skip) =>
-        BrowserGuiInput.ConfigureDiscardedDrawing(skip);
 
     public string WorkspaceDynamicFonts(Action<string> changed)
     {

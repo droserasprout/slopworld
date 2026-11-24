@@ -232,23 +232,12 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
     Ok(Toolchain { sdk, identity })
 }
 
-pub fn published_loader(main: &str) -> Result<String> {
-    let marker = "const assemblyRequest = fetch;\n    const loadAssembly = (bytes, file) => exports.Probe.LoadAssembly(bytes);";
-    ensure!(
-        main.matches(marker).count() == 1 && !main.contains("LoadPublishedAssembly"),
-        "Unrecognized prepared main.js loading boundary"
-    );
-    let main = main.replace(marker, "const assemblyRequest = null;\n    const loadAssembly = (bytes, file) => exports.Probe.LoadPublishedAssembly(file.replace(/\\.dll$/, ''));");
-    ensure!(
-        !main.contains("Probe.LoadAssembly("),
-        "Unrecognized stream assembly load; refusing mixed identities"
-    );
-    Ok(main)
-}
+const PUBLISHED_MODE: &str = "export const publishedAssemblies = true;\n";
 
 fn assemblies(snapshot: &Inputs) -> Result<Inputs> {
     for required in [
         "main.js",
+        "assembly-mode.js",
         "game/manifest.json",
         "game/Assembly-CSharp.dll",
         "mod/SlopWorld.dll",
@@ -299,43 +288,11 @@ fn attr(mut element: Element, name: &str, value: &str) -> Element {
     element.attributes.insert(name.into(), value.into());
     element
 }
-fn xml_bytes(root: &Element) -> Vec<u8> {
-    // xmltree uses a hash map for attributes. Canonical serialization below sorts
-    // them so process-randomized iteration never invalidates a compiler cache.
-    fn canonical(e: &Element, out: &mut String) {
-        fn escape(s: &str) -> String {
-            s.replace('&', "&amp;")
-                .replace('<', "&lt;")
-                .replace('>', "&gt;")
-                .replace('"', "&quot;")
-        }
-        out.push('<');
-        out.push_str(&e.name);
-        let sorted: BTreeMap<_, _> = e.attributes.iter().collect();
-        for (name, value) in sorted {
-            out.push(' ');
-            out.push_str(name);
-            out.push_str("=\"");
-            out.push_str(&escape(value));
-            out.push('"');
-        }
-        out.push('>');
-        for node in &e.children {
-            match node {
-                XMLNode::Element(e) => canonical(e, out),
-                XMLNode::Text(t) | XMLNode::CData(t) if !t.trim().is_empty() => {
-                    out.push_str(&escape(t));
-                }
-                _ => (),
-            }
-        }
-        out.push_str("</");
-        out.push_str(&e.name);
-        out.push('>');
-    }
-    let mut out = String::new();
-    canonical(root, &mut out);
-    out.into_bytes()
+fn xml_bytes(root: &Element) -> Result<Vec<u8>> {
+    // xmltree's sorted attributes keep compiler cache keys stable across processes.
+    let mut bytes = Vec::new();
+    root.write(&mut bytes)?;
+    Ok(bytes)
 }
 
 /// Compute the exact compiler input manifest before allocating a staging
@@ -563,8 +520,8 @@ fn candidate(runtime: &Path, dlls: &Inputs, toolchain: &Toolchain) -> Result<Can
     let targets = interpreter_targets();
     let generated = BTreeMap::from([
         ("Directory.Build.props".into(), b"<Project />\n".to_vec()),
-        ("Probe.csproj".into(), xml_bytes(&project)),
-        ("Directory.Build.targets".into(), xml_bytes(&targets)),
+        ("Probe.csproj".into(), xml_bytes(&project)?),
+        ("Directory.Build.targets".into(), xml_bytes(&targets)?),
         (
             "global.json".into(),
             serde_json::to_vec(&sdk_selection(
@@ -721,12 +678,6 @@ pub fn prepare(
     let candidate = candidate(&bundle.path().join("aot-src"), &dlls, toolchain)?;
     let mut contents = files::DigestCache::load(cache.join("aot-digests-v1.json"));
     let prepared_files = contents.manifest(&snapshot)?;
-    let loader = fs::read_to_string(prepared.join("main.js"))?;
-    ensure!(
-        Some(&files::digest_bytes(loader.as_bytes())) == prepared_files.get("main.js"),
-        "Prepared main.js changed during AOT preparation; retry"
-    );
-    let main = published_loader(&loader)?;
     let (key, workspace_key) = candidate.keys(&mut contents, &toolchain.identity)?;
     contents.save()?;
     let compilation = cache.join("aot-builds").join(&key);
@@ -770,7 +721,7 @@ pub fn prepare(
     let published = published_framework(&compilation)?;
     let runtime_key = files::digest(
         &prepared_files,
-        &json!({"compilation": key, "loader": main, "archive_identity": 1}),
+        &json!({"compilation": key, "assembly_mode": PUBLISHED_MODE, "archive_identity": 1}),
     )?;
     let runtimes = cache.join("aot-runtimes");
     fs::create_dir_all(&runtimes)?;
@@ -794,7 +745,7 @@ pub fn prepare(
         }
     }
     files::copy_tree(&published, &root, |_| false)?;
-    fs::write(root.join("main.js"), main)?;
+    fs::write(root.join("assembly-mode.js"), PUBLISHED_MODE)?;
     if let Some(digest) = prepared_files.get(crate::archive_identity::ARCHIVE) {
         crate::archive_identity::publish(&root, digest)?;
     }

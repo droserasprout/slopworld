@@ -25,7 +25,7 @@ tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
 toml = "0.8"
 ttf-parser = "0.25"
 url = "2"
-xmltree = "0.11"
+xmltree = { version = "0.11", features = ["attribute-sorted"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
