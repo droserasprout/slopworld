@@ -246,3 +246,15 @@ namespace Waylith.UnityCompat
         public void BeginFrame(float delta, float elapsed) { }
     }
 }
+
+namespace BrowserAdapters
+{
+    public static partial class WorkspaceDrawing
+    {
+        static void BindModServices()
+        {
+            shortcuts = applyLayout = flushTerminalInput = drawUiBubble = null;
+            terminalDeadline = cursorDeadline = null;
+        }
+    }
+}

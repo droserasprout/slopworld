@@ -1,33 +1,20 @@
-using BrowserAdapters;
-using SlopWorld;
-
-// Reflection targets for the real startup export. Settings and validation use
-// production sources; only the game-loaded assembly lookup is substituted.
-public static class AppearanceSettings
+namespace SlopWorld
 {
-    public static ModSettings S { get; set; } = new();
+    static class Settings
+    {
+        internal static ModSettings S { get; set; } = new();
+    }
 }
 
-public partial class Probe
+namespace BrowserAdapters
 {
-    static readonly object entryEngine = new();
-    public static string HostHome = "";
+    // Metadata fixture for GUI adaptation. Its second target is deliberately missing.
+    static class BrowserClipboard { }
 
-    static Type Type(string assembly, string name) =>
-        name == "SlopWorld.Settings"
-            ? typeof(AppearanceSettings)
-            : throw new InvalidOperationException("Unexpected appearance type: " + name);
-
-    static object? Invoke(string assembly, string owner, string method, params object[] args)
+    static class BrowserSidebar
     {
-        if (owner == "BrowserAdapters.BrowserPreferences" && method == "Apply")
-            BrowserPreferences.Apply(args[0], (string)args[1]);
-        else if (owner == "BrowserAdapters.BrowserSidebar" && method == "ConfigureHome")
-            HostHome = (string)args[0];
-        else
-            throw new InvalidOperationException(
-                "Unexpected appearance dispatch: " + owner + "." + method
-            );
-        return null;
+        internal static string HostHome = "";
+
+        internal static void ConfigureHome(string home) => HostHome = home;
     }
 }

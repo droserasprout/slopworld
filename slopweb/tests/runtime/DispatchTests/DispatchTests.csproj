@@ -9,7 +9,10 @@
     <NoWarn>$(NoWarn);CA1416;SYSLIB1071</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../runtime/Contract/SlopWeb.Runtime.Contract.csproj" />
     <Compile Include="../../../runtime/Program.cs" Link="Probe.cs" />
+    <Compile Include="../../../runtime/BrowserWorkspace.cs" Link="BrowserWorkspace.cs" />
+    <Compile Include="../../../runtime/Adapters/WorkspaceRuntime.Input.cs" Link="WorkspaceRuntime.Input.cs" />
     <Compile Include="../../../runtime/BrowserInput.cs" Link="BrowserInput.cs" />
   </ItemGroup>
 </Project>

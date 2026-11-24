@@ -15,7 +15,11 @@ The mod opts desktop Harmony prefix classes into Eco staging with `[EcoPrefix]`.
 The offline weaver reads the class target and imports its static prefix. It accepts
 one selected prefix per concrete void target, including a priority on that sole
 prefix, and binds exact by-value named arguments and reference-type `__instance`.
-Browser platform adaptations and startup rewrites stay with their individual offline owners.
+BrowserPlatform installs platform services after private assemblies load and
+before Entry or mod initialization. It connects browser implementations to the
+mod owners for transport, clipboard, settings, window, font, audio and cursor
+operations. Desktop defaults live with those owners. Game and engine adaptations
+remain in the offline staging tools.
 Browser scale adaptation removes desktop DPI inference from private game copies;
 native preference accessors retain ownership of the selected scale.
 The offline Steam boundary disables startup and removes Steamworks native callback
@@ -38,7 +42,9 @@ Cleanup removes project bin/obj, the redistributable bundle, and generated font-
 outputs; compiler caches and retained private runtimes remain separate.
 
 The `Probe` assembly/type name is retained as the managed export and offline bootstrap
-ABI. Its authored compiler allowlist contains only workspace startup, transport/input,
+ABI. Workspace exports activate Adapters.WorkspaceRuntime through the game-free
+SlopWeb.Runtime.Contract assembly. Probe and the late-loaded implementation share
+that assembly identity in the interpreter and mixed-AOT builds. The authored compiler allowlist contains only workspace startup, transport/input,
 and presentation exports. Colony creation/saves, compatibility experiments, synthetic
 controls, and benchmark fixtures belong in private probe projects. Package staging selects framework files from the SDK endpoint
 manifest and uses explicit inventories for web assets and managed helpers.
@@ -55,8 +61,7 @@ Scene status reports only Entry state and viewport dimensions, without traversin
 simulation objects. Detailed workspace snapshots are opt-in with profiling;
 observation errors remain diagnostic state and cannot stop rendering. Private
 probe exports own sidebar/catalog inspection and terminal assertion helpers.
-Underlying chrome binds native accessors and geometry metadata once, while
-reading current geometry on each draw. In Entry the underlying top bar can open
+Underlying chrome reads current mod-owned geometry on each draw. In Entry the underlying top bar can open
 the persona-core menu and shortcut help with the last terminal pane closed.
 Hints belong to the window stack and pane that owned the opening gesture.
 Startup validates managed status reports as well as exceptions; failed or incomplete
@@ -92,10 +97,9 @@ composition cancellation must not clear an unrelated selection.
 Encoded images use the managed stb decoder at the private Unity LoadEncodedImage
 boundary. Reader size admission stays native; adapters preserve alpha and bottom-up
 Unity pixels, retain CPU backing for Canvas, and invalidate uploads after mutation.
-The Waylith input-frame boundary explicitly clears retained events; reflection
-does not supply native optional parameter defaults. Key and scroll calls pass
-explicit null metadata; focus loss releases held native keys and buttons through
-the input owner before clearing frame events.
+The input adapter binds Waylith's installed event signatures on first use. It
+clears retained events, passes explicit null key and scroll metadata, and releases
+held native keys and buttons through the input owner on focus loss.
 GUI focus resets follow accepted text and key events; only unfinished composition
 is canceled. Repeated blur/visibility notifications share the pending reset.
 The staged WindowStack.Add invokes the mod’s existing dialog-layer promotion before
@@ -204,9 +208,9 @@ Packages depend on the .NET SDK; AOT additionally needs its matching wasm-tools 
 Installed launchers select and pin a stable .NET 10 SDK from the chosen installation
 before game preparation. The checkout's
 launcher `--ensure-workload` switch provisions workloads only for AOT.
-`tools/web_build.py` coordinates timed source builds. Independent managed helpers build
-concurrently (up to six; `SLOPWEB_BUILD_JOBS` overrides the limit), with a completion
-barrier before staging. Adding shared project outputs requires revisiting that graph.
+`tools/web_build.py` builds Probe before Adapters because both compile the shared runtime
+contract. Independent managed helpers can build concurrently under the
+`SLOPWEB_BUILD_JOBS` limit. Staging waits for every producer.
 The checkout AOT recipe defaults to eight compiler workers; its `cores` argument
 sets the .NET, Binaryen, and Emscripten limits together.
 Content archives use canonical ZIP metadata so identical payloads retain runtime identity.

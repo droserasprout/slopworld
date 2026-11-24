@@ -8,10 +8,10 @@
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../../runtime/Adapters/BrowserSocket.cs" Link="BrowserSocket.cs" />
+    <Compile Include="../../../runtime/Adapters/BrowserSocketLimits.cs" Link="BrowserSocketLimits.cs" />
     <Compile Include="../../../runtime/Adapters/BrowserTransport.cs" Link="BrowserTransport.cs" />
     <Compile Include="../../../runtime/Adapters/BrowserActivity.cs" Link="BrowserActivity.cs" />
     <Compile Include="../../../runtime/CoreLanguagePacks.cs" Link="CoreLanguagePacks.cs" />
-    <Compile Include="../../../runtime/BrowserWorkspace.cs" Link="BrowserWorkspace.cs" />
+    <Compile Include="../../../runtime/Adapters/WorkspaceRuntime.Frames.cs" Link="WorkspaceRuntime.Frames.cs" />
   </ItemGroup>
 </Project>

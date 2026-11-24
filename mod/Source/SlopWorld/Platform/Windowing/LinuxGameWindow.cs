@@ -91,7 +91,11 @@ namespace SlopWorld
             ApplyNativeMode(Settings.Fullscreen);
         }
 
-        public static void Set(bool fullscreen)
+        internal static System.Action<bool> SetFullscreen { get; set; } = DesktopSet;
+
+        public static void Set(bool fullscreen) => SetFullscreen(fullscreen);
+
+        static void DesktopSet(bool fullscreen)
         {
             if (Settings.S.fullscreen == fullscreen)
                 return;

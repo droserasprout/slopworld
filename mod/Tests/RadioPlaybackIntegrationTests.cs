@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 namespace SlopWorld.Tests
@@ -282,14 +284,10 @@ namespace SlopWorld.Tests
             public int FlushedCount;
             public bool FlushSucceeds = true;
 
-            public bool Connect(
-                string host,
-                int port,
-                string path,
-                string token,
-                int timeoutMs = 3000,
-                bool useTls = false
-            ) => Connected = true;
+            public Task<bool> ConnectAsync(
+                ConnectionInfo connection,
+                CancellationToken cancellation
+            ) => Task.FromResult(Connected = true);
 
             public bool SendBinary(byte[] payload)
             {

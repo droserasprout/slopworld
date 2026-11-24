@@ -327,9 +327,16 @@ impl AotFixture {
         let cache = temp.path().join("cache");
         write(
             bundle.join("aot-src/Probe.csproj"),
-            "<Project Sdk=\"Microsoft.NET.Sdk.WebAssembly\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><Compile Include=\"Probe.cs\" /></ItemGroup></Project>",
+            "<Project Sdk=\"Microsoft.NET.Sdk.WebAssembly\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><Compile Include=\"Probe.cs\" /><ProjectReference Include=\"Contract/SlopWeb.Runtime.Contract.csproj\" /></ItemGroup></Project>",
         );
         write(bundle.join("aot-src/Probe.cs"), "class Probe {}");
+        for name in [
+            "SlopWeb.Runtime.Contract.csproj",
+            "IWorkspaceRuntime.cs",
+            "LateRuntime.cs",
+        ] {
+            write(bundle.join("aot-src/Contract").join(name), name);
+        }
         for name in [
             "game/manifest.json",
             "game/Assembly-CSharp.dll",
@@ -412,6 +419,14 @@ fn restage_cannot_split_interpreted_runtime_and_aot_source_capture() {
     assert_eq!(
         fs::read(f.workspace().join("candidate/src/Probe.cs")).unwrap(),
         b"class Probe {}"
+    );
+    assert_eq!(
+        fs::read(
+            f.workspace()
+                .join("candidate/Contract/IWorkspaceRuntime.cs")
+        )
+        .unwrap(),
+        b"IWorkspaceRuntime.cs"
     );
 }
 #[cfg(target_os = "linux")]

@@ -16,10 +16,24 @@ namespace SlopWorld
         );
         internal static LinuxClipboard Selection { get; set; } =
             new(new SystemProcessRunner(), Completions.Enqueue);
-        public static bool UsesLinuxSelections =>
-            Application.platform == RuntimePlatform.LinuxPlayer;
+        public static bool UsesLinuxSelections => SupportsSelections();
+
+        internal static Func<bool> SupportsSelections { get; set; } =
+            () => Application.platform == RuntimePlatform.LinuxPlayer;
+
+        internal static System.Action<
+            Action<string>,
+            Action<byte[]>,
+            Action<string>
+        > ReadLocalPasteHandler { get; set; } = DesktopReadLocalPaste;
 
         public static void ReadLocalPaste(
+            Action<string> text,
+            Action<byte[]> image,
+            Action<string> fail
+        ) => ReadLocalPasteHandler(text, image, fail);
+
+        static void DesktopReadLocalPaste(
             Action<string> text,
             Action<byte[]> image,
             Action<string> fail
@@ -99,11 +113,19 @@ namespace SlopWorld
         public static void Pump() =>
             Completions.Pump(e => Verse.Log.Error("[SlopWorld] clipboard callback: " + e));
 
+        internal static System.Action<
+            bool,
+            Action<string>,
+            Action<string>
+        > ReadLocalHandler { get; set; } = DesktopReadLocal;
+
         public static void ReadLocal(
             bool primary,
             Action<string> receive,
             Action<string> fail = null
-        )
+        ) => ReadLocalHandler(primary, receive, fail);
+
+        static void DesktopReadLocal(bool primary, Action<string> receive, Action<string> fail)
         {
             Selection.Read(
                 primary,
@@ -122,7 +144,12 @@ namespace SlopWorld
 
         // Server application writes terminate at this desktop. Never POST them back
         // to the daemon.
-        public static void CopyFromApplication(string text)
+        internal static System.Action<string> CopyFromApplicationHandler { get; set; } =
+            DesktopCopyFromApplication;
+
+        public static void CopyFromApplication(string text) => CopyFromApplicationHandler(text);
+
+        static void DesktopCopyFromApplication(string text)
         {
             if (UsesLinuxSelections)
             {
@@ -137,7 +164,13 @@ namespace SlopWorld
             GUIUtility.systemCopyBuffer = text;
         }
 
-        public static void Copy(string text, Action ok = null, Action<string> fail = null)
+        internal static System.Action<string, Action, Action<string>> CopyHandler { get; set; } =
+            DesktopCopy;
+
+        public static void Copy(string text, Action ok = null, Action<string> fail = null) =>
+            CopyHandler(text, ok, fail);
+
+        static void DesktopCopy(string text, Action ok, Action<string> fail)
         {
             if (string.IsNullOrEmpty(text))
                 return;
@@ -152,7 +185,16 @@ namespace SlopWorld
             ok?.Invoke();
         }
 
-        public static void CopyPrimary(string text, Action ok = null, Action<string> fail = null)
+        internal static System.Action<
+            string,
+            Action,
+            Action<string>
+        > CopyPrimaryHandler { get; set; } = DesktopCopyPrimary;
+
+        public static void CopyPrimary(string text, Action ok = null, Action<string> fail = null) =>
+            CopyPrimaryHandler(text, ok, fail);
+
+        static void DesktopCopyPrimary(string text, Action ok, Action<string> fail)
         {
             if (string.IsNullOrEmpty(text))
                 return;

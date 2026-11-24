@@ -12,29 +12,13 @@ static class Check
             throw new Exception(message);
     }
 
-    static void Main(string[] args)
+    static void Main()
     {
         JobsPatchFixture.Check();
         ScalePatchFixture.Check();
         EcoPrefixFixture.Check();
         SteamCallbackFixture.Check();
         CheckWindowPatch();
-        // Exercise the staged clipboard contract against the freshly compiled mod.
-        // Cecil reads both products as metadata without loading Unity or the game.
-        using (var mod = AssemblyDefinition.ReadAssembly(args[0]))
-        {
-            BrowserClipboardPatch.Apply(mod, args[1]);
-            var getter = mod
-                .MainModule.GetType("SlopWorld.DesktopClipboard")
-                .Properties.Single(p => p.Name == "UsesLinuxSelections")
-                .GetMethod;
-            Expect(
-                getter.Body.Instructions[0].Operand is MethodReference call
-                    && call.DeclaringType.FullName == "BrowserAdapters.BrowserClipboard"
-                    && call.Name == getter.Name,
-                "Clipboard selection policy did not reach the browser adapter"
-            );
-        }
         string saved = "";
         BrowserPreferences.Persist = json => saved = json;
         var settings = new ModSettings
@@ -92,14 +76,14 @@ static class Check
         Expect(restored.radioMute, "Paused soundtrack preference did not survive reload");
         BrowserPreferences.Apply(restored, "{\"radioMute\":false}");
         Expect(!restored.radioMute, "Resumed soundtrack preference did not survive reload");
-        AppearanceSettings.S = restored;
+        Settings.S = restored;
         // Exercise the real startup export with every preference emitted by the
         // persistence owner, plus host metadata and an unrelated field.
         var imported = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(saved)!;
         imported["hostHome"] = JsonSerializer.SerializeToElement("/home/example");
         imported["commandPaletteHistory"] = JsonSerializer.SerializeToElement("private-command");
-        Probe.WorkspaceAppearance(JsonSerializer.Serialize(imported));
-        Expect(Probe.HostHome == "/home/example", "Host display home was not imported");
+        new WorkspaceRuntime().WorkspaceAppearance(JsonSerializer.Serialize(imported));
+        Expect(BrowserSidebar.HostHome == "/home/example", "Host display home was not imported");
         Expect(
             restored.uiScheme == settings.uiScheme
                 && restored.fontSize == 19
@@ -179,8 +163,9 @@ static class Check
         Expect(writes == 1, "Native dirty save did not flush once");
         int fontChanges = 0;
         BrowserPreferences.Fonts = _ => fontChanges++;
-        BrowserPreferences.Changed(settings);
-        BrowserPreferences.Changed(settings);
+        ModSettings.Changed = BrowserPreferences.Changed;
+        settings.MarkDirty();
+        settings.MarkDirty();
         settings.uiScheme = "other";
         BrowserPreferences.Changed(settings);
         Expect(fontChanges == 1, "Unrelated settings repeated font work");
@@ -188,9 +173,10 @@ static class Check
         BrowserPreferences.Changed(settings);
         Expect(fontChanges == 2, "Dirty font change was not published before persistence");
         BrowserPreferences.Fonts = null;
-        CheckPatch();
+        ModSettings.Changed = null;
+
         Console.WriteLine(
-            "Preferences: allowlist round trip, malformed input, native debounce and staged save sink passed."
+            "Preferences: allowlist round trip, malformed input, native debounce and change notification passed."
         );
     }
 
@@ -207,49 +193,6 @@ static class Check
                 ModuleKind.Dll
             );
             var module = mod.MainModule;
-            var capability = new TypeDefinition(
-                "SlopWorld",
-                "ClientPlatform",
-                TypeAttributes.Public,
-                module.TypeSystem.Object
-            );
-            module.Types.Add(capability);
-            var getter = new MethodDefinition(
-                "get_IsBrowser",
-                MethodAttributes.Public | MethodAttributes.Static,
-                module.TypeSystem.Boolean
-            );
-            getter.Body.Instructions.Add(Instruction.Create(OpCodes.Ldc_I4_0));
-            getter.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
-            capability.Methods.Add(getter);
-            var window = new TypeDefinition(
-                "SlopWorld",
-                "LinuxGameWindow",
-                TypeAttributes.Public,
-                module.TypeSystem.Object
-            );
-            module.Types.Add(window);
-            var setter = new MethodDefinition(
-                "Set",
-                MethodAttributes.Public | MethodAttributes.Static,
-                module.TypeSystem.Void
-            );
-            setter.Parameters.Add(new ParameterDefinition(module.TypeSystem.Boolean));
-            setter.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
-            window.Methods.Add(setter);
-            BrowserWindowPatch.Apply(mod, root);
-            Expect(
-                getter.Body.Instructions[0].OpCode == OpCodes.Ldc_I4_1,
-                "Browser capability not enabled"
-            );
-            Expect(
-                setter.Body.Instructions.Count == 3
-                    && setter.Body.Instructions[0].OpCode == OpCodes.Ldarg
-                    && setter.Body.Instructions[1].Operand is MethodReference call
-                    && call.DeclaringType.FullName == "BrowserAdapters.BrowserWindow"
-                    && call.Name == "Set",
-                "Fullscreen intent not redirected"
-            );
             var application = new TypeDefinition(
                 "UnityEngine",
                 "Application",
@@ -268,11 +211,35 @@ static class Check
             using var adapters = AssemblyDefinition.ReadAssembly(
                 Path.Combine(root, "Adapters.dll")
             );
-            BrowserClipboardPatch.Redirect(
+            // The first game redirect is valid, but the next required type is
+            // absent. The offline owner must leave the entire original DLL intact.
+            var game = Path.Combine(root, "game");
+            Directory.CreateDirectory(game);
+            var gameDll = Path.Combine(game, "UnityStubs.dll");
+            mod.Write(gameDll);
+            var original = File.ReadAllBytes(gameDll);
+            using (var resolver = new DefaultAssemblyResolver())
+            {
+                try
+                {
+                    BrowserGuiPatch.Apply(root, resolver);
+                    throw new Exception("Partial GUI adaptation accepted");
+                }
+                catch (InvalidOperationException error)
+                    when (error.Message.Contains("UnityEngine.GUIUtility", StringComparison.Ordinal)
+                    ) { }
+            }
+            Expect(
+                original.SequenceEqual(File.ReadAllBytes(gameDll)),
+                "Failed adaptation published a partial assembly"
+            );
+            OfflineRedirect.Redirect(
                 application,
                 adapters.MainModule.GetType("BrowserAdapters.BrowserWindow"),
                 "OpenURL",
-                "OpenUrl"
+                "OpenUrl",
+                "System.Void",
+                "System.String"
             );
             Expect(
                 open.Body.Instructions[1].Operand is MethodReference urlCall
@@ -286,17 +253,28 @@ static class Check
             Expect(requestedUrl == "https://example.com/path", "URL request lost");
             BrowserWindow.UrlRequest = null;
             BrowserWindow.OpenUrl("https://example.com/closed");
-            setter.Parameters.Clear();
-            bool rejected = false;
-            try
+            bool Rejected()
             {
-                BrowserWindowPatch.Apply(mod, root);
+                try
+                {
+                    OfflineRedirect.Redirect(
+                        application,
+                        adapters.MainModule.GetType("BrowserAdapters.BrowserWindow"),
+                        "OpenURL",
+                        "OpenUrl",
+                        "System.Void",
+                        "System.String"
+                    );
+                    return false;
+                }
+                catch (InvalidOperationException)
+                {
+                    return true;
+                }
             }
-            catch (InvalidOperationException)
-            {
-                rejected = true;
-            }
-            Expect(rejected, "Changed window setter signature accepted");
+            Expect(Rejected(), "Duplicate game redirect accepted");
+            open.Parameters.Clear();
+            Expect(Rejected(), "Changed game URL signature accepted");
             bool? requested = null;
             BrowserWindow.Request = value => requested = value;
             BrowserWindow.Set(true);
@@ -305,87 +283,7 @@ static class Check
             Expect(requested == false, "Exit request lost");
             BrowserWindow.Request = null;
             BrowserWindow.Set(true);
-            Console.WriteLine(
-                "Window: staged capability, validated setter redirection and intent delivery passed."
-            );
-        }
-        finally
-        {
-            Directory.Delete(root, true);
-        }
-    }
-
-    static void CheckPatch()
-    {
-        string root = Path.Combine(Path.GetTempPath(), "slopworld-preferences-" + Guid.NewGuid());
-        Directory.CreateDirectory(root);
-        try
-        {
-            File.Copy(
-                typeof(BrowserPreferences).Assembly.Location,
-                Path.Combine(root, "Adapters.dll")
-            );
-            using var mod = AssemblyDefinition.CreateAssembly(
-                new AssemblyNameDefinition("TestMod", new Version(1, 0)),
-                "TestMod",
-                ModuleKind.Dll
-            );
-            var module = mod.MainModule;
-            var settings = new TypeDefinition(
-                "SlopWorld",
-                "ModSettings",
-                TypeAttributes.Public,
-                module.TypeSystem.Object
-            );
-            module.Types.Add(settings);
-            var dirty = new MethodDefinition(
-                "MarkDirty",
-                MethodAttributes.Public,
-                module.TypeSystem.Void
-            );
-            dirty.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
-            settings.Methods.Add(dirty);
-            var profile = new TypeDefinition(
-                "SlopWorld",
-                "ProfileSettings",
-                TypeAttributes.Public,
-                module.TypeSystem.Object
-            );
-            module.Types.Add(profile);
-            var write = new MethodDefinition(
-                "Write",
-                MethodAttributes.Public | MethodAttributes.Static,
-                module.TypeSystem.Void
-            );
-            write.Parameters.Add(new ParameterDefinition(settings));
-            write.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
-            profile.Methods.Add(write);
-            BrowserPreferencesPatch.Apply(mod, root);
-            Expect(
-                write.Body.Instructions.Count == 3
-                    && write.Body.Instructions[0].OpCode == OpCodes.Ldarg_0
-                    && write.Body.Instructions[1].Operand is MethodReference call
-                    && call.DeclaringType.FullName == "BrowserAdapters.BrowserPreferences"
-                    && call.Name == "Write",
-                "Native save was not redirected"
-            );
-            Expect(
-                dirty.Body.Instructions.Count == 3
-                    && dirty.Body.Instructions[1].Operand is MethodReference changed
-                    && changed.Name == "Changed",
-                "Dirty event did not notify font selection"
-            );
-            write.Parameters.Clear();
-            bool rejected = false;
-            try
-            {
-                BrowserPreferencesPatch.Apply(mod, root);
-            }
-            catch (InvalidOperationException)
-            {
-                rejected = true;
-            }
-            Expect(rejected, "Changed save signature was accepted");
+            Console.WriteLine("Window: validated game URL redirection and intent delivery passed.");
         }
         finally
         {

@@ -16,15 +16,14 @@
     <Compile Include="../../../offline/EcoPrefixes.cs" Link="EcoPrefixes.cs" />
     <Compile Include="../../../offline/BrowserScalePatch.cs" Link="BrowserScalePatch.cs" />
     <Compile Include="../../../runtime/Scanner/BrowserJobsPatch.cs" Link="BrowserJobsPatch.cs" />
-    <Compile Include="../../../runtime/BrowserWorkspace.cs" Link="BrowserWorkspace.cs" />
     <PackageReference Include="Tomlyn" Version="0.19.0" />
     <ProjectReference Include="../../../offline/Offline.csproj" />
     <Compile Include="../../../offline/BrowserSteamPatch.cs" Link="BrowserSteamPatch.cs" />
     <Compile Include="../../../runtime/Adapters/BrowserWindow.cs" Link="BrowserWindow.cs" />
-    <Compile Include="../../../offline/BrowserWindowPatch.cs" Link="BrowserWindowPatch.cs" />
-    <Compile Include="../../../offline/BrowserClipboardPatch.cs" Link="BrowserClipboardPatch.cs" />
+    <Compile Include="../../../runtime/Adapters/WorkspaceRuntime.Appearance.cs" Link="WorkspaceRuntime.Appearance.cs" />
+    <Compile Include="../../../offline/BrowserGuiPatch.cs" Link="BrowserGuiPatch.cs" />
+    <Compile Include="../../../offline/OfflineRedirect.cs" Link="OfflineRedirect.cs" />
     <Compile Include="../../../runtime/Adapters/BrowserPreferences.cs" Link="BrowserPreferences.cs" />
-    <Compile Include="../../../offline/BrowserPreferencesPatch.cs" Link="BrowserPreferencesPatch.cs" />
     <Compile Include="../../../../mod/Source/SlopWorld/Settings/ModSettings.cs" Link="ModSettings.cs" />
     <Compile Include="../../../../mod/Source/SlopWorld/Settings/WorkspacePreferences.cs" Link="WorkspacePreferences.cs" />
     <Compile Include="../../../../mod/Source/SlopWorld/Settings/OptionLabels.cs" Link="OptionLabels.cs" />

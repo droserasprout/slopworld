@@ -1,491 +1,213 @@
-using System.Collections;
 using System.Runtime.InteropServices.JavaScript;
-using System.Text.Json;
+using SlopWeb.Runtime;
 
 public partial class Probe
 {
-    [JSExport]
-    public static string WorkspaceFontFallbackTake() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "TakeFallbacks")!;
+    static readonly LateRuntime<IWorkspaceRuntime> Workspace = new(() =>
+        (IWorkspaceRuntime)
+            Activator.CreateInstance(Type("Adapters", "BrowserAdapters.WorkspaceRuntime"))!
+    );
+    static IWorkspaceRuntime Runtime => Workspace.Value;
 
     [JSExport]
-    public static void WorkspaceFontFallbackComplete(string json)
-    {
-        if (
-            !(bool)Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "CompleteFallbacks", json)!
-        )
-            return;
-        Invoke("Adapters", "BrowserAdapters.BrowserGui", "FontsChanged");
-        // Native pane textures retain terminal rows independently of GUI batches.
-        Invoke("SlopWorld", "SlopWorld.TerminalFont", "Invalidate");
-        Invoke("Adapters", "BrowserAdapters.BrowserActivity", "Notify");
-    }
+    public static void InstallPlatform(string directory) => Runtime.InstallPlatform(directory);
 
     [JSExport]
-    public static void WorkspaceFontFallbackRetry() =>
-        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "RetryFallbacks");
+    public static string WorkspaceFontFallbackTake() => Runtime.WorkspaceFontFallbackTake();
+
+    [JSExport]
+    public static void WorkspaceFontFallbackComplete(string json) =>
+        Runtime.WorkspaceFontFallbackComplete(json);
+
+    [JSExport]
+    public static void WorkspaceFontFallbackRetry() => Runtime.WorkspaceFontFallbackRetry();
 
     [JSExport]
     public static void WorkspaceRasterizer(
         [JSMarshalAs<JSType.Function<JSType.String, JSType.String>>] Func<string, string> rasterize
-    ) =>
-        Type("Adapters", "BrowserAdapters.BrowserFontBank")
-            .GetField("Rasterize")!
-            .SetValue(null, rasterize);
+    ) => Runtime.WorkspaceRasterizer(rasterize);
 
     [JSExport]
-    public static void WorkspaceFontsDispose() =>
-        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "DisposeFonts");
+    public static void WorkspaceFontsDispose() => Runtime.WorkspaceFontsDispose();
 
     [JSExport]
     public static bool WorkspaceObserveLabels(bool enabled) =>
-        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureObserveLabels", enabled)!;
+        Runtime.WorkspaceObserveLabels(enabled);
 
     [JSExport]
-    public static string WorkspaceLabels() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserGui", "Labels")!;
+    public static string WorkspaceLabels() => Runtime.WorkspaceLabels();
 
     [JSExport]
     public static bool WorkspaceInputFlushBeforeRepaint(bool enabled) =>
-        (bool)
-            Invoke(
-                "Adapters",
-                "BrowserAdapters.WorkspaceDrawing",
-                "ConfigureInputFlushBeforeRepaint",
-                enabled
-            )!;
+        Runtime.WorkspaceInputFlushBeforeRepaint(enabled);
 
     [JSExport]
     public static void WorkspaceWake([JSMarshalAs<JSType.Function>] Action wake) =>
-        Type("Adapters", "BrowserAdapters.BrowserActivity").GetField("Wake")!.SetValue(null, wake);
+        Runtime.WorkspaceWake(wake);
 
     [JSExport]
-    public static float WorkspaceNextUpdateDelay() =>
-        (float)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "NextUpdateDelay")!;
+    public static float WorkspaceNextUpdateDelay() => Runtime.WorkspaceNextUpdateDelay();
 
     [JSExport]
-    public static int WorkspaceFrameLimit() =>
-        (int)Invoke("SlopWorld", "SlopWorld.Settings", "get_ExplicitFrameLimit")!;
+    public static int WorkspaceFrameLimit() => Runtime.WorkspaceFrameLimit();
 
     [JSExport]
-    public static void WorkspaceClearWake() =>
-        Type("Adapters", "BrowserAdapters.BrowserActivity").GetField("Wake")!.SetValue(null, null);
+    public static void WorkspaceClearWake() => Runtime.WorkspaceClearWake();
 
     [JSExport]
-    public static bool WorkspacePacketCache(bool enabled) =>
-        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigurePacketCache", enabled)!;
+    public static bool WorkspacePacketCache(bool enabled) => Runtime.WorkspacePacketCache(enabled);
 
     [JSExport]
     public static bool WorkspaceCommandValueCache(bool enabled) =>
-        (bool)
-            Invoke(
-                "Adapters",
-                "BrowserAdapters.BrowserGui",
-                "ConfigureCommandValueCache",
-                enabled
-            )!;
+        Runtime.WorkspaceCommandValueCache(enabled);
 
     [JSExport]
-    public static bool WorkspaceRowCommands(bool enabled) =>
-        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureTerminalRows", enabled)!;
+    public static bool WorkspaceRowCommands(bool enabled) => Runtime.WorkspaceRowCommands(enabled);
 
     [JSExport]
-    public static string WorkspaceRowCommandsStats() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserGui", "TerminalRowStats")!;
+    public static string WorkspaceRowCommandsStats() => Runtime.WorkspaceRowCommandsStats();
 
     [JSExport]
     public static bool WorkspaceGlyphTailClip(bool enabled) =>
-        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureGlyphTailClip", enabled)!;
+        Runtime.WorkspaceGlyphTailClip(enabled);
 
     [JSExport]
     public static bool WorkspaceCellFastPath(bool enabled) =>
-        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureCellFastPath", enabled)!;
+        Runtime.WorkspaceCellFastPath(enabled);
 
     [JSExport]
-    public static bool WorkspaceQuadCache(bool enabled) =>
-        (bool)Invoke("Adapters", "BrowserAdapters.BrowserGui", "ConfigureQuadCache", enabled)!;
+    public static bool WorkspaceQuadCache(bool enabled) => Runtime.WorkspaceQuadCache(enabled);
 
     [JSExport]
     public static bool WorkspaceDiscardedDrawing(bool skip) =>
-        (bool)
-            Invoke(
-                "Adapters",
-                "BrowserAdapters.BrowserGuiInput",
-                "ConfigureDiscardedDrawing",
-                skip
-            )!;
+        Runtime.WorkspaceDiscardedDrawing(skip);
 
     [JSExport]
     public static string WorkspaceDynamicFonts(
         [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> changed
-    )
-    {
-        Type("Adapters", "BrowserAdapters.BrowserPreferences")
-            .GetField("Fonts")!
-            .SetValue(null, changed);
-        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
-        return (string)
-            Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "FontSelection", settings)!;
-    }
+    ) => Runtime.WorkspaceDynamicFonts(changed);
 
     [JSExport]
-    public static void WorkspaceFontHold(string json)
-    {
-        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
-        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "HoldFonts", settings, json);
-        WorkspaceFontsReady();
-    }
+    public static void WorkspaceFontHold(string json) => Runtime.WorkspaceFontHold(json);
 
     [JSExport]
-    public static void WorkspaceFontRestore(string json)
-    {
-        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
-        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Apply", settings, json);
-        WorkspaceFontsReady();
-        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Write", settings);
-    }
+    public static void WorkspaceFontRestore(string json) => Runtime.WorkspaceFontRestore(json);
 
     [JSExport]
-    public static void WorkspaceGlyphsReady()
-    {
-        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "GlyphsReady");
-        Invoke("Adapters", "BrowserAdapters.BrowserGui", "FontsChanged");
-        Invoke("SlopWorld", "SlopWorld.TerminalFont", "Invalidate");
-        Invoke("Adapters", "BrowserAdapters.BrowserActivity", "Notify");
-    }
+    public static void WorkspaceGlyphsReady() => Runtime.WorkspaceGlyphsReady();
 
     [JSExport]
-    public static void WorkspaceFontsReady()
-    {
-        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "RetryRasterization");
-        Invoke("Adapters", "BrowserAdapters.BrowserGui", "FontsChanged");
-        Invoke("SlopWorld", "SlopWorld.InstalledFonts", "Rescan");
-        Invoke("SlopWorld", "SlopWorld.UiFont", "Apply");
-        Invoke("SlopWorld", "SlopWorld.TerminalFont", "Invalidate");
-        Invoke("Adapters", "BrowserAdapters.BrowserActivity", "Notify");
-    }
+    public static void WorkspaceFontsReady() => Runtime.WorkspaceFontsReady();
 
     [JSExport]
-    public static void WorkspaceFontCatalog(string json) =>
-        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "InstallCatalog", json);
+    public static void WorkspaceFontCatalog(string json) => Runtime.WorkspaceFontCatalog(json);
 
     [JSExport]
-    public static void WorkspaceFontChains(string json) =>
-        Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "InstallChains", json);
+    public static void WorkspaceFontChains(string json) => Runtime.WorkspaceFontChains(json);
 
     [JSExport]
-    public static string WorkspaceFontSnapshot() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "Snapshot")!;
+    public static string WorkspaceFontSnapshot() => Runtime.WorkspaceFontSnapshot();
 
     [JSExport]
     public static int WorkspaceFont(byte[] font, string bake, int defaultIndex) =>
-        (int)
-            Invoke(
-                "Adapters",
-                "BrowserAdapters.BrowserFontBank",
-                "Install",
-                font,
-                bake,
-                defaultIndex
-            )!;
+        Runtime.WorkspaceFont(font, bake, defaultIndex);
 
     [JSExport]
-    public static void WorkspaceAppearance(string json)
-    {
-        // Host imports and origin storage share one presentation validator. Keep
-        // display-only host metadata separate from persisted preferences.
-        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
-        using var document = JsonDocument.Parse(json);
-        if (document.RootElement.TryGetProperty("hostHome", out var home))
-            Invoke(
-                "Adapters",
-                "BrowserAdapters.BrowserSidebar",
-                "ConfigureHome",
-                home.GetString()!
-            );
-        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Apply", settings, json);
-    }
+    public static void WorkspaceAppearance(string json) => Runtime.WorkspaceAppearance(json);
 
     [JSExport]
-    public static string WorkspaceTitle() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserWindow", "Title")!;
+    public static string WorkspaceTitle() => Runtime.WorkspaceTitle();
 
     [JSExport]
-    public static bool WorkspaceFullscreenKey(string key) =>
-        (bool)Invoke("Adapters", "BrowserAdapters.BrowserKeyBindings", "FullscreenKey", key)!;
+    public static bool WorkspaceFullscreenKey(string key) => Runtime.WorkspaceFullscreenKey(key);
 
     [JSExport]
     public static void WorkspaceWindow(
         [JSMarshalAs<JSType.Function<JSType.Boolean>>] Action<bool> request
-    ) =>
-        Type("Adapters", "BrowserAdapters.BrowserWindow")
-            .GetField("Request")!
-            .SetValue(null, request);
+    ) => Runtime.WorkspaceWindow(request);
 
     [JSExport]
     public static void WorkspaceOpenUrl(
         [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> request
-    ) =>
-        Type("Adapters", "BrowserAdapters.BrowserWindow")
-            .GetField("UrlRequest")!
-            .SetValue(null, request);
+    ) => Runtime.WorkspaceOpenUrl(request);
 
     [JSExport]
     public static void WorkspaceFullscreenState(bool fullscreen) =>
-        Invoke("Adapters", "BrowserAdapters.BrowserWindow", "UpdateState", fullscreen);
+        Runtime.WorkspaceFullscreenState(fullscreen);
 
     [JSExport]
     public static void WorkspacePreferences(
         string json,
         [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> persist
-    )
-    {
-        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
-        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Apply", settings, json);
-        Type("Adapters", "BrowserAdapters.BrowserPreferences")
-            .GetField("Persist")!
-            .SetValue(null, persist);
-    }
+    ) => Runtime.WorkspacePreferences(json, persist);
 
     [JSExport]
     public static void WorkspaceKeyBindings(
         string json,
         [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> persist
-    )
-    {
-        Invoke("Adapters", "BrowserAdapters.BrowserKeyBindings", "Apply", json);
-        Type("Adapters", "BrowserAdapters.BrowserKeyBindings")
-            .GetField("Persist")!
-            .SetValue(null, persist);
-    }
+    ) => Runtime.WorkspaceKeyBindings(json, persist);
 
     [JSExport]
-    public static void WorkspaceSavePreferences()
-    {
-        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
-        Invoke("Adapters", "BrowserAdapters.BrowserPreferences", "Write", settings);
-    }
+    public static void WorkspaceSavePreferences() => Runtime.WorkspaceSavePreferences();
 
     [JSExport]
-    public static string WorkspaceSelect(string name)
-    {
-        Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "RequireEntry");
-        var type = Type("SlopWorld", "SlopWorld.SessionHub");
-        var hub = type.GetField("Instance")!.GetValue(null)!;
-        bool exists = ((IEnumerable)type.GetProperty("Sessions")!.GetValue(hub)!)
-            .Cast<object>()
-            .Any(session =>
-                (string)session.GetType().GetField("Name")!.GetValue(session)! == name
-                && (bool)session.GetType().GetField("Alive")!.GetValue(session)!
-            );
-        if (!exists)
-            throw new InvalidOperationException("Requested workspace session is not live");
-        var window = Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "Open", name)!;
-        return (string)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Repaint", window)!;
-    }
+    public static string WorkspaceSelect(string name) => Runtime.WorkspaceSelect(name);
 
     [JSExport]
     public static void ConfigureWorkspaceViewport(int width, int height, float scale) =>
-        Invoke(
-            "Adapters",
-            "BrowserAdapters.WorkspaceDrawing",
-            "ConfigureViewport",
-            width,
-            height,
-            scale
-        );
+        Runtime.ConfigureWorkspaceViewport(width, height, scale);
 
     [JSExport]
-    public static void WorkspaceProfile(bool enabled) =>
-        Type("Adapters", "BrowserAdapters.BrowserGuiInput")
-            .GetField("Profile")!
-            .SetValue(null, enabled);
+    public static void WorkspaceProfile(bool enabled) => Runtime.WorkspaceProfile(enabled);
 
     [JSExport]
-    public static string ClipboardTake() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserClipboard", "Take")!;
+    public static string ClipboardTake() => Runtime.ClipboardTake();
 
     [JSExport]
     public static void ClipboardComplete(int id, string text, string error) =>
-        Invoke("Adapters", "BrowserAdapters.BrowserClipboard", "Complete", id, text, error);
+        Runtime.ClipboardComplete(id, text, error);
 
     [JSExport]
     public static void ClipboardCompleteImage(int id, string base64, string error) =>
-        Invoke("Adapters", "BrowserAdapters.BrowserClipboard", "CompleteImage", id, base64, error);
+        Runtime.ClipboardCompleteImage(id, base64, error);
 
     [JSExport]
-    public static string WorkspaceState() =>
-        (string)Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Snapshot")!;
+    public static string WorkspaceState() => Runtime.WorkspaceState();
 
     [JSExport]
-    public static string WorkspaceAudio() =>
-        (string)Invoke("Adapters", "BrowserAdapters.BrowserAudio", "Snapshot")!;
+    public static string WorkspaceAudio() => Runtime.WorkspaceAudio();
 
     [JSExport]
     public static void WorkspaceAudioPlaying(bool playing) =>
-        Invoke("Adapters", "BrowserAdapters.BrowserAudio", "Playing", playing);
+        Runtime.WorkspaceAudioPlaying(playing);
 
     [JSExport]
-    public static void WorkspaceAudioQuit() => Invoke("SlopWorld", "SlopWorld.Radio", "Quit");
+    public static void WorkspaceAudioQuit() => Runtime.WorkspaceAudioQuit();
 
     [JSExport]
-    public static void WorkspaceAudioEnded() =>
-        Invoke("Adapters", "BrowserAdapters.BrowserAudio", "Ended");
+    public static void WorkspaceAudioEnded() => Runtime.WorkspaceAudioEnded();
 
     [JSExport]
-    public static bool WorkspaceBackgroundVisible() =>
-        (bool)
-            Invoke("Adapters", "BrowserAdapters.BrowserUnderlyingWorkspace", "BackgroundVisible")!;
+    public static bool WorkspaceBackgroundVisible() => Runtime.WorkspaceBackgroundVisible();
 
     [JSExport]
-    public static float WorkspaceBackgroundDimming()
-    {
-        var settings = Type("SlopWorld", "SlopWorld.Settings").GetProperty("S")!.GetValue(null)!;
-        return (float)
-            Invoke(
-                "Adapters",
-                "BrowserAdapters.BrowserPreferences",
-                "BackgroundDimming",
-                settings
-            )!;
-    }
+    public static float WorkspaceBackgroundDimming() => Runtime.WorkspaceBackgroundDimming();
 
     [JSExport]
-    public static int InstallModContent(byte[] archive) =>
-        (int)Invoke("Adapters", "BrowserAdapters.BrowserModContent", "Install", archive)!;
+    public static int InstallModContent(byte[] archive) => Runtime.InstallModContent(archive);
 
-    static readonly JsonElement EmptyGuiBatch = JsonElement.Parse("[]"u8);
+    [JSExport]
+    public static string WorkspaceUpdatePacket(
+        string batch,
+        double elapsed,
+        double retainedPacket
+    ) => Runtime.WorkspaceUpdatePacket(batch, elapsed, retainedPacket);
+
+    [JSExport]
+    public static Task<string> WorkspaceFrame(string origin, string requestedSession) =>
+        Runtime.WorkspaceFrame(origin, requestedSession);
 
     [JSExport]
     public static string WorkspaceUpdate(string batch, double elapsed) =>
         WorkspaceUpdatePacket(batch, elapsed, -1);
-
-    [JSExport]
-    public static string WorkspaceUpdatePacket(string batch, double elapsed, double retainedPacket)
-    {
-        if (entryEngine == null)
-            throw new InvalidOperationException("Workspace engine is stopped");
-        Invoke("Waylith", "Waylith.EngineApplication", "BeginFrame", 1f / 60, (float)elapsed);
-        try
-        {
-            Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "BeginFrame", elapsed);
-            using var events = batch == "[]" ? null : JsonDocument.Parse(batch);
-            var items = events?.RootElement ?? EmptyGuiBatch;
-            Invoke("Adapters", "BrowserAdapters.BrowserCursor", "Update", items);
-            Invoke(
-                "SlopWorld",
-                "SlopWorld.DaemonClient",
-                "PumpCompletions",
-                (Action<Exception>)(e => throw e)
-            );
-            var hub = Type("SlopWorld", "SlopWorld.SessionHub")
-                .GetField("Instance")!
-                .GetValue(null)!;
-            hub.GetType().GetMethod("Update")!.Invoke(hub, null);
-            Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Update");
-            var frame = (string)
-                Invoke(
-                    "Adapters",
-                    "BrowserAdapters.WorkspaceDrawing",
-                    "Frame",
-                    items,
-                    retainedPacket,
-                    false
-                )!;
-            // Full ModBootstrap is absent in Entry. Preserve its native dirty-save pump.
-            var settings = Type("SlopWorld", "SlopWorld.Settings")
-                .GetProperty("S")!
-                .GetValue(null)!;
-            Invoke("SlopWorld", "SlopWorld.ProfileSettings", "FlushIfDue", settings);
-            return frame;
-        }
-        catch (Exception e)
-        {
-            throw new InvalidOperationException(e.ToString());
-        }
-        finally
-        {
-            Invoke("Waylith", "Waylith.EngineApplication", "EndFrame");
-        }
-    }
-
-    [JSExport]
-    public static async Task<string> WorkspaceFrame(string origin, string requestedSession)
-    {
-        try
-        {
-            Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "RequireEntry");
-            Invoke("Adapters", "BrowserAdapters.BrowserTransport", "Configure", origin);
-            Invoke("Adapters", "BrowserAdapters.BrowserGui", "Install");
-            if (
-                ((string[])Invoke("Adapters", "BrowserAdapters.BrowserFontBank", "Paths")!).Length
-                > 0
-            )
-                Invoke("SlopWorld", "SlopWorld.UiFont", "Apply");
-            Invoke("Adapters", "BrowserAdapters.BrowserModKeys", "Install");
-            Invoke("Adapters", "BrowserAdapters.BrowserWorkspaceDoors", "Install");
-            Invoke("Adapters", "BrowserAdapters.BrowserCursor", "Install");
-            Invoke("Adapters", "BrowserAdapters.WorkspaceDrawing", "Initialize");
-            Invoke("SlopWorld", "SlopWorld.StripOptions", "Hide");
-            Invoke("SlopWorld", "SlopWorld.ModOptions", "Install");
-            var type = Type("SlopWorld", "SlopWorld.SessionHub");
-            var hub = type.GetField("Instance")!.GetValue(null)!;
-            type.GetMethod("Connect")!.Invoke(hub, null);
-            var until = DateTime.UtcNow.AddSeconds(15);
-            object? session = null;
-            while (DateTime.UtcNow < until)
-            {
-                Invoke(
-                    "SlopWorld",
-                    "SlopWorld.DaemonClient",
-                    "PumpCompletions",
-                    (Action<Exception>)(e => throw e)
-                );
-                type.GetMethod("Update")!.Invoke(hub, null);
-                session = ((IEnumerable)type.GetProperty("Sessions")!.GetValue(hub)!)
-                    .Cast<object>()
-                    .FirstOrDefault(s =>
-                        (bool)s.GetType().GetField("Alive")!.GetValue(s)!
-                        && (
-                            string.IsNullOrEmpty(requestedSession)
-                            || (string)s.GetType().GetField("Name")!.GetValue(s)!
-                                == requestedSession
-                        )
-                    );
-                if (session != null)
-                    break;
-                // An authoritative empty catalog is a usable native workspace:
-                // its sidebar and TopBar own session creation and connection UI.
-                // A named reference still waits for that exact live session.
-                if (
-                    string.IsNullOrEmpty(requestedSession)
-                    && (long)type.GetProperty("SessionsVersion")!.GetValue(hub)! > 0
-                )
-                    break;
-                await Task.Delay(16);
-            }
-            if (session != null)
-            {
-                var name = (string)session.GetType().GetField("Name")!.GetValue(session)!;
-                Invoke("SlopWorld", "SlopWorld.WorkspaceWindow", "Open", name);
-            }
-            else if (!string.IsNullOrEmpty(requestedSession))
-                throw new InvalidOperationException("No matching live session for workspace");
-            // The first presentation needs native chrome, layout and deferred windows
-            // even when no terminal is open. It seeds the same resources as live frames.
-            return (string)
-                Invoke(
-                    "Adapters",
-                    "BrowserAdapters.WorkspaceDrawing",
-                    "Frame",
-                    EmptyGuiBatch,
-                    -1d,
-                    true
-                )!;
-        }
-        catch (Exception e)
-        {
-            throw new InvalidOperationException(e.ToString());
-        }
-    }
 }

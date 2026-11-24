@@ -1,10 +1,15 @@
 using System.Diagnostics;
 using System.Text.Json;
+using BrowserAdapters;
+using SlopWorld;
 
 // Exercise the actual exported startup coordinator with a deterministic catalog.
 // Rendering/native dispatch remain covered by the underlying-workspace checks.
 static class Check
 {
+    internal static readonly List<string> Calls = [];
+    internal static string? Opened;
+
     static void Expect(bool condition, string message)
     {
         if (!condition)
@@ -13,39 +18,49 @@ static class Check
 
     static async Task Main()
     {
+        var runtime = new WorkspaceRuntime();
+        try
+        {
+            runtime.WorkspaceUpdatePacket("[]", 0, -1);
+            throw new Exception("Stopped engine accepted a frame");
+        }
+        catch (InvalidOperationException error)
+            when (error.Message == "Workspace engine is stopped") { }
+        runtime.entry = new object();
+        BrowserActivity.Wake = () => Calls.Add("Notify");
         CoreLanguageChecks.Run();
         const int mib = 1024 * 1024;
         Expect(
-            BrowserAdapters.BrowserSocket.FitsOutgoing(0, 20 * mib + 128),
+            BrowserAdapters.BrowserSocketLimits.FitsOutgoing(0, 20 * mib + 128),
             "Image paste envelope rejected"
         );
         Expect(
-            BrowserAdapters.BrowserSocket.FitsOutgoing(12 * mib, 20 * mib),
+            BrowserAdapters.BrowserSocketLimits.FitsOutgoing(12 * mib, 20 * mib),
             "Exact queue limit rejected"
         );
         Expect(
-            !BrowserAdapters.BrowserSocket.FitsOutgoing(12 * mib, 20 * mib + 1),
+            !BrowserAdapters.BrowserSocketLimits.FitsOutgoing(12 * mib, 20 * mib + 1),
             "Queue bound exceeded"
         );
         Expect(
-            !BrowserAdapters.BrowserSocket.FitsOutgoing(mib, int.MaxValue),
+            !BrowserAdapters.BrowserSocketLimits.FitsOutgoing(mib, int.MaxValue),
             "Queue size overflow"
         );
-        Probe.WorkspaceFontFallbackComplete("{}");
+        runtime.WorkspaceFontFallbackComplete("{}");
         Expect(
-            Probe.Calls.SequenceEqual(
+            Calls.SequenceEqual(
                 new[] { "CompleteFallbacks", "FontsChanged", "Invalidate", "Notify" }
             ),
             "Fallback publication must invalidate native terminal textures before waking presentation"
         );
-        Probe.Calls.Clear();
-        Probe.AcceptFallback = false;
-        Probe.WorkspaceFontFallbackComplete("{}");
+        Calls.Clear();
+        BrowserFontBank.AcceptFallback = false;
+        runtime.WorkspaceFontFallbackComplete("{}");
         Expect(
-            Probe.Calls.SequenceEqual(new[] { "CompleteFallbacks" }),
+            Calls.SequenceEqual(new[] { "CompleteFallbacks" }),
             "Stale fallback response changed presentation"
         );
-        Probe.Calls.Clear();
+        Calls.Clear();
         foreach (
             var origin in new[]
             {
@@ -97,118 +112,60 @@ static class Check
         }
         foreach (string batch in new[] { "[]", "[{\"kind\":\"down\"},{\"kind\":\"up\"}]" })
         {
-            Probe.Calls.Clear();
-            Expect(Probe.WorkspaceUpdatePacket(batch, 1, 0) == batch, "GUI input batch changed");
-            Expect(Probe.Calls[^1] == "EndFrame", "Input processing did not finish the frame");
+            Calls.Clear();
+            Expect(runtime.WorkspaceUpdatePacket(batch, 1, 0) == batch, "GUI input batch changed");
+            Expect(Calls[^1] == "EndFrame", "Input processing did not finish the frame");
         }
-        var hub = Hub.Instance;
+        var hub = SessionHub.Instance;
         var timer = Stopwatch.StartNew();
         Expect(
-            await Probe.WorkspaceFrame("test", "") == "[\"chrome\"]",
+            await runtime.WorkspaceFrame("https://example.com/", "") == "[\"chrome\"]",
             "Empty catalog did not render chrome"
         );
         Expect(
             timer.Elapsed < TimeSpan.FromSeconds(5),
             "Empty catalog waited for startup deadline"
         );
-        Expect(Probe.Opened == null, "Empty catalog opened a terminal");
+        Expect(Opened == null, "Empty catalog opened a terminal");
 
         hub.Sessions =
         [
-            new Session("dead", false),
-            new Session("first", true),
-            new Session("requested", true),
+            new SessionInfo("dead", false),
+            new SessionInfo("first", true),
+            new SessionInfo("requested", true),
         ];
         Expect(
-            await Probe.WorkspaceFrame("test", "") == "[\"chrome\"]" && Probe.Opened == "first",
+            await runtime.WorkspaceFrame("https://example.com/", "") == "[\"chrome\"]"
+                && Opened == "first",
             "Default live session selection failed"
         );
         Expect(
-            await Probe.WorkspaceFrame("test", "requested") == "[\"chrome\"]"
-                && Probe.Opened == "requested",
+            await runtime.WorkspaceFrame("https://example.com/", "requested") == "[\"chrome\"]"
+                && Opened == "requested",
             "Explicit selection attached another session"
         );
-        Probe.Opened = null;
+        Opened = null;
         bool rejected = false;
         try
         {
-            await Probe.WorkspaceFrame("test", "missing");
+            await runtime.WorkspaceFrame("https://example.com/", "missing");
         }
         catch (InvalidOperationException e)
         {
             rejected = e.Message.Contains("No matching live session");
         }
         Expect(
-            rejected && Probe.Opened == null,
+            rejected && Opened == null,
             "Missing explicit session attached an unrelated terminal"
         );
         hub.Sessions = [];
         hub.SessionsVersion = 0;
         Expect(
-            await Probe.WorkspaceFrame("test", "") == "[\"chrome\"]",
+            await runtime.WorkspaceFrame("https://example.com/", "") == "[\"chrome\"]",
             "Unavailable catalog stranded startup"
         );
         Console.WriteLine(
             "Startup: empty catalog, live default, explicit selection, missing reference, and unavailable daemon passed."
         );
-    }
-}
-
-public sealed class Session(string name, bool alive)
-{
-    public string Name = name;
-    public bool Alive = alive;
-}
-
-public sealed class Hub
-{
-    public static readonly Hub Instance = new();
-    public static Hub S => Instance;
-    public List<Session> Sessions { get; set; } = [];
-    public long SessionsVersion { get; set; } = 1;
-
-    public void Connect() { }
-
-    public void Update() { }
-}
-
-public partial class Probe
-{
-    static readonly object entryEngine = new();
-    public static string? Opened;
-    public static readonly List<string> Calls = new();
-    static JsonElement cursorBatch;
-    public static bool AcceptFallback = true;
-
-    static Type Type(string assembly, string name) => typeof(Hub);
-
-    static object? Invoke(string assembly, string owner, string method, params object[] args)
-    {
-        Calls.Add(method);
-        if (method == "CompleteFallbacks")
-            return AcceptFallback;
-        if (method == "Paths")
-            return Array.Empty<string>();
-        if (method == "Open")
-        {
-            Opened = (string)args[0];
-            return new object();
-        }
-        if (owner == "BrowserAdapters.BrowserCursor" && method == "Update")
-            cursorBatch = (JsonElement)args[0];
-        if (method == "Frame")
-        {
-            var batch = (JsonElement)args[0];
-            if (!(bool)args[2])
-            {
-                if (!batch.Equals(cursorBatch))
-                    throw new Exception("Cursor and GUI did not share the parsed batch");
-                return batch.GetRawText();
-            }
-            if (batch.GetArrayLength() != 0)
-                throw new Exception("Initial frame did not request the complete native traversal");
-            return "[\"chrome\"]";
-        }
-        return null;
     }
 }

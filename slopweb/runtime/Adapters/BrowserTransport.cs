@@ -26,10 +26,12 @@ public static class BrowserTransport
 
     public static string BaseUrl { get; private set; } = "";
 
-    public static Uri SocketUri =>
-        new UriBuilder(BaseUrl + "/ws")
+    public static Uri SocketUri => ResolveSocket(BaseUrl);
+
+    internal static Uri ResolveSocket(string endpoint) =>
+        new UriBuilder(endpoint + "/ws")
         {
-            Scheme = new Uri(BaseUrl).Scheme == "https" ? "wss" : "ws",
+            Scheme = new Uri(endpoint).Scheme == "https" ? "wss" : "ws",
         }.Uri;
 
     public static void Configure(string directory)

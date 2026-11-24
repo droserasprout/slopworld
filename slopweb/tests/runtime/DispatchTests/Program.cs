@@ -1,43 +1,8 @@
 using System.Diagnostics;
-using System.Reflection;
-using System.Reflection.Emit;
+using SlopWeb.Runtime;
 
 static class DispatchChecks
 {
-    private static readonly string AssemblyName = typeof(Fixture).Assembly.GetName().Name!;
-    private static readonly string Owner = typeof(Fixture).FullName!;
-
-    static object? Baseline(string method, object[] args) =>
-        Assembly
-            .Load(AssemblyName)
-            .GetType(Owner, true)!
-            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
-            .Single(m =>
-                m.Name == method
-                && m.GetParameters().Length == args.Length
-                && m.GetParameters()
-                    .Zip(args)
-                    .All(pair =>
-                        pair.Second is null
-                            ? !pair.First.ParameterType.IsValueType
-                                || Nullable.GetUnderlyingType(pair.First.ParameterType) != null
-                            : pair.First.ParameterType.IsInstanceOfType(pair.Second)
-                    )
-            )
-            .Invoke(null, args);
-
-    static string Outcome(Func<object?> action)
-    {
-        try
-        {
-            return $"value:{action()}";
-        }
-        catch (Exception error)
-        {
-            return $"{error.GetType()}:{error.Message}|{error.InnerException?.GetType()}:{error.InnerException?.Message}";
-        }
-    }
-
     static void Expect(bool condition, string message)
     {
         if (!condition)
@@ -47,239 +12,93 @@ static class DispatchChecks
     static void Main(string[] args)
     {
         InputFrameFixture.Check();
-        var cases = new (string Method, object[] Args)[]
-        {
-            ("Zero", []),
-            ("Overload", [7]),
-            ("Overload", ["text"]),
-            ("Base", [new Derived()]),
-            ("Interface", [new Derived()]),
-            ("Nullable", [7]),
-            ("Enum", [DayOfWeek.Monday]),
-            ("Private", [3]),
-            ("Inherited", [3]),
-            ("Ambiguous", ["text"]),
-            ("Ambiguous", [null!]),
-            ("Private", [null!]),
-            ("Missing", []),
-            ("Instance", []),
-            ("Optional", []),
-            ("Overload", [3L]),
-            ("Overload", [null!]),
-            ("Nullable", [null!]),
-            ("ByRef", [3]),
-            ("Generic", []),
-            ("Throws", []),
-        };
-        for (int pass = 0; pass < 3; pass++)
-            foreach (var test in cases)
-            {
-                string expected = Outcome(() => Baseline(test.Method, test.Args));
-                string actual = Outcome(() =>
-                    Probe.Dispatch(AssemblyName, Owner, test.Method, test.Args)
-                );
-                Expect(actual == expected, $"{test.Method}: {actual} != {expected}");
-            }
-        Expect(
-            (int)Probe.Dispatch(AssemblyName, Owner, "Nullable", [null!])! == -1,
-            "Null must reach nullable parameters"
-        );
-        Expect(
-            Probe.Dispatch(AssemblyName, Owner, "Overload", [null!]) is null,
-            "Null must select the reference overload, not the value overload"
-        );
-        // Repeated successful dispatch still invokes the target with the current value.
-        Expect(
-            (int)Probe.Dispatch(AssemblyName, Owner, "Overload", [91])! == 92,
-            "Stale arguments"
-        );
-        Expect((int)Probe.Dispatch(AssemblyName, Owner, "Counter", [])! == 1, "First call skipped");
-        Expect((int)Probe.Dispatch(AssemblyName, Owner, "Counter", [])! == 2, "Result was cached");
-
-        // A missing assembly and then a missing type must remain retryable as staging proceeds.
-        string lateName = "DispatchLate" + Guid.NewGuid().ToString("N");
-        Expect(
-            Outcome(() => Probe.Resolve(lateName, "Late"))
-                .StartsWith("System.IO.FileNotFoundException:", StringComparison.Ordinal),
-            "Expected missing assembly"
-        );
-        var late = AssemblyBuilder.DefineDynamicAssembly(
-            new AssemblyName(lateName),
-            AssemblyBuilderAccess.Run
-        );
-        ResolveEventHandler resolver = (_, request) =>
-            new AssemblyName(request.Name).Name == lateName ? late : null;
-        AppDomain.CurrentDomain.AssemblyResolve += resolver;
-        try
-        {
-            Expect(
-                Outcome(() => Probe.Resolve(lateName, "Late"))
-                    .StartsWith("System.TypeLoadException:", StringComparison.Ordinal),
-                "Expected missing type"
-            );
-            var module = late.DefineDynamicModule("LateModule");
-            var type = module.DefineType("Late").CreateType()!;
-            Expect(
-                Probe.Resolve(lateName, "Late") == type,
-                "Cached failure prevented staged type resolution"
-            );
-            // Many distinct actual runtime types exercise signature eviction without
-            // changing assignability; many method names exercise metadata eviction.
-            for (int i = 0; i < 280; i++)
-            {
-                var extra = module.DefineType("Extra" + i).CreateType()!;
-                Probe.Resolve(lateName, extra.FullName!);
-                Expect(
-                    (string)
-                        Probe.Dispatch(
-                            AssemblyName,
-                            Owner,
-                            "Object",
-                            [Activator.CreateInstance(extra)!]
-                        )! == extra.Name,
-                    "Signature eviction changed dispatch"
-                );
-                Probe.Dispatch(AssemblyName, Owner, "missing" + i, [], expectFailure: true);
-            }
-            Probe.CheckBounds();
-            Expect(
-                (int)Probe.Dispatch(AssemblyName, Owner, "Overload", [4])! == 5,
-                "Eviction lost dispatch"
-            );
-        }
-        finally
-        {
-            AppDomain.CurrentDomain.AssemblyResolve -= resolver;
-        }
-        Parallel.For(
-            0,
-            200,
-            i =>
-                Expect(
-                    (int)Probe.Dispatch(AssemblyName, Owner, "Overload", [i])! == i + 1,
-                    "Concurrent dispatch"
-                )
-        );
+        CheckActivation();
+        WorkspaceRuntimeFixture.Check();
         Console.WriteLine(
-            "Probe dispatch: exact source agrees with original selection/errors; late loading, eviction, fresh arguments/results and concurrency passed."
+            "Workspace dispatch, activation retry, concurrent access and physical input checks passed."
         );
         if (args.Contains("--benchmark"))
             Benchmark();
     }
 
+    interface IFrameFixture
+    {
+        int Update(int frame);
+    }
+
+    sealed class FrameFixture : IFrameFixture
+    {
+        public int Update(int frame) => frame + 1;
+    }
+
+    static void CheckActivation()
+    {
+        int attempts = 0;
+        var runtime = new LateRuntime<IFrameFixture>(() =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+                throw new FileNotFoundException("Private assembly not staged");
+            return new FrameFixture();
+        });
+        Expect(attempts == 0, "Bootstrap activated the runtime before use");
+        try
+        {
+            _ = runtime.Value;
+            throw new Exception("Expected an unstaged runtime");
+        }
+        catch (FileNotFoundException) { }
+
+        Parallel.For(
+            0,
+            200,
+            frame => Expect(runtime.Value.Update(frame) == frame + 1, "Lost frame argument")
+        );
+        Expect(attempts == 2, "Runtime activated more than once after staging");
+    }
+
     static void Benchmark()
     {
         const int iterations = 200_000;
-        object[] arguments = [7];
-        Func<object?> baseline = () => Baseline("Overload", arguments);
-        Func<object?> cached = () => Probe.Dispatch(AssemblyName, Owner, "Overload", arguments);
-        foreach (var (name, operation) in new[] { ("original", baseline), ("cached", cached) })
+        var fixture = new PacketFixture();
+        var cached = typeof(PacketFixture).GetMethod(nameof(PacketFixture.Configure))!;
+        Func<int, int> reflected = frame =>
+            (bool)cached.Invoke(fixture, [(frame & 1) == 0])! ? 1 : 0;
+        Func<int, int> typed = frame => Probe.WorkspacePacketCache((frame & 1) == 0) ? 1 : 0;
+        foreach (
+            var (name, operation) in new[]
+            {
+                ("cached reflection", reflected),
+                ("typed runtime", typed),
+            }
+        )
         {
             for (int i = 0; i < 10_000; i++)
-                operation();
+                operation(i);
+            var watch = new Stopwatch();
             long allocated = GC.GetAllocatedBytesForCurrentThread();
-            var watch = Stopwatch.StartNew();
-            int sum = 0;
+            watch.Start();
+            long sum = 0;
             for (int i = 0; i < iterations; i++)
-                sum += (int)operation()!;
+                sum += operation(i);
             watch.Stop();
             allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
-            Expect(sum == iterations * 8, "Benchmark changed result");
+            Expect(sum == iterations / 2, "Benchmark changed result");
             Console.WriteLine(
                 $"{name}: {iterations} calls, {watch.Elapsed.TotalMilliseconds:F1} ms, {allocated / (double)iterations:F1} bytes/call"
             );
         }
-        Console.WriteLine(
-            "Desktop reflection microbenchmark only; WASM frame CPU requires separate profiling."
-        );
+        Console.WriteLine("Desktop dispatch microbenchmark.");
     }
 }
 
-public partial class Probe
+sealed class PacketFixture
 {
-    internal static Type Resolve(string assembly, string type) => Type(assembly, type);
+    bool enabled;
 
-    internal static object? Dispatch(
-        string assembly,
-        string type,
-        string method,
-        object[] args,
-        bool expectFailure = false
-    )
+    public bool Configure(bool enable)
     {
-        if (!expectFailure)
-            return Invoke(assembly, type, method, args);
-        try
-        {
-            Invoke(assembly, type, method, args);
-            throw new Exception("Expected missing dispatch");
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
+        bool previous = enabled;
+        enabled = enable;
+        return previous;
     }
-
-    internal static void CheckBounds()
-    {
-        if (ResolvedTypes.Count > ReflectionCacheLimit || Dispatches.Count > ReflectionCacheLimit)
-            throw new Exception("Metadata cache unbounded");
-        foreach (var dispatch in Dispatches.Values)
-        {
-            var signatures = (System.Collections.ICollection)
-                typeof(MethodDispatch)
-                    .GetField("signatures", BindingFlags.Instance | BindingFlags.NonPublic)!
-                    .GetValue(dispatch)!;
-            if (signatures.Count > SignatureCacheLimit)
-                throw new Exception("Signature cache unbounded");
-        }
-    }
-}
-
-public interface IFixture { }
-
-public class Parent
-{
-    public static int Inherited(int value) => value;
-}
-
-public class Derived : IFixture { }
-
-public class Fixture : Parent
-{
-    private static int count;
-
-    public static int Zero() => 42;
-
-    public static int Overload(int value) => value + 1;
-
-    public static string Overload(string value) => value;
-
-    public static string Base(object value) => value.GetType().Name;
-
-    public static string Interface(IFixture value) => value.GetType().Name;
-
-    public static string Object(object value) => value.GetType().Name;
-
-    public static int Nullable(int? value) => value ?? -1;
-
-    public static DayOfWeek Enum(DayOfWeek value) => value;
-
-    private static int Private(int value) => value;
-
-    public static string Ambiguous(object value) => "object";
-
-    public static string Ambiguous(string value) => "string";
-
-    public int Instance() => 0;
-
-    public static int Optional(int value = 3) => value;
-
-    public static int ByRef(ref int value) => value;
-
-    public static T Generic<T>() => default!;
-
-    public static int Throws() => throw new ArgumentException("fixture");
-
-    public static int Counter() => ++count;
 }

@@ -76,7 +76,7 @@ web-test: web-host-build web-host-test web-test-runtime
 web-test-runtime: (mod-build "rimref")
     dotnet build slopweb/runtime/Adapters/Adapters.csproj --nologo -v quiet -p:RestoreLockedMode=true
     for project in AudioTests ClipboardTests DispatchTests ImageTests InputTests StartupTests UnderlyingTests WorkspaceFrameTests; do dotnet run --project "slopweb/tests/runtime/$project/$project.csproj" -c Release -p:RestoreLockedMode=true; done
-    dotnet run --project slopweb/tests/runtime/PreferencesTests/PreferencesTests.csproj -c Release -p:RestoreLockedMode=true -- mod/Assemblies/SlopWorld.dll slopweb/runtime/Adapters/bin/Debug/net10.0
+    dotnet run --project slopweb/tests/runtime/PreferencesTests/PreferencesTests.csproj -c Release -p:RestoreLockedMode=true
     dotnet run --project slopweb/tests/runtime/CommandTests/CommandTests.csproj -c Release -p:RestoreLockedMode=true -- --quad-fixture slopweb/tests/runtime/CommandTests/bin/quad-fixture.json
     GUI_QUAD_FIXTURE=slopweb/tests/runtime/CommandTests/bin/quad-fixture.json node --test slopweb/tests/browser/*.test.mjs
 
@@ -88,11 +88,11 @@ web-test-keybindings game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/ste
 
 # Native font/adapter checks require the local game installation.
 [group('web')]
-web-test-native-text game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+web-test-native-text game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'): (mod-build "rimref")
     dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}}
 
 [group('web')]
-web-test-native-rows mod game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+web-test-native-rows mod game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'): (mod-build "rimref")
     dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --row-mod={{quote(mod)}}
 
 [group('web')]
@@ -115,7 +115,7 @@ web-bench-startup:
 
 # Native assemblies required; no engine or browser is started.
 [group('web')]
-web-bench-glyphs game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+web-bench-glyphs game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'): (mod-build "rimref")
     DOTNET_TieredCompilation=0 dotnet run --project slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj -c Release -p:GameDirectory={{quote(game)}} -- {{quote(game)}} --glyph-benchmark
 
 # Exercise the installed launcher and its private game preparation.
@@ -166,7 +166,7 @@ web-clean:
 
 # Compile native fidelity checks against installed assemblies without executing them.
 [group('web')]
-web-check-native-build game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'):
+web-check-native-build game=env('RIMWORLD', env('HOME') + '/.local/share/Steam/steamapps/common/RimWorld'): (mod-build "rimref")
     dotnet build slopweb/tests/runtime/NativeTextTests/NativeTextTests.csproj --nologo -v quiet -p:RestoreLockedMode=true -p:GameDirectory={{quote(game)}}
     dotnet build slopweb/tests/runtime/KeyBindingsTests/KeyBindingsTests.csproj --nologo -v quiet -p:RestoreLockedMode=true -p:GameDirectory={{quote(game)}}
 

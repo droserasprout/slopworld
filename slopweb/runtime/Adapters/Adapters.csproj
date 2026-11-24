@@ -6,8 +6,10 @@
   </PropertyGroup>
   <Import Project="../GameReferences.props" />
   <ItemGroup>
+    <ProjectReference Include="../Contract/SlopWeb.Runtime.Contract.csproj" />
     <EmbeddedResource Include="../../presentation-preferences.txt" LogicalName="presentation-preferences.txt" />
     <PackageReference Include="StbImageSharp" Version="2.27.13" />
+    <Reference Include="SlopWorld" HintPath="../../../mod/Assemblies/SlopWorld.dll" Private="false" />
     <Reference Include="UnityStubs">
       <HintPath>$(GameReferencePath)/UnityStubs.dll</HintPath>
       <Private>false</Private>
@@ -20,6 +22,7 @@
       <HintPath>$(GameReferencePath)/%(Identity).dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Waylith.UnityCompat" HintPath="$(GameReferencePath)/Waylith.UnityCompat.dll" Private="false" />
     <Reference Include="Waylith">
       <HintPath>$(GameReferencePath)/Waylith.dll</HintPath>
       <Private>false</Private>

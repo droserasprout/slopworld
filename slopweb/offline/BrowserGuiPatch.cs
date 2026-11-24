@@ -15,16 +15,36 @@ internal static class BrowserGuiPatch
             new ReaderParameters { InMemory = true, AssemblyResolver = resolver }
         );
         using var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"));
-        var clipboard = adapters.MainModule.GetType("BrowserAdapters.BrowserClipboard");
-        BrowserClipboardPatch.Redirect(
-            target.MainModule.GetType("UnityEngine.Application"),
-            adapters.MainModule.GetType("BrowserAdapters.BrowserWindow"),
+        TypeDefinition Required(AssemblyDefinition assembly, string name) =>
+            assembly.MainModule.GetType(name)
+            ?? throw new InvalidOperationException(
+                $"Missing {name} in {assembly.Name.Name} during GUI adaptation"
+            );
+        var clipboard = Required(adapters, "BrowserAdapters.BrowserClipboard");
+        OfflineRedirect.Redirect(
+            Required(target, "UnityEngine.Application"),
+            Required(adapters, "BrowserAdapters.BrowserWindow"),
             "OpenURL",
-            "OpenUrl"
+            "OpenUrl",
+            "System.Void",
+            "System.String"
         );
-        var utility = target.MainModule.GetType("UnityEngine.GUIUtility");
-        BrowserClipboardPatch.Redirect(utility, clipboard, "get_systemCopyBuffer", "Get");
-        BrowserClipboardPatch.Redirect(utility, clipboard, "set_systemCopyBuffer", "Set");
+        var utility = Required(target, "UnityEngine.GUIUtility");
+        OfflineRedirect.Redirect(
+            utility,
+            clipboard,
+            "get_systemCopyBuffer",
+            "Get",
+            "System.String"
+        );
+        OfflineRedirect.Redirect(
+            utility,
+            clipboard,
+            "set_systemCopyBuffer",
+            "Set",
+            "System.Void",
+            "System.String"
+        );
         var method = target
             .MainModule.GetType("UnityEngine.SystemInfo")
             .Methods.Single(m => m.Name == "get_copyTextureSupport");

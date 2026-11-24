@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json;
 using UnityEngine;
 using UnityStubs.Gui;
@@ -8,7 +7,7 @@ namespace BrowserAdapters;
 
 // The actual mod Window retains UI ownership. This renderer checkpoint runs only
 // after installed Entry/UI initialization and browser GUI installation.
-public static class WorkspaceDrawing
+public static partial class WorkspaceDrawing
 {
     static float viewportScale;
     static bool customScale;
@@ -62,27 +61,7 @@ public static class WorkspaceDrawing
     public static void Initialize()
     {
         RequireEntry();
-        var mod = AppDomain
-            .CurrentDomain.GetAssemblies()
-            .Single(a => a.GetName().Name == "SlopWorld");
-        shortcuts = mod.GetType("SlopWorld.Patch_WorkspaceShortcuts")!
-            .GetMethod("Prefix", BindingFlags.Public | BindingFlags.Static)!
-            .CreateDelegate<Action>();
-        applyLayout = mod.GetType("SlopWorld.Sidebar")!
-            .GetMethod("ApplyPendingLayoutChange", BindingFlags.NonPublic | BindingFlags.Static)!
-            .CreateDelegate<Action>();
-        flushTerminalInput = mod.GetType("SlopWorld.WorkspaceWindow")!
-            .GetMethod("FlushTerminalInput", BindingFlags.NonPublic | BindingFlags.Static)!
-            .CreateDelegate<Action>();
-        drawUiBubble = mod.GetType("SlopWorld.UiBubble")!
-            .GetMethod("DrawAfterWindows", BindingFlags.NonPublic | BindingFlags.Static)!
-            .CreateDelegate<Action>();
-        terminalDeadline = mod.GetType("SlopWorld.WorkspaceWindow")!
-            .GetMethod("NextUpdateDelay")!
-            .CreateDelegate<Func<float>>();
-        cursorDeadline = mod.GetType("SlopWorld.GameCursor")!
-            .GetMethod("NextUpdateDelay")!
-            .CreateDelegate<Func<float>>();
+        BindModServices();
         timeOrigin = lastTime = Time.unscaledTime;
         // Steam is explicitly unavailable in this browser host. A hidden desktop
         // warning would capture input after F12 closes the full-screen workspace.
@@ -103,80 +82,6 @@ public static class WorkspaceDrawing
             now
         );
         lastTime = now;
-    }
-
-    public static string Snapshot()
-    {
-        var window = Find.WindowStack.Windows.FirstOrDefault(w =>
-            w.GetType().FullName == "SlopWorld.WorkspaceWindow"
-        );
-        const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
-        var panel = window?.GetType().GetProperty("_terminal", privateInstance)!.GetValue(window);
-        object? PanelField(string name) =>
-            panel?.GetType().GetField(name, privateInstance)!.GetValue(panel);
-        var bounds = panel?.GetType().GetProperty("Bounds")!.GetValue(panel);
-        var font = panel?.GetType().Assembly.GetType("SlopWorld.TerminalFont");
-        var terminalState = PanelField("_state");
-        object? Shape(string name) =>
-            terminalState?.GetType().GetField(name)!.GetValue(terminalState);
-        var cache = PanelField("_cache") as RenderTexture;
-        var cacheKey = PanelField("_cacheKey");
-        return JsonSerializer.Serialize(
-            new
-            {
-                game = WorkspaceScene.Status(),
-                frame = Time.frameCount,
-                screenWidth = Screen.width,
-                screenHeight = Screen.height,
-                uiWidth = UI.screenWidth,
-                uiHeight = UI.screenHeight,
-                uiScale = Prefs.UIScale,
-                elapsed = Time.unscaledTime,
-                windowOpen = window != null,
-                doors = BrowserWorkspaceDoors.Snapshot(),
-                sidebar = BrowserSidebar.Snapshot(),
-                underlying = BrowserUnderlyingWorkspace.Snapshot(),
-                session = window
-                    ?.GetType()
-                    .GetProperty("SessionName", privateInstance)!
-                    .GetValue(window),
-                terminalDrawn = panel?.GetType().GetProperty("DrewScreen")!.GetValue(panel),
-                terminalGeometry = new
-                {
-                    bounds = bounds == null
-                        ? null
-                        : new[] { "X", "Y", "Width", "Height" }
-                            .Select(n => bounds.GetType().GetField(n)!.GetValue(bounds))
-                            .ToArray(),
-                    cellHeight = font?.GetProperty("CellH")!.GetValue(null),
-                    rows = Shape("Rows"),
-                    cols = Shape("Cols"),
-                },
-                terminalScroll = new
-                {
-                    offset = PanelField("_scrollOff"),
-                    pixels = PanelField("_historyLastPixels"),
-                    maximumPixels = PanelField("_historyMax"),
-                    wanted = PanelField("_wantedScrollOff"),
-                    sent = PanelField("_sentScrollOff"),
-                    pending = PanelField("_scrollPending"),
-                    requests = (
-                        PanelField("_historyRequests") as System.Collections.IDictionary
-                    )?.Count,
-                    viewReady = PanelField("_historyViewReady"),
-                },
-                terminalCache = new
-                {
-                    disabled = PanelField("_noCache"),
-                    exists = cache != null,
-                    created = cache != null && cache.IsCreated(),
-                    session = cacheKey?.GetType().GetField("Session")!.GetValue(cacheKey),
-                    revision = PanelField("_cacheContentRevision"),
-                    outsideTargetTrace = BrowserGui.OutsideTargetTrace,
-                },
-                errors = RuntimeServices.Errors,
-            }
-        );
     }
 
     public static void Update()

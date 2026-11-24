@@ -9,12 +9,19 @@ namespace SlopWorld
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.HandleEventsHighPriority))]
     public static class Patch_WorkspaceShortcuts
     {
-        static void Prefix()
+        public static void Prefix()
         {
             var e = Event.current;
             if (e == null || e.type != EventType.KeyDown)
                 return;
-            if (Current.ProgramState != ProgramState.Playing)
+            if (
+                Current.ProgramState != ProgramState.Playing
+                && !(
+                    ColonistBarStrip.MaplessWorkspace
+                    && Current.ProgramState == ProgramState.Entry
+                    && Current.Game == null
+                )
+            )
                 return;
 
             // Let the binding listener capture the next key without activating its interface action.

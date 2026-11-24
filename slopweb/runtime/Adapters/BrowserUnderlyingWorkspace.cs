@@ -1,3 +1,4 @@
+using SlopWorld;
 using UnityEngine;
 using Verse;
 
@@ -8,62 +9,20 @@ namespace BrowserAdapters;
 // Cached background playback belongs to the browser presenter, behind this GUI.
 public static class BrowserUnderlyingWorkspace
 {
-    static Type Owner(string name) =>
-        AppDomain
-            .CurrentDomain.GetAssemblies()
-            .Single(a => a.GetName().Name == "SlopWorld")
-            .GetType("SlopWorld." + name, true)!;
-
-    static readonly Type Window = Owner("WorkspaceWindow");
-    static readonly Type Selection = Owner("SessionSelectable");
-    static readonly Type Layout = Owner("WorkspaceLayout");
-    static readonly Type Visibility = Owner("WorkspaceVisibility");
-    static readonly Action<bool> TopBar = Owner("TopBar")
-        .GetMethod("Draw")!
-        .CreateDelegate<Action<bool>>();
-
     public static bool BackgroundVisible()
     {
         WorkspaceDrawing.RequireEntry();
-        return !Find.WindowStack.Windows.Any(Window.IsInstanceOfType);
+        return !Find.WindowStack.Windows.OfType<WorkspaceWindow>().Any();
     }
 
-    static readonly Func<bool> Shown = Visibility
-        .GetProperty("Shown")!
-        .GetMethod!.CreateDelegate<Func<bool>>();
-    static readonly Func<bool> Hidden = Visibility
-        .GetProperty("Hidden")!
-        .GetMethod!.CreateDelegate<Func<bool>>();
-    static readonly Func<ISelectable?> SelectedObject = Selection
-        .GetProperty("CurrentObject")!
-        .GetMethod!.CreateDelegate<Func<ISelectable?>>();
-    static readonly Func<string?> Session = Selection
-        .GetProperty("Current")!
-        .GetMethod!.CreateDelegate<Func<string?>>();
-    static readonly Func<Rect> AddBar = Owner("Sidebar")
-        .GetProperty("AddBar")!
-        .GetMethod!.CreateDelegate<Func<Rect>>();
-    static readonly Func<float> Gap = Owner("UiTheme")
-        .GetProperty("GapM")!
-        .GetMethod!.CreateDelegate<Func<float>>();
-    static readonly float ActionHeight = (float)
-        Owner("SessionGizmoInput").GetField("ActionRowHeight")!.GetRawConstantValue()!;
+    static bool ChromeVisible => WorkspaceVisibility.Shown && !WorkspaceVisibility.Hidden;
+    static ISelectable? Selected => SessionSelectable.CurrentObject;
 
-    // Geometry is a mod-owned value type. Cache its members once; do not bind
-    // its current value, which changes as windows and viewport sizes change.
-    static readonly System.Reflection.PropertyInfo Geometry = Layout.GetProperty("Current")!;
-    static readonly System.Reflection.FieldInfo Content = Geometry.PropertyType.GetField(
-        "Content"
-    )!;
-
-    static bool ChromeVisible => Shown() && !Hidden();
-    static ISelectable? Selected => SelectedObject();
-
-    static (float x, float y) GridOrigin()
-    {
-        var content = (Rect)Content.GetValue(Geometry.GetValue(null))!;
-        return (content.x + Gap(), AddBar().y - ActionHeight);
-    }
+    static (float x, float y) GridOrigin() =>
+        (
+            WorkspaceLayout.Current.Content.x + UiTheme.GapM,
+            Sidebar.AddBar.y - SessionGizmoInput.ActionRowHeight
+        );
 
     public static object Snapshot()
     {
@@ -76,7 +35,7 @@ public static class BrowserUnderlyingWorkspace
             visible,
             chromeVisible = visible && ChromeVisible,
             interactive = visible && Find.WindowStack.GetsInput(null),
-            session = Session(),
+            session = SessionSelectable.Current,
             actions = actions.OfType<Command>().Select(command => command.defaultLabel).ToArray(),
             firstActionRect = actions.Length == 0
                 ? null
@@ -93,7 +52,7 @@ public static class BrowserUnderlyingWorkspace
         // hotkeys into the underlying grid, even when their bounds miss the pointer.
         if (!interactive && Event.current.type != EventType.Repaint)
             return;
-        TopBar(interactive);
+        TopBar.Draw(interactive);
         if (!BackgroundVisible() || Event.current.type == EventType.Used)
             return;
         BrowserSidebar.Draw(interactive);

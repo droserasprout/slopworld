@@ -10,6 +10,7 @@ namespace SlopWorld
         string _name => _terminal.SessionName;
         bool _showStopped => _terminal.ShowStopped;
         IContentView _content => _panels.Content;
+        internal TerminalPanel SelectedTerminal => _terminal;
         internal string SessionName => _name;
         IContentView ITerminalPanelHost.Content => _content;
         bool ITerminalPanelHost.InputAvailable =>

@@ -136,7 +136,7 @@ namespace SlopWorld
         }
 
         static bool RuntimeRowVisible(SessionInfo session) =>
-            (session.Ephemeral || session.Host)
+            (ColonistBarStrip.MaplessWorkspace || session.Ephemeral || session.Host)
             && !IsRouted(session)
             && SidebarScopes.SessionChosen(session)
             && PassesStatus(session);

@@ -176,7 +176,12 @@ namespace SlopWorld
                 }
             );
 
-        public void Resize(string name, int cols, int rows) =>
+        internal static Func<string, int, int, bool> AllowResize { get; set; }
+
+        public void Resize(string name, int cols, int rows)
+        {
+            if (AllowResize?.Invoke(name, cols, rows) == false)
+                return;
             _send(
                 new Wire.ClientMessage
                 {
@@ -188,6 +193,7 @@ namespace SlopWorld
                     },
                 }
             );
+        }
 
         public void RefreshPanels() =>
             _send(new Wire.ClientMessage { Redraw = new Wire.RedrawReq() });

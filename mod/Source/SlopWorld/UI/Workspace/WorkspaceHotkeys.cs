@@ -113,7 +113,7 @@ namespace SlopWorld
         static string SelectedLive()
         {
             var colony = AgentColony.Current;
-            var selector = Find.Selector;
+            var selector = ColonistBarStrip.MapSelection;
             if (colony == null || selector == null)
                 return null;
 

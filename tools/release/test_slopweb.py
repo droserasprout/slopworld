@@ -164,6 +164,9 @@ def test_distributable_build_never_reads_staged_game_root(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('redistributable fixture')
     shutil.copyfile(ROOT / 'slopweb/runtime/Probe.csproj', runtime / 'Probe.csproj')
+    (runtime / 'Contract').mkdir()
+    for name in slopweb.CONTRACT_SOURCES:
+        shutil.copyfile(ROOT / 'slopweb/runtime/Contract' / name, runtime / 'Contract' / name)
     for name in slopweb.AOT_SOURCES:
         (runtime / name).write_text('authored C# fixture')
     for name in ('unlisted.cs', 'packages.lock.json', 'private.dll'):
@@ -241,7 +244,7 @@ def test_distributable_build_never_reads_staged_game_root(
     assert (output / 'ost/pace-20261012.ogg').is_file()
     assert not (output / 'ost/private.ogg').exists()
     assert (output / 'BUILD_ID').is_file()
-    assert {path.name for path in (output / 'aot-src').iterdir()} == {'Probe.csproj', *slopweb.AOT_SOURCES}
+    assert {path.name for path in (output / 'aot-src').iterdir()} == {'Probe.csproj', 'Contract', *slopweb.AOT_SOURCES}
     assert (output / 'slopweb-host').is_file()
     assert not list(output.rglob('*.py'))
     assert not (output / 'server').exists()
@@ -621,7 +624,7 @@ def test_real_arch_archive_contains_only_distributable_web_payload(tmp_path: Pat
     assert '--prepare' in result.stdout and '--token-file' in result.stdout
 
 
-@pytest.mark.parametrize('change', ['extra', 'missing', 'duplicate', 'symlink'])
+@pytest.mark.parametrize('change', ['extra', 'missing', 'duplicate', 'symlink', 'contract_symlink'])
 def test_aot_source_payload_requires_reviewed_compile_set(tmp_path: Path, change: str) -> None:
     import xml.etree.ElementTree as ET
 
@@ -631,7 +634,9 @@ def test_aot_source_payload_requires_reviewed_compile_set(tmp_path: Path, change
     shutil.copyfile(source / 'Probe.csproj', runtime / 'Probe.csproj')
     for name in slopweb.AOT_SOURCES:
         (runtime / name).write_text('authored source')
-    if change == 'symlink':
+    if change == 'contract_symlink':
+        (runtime / 'Contract').symlink_to(source / 'Contract', target_is_directory=True)
+    elif change == 'symlink':
         (runtime / 'Program.cs').unlink()
         (runtime / 'Program.cs').symlink_to(source / 'Program.cs')
     else:

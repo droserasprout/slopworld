@@ -18,14 +18,7 @@ namespace SlopWorld
         bool Connected { get; }
         string LastError { get; }
         IncomingMessageQueue Incoming { get; }
-        bool Connect(
-            string host,
-            int port,
-            string path,
-            string token,
-            int timeoutMs = 3000,
-            bool useTls = false
-        );
+        Task<bool> ConnectAsync(ConnectionInfo connection, CancellationToken cancellation);
         bool SendBinary(byte[] text);
         bool FlushOutgoing(int timeoutMs);
     }
@@ -66,6 +59,25 @@ namespace SlopWorld
         readonly AutoResetEvent _sendSignal = new AutoResetEvent(false);
         readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
 
+        Task<bool> IHubSocket.ConnectAsync(
+            ConnectionInfo connection,
+            CancellationToken cancellation
+        )
+        {
+            cancellation.ThrowIfCancellationRequested();
+            return Task.FromResult(
+                Connect(
+                    connection.Host,
+                    connection.Port,
+                    connection.PathPrefix + WireProtocol.WsPath,
+                    connection.Token,
+                    3000,
+                    connection.UseTls,
+                    cancellation
+                )
+            );
+        }
+
         public bool Connect(
             string host,
             int port,
@@ -73,6 +85,16 @@ namespace SlopWorld
             string token,
             int timeoutMs = 3000,
             bool useTls = false
+        ) => Connect(host, port, path, token, timeoutMs, useTls, CancellationToken.None);
+
+        bool Connect(
+            string host,
+            int port,
+            string path,
+            string token,
+            int timeoutMs,
+            bool useTls,
+            CancellationToken cancellation
         )
         {
             try
@@ -80,6 +102,7 @@ namespace SlopWorld
                 LastError = null;
                 _closing = false;
                 _tcp = new TcpClient { NoDelay = true };
+                using var stopHandshake = cancellation.Register(_tcp.Close);
                 var ar = _tcp.BeginConnect(host, port, null, null);
                 if (!ar.AsyncWaitHandle.WaitOne(timeoutMs) || !_tcp.Connected)
                 {

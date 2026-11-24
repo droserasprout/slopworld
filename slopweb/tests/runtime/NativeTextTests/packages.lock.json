@@ -15,6 +15,7 @@
       "adapters": {
         "type": "Project",
         "dependencies": {
+          "SlopWeb.Runtime.Contract": "[1.0.0, )",
           "StbImageSharp": "[2.27.13, )"
         }
       },
@@ -23,6 +24,9 @@
         "dependencies": {
           "Mono.Cecil": "[0.11.6, )"
         }
+      },
+      "slopweb.runtime.contract": {
+        "type": "Project"
       }
     }
   }

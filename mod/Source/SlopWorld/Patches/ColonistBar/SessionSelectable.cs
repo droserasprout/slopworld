@@ -32,7 +32,7 @@ namespace SlopWorld
                 if (Syncing)
                     return;
 
-                var selector = Find.Selector;
+                var selector = ColonistBarStrip.MapSelection;
                 if (selector == null || selector.SelectedObjects.Count == 0)
                     return;
 
@@ -282,7 +282,7 @@ namespace SlopWorld
 
         public static void SyncFromMapSelection()
         {
-            var selector = Find.Selector;
+            var selector = ColonistBarStrip.MapSelection;
             if (selector == null)
                 return;
 

@@ -13,7 +13,7 @@ namespace SlopWorld
 
         internal static void Install()
         {
-            if (installed || !ModProfile.Ok)
+            if (ClientPlatform.IsBrowser || installed || !ModProfile.Ok)
                 return;
             installed = true;
             NativeFonts.Prepare();

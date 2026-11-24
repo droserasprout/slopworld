@@ -12,8 +12,10 @@ namespace SlopWorld
                 error => Log.Error("[SlopWorld] could not load TOML settings: " + error)
             );
 
-        public static void Write(this ModSettings settings) =>
-            ModSettingsStore.Write(FilePath(), settings);
+        public static void Write(this ModSettings settings) => Save(settings);
+
+        internal static System.Action<ModSettings> Save { get; set; } =
+            settings => ModSettingsStore.Write(FilePath(), settings);
 
         public static void FlushIfDue(this ModSettings settings) => settings.FlushIfDue(Write);
 

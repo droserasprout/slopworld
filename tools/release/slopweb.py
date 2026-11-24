@@ -91,6 +91,7 @@ HELPER_FILES = {
         'Mono.Cecil.Rocks.dll',
     ),
 }
+CONTRACT_SOURCES = ('SlopWeb.Runtime.Contract.csproj', 'IWorkspaceRuntime.cs', 'LateRuntime.cs')
 AOT_SOURCES = (
     'Program.cs',
     'BrowserInput.cs',
@@ -121,7 +122,9 @@ def stage_aot_sources(runtime: Path, bundle: Path) -> None:
     declared = [item.get('Include', '') for item in ET.parse(runtime / 'Probe.csproj').findall('.//Compile')]
     if sorted(declared) != sorted(AOT_SOURCES):
         raise ValueError('Probe compiler sources changed; review the slopweb AOT source allowlist')
-    for name in ('Probe.csproj', *AOT_SOURCES):
+    if (runtime / 'Contract').is_symlink():
+        raise ValueError('AOT contract directory must not be a symlink')
+    for name in ('Probe.csproj', *AOT_SOURCES, *(f'Contract/{name}' for name in CONTRACT_SOURCES)):
         source = runtime / name
         if source.is_symlink():
             raise ValueError(f'AOT compiler source must not be a symlink: {source}')

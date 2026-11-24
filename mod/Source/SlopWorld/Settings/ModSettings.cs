@@ -12,8 +12,11 @@ namespace SlopWorld
         int _dirtyAge = -1;
         const int FlushAfter = 120;
 
+        internal static Action<ModSettings> Changed { get; set; }
+
         public void MarkDirty()
         {
+            Changed?.Invoke(this);
             _dirtyAge = 0;
         }
 

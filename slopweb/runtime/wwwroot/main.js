@@ -86,6 +86,7 @@ try {
         loaded.push(await loadFile('./Adapters.dll'));
         // Woven game methods can resolve mod types during Entry startup.
         await loadFile('./mod/SlopWorld.dll');
+        exports.Probe.InstallPlatform(new URL('.', location.href).href);
         const response = await fetch('./assets/Core.zip');
         if (!response.ok) throw new Error(`Core.zip: HTTP ${response.status}`);
         const core = new Uint8Array(await response.arrayBuffer());

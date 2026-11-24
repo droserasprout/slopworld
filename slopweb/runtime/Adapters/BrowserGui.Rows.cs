@@ -45,28 +45,12 @@ public sealed partial class BrowserGui
     }
 
     // The mod keeps the native no-op boundary; no browser assembly is loaded there.
-    // Install delegates once, outside the per-row path, without referencing mod types.
+    // Install delegates once, outside the per-row path.
     public static bool ConfigureTerminalRows(bool enabled)
     {
         bool previous = rowsEnabled;
-        var boundary = AppDomain
-            .CurrentDomain.GetAssemblies()
-            .FirstOrDefault(a => a.GetName().Name == "SlopWorld")
-            ?.GetType("SlopWorld.TerminalRowCommands");
-        if (enabled && boundary == null)
-            throw new InvalidOperationException("Terminal row recording requires the current mod");
-        if (boundary != null)
-        {
-            boundary
-                .GetField("TryReplay")!
-                .SetValue(
-                    null,
-                    enabled ? new Func<object, GUIStyle, float[], bool>(TryTerminalRow) : null
-                );
-            boundary
-                .GetField("Complete")!
-                .SetValue(null, enabled ? new Action<bool, GUIStyle>(CompleteTerminalRow) : null);
-        }
+        SlopWorld.TerminalRowCommands.TryReplay = enabled ? TryTerminalRow : null;
+        SlopWorld.TerminalRowCommands.Complete = enabled ? CompleteTerminalRow : null;
         rowsEnabled = enabled;
         if (GuiBackend.Current is BrowserGui gui)
             gui.ClearRows();

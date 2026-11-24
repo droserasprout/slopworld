@@ -247,6 +247,9 @@
         "dependencies": {
           "Microsoft.JSInterop": "10.0.14"
         }
+      },
+      "slopweb.runtime.contract": {
+        "type": "Project"
       }
     },
     "net10.0/browser-wasm": {}

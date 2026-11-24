@@ -22,6 +22,15 @@ internal static class CoreBootstrap
         var initialize = target
             .MainModule.Types.Single(t => t.FullName == "RimWorldWaylith.Bootstrap")
             .Methods.Single(m => m.Name == "Initialize");
+        if (
+            !initialize.IsStatic
+            || initialize.FullName
+                != "System.Void RimWorldWaylith.Bootstrap::Initialize(Waylith.EngineApplication)"
+            || !initialize.HasBody
+        )
+            throw new InvalidOperationException(
+                "Expected static void RimWorldWaylith.Bootstrap.Initialize(EngineApplication)"
+            );
         var replacements = new Dictionary<string, string>
         {
             ["Waylith.Injection.Injection::ApplyPendingAtFrameBoundary"] = "RequireCoreOnly",
@@ -401,7 +410,12 @@ internal static class CoreBootstrap
             .MainModule.Types.Single(t => t.FullName == "Waylith.Rendering.Texture2D")
             .Methods.Single(m => m.Name == "Apply");
         var discardPixels = applyTexture.Parameters.Single(p => p.Name == "makeNoLongerReadable");
-        if (discardPixels.ParameterType.FullName != "System.Boolean")
+        if (
+            applyTexture.IsStatic
+            || applyTexture.FullName
+                != "System.Void Waylith.Rendering.Texture2D::Apply(System.Boolean,System.Boolean)"
+            || discardPixels.ParameterType.FullName != "System.Boolean"
+        )
             throw new InvalidOperationException("Texture CPU retention contract changed");
         // WebGL uploads from CPU storage after capture. The headless native
         // upload cannot retain procedural pixels for us; disposal still releases
@@ -418,21 +432,28 @@ internal static class CoreBootstrap
         if (bound.OpCode != OpCodes.Ldc_I4_2 || bound.Next.OpCode != OpCodes.Blt_S)
             throw new InvalidOperationException("Cache writer worker loop changed");
         bound.OpCode = OpCodes.Ldc_I4_0;
-        var enqueue = owner.Methods.Single(m => m.Name == "Enqueue");
-        var replacement = adapters
-            .MainModule.Types.Single(t => t.Name == "RuntimeServices")
-            .Methods.Single(m => m.Name == "EnqueueCache");
-        enqueue.Body = new MethodBody(enqueue);
-        var il = enqueue.Body.GetILProcessor();
-        il.Emit(OpCodes.Ldarg_0);
-        il.Emit(OpCodes.Ldarg_1);
-        il.Emit(OpCodes.Call, target.MainModule.ImportReference(replacement));
-        il.Emit(OpCodes.Ret);
+        OfflineRedirect.Redirect(
+            owner,
+            adapters.MainModule.GetType("BrowserAdapters.RuntimeServices"),
+            "Enqueue",
+            "EnqueueCache",
+            "System.Void",
+            "System.String",
+            "System.Byte[]"
+        );
         // The browser VFS mapping has no OS resident-page advice API. Retain the
         // readable mapping; desktop staged execution keeps its original hint.
         var drop = target
             .MainModule.Types.Single(t => t.FullName == "Waylith.Assets.AssetPack")
             .Methods.Single(m => m.Name == "DropResidentPages");
+        if (
+            drop.IsStatic
+            || drop.FullName != "System.Void Waylith.Assets.AssetPack::DropResidentPages()"
+            || !drop.HasBody
+        )
+            throw new InvalidOperationException(
+                "Expected instance void AssetPack.DropResidentPages()"
+            );
         var dropIl = drop.Body.GetILProcessor();
         var original = drop.Body.Instructions[0];
         dropIl.InsertBefore(

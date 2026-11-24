@@ -13,6 +13,9 @@
         "requested": "[2.27.13, )",
         "resolved": "2.27.13",
         "contentHash": "tHnP2RHgFzWbOS96UqvRO/LYU1WmpMT1bKiig45we+rpaXacBr11Fq2IBF+MqlgyLyNXxRz18E66qr4R9YlSbg=="
+      },
+      "slopweb.runtime.contract": {
+        "type": "Project"
       }
     }
   }

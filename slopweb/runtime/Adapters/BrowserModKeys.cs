@@ -11,9 +11,6 @@ public static class BrowserModKeys
 {
     static bool installed;
 
-    public static bool WorkspaceState(ProgramState state) =>
-        state == ProgramState.Playing || (state == ProgramState.Entry && Current.Game == null);
-
     public static int Install()
     {
         WorkspaceDrawing.RequireEntry();
@@ -58,10 +55,7 @@ public static class BrowserModKeys
         KeyPrefs.Init();
         BrowserKeyBindings.Configure(definitions.OfType<KeyBindingDef>());
 
-        var mod = AppDomain
-            .CurrentDomain.GetAssemblies()
-            .Single(a => a.GetName().Name == "SlopWorld");
-        var defOf = mod.GetType("SlopWorld.ModDefOf")!;
+        var defOf = typeof(SlopWorld.ModDefOf);
         // Native DefOf constructors distinguish binding from accidental early use.
         // Scope that guard around this explicit UI-only bind; no simulation fields
         // are initialized and Core's other DefOf owners are left alone.

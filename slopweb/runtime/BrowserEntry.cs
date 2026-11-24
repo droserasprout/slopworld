@@ -1,12 +1,9 @@
-using System.Collections;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices.JavaScript;
-using System.Text.Json;
 
 public partial class Probe
 {
-    private static IDisposable? entryEngine;
     private static bool coreInstalled;
     private static bool entryStarted;
 
@@ -17,9 +14,7 @@ public partial class Probe
     [JSExport]
     public static string ConfigureCoreLanguage(string folder)
     {
-        var nativeDefault = (string)
-            Invoke("Assembly-CSharp", "Verse.LanguageDatabase", "SystemLanguageFolderName")!;
-        return languagePacks.Choose(folder, nativeDefault);
+        return languagePacks.Choose(folder, Runtime.SystemLanguageFolder());
     }
 
     [JSExport]
@@ -107,31 +102,13 @@ public partial class Probe
             "entry.bootstrap",
             () =>
             {
-                Invoke("Adapters", "BrowserAdapters.RuntimeServices", "ConfigureLogging");
                 RequireCoreOnly();
-                var options = Activator.CreateInstance(
-                    Type("Waylith", "Waylith.EngineApplicationOptions")
-                )!;
-                options.GetType().GetProperty("Headless")!.SetValue(options, true);
-                options
-                    .GetType()
-                    .GetProperty("AudioBackend")!
-                    .SetValue(
-                        options,
-                        Activator.CreateInstance(Type("Adapters", "BrowserAdapters.SilentAudio"))
-                    );
-                entryEngine = (IDisposable)
-                    Activator.CreateInstance(
-                        Type("Waylith", "Waylith.EngineApplication"),
-                        options
-                    )!;
-                Invoke("Adapters", "BrowserAdapters.SilentAudio", "ActivateForEntry", entryEngine);
-                Invoke("RimWorld", "RimWorldWaylith.Bootstrap", "Initialize", entryEngine);
+                Runtime.StartEntryEngine();
                 return "initialized";
             }
         );
         Console.WriteLine("Entry: bootstrap returned");
-        return EntryReport();
+        return Runtime.EntryReport(Results);
     }
 
     [JSExport]
@@ -144,125 +121,23 @@ public partial class Probe
             "entry.frame." + frame,
             () =>
             {
-                if (entryEngine == null)
-                    throw new InvalidOperationException("Entry is stopped");
-                InputFrame("[]", 240);
-                DrawCall("ClearFrameSubmissions");
-                Invoke("Waylith", "Waylith.EngineApplication", "BeginFrame", 1f / 60, frame / 60f);
-                try
-                {
-                    (
-                        (Action?)entryEngine.GetType().GetField("OnUpdate")!.GetValue(entryEngine)
-                    )?.Invoke();
-                }
-                finally
-                {
-                    Invoke("Waylith", "Waylith.EngineApplication", "EndFrame");
-                }
+                Runtime.UpdateEntryEngine(frame);
                 return "updated";
             }
         );
         if (trace)
             Console.WriteLine("Entry: finished frame " + frame);
-        return EntryReport();
-    }
-
-    private static string EntryReport()
-    {
-        var runtime = Type("UnityStubs", "Waylith.UnityCompat.UnityRuntime")
-            .GetProperty("Current")!
-            .GetValue(null);
-        var world = runtime == null ? null : Get(runtime, "World");
-        var loaded = (bool)
-            Type("Assembly-CSharp", "Verse.PlayDataLoader").GetProperty("Loaded")!.GetValue(null)!;
-        string? humanBody = null;
-        if (loaded)
-        {
-            var database = Type("Assembly-CSharp", "Verse.DefDatabase`1")
-                .MakeGenericType(Type("Assembly-CSharp", "Verse.ThingDef"));
-            var human = database
-                .GetMethod("GetNamed")!
-                .Invoke(null, new object[] { "Human", true })!;
-            var race = human.GetType().GetField("race")!.GetValue(human)!;
-            var body = race.GetType().GetField("body")!.GetValue(race)!;
-            humanBody = body.GetType().GetField("defName")!.GetValue(body)!.ToString();
-        }
-        var messages = (
-            (IEnumerable)
-                Type("Assembly-CSharp", "Verse.Log").GetProperty("Messages")!.GetValue(null)!
-        )
-            .Cast<object>()
-            .Select(m => m.GetType().GetField("text")!.GetValue(m)?.ToString())
-            .ToArray();
-        return JsonSerializer.Serialize(
-            new
-            {
-                checks = Results,
-                messages,
-                world = world == null ? null : InstanceCall(world, "GetDiagnosticsSnapshot"),
-                engineErrors = Type("Adapters", "BrowserAdapters.RuntimeServices")
-                    .GetProperty("Errors")!
-                    .GetValue(null),
-                engineErrorCount = Type("Adapters", "BrowserAdapters.RuntimeServices")
-                    .GetProperty("ErrorCount")!
-                    .GetValue(null),
-                omittedErrorCount = Type("Adapters", "BrowserAdapters.RuntimeServices")
-                    .GetProperty("OmittedErrorCount")!
-                    .GetValue(null),
-                unityFrame = runtime == null ? null : Get(runtime, "FrameCount"),
-                loaded,
-                humanBody,
-                activeScene = Get(
-                    Invoke(
-                        "UnityStubs",
-                        "UnityEngine.SceneManagement.SceneManager",
-                        "GetActiveScene"
-                    )!,
-                    "name"
-                ),
-                definitions = new[]
-                {
-                    "Verse.ThingDef",
-                    "Verse.TerrainDef",
-                    "Verse.RecipeDef",
-                }.ToDictionary(
-                    name => name,
-                    name =>
-                        Type("Assembly-CSharp", "Verse.DefDatabase`1")
-                            .MakeGenericType(Type("Assembly-CSharp", name))
-                            .GetProperty("DefCount")!
-                            .GetValue(null)
-                ),
-                customClrInjection = false,
-                rendered = false,
-                colony = false,
-            }
-        );
+        return Runtime.EntryReport(Results);
     }
 
     [JSExport]
-    public static string GameSnapshot() =>
-        (string)Invoke("Adapters", "BrowserAdapters.WorkspaceScene", "Snapshot")!;
+    public static string GameSnapshot() => Runtime.GameSnapshot();
 
     [JSExport]
     public static void StopEntry()
     {
-        var engine = entryEngine;
         switchLanguage = null;
-        entryEngine = null;
-        if (engine == null)
-            return;
-        try
-        {
-            var runtime = Type("UnityStubs", "Waylith.UnityCompat.UnityRuntime")
-                .GetProperty("Current")!
-                .GetValue(null);
-            if (runtime != null)
-                InstanceCall(Get(runtime, "World"), "Shutdown");
-        }
-        finally
-        {
-            engine.Dispose();
-        }
+        if (entryStarted)
+            Runtime.Dispose();
     }
 }

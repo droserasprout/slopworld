@@ -1,7 +1,7 @@
 // Entry-only UI definition binding. Native TopBar owns door geometry, drawing
 // and actions; no building instance, map or simulation state is created here.
-using System.Reflection;
 using System.Xml;
+using SlopWorld;
 using Verse;
 
 namespace BrowserAdapters;
@@ -9,8 +9,6 @@ namespace BrowserAdapters;
 public static class BrowserWorkspaceDoors
 {
     static bool installed;
-    static Action? coreMenu;
-    static Action? radioUpdate;
 
     public static bool Available(Map? map)
     {
@@ -21,47 +19,27 @@ public static class BrowserWorkspaceDoors
     public static void OpenCore()
     {
         WorkspaceDrawing.RequireEntry();
-        coreMenu!();
+        CoreTip.OpenWorkspaceMenu();
     }
 
     public static void Update()
     {
         WorkspaceDrawing.RequireEntry();
-        radioUpdate!();
+        Radio.Update();
     }
 
     public static object Snapshot()
     {
-        var mod = AppDomain
-            .CurrentDomain.GetAssemblies()
-            .Single(a => a.GetName().Name == "SlopWorld");
-        var top = mod.GetType("SlopWorld.TopBar")!;
-        var doors = top.GetField("_doors", BindingFlags.NonPublic | BindingFlags.Static)!
-            .GetValue(null)!;
-        var layout = doors.GetType();
-        object Door(string name)
-        {
-            var rect = (UnityEngine.Rect)layout.GetField(name)!.GetValue(doors)!;
-            return new
-            {
-                visible = (bool)layout.GetField("Has" + name)!.GetValue(doors)!,
-                rect = new[] { rect.x, rect.y, rect.width, rect.height },
-            };
-        }
+        var doors = TopBar.CurrentDoors;
+        static object Door(bool visible, UnityEngine.Rect rect) =>
+            new { visible, rect = new[] { rect.x, rect.y, rect.width, rect.height } };
         return new
         {
-            planner = Door("Planner"),
-            config = Door("Config"),
-            core = Door("Core"),
-            jukebox = Door("Jukebox"),
-            view = mod.GetType("SlopWorld.WorkspaceWindow")!
-                .GetProperty(
-                    "Showing",
-                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
-                )!
-                .GetValue(null)
-                ?.GetType()
-                .Name,
+            planner = Door(doors.HasPlanner, doors.Planner),
+            config = Door(doors.HasConfig, doors.Config),
+            core = Door(doors.HasCore, doors.Core),
+            jukebox = Door(doors.HasJukebox, doors.Jukebox),
+            view = WorkspaceWindow.Showing?.GetType().Name,
         };
     }
 
@@ -73,10 +51,6 @@ public static class BrowserWorkspaceDoors
         var pack =
             BrowserModContent.Current()
             ?? throw new InvalidOperationException("Mount mod content before doors");
-        var mod = AppDomain
-            .CurrentDomain.GetAssemblies()
-            .Single(a => a.GetName().Name == "SlopWorld");
-        var defOf = mod.GetType("SlopWorld.ModDefOf")!;
         // Only authored presentation definitions are loaded. Core's genuine
         // computer definition is already available from Core startup.
         foreach (
@@ -98,17 +72,13 @@ public static class BrowserWorkspaceDoors
             definition.PostLoad();
             DirectXmlCrossRefLoader.ResolveAllWantedCrossReferences(FailMode.LogErrors);
             definition.ResolveReferences();
-            defOf.GetField(name)!.SetValue(null, definition);
+            if (name == "SlopPlannerBench")
+                ModDefOf.SlopPlannerBench = definition;
+            else
+                ModDefOf.SlopJukebox = definition;
         }
-        defOf
-            .GetField("Ship_ComputerCore")!
-            .SetValue(null, DefDatabase<ThingDef>.GetNamed("Ship_ComputerCore"));
-        coreMenu = mod.GetType("SlopWorld.CoreTip")!
-            .GetMethod("OpenWorkspaceMenu")!
-            .CreateDelegate<Action>();
-        var radio = mod.GetType("SlopWorld.Radio")!;
-        radio.GetMethod("ObserveDaemonPlayback")!.Invoke(null, null);
-        radioUpdate = radio.GetMethod("Update")!.CreateDelegate<Action>();
+        ModDefOf.Ship_ComputerCore = DefDatabase<ThingDef>.GetNamed("Ship_ComputerCore");
+        Radio.ObserveDaemonPlayback();
         installed = true;
     }
 }

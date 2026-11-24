@@ -18,73 +18,28 @@ internal static class EcoWorkspace
         using var game = AssemblyDefinition.ReadAssembly(targetPath, options);
         using var mod = AssemblyDefinition.ReadAssembly(modPath, options);
         BrowserScalePatch.Apply(game);
-        BrowserHttpPatch.Apply(mod, root);
-        BrowserSocketPatch.Apply(mod, root);
-        BrowserSidebarPatch.Apply(mod, root);
-        BrowserKeysPatch.Apply(mod, root);
-        BrowserWorkspaceDoorsPatch.Apply(mod, root);
         BrowserKeyBindingsPatch.Apply(game, root);
-        BrowserClipboardPatch.Apply(mod, root);
-        BrowserCursorPatch.Apply(mod, root);
-        BrowserTerminalSizePatch.Apply(mod, root);
-        BrowserPreferencesPatch.Apply(mod, root);
-        BrowserWindowPatch.Apply(mod, root);
-        BrowserAudioPatch.Apply(mod, root);
-        using (var adapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll")))
-            BrowserClipboardPatch.Redirect(
-                mod.MainModule.GetType("SlopWorld.FontconfigFonts"),
-                adapters.MainModule.GetType("BrowserAdapters.BrowserFontBank"),
-                "Families",
-                "Families"
-            );
-        using (
-            var fontAdapters = AssemblyDefinition.ReadAssembly(Path.Combine(root, "Adapters.dll"))
-        )
-        {
-            var bank = fontAdapters.MainModule.GetType("BrowserAdapters.BrowserFontBank");
-            var names = mod
-                .MainModule.GetType("SlopWorld.NativeFonts")
-                .Methods.Single(m => m.Name == "Names");
-            var il = names.Body.GetILProcessor();
-            var first = names.Body.Instructions[0];
-            il.InsertBefore(
-                first,
-                il.Create(
-                    OpCodes.Call,
-                    mod.MainModule.ImportReference(bank.Methods.Single(m => m.Name == "HasCatalog"))
-                )
-            );
-            il.InsertBefore(first, il.Create(OpCodes.Brfalse, first));
-            il.InsertBefore(first, il.Create(OpCodes.Ldarg_0));
-            il.InsertBefore(
-                first,
-                il.Create(
-                    OpCodes.Call,
-                    mod.MainModule.ImportReference(bank.Methods.Single(m => m.Name == "Names"))
-                )
-            );
-            il.InsertBefore(first, il.Create(OpCodes.Ret));
-        }
         // Native Unity audio is disabled: MusicUpdate would throw from Root_Play.Update.
         // BrowserAudio owns authored OST decoding through the DOM transport; keep
         // this native-manager suppression isolated from the rest of Root_Play.
         var music = game
             .MainModule.GetType("RimWorld.MusicManagerPlay")
             .Methods.Single(m => m.Name == "MusicUpdate");
+        if (
+            music.IsStatic
+            || !music.HasBody
+            || music.Parameters.Count != 0
+            || music.ReturnType.MetadataType != MetadataType.Void
+        )
+            throw new InvalidOperationException(
+                "Expected instance void RimWorld.MusicManagerPlay.MusicUpdate()"
+            );
         music.Body = new MethodBody(music);
         music.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         var hooks = new List<string>();
         BrowserOptionsPatch.Apply(game, mod, hooks);
         EcoPrefixes.Apply(game, mod, hooks);
         BrowserActionButtonsPatch.Apply(game, mod, hooks);
-        TypeDefinition ModType(string name) =>
-            mod.MainModule.GetType(name)
-            ?? throw new InvalidOperationException("Missing mod type " + name);
-        // The browser owns startup integration. Keep the real ModEntry constructor
-        // and profile settings load; bypass only its desktop startup installer.
-        var early = ModType("SlopWorld.EarlyBootstrap").Methods.Single(m => m.Name == "Install");
-        early.Body = new MethodBody(early);
-        early.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         Directory.CreateDirectory(Path.Combine(root, "mod"));
         mod.Write(Path.Combine(root, "mod", "SlopWorld.dll"));
         game.Write(targetPath + ".partial");

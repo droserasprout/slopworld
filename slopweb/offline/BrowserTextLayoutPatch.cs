@@ -24,9 +24,14 @@ internal static class BrowserTextLayoutPatch
         var create = layout.Methods.Single(m => m.Name == "AdvancesFor" && m.Parameters.Count == 3);
         var point = glyphs.Methods.Single(m => m.Name == "CodePoint" && m.Parameters.Count == 3);
         if (
-            create.ReturnType.FullName != glyphs.FullName
-            || point.ReturnType.FullName != "System.Int32"
-            || point.Parameters[2].ParameterType.FullName != "System.Single&"
+            create.IsStatic
+            || !create.HasBody
+            || point.IsStatic
+            || !point.HasBody
+            || create.FullName
+                != "RimWorldWaylith.Imgui.TextLayout/GlyphAdvances RimWorldWaylith.Imgui.TextLayout::AdvancesFor(System.Int32,System.Single,UnityEngine.FontStyle)"
+            || point.FullName
+                != "System.Int32 RimWorldWaylith.Imgui.TextLayout/GlyphAdvances::CodePoint(System.String,System.Int32,System.Single&)"
         )
             throw new InvalidOperationException("Native glyph advance contract changed");
         void Prefix(MethodDefinition method, string guard, string callback, bool scale)
@@ -76,13 +81,19 @@ internal static class BrowserTextLayoutPatch
                 || call.DeclaringType.FullName != "RimWorldWaylith.Imgui.ImGuiHost"
             )
                 continue;
-            if (call.Name == "PixelSizeFor")
+            if (
+                call.FullName
+                == "System.Single RimWorldWaylith.Imgui.ImGuiHost::PixelSizeFor(System.Int32,System.Single)"
+            )
             {
                 instruction.OpCode = OpCodes.Call;
                 instruction.Operand = Import("PixelSize");
                 pixels++;
             }
-            else if (call.Name == "LineMetricsFor")
+            else if (
+                call.FullName
+                == "RimWorldWaylith.Imgui.LineMetrics RimWorldWaylith.Imgui.ImGuiHost::LineMetricsFor(System.Int32,System.Single)"
+            )
             {
                 instruction.OpCode = OpCodes.Call;
                 instruction.Operand = Import("LineMetrics");

@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from tools.web_timings import Timings
 
 PROJECTS = (
-    'runtime/Probe.csproj',
     'runtime/Adapters/Adapters.csproj',
     'runtime/FontProbe/FontProbe.csproj',
     'runtime/BackgroundProbe/BackgroundProbe.csproj',
@@ -28,8 +27,10 @@ def build_managed(timings: Timings) -> None:
                 check=True,
             )
 
-    # Each producer has its own bin/obj and no ProjectReference edges. Join every
+    # Probe and Adapters both build the shared contract. Finish Probe before
+    # starting the remaining producers, which have disjoint outputs. Join every
     # writer, including on failure, before staging can read their outputs.
+    build('runtime/Probe.csproj')
     with ThreadPoolExecutor(max_workers=min(jobs, len(PROJECTS))) as pool:
         list(pool.map(build, PROJECTS))
 

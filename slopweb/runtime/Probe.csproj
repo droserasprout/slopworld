@@ -12,6 +12,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="Contract/SlopWeb.Runtime.Contract.csproj" />
     <PackageReference Include="StbImageSharp" Version="2.27.13" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.14" />
     <Compile Include="Program.cs" />

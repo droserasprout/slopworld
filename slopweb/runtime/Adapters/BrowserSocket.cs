@@ -1,200 +1,133 @@
-// Browser socket transport for the staged mod. HubTransport retains connection
-// generations, retries, event parsing and dispatch; its original queue owns data.
 using System.Net.WebSockets;
-using System.Reflection;
+using SlopWorld;
 
 namespace BrowserAdapters;
 
-public static class BrowserSocket
+internal sealed class BrowserSocket : IHubSocket
 {
-    const BindingFlags Fields =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+    readonly ClientWebSocket Socket = new();
+    readonly CancellationTokenSource Stop = new();
+    readonly Queue<byte[]> Outgoing = new();
+    int OutgoingBytes;
+    bool Writing;
+    bool Closed;
+    public bool Connected { get; private set; }
+    public string LastError { get; private set; } = "";
+    public IncomingMessageQueue Incoming { get; } = new();
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "Design",
-        "CA1001",
-        Justification = "BrowserSocket.Dispose owns cancellation and disposal after removing the state from the socket registry."
-    )]
-    sealed class State
+    public async Task<bool> ConnectAsync(ConnectionInfo connection, CancellationToken cancellation)
     {
-        public readonly ClientWebSocket Socket = new();
-        public readonly CancellationTokenSource Stop = new();
-        public readonly Queue<byte[]> Outgoing = new();
-        public int OutgoingBytes;
-        public bool Writing;
-        public bool Closed;
-        public required object Owner;
-        public required object Incoming;
+        Socket.Options.AddSubProtocol("slopworld.protobuf.v2");
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(
+            Stop.Token,
+            cancellation
+        );
+        deadline.CancelAfter(5000);
+        await Socket.ConnectAsync(
+            BrowserTransport.ResolveSocket(connection.BaseUrl),
+            deadline.Token
+        );
+        Connected = true;
+        _ = Receive();
+        return true;
     }
 
-    static readonly Dictionary<object, State> sockets = new();
-
-    static object? Field(object owner, string name) =>
-        owner.GetType().GetField(name, Fields)!.GetValue(owner);
-
-    static void Connected(object owner, bool value) =>
-        owner.GetType().GetField("_connected", Fields)!.SetValue(owner, value);
-
-    static void Error(object owner, string value) =>
-        owner.GetType().GetProperty("LastError")!.SetValue(owner, value);
-
-    // Async completion is published only after the handshake, avoiding a synchronous
-    // wait on the browser thread. The mod rejects stale serials in PumpConnectResults.
-    public static async void Open(object hub, object connection, int serial)
-    {
-        var assembly = hub.GetType().Assembly;
-        var result = Activator.CreateInstance(
-            assembly.GetType("SlopWorld.HubTransport+ConnectResult")!,
-            true
-        )!;
-        result.GetType().GetField("Serial")!.SetValue(result, serial);
-        object? owner = null;
-        try
-        {
-            owner = Activator.CreateInstance(assembly.GetType("SlopWorld.MiniWebSocket")!)!;
-            result.GetType().GetField("Socket")!.SetValue(result, owner);
-            var state = new State { Owner = owner, Incoming = Field(owner, "Incoming")! };
-            sockets.Add(owner, state);
-            state.Socket.Options.AddSubProtocol("slopworld.protobuf.v2");
-            var uri = BrowserTransport.SocketUri;
-            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(state.Stop.Token);
-            deadline.CancelAfter(5000);
-            await state.Socket.ConnectAsync(uri, deadline.Token);
-            Connected(owner, true);
-            _ = Receive(state);
-        }
-        catch (Exception e)
-        {
-            result.GetType().GetField("Error")!.SetValue(result, e.Message);
-            if (owner != null)
-            {
-                Error(owner, e.Message);
-                Dispose(owner);
-            }
-        }
-        var results = Field(hub, "_connectResults")!;
-        results.GetType().GetMethod("Enqueue")!.Invoke(results, new[] { result });
-        BrowserActivity.Notify();
-    }
-
-    static async Task Receive(State state)
+    async Task Receive()
     {
         var buffer = new byte[65536];
         try
         {
-            while (!state.Closed)
+            while (!Closed)
             {
                 using var message = new MemoryStream();
                 WebSocketReceiveResult part;
                 do
                 {
-                    part = await state.Socket.ReceiveAsync(
-                        new ArraySegment<byte>(buffer),
-                        state.Stop.Token
-                    );
+                    part = await Socket.ReceiveAsync(new ArraySegment<byte>(buffer), Stop.Token);
                     if (part.MessageType != WebSocketMessageType.Binary)
                         throw new IOException("Socket closed or non-binary message");
-                    if (message.Length + part.Count > 8 * 1024 * 1024)
+                    if (message.Length + part.Count > IncomingMessageQueue.MaxMessageBytes)
                         throw new IOException("Oversized socket message");
                     message.Write(buffer, 0, part.Count);
                 } while (!part.EndOfMessage);
-                if (state.Closed)
+                if (Closed)
                     break;
-                var admitted = state
-                    .Incoming.GetType()
-                    .GetMethod("TryEnqueue")!
-                    .Invoke(state.Incoming, [message.ToArray()]);
-                if (admitted?.ToString() != "Accepted")
+                var admitted = Incoming.TryEnqueue(message.ToArray());
+                if (admitted != IncomingEnqueueResult.Accepted)
                     throw new IOException("Browser event queue rejected message: " + admitted);
                 BrowserActivity.Notify();
             }
         }
         catch (Exception e)
         {
-            if (!state.Closed)
-                Error(state.Owner, e.Message);
+            if (!Closed)
+                LastError = e.Message;
         }
         finally
         {
-            Dispose(state.Owner);
+            Dispose();
         }
     }
 
-    // The bridge accepts a 32 MiB binary message, including 20 MiB image pastes
-    // and their protobuf envelope. Keep the in-flight write inside the queue budget.
-    internal static bool FitsOutgoing(int queuedBytes, int payloadBytes) =>
-        payloadBytes <= 32 * 1024 * 1024 - queuedBytes;
-
-    public static bool Send(object owner, byte[] payload)
+    public bool SendBinary(byte[] payload)
     {
-        if (
-            !sockets.TryGetValue(owner, out var state)
-            || state.Closed
-            || state.Socket.State != WebSocketState.Open
-            || payload.Length == 0
-        )
+        if (Closed || Socket.State != WebSocketState.Open || payload.Length == 0)
             return false;
-        if (!FitsOutgoing(state.OutgoingBytes, payload.Length))
+        if (!BrowserSocketLimits.FitsOutgoing(OutgoingBytes, payload.Length))
         {
-            Error(owner, "Browser send queue overloaded");
-            Dispose(owner);
+            LastError = "Browser send queue overloaded";
+            Dispose();
             return false;
         }
-        state.Outgoing.Enqueue((byte[])payload.Clone());
-        state.OutgoingBytes += payload.Length;
-        if (!state.Writing)
-            _ = Write(state);
+        Outgoing.Enqueue((byte[])payload.Clone());
+        OutgoingBytes += payload.Length;
+        if (!Writing)
+            _ = Write();
         return true;
     }
 
-    static async Task Write(State state)
+    async Task Write()
     {
-        state.Writing = true;
+        Writing = true;
         try
         {
-            while (!state.Closed && state.Outgoing.TryDequeue(out var payload))
+            while (!Closed && Outgoing.TryDequeue(out var payload))
             {
-                await state.Socket.SendAsync(
+                await Socket.SendAsync(
                     new ArraySegment<byte>(payload),
                     WebSocketMessageType.Binary,
                     true,
-                    state.Stop.Token
+                    Stop.Token
                 );
-                state.OutgoingBytes -= payload.Length;
+                OutgoingBytes -= payload.Length;
             }
         }
         catch (Exception e)
         {
-            if (!state.Closed)
-                Error(state.Owner, e.Message);
-            Dispose(state.Owner);
+            if (!Closed)
+                LastError = e.Message;
+            Dispose();
         }
         finally
         {
-            state.Writing = false;
+            Writing = false;
         }
     }
 
-    public static bool Flush(object owner, int timeoutMs) =>
-        sockets.TryGetValue(owner, out var state)
-        && !state.Closed
-        && !state.Writing
-        && state.OutgoingBytes == 0;
+    public bool FlushOutgoing(int timeoutMs) => Connected && !Writing && OutgoingBytes == 0;
 
-    public static void Dispose(object owner)
+    public void Dispose()
     {
-        Connected(owner, false);
-        if (!sockets.Remove(owner, out var state))
+        if (Closed)
             return;
-        state.Closed = true;
-        state.Stop.Cancel();
-        state.Socket.Abort();
-        state.Socket.Dispose();
-        state.Incoming.GetType().GetMethod("Close")!.Invoke(state.Incoming, null);
-        state.Outgoing.Clear();
-        (Field(owner, "_sendSignal") as IDisposable)?.Dispose();
-        (Field(owner, "_rng") as IDisposable)?.Dispose();
-        state.Stop.Dispose();
+        Connected = false;
+        Closed = true;
+        Stop.Cancel();
+        Socket.Abort();
+        Socket.Dispose();
+        Incoming.Close();
+        Outgoing.Clear();
+        Stop.Dispose();
         BrowserActivity.Notify();
     }
 }

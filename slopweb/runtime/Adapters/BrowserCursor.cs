@@ -1,9 +1,9 @@
 // Native GameCursor owns appearance and animation. Only readable texture pixels
 // and Unity's final hotspot cross this presentation boundary.
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using SlopWorld;
 using UnityEngine;
 
 namespace BrowserAdapters;
@@ -13,21 +13,15 @@ public static class BrowserCursor
     sealed record Frame(int Id, int Width, int Height, string Pixels);
 
     static readonly ConditionalWeakTable<Texture2D, Frame> frames = new();
-    static Action? tick;
-    static Action? click;
+    static bool installed;
     static int nextId;
     static string pending = "";
 
     public static void Install()
     {
         WorkspaceDrawing.RequireEntry();
-        var mod = AppDomain
-            .CurrentDomain.GetAssemblies()
-            .Single(a => a.GetName().Name == "SlopWorld");
-        var cursor = mod.GetType("SlopWorld.GameCursor")!;
-        tick = cursor.GetMethod("Tick")!.CreateDelegate<Action>();
-        click = cursor.GetMethod("Click")!.CreateDelegate<Action>();
-        cursor.GetMethod("Apply")!.Invoke(null, null);
+        GameCursor.Apply();
+        installed = true;
     }
 
     // Run after BeginFrame advances Unity time, before presenting the frame.
@@ -35,18 +29,17 @@ public static class BrowserCursor
     // between frames that polling Input.GetMouseButtonDown would miss.
     public static void Update(JsonElement batch)
     {
-        if (tick == null)
+        if (!installed)
             throw new InvalidOperationException("Install browser cursor before updating");
         foreach (var ev in batch.EnumerateArray())
             if (ev.GetProperty("kind").GetString() == "down")
-                click!();
-        tick();
+                GameCursor.Click();
+        GameCursor.Tick();
     }
 
     public static Color[] ReadBack(Texture2D source) => source.GetPixels();
 
-    // Offline staging redirects the native CursorTextures.Show SetCursor calls
-    // here. Do not rebuild, recolor, mirror or rotate the native frame in JS.
+    // The mod has already rotated and colored the frame for its final hotspot.
     public static void SetCursor(Texture2D texture, Vector2 hotspot, CursorMode mode)
     {
         if (texture == null)

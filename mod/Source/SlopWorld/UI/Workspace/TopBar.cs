@@ -34,7 +34,7 @@ namespace SlopWorld
         // Give the jukebox tip a stable id so changing song text does not restart its fade.
         const int JukeboxTipId = 0x51_0C_02;
 
-        struct DoorLayout
+        internal struct DoorLayout
         {
             public Rect Config;
             public Rect Planner;
@@ -49,6 +49,7 @@ namespace SlopWorld
         }
 
         static DoorLayout _doors;
+        internal static DoorLayout CurrentDoors => _doors;
         static int _doorsFrame = -1;
         static Rect _doorsRect;
         static Map _doorsMap;
@@ -66,6 +67,10 @@ namespace SlopWorld
                 return;
             Draw(true);
         }
+
+        internal static System.Func<Map, bool> CoreAvailable { get; set; } = CoreTip.On;
+        internal static System.Func<Map, bool> JukeboxAvailable { get; set; } = Jukebox.On;
+        internal static System.Action OpenCore { get; set; } = CoreTip.OpenMenu;
 
         public static void Draw(bool interactive)
         {
@@ -187,7 +192,7 @@ namespace SlopWorld
             if (_doors.HasConfig)
                 SettingsButton(_doors.Config, live);
             if (_doors.HasCore)
-                Thing(_doors.Core, ModDefOf.Ship_ComputerCore, default, CoreTip.OpenMenu, live);
+                Thing(_doors.Core, ModDefOf.Ship_ComputerCore, default, OpenCore, live);
             if (_doors.HasJukebox)
                 Thing(
                     _doors.Jukebox,
@@ -221,12 +226,12 @@ namespace SlopWorld
             _doors.HasConfig = TrySlot(r, ref x, out _doors.Config);
             _doors.HasPlanner = showPlanner && TrySlot(r, ref x, out _doors.Planner);
 
-            if (showCore && CoreTip.On(map) && TrySlot(r, ref x, out _doors.Core))
+            if (showCore && CoreAvailable(map) && TrySlot(r, ref x, out _doors.Core))
             {
                 _doors.HasCore = true;
             }
 
-            if (showJukebox && Jukebox.On(map) && TrySlot(r, ref x, out _doors.Jukebox))
+            if (showJukebox && JukeboxAvailable(map) && TrySlot(r, ref x, out _doors.Jukebox))
             {
                 _doors.JukeboxTip = JukeboxMenu.IconTip();
                 _doors.HasJukebox = true;

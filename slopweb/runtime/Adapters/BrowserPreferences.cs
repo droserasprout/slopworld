@@ -1,7 +1,7 @@
-// Owns the browser's presentation-only snapshot. Native ProfileSettings.Write is
-// redirected here in isolated copies; neither a profile nor daemon config is serialized.
+// Browser persistence stores only allowlisted presentation fields.
 using System.Reflection;
 using System.Text.Json;
+using SlopWorld;
 
 namespace BrowserAdapters;
 
@@ -11,42 +11,49 @@ public static class BrowserPreferences
     public static Action<string>? Fonts;
     static string? lastFonts;
 
-    public static void HoldFonts(object settings, string json)
+    public static void HoldFonts(ModSettings settings, string json)
     {
         Apply(settings, json);
         lastFonts = FontSelection(settings);
     }
 
-    public static string FontSelection(object settings) =>
+    public static string FontSelection(ModSettings settings) =>
         JsonSerializer.Serialize(
             new Dictionary<string, object?>
             {
-                ["uiFontName"] = Field(settings, "uiFontName").GetValue(settings),
-                ["fontName"] = Field(settings, "fontName").GetValue(settings),
-                ["uiFontSize"] = Field(settings, "uiFontSize").GetValue(settings),
-                ["fontSize"] = Field(settings, "fontSize").GetValue(settings),
+                ["uiFontName"] = settings.uiFontName,
+                ["fontName"] = settings.fontName,
+                ["uiFontSize"] = settings.uiFontSize,
+                ["fontSize"] = settings.fontSize,
             }
         );
 
-    static readonly string[] Allowed = ReadAllowed();
+    static readonly FieldInfo[] Allowed = ReadAllowed();
 
-    static string[] ReadAllowed()
+    static FieldInfo[] ReadAllowed()
     {
         using var reader = new StreamReader(
             typeof(BrowserPreferences).Assembly.GetManifestResourceStream(
                 "presentation-preferences.txt"
             )!
         );
-        return reader.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        return reader
+            .ReadToEnd()
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(name =>
+                typeof(ModSettings).GetField(name)
+                ?? throw new MissingFieldException(typeof(ModSettings).FullName, name)
+            )
+            .ToArray();
     }
 
-    public static float BackgroundDimming(object settings)
+    public static float BackgroundDimming(ModSettings settings)
     {
-        float dim = (float)Field(settings, "ecoDim").GetValue(settings)!;
+        float dim = settings.ecoDim;
         return float.IsFinite(dim) ? Math.Clamp(dim, 0f, 0.8f) : 0.3f;
     }
 
-    public static void Changed(object settings)
+    public static void Changed(ModSettings settings)
     {
         if (Fonts != null)
         {
@@ -59,21 +66,18 @@ public static class BrowserPreferences
         }
     }
 
-    public static void Write(object settings)
+    public static void Write(ModSettings settings)
     {
         Changed(settings);
         if (Persist == null)
             return;
         var values = new Dictionary<string, object?>();
-        foreach (var name in Allowed)
-        {
-            var field = Field(settings, name);
-            values.Add(name, field.GetValue(settings));
-        }
+        foreach (var field in Allowed)
+            values.Add(field.Name, field.GetValue(settings));
         Persist(JsonSerializer.Serialize(values));
     }
 
-    public static void Apply(object settings, string json)
+    public static void Apply(ModSettings settings, string json)
     {
         // Treat local storage as untrusted, including old schema fields. Validate
         // each scalar before assigning so one damaged row cannot block startup.
@@ -84,11 +88,11 @@ public static class BrowserPreferences
             using var document = JsonDocument.Parse(json);
             if (document.RootElement.ValueKind != JsonValueKind.Object)
                 return;
-            foreach (var name in Allowed)
+            foreach (var field in Allowed)
             {
+                var name = field.Name;
                 if (!document.RootElement.TryGetProperty(name, out var value))
                     continue;
-                var field = Field(settings, name);
                 if (field.FieldType == typeof(string) && value.ValueKind == JsonValueKind.String)
                 {
                     var text = value.GetString()!;
@@ -126,8 +130,4 @@ public static class BrowserPreferences
         }
         catch (JsonException) { }
     }
-
-    static FieldInfo Field(object settings, string name) =>
-        settings.GetType().GetField(name)
-        ?? throw new InvalidOperationException("Browser preference boundary changed: " + name);
 }

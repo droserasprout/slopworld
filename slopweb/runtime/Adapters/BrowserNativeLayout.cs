@@ -57,14 +57,102 @@ public sealed class BrowserNativeLayout
             .CurrentDomain.GetAssemblies()
             .Single(a => a.GetName().Name == "RimWorld")
             .GetType("RimWorldWaylith.Imgui.TextLayout", true)!;
+
+    // Bind only after the private assembly has loaded. Each reader belongs to the
+    // concrete element type declared by the native Pieces or Lines collection.
+    sealed class Members(Type type)
+    {
+        internal readonly PropertyInfo Scale = Property(type, "Scale");
+        internal readonly PropertyInfo Width = Property(type, "Width");
+        internal readonly PropertyInfo Height = Property(type, "Height");
+        internal readonly PropertyInfo Pieces = Property(type, "Pieces");
+        internal readonly PropertyInfo Lines = Property(type, "Lines");
+        internal readonly MethodInfo Layout = Method(type, "Layout");
+        internal readonly MethodInfo IndexAt = Method(type, "IndexAt");
+        internal readonly MethodInfo LineOf = Method(type, "LineOf");
+        internal readonly MethodInfo PositionOf = Method(type, "PositionOf");
+
+        internal readonly Type GlyphAdvances =
+            type.GetNestedType("GlyphAdvances", BindingFlags.NonPublic)
+            ?? throw new TypeLoadException(type.FullName + ".GlyphAdvances");
+        internal readonly ConstructorInfo Metrics =
+            type.Assembly.GetType("RimWorldWaylith.Imgui.LineMetrics", true)!
+                .GetConstructor([typeof(float), typeof(float), typeof(float), typeof(float)])
+            ?? throw new MissingMethodException("LineMetrics", ".ctor");
+        internal readonly FieldInfo Host =
+            type.GetField("host", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(type.FullName, "host");
+
+        static PropertyInfo Property(Type owner, string name) =>
+            owner.GetProperty(name) ?? throw new MissingMemberException(owner.FullName, name);
+
+        static MethodInfo Method(Type owner, string name) =>
+            owner.GetMethod(name) ?? throw new MissingMethodException(owner.FullName, name);
+    }
+
+    static readonly Lazy<Members> members = new(() => new Members(NativeType));
+
+    static Func<object, T> Reader<T>(Type owner, string name)
+    {
+        var field = owner.GetField(name);
+        if (field?.FieldType != typeof(T))
+            throw new MissingFieldException(owner.FullName, name);
+        return value => (T)field.GetValue(value)!;
+    }
+
+    static Func<object, Piece> BindPiece(Type type)
+    {
+        var start = Reader<int>(type, "Start");
+        var length = Reader<int>(type, "Length");
+        var color = Reader<Color>(type, "Color");
+        var style = Reader<FontStyle>(type, "Style");
+        var size = Reader<float>(type, "Size");
+        var x = Reader<float>(type, "X");
+        var width = Reader<float>(type, "Width");
+        var isSpace = Reader<bool>(type, "IsSpace");
+        return p => new Piece(
+            start(p),
+            length(p),
+            color(p),
+            style(p),
+            size(p),
+            x(p),
+            width(p),
+            isSpace(p)
+        );
+    }
+
+    Func<object, Piece>? readPiece;
+
+    static Func<object, Line> BindLine(Type type)
+    {
+        var pieceStart = Reader<int>(type, "PieceStart");
+        var pieceCount = Reader<int>(type, "PieceCount");
+        var width = Reader<float>(type, "Width");
+        var top = Reader<float>(type, "Top");
+        var ascent = Reader<float>(type, "Ascent");
+        var firstLine = Reader<float>(type, "FirstLine");
+        var pitch = Reader<float>(type, "Pitch");
+        return p => new Line(
+            pieceStart(p),
+            pieceCount(p),
+            width(p),
+            top(p),
+            ascent(p),
+            firstLine(p),
+            pitch(p)
+        );
+    }
+
+    Func<object, Line>? readLine;
+
     readonly object native;
-    readonly Type type;
     readonly Func<int, float, FontStyle, Metrics> resolve;
     readonly Dictionary<(int, float, FontStyle, float), object> runs = new();
 
     public BrowserNativeLayout(Func<int, float, FontStyle, Metrics> resolve)
     {
-        type = NativeType;
+        var type = NativeType;
         if (type.GetMethod("BrowserMetricsInstalled") == null)
             throw new InvalidOperationException(
                 "Installed text layout has not been adapted for browser metrics"
@@ -86,69 +174,51 @@ public sealed class BrowserNativeLayout
         float scale
     )
     {
-        type.GetProperty("Scale")!.SetValue(native, scale);
-        type.GetMethod("Layout")!.Invoke(native, [font, size, style, text, width, color, rich]);
-        static T Field<T>(object value, string name) =>
-            (T)value.GetType().GetField(name)!.GetValue(value)!;
-        var pieces = ((System.Collections.IEnumerable)type.GetProperty("Pieces")!.GetValue(native)!)
+        members.Value.Scale.SetValue(native, scale);
+        members.Value.Layout.Invoke(native, [font, size, style, text, width, color, rich]);
+        var pieces = ((System.Collections.IEnumerable)members.Value.Pieces.GetValue(native)!)
             .Cast<object>()
-            .Select(p => new Piece(
-                Field<int>(p, "Start"),
-                Field<int>(p, "Length"),
-                Field<Color>(p, "Color"),
-                Field<FontStyle>(p, "Style"),
-                Field<float>(p, "Size"),
-                Field<float>(p, "X"),
-                Field<float>(p, "Width"),
-                Field<bool>(p, "IsSpace")
-            ))
+            .Select(p => (readPiece ??= BindPiece(p.GetType()))(p))
             .ToArray();
-        var lines = ((System.Collections.IEnumerable)type.GetProperty("Lines")!.GetValue(native)!)
+        var lines = ((System.Collections.IEnumerable)members.Value.Lines.GetValue(native)!)
             .Cast<object>()
-            .Select(p => new Line(
-                Field<int>(p, "PieceStart"),
-                Field<int>(p, "PieceCount"),
-                Field<float>(p, "Width"),
-                Field<float>(p, "Top"),
-                Field<float>(p, "Ascent"),
-                Field<float>(p, "FirstLine"),
-                Field<float>(p, "Pitch")
-            ))
+            .Select(p => (readLine ??= BindLine(p.GetType()))(p))
             .ToArray();
         return new Result(
-            (float)type.GetProperty("Width")!.GetValue(native)!,
-            (float)type.GetProperty("Height")!.GetValue(native)!,
+            (float)members.Value.Width.GetValue(native)!,
+            (float)members.Value.Height.GetValue(native)!,
             pieces,
             lines
         );
     }
 
     // Queries consume the most recent synchronous Layout on this owner.
-    public int IndexAt(Vector2 point) => (int)type.GetMethod("IndexAt")!.Invoke(native, [point])!;
+    public int IndexAt(Vector2 point) => (int)members.Value.IndexAt.Invoke(native, [point])!;
 
-    public int LineOf(int index) => (int)type.GetMethod("LineOf")!.Invoke(native, [index])!;
+    public int LineOf(int index) => (int)members.Value.LineOf.Invoke(native, [index])!;
 
     public Vector2 PositionOf(int index) =>
-        (Vector2)type.GetMethod("PositionOf")!.Invoke(native, [index])!;
+        (Vector2)members.Value.PositionOf.Invoke(native, [index])!;
 
     // Called only by the locally staged installed assembly's bounded font hooks.
     public static bool OwnsLayout(object layout) => owners.TryGetValue(layout, out _);
 
     public static bool OwnsRun(object run) => advances.TryGetValue(run, out _);
 
-    static object NativeHostCall(object layout, string method, int font, float size)
-    {
-        var host = layout
-            .GetType()
-            .GetField("host", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(layout)!;
-        return host.GetType()
-            .GetMethod(
-                method,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            )!
-            .Invoke(host, [font, size])!;
-    }
+    // The patched engine can also call these hooks for a layout created by
+    // its own host. Bind the original methods on the declared host type.
+    static MethodInfo HostMethod(string name) =>
+        members.Value.Host.FieldType.GetMethod(
+            name,
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+            [typeof(int), typeof(float)]
+        ) ?? throw new MissingMethodException(members.Value.Host.FieldType.FullName, name);
+
+    static readonly Lazy<MethodInfo> hostPixels = new(() => HostMethod("PixelSizeFor"));
+    static readonly Lazy<MethodInfo> hostMetrics = new(() => HostMethod("LineMetricsFor"));
+
+    static object NativeHostCall(object layout, MethodInfo method, int font, float size) =>
+        method.Invoke(members.Value.Host.GetValue(layout), [font, size])!;
 
     public static object CreateAdvances(
         object layout,
@@ -166,9 +236,7 @@ public sealed class BrowserNativeLayout
         if (owner.runs.TryGetValue(key, out var found))
             return found;
         var metrics = owner.resolve(font, size, style);
-        var value = RuntimeHelpers.GetUninitializedObject(
-            owner.type.GetNestedType("GlyphAdvances", BindingFlags.NonPublic)!
-        );
+        var value = RuntimeHelpers.GetUninitializedObject(members.Value.GlyphAdvances);
         advances.Add(value, new Advances(metrics, scale));
         if (owner.runs.Count >= 64)
             owner.runs.Clear();
@@ -192,21 +260,19 @@ public sealed class BrowserNativeLayout
     public static float PixelSize(object layout, int font, float size) =>
         owners.TryGetValue(layout, out var owner)
             ? owner.resolve(font, size, FontStyle.Normal).Size
-            : (float)NativeHostCall(layout, "PixelSizeFor", font, size);
+            : (float)NativeHostCall(layout, hostPixels.Value, font, size);
 
     public static object LineMetrics(object layout, int font, float size)
     {
         if (!owners.TryGetValue(layout, out var registered))
-            return NativeHostCall(layout, "LineMetricsFor", font, size);
+            return NativeHostCall(layout, hostMetrics.Value, font, size);
         var owner = registered;
         var metrics = owner.resolve(font, size, FontStyle.Normal);
-        var nativeMetrics = owner.type.Assembly.GetType("RimWorldWaylith.Imgui.LineMetrics", true)!;
-        return Activator.CreateInstance(
-            nativeMetrics,
+        return members.Value.Metrics.Invoke([
             metrics.Ascent,
             metrics.FirstLine,
             metrics.Pitch,
-            metrics.Spacing
-        )!;
+            metrics.Spacing,
+        ]);
     }
 }

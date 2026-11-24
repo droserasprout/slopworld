@@ -70,6 +70,9 @@ async function start({published=false, query='', failAt='', incomplete=false, as
 test('product startup enters the workspace without running compatibility or colony probes',async()=>{
   const {calls,result}=await start();
   assert.equal(result.error,undefined);
+  const platform=calls.findIndex(c=>c[0]==='InstallPlatform');
+  assert.ok(platform>calls.findIndex(c=>c[0]==='LoadAssembly'));
+  assert.ok(platform<calls.findIndex(c=>c[0]==='StartEntry'));
   assert.ok(calls.indexOf('live')>calls.findIndex(c=>c[0]==='InitializeEco'));
   assert.ok(calls.some(c=>c[0]==='WorkspaceFrame' && c[1]==='http://localhost/slopweb-demo/'));
   assert.equal(result.workspace.frames,1);

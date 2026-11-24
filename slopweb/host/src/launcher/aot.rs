@@ -383,6 +383,30 @@ fn collect_sources(
     sources: &mut Inputs,
     seen: &mut BTreeSet<String>,
 ) -> Result<()> {
+    if e.name == "ProjectReference" {
+        ensure!(
+            e.attributes.get("Include").map(String::as_str)
+                == Some("Contract/SlopWeb.Runtime.Contract.csproj"),
+            "Unrecognized Probe project reference"
+        );
+        ensure!(
+            !runtime.join("Contract").is_symlink(),
+            "AOT contract directory cannot be a symlink"
+        );
+        for file in [
+            "SlopWeb.Runtime.Contract.csproj",
+            "IWorkspaceRuntime.cs",
+            "LateRuntime.cs",
+        ] {
+            let name = format!("Contract/{file}");
+            let path = runtime.join(&name);
+            ensure!(
+                path.is_file() && !path.is_symlink(),
+                "Missing or invalid runtime contract: {file}"
+            );
+            sources.insert(name, path);
+        }
+    }
     if e.name == "Compile" {
         let name = e
             .attributes

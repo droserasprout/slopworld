@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Google.Protobuf;
 using NUnit.Framework;
 
@@ -30,26 +32,27 @@ namespace SlopWorld.Tests
                 LastError = error;
             }
 
-            public bool Connect(
-                string host,
-                int port,
-                string path,
-                string token,
-                int timeoutMs = 3000,
-                bool useTls = false
+            public TaskCompletionSource<bool> Handshake;
+            public CancellationToken Cancellation;
+
+            public Task<bool> ConnectAsync(
+                ConnectionInfo connection,
+                CancellationToken cancellation
             )
             {
-                UseTls = useTls;
-                Host = host;
-                Port = port;
-                Path = path;
-                Token = token;
+                Cancellation = cancellation;
+                Host = connection.Host;
+                Port = connection.Port;
+                Path = connection.PathPrefix + WireProtocol.WsPath;
+                Token = connection.Token;
+                UseTls = connection.UseTls;
                 if (ThrowOnConnect)
                 {
                     Connected = true;
                     throw new InvalidOperationException("setup failed");
                 }
-                return Connected = _connects;
+                Connected = _connects;
+                return Handshake?.Task ?? Task.FromResult(Connected);
             }
 
             public bool SendBinary(byte[] payload)
@@ -377,6 +380,37 @@ namespace SlopWorld.Tests
             Assert.That(old.Sent.Count, Is.EqualTo(1));
             Assert.That(replacement.Sent.Single().Sub.Name, Is.EqualTo("agent"));
             Assert.That(old.Disposals, Is.EqualTo(1));
+        }
+
+        public static void ReplacementCancelsHandshakeAndDisposesLateSuccess()
+        {
+            var old = new Socket { Handshake = new TaskCompletionSource<bool>() };
+            var replacement = new Socket();
+            using var env = new Environment(old, replacement);
+            env.Hub.Connect();
+            env.Complete();
+            env.Connect();
+            Assert.That(old.Cancellation.IsCancellationRequested, Is.True);
+            using var published = new ManualResetEventSlim();
+            var previous = HubTransport.ResultReady;
+            try
+            {
+                HubTransport.ResultReady = published.Set;
+                old.Handshake.SetResult(true);
+                Assert.That(published.Wait(TimeSpan.FromSeconds(5)), Is.True);
+                Assert.That(
+                    old.Disposals,
+                    Is.EqualTo(1),
+                    "late success is released even if pumping stops"
+                );
+                env.Hub.Update();
+                Assert.That(replacement.Disposals, Is.Zero);
+                Assert.That(env.Hub.Connected, Is.True);
+            }
+            finally
+            {
+                HubTransport.ResultReady = previous;
+            }
         }
 
         public static void DisconnectDisposesCompletedAttemptBeforeItCanBeInstalled()

@@ -12,7 +12,11 @@ namespace SlopWorld
         static readonly byte[] FamilyProperty = Encoding.ASCII.GetBytes("family\0");
         static readonly byte[] ColorProperty = Encoding.ASCII.GetBytes("color\0");
 
-        public static string[] Families(string family)
+        internal static System.Func<string, string[]> FindFamilies { get; set; } = DesktopFamilies;
+
+        public static string[] Families(string family) => FindFamilies(family);
+
+        static string[] DesktopFamilies(string family)
         {
             if (FcInitBringUptoDate() == 0)
                 throw new InvalidOperationException("Fontconfig initialization failed");
