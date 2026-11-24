@@ -439,9 +439,11 @@ internal static class CoreBootstrap
         dropIl.InsertBefore(original, dropIl.Create(OpCodes.Brfalse, original));
         dropIl.InsertBefore(original, dropIl.Create(OpCodes.Ret));
         ExpandBranches(drop);
+        BrowserProfilerPatch.Apply(root, target.MainModule, resolver);
         StagedAssembly.Write(target, path);
         StagedAssembly.RecordAdaptations(
             root,
+            "Waylith uses the stopwatch clock and disables custom CLR profiling and injection splices",
             "Cache writes execute serially using the installed atomic writer; zero cache worker threads",
             "AssetPack retains its readable browser mapping without native OS resident-page advice",
             "Texture2D.Apply retains CPU pixels for WebGL capture instead of discarding them after headless native upload"

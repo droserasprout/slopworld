@@ -25,6 +25,10 @@ operations. Desktop defaults live with those owners. Game and engine adaptations
 remain in the offline staging tools.
 Browser scale adaptation removes desktop DPI inference from private game copies;
 native preference accessors retain ownership of the selected scale.
+Core preparation removes Waylith’s custom CLR profiler instrumentation, allocation and pause
+sampling, and selects its stopwatch clock. The staged engine is eligible for browser AOT.
+Waylith.Injection and RimWorldWaylith.PrepatcherCompat retain custom CLR signatures and
+remain interpreted. The browser guards the two injection paths into the removed IL splicer.
 The offline Steam boundary disables startup and removes Steamworks native callback
 markers from the private copy so WASM AOT does not generate desktop callback wrappers.
 `tools/release/slopweb.py` stages reviewed redistributable inputs and owns loose

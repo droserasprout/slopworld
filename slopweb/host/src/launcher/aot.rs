@@ -27,11 +27,7 @@ const PACKAGES: &[(&str, &str)] = &[
     ("StbImageSharp", "2.27.13"),
     ("StbImageWriteSharp", "1.16.7"),
 ];
-const INTERPRETED: &[&str] = &[
-    "Waylith",
-    "Waylith.Injection",
-    "RimWorldWaylith.PrepatcherCompat",
-];
+const INTERPRETED: &[&str] = &["Waylith.Injection", "RimWorldWaylith.PrepatcherCompat"];
 
 pub struct Toolchain {
     pub sdk: PathBuf,
@@ -240,6 +236,7 @@ fn assemblies(snapshot: &Inputs) -> Result<Inputs> {
         "assembly-mode.js",
         "game/manifest.json",
         "game/Assembly-CSharp.dll",
+        "game/Waylith.dll",
         "mod/SlopWorld.dll",
         "Adapters.dll",
     ] {
