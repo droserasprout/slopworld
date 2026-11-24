@@ -13,8 +13,6 @@ public partial class Probe
 {
     public static void Main() { }
 
-    private static readonly List<object> Results = new();
-
     [JSExport]
     public static string LoadAssembly(byte[] bytes)
     {
@@ -29,34 +27,4 @@ public partial class Probe
     // Frame and input dispatch live in the late-loaded workspace runtime.
     private static Type Type(string assembly, string type) =>
         Assembly.Load(assembly).GetType(type, true)!;
-
-    private static void Check(string name, Func<object?> operation)
-    {
-        try
-        {
-            Results.Add(
-                new
-                {
-                    name,
-                    ok = true,
-                    value = operation()?.ToString(),
-                }
-            );
-        }
-        catch (Exception error)
-        {
-            var chain = new List<string>();
-            for (Exception? current = error; current != null; current = current.InnerException)
-                chain.Add($"{current.GetType().FullName}: {current.Message}");
-            Results.Add(
-                new
-                {
-                    name,
-                    ok = false,
-                    errors = chain,
-                    stack = error.ToString(),
-                }
-            );
-        }
-    }
 }

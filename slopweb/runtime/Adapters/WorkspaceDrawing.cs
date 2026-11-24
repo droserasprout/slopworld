@@ -46,15 +46,6 @@ public static partial class WorkspaceDrawing
     public static float NextUpdateDelay() =>
         Math.Min(terminalDeadline?.Invoke() ?? 0f, cursorDeadline?.Invoke() ?? 0f);
 
-    static bool flushInputBeforeRepaint = true;
-
-    public static bool ConfigureInputFlushBeforeRepaint(bool enabled)
-    {
-        bool previous = flushInputBeforeRepaint;
-        flushInputBeforeRepaint = enabled;
-        return previous;
-    }
-
     static float timeOrigin,
         lastTime;
 
@@ -102,7 +93,7 @@ public static partial class WorkspaceDrawing
 
     public static string Frame(JsonElement batch, double retainedPacket, bool commandsOnly)
     {
-        var frame = BrowserGuiInput.DispatchBatch(
+        return BrowserGuiInput.DispatchBatch(
             batch,
             (BrowserGui)GuiBackend.Current,
             () =>
@@ -130,14 +121,9 @@ public static partial class WorkspaceDrawing
                 // messages after deferred windows so their backgrounds cannot cover them.
                 Messages.MessagesDoGUI();
             },
-            flushInputBeforeRepaint ? flushTerminalInput : null,
+            flushTerminalInput,
             retainedPacket,
             commandsOnly
         );
-        // Diagnostic baseline for real-browser A/B measurements. Use exactly one
-        // boundary; flushing per event would split supplementary characters.
-        if (!flushInputBeforeRepaint)
-            flushTerminalInput?.Invoke();
-        return frame;
     }
 }

@@ -8,7 +8,6 @@ description = "Native host for the SlopWorld browser workspace"
 [dependencies]
 anyhow = "1"
 axum = { version = "0.7", features = ["ws"] }
-base64 = "0.22"
 clap = { version = "4", features = ["derive", "string"] }
 clap_complete = "4"
 fs2 = "0.4"

@@ -89,46 +89,21 @@ public partial class Probe
     }
 
     [JSExport]
-    public static string StartEntry()
+    public static void StartEntry()
     {
         if (entryStarted)
             throw new InvalidOperationException("Start a fresh runtime for another Entry scene");
         entryStarted = true;
-        // Use the engine's own on-demand asset path; prefetch starts native threads.
         Environment.SetEnvironmentVariable("WAYLITH_NO_ASSET_PREFETCH", "1");
-        Console.WriteLine("Entry: starting real bootstrap");
-        Results.Clear();
-        Check(
-            "entry.bootstrap",
-            () =>
-            {
-                RequireCoreOnly();
-                Runtime.StartEntryEngine();
-                return "initialized";
-            }
-        );
-        Console.WriteLine("Entry: bootstrap returned");
-        return Runtime.EntryReport(Results);
+        RequireCoreOnly();
+        Runtime.StartEntryEngine();
     }
 
     [JSExport]
-    public static string EntryFrame(int frame)
-    {
-        bool trace = frame < 15 || frame % 60 == 14;
-        if (trace)
-            Console.WriteLine("Entry: starting frame " + frame);
-        Check(
-            "entry.frame." + frame,
-            () =>
-            {
-                Runtime.UpdateEntryEngine(frame);
-                return "updated";
-            }
-        );
-        if (trace)
-            Console.WriteLine("Entry: finished frame " + frame);
-        return Runtime.EntryReport(Results);
-    }
+    public static bool EntryFrame(int frame) => Runtime.UpdateEntryEngine(frame);
+
+    [JSExport]
+    public static string EntryReport() => Runtime.EntryReport();
 
     [JSExport]
     public static string GameSnapshot() => Runtime.GameSnapshot();

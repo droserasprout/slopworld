@@ -112,8 +112,6 @@ namespace BrowserAdapters
     {
         public static string? OutsideTargetTrace;
 
-        public void BeginLabelRepaint() { }
-
         public long ProfileBakedTicks,
             ProfileNativeTicks;
         public int ProfileBakedRuns,

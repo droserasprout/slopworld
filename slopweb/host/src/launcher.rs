@@ -113,12 +113,11 @@ pub async fn run() -> Result<()> {
         options.rebuild,
         &appearance,
         &font_inventory,
-        |phase, root, settings| {
-            if phase == "fonts" {
-                prepare_fonts(&fonts, root, settings)
-            } else {
-                preparation::native_phase(bundle.path(), &game, phase, root)
-            }
+        |phase, root, settings| match phase {
+            preparation::Phase::Managed => preparation::managed(bundle.path(), &game, root),
+            preparation::Phase::Assets => preparation::assets(&game, root),
+            preparation::Phase::Fonts => prepare_fonts(&fonts, root, settings),
+            preparation::Phase::Background => preparation::background(bundle.path(), &game, root),
         },
     );
     let result = prepared.and_then(|root| match &sdk {

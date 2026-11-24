@@ -7,19 +7,19 @@ import {renderGui} from '../../runtime/wwwroot/gui.js';
 
 async function start({published=false, query='', failAt='', incomplete=false, assetHeaders=null, reports={},render=()=>{},warm=async()=>false}={}) {
   const calls=[];
-  const state={checks:[{ok:true}],loaded:true};
   const result={textContent:''};
   const window={location:{href:'http://localhost/slopweb-demo/workspace.html'},__loading:{status(){},finish(){calls.push('finish');}}};
   const document={body:{classList:{add(){},remove(){}},prepend(){},style:{setProperty(){}}},
     documentElement:{style:{setProperty(){}}},querySelector:()=>result,getElementById:()=>result,
     createElement:()=>({})};
-  const values={StartEntry:state,EntryFrame:state,InitializeEco:{checks:[]},
+  const values={EntryReport:{loaded:true},EntryFrame:true,InitializeEco:true,
     WorkspaceFrame:[],WorkspaceUpdate:{commands:[]},WorkspaceFontSnapshot:{},GameSnapshot:{},WorkspaceState:{},...reports};
   const managed=new Proxy({}, {get(_,name){
     return (...args)=>{
       calls.push([name,...args]);
       if(name==='ConfigureCoreLanguage')return args[0]==='Loose' ? 'Loose' : '';
       if(name===failAt) throw new Error('injected '+name);
+      if(name==='EntryFrame' || name==='InitializeEco') return values[name];
       if(name in values) return JSON.stringify(typeof values[name]==='function'?values[name](...args):values[name]);
       return 1;
     };
@@ -44,7 +44,7 @@ async function start({published=false, query='', failAt='', incomplete=false, as
     './workspace.js':{startWorkspace(){calls.push('live');return {};}},
     './workspace-rasterizer.js':{installLocalRasterizer:async()=>{}},
     './font-delivery.js':{warmWorkspaceFonts:warm},
-    './workspace-fonts.js':{dynamicFonts:()=>async()=>{}}
+    './workspace-fonts.js':{installStartupFonts:async()=>{await warm();return "{}";},dynamicFonts:()=>async()=>{}}
   };
   // Keep host font catalogs empty and preferences disabled; exercise the actual
   // assembly, archive, Entry and presentation ordering without a browser.
@@ -64,6 +64,7 @@ test('product startup enters the workspace without running compatibility or colo
   assert.ok(calls.some(c=>c[0]==='WorkspaceFrame' && c[1]==='http://localhost/slopweb-demo/'));
   assert.equal(result.workspace.frames,1);
   assert.equal(calls.includes('readPixels'),false);
+  assert.equal(calls.some(c=>c[0]==='EntryReport'),false);
   assert.equal(calls.some(c=>c[0]==='WorkspaceUpdate'),false);
   assert.deepEqual(calls.filter(c=>c[0]==='EndAssetUpload'),[['EndAssetUpload',true]]);
   for(const name of ['Run','Deep','Jobs','RequestPlay','LoadGame','SaveGame','GuiControlProbe'])
@@ -85,6 +86,7 @@ test('Entry can resolve woven mod references before mod initialization',async()=
 test('profile startup inspects the presented canvas once',async()=>{
   const {calls,result}=await start({query:'profile'});
   assert.equal(result.workspace.visiblePixels,10);
+  assert.equal(calls.filter(c=>c[0]==='EntryReport').length,1);
   assert.equal(calls.filter(c=>c==='readPixels').length,1);
 });
 
@@ -185,9 +187,9 @@ test('failed workspace initialization releases Entry and never starts the live l
 
 test('reported bootstrap, frame and mod failures stop startup and preserve the cause',async()=>{
   for (const name of ['StartEntry','EntryFrame','InitializeEco']) {
-    const report={checks:[{name:'native stage',ok:false,errors:['native failure']}],loaded:false};
-    const {calls,result,message}=await start({reports:{[name]:report}});
-    assert.match(result.error,/native stage: native failure/);
+    const {calls,result,message}=await start({failAt:name});
+    assert.match(result.error,new RegExp("injected " + name));
+    assert.deepEqual(result.entry,{loaded:true});
     assert.match(message,/Workspace could not start/);
     assert.equal(calls.filter(c=>c[0]==='StopEntry').length,1);
     assert.equal(calls.filter(c=>c==='finish').length,1);
@@ -198,9 +200,15 @@ test('reported bootstrap, frame and mod failures stop startup and preserve the c
   }
 });
 
+test('unavailable diagnostics preserve the startup error and release Entry',async()=>{
+  const {calls,result}=await start({failAt:'StartEntry',reports:{EntryReport(){throw Error('snapshot unavailable');}}});
+  assert.match(result.error,/injected StartEntry/);
+  assert.match(result.entry.diagnosticError,/snapshot unavailable/);
+  assert.equal(calls.filter(c=>c[0]==='StopEntry').length,1);
+});
+
 test('unfinished Entry loading fails visibly and releases the engine',async()=>{
-  const report={checks:[{ok:true}],loaded:false};
-  const {calls,result,message}=await start({reports:{StartEntry:report,EntryFrame:report}});
+  const {calls,result,message}=await start({reports:{EntryFrame:false}});
   assert.match(result.error,/Entry did not finish loading/);
   assert.equal(calls.some(c=>c[0]==='EnableLanguageMenu'),false);
   assert.match(message,/Workspace could not start/);

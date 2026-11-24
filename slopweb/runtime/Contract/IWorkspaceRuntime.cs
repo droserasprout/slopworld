@@ -7,9 +7,9 @@ public interface IWorkspaceRuntime
     string SystemLanguageFolder();
     bool InitializeEco();
     void StartEntryEngine();
-    void UpdateEntryEngine(int frame);
+    bool UpdateEntryEngine(int frame);
     void Dispose();
-    string EntryReport(List<object> checks);
+    string EntryReport();
     string GameSnapshot();
     void InstallPlatform(string directory);
     string WorkspaceFontFallbackTake();
@@ -17,9 +17,6 @@ public interface IWorkspaceRuntime
     void WorkspaceFontFallbackRetry();
     void WorkspaceRasterizer(Func<string, string> rasterize);
     void WorkspaceFontsDispose();
-    bool WorkspaceObserveLabels(bool enabled);
-    string WorkspaceLabels();
-    bool WorkspaceInputFlushBeforeRepaint(bool enabled);
     void WorkspaceWake(Action wake);
     float WorkspaceNextUpdateDelay();
     int WorkspaceFrameLimit();

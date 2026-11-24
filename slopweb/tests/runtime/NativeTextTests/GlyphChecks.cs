@@ -152,7 +152,6 @@ static class GlyphChecks
         );
         BrowserGuiInput.Profile = previousProfile;
         BrowserGui.ConfigureGlyphTailClip(true);
-        LabelChecks.Run(index);
         CellChecks.Run(index, benchmark);
         RowChecks.Run(index);
     }

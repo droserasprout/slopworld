@@ -18,13 +18,6 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
 
     public void WorkspaceFontsDispose() => BrowserFontBank.DisposeFonts();
 
-    public bool WorkspaceObserveLabels(bool enabled) => BrowserGui.ConfigureObserveLabels(enabled);
-
-    public string WorkspaceLabels() => BrowserGui.Labels();
-
-    public bool WorkspaceInputFlushBeforeRepaint(bool enabled) =>
-        WorkspaceDrawing.ConfigureInputFlushBeforeRepaint(enabled);
-
     public void WorkspaceWake(Action wake) => BrowserActivity.Wake = wake;
 
     public float WorkspaceNextUpdateDelay() => WorkspaceDrawing.NextUpdateDelay();

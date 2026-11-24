@@ -228,178 +228,6 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
     // registered faces until DisposeFonts; destroying one wrapper releases no atlas.
     public void UnregisterFont(int fontIndex) { }
 
-    public int TextIndexAt(
-        int fontIndex,
-        float fontSize,
-        FontStyle fontStyle,
-        string text,
-        float wrapWidth,
-        Vector2 local,
-        bool richText = true
-    )
-    {
-        if (
-            BakedCaret(
-                fontIndex,
-                fontSize,
-                fontStyle,
-                text,
-                wrapWidth,
-                richText,
-                out _,
-                out var line
-            )
-        )
-            return line.IndexAt(local.x, static glyph => glyph.advanceX, matrix.m00);
-        if (
-            NativeLayout(
-                fontIndex,
-                fontSize,
-                fontStyle,
-                text,
-                wrapWidth,
-                Color.white,
-                richText,
-                matrix.m00,
-                out _
-            )
-        )
-            return nativeText!.IndexAt(local);
-        return Math.Clamp(
-            (int)Math.Round(local.x / ((fontSize > 0 ? fontSize : 16) * .6f)),
-            0,
-            text.Length
-        );
-    }
-
-    public Vector2 TextCursorPos(
-        int fontIndex,
-        float fontSize,
-        FontStyle fontStyle,
-        string text,
-        float wrapWidth,
-        int index,
-        out float lineHeight,
-        bool richText = true
-    )
-    {
-        if (
-            BakedCaret(
-                fontIndex,
-                fontSize,
-                fontStyle,
-                text,
-                wrapWidth,
-                richText,
-                out var face,
-                out var line
-            )
-        )
-        {
-            lineHeight = face.Pitch;
-            return new Vector2(
-                line.Carets(static glyph => glyph.advanceX, matrix.m00)[
-                    Math.Clamp(index, 0, text.Length)
-                ],
-                0
-            );
-        }
-        if (
-            !string.IsNullOrEmpty(text)
-            && NativeLayout(
-                fontIndex,
-                fontSize,
-                fontStyle,
-                text,
-                wrapWidth,
-                Color.white,
-                richText,
-                matrix.m00,
-                out var layout
-            )
-        )
-        {
-            lineHeight = layout.Lines[nativeText!.LineOf(index)].Pitch;
-            return nativeText.PositionOf(index);
-        }
-        lineHeight = LineSpacing(fontIndex, fontSize);
-        return new Vector2(index * (fontSize > 0 ? fontSize : 16) * .6f, 0);
-    }
-
-    public void TextSelectionRects(
-        int fontIndex,
-        float fontSize,
-        FontStyle fontStyle,
-        string text,
-        float wrapWidth,
-        int from,
-        int to,
-        List<Rect> rects,
-        bool richText = true
-    )
-    {
-        rects.Clear();
-        if (string.IsNullOrEmpty(text) || to <= from)
-            return;
-        if (
-            BakedCaret(
-                fontIndex,
-                fontSize,
-                fontStyle,
-                text,
-                wrapWidth,
-                richText,
-                out var face,
-                out var line
-            )
-        )
-        {
-            var positions = line.Carets(static glyph => glyph.advanceX, matrix.m00);
-            int start = Math.Clamp(from, 0, text.Length);
-            int end = Math.Clamp(to, 0, text.Length);
-            if (end > start)
-                rects.Add(
-                    new Rect(positions[start], 0, positions[end] - positions[start], face.Pitch)
-                );
-            return;
-        }
-        if (
-            NativeLayout(
-                fontIndex,
-                fontSize,
-                fontStyle,
-                text,
-                wrapWidth,
-                Color.white,
-                richText,
-                matrix.m00,
-                out var layout
-            )
-        )
-        {
-            var start = nativeText!.PositionOf(from);
-            var end = nativeText.PositionOf(to);
-            int first = nativeText.LineOf(from),
-                last = nativeText.LineOf(to);
-            for (int row = first; row <= last && row < layout.Lines.Length; row++)
-            {
-                var current = layout.Lines[row];
-                float left = row == first ? start.x : 0;
-                float right = row == last ? end.x : MathF.Max(current.Width, 4);
-                rects.Add(new Rect(left, current.Top, MathF.Max(0, right - left), current.Pitch));
-            }
-            return;
-        }
-        rects.Add(
-            new Rect(
-                from * (fontSize > 0 ? fontSize : 16) * .6f,
-                0,
-                (to - from) * (fontSize > 0 ? fontSize : 16) * .6f,
-                LineSpacing(fontIndex, fontSize)
-            )
-        );
-    }
-
     public void DrawText(
         Rect rect,
         string text,
@@ -415,8 +243,6 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
     {
         if (SuppressDrawing)
             return;
-        if (observeLabels)
-            labelPainted = false;
         long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
         if (recordingRow != null && text.Any(c => c < ' ' || c > '~'))
             RejectRow();
@@ -444,8 +270,6 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
         }
         if (baked)
         {
-            if (observeLabels && labelPainted)
-                ObserveLabel(rect, text, color, clipRect);
             return;
         }
         RejectRow();
@@ -471,16 +295,12 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
         }
         if (native)
         {
-            if (observeLabels && labelPainted)
-                ObserveLabel(rect, text, color, clipRect);
             return;
         }
         Emit(
             "text",
             new TextCommand(Box(rect), text, fontSize, (int)fontStyle, (int)anchor, Rgba(color))
         );
-        if (observeLabels)
-            ObserveLabel(rect, text, color, clipRect);
     }
 
     public void FillRect(Rect rect, Color color) => FillRectRounded(rect, color, 0f);

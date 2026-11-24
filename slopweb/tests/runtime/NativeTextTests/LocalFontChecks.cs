@@ -159,6 +159,49 @@ static class LocalFontChecks
                 != 3
         )
             throw new Exception("Supplementary glyphs lost UTF-16 caret indices or line geometry");
+        var selection = new List<Rect>();
+        foreach (
+            var sample in new[]
+            {
+                (Text: "ABC", Start: 1, End: 3),
+                (Text: multiline, Start: 4, End: 6),
+            }
+        )
+        {
+            var start = appendGui.TextCursorPos(
+                index,
+                15,
+                FontStyle.Normal,
+                sample.Text,
+                100,
+                sample.Start,
+                out var height
+            );
+            var end = appendGui.TextCursorPos(
+                index,
+                15,
+                FontStyle.Normal,
+                sample.Text,
+                100,
+                sample.End,
+                out _
+            );
+            appendGui.TextSelectionRects(
+                index,
+                15,
+                FontStyle.Normal,
+                sample.Text,
+                100,
+                sample.Start,
+                sample.End,
+                selection
+            );
+            if (
+                selection.Count != 1
+                || selection[0] != new Rect(start.x, start.y, end.x - start.x, height)
+            )
+                throw new Exception("Selection bounds diverged from caret positions");
+        }
         var old = face.Texture;
         if (BrowserNativeLayout.Available)
         {

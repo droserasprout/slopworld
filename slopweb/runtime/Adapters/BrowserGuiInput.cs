@@ -171,7 +171,6 @@ public static class BrowserGuiInput
             mousePosition = pointer,
         };
         GUIUtility.ResetControlIds();
-        target.BeginLabelRepaint();
         draw();
         long repaintEnd = Profile ? Stopwatch.GetTimestamp() : 0;
         string commands = target.Drain();

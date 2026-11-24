@@ -41,7 +41,7 @@ public sealed partial class WorkspaceRuntime : IDisposable
             .CreateDelegate<Action<EngineApplication>>()(entry);
     }
 
-    public void UpdateEntryEngine(int frame)
+    public bool UpdateEntryEngine(int frame)
     {
         if (entry == null)
             throw new InvalidOperationException("Entry is stopped");
@@ -56,18 +56,18 @@ public sealed partial class WorkspaceRuntime : IDisposable
         {
             EndEngineFrame();
         }
+        return PlayDataLoader.Loaded;
     }
 
     public string GameSnapshot() => WorkspaceScene.Snapshot();
 
-    public string EntryReport(List<object> checks)
+    public string EntryReport()
     {
         var runtime = UnityRuntime.Current;
         var loaded = PlayDataLoader.Loaded;
         return JsonSerializer.Serialize(
             new
             {
-                checks,
                 messages = Log.Messages.Select(m => m.text).ToArray(),
                 world = runtime?.World.GetDiagnosticsSnapshot(),
                 engineErrors = RuntimeServices.Errors,

@@ -32,7 +32,6 @@ static class RowChecks
         // Keep the borrowed backing alive until finally restores the shared atlas.
         using var replacement = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         bool profile = BrowserGuiInput.Profile;
-        bool labels = BrowserGui.ConfigureObserveLabels(false);
         BrowserGuiInput.Profile = false;
         var style = new GUIStyle { fontSize = 15 };
         var identity = new object();
@@ -186,10 +185,6 @@ static class RowChecks
             Require(!Draw(gui), "profiling reused a row");
             gui.Discard();
             BrowserGuiInput.Profile = false;
-            BrowserGui.ConfigureObserveLabels(true);
-            Require(!Draw(gui), "label observation reused a row");
-            gui.Discard();
-            BrowserGui.ConfigureObserveLabels(false);
 
             // An upload mutation cannot be bypassed by an existing row's image ID.
             texture.Apply(false, false);
@@ -331,7 +326,6 @@ static class RowChecks
             texture.CoreTexture.height = originalHeight;
             Enabled.SetValue(null, false);
             BrowserGuiInput.Profile = profile;
-            BrowserGui.ConfigureObserveLabels(labels);
             GUI.color = Color.white;
             BrowserFontBank.ConfigureDensity(1);
         }

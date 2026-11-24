@@ -387,24 +387,17 @@ fn default_ui_uses_the_fontconfig_sans_serif_order_after_named_preferences() {
 }
 
 #[tokio::test]
-async fn protocol_two_omits_binary_payloads_and_fallback_misses_are_explicit() {
+async fn selection_omits_binary_payloads_and_fallback_misses_are_explicit() {
     let (_work, service) = fixture_service();
-    let selected = service.request(json!({"protocol":2})).await.unwrap();
-    assert!(selected["fonts"].as_object().unwrap().is_empty());
+    let selected = service.request(json!({})).await.unwrap();
+    assert!(selected.get("fonts").is_none());
     assert_eq!(selected["faces"].as_array().unwrap().len(), 4);
     let hash = selected["files"]["ui.ttf"].as_str().unwrap();
     assert_eq!(hash.len(), 64);
     let bytes = service.font_bytes(hash).await.unwrap();
     assert_eq!(cache::digest(&bytes), hash);
-    let legacy = service.request(json!({})).await.unwrap();
-    assert_eq!(
-        STANDARD
-            .decode(legacy["fonts"]["ui.ttf"].as_str().unwrap())
-            .unwrap(),
-        bytes
-    );
     let reply = service
-        .request(json!({"protocol":2,"fallback":{"family":"monospace","scalars":[65,0x10ffff]}}))
+        .request(json!({"fallback":{"family":"monospace","scalars":[65,0x10ffff]}}))
         .await
         .unwrap();
     assert_eq!(reply["assignments"]["65"], "face0.ttf");
@@ -423,13 +416,11 @@ fn startup_preserves_three_native_indices_when_sizes_collapse_and_normalizes_rem
     let manifest: Value =
         serde_json::from_slice(&fs::read(output.join("assets/fonts/manifest.json")).unwrap())
             .unwrap();
-    assert_eq!(manifest.as_array().unwrap().len(), 4);
+    assert_eq!(manifest["faces"].as_array().unwrap().len(), 4);
     for index in 0..3 {
-        assert_eq!(manifest[index]["index"], index);
-        let path = output
-            .join("assets/fonts")
-            .join(manifest[index]["bake"].as_str().unwrap());
-        let descriptor: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(manifest["faces"][index]["index"], index);
+        let descriptor: Value =
+            serde_json::from_str(manifest["faces"][index]["bake"].as_str().unwrap()).unwrap();
         assert_eq!(descriptor["size"], [1, 1, 3][index]);
     }
     let before = service.startup_fingerprint().unwrap();
@@ -441,7 +432,7 @@ fn startup_preserves_three_native_indices_when_sizes_collapse_and_normalizes_rem
 #[tokio::test]
 async fn corrupted_content_download_recovers_from_cached_original_without_a_rescan() {
     let (_work, service) = fixture_service();
-    let reply = service.request(json!({"protocol":2})).await.unwrap();
+    let reply = service.request(json!({})).await.unwrap();
     let hash = reply["files"]["ui.ttf"].as_str().unwrap();
     cache::write(&cache::object(&service.inner.root, hash), b"broken object").unwrap();
     assert_eq!(

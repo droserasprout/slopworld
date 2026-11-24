@@ -68,8 +68,8 @@ probe exports own sidebar/catalog inspection and terminal assertion helpers.
 Underlying chrome reads current mod-owned geometry on each draw. In Entry the underlying top bar can open
 the persona-core menu and shortcut help with the last terminal pane closed.
 Hints belong to the window stack and pane that owned the opening gesture.
-Startup validates managed status reports as well as exceptions; failed or incomplete
-Entry initialization releases the engine and ends loading with an error. Browser Entry
+Entry frames return readiness. Startup takes a detailed Entry snapshot on failure or when
+profiling. Failed or incomplete initialization releases the engine and surfaces the cause. Browser Entry
 activates its configured silent mixer before native resource registration because the
 browser drives frames without starting the desktop platform loop.
 Game assembly downloads use a four-file window, including completed buffers;
@@ -228,7 +228,7 @@ sets the .NET, Binaryen, and Emscripten limits together.
 Content archives use canonical ZIP metadata so identical payloads retain runtime identity.
 Launch prints preparation results before its URL.
 
-Host font preparation writes outlines and native loader settings, never glyph images.
+Host font preparation records outline hashes and native loader settings.
 The Rust service persists content-addressed standalone faces, cmap coverage and
 Fontconfig ordering independently of application builds. Directory changes trigger
 discovery. The service rechecks Fontconfig's inventory before publishing, and source
@@ -252,8 +252,9 @@ glyphs rasterize in a worker and use bounded origin-local persistent storage key
 by font content, scalar, size, density, and loader flags. Pending glyphs remain
 retryable until completion invalidates native drawing. Startup drains glyph replies
 and publishes one invalidation before its next draw; live replies remain coalesced.
-Startup and live font selection install outlines in both rasterizers before publishing
-managed face descriptors. The main thread retains synchronous metrics and ASCII rendering. Bump the glyph storage namespace when changing
+Startup preparation writes the same hash-based font selection manifest that the host serves
+for live changes, with explicit UI face indices at startup. Both paths share file loading
+and install outlines in both rasterizers before publishing managed face descriptors. The main thread retains synchronous metrics and ASCII rendering. Bump the glyph storage namespace when changing
 FreeType or its rasterization contract. Selection
 changes publish after loading and reject stale responses. Both execution modes use
 the same font pipeline; AOT only changes managed execution. Private font bytes and

@@ -31,17 +31,6 @@ public partial class Probe
     public static void WorkspaceFontsDispose() => Runtime.WorkspaceFontsDispose();
 
     [JSExport]
-    public static bool WorkspaceObserveLabels(bool enabled) =>
-        Runtime.WorkspaceObserveLabels(enabled);
-
-    [JSExport]
-    public static string WorkspaceLabels() => Runtime.WorkspaceLabels();
-
-    [JSExport]
-    public static bool WorkspaceInputFlushBeforeRepaint(bool enabled) =>
-        Runtime.WorkspaceInputFlushBeforeRepaint(enabled);
-
-    [JSExport]
     public static void WorkspaceWake([JSMarshalAs<JSType.Function>] Action wake) =>
         Runtime.WorkspaceWake(wake);
 

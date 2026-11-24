@@ -87,7 +87,7 @@ public sealed partial class BrowserGui
         recordingRow = null;
         if (!rowsEnabled)
             return false;
-        if (SuppressDrawing || BrowserGuiInput.Profile || observeLabels)
+        if (SuppressDrawing || BrowserGuiInput.Profile)
         {
             rowBypasses++;
             return false;

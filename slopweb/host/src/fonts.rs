@@ -12,7 +12,6 @@ mod opentype;
 mod tests;
 
 use anyhow::{Context, Result, ensure};
-use base64::{Engine, engine::general_purpose::STANDARD};
 use cache::Catalog;
 use fs2::FileExt;
 use opentype::Face;
@@ -90,7 +89,7 @@ impl FontService {
     /// operation remains serialized through publication even if its caller cancels.
     pub async fn request(&self, value: Value) -> Result<Value> {
         let this = self.clone();
-        tokio::task::spawn_blocking(move || this.request_sync(&value)).await?
+        tokio::task::spawn_blocking(move || this.request_sync(&value, SelectionMode::Live)).await?
     }
     pub async fn catalog(&self) -> Result<Value> {
         self.catalog_for("monospace").await
@@ -170,14 +169,14 @@ impl FontService {
             json!({"version":1,"revision":catalog.generation,"generation":catalog.generation,"faces":faces,"order":order,"preload":preload,"all":all,"mono":mono}),
         )
     }
-    fn request_sync(&self, value: &Value) -> Result<Value> {
+    fn request_sync(&self, value: &Value, mode: SelectionMode) -> Result<Value> {
         let started = Instant::now();
         let request = parse_request(value)?;
         let result = self.with_catalog(|catalog| {
-            let mut delivery = Delivery::new(
-                catalog.generation.clone(),
-                value.get("protocol").and_then(Value::as_u64) == Some(2),
-            );
+            let mut delivery = Delivery {
+                generation: catalog.generation.clone(),
+                ..Delivery::default()
+            };
             match request {
                 Request::Selection(ref selection) => {
                     let ui = select_ui(catalog, &self.inner.root, &selection.ui)?;
@@ -187,10 +186,23 @@ impl FontService {
                         .and_then(|n| find(catalog, n))
                         .context("No terminal font available")?
                         .clone();
-                    for offset in [-2, 0, 2] {
-                        delivery.add(self, &ui, "ui.ttf", (selection.ui_size + offset).max(1))?;
+                    for (index, offset) in [-2, 0, 2].into_iter().enumerate() {
+                        let default_index = matches!(mode, SelectionMode::Startup).then_some(index);
+                        delivery.add(
+                            self.inner.flags,
+                            &ui,
+                            "ui.ttf",
+                            (selection.ui_size + offset).max(1),
+                            default_index,
+                        );
                     }
-                    delivery.add(self, &terminal, "terminal.ttf", selection.terminal_size)?;
+                    delivery.add(
+                        self.inner.flags,
+                        &terminal,
+                        "terminal.ttf",
+                        selection.terminal_size,
+                        None,
+                    );
                     delivery
                         .chains
                         .insert(selection.terminal.clone(), json!(chain));
@@ -220,7 +232,7 @@ impl FontService {
                         }
                         let filename = format!("face{count}.ttf");
                         count += 1;
-                        delivery.add(self, face, &filename, 14)?;
+                        delivery.add(self.inner.flags, face, &filename, 14, None);
                         for scalar in covered {
                             assignments.insert(scalar.to_string(), json!(filename));
                             pending.remove(&scalar);
@@ -311,50 +323,44 @@ fn preload(catalog: &Catalog, order: &[String]) -> Vec<String> {
     }
     result
 }
+#[derive(Clone, Copy)]
+enum SelectionMode {
+    Startup,
+    Live,
+}
+
+#[derive(serde::Serialize, PartialEq)]
+struct FontDescriptor {
+    font: String,
+    bake: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    index: Option<usize>,
+}
+
+#[derive(Default)]
 struct Delivery {
-    fonts: BTreeMap<String, String>,
     files: BTreeMap<String, String>,
-    faces: Vec<Value>,
+    faces: Vec<FontDescriptor>,
     chains: BTreeMap<String, Value>,
     assignments: Option<BTreeMap<String, Value>>,
     generation: String,
-    modern: bool,
 }
 impl Delivery {
-    fn new(generation: String, modern: bool) -> Self {
-        Self {
-            fonts: BTreeMap::new(),
-            files: BTreeMap::new(),
-            faces: Vec::new(),
-            chains: BTreeMap::new(),
-            assignments: None,
-            generation,
-            modern,
+    fn add(&mut self, flags: u32, face: &Face, filename: &str, size: i64, index: Option<usize>) {
+        self.files
+            .entry(filename.into())
+            .or_insert_with(|| face.hash.clone());
+        let descriptor = FontDescriptor {
+            font: filename.into(),
+            bake: json!({"size":size,"loaderFlags":flags,"family":face.family}).to_string(),
+            index,
+        };
+        if !self.faces.contains(&descriptor) {
+            self.faces.push(descriptor);
         }
-    }
-    fn add(&mut self, service: &FontService, face: &Face, filename: &str, size: i64) -> Result<()> {
-        if !self.files.contains_key(filename) {
-            self.files.insert(filename.into(), face.hash.clone());
-            if !self.modern {
-                self.fonts.insert(
-                    filename.into(),
-                    STANDARD.encode(read_object(&service.inner.root, &face.hash)?),
-                );
-            }
-        }
-        let bake =
-            json!({"size":size,"loaderFlags":service.inner.flags,"family":face.family}).to_string();
-        if !self
-            .faces
-            .iter()
-            .any(|f| f["font"] == filename && f["bake"] == bake)
-        {
-            self.faces.push(json!({"font":filename,"bake":bake}));
-        }
-        Ok(())
     }
     fn value(self) -> Value {
-        let mut value = json!({"fonts":self.fonts,"files":self.files,"faces":self.faces,"chains":self.chains,"generation":self.generation});
+        let mut value = json!({"files":self.files,"faces":self.faces,"chains":self.chains,"generation":self.generation});
         if let Some(a) = self.assignments
             && let Value::Object(fields) = &mut value
         {

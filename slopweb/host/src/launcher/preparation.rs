@@ -83,64 +83,83 @@ fn copy_eco_archive(component: &Path, root: &Path, cache: &Path) -> Result<()> {
     contents.save()
 }
 
-pub fn native_phase(bundle: &Path, game: &Path, phase: &str, root: &Path) -> Result<()> {
-    let run = |args: &[&Path]| -> Result<()> {
-        let status = Command::new("dotnet").args(args).status()?;
-        ensure!(
-            status.success(),
-            "Native preparation helper failed ({status}): {}",
-            args.first().context("Missing helper")?.display()
-        );
-        Ok(())
-    };
-    match phase {
-        "managed" => {
-            fs::copy(bundle.join("Adapters.dll"), root.join("Adapters.dll"))?;
-            run(&[
-                &bundle.join("scanner/Scanner.dll"),
-                game,
-                Path::new("--stage"),
-                &root.join("game"),
-                Path::new("--jobs"),
-            ])?;
-            run(&[
-                &bundle.join("offline/Offline.dll"),
-                Path::new("--core"),
-                root,
-                &bundle.join("Probe.dll"),
-            ])?;
-            fs::create_dir_all(root.join("mod"))?;
-            for (name, path) in top_level(&bundle.join("mod"), |name| name.ends_with(".dll"))? {
-                fs::copy(path, root.join("mod").join(name))?;
-            }
-            run(&[
-                &bundle.join("offline/Offline.dll"),
-                Path::new("--eco"),
-                root,
-                &bundle.join("mod/SlopWorld.dll"),
-            ])?;
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Phase {
+    Managed,
+    Assets,
+    Fonts,
+    Background,
+}
+
+impl Phase {
+    fn directory(self) -> &'static str {
+        match self {
+            Self::Managed => "managed",
+            Self::Assets => "assets",
+            Self::Fonts => "fonts",
+            Self::Background => "background",
         }
-        "assets" => {
-            fs::create_dir_all(root.join("assets"))?;
-            eco_archive(&game.join("Assets.zip"), &root.join("assets/Eco.zip"))?;
-            core_archive(game, &root.join("assets/Core.zip"))?;
-        }
-        "background" => run(&[
-            &bundle.join("background-probe/BackgroundProbe.dll"),
-            game,
-            &bundle.join("mod/SlopWorld.dll"),
-            &root.join("assets/background"),
-        ])?,
-        _ => anyhow::bail!("Unknown preparation phase {phase}"),
     }
+}
+
+fn run_helper(args: &[&Path]) -> Result<()> {
+    let status = Command::new("dotnet").args(args).status()?;
+    ensure!(
+        status.success(),
+        "Native preparation helper failed ({status}): {}",
+        args.first().context("Missing helper")?.display()
+    );
     Ok(())
+}
+
+pub(super) fn managed(bundle: &Path, game: &Path, root: &Path) -> Result<()> {
+    fs::copy(bundle.join("Adapters.dll"), root.join("Adapters.dll"))?;
+    run_helper(&[
+        &bundle.join("scanner/Scanner.dll"),
+        game,
+        Path::new("--stage"),
+        &root.join("game"),
+        Path::new("--jobs"),
+    ])?;
+    run_helper(&[
+        &bundle.join("offline/Offline.dll"),
+        Path::new("--core"),
+        root,
+        &bundle.join("Probe.dll"),
+    ])?;
+    fs::create_dir_all(root.join("mod"))?;
+    for (name, path) in top_level(&bundle.join("mod"), |name| name.ends_with(".dll"))? {
+        fs::copy(path, root.join("mod").join(name))?;
+    }
+    run_helper(&[
+        &bundle.join("offline/Offline.dll"),
+        Path::new("--eco"),
+        root,
+        &bundle.join("mod/SlopWorld.dll"),
+    ])
+}
+
+pub(super) fn assets(game: &Path, root: &Path) -> Result<()> {
+    fs::create_dir_all(root.join("assets"))?;
+    eco_archive(&game.join("Assets.zip"), &root.join("assets/Eco.zip"))?;
+    core_archive(game, &root.join("assets/Core.zip"))
+}
+
+pub(super) fn background(bundle: &Path, game: &Path, root: &Path) -> Result<()> {
+    run_helper(&[
+        &bundle.join("background-probe/BackgroundProbe.dll"),
+        game,
+        &bundle.join("mod/SlopWorld.dll"),
+        &root.join("assets/background"),
+    ])
 }
 
 struct PreparationPlan {
     authored: Inputs,
     authored_digests: files::Manifest,
     key: String,
-    keys: BTreeMap<&'static str, String>,
+    keys: BTreeMap<Phase, String>,
     font_settings: Map<String, Value>,
 }
 
@@ -178,14 +197,18 @@ fn plan(
     let mut contents = files::DigestCache::load(cache.join("preparation-digests-v1.json"));
     let mut keys = BTreeMap::new();
     for (name, inputs, identity) in [
-        ("managed", managed, json!("managed-rust-v1")),
-        ("assets", assets_inputs, json!("eco-assets-locales-v2")),
+        (Phase::Managed, managed, json!("managed-rust-v1")),
+        (Phase::Assets, assets_inputs, json!("eco-assets-locales-v2")),
         (
-            "fonts",
+            Phase::Fonts,
             fonts,
-            json!(["fonts-rust-v1", game, font_settings, font_inventory]),
+            json!(["font-manifest-v2", game, font_settings, font_inventory]),
         ),
-        ("background", background, json!(["background-v1", game])),
+        (
+            Phase::Background,
+            background,
+            json!(["background-v1", game]),
+        ),
     ] {
         keys.insert(
             name,
@@ -250,7 +273,7 @@ pub fn prepare(
     rebuild: bool,
     appearance: &Map<String, Value>,
     font_inventory: &str,
-    build: impl Fn(&str, &Path, &Map<String, Value>) -> Result<()>,
+    build: impl Fn(Phase, &Path, &Map<String, Value>) -> Result<()>,
 ) -> Result<PathBuf> {
     let _transaction = files::lock(&cache.join(".prepare.lock"))?;
     let bundle = bundle.path();
@@ -261,12 +284,12 @@ pub fn prepare(
         println!("Reusing prepared runtime");
         return Ok(destination);
     }
-    let mut components = Vec::new();
     let mut pointers = Vec::new();
-    for phase in ["managed", "assets", "fonts", "background"] {
-        let parent = cache.join("prepared-components").join(phase);
+    let mut prepare_component = |phase: Phase| -> Result<PathBuf> {
+        let name = phase.directory();
+        let parent = cache.join("prepared-components").join(name);
         fs::create_dir_all(&parent)?;
-        let phase_key = plan.keys.get(phase).context("Missing phase key")?;
+        let phase_key = plan.keys.get(&phase).context("Missing phase key")?;
         let mut component = files::selected(&parent, phase_key)?;
         if rebuild || !files::ready(&component, phase_key)? {
             if component.exists() || rebuild {
@@ -279,11 +302,11 @@ pub fn prepare(
             fs::create_dir(&root)?;
             let started = Instant::now();
             build(phase, &root, &plan.font_settings)?;
-            println!("Prepare {phase}: {:.2}s", started.elapsed().as_secs_f64());
+            println!("Prepare {name}: {:.2}s", started.elapsed().as_secs_f64());
             fs::write(root.join(".ready"), phase_key)?;
             fs::rename(root, &component)?;
         } else {
-            println!("Reusing prepared {phase}");
+            println!("Reusing prepared {name}");
         }
         pointers.push((
             parent.join(format!(".active-{phase_key}")),
@@ -293,8 +316,12 @@ pub fn prepare(
                 .to_string_lossy()
                 .into_owned(),
         ));
-        components.push(component);
-    }
+        Ok(component)
+    };
+    let managed = prepare_component(Phase::Managed)?;
+    let assets = prepare_component(Phase::Assets)?;
+    let fonts = prepare_component(Phase::Fonts)?;
+    let background = prepare_component(Phase::Background)?;
     if destination.exists() {
         destination = cache.join(files::unique_name(key));
     }
@@ -303,25 +330,18 @@ pub fn prepare(
         .tempdir_in(cache)?;
     let root = temporary.path().join("runtime");
     plan.copy_authored(bundle, "web", &root)?;
-    for component in &components {
+    for component in [&managed, &assets, &fonts, &background] {
         files::copy_tree(component, &root, |name| {
             name == ".ready" || name == archive_identity::ARCHIVE
         })?;
     }
-    copy_eco_archive(
-        components.get(1).context("Missing assets component")?,
-        &root,
-        cache,
-    )?;
+    copy_eco_archive(&assets, &root, cache)?;
     if plan.authored.keys().any(|name| name.starts_with("mod/")) {
         plan.copy_authored(bundle, "mod", &root.join("mod"))?;
     }
     plan.copy_authored(bundle, "ost", &root.join("assets/ost"))?;
     let mut values = appearance.clone();
-    let resolved = components
-        .get(2)
-        .context("Missing fonts component")?
-        .join("assets/reference-appearance.json");
+    let resolved = fonts.join("assets/reference-appearance.json");
     if resolved.is_file() {
         values.extend(serde_json::from_slice::<Map<String, Value>>(&fs::read(
             resolved,

@@ -1,5 +1,35 @@
 import {hostFonts} from './host-fonts.js';
+import {warmWorkspaceFonts} from './font-delivery.js';
 import {installWorkspaceFont} from './workspace-rasterizer.js';
+async function installFaces(probe, host, selection, current = () => true) {
+  // Fetch each distinct hash once before publishing any selected face.
+  const hashes = [...new Set(Object.values(selection.files))];
+  const files = new Map(await Promise.all(hashes.map(async hash => [hash, await host.file(hash)])));
+  for (const {font, bake, index = -1} of selection.faces) {
+    if (!current()) return;
+    const bytes = files.get(selection.files[font]);
+    if (!bytes) throw Error('Missing font file for ' + font);
+    await installWorkspaceFont(probe, bytes, bake, index, current);
+  }
+}
+
+function families(selection) {
+  return [...new Set(selection.faces.map(face => JSON.parse(face.bake).family))];
+}
+
+export async function installStartupFonts(probe, request) {
+  const catalog = await request('./assets/fonts/catalog.json');
+  if (catalog.ok) probe.WorkspaceFontCatalog(await catalog.text());
+  const response = await request('./assets/fonts/manifest.json');
+  if (!response.ok) throw Error('Host font manifest is missing');
+  const selection = await response.json();
+  const chains = JSON.stringify(selection.chains);
+  probe.WorkspaceFontChains(chains);
+  await installFaces(probe, hostFonts(probe, request), selection);
+  await warmWorkspaceFonts(probe, families(selection));
+  return chains;
+}
+
 // Font-file selections publish only after both rasterizers have loaded the bytes.
 export function dynamicFonts(probe, request = globalThis.fetch,
   report = (message, retry) => {
@@ -53,17 +83,15 @@ export function dynamicFonts(probe, request = globalThis.fetch,
         if (failures.has(selected)) { restore(selected); break; }
         try {
           const headers = {'Content-Type':'application/json'};
-          const response = await request('./host/fonts', {method:'POST', headers, body:JSON.stringify({...JSON.parse(selected),protocol:2})});
+          const response = await request('./host/fonts', {method:'POST', headers, body:selected});
           if (!response.ok) throw Error('Native font preparation unavailable');
           const result = await response.json();
           if (disposed || selected !== wanted) continue; // Stale work is never marked installed.
-          const fonts = result.files ? new Map(await Promise.all(Object.entries(result.files).map(async([name, hash])=>
-            [name,await host.file(hash)]))) : new Map(Object.entries(result.fonts).map(([name, bytes]) =>
-            [name, Uint8Array.from(atob(bytes), c => c.charCodeAt(0))]));
-          if (result.files) await host.warm([...new Set(result.faces.map(face=>JSON.parse(face.bake).family))]);
-          if (disposed || selected !== wanted) continue;
-          for (const face of result.faces) await installWorkspaceFont(probe,fonts.get(face.font),face.bake,-1,()=>!disposed&&selected===wanted);
-          if (disposed || selected !== wanted) continue;
+          await host.warm(families(result));
+          const currentSelection = () => !disposed && selected === wanted;
+          if (!currentSelection()) continue;
+          await installFaces(probe, host, result, currentSelection);
+          if (!currentSelection()) continue;
           const chains = JSON.stringify(result.chains);
           probe.WorkspaceFontChains(chains);
           probe.WorkspaceFontsReady();

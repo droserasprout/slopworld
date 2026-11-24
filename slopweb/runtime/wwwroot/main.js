@@ -4,11 +4,9 @@ import { workspaceViewport, workspaceParameters } from './workspace-viewport.js'
 import { loadStartupAssembly, loadStartupAssemblies } from './startup-assemblies.js';
 import { yieldStartupPaint } from './startup-yield.js';
 import { installCoreLanguage } from './core-language.js';
-function requireChecks(report, stage) {
-    const failed = report.checks.filter(check => !check.ok);
-    if (failed.length)
-        throw new Error(`${stage} failed: ` + failed.map(check =>
-            `${check.name}: ${(check.errors ?? []).join('; ')}`).join('\n'));
+function entryReport(probe) {
+    try { return JSON.parse(probe.EntryReport()); }
+    catch (error) { return {diagnosticError: String(error)}; }
 }
 
 export async function startRuntime(dotnet, parameters = workspaceParameters(), {
@@ -47,11 +45,6 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
         window.__managedProbe = exports.Probe;
         const loadFile = path => loadStartupAssembly(path, loadAssembly, assemblyRequest, paint);
         let eco = null;
-        async function initializeEco() {
-            await paint();
-            eco = JSON.parse(exports.Probe.InitializeEco());
-            requireChecks(eco, 'Workspace initialization');
-        }
         let assetTransfer = null;
         {
             const archive = await (await loadModule('./asset-archive.js')).openAssetArchive('./assets/Eco.zip');
@@ -86,112 +79,85 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
             if (!response.ok) throw new Error(`Core.zip: HTTP ${response.status}`);
             const core = new Uint8Array(await response.arrayBuffer());
             await paint();
-            const files = exports.Probe.InstallCore(core);
+            exports.Probe.InstallCore(core);
             const enableLanguageMenu = await installCoreLanguage(exports.Probe, parameters, window, fetch);
             try {
                 await paint();
-                entry = JSON.parse(exports.Probe.StartEntry());
-                requireChecks(entry, 'Entry initialization');
+                exports.Probe.StartEntry();
+                let ready = false;
                 for (let frame = 0; frame < 5; frame++) {
                     await paint(true);
-                    entry = JSON.parse(exports.Probe.EntryFrame(frame));
-                    requireChecks(entry, 'Entry initialization');
+                    ready = exports.Probe.EntryFrame(frame);
                 }
-                entry.files = files;
-                if (entry.loaded) {
-                    enableLanguageMenu();
-                    const viewport = workspaceViewport(parameters);
-                    exports.Probe.ConfigureWorkspaceViewport(viewport.width, viewport.height, viewport.uiScale);
-                    document.documentElement.style.setProperty('--workspace-aspect', viewport.width / viewport.height);
-                    const content = await fetch('./mod/Content.zip');
-                    if (!content.ok) throw new Error('Workspace mod content is missing');
-                    const modContent = new Uint8Array(await content.arrayBuffer());
+                if (!ready) throw new Error('Entry did not finish loading during startup');
+                enableLanguageMenu();
+                const viewport = workspaceViewport(parameters);
+                exports.Probe.ConfigureWorkspaceViewport(viewport.width, viewport.height, viewport.uiScale);
+                document.documentElement.style.setProperty('--workspace-aspect', viewport.width / viewport.height);
+                const content = await fetch('./mod/Content.zip');
+                if (!content.ok) throw new Error('Workspace mod content is missing');
+                const modContent = new Uint8Array(await content.arrayBuffer());
+                await paint();
+                const textures = exports.Probe.InstallModContent(modContent);
+                console.log('Browser: mounted ' + textures + ' mod textures');
+                await paint();
+                eco = exports.Probe.InitializeEco();
+                let fontDefaults = null, fontChains = null;
+                if (parameters.has('referenceAppearance')) {
+                    const appearance = await fetch('./assets/reference-appearance.json');
+                    if (!appearance.ok) throw new Error('Reference appearance is missing');
+                    fontDefaults = await appearance.text();
+                    exports.Probe.WorkspaceAppearance(fontDefaults);
+                }
+                if (parameters.get('localPreferences') !== 'off') {
+                    (await loadModule('./workspace-preferences.js')).installWorkspacePreferences(exports.Probe);
+                    (await loadModule('./workspace-keybindings.js')).installWorkspaceKeyBindings(exports.Probe);
+                }
+                if (parameters.has('nativeFonts')) {
+                    await (await loadModule('./workspace-rasterizer.js')).installLocalRasterizer(exports.Probe);
+                    const fonts = await loadModule('./workspace-fonts.js');
+                    fontChains = await fonts.installStartupFonts(exports.Probe, fetch);
+                }
+                for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn']) {
+                    await loadFile(`./mod/${name}.dll`);
+                }
+                if (parameters.has('nativeFonts')) {
+                    const fontLoader = await loadModule('./workspace-fonts.js');
+                    const fonts = fontLoader.dynamicFonts(exports.Probe, fetch, undefined, fontDefaults ? {selection:fontDefaults, chains:fontChains} : null);
+                    void fonts(exports.Probe.WorkspaceDynamicFonts(fonts));
+                }
+                await paint();
+                let commands = JSON.parse(await exports.Probe.WorkspaceFrame(new URL('.', window.location.href).href, parameters.get('session') ?? ''));
+                const drawing = await loadModule('./gui.js');
+                const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
+                document.body.prepend(canvas);
+                // Packets carry resource changes, not standalone snapshots. Apply
+                // every packet before a font redraw can refer to its image uploads
+                // or retained targets. The loading screen still covers this canvas.
+                drawing.renderGui(canvas, commands);
+                let frames = 1;
+                if (parameters.has('nativeFonts') && await (await loadModule('./font-delivery.js')).warmWorkspaceFonts(exports.Probe)) {
                     await paint();
-                    const textures = exports.Probe.InstallModContent(modContent);
-                    console.log('Browser: mounted ' + textures + ' mod textures');
-                    await initializeEco();
-                    let fontDefaults = null, fontChains = null;
-                    if (parameters.has('referenceAppearance')) {
-                        const appearance = await fetch('./assets/reference-appearance.json');
-                        if (!appearance.ok) throw new Error('Reference appearance is missing');
-                        fontDefaults = await appearance.text();
-                        exports.Probe.WorkspaceAppearance(fontDefaults);
-                    }
-                    if (parameters.get('localPreferences') !== 'off') {
-                        (await loadModule('./workspace-preferences.js')).installWorkspacePreferences(exports.Probe);
-                        (await loadModule('./workspace-keybindings.js')).installWorkspaceKeyBindings(exports.Probe);
-                    }
-                    if (parameters.has('nativeFonts')) {
-                        await (await loadModule('./workspace-rasterizer.js')).installLocalRasterizer(exports.Probe);
-                        const catalog = await fetch('./assets/fonts/catalog.json');
-                        if (catalog.ok) exports.Probe.WorkspaceFontCatalog(await catalog.text());
-                        const chains = await fetch('./assets/fonts/chains.json');
-                        if (!chains.ok) throw new Error('Host font family order is missing');
-                        fontChains = await chains.text();
-                        exports.Probe.WorkspaceFontChains(fontChains);
-                        const manifest = await fetch('./assets/fonts/manifest.json');
-                        if (!manifest.ok) throw new Error('Host font descriptors are missing');
-                        // Styles and densities share font bytes. Retain them only for
-                        // this installation pass, avoiding repeated fetch/body copies.
-                        const fonts = new Map(), families = new Set();
-                        const loadFont = async url => {
-                            const response = await fetch(url);
-                            if (!response.ok) throw new Error('Host font file is unavailable');
-                            return new Uint8Array(await response.arrayBuffer());
-                        };
-                        for (const face of await manifest.json()) {
-                            const base = new URL('./assets/fonts/', window.location.href);
-                            const fontUrl = new URL(face.font, base), bakeUrl = new URL(face.bake, base);
-                            if (!fontUrl.href.startsWith(base.href) || !bakeUrl.href.startsWith(base.href))
-                                throw new Error('Font manifest path escapes local font directory');
-                            if (!fonts.has(fontUrl.href)) fonts.set(fontUrl.href, face.hash
-                                ? (await loadModule('./host-fonts.js')).hostFonts(exports.Probe).file(face.hash)
-                                : loadFont(fontUrl));
-                            const [font, bake] = await Promise.all([fonts.get(fontUrl.href), fetch(bakeUrl)]);
-                            if (!bake.ok) throw new Error('Host font descriptor is unavailable');
-                            const descriptor=await bake.text();
-                            await (await loadModule('./workspace-rasterizer.js')).installWorkspaceFont(exports.Probe,font,descriptor,face.index??-1);
-                            const family=JSON.parse(descriptor).family;
-                            if (family) families.add(family);
-                        }
-                        await (await loadModule('./font-delivery.js')).warmWorkspaceFonts(exports.Probe,[...families]);
-                    }
-                    for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn']) {
-                        await loadFile(`./mod/${name}.dll`);
-                    }
-                    if (parameters.has('nativeFonts')) {
-                        const fontLoader = await loadModule('./workspace-fonts.js');
-                        const fonts = fontLoader.dynamicFonts(exports.Probe, fetch, undefined, fontDefaults ? {selection:fontDefaults, chains:fontChains} : null);
-                        void fonts(exports.Probe.WorkspaceDynamicFonts(fonts));
-                    }
-                    await paint();
-                    let commands = JSON.parse(await exports.Probe.WorkspaceFrame(new URL('.', window.location.href).href, parameters.get('session') ?? ''));
-                    const drawing = await loadModule('./gui.js');
-                    const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
-                    document.body.prepend(canvas);
-                    // Packets carry resource changes, not standalone snapshots. Apply
-                    // every packet before a font redraw can refer to its image uploads
-                    // or retained targets. The loading screen still covers this canvas.
+                    commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', 0)).commands;
                     drawing.renderGui(canvas, commands);
-                    let frames = 1;
-                    if (parameters.has('nativeFonts') && await (await loadModule('./font-delivery.js')).warmWorkspaceFonts(exports.Probe)) {
-                        await paint();
-                        commands = JSON.parse(exports.Probe.WorkspaceUpdate('[]', 0)).commands;
-                        drawing.renderGui(canvas, commands);
-                        frames++;
-                    }
-                    workspace = {frames, commands: commands.length, textures};
-                    if (parameters.has('profile')) {
-                        Object.assign(workspace, (await loadModule('./workspace-diagnostics.js')).inspectWorkspaceCanvas(canvas));
-                        workspace.fonts = JSON.parse(exports.Probe.WorkspaceFontSnapshot());
-                        workspace.game = JSON.parse(exports.Probe.GameSnapshot());
-                    }
-                    workspace.live = (await loadModule('./workspace.js')).startWorkspace(exports.Probe, canvas, 0);
-                    document.body.classList.add('ready');
-                    window.__loading?.finish();
-                } else throw new Error('Entry did not finish loading during startup');
+                    frames++;
+                }
+                workspace = {frames, commands: commands.length, textures};
+                if (parameters.has('profile')) {
+                    entry = entryReport(exports.Probe);
+                    Object.assign(workspace, (await loadModule('./workspace-diagnostics.js')).inspectWorkspaceCanvas(canvas));
+                    workspace.fonts = JSON.parse(exports.Probe.WorkspaceFontSnapshot());
+                    workspace.game = JSON.parse(exports.Probe.GameSnapshot());
+                }
+                workspace.live = (await loadModule('./workspace.js')).startWorkspace(exports.Probe, canvas, 0);
+                document.body.classList.add('ready');
+                window.__loading?.finish();
 
-            } catch (error) { exports.Probe.StopEntry(); throw error; }
+            } catch (error) {
+                entry ??= entryReport(exports.Probe);
+                exports.Probe.StopEntry();
+                throw error;
+            }
         }
         window.__probeResult = { loaded, loadErrors, manifest, missingDependencies,
             workspace, entry, eco, assetTransfer, adaptations };

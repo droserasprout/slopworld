@@ -2,6 +2,7 @@
 use super::*;
 use anyhow::{Result, bail};
 use clap::Parser;
+use preparation::Phase;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -146,17 +147,18 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     write(game.join("Assembly-CSharp.dll"), "game");
     write(game.join("Assets.zip"), "archive");
     let calls = Mutex::new(Vec::new());
-    let build = |phase: &str, root: &Path, values: &serde_json::Map<String, Value>| -> Result<()> {
-        calls.lock().unwrap().push(phase.to_owned());
-        if phase == "fonts" {
-            appearance::write_preferences(root, values)?;
-        } else if phase == "assets" {
-            write(root.join(crate::archive_identity::ARCHIVE), "eco");
-        } else {
-            write(root.join(format!("{phase}.fixture")), phase);
-        }
-        Ok(())
-    };
+    let build =
+        |phase: Phase, root: &Path, values: &serde_json::Map<String, Value>| -> Result<()> {
+            calls.lock().unwrap().push(phase);
+            if phase == Phase::Fonts {
+                appearance::write_preferences(root, values)?;
+            } else if phase == Phase::Assets {
+                write(root.join(crate::archive_identity::ARCHIVE), "eco");
+            } else {
+                write(root.join(format!("{phase:?}.fixture")), "fixture");
+            }
+            Ok(())
+        };
     let mut values = serde_json::Map::new();
     let pinned = files::PinnedBundle::open(bundle.clone()).unwrap();
     let prepare = |rebuild, values: &serde_json::Map<String, Value>| {
@@ -189,11 +191,11 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     assert_eq!(calls.lock().unwrap().len(), 4);
     values.insert("fontSize".into(), json!(18));
     prepare(false, &values);
-    assert_eq!(calls.lock().unwrap().last().unwrap(), "fonts");
+    assert_eq!(calls.lock().unwrap().last().unwrap(), &Phase::Fonts);
     assert_eq!(calls.lock().unwrap().len(), 5);
     write(game.join("Data/Core/data.xml"), "new asset");
     prepare(false, &values);
-    assert_eq!(calls.lock().unwrap().last().unwrap(), "assets");
+    assert_eq!(calls.lock().unwrap().last().unwrap(), &Phase::Assets);
     assert_eq!(calls.lock().unwrap().len(), 6);
     let refreshed = prepare(true, &values);
     assert!(first.join(".ready").is_file());
@@ -206,7 +208,7 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
         &values,
         "fixture-fonts",
         |phase, root, values| {
-            if phase == "background" {
+            if phase == Phase::Background {
                 bail!("fixture failed");
             }
             build(phase, root, values)
@@ -238,7 +240,7 @@ fn replacing_authored_bytes_during_preparation_cannot_publish_under_the_old_key(
         &appearance,
         "fonts",
         |phase, _, _| {
-            if phase == "managed" {
+            if phase == Phase::Managed {
                 // A cooperating restager waits. An in-place edit with the same
                 // length still has to be detected on the private copy.
                 let parent = File::open(bundle.parent().unwrap())?;
@@ -835,7 +837,7 @@ fn assets_phase_stages_entry_and_workspace_members_without_full_pack() {
         source.write_all(name.as_bytes()).unwrap();
     }
     source.finish().unwrap();
-    preparation::native_phase(temp.path(), &game, "assets", &root).unwrap();
+    preparation::assets(&game, &root).unwrap();
     assert!(!root.join("assets/Assets.zip").exists());
     let mut eco = zip::ZipArchive::new(File::open(root.join("assets/Eco.zip")).unwrap()).unwrap();
     assert_eq!(eco.len(), keep.len());

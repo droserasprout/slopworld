@@ -1,4 +1,4 @@
-//! Validate the backward-compatible selection and fallback wire requests.
+//! Validate the selection and fallback wire requests.
 use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 
