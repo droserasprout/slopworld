@@ -93,6 +93,22 @@ pub enum Phase {
 }
 
 impl Phase {
+    pub(super) fn build(
+        self,
+        inputs: &Path,
+        root: &Path,
+        fonts: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        let bundle = inputs.join("bundle");
+        let game = inputs.join("game");
+        match self {
+            Self::Managed => managed(&bundle, &game, root),
+            Self::Assets => assets(&game, root),
+            Self::Fonts => fonts(),
+            Self::Background => background(&bundle, &game, root),
+        }
+    }
+
     fn directory(self) -> &'static str {
         match self {
             Self::Managed => "managed",
@@ -113,7 +129,7 @@ fn run_helper(args: &[&Path]) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn managed(bundle: &Path, game: &Path, root: &Path) -> Result<()> {
+fn managed(bundle: &Path, game: &Path, root: &Path) -> Result<()> {
     fs::copy(bundle.join("Adapters.dll"), root.join("Adapters.dll"))?;
     run_helper(&[
         &bundle.join("scanner/Scanner.dll"),
@@ -146,7 +162,7 @@ pub(super) fn assets(game: &Path, root: &Path) -> Result<()> {
     core_archive(game, &root.join("assets/Core.zip"))
 }
 
-pub(super) fn background(bundle: &Path, game: &Path, root: &Path) -> Result<()> {
+fn background(bundle: &Path, game: &Path, root: &Path) -> Result<()> {
     run_helper(&[
         &bundle.join("background-probe/BackgroundProbe.dll"),
         game,
@@ -155,11 +171,43 @@ pub(super) fn background(bundle: &Path, game: &Path, root: &Path) -> Result<()> 
     ])
 }
 
-struct PreparationPlan {
-    authored: Inputs,
-    authored_digests: files::Manifest,
+struct PlannedInputs {
+    paths: Inputs,
+    digests: files::Manifest,
+}
+
+impl PlannedInputs {
+    fn new(paths: Inputs, contents: &mut files::DigestCache) -> Result<Self> {
+        let digests = contents.manifest(&paths)?;
+        Ok(Self { paths, digests })
+    }
+
+    fn copy_tree(&self, prefix: &str, target: &Path) -> Result<()> {
+        fs::create_dir_all(target)?;
+        for (name, source) in &self.paths {
+            if let Ok(relative) = Path::new(name).strip_prefix(prefix) {
+                let output = target.join(relative);
+                fs::create_dir_all(output.parent().context("Missing output directory")?)?;
+                fs::copy(source, &output)?;
+                ensure!(
+                    Some(&files::file_digest(&output)?) == self.digests.get(name),
+                    "Input {name} changed during preparation; retry"
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
+struct ComponentPlan {
+    inputs: PlannedInputs,
     key: String,
-    keys: BTreeMap<Phase, String>,
+}
+
+struct PreparationPlan {
+    authored: PlannedInputs,
+    key: String,
+    components: BTreeMap<Phase, ComponentPlan>,
     font_settings: Map<String, Value>,
 }
 
@@ -172,21 +220,15 @@ fn plan(
 ) -> Result<PreparationPlan> {
     let game_dlls = top_level(game, |name| name.ends_with(".dll"))?;
     let native = top_level(game, |name| name.contains(".so"))?;
+    let mod_dlls = top_level(&bundle.join("mod"), |name| name.ends_with(".dll"))?;
     let mut managed = files::inputs(bundle, &["scanner", "offline", "Probe.dll", "Adapters.dll"])?;
-    prefixed(
-        &mut managed,
-        "mod",
-        top_level(&bundle.join("mod"), |name| name.ends_with(".dll"))?,
-    );
-    prefixed(&mut managed, "game", game_dlls.clone());
-    let assets_inputs = files::inputs(game, &["Assets.zip", "Data/Core", "Rendering/Shaders"])?;
-    let mut fonts = files::inputs(bundle, &["mod/SlopWorld.dll"])?;
-    let mut background = files::inputs(bundle, &["background-probe", "mod/SlopWorld.dll"])?;
-    for inputs in [&mut fonts, &mut background] {
-        prefixed(inputs, "game", game_dlls.clone());
-        prefixed(inputs, "game", native.clone());
-    }
-    background.extend(files::inputs(game, &["Assets.zip"])?);
+    prefixed(&mut managed, "mod", mod_dlls.clone());
+    let mut background = files::inputs(bundle, &["background-probe"])?;
+    prefixed(&mut background, "mod", mod_dlls);
+    let mut native_game = game_dlls.clone();
+    native_game.extend(native);
+    let mut background_game = native_game.clone();
+    background_game.extend(files::inputs(game, &["Assets.zip"])?);
     let font_settings: Map<_, _> = appearance
         .iter()
         .filter(|(key, _)| {
@@ -195,25 +237,34 @@ fn plan(
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let mut contents = files::DigestCache::load(cache.join("preparation-digests-v1.json"));
-    let mut keys = BTreeMap::new();
-    for (name, inputs, identity) in [
-        (Phase::Managed, managed, json!("managed-rust-v1")),
-        (Phase::Assets, assets_inputs, json!("eco-assets-locales-v2")),
+    let mut components = BTreeMap::new();
+    for (phase, bundle_files, game_files, policy) in [
+        (Phase::Managed, managed, game_dlls, json!("managed-rust-v1")),
+        (
+            Phase::Assets,
+            Inputs::new(),
+            files::inputs(game, &["Assets.zip", "Data/Core", "Rendering/Shaders"])?,
+            json!("eco-assets-locales-v2"),
+        ),
         (
             Phase::Fonts,
-            fonts,
+            files::inputs(bundle, &["mod/SlopWorld.dll"])?,
+            native_game,
             json!(["font-manifest-v2", game, font_settings, font_inventory]),
         ),
         (
             Phase::Background,
             background,
+            background_game,
             json!(["background-v1", game]),
         ),
     ] {
-        keys.insert(
-            name,
-            files::digest(&contents.manifest(&inputs)?, &identity)?,
-        );
+        let mut inputs = Inputs::new();
+        prefixed(&mut inputs, "bundle", bundle_files);
+        prefixed(&mut inputs, "game", game_files);
+        let inputs = PlannedInputs::new(inputs, &mut contents)?;
+        let key = files::digest(&inputs.digests, &json!(["captured-phase-v1", policy]))?;
+        components.insert(phase, ComponentPlan { inputs, key });
     }
     let mut authored = files::inputs(bundle, &["web", "ost"])?;
     prefixed(
@@ -224,9 +275,13 @@ fn plan(
             .filter(|(name, _)| !name.ends_with(".dll"))
             .collect(),
     );
-    let authored_digests = contents.manifest(&authored)?;
+    let authored = PlannedInputs::new(authored, &mut contents)?;
+    let keys: BTreeMap<_, _> = components
+        .iter()
+        .map(|(phase, plan)| (phase, &plan.key))
+        .collect();
     let key = files::digest(
-        &authored_digests,
+        &authored.digests,
         &json!(["archive-identity-v1", keys, appearance]),
     )?
     .get(..24)
@@ -235,9 +290,8 @@ fn plan(
     contents.save()?;
     Ok(PreparationPlan {
         authored,
-        authored_digests,
         key,
-        keys,
+        components,
         font_settings,
     })
 }
@@ -250,19 +304,7 @@ impl PreparationPlan {
             bundle.join(directory).is_dir(),
             "Missing bundle directory {directory}"
         );
-        fs::create_dir_all(target)?;
-        for (name, source) in &self.authored {
-            if let Ok(relative) = Path::new(name).strip_prefix(directory) {
-                let output = target.join(relative);
-                fs::create_dir_all(output.parent().context("Missing output directory")?)?;
-                fs::copy(source, &output)?;
-                ensure!(
-                    Some(&files::file_digest(&output)?) == self.authored_digests.get(name),
-                    "Bundle input {name} changed during preparation; retry"
-                );
-            }
-        }
-        Ok(())
+        self.authored.copy_tree(directory, target)
     }
 }
 
@@ -273,7 +315,7 @@ pub fn prepare(
     rebuild: bool,
     appearance: &Map<String, Value>,
     font_inventory: &str,
-    build: impl Fn(Phase, &Path, &Map<String, Value>) -> Result<()>,
+    build: impl Fn(Phase, &Path, &Path, &Map<String, Value>) -> Result<()>,
 ) -> Result<PathBuf> {
     let _transaction = files::lock(&cache.join(".prepare.lock"))?;
     let bundle = bundle.path();
@@ -289,7 +331,8 @@ pub fn prepare(
         let name = phase.directory();
         let parent = cache.join("prepared-components").join(name);
         fs::create_dir_all(&parent)?;
-        let phase_key = plan.keys.get(&phase).context("Missing phase key")?;
+        let planned = plan.components.get(&phase).context("Missing phase plan")?;
+        let phase_key = &planned.key;
         let mut component = files::selected(&parent, phase_key)?;
         if rebuild || !files::ready(&component, phase_key)? {
             if component.exists() || rebuild {
@@ -301,7 +344,14 @@ pub fn prepare(
             let root = temporary.path().join("runtime");
             fs::create_dir(&root)?;
             let started = Instant::now();
-            build(phase, &root, &plan.font_settings)?;
+            // Helpers enumerate and reopen paths. Give them only the inventory and
+            // bytes that produced this key, even if the live install changes back
+            // before publication. Startup fonts use the in-memory font service.
+            let captured = temporary.path().join("inputs");
+            if phase != Phase::Fonts {
+                planned.inputs.copy_tree("", &captured)?;
+            }
+            build(phase, &captured, &root, &plan.font_settings)?;
             println!("Prepare {name}: {:.2}s", started.elapsed().as_secs_f64());
             fs::write(root.join(".ready"), phase_key)?;
             fs::rename(root, &component)?;
@@ -336,7 +386,12 @@ pub fn prepare(
         })?;
     }
     copy_eco_archive(&assets, &root, cache)?;
-    if plan.authored.keys().any(|name| name.starts_with("mod/")) {
+    if plan
+        .authored
+        .paths
+        .keys()
+        .any(|name| name.starts_with("mod/"))
+    {
         plan.copy_authored(bundle, "mod", &root.join("mod"))?;
     }
     plan.copy_authored(bundle, "ost", &root.join("assets/ost"))?;
@@ -364,3 +419,6 @@ pub fn prepare(
     )?;
     Ok(destination)
 }
+
+#[cfg(test)]
+mod tests;

@@ -89,19 +89,20 @@ impl FontService {
     /// operation remains serialized through publication even if its caller cancels.
     pub async fn request(&self, value: Value) -> Result<Value> {
         let this = self.clone();
-        tokio::task::spawn_blocking(move || this.request_sync(&value, SelectionMode::Live)).await?
+        tokio::task::spawn_blocking(move || this.request_sync(&value)).await?
     }
     pub async fn catalog(&self) -> Result<Value> {
         self.catalog_for("monospace").await
     }
     pub fn startup_fingerprint(&self) -> Result<String> {
-        self.with_catalog(|catalog| {
-            Ok(cache::digest(&serde_json::to_vec(&(
-                2, // Startup selection resolves the generic UI family through Fontconfig.
-                &catalog.generation,
-                self.inner.flags,
-            ))?))
-        })
+        self.with_catalog(|catalog| self.catalog_fingerprint(catalog))
+    }
+    fn catalog_fingerprint(&self, catalog: &Catalog) -> Result<String> {
+        Ok(cache::digest(&serde_json::to_vec(&(
+            2, // Startup selection resolves the generic UI family through Fontconfig.
+            &catalog.generation,
+            self.inner.flags,
+        ))?))
     }
     pub async fn catalog_for(&self, family: &str) -> Result<Value> {
         validate_family(family)?;
@@ -169,86 +170,94 @@ impl FontService {
             json!({"version":1,"revision":catalog.generation,"generation":catalog.generation,"faces":faces,"order":order,"preload":preload,"all":all,"mono":mono}),
         )
     }
-    fn request_sync(&self, value: &Value, mode: SelectionMode) -> Result<Value> {
+    fn request_sync(&self, value: &Value) -> Result<Value> {
         let started = Instant::now();
         let request = parse_request(value)?;
-        let result = self.with_catalog(|catalog| {
-            let mut delivery = Delivery {
-                generation: catalog.generation.clone(),
-                ..Delivery::default()
-            };
-            match request {
-                Request::Selection(ref selection) => {
-                    let ui = select_ui(catalog, &self.inner.root, &selection.ui)?;
-                    let chain = catalog.chain(&self.inner.root, &selection.terminal)?;
-                    let terminal = chain
-                        .first()
-                        .and_then(|n| find(catalog, n))
-                        .context("No terminal font available")?
-                        .clone();
-                    for (index, offset) in [-2, 0, 2].into_iter().enumerate() {
-                        let default_index = matches!(mode, SelectionMode::Startup).then_some(index);
-                        delivery.add(
-                            self.inner.flags,
-                            &ui,
-                            "ui.ttf",
-                            (selection.ui_size + offset).max(1),
-                            default_index,
-                        );
-                    }
-                    delivery.add(
-                        self.inner.flags,
-                        &terminal,
-                        "terminal.ttf",
-                        selection.terminal_size,
-                        None,
-                    );
-                    delivery
-                        .chains
-                        .insert(selection.terminal.clone(), json!(chain));
-                }
-                Request::Fallback { family, scalars } => {
-                    let chain = catalog.chain(&self.inner.root, &family)?;
-                    let mut pending: HashSet<_> = scalars.iter().copied().collect();
-                    let mut assignments: BTreeMap<_, _> = scalars
-                        .iter()
-                        .map(|s| (s.to_string(), Value::Null))
-                        .collect();
-                    let mut count = 0;
-                    for name in &chain {
-                        if pending.is_empty() {
-                            break;
-                        }
-                        let Some(face) = find(catalog, name) else {
-                            continue;
-                        };
-                        let covered: Vec<_> = pending
-                            .iter()
-                            .copied()
-                            .filter(|s| opentype::contains(&face.coverage, *s))
-                            .collect();
-                        if covered.is_empty() {
-                            continue;
-                        }
-                        let filename = format!("face{count}.ttf");
-                        count += 1;
-                        delivery.add(self.inner.flags, face, &filename, 14, None);
-                        for scalar in covered {
-                            assignments.insert(scalar.to_string(), json!(filename));
-                            pending.remove(&scalar);
-                        }
-                    }
-                    delivery.assignments = Some(assignments);
-                    delivery.chains.insert(family, json!(chain));
-                }
-            }
-            Ok(delivery.value())
-        });
+        let result =
+            self.with_catalog(|catalog| self.resolve(catalog, request, SelectionMode::Live));
         eprintln!(
             "slopweb fonts: request completed in {:.3}s",
             started.elapsed().as_secs_f64()
         );
         result
+    }
+
+    fn resolve(
+        &self,
+        catalog: &mut Catalog,
+        request: Request,
+        mode: SelectionMode,
+    ) -> Result<Value> {
+        let mut delivery = Delivery {
+            generation: catalog.generation.clone(),
+            ..Delivery::default()
+        };
+        match request {
+            Request::Selection(ref selection) => {
+                let ui = select_ui(catalog, &self.inner.root, &selection.ui)?;
+                let chain = catalog.chain(&self.inner.root, &selection.terminal)?;
+                let terminal = chain
+                    .first()
+                    .and_then(|n| find(catalog, n))
+                    .context("No terminal font available")?
+                    .clone();
+                for (index, offset) in [-2, 0, 2].into_iter().enumerate() {
+                    let default_index = matches!(mode, SelectionMode::Startup).then_some(index);
+                    delivery.add(
+                        self.inner.flags,
+                        &ui,
+                        "ui.ttf",
+                        (selection.ui_size + offset).max(1),
+                        default_index,
+                    );
+                }
+                delivery.add(
+                    self.inner.flags,
+                    &terminal,
+                    "terminal.ttf",
+                    selection.terminal_size,
+                    None,
+                );
+                delivery
+                    .chains
+                    .insert(selection.terminal.clone(), json!(chain));
+            }
+            Request::Fallback { family, scalars } => {
+                let chain = catalog.chain(&self.inner.root, &family)?;
+                let mut pending: HashSet<_> = scalars.iter().copied().collect();
+                let mut assignments: BTreeMap<_, _> = scalars
+                    .iter()
+                    .map(|s| (s.to_string(), Value::Null))
+                    .collect();
+                let mut count = 0;
+                for name in &chain {
+                    if pending.is_empty() {
+                        break;
+                    }
+                    let Some(face) = find(catalog, name) else {
+                        continue;
+                    };
+                    let covered: Vec<_> = pending
+                        .iter()
+                        .copied()
+                        .filter(|s| opentype::contains(&face.coverage, *s))
+                        .collect();
+                    if covered.is_empty() {
+                        continue;
+                    }
+                    let filename = format!("face{count}.ttf");
+                    count += 1;
+                    delivery.add(self.inner.flags, face, &filename, 14, None);
+                    for scalar in covered {
+                        assignments.insert(scalar.to_string(), json!(filename));
+                        pending.remove(&scalar);
+                    }
+                }
+                delivery.assignments = Some(assignments);
+                delivery.chains.insert(family, json!(chain));
+            }
+        }
+        Ok(delivery.value())
     }
 }
 

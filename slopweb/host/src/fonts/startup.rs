@@ -5,6 +5,15 @@ impl FontService {
     /// Writes private startup assets; returns the effective font selection. The
     /// launcher merges it into its allowlisted snapshot after successful creation.
     pub fn prepare_startup(&self, root: &Path, selection: Value) -> Result<Value> {
+        self.prepare_startup_for(root, selection, None)
+    }
+
+    pub(crate) fn prepare_startup_for(
+        &self,
+        root: &Path,
+        selection: Value,
+        fingerprint: Option<&str>,
+    ) -> Result<Value> {
         let mut values = match selection {
             Value::Object(values) => values,
             _ => Default::default(),
@@ -35,23 +44,29 @@ impl FontService {
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_owned();
-        self.with_catalog(|catalog| {
+        // Selection, descriptors, and catalog must all come from the generation
+        // used to plan this phase, even after another phase took time to build.
+        let (manifest, catalog) = self.with_catalog(|catalog| {
+            if let Some(expected) = fingerprint {
+                ensure!(
+                    self.catalog_fingerprint(catalog)? == expected,
+                    "Font inventory changed during preparation; retry"
+                );
+            }
             if !requested.is_empty() && select_ui(catalog, &self.inner.root, &requested).is_err() {
                 values.insert("uiFontName".into(), json!(""));
             }
-            Ok(())
+            let request = parse_request(&Value::Object(values.clone()))?;
+            let manifest = self.resolve(catalog, request, SelectionMode::Startup)?;
+            let families = json!({
+                "all":catalog.faces.iter().map(|face|&face.family).collect::<Vec<_>>(),
+                "mono":catalog.faces.iter().filter(|face|face.mono).map(|face|&face.family).collect::<Vec<_>>()
+            });
+            Ok((manifest, families))
         })?;
-        let manifest = self.request_sync(&Value::Object(values.clone()), SelectionMode::Startup)?;
         let fonts = root.join("assets/fonts");
         fs::create_dir_all(&fonts)?;
-        let catalog = self.with_catalog(|catalog| Ok(json!({
-            "all":catalog.faces.iter().map(|face|&face.family).collect::<Vec<_>>(),
-            "mono":catalog.faces.iter().filter(|face|face.mono).map(|face|&face.family).collect::<Vec<_>>()
-        })))?;
-        for (name, value) in [
-            ("manifest.json", json!(manifest)),
-            ("catalog.json", catalog),
-        ] {
+        for (name, value) in [("manifest.json", manifest), ("catalog.json", catalog)] {
             cache::write(&fonts.join(name), &serde_json::to_vec(&value)?)?;
         }
         Ok(Value::Object(values))

@@ -21,6 +21,9 @@ use std::{
 };
 use xmltree::{Element, XMLNode};
 
+mod environment;
+pub(super) use environment::CompilerEnvironment;
+
 const PACKAGES: &[(&str, &str)] = &[
     ("Newtonsoft.Json", "13.0.3"),
     ("Tmds.DBus.Protocol", "0.95.1"),
@@ -32,20 +35,27 @@ const INTERPRETED: &[&str] = &["Waylith.Injection", "RimWorldWaylith.PrepatcherC
 pub struct Toolchain {
     pub sdk: PathBuf,
     pub identity: Value,
+    environment: CompilerEnvironment,
 }
 
-fn sdk_command(sdk: &Path) -> Result<Command> {
-    let mut command = Command::new(sdk);
-    command
-        .env(
-            "DOTNET_ROOT",
-            sdk.parent().context("Missing SDK directory")?,
-        )
-        .env("DOTNET_SKIP_FIRST_TIME_EXPERIENCE", "1")
-        .env("DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE", "true")
-        .env("DOTNET_NOLOGO", "1");
-    Ok(command)
+impl Toolchain {
+    pub(super) fn new(
+        sdk: PathBuf,
+        mut identity: Value,
+        environment: CompilerEnvironment,
+    ) -> Result<Self> {
+        identity
+            .as_object_mut()
+            .context("Expected SDK properties")?
+            .insert("compiler_environment".into(), json!(environment.digest()?));
+        Ok(Self {
+            sdk,
+            identity,
+            environment,
+        })
+    }
 }
+
 fn sdk_selection(version: &str) -> Value {
     json!({"sdk": {"version": version, "rollForward": "disable", "allowPrerelease": false}})
 }
@@ -144,8 +154,10 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
         "--aot-sdk requires an executable dotnet"
     );
     let temporary = tempfile::Builder::new().prefix("slopweb-sdk-").tempdir()?;
+    let environment = CompilerEnvironment::capture(&sdk)?;
     let query = |args: &[&str]| -> Result<String> {
-        let output = sdk_command(&sdk)?
+        let output = environment
+            .command(&sdk)
             .args(args)
             .current_dir(temporary.path())
             .output()?;
@@ -208,7 +220,7 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
             sudo.arg(&sdk);
             sudo
         } else {
-            sdk_command(&sdk)?
+            environment.command(&sdk)
         };
         println!("slopweb: installing matching wasm-tools workload set {version}");
         install
@@ -225,7 +237,7 @@ pub fn toolchain(path: &Path, provision: bool) -> Result<Toolchain> {
         );
     }
     let identity = json!({"path": sdk, "version": version, "packs": packs, "target_runtime": runtime, "sdk_properties": files::digest_bytes(&properties)});
-    Ok(Toolchain { sdk, identity })
+    Toolchain::new(sdk, identity, environment)
 }
 
 const PUBLISHED_MODE: &str = "export const publishedAssemblies = true;\n";
@@ -546,7 +558,7 @@ pub fn published_framework(entry: &Path) -> Result<PathBuf> {
     Ok(root)
 }
 
-pub fn compile_entry(entry: &Path, sdk: &Path, lock: &File, logs: &Path) -> Result<()> {
+fn compile_entry(entry: &Path, toolchain: &Toolchain, lock: &File, logs: &Path) -> Result<()> {
     let log_path = logs.join("publish.log");
     let mut log = OpenOptions::new()
         .create(true)
@@ -584,7 +596,7 @@ pub fn compile_entry(entry: &Path, sdk: &Path, lock: &File, logs: &Path) -> Resu
             }
         }
     });
-    let mut command = sdk_command(sdk)?;
+    let mut command = toolchain.environment.command(&toolchain.sdk);
     command
         .arg("publish")
         .arg(entry.join("candidate/Probe.csproj"))
@@ -673,7 +685,7 @@ pub fn prepare(
         if workspace.join("published").exists() {
             fs::remove_dir_all(workspace.join("published"))?;
         }
-        compile_entry(&workspace, &toolchain.sdk, &workspace_lock, &compilation)?;
+        compile_entry(&workspace, toolchain, &workspace_lock, &compilation)?;
         let temporary = tempfile::Builder::new()
             .prefix(".publish-")
             .tempdir_in(&compilation)?;

@@ -409,8 +409,13 @@ async fn selection_omits_binary_payloads_and_fallback_misses_are_explicit() {
 fn startup_preserves_three_native_indices_when_sizes_collapse_and_normalizes_removed_ui() {
     let (work, service) = fixture_service();
     let output = work.path().join("runtime");
+    let before = service.startup_fingerprint().unwrap();
     let selected = service
-        .prepare_startup(&output, json!({"uiFontName":"Removed Font","uiFontSize":1}))
+        .prepare_startup_for(
+            &output,
+            json!({"uiFontName":"Removed Font","uiFontSize":1}),
+            Some(&before),
+        )
         .unwrap();
     assert_eq!(selected["uiFontName"], "");
     let manifest: Value =
@@ -423,10 +428,15 @@ fn startup_preserves_three_native_indices_when_sizes_collapse_and_normalizes_rem
             serde_json::from_str(manifest["faces"][index]["bake"].as_str().unwrap()).unwrap();
         assert_eq!(descriptor["size"], [1, 1, 3][index]);
     }
-    let before = service.startup_fingerprint().unwrap();
     service.inner.state.lock().unwrap().catalog.generation =
         "changed source or config identity".into();
     assert_ne!(service.startup_fingerprint().unwrap(), before);
+    let stale = work.path().join("stale");
+    let error = service
+        .prepare_startup_for(&stale, json!({}), Some(&before))
+        .unwrap_err();
+    assert!(error.to_string().contains("Font inventory changed"));
+    assert!(!stale.exists());
 }
 
 #[tokio::test]

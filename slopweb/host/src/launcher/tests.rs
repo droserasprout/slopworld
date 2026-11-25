@@ -147,18 +147,21 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
     write(game.join("Assembly-CSharp.dll"), "game");
     write(game.join("Assets.zip"), "archive");
     let calls = Mutex::new(Vec::new());
-    let build =
-        |phase: Phase, root: &Path, values: &serde_json::Map<String, Value>| -> Result<()> {
-            calls.lock().unwrap().push(phase);
-            if phase == Phase::Fonts {
-                appearance::write_preferences(root, values)?;
-            } else if phase == Phase::Assets {
-                write(root.join(crate::archive_identity::ARCHIVE), "eco");
-            } else {
-                write(root.join(format!("{phase:?}.fixture")), "fixture");
-            }
-            Ok(())
-        };
+    let build = |phase: Phase,
+                 _: &Path,
+                 root: &Path,
+                 values: &serde_json::Map<String, Value>|
+     -> Result<()> {
+        calls.lock().unwrap().push(phase);
+        if phase == Phase::Fonts {
+            appearance::write_preferences(root, values)?;
+        } else if phase == Phase::Assets {
+            write(root.join(crate::archive_identity::ARCHIVE), "eco");
+        } else {
+            write(root.join(format!("{phase:?}.fixture")), "fixture");
+        }
+        Ok(())
+    };
     let mut values = serde_json::Map::new();
     let pinned = files::PinnedBundle::open(bundle.clone()).unwrap();
     let prepare = |rebuild, values: &serde_json::Map<String, Value>| {
@@ -207,11 +210,11 @@ fn preparation_reuses_independent_phases_and_failed_rebuild_keeps_active_runtime
         true,
         &values,
         "fixture-fonts",
-        |phase, root, values| {
+        |phase, inputs, root, values| {
             if phase == Phase::Background {
                 bail!("fixture failed");
             }
-            build(phase, root, values)
+            build(phase, inputs, root, values)
         },
     );
     failed.unwrap_err();
@@ -239,7 +242,7 @@ fn replacing_authored_bytes_during_preparation_cannot_publish_under_the_old_key(
         false,
         &appearance,
         "fonts",
-        |phase, _, _| {
+        |phase, _, _, _| {
             if phase == Phase::Managed {
                 // A cooperating restager waits. An in-place edit with the same
                 // length still has to be detected on the private copy.
@@ -269,7 +272,7 @@ fn replacing_authored_bytes_during_preparation_cannot_publish_under_the_old_key(
         false,
         &appearance,
         "fonts",
-        |_, _, _| Ok(()),
+        |_, _, _, _| Ok(()),
     )
     .unwrap();
     assert_eq!(fs::read(ready.join("main.js")).unwrap(), b"first");
@@ -349,10 +352,13 @@ impl AotFixture {
             "#!/bin/sh\nset -eu\nwhile [ \"$1\" != '-o' ]; do shift; done\nshift\nmkdir -p \"$1/wwwroot/_framework\"\nprintf js > \"$1/wwwroot/_framework/dotnet.js\"\nprintf wasm > \"$1/wwwroot/_framework/dotnet.native.wasm\"\nprintf publish\\n\n",
         );
         fs::set_permissions(&sdk_path, fs::Permissions::from_mode(0o700)).unwrap();
-        let sdk = aot::Toolchain {
-            sdk: sdk_path,
-            identity: json!({"version":"10.0.100", "target_runtime":"10.0.0"}),
-        };
+        let environment = aot::CompilerEnvironment::capture(&sdk_path).unwrap();
+        let sdk = aot::Toolchain::new(
+            sdk_path,
+            json!({"version":"10.0.100", "target_runtime":"10.0.0"}),
+            environment,
+        )
+        .unwrap();
         Self {
             _temp: temp,
             bundle,
@@ -390,7 +396,7 @@ fn restage_cannot_split_interpreted_runtime_and_aot_source_capture() {
         false,
         &serde_json::Map::new(),
         "fixture-fonts",
-        |_, _, _| Ok(()),
+        |_, _, _, _| Ok(()),
     )
     .unwrap();
     let stager = File::open(f.bundle.parent().unwrap()).unwrap();

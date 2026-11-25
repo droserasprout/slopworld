@@ -71,6 +71,7 @@ pub async fn run() -> Result<()> {
                 )?;
                 prepare_fonts(
                     &service,
+                    None,
                     &output,
                     &appearance::preferences(&options.profile_path()?)?,
                 )?;
@@ -113,11 +114,10 @@ pub async fn run() -> Result<()> {
         options.rebuild,
         &appearance,
         &font_inventory,
-        |phase, root, settings| match phase {
-            preparation::Phase::Managed => preparation::managed(bundle.path(), &game, root),
-            preparation::Phase::Assets => preparation::assets(&game, root),
-            preparation::Phase::Fonts => prepare_fonts(&fonts, root, settings),
-            preparation::Phase::Background => preparation::background(bundle.path(), &game, root),
+        |phase, inputs, root, settings| {
+            phase.build(inputs, root, || {
+                prepare_fonts(&fonts, Some(&font_inventory), root, settings)
+            })
         },
     );
     let result = prepared.and_then(|root| match &sdk {
@@ -148,10 +148,15 @@ pub async fn run() -> Result<()> {
 
 fn prepare_fonts(
     fonts: &FontService,
+    fingerprint: Option<&str>,
     root: &Path,
     settings: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<()> {
-    let resolved = fonts.prepare_startup(root, serde_json::Value::Object(settings.clone()))?;
+    let resolved = fonts.prepare_startup_for(
+        root,
+        serde_json::Value::Object(settings.clone()),
+        fingerprint,
+    )?;
     appearance::write_preferences(
         root,
         resolved
