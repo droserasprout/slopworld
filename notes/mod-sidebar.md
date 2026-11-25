@@ -51,6 +51,8 @@ Outside the Agents tab, navigation uses pawn inventory in a live game and daemon
 session inventory in Entry mode. Entry must never resolve the game's ColonistBar
 or MapUI. SlopWeb draws the selected stopped session’s action grid inside its
 terminal window. Map gizmos require a live map.
+On the web, task board labels use the single-pass row renderer. Long summaries would
+otherwise submit their full text once per pixel strip of the overflow fade.
 The task board retains filtered rows, direction counts, and live selection membership
 until `TaskStore` replaces its snapshot or filters change; [tasks](agent-tasks.md) owns
 semantics. Library rows follow published catalog and worktree revisions plus their own

@@ -103,6 +103,19 @@ namespace SlopWorld
             }
         }
 
+        static void DrawLabel(Rect rect, string text, TextAnchor anchor = TextAnchor.MiddleLeft)
+        {
+            if (ClientPlatform.IsBrowser)
+            {
+                // A fade submits the whole label once per pixel strip. Task summaries
+                // often overflow, so use the shared single-pass row label on the web.
+                if (Event.current.type == EventType.Repaint && rect.width > 0f && rect.height > 0f)
+                    UiText.RowLabel(rect, text, anchor);
+                return;
+            }
+            UiText.FadedRowLabel(rect, text, anchor);
+        }
+
         static void DrawHeader(Rect r, List<TaskInfo> tasks, int total)
         {
             int incoming = Rows.Incoming;
@@ -123,7 +136,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Tiny;
             GUI.color = UiTheme.Faint;
-            UiText.FadedRowLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
+            DrawLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Slab.Hairline(
@@ -150,7 +163,7 @@ namespace SlopWorld
             float ageW = UiTheme.Wide(ageText);
             var age = new Rect(r.xMax - CellX - ageW, r.y, ageW, NameH);
             GUI.color = UiTheme.Dim;
-            UiText.FadedRowLabel(age, ageText, TextAnchor.MiddleRight);
+            DrawLabel(age, ageText, TextAnchor.MiddleRight);
 
             string direction = task.Direction;
             string statusText = TaskInfo.StatusText(task.Status);
@@ -158,11 +171,11 @@ namespace SlopWorld
             float right = age.x - UiTheme.GapS;
             var state = new Rect(Mathf.Max(left, right - statusW), r.y, statusW, NameH);
             GUI.color = status;
-            UiText.FadedRowLabel(state, statusText, TextAnchor.MiddleRight);
+            DrawLabel(state, statusText, TextAnchor.MiddleRight);
 
             float directionW = Mathf.Max(0f, state.x - UiTheme.GapS - left);
             GUI.color = UiTheme.Lead;
-            UiText.FadedRowLabel(new Rect(left, r.y, directionW, NameH), direction);
+            DrawLabel(new Rect(left, r.y, directionW, NameH), direction);
 
             GUI.color = UiTheme.Dim;
             var summary = new Rect(
@@ -171,7 +184,7 @@ namespace SlopWorld
                 Mathf.Max(0f, r.width - left - CellX),
                 NoteH
             );
-            UiText.FadedRowLabel(summary, task.Summary);
+            DrawLabel(summary, task.Summary);
 
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
@@ -181,7 +194,7 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Tiny;
             GUI.color = UiTheme.Faint;
-            UiText.FadedRowLabel(
+            DrawLabel(
                 new Rect(body.x + CellX, body.y + Pad, body.width - CellX * 2f, RowH * 2f),
                 text
             );
