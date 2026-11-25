@@ -15,10 +15,10 @@ List<BrowserGui.Command> commands =
     new("imageTexture", new BrowserGui.TextureCommand(1, rect, [0, 0, 1, 1], color)),
     new(
         "imageBatch",
-        new BrowserGui.ImageBatchCommand(1, color, [-1.25f, 0, 1280, 720, 0, 0, 1, 1])
+        new BrowserGui.ImageBatchCommand(1, color, [-1.25f, 0, 1280, 720, 0, 0, 10, 5], true)
     ),
     new("target", new BrowserGui.TargetCommand(2, 1280, 720)),
-    new("targetTexture", new BrowserGui.TextureCommand(2, rect, [0, 0, 1, 1], color)),
+    new("targetTexture", new BrowserGui.TextureCommand(2, rect, [0, 0, 2, 1], color, true)),
     new("matrix", new float[] { 1, 0, 0, 1, -20, 40 }),
     new("clipScreen", rect),
     new("pop", 0),
@@ -131,6 +131,13 @@ batches.Add(new BrowserGui.Command("clipScreen", rect));
 BrowserGui.AppendImageBatch(batches, 2, 1, 1, 1, 1, first);
 if (batches.Count != 5)
     throw new Exception("Image batch crossed an alpha, image or clip boundary");
+BrowserGui.AppendImageBatch(batches, 2, 1, 1, 1, 1, first, repeat: true);
+BrowserGui.AppendImageBatch(batches, 2, 1, 1, 1, 1, second, repeat: true);
+if (
+    batches.Count != 6
+    || batches[^1].value is not BrowserGui.ImageBatchCommand { repeat: true, quads.Count: 16 }
+)
+    throw new Exception("Repeat draws must batch together across matching sampler state only");
 var single = new List<BrowserGui.Command>();
 var bulk = new List<BrowserGui.Command>();
 float[] values = Enumerable.Range(0, 8 * 2300).Select(i => i / 7f).ToArray();

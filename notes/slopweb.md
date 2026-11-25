@@ -201,6 +201,8 @@ must upload their definitions again.
 Immutable Canvas uploads retain the pixels needed to restore their 2D contexts.
 Restoring a Canvas resource invalidates the managed retained targets that may
 have sampled it. Derived tints can be rebuilt from the immutable uploads.
+Draw packets carry repeat sampling when Unity UVs cross a tile edge or reverse direction.
+Canvas applies the UV phase in the draw's local coordinates so scrolling and clipping preserve tile placement.
 The managed packet cache owns serialization, reuse and packet generations across backend installs.
 The live GUI decoder acknowledges one bounded, immutable screen packet. Managed drawing can return that packet's ID
 on an exact repeat, including fresh profiling data. Canvas still checks dimensions,

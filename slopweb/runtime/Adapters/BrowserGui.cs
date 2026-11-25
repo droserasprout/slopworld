@@ -334,12 +334,33 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
         TraceTextureDraw();
         if (OutsideDrawingClip(rect))
             return;
+        bool repeat = false;
+        if (
+            texCoords.x < 0
+            || texCoords.y < 0
+            || texCoords.width < 0
+            || texCoords.height < 0
+            || texCoords.xMax > 1
+            || texCoords.yMax > 1
+        )
+        {
+            // Wrap mode can change without a pixel upload. Re-evaluate these draws
+            // on replay; ordinary atlas rectangles can still use retained rows.
+            RejectRow();
+            repeat = image.wrapMode == UnityEngine.TextureWrapMode.Repeat;
+        }
         if (image is RenderTexture target)
         {
             RememberTarget(target);
             Emit(
                 "targetTexture",
-                new TextureCommand(target.GetInstanceID(), Box(rect), Box(texCoords), Rgba(color))
+                new TextureCommand(
+                    target.GetInstanceID(),
+                    Box(rect),
+                    Box(texCoords),
+                    Rgba(color),
+                    repeat
+                )
             );
             return;
         }
@@ -361,7 +382,8 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
                 texCoords.y,
                 texCoords.width,
                 texCoords.height,
-            ]
+            ],
+            repeat
         );
     }
 

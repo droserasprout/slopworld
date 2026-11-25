@@ -24,14 +24,23 @@ public sealed partial class BrowserGui
 
     internal sealed record FillCommand(float[] rect, float[] color, float rounding);
 
-    internal sealed record TextureCommand(int id, float[] rect, float[] uv, float[] color);
+    internal sealed record TextureCommand(
+        int id,
+        float[] rect,
+        float[] uv,
+        float[] color,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            bool repeat = false
+    );
 
     internal sealed record ImageCommand(int id, int width, int height, string pixels);
 
     internal sealed record ImageBatchCommand(
         int id,
         float[] color,
-        [property: JsonConverter(typeof(BrowserQuadWriter))] List<float> quads
+        [property: JsonConverter(typeof(BrowserQuadWriter))] List<float> quads,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            bool repeat = false
     );
 
     internal sealed record TargetCommand(int id, int width, int height);

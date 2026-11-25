@@ -48,6 +48,11 @@ static class PacketCacheTests
         if (cache.Find(commands) != null)
             throw new Exception("Mutable batch reused stale JSON");
         batch.quads.RemoveAt(batch.quads.Count - 1);
+        var changedWrap = commands.ToList();
+        int batchIndex = commands.FindIndex(c => c.kind == "imageBatch");
+        changedWrap[batchIndex] = new("imageBatch", batch with { repeat = !batch.repeat });
+        if (cache.Find(changedWrap) != null)
+            throw new Exception("Changed wrap mode reused stale JSON");
         var reordered = commands.AsEnumerable().Reverse().ToList();
         if (cache.Find(reordered) != null)
             throw new Exception("Command order ignored");

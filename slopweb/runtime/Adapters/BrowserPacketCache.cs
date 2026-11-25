@@ -119,10 +119,12 @@ internal sealed class BrowserPacketCache
                 && Bits(x.rect, y.rect)
                 && Bits(x.color, y.color),
             (TextureCommand x, TextureCommand y) => x.id == y.id
+                && x.repeat == y.repeat
                 && Bits(x.rect, y.rect)
                 && Bits(x.uv, y.uv)
                 && Bits(x.color, y.color),
             (ImageBatchCommand x, ImageBatchCommand y) => x.id == y.id
+                && x.repeat == y.repeat
                 && Bits(x.color, y.color)
                 && Bits(CollectionsMarshal.AsSpan(x.quads), CollectionsMarshal.AsSpan(y.quads)),
             _ => false,

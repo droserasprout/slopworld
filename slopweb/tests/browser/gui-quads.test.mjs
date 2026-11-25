@@ -134,3 +134,57 @@ test('packed and numeric batches issue identical ordered Canvas calls across cli
     globalThis.DOMPoint = previousDOMPoint;
   }
 });
+
+test('repeat batches tile the full rectangle at the Unity UV phase under the active clip and tint', t => {
+  const calls = [], surfaces = [], clipStack = [];
+  const pixels = Uint8ClampedArray.from({length: 4 * 2 * 4}, (_, i) => i * 7);
+  const previousDocument = globalThis.document, previousImageData = globalThis.ImageData;
+  t.after(() => {
+    globalThis.document = previousDocument;
+    globalThis.ImageData = previousImageData;
+  });
+  globalThis.ImageData = class {};
+  globalThis.document = {createElement() {
+    const surface = {getContext: () => ({putImageData() {}, getImageData: () => ({data:pixels})})};
+    surfaces.push(surface);
+    return surface;
+  }};
+  const pattern = {setTransform: m => calls.push(['transform', m])};
+  const ctx = {
+    save() { clipStack.push(this.clipped); }, restore() { this.clipped = clipStack.pop(); },
+    resetTransform() {}, getTransform() {}, setTransform() {}, beginPath() {},
+    rect(...r) { calls.push(['clipRect', ...r]); }, clip() { this.clipped = true; },
+    createPattern(source, mode) {
+      calls.push(['pattern', source, mode]);
+      return pattern;
+    },
+    fillRect(...r) {
+      assert.equal(this.clipped, true);
+      assert.equal(this.fillStyle, pattern);
+      calls.push(['fill', this.globalAlpha, ...r]);
+    },
+    drawImage(...args) { calls.push(['drawImage', this.globalAlpha, ...args]); },
+  };
+  const id = 51, color = [.5, 1, 1, .25];
+  const grain = [2, 4, 10, 5, 0, 0, 2.5, 2.5];
+  const offset = [10, 20, 60, 24, -.25, .125, 2.5, 1.5];
+  const flipped = [3, 6, 8, 4, .5, .75, -2, -1];
+  renderGui({getContext: () => ctx}, [
+    {kind:'image', value:{id, width:4, height:2, pixels:Buffer.from(pixels).toString('base64')}},
+    {kind:'clipScreen', value:[3, 6, 40, 30]},
+    {kind:'imageBatch', value:{id, color, repeat:true, quads:pack([...grain, ...offset, ...flipped])}},
+    {kind:'imageBatch', value:{id, color, quads:offset}},
+    {kind:'pop', value:0},
+    {kind:'releaseImage', value:id},
+  ]);
+  const tinted = surfaces[1];
+  assert.ok(tinted);
+  assert.deepEqual(calls, [
+    ['clipRect', 3, 6, 40, 30],
+    ['pattern', tinted, 'repeat'],
+    ['transform', {a:1, d:1, e:2, f:5}], ['fill', .25, 2, 4, 10, 5],
+    ['transform', {a:6, d:8, e:16, f:30}], ['fill', .25, 10, 20, 60, 24],
+    ['transform', {a:-1, d:-2, e:5, f:7}], ['fill', .25, 3, 6, 8, 4],
+    ['drawImage', .25, tinted, -1, -1.25, 10, 3, 10, 20, 60, 24],
+  ]);
+});

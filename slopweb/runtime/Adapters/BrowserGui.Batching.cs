@@ -1,4 +1,4 @@
-// Adjacent texture draws may share one packet only while image, tint, transform,
+// Adjacent texture draws may share one packet only while image, sampling, tint, transform,
 // clip and target are unchanged. Any intervening command ends the batch.
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -14,7 +14,8 @@ public sealed partial class BrowserGui
         float green,
         float blue,
         float alpha,
-        ReadOnlySpan<float> quad
+        ReadOnlySpan<float> quad,
+        bool repeat = false
     )
     {
         while (!quad.IsEmpty)
@@ -26,6 +27,7 @@ public sealed partial class BrowserGui
             if (
                 batch == null
                 || batch.id != id
+                || batch.repeat != repeat
                 || batch.color[0] != red
                 || batch.color[1] != green
                 || batch.color[2] != blue
@@ -33,7 +35,12 @@ public sealed partial class BrowserGui
                 || batch.quads.Count >= 8192
             )
             {
-                batch = new ImageBatchCommand(id, [red, green, blue, alpha], new List<float>(64));
+                batch = new ImageBatchCommand(
+                    id,
+                    [red, green, blue, alpha],
+                    new List<float>(64),
+                    repeat
+                );
                 commands.Add(new Command("imageBatch", batch));
             }
             int start = batch.quads.Count;

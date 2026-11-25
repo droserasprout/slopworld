@@ -117,6 +117,8 @@ internal static class BrowserCommandWriter
                 Array(writer, "rect"u8, texture.rect);
                 Array(writer, "uv"u8, texture.uv);
                 Array(writer, "color"u8, texture.color);
+                if (texture.repeat)
+                    writer.WriteBoolean("repeat"u8, true);
                 break;
             case ImageCommand image:
                 writer.WriteNumber("id"u8, image.id);
@@ -129,6 +131,8 @@ internal static class BrowserCommandWriter
                 Array(writer, "color"u8, batch.color);
                 writer.WritePropertyName("quads"u8);
                 quads.Write(writer, batch.quads, BrowserGuiJson.Default.Options);
+                if (batch.repeat)
+                    writer.WriteBoolean("repeat"u8, true);
                 break;
             case TargetCommand target:
                 writer.WriteNumber("id"u8, target.id);

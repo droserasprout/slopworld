@@ -293,7 +293,8 @@ public sealed partial class BrowserGui
         float green,
         float blue,
         float alpha,
-        ReadOnlySpan<float> quads
+        ReadOnlySpan<float> quads,
+        bool repeat = false
     )
     {
         if (recordingRow is { Valid: true })
@@ -307,7 +308,7 @@ public sealed partial class BrowserGui
                     quads.Length * 4
                 );
         }
-        AppendImageBatch(commands, id, red, green, blue, alpha, quads);
+        AppendImageBatch(commands, id, red, green, blue, alpha, quads, repeat);
     }
 
     void CommitRows()

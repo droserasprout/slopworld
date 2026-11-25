@@ -77,6 +77,23 @@ function tintImage(source, color, cachedPixels = null) {
   rememberUniformSource(tinted,data);
   return tinted;
 }
+
+function drawTexture(ctx, source, pattern, sx, sy, sw, sh, x, y, width, height) {
+  if (!pattern) {
+    ctx.drawImage(source, sx, sy, sw, sh, x, y, width, height);
+    return;
+  }
+  if (!sw || !sh || !width || !height) return;
+  const scaleX = width / sw, scaleY = height / sh;
+  // Place the first requested source texel at the destination's local origin.
+  pattern.setTransform({
+    a: scaleX, d: scaleY,
+    e: x - (sx % source.width) * scaleX, f: y - (sy % source.height) * scaleY,
+  });
+  ctx.fillStyle = pattern;
+  ctx.fillRect(x, y, width, height);
+}
+
 export function renderGui(canvas, commands) {
   watchRenderCanvas(canvas);
   renderRevision++;
@@ -101,7 +118,9 @@ export function renderGui(canvas, commands) {
   };
   const sample = (source, v) => {
     const [u, t, w, h] = v.uv;
-    ctx.drawImage(source, u * source.width, (1 - t - h) * source.height, w * source.width, h * source.height, ...v.rect);
+    const pattern = v.repeat ? ctx.createPattern(source, 'repeat') : null;
+    drawTexture(ctx, source, pattern, u * source.width, (1 - t - h) * source.height,
+      w * source.width, h * source.height, ...v.rect);
   };
   for (const {kind, value: v} of commands) {
     switch (kind) {
@@ -165,11 +184,12 @@ export function renderGui(canvas, commands) {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         if (kind === 'imageBatch') {
+          const pattern = v.repeat ? ctx.createPattern(source, 'repeat') : null;
           const q=decodeGuiQuads(v.quads), width=source.width, height=source.height;
           // Keep packet commands immutable for frame/row comparisons. The quad
           // cache already retains decoded geometry for profiling and replay.
           for (let i=0; i<q.length; i+=8) {
-            ctx.drawImage(source, q[i+4]*width, (1-q[i+5]-q[i+7])*height,
+            drawTexture(ctx, source, pattern, q[i+4]*width, (1-q[i+5]-q[i+7])*height,
               q[i+6]*width, q[i+7]*height, q[i], q[i+1], q[i+2], q[i+3]);
           }
         } else sample(source, v);
