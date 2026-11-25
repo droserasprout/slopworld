@@ -128,6 +128,27 @@ foreach (string name in frames)
 
 // Native onset frame zero contains the downsampled original, before any grading.
 var publishedFrames = frames.Select(name => key + "/" + name).ToArray();
+// The first response contains enough frames to play the intro and then loop
+// indefinitely while the remaining depths arrive.
+int onset = (int)Tune("Onset");
+int phases = (int)preset.GetType().GetField("Phases")!.GetValue(preset)!;
+int starter = Math.Min(onset + phases, frames.Length);
+var framePacks = new List<object>();
+foreach (var group in new[] { frames[..starter], frames[starter..] })
+{
+    if (group.Length == 0)
+        continue;
+    string file = $"{key}/frames-{framePacks.Count}.bin";
+    using var packFile = File.Create(Path.Combine(output, file));
+    var lengths = new List<long>();
+    foreach (string frameName in group)
+    {
+        using var jpeg = File.OpenRead(Path.Combine(directory, frameName));
+        lengths.Add(jpeg.Length);
+        jpeg.CopyTo(packFile);
+    }
+    framePacks.Add(new { file, lengths });
+}
 var report = new
 {
     source = sourceName,
@@ -137,9 +158,10 @@ var report = new
     key,
     cached = true,
     frames = publishedFrames,
+    framePacks,
     animation = new
     {
-        onset = Tune("Onset"),
+        onset,
         onsetSeconds = Tune("OnsetSecs"),
         step = Tune("WalkStep"),
         pull = Tune("WalkPull"),
@@ -147,7 +169,7 @@ var report = new
         gapMax = Tune("WalkGapMax"),
         phaseSeconds = Tune("PhaseSecs"),
         depths = preset.GetType().GetField("Depths")!.GetValue(preset),
-        phases = preset.GetType().GetField("Phases")!.GetValue(preset),
+        phases,
         offsetX = offset.GetType().GetField("x")!.GetValue(offset),
         offsetY = offset.GetType().GetField("y")!.GetValue(offset),
     },

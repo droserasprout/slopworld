@@ -9,7 +9,7 @@ export function renderLoading(canvas, viewport, referenceAppearance, createSurfa
   const context=canvas.getContext('2d');
   const cancellation=new AbortController();
   const backgroundCancellation=new AbortController();
-  let stopped=false, background=null, backgroundAt=0, animation=0, glyphs=null, quotes=null;
+  let stopped=false, background=null, backgroundAt=null, animation=0, glyphs=null, quotes=null;
   // Each presentation starts when its own assets are ready. A slow or failed
   // optional asset must not stop the other loading animation.
   let original=null, backgroundTransferred=false;
@@ -62,16 +62,23 @@ export function renderLoading(canvas, viewport, referenceAppearance, createSurfa
     atlas.close?.();
     report('atlas','ready');paint();
   }).catch(()=>{});
+  const startPlayback=value=>{
+    if(stopped || backgroundTransferred || !value)return;
+    background=value;backgroundAt=performance.now();
+    report('background','native-cache');paint();
+  };
   const backgroundReady=loadBackground(backgroundCancellation.signal,value=>{
     if(stopped) {value.dispose();return;}
     original=value;paint();
-  }).then(value=>{
-    if(backgroundTransferred) return value ? {animation:value,started:performance.now()/1000} : null;
-    if(stopped) {value?.dispose();return;}
-    background=value;backgroundAt=performance.now();
-    if(!background) return;
-    report('background','native-cache');paint();
-  }).catch(()=>{if(!stopped)report('background','unavailable');return null;});
+  },startPlayback).then(value=>{
+    if(stopped && !backgroundTransferred){value?.dispose();return null;}
+    if(!background)startPlayback(value);
+    return value ? {animation:value,started:(backgroundAt??performance.now())/1000} : null;
+  }).catch(()=>{
+    background=null;
+    if(!stopped){report('background','unavailable');paint();}
+    return null;
+  });
   const update=()=>{
     if(stopped)return;
     const now=performance.now()/1000;
@@ -105,16 +112,18 @@ export function renderLoading(canvas, viewport, referenceAppearance, createSurfa
     stopped=true;cancellation.abort();
     if(!backgroundTransferred)backgroundCancellation.abort();
     cancelAnimationFrame(animation);
-    background?.dispose();original?.dispose();
+    // A pending load closes partial bitmaps on abort. Dispose completed sets
+    // here only if this renderer still owns them.
+    if(!backgroundTransferred)backgroundReady.then(value=>value?.animation.dispose());
+    background=null;original?.dispose();
   };
   return {
     // Transfer in-flight downloads as well as completed frames. The workspace
     // owns cancellation and disposal after this one-time handoff.
     takeBackground() {
       backgroundTransferred=true;
-      const retained=background;
       background=null;
-      return {ready:retained ? Promise.resolve({animation:retained,started:backgroundAt/1000}) : backgroundReady,
+      return {ready:backgroundReady,
         cancel:()=>backgroundCancellation.abort()};
     },
     resize(next) {

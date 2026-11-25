@@ -65,7 +65,7 @@ test('background animates when quotes fail or the font atlas never arrives',asyn
     f.trace.length=0;f.frame(2000);
     assert.deepEqual(f.trace.filter(Array.isArray),[['animation',1]]);
     assert.ok(f.trace.includes('animated'));
-    loading.finish();
+    loading.finish();await tick();
     assert.ok(f.trace.includes('dispose animation'));
   }
 });

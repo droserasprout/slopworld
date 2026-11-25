@@ -5,11 +5,14 @@ function initialPlayback() {
 }
 
 export function backgroundAnimation(tuning, random=Math.random, state=initialPlayback()) {
-  return seconds=>{
+  return (seconds,available=Infinity)=>{
     let index;
     if(seconds<tuning.onsetSeconds) {
       const t=Math.max(0,seconds/tuning.onsetSeconds), u=t*t*(3-2*t);
-      index=Math.min(tuning.onset-1,Math.floor(u*tuning.onset));
+      index=Math.min(available-1,tuning.onset-1,Math.floor(u*tuning.onset));
+    } else if(available<=tuning.onset) {
+      // The intro plays once. Hold its latest decoded frame until a loop frame arrives.
+      index=available-1;
     } else {
       const t=seconds-tuning.onsetSeconds;
       if(tuning.depths>1) {
@@ -24,14 +27,18 @@ export function backgroundAnimation(tuning, random=Math.random, state=initialPla
         state.phaseAt=t;
         state.phase=(state.phase+1+Math.floor(random()*(tuning.phases-1)))%tuning.phases;
       }
-      index=tuning.onset+Math.round(state.depth*(tuning.depths-1))*tuning.phases+state.phase;
+      const decoded=available-tuning.onset;
+      const depth=Math.min(Math.round(state.depth*(tuning.depths-1)),Math.max(0,Math.floor(decoded/tuning.phases)-1));
+      const start=depth*tuning.phases;
+      const phases=Math.min(tuning.phases,decoded-start);
+      index=tuning.onset+start+state.phase%phases;
     }
     if(index!==state.current) {state.previous=state.current??index;state.current=index;}
     return {current:state.current,previous:state.previous};
   };
 }
 
-export async function loadBackground(signal, showOriginal=value=>value.dispose()) {
+export async function loadBackground(signal, showOriginal=value=>value.dispose(), startPlayback=()=>{}) {
   const base=new URL('./assets/background/',location.href);
   const response=await fetch(new URL('manifest.json',base),{signal});
   if(!response.ok) return null;
@@ -57,16 +64,36 @@ export async function loadBackground(signal, showOriginal=value=>value.dispose()
   }
   if(!manifest.cached || !manifest.animation || !manifest.frames.length) return null;
   const images=[];
+  const player=backgroundPlayer(manifest,images);
+  const playable=Math.min(manifest.frames.length,manifest.animation.onset+manifest.animation.phases);
+  async function decode(blob) {
+    images.push(await createImageBitmap(blob));
+    signal.throwIfAborted();
+    if(images.length===playable)startPlayback(player);
+  }
   try {
-    // Decode one frame at a time; do not publish a partial frame set.
-    for(const name of manifest.frames) {
-      // Preview and animation own separate bitmaps but share one transfer.
-      const blob=name===manifest.original ? previewBlob : await fetchBlob(name);
-      images.push(await createImageBitmap(blob));
+    if(manifest.framePacks) {
+      for(const {file,lengths} of manifest.framePacks) {
+        const pack=await fetchBlob(file);
+        if(lengths.reduce((sum,n)=>sum+n,0)!==pack.size)throw Error('Incomplete background pack: '+file);
+        let offset=0;
+        for(const length of lengths) {
+          await decode(pack.slice(offset,offset+length,'image/jpeg'));
+          offset+=length;
+        }
+      }
+    } else {
+      // Existing prepared runtimes serve individual JPEGs.
+      for(const name of manifest.frames)await decode(name===manifest.original ? previewBlob : await fetchBlob(name));
     }
-    if(signal.aborted) throw new DOMException('Aborted','AbortError');
-  } catch(error) {for(const image of images) image.close();throw error;}
-  return backgroundPlayer(manifest,images);
+  } catch(error) {
+    if(signal.aborted || images.length<playable) {
+      player.dispose();
+      throw error;
+    }
+    // A failed optional depth download still leaves a complete playable loop.
+  }
+  return player;
 }
 
 export function backgroundPlayer(manifest,images,state=initialPlayback()) {
@@ -77,7 +104,7 @@ export function backgroundPlayer(manifest,images,state=initialPlayback()) {
     frames: {manifest,images,state},
     advance(seconds) {
       const current=state.current;
-      return select(seconds).current!==current;
+      return select(seconds,images.length).current!==current;
     },
     draw(context,width,height,dimming=0) {
       const aspect=manifest.width/manifest.height;

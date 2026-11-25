@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {loadBackground} from '../../runtime/wwwroot/loading-background.js';
+import {backgroundAnimation,loadBackground} from '../../runtime/wwwroot/loading-background.js';
 
 test('workspace dimming shades the completed backdrop and leaves loading undimmed', async t => {
   const manifest = {
@@ -70,4 +70,21 @@ test('original background publishes before frame decoding and survives an unavai
   assert.equal(closed.length,0);
   original.dispose();
   assert.equal(closed.length,1);
+});
+
+test('slow delivery plays the intro forward once and animates only decoded loop phases',()=>{
+  const tuning={onset:4,onsetSeconds:1,depths:3,phases:4,phaseSeconds:.1,step:.3,gapMax:8,pull:0,jitter:0};
+  const select=backgroundAnimation(tuning,()=>0);
+  const frame=(time,count)=>select(time,count).current;
+  assert.deepEqual([0,.5,.8,1,2,3].map(t=>frame(t,2)),[0,1,1,1,1,1]);
+  assert.equal(frame(3.1,3),2);
+  assert.equal(frame(3.2,4),3);
+  assert.equal(frame(3.3,5),4);
+  const partial=[3.5,3.7,3.9,4.1].map(t=>frame(t,6));
+  assert.deepEqual([...new Set(partial)].sort(),[4,5]);
+  for(let count=7;count<=16;count++){
+    const index=frame(5+count,count);
+    assert.ok(index>=4 && index<count);
+  }
+  assert.ok(frame(25,16)>=8,'Full playback resumes the native selected depth');
 });

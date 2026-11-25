@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Worker} from 'node:worker_threads';
 
-test('loading repaints through a blocked page thread and transfers decoded frames', async t=>{
-  const paints=new Int32Array(new SharedArrayBuffer(4));
+test('loading animates the visible loop through a stalled depth pack and transfers decoded frames', async t=>{
+  const paints=new Int32Array(new SharedArrayBuffer(8));
   const worker=new Worker(new URL('./loading-worker-fixture.mjs',import.meta.url),{workerData:paints.buffer});
   t.after(()=>worker.terminate());
   const background=new Promise((resolve,reject)=>{
@@ -14,14 +14,15 @@ test('loading repaints through a blocked page thread and transfers decoded frame
   // Block this thread through several animation ticks, including after all
   // startup callbacks (atlas, preview, background and quotes) could have painted.
   const deadline=performance.now()+5000;
-  for(let count=Atomics.load(paints,0);count<10;count=Atomics.load(paints,0)){
+  for(let count=Atomics.load(paints,0);count<10 || Atomics.load(paints,1)<8;count=Atomics.load(paints,0)){
     const remaining=deadline-performance.now();
     assert.ok(remaining>0,'Worker stopped painting during synchronous startup');
     Atomics.wait(paints,0,count,remaining);
   }
+  assert.ok(Atomics.load(paints,1)>=8,'Loop must keep advancing before the remaining depths arrive');
   worker.postMessage({type:'take'});
   const result=await background;
-  assert.equal(result.frames.images.length,1);
+  assert.equal(result.frames.images.length,6);
   assert.equal(result.frames.images[0].byteLength,4);
   assert.ok(result.started>=performance.timeOrigin);
 });
