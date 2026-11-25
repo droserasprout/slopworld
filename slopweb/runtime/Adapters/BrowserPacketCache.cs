@@ -24,13 +24,14 @@ internal sealed class BrowserPacketCache
 
     internal string Serialize(List<Command> commands, out bool reused)
     {
-        var cached = enabled ? Find(commands) : null;
+        int matched = 0;
+        var cached = enabled ? Find(commands, out matched) : null;
         reused = cached != null;
         if (cached != null)
             return cached;
         var json = BrowserCommandWriter.Serialize(commands);
         if (enabled)
-            Store(commands, json);
+            Store(commands, json, matched);
         return json;
     }
 
@@ -41,8 +42,11 @@ internal sealed class BrowserPacketCache
         PacketId = 0;
     }
 
-    internal string? Find(List<Command> commands)
+    internal string? Find(List<Command> commands) => Find(commands, out _);
+
+    string? Find(List<Command> commands, out int matched)
     {
+        matched = 0;
         if (previous == null || previous.Length != commands.Count)
             return null;
         for (int i = 0; i < previous.Length; i++)
@@ -50,12 +54,18 @@ internal sealed class BrowserPacketCache
                 previous[i].kind != commands[i].kind
                 || !Equal(previous[i].value, commands[i].value)
             )
+            {
+                matched = i;
                 return null;
+            }
         return packet;
     }
 
-    internal void Store(List<Command> commands, string json)
+    internal void Store(List<Command> commands, string json) => Store(commands, json, 0);
+
+    void Store(List<Command> commands, string json, int matched)
     {
+        var snapshot = previous?.Length == commands.Count ? previous : null;
         Clear();
         if (json.Length > 2 * 1024 * 1024 || commands.Count > 8192)
             return;
@@ -89,7 +99,15 @@ internal sealed class BrowserPacketCache
             if (floats > 262144)
                 return;
         }
-        previous = commands.Select(c => new Command(c.kind, Copy(c.value))).ToArray();
+        // Find already compared the prefix against our private deep copies.
+        // Replace only the suffix, publishing the snapshot after copying succeeds.
+        snapshot ??= new Command[commands.Count];
+        for (int i = matched; i < commands.Count; i++)
+        {
+            var command = commands[i];
+            snapshot[i] = new Command(command.kind, Copy(command.value));
+        }
+        previous = snapshot;
         packet = json;
         // Only a caller retaining this exact screen packet can acknowledge it.
         // Resource and target mutations must always travel as ordered commands.

@@ -74,8 +74,22 @@ static class PacketCacheTests
         cache.Store(zero, "negative zero");
         if (cache.PacketId <= packetId)
             throw new Exception("Cached identity was recycled on reset");
-        var largeScreen = Enumerable.Repeat(new BrowserGui.Command("pop", 0), 6447).ToList();
         cache.Configure(true);
+        var prefix = new float[] { 1, 0, 0, 1, 5, 6 };
+        List<BrowserGui.Command> moving = [new("matrix", prefix), new("pop", 0)];
+        cache.Serialize(moving, out _);
+        moving[1] = new("fill", new BrowserGui.FillCommand([0, 0, 1, 1], [1, 1, 1, 1], 0));
+        string changed = cache.Serialize(moving, out bool stale);
+        if (stale || changed != BrowserCommandWriter.Serialize(moving))
+            throw new Exception("Changed suffix reused stale packet");
+        prefix[4] = 7;
+        if (cache.Find(moving) != null)
+            throw new Exception("Retained prefix aliased caller geometry");
+        prefix[4] = 5;
+        if (cache.Find(moving) != changed)
+            throw new Exception("Retained prefix lost the changed packet");
+
+        var largeScreen = Enumerable.Repeat(new BrowserGui.Command("pop", 0), 6447).ToList();
         string largeJson = cache.Serialize(largeScreen, out _);
         if (
             cache.Serialize(largeScreen, out bool reused) != largeJson
