@@ -547,6 +547,9 @@ namespace SlopWorld
                 action,
                 project,
                 scope,
+                action == RowAct.None
+                    ? SidebarRowRenderer.GhostText(info, info.Name, action)
+                    : default,
                 hasDaemonSession,
                 soleMainCheckout: SoleMainCheckout(project)
             );

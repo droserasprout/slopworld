@@ -64,6 +64,23 @@ public static class BrowserUnderlyingWorkspace
         )
             return;
 
+        DrawActions(selected, interactive);
+    }
+
+    internal static void DrawStoppedActions(string session, bool interactive)
+    {
+        if (
+            SessionSelectable.Current != session
+            || Selected is not { } selected
+            || Event.current.type is EventType.Layout or EventType.Used
+            || (!interactive && Event.current.type != EventType.Repaint)
+        )
+            return;
+        DrawActions(selected, interactive);
+    }
+
+    static void DrawActions(ISelectable selected, bool interactive)
+    {
         // Installed DrawGizmoGrid retains grouping, wrapping, tooltips, hotkeys and
         // ProcessInput. Native Harmony's grid placement patch is not installed in
         // Entry: translate its bottom anchor to the shared sidebar geometry here.

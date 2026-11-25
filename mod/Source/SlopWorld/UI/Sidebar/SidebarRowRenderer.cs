@@ -103,8 +103,7 @@ namespace SlopWorld
         )
         {
             RowAct act = SessionRowAction.Of(info);
-            string title = GhostTitle(info, fallback, act);
-            string context = GhostContext(info, title, act);
+            var (title, context) = GhostText(info, fallback, act);
             GameFont oldFont = Text.Font;
             bool hostRow = hostIcon && info != null && (info.Host || info.Ephemeral);
             bool hostTerminal = hostIcon && info != null && info.Host;
@@ -353,6 +352,16 @@ namespace SlopWorld
                 default:
                     return "down";
             }
+        }
+
+        internal static (string Title, string Context) GhostText(
+            SessionInfo info,
+            string fallback,
+            RowAct act
+        )
+        {
+            string title = GhostTitle(info, fallback, act);
+            return (title, GhostContext(info, title, act));
         }
 
         static string GhostTitle(SessionInfo info, string fallback, RowAct act)

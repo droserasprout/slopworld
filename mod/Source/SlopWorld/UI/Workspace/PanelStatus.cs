@@ -53,6 +53,7 @@ namespace SlopWorld
             RowAct action,
             ProjectInfo project,
             BrowseScope scope,
+            (string Title, string Context) rowText,
             bool hasDaemonSession = true,
             bool soleMainCheckout = false
         )
@@ -113,21 +114,21 @@ namespace SlopWorld
                 if (string.IsNullOrEmpty(path))
                     path = target;
             }
+            else if (kind == PanelStatusKind.Terminal)
+            {
+                title = rowText.Title;
+                path = info.Dir;
+            }
             else if (!string.IsNullOrEmpty(path))
             {
                 title = Path.GetFileName(path);
             }
             else
             {
-                title =
-                    kind == PanelStatusKind.Edit ? "Editor"
-                    : kind == PanelStatusKind.View ? "File viewer"
-                    : !string.IsNullOrEmpty(info.Label) ? info.Label
-                    : "Terminal";
-                if (kind == PanelStatusKind.Terminal)
-                    path = info.Dir;
+                title = kind == PanelStatusKind.Edit ? "Editor" : "File viewer";
             }
-            string context = checkout ?? "";
+            string context =
+                kind == PanelStatusKind.Terminal ? Join(rowText.Context, checkout) : checkout ?? "";
             if (kind == PanelStatusKind.View || kind == PanelStatusKind.Edit)
             {
                 // Resolve against the captured checkout, never another checkout's root.

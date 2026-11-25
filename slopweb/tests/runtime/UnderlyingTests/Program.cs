@@ -21,6 +21,17 @@ static class Check
             !BrowserUnderlyingWorkspace.BackgroundVisible() && Calls.Count == 0,
             "Covered layer drew"
         );
+        BrowserUnderlyingWorkspace.DrawStoppedActions("fixture", true);
+        Expect(
+            Calls.SequenceEqual(["grid:218"]) && GizmoGridDrawer.Enabled,
+            "Stopped grid missing"
+        );
+        Calls.Clear();
+        Event.current.type = EventType.KeyDown;
+        BrowserUnderlyingWorkspace.DrawStoppedActions("fixture", false);
+        BrowserUnderlyingWorkspace.DrawStoppedActions("old-session", true);
+        Expect(Calls.Count == 0, "Covered or stale stopped grid handled input");
+        Event.current.type = EventType.Repaint;
         Find.WindowStack.Windows.Clear();
         BrowserUnderlyingWorkspace.Draw();
         Expect(Calls.SequenceEqual(["top:True", "sidebar:True", "grid:218"]), "Native owner order");

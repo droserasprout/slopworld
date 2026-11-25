@@ -37,6 +37,7 @@ parents appear at the top level of their own project group and follow its foldin
 sizing. Host, temporary, and worker rows do not count as ordinary project agents.
 Rename handoffs preserve membership until HTTP and WebSocket agree. Expand truncated
 host cwd labels only when their suffix matches `Dir`; preserve application/fixed titles.
+Host terminal headers share the row title and process context.
 
 `RoutedSessionRows` owns reader membership. Open-files visibility is independent of
 tabs and preserves readers/splitter state when hidden. Filtering alone cannot hide
@@ -48,7 +49,8 @@ Rows and keyboard cycling apply both project and checkout filters, caching scope
 revision. Empty checkout IDs mean main; identity does not wait for descriptors.
 Outside the Agents tab, navigation uses pawn inventory in a live game and daemon
 session inventory in Entry mode. Entry must never resolve the game's ColonistBar
-or MapUI. Stopped-session map gizmos likewise require a live map.
+or MapUI. SlopWeb draws the selected stopped session’s action grid inside its
+terminal window. Map gizmos require a live map.
 The task board retains filtered rows, direction counts, and live selection membership
 until `TaskStore` replaces its snapshot or filters change; [tasks](agent-tasks.md) owns
 semantics. Library rows follow published catalog and worktree revisions plus their own

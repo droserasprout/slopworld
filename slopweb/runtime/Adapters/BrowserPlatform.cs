@@ -39,6 +39,7 @@ public static class BrowserPlatform
         ProfileSettings.Save = BrowserPreferences.Changed;
         ModSettings.Changed = BrowserPreferences.Changed;
         ColonistBarStrip.MaplessWorkspace = true;
+        WorkspaceWindow.DrawEntrySessionActions = BrowserUnderlyingWorkspace.DrawStoppedActions;
         SidebarRowRenderer.HomeFolder = BrowserSidebar.HomeFolder;
         TopBar.CoreAvailable = BrowserWorkspaceDoors.Available;
         TopBar.JukeboxAvailable = BrowserWorkspaceDoors.Available;
