@@ -141,7 +141,10 @@ uses the clean, downsampled first animation frame as its preview while the remai
 helper bakes a missing frame cache from installed CPU pixels and mod-owned pixel
 math; it does not require a prior desktop game launch. Background animation
 and quote scrolling start independently as their own presentation assets arrive;
-failed optional assets must not hold the other animation.
+failed optional assets must not hold the other animation. A dedicated worker draws
+both animations directly to a transferred canvas during synchronous WASM startup.
+The page uses the same renderer locally when worker rendering is unavailable.
+Decoded background bitmaps transfer to the workspace at handoff.
 Workspace startup takes ownership of pending background downloads as well as ready
 frames; loading-screen teardown must not cancel a transferred load.
 Browser backdrop rendering consumes the native dimming preference;

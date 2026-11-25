@@ -57,6 +57,8 @@ WEB_ASSETS = (
     'jukebox-likes.js',
     'loading-background.js',
     'loading-quotes.js',
+    'loading-renderer.js',
+    'loading-worker.js',
     'loading.js',
     'local-fonts.LICENSE.txt',
     'local-fonts.mjs',

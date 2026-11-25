@@ -3,11 +3,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-const source=readFileSync(new URL('../../runtime/wwwroot/loading.js',import.meta.url),'utf8')
-  .replace(/^import .*;\n/gm,'').replace('export async function','async function');
-const factory=new Function('workspaceViewport','loadBackground','tintPixels','loadingQuotes',
-  'document','Image','ImageData','requestAnimationFrame','cancelAnimationFrame','fetch','performance',
-  source+'\nreturn startLoading;');
+const source=readFileSync(new URL('../../runtime/wwwroot/loading-renderer.js',import.meta.url),'utf8')
+  .replace(/^import .*;\n/gm,'').replace('export function','function');
+const factory=new Function('loadBackground','tintPixels','loadingQuotes',
+  'ImageData','requestAnimationFrame','cancelAnimationFrame','fetch','performance',
+  source+'\nreturn renderLoading;');
 
 const tick=()=>new Promise(setImmediate);
 function deferred() {
@@ -16,26 +16,25 @@ function deferred() {
   return {promise,resolve,reject};
 }
 function fixture() {
-  let now=1000, atlas, nextFrame=0, backgroundSignal;
+  const atlas=deferred();
+  let now=1000, nextFrame=0, backgroundSignal;
   const frames=new Map(),background=deferred(),tips=deferred();
   const trace=[];
   const context=new Proxy({}, {get:(_,key)=>key==='getImageData'?()=>({data:[]}):()=>{}});
   const canvas=()=>({width:32,height:64,dataset:{},setAttribute(){},remove(){},getContext:()=>context});
-  const document={body:{classList:{add(){},remove(){}},style:{setProperty(){}},prepend(){}},createElement:canvas};
-  const start=factory(()=>({width:800,height:600,uiScale:1}),(_signal,original)=>{
+  const start=factory((_signal,original)=>{
     backgroundSignal=_signal;
     original({draw(){trace.push('original');},dispose(){trace.push('dispose original');}});
     return background.promise;
-  },()=>[],()=>({lines:[],advance(time){trace.push(['quotes',time]);return true;}}),document,
-  class {constructor(){atlas=this;}},class {},callback=>{frames.set(++nextFrame,callback);return nextFrame;},id=>frames.delete(id),
+  },()=>[],()=>({lines:[],advance(time){trace.push(['quotes',time]);return true;}}),class {},callback=>{frames.set(++nextFrame,callback);return nextFrame;},id=>frames.delete(id),
   ()=>tips.promise,{now:()=>now});
-  const pending=start(new URLSearchParams());
+  const pending=start(canvas(),{width:800,height:600,uiScale:1},false,canvas,()=>atlas.promise);
   const frame=time=>{
     now=time;
     const callbacks=[...frames.values()];frames.clear();
     for(const callback of callbacks)callback();
   };
-  return {trace,frame,tips,background,signal:()=>backgroundSignal,atlas:()=>atlas.onload(),
+  return {trace,frame,tips,background,signal:()=>backgroundSignal,atlas:()=>atlas.resolve({width:32,height:64}),
     animation:{draw(){trace.push('animated');},advance(time){trace.push(['animation',time]);return true;},dispose(){trace.push('dispose animation');}},
     async loading(){frame(now);frame(now);return pending;}};
 }
@@ -43,7 +42,7 @@ const quoteResponse={ok:true,text:async()=>'quote'};
 
 test('quotes scroll while background frames are delayed; background retains its own start time',async()=>{
   const f=fixture(),loading=await f.loading();
-  f.tips.resolve(quoteResponse);await tick();f.atlas();
+  f.tips.resolve(quoteResponse);f.atlas();await tick();
   f.frame(1500);
   assert.ok(f.trace.includes('original'));
   assert.ok(f.trace.some(item=>Array.isArray(item)&&item[0]==='quotes'));

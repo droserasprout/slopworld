@@ -1,7 +1,10 @@
 // Pre-WASM playback of locally prepared native frames. The manifest obtains its
 // source key, preset and tuning from installed code, never from a guessed cache.
-export function backgroundAnimation(tuning, random=Math.random) {
-  let depth=.5, phase=0, walkAt=0, phaseAt=0, current=null, previous=null;
+function initialPlayback() {
+  return {depth:.5,phase:0,walkAt:0,phaseAt:0,current:null,previous:null};
+}
+
+export function backgroundAnimation(tuning, random=Math.random, state=initialPlayback()) {
   return seconds=>{
     let index;
     if(seconds<tuning.onsetSeconds) {
@@ -10,21 +13,21 @@ export function backgroundAnimation(tuning, random=Math.random) {
     } else {
       const t=seconds-tuning.onsetSeconds;
       if(tuning.depths>1) {
-        if(t-walkAt>tuning.gapMax) walkAt=t-tuning.step;
-        while(t-walkAt>=tuning.step) {
-          walkAt+=tuning.step;
-          depth=Math.max(0,Math.min(1,depth+(.5-depth)*tuning.pull+
+        if(t-state.walkAt>tuning.gapMax) state.walkAt=t-tuning.step;
+        while(t-state.walkAt>=tuning.step) {
+          state.walkAt+=tuning.step;
+          state.depth=Math.max(0,Math.min(1,state.depth+(.5-state.depth)*tuning.pull+
             tuning.jitter*(random()+random()+random()-1.5)));
         }
       }
-      if(tuning.phases>1 && t-phaseAt>=tuning.phaseSeconds) {
-        phaseAt=t;
-        phase=(phase+1+Math.floor(random()*(tuning.phases-1)))%tuning.phases;
+      if(tuning.phases>1 && t-state.phaseAt>=tuning.phaseSeconds) {
+        state.phaseAt=t;
+        state.phase=(state.phase+1+Math.floor(random()*(tuning.phases-1)))%tuning.phases;
       }
-      index=tuning.onset+Math.round(depth*(tuning.depths-1))*tuning.phases+phase;
+      index=tuning.onset+Math.round(state.depth*(tuning.depths-1))*tuning.phases+state.phase;
     }
-    if(index!==current) {previous=current??index;current=index;}
-    return {current,previous};
+    if(index!==state.current) {state.previous=state.current??index;state.current=index;}
+    return {current:state.current,previous:state.previous};
   };
 }
 
@@ -63,12 +66,18 @@ export async function loadBackground(signal, showOriginal=value=>value.dispose()
     }
     if(signal.aborted) throw new DOMException('Aborted','AbortError');
   } catch(error) {for(const image of images) image.close();throw error;}
-  const select=backgroundAnimation(manifest.animation);
-  let frame=select(0);
+  return backgroundPlayer(manifest,images);
+}
+
+export function backgroundPlayer(manifest,images,state=initialPlayback()) {
+  const select=backgroundAnimation(manifest.animation,Math.random,state);
+  if(state.current===null)select(0);
   return {
+    // Worker handoff transfers ownership of the decoded frames without copying pixels.
+    frames: {manifest,images,state},
     advance(seconds) {
-      const next=select(seconds), changed=next.current!==frame.current || next.previous!==frame.previous;
-      frame=next;return changed;
+      const current=state.current;
+      return select(seconds).current!==current;
     },
     draw(context,width,height,dimming=0) {
       const aspect=manifest.width/manifest.height;
@@ -77,9 +86,9 @@ export async function loadBackground(signal, showOriginal=value=>value.dispose()
       const {offsetX,offsetY}=manifest.animation;
       context.save();
       context.globalAlpha=1;
-      context.drawImage(images[frame.previous],x-offsetX,y-offsetY,w,h);
+      context.drawImage(images[state.previous],x-offsetX,y-offsetY,w,h);
       context.globalAlpha=.5;
-      context.drawImage(images[frame.current],x+offsetX,y+offsetY,w,h);
+      context.drawImage(images[state.current],x+offsetX,y+offsetY,w,h);
       // Dimming belongs to workspace preferences, after both animation layers.
       // Loading retains the undimmed native menu background by default.
       if(dimming>0) {
