@@ -3,6 +3,7 @@ import { nativeWasmResource } from './native-wasm.js';
 import { workspaceViewport, workspaceParameters } from './workspace-viewport.js';
 import { loadStartupAssembly, loadStartupAssemblies } from './startup-assemblies.js';
 import { yieldStartupPaint } from './startup-yield.js';
+import { jukeboxLikes } from './jukebox-likes.js';
 import { installCoreLanguage } from './core-language.js';
 function entryReport(probe) {
     try { return JSON.parse(probe.EntryReport()); }
@@ -74,6 +75,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
             loaded.push(await loadFile('./Adapters.dll'));
             // Woven game methods can resolve mod types during Entry startup.
             await loadFile('./mod/SlopWorld.dll');
+            runtime.setModuleImports('jukebox-likes', jukeboxLikes(window));
             exports.Probe.InstallPlatform(new URL('.', window.location.href).href);
             const response = await fetch('./assets/Core.zip');
             if (!response.ok) throw new Error(`Core.zip: HTTP ${response.status}`);

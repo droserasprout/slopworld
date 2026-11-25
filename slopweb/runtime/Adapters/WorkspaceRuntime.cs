@@ -5,7 +5,17 @@ namespace BrowserAdapters;
 
 public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
 {
-    public void InstallPlatform(string directory) => BrowserPlatform.Install(directory);
+    public void InstallPlatform(
+        string directory,
+        Func<string> readLikes,
+        Func<string?, string, Task> writeLikes
+    ) => BrowserPlatform.Install(directory, readLikes, writeLikes);
+
+    public void WorkspaceLikesChanged()
+    {
+        JukeboxLibrary.NotifyChanged();
+        BrowserActivity.Notify();
+    }
 
     public string WorkspaceCursorTake() => BrowserCursor.Take();
 

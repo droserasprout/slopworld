@@ -10,7 +10,17 @@ public partial class Probe
     static IWorkspaceRuntime Runtime => Workspace.Value;
 
     [JSExport]
-    public static void InstallPlatform(string directory) => Runtime.InstallPlatform(directory);
+    public static void InstallPlatform(string directory) =>
+        Runtime.InstallPlatform(directory, ReadLikes, WriteLikes);
+
+    [JSImport("read", "jukebox-likes")]
+    internal static partial string ReadLikes();
+
+    [JSImport("write", "jukebox-likes")]
+    internal static partial Task WriteLikes(string? original, string text);
+
+    [JSExport]
+    public static void WorkspaceLikesChanged() => Runtime.WorkspaceLikesChanged();
 
     [JSExport]
     public static string WorkspaceFontFallbackTake() => Runtime.WorkspaceFontFallbackTake();

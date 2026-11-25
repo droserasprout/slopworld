@@ -7,6 +7,7 @@ import { loadBackground } from './loading-background.js';
 import { attachWorkspaceCursor } from './workspace-cursor.js';
 import { attachWorkspaceLinks } from './workspace-links.js';
 import { attachWorkspaceFullscreen } from './workspace-fullscreen.js';
+import { watchJukeboxLikes } from './jukebox-likes.js';
 import { attachWorkspaceAudio } from './workspace-audio.js';
 import { fallbackFonts } from './font-delivery.js';
 import { hostFonts } from './host-fonts.js';
@@ -80,6 +81,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   });
   const fonts=fallbackFonts(managed,()=>scheduler.wake(true));
   const activity=new AbortController();
+  watchJukeboxLikes(window, () => managed.WorkspaceLikesChanged(), activity.signal);
   for (const target of [canvas, gui.textInput])
   for(const event of ['input','compositionstart','compositionupdate','keydown','keyup','pointerdown','pointerup','pointermove','pointercancel','wheel','paste','copy','compositionend','blur'])
     target.addEventListener(event,()=>scheduler.wake(true),{signal:activity.signal});

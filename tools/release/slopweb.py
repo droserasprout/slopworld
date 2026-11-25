@@ -54,6 +54,7 @@ WEB_ASSETS = (
     'host-fonts.js',
     'index.html',
     'input.js',
+    'jukebox-likes.js',
     'loading-background.js',
     'loading-quotes.js',
     'loading.js',

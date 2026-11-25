@@ -5,13 +5,18 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Likes live on the game host; open its local file association rather than a daemon editor.
+    // Each host edits the same document its Like action writes.
     public static class JukeboxLikesFile
     {
         public static void Edit()
         {
             try
             {
+                if (JukeboxLibrary.BrowserRead != null)
+                {
+                    WorkspaceWindow.OpenOverPane(new JukeboxLikesEditor(JukeboxLibrary.Read()));
+                    return;
+                }
                 string path = ApplicationPaths.LikesPath;
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 if (!File.Exists(path))

@@ -11,7 +11,12 @@ public interface IWorkspaceRuntime
     void Dispose();
     string EntryReport();
     string GameSnapshot();
-    void InstallPlatform(string directory);
+    void InstallPlatform(
+        string directory,
+        Func<string> readLikes,
+        Func<string?, string, Task> writeLikes
+    );
+    void WorkspaceLikesChanged();
     string WorkspaceFontFallbackTake();
     void WorkspaceFontFallbackComplete(string json);
     void WorkspaceFontFallbackRetry();

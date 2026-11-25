@@ -42,8 +42,11 @@ RimWorld's audio settings; pausing a station releases its stream at the selected
 
 For song recognition, install `songrec` on the game machine; it uses local audio output,
 with `pactl` selecting the default output monitor.
-Likes are saved locally; see [Paths and files](../reference/paths.md) for stations
-and liked-song locations.
+Open **Jukebox → History** to see your liked tracks. In slopweb, likes survive
+reloads and are shared by tabs using the same browser profile and origin, for both
+**This device** and **Server** playback. **Edit file** opens the liked tracks as TOML.
+In native RimWorld it opens the local file in your system editor.
+See [Paths and files](../reference/paths.md) for native file locations.
 
 ## Spotify via ncspot
 

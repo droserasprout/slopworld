@@ -28,7 +28,7 @@ namespace SlopWorld
         public static void OpenSpotify() =>
             Radio.OpenSpotify(session => WorkspaceWindow.Open(session), UiLayout.Fail);
 
-        public static void Like()
+        public static async void Like()
         {
             var record = Radio.CaptureLike(DateTime.UtcNow, out var display);
             if (record == null)
@@ -36,7 +36,11 @@ namespace SlopWorld
                 UiLayout.Fail("nothing is playing");
                 return;
             }
-            if (!JukeboxLikeWriter.TryAppend(ApplicationPaths.LikesPath, record, out var error))
+            try
+            {
+                await JukeboxLibrary.Append(record);
+            }
+            catch (Exception error)
             {
                 Log.Error("[SlopWorld] jukebox: could not save liked song: " + error);
                 UiLayout.Fail("could not save liked song");

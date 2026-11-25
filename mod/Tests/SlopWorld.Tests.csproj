@@ -15,6 +15,9 @@
 
   <ItemGroup>
     <Compile Include="../Source/SlopWorld/Application/Jukebox/BrowserJukebox.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/JukeboxLibrary.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Jukebox/JukeboxActions.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Jukebox/JukeboxLikesFile.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Chrome/KeyboardEventQueue.cs" />
     <Compile Include="../Source/SlopWorld/Settings/RenderSchedule.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Eco/RenderLoopRewrite.cs" />

@@ -29,7 +29,8 @@ async function start({published=false, query='', failAt='', incomplete=false, as
     withDebugging(){return this;},
     async create(){
       calls.push('create');
-      return {getAssemblyExports:async()=>({Probe:managed})};
+      return {getAssemblyExports:async()=>({Probe:managed}),
+        setModuleImports:(name, methods)=>calls.push([name, methods])};
     },
   };
   const fetch=async path=>{calls.push(['fetch',path]);return {ok:true,headers:new Headers(assetHeaders ?? {'x-slop-decoded-length':incomplete?'2':'1'}),
@@ -58,6 +59,9 @@ test('product startup enters the workspace without running compatibility or colo
   const {calls,result}=await start();
   assert.equal(result.error,undefined);
   const platform=calls.findIndex(c=>c[0]==='InstallPlatform');
+  const likes=calls.findIndex(c=>c[0]==='jukebox-likes');
+  assert.ok(likes>=0 && likes<platform);
+  assert.equal(typeof calls[likes][1].write, 'function');
   assert.ok(platform>calls.findIndex(c=>c[0]==='LoadAssembly'));
   assert.ok(platform<calls.findIndex(c=>c[0]==='StartEntry'));
   assert.ok(calls.indexOf('live')>calls.findIndex(c=>c[0]==='InitializeEco'));

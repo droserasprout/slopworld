@@ -5,7 +5,11 @@ namespace BrowserAdapters;
 // Install services after private assemblies load and before the first client is constructed.
 public static class BrowserPlatform
 {
-    public static void Install(string directory)
+    public static void Install(
+        string directory,
+        Func<string> readLikes,
+        Func<string?, string, Task> writeLikes
+    )
     {
         BrowserTransport.Configure(directory);
         var bridge = new ConnectionInfo(new Uri(BrowserTransport.BaseUrl), "");
@@ -22,6 +26,8 @@ public static class BrowserPlatform
         DesktopClipboard.CopyPrimaryHandler = BrowserClipboard.CopyPrimary;
         DesktopClipboard.CopyFromApplicationHandler = BrowserClipboard.CopyFromApplication;
         UiClipboard.Provider = new DesktopUiClipboard();
+        JukeboxLibrary.BrowserRead = readLikes;
+        JukeboxLibrary.BrowserWrite = writeLikes;
         BrowserJukebox.Current = BrowserAudio.Instance;
         DesktopClipboard.SupportsSelections = () => BrowserClipboard.UsesLinuxSelections;
         LinuxGameWindow.SetFullscreen = BrowserWindow.Set;

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 namespace SlopWorld.Tests
@@ -134,6 +135,56 @@ namespace SlopWorld.Tests
             Assert.That(Radio.SpotifyAvailable, Is.False);
             Assert.That(_player.Playing, Is.True);
             Assert.That(_socket.Sent, Is.Empty);
+        }
+
+        [Test]
+        public async Task LikeAndHistoryEditorShareBrowserStorageForBothOutputs()
+        {
+            string saved = "";
+            JukeboxLibrary.BrowserRead = () => saved;
+            JukeboxLibrary.BrowserWrite = (original, text) =>
+            {
+                if (original == null)
+                    saved += text;
+                else
+                {
+                    Assert.That(original, Is.EqualTo(saved));
+                    saved = text;
+                }
+                return Task.CompletedTask;
+            };
+            try
+            {
+                Radio.PickOst();
+                JukeboxActions.Like();
+                Assert.That(Verse.Messages.Last, Is.EqualTo("Jukebox: liked terry fail - pace"));
+                Announce();
+                Radio.SelectOutput(true);
+                Radio.ReceiveAudio(SharedTrack(true));
+                JukeboxActions.Like();
+                var entries = JukeboxHistory.Parse(JukeboxLibrary.Read());
+                Assert.That(entries.Count, Is.EqualTo(2));
+                Assert.That(entries[0].Title, Is.EqualTo("dive"));
+                Assert.That(entries[1].OriginalTitle, Is.EqualTo("pace"));
+                Assert.That(entries[1].Source, Is.EqualTo("SlopWorld OST"));
+
+                JukeboxLikesFile.Edit();
+                Assert.That(WorkspaceWindow.LikesEditor.Original, Is.EqualTo(saved));
+                await JukeboxLibrary.WriteBrowser(
+                    WorkspaceWindow.LikesEditor.Original,
+                    "[[like]]\ntitle = \"edited\"\n"
+                );
+                Assert.That(
+                    JukeboxHistory.Parse(JukeboxLibrary.Read())[0].Title,
+                    Is.EqualTo("edited")
+                );
+            }
+            finally
+            {
+                WorkspaceWindow.LikesEditor = null;
+                JukeboxLibrary.BrowserRead = null;
+                JukeboxLibrary.BrowserWrite = null;
+            }
         }
 
         [Test]
