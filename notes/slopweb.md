@@ -247,7 +247,9 @@ launcher captures an allowlist once for SDK inspection and publishing. Publicati
 locks span composition. Workspace locks span input synchronization, compilation,
 and output capture, including orphaned compiler processes. Compiler output writes directly to its durable log and is mirrored live
 to the host terminal; dynamic font diagnostics also stream to the host, while helper
-stdout remains a machine-readable cache path. Only completed publications are served. Interpreted execution is the default; `--aot`, `--aot-sdk`, or
+stdout remains a machine-readable cache path. Only completed publications are served. The `--serve-prepared` path accepts a trusted
+publication directory, reads rasterizer flags from its startup font manifest, and uses the
+serving account's separate font cache. It bypasses game and compiler discovery. Interpreted execution is the default; `--aot`, `--aot-sdk`, or
 `SLOPWEB_AOT_SDK` select mixed AOT, while `--interpreted` overrides the environment.
 Packages depend on the .NET SDK; AOT additionally needs its matching wasm-tools workload.
 Installed launchers select and pin a stable .NET 10 SDK from the chosen installation

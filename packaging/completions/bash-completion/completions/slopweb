@@ -47,7 +47,7 @@ _slopweb() {
 
     case "${cmd}" in
         slopweb)
-            opts="-h -V --game --port --endpoint --url --token-file --cache --profile --sidecar --prepare --rebuild --public-origin --interpreted --aot --aot-sdk --ensure-workload --help --version paths completions check-fonts help"
+            opts="-h -V --game --port --endpoint --url --token-file --cache --profile --sidecar --prepare --serve-prepared --rebuild --public-origin --interpreted --aot --aot-sdk --ensure-workload --help --version paths completions check-fonts help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -78,6 +78,10 @@ _slopweb() {
                     return 0
                     ;;
                 --profile)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --serve-prepared)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

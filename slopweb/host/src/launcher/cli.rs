@@ -33,6 +33,9 @@ pub struct Options {
     pub sidecar: bool,
     #[arg(long)]
     pub prepare: bool,
+    /// Serve a completed publication without opening the game, bundle or compiler cache.
+    #[arg(long, conflicts_with_all = ["prepare", "rebuild", "aot", "aot_sdk", "interpreted"])]
+    pub serve_prepared: Option<PathBuf>,
     #[arg(long)]
     pub rebuild: bool,
     #[arg(long, value_parser = public_origin)]

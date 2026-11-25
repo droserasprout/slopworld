@@ -22,6 +22,7 @@ _slopweb() {
 '--token-file=[]:TOKEN_FILE:_files' \
 '--cache=[]:CACHE:_files' \
 '--profile=[]:PROFILE:_files' \
+'(--prepare --rebuild --aot --aot-sdk --interpreted)--serve-prepared=[Serve a completed publication without opening the game, bundle or compiler cache]:SERVE_PREPARED:_files' \
 '--public-origin=[]:PUBLIC_ORIGIN:_default' \
 '--aot-sdk=[]:AOT_SDK:_files' \
 '--sidecar[]' \

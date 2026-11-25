@@ -63,6 +63,11 @@ the saved `<CONFIG>/game.toml`, then usual installation locations. `--port` defa
 to 8787. First launch prepares local game files under `$XDG_CACHE_HOME/slopweb`
 (default `~/.cache/slopweb`); subsequent launches reuse that private runtime.
 `--prepare` prepares without serving; `--rebuild` refreshes after game data changes.
+For a separate serving account, pass the completed runtime directory printed by
+`--prepare` to `--serve-prepared DIR` and give it a separate writable `--cache`
+for fonts. The listener needs read access to the publication and its daemon
+credential. The build cache, SDK, and game installation can stay private to the builder.
+
 The server binds only to 127.0.0.1. For an authenticated HTTPS reverse proxy,
 pass `--public-origin https://workspace.example.com`. The proxy must authenticate
 all asset, HTTP, font, and WebSocket requests and forward them to the loopback server.

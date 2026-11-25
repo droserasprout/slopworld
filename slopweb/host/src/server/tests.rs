@@ -1301,3 +1301,31 @@ async fn radio_proxy_checks_provenance_and_only_forwards_the_selected_host_crede
     assert!(!rejected.headers().contains_key("location"));
     assert_eq!(seen.recv().await.unwrap().uri.path(), "/team/media/radio");
 }
+
+#[test]
+fn restricted_asset_reader_serves_nested_files_and_refuses_links() {
+    use super::static_files::open_without_symlinks;
+    use std::{fs, io::Read, os::unix::fs::symlink, path::Path};
+
+    let runtime = tempfile::tempdir().unwrap();
+    let root = fs::File::open(runtime.path()).unwrap();
+    let content = runtime.path().join("mod");
+    fs::create_dir(&content).unwrap();
+    fs::write(content.join("Content.zip"), b"published content").unwrap();
+    let mut bytes = Vec::new();
+    open_without_symlinks(&root, Path::new("mod/Content.zip"))
+        .unwrap()
+        .read_to_end(&mut bytes)
+        .unwrap();
+    assert_eq!(bytes, b"published content");
+    symlink("mod", runtime.path().join("linked-dir")).unwrap();
+    symlink("Content.zip", content.join("linked-file")).unwrap();
+    for path in [
+        "linked-dir/Content.zip",
+        "mod/linked-file",
+        "../file",
+        "/etc/passwd",
+    ] {
+        assert!(open_without_symlinks(&root, Path::new(path)).is_err());
+    }
+}

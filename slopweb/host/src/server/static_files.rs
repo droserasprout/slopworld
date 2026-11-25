@@ -10,7 +10,10 @@ use std::{
     ffi::CString,
     fs::{File, Metadata},
     io,
-    os::fd::{AsRawFd, FromRawFd},
+    os::{
+        fd::{AsRawFd, FromRawFd},
+        unix::ffi::OsStrExt,
+    },
     path::{Component, Path},
 };
 use tokio::io::AsyncReadExt;
@@ -294,9 +297,40 @@ fn open_beneath(root: &File, relative: &str) -> io::Result<File> {
         )
     };
     if fd < 0 {
-        return Err(std::io::Error::last_os_error());
+        let error = io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::ENOSYS) {
+            // RestrictSUIDSGID can mask openat2 even for read-only opens.
+            return open_without_symlinks(root, Path::new(relative));
+        }
+        return Err(error);
     }
     let fd = i32::try_from(fd).map_err(std::io::Error::other)?;
     // SAFETY: the successful syscall transfers a fresh owned descriptor.
     Ok(unsafe { std::fs::File::from_raw_fd(fd) })
+}
+
+// Each descriptor pins the directory used for the next lookup. Reject symlinks
+// at every step when the kernel cannot enforce RESOLVE_BENEATH itself.
+pub(super) fn open_without_symlinks(root: &File, relative: &Path) -> io::Result<File> {
+    let mut directory = root.try_clone()?;
+    let mut components = relative.components().peekable();
+    while let Some(component) = components.next() {
+        let name = match component {
+            Component::CurDir => continue,
+            Component::Normal(name) => CString::new(name.as_bytes())?,
+            _ => return Err(io::Error::from_raw_os_error(libc::EACCES)),
+        };
+        let mut flags = libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK;
+        if components.peek().is_some() {
+            flags |= libc::O_DIRECTORY;
+        }
+        // SAFETY: the borrowed directory and NUL-terminated component are live.
+        let fd = unsafe { libc::openat(directory.as_raw_fd(), name.as_ptr(), flags) };
+        if fd < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: successful openat transfers ownership of the new descriptor.
+        directory = unsafe { File::from_raw_fd(fd) };
+    }
+    Ok(directory)
 }

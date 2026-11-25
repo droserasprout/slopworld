@@ -84,6 +84,28 @@ pub async fn run() -> Result<()> {
     unsafe {
         libc::umask(0o077);
     }
+    if let Some(root) = &options.serve_prepared {
+        let root = std::fs::canonicalize(root).context("Open prepared runtime")?;
+        anyhow::ensure!(
+            root.join(".ready").is_file() && root.join("_framework/dotnet.js").is_file(),
+            "Expected a completed browser runtime"
+        );
+        let fonts = FontService::from_publication(&root, &options.query("web-cache")?)
+            .context("Open prepared fonts")?;
+        let connection = connection(&options)
+            .await
+            .context("Open daemon connection")?;
+        return server::serve(
+            ServerConfig {
+                root,
+                port: options.port,
+                public_origin: options.public_origin,
+                connection,
+            },
+            Arc::new(fonts),
+        )
+        .await;
+    }
     let profile = options.profile_path()?;
     let game = cli::game_directory(options.game.as_deref())?;
     let cache = options.query("web-cache")?;

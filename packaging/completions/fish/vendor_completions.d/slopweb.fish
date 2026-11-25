@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_slopweb_global_optspecs
-    string join \n game= port= endpoint= url= token-file= cache= profile= sidecar prepare rebuild public-origin= interpreted aot aot-sdk= ensure-workload h/help V/version
+    string join \n game= port= endpoint= url= token-file= cache= profile= sidecar prepare serve-prepared= rebuild public-origin= interpreted aot aot-sdk= ensure-workload h/help V/version
 end
 
 function __fish_slopweb_needs_command
@@ -31,6 +31,7 @@ complete -c slopweb -n "__fish_slopweb_needs_command" -l url -r
 complete -c slopweb -n "__fish_slopweb_needs_command" -l token-file -r -F
 complete -c slopweb -n "__fish_slopweb_needs_command" -l cache -r -F
 complete -c slopweb -n "__fish_slopweb_needs_command" -l profile -r -F
+complete -c slopweb -n "__fish_slopweb_needs_command" -l serve-prepared -d 'Serve a completed publication without opening the game, bundle or compiler cache' -r -F
 complete -c slopweb -n "__fish_slopweb_needs_command" -l public-origin -r
 complete -c slopweb -n "__fish_slopweb_needs_command" -l aot-sdk -r -F
 complete -c slopweb -n "__fish_slopweb_needs_command" -l sidecar

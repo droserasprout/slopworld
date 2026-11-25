@@ -73,8 +73,28 @@ impl FontService {
         fs::create_dir_all(&root)?;
         let _disk = lock(&root)?;
         let flags = loader_flags(bundle, game, &root)?;
+        Ok(Self::open_catalog(root, flags))
+    }
+    pub(crate) fn from_publication(publication: &Path, cache: &Path) -> Result<Self> {
+        let manifest: Value =
+            serde_json::from_slice(&fs::read(publication.join("assets/fonts/manifest.json"))?)?;
+        let bake: Value = serde_json::from_str(
+            manifest["faces"][0]["bake"]
+                .as_str()
+                .context("Missing prepared font settings")?,
+        )?;
+        let flags = bake["loaderFlags"]
+            .as_u64()
+            .context("Missing prepared loader flags")?
+            .try_into()?;
+        let root = cache.join("font-index-v1");
+        fs::create_dir_all(&root)?;
+        let _disk = lock(&root)?;
+        Ok(Self::open_catalog(root, flags))
+    }
+    fn open_catalog(root: PathBuf, flags: u32) -> Self {
         let catalog = Catalog::load(&root);
-        Ok(Self {
+        Self {
             inner: Arc::new(Inner {
                 root,
                 flags,
@@ -83,7 +103,7 @@ impl FontService {
                     checked: None,
                 }),
             }),
-        })
+        }
     }
     /// The async boundary keeps font/config IO off the HTTP executor. The owned
     /// operation remains serialized through publication even if its caller cancels.

@@ -490,3 +490,20 @@ fn directory_watches_follow_empty_font_symlinks_without_following_cycles() {
     fs::write(target.join("new.ttf"), b"new").unwrap();
     assert!(!catalog.fresh(&root));
 }
+
+#[test]
+fn prepared_listener_uses_published_flags_and_a_separate_cache() {
+    let publication = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let fonts = publication.path().join("assets/fonts");
+    fs::create_dir_all(&fonts).unwrap();
+    let manifest = fonts.join("manifest.json");
+    fs::write(&manifest, br#"{"faces":[]}"#).unwrap();
+    assert!(FontService::from_publication(publication.path(), cache.path()).is_err());
+    let value = json!({"faces": [{"bake": json!({"loaderFlags": 513}).to_string()}]});
+    fs::write(&manifest, serde_json::to_vec(&value).unwrap()).unwrap();
+    let service = FontService::from_publication(publication.path(), cache.path()).unwrap();
+    assert_eq!(service.inner.flags, 513);
+    assert!(cache.path().join("font-index-v1/.lock").is_file());
+    assert!(!publication.path().join("font-index-v1").exists());
+}
