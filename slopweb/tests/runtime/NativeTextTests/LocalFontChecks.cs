@@ -66,6 +66,16 @@ static class LocalFontChecks
             || glyph.x0 != -1
         )
             throw new Exception("Fractional metrics or bearings changed");
+        for (int i = 0; i < 1000; i++)
+            BrowserFontBank.Instance.TryGetGlyphAtSize(index, 'A', 15, out _, out _);
+        long allocated = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 10000; i++)
+            if (!BrowserFontBank.Instance.TryGetGlyphAtSize(index, 'A', 15, out _, out _))
+                throw new Exception("Cached glyph missing");
+        long bytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
+        if (bytes != 0)
+            throw new Exception($"Cached glyph queries allocated {bytes} bytes");
+        Console.WriteLine($"Allocated for 10000 cached glyph queries: {bytes}");
         int revision = BrowserFontBank.Instance.AtlasVersion;
         if (
             BrowserFontBank.Install(font, "{\"size\":15,\"loaderFlags\":513}", -1) != index

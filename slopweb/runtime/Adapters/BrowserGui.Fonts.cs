@@ -82,9 +82,9 @@ public sealed partial class BrowserGui
         run = null!;
         if (rich && BrowserNativeText.HasMarkup(text))
             return false;
-        BrowserFontBank.ObserveText(index, size, style, text);
         if (!BrowserFontBank.TryFace(index, size, style, out face))
             return false;
+        BrowserFontBank.EnsureGlyphs(face, text);
         run = face.TextRuns.Get(text)!;
         return run != null;
     }

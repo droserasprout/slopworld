@@ -167,17 +167,24 @@ public sealed partial class BrowserFontBank
         if (!Instance.faces.TryGetValue(index, out var basis))
             return false;
         size = size <= 0 ? basis.Size : size;
-        face =
-            Instance.variants.FirstOrDefault(f =>
-                f.Hash == basis.Hash
-                && f.Size == size
-                && f.Style == style
-                && f.Density == Instance.density
-            ) ?? NewLocalFace(basis.Hash, size, style);
+        foreach (var variant in Instance.variants)
+        {
+            if (
+                variant.Hash == basis.Hash
+                && variant.Size == size
+                && variant.Style == style
+                && variant.Density == Instance.density
+            )
+            {
+                face = variant;
+                return true;
+            }
+        }
+        face = NewLocalFace(basis.Hash, size, style);
         return true;
     }
 
-    static void EnsureGlyphs(Face face, string text)
+    internal static void EnsureGlyphs(Face face, ReadOnlySpan<char> text)
     {
         bool changed = false;
         try

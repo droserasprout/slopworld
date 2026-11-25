@@ -195,12 +195,14 @@ public sealed partial class BrowserFontBank : ITextMeshProBackend
         out float ascent
     )
     {
-        ObserveText(index, size, FontStyle.Normal, c.ToString());
         glyph = default;
         ascent = 0;
         if (!TryFace(index, size, out var face))
             return false;
         ascent = face.Ascent;
+        if (!face.Substituted.Contains(c) && face.Glyphs.TryGetValue(c, out glyph))
+            return true;
+        EnsureGlyphs(face, [c]);
         return !face.Substituted.Contains(c) && face.Glyphs.TryGetValue(c, out glyph);
     }
 
