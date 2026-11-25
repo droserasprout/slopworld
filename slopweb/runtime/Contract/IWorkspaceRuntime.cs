@@ -55,7 +55,7 @@ public interface IWorkspaceRuntime
     void ClipboardCompleteImage(int id, string base64, string error);
     string WorkspaceState();
     string WorkspaceAudio();
-    void WorkspaceAudioIdentify(string name);
+    void WorkspaceAudioInstall(string name, Func<string, bool> submitStop);
     void WorkspaceAudioReport(
         int revision,
         bool playing,

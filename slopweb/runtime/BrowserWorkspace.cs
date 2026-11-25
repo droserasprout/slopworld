@@ -159,7 +159,10 @@ public partial class Probe
     public static string WorkspaceAudio() => Runtime.WorkspaceAudio();
 
     [JSExport]
-    public static void WorkspaceAudioIdentify(string name) => Runtime.WorkspaceAudioIdentify(name);
+    public static void WorkspaceAudioInstall(
+        string name,
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.Boolean>>] Func<string, bool> submitStop
+    ) => Runtime.WorkspaceAudioInstall(name, submitStop);
 
     [JSExport]
     public static void WorkspaceAudioReport(

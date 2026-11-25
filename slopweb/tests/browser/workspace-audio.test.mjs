@@ -24,14 +24,16 @@ function fixture(t, options = {}) {
   target.navigator = {userAgent:'Mozilla/5.0 Firefox/132.0'};
   const state = {track:'pace-20261012', revision:1, play:true, volume:.4, station:'', streams:[]};
   const decoders = [], reports = [], titles = [];
-  let name, quits = 0;
+  let name, submitStop, quits = 0;
+  const beacons = [];
+  target.navigator.sendBeacon = url => { beacons.push(url); return true; };
   const bridge = attachWorkspaceAudio({
     WorkspaceAudio:() => JSON.stringify(state),
-    WorkspaceAudioIdentify(value) { name = value; },
+    WorkspaceAudioInstall(value, submit) { name = value; submitStop = submit; },
     WorkspaceAudioReport(revision, playing, stream, title, error) {
       reports.push({revision, playing, stream, title, error});
     },
-    WorkspaceAudioQuit() { quits++; },
+    WorkspaceAudioQuit() { quits++; if (options.exitUrl) assert.equal(submitStop(options.exitUrl), true); },
     WorkspaceAudioEnded(run) {
       assert.equal(run, state.revision);
       state.revision++;
@@ -53,7 +55,7 @@ function fixture(t, options = {}) {
   });
   t.after(() => bridge.dispose());
   function command(change) { Object.assign(state, change); state.revision++; bridge.frame(); }
-  return {bridge, state, target, decoders, reports, titles, command,
+  return {bridge, state, target, decoders, reports, titles, command, beacons,
     get name() { return name; }, get quits() { return quits; }};
 }
 const radio = {station:'station/a & b', streams:['first?x=1', 'alternative & 2']};
@@ -225,8 +227,16 @@ test('page cache suspension releases a listener and fatal cleanup skips shared s
   assert.equal(f.decoders[1].src, '');
   f.bridge.dispose();
   assert.equal(f.quits, 0);
-  const closing = fixture(t);
+});
+
+test('orderly exit queues the managed stop once across page cache restoration', t => {
+  const exitUrl = 'https://workspace.example/colony/host/audio-stop?exit=current';
+  const closing = fixture(t, {exitUrl});
+  closing.target.dispatchEvent(Object.assign(new Event('pagehide'), {persisted:true}));
+  assert.deepEqual(closing.beacons, []);
+  closing.target.dispatchEvent(new Event('pageshow'));
   closing.bridge.dispose();
   closing.bridge.dispose();
   assert.equal(closing.quits, 1);
+  assert.deepEqual(closing.beacons, [exitUrl]);
 });

@@ -3,8 +3,13 @@ using SlopWorld;
 
 namespace BrowserAdapters;
 
-internal sealed class BrowserSocket : IHubSocket
+internal sealed class BrowserSocket : IHubSocket, IPageExitAudio
 {
+    static readonly string Page = Guid.NewGuid().ToString("N");
+    static long nextGeneration;
+    internal static Func<string, bool>? SubmitAudioStop { get; set; }
+    string? audioStopUrl;
+
     readonly ClientWebSocket Socket = new();
     readonly CancellationTokenSource Stop = new();
     readonly Queue<byte[]> Outgoing = new();
@@ -23,10 +28,13 @@ internal sealed class BrowserSocket : IHubSocket
             cancellation
         );
         deadline.CancelAfter(5000);
-        await Socket.ConnectAsync(
-            BrowserTransport.ResolveSocket(connection.BaseUrl),
-            deadline.Token
-        );
+        var scope = $"{Page}.{Interlocked.Increment(ref nextGeneration)}";
+        var uri = new UriBuilder(BrowserTransport.ResolveSocket(connection.BaseUrl))
+        {
+            Query = "exit=" + scope,
+        };
+        await Socket.ConnectAsync(uri.Uri, deadline.Token);
+        audioStopUrl = connection.BaseUrl + "/audio-stop?exit=" + scope;
         Connected = true;
         _ = Receive();
         return true;
@@ -113,6 +121,9 @@ internal sealed class BrowserSocket : IHubSocket
             Writing = false;
         }
     }
+
+    public bool StopAudioOnExit() =>
+        Connected && audioStopUrl != null && SubmitAudioStop?.Invoke(audioStopUrl) == true;
 
     public bool FlushOutgoing(int timeoutMs) => Connected && !Writing && OutgoingBytes == 0;
 

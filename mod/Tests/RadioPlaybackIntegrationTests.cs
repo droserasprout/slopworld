@@ -190,7 +190,7 @@ namespace SlopWorld.Tests
             }
         }
 
-        internal sealed class Socket : IHubSocket
+        internal class Socket : IHubSocket
         {
             public bool Connected { get; private set; }
             public string LastError => null;

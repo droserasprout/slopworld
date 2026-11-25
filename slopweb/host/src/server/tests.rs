@@ -465,6 +465,25 @@ fn ws_request(host: &Running, origin: &str) -> tungstenite::http::Request<()> {
     request
 }
 
+const PAGE: &str = "cd1e8b1ceda34ff0980218ac174a4270";
+
+fn scoped_socket(host: &Running, generation: u64) -> tungstenite::http::Request<()> {
+    let mut request = ws_request(host, &host.url);
+    *request.uri_mut() = format!("{}?exit={PAGE}.{generation}", request.uri())
+        .parse()
+        .unwrap();
+    request
+}
+
+fn beacon(host: &Running, generation: u64) -> reqwest::RequestBuilder {
+    client()
+        .post(format!(
+            "{}/host/audio-stop?exit={PAGE}.{generation}",
+            host.url
+        ))
+        .header("origin", &host.url)
+}
+
 async fn echo_messages(mut socket: axum::extract::ws::WebSocket) {
     while let Some(Ok(message)) = socket.recv().await {
         if socket.send(message).await.is_err() {
@@ -582,6 +601,66 @@ async fn browser_disconnect_cancels_pending_http_upstream() {
             .unwrap(),
         0
     );
+}
+
+#[tokio::test]
+async fn beacon_after_close_stays_on_its_authenticated_socket_and_rejects_stale_generations() {
+    let (tx, mut commands) = mpsc::unbounded_channel();
+    let upstream = listen(Router::new().route(
+        "/ws",
+        any(move |upgrade: axum::extract::ws::WebSocketUpgrade| {
+            let tx = tx.clone();
+            async {
+                upgrade.protocols(["slopworld.protobuf.v2"]).on_upgrade(
+                    move |mut socket| async move {
+                        while let Some(Ok(axum::extract::ws::Message::Binary(bytes))) =
+                            socket.recv().await
+                        {
+                            tx.send(bytes).unwrap();
+                        }
+                    },
+                )
+            }
+        }),
+    ))
+    .await;
+    let descriptor = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(
+        descriptor.path(),
+        format!("url = {:?}\ntoken = 'host-secret'", upstream.url),
+    )
+    .unwrap();
+    let host = host(ConnectionSource::Descriptor(descriptor.path().into()), None).await;
+    let (old, _) = tokio_tungstenite::connect_async(scoped_socket(&host, 1))
+        .await
+        .unwrap();
+    let (mut current, _) = tokio_tungstenite::connect_async(scoped_socket(&host, 2))
+        .await
+        .unwrap();
+    drop(old);
+    assert_eq!(beacon(&host, 1).send().await.unwrap().status(), 410);
+    assert_eq!(
+        beacon(&host, 2)
+            .header("sec-fetch-site", "cross-site")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    // A new endpoint snapshot would fail. Only the admitted socket can carry this stop.
+    std::fs::write(descriptor.path(), "").unwrap();
+    current.close(None).await.unwrap();
+    drop(current);
+    assert_eq!(beacon(&host, 2).send().await.unwrap().status(), 202);
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(3), commands.recv())
+            .await
+            .unwrap()
+            .unwrap(),
+        [0x52, 2, 0x12, 0]
+    );
+    assert_eq!(beacon(&host, 2).send().await.unwrap().status(), 410);
 }
 
 #[tokio::test]
@@ -725,13 +804,60 @@ async fn malformed_or_cross_origin_font_routes_never_deliver_private_data() {
 }
 
 #[tokio::test]
+async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_losslessly() {
+    check_backpressure(false).await;
+}
+
+#[tokio::test]
+async fn page_exit_beacon_delivers_one_final_stop_after_a_blocked_large_write_and_tab_close() {
+    check_backpressure(true).await;
+}
+
 // Tungstenite fixes the handshake callback error type to an unboxed HTTP response.
 #[expect(
     clippy::result_large_err,
     reason = "Tungstenite fixes the callback error type"
 )]
-async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_losslessly() {
+async fn accept_throttled(
+    listener: &TcpListener,
+) -> tokio_tungstenite::WebSocketStream<tokio::net::TcpStream> {
     use std::os::fd::AsRawFd;
+    let (stream, _) = listener.accept().await.unwrap();
+    let socket = tokio_tungstenite::accept_hdr_async(
+        stream,
+        |_request: &tungstenite::handshake::server::Request,
+         mut response: tungstenite::handshake::server::Response| {
+            response.headers_mut().insert(
+                "sec-websocket-protocol",
+                "slopworld.protobuf.v2".parse().unwrap(),
+            );
+            Ok(response)
+        },
+    )
+    .await
+    .unwrap();
+    // Remain far below the 16 MiB payload without shrinking below loopback's
+    // packet size. A 4 KiB buffer can force kernel-specific zero-window/retransmit
+    // behavior even after reads resume, obscuring the relay behavior under test.
+    let receive_buffer: libc::c_int = 256 * 1024;
+    // SAFETY: the live socket and integer option remain valid during setsockopt.
+    assert_eq!(
+        // SAFETY: socket and integer option are valid for this call.
+        unsafe {
+            libc::setsockopt(
+                socket.get_ref().as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_RCVBUF,
+                (&receive_buffer as *const libc::c_int).cast(),
+                libc::socklen_t::try_from(std::mem::size_of_val(&receive_buffer)).unwrap(),
+            )
+        },
+        0
+    );
+    socket
+}
+
+async fn check_backpressure(exit: bool) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let host = host(
         direct(&format!("http://{}", listener.local_addr().unwrap())),
@@ -740,38 +866,7 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
     .await;
     let (resume, paused) = tokio::sync::oneshot::channel();
     let upstream = tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.unwrap();
-        let mut socket = tokio_tungstenite::accept_hdr_async(
-            stream,
-            |_request: &tungstenite::handshake::server::Request,
-             mut response: tungstenite::handshake::server::Response| {
-                response.headers_mut().insert(
-                    "sec-websocket-protocol",
-                    "slopworld.protobuf.v2".parse().unwrap(),
-                );
-                Ok(response)
-            },
-        )
-        .await
-        .unwrap();
-        // Remain far below the 16 MiB payload without shrinking below loopback's
-        // packet size. A 4 KiB buffer can force kernel-specific zero-window/retransmit
-        // behavior even after reads resume, obscuring the relay behavior under test.
-        let receive_buffer: libc::c_int = 256 * 1024;
-        // SAFETY: the live socket and integer option remain valid during setsockopt.
-        assert_eq!(
-            // SAFETY: socket and integer option are valid for this call.
-            unsafe {
-                libc::setsockopt(
-                    socket.get_ref().as_raw_fd(),
-                    libc::SOL_SOCKET,
-                    libc::SO_RCVBUF,
-                    (&receive_buffer as *const libc::c_int).cast(),
-                    libc::socklen_t::try_from(std::mem::size_of_val(&receive_buffer)).unwrap(),
-                )
-            },
-            0
-        );
+        let mut socket = accept_throttled(&listener).await;
         // No upstream reads occur until the browser observes this reverse message.
         // Readiness proves the relay has started its large, capacity-limited write.
         socket.get_ref().readable().await.unwrap();
@@ -787,14 +882,28 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
             message,
             tungstenite::Message::Binary(vec![0x93; 16 * 1024 * 1024])
         );
-        socket
-            .send(tungstenite::Message::Text("complete".into()))
-            .await
-            .unwrap();
+        if exit {
+            assert_eq!(
+                socket.next().await.unwrap().unwrap(),
+                tungstenite::Message::Binary(vec![0x52, 2, 0x12, 0])
+            );
+            assert!(matches!(
+                socket.next().await.unwrap().unwrap(),
+                tungstenite::Message::Close(_)
+            ));
+        } else {
+            socket
+                .send(tungstenite::Message::Text("complete".into()))
+                .await
+                .unwrap();
+        }
     });
-    let (browser, _) = tokio_tungstenite::connect_async(ws_request(&host, &host.url))
-        .await
-        .unwrap();
+    let request = if exit {
+        scoped_socket(&host, 1)
+    } else {
+        ws_request(&host, &host.url)
+    };
+    let (browser, _) = tokio_tungstenite::connect_async(request).await.unwrap();
     let (mut writer, mut reader) = browser.split();
     let sending = tokio::spawn(async move {
         writer
@@ -812,6 +921,18 @@ async fn websocket_backpressure_keeps_reverse_direction_live_and_resumes_lossles
         alive,
         tungstenite::Message::Text("reverse direction remains live".into())
     );
+    if exit {
+        assert_eq!(beacon(&host, 1).send().await.unwrap().status(), 202);
+        assert_eq!(beacon(&host, 1).send().await.unwrap().status(), 410);
+        drop(sending.await.unwrap());
+        drop(reader);
+        resume.send(()).unwrap();
+        tokio::time::timeout(Duration::from_secs(10), upstream)
+            .await
+            .unwrap()
+            .unwrap();
+        return;
+    }
     resume.send(()).unwrap();
     assert_eq!(
         tokio::time::timeout(Duration::from_secs(10), reader.next())

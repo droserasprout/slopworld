@@ -1,5 +1,11 @@
 namespace SlopWorld
 {
+    // A page may disappear before its managed WebSocket writer can run again.
+    internal interface IPageExitAudio
+    {
+        bool StopAudioOnExit();
+    }
+
     class AudioBus
     {
         readonly HubTransport _transport;
@@ -25,7 +31,8 @@ namespace SlopWorld
             );
 
         internal bool StopForShutdown(float? volume = null) =>
-            Stop(volume) && _transport.FlushOutgoing(1000);
+            _transport.PageExitAudio?.StopAudioOnExit()
+            ?? (Stop(volume) && _transport.FlushOutgoing(1000));
 
         public bool SendSpotify(float? volume = null, string requestId = null)
         {

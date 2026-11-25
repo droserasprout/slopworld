@@ -107,6 +107,8 @@ namespace SlopWorld
         // Discard messages when the socket is disconnected.
         public void Send(Wire.ClientMessage message) => TrySend(message);
 
+        internal IPageExitAudio PageExitAudio => Connected ? _ws as IPageExitAudio : null;
+
         internal bool FlushOutgoing(int timeoutMs) => _ws?.FlushOutgoing(timeoutMs) == true;
 
         // Acceptance means queued locally, not acknowledged by the daemon. Never replay

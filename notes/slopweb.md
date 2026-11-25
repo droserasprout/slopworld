@@ -144,7 +144,11 @@ frames; loading-screen teardown must not cancel a transferred load.
 Browser backdrop rendering consumes the native dimming preference;
 profile files stay read-only and browser changes remain local to its origin.
 Selecting server output or reconnecting observes shared playback. An orderly exit applies stop-on-exit only
-while server output is selected. Local radio plays through a media element pointed at
+while server output is selected. The page submits a same-origin beacon for its current
+socket generation. The host finishes any in-flight relay write and sends a final audio
+stop on that authenticated connection. A short grace period covers socket closure
+arriving before the beacon. Reconnect retires the previous generation.
+Local radio plays through a media element pointed at
 the host relay. Each attempt has its own listener ID, decoder and cancellable title
 request. Pause, source changes and cached-page suspension release the stream.
 Browser tab titles use the mod's window-title policy. Packaging reuses the documentation favicon.

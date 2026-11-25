@@ -25,7 +25,7 @@ The platform supplies endpoint resolution, HTTP client construction and the
 asynchronous socket through IHubSocket. The browser host supplies credentials
 on its same-origin bridge. The hub owns cancellation and generation checks for
 connect results, including results that arrive after a replacement attempt.
-Shutdown radio commands use a bounded FIFO writer barrier before engine teardown.
+Native shutdown radio commands use a bounded FIFO writer barrier before engine teardown.
 It includes an in-flight write, reports timeout/disconnection, and does not claim a
 daemon acknowledgement. Ordinary disconnect still discards pending input.
 

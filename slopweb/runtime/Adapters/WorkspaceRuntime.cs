@@ -131,7 +131,11 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
 
     public string WorkspaceAudio() => BrowserAudio.Instance.Snapshot();
 
-    public void WorkspaceAudioIdentify(string name) => BrowserAudio.Instance.Identify(name);
+    public void WorkspaceAudioInstall(string name, Func<string, bool> submitStop)
+    {
+        BrowserAudio.Instance.Identify(name);
+        BrowserSocket.SubmitAudioStop = submitStop;
+    }
 
     public void WorkspaceAudioReport(
         int revision,

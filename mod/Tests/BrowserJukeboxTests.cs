@@ -11,9 +11,20 @@ namespace SlopWorld.Tests
     )]
     public sealed class BrowserJukeboxTests
     {
+        sealed class PageSocket : RadioPlaybackIntegrationTests.Socket, IPageExitAudio
+        {
+            public int Beacons;
+
+            public bool StopAudioOnExit()
+            {
+                Beacons++;
+                return true;
+            }
+        }
+
         FakeBrowserJukebox _player;
         RadioTestProfile _profile;
-        RadioPlaybackIntegrationTests.Socket _socket;
+        PageSocket _socket;
         HubTransport _transport;
         float _master;
 
@@ -23,7 +34,7 @@ namespace SlopWorld.Tests
             _profile = new RadioTestProfile();
             _master = Verse.Prefs.VolumeMaster;
             Verse.Prefs.VolumeMaster = 1;
-            _socket = new RadioPlaybackIntegrationTests.Socket();
+            _socket = new PageSocket();
             _transport = new HubTransport(() => _socket, action => action());
             _transport.Connect();
             _transport.Update();
@@ -113,6 +124,7 @@ namespace SlopWorld.Tests
             Radio.Quit();
             Assert.That(_player.Playing, Is.False);
             Assert.That(_socket.Sent, Is.Empty);
+            Assert.That(_socket.Beacons, Is.Zero);
         }
 
         [Test]
@@ -476,13 +488,9 @@ namespace SlopWorld.Tests
             SessionHub.Instance.Online = connected;
             Radio.Quit();
             Radio.Quit();
-            Assert.That(_socket.Sent.Count, Is.EqualTo(connected && stop ? 1 : 0));
-            if (connected && stop)
-            {
-                Assert.That(_socket.Sent[0].Stop, Is.Not.Null);
-                Assert.That(_socket.Sent[0].HasVolume, Is.False);
-                Assert.That(_socket.FlushedCount, Is.EqualTo(1));
-            }
+            Assert.That(_socket.Beacons, Is.EqualTo(connected && stop ? 1 : 0));
+            Assert.That(_socket.Sent, Is.Empty);
+            Assert.That(_socket.FlushedCount, Is.Zero);
         }
 
         [Test]

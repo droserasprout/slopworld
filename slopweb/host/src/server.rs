@@ -1,5 +1,6 @@
 //! Loopback host coordination. Security, credentials, assets and transports have
 //! separate owners; fonts owns discovery and immutable font data.
+mod audio_exit;
 mod bridge;
 mod endpoint;
 mod fonts;
@@ -36,6 +37,7 @@ struct Host {
     boundary: security::Boundary,
     connection: ConnectionSource,
     client: reqwest::Client,
+    audio_exits: Arc<audio_exit::Exits>,
     upload_budget: Arc<tokio::sync::Semaphore>,
     fonts: Option<Arc<FontService>>,
 }
@@ -70,6 +72,7 @@ pub async fn router(
         boundary,
         connection: config.connection,
         client,
+        audio_exits: Arc::default(),
         upload_budget: Arc::new(tokio::sync::Semaphore::new(bridge::UPLOAD_BUDGET)),
         fonts,
     });
@@ -83,6 +86,8 @@ async fn dispatch(State(host): State<Arc<Host>>, request: Request) -> Response {
     let path = request.uri().path();
     let mut response = if path == "/host/ws" || request.headers().contains_key("upgrade") {
         websocket::response(&host, request).await
+    } else if path == "/host/audio-stop" {
+        audio_exit::response(&host, &request)
     } else if path.starts_with("/host/media/") {
         radio::response(&host, request).await
     } else if request.uri() == "/host/health" || path.starts_with("/host/api/") {

@@ -14,7 +14,10 @@ export function attachWorkspaceAudio(managed, {
   target = window,
   fetchTitle = globalThis.fetch,
 } = {}) {
-  managed.WorkspaceAudioIdentify(browserName(target.navigator?.userAgent));
+  managed.WorkspaceAudioInstall(browserName(target.navigator?.userAgent), url => {
+    try { return target.navigator.sendBeacon(url); }
+    catch { return false; }
+  });
 
   let state, encoded, revision;
   let attempt, gesture, resumeIndex;
