@@ -126,6 +126,23 @@ static class GlyphChecks
                     $"Tail clipping changed packet or trace count at {scenario}/{repeat}"
                 );
         }
+        // Warm atlas, same geometry. Timing the repaint must preserve its wire packet.
+        clippedDirect.ResetTextProfile();
+        BrowserGuiInput.Profile = false;
+        string ordinary = Frame(clippedDirect, true, 20).Split(':', 2)[1];
+        if (
+            clippedDirect.ProfileBakedPrepareTicks != 0
+            || clippedDirect.ProfileBakedDrawTicks != 0
+            || clippedDirect.ProfileClippedTailTraceTicks != 0
+        )
+            throw new Exception("Glyph timers ran with profiling disabled");
+        BrowserGuiInput.Profile = true;
+        if (
+            Frame(clippedDirect, true, 20).Split(':', 2)[1] != ordinary
+            || clippedDirect.ProfileBakedPrepareTicks + clippedDirect.ProfileBakedDrawTicks
+                > clippedDirect.ProfileBakedTicks
+        )
+            throw new Exception("Glyph profiling changed the packet or double-counted baked time");
         // A glyph appended between frames must still upload when clipping is enabled.
         BrowserFontBank.ObserveText(index, 15, FontStyle.Normal, "Ω");
         string mutated = Frame(originalDirect, false, 1);

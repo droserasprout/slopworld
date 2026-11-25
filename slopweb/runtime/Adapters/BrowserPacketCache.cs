@@ -12,6 +12,9 @@ internal sealed class BrowserPacketCache
     long generation;
     internal long PacketId { get; private set; }
 
+    // -1 means the cache had no same-length snapshot to compare.
+    internal int LastMatchedCommands { get; private set; }
+
     bool enabled;
 
     internal bool Configure(bool value)
@@ -27,6 +30,10 @@ internal sealed class BrowserPacketCache
         int matched = 0;
         var cached = enabled ? Find(commands, out matched) : null;
         reused = cached != null;
+        LastMatchedCommands =
+            reused ? commands.Count
+            : enabled && previous?.Length == commands.Count ? matched
+            : -1;
         if (cached != null)
             return cached;
         var json = BrowserCommandWriter.Serialize(commands);

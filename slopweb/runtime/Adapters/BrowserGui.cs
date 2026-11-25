@@ -38,6 +38,7 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
     int windowDepth;
     public double LastResourceSweepMs { get; private set; }
     public double LastSerializationMs { get; private set; }
+    public int LastMatchedCommands => packetCache.LastMatchedCommands;
     public long PacketId => packetCache.PacketId;
     public bool LastPacketReused { get; private set; }
 

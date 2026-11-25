@@ -1,5 +1,6 @@
 // Native baked plain-text metrics and rasterization. Rich layout remains owned by
 // the installed text engine; unsupported runs use the diagnostic renderer.
+using System.Diagnostics;
 using UnityEngine;
 using UnityStubs.Gui;
 
@@ -102,6 +103,7 @@ public sealed partial class BrowserGui
         bool rich
     )
     {
+        long started = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
         // Native terminal labels are usually one ASCII cell. Resolve its metrics
         // directly: no text-cache LRU mutation, line arrays, width cache or run loop.
         // Placement still starts from this label's independently rounded origin.
@@ -119,10 +121,18 @@ public sealed partial class BrowserGui
             && (!wrap || Snap(cell.advanceX * matrix.m00) / matrix.m00 <= rect.width)
         )
         {
+            long drawStart = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
+            if (BrowserGuiInput.Profile)
+                ProfileBakedPrepareTicks += drawStart - started;
             DrawBakedCell(rect, cellFace, cell, anchor, color, clip);
+            if (BrowserGuiInput.Profile)
+                ProfileBakedDrawTicks += Stopwatch.GetTimestamp() - drawStart;
             return true;
         }
-        if (!BakedFace(index, size, style, text, rich, out var face, out var run))
+        bool prepared = BakedFace(index, size, style, text, rich, out var face, out var run);
+        if (BrowserGuiInput.Profile)
+            ProfileBakedPrepareTicks += Stopwatch.GetTimestamp() - started;
+        if (!prepared)
             return false;
         float scale = Math.Abs(matrix.m00);
         if (
@@ -169,6 +179,7 @@ public sealed partial class BrowserGui
                 + Snap(y * scale)
                 + Snap(face.LineAscent * scale)
                 - face.Ascent * scale;
+            long drawStart = BrowserGuiInput.Profile ? Stopwatch.GetTimestamp() : 0;
             DrawGlyphRun(
                 face,
                 line,
@@ -182,6 +193,8 @@ public sealed partial class BrowserGui
                 clipBottom,
                 ref uploaded
             );
+            if (BrowserGuiInput.Profile)
+                ProfileBakedDrawTicks += Stopwatch.GetTimestamp() - drawStart;
         }
         return true;
     }
@@ -351,6 +364,7 @@ public sealed partial class BrowserGui
     {
         if (!BrowserGuiInput.Profile)
             return;
+        long traceStart = Stopwatch.GetTimestamp();
         foreach (var glyph in glyphs)
         {
             if (glyph.visible)
@@ -377,6 +391,7 @@ public sealed partial class BrowserGui
             }
             penX += Snap(glyph.advanceX * scale);
         }
+        ProfileClippedTailTraceTicks += Stopwatch.GetTimestamp() - traceStart;
     }
 
     void DrawBakedCell(

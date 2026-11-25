@@ -78,9 +78,15 @@ static class PacketCacheTests
         var prefix = new float[] { 1, 0, 0, 1, 5, 6 };
         List<BrowserGui.Command> moving = [new("matrix", prefix), new("pop", 0)];
         cache.Serialize(moving, out _);
+        if (cache.LastMatchedCommands != -1)
+            throw new Exception("Cold packet reported a comparison");
         moving[1] = new("fill", new BrowserGui.FillCommand([0, 0, 1, 1], [1, 1, 1, 1], 0));
         string changed = cache.Serialize(moving, out bool stale);
-        if (stale || changed != BrowserCommandWriter.Serialize(moving))
+        if (
+            stale
+            || cache.LastMatchedCommands != 1
+            || changed != BrowserCommandWriter.Serialize(moving)
+        )
             throw new Exception("Changed suffix reused stale packet");
         prefix[4] = 7;
         if (cache.Find(moving) != null)
@@ -94,6 +100,7 @@ static class PacketCacheTests
         if (
             cache.Serialize(largeScreen, out bool reused) != largeJson
             || !reused
+            || cache.LastMatchedCommands != largeScreen.Count
             || cache.PacketId == 0
         )
             throw new Exception("Large unchanged screen packet was serialized again");

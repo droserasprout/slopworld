@@ -3,7 +3,10 @@ namespace BrowserAdapters;
 
 public sealed partial class BrowserGui
 {
-    public long ProfileBakedTicks,
+    public long ProfileClippedTailTraceTicks,
+        ProfileBakedTicks,
+        ProfileBakedPrepareTicks,
+        ProfileBakedDrawTicks,
         ProfileNativeTicks;
     public int ProfileBakedRuns,
         ProfileBakedCharacters,
@@ -12,7 +15,12 @@ public sealed partial class BrowserGui
 
     public void ResetTextProfile()
     {
-        ProfileBakedTicks = ProfileNativeTicks = 0;
+        ProfileClippedTailTraceTicks = 0;
+        ProfileBakedTicks =
+            ProfileBakedPrepareTicks =
+            ProfileBakedDrawTicks =
+            ProfileNativeTicks =
+                0;
         ProfileBakedRuns = ProfileBakedCharacters = ProfileNativeRuns = ProfileFallbackRuns = 0;
     }
 }

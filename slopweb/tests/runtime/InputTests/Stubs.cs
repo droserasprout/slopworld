@@ -112,7 +112,11 @@ namespace BrowserAdapters
     {
         public static string? OutsideTargetTrace;
 
-        public long ProfileBakedTicks,
+        public int LastMatchedCommands;
+        public long ProfileClippedTailTraceTicks,
+            ProfileBakedTicks,
+            ProfileBakedPrepareTicks,
+            ProfileBakedDrawTicks,
             ProfileNativeTicks;
         public int ProfileBakedRuns,
             ProfileBakedCharacters,
