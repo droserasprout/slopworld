@@ -115,6 +115,24 @@ if (!state.Accept("matrix", identity))
     throw new Exception("A new packet must establish its own transform");
 Console.WriteLine("Command state restores nested clips and resets across packets.");
 
+var clipped = new List<BrowserGui.Command>();
+state.Clear();
+state.Append(clipped, "matrix", identity);
+state.Append(clipped, "clipScreen", rect);
+state.Append(clipped, "matrix", translated);
+state.Append(clipped, "clipScreen", rect);
+state.Append(clipped, "pop", 0);
+state.Append(clipped, "pop", 0);
+state.Append(clipped, "matrix", identity);
+if (clipped.Count != 1)
+    throw new Exception("Empty nested drawing scopes inflated the screen packet");
+state.Append(clipped, "clipScreen", rect);
+state.Append(clipped, "matrix", translated);
+state.Append(clipped, "fill", 1);
+state.Append(clipped, "pop", 0);
+if (clipped.Count != 5 || clipped[^1].kind != "pop")
+    throw new Exception("Visible drawing lost its clip");
+
 var batches = new List<BrowserGui.Command>();
 float[] first = [1, 2, 3, 4, 0, .5f, .25f, .5f],
     second = [9, 8, 7, 6, .25f, 0, .5f, 1];

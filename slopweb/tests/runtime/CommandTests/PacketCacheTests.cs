@@ -74,6 +74,19 @@ static class PacketCacheTests
         cache.Store(zero, "negative zero");
         if (cache.PacketId <= packetId)
             throw new Exception("Cached identity was recycled on reset");
+        var largeScreen = Enumerable.Repeat(new BrowserGui.Command("pop", 0), 6447).ToList();
+        cache.Configure(true);
+        string largeJson = cache.Serialize(largeScreen, out _);
+        if (
+            cache.Serialize(largeScreen, out bool reused) != largeJson
+            || !reused
+            || cache.PacketId == 0
+        )
+            throw new Exception("Large unchanged screen packet was serialized again");
+        largeScreen.AddRange(Enumerable.Repeat(largeScreen[0], 8193 - largeScreen.Count));
+        cache.Store(largeScreen, "above command limit");
+        if (cache.Find(largeScreen) != null)
+            throw new Exception("Command count exceeded the snapshot budget");
         cache.Store(commands, new string('x', 2 * 1024 * 1024 + 1));
         if (cache.PacketId != 0 || cache.Find(commands) != null)
             throw new Exception("Oversize packet retained");

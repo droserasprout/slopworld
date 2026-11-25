@@ -57,7 +57,7 @@ internal sealed class BrowserPacketCache
     internal void Store(List<Command> commands, string json)
     {
         Clear();
-        if (json.Length > 2 * 1024 * 1024 || commands.Count > 4096)
+        if (json.Length > 2 * 1024 * 1024 || commands.Count > 8192)
             return;
         // Bound geometry independently of its compressed JSON representation.
         bool screenOnly = true;

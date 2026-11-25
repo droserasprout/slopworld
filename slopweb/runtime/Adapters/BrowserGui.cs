@@ -136,13 +136,7 @@ public sealed partial class BrowserGui : IGuiBackend, IBrowserFontRegistration
         if (SuppressDrawing)
             return;
         RecordEmit(kind, value);
-        if (!commandState.Accept(kind, value))
-            return;
-        // Adjacent transforms have no drawing or saved state between them.
-        if (kind == "matrix" && commands.Count > 0 && commands[^1].kind == "matrix")
-            commands[^1] = new Command(kind, value);
-        else
-            commands.Add(new Command(kind, value));
+        commandState.Append(commands, kind, value);
     }
 
     public int GroupCount => groups.Count;
