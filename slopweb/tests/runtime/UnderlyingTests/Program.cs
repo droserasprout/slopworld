@@ -42,6 +42,7 @@ static class Check
         Expect(Calls.Contains("grid:308"), "Cached accessors retained stale geometry");
         SlopWorld.SessionGizmoInput.GridLeft = 218;
         Calls.Clear();
+        SlopWorld.ShortcutHelpView.HelpPressed = true;
         Find.WindowStack.Input = false;
         Event.current.type = EventType.KeyDown;
         BrowserUnderlyingWorkspace.Draw();
@@ -61,6 +62,15 @@ static class Check
             Calls.SequenceEqual(["top:True", "sidebar:True"]),
             "Missing session drew stale actions"
         );
+        Event.current.type = EventType.KeyDown;
+        Calls.Clear();
+        BrowserUnderlyingWorkspace.Draw();
+        Expect(
+            Calls.SequenceEqual(["top:True", "sidebar:True", "help"]),
+            "Entry missed help without a session"
+        );
+        SlopWorld.ShortcutHelpView.HelpPressed = false;
+        Event.current.type = EventType.Repaint;
         SlopWorld.SessionSelectable.CurrentObject = new SlopWorld.SessionSelectable();
         SlopWorld.TopBar.OpenWindow = true;
         Calls.Clear();
@@ -210,6 +220,20 @@ namespace Verse
 
 namespace SlopWorld
 {
+    public static class ShortcutHelpView
+    {
+        public static bool HelpPressed;
+
+        public static bool HandleBackgroundKey(Event e)
+        {
+            if (!HelpPressed || e.type != EventType.KeyDown)
+                return false;
+            Check.Calls.Add("help");
+            e.type = EventType.Used;
+            return true;
+        }
+    }
+
     public class WorkspaceWindow : Window { }
 
     public class SessionSelectable : ISelectable

@@ -45,12 +45,18 @@ namespace SlopWorld
         };
 
         // Identify mod bindings by content pack so new definitions require no additional list entry.
-        public static bool Kept(KeyBindingDef def) =>
-            def != null
-            && (
-                Keep.Contains(def.defName)
-                || (ModEntry.Instance != null && def.modContentPack == ModEntry.Instance.Content)
-            );
+        public static bool Kept(KeyBindingDef def)
+        {
+            if (def == null)
+                return false;
+            bool authored =
+                ModEntry.Instance != null && def.modContentPack == ModEntry.Instance.Content;
+            if (ClientPlatform.IsBrowser)
+                return def.defName == "Accept"
+                    || def.defName == "Cancel"
+                    || (authored && def.category?.defName != "SlopPlayer");
+            return authored || Keep.Contains(def.defName);
+        }
 
         // Patch the four input state getters. Leave MainKey available for labels.
         static readonly string[] Reads = { "KeyDownEvent", "IsDownEvent", "JustPressed", "IsDown" };

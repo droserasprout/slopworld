@@ -36,6 +36,10 @@ namespace SlopWorld
             )
                 return;
 
+            // Entry has no WorkspaceHotkeys game component to dismiss the help view.
+            if (ClientPlatform.IsBrowser && window != null && ShortcutHelpView.HandleContentKey(e))
+                return;
+
             if (WorkspaceWindow.HandleFunctionKey(e))
             {
                 e.Use();

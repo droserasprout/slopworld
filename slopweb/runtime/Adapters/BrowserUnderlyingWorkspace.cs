@@ -60,6 +60,7 @@ public static class BrowserUnderlyingWorkspace
         if (
             !BackgroundVisible()
             || Event.current.type == EventType.Used
+            || (interactive && ShortcutHelpView.HandleBackgroundKey(Event.current))
             || Selected is not { } selected
         )
             return;

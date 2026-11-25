@@ -8,7 +8,7 @@ namespace SlopWorld
 {
     // A workspace reference for both live key bindings and shortcuts that deliberately do not
     // go through KeyBindingDef. It shares WorkspaceWindow's fullscreen chrome with Settings and
-    // terminal views. The map-only `?` shortcut still never competes with an agent pane.
+    // terminal views. The background `?` shortcut still never competes with an agent pane.
     public sealed class ShortcutHelpView : ContentView
     {
         sealed class ShortcutRow
@@ -60,7 +60,7 @@ namespace SlopWorld
 
         // GameComponentOnGUI sees the map event before WindowStack and before a focused
         // vanilla control. Keep the host guard here too for callers outside WorkspaceHotkeys.
-        public static bool HandleMapKey(Event e)
+        public static bool HandleBackgroundKey(Event e)
         {
             if (
                 e == null
@@ -94,9 +94,15 @@ namespace SlopWorld
             return true;
         }
 
+        // Entry draws the window stack after its background in the same event pass.
+        // The key consumed to open help must not immediately close the new view.
         static bool IsKeyDown(Event e) =>
             e.type == EventType.KeyDown
-            || (e.type == EventType.Used && e.rawType == EventType.KeyDown);
+            || (
+                !ClientPlatform.IsBrowser
+                && e.type == EventType.Used
+                && e.rawType == EventType.KeyDown
+            );
 
         static bool IsHelpKey(Event e)
         {
@@ -294,10 +300,17 @@ namespace SlopWorld
                     "Built-in · Interface",
                     new[]
                     {
-                        new ShortcutRow("?", "Open help from the map, or leave the help view"),
+                        new ShortcutRow(
+                            "?",
+                            ClientPlatform.IsBrowser
+                                ? "Open help from the workspace background, or leave help"
+                                : "Open help from the map, or leave the help view"
+                        ),
                         new ShortcutRow(
                             "Escape",
-                            "Leave help and return to the backing pane or map"
+                            ClientPlatform.IsBrowser
+                                ? "Leave help and return to the workspace"
+                                : "Leave help and return to the backing pane or map"
                         ),
                     }
                 )

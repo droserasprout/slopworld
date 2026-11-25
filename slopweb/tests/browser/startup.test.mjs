@@ -34,7 +34,7 @@ async function start({published=false, query='', failAt='', incomplete=false, as
     },
   };
   const fetch=async path=>{calls.push(['fetch',path]);return {ok:true,headers:new Headers(assetHeaders ?? {'x-slop-decoded-length':incomplete?'2':'1'}),
-    arrayBuffer:async()=>new Uint8Array([1]).buffer,
+    arrayBuffer:async()=>new TextEncoder().encode(path).buffer,
     json:async()=>path==='./game/manifest.json'?[{file:'Game.dll'}]:[],
     text:async()=>'{}',
     body:(async function*(){yield new Uint8Array([1]);})()};};
@@ -75,15 +75,16 @@ test('product startup enters the workspace without running compatibility or colo
     assert.equal(calls.some(c=>c[0]===name),false,name);
 });
 
-test('Entry can resolve woven mod references before mod initialization',async()=>{
+test('mod dependencies load before the platform adapter resolves mod types',async()=>{
   for(const published of [false,true]) {
-    const {calls}=await start({published});
-    const load=calls.findIndex(c=>published
-      ? c[0]==='LoadPublishedAssembly' && c[1]==='SlopWorld'
-      : c[0]==='fetch' && c[1]==='./mod/SlopWorld.dll');
-    const entry=calls.findIndex(c=>c[0]==='StartEntry');
-    const init=calls.findIndex(c=>c[0]==='InitializeEco');
-    assert.ok(load>=0 && load<entry && entry<init);
+    const {calls,result}=await start({published});
+    assert.equal(result.error,undefined);
+    const installs=published
+      ? calls.filter(c=>c[0]==='LoadPublishedAssembly').map(c=>c[1])
+      : calls.filter(c=>c[0]==='LoadAssembly').map(c=>new TextDecoder().decode(c[1]).split('/').pop().replace(/\.dll$/,''));
+    assert.deepEqual(installs,['Game','0Harmony','Google.Protobuf','Markdig','AngleSharp','Tomlyn','SlopWorld','Adapters']);
+    const lastInstall=calls.findLastIndex(c=>c[0]===(published?'LoadPublishedAssembly':'LoadAssembly'));
+    assert.ok(lastInstall<calls.findIndex(c=>c[0]==='InstallPlatform'));
   }
 });
 
@@ -226,8 +227,6 @@ test('unfinished Entry loading fails visibly and releases the engine',async()=>{
 test('published startup resolves game, adapters and mod dependencies without fetching raw DLLs',async()=>{
   const {calls,result}=await start({published:true});
   assert.equal(result.error,undefined);
-  assert.deepEqual(calls.filter(c=>c[0]==='LoadPublishedAssembly').map(c=>c[1]),
-    ['Game','Adapters','SlopWorld','0Harmony','Google.Protobuf','Markdig','AngleSharp','Tomlyn']);
   assert.deepEqual(calls.filter(c=>c[0]==='fetch' && c[1].endsWith('.dll')),[]);
 });
 

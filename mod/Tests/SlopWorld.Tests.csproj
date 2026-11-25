@@ -224,6 +224,7 @@
     <Compile Include="../Source/SlopWorld/Settings/OptionLabels.cs" />
     <Compile Include="../Source/SlopWorld/Settings/PreferenceFormats.cs" Link="Source/Settings/PreferenceFormats.cs" />
     <Compile Include="../Source/SlopWorld/Settings/WorkspacePreferences.cs" Link="Source/Settings/WorkspacePreferences.cs" />
+    <Compile Include="../Source/SlopWorld/Platform/ClientPlatform.cs" Link="Source/Platform/ClientPlatform.cs" />
     <Compile Include="../Source/SlopWorld/Settings/Settings.cs" Link="Source/Settings/Settings.cs" />
     <Compile Include="../Source/SlopWorld/Settings/ProfileSettings.cs" Link="Source/Settings/ProfileSettings.cs" />
     <Compile Include="../Source/SlopWorld/Settings/ModSettingsStore.cs" Link="Source/Settings/ModSettingsStore.cs" />

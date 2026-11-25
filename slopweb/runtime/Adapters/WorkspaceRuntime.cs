@@ -34,6 +34,8 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
 
     public int WorkspaceFrameLimit() => Settings.ExplicitFrameLimit;
 
+    public void WorkspaceRefreshRate(int fps) => ClientPlatform.BrowserRefreshRate = fps;
+
     public void WorkspaceClearWake() => BrowserActivity.Wake = null;
 
     public bool WorkspacePacketCache(bool enabled) => BrowserGui.ConfigurePacketCache(enabled);

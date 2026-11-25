@@ -18,7 +18,6 @@ theme
 grandmaMode
 cursor
 cursorGrayscale
-visualEffects
 sidebarShowHidden
 sidebarShowGitignored
 cursorColor

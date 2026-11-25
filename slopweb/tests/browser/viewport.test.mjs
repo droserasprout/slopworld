@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {workspaceViewport,workspaceParameters,workspaceOption} from '../../runtime/wwwroot/workspace-viewport.js';
+import {workspaceViewport,workspaceParameters,workspaceOption,observeRefreshRate} from '../../runtime/wwwroot/workspace-viewport.js';
 
 test('product entry pages share defaults and preserve explicit geometry', () => {
   const root=Object.freeze({pathname:'/',search:''});
@@ -43,4 +43,28 @@ test('responsive geometry follows browser size and density, with bounded allocat
     {width:1600,height:1200,uiScale:2});
   assert.deepEqual(workspaceViewport(parameters, {innerWidth:10000,innerHeight:10000,devicePixelRatio:8}),
     {width:7680,height:4320,uiScale:4});
+});
+
+test('Auto samples display cadence independently and releases pending frames', () => {
+  const view = new EventTarget();
+  view.document = new EventTarget();
+  let pending;
+  view.requestAnimationFrame = callback => { pending = callback; return 1; };
+  view.cancelAnimationFrame = () => { pending = null; };
+  const controller = new AbortController();
+  const rates = [];
+  observeRefreshRate(view, controller.signal, fps => rates.push(fps));
+  for (const fps of [60, 144]) {
+    view.dispatchEvent(new Event('resize'));
+    for (let i = 0; i <= 20; ++i) {
+      const sample = pending;
+      pending = null;
+      sample(i * 1000 / fps + (i >= 8 ? 100 : 0));
+    }
+    assert.equal(pending, null);
+  }
+  assert.deepEqual(rates, [60, 144]);
+  view.dispatchEvent(new Event('focus'));
+  controller.abort();
+  assert.equal(pending, null);
 });

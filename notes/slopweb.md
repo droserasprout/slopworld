@@ -76,6 +76,8 @@ observation errors remain diagnostic state and cannot stop rendering. Private
 probe exports own sidebar/catalog inspection and terminal assertion helpers.
 Underlying chrome reads current mod-owned geometry on each draw. In Entry the underlying top bar can open
 the persona-core menu and shortcut help with the last terminal pane closed.
+An unconsumed `?` on that background opens help even without a selected session.
+Shortcut help and Keyboard settings omit camera and player-pawn bindings in Entry.
 Hints belong to the window stack and pane that owned the opening gesture.
 Entry frames return readiness. Startup takes a detailed Entry snapshot on failure or when
 profiling. Failed or incomplete initialization releases the engine and surfaces the cause. Browser Entry
@@ -84,7 +86,8 @@ browser drives frames without starting the desktop platform loop.
 Game assembly downloads use a four-file window, including completed buffers;
 CLR loading and per-file failure reporting retain manifest order.
 `startup-assemblies.js` shares download and paint admission for manifest DLLs and
-late startup dependencies. A manifest
+mod dependencies. Load those dependencies before SlopWorld and Adapters because
+platform installation resolves transport field types before Entry starts. A manifest
 assembly failure ends startup before the Eco archive transfer.
 Startup selects its assembly loader through a staged mode module. AOT composition
 selects CLR identity loading in its private copy and skips raw DLL transfers.
@@ -198,7 +201,8 @@ budget includes the in-flight message and admits a full 32 MiB protocol envelope
 Discarded input/layout passes execute native controls with raster-command
 preparation suppressed; only repaint publishes drawing. Stable presentation backs
 off up to 100 ms, bounded by native cursor animation and terminal blink/resize/scroll
-deadlines. The selected frame limit also bounds active rendering. Input and
+deadlines. The selected frame limit also bounds active rendering. Auto displays the measured
+animation-frame cadence. Post-processing belongs to the desktop renderer. Input and
 published transport activity cancel pending idle waits.
 Append-only font atlases retain CPU pixels until drain, coalescing publication and
 encoding once per atlas per packet. General mutable textures still snapshot at each

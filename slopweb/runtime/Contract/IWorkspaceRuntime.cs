@@ -25,6 +25,7 @@ public interface IWorkspaceRuntime
     void WorkspaceWake(Action wake);
     float WorkspaceNextUpdateDelay();
     int WorkspaceFrameLimit();
+    void WorkspaceRefreshRate(int fps);
     void WorkspaceClearWake();
     bool WorkspacePacketCache(bool enabled);
     bool WorkspaceRowCommands(bool enabled);

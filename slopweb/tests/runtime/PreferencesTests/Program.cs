@@ -95,6 +95,8 @@ static class Check
         Expect(restored.radioMute, "Paused soundtrack preference did not survive reload");
         BrowserPreferences.Apply(restored, "{\"radioMute\":false}");
         Expect(!restored.radioMute, "Resumed soundtrack preference did not survive reload");
+        BrowserPreferences.ApplyLocal(restored, """{"visualEffects":"massive"}""");
+        Expect(restored.visualEffects == VisualEffectsMode.Off, "Restored desktop-only effects");
         Settings.S = restored;
         // Exercise the real startup export with every preference emitted by the
         // persistence owner, plus host metadata and an unrelated field.

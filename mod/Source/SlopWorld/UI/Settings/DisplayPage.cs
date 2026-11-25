@@ -13,10 +13,16 @@ namespace SlopWorld
         static ModSettings S => ModEntry.Instance.settings;
 
         static bool VSyncOverridesLimit => !ClientPlatform.IsBrowser && S.vsync;
-        static string AutoLabel =>
-            ClientPlatform.IsBrowser
-                ? "Auto"
-                : OptionLabels.Auto(BackgroundFrames.AutoFps + " FPS");
+        static string AutoLabel
+        {
+            get
+            {
+                int fps = ClientPlatform.IsBrowser
+                    ? ClientPlatform.BrowserRefreshRate
+                    : BackgroundFrames.AutoFps;
+                return OptionLabels.Auto(fps > 0 ? fps + " FPS" : null);
+            }
+        }
 
         public void Load() { }
 
@@ -72,19 +78,19 @@ namespace SlopWorld
                 enabled: !VSyncOverridesLimit
             );
 
-            if (!ClientPlatform.IsBrowser)
+            if (ClientPlatform.IsBrowser)
+                return;
+
+            bool vsync = UiControls.Checkbox(
+                l,
+                "VSync (not recommended)",
+                S.vsync,
+                "Enable vertical synchronization. Adds input lag. Testing only."
+            );
+            if (vsync != S.vsync)
             {
-                bool vsync = UiControls.Checkbox(
-                    l,
-                    "VSync (not recommended)",
-                    S.vsync,
-                    "Enable vertical synchronization. Adds input lag. Testing only."
-                );
-                if (vsync != S.vsync)
-                {
-                    S.vsync = vsync;
-                    S.MarkDirty();
-                }
+                S.vsync = vsync;
+                S.MarkDirty();
             }
 
             UiSelector.Draw(

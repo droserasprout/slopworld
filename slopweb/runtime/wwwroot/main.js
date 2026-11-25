@@ -72,9 +72,12 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
         }
 
         {
+            // InstallPlatform resolves mod field types before Entry starts. The
+            // interpreter can only bind dependencies already loaded from bytes.
+            for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn', 'SlopWorld']) {
+                await loadFile(`./mod/${name}.dll`);
+            }
             loaded.push(await loadFile('./Adapters.dll'));
-            // Woven game methods can resolve mod types during Entry startup.
-            await loadFile('./mod/SlopWorld.dll');
             runtime.setModuleImports('jukebox-likes', jukeboxLikes(window));
             exports.Probe.InstallPlatform(new URL('.', window.location.href).href);
             const response = await fetch('./assets/Core.zip');
@@ -119,9 +122,6 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
                     await (await loadModule('./workspace-rasterizer.js')).installLocalRasterizer(exports.Probe);
                     const fonts = await loadModule('./workspace-fonts.js');
                     fontChains = await fonts.installStartupFonts(exports.Probe, fetch);
-                }
-                for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn']) {
-                    await loadFile(`./mod/${name}.dll`);
                 }
                 if (parameters.has('nativeFonts')) {
                     const fontLoader = await loadModule('./workspace-fonts.js');

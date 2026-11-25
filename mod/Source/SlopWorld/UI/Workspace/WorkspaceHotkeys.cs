@@ -23,7 +23,7 @@ namespace SlopWorld
                     return;
                 return;
             }
-            if (ShortcutHelpView.HandleMapKey(Event.current))
+            if (ShortcutHelpView.HandleBackgroundKey(Event.current))
                 return;
 
             if (
