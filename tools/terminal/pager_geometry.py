@@ -68,14 +68,16 @@ def main() -> None:
         def tmux(*args: str) -> str:
             return subprocess.check_output(['tmux', '-f', '/dev/null', '-S', socket, *args], text=True)
 
-        def wait_for(name: str, expected: str, *, styled: bool = False) -> list[str]:
-            """Wait for a first row, or a marker anywhere in a styled capture."""
+        def wait_for(name: str, expected: str | list[str], *, styled: bool = False) -> list[str]:
+            """Wait for the expected viewport, or a marker anywhere in a styled capture."""
             deadline = time.monotonic() + 5
             lines: list[str] = []
             while time.monotonic() < deadline:
                 options = ('-e', '-N') if styled else ()
                 lines = tmux('capture-pane', '-p', *options, '-t', name + ':').splitlines()
-                if styled:
+                if isinstance(expected, list):
+                    ready = lines[: len(expected)] == expected
+                elif styled:
                     ready = any(
                         expected in ''.join(cell.text for cell in row) for row in parse_capture('\n'.join(lines))
                     )
@@ -136,12 +138,10 @@ def main() -> None:
             time.sleep(0.1)
             wait_for('short', 'one')
             start('long', long)
-            lines = wait_for('long', 'line 1')
-            assert lines[42] == 'line 43', lines
+            wait_for('long', [f'line {i}' for i in range(1, 44)])
             assert tmux('display-message', '-p', '-t', 'long:', '#{alternate_on}').strip() == '1'
             tmux('send-keys', '-t', 'long:', 'Down', 'Down', 'Down')
-            lines = wait_for('long', 'line 4')
-            assert lines[42] == 'line 46', lines
+            wait_for('long', [f'line {i}' for i in range(4, 47)])
             sandbox = (ROOT / 'slopd/src/sandbox/mod.rs').read_text()
             match = re.search(r'const PANE_LESS_UTFCHARDEF: &str = "([^"]+)";', sandbox)
             assert match is not None
@@ -163,10 +163,7 @@ def main() -> None:
                 '--',
                 str(emoji),
             )
-            lines = wait_for('emoji', '👍🏻 light skin')
-            assert lines[1] == '🧎‍♂️ kneeling', lines
-            assert lines[2] == '🤼‍♂️ wrestling', lines
-            assert lines[3] == '🧑🏻‍🫯‍🧑🏼 mixed tones', lines
+            wait_for('emoji', emoji.read_text().splitlines())
             tmux(
                 'new-session',
                 '-d',
@@ -183,8 +180,8 @@ def main() -> None:
                 '--',
                 str(long_emoji),
             )
-            lines = wait_for('long-emoji', source_rows[0].rstrip())
-            assert lines[:18] == [row.rstrip() for row in source_rows], lines[:18]
+            # tmux can capture a partial write with the first row already visible.
+            wait_for('long-emoji', [row.rstrip() for row in source_rows])
             print('Pager geometry and emoji sequences passed')
             bat = shutil.which('bat') or shutil.which('batcat')
             tmux(
@@ -202,8 +199,7 @@ def main() -> None:
                 'sequence-probe',
                 str(sequence_probe),
             )
-            direct_rows = wait_for('sequence-direct', probe_rows[0])
-            assert direct_rows[: len(probe_rows)] == probe_rows, direct_rows[: len(probe_rows)]
+            wait_for('sequence-direct', probe_rows)
             print('Direct tmux sequence preservation passed')
             if bat:
                 output = subprocess.check_output(
