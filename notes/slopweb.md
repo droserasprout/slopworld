@@ -107,6 +107,9 @@ button actions. A native PRIMARY read waits for the corresponding DOM paste even
 that reply completes the original callback without a second Ctrl+V dispatch.
 An unanswered read expires after the auxiliary click or when a new input gesture starts.
 Entry installs the shared field clipboard provider alongside the terminal clipboard handlers.
+Command+C and DOM copy use the terminal's copy-only Ctrl+Shift+C binding.
+Physical Ctrl+C retains native selection and interrupt handling. Browser PNG pastes
+check the 20 MiB upload limit on the Blob before reading its bytes.
 PRIMARY copy uses the focused editable proxy's select-all editor command, never the
 Clipboard API's CLIPBOARD write. Retain published selection text across focus loss;
 composition cancellation must not clear an unrelated selection.
@@ -277,5 +280,6 @@ tab without an opener; executable and local-file schemes are rejected.
 Browser cursor presentation uses one DOM canvas overlay at every viewport position,
 with native animation pixels and device-pixel hotspots. The native fullscreen binding
 defaults to F11. The document fallback honors the current binding when GUI input has
-not handled the key. Optional
+not handled the key. A printable binding dispatches its physical key and layout
+character together during keydown so modal fields can consume the character. Optional
 Keyboard Lock keeps Escape available to native input when supported and permitted.

@@ -1,5 +1,7 @@
 // Browser permissions and ClipboardEvent data stay here; native owners retain
 // selection, paste routing, and delayed reply validation.
+const maxPngBytes = 20 * 1024 * 1024; // slopd's image upload limit.
+
 export function clipboardBridge(managed, selectPrimary) {
   let message, primaryRequest;
   function failed(error) {
@@ -8,11 +10,15 @@ export function clipboardBridge(managed, selectPrimary) {
       message.style.cssText = 'position:fixed;bottom:12px;left:12px;padding:12px;background:#402c20;color:white;z-index:1000;max-width:32em';
       document.body.append(message);
     }
-    message.textContent = 'Clipboard access failed. Allow clipboard access in your browser, or use Ctrl+V to paste.';
+    const reason = error?.message || String(error);
+    message.textContent = error?.name === 'NotAllowedError'
+      ? 'Clipboard access denied. Allow clipboard access in your browser.'
+      : 'Clipboard operation failed. ' + reason;
     setTimeout(() => {message?.remove();message=null;}, 8000);
-    return String(error);
+    return reason;
   }
   async function png(request, blob) {
+    if (blob.size > maxPngBytes) throw new Error('Clipboard PNG exceeds the 20 MiB limit.');
     if (!managed.ClipboardCompleteImage) throw new Error('Clipboard image export unavailable');
     const bytes = new Uint8Array(await blob.arrayBuffer());
     // Avoid argument-count limits on large clipboard images.

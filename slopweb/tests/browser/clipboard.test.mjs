@@ -58,6 +58,36 @@ test('empty text falls through to PNG while text-only request never reads images
   assert.deepEqual(f.done,[[10,'host text','']]);
 });
 
+test('DOM and Clipboard API reject oversized PNGs before reading and admit exactly 20 MiB',async()=>{
+  const limit=20*1024*1024;
+  const {document}=installInputDom();
+  let banner;
+  document.body.append=element=>{banner=element;};
+  for(const kind of ['eventImage','read']) {
+    for(const size of [limit+1,limit]) {
+      let reads=0;
+      const blob={size,arrayBuffer:async()=>{reads++;return bytes.buffer;}};
+      navigatorWith({read:async()=>[{types:['image/png'],getType:async()=>blob}]});
+      const f=fixture([{id:17,kind,images:true}]);
+      f.bridge(kind==='eventImage' ? {clipboardData:{items:[
+        {kind:'file',type:'image/png',getAsFile:()=>blob},
+      ]}} : undefined);
+      await tick();
+      if(size>limit) {
+        assert.equal(reads,0);
+        assert.deepEqual(f.done,[[17,'','Clipboard PNG exceeds the 20 MiB limit.']]);
+        assert.match(banner.textContent,/exceeds the 20 MiB limit/);
+        assert.doesNotMatch(banner.textContent,/allow clipboard access/i);
+        assert.deepEqual(f.images,[]);
+      } else {
+        assert.equal(reads,1);
+        assert.deepEqual(f.images,[[17,Buffer.from(bytes).toString('base64'),'']]);
+        assert.deepEqual(f.done,[]);
+      }
+    }
+  }
+});
+
 test('denied permission and missing event PNG settle the original requests as errors',async()=>{
   navigatorWith({read:async()=>{throw Error('permission denied')}});
   const f=fixture([{id:11,kind:'read',images:true},{id:12,kind:'eventImage',images:true}]);
@@ -72,6 +102,28 @@ test('copy still writes text and completes once',async()=>{
   navigatorWith({writeText:async text=>{copied=text}});
   const f=fixture([{id:13,kind:'write',text:'copy'}]); f.bridge(); await tick();
   assert.equal(copied,'copy'); assert.deepEqual(f.done,[[13,'','']]);
+});
+
+test('Command+C and DOM copy dispatch copy-only while physical Ctrl+C keeps its modifiers',()=>{
+  const canvas=installInputDom().canvas(), batches=[], requests=[], done=[];
+  const gui=attachGuiInput(canvas,{
+    GuiInputFrame:raw=>{batches.push(JSON.parse(raw));return '{"commands":[]}';},
+    ClipboardTake:()=>JSON.stringify(requests.splice(0)),
+    ClipboardComplete:(...args)=>done.push(args),
+  });
+  for(const [ctrlKey,metaKey,shiftKey] of [[false,true,false],[true,false,false],[true,false,true]]) {
+    const event=emit(gui.textInput,'keydown',{key:'c',code:'KeyC',metaKey,ctrlKey,shiftKey});
+    assert.ok(event.defaultPrevented);
+    assert.deepEqual(batches.at(-1),[{kind:'key',key:'C',control:true,shift:metaKey || shiftKey}]);
+  }
+  requests.push({id:21,kind:'write',text:'selection'});
+  let copied;
+  const copy=emit(gui.textInput,'copy',{clipboardData:{setData:(...args)=>{copied=args;}}});
+  assert.ok(copy.defaultPrevented);
+  assert.deepEqual(batches.at(-1),[{kind:'key',key:'C',control:true,shift:true}]);
+  assert.deepEqual(copied,['text/plain','selection']);
+  assert.deepEqual(done,[[21,'','']]);
+  gui.dispose();
 });
 
 test('PRIMARY copy selects proxy text synchronously without writing CLIPBOARD or sending text input',()=>{

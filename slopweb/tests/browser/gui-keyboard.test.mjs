@@ -113,9 +113,9 @@ test('ordinary synthetic and editable text stays batched; live printable fullscr
     activationKey:key=>key===bound,
     GuiInputFrame:value=>{frames.push(JSON.parse(value));return '{"commands":[]}';}
   });
-  const key=(target,letter,trusted=false,shiftKey=false)=>{
+  const key=(target,letter,trusted=false,shiftKey=false,code='Key'+letter.toUpperCase())=>{
     const event=new Event('keydown',{cancelable:true});
-    for(const [name,value] of Object.entries({key:letter,code:'Key'+letter.toUpperCase(),isTrusted:trusted,shiftKey}))
+    for(const [name,value] of Object.entries({key:letter,code,isTrusted:trusted,shiftKey}))
       Object.defineProperty(event,name,{value});
     target.dispatchEvent(event);
     return event;
@@ -133,9 +133,10 @@ test('ordinary synthetic and editable text stays batched; live printable fullscr
     assert.equal(frames.length,1);
     assert.equal(String.fromCharCode(...frames[0].map(event=>event.character)),'abcdef');
     bound='G';
-    const event=key(input.textInput,'g',true);
+    const event=key(input.textInput,'ğ',true,false,'KeyG');
     assert.equal(frames.length,2);
-    assert.deepEqual(frames[1].map(event=>({kind:event.kind,key:event.key})),[{kind:'key',key:'G'}]);
+    // A modal field can use the layout character when it owns the key.
+    assert.deepEqual(frames[1].map(e=>[e.kind,e.key,e.character]),[['text','G','ğ'.charCodeAt(0)]]);
     assert.equal(event.defaultPrevented,true);
     bound='H';
     key(canvas,'g');
@@ -144,6 +145,7 @@ test('ordinary synthetic and editable text stays batched; live printable fullscr
     assert.equal(frames.length,3);
     assert.equal(frames[2][0].character,'g'.charCodeAt(0));
     assert.equal(frames[2][1].key,'H');
+    assert.equal(frames[2][1].character,104);
     // Native shortcut handling bypasses Shift. The editable proxy still owns its
     // committed character, and synthetic input supplies that same character once.
     assert.equal(key(input.textInput,'H',true,true).defaultPrevented,false);

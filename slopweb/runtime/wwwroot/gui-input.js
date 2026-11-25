@@ -128,7 +128,9 @@ export function attachGuiInput(canvas, managed) {
     // that event and could paste a previous native clipboard value twice.
     if (managed.ClipboardTake && shortcut && event.code === 'KeyV') return;
     if (managed.ClipboardTake && shortcut && event.code === 'KeyC') {
-      enqueue({kind:'key',key:'C',control:true,shift:event.shiftKey});
+      // Command+C requests copy only. Native Ctrl+Shift+C copies a selection
+      // and leaves a terminal with no selection alone.
+      enqueue({kind:'key',key:'C',control:true,shift:event.metaKey || event.shiftKey});
       event.preventDefault(); frame(); return;
     }
     const keys = { Backspace: 'Backspace', Delete: 'Delete', Insert:'Insert', ArrowLeft: 'LeftArrow', ArrowRight: 'RightArrow', ArrowUp:'UpArrow', ArrowDown:'DownArrow', PageUp:'PageUp', PageDown:'PageDown', Home: 'Home', End: 'End', Enter: 'Return', Escape:'Escape', Tab:'Tab' };
@@ -145,15 +147,14 @@ export function attachGuiInput(canvas, managed) {
     if (activation && candidate === 'F11' && event.repeat) {
       event.preventDefault(); return;
     }
-    // A printable fullscreen rebind must execute in keydown too: waiting for the
-    // editable proxy's input event can lose activation. Native routing still decides
-    // whether the shortcut is eligible, and preventDefault suppresses duplicate text.
-    if (activation) key = candidate;
     if (key) enqueue({kind:'key', key, ...modifiers(event)});
     else if (Array.from(event.key).length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      if (editable) { pendingText = {event, key:physical}; return; }
+      // A printable fullscreen binding needs activation now. Deliver one event
+      // with both its key and its character so modal fields can still type it.
+      if (editable && !activation) { pendingText = {event, key:physical}; return; }
       text(event.key, event, physical);
     }
+    else if (activation) enqueue({kind:'key', key:candidate, ...modifiers(event)});
     else return;
     event.preventDefault();
     // Window commands may require transient user activation. Dispatch native bindings
@@ -174,7 +175,7 @@ export function attachGuiInput(canvas, managed) {
   listen('copy', event => {
     if (!managed.ClipboardTake) return;
     clipboardEvent=event;
-    try { enqueue({kind:'key',key:'C',control:true}); frame(); }
+    try { enqueue({kind:'key',key:'C',control:true,shift:true}); frame(); }
     finally { clipboardEvent=null; }
   });
   listen('compositionstart', () => { composing = true; cancelled = false; pendingText = null; committed = null; });
