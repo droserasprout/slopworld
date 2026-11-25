@@ -31,9 +31,10 @@ fn publication_and_workspace_follow_the_environment_seen_by_the_compiler() {
         generated: BTreeMap::new(),
         sources: Inputs::new(),
     };
-    let mut run = |flags: Option<&str>, unlisted: &str| {
+    let mut run = |flags: Option<&str>, simd: Option<&str>, unlisted: &str| {
         let environment = CompilerEnvironment::from_vars(sdk, |name| match name {
             "EMCC_CFLAGS" => flags.map(Into::into),
+            "WasmEnableSIMD" => simd.map(Into::into),
             "WasmNativeStrip" => Some(unlisted.into()),
             _ => None,
         })
@@ -55,15 +56,22 @@ fn publication_and_workspace_follow_the_environment_seen_by_the_compiler() {
         if let Some(flags) = flags {
             expected.push(format!("EMCC_CFLAGS={flags}"));
         }
+        if let Some(simd) = simd {
+            expected.push(format!("WasmEnableSIMD={simd}"));
+        }
         assert_eq!(
             output.lines().collect::<BTreeSet<_>>(),
             expected.iter().map(String::as_str).collect()
         );
         candidate.keys(&mut contents, &toolchain.identity).unwrap()
     };
-    let first = run(Some("-O2"), "true");
-    assert_eq!(first, run(Some("-O2"), "false"));
-    for changed in [run(Some("-O0"), "true"), run(None, "true")] {
+    let first = run(Some("-O2"), None, "true");
+    assert_eq!(first, run(Some("-O2"), None, "false"));
+    for changed in [
+        run(Some("-O0"), None, "true"),
+        run(None, None, "true"),
+        run(Some("-O2"), Some("false"), "true"),
+    ] {
         assert_ne!(first.0, changed.0);
         assert_ne!(first.1, changed.1);
     }

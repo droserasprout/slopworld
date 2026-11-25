@@ -26,6 +26,7 @@ const INHERITED: &[&str] = &[
     "BINARYEN_CORES",
     "EMCC_CORES",
     "EMCC_CFLAGS",
+    "WasmEnableSIMD",
 ];
 
 pub(in crate::launcher) struct CompilerEnvironment(BTreeMap<&'static str, OsString>);

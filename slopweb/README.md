@@ -135,7 +135,7 @@ workspace and its incremental intermediates; compiler-policy or toolchain change
 select a separate workspace. The launcher passes the SDK the host's home, search,
 temporary and XDG paths, NuGet package and .NET CLI directories, proxy and TLS
 settings, and the compiler options `DOTNET_PROCESSOR_COUNT`, `BINARYEN_CORES`,
-`EMCC_CORES` and `EMCC_CFLAGS`. Changing any of these values selects a separate
+`EMCC_CORES`, `EMCC_CFLAGS` and `WasmEnableSIMD`. Changing any of these values selects a separate
 publication and workspace. Other ambient compiler options are cleared.
 Published runtimes remain immutable.
 Game preparation caches patched assemblies, game archives, fonts, and backgrounds
