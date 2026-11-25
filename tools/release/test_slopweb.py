@@ -27,7 +27,7 @@ def test_bundle_identity_distinguishes_path_from_contents(tmp_path: Path) -> Non
     assert slopweb.bundle_identity(tmp_path) != original
 
 
-def test_distribution_host_override_preserves_source_bundle_and_rekeys_payload(
+def test_stage_only_without_site_packages_replaces_host_and_rekeys_payload(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -40,7 +40,14 @@ def test_distribution_host_override_preserves_source_bundle_and_rekeys_payload(
     replacement.write_bytes(b'target-libc')
     monkeypatch.setenv('SLOPWEB_HOST_BINARY', str(replacement))
     payload = tmp_path / 'payload'
-    slopweb.stage(payload, 'revision', '1.2.3', bundle)
+    subprocess.run(
+        [sys.executable, '-ES', '-', str(payload), str(bundle)],
+        input='import sys\nfrom pathlib import Path\nfrom tools.release.staging import stage_slopweb\n'
+        'stage_slopweb(Path(sys.argv[1]), "revision", "1.2.3", Path(sys.argv[2]))',
+        text=True,
+        cwd=ROOT,
+        check=True,
+    )
     installed = payload / 'usr/share/slopweb'
     assert (installed / 'slopweb-host').read_bytes() == b'target-libc'
     assert (installed / 'slopweb-host').stat().st_mode & 0o777 == 0o755
@@ -329,7 +336,7 @@ def test_package_formats_stage_only_web_payload(
         product='slopweb',
     )
     assert result.read_bytes() == b'fixture package'
-    assert 'nodejs' not in metadata[0] and 'python' not in metadata[0] and 'dotnet-sdk' in metadata[0]
+    assert 'nodejs' not in metadata[0] and 'python' not in metadata[0] and 'dotnet-sdk-10.0' in metadata[0]
     assert ('libfontconfig1' if distribution == 'debian' else 'fontconfig') in metadata[0]
 
 
@@ -516,6 +523,36 @@ def test_source_install_replaces_owned_trees_and_preserves_other_owners(tmp_path
         assert not list(tmp_path.glob('.slopweb-install-*'))
 
 
+@pytest.mark.parametrize('uninstall', [False, True])
+def test_active_launcher_blocks_source_changes_before_any_owner_moves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source_install: None, uninstall: bool
+) -> None:
+    for relative in slopweb.OWNED:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('installed')
+    flock = fcntl.flock
+    # Use the same directory descriptor as PinnedBundle. Make the writer's
+    # real flock nonblocking so contention is observable without a timing race.
+    descriptor = os.open(tmp_path / 'share', os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        flock(descriptor, fcntl.LOCK_SH)
+        monkeypatch.setattr(fcntl, 'flock', lambda fd, mode: flock(fd, mode | fcntl.LOCK_NB))
+        with pytest.raises(BlockingIOError):
+            slopweb.install(tmp_path, uninstall=uninstall)
+        assert all((tmp_path / name).read_text() == 'installed' for name in slopweb.OWNED)
+    finally:
+        os.close(descriptor)
+    slopweb.install(tmp_path, uninstall=uninstall)
+    for name in slopweb.OWNED:
+        assert (tmp_path / name).exists() == (not uninstall)
+
+
+def assert_launcher_reader_is_excluded(prefix: Path) -> None:
+    with pytest.raises(BlockingIOError), slopweb.bundle_lock(prefix / 'share/slopweb', fcntl.LOCK_SH | fcntl.LOCK_NB):
+        pytest.fail('Reader acquired the installed bundle during an owner change')
+
+
 @pytest.mark.parametrize('existing', [False, True])
 @pytest.mark.parametrize('failed_owner', slopweb.OWNED)
 def test_source_install_rolls_back_failed_handoff(
@@ -533,6 +570,7 @@ def test_source_install_rolls_back_failed_handoff(
     rename = Path.rename
 
     def fail_publish(path: Path, target: Path) -> Path:
+        assert_launcher_reader_is_excluded(tmp_path)
         if '/usr/' in str(path) and target == tmp_path / failed_owner:
             raise OSError('handoff failed')
         return rename(path, target)
@@ -550,6 +588,25 @@ def test_source_install_rolls_back_failed_handoff(
         else:
             assert not target.exists()
     assert not list(tmp_path.glob('.slopweb-install-*'))
+
+
+def test_uninstall_failure_restores_owners_under_launcher_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for relative in slopweb.OWNED:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('installed')
+    rename = Path.rename
+
+    def fail_removal(path: Path, target: Path) -> Path:
+        assert_launcher_reader_is_excluded(tmp_path)
+        if path == tmp_path / 'share/doc/slopweb':
+            raise OSError('removal failed')
+        return rename(path, target)
+
+    monkeypatch.setattr(Path, 'rename', fail_removal)
+    with pytest.raises(OSError, match='removal failed'):
+        slopweb.install(tmp_path, uninstall=True)
+    assert all((tmp_path / name).read_text() == 'installed' for name in slopweb.OWNED)
 
 
 @pytest.mark.parametrize('link', ['share/slopweb', 'share/doc', 'share/licenses/slopweb'])

@@ -17,7 +17,6 @@ from pathlib import Path
 from tools import ROOT
 from tools import cli_completions
 from tools.assets.ost_manifest import track_ids
-from tools.release.mod_content import pack_mod_content
 from tools.release.staging import copy_file
 from tools.release.staging import metadata
 from tools.utils import run
@@ -206,6 +205,9 @@ def publish_bundle(bundle: Path, destination: Path) -> None:
 
 
 def build(destination: Path = OUTPUT) -> None:
+    # Stage-only distribution containers consume this bundle without Pillow.
+    from tools.release.mod_content import pack_mod_content
+
     runtime = ROOT / 'slopweb/runtime'
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.slopweb-', dir=destination.parent) as temporary:
@@ -305,50 +307,52 @@ def validate_owned_paths(prefix: Path, *, uninstall: bool) -> None:
                 raise ValueError(f'Refusing to traverse symlink: {candidate}')
 
 
-def install(prefix: Path, uninstall: bool = False) -> None:
-    # Install owns these paths only. Private generated caches and daemon config
-    # are independent and deliberately survive uninstall.
-    prefix = prefix.absolute()
+def update_owners(prefix: Path, payload: Path, *, uninstall: bool) -> None:
     validate_owned_paths(prefix, uninstall=uninstall)
-    if uninstall:
-        for relative in OWNED:
-            path = prefix / relative
-            if path.is_symlink() or path.is_file():
-                path.unlink()
-            elif path.is_dir():
-                shutil.rmtree(path)
-        return
-    # Prepare on the destination filesystem before touching any installed path.
-    # Rename whole owned trees so removed bundle files cannot survive an upgrade.
-    prefix.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='.slopweb-install-', dir=prefix) as temporary:
-        payload = Path(temporary)
-        stage(payload, None, None, OUTPUT)
-        validate_owned_paths(prefix, uninstall=False)
+    if not uninstall:
         for relative in OWNED:
             destination = prefix / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
-        changed: list[tuple[Path, Path | None]] = []
-        try:
-            for relative in OWNED:
-                source, destination = payload / 'usr' / relative, prefix / relative
-                backup = payload / 'previous' / relative if destination.exists() else None
-                if backup is not None:
-                    backup.parent.mkdir(parents=True, exist_ok=True)
-                    destination.rename(backup)
-                changed.append((destination, backup))
+    changed: list[tuple[Path, Path | None]] = []
+    try:
+        for relative in OWNED:
+            destination = prefix / relative
+            backup = payload / 'previous' / relative if os.path.lexists(destination) else None
+            if backup is not None:
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                destination.rename(backup)
+            changed.append((destination, backup))
+            if not uninstall:
+                source = payload / 'usr' / relative
                 source.rename(destination)
-        except BaseException:
-            # A failed handoff restores every previously installed owner, including
-            # the one whose new source could not be published.
-            for destination, backup in reversed(changed):
-                if destination.is_dir():
-                    shutil.rmtree(destination)
-                else:
-                    destination.unlink(missing_ok=True)
-                if backup is not None:
-                    backup.rename(destination)
-            raise
+    except BaseException:
+        # Restore under the writer lock, including the owner whose handoff failed.
+        for destination, backup in reversed(changed):
+            if destination.is_dir():
+                shutil.rmtree(destination)
+            else:
+                destination.unlink(missing_ok=True)
+            if backup is not None:
+                backup.rename(destination)
+        raise
+
+
+def install(prefix: Path, uninstall: bool = False) -> None:
+    prefix = prefix.absolute()
+    validate_owned_paths(prefix, uninstall=uninstall)
+    bundle = prefix / 'share/slopweb'
+    if uninstall and not bundle.parent.exists() and not any(os.path.lexists(prefix / name) for name in OWNED):
+        return
+    prefix.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='.slopweb-install-', dir=prefix) as temporary:
+        payload = Path(temporary)
+        if not uninstall:
+            stage(payload, None, None, OUTPUT)
+        # PinnedBundle readers lock the installed parent inode throughout preparation.
+        # Finish staging (and release its source lock) before taking the destination lock.
+        bundle.parent.mkdir(exist_ok=True)
+        with bundle_lock(bundle, fcntl.LOCK_EX):
+            update_owners(prefix, payload, uninstall=uninstall)
 
 
 def main() -> None:

@@ -179,15 +179,15 @@ jobs:
           cache-workspaces: . -> target
 
       - name: Check slopweb tooling and game-free contracts
-        run: just ci-web
+        run: |
+          just web-local-fonts-sdk
+          just ci-web
 
       - name: Install WebAssembly build workload
         run: dotnet workload install wasm-tools --version "$(dotnet --version)"
 
       - name: Build redistributable browser bundle without installed game files
-        run: |
-          just web-local-fonts-sdk
-          just web-build
+        run: just web-build
 
   mod:
     name: C#

@@ -42,6 +42,8 @@ replacement. Rebuilds atomically exchange complete bundles. Staging takes a shar
 lock while copying, verifies the snapshot's build identity, then computes its new
 identity after writing release metadata and selecting the host. Packagers preserve its
 executable mode under `usr/share/slopweb` and discover its native dependencies.
+Source installs and uninstalls hold the installed bundle parent's exclusive lock
+through every owned-path change and any rollback, so preparation sees one generation.
 
 `just/web.just` owns product builds and checks. Root format, lint, test, clean,
 and dependency recipes include slopweb. Python tests run once through the shared
@@ -60,7 +62,8 @@ controls, and benchmark fixtures belong in private probe projects. Package stagi
 manifest and uses explicit inventories for web assets and managed helpers.
  `tests/runtime/` owns managed contracts, `tests/browser/` owns browser JavaScript
 contracts exercised in Node, and Rust tests sit beside their owners under `host/src/`.
-Packaging assertions remain under `tools/release/`. `ci-web` runs game-free checks;
+Packaging assertions remain under `tools/release/`. `ci-web` builds the FreeType
+WASM module before running its game-free Node rendering test;
 native font fidelity checks are explicit opt-ins.
 
 A workspace retained in the browser back-forward cache keeps its scheduler and

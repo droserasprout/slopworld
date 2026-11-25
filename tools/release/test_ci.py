@@ -156,12 +156,12 @@ def test_web_ci_uses_resolved_commit_and_only_product_game_free_checks() -> None
     commands = [step['run'] for step in job['steps'] if 'run' in step]
     assert commands == [
         'sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep libfontconfig1',
-        'just ci-web',
+        'just web-local-fonts-sdk\njust ci-web\n',
         'dotnet workload install wasm-tools --version "$(dotnet --version)"',
-        'just web-local-fonts-sdk\njust web-build\n',
+        'just web-build',
     ]
     result = subprocess.run(['just', '--dry-run', 'ci-web'], cwd=ROOT, capture_output=True, text=True, check=True)
-    assert 'node --test' in result.stderr
+    assert result.stderr.index('python3 slopweb/runtime/LocalFonts/build.py') < result.stderr.index('node --test')
     assert 'InputTests' in result.stderr
     assert 'StartupTests' in result.stderr
     assert 'slopweb/tests/browser/*.test.mjs' in result.stderr
