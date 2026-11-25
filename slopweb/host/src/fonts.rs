@@ -79,12 +79,14 @@ impl FontService {
         let manifest: Value =
             serde_json::from_slice(&fs::read(publication.join("assets/fonts/manifest.json"))?)?;
         let bake: Value = serde_json::from_str(
-            manifest["faces"][0]["bake"]
-                .as_str()
+            manifest
+                .pointer("/faces/0/bake")
+                .and_then(Value::as_str)
                 .context("Missing prepared font settings")?,
         )?;
-        let flags = bake["loaderFlags"]
-            .as_u64()
+        let flags = bake
+            .get("loaderFlags")
+            .and_then(Value::as_u64)
             .context("Missing prepared loader flags")?
             .try_into()?;
         let root = cache.join("font-index-v1");

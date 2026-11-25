@@ -45,40 +45,44 @@ async fn connection(options: &cli::Options) -> Result<ConnectionSource> {
     Ok(source)
 }
 
+fn run_local(options: &cli::Options, command: &cli::LocalCommand) -> Result<()> {
+    match command {
+        cli::LocalCommand::Paths { name } => println!("{}", options.query(name)?.display()),
+        cli::LocalCommand::Completions { shell } => clap_complete::generate(
+            *shell,
+            &mut cli::Options::command(),
+            "slopweb",
+            &mut std::io::stdout(),
+        ),
+        cli::LocalCommand::CheckFonts { install, output } => {
+            // SAFETY: umask accepts a permission mask and takes no pointers.
+            unsafe {
+                libc::umask(0o077);
+            }
+            let bundle = files::PinnedBundle::open(cli::bundle()?)?;
+            let game = cli::game_directory(Some(install))?;
+            let output = cli::expand(output)?;
+            let service = FontService::new(
+                bundle.path(),
+                &game,
+                &options.query("web-cache")?.join("font-service"),
+            )?;
+            prepare_fonts(
+                &service,
+                None,
+                &output,
+                &appearance::preferences(&options.profile_path()?)?,
+            )?;
+            println!("Prepared local font descriptors: {}", output.display());
+        }
+    }
+    Ok(())
+}
+
 pub async fn run() -> Result<()> {
     let options = cli::Options::parse();
     if let Some(command) = &options.command {
-        match command {
-            cli::LocalCommand::Paths { name } => println!("{}", options.query(name)?.display()),
-            cli::LocalCommand::Completions { shell } => clap_complete::generate(
-                *shell,
-                &mut cli::Options::command(),
-                "slopweb",
-                &mut std::io::stdout(),
-            ),
-            cli::LocalCommand::CheckFonts { install, output } => {
-                // SAFETY: umask accepts a permission mask and takes no pointers.
-                unsafe {
-                    libc::umask(0o077);
-                }
-                let bundle = files::PinnedBundle::open(cli::bundle()?)?;
-                let game = cli::game_directory(Some(install))?;
-                let output = cli::expand(output)?;
-                let service = FontService::new(
-                    bundle.path(),
-                    &game,
-                    &options.query("web-cache")?.join("font-service"),
-                )?;
-                prepare_fonts(
-                    &service,
-                    None,
-                    &output,
-                    &appearance::preferences(&options.profile_path()?)?,
-                )?;
-                println!("Prepared local font descriptors: {}", output.display());
-            }
-        }
-        return Ok(());
+        return run_local(&options, command);
     }
     // SAFETY: umask accepts a permission mask. Set before spawning helpers or writing any private game-derived output.
     unsafe {

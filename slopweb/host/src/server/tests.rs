@@ -1326,6 +1326,6 @@ fn restricted_asset_reader_serves_nested_files_and_refuses_links() {
         "../file",
         "/etc/passwd",
     ] {
-        assert!(open_without_symlinks(&root, Path::new(path)).is_err());
+        open_without_symlinks(&root, Path::new(path)).expect_err(path);
     }
 }

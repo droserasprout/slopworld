@@ -128,6 +128,7 @@ foreach (string name in frames)
 
 // Native onset frame zero contains the downsampled original, before any grading.
 var publishedFrames = frames.Select(name => key + "/" + name).ToArray();
+
 // The first response contains enough frames to play the intro and then loop
 // indefinitely while the remaining depths arrive.
 int onset = (int)Tune("Onset");
