@@ -47,13 +47,19 @@ namespace SlopWorld.Tests
             Radio.ResetSpotifyTest();
         }
 
-        static void Announce(bool output = true, bool relay = true, bool spotify = true)
+        static void Announce(
+            bool output = true,
+            bool relay = true,
+            bool spotify = true,
+            bool sharedTransport = true
+        )
         {
             SessionHub.Instance.Capabilities = DaemonCapabilities.FromWire(
                 new Wire.Capabilities
                 {
                     AudioPlayback = output,
                     RadioRelay = relay,
+                    SharedAudioTransport = sharedTransport,
                     Ncspot = spotify,
                     Hostname = "music-host",
                 }
@@ -115,6 +121,18 @@ namespace SlopWorld.Tests
             Radio.Previous();
             Assert.That(_player.Direction, Is.EqualTo(-1));
             Assert.That(Radio.NowPlaying, Is.EqualTo("terry fail - pace"));
+            Assert.That(_socket.Sent, Is.Empty);
+        }
+
+        [Test]
+        public void DaemonWithoutSharedTransportLeavesLocalPlaybackAvailable()
+        {
+            Announce(relay: false, sharedTransport: false);
+            Radio.Update();
+            Radio.SelectOutput(true);
+            Assert.That(Radio.ServerOutput, Is.False);
+            Assert.That(Radio.SpotifyAvailable, Is.False);
+            Assert.That(_player.Playing, Is.True);
             Assert.That(_socket.Sent, Is.Empty);
         }
 
@@ -197,6 +215,7 @@ namespace SlopWorld.Tests
             Radio.Pick(Radio.Stations[0], 128);
             Assert.That(_socket.Sent[3].HiddenSources, Is.EqualTo(new[] { "filtered" }));
             Assert.That(_socket.Sent[6].Selection.Stream, Is.EqualTo("high"));
+            Assert.That(_socket.Sent[6].KeepVolume, Is.True);
             Assert.That(_socket.Sent.TrueForAll(r => !r.HasVolume), Is.True);
             Radio.SetOutputVolume(.27f);
             Assert.That(_socket.Sent[7].Volume, Is.EqualTo(.27f));
@@ -320,16 +339,29 @@ namespace SlopWorld.Tests
             Assert.That(_socket.Sent, Is.Empty);
         }
 
-        [Test]
-        public void RestoredServerRemainsSelectedWhenUnavailable()
+        [TestCase(false, true, "host audio")]
+        [TestCase(true, false, "update the daemon")]
+        public void RestoredServerRemainsSelectedWhenUnavailable(
+            bool output,
+            bool sharedTransport,
+            string reason
+        )
         {
             Settings.S.radioOutput = "server";
-            Announce(output: false);
+            Settings.S.radioStopOnExit = true;
+            Announce(output: output, sharedTransport: sharedTransport);
+            Radio.ReceiveAudio(new Wire.AudioState { Playing = true, Volume = .7f });
+            Catalog();
             Radio.Update();
             Assert.That(Radio.TransportAvailable, Is.False);
-            Assert.That(Radio.PlaybackMessage, Does.Contain("host audio"));
+            Assert.That(Radio.ServerAvailable, Is.False);
+            Assert.That(Radio.PlaybackMessage, Does.Contain(reason));
             Radio.ToggleMute();
             Radio.PickOst();
+            Radio.Pick(Radio.Stations[0], 128);
+            string error = null;
+            Radio.OpenSpotify(null, value => error = value);
+            Assert.That(error, Does.Contain(reason));
             Radio.Next();
             Radio.SetOutputVolume(.1f);
             Radio.Quit();
@@ -450,6 +482,7 @@ namespace SlopWorld.Tests
             Assert.That(Settings.Radio, Is.EqualTo("ost"));
             Assert.That(_player.Playing, Is.False);
             Assert.That(_socket.Sent[1].Selection.Ncspot, Is.True);
+            Assert.That(_socket.Sent[1].KeepVolume, Is.True);
             Assert.That(_socket.Sent[1].HasVolume, Is.False);
             SessionHub.Instance.SessionStore.Refreshed();
             Assert.That(opened, Is.EqualTo("player"));

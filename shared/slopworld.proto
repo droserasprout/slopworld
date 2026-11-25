@@ -392,6 +392,8 @@ message Capabilities {
   optional bool landlock_available = 10;
   string hostname = 11;
   bool radio_relay = 12;
+  // Supports shared selection, relative transport, and correlated Spotify replies.
+  bool shared_audio_transport = 13;
 }
 
 message TerminalCapabilities {
@@ -962,7 +964,7 @@ message SandboxReport {
 }
 
 message AudioRequest {
-  // Volume-only and explicit selection writes may supply gain. Transport keeps shared gain.
+  // Desktop volume and selection writes default to zero when field 3 is omitted.
   optional float volume = 3;
   oneof change {
     AudioSelection selection = 1;
@@ -974,6 +976,8 @@ message AudioRequest {
   optional string request_id = 6;
   // Client visibility filter for relative station navigation.
   repeated string hidden_sources = 7;
+  // Select at the current shared gain. Transport and stop always keep the gain.
+  bool keep_volume = 8;
 }
 
 message ClientMessage {

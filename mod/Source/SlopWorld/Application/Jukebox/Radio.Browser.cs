@@ -14,7 +14,8 @@ namespace SlopWorld
         internal static bool ServerAvailable =>
             SessionHub.Instance?.Online == true
             && SessionHub.Instance.Capabilities.Known
-            && SessionHub.Instance.Capabilities.AudioPlayback;
+            && SessionHub.Instance.Capabilities.AudioPlayback
+            && SessionHub.Instance.Capabilities.SharedAudioTransport;
         internal static bool SharedReady => ServerAvailable && _shared != null;
         internal static bool RelayAvailable =>
             SessionHub.Instance?.Online == true
@@ -24,7 +25,9 @@ namespace SlopWorld
         internal static string ServerUnavailable =>
             SessionHub.Instance?.Online != true ? "daemon is offline"
             : !SessionHub.Instance.Capabilities.Known ? "waiting for daemon capabilities"
-            : !ServerAvailable ? "host audio output is unavailable"
+            : !SessionHub.Instance.Capabilities.AudioPlayback ? "host audio output is unavailable"
+            : !SessionHub.Instance.Capabilities.SharedAudioTransport
+                ? "update the daemon to enable shared audio controls"
             : _shared == null ? "waiting for shared player"
             : null;
 

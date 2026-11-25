@@ -50,7 +50,11 @@ so the client can repeat its handoff after reconnecting.
 
 WebSocket audio decoding maps the Protobuf command directly into a music change and its reply metadata.
 Rejected commands pass through the same admission check before a caller receives an error.
-Browser shared transport sends play, pause, or navigation with volume omitted.
+Browser server controls require both `audio_playback` and `shared_audio_transport`
+in the connection's capabilities. An older v2 peer can interpret an unknown
+transport action as a volume-only write. Desktop volume and selection writes
+default to zero when the scalar is absent. Browser source selections explicitly
+set `keep_volume`. Play, pause and navigation always preserve gain.
 The daemon resolves these commands against its current selection and gain under
 the player transition guard. Audio snapshots include the resumable selection,
 including after pause. The `active` flag includes an opening decoder, output

@@ -99,7 +99,10 @@ fn every_event_encodes_its_protobuf_payload() {
         let bytes = EventMessage::new(event).encoded().unwrap();
         let payload = WireEvent::decode(bytes.as_ref()).unwrap().payload.unwrap();
         let actual = match payload {
-            Payload::Capabilities(_) => "capabilities",
+            Payload::Capabilities(caps) => {
+                assert!(caps.shared_audio_transport);
+                "capabilities"
+            }
             Payload::Sessions(_) => "sessions",
             Payload::Projects(_) => "projects",
             Payload::Library(_) => "library",

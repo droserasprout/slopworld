@@ -278,10 +278,13 @@ namespace SlopWorld.Tests
                     64
                 );
                 Radio.SelectPlaybackTest(station, 128);
-                Radio.UpdatePlaybackTest(0.01, 0.5f);
+                Radio.UpdatePlaybackTest(0.01, 0f);
                 Assert.That(socket.Sent.Count, Is.EqualTo(2));
                 Assert.That(socket.Sent[1].Selection.Station, Is.EqualTo("radio"));
                 Assert.That(socket.Sent[1].Selection.Stream, Is.EqualTo("high"));
+                Assert.That(socket.Sent[1].HasVolume, Is.True);
+                Assert.That(socket.Sent[1].Volume, Is.Zero);
+                Assert.That(socket.Sent[1].KeepVolume, Is.False);
                 Radio.SelectPlaybackTest(spotify: true);
                 Radio.UpdatePlaybackTest(0.02, 0.5f);
                 Assert.That(socket.Sent[2].Selection.Ncspot, Is.True);

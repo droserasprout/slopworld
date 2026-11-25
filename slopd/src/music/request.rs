@@ -56,12 +56,13 @@ impl From<&Source> for AudioSelection {
 
 impl From<AudioRequest> for AudioReq {
     fn from(request: AudioRequest) -> Self {
-        let gain = request.volume.map(|volume| volume.clamp(0.0, 1.0));
+        // Desktop v2 writers with an implicit scalar omit field 3 for zero gain.
+        let gain = request.volume.unwrap_or_default().clamp(0.0, 1.0);
         let (change, volume, reply) = match request.change {
-            None => (Ok(Change::Volume), gain, Reply::None),
+            None => (Ok(Change::Volume), Some(gain), Reply::None),
             Some(WireChange::Stop(_)) => (
                 Ok(Change::Stop),
-                gain,
+                None,
                 request.stop_token.map_or(Reply::None, Reply::Stop),
             ),
             Some(WireChange::Selection(selection)) => {
@@ -70,7 +71,11 @@ impl From<AudioRequest> for AudioReq {
                 } else {
                     Reply::None
                 };
-                (Source::try_from(selection).map(Change::Select), gain, reply)
+                (
+                    Source::try_from(selection).map(Change::Select),
+                    (!request.keep_volume).then_some(gain),
+                    reply,
+                )
             }
             Some(WireChange::Transport(action)) => (
                 Change::transport(&action, request.hidden_sources),

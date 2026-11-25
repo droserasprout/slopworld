@@ -55,6 +55,8 @@ namespace SlopWorld
         {
             if (volume.HasValue)
                 request.Volume = volume.Value;
+            else if (request.Selection != null)
+                request.KeepVolume = true;
             return _transport.TrySend(new Wire.ClientMessage { Audio = request });
         }
     }

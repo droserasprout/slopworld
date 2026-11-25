@@ -74,12 +74,18 @@ Catalogs arrive on connect and again when changed.
 | `resize`, `scroll` | Negotiate terminal size or request scrollback. |
 | `paste` | Paste literal text or upload image bytes; see [Clipboard](#clipboard). |
 | `paste_prompt` | Expand a saved Prompt in the target session context and paste without submitting. |
-| `audio` | Set `volume` and optionally select a `station` and `stream` pair, select `ncspot`, or request a stop. An absent selection changes volume only. |
+| `audio` | Set volume, select a source, stop playback, or operate the shared player. See [Audio state](#audio-state). |
 
 ### Audio state
 
 Audio state contains `playing`, `source`, `volume`, `error`, `title`, and optional
 `session`. Station titles come from ICY metadata; stream URLs are not sent to the mod.
+
+A volume-only write or source selection defaults to zero gain when `volume` is
+absent. With `shared_audio_transport` advertised, a client can set `keep_volume`
+on a selection to use the current gain. The same capability enables relative
+transport and correlated Spotify replies. Stop and transport commands preserve gain.
+Browser server controls require both `shared_audio_transport` and `audio_playback`.
 
 ### Clipboard
 

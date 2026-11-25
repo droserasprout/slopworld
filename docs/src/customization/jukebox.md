@@ -14,7 +14,8 @@ In slopweb, open **Jukebox → Output** to choose where you hear music.
   stream. Playing again joins the live broadcast.
 - **Server** plays through the named daemon host. Everyone controlling that server
   sees the same selection and volume. Pause keeps the selection so any client can
-  resume it. The latest command controls playback.
+  resume it. The latest command controls playback. If shared controls ask for a
+  daemon update, update `slopd` or choose **This device** for local playback.
 
 The browser remembers your output. Switching outputs stops local sound and leaves
 the server player alone. On returning to **This device**, press Play to hear your
