@@ -39,7 +39,7 @@ public interface IWorkspaceRuntime
     void WorkspaceWindow(Action<bool> request);
     void WorkspaceOpenUrl(Action<string> request);
     void WorkspaceFullscreenState(bool fullscreen);
-    void WorkspacePreferences(string json, Action<string> persist);
+    void WorkspacePreferences(Func<string, string> read, Func<string, string, bool> persist);
     void WorkspaceKeyBindings(string json, Action<string> persist);
     void WorkspaceSavePreferences();
     string WorkspaceSelect(string name);

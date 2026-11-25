@@ -128,7 +128,9 @@ configuration ownership. Adapters substitute platform services and rendering;
 the daemon retains processes, tmux, sandboxes, and credentials. See the
 [client boundary](mod-client.md) and [wire contract](protocol-wire.md).
 Host appearance import and browser persistence share a tested presentation
-allowlist. The browser origin also stores its own Jukebox source, output and gain.
+allowlist. The browser origin also stores its own Jukebox source, hidden sources,
+output and gain. Each tab saves only the fields it changed, including pending
+edits on hide. Separate storage keys preserve concurrent edits to different fields.
 The Eco prefix weaver installs the mod’s options category and page prefixes.
 Offline UI hooks invoke the mod’s action-caption backdrop and translated settings-row
 filters; the browser does not duplicate their theme or visibility policy. Loading

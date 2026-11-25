@@ -20,8 +20,15 @@ static class Check
         EcoPrefixFixture.Check();
         SteamCallbackFixture.Check();
         CheckWindowPatch();
-        string saved = "";
-        BrowserPreferences.Persist = json => saved = json;
+        CheckOverlappingPreferences();
+        var stored = new Dictionary<string, string>();
+        string Read(string name) => stored.GetValueOrDefault(name, "");
+        bool Persist(string name, string json)
+        {
+            stored[name] = json;
+            return true;
+        }
+        var write = BrowserPreferences.Open(new ModSettings(), Read, Persist);
         var settings = new ModSettings
         {
             uiScheme = "slopworld-cool",
@@ -46,35 +53,34 @@ static class Check
             radio = "station:stream",
             radioOutput = "server",
             radioVolume = .3f,
+            radioHiddenSources = "ost\nfiltered",
             radioMute = true,
             radioStopOnExit = false,
             displayMode = FramePolicy.Limit,
             foregroundFps = 144,
             stopSessionsOnExit = true,
         };
-        BrowserPreferences.Write(settings);
-        using (var snapshot = JsonDocument.Parse(saved))
-        {
-            foreach (
-                var name in new[]
-                {
-                    "autoConnect",
-                    "commandPaletteHistory",
-                    "stopSessionsOnExit",
-                    "endpoint",
-                    "token",
-                    "hostHome",
-                }
-            )
-                Expect(!snapshot.RootElement.TryGetProperty(name, out _), "Leaked " + name);
-        }
+        write(settings);
+        foreach (
+            var name in new[]
+            {
+                "autoConnect",
+                "commandPaletteHistory",
+                "stopSessionsOnExit",
+                "endpoint",
+                "token",
+                "hostHome",
+            }
+        )
+            Expect(!stored.ContainsKey(name), "Leaked " + name);
         var restored = new ModSettings();
-        BrowserPreferences.ApplyLocal(restored, saved);
+        BrowserPreferences.Open(restored, Read, Persist);
         Expect(
             restored.radio == settings.radio
                 && restored.radioOutput == "server"
-                && restored.radioVolume == .3f,
-            "Local station, output and volume did not survive reload"
+                && restored.radioVolume == .3f
+                && restored.radioHiddenSources == "ost\nfiltered",
+            "Local Jukebox preferences did not survive reload"
         );
         BrowserPreferences.ApplyLocal(restored, """{"radioOutput":"unknown","radioVolume":2}""");
         Expect(
@@ -92,17 +98,22 @@ static class Check
         Settings.S = restored;
         // Exercise the real startup export with every preference emitted by the
         // persistence owner, plus host metadata and an unrelated field.
-        var imported = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(saved)!;
+        var imported = stored.ToDictionary(
+            pair => pair.Key,
+            pair => JsonSerializer.Deserialize<JsonElement>(pair.Value)
+        );
         imported["hostHome"] = JsonSerializer.SerializeToElement("/home/example");
         imported["commandPaletteHistory"] = JsonSerializer.SerializeToElement("private-command");
         imported["radio"] = JsonSerializer.SerializeToElement("host-only");
+        imported["radioHiddenSources"] = JsonSerializer.SerializeToElement("host-only");
         imported["radioOutput"] = JsonSerializer.SerializeToElement("local");
         imported["radioVolume"] = JsonSerializer.SerializeToElement(.7f);
         new WorkspaceRuntime().WorkspaceAppearance(JsonSerializer.Serialize(imported));
         Expect(
             restored.radio == settings.radio
                 && restored.radioOutput == "server"
-                && restored.radioVolume == .3f,
+                && restored.radioVolume == .3f
+                && restored.radioHiddenSources == "ost\nfiltered",
             "Host appearance overrode a local audio preference"
         );
         Expect(BrowserSidebar.HostHome == "/home/example", "Host display home was not imported");
@@ -143,8 +154,8 @@ static class Check
         foreach (float dim in new[] { 0f, 0.8f })
         {
             settings.ecoDim = dim;
-            BrowserPreferences.Write(settings);
-            BrowserPreferences.Apply(restored, saved);
+            write(settings);
+            BrowserPreferences.Open(restored, Read, Persist);
             Expect(BrowserPreferences.BackgroundDimming(restored) == dim, "Dimming limit lost");
         }
         restored.ecoDim = float.NaN;
@@ -179,7 +190,7 @@ static class Check
         settings.FlushIfDue(_ =>
         {
             writes++;
-            BrowserPreferences.Write(settings);
+            write(settings);
         });
         settings.FlushIfDue(_ => writes++);
         Expect(writes == 1, "Native dirty save did not flush once");
@@ -200,6 +211,60 @@ static class Check
         Console.WriteLine(
             "Preferences: allowlist round trip, malformed input, native debounce and change notification passed."
         );
+    }
+
+    static void CheckOverlappingPreferences()
+    {
+        var stored = new Dictionary<string, string> { ["radioHiddenSources"] = "\"ost\"" };
+        var writes = new List<string>();
+        bool writable = true;
+        Action<ModSettings> Open(ModSettings tab) =>
+            BrowserPreferences.Open(
+                tab,
+                name => stored.GetValueOrDefault(name, ""),
+                (name, json) =>
+                {
+                    if (!writable)
+                        return false;
+                    writes.Add(name);
+                    stored[name] = json;
+                    return true;
+                }
+            );
+
+        var first = new ModSettings();
+        var second = new ModSettings { fontSize = 21 };
+        var saveFirst = Open(first);
+        var saveSecond = Open(second);
+        first.radioHiddenSources = "spotify";
+        saveFirst(first);
+        saveSecond(second); // Hiding an idle tab preserves the first tab's edit and host defaults.
+        second.fontSize = 24;
+        second.MarkDirty();
+        second.FlushIfDue(saveSecond);
+        Expect(writes.SequenceEqual(new[] { "radioHiddenSources" }), "Idle tab published settings");
+        writable = false;
+        saveSecond(second);
+        writable = true;
+        saveSecond(second); // Hide while the frame debounce is still pending.
+        for (int frame = 0; frame < 120; frame++)
+            second.FlushIfDue(saveSecond);
+        Expect(
+            writes.SequenceEqual(new[] { "radioHiddenSources", "fontSize" }),
+            "Pending edit lost or repeated"
+        );
+        var reloaded = new ModSettings();
+        Open(reloaded);
+        Expect(
+            reloaded.radioHiddenSources == "spotify" && reloaded.fontSize == 24,
+            "Overlapping edits did not survive reload"
+        );
+
+        second.radioHiddenSources = "";
+        saveSecond(second);
+        saveFirst(first);
+        Open(reloaded);
+        Expect(reloaded.radioHiddenSources == "", "Stale save undid an explicit clear");
     }
 
     static void CheckWindowPatch()

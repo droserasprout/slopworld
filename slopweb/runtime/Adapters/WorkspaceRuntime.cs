@@ -51,7 +51,7 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
         var settings = Settings.S;
         BrowserPreferences.ApplyLocal(settings, json);
         WorkspaceFontsReady();
-        BrowserPreferences.Write(settings);
+        settings.Write();
     }
 
     public void WorkspaceGlyphsReady()
@@ -91,12 +91,10 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
 
     public void WorkspaceFullscreenState(bool fullscreen) => Settings.S.fullscreen = fullscreen;
 
-    public void WorkspacePreferences(string json, Action<string> persist)
-    {
-        var settings = Settings.S;
-        BrowserPreferences.ApplyLocal(settings, json);
-        BrowserPreferences.Persist = persist;
-    }
+    public void WorkspacePreferences(
+        Func<string, string> read,
+        Func<string, string, bool> persist
+    ) => ProfileSettings.Save = BrowserPreferences.Open(Settings.S, read, persist);
 
     public void WorkspaceKeyBindings(string json, Action<string> persist)
     {
@@ -104,11 +102,7 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
         BrowserKeyBindings.Persist = persist;
     }
 
-    public void WorkspaceSavePreferences()
-    {
-        var settings = Settings.S;
-        BrowserPreferences.Write(settings);
-    }
+    public void WorkspaceSavePreferences() => Settings.S.Write();
 
     public void ConfigureWorkspaceViewport(int width, int height, float scale) =>
         WorkspaceDrawing.ConfigureViewport(width, height, scale);

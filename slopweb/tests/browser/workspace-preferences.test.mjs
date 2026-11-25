@@ -2,62 +2,73 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {installWorkspacePreferences} from '../../runtime/wwwroot/workspace-preferences.js';
 
-function fixture(stored = null) {
+const key = 'slopworld.presentation.v1';
+
+function storage() {
+  const entries = new Map();
+  return {getItem: key => entries.get(key) ?? null, setItem: (key, value) => entries.set(key, value)};
+}
+
+function tab(localStorage, save = () => {}) {
   const events = new Map(), documentEvents = new Map();
-  let current = stored;
   const view = {
-    localStorage: {getItem: () => current, setItem: (_key, value) => { current = value; }},
+    get localStorage() {
+      if (!localStorage) throw Error('denied');
+      return localStorage;
+    },
     addEventListener: (name, handler) => events.set(name, handler),
     document: {visibilityState: 'visible', addEventListener: (name, handler) => documentEvents.set(name, handler)},
   };
-  let loaded, persist, saves = 0;
+  let read, persist;
   const probe = {
-    WorkspacePreferences: (json, callback) => { loaded = JSON.parse(json); persist = callback; },
-    WorkspaceSavePreferences: () => { saves++; },
+    WorkspacePreferences: (load, write) => { read = load; persist = write; },
+    WorkspaceSavePreferences: () => save(persist),
   };
-  return {view, probe, events, documentEvents, stored: () => current, loaded: () => loaded,
-    save: value => persist(JSON.stringify(value)), saves: () => saves};
+  installWorkspacePreferences(probe, view);
+  return {read, persist, view, pagehide: events.get('pagehide'), visibility: documentEvents.get('visibilitychange')};
 }
 
-test('native snapshot survives a reload and overlays initial host defaults', () => {
-  const first = fixture();
-  installWorkspacePreferences(first.probe, first.view);
-  assert.deepEqual(first.loaded(), {});
-  const preferences = {uiScheme: 'custom', sidebarHidden: true, fontSize: 19, ecoDim: .65,
-    cursorColor: '#abcdef', statusbarClockPosition: 'hidden',
-    timeZone: 'UTC', timeFormat: '12-hour', dateFormat: 'dd/MM/yyyy'};
-  first.save(preferences);
-  const second = fixture(first.stored());
-  installWorkspacePreferences(second.probe, second.view);
-  assert.deepEqual(second.loaded(), preferences);
+test('overlapping tabs flush independent fields and reload over an existing snapshot', () => {
+  const origin = storage();
+  origin.setItem(key, JSON.stringify({version: 1, preferences: {uiScheme: 'custom', fontSize: 19}}));
+  let flushes = 0;
+  const first = tab(origin);
+  const second = tab(origin, persist => {
+    flushes++;
+    persist('fontSize', '22');
+  });
+  assert.equal(second.read('fontSize'), '19');
+  second.visibility();
+  assert.equal(flushes, 0);
+  assert.equal(first.persist('radioHiddenSources', JSON.stringify('ost\nspotify')), true);
+  second.view.document.visibilityState = 'hidden';
+  second.visibility();
+  assert.equal(flushes, 1);
+  second.pagehide();
+  assert.equal(flushes, 2);
+
+  const reloaded = tab(origin);
+  assert.equal(JSON.parse(reloaded.read('radioHiddenSources')), 'ost\nspotify');
+  assert.equal(reloaded.read('fontSize'), '22');
+  assert.equal(JSON.parse(reloaded.read('uiScheme')), 'custom');
 });
 
 test('malformed, oversized and unknown version snapshots keep defaults', () => {
   for (const input of ['{', 'null', '[]', '{"version":2,"preferences":{"theme":"bad"}}',
     '{"version":1,"preferences":[]}', 'x'.repeat(131073)]) {
-    const f = fixture(input);
-    installWorkspacePreferences(f.probe, f.view);
-    assert.deepEqual(f.loaded(), {});
+    const origin = storage();
+    origin.setItem(key, input);
+    assert.equal(tab(origin).read('theme'), '');
   }
 });
 
 test('blocked reads and failed writes do not interrupt native controls', () => {
   for (const mode of ['read', 'write', 'access']) {
-    const f = fixture();
-    if (mode === 'access') Object.defineProperty(f.view, 'localStorage', {get() { throw Error('denied'); }});
-    else f.view.localStorage[mode === 'read' ? 'getItem' : 'setItem'] = () => { throw Error('quota/disabled'); };
-    assert.doesNotThrow(() => installWorkspacePreferences(f.probe, f.view));
-    assert.doesNotThrow(() => f.save({theme: 'custom'}));
+    const origin = storage();
+    if (mode === 'read') origin.getItem = () => { throw Error('disabled'); };
+    else origin.setItem = () => { throw Error('quota'); };
+    const context = tab(mode === 'access' ? null : origin);
+    assert.equal(context.read('theme'), '');
+    assert.equal(context.persist('theme', '"custom"'), mode === 'read');
   }
-});
-
-test('pagehide and backgrounding flush changes before native debounce', () => {
-  const f = fixture();
-  installWorkspacePreferences(f.probe, f.view);
-  f.documentEvents.get('visibilitychange')();
-  assert.equal(f.saves(), 0);
-  f.view.document.visibilityState = 'hidden';
-  f.documentEvents.get('visibilitychange')();
-  f.events.get('pagehide')();
-  assert.equal(f.saves(), 2);
 });

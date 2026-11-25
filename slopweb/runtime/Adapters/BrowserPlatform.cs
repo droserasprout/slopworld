@@ -30,7 +30,7 @@ public static class BrowserPlatform
         NativeFonts.CatalogNames = mono =>
             BrowserFontBank.HasCatalog() ? BrowserFontBank.Names(mono) : null!;
         CursorTextures.Present = BrowserCursor.SetCursor;
-        ProfileSettings.Save = BrowserPreferences.Write;
+        ProfileSettings.Save = BrowserPreferences.Changed;
         ModSettings.Changed = BrowserPreferences.Changed;
         ColonistBarStrip.MaplessWorkspace = true;
         SidebarRowRenderer.HomeFolder = BrowserSidebar.HomeFolder;

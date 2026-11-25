@@ -1,4 +1,4 @@
-// Browser persistence stores only allowlisted presentation fields.
+// Browser settings validate host appearance and persist origin-local presentation and Jukebox edits.
 using System.Reflection;
 using System.Text.Json;
 using SlopWorld;
@@ -7,7 +7,6 @@ namespace BrowserAdapters;
 
 public static class BrowserPreferences
 {
-    public static Action<string>? Persist;
     public static Action<string>? Fonts;
     static string? lastFonts;
 
@@ -36,6 +35,7 @@ public static class BrowserPreferences
         typeof(ModSettings).GetField(nameof(ModSettings.radio))!,
         typeof(ModSettings).GetField(nameof(ModSettings.radioOutput))!,
         typeof(ModSettings).GetField(nameof(ModSettings.radioVolume))!,
+        typeof(ModSettings).GetField(nameof(ModSettings.radioHiddenSources))!,
     ];
 
     static FieldInfo[] ReadAllowed()
@@ -74,15 +74,43 @@ public static class BrowserPreferences
         }
     }
 
-    public static void Write(ModSettings settings)
+    public static Action<ModSettings> Open(
+        ModSettings settings,
+        Func<string, string> read,
+        Func<string, string, bool> persist
+    )
     {
-        Changed(settings);
-        if (Persist == null)
-            return;
-        var values = new Dictionary<string, object?>();
+        // A tab starts from its effective values, including host defaults for missing
+        // fields. Only a successful field write advances that field's baseline.
+        var baseline = new Dictionary<string, object?>();
         foreach (var field in Local)
-            values.Add(field.Name, field.GetValue(settings));
-        Persist(JsonSerializer.Serialize(values));
+        {
+            string json = read(field.Name);
+            if (json.Length is > 0 and <= 131072)
+            {
+                try
+                {
+                    using var document = JsonDocument.Parse(json);
+                    RestoreField(settings, field, document.RootElement);
+                }
+                catch (JsonException) { }
+            }
+            baseline.Add(field.Name, field.GetValue(settings));
+        }
+
+        return current =>
+        {
+            Changed(current);
+            foreach (var field in Local)
+            {
+                var value = field.GetValue(current);
+                if (
+                    !Equals(baseline[field.Name], value)
+                    && persist(field.Name, JsonSerializer.Serialize(value))
+                )
+                    baseline[field.Name] = value;
+            }
+        };
     }
 
     public static void ApplyLocal(ModSettings settings, string json) =>
@@ -102,48 +130,47 @@ public static class BrowserPreferences
             if (document.RootElement.ValueKind != JsonValueKind.Object)
                 return;
             foreach (var field in fields)
-            {
-                var name = field.Name;
-                if (!document.RootElement.TryGetProperty(name, out var value))
-                    continue;
-                if (field.FieldType == typeof(string) && value.ValueKind == JsonValueKind.String)
-                {
-                    var text = value.GetString()!;
-                    if (
-                        text.Length <= 16384
-                        && (name != "radioOutput" || text is "local" or "server")
-                    )
-                        field.SetValue(settings, text);
-                }
-                else if (
-                    field.FieldType == typeof(bool)
-                    && value.ValueKind is JsonValueKind.True or JsonValueKind.False
-                )
-                    field.SetValue(settings, value.GetBoolean());
-                else if (
-                    field.FieldType == typeof(int)
-                    && value.ValueKind == JsonValueKind.Number
-                    && value.TryGetInt32(out var integer)
-                    && integer >= 0
-                    && integer <= (name == "foregroundFps" ? 240 : 48)
-                )
-                    field.SetValue(settings, integer);
-                else if (
-                    field.FieldType == typeof(float)
-                    && value.ValueKind == JsonValueKind.Number
-                    && value.TryGetSingle(out var number)
-                    && float.IsFinite(number)
-                    && number >= 0
-                    && number
-                        <= (
-                            name == "sidebarWidth" ? 7680
-                            : name == "ecoDim" ? 0.8f
-                            : 1
-                        )
-                )
-                    field.SetValue(settings, number);
-            }
+                if (document.RootElement.TryGetProperty(field.Name, out var value))
+                    RestoreField(settings, field, value);
         }
         catch (JsonException) { }
+    }
+
+    static void RestoreField(ModSettings settings, FieldInfo field, JsonElement value)
+    {
+        var name = field.Name;
+        if (field.FieldType == typeof(string) && value.ValueKind == JsonValueKind.String)
+        {
+            var text = value.GetString()!;
+            if (text.Length <= 16384 && (name != "radioOutput" || text is "local" or "server"))
+                field.SetValue(settings, text);
+        }
+        else if (
+            field.FieldType == typeof(bool)
+            && value.ValueKind is JsonValueKind.True or JsonValueKind.False
+        )
+            field.SetValue(settings, value.GetBoolean());
+        else if (
+            field.FieldType == typeof(int)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var integer)
+            && integer >= 0
+            && integer <= (name == "foregroundFps" ? 240 : 48)
+        )
+            field.SetValue(settings, integer);
+        else if (
+            field.FieldType == typeof(float)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetSingle(out var number)
+            && float.IsFinite(number)
+            && number >= 0
+            && number
+                <= (
+                    name == "sidebarWidth" ? 7680
+                    : name == "ecoDim" ? 0.8f
+                    : 1
+                )
+        )
+            field.SetValue(settings, number);
     }
 }

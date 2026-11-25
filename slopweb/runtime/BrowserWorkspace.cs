@@ -107,9 +107,10 @@ public partial class Probe
 
     [JSExport]
     public static void WorkspacePreferences(
-        string json,
-        [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> persist
-    ) => Runtime.WorkspacePreferences(json, persist);
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.String>>] Func<string, string> read,
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.String, JSType.Boolean>>]
+            Func<string, string, bool> persist
+    ) => Runtime.WorkspacePreferences(read, persist);
 
     [JSExport]
     public static void WorkspaceKeyBindings(
