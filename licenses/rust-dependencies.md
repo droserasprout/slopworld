@@ -305,8 +305,8 @@ and does not identify which crates are included in a particular binary.
 | toml_datetime | 0.6.11 | MIT OR Apache-2.0 |
 | toml_datetime | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |
 | toml_edit | 0.22.27 | MIT OR Apache-2.0 |
-| toml_edit | 0.25.20+spec-1.1.0 | MIT OR Apache-2.0 |
-| toml_parser | 1.1.6+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_edit | 0.25.21+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_parser | 1.1.7+spec-1.1.0 | MIT OR Apache-2.0 |
 | toml_write | 0.1.2 | MIT OR Apache-2.0 |
 | tower | 0.5.3 | MIT |
 | tower-http | 0.5.2 | MIT |
