@@ -183,7 +183,7 @@ impl Transactions {
             crate::config::catalog::revision(&records.binding.config.join("config.toml")).ok();
         // This is only a read-request shortcut, never publication. A pending
         // undo journal always goes through recovery before revision acceptance.
-        if records
+        records
             .binding
             .journal()
             .is_ok_and(|path| matches!(path.try_exists(), Ok(false)))
@@ -193,10 +193,6 @@ impl Transactions {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 == revision
-        {
-            return true;
-        }
-        false
     }
 
     async fn mark_saved_library(&self, expected: &Config) {

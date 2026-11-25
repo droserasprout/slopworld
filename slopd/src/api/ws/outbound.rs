@@ -111,10 +111,7 @@ pub(super) async fn send_initial_snapshot(tx: &WsTx, m: &App, cap: &Cap) -> bool
     let ev = EventMessage::new(Event::Audio {
         audio: m.services.music.state().await,
     });
-    if send(tx, cap, &ev).await.is_err() {
-        return false;
-    }
-    true
+    send(tx, cap, &ev).await.is_ok()
 }
 
 // Capture has a separate 16 ms rate limit; the shorter hold limits socket latency.
