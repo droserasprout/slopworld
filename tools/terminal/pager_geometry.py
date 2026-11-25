@@ -70,7 +70,8 @@ def main() -> None:
 
         def wait_for(name: str, expected: str | list[str], *, styled: bool = False) -> list[str]:
             """Wait for the expected viewport, or a marker anywhere in a styled capture."""
-            deadline = time.monotonic() + 5
+            # The pager and its preprocessor may start under parallel CI load.
+            deadline = time.monotonic() + 15
             lines: list[str] = []
             while time.monotonic() < deadline:
                 options = ('-e', '-N') if styled else ()
