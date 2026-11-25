@@ -2,7 +2,7 @@ import { collectWorkspaceDiagnostics } from './workspace-diagnostics.js';
 // Continuous presentation of the actual mod WindowStack. No DOM agent controls.
 import { attachGuiInput } from './gui-input.js';
 import { attachInput } from './input.js';
-import { workspaceViewport, workspaceParameters, workspaceOption, observeRefreshRate } from './workspace-viewport.js';
+import { workspaceViewport, workspaceParameters, workspaceOption } from './workspace-viewport.js';
 import { loadBackground } from './loading-background.js';
 import { attachWorkspaceCursor } from './workspace-cursor.js';
 import { attachWorkspaceLinks } from './workspace-links.js';
@@ -81,7 +81,6 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   });
   const fonts=fallbackFonts(managed,()=>scheduler.wake(true));
   const activity=new AbortController();
-  observeRefreshRate(window, activity.signal, fps => managed.WorkspaceRefreshRate(fps));
   watchJukeboxLikes(window, () => managed.WorkspaceLikesChanged(), activity.signal);
   for (const target of [canvas, gui.textInput])
   for(const event of ['input','compositionstart','compositionupdate','keydown','keyup','pointerdown','pointerup','pointermove','pointercancel','wheel','paste','copy','compositionend','blur'])

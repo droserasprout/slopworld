@@ -7,6 +7,7 @@ namespace SlopWorld
     {
         public const string Auto = "auto",
             Limit = "limit";
+        public const int BrowserAutoFps = 60;
         public static readonly int[] Presets = { 5, 15, 30, 60, 120, 144, 240 };
 
         // Missing or unknown settings use the monitor-matched FPS limit.

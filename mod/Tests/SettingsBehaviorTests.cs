@@ -442,6 +442,11 @@ namespace SlopWorld.Tests
                     Settings.DisplayMode,
                     "old display policy falls back"
                 );
+                AssertEx.Equal(
+                    60,
+                    Settings.BrowserFrameLimit,
+                    "browser Auto caps redraws at 60 FPS"
+                );
                 AssertEx.Equal(120, Settings.ForegroundFps, "nearest FPS preset is used");
                 AssertEx.Equal(
                     "",
@@ -472,6 +477,11 @@ namespace SlopWorld.Tests
                     FramePolicy.Limit,
                     Settings.DisplayMode,
                     "explicit FPS limit retained"
+                );
+                AssertEx.Equal(
+                    120,
+                    Settings.BrowserFrameLimit,
+                    "browser honors the explicit preset"
                 );
                 AssertEx.Equal(
                     TemperatureUnit.MemeMode,

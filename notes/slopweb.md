@@ -204,8 +204,7 @@ budget includes the in-flight message and admits a full 32 MiB protocol envelope
 Discarded input/layout passes execute native controls with raster-command
 preparation suppressed; only repaint publishes drawing. Stable presentation backs
 off up to 100 ms, bounded by native cursor animation and terminal blink/resize/scroll
-deadlines. The selected frame limit also bounds active rendering. Auto displays the measured
-animation-frame cadence. Post-processing belongs to the desktop renderer. Input and
+deadlines. The selected frame limit also bounds active rendering. Auto uses a fixed 60 FPS cap in the browser. Post-processing belongs to the desktop renderer. Input and
 published transport activity cancel pending idle waits.
 Append-only font atlases retain CPU pixels until drain, coalescing publication and
 encoding once per atlas per packet. General mutable textures still snapshot at each

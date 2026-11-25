@@ -116,3 +116,17 @@ test('active frames follow the live native limit through input and transport wak
   assert.equal(draws,34);
   f.scheduler.stop();
 });
+
+test('a 60 FPS limit admits 60 scheduled draws per second on a 144 Hz display',()=>{
+  let draws=0;
+  const f=fixture(()=>{draws++;return false;},()=>100,()=>60);
+  f.scheduler.setEnabled(false);
+  f.frame();
+  const initial=draws;
+  for(let tick=0;tick<144;tick++){
+    f.advance(1000/144);
+    f.frame();
+  }
+  assert.equal(draws-initial,60);
+  f.scheduler.stop();
+});

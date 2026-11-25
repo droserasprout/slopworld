@@ -18,9 +18,9 @@ namespace SlopWorld
             get
             {
                 int fps = ClientPlatform.IsBrowser
-                    ? ClientPlatform.BrowserRefreshRate
+                    ? FramePolicy.BrowserAutoFps
                     : BackgroundFrames.AutoFps;
-                return OptionLabels.Auto(fps > 0 ? fps + " FPS" : null);
+                return OptionLabels.Auto(fps + " FPS");
             }
         }
 
@@ -65,8 +65,10 @@ namespace SlopWorld
             string mode = FramePolicy.Normalize(S.displayMode);
             int fps = FramePolicy.NearestPreset(S.foregroundFps);
             string frameLimitLabel = mode == FramePolicy.Auto ? AutoLabel : fps + " FPS";
-            string frameLimitTip = VSyncOverridesLimit
-                ? "Turn off VSync to choose an FPS limit."
+            string frameLimitTip =
+                VSyncOverridesLimit ? "Turn off VSync to choose an FPS limit."
+                : ClientPlatform.IsBrowser
+                    ? $"Auto limits workspace rendering to {FramePolicy.BrowserAutoFps} FPS."
                 : "Auto matches the current display refresh rate. Set lower to save power or higher to improve responsiveness.";
             UiSelector.Draw(
                 l,

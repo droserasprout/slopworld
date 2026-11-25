@@ -32,9 +32,7 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
 
     public float WorkspaceNextUpdateDelay() => WorkspaceDrawing.NextUpdateDelay();
 
-    public int WorkspaceFrameLimit() => Settings.ExplicitFrameLimit;
-
-    public void WorkspaceRefreshRate(int fps) => ClientPlatform.BrowserRefreshRate = fps;
+    public int WorkspaceFrameLimit() => Settings.BrowserFrameLimit;
 
     public void WorkspaceClearWake() => BrowserActivity.Wake = null;
 

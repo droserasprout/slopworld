@@ -51,9 +51,6 @@ public partial class Probe
     public static int WorkspaceFrameLimit() => Runtime.WorkspaceFrameLimit();
 
     [JSExport]
-    public static void WorkspaceRefreshRate(int fps) => Runtime.WorkspaceRefreshRate(fps);
-
-    [JSExport]
     public static void WorkspaceClearWake() => Runtime.WorkspaceClearWake();
 
     [JSExport]
