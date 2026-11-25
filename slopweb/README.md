@@ -161,9 +161,9 @@ The local font rasterizer also caches successful builds by source, compiler, fla
 and port identity, verifying all output files before reuse.
 
 Mixed AOT retains application IL and reflection metadata, roots all application
-assemblies, and keeps Waylith, Waylith.Injection, and
-RimWorldWaylith.PrepatcherCompat interpreted. Its loader resolves published
-assembly identities by name; the `skipLogger` alternate DLL option is disabled.
+assemblies, and keeps Waylith.Injection and RimWorldWaylith.PrepatcherCompat
+interpreted. Its loader resolves published assembly identities by name.
+The `skipLogger` alternate DLL option is disabled.
 
 ## Packages
 

@@ -62,6 +62,7 @@ internal static class CoreBootstrap
         PatchRuntimeServices(root, resolver);
         PatchCoreLoading(root, resolver, adapter);
         BrowserSteamPatch.Apply(root, resolver);
+        BrowserVulkanPatch.Apply(root, resolver);
         BrowserGuiPatch.Apply(root, resolver);
     }
 

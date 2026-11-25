@@ -29,6 +29,8 @@ Core preparation removes Waylith’s custom CLR profiler instrumentation, alloca
 sampling, and selects its stopwatch clock. The staged engine is eligible for browser AOT.
 Waylith.Injection and RimWorldWaylith.PrepatcherCompat retain custom CLR signatures and
 remain interpreted. The browser guards the two injection paths into the removed IL splicer.
+The browser stage guards Vulkan push constants in the desktop command buffer's
+generic extension. Mono AOT specializes this method and cannot link its native call.
 The offline Steam boundary disables startup and removes Steamworks native callback
 markers from the private copy so WASM AOT does not generate desktop callback wrappers.
 `tools/release/slopweb.py` stages reviewed redistributable inputs and owns loose
