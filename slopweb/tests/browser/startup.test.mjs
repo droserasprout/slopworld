@@ -37,7 +37,8 @@ async function start({published=false, query='', failAt='', incomplete=false, as
     arrayBuffer:async()=>new TextEncoder().encode(path).buffer,
     json:async()=>path==='./game/manifest.json'?[{file:'Game.dll'}]:[],
     text:async()=>'{}',
-    body:(async function*(){yield new Uint8Array([1]);})()};};
+    // Reader-only body, as on browsers without async stream iteration.
+    body:{getReader:()=>new Response(new Uint8Array([1])).body.getReader()}};};
   const modules={
     './asset-archive.js':{openAssetArchive:async url=>({response:await fetch(url),stored:Promise.resolve()})},
     './gui.js':{renderGui:render},
@@ -160,7 +161,8 @@ test('archive chunks and synchronous startup stages admit painting before manage
 });
 
 test('incomplete archives abort upload before Entry and report failure',async()=>{
-  const {calls,result}=await start({incomplete:true});
+  const {calls,result,message}=await start({incomplete:true});
+  assert.match(message,/Streaming assets\/Eco.zip\nError: Incomplete asset transfer: 1\/2/);
   assert.match(result.error,/Incomplete asset transfer/);
   assert.deepEqual(calls.filter(c=>c[0]==='EndAssetUpload'),[['EndAssetUpload',false]]);
   assert.equal(calls.some(c=>c[0]==='StartEntry'),false);

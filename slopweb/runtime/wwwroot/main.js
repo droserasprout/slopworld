@@ -14,6 +14,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
     window = globalThis.window, document = window.document, fetch = globalThis.fetch,
     published = publishedAssemblies, paint = yieldStartupPaint, loadModule = path => import(path),
 } = {}) {
+    let stage = 'Starting the .NET runtime';
     let workspace = null;
     let entry = null;
     document.title = 'SlopWorld';
@@ -32,6 +33,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
         const loadAssembly = published
             ? (_, file) => exports.Probe.LoadPublishedAssembly(file.replace(/\.dll$/, ''))
             : bytes => exports.Probe.LoadAssembly(bytes);
+        stage = 'Loading game assemblies';
         window.__loading?.status('Loading game assemblies...');
         const manifest = await fetch('./game/manifest.json').then(r => r.json());
         const {loaded, loadErrors} = await loadStartupAssemblies(manifest, loadAssembly, assemblyRequest, paint);
@@ -48,13 +50,19 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
         let eco = null;
         let assetTransfer = null;
         {
+            stage = 'Streaming assets/Eco.zip';
             const archive = await (await loadModule('./asset-archive.js')).openAssetArchive('./assets/Eco.zip');
             const response = archive.response;
             if (!response.ok) throw new Error(`Eco.zip: HTTP ${response.status}`);
+            if (!response.body) throw new Error('The archive response has no body');
             exports.Probe.BeginAssetUpload();
             let bytes = 0, committed = false;
+            let reader;
             try {
-                for await (const chunk of response.body) {
+                reader = response.body.getReader();
+                for (;;) {
+                    const {value: chunk, done} = await reader.read();
+                    if (done) break;
                     await paint();
                     exports.Probe.AssetChunk(chunk);
                     bytes += chunk.length;
@@ -67,19 +75,25 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
                 await archive.stored;
                 assetTransfer = { bytes, destination: '/Assets.zip', persistent: false };
             } finally {
-                if (!committed) exports.Probe.EndAssetUpload(false);
+                if (!committed) {
+                    if (reader) void reader.cancel().catch(() => {});
+                    exports.Probe.EndAssetUpload(false);
+                }
+                reader?.releaseLock();
             }
         }
 
         {
             // InstallPlatform resolves mod field types before Entry starts. The
             // interpreter can only bind dependencies already loaded from bytes.
+            stage = 'Installing mod assemblies and platform';
             for (const name of ['0Harmony', 'Google.Protobuf', 'Markdig', 'AngleSharp', 'Tomlyn', 'SlopWorld']) {
                 await loadFile(`./mod/${name}.dll`);
             }
             loaded.push(await loadFile('./Adapters.dll'));
             runtime.setModuleImports('jukebox-likes', jukeboxLikes(window));
             exports.Probe.InstallPlatform(new URL('.', window.location.href).href);
+            stage = 'Installing assets/Core.zip and language';
             const response = await fetch('./assets/Core.zip');
             if (!response.ok) throw new Error(`Core.zip: HTTP ${response.status}`);
             const core = new Uint8Array(await response.arrayBuffer());
@@ -88,6 +102,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
             const enableLanguageMenu = await installCoreLanguage(exports.Probe, parameters, window, fetch);
             try {
                 await paint();
+                stage = 'Starting the game entry point';
                 exports.Probe.StartEntry();
                 let ready = false;
                 for (let frame = 0; frame < 5; frame++) {
@@ -99,13 +114,15 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
                 const viewport = workspaceViewport(parameters);
                 exports.Probe.ConfigureWorkspaceViewport(viewport.width, viewport.height, viewport.uiScale);
                 document.documentElement.style.setProperty('--workspace-aspect', viewport.width / viewport.height);
+                stage = 'Installing mod/Content.zip';
                 const content = await fetch('./mod/Content.zip');
-                if (!content.ok) throw new Error('Workspace mod content is missing');
+                if (!content.ok) throw new Error(`Content.zip: HTTP ${content.status}`);
                 const modContent = new Uint8Array(await content.arrayBuffer());
                 await paint();
                 const textures = exports.Probe.InstallModContent(modContent);
                 console.log('Browser: mounted ' + textures + ' mod textures');
                 await paint();
+                stage = 'Initializing the workspace';
                 eco = exports.Probe.InitializeEco();
                 let fontDefaults = null, fontChains = null;
                 if (parameters.has('referenceAppearance')) {
@@ -129,6 +146,7 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
                     void fonts(exports.Probe.WorkspaceDynamicFonts(fonts));
                 }
                 await paint();
+                stage = 'Rendering the first workspace frame';
                 let commands = JSON.parse(await exports.Probe.WorkspaceFrame(new URL('.', window.location.href).href, parameters.get('session') ?? ''));
                 const drawing = await loadModule('./gui.js');
                 const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
@@ -164,12 +182,12 @@ export async function startRuntime(dotnet, parameters = workspaceParameters(), {
         window.__probeResult = { loaded, loadErrors, manifest, missingDependencies,
             workspace, entry, eco, assetTransfer, adaptations };
     } catch (error) {
-        window.__probeResult = { error: String(error), stack: error.stack, entry };
+        window.__probeResult = { error: String(error), stage, stack: error?.stack, entry };
     }
     document.getElementById('result').textContent = JSON.stringify(window.__probeResult, null, 2);
     if (window.__probeResult.error) {
         window.__loading?.finish();
         document.body.classList.remove('ready');
-        document.getElementById('result').textContent = 'Workspace could not start.\n' + window.__probeResult.error;
+        document.getElementById('result').textContent = `Workspace could not start.\n${stage}\n${window.__probeResult.error}`;
     }
 }
