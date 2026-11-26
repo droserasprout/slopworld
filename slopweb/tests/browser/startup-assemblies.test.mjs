@@ -59,7 +59,7 @@ test('early fetch/body failures and CLR failures retain manifest-ordered reporti
   const result=await work;
   assert.deepEqual(result.loaded,[0,5,6,7,8,9]);
   assert.deepEqual(result.loadErrors,[
-    {file:'1.dll',error:'Error: network'},{file:'2.dll',error:'Error: 2.dll: HTTP 404'},
+    {file:'1.dll',error:'Error: network'},{file:'2.dll',error:'Error: HTTP 404 for ./game/2.dll'},
     {file:'3.dll',error:'Error: body'},{file:'4.dll',error:'Error: CLR'}
   ]);
 });
@@ -71,4 +71,21 @@ test('empty and short manifests download and load each entry exactly once',async
   assert.equal(requests,0);
   assert.deepEqual(await loadStartupAssemblies(manifest.slice(0,2),bytes=>bytes[0],fetch),{loaded:[1,1],loadErrors:[]});
   assert.equal(requests,2);
+});
+
+test('a truncated assembly retries once with fresh bytes before CLR installation', async()=>{
+  for (const recover of [true,false]) {
+    const requests=[],installs=[];
+    const fetch=async (_url,options)=>{
+      requests.push(options?.cache);
+      return {ok:true,arrayBuffer:async()=>{
+        if (!recover || requests.length===1) throw new TypeError('Content-Length exceeds body');
+        return Uint8Array.of(42).buffer;
+      }};
+    };
+    const {loadErrors}=await loadStartupAssemblies([{file:'Game.dll'}],bytes=>installs.push(bytes[0]),fetch);
+    assert.deepEqual(requests,[undefined,'reload']);
+    assert.deepEqual(installs,recover?[42]:[]);
+    assert.deepEqual(loadErrors,recover?[]:[{file:'Game.dll',error:'TypeError: Content-Length exceeds body'}]);
+  }
 });

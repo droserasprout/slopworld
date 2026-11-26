@@ -3,9 +3,17 @@
 import {yieldStartupPaint} from './startup-yield.js';
 async function downloadAssembly(path, request) {
   if (!request) return; // Published assemblies resolve by CLR identity.
-  const response = await request(path);
-  if (!response.ok) throw Error(`${path.split('/').pop()}: HTTP ${response.status}`);
-  return new Uint8Array(await response.arrayBuffer());
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await request(path, attempt ? {cache:'reload'} : undefined);
+      if (!response.ok) throw Error(`HTTP ${response.status} for ${path}`);
+      return new Uint8Array(await response.arrayBuffer());
+    } catch (error) {
+      // Fetch reports interrupted requests and truncated response bodies as TypeError.
+      // Retry the download once, bypassing the HTTP cache, before any CLR install.
+      if (attempt || !(error instanceof TypeError)) throw error;
+    }
+  }
 }
 async function installAssembly(bytes, file, load, yieldPaint) {
   await yieldPaint();
