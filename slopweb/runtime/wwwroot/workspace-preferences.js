@@ -1,17 +1,13 @@
-import {readSettingsSnapshot} from './browser-storage.js';
-
 const key = 'slopworld.presentation.v1';
 
 export function installWorkspacePreferences(probe, view = globalThis) {
-  const legacy = JSON.parse(readSettingsSnapshot(view, key, 'preferences'));
   // Each allowlisted field has its own atomic write, including during synchronous
   // page teardown. An overlapping tab can only replace a field it edited.
   function read(name) {
     try {
       const json = view.localStorage.getItem(key + '.' + name);
-      if (json !== null) return json.length <= 131072 ? json : '';
-    } catch { /* Storage may be disabled. */ }
-    return Object.hasOwn(legacy, name) ? JSON.stringify(legacy[name]) : '';
+      return json !== null && json.length <= 131072 ? json : '';
+    } catch { return ''; }
   }
   function persist(name, json) {
     try {

@@ -28,9 +28,10 @@ function tab(localStorage, save = () => {}) {
   return {read, persist, view, pagehide: events.get('pagehide'), visibility: documentEvents.get('visibilitychange')};
 }
 
-test('overlapping tabs flush independent fields and reload over an existing snapshot', () => {
+test('overlapping tabs flush independent fields and reload saved values', () => {
   const origin = storage();
-  origin.setItem(key, JSON.stringify({version: 1, preferences: {uiScheme: 'custom', fontSize: 19}}));
+  origin.setItem(key + '.uiScheme', JSON.stringify('custom'));
+  origin.setItem(key + '.fontSize', '19');
   let flushes = 0;
   const first = tab(origin);
   const second = tab(origin, persist => {
@@ -53,13 +54,13 @@ test('overlapping tabs flush independent fields and reload over an existing snap
   assert.equal(JSON.parse(reloaded.read('uiScheme')), 'custom');
 });
 
-test('malformed, oversized and unknown version snapshots keep defaults', () => {
-  for (const input of ['{', 'null', '[]', '{"version":2,"preferences":{"theme":"bad"}}',
-    '{"version":1,"preferences":[]}', 'x'.repeat(131073)]) {
-    const origin = storage();
-    origin.setItem(key, input);
-    assert.equal(tab(origin).read('theme'), '');
-  }
+test('missing and oversized fields keep defaults', () => {
+  const origin = storage();
+  origin.setItem(key, JSON.stringify({version: 1, preferences: {theme: 'custom'}}));
+  const context = tab(origin);
+  assert.equal(context.read('theme'), '');
+  origin.setItem(key + '.theme', 'x'.repeat(131073));
+  assert.equal(context.read('theme'), '');
 });
 
 test('blocked reads and failed writes do not interrupt native controls', () => {

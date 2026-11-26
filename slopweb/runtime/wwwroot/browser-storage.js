@@ -41,7 +41,7 @@ export function cacheWhileReading(response, store) {
 }
 
 // Read versioned envelopes already present in this origin's storage.
-export function readSettingsSnapshot(view, key, field) {
+function readSettingsSnapshot(view, key, field) {
   try {
     const text = view.localStorage.getItem(key);
     if (text && text.length <= 131072) {
