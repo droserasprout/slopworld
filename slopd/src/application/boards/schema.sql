@@ -19,6 +19,12 @@ CREATE TABLE IF NOT EXISTS card_key_aliases (
     public_key TEXT PRIMARY KEY NOT NULL, card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS aliases_card ON card_key_aliases(card);
+CREATE TRIGGER IF NOT EXISTS recycle_card_key AFTER UPDATE OF public_key ON cards
+WHEN OLD.public_key != NEW.public_key
+BEGIN
+    DELETE FROM card_key_aliases WHERE card=OLD.id;
+    INSERT INTO card_key_aliases(public_key,card) VALUES(OLD.public_key,OLD.id);
+END;
 CREATE TABLE IF NOT EXISTS comments (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT, card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE,
     author TEXT NOT NULL, text TEXT NOT NULL, timestamp_ms INTEGER NOT NULL DEFAULT 0

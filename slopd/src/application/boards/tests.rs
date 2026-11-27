@@ -257,7 +257,7 @@ fn default_prefix_avoids_root_and_other_reserved_project_names() {
 }
 
 #[test]
-fn rekeying_and_restoring_a_prefix_preserves_links_and_previous_references() {
+fn rekeying_recycles_the_previous_key_and_preserves_relations() {
     let mut db = Connection::open_in_memory().unwrap();
     db.execute_batch(include_str!("schema.sql")).unwrap();
     let tx = db.transaction().unwrap();
@@ -280,20 +280,27 @@ fn rekeying_and_restoring_a_prefix_preserves_links_and_previous_references() {
     edit.kind = "task".into();
     edit.text = "task-id".into();
     edits::apply(&tx, &edit, "human").unwrap();
-    for prefix in ["my-2nd-board", "my-2nd-board", "root"] {
+    edit.action = "comment".into();
+    edit.text = "still reachable".into();
+    edits::apply(&tx, &edit, "human").unwrap();
+    let mut before = snapshot::read(&tx).unwrap().boards[0].columns[0].cards[0].clone();
+    for prefix in ["older", "my-2nd-board", "root", "root"] {
         edit.action = "set-prefix".into();
         edit.text = prefix.into();
         edits::apply(&tx, &edit, "human").unwrap();
     }
-    edit.card = "my-2nd-board-1".into();
+    edit.card = "older-1".into();
     edit.action = "comment".into();
-    edit.text = "still reachable".into();
-    edits::apply(&tx, &edit, "human").unwrap();
+    edit.text = "stale write".into();
+    edits::apply(&tx, &edit, "human").unwrap_err();
     let boards = snapshot::read(&tx).unwrap().boards;
     let card = &boards[0].columns[0].cards[0];
     assert_eq!(card.key, "root-1");
-    assert_eq!(card.previous_keys, ["my-2nd-board-1"]);
+    before.previous_keys = vec!["my-2nd-board-1".into()];
+    assert_eq!(card, &before);
     assert_eq!(card.links[0].target, "task-id");
     assert_eq!(card.comments[0].text, "still reachable");
     assert_eq!(boards[1].columns[0].cards[0].key, "P-1");
+    edit.card = "my-2nd-board-1".into();
+    edits::apply(&tx, &edit, "human").unwrap();
 }

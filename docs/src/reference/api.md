@@ -156,7 +156,7 @@ Storage requests may finish after the client disconnects.
 
 | Action | Fields in addition to `action` and `board` |
 | --- | --- |
-| `set-prefix` | New prefix in `text`. Rekeys every card on the board in one transaction, preserving card numbers and accepting previous keys as aliases. |
+| `set-prefix` | New prefix in `text`. Rekeys every card on the board in one transaction, preserving card numbers, internal IDs, and task links. Each card accepts its immediately preceding key until the next prefix change. |
 | `remove-comment`, `remove-activity` | `card`, decimal entry ID in `text`. Requires Admin. |
 | `add-column` | Name in `text`, optional column ID in `before` |
 | `rename-column`, `remove-column` | `column`, new name in `text` for rename. Removal requires an empty column. |

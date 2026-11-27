@@ -82,6 +82,15 @@ impl Store {
             db.pragma_update(None, "foreign_keys", true)?;
             let tx = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
             tx.execute_batch(include_str!("schema.sql"))?;
+            if tx.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? == 0 {
+                // Older stores accumulated aliases. Keep the last recorded non-current key.
+                tx.execute_batch(
+                    "DELETE FROM card_key_aliases WHERE public_key IN (SELECT public_key FROM cards);
+                     DELETE FROM card_key_aliases WHERE rowid NOT IN
+                         (SELECT max(rowid) FROM card_key_aliases GROUP BY card);
+                     PRAGMA user_version=1;",
+                )?;
+            }
             reconcile(&tx, &projects)?;
             let result = operation(&tx)?;
             tx.commit()?;

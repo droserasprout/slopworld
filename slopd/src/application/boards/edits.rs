@@ -50,12 +50,6 @@ pub(super) fn apply(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result
                 "invalid prefix"
             );
             super::reserve_prefix(tx, &e.board, &e.text)?;
-            tx.execute(
-                "INSERT INTO card_key_aliases(public_key,card) SELECT public_key,id FROM cards
-                 WHERE col IN (SELECT id FROM columns WHERE board=?)
-                 ON CONFLICT(public_key) DO NOTHING",
-                [&e.board],
-            )?;
             // The board-wide counter gives each card a unique numeric suffix across all its prefixes.
             tx.execute(
                 "UPDATE cards SET public_key=?1 || '-' || substr(public_key,length(rtrim(public_key,'0123456789'))+1)
